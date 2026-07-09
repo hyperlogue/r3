@@ -55,6 +55,12 @@ agent ── CLI (thin HTTP client) ─ HTTP ───────┼──►  
   gitText(), safePath() }`. `git()` runs with `cwd = worktreePath`; `safePath()`
   validates against it. The global sqlite is the only process-wide singleton;
   everything else is per-Repo.
+- **The daemon is repo-agnostic** — it holds no ambient "default repo". Each
+  request resolves its `Repo` fresh, most-specific first: a `?review=<id>` (the row
+  carries its repo), the CLI's `x-r3-repo` header (computed per call from the CLI's
+  own checkout), or the browser's `?repo=<id>` selector. A request that names none
+  gets `null` → `400 "no repo context"`; the CLI refuses a repo-scoped command
+  (e.g. `r3 create`) run outside a git repo rather than letting it reach the daemon.
 - **Freshness + live updates** flow one way to the clients: a file watcher
   (`server/watcher.ts`) watches only the files open reviews reference and pushes
   `file-changed`; every review/feedback/reply write bumps `review.updated_at` and
@@ -103,7 +109,7 @@ server/          Hono daemon + bun:sqlite global store
   watchers.ts    live `watch` presence registry (who's blocked on a review)
   scratch.ts     adhoc scratch-review storage (ref:'SCRATCH') outside any repo
   nvim.ts        open-in-editor deep links (drive a parent nvim over its RPC socket)
-  paths.ts       pure safePathIn(root, p) guard + DEFAULT_ROOT    ids.ts  id minting
+  paths.ts       pure safePathIn(root, p) path guard    ids.ts  id minting
 cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the binary
 web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx (the review)
@@ -489,20 +495,21 @@ bun run build               # Bun.build --compile -> single ./r3 binary (embeds 
 
 - **Nix + direnv**: `direnv allow` (or `nix develop`) gives bun and biome.
 - **The daemon bundles + serves the SPA itself** — `Bun.serve`'s `routes` serve the
-  `import index from "../web/index.html"` bundle. `bun run dev` sets `R3_DEV=1`,
-  which turns on Bun's HMR: edit `web/src` and the browser hot-reloads with **no
-  daemon restart and no separate build step** (`bun --watch` restarts only on
-  server-file edits). `R3_DEV` must stay off the lazy-spawn path — a from-source
-  daemon spawned in an arbitrary repo would otherwise crawl that tree for HMR and
-  exhaust fds. Vite is now **Storybook-only** (its own `.storybook` config).
-- **A from-source daemon is spawned with the r3 repo as its `cwd`**, not the
-  user's repo (`cli/index.ts` `spawnDaemon`). Bun resolves `bunfig.toml` — which
-  registers `bun-plugin-tailwind` for the static SPA bundle — from the cwd, so a
-  daemon lazily spawned in some other repo wouldn't find it and the SPA's
-  `@import "tailwindcss"` would fail to bundle (blank page). The default repo is
-  pinned separately via `R3_ROOT`, so this cwd never affects which repo the daemon
-  defaults to. The compiled binary embeds the SPA (no bundling), so it keeps the
-  user's repo as cwd.
+  `import index from "../web/index.html"` bundle. `R3_DEV=1` turns on Bun's HMR
+  (`development:{hmr:true}`): edit `web/src` and the browser hot-reloads with **no
+  daemon restart and no separate build step** (`bun run dev` sets it; `bun --watch`
+  restarts only on server-file edits). HMR is safe on any from-source daemon —
+  including a lazily-spawned one — because `spawnDaemon` pins its cwd to the r3
+  repo (below), a bounded tree, so the watcher can't crawl an arbitrary huge repo
+  and exhaust fds. Vite is now **Storybook-only** (its own `.storybook` config).
+- **A from-source daemon is spawned with the r3 repo as its `cwd`** (`cli/index.ts`
+  `spawnDaemon`). Bun resolves `bunfig.toml` — which registers `bun-plugin-tailwind`
+  for the static SPA bundle — from the cwd, so a daemon lazily spawned in some other
+  repo wouldn't find it and the SPA's `@import "tailwindcss"` would fail to bundle
+  (blank page). This is purely a build concern: the daemon is **repo-agnostic**
+  (every request self-describes its repo — see Architecture), so cwd carries no
+  product meaning and there is no `R3_ROOT`/default-repo. The compiled binary embeds
+  the SPA (no bundling, no bunfig), so its cwd is irrelevant — it inherits the CLI's.
 
 ## Checks (there is no unit-test runner)
 

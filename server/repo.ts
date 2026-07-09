@@ -4,15 +4,14 @@
 // (identity), the resolved worktree path used as git cwd + path-validation root,
 // and bound `git()` / `safePath()` helpers. The global sqlite is the only
 // process-wide singleton; everything else is resolved per request — from the
-// CLI's `x-r3-repo` header, a `?repo=<id>` selector, a stored review row, or the
-// daemon's DEFAULT_ROOT fallback.
+// CLI's `x-r3-repo` header, a `?repo=<id>` selector, or a stored review row.
 
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join, sep } from "node:path";
 import type { RepoRecord, Review, ReviewSource, WorktreeDescriptor } from "../shared/types.ts";
 import * as db from "./db.ts";
 import { runGitIn } from "./git.ts";
-import { DEFAULT_ROOT, safePathIn } from "./paths.ts";
+import { safePathIn } from "./paths.ts";
 
 export interface Repo {
   repoId: string;
@@ -216,36 +215,6 @@ export function resolveRepoFromHeader(b64: string): Repo | null {
   });
 }
 
-// Resolve a git checkout at a known path (the daemon's DEFAULT_ROOT, or any
-// trusted path). Runs git to discover its common-dir + worktree descriptor.
-async function resolveRepoFromPath(worktreePath: string): Promise<Repo | null> {
-  if (!existsSync(worktreePath)) return null;
-  const { stdout, code } = await runGitIn(worktreePath, [
-    "rev-parse",
-    "--path-format=absolute",
-    "--git-common-dir",
-    "--show-toplevel",
-    "--git-dir",
-    "--abbrev-ref",
-    "HEAD",
-  ]);
-  if (code !== 0) return null;
-  const [commonDirRaw, toplevel, gitDir, branch] = stdout.trim().split("\n");
-  if (!commonDirRaw || !toplevel) return null;
-  const commonDir = realpathOrSelf(commonDirRaw);
-  const top = realpathOrSelf(toplevel);
-  const name = gitDir?.includes("/worktrees/") ? basename(gitDir) : "";
-  const rec = registerByCommonDir(commonDir, null);
-  return makeRepo({
-    repoId: rec.id,
-    commonDir,
-    worktreePath: top,
-    name: rec.name ?? basename(top),
-    descriptor: { name, branch: branch || null, pathHint: top },
-    stale: false,
-  });
-}
-
 // Resolve a registered repo by id (the browser's `?repo=<id>` selector), landing
 // on its primary worktree. Stale when the repo's path is gone.
 export async function resolveRepoById(repoId: string): Promise<Repo | null> {
@@ -335,13 +304,4 @@ export async function commonDirOf(path: string): Promise<string | null> {
   if (code !== 0) return null;
   const cd = stdout.trim().split("\n")[0];
   return cd ? realpathOrSelf(cd) : null;
-}
-
-// The daemon's fallback repo for header-less / selector-less requests.
-// Resolved fresh each call (not cached): DEFAULT_ROOT's branch/worktree can
-// change, and the repo can be forgotten/relinked mid-lifetime — a cached Repo
-// would pin a stale branch or a dangling repo_id (FK-violating header-less
-// creates). It's only the rare fallback, so the extra `git rev-parse` is fine.
-export async function defaultRepo(): Promise<Repo | null> {
-  return resolveRepoFromPath(DEFAULT_ROOT);
 }
