@@ -8,7 +8,7 @@ agent (or you) **replies** by id and the decision shows up **live** over SSE. Th
 daemon, CLI, and SPA ship as one self-contained binary.
 
 For usage see [`README.md`](README.md). This file is the orientation map for
-working *in* the repo **and the single source of truth for its design** — when a
+working _in_ the repo **and the single source of truth for its design** — when a
 design decision changes, update the relevant section here.
 
 **Why r3 / prior art.** When an AI agent writes code or docs you want to read the
@@ -44,7 +44,7 @@ agent ── CLI (thin HTTP client) ─ HTTP ───────┼──►  
 - **The CLI is the single entry point and the binary.** `cli/index.ts` is a thin
   HTTP client — every command is one HTTP call; it never writes sqlite directly
   (keeps the server authoritative, avoids multi-process write-locking). A hidden
-  `__daemon` subcommand re-execs the same script/binary to *serve*; `ensureServer()`
+  `__daemon` subcommand re-execs the same script/binary to _serve_; `ensureServer()`
   discovers-or-lazily-spawns the daemon.
 - **Reviews live in one global sqlite** (`$XDG_STATE_HOME/r3/r3.sqlite`) keyed by a
   **projects registry**, not per-repo files. A project's identity is its **shared
@@ -52,7 +52,7 @@ agent ── CLI (thin HTTP client) ─ HTTP ───────┼──►  
   of one clone are one project and a `cp -r` copy is a distinct empty one.
 - **The server core is de-globalized** into a per-request `Repo` context
   (`server/repo.ts`): `{ repoId, commonDir, worktreePath, descriptor, stale, git(),
-  gitText(), safePath() }`. `git()` runs with `cwd = worktreePath`; `safePath()`
+gitText(), safePath() }`. `git()` runs with `cwd = worktreePath`; `safePath()`
   validates against it. The global sqlite is the only process-wide singleton;
   everything else is per-Repo.
 - **The daemon is repo-agnostic** — it holds no ambient "default repo". Each
@@ -67,13 +67,13 @@ agent ── CLI (thin HTTP client) ─ HTTP ───────┼──►  
   broadcasts over SSE (`server/sse.ts`). The SPA invalidates its TanStack Query
   cache on the matching event.
 
-A **worktree** of one clone shares its common-dir, so it's the *same* project — but
+A **worktree** of one clone shares its common-dir, so it's the _same_ project — but
 it has its own working tree, index, and HEAD, so a review records a `worktree`
 descriptor `{ name, branch, pathHint }` and its git ops run in the exact worktree it
 was created in. Resolution matches the review's `worktree.name` (then branch)
 against live `git worktree list`, so `git worktree move` auto-resolves; a removed
 worktree falls back to the primary for immutable reviews and flags `stale` for live
-ones. A moved *repo* is a one-row `UPDATE repos SET common_dir=…` (`r3 repo relink`)
+ones. A moved _repo_ is a one-row `UPDATE repos SET common_dir=…` (`r3 repo relink`)
 — no review rows touched, since reviews reference the immutable `repo_id`, never a
 path. A `cp -r` copy has a new common-dir ⇒ a distinct empty project (identity lives
 only in the store, so there is no `.r3/id` marker to confuse a move with a copy).
@@ -108,7 +108,6 @@ server/          Hono daemon + bun:sqlite global store
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
   watchers.ts    live `watch` presence registry (who's blocked on a review)
   scratch.ts     adhoc scratch-review storage (ref:'SCRATCH') outside any repo
-  nvim.ts        open-in-editor deep links (drive a parent nvim over its RPC socket)
   paths.ts       pure safePathIn(root, p) path guard    ids.ts  id minting
 cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the binary
 web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
@@ -139,7 +138,7 @@ a diff review's stored rounds (full shapes in `shared/types.ts`, SQL schema in
 `server/db.ts`). Feedback and Reply stay **separate**: feedback has a
 lifecycle/**status** + an anchor; a reply is just a message in the thread with **no
 status** (merging them would make illegal states — a "reply" that's "accepted" —
-representable). A reply's `action` *drives* the parent feedback's status; it is not
+representable). A reply's `action` _drives_ the parent feedback's status; it is not
 a status of its own.
 
 - **Review** — `id`, `repo_id`, `worktree`, `title` (editable via `r3 edit` or the
@@ -152,7 +151,7 @@ a status of its own.
   `review_id`, `seq` (monotonic, never reused), `label`, `summary` (prose overview
   of what the round changed, shown per-round in the UI), `body` (raw unified diff).
   Appended via `r3 diff add` (`--label`/`--summary`), removed whole via `r3 diff
-  rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
+rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
 - **Feedback** — an anchored note. `file`, `side` (`old|new|null`), `line_start/end`,
   `quote` (**the anchor of record** — the line number is only a hint), `code_sha`
   (recorded at anchor time; staleness surfaced via `anchor`), `anchor`
@@ -182,14 +181,14 @@ a status of its own.
 daemon — where a diff came from stops mattering once snapshotted; git is consulted
 once, at capture time, never at render).
 
-| What | `kind` / `source` |
-| --- | --- |
-| single commit | `diff` · `{ base:'<sha>^', head:'<sha>' }` (CLI `--commit` sugar) |
-| branch / range | `diff` · `{ base:'main', head:'feature' }` |
-| working tree / index snapshot | `diff` · `{ base:'HEAD', head:'WORKING' }` or `'STAGED'` |
-| piped diff (`--stdin-diff`) | `diff` · `{ base:'', head:'' }` |
-| raw files (no diff) | `files` · `{ ref:'WORKING', files:[…] }` |
-| adhoc scratch review (`--scratch`) | `files` · `{ ref:'SCRATCH', files:[] }` (derived from the dir) |
+| What                               | `kind` / `source`                                                 |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| single commit                      | `diff` · `{ base:'<sha>^', head:'<sha>' }` (CLI `--commit` sugar) |
+| branch / range                     | `diff` · `{ base:'main', head:'feature' }`                        |
+| working tree / index snapshot      | `diff` · `{ base:'HEAD', head:'WORKING' }` or `'STAGED'`          |
+| piped diff (`--stdin-diff`)        | `diff` · `{ base:'', head:'' }`                                   |
+| raw files (no diff)                | `files` · `{ ref:'WORKING', files:[…] }`                          |
+| adhoc scratch review (`--scratch`) | `files` · `{ ref:'SCRATCH', files:[] }` (derived from the dir)    |
 
 - **Diff reviews store rounds, not refs.** Every create flag is sugar over one
   primitive — snapshot a unified diff as round 1 into the `patches` table
@@ -217,7 +216,7 @@ once, at capture time, never at render).
 - **Scratch reviews**: `r3 create --scratch` makes an empty `files`/`SCRATCH`
   review + a per-review directory (path printed); the agent drops files there and
   the daemon watches the dir (flat, top-level only). The scratch dir is the
-  *second* allowed `safePath` root (besides the worktree). (`server/scratch.ts`)
+  _second_ allowed `safePath` root (besides the worktree). (`server/scratch.ts`)
 - `--files` takes paths **and** globs over the repo's git set (tracked + untracked,
   minus `.gitignore`d), so `**/*.ts` never pulls in `node_modules/`. It's
   **greedy** — put it last. Membership is editable later: `r3 files add|rm <id> …`.
@@ -287,7 +286,7 @@ anchors fresh from **both sides**:
    range + `code_sha`, `anchor='anchored'`. Not found → `anchor='outdated'`, keep
    the original quote, surface "the code this refers to changed." Never silently
    mis-point. **Lazy** (`server/dirty.ts`): re-anchoring re-reads files, so it runs
-   only when a review is *dirty* — the watcher marked a referenced file changed, or
+   only when a review is _dirty_ — the watcher marked a referenced file changed, or
    the review hasn't been anchored this daemon lifetime. An incidental refetch (a
    reply, a status flip) skips it, so an item flips to `outdated` only after a real
    content change.
@@ -313,12 +312,13 @@ client cached by content sha, so the WASM/grammar weight never reaches the brows
 structured highlighted diff, one rendered file.
 
 **Reviews:**
+
 - `GET/POST /api/reviews` — list (queryable by `session`/`meta.<k>`/`status`; each
   row carries a live `watching` flag) / create `{ kind, source, meta, title,
-  summary }` → `{ id, url }` (`scratch:true` for a scratch review; `patch:'<diff>'`
+summary }` → `{ id, url }` (`scratch:true` for a scratch review; `patch:'<diff>'`
   stores a piped diff as round 1).
 - `GET /api/reviews/:id` — review + feedback[] (with replies[]) + patch round metas
-  + snapshot metas.
+  - snapshot metas.
 - `GET /api/reviews/:id/diff` — a diff review's rendered rounds.
 - `GET/POST/DELETE /api/reviews/:id/patches[/:seq]` — list / append / drop a round.
 - `POST /api/reviews/:id/files` — edit a files review's membership `{ add?, remove? }`.
@@ -337,11 +337,11 @@ structured highlighted diff, one rendered file.
 validated against the stored round), `PATCH /api/replies/:id` (edit the last human
 message; web-only, no CLI).
 
-**Live + editor:**
+**Live:**
+
 - `GET /api/events?review=:id[&session=&agentId=]` — SSE: `review-updated`,
   `feedback-updated`, `file-changed`, `watchers-changed`, `submitted`,
   `reviews-changed`. A connection with `session` registers as a watcher.
-- `POST /api/open` — drive a parent `nvim` over its RPC socket to a `file:line`.
 - `GET/PUT /api/reviews/:id/viewed` — per-reviewer read-progress (no SSE, no CLI).
 - Token-free endpoints: `/api/health` (liveness), `/api/boot` (same-origin gated,
   hands out the token), `/api/events` (SSE can't set headers).
@@ -391,9 +391,9 @@ All under XDG, keyed by `server/config.ts`:
   (legacy single-file docs live as `scratch/<review_id>.md`). Diff rounds live
   in the sqlite `patches` table, not on disk.
 - `$XDG_RUNTIME_DIR/r3/daemon.json` (fallback state dir, mode 0600) — `{ url, port,
-  pid, token, version }`; the CLI's discovery record.
-- `$XDG_RUNTIME_DIR/r3/daemon.lock` — O_EXCL start-lock (Bun defaults SO_REUSEPORT
-  on, so the port is *not* a lock); colocated with `daemon.json` so a reboot drops
+pid, token, version }`; the CLI's discovery record.
+- `$XDG_RUNTIME_DIR/r3/daemon.lock` — O*EXCL start-lock (Bun defaults SO_REUSEPORT
+  on, so the port is \_not* a lock); colocated with `daemon.json` so a reboot drops
   both. A stale lock (dead pid) is stolen on next start.
 
 `process-compose.yaml` points both XDG dirs at `workspace/` and uses port 8891, so
@@ -404,8 +404,8 @@ the dev stack never collides with a normally-running daemon.
 The GitHub-PR-style "Viewed" fold marker is **server-persisted** in `viewed_marks`
 (the global store), not browser-local — r3 is single-user, so "have I read this?" is
 legitimate review state that should follow you across browsers/devices. The row
-`key` encodes **content identity**, not a path, so a mark means "I read *this
-content*": a diff round's file is keyed `d:<seq>:<path>` (immutable rounds ⇒
+`key` encodes **content identity**, not a path, so a mark means "I read _this
+content_": a diff round's file is keyed `d:<seq>:<path>` (immutable rounds ⇒
 naturally per-round), a live files-review file is `f:<path>@<sha>` (a changed file
 gets a new sha ⇒ its old mark stops matching ⇒ the card auto-unfolds). `ON DELETE
 CASCADE` drops the marks with the review, so there is no cap/LRU/cleanup. It's two
@@ -420,7 +420,7 @@ optimistically so the fold is instant).
   including `/api/boot` — must carry a **Host** that is loopback or an allowlisted
   name (`R3_ALLOWED_HOSTS`, exact names, never `*`): the DNS-rebinding defense.
   The **static SPA shell + hashed JS/CSS/favicon** are served natively by
-  `Bun.serve`'s `routes` *outside* this Hono guard — that's fine because they
+  `Bun.serve`'s `routes` _outside_ this Hono guard — that's fine because they
   carry no secrets and grant no capability (the app is inert until the
   Host-gated `/api/boot` hands it the token). Never let a data/token endpoint
   out from behind the guard.
@@ -466,9 +466,9 @@ optimistically so the fold is instant).
   `stage-npm-packages.ts`). npm installs only the matching package, so
   `bunx`/`npx @hyperlogue/r3@x.y.z` resolves-and-execs that version's binary with
   **no runtime download** (the launcher only does `createRequire().resolve` +
-  `spawn`). `R3_BINARY` overrides for dev / offline / off-matrix targets.
+  `spawn`).
 - **`package.json` overrides `bun` → `empty-npm-package`.** `bun-plugin-tailwind`
-  declares its Bun *runtime* requirement as a peer dependency on the `bun` npm
+  declares its Bun _runtime_ requirement as a peer dependency on the `bun` npm
   package, which auto-installs Oven's wrapper + 16 platform binaries into
   bun.lock (and thus bun.nix and the nix build's fetch set), and whose broken
   bin shim shadows `bun` on install-script PATHs. The override pins that name to
@@ -533,7 +533,7 @@ comments there).
 - **Conventional Commits with a subsystem scope**: `feat(web): …`, `fix(web): …`,
   `feat: …`, `chore: …`, `daemon: …`, `doc: …`. Imperative subject, ≤72 chars, no
   trailing period. One logical change per commit.
-- **Body** (blank line, wrapped ~72) when the *why* isn't obvious — explain the
+- **Body** (blank line, wrapped ~72) when the _why_ isn't obvious — explain the
   motivation / constraint, don't narrate the diff. Note any verification you ran.
 - **Keep the `Co-Authored-By: Claude …` trailer** — this repo uses it (unlike some
   sibling repos that strip it).
