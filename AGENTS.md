@@ -13,14 +13,12 @@ design decision changes, update the relevant section here.
 
 **Why r3 / prior art.** When an AI agent writes code or docs you want to read the
 result, mark the exact spots you care about, hand those notes back, and watch the
-agent react in place — without copy-pasting transcripts. Two MIT-licensed tools
-share the neighbourhood and informed the design: **difit** (GitHub-like local diff
-review, "Copy Prompt" for agents, comments held in memory only) and **diffx**
-(coding-agent diff review, Shiki). r3's delta from both: a **persisted review +
-feedback/reply model**, **raw-file** (not just diff) reviews, **headless CLI
-creation with queryable session/meta**, an **agent re-anchor API** to keep feedback
-from orphaning, and a **structured reply/watch protocol that round-trips live into
-the UI**.
+agent react in place — without copy-pasting transcripts. The MIT-licensed **difit**
+and **diffx** informed the design; r3's delta from both: a **persisted review +
+feedback/reply model**, **raw-file** (not just diff) reviews, headless CLI creation
+with queryable session/meta, an **agent re-anchor API** to keep feedback from
+orphaning, and a structured **reply/watch protocol** that round-trips live into
+the UI.
 
 ## Architecture
 
@@ -38,13 +36,12 @@ agent ── CLI (thin HTTP client) ─ HTTP ───────┼──►  
 
 - **One per-user daemon** spans every repo, on a stable port (default 8791),
   behind one origin. It's spawned **lazily** on the first CLI call (or by opening
-  the browser) à la the tmux/zellij server — nothing to start by hand. It
-  announces itself in `$XDG_RUNTIME_DIR/r3/daemon.json` so the CLI finds it with
-  zero config.
+  the browser) à la the tmux server — nothing to start by hand — and announces
+  itself in `$XDG_RUNTIME_DIR/r3/daemon.json` so the CLI finds it with zero config.
 - **The CLI is the single entry point and the binary.** `cli/index.ts` is a thin
   HTTP client — every command is one HTTP call; it never writes sqlite directly
-  (keeps the server authoritative, avoids multi-process write-locking). A hidden
-  `__daemon` subcommand re-execs the same script/binary to _serve_; `ensureServer()`
+  (single writer, the server stays authoritative). A hidden `__daemon` subcommand
+  re-execs the same script/binary to _serve_; `ensureServer()`
   discovers-or-lazily-spawns the daemon.
 - **Reviews live in one global sqlite** (`$XDG_STATE_HOME/r3/r3.sqlite`) keyed by a
   **projects registry**, not per-repo files. A project's identity is its **shared
@@ -67,27 +64,22 @@ gitText(), safePath() }`. `git()` runs with `cwd = worktreePath`; `safePath()`
   broadcasts over SSE (`server/sse.ts`). The SPA invalidates its TanStack Query
   cache on the matching event.
 
-A **worktree** of one clone shares its common-dir, so it's the _same_ project — but
-it has its own working tree, index, and HEAD, so a review records a `worktree`
-descriptor `{ name, branch, pathHint }` and its git ops run in the exact worktree it
-was created in. Resolution matches the review's `worktree.name` (then branch)
-against live `git worktree list`, so `git worktree move` auto-resolves; a removed
-worktree falls back to the primary for immutable reviews and flags `stale` for live
-ones. A moved _repo_ is a one-row `UPDATE repos SET common_dir=…` (`r3 repo relink`)
-— no review rows touched, since reviews reference the immutable `repo_id`, never a
-path. A `cp -r` copy has a new common-dir ⇒ a distinct empty project (identity lives
-only in the store, so there is no `.r3/id` marker to confuse a move with a copy).
-
-## Orient fast
-
-- `shared/types.ts` — **the HTTP contract** (domain model + request/response
-  shapes), shared by server + CLI + web. Start here; it's the source of truth all
-  three clients agree on.
-- `server/index.ts` — the daemon entry (`startDaemon()`), routes, host/token guards.
-- `server/repo.ts` — the per-request `Repo` context (de-globalized paths/git/db).
-- `cli/index.ts` — the binary and the agent's entry point.
+A **worktree** shares its clone's common-dir, so it's the _same_ project — but it
+has its own working tree, index, and HEAD, so a review records a `worktree`
+descriptor `{ name, branch, pathHint }` and runs its git ops in the exact worktree
+it was created in. Resolution matches `worktree.name` (then branch) against live
+`git worktree list`, so `git worktree move` auto-resolves; a removed worktree falls
+back to the primary for immutable reviews and flags live ones `stale`. A moved
+_repo_ is a one-row `UPDATE repos SET common_dir=…` (`r3 repo relink`) — reviews
+reference the immutable `repo_id`, never a path. A `cp -r` copy has a new
+common-dir ⇒ a distinct empty project (identity lives only in the store, so there
+is no `.r3/id` marker to confuse a move with a copy).
 
 ## Module layout
+
+Start at `shared/types.ts` — **the HTTP contract** all three clients agree on —
+then `server/index.ts` (daemon entry, routes, guards), `server/repo.ts` (the Repo
+context), and `cli/index.ts` (the binary and the agent's entry point).
 
 ```
 server/          Hono daemon + bun:sqlite global store
@@ -155,16 +147,14 @@ rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
 - **Feedback** — an anchored note. `file`, `side` (`old|new|null`), `line_start/end`,
   `quote` (**the anchor of record** — the line number is only a hint), `code_sha`
   (recorded at anchor time; staleness surfaced via `anchor`), `anchor`
-  (`anchored|outdated`), `patch_seq` (which round, for diff
-  reviews), `status` (`open|accepted|refuted|resolved`). The agent references
-  feedback by its **stable `id`** (`feedback_<short>`), never a positional index.
-  A note can also target a **summary** (prose, not a file): `file` is the
-  `SUMMARY_FILE` sentinel (`@summary`), with `patch_seq` naming a round's summary
-  or null for the review summary. Its `quote` is the whole anchor, so it isn't
-  re-anchored; shown as "review summary" / "diff N summary". A note can also
-  target a **whole file** (the file header's feedback button): a real `file` path
-  with `line_start`/`line_end`/`quote` all null — no span, so like summary it's
-  never re-anchored; shown as "`<path>` (whole file)".
+  (`anchored|outdated`), `patch_seq` (which round, for diff reviews), `status`
+  (`open|accepted|refuted|resolved`). The agent references feedback by its
+  **stable `id`** (`feedback_<short>`), never a positional index. Two span-less
+  variants exist, and neither is ever re-anchored: a **summary** note (`file` is
+  the `SUMMARY_FILE` sentinel `@summary`; `patch_seq` names a round's summary,
+  null = the review summary; shown as "review summary" / "diff N summary") and a
+  **whole-file** note (a real `file` path with `line_start`/`line_end`/`quote` all
+  null; shown as "`<path>` (whole file)").
 - **Reply** — `feedback_id`, `author`, `action` (`accept|refute|resolve|followup|null`),
   `body`, plus an optional **pin** (`patch_seq`, `file`, `line_start/end`, `quote`)
   saying where in a later round the change addressing the feedback landed
@@ -194,11 +184,10 @@ once, at capture time, never at render).
   primitive — snapshot a unified diff as round 1 into the `patches` table
   (`--working` also synthesizes adds for untracked files). Follow-up work is
   appended as round 2, 3, … (`git diff … | r3 diff add <id>`); rounds are
-  immutable and independent (line numbers needn't agree across rounds), the
-  round is the unit (`diff rm` drops one whole, no hunk surgery), and `source`
-  is provenance only. No watching, no re-anchoring, no staleness. This is the
-  Gerrit-patchset shape, minus everything Gerrit needs for server-side merging.
-  (`server/patches.ts`)
+  immutable and independent (line numbers needn't agree across rounds), the round
+  is the unit, and `source` is provenance only. No watching, no re-anchoring, no
+  staleness — the Gerrit-patchset shape, minus everything Gerrit needs for
+  server-side merging. (`server/patches.ts`)
 - A **files review** can also carry **content snapshots** — frozen full-text
   captures of every file, taken on demand (`r3 snapshot <id>`). Unlike a diff
   round (unified-diff text), a snapshot holds whole files, so the daemon can
@@ -265,9 +254,9 @@ nothing is unsent (a fresh reply re-enables them); `r3 show <id>` (or `r3 prompt
 re-emit what was already delivered.
 
 `watch` also returns immediately if feedback is already pending; `--timeout <sec>`
-(default 0 = never) bounds the wait; `--auto-fetch-timeout <sec>` opts into auto-send after N
-idle seconds when no human will click Submit. `--session` is the UI display name;
-`--agent-id` a precise machine handle other tools read from
+(default 0 = never) bounds the wait; `--auto-fetch-timeout <sec>` opts into
+auto-send after N idle seconds when no human will click Submit. `--session` is the
+UI display name; `--agent-id` a precise machine handle other tools read from
 `GET /api/reviews/:id/watchers`.
 
 ## Anchoring — keeping feedback from orphaning
@@ -301,50 +290,40 @@ forking a copy per view.
 
 ## HTTP API
 
-The HTTP/JSON contract lives in `shared/types.ts` (request/response shapes); the
-routes below are served by `server/index.ts` behind the Host + token guards (see
-Security). **Highlighting runs server-side** — Shiki for code, markdown-it for
-`.md` (with per-block source-line mapping for anchoring) — shipping tokens to the
-client cached by content sha, so the WASM/grammar weight never reaches the browser.
+Request/response shapes live in `shared/types.ts`; the routes are served by
+`server/index.ts` behind the Host + token guards (see Security). **Highlighting
+runs server-side** — Shiki for code, markdown-it for `.md` (with per-block
+source-line mapping for anchoring) — shipping tokens to the client cached by
+content sha, so the WASM/grammar weight never reaches the browser.
 
-**Browse (read):** `GET /api/git/status | /api/git/log | /api/git/tree |
-/api/diff | /api/blob` — status, paged commit history, file tree at a ref, a
-structured highlighted diff, one rendered file.
-
-**Reviews:**
-
-- `GET/POST /api/reviews` — list (queryable by `session`/`meta.<k>`/`status`; each
-  row carries a live `watching` flag) / create `{ kind, source, meta, title,
-summary }` → `{ id, url }` (`scratch:true` for a scratch review; `patch:'<diff>'`
-  stores a piped diff as round 1).
-- `GET /api/reviews/:id` — review + feedback[] (with replies[]) + patch round metas
-  - snapshot metas.
-- `GET /api/reviews/:id/diff` — a diff review's rendered rounds.
-- `GET/POST/DELETE /api/reviews/:id/patches[/:seq]` — list / append / drop a round.
-- `POST /api/reviews/:id/files` — edit a files review's membership `{ add?, remove? }`.
-- `GET/POST/DELETE /api/reviews/:id/snapshots[/:seq]` + `.../snapshot-diff` +
-  `.../snapshot-blob` — files-review content snapshots and their derived diffs.
-- `PATCH /api/reviews/:id` — edit `{ status?, meta?, title?, summary?, note? }`
-  (drives `r3 edit`/`approve`/`abandon`; `note` → `meta.next_steps`).
-  `DELETE /api/reviews/:id`.
-- `GET /api/reviews/:id/prompt?feedback=` — the `text/plain` agent prompt (stamps
-  `sent_at`). `GET /api/reviews/:id/watchers` + `POST .../submit` — live `watch`
-  clients / fire a `submitted` event.
-
-**Feedback + replies:** `POST /api/reviews/:id/feedback`, `PATCH /api/feedback/:id`,
-`PATCH /api/feedback/:id/anchor` (re-anchor; files reviews only, else 400),
-`DELETE /api/feedback/:id`; `POST /api/feedback/:id/replies` (optional pin
-validated against the stored round), `PATCH /api/replies/:id` (edit the last human
-message; web-only, no CLI).
-
-**Live:**
-
-- `GET /api/events?review=:id[&session=&agentId=]` — SSE: `review-updated`,
-  `feedback-updated`, `file-changed`, `watchers-changed`, `submitted`,
-  `reviews-changed`. A connection with `session` registers as a watcher.
-- `GET/PUT /api/reviews/:id/viewed` — per-reviewer read-progress (no SSE, no CLI).
-- Token-free endpoints: `/api/health` (liveness), `/api/boot` (same-origin gated,
-  hands out the token), `/api/events` (SSE can't set headers).
+- **Browse (read):** `GET /api/git/status | /api/git/log | /api/git/tree |
+  /api/diff | /api/blob` — status, paged commit history, file tree at a ref, a
+  structured highlighted diff, one rendered file.
+- **Reviews:** `GET/POST /api/reviews` — list (queryable by
+  `session`/`meta.<k>`/`status`; each row carries a live `watching` flag) / create
+  `{ kind, source, meta, title, summary }` → `{ id, url }` (`scratch:true` for a
+  scratch review; `patch:'<diff>'` stores a piped diff as round 1).
+  `GET /api/reviews/:id` — review + feedback[] (with replies[]) + round + snapshot
+  metas. `GET …/diff` — a diff review's rendered rounds. `GET/POST/DELETE
+  …/patches[/:seq]` — list / append / drop a round. `POST …/files` — membership
+  `{ add?, remove? }`. `GET/POST/DELETE …/snapshots[/:seq]` + `…/snapshot-diff` +
+  `…/snapshot-blob` — content snapshots + their derived diffs. `PATCH
+  /api/reviews/:id` — edit `{ status?, meta?, title?, summary?, note? }` (`note` →
+  `meta.next_steps`); `DELETE /api/reviews/:id`.
+- **Hand-off:** `GET …/prompt?feedback=` — the `text/plain` agent prompt (stamps
+  `sent_at`). `GET …/watchers` + `POST …/submit` — live `watch` clients / fire a
+  `submitted` event.
+- **Feedback + replies:** `POST /api/reviews/:id/feedback`, `PATCH
+  /api/feedback/:id`, `PATCH /api/feedback/:id/anchor` (re-anchor; files reviews
+  only, else 400), `DELETE /api/feedback/:id`; `POST /api/feedback/:id/replies`
+  (optional pin validated against the stored round), `PATCH /api/replies/:id`
+  (edit the last human message; web-only, no CLI).
+- **Live:** `GET /api/events?review=:id[&session=&agentId=]` — SSE
+  (`review-updated`, `feedback-updated`, `file-changed`, `watchers-changed`,
+  `submitted`, `reviews-changed`); a connection with `session` registers as a
+  watcher. `GET/PUT …/viewed` — per-reviewer read progress (no SSE, no CLI).
+  Token-free: `/api/health` (liveness), `/api/boot` (same-origin gated, hands out
+  the token), `/api/events` (SSE can't set headers).
 
 ## CLI surface
 
@@ -374,8 +353,7 @@ r3 repo list | repo relink <repo-id> <path> | forget <repo-id>
 
 `--meta session=<id>` ties a review to a session; `list --meta session=<id>` lets
 an agent find its own reviews. `watch`'s exit code is the loop branch signal (see
-The review loop). Keep `GUIDE`/`HELP` in `cli/index.ts` truthful whenever this
-surface changes (House rules).
+The review loop).
 
 ## Storage & data files
 
@@ -384,9 +362,8 @@ All under XDG, keyed by `server/config.ts`:
 - `$XDG_STATE_HOME/r3/r3.sqlite` — the one global store (reviews + feedback +
   replies + per-reviewer `viewed_marks` + the `repos` registry). `R3_DB` overrides
   (tests).
-- `$XDG_STATE_HOME/r3/token` (mode 0600) — the per-user token gating every `/api`
-  data endpoint (reads + writes); handed to the same-origin page by `/api/boot`,
-  read from `daemon.json` by the CLI.
+- `$XDG_STATE_HOME/r3/token` (mode 0600) — the per-user API token (see Security);
+  handed to the same-origin page by `/api/boot`, read from `daemon.json` by the CLI.
 - `$XDG_STATE_HOME/r3/scratch/<review_id>/` — scratch reviews' file directories
   (legacy single-file docs live as `scratch/<review_id>.md`). Diff rounds live
   in the sqlite `patches` table, not on disk.
@@ -402,15 +379,14 @@ the dev stack never collides with a normally-running daemon.
 ## Viewed-state (per-reviewer read progress)
 
 The GitHub-PR-style "Viewed" fold marker is **server-persisted** in `viewed_marks`
-(the global store), not browser-local — r3 is single-user, so "have I read this?" is
-legitimate review state that should follow you across browsers/devices. The row
-`key` encodes **content identity**, not a path, so a mark means "I read _this
-content_": a diff round's file is keyed `d:<seq>:<path>` (immutable rounds ⇒
-naturally per-round), a live files-review file is `f:<path>@<sha>` (a changed file
+— r3 is single-user, so "have I read this?" is legitimate review state that should
+follow you across browsers/devices. The row `key` encodes **content identity**,
+not a path: a diff round's file is keyed `d:<seq>:<path>` (immutable rounds ⇒
+naturally per-round), a live files-review file `f:<path>@<sha>` (a changed file
 gets a new sha ⇒ its old mark stops matching ⇒ the card auto-unfolds). `ON DELETE
-CASCADE` drops the marks with the review, so there is no cap/LRU/cleanup. It's two
-token+same-origin routes (`GET/PUT …/viewed`), no SSE, no CLI — a pure UI affordance
-that does **not** bump `review.updated_at` (`web/src/viewed.ts` writes
+CASCADE` drops the marks with the review — no cap/LRU/cleanup. Two
+token+same-origin routes (`GET/PUT …/viewed`), no SSE, no CLI — a pure UI
+affordance that does **not** bump `review.updated_at` (`web/src/viewed.ts` writes
 optimistically so the fold is instant).
 
 ## Security
@@ -451,13 +427,12 @@ optimistically so the fold is instant).
   (`scripts/compile.ts`) over the CLI entry — which imports the daemon, which
   imports the SPA via `import index from "../web/index.html"` — embedding the Bun
   runtime, all JS deps, `bun:sqlite`, and the bundled SPA (as `Bun.embeddedFiles`)
-  into one `./r3` executable that serves its own UI. No install, no static dir.
-  The SPA stylesheet is Tailwind-compiled in a separate **browser-target** pass
-  first (`scripts/spa-css.ts`, shared with `release-binaries.ts`): a compile
-  build is `target:"bun"`, whose CSS printer keeps the native nesting Tailwind
-  emits (its color-mix fallback), and un-lowered nesting breaks in browsers
-  (`& {…}` under `::placeholder` is unmatchable — placeholders lose their
-  dimming). The pre-pass lowers it flat; the compile build embeds it as-is.
+  into one `./r3` executable that serves its own UI. The SPA stylesheet is
+  Tailwind-compiled first in a separate **browser-target** pass (`scripts/spa-css.ts`,
+  shared with `release-binaries.ts`): a compile build is `target:"bun"`, whose CSS
+  printer keeps Tailwind's native nesting verbatim, and un-lowered nesting breaks
+  in browsers (`& {…}` under `::placeholder` is unmatchable — placeholders lose
+  their dimming). The pre-pass lowers it flat; the compile build embeds it as-is.
 - **Two release channels off one tag-driven pipeline** (`release-binaries.ts`
   cross-compiles the four `r3-<os>-<arch>` binaries + `SHA256SUMS`): **GitHub
   Releases** carry the raw assets (curl / Homebrew); **npm** ships a tiny launcher
@@ -468,19 +443,15 @@ optimistically so the fold is instant).
   **no runtime download** (the launcher only does `createRequire().resolve` +
   `spawn`).
 - **`package.json` overrides `bun` → `empty-npm-package`.** `bun-plugin-tailwind`
-  declares its Bun _runtime_ requirement as a peer dependency on the `bun` npm
-  package, which auto-installs Oven's wrapper + 16 platform binaries into
-  bun.lock (and thus bun.nix and the nix build's fetch set), and whose broken
-  bin shim shadows `bun` on install-script PATHs. The override pins that name to
-  an empty stub instead. The plugin is published by the Bun core team and has no
-  public source repository (its npm `repository` field points at a
-  `tailwindlabs/tailwindcss` path that has never existed) — report plugin issues
-  to oven-sh/bun, and drop the override if a release marks the peer optional or
-  moves it to `engines`.
+  peer-depends on the `bun` npm package, which would pull Oven's wrapper + 16
+  platform binaries into bun.lock (and thus bun.nix and the nix build's fetch set)
+  and whose broken bin shim shadows `bun` on install-script PATHs. The override
+  pins that name to an empty stub. The plugin has no public source repo — report
+  issues to oven-sh/bun, and drop the override if a release marks the peer
+  optional or moves it to `engines`.
 - **Heritage.** v1 was one server per repo with a gitignored per-repo
   `.r3/review.sqlite`; v2 replaced it with the one per-user daemon + global store
-  described above. Some code comments still cite the old "one server per repo"
-  model as historical context.
+  described above. Some code comments still cite the old model as history.
 
 ## Dev commands
 
@@ -498,22 +469,22 @@ bun run build               # Bun.build --compile -> single ./r3 binary (embeds 
   `import index from "../web/index.html"` bundle. `R3_DEV=1` turns on Bun's HMR
   (`development:{hmr:true}`): edit `web/src` and the browser hot-reloads with **no
   daemon restart and no separate build step** (`bun run dev` sets it; `bun --watch`
-  restarts only on server-file edits). HMR is safe on any from-source daemon —
-  including a lazily-spawned one — because `spawnDaemon` pins its cwd to the r3
-  repo (below), a bounded tree, so the watcher can't crawl an arbitrary huge repo
-  and exhaust fds. Vite is now **Storybook-only** (its own `.storybook` config).
-- **A from-source daemon is spawned with the r3 repo as its `cwd`** (`cli/index.ts`
-  `spawnDaemon`). Bun resolves `bunfig.toml` — which registers `bun-plugin-tailwind`
-  for the static SPA bundle — from the cwd, so a daemon lazily spawned in some other
-  repo wouldn't find it and the SPA's `@import "tailwindcss"` would fail to bundle
-  (blank page). This is purely a build concern: the daemon is **repo-agnostic**
-  (every request self-describes its repo — see Architecture), so cwd carries no
-  product meaning and there is no `R3_ROOT`/default-repo. The compiled binary embeds
-  the SPA (no bundling, no bunfig), so its cwd is irrelevant — it inherits the CLI's.
+  restarts only on server-file edits). Vite is **Storybook-only** (its own
+  `.storybook` config).
+- **A from-source daemon is spawned with the r3 repo as its `cwd`** (`spawnDaemon`
+  in `cli/index.ts`): Bun resolves `bunfig.toml` — which registers
+  `bun-plugin-tailwind` for the static SPA bundle — from the cwd, so a daemon
+  lazily spawned in some other repo wouldn't find it and the SPA's `@import
+"tailwindcss"` would fail to bundle (blank page). Purely a build concern — the
+  daemon is repo-agnostic (see Architecture), so cwd carries no product meaning.
+  The bounded cwd is also what makes HMR safe on a lazily-spawned daemon (the
+  watcher can't crawl an arbitrary huge repo and exhaust fds). The compiled binary
+  embeds the SPA (no bundling, no bunfig), so its cwd is irrelevant — it inherits
+  the CLI's.
 
 ## Checks (there is no unit-test runner)
 
-There's **no `bun:test` suite**. Before committing, run:
+Before committing, run:
 
 ```sh
 bun run typecheck           # tsc --noEmit across server + cli + web + shared
@@ -559,9 +530,7 @@ comments there).
 - **This file is the design source of truth** — update the relevant section here
   when a design decision changes.
 - **Keep `r3 guide` accurate** — the `GUIDE` text in `cli/index.ts` is the
-  agent-facing orientation that sibling repos' `AGENTS.local.md` files defer to
-  instead of duplicating (so a stale guide silently mis-instructs every agent in
-  every repo). Whenever a commit changes the CLI's public interface — a command,
-  a flag, output shape, or the review-loop protocol — take a second look at
-  `GUIDE` (and `HELP`) in the same commit and make sure they still tell the
-  truth.
+  agent-facing orientation that sibling repos defer to instead of duplicating, so
+  a stale guide silently mis-instructs every agent in every repo. Any commit that
+  changes the CLI's public interface — a command, a flag, output shape, or the
+  review-loop protocol — must re-check `GUIDE` (and `HELP`) in the same commit.
