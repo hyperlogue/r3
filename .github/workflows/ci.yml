@@ -8,6 +8,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Re-dispatched by sync-bun-nix.yml after it pushes a regenerated bun.nix to
+  # a Dependabot branch (GITHUB_TOKEN pushes don't trigger workflows on their
+  # own, and a required check must land on the synced head commit).
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -44,13 +48,6 @@ jobs:
 
       - name: Typecheck
         run: bun run typecheck
-
-      # bun.nix is bun2nix's generated mirror of bun.lock; the nix build installs
-      # deps from it, never from the registry. Anything that bumps the lockfile
-      # without regenerating it (Dependabot can't) breaks `nix build` silently —
-      # fail here instead. Fix: `bun2nix -o bun.nix` in the dev shell.
-      - name: bun.nix in sync with bun.lock
-        run: bun scripts/check-bun-nix.ts
 
       # biome isn't a devDependency (it comes from the nix shell); run the
       # version pinned by biome.jsonc's $schema so CI matches local.

@@ -1,0 +1,86 @@
+name: bun.nix sync
+
+# bun.nix is bun2nix's generated mirror of bun.lock — the nix build installs
+# deps from it (nix/r3.nix fetchBunDeps), never from the registry. Locally the
+# package.json postinstall hook regenerates it on every `bun install` (the dev
+# shell carries bun2nix), but Dependabot never runs lifecycle scripts, so its
+# bun bumps arrive with a stale bun.nix. This workflow regenerates with the
+# SAME bun2nix revision the flake pins and then:
+#   - same-repo Dependabot PR: commits the regenerated file to the PR branch
+#     and re-dispatches CI on it — a GITHUB_TOKEN push doesn't trigger
+#     workflows by itself, and a required `check` must land on the new head;
+#   - anything else (human PR, fork PR, push to main): fails with
+#     instructions — we can't (forks) or shouldn't (humans) push to those.
+on:
+  pull_request:
+    paths: [bun.lock, bun.nix, flake.lock]
+  push:
+    branches: [main]
+    paths: [bun.lock, bun.nix, flake.lock]
+
+permissions:
+  contents: write # push the regenerated bun.nix to a Dependabot PR branch
+  actions: write # re-dispatch ci.yml on the synced commit
+
+concurrency:
+  group: bun-nix-${{ github.ref }}
+  cancel-in-progress: true
+
+# `shell: bash` (vs the unspecified default) adds -o pipefail.
+defaults:
+  run:
+    shell: bash
+
+# Third-party actions are pinned to commit SHAs (the trailing comment is the
+# tag): a tag can be force-moved to malicious code, a SHA can't.
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The fix path needs the PR head branch itself — the default
+          # pull_request checkout is a detached merge commit we can't push. A
+          # fork's head branch doesn't exist here, so only same-repo PRs get
+          # it (forks take the default and can only reach the verify path).
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref || '' }}
+          # Credentials only where a push can happen: Dependabot's own
+          # branches. Verify-only runs (human PRs, forks, main) hold none.
+          persist-credentials: ${{ github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+      # Regenerate with the exact bun2nix revision flake.lock pins — the same
+      # binary that produced the committed file and that fetchBunDeps consumes
+      # — so a match/mismatch is meaningful, not generator-version noise.
+      # --accept-flake-config trusts bun2nix's flake config (the nix-community
+      # cachix substituter), making this a small cache download instead of a
+      # from-source Rust build.
+      - name: Regenerate bun.nix with the flake-pinned bun2nix
+        run: |
+          REV=$(jq -r '.nodes.bun2nix.locked.rev' flake.lock)
+          nix run --accept-flake-config "github:nix-community/bun2nix/$REV" -- -o bun.nix
+
+      - name: Push the fix (Dependabot) or fail with instructions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAN_FIX: ${{ github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if git diff --quiet -- bun.nix; then
+            echo "bun.nix is in sync with bun.lock."
+            exit 0
+          fi
+          if [ "$CAN_FIX" = "true" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: regenerate bun.nix" -- bun.nix
+            git push origin "HEAD:$HEAD_REF"
+            gh workflow run ci.yml --ref "$HEAD_REF"
+            echo "Pushed the regenerated bun.nix and dispatched CI onto the synced commit."
+          else
+            git --no-pager diff --stat -- bun.nix
+            echo "::error::bun.nix is out of sync with bun.lock — run 'bun2nix -o bun.nix' (the dev shell has bun2nix; any 'bun install' there also regenerates it) and commit the result."
+            exit 1
+          fi
