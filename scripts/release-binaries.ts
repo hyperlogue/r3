@@ -4,10 +4,10 @@
 // be passed to the `bun build --compile` CLI, so we use the API), embedding the
 // SPA the same way `scripts/compile.ts` does for the local build.
 //
-// The launcher (npm/launch.mjs) downloads `<asset>` + `SHA256SUMS` from the
-// release tag `v<version>` and verifies the checksum — so the asset names here
-// and the version tag must line up with npm/package.json. Usage: `bun
-// scripts/release-binaries.ts` (then upload dist/* to the matching release).
+// These assets feed both release channels: uploaded as-is to the GitHub
+// Release, and repackaged by scripts/stage-npm-packages.ts into the
+// per-platform npm packages the launcher (npm/launch.mjs) resolves. Usage:
+// `bun scripts/release-binaries.ts` (then upload dist/* to the matching release).
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -18,10 +18,10 @@ import { R3_VERSION } from "../shared/version.ts";
 const DIR = join(import.meta.dir, "..");
 const OUT = join(DIR, "dist");
 
-// The launcher downloads from the release tag matching its own npm version, so
-// the three version sources must agree: shared/version.ts (baked into the binary
-// + reported by /api/health), the git tag the assets are uploaded to, and
-// npm/package.json (what `bunx @hyperlogue/r3` resolves). Fail loudly on drift.
+// Three version sources must agree: shared/version.ts (baked into the binary +
+// reported by /api/health), the git tag the assets are uploaded to, and
+// npm/package.json (what `bunx @hyperlogue/r3` resolves — the launcher pins its
+// platform packages at exactly this version). Fail loudly on drift.
 const npmVersion = JSON.parse(readFileSync(join(DIR, "npm/package.json"), "utf8")).version;
 if (npmVersion !== R3_VERSION) {
   console.error(
@@ -34,9 +34,10 @@ console.log(
   `Building r3 v${R3_VERSION} — upload dist/* to the GitHub release tagged v${R3_VERSION}.`,
 );
 
-// target = Bun cross-compile target; asset = the name the launcher requests
-// (must match ASSETS in npm/launch.mjs). Add windows-x64 here + to the launcher
-// (and npm/package.json `os`) if/when it's supported.
+// target = Bun cross-compile target; asset = the release asset name, whose
+// `<os>-<arch>` suffix must line up with PACKAGES in npm/launch.mjs (via
+// stage-npm-packages.ts). Add windows-x64 here + to the launcher (and
+// npm/package.json `os`) if/when it's supported.
 const PLATFORMS = [
   { target: "bun-darwin-arm64", asset: "r3-darwin-arm64" },
   { target: "bun-darwin-x64", asset: "r3-darwin-x64" },
