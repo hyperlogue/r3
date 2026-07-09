@@ -106,8 +106,17 @@ function daemonArgv(): string[] {
 // the winner's daemon.json is what we poll for here.
 async function spawnDaemon(rootHint: string): Promise<DaemonInfo> {
   const [bin, ...rest] = daemonArgv();
+  // A from-source daemon must run with the r3 repo as cwd so Bun finds its
+  // bunfig.toml — which registers bun-plugin-tailwind for Bun.serve's static SPA
+  // bundling. Bun resolves bunfig.toml from the cwd, so spawned in an arbitrary
+  // user repo (the usual lazy-spawn case) it wouldn't find it, the SPA's
+  // `@import "tailwindcss"` would fail to bundle, and `/` would serve an empty
+  // page. The compiled binary embeds the SPA (no bundling, no bunfig), so its cwd
+  // stays the user's repo. Either way the default repo is pinned via R3_ROOT
+  // below, so this cwd choice never changes which repo the daemon defaults to.
+  const cwd = isCompiled() ? rootHint : resolve(dirname(Bun.main), "..");
   const proc = Bun.spawn([bin, ...rest], {
-    cwd: rootHint,
+    cwd,
     // R3_DETACHED tells the daemon to ignore SIGINT too: it stays in our process
     // group, so a Ctrl-C in the terminal during the spawn window would otherwise
     // SIGINT-kill the daemon we just started. It's stopped via `r3 stop` (SIGTERM).
