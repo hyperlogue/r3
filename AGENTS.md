@@ -118,6 +118,7 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
 shared/types.ts  the HTTP contract (domain model + request/response shapes)
 shared/version.ts build version — /api/health reports it; the CLI warns on skew
 scripts/compile.ts  one `Bun.build({compile})` — bundles+embeds the SPA -> ./r3 binary
+scripts/spa-css.ts  browser-target Tailwind CSS pre-pass for compile builds (de-nests)
 scripts/release-binaries.ts  cross-compile dist/r3-<os>-<arch> + SHA256SUMS for a release
 scripts/stage-npm-packages.ts  stage the 4 per-platform npm binary packages + stamp launcher pins
 bunfig.toml      registers bun-plugin-tailwind so the from-source daemon bundles CSS
@@ -445,6 +446,12 @@ optimistically so the fold is instant).
   imports the SPA via `import index from "../web/index.html"` — embedding the Bun
   runtime, all JS deps, `bun:sqlite`, and the bundled SPA (as `Bun.embeddedFiles`)
   into one `./r3` executable that serves its own UI. No install, no static dir.
+  The SPA stylesheet is Tailwind-compiled in a separate **browser-target** pass
+  first (`scripts/spa-css.ts`, shared with `release-binaries.ts`): a compile
+  build is `target:"bun"`, whose CSS printer keeps the native nesting Tailwind
+  emits (its color-mix fallback), and un-lowered nesting breaks in browsers
+  (`& {…}` under `::placeholder` is unmatchable — placeholders lose their
+  dimming). The pre-pass lowers it flat; the compile build embeds it as-is.
 - **Two release channels off one tag-driven pipeline** (`release-binaries.ts`
   cross-compiles the four `r3-<os>-<arch>` binaries + `SHA256SUMS`): **GitHub
   Releases** carry the raw assets (curl / Homebrew); **npm** ships a tiny launcher
