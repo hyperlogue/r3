@@ -45,9 +45,12 @@ jobs:
           # fork's head branch doesn't exist here, so only same-repo PRs get
           # it (forks take the default and can only reach the verify path).
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref || '' }}
-          # Credentials only where a push can happen: Dependabot's own
-          # branches. Verify-only runs (human PRs, forks, main) hold none.
-          persist-credentials: ${{ github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+          # Never leave the token in .git/config: the nix installer and
+          # bun2nix run below on Dependabot-influenced input (bun.lock is
+          # shaped by registry metadata), and they must not execute with a
+          # write credential on disk. The push step injects the token into
+          # its own git invocation only.
+          persist-credentials: false
 
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
 
@@ -76,7 +79,9 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "chore: regenerate bun.nix" -- bun.nix
-            git push origin "HEAD:$HEAD_REF"
+            # Token scoped to this one command (checkout persists nothing);
+            # the value is auto-masked in logs.
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$HEAD_REF"
             gh workflow run ci.yml --ref "$HEAD_REF"
             echo "Pushed the regenerated bun.nix and dispatched CI onto the synced commit."
           else
