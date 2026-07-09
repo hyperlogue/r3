@@ -17,8 +17,10 @@ permissions:
   contents: read
 
 # Cancel superseded runs on the same ref — stale PR checks are worthless.
+# Scope the group by event too so a workflow_dispatch re-run (the sync-bun-nix
+# re-dispatch) never cancels, or is cancelled by, an unrelated push/PR run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 # `shell: bash` (vs the unspecified default) adds -o pipefail.
