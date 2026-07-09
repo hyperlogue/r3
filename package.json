@@ -45,5 +45,8 @@
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.3"
+  },
+  "overrides": {
+    "bun": "npm:empty-npm-package@1.0.0"
   }
 }
