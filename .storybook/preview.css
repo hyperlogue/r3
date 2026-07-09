@@ -1,0 +1,8 @@
+/* Storybook's CSS entry. Pulls in the app stylesheet (which owns the single
+   `@import "tailwindcss"` + all custom rules), then adds .storybook to
+   Tailwind's sources so the story decorators' utilities — e.g. min-h-screen,
+   which the app itself never uses — get generated. Doing it here instead of in
+   web/src/main.css keeps those Storybook-only classes out of the app's
+   production bundle. The @source path is relative to this file. */
+@import "../web/src/main.css";
+@source "./";

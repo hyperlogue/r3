@@ -1,0 +1,171 @@
+name: Release
+
+# Tag-driven release. Pushing a `v<version>` tag builds all four native binaries
+# + SHA256SUMS, publishes a GitHub Release with those assets (the manual / curl /
+# brew channel), then publishes the npm packages: the four per-platform binary
+# packages FIRST, then the launcher that pins them — in that order, because a
+# user must never resolve a launcher whose platform dependency isn't on the
+# registry yet.
+#
+# Three version sources must agree exactly: the git tag, npm/package.json, and
+# shared/version.ts. stage-npm-packages.ts stamps the launcher's per-platform
+# pins from that one version, and two guards enforce the rest transitively (see
+# below); a release dies in <1 min on drift, before anything is published.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the GitHub Release + upload assets
+  id-token: write # npm provenance attestation
+
+# Never cancel a half-finished publish — queue instead.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - run: bun install --frozen-lockfile
+
+      # Guard 1: tag ↔ npm/package.json. Combined with release-binaries.ts's own
+      # npm ↔ shared/version.ts check, this transitively pins all three sources.
+      # We never auto-fix here — the tag is the human's assertion; drift means a
+      # mistake, so fail and make them re-tag.
+      - name: Verify tag matches npm/package.json version
+        run: |
+          PKG_V=$(jq -r .version npm/package.json)
+          if [ "$GITHUB_REF_NAME" != "v$PKG_V" ]; then
+            echo "::error::tag $GITHUB_REF_NAME != npm/package.json v$PKG_V — fix versions, delete the tag, re-tag."
+            exit 1
+          fi
+
+      # A tag can land on an unchecked commit — cheap insurance.
+      - name: Typecheck + lint
+        run: |
+          bun run typecheck
+          bunx @biomejs/biome@2.4.15 check .
+
+      # Cross-compiles all 4 targets + SHA256SUMS into dist/ from this one runner
+      # (Bun cross-compiles every platform; no OS matrix). Also re-checks
+      # npm ↔ shared/version.ts and fails loudly on drift.
+      #
+      # On a RE-RUN where this tag's GitHub Release already carries the assets,
+      # reuse those exact bytes instead of rebuilding: Bun builds aren't
+      # guaranteed byte-identical, and a partial prior run may already have
+      # published some npm packages, so a rebuild would drift the two channels.
+      - name: Build or reuse release binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+             && gh release download "$GITHUB_REF_NAME" -D dist -p 'r3-*' -p 'SHA256SUMS' --clobber \
+             && [ "$(ls dist/r3-* 2>/dev/null | wc -l)" -ge 4 ]; then
+            echo "Reusing binaries already attached to $GITHUB_REF_NAME."
+          else
+            bun scripts/release-binaries.ts
+          fi
+
+      - name: Smoke-test the built artifact
+        run: |
+          test "$(grep -c . dist/SHA256SUMS)" = 4
+          chmod +x dist/r3-linux-x64
+          ./dist/r3-linux-x64 --help
+
+      # GitHub Release FIRST (reversible) — the manual/curl channel. Prerelease
+      # tags (v*-*) are marked so they never become the repo's "Latest". Idempotent:
+      # a re-run re-uploads assets with --clobber (a no-op when we reused them above).
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          [[ "$GITHUB_REF_NAME" == *-* ]] && PRERELEASE="--prerelease"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+              --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE
+          fi
+
+      # Stage the four per-platform npm packages (dist/npm/<pkg>/) from the
+      # binaries and stamp the launcher's optionalDependencies pins to this
+      # version — the single source of the launcher↔binary version lockstep.
+      - name: Stage npm platform packages
+        run: bun scripts/stage-npm-packages.ts
+
+      # The binary ships 0755 in the tarball (npm preserves modes); a 0644 binary
+      # would EACCES on every install, so verify the staged package kept the bit.
+      - name: Smoke-test the staged package
+        run: |
+          test -x dist/npm/r3-linux-x64/bin/r3
+          ./dist/npm/r3-linux-x64/bin/r3 --help
+
+      # setup-node wires NODE_AUTH_TOKEN for the registry (node 22 → npm 10,
+      # which supports --provenance).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      # Publish the four per-platform binary packages BEFORE the launcher: the
+      # launcher's optionalDependencies pin them at this exact version, so a user
+      # must never resolve a launcher whose platform package isn't on the registry
+      # yet. Each publish is idempotent (skip if this version already exists) so a
+      # re-run after a partial failure converges. --provenance attests the actual
+      # binary bytes, not just the launcher shim.
+      - name: Publish platform binary packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for d in dist/npm/*/; do
+            NAME=$(jq -r .name "$d/package.json")
+            V=$(jq -r .version "$d/package.json")
+            if [ -n "$(npm view "$NAME@$V" version 2>/dev/null || true)" ]; then
+              echo "$NAME@$V already published — skipping (idempotent re-run)."
+              continue
+            fi
+            ( cd "$d" && npm publish --provenance --access public )
+          done
+
+      # npm's read path can lag a successful publish by seconds; wait until all
+      # four platform packages are visible before publishing the launcher, so the
+      # first post-release `npx` can't 404 on a platform dependency.
+      - name: Wait for platform packages to be visible
+        run: |
+          for d in dist/npm/*/; do
+            NAME=$(jq -r .name "$d/package.json")
+            V=$(jq -r .version "$d/package.json")
+            for i in $(seq 1 30); do
+              [ -n "$(npm view "$NAME@$V" version 2>/dev/null || true)" ] && { echo "$NAME@$V visible."; break; }
+              echo "waiting for $NAME@$V to appear ($i/30)…"; sleep 5
+            done
+          done
+
+      # npm publish LAST (effectively irreversible), after its platform packages.
+      # Skip if this exact version is already on npm, so a re-run after a transient
+      # failure converges. Prerelease versions go to the `next` dist-tag so `latest`
+      # never resolves an RC. --provenance (needs id-token: write) gives users a
+      # verifiable build attestation — free for a public repo whose repository URL
+      # already matches.
+      - name: Publish npm launcher
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          V=$(jq -r .version package.json)
+          if [ -n "$(npm view "@hyperlogue/r3@$V" version 2>/dev/null || true)" ]; then
+            echo "@hyperlogue/r3@$V already published — skipping (idempotent re-run)."
+            exit 0
+          fi
+          TAG=latest
+          [[ "$V" == *-* ]] && TAG=next
+          npm publish --provenance --access public --tag "$TAG"

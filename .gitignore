@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# build output
+/web/dist/
+/r3
+/dist/
+
+# storybook static build
+/storybook-static/
+
+# leftover per-repo review state — reviews now live in the global XDG store
+# ($XDG_STATE_HOME/r3), so this dir is only stale remnants; still ignored.
+.r3/
+
+# nix / direnv
+/result
+/result-*
+.direnv/
