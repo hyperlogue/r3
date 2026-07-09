@@ -9,7 +9,7 @@
     "r3": "./cli/index.ts"
   },
   "scripts": {
-    "postinstall": "which bun2nix > /dev/null 2>&1 && bun2nix -o bun.nix || true",
+    "postinstall": "$npm_execpath node_modules/bun2nix/index.ts -o bun.nix",
     "dev": "R3_DEV=1 bun --watch server/index.ts",
     "build": "bun scripts/compile.ts",
     "cli": "bun cli/index.ts",
@@ -38,6 +38,7 @@
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
     "bun-plugin-tailwind": "^0.1.2",
+    "bun2nix": "2.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "storybook": "8",

@@ -11,11 +11,11 @@
         bun
         biome
 
-        # Regenerates bun.nix after any bun.lock change — the package.json
-        # postinstall hook runs it on every `bun install` here; flake-pinned so
-        # it always matches the fetchBunDeps consumer in nix/r3.nix. CI guards
+        # bun.nix regeneration needs no shell package: the wasm bun2nix is an
+        # exact-pinned devDependency and the package.json postinstall runs it
+        # on every `bun install`. The flake's bun2nix input stays for the
+        # consumer side only (fetchBunDeps + hook in nix/r3.nix); CI guards
         # drift (.github/workflows/sync-bun-nix.yml).
-        bun2nix
 
         git
         gh

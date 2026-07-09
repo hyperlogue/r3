@@ -39,3 +39,8 @@ updates:
       minor-and-patch:
         applies-to: version-updates
         update-types: [minor, patch]
+    ignore:
+      # The bun.nix generator (exact-pinned wasm devDependency). Bumped by
+      # hand together with the flake's bun2nix input (the consumer side:
+      # fetchBunDeps + hook), so generator and consumer can't drift apart.
+      - dependency-name: bun2nix
