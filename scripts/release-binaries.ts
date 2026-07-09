@@ -1,8 +1,9 @@
 // Build the per-platform native `r3` binaries + a SHA256SUMS manifest into
 // `dist/`, ready to upload to a GitHub release. Cross-compiles with one
-// `Bun.build({ compile: { target } })` per platform (the Tailwind plugin can't
-// be passed to the `bun build --compile` CLI, so we use the API), embedding the
-// SPA the same way `scripts/compile.ts` does for the local build.
+// `Bun.build({ compile: { target } })` per platform (build plugins can't be
+// passed to the `bun build --compile` CLI, so we use the API), embedding the
+// SPA — with its pre-lowered stylesheet (scripts/spa-css.ts) — the same way
+// `scripts/compile.ts` does for the local build.
 //
 // These assets feed both release channels: uploaded as-is to the GitHub
 // Release, and repackaged by scripts/stage-npm-packages.ts into the
@@ -12,8 +13,8 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import tailwind from "bun-plugin-tailwind";
 import { R3_VERSION } from "../shared/version.ts";
+import { browserLoweredCssPlugin } from "./spa-css.ts";
 
 const DIR = join(import.meta.dir, "..");
 const OUT = join(DIR, "dist");
@@ -47,13 +48,17 @@ const PLATFORMS = [
 
 mkdirSync(OUT, { recursive: true });
 
+// The SPA CSS is platform-independent: Tailwind-compile + browser-lower it once
+// (see scripts/spa-css.ts) and swap it into every per-platform compile build.
+const spaCss = await browserLoweredCssPlugin();
+
 const sums: string[] = [];
 for (const { target, asset } of PLATFORMS) {
   console.log(`• compiling ${asset} (${target}) …`);
   const outfile = join(OUT, asset);
   const result = await Bun.build({
     entrypoints: [join(DIR, "cli/index.ts")],
-    plugins: [tailwind],
+    plugins: [spaCss],
     minify: true,
     compile: { target, outfile },
   });
