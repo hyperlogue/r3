@@ -454,6 +454,16 @@ optimistically so the fold is instant).
   `bunx`/`npx @hyperlogue/r3@x.y.z` resolves-and-execs that version's binary with
   **no runtime download** (the launcher only does `createRequire().resolve` +
   `spawn`). `R3_BINARY` overrides for dev / offline / off-matrix targets.
+- **`package.json` overrides `bun` → `empty-npm-package`.** `bun-plugin-tailwind`
+  declares its Bun *runtime* requirement as a peer dependency on the `bun` npm
+  package, which auto-installs Oven's wrapper + 16 platform binaries into
+  bun.lock (and thus bun.nix and the nix build's fetch set), and whose broken
+  bin shim shadows `bun` on install-script PATHs. The override pins that name to
+  an empty stub instead. The plugin is published by the Bun core team and has no
+  public source repository (its npm `repository` field points at a
+  `tailwindlabs/tailwindcss` path that has never existed) — report plugin issues
+  to oven-sh/bun, and drop the override if a release marks the peer optional or
+  moves it to `engines`.
 - **Heritage.** v1 was one server per repo with a gitignored per-repo
   `.r3/review.sqlite`; v2 replaced it with the one per-user daemon + global store
   described above. Some code comments still cite the old "one server per repo"
