@@ -495,6 +495,14 @@ bun run build               # Bun.build --compile -> single ./r3 binary (embeds 
   server-file edits). `R3_DEV` must stay off the lazy-spawn path — a from-source
   daemon spawned in an arbitrary repo would otherwise crawl that tree for HMR and
   exhaust fds. Vite is now **Storybook-only** (its own `.storybook` config).
+- **A from-source daemon is spawned with the r3 repo as its `cwd`**, not the
+  user's repo (`cli/index.ts` `spawnDaemon`). Bun resolves `bunfig.toml` — which
+  registers `bun-plugin-tailwind` for the static SPA bundle — from the cwd, so a
+  daemon lazily spawned in some other repo wouldn't find it and the SPA's
+  `@import "tailwindcss"` would fail to bundle (blank page). The default repo is
+  pinned separately via `R3_ROOT`, so this cwd never affects which repo the daemon
+  defaults to. The compiled binary embeds the SPA (no bundling), so it keeps the
+  user's repo as cwd.
 
 ## Checks (there is no unit-test runner)
 
