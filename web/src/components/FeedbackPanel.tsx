@@ -223,7 +223,7 @@ function locLabel(fb: FeedbackWithReplies): string {
 // the composer; the reply box's Collapse wrapper carries it, since that wrapper's
 // overflow-hidden would otherwise clip a margin on the textarea itself).
 const PENDING_INPUT =
-  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100";
+  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
 // The shared composer shell for both the anchored draft (NewFeedback) and the
 // general note (GeneralFeedback): the primary-rail block, a header (label slot +
