@@ -1,28 +1,11 @@
-// Path-safety + repo-root discovery. The v2 daemon is multi-repo:
-// a per-request `Repo` (server/repo.ts) carries the worktree root and validates
-// paths against it. This module keeps only the *pure* helpers — root discovery
-// and the repo-relative path guard — plus DEFAULT_ROOT, the fallback repo used
-// for requests that carry no repo context (e.g. a header-less curl, or the
-// browser before it picks a project).
+// Path-safety helpers. The v2 daemon is multi-repo and repo-agnostic: a
+// per-request `Repo` (server/repo.ts) carries the worktree root and validates
+// paths against it, resolved fresh per request from the review id, the CLI's
+// x-r3-repo header, or a ?repo selector. This module keeps only the *pure*
+// helpers — the repo-relative path guard and its symlink-escape check.
 
-import { existsSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve, sep } from "node:path";
-
-// Walk up for `.git` (a dir in the primary worktree, a file in a linked one) the
-// way git itself locates a repo.
-export function findRepoRoot(start: string = process.cwd()): string {
-  let dir = resolve(start);
-  for (;;) {
-    if (existsSync(join(dir, ".git"))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return resolve(start); // no .git — fall back so the tool still runs
-    dir = parent;
-  }
-}
-
-// The daemon's default repo: where it was launched (R3_ROOT or cwd). Used only
-// as a fallback for requests with no x-r3-repo header / ?repo selector.
-export const DEFAULT_ROOT = findRepoRoot(process.env.R3_ROOT ?? process.cwd());
+import { realpathSync } from "node:fs";
+import { isAbsolute, resolve, sep } from "node:path";
 
 // Resolve a repo-relative path against `root`, refusing anything that escapes it.
 // Returns the absolute path, or null if the input is unsafe (absolute, or `..`).

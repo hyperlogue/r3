@@ -46,16 +46,10 @@ import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDif
 import { listThemes, themeStyle } from "./highlight.ts";
 import { nvimAvailable, openInNvim } from "./nvim.ts";
 import { patchInfos, renderPatches } from "./patches.ts";
-import { DEFAULT_ROOT, realpathWithin } from "./paths.ts";
+import { realpathWithin } from "./paths.ts";
 import { buildPrompt, buildUnsentPrompt } from "./prompt.ts";
 import { renderFile } from "./render.ts";
-import {
-  commonDirOf,
-  defaultRepo,
-  type Repo,
-  resolveRepoById,
-  resolveRepoFromHeader,
-} from "./repo.ts";
+import { commonDirOf, type Repo, resolveRepoById, resolveRepoFromHeader } from "./repo.ts";
 import * as reviews from "./reviews.ts";
 import { migrateLegacyDocFiles, scratchReviewDir } from "./scratch.ts";
 import { renderSnapshotBlob, renderSnapshotDiff } from "./snapshots.ts";
@@ -180,11 +174,13 @@ function jsonCached(c: Context, obj: unknown): Response {
 
 // Resolve the Repo a request acts on. Most specific first: an
 // id-addressed `?review=` (the row carries its repo), then the CLI's
-// `x-r3-repo` header, then a `?repo=<id>` selector (browser), then the daemon's
-// DEFAULT_ROOT fallback. Returns null only when nothing resolves (e.g. the
-// daemon wasn't launched in a repo and the request named none). A *creating*
-// mutation passes `allowReview:false`: a new review must bind to the actor's own
-// repo (header/selector/default), never an arbitrary `?review` selector.
+// `x-r3-repo` header, then a `?repo=<id>` selector (browser). The daemon is
+// repo-agnostic — it holds no ambient "default repo" — so a request that names
+// none resolves to null, and the caller returns 400 "no repo context". (A CLI
+// call run outside any git repo sends no header, so `r3 create` there is a 400
+// rather than binding to some arbitrary repo.) A *creating* mutation passes
+// `allowReview:false`: a new review must bind to the actor's own repo
+// (header/selector), never an arbitrary `?review` selector.
 async function requestRepo(
   c: {
     req: { query: (k: string) => string | undefined; header: (k: string) => string | undefined };
@@ -208,7 +204,7 @@ async function requestRepo(
     const r = await resolveRepoById(repoId);
     if (r) return r;
   }
-  return defaultRepo();
+  return null;
 }
 
 // ---- health / bootstrap ----
@@ -977,9 +973,7 @@ export async function startDaemon(): Promise<void> {
   process.on("SIGHUP", () => {});
 
   console.log(`r3 daemon on ${ORIGIN}/  (v${R3_VERSION}, pid ${process.pid})`);
-  console.log(
-    `  token: ${TOKEN.slice(0, 8)}…  ·  bind: ${BIND}:${PORT}  ·  default repo: ${DEFAULT_ROOT}`,
-  );
+  console.log(`  token: ${TOKEN.slice(0, 8)}…  ·  bind: ${BIND}:${PORT}`);
   console.log(`  nvim-open: ${nvimAvailable() ? "enabled" : "disabled (no nvim ancestor)"}`);
 }
 

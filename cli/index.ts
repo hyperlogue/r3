@@ -104,23 +104,24 @@ function daemonArgv(): string[] {
 // Spawn the daemon detached and wait for it to come up healthy. The O_EXCL
 // daemon.lock pidfile is the lock: if two CLI calls race, the loser exits 0 and
 // the winner's daemon.json is what we poll for here.
-async function spawnDaemon(rootHint: string): Promise<DaemonInfo> {
+async function spawnDaemon(): Promise<DaemonInfo> {
   const [bin, ...rest] = daemonArgv();
-  // A from-source daemon must run with the r3 repo as cwd so Bun finds its
-  // bunfig.toml — which registers bun-plugin-tailwind for Bun.serve's static SPA
-  // bundling. Bun resolves bunfig.toml from the cwd, so spawned in an arbitrary
-  // user repo (the usual lazy-spawn case) it wouldn't find it, the SPA's
-  // `@import "tailwindcss"` would fail to bundle, and `/` would serve an empty
-  // page. The compiled binary embeds the SPA (no bundling, no bunfig), so its cwd
-  // stays the user's repo. Either way the default repo is pinned via R3_ROOT
-  // below, so this cwd choice never changes which repo the daemon defaults to.
-  const cwd = isCompiled() ? rootHint : resolve(dirname(Bun.main), "..");
+  // The daemon is repo-agnostic: every request self-describes its repo (the CLI's
+  // x-r3-repo header, a review id, or a browser ?repo selector), so the spawn
+  // passes no "default repo". cwd matters only from source: run in the r3 repo so
+  // Bun finds its bunfig.toml — which registers bun-plugin-tailwind for
+  // Bun.serve's static SPA bundling. Bun resolves bunfig.toml from the cwd, so
+  // spawned in an arbitrary user repo (the usual lazy-spawn case) it wouldn't find
+  // it, the SPA's `@import "tailwindcss"` would fail to bundle, and `/` would serve
+  // an empty page. The compiled binary embeds the SPA (no bundling, no bunfig), so
+  // its cwd is irrelevant — inherit ours.
+  const cwd = isCompiled() ? process.cwd() : resolve(dirname(Bun.main), "..");
   const proc = Bun.spawn([bin, ...rest], {
     cwd,
     // R3_DETACHED tells the daemon to ignore SIGINT too: it stays in our process
     // group, so a Ctrl-C in the terminal during the spawn window would otherwise
     // SIGINT-kill the daemon we just started. It's stopped via `r3 stop` (SIGTERM).
-    env: { ...process.env, R3_ROOT: rootHint, R3_DETACHED: "1" },
+    env: { ...process.env, R3_DETACHED: "1" },
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",
@@ -149,7 +150,7 @@ async function ensureServer(): Promise<ServerInfo> {
   let info = readDaemonJson();
   let health = info ? await probe(info.url) : null;
   if (!info || !health) {
-    info = await spawnDaemon(root);
+    info = await spawnDaemon();
     health = await probe(info.url);
   }
   if (health && health.version !== R3_VERSION) {
@@ -420,8 +421,9 @@ function printReview(r: any) {
 // ---- commands ----
 
 async function cmdCreate(args: Args) {
-  // Without a repo descriptor the daemon would silently file the review under its
-  // DEFAULT_ROOT (the wrong project). Fail loudly, like v1 did outside a repo.
+  // A review must bind to the actor's own repo, carried by the x-r3-repo header.
+  // Outside a git repo there is none, and the daemon (repo-agnostic) would answer
+  // "no repo context"; fail loudly here instead.
   if (!SERVER.repoHeader) fail("`r3 create` must be run inside a git repository");
   const meta = metaObject(args.multi.meta);
   const title = (args.flags.title as string) ?? null;
@@ -1049,7 +1051,7 @@ async function cmdDaemonStart(): Promise<void> {
     console.log(`r3 daemon already running: ${info.url} (pid ${info.pid})`);
     return;
   }
-  const started = await spawnDaemon(findRepoRoot());
+  const started = await spawnDaemon();
   console.log(`r3 daemon started: ${started.url} (pid ${started.pid})`);
 }
 
