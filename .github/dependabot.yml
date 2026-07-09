@@ -9,6 +9,9 @@
 #
 #  - bun: root package.json + bun.lock. CI installs with --frozen-lockfile, so
 #    only a bun-aware updater that rewrites the lockfile keeps CI green.
+#    Dependabot can't regenerate bun.nix (bun2nix's mirror of the lockfile), so
+#    its bun PRs fail CI's check-bun-nix step by design: check out the PR, run
+#    `bun2nix -o bun.nix` in the dev shell, commit, push — then it goes green.
 #
 # Deliberately NOT covered: npm/ — the launcher's optionalDependencies are
 # exact-version pins stamped by the release pipeline (stage-npm-packages.ts);
