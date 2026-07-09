@@ -1,0 +1,425 @@
+/* `source(none)` disables Tailwind v4's automatic source detection, which
+   otherwise crawls the repo root and reads build artifacts as text to harvest
+   class names — including the ~100MB compiled `r3` binary, which exhausts the
+   Node heap (OOM). Scan only the app source here (relative to this file).
+   Storybook needs its decorators scanned too, but adds that in its own entry
+   (.storybook/preview.css) so those classes stay out of the app bundle. */
+@import "tailwindcss" source(none);
+@source "./";
+
+/* Toggle dark mode by a `.dark` class on <html> rather than the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* The r3 palette — semantic ramps anchored on the logo's three arm colors
+   (web/favicon.svg: indigo #6164ff, emerald #009966, rose #ff3356), plus two
+   supporting hues rebuilt at the same saturation. Semantics:
+
+     primary  (indigo)  review / work / update — selection, primary actions
+     success  (emerald) resolution — resolved, accepted, viewed, live presence
+     danger   (rose)    errors and refusal — use sparingly
+     warning  (amber)   needs attention — stale, unsent, the focused line
+     accent   (violet)  the secondary accent — re-anchor, scratch edits
+
+   Each ramp is Tailwind v4's nearest stock ramp (indigo/emerald/rose/amber/
+   violet) shifted in hue and scaled in chroma so it passes EXACTLY through the
+   brand hex at its anchor shade (primary-500, success-600, danger-500); the
+   supporting hues keep their stock lightness curve with chroma scaled by the
+   brands' mean ratio. Lightness curves match stock Tailwind, so the usual
+   light/dark shade pairings (600 on light / 400 on dark) hold. Prefer these
+   over stock green/blue/red/amber/violet everywhere in the app — with one
+   exception: diff add/del (row tints, gutter rails, ± stats) keep stock
+   green/red, the universal diff convention (see .gutter-add / DiffView). */
+@theme {
+  --color-primary-50: oklch(96.3% 0.017 271.421);
+  --color-primary-100: oklch(93.2% 0.032 271.895);
+  --color-primary-200: oklch(87.4% 0.062 273.146);
+  --color-primary-300: oklch(79% 0.106 273.82);
+  --color-primary-400: oklch(68% 0.17 276.042);
+  --color-primary-500: oklch(59.2% 0.225 276.224); /* #6164ff — the logo blue */
+  --color-primary-600: oklch(51.8% 0.253 276.073);
+  --color-primary-700: oklch(46.4% 0.231 276.13);
+  --color-primary-800: oklch(40.5% 0.188 276.473);
+  --color-primary-900: oklch(36.6% 0.139 277.804);
+  --color-primary-950: oklch(26.3% 0.087 280.395);
+
+  --color-success-50: oklch(98% 0.019 163.811);
+  --color-success-100: oklch(95.2% 0.048 160.749);
+  --color-success-200: oklch(90.8% 0.086 161.848);
+  --color-success-300: oklch(85% 0.133 162.676);
+  --color-success-400: oklch(77.1% 0.164 160.921);
+  --color-success-500: oklch(70.3% 0.158 160.178);
+  --color-success-600: oklch(60.3% 0.134 160.923); /* #009966 — the logo green */
+  --color-success-700: oklch(51.5% 0.109 163.31);
+  --color-success-800: oklch(43.9% 0.088 164.611);
+  --color-success-900: oklch(38.5% 0.071 166.638);
+  --color-success-950: oklch(26.9% 0.047 170.25);
+
+  --color-danger-50: oklch(97% 0.014 14.247);
+  --color-danger-100: oklch(94.3% 0.029 14.405);
+  --color-danger-200: oklch(89.6% 0.055 11.826);
+  --color-danger-300: oklch(81.7% 0.105 13.463);
+  --color-danger-400: oklch(72% 0.176 15.253);
+  --color-danger-500: oklch(65.3% 0.234 18.264); /* #ff3356 — the logo red */
+  --color-danger-600: oklch(59.4% 0.239 19.41);
+  --color-danger-700: oklch(52.2% 0.209 18.76);
+  --color-danger-800: oklch(46.3% 0.179 15.522);
+  --color-danger-900: oklch(41.8% 0.152 12.097);
+  --color-danger-950: oklch(27.9% 0.1 13.919);
+
+  --color-warning-50: oklch(98.7% 0.021 95.277);
+  --color-warning-100: oklch(96.2% 0.056 95.617);
+  --color-warning-200: oklch(92.4% 0.114 95.746);
+  --color-warning-300: oklch(87.9% 0.16 91.605);
+  --color-warning-400: oklch(82.8% 0.17 84.429);
+  --color-warning-500: oklch(76.9% 0.167 70.08);
+  --color-warning-600: oklch(66.6% 0.159 58.318);
+  --color-warning-700: oklch(55.5% 0.149 48.998);
+  --color-warning-800: oklch(47.3% 0.13 46.201);
+  --color-warning-900: oklch(41.4% 0.106 45.904);
+  --color-warning-950: oklch(27.9% 0.073 45.635);
+
+  --color-accent-50: oklch(96.9% 0.015 293.756);
+  --color-accent-100: oklch(94.3% 0.028 294.588);
+  --color-accent-200: oklch(89.4% 0.054 293.283);
+  --color-accent-300: oklch(81.1% 0.105 293.571);
+  --color-accent-400: oklch(70.2% 0.173 293.541);
+  --color-accent-500: oklch(60.6% 0.236 292.717);
+  --color-accent-600: oklch(54.1% 0.266 293.009);
+  --color-accent-700: oklch(49.1% 0.256 292.581);
+  --color-accent-800: oklch(43.2% 0.22 292.759);
+  --color-accent-900: oklch(38% 0.179 293.745);
+  --color-accent-950: oklch(28.3% 0.134 291.089);
+}
+
+:root {
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+/* The user font-size setting scales the whole UI: Tailwind's text AND spacing
+   utilities are rem-based (relative to <html>), so driving the root font-size
+   zooms everything proportionally. Applying it to `body` had no effect — the
+   rem utilities ignore body and read the root. Neutral base is 16px (the size
+   Tailwind's scale is calibrated for); the default below is 2px larger. */
+html {
+  font-size: var(--r3-font-size, 18px);
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+}
+
+/* Shiki dual-theme: each token span carries --shiki-light / --shiki-dark; pick
+   the active one. Spans set the variables, the rule reads them. */
+.shiki-code span {
+  color: var(--shiki-light);
+}
+html.dark .shiki-code span {
+  color: var(--shiki-dark);
+}
+
+/* Code surface = the syntax theme's OWN editor colours. ReviewView sets
+   --shiki-*-bg / --shiki-* (background + default foreground) on the content pane
+   from /api/theme-style; these paint the code area like the theme does in an
+   editor, so e.g. Nord isn't pale token colours on r3's near-black card. The
+   background falls back to the neutral card colour when no theme style is loaded
+   (Storybook, in-flight); the foreground var, when unset, simply inherits the
+   app's text colour. Setting the default fg matters when the theme's mode differs
+   from the app's (a dark theme in light mode) — un-tokenised text stays legible. */
+.shiki-surface {
+  background-color: var(--shiki-light-bg, var(--color-white));
+  color: var(--shiki-light);
+}
+html.dark .shiki-surface {
+  background-color: var(--shiki-dark-bg, var(--color-neutral-950));
+  color: var(--shiki-dark);
+}
+
+/* Frozen diff/file gutter fills — opaque (the code scrolls under them), painted
+   on the theme surface so line numbers share the code's background. add/del rails
+   blend a green/red into that surface a touch stronger than the row overlay, so
+   the rail reads a little brighter than the code it labels. Diff add/del keep
+   STOCK Tailwind green-500/red-500 (the universal diff convention) rather than
+   the theme's success/danger — same for DiffView's row overlays and ± stats. */
+.gutter-surface {
+  background-color: var(--shiki-light-bg, var(--color-white));
+}
+html.dark .gutter-surface {
+  background-color: var(--shiki-dark-bg, var(--color-neutral-950));
+}
+.gutter-add {
+  background-color: color-mix(
+    in srgb,
+    var(--color-green-500) 24%,
+    var(--shiki-light-bg, var(--color-white))
+  );
+}
+html.dark .gutter-add {
+  background-color: color-mix(
+    in srgb,
+    var(--color-green-500) 24%,
+    var(--shiki-dark-bg, var(--color-neutral-950))
+  );
+}
+.gutter-del {
+  background-color: color-mix(
+    in srgb,
+    var(--color-red-500) 24%,
+    var(--shiki-light-bg, var(--color-white))
+  );
+}
+html.dark .gutter-del {
+  background-color: color-mix(
+    in srgb,
+    var(--color-red-500) 24%,
+    var(--shiki-dark-bg, var(--color-neutral-950))
+  );
+}
+
+/* Persistent marker on lines/blocks an unresolved feedback points at. Defined
+   before .r3-active-line so the amber "actively focused" ring wins when a line
+   carries both. */
+.r3-feedback-region {
+  background-color: color-mix(in srgb, var(--color-primary-500) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-primary-500);
+}
+
+/* The lines an actively-focused feedback points at. The wash matches the active
+   feedback card's amber left rail (FeedbackPanel border-l-warning-*); the fill is
+   pitched up enough that warning-500 reads as that clear amber and not a muddy
+   brown against the near-black surface (see ::highlight(r3-active) below). */
+.r3-active-line {
+  background-color: color-mix(in srgb, var(--color-warning-500) 30%, transparent);
+  box-shadow: inset 2px 0 0 var(--color-warning-500);
+}
+
+/* The summary block (review or diff round) an actively-focused summary-feedback
+   points at. Its own class so it doesn't collide with the per-line .r3-active-line
+   the other highlight effect manages. */
+.r3-summary-active {
+  background-color: color-mix(in srgb, var(--color-warning-500) 30%, transparent);
+  box-shadow: inset 2px 0 0 var(--color-warning-500);
+  border-radius: 2px;
+}
+
+/* Code/diff rows freeze the line-number gutter (sticky + opaque) so only the
+   code scrolls horizontally — but that opaque rail sits on top of the row's
+   inset left bar and would hide it. Redraw the bar on the first (leftmost)
+   gutter cell so it stays visible and pinned to the left. Scoped to [data-line]
+   rows so it never touches rendered-markdown blocks (which draw their bar via
+   ::before below). Active declared after region so amber wins when both apply. */
+.r3-feedback-region[data-line] > span:first-child {
+  box-shadow: inset 3px 0 0 var(--color-primary-500);
+}
+.r3-active-line[data-line] > span:first-child {
+  box-shadow: inset 2px 0 0 var(--color-warning-500);
+}
+
+/* Rendered-markdown blocks (a whole <p>/<table>/<ul>/heading) carry these classes
+   instead of per-line rows. The `inset` box-shadow above is a wrong fit there: the
+   bar overlaps the first character, and on a border-collapse <table> it fragments
+   into per-row segments. So draw the gutter bar as a pseudo-element sitting in the
+   .r3-markdown left padding — one continuous bar spanning the whole block, whatever
+   its internal layout. Region declared before active so amber wins on a block that
+   carries both (same ordering as the base rules above). */
+.r3-markdown .r3-feedback-region,
+.r3-markdown .r3-active-line {
+  position: relative;
+  box-shadow: none;
+  border-radius: 2px;
+}
+.r3-markdown .r3-feedback-region::before,
+.r3-markdown .r3-active-line::before {
+  content: "";
+  position: absolute;
+  left: -0.65rem;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px;
+}
+.r3-markdown .r3-feedback-region {
+  background-color: color-mix(in srgb, var(--color-primary-500) 13%, transparent);
+}
+.r3-markdown .r3-feedback-region::before {
+  background-color: var(--color-primary-500);
+}
+.r3-markdown .r3-active-line {
+  background-color: color-mix(in srgb, var(--color-warning-500) 34%, transparent);
+}
+.r3-markdown .r3-active-line::before {
+  background-color: var(--color-warning-500);
+}
+
+/* Precise sub-block highlight for rendered markdown: the exact quoted text the
+   feedback anchors to (CSS Custom Highlight API, driven from mdhighlight.ts),
+   instead of washing the whole enclosing block. The block rules above are the
+   fallback when the quote can't be located or the browser lacks the API. */
+::highlight(r3-feedback) {
+  background-color: color-mix(in srgb, var(--color-primary-500) 24%, transparent);
+}
+::highlight(r3-active) {
+  background-color: color-mix(in srgb, var(--color-warning-500) 50%, transparent);
+}
+
+/* A highlighted feedback region is clickable — a plain click jumps the panel to
+   its feedback (ReviewView's delegated handler tags rows/blocks with data-fb-id).
+   Pointer + a hover brighten signal it; text selection still works underneath. */
+.shiki-surface [data-fb-id],
+.r3-markdown [data-fb-id] {
+  cursor: pointer;
+}
+.r3-feedback-region[data-fb-id]:hover {
+  background-color: color-mix(in srgb, var(--color-primary-500) 18%, transparent);
+}
+.r3-markdown .r3-feedback-region[data-fb-id]:hover {
+  background-color: color-mix(in srgb, var(--color-primary-500) 20%, transparent);
+}
+
+/* Rendered Markdown (kind:'files' .md). Restrained, readable. */
+.r3-markdown {
+  line-height: 1.6;
+}
+.r3-markdown h1,
+.r3-markdown h2,
+.r3-markdown h3 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+.r3-markdown h1 {
+  font-size: 1.6em;
+}
+.r3-markdown h2 {
+  font-size: 1.3em;
+}
+.r3-markdown h3 {
+  font-size: 1.1em;
+}
+.r3-markdown p,
+.r3-markdown ul,
+.r3-markdown ol,
+.r3-markdown blockquote,
+.r3-markdown pre {
+  margin: 0.6em 0;
+}
+.r3-markdown ul,
+.r3-markdown ol {
+  padding-left: 1.4em;
+}
+.r3-markdown ul {
+  list-style: disc;
+}
+.r3-markdown ol {
+  list-style: decimal;
+}
+.r3-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.r3-markdown pre {
+  padding: 0.8em 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.r3-markdown pre code {
+  background: none;
+  padding: 0;
+}
+.r3-markdown a {
+  color: var(--color-primary-600);
+  text-decoration: underline;
+}
+html.dark .r3-markdown a {
+  color: var(--color-primary-400);
+}
+.r3-markdown blockquote {
+  border-left: 3px solid color-mix(in srgb, currentColor 20%, transparent);
+  padding-left: 1em;
+  opacity: 0.85;
+}
+/* GFM tables: markdown-it renders bare <table>/<th>/<td> with no borders, so
+   without these the grid is invisible (rows and columns run together). Draw the
+   dividers with the same currentColor mix the rest of this block uses so they
+   read in both themes. */
+.r3-markdown table {
+  margin: 0.8em 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.r3-markdown th,
+.r3-markdown td {
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+.r3-markdown th {
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.r3-markdown tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+.r3-markdown [data-line-start] {
+  scroll-margin-top: 4rem;
+}
+
+/* A short fade + slight upward slide, played on mount — used to animate the
+   feedback panel's list when the Active/Resolved filter switches (the switched-in
+   list is re-keyed, so it remounts and replays this). A plain author class (not a
+   Tailwind arbitrary `animate-[…]`) so the keyframe is never tree-shaken. */
+@keyframes r3-fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.r3-fade-slide-in {
+  animation: r3-fade-slide-in 0.18s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .r3-fade-slide-in {
+    animation: none;
+  }
+}
+
+/* Empty-state hint fade — asymmetric by design. The transition-duration lives on
+   the *destination* state, so easing INTO `.is-visible` (the list just emptied)
+   takes a gentle 1s, while easing back out (a card or composer arrived) snaps
+   away in 150ms. Always mounted + toggled (not conditionally rendered) so both
+   directions can animate. */
+.r3-hint {
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+.r3-hint.is-visible {
+  opacity: 1;
+  transition: opacity 1s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .r3-hint {
+    transition: none;
+  }
+}

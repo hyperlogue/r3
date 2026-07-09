@@ -1,0 +1,50 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  },
+  "files": {
+    "ignoreUnknown": true
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      // r3 renders server-generated, trusted highlighted HTML and exposes
+      // text-selection / clickable code-line surfaces; the CLI/HTTP-boundary
+      // JSON helpers are deliberately `any`; `!` is idiomatic after a
+      // just-inserted / known-present lookup.
+      "security": { "noDangerouslySetInnerHtml": "off" },
+      "a11y": { "noStaticElementInteractions": "off" },
+      "style": { "noNonNullAssertion": "off" },
+      "suspicious": { "noExplicitAny": "off", "noArrayIndexKey": "off" }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

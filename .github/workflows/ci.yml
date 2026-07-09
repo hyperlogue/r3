@@ -1,0 +1,48 @@
+name: CI
+
+# Fast checks on every PR and every push to main: typecheck + lint/format + a
+# single-target build smoke. This is the gate to require as a status check on
+# `main`; the full 4-target cross-compile is deliberately left to release.yml /
+# nightly.yml so PRs stay quick.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref — stale PR checks are worthless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pin Bun to the dev-shell version: Bun.build({compile}) embeds the Bun
+      # runtime at the *running* Bun's version, so an unpinned Bun would silently
+      # change what ships. Bump this deliberately alongside local upgrades.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      # biome isn't a devDependency (it comes from the nix shell); run the
+      # version pinned by biome.jsonc's $schema so CI matches local.
+      - name: Lint + format check
+        run: bunx @biomejs/biome@2.4.15 check .
+
+      # Build smoke: compile the host-target binary and confirm it execs. The CLI
+      # has --help (no --version), so use that as the exit-0 probe.
+      - name: Build smoke
+        run: |
+          bun scripts/compile.ts
+          ./r3 --help

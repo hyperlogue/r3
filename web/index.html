@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" class="">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- web/favicon.svg is the single source of the r3 mark (the Logo component
+         imports the same file as an asset). Bun's bundler hashes it and rewrites
+         this href to a root-absolute /favicon-<hash>.svg when serving/embedding,
+         so it resolves from any SPA route. -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>r3 — Review. Revise. Resolve.</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

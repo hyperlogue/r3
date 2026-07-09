@@ -1,0 +1,5 @@
+# The official Tailwind v4 Bun plugin, so the from-source daemon bundles the
+# SPA's CSS on demand (dev + lazy-spawn). The compiled binary embeds the
+# already-bundled SPA and never hits this path.
+[serve.static]
+plugins = ["bun-plugin-tailwind"]

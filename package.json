@@ -1,0 +1,47 @@
+{
+  "name": "r3",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "r3 — Review. Revise. Resolve. A local-first review tool for AI-generated code and docs.",
+  "license": "MIT",
+  "bin": {
+    "r3": "./cli/index.ts"
+  },
+  "scripts": {
+    "dev": "R3_DEV=1 bun --watch server/index.ts",
+    "build": "bun scripts/compile.ts",
+    "cli": "bun cli/index.ts",
+    "typecheck": "tsc --noEmit",
+    "storybook": "storybook dev -p 6007",
+    "build-storybook": "storybook build"
+  },
+  "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
+    "@tanstack/react-virtual": "^3.14.5",
+    "hono": "^4.6.14",
+    "markdown-it": "^14.1.0",
+    "shiki": "^1.24.2"
+  },
+  "devDependencies": {
+    "@storybook/addon-essentials": "8",
+    "@storybook/addon-themes": "8",
+    "@storybook/react": "8",
+    "@storybook/react-vite": "8",
+    "@storybook/test": "8",
+    "@tailwindcss/vite": "^4.0.0",
+    "@tanstack/react-query": "^5.62.7",
+    "@types/bun": "^1.3.14",
+    "@types/markdown-it": "^14.1.2",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "bun-plugin-tailwind": "^0.1.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "storybook": "8",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

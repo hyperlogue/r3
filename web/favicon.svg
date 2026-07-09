@@ -1,0 +1,29 @@
+<!-- r3 favicon — R^3 as coordinate axes. Bilaterally symmetric about z; ground
+     axes at 20° below horizontal (slope 4/11, vs 30° isometric) for a low
+     viewpoint. Positive arms only, TAPERED 30→20 toward the tips (perspective
+     vanishing built into the stroke), meeting in a gray ball joint
+     (r=20) at the origin — it must cover the arm overlaps, whose widest
+     crossing reaches ~17.1 from the origin. Three thick arms is the most
+     detail a 16–18px tab render can hold.
+     Coordinates are HUB-RELATIVE: the wrapper <g> places the hub (the ball
+     joint, local 0,0) at (50,61.04) on the tile, and the arms sit in their own
+     <g class="arms"> so the nav Logo can spin the spikes about the hub like a
+     fidget toy (Logo.tsx rotates .arms about its local origin). Keep the hub
+     at 0,0 and the circle outside .arms when editing.
+     Palette (full saturation, luminance-balanced): rose left arm, indigo
+     right arm, emerald z; gray (#374151) hub, on an off-white
+     (slate-100) rounded square for contrast on dark tab chrome.
+     THE single source of the mark: index.html's <link rel="icon"> and the
+     README's <img> both point here, and the Logo component inlines the same
+     asset. Edit only here. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#f1f5f9"/>
+  <g transform="translate(50 61.04) scale(.92)">
+    <g class="arms">
+      <path fill="#ff3356" d="M5.1 14.1 -41.6 25.8 -48.4 7 -5.1 -14.1Z"/>
+      <path fill="#6164ff" d="M-5.1 14.1 41.6 25.8 48.4 7 5.1 -14.1Z"/>
+      <path fill="#009966" d="M-15 0 -10 -52 10 -52 15 0Z"/>
+    </g>
+    <circle r="20" fill="#374151"/>
+  </g>
+</svg>
