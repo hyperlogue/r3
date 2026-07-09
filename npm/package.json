@@ -7,6 +7,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "prepack": "cp ../README.md ./README.md"
+  },
   "bin": {
     "r3": "launch.mjs"
   },

@@ -17,3 +17,7 @@ node_modules/
 /result
 /result-*
 .direnv/
+
+# the launcher's README is copied from the root README at publish time
+# (npm/package.json `prepack`) — one source of truth, not committed here.
+/npm/README.md
