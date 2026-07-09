@@ -1084,11 +1084,16 @@ const HELP = `r3 — local human<->agent review CLI
   create --diff <base>..<head>                  [--title T] [--summary S] [--meta k=v]...
   create --working | --staged                   [--title T] [--summary S] [--meta k=v]...
   create [--ref <ref>] [--title T] [--summary S] [--meta k=v]... --files <glob|path>...
-                                                 # --files is greedy: it eats all
-                                                 #   remaining args, so it must come
-                                                 #   last. Globs (e.g. 'server/**/*.ts')
-                                                 #   match the git set (respects .gitignore);
-                                                 #   plain paths are taken literally.
+                                                 # --files is GREEDY: it swallows every
+                                                 #   remaining token as a path/glob, so ALL
+                                                 #   other flags (--title/--summary/--meta/
+                                                 #   --ref) MUST come BEFORE it.
+                                                 #     WRONG: create --files '**/*.ts' --meta s=1 --title X
+                                                 #            (--meta, s=1, --title, X read as filenames)
+                                                 #     RIGHT: create --meta s=1 --title X --files '**/*.ts'
+                                                 #   Globs (e.g. 'server/**/*.ts') match the
+                                                 #   git set (respects .gitignore); plain
+                                                 #   paths are taken literally.
   create --scratch                              [--title T] [--summary S] [--meta k=v]...
                                                  # adhoc review with no git source: makes an
                                                  #   empty review + a scratch directory and
@@ -1232,7 +1237,12 @@ Every form prints id + URL; tag with --meta session=<your-session>.
   r3 create --commit <sha>  # one commit
   r3 create --diff <base>..<head>  # branch / range
   git diff ... | r3 create --stdin-diff  # any piped diff
-  r3 create --files 'src/**/*.py' '*.md'  # live file set (greedy — put last)
+  r3 create [--title T] [--meta k=v]... --files 'src/**/*.py' '*.md'  # live file set
+       # --files is GREEDY: it swallows every following token as a path/glob, so all
+       # other flags (--title/--meta/--ref/--summary) MUST come BEFORE it.
+       #   WRONG: r3 create --files 'src/**/*.py' --meta session=abc --title X
+       #          (--meta, session=abc, --title, X are all read as filenames -> fails)
+       #   RIGHT: r3 create --meta session=abc --title X --files 'src/**/*.py'
   r3 create --scratch  # no git source; prints a dir path on line 3; drop files there (flat dir), appear live
 
 ## Other commands
