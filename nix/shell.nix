@@ -11,6 +11,11 @@
         bun
         biome
 
+        # Regenerates bun.nix after any bun.lock change (`bun2nix -o bun.nix`);
+        # flake-pinned so it always matches the fetchBunDeps consumer in
+        # nix/r3.nix. CI fails on drift (scripts/check-bun-nix.ts).
+        bun2nix
+
         git
         gh
         jq
