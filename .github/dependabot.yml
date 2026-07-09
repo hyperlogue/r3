@@ -1,0 +1,37 @@
+# Dependabot keeps two supply chains from fossilizing:
+#
+#  - github-actions: the workflows pin actions to commit SHAs (a tag can be
+#    force-moved to malicious code, a SHA can't) — Dependabot is the bump
+#    mechanism that keeps those pins current. It updates the SHA and the
+#    trailing `# vX.Y.Z` comment together. The Bun *runtime* pin in the
+#    workflows (setup-bun's bun-version) is deliberately not automated: it must
+#    move in lockstep with the dev shell (see the comment in ci.yml).
+#
+#  - bun: root package.json + bun.lock. CI installs with --frozen-lockfile, so
+#    only a bun-aware updater that rewrites the lockfile keeps CI green.
+#
+# Deliberately NOT covered: npm/ — the launcher's optionalDependencies are
+# exact-version pins stamped by the release pipeline (stage-npm-packages.ts);
+# bumping them out-of-band would break the launcher↔binary version lockstep.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
