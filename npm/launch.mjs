@@ -12,7 +12,7 @@
 // SPA), so whichever runtime ran this launcher is irrelevant to how r3 itself runs.
 
 import { spawn } from "node:child_process";
-import { chmodSync, existsSync } from "node:fs";
+import { chmodSync } from "node:fs";
 import { createRequire } from "node:module";
 import { constants } from "node:os";
 
@@ -57,13 +57,6 @@ function muslFail() {
 }
 
 function resolveBinary() {
-  // Escape hatch first — run a prebuilt binary on ANY platform (dev / testing /
-  // offline / a target off the published matrix), before the platform guard.
-  if (process.env.R3_BINARY) {
-    if (!existsSync(process.env.R3_BINARY)) fail(`R3_BINARY not found: ${process.env.R3_BINARY}`);
-    return process.env.R3_BINARY;
-  }
-
   const key = `${process.platform}-${process.arch}`;
   const pkg = PACKAGES[key];
   if (!pkg) {
@@ -91,8 +84,7 @@ function resolveBinary() {
         `  This is usually a stale lockfile (npm optional-dependencies bug). Try:\n` +
         `    • reinstall:  rm -rf node_modules package-lock.json && npm install\n` +
         `    • clear the npx cache, then retry: npx --yes @hyperlogue/r3 …\n` +
-        `    • run a prebuilt binary directly: set R3_BINARY=/path/to/r3\n` +
-        `    • download one from ${REPO}/releases`,
+        `    • download a prebuilt binary from ${REPO}/releases`,
     );
   }
 }

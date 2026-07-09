@@ -44,9 +44,7 @@ import {
 import * as db from "./db.ts";
 import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDiff } from "./git.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
-import { nvimAvailable, openInNvim } from "./nvim.ts";
 import { patchInfos, renderPatches } from "./patches.ts";
-import { realpathWithin } from "./paths.ts";
 import { buildPrompt, buildUnsentPrompt } from "./prompt.ts";
 import { renderFile } from "./render.ts";
 import { commonDirOf, type Repo, resolveRepoById, resolveRepoFromHeader } from "./repo.ts";
@@ -208,7 +206,7 @@ async function requestRepo(
 }
 
 // ---- health / bootstrap ----
-// Liveness + version only (no repo/nvim details — no client reads them). `version`
+// Liveness + version only (no repo details — no client reads them). `version`
 // lets the CLI detect daemon/client skew after a binary upgrade.
 app.get("/api/health", (c) => c.json({ ok: true, version: R3_VERSION }));
 
@@ -767,27 +765,6 @@ app.patch("/api/replies/:id", async (c) => {
   return rp ? c.json(rp) : c.text("not found", 404);
 });
 
-// ---- open-in-nvim (carry-over, same-origin guarded above) ----
-// The path is repo-relative; resolve it against the request's worktree (a
-// `?review=`/`?repo=` selector or the default repo) before driving nvim.
-app.post("/api/open", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  const path = String(body?.path ?? "");
-  const line = body?.line == null ? null : Number(body.line);
-  if (!nvimAvailable()) return c.text("nvim unavailable", 503);
-  const repo = await requestRepo(c);
-  if (!repo || repo.stale) return c.text("worktree unavailable", 409);
-  const abs = repo.safePath(path);
-  if (!abs) return c.text("bad path", 400);
-  // safePath is lexical; resolve symlinks and confirm the real target still lies
-  // within the worktree before driving the editor, so an in-repo symlink pointing
-  // outside the review root can't open a file elsewhere on disk (see paths.ts).
-  if (!realpathWithin(repo.worktreePath, abs)) return c.text("bad path", 400);
-  return openInNvim(abs, Number.isFinite(line) ? line : null)
-    ? c.json({ ok: true })
-    : c.text("open failed", 500);
-});
-
 // ---- live (SSE) ----
 app.get("/api/events", (c) => {
   const filter = c.req.query("review");
@@ -974,7 +951,6 @@ export async function startDaemon(): Promise<void> {
 
   console.log(`r3 daemon on ${ORIGIN}/  (v${R3_VERSION}, pid ${process.pid})`);
   console.log(`  token: ${TOKEN.slice(0, 8)}…  ·  bind: ${BIND}:${PORT}`);
-  console.log(`  nvim-open: ${nvimAvailable() ? "enabled" : "disabled (no nvim ancestor)"}`);
 }
 
 // Run when invoked directly (`bun server/index.ts`). When imported by the CLI to

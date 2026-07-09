@@ -175,8 +175,4 @@ export const api = {
   addReply: (feedbackId: string, body: AddReplyBody) =>
     req<{ reply: Reply; feedback: Feedback }>("POST", `/api/feedback/${feedbackId}/replies`, body),
   editReply: (id: string, body: UpdateReplyBody) => req<Reply>("PATCH", `/api/replies/${id}`, body),
-
-  // editor
-  openInEditor: (path: string, line: number | null, review?: string) =>
-    req<{ ok: true }>("POST", `/api/open${qs({ review })}`, { path, line }),
 };
