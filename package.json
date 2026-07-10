@@ -20,8 +20,8 @@
   "dependencies": {
     "@formkit/auto-animate": "^0.9.0",
     "@tanstack/react-virtual": "^3.14.5",
-    "hono": "^4.6.14",
-    "markdown-it": "^14.1.0",
+    "hono": "^4.12.28",
+    "markdown-it": "^14.3.0",
     "shiki": "^1.24.2"
   },
   "devDependencies": {
