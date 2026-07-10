@@ -64,19 +64,12 @@ your tool's equivalent), or just try it out by pasting it into a new session:
 
 ```md
 This project uses r3 for review. Run it with whichever of these you have:
-`npx @hyperlogue/r3`, `bunx @hyperlogue/r3`, or `nix run github:hyperlogue/r3 --`.
+`npx @hyperlogue/r3@latest`, `bunx @hyperlogue/r3@latest`, or `nix run github:hyperlogue/r3 --`.
 `r3 guide` will show how to use it.
 ```
 
-The first run installs a small prebuilt binary for your platform (as a per-platform
-npm package — no separate download step), so run it once yourself in a shell first:
-
-```sh
-npx @hyperlogue/r3    # installs the matching binary, then runs it
-```
-
 Then just ask: "put your changes up for review." Your agent runs
-`npx @hyperlogue/r3 create …`, shares the URL, and waits while you leave feedback in
+`npx @hyperlogue/r3@latest create …`, shares the URL, and waits while you leave feedback in
 the browser. The launcher lazily starts the web server on localhost and opens the
 review.
 
@@ -107,6 +100,15 @@ You rarely type the commands yourself — you ask your agent, and it runs the ri
 "Start a review with a scratch folder and put your draft design doc there."
   → adhoc scratch review with no git source
 ```
+
+To install `r3` permanently — a persistent command instead of `npx`/`bunx` each
+time — add `-g`:
+
+```sh
+npm install -g @hyperlogue/r3    # or: bun add -g @hyperlogue/r3
+```
+
+Then run `r3 …` from anywhere.
 
 ## Reviews
 
