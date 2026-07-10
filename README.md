@@ -21,6 +21,10 @@ Instead of working in a linear, unstructured chat stream, r3 works like the code
 review tools you're used to, but just for you and your agents, and it runs fully
 locally.
 
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/0c1aefaf-0229-49e7-a4dc-e660dc0214f6" width="760" muted controls></video>
+</div>
+
 ## Workflow
 
 The point of r3 is a tight, copy-paste-free review loop between you and an agent.
