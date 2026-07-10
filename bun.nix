@@ -481,6 +481,10 @@
     url = "https://registry.npmjs.org/@storybook/preview-api/-/preview-api-8.6.18.tgz";
     hash = "sha512-joXRXh3GdVvzhbfIgmix1xs90p8Q/nja7AhEAC2egn5Pl7SKsIYZUCYI6UdrQANb2myg9P552LKXfPect8llKg==";
   };
+  "@storybook/react-dom-shim@10.4.6" = fetchurl {
+    url = "https://registry.npmjs.org/@storybook/react-dom-shim/-/react-dom-shim-10.4.6.tgz";
+    hash = "sha512-iGNmKzrq9vgl2PDrYAnZKI+yvac3Ym+lJXXuQaqlFRS23zA5MNm4EBX+rAG7WulqchoK6NaZ0KQOs2mAgEpTMg==";
+  };
   "@storybook/react-dom-shim@8.6.14" = fetchurl {
     url = "https://registry.npmjs.org/@storybook/react-dom-shim/-/react-dom-shim-8.6.14.tgz";
     hash = "sha512-0hixr3dOy3f3M+HBofp3jtMQMS+sqzjKNgl7Arfuj3fvjmyXOks/yGjDImySR4imPtEllvPZfhiQNlejheaInw==";
@@ -492,6 +496,10 @@
   "@storybook/react-vite@8.6.18" = fetchurl {
     url = "https://registry.npmjs.org/@storybook/react-vite/-/react-vite-8.6.18.tgz";
     hash = "sha512-qpSYyH2IizlEsI95MJTdIL6xpLSgiNCMoJpHu+IEqLnyvmecRR/YEZvcHalgdtawuXlimH0bAYuwIu3l8Vo6FQ==";
+  };
+  "@storybook/react@10.4.6" = fetchurl {
+    url = "https://registry.npmjs.org/@storybook/react/-/react-10.4.6.tgz";
+    hash = "sha512-9Y7YecrVFe1/01KYjfOLxVqTg2Aq+IO6TEv6sC2U0PfD0AWCSCmQ91QqgBpN/XW4aFFWoiZNinyXMUlU8zxy2w==";
   };
   "@storybook/react@8.6.18" = fetchurl {
     url = "https://registry.npmjs.org/@storybook/react/-/react-8.6.18.tgz";
@@ -1380,6 +1388,10 @@
   "react-docgen@7.1.1" = fetchurl {
     url = "https://registry.npmjs.org/react-docgen/-/react-docgen-7.1.1.tgz";
     hash = "sha512-hlSJDQ2synMPKFZOsKo9Hi8WWZTC7POR8EmWvTSjow+VDgKzkmjQvFm2fk0tmRw+f0vTOIYKlarR0iL4996pdg==";
+  };
+  "react-docgen@8.0.3" = fetchurl {
+    url = "https://registry.npmjs.org/react-docgen/-/react-docgen-8.0.3.tgz";
+    hash = "sha512-aEZ9qP+/M+58x2qgfSFEWH1BxLyHe5+qkLNJOZQb5iGS017jpbRnoKhNRrXPeA6RfBrZO5wZrT9DMC1UqE1f1w==";
   };
   "react-dom@19.2.7" = fetchurl {
     url = "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz";
