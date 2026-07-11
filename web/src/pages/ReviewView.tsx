@@ -53,6 +53,11 @@ import {
 // reading context above it.
 const SCROLL_RATIO = 0.3;
 
+// FileCard's sticky header (h-8 = 32px) overlays the top of the scroll pane, so
+// a row in that band sits inside the pane's box but is visually covered — the
+// anchor-in-view test treats it as off screen.
+const STICKY_HEADER_PX = 32;
+
 // A files review's derived snapshot-diff is rendered through DiffView as a single
 // synthetic round; this is its [data-round] seq. Feedback in a files review keeps
 // patch_seq null (it isn't scoped to a round), so this only scopes the DOM query
@@ -67,7 +72,9 @@ const SNAPSHOT_DIFF_SEQ = 0;
 // ONLY when `fbId` or `scrollNonce` differs from the previous run — the human
 // clicked a feedback, or re-clicked locate. A background anchor shift (server
 // re-anchor → new line_start, or a diff-placement move) re-rings in place without
-// yanking the pane.
+// yanking the pane. Even a navigation skips the scroll when the anchored rows are
+// already fully on screen — saving a note on the selection under your eyes (or
+// locating a visible line) rings in place instead of re-seating the pane.
 function useActiveLineHighlight(
   scope: React.RefObject<HTMLElement | null>,
   fb: FeedbackWithReplies | null,
@@ -108,8 +115,12 @@ function useActiveLineHighlight(
       let raf = requestAnimationFrame(function toFile() {
         const el = root.querySelector(`${scopeSel}[data-file="${CSS.escape(file)}"]`);
         if (el) {
-          const offset = el.getBoundingClientRect().top - root.getBoundingClientRect().top;
-          root.scrollTo({ top: root.scrollTop + offset - 8, behavior: "smooth" });
+          const p = root.getBoundingClientRect();
+          const r = el.getBoundingClientRect();
+          // The note covers the whole file — any part of it already on screen
+          // means the target is in view; don't yank the pane to its header.
+          if (r.bottom > p.top && r.top < p.bottom) return;
+          root.scrollTo({ top: root.scrollTop + r.top - p.top - 8, behavior: "smooth" });
           return;
         }
         if (++tries > 60) return;
@@ -123,13 +134,51 @@ function useActiveLineHighlight(
     // (files review / legacy) falls back to the first match = the first round.
     const scopeSel = patchSeq != null ? `[data-round="${patchSeq}"] ` : "";
     const scrollKey = fileScrollKey(patchSeq, file);
+    // A navigation to an anchor that's already fully on screen (minus the
+    // sticky-header band) skips the scroll — the ring alone marks it. Rows
+    // resolve only when mounted, so a virtualized-away or folded target reports
+    // not-visible and scrolls as before.
+    const anchorInView = (): boolean => {
+      const fileEl = root.querySelector(`${scopeSel}[data-file="${CSS.escape(file)}"]`);
+      if (!fileEl) return false;
+      const row = (n: number) =>
+        side
+          ? fileEl.querySelector(`[data-line="${n}"][data-side="${side}"]`)
+          : fileEl.querySelector(`[data-line="${n}"]`);
+      let head: Element | Range | null = row(lineStart);
+      let tail: Element | Range | null =
+        lineEnd == null || lineEnd === lineStart ? head : row(lineEnd);
+      // Rendered markdown has no per-line rows — measure the quoted text when
+      // findable (the enclosing block is far wider than the anchor), else the
+      // containing block, mirroring mark()'s resolution below.
+      if (!head || !tail) {
+        const end = lineEnd ?? lineStart;
+        let block: Element | null = null;
+        for (const el of fileEl.querySelectorAll("[data-line-start]")) {
+          const bs = Number(el.getAttribute("data-line-start"));
+          const be = Number(el.getAttribute("data-line-end") ?? bs);
+          if (bs <= end && be >= lineStart) {
+            block = el;
+            break;
+          }
+        }
+        if (!block) return false;
+        head = tail = (quote ? rangeForQuote(block, quote) : null) ?? block;
+      }
+      const p = root.getBoundingClientRect();
+      return (
+        head.getBoundingClientRect().top >= p.top + STICKY_HEADER_PX &&
+        tail.getBoundingClientRect().bottom <= p.bottom
+      );
+    };
+    const doScroll = shouldScroll && !anchorInView();
     // If the file is virtualized, scroll the anchor line on screen first — the
     // row is otherwise unmounted and no querySelector below would find it. The
     // virtualizer owns the scroll then (returns true); a short file / rendered
     // markdown returns false and we scroll to the row ourselves. A folded file
     // that locateFeedback just told to open registers a frame or two late, so
     // the retry below keeps re-issuing this until it takes. Only when scrolling.
-    let scrolled = shouldScroll && scrollToLine(scrollKey, lineStart, side, { align: "center" });
+    let scrolled = doScroll && scrollToLine(scrollKey, lineStart, side, { align: "center" });
 
     // Mark the anchored rows/block and return the first (or null if not yet
     // mounted). Re-runnable so we can retry until the virtualizer mounts the row.
@@ -175,7 +224,7 @@ function useActiveLineHighlight(
       if (!first) return false;
       // Bring the row into view only on a navigation, and only when the
       // virtualizer didn't already own the jump (a plain / folded / markdown file).
-      if (shouldScroll && !scrolled) {
+      if (doScroll && !scrolled) {
         const offset = first.getBoundingClientRect().top - root.getBoundingClientRect().top;
         root.scrollTo({
           top: root.scrollTop + offset - root.clientHeight * SCROLL_RATIO,
@@ -198,9 +247,9 @@ function useActiveLineHighlight(
     let tries = 0;
     let foundAt = -1;
     let raf = requestAnimationFrame(function retry() {
-      if (shouldScroll) scrolled = scrollToLine(scrollKey, lineStart, side) || scrolled;
+      if (doScroll) scrolled = scrollToLine(scrollKey, lineStart, side) || scrolled;
       if (mark() && foundAt < 0) foundAt = tries;
-      if (foundAt >= 0 && (!shouldScroll || !scrolled || tries - foundAt > 15)) return;
+      if (foundAt >= 0 && (!doScroll || !scrolled || tries - foundAt > 15)) return;
       if (++tries > 60) return;
       raf = requestAnimationFrame(retry);
     });
