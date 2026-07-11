@@ -62,14 +62,23 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Active tab, no composer open. Every card shows the steady Resolve · ⋯ · Reply
-// action row (the composer stays hidden until "Reply" is clicked). Shows the
-// range of states: an anchored open item, an outdated one (amber ⚠ prefixing the
-// file name), an accepted+already-sent item whose thread
-// folds to its last two (the thread flows straight on from the body — agent
-// replies get a soft blue tinted fill, human replies render as plain prose like
-// the body), a refuted item, and a general note. "Copy prompt" is enabled —
-// the unsent items still have content.
+// action row (the composer stays hidden until "Reply" is clicked). Attention-first
+// ordering: the two "your turn" cards (agent replied last) — the outdated one
+// (amber ⚠ prefixing the file name) and the refuted one — float to the top, each
+// marked with the primary "your turn" dot in the header's right corner, above a
+// muted "no response needed" divider. Below it the rest recede (an open item, the
+// accepted+already-sent long thread whose replies fold to the last two — agent
+// replies get a soft blue tinted fill, human replies render as plain prose — plus
+// the general/whole-file/summary notes). "Copy prompt" is enabled — the unsent
+// items still have content.
 export const Default: Story = {};
+
+// The attention split on its own: cards where the agent had the last word rank to
+// the top with the "your turn" dot; the "no response needed" divider separates them
+// from the rest (your open notes + human-last-reply threads), which recede below.
+// Replying to a top card (you get the last word) or resolving it sinks it past the
+// divider; a fresh agent reply raises a card back up.
+export const AttentionOrdering: Story = {};
 
 // A card made active (amber left rail + faint wash) with its reply composer opened via a click on
 // "Reply" (the composer is local state, not driven by activeFeedbackId). Its ⋯

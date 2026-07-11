@@ -52,7 +52,16 @@ const prefersReduced = () =>
 // overflow-x-hidden), fading as it goes; the rest FLIP into their new slots.
 const feedbackAnimation: AutoAnimationPlugin = (el, action, a, b) => {
   const reduce = prefersReduced();
+  // The zone divider ("no response needed") between the attention groups isn't a
+  // card — fade it in/out in place instead of the card's rise-in / slide-off-right.
+  const isDivider = el instanceof HTMLElement && el.dataset.zoneDivider != null;
   if (action === "add") {
+    if (isDivider) {
+      return new KeyframeEffect(el, [{ opacity: 0 }, { opacity: 1 }], {
+        duration: reduce ? 0 : 200,
+        easing: "ease-out",
+      });
+    }
     // Fade fast (opacity done by offset 0.3) while the translateY glides the whole
     // (longer) duration — the fade is much quicker than the rise. Opacity +
     // translateY only, so the block never scales or resizes.
@@ -67,6 +76,12 @@ const feedbackAnimation: AutoAnimationPlugin = (el, action, a, b) => {
     );
   }
   if (action === "remove") {
+    if (isDivider) {
+      return new KeyframeEffect(el, [{ opacity: 1 }, { opacity: 0 }], {
+        duration: reduce ? 0 : 150,
+        easing: "ease-in",
+      });
+    }
     // Straight right, Y locked to 0 — an explicit 2D translate (not translateX) so
     // there is no chance of a stray vertical component — fading as it exits.
     return new KeyframeEffect(
@@ -214,6 +229,15 @@ function locLabel(fb: FeedbackWithReplies): string {
       ? `L${fb.line_start}-${fb.line_end}`
       : `L${fb.line_start}`;
   return `${round}${fb.file.split("/").pop()}:${range}`;
+}
+
+// A feedback "needs you" when the agent had the last word and it isn't resolved —
+// the same turn boundary that gates Edit (canEdit below). Drives the attention-
+// first ordering of the active list and the per-card unread dot: once you reply
+// (you get the last word) or resolve it, it drops out of the attention zone.
+function needsAttention(fb: FeedbackWithReplies): boolean {
+  if (fb.status === "resolved") return false;
+  return (fb.replies.at(-1)?.author ?? fb.author) === "agent";
 }
 
 // The "pending input" look shared by the new-feedback composer and the per-card
@@ -631,6 +655,10 @@ function FeedbackCard({
   const lastReply = fb.replies.at(-1) ?? null;
   const lastAuthor: Author = lastReply?.author ?? fb.author;
   const canEdit = lastAuthor === "human";
+  // "Your turn": the agent had the last word (the mirror of canEdit) and it isn't
+  // resolved — surfaced as an unread-style dot in the header, and what floats this
+  // card into the attention zone at the top of the active list.
+  const awaitingYou = needsAttention(fb);
   // Either the body or the last human reply is edited at a time; `editText` is the
   // shared buffer and the bottom action row drives Save/Cancel for whichever is live.
   const isEditing = editing || editingReplyId != null;
@@ -821,6 +849,17 @@ function FeedbackCard({
             )}
           >
             {statusLabel}
+          </span>
+        )}
+        {/* "Your turn" dot — an unread-style marker pinned to the header's right
+            edge (top-right of the card) when the agent replied last. It takes the
+            ml-auto only when no decision word already pushed itself right. */}
+        {awaitingYou && (
+          <span
+            title="The agent replied — your turn."
+            className={cn("flex shrink-0 items-center", !statusLabel && "ml-auto")}
+          >
+            <span className="block size-2 rounded-full bg-primary-500 dark:bg-primary-400" />
           </span>
         )}
       </div>
@@ -1202,6 +1241,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     optimistic && !detail.feedback.some((f) => f.id === optimistic.id)
       ? [...activeReal, optimistic]
       : activeReal;
+  // Attention-first ordering within the Active tab: cards where the agent had the
+  // last word ("your turn") float above the rest, each group keeping its created_at
+  // order — a *stable* partition, so a card moves only when its turn actually flips
+  // (reply/resolve sinks it; an agent reply raises it), which the list's
+  // auto-animate then FLIPs. Nothing is hidden: the two tabs stay the clean
+  // active/resolved split — this only ranks within Active. A "no response needed"
+  // divider (below) sits between the groups when both are non-empty.
+  const attention = active.filter(needsAttention);
+  const rest = active.filter((f) => !needsAttention(f));
+  const ordered = [...attention, ...rest];
 
   // Once the real review row for the optimistic card lands, drop the local copy;
   // the server row takes its slot under the same key (no remount, no flicker).
@@ -1230,11 +1279,11 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // pass keeps moving, instead of trailing the resolved item over to the
   // Resolved tab. Take the item that slides into the resolved one's slot; if it
   // was last, fall back to the new last; if nothing's left, focus nothing.
-  // Computed off this render's pre-resolve `active` list (which still includes
-  // the item being resolved).
+  // Computed off this render's pre-resolve `ordered` list (the displayed,
+  // attention-first order — which still includes the item being resolved).
   const advanceAfterResolve = (resolvedId: string) => {
-    const idx = active.findIndex((f) => f.id === resolvedId);
-    const remaining = active.filter((f) => f.id !== resolvedId);
+    const idx = ordered.findIndex((f) => f.id === resolvedId);
+    const remaining = ordered.filter((f) => f.id !== resolvedId);
     onLocateFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
   };
 
@@ -1278,7 +1327,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // list (its refetch is still in flight), so the card above it later drops out and
   // the target shifts up — a scroll fired now would land stale. Keying on
   // `activeIds` re-scrolls once that reflow lands, so the target ends up aligned.
-  const activeIds = active.map((f) => f.id).join(",");
+  const activeIds = ordered.map((f) => f.id).join(",");
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run after a tab switch or list reflow (re)renders the card, and on scrollNonce
   useEffect(() => {
     if (!activeFeedbackId) return;
@@ -1549,7 +1598,38 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 Select text — or click a line number — in the diff or files to leave feedback.
               </p>
               <div ref={listAnim}>
-                {active.map((fb) => (
+                {attention.map((fb) => (
+                  <FeedbackCard
+                    key={fb.id}
+                    fb={fb}
+                    reviewId={detail.id}
+                    isActive={fb.id === activeFeedbackId}
+                    onLocate={() => onLocateFeedback(fb)}
+                    onLocatePin={onLocatePin}
+                    onResolved={() => advanceAfterResolve(fb.id)}
+                  />
+                ))}
+                {/* Zone divider between the "your turn" cards and the rest — only
+                    when both groups exist. Fades in place (not slid off) via the
+                    data-zone-divider case in feedbackAnimation. The label speaks
+                    only to the response axis ("no response needed"): the group
+                    below is heterogeneous (your own unsent notes, items sent and
+                    awaiting the agent, threads you already replied to), so it is
+                    NOT uniformly "waiting on agent" — the one true thing is that no
+                    agent message there is sitting unanswered by you. */}
+                {attention.length > 0 && rest.length > 0 && (
+                  // The last attention card's own border-b-2 draws the separating
+                  // line; this is just the section label below it — no flanking
+                  // rules, so the two don't stack into a double line.
+                  <div
+                    key="zone-divider"
+                    data-zone-divider
+                    className="select-none px-3 py-1.5 text-center text-[0.625rem] font-medium tracking-wide text-neutral-400 uppercase dark:text-neutral-500"
+                  >
+                    no response needed
+                  </div>
+                )}
+                {rest.map((fb) => (
                   <FeedbackCard
                     key={fb.id}
                     fb={fb}
