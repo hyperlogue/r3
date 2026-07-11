@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode, RefObject } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
+import { useAutoGrow } from "../autogrow.ts";
 import { copyText } from "../clipboard.ts";
 import {
   clearGeneral,
@@ -222,8 +223,10 @@ function locLabel(fb: FeedbackWithReplies): string {
 // primary on focus. The caller supplies the full-bleed width (a self `-mx-3` for
 // the composer; the reply box's Collapse wrapper carries it, since that wrapper's
 // overflow-hidden would otherwise clip a margin on the textarea itself).
+// The height is driven inline by useAutoGrow (autogrow.ts) — the box grows with
+// its text up to a line cap, then scrolls — so the transition animates each step.
 const PENDING_INPUT =
-  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
+  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-[height] duration-150 ease-out placeholder:text-neutral-400 focus:border-primary-400 motion-reduce:transition-none dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
 // The shared composer shell for both the anchored draft (NewFeedback) and the
 // general note (GeneralFeedback): the primary-rail block, a header (label slot +
@@ -261,6 +264,7 @@ function ComposerBlock({
   // Picking a line range while the note already has text drops an `@path:Lx-y`
   // mention (mention.ts) rather than re-pointing/starting an anchored draft.
   const mention = useMentionTarget(textareaRef, value, onChange);
+  const growRef = useAutoGrow(textareaRef, value, 3);
   return (
     // Embedded-block style shared with the saved feedback blocks: flush to the
     // panel (no rounded box, no tinted fill) with a primary left rail marking the
@@ -290,7 +294,7 @@ function ComposerBlock({
         </pre>
       )}
       <textarea
-        ref={textareaRef}
+        ref={growRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={mention.onFocus}
@@ -302,8 +306,9 @@ function ComposerBlock({
         // biome-ignore lint/a11y/noAutofocus: composers open on an explicit user action (click / range select)
         autoFocus={autoFocus}
         // Full-bleed to the block's edges (-mx-3 cancels the p-3), so the input
-        // reads as an embedded band rather than a boxed widget.
-        className={cn("-mx-3 h-20 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
+        // reads as an embedded band rather than a boxed widget. Height is
+        // auto-grown from useAutoGrow above (no fixed h-*).
+        className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
       />
       <div className="mt-3 flex justify-end gap-1.5">
         <Button variant="ghost" onClick={onClose}>
@@ -509,6 +514,8 @@ function ReplyBlock({
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
 }) {
   const isAgent = rp.author === "agent";
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  const editGrowRef = useAutoGrow(editRef, editValue, 3);
   return (
     <div
       title={rp.action ? `${rp.author} · ${rp.action}` : rp.author}
@@ -523,6 +530,7 @@ function ReplyBlock({
       )}
       {editing ? (
         <textarea
+          ref={editGrowRef}
           value={editValue}
           onChange={(e) => onEditChange(e.target.value)}
           onKeyDown={(e) => {
@@ -533,8 +541,8 @@ function ReplyBlock({
           autoFocus
           // Full-bleed band (matches the composer / reply box), not a boxed
           // widget: -mx-3 cancels the card's p-3 so it spans edge to edge. Save/Cancel
-          // live in the card's bottom action row, not here.
-          className={cn("-mx-3 h-24 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
+          // live in the card's bottom action row, not here. Height auto-grows.
+          className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
         />
       ) : (
         // First-class content — same size as the feedback body and the file view.
@@ -609,6 +617,12 @@ function FeedbackCard({
   // Picking a line range while this reply has text references it as an
   // `@path:Lx-y` mention rather than starting a new anchored draft (mention.ts).
   const mention = useMentionTarget(replyRef, reply, setReply);
+  const replyGrowRef = useAutoGrow(replyRef, reply, 2);
+  // The body/reply editors reuse the same grow behaviour; the editor mounts only
+  // while editing, so the callback ref sizes it to the existing text on the first
+  // frame (a long body opens already-expanded, not clipped to the min).
+  const editBodyRef = useRef<HTMLTextAreaElement>(null);
+  const editBodyGrowRef = useAutoGrow(editBodyRef, editText, 3);
 
   // Edit targets the *last thing the human wrote* — their last reply, or the
   // feedback body if no one has replied. It's disabled once the agent has the last
@@ -841,6 +855,7 @@ function FeedbackCard({
 
       {editing ? (
         <textarea
+          ref={editBodyGrowRef}
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
           onKeyDown={(e) => {
@@ -851,8 +866,8 @@ function FeedbackCard({
           autoFocus
           // Full-bleed band (matches the composer / reply box), not a boxed
           // widget: -mx-3 cancels the card's p-3 so it spans edge to edge. Save/Cancel
-          // live in the bottom action row.
-          className={cn("-mx-3 h-24 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
+          // live in the bottom action row. Height auto-grows (no fixed h-*).
+          className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
         />
       ) : (
         // The body is the headline of the card — a notch larger than everything
@@ -929,8 +944,7 @@ function FeedbackCard({
           while an edit is in progress so only the editor shows (draft is kept). */}
       <Collapse open={replyOpen && !isEditing} className="-mx-3">
         <textarea
-          ref={replyRef}
-          rows={2}
+          ref={replyGrowRef}
           value={reply}
           onChange={(e) => setReply(e.target.value)}
           onFocus={mention.onFocus}

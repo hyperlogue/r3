@@ -166,6 +166,27 @@ export const UnsavedDraftWatching: Story = {
   parameters: { queryData: [[WATCHERS_KEY, watching]] },
 };
 
+// The composer auto-grows with its text (autogrow.ts): a multi-line draft opens
+// already expanded to fit rather than clipped to the short default. Past ~10
+// lines it stops growing and scrolls instead — the tall band here sits just under
+// that cap.
+export const GrownComposer: Story = {
+  args: { pending: pendingAnchor },
+  decorators: [
+    withAnchoredDraft(
+      [
+        "The retry loop here re-opens the connection on every attempt, which",
+        "defeats the WAL — each new handle starts a fresh transaction and can't",
+        "see the checkpoint the previous attempt wrote.",
+        "",
+        "Two options:",
+        "  1. hoist the open() out of the loop, or",
+        "  2. pass the existing handle down so retries share it.",
+      ].join("\n"),
+    ),
+  ],
+};
+
 // Clicking a card's file:line path highlights it (amber left rail + faint wash) and scrolls the
 // diff/files pane to the anchored line.
 export const ActiveCard: Story = {
