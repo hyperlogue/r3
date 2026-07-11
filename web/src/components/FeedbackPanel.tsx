@@ -248,9 +248,9 @@ function needsAttention(fb: FeedbackWithReplies): boolean {
 // the composer; the reply box's Collapse wrapper carries it, since that wrapper's
 // overflow-hidden would otherwise clip a margin on the textarea itself).
 // The height is driven inline by useAutoGrow (autogrow.ts) — the box grows with
-// its text up to a line cap, then scrolls — so the transition animates each step.
+// its text up to a line cap, then scrolls.
 const PENDING_INPUT =
-  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-[height] duration-150 ease-out placeholder:text-neutral-400 focus:border-primary-400 motion-reduce:transition-none dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
+  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
 // The shared composer shell for both the anchored draft (NewFeedback) and the
 // general note (GeneralFeedback): the primary-rail block, a header (label slot +
