@@ -60,7 +60,7 @@ function RangeChip({
       onClick={onClick}
       title={title ?? `Set ${label.toLowerCase()} to this version`}
       className={cn(
-        "inline-flex w-10 shrink-0 cursor-pointer items-center justify-center rounded py-0.5 text-[0.625rem] font-semibold leading-none transition-colors",
+        "inline-flex w-11 shrink-0 cursor-pointer items-center justify-center rounded py-0.5 text-[0.625rem] font-semibold leading-none transition-colors",
         active
           ? "bg-primary-600 text-white"
           : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200 dark:bg-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-500",
@@ -76,7 +76,7 @@ function RangeChip({
 // from..to span, gray otherwise.
 function dividerClass(selected: boolean): string {
   return cn(
-    "-my-1 w-[2px] shrink-0 self-stretch",
+    "-my-1.5 w-[2px] shrink-0 self-stretch",
     selected ? "bg-primary-500" : "bg-neutral-400 dark:bg-neutral-600",
   );
 }
@@ -185,7 +185,7 @@ export function SnapshotSelect({
       <div
         inert={!open}
         className={cn(
-          "absolute top-full right-0 z-50 max-h-80 min-w-[15rem] max-w-[22rem] overflow-y-auto bg-white shadow-2xl transition-[opacity,transform] duration-150 ease-out dark:bg-neutral-700",
+          "absolute top-full right-0 z-50 max-h-80 min-w-[17rem] max-w-[24rem] overflow-y-auto bg-white shadow-2xl transition-[opacity,transform] duration-150 ease-out dark:bg-neutral-700",
           open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         )}
       >
@@ -203,9 +203,9 @@ export function SnapshotSelect({
           return (
             <div
               key={v.kind === "current" ? "current" : `v${v.seq}`}
-              className="flex items-center gap-1.5 py-1 pr-2.5 pl-2 text-xs transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-600/60"
+              className="flex items-center gap-2 py-1.5 pr-3 pl-2.5 text-xs transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-600/60"
             >
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1.5">
                 {v.kind === "snap" ? (
                   <RangeChip
                     label="From"
@@ -217,7 +217,7 @@ export function SnapshotSelect({
                   />
                 ) : (
                   // Current can't be a diff `from`; keep the to column aligned.
-                  <span className="w-10 shrink-0" />
+                  <span className="w-11 shrink-0" />
                 )}
                 <RangeChip
                   label="To"
@@ -245,7 +245,7 @@ export function SnapshotSelect({
                     // A small pill outline tags the numbered snapshot versions
                     // (v1, v2, …); Current/None read as plain labels.
                     v.kind === "snap" &&
-                      "rounded border border-neutral-300 bg-neutral-100 px-1 py-px dark:border-neutral-600 dark:bg-neutral-800",
+                      "rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 dark:border-neutral-600 dark:bg-neutral-800",
                   )}
                 >
                   {vName(v)}
@@ -263,8 +263,8 @@ export function SnapshotSelect({
             chip that clears the lower bound (from = None → a plain, no-diff view
             of `to`). None is never a `to` (the target is always a version or
             Current), so its to column is a spacer. */}
-        <div className="flex items-center gap-1.5 py-1 pr-2.5 pl-2 text-xs transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-600/60">
-          <div className="flex shrink-0 items-center gap-1">
+        <div className="flex items-center gap-2 py-1.5 pr-3 pl-2.5 text-xs transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-600/60">
+          <div className="flex shrink-0 items-center gap-1.5">
             <RangeChip
               label="From"
               active={from == null}
@@ -274,7 +274,7 @@ export function SnapshotSelect({
                 onFromChange(null);
               }}
             />
-            <span className="w-10 shrink-0" />
+            <span className="w-11 shrink-0" />
           </div>
           {/* None is in range whenever it's the picked lower bound (from=None). */}
           <span aria-hidden="true" className={dividerClass(from == null)} />
