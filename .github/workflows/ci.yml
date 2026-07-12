@@ -2,8 +2,8 @@ name: CI
 
 # Fast checks on every PR and every push to main: typecheck + lint/format + a
 # single-target build smoke. This is the gate to require as a status check on
-# `main`; the full 4-target cross-compile is deliberately left to release.yml /
-# nightly.yml so PRs stay quick.
+# `main`; the full 4-target cross-compile is deliberately left to release.yml so
+# PRs stay quick.
 on:
   pull_request:
   push:
