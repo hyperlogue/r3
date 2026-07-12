@@ -100,21 +100,27 @@ export function useQuoteBubble(
       const r = range.getBoundingClientRect();
       setPos({ left: r.left + r.width / 2, top: r.top, text });
     };
+    scope.addEventListener("mouseup", onMouseUp);
+    return () => scope.removeEventListener("mouseup", onMouseUp);
+  }, [scopeRef, isEligible]);
+  // The global dismiss listeners attach only while a bubble is up: every feedback
+  // card runs this hook, so idle cards must cost zero document/scroll listeners
+  // (N cards would otherwise each re-check the selection on every caret move).
+  useEffect(() => {
+    if (!pos) return;
     const onSelChange = () => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) setPos(null);
     };
-    const sp = scrollParent(scope);
+    const sp = scopeRef.current ? scrollParent(scopeRef.current) : null;
     const onScroll = () => setPos(null);
-    scope.addEventListener("mouseup", onMouseUp);
     document.addEventListener("selectionchange", onSelChange);
     sp?.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      scope.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("selectionchange", onSelChange);
       sp?.removeEventListener("scroll", onScroll);
     };
-  }, [scopeRef, isEligible]);
+  }, [pos, scopeRef]);
   return { pos, hide };
 }
 
