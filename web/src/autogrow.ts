@@ -28,7 +28,7 @@ function fit(el: HTMLTextAreaElement, minRows: number, maxRows: number): void {
 // appearing — is correct on the first frame) and re-measures on width changes
 // (panel resize) via a ResizeObserver that ignores our own height writes. The
 // passed `ref` object is kept in sync for the callers that read it (focus,
-// mention wiring). Value changes are handled by a layout effect below.
+// caret placement). Value changes are handled by a layout effect below.
 export function useAutoGrow(
   ref: RefObject<HTMLTextAreaElement | null>,
   value: string,
