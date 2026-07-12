@@ -17,7 +17,7 @@ import MarkdownIt from "markdown-it";
 
 const md = new MarkdownIt({
   html: false,
-  // Auto-link bare URLs (safe markdown convenience). Our @ref rule runs during
+  // Auto-link URLs (safe markdown convenience). Our @ref rule runs during
   // inline tokenization, before linkify's text-token pass, so a ref is already
   // its own token and linkify never sees it.
   linkify: true,
@@ -25,6 +25,11 @@ const md = new MarkdownIt({
   // had before — agent replies rely on single-newline line breaks reading as breaks.
   breaks: true,
 });
+// Scheme-required auto-linking only: linkify's fuzzy mode would turn any bare
+// filename whose extension doubles as a TLD — README.md, setup.py, build.sh —
+// into an external http:// link, and code-adjacent prose is full of those. An
+// explicit http(s):// URL still links; bare domains and emails stay plain text.
+md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
 
 // The `@path:Lx[-y]` reference token (matches the agent-authored syntax; see the
 // CLI guide). Path is a run of path-ish characters; the line range is required so
@@ -62,8 +67,10 @@ md.inline.ruler.before("emphasis", "r3ref", (state, silent) => {
 md.renderer.rules.r3ref = (tokens, idx) => {
   const t = tokens[idx];
   const { file, start, end } = t.meta as { file: string; start: string; end: string };
+  // href="#" puts the ref in the tab order (an href-less <a> isn't focusable), so
+  // Enter fires the delegated click; MessageProse always preventDefaults it.
   return (
-    `<a class="r3-ref" data-r3-ref-file="${escapeHtml(file)}"` +
+    `<a class="r3-ref" href="#" data-r3-ref-file="${escapeHtml(file)}"` +
     ` data-r3-ref-start="${start}" data-r3-ref-end="${end}"` +
     ` title="Jump to ${escapeHtml(file)}:L${start}${end !== start ? `-${end}` : ""}">` +
     `${escapeHtml(t.content)}</a>`
