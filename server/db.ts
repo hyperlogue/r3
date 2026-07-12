@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS replies (
   line_end    INTEGER,
   quote       TEXT,
   created_at  TEXT NOT NULL,
-  sent_at     TEXT
+  sent_at     TEXT,
+  ref_version INTEGER
 );
 CREATE TABLE IF NOT EXISTS patches (
   review_id   TEXT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
@@ -167,6 +168,11 @@ if (!hasColumn("patches", "summary")) db.exec("ALTER TABLE patches ADD COLUMN su
 // upgrade everything counts as unsent once (a one-time re-send bootstrap).
 if (!hasColumn("feedback", "sent_at")) db.exec("ALTER TABLE feedback ADD COLUMN sent_at TEXT");
 if (!hasColumn("replies", "sent_at")) db.exec("ALTER TABLE replies ADD COLUMN sent_at TEXT");
+// The version an agent reply's inline `@path:Lx-y` refs resolve against — the
+// latest round (diff) / snapshot (files) at post time. Nullable; legacy replies
+// migrate to NULL (their refs, if any, resolve live/best-effort).
+if (!hasColumn("replies", "ref_version"))
+  db.exec("ALTER TABLE replies ADD COLUMN ref_version INTEGER");
 // Snapshot "present but non-diffable" marker: a file that exists at
 // capture time but is binary/oversize is stored as a marker row (content='',
 // skipped=1) instead of being omitted, so the derived diff renders it as a binary
@@ -702,6 +708,8 @@ export function createReply(
     line_start?: number | null;
     line_end?: number | null;
     quote?: string | null;
+    // Version the reply's inline `@path:Lx-y` refs resolve against (round/snapshot).
+    ref_version?: number | null;
   },
 ): Reply {
   const ts = nowIso();
@@ -709,8 +717,8 @@ export function createReply(
   // insertWithMintedId) so a clash re-mints rather than 500s + drops the reply.
   const id = insertWithMintedId(newReplyId, (id) => {
     db.query(
-      `INSERT INTO replies (id, feedback_id, author, action, body, patch_seq, file, line_start, line_end, quote, created_at)
-       VALUES ($id, $fid, $author, $action, $body, $patch_seq, $file, $ls, $le, $quote, $ts)`,
+      `INSERT INTO replies (id, feedback_id, author, action, body, patch_seq, file, line_start, line_end, quote, ref_version, created_at)
+       VALUES ($id, $fid, $author, $action, $body, $patch_seq, $file, $ls, $le, $quote, $ref_version, $ts)`,
     ).run({
       $id: id,
       $fid: feedbackId,
@@ -722,6 +730,7 @@ export function createReply(
       $ls: input.line_start ?? null,
       $le: input.line_end ?? null,
       $quote: input.quote ?? null,
+      $ref_version: input.ref_version ?? null,
       $ts: ts,
     });
     return id;

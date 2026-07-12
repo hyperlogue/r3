@@ -382,6 +382,64 @@ html.dark .r3-markdown a {
   scroll-margin-top: 4rem;
 }
 
+/* Compact message prose — feedback bodies + replies in the panel. Reuses the
+   .r3-markdown styling above but tightens the block rhythm and trims the outer
+   margins so a rendered message sits flush in its card like the plain text it
+   replaced (no leading/trailing gap from the first <p>'s / last block's margin). */
+.r3-msg {
+  line-height: 1.55;
+}
+.r3-msg > :first-child {
+  margin-top: 0;
+}
+.r3-msg > :last-child {
+  margin-bottom: 0;
+}
+.r3-msg p,
+.r3-msg ul,
+.r3-msg ol,
+.r3-msg blockquote,
+.r3-msg pre,
+.r3-msg table {
+  margin: 0.45em 0;
+}
+.r3-msg h1,
+.r3-msg h2,
+.r3-msg h3 {
+  margin: 0.6em 0 0.3em;
+}
+/* Headings in a short message shouldn't balloon — cap them near body size. */
+.r3-msg h1 {
+  font-size: 1.25em;
+}
+.r3-msg h2 {
+  font-size: 1.15em;
+}
+.r3-msg h3 {
+  font-size: 1.05em;
+}
+
+/* An `@path:Lx-y` code reference (agent-authored; markdown.ts) rendered as a
+   click-to-jump link. Reads as a compact monospace chip, tinted primary, so it's
+   visibly a location pointer rather than an external link. */
+.r3-ref {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--color-primary-700);
+  background: color-mix(in srgb, var(--color-primary-500) 12%, transparent);
+  border-radius: 4px;
+  padding: 0.05em 0.3em;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.r3-ref:hover {
+  background: color-mix(in srgb, var(--color-primary-500) 22%, transparent);
+}
+html.dark .r3-ref {
+  color: var(--color-primary-300);
+}
+
 /* A short fade + slight upward slide, played on mount — used to animate the
    feedback panel's list when the Active/Resolved filter switches (the switched-in
    list is re-keyed, so it remounts and replays this). A plain author class (not a

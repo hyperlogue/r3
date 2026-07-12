@@ -368,6 +368,7 @@ const rp = (over: Partial<Reply> & Pick<Reply, "id" | "feedback_id" | "body">): 
   quote: null,
   created_at: ISO,
   sent_at: null,
+  ref_version: null,
   ...over,
 });
 
@@ -396,7 +397,11 @@ export const reviewDetail: ReviewDetail = {
   feedback: [
     fb({
       id: "feedback_pragma",
-      body: "Add a trailing semicolon and enable foreign keys in the same pragma block.",
+      body:
+        "Add a trailing semicolon and enable `foreign_keys` in the **same** pragma block:\n\n" +
+        "- keeps the two PRAGMAs atomic\n" +
+        "- avoids a second `db.exec` round-trip\n\n" +
+        "See @server/db.ts:L11-12 for where it lands.",
       quote: 'db.exec("PRAGMA journal_mode = WAL");',
       line_start: 11,
       line_end: 11,
@@ -466,11 +471,14 @@ export const reviewDetail: ReviewDetail = {
           sent_at: SENT_ISO,
           body:
             "Yes. The busy_timeout is set in the same pragma block, right after journal_mode, so " +
-            "both apply before the first statement. Landed in round 2.",
+            "both apply before the first statement. Landed in round 2 — see " +
+            '@server/db.ts:L13.\n\n```ts\ndb.exec("PRAGMA busy_timeout = 5000;");\n```',
           patch_seq: 2,
           file: "server/db.ts",
           line_start: 13,
           line_end: 13,
+          // Inline @refs in this reply resolve against round 2 (captured at post time).
+          ref_version: 2,
         }),
         // The one unsent turn: a human follow-up posted after the last hand-off.
         rp({

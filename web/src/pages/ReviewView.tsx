@@ -15,10 +15,19 @@ import { FeedbackPanel } from "../components/FeedbackPanel.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { FileView } from "../components/FileView.tsx";
+import { QuoteBubble, type QuotePos, quoteBlock } from "../components/Message.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
-import { clearDraft, dropAnchor, getDraft, setDraftAnchor, useDraftAnchor } from "../drafts.ts";
+import {
+  clearDraft,
+  dropAnchor,
+  getDraft,
+  setDraftAnchor,
+  setDraftText,
+  useDraftAnchor,
+} from "../drafts.ts";
 import { shortSha, sourceLabel } from "../format.ts";
+import type { MessageRef } from "../markdown.ts";
 import {
   HL_ACTIVE,
   HL_FEEDBACK,
@@ -26,10 +35,9 @@ import {
   setHighlightRanges,
   supportsHighlights,
 } from "../mdhighlight.ts";
-import { formatMention, getMentionTarget } from "../mention.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
-import { getSelectionAnchor } from "../selection.ts";
+import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 import { useSyntaxTheme } from "../settings.ts";
 import type {
   DiffSide,
@@ -1320,6 +1328,34 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
   }, [detail]);
 
+  // A floating "Quote in note" bubble raised over the file pane when a selection
+  // or line-pick is made while the anchored composer already holds text (see
+  // applyAnchorGesture). Fixed-positioned off the selection / first-row rect.
+  const [fileQuote, setFileQuote] = useState<QuotePos | null>(null);
+
+  // The one anchor gesture — a text selection OR a gutter line-pick, routed the
+  // same way, optimized for the common case:
+  //   • no anchored composer open       → open one on the selection
+  //   • composer open, note still empty → re-anchor it to the selection
+  //   • composer open, note has text    → never clobber the note; raise the
+  //     "Quote in note" bubble so the selected code drops in as a `>` blockquote.
+  // This kills the old footgun where selecting code to copy silently repointed a
+  // half-written note. `rect` positions the bubble.
+  const applyAnchorGesture = useCallback(
+    (anchor: PendingAnchor, quoteText: string, rect: { left: number; top: number } | null) => {
+      const d = getDraft(reviewId);
+      const composing = d?.anchor != null && (d.text ?? "").trim() !== "";
+      if (composing) {
+        if (rect && quoteText.trim())
+          setFileQuote({ left: rect.left, top: rect.top, text: quoteText });
+        return; // a note is in progress — leave its anchor alone
+      }
+      setFileQuote(null);
+      setDraftAnchor(reviewId, anchor);
+    },
+    [reviewId],
+  );
+
   const onPickLines = useCallback(
     (
       file: string,
@@ -1330,21 +1366,18 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       patchSeq?: number,
     ) => {
       const anchor = { file, side, lineStart, lineEnd, quote, patchSeq };
-      // A line-range pick made while a feedback/reply composer already holds text
-      // references that range *inside* the note (an `@path:Lx-y` mention) instead
-      // of hijacking the composer's own anchor. Only the deliberate gutter gesture
-      // does this — a loose text selection stays a plain selection (selection.ts).
-      const target = getMentionTarget();
-      if (target?.isNonEmpty()) {
-        const mention = formatMention(anchor);
-        if (mention) {
-          target.insert(mention);
-          return;
-        }
-      }
-      setDraftAnchor(reviewId, anchor);
+      // Where a quote bubble would sit: centered over the first picked row.
+      const root = scopeRef.current;
+      const scope = patchSeq != null ? `[data-round="${patchSeq}"] ` : "";
+      const base = `${scope}[data-file="${CSS.escape(file)}"]`;
+      const rowEl =
+        root?.querySelector(`${base} [data-line="${lineStart}"][data-side="${side}"]`) ??
+        root?.querySelector(`${base} [data-line="${lineStart}"]`);
+      const r = rowEl?.getBoundingClientRect();
+      const rect = r ? { left: r.left + Math.min(r.width, 320) / 2, top: r.top } : null;
+      applyAnchorGesture(anchor, quote, rect);
     },
-    [reviewId],
+    [applyAnchorGesture],
   );
 
   // The file header's feedback button: open the composer anchored to the whole
@@ -1429,6 +1462,95 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [virt.scrollToLine, ensureFileOpen],
   );
 
+  // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message,
+  // resolved against the message's pinned `version` (a reply's ref_version, or a
+  // feedback body's round). A diff review reuses the immutable round pin jump; a
+  // files review whose ref names a content snapshot switches the pane to a plain
+  // view of that snapshot first (its line numbers are what the ref was written
+  // against), else scrolls the live file.
+  const jumpToRef = useCallback(
+    (ref: MessageRef, version: number | null) => {
+      if (isDiff) {
+        locatePin(version ?? effectiveRoundSeq ?? 0, ref.file, ref.lineStart);
+        return;
+      }
+      // A snapshot-pinned ref: show that snapshot plainly so the line lands right.
+      if (version != null && snapshots.some((s) => s.seq === version)) {
+        setFromSnap(null);
+        setToSnap(version);
+      }
+      ensureFileOpen(ref.file);
+      let tries = 0;
+      let scrolledAt = -1;
+      const step = () => {
+        const root = scopeRef.current;
+        if (!root) return;
+        if (virt.scrollToLine(fileScrollKey(null, ref.file), ref.lineStart, null)) {
+          if (scrolledAt < 0) scrolledAt = tries;
+          if (tries - scrolledAt > 15) return;
+          tries++;
+          requestAnimationFrame(step);
+          return;
+        }
+        const fileEl = root.querySelector(`[data-file="${CSS.escape(ref.file)}"]`);
+        if (fileEl) {
+          const row = fileEl.querySelector(`[data-line="${ref.lineStart}"]`);
+          if (!row && ++tries <= 45) {
+            requestAnimationFrame(step);
+            return;
+          }
+          const target = row ?? fileEl;
+          const offset = target.getBoundingClientRect().top - root.getBoundingClientRect().top;
+          root.scrollTo({
+            top: root.scrollTop + offset - root.clientHeight * SCROLL_RATIO,
+            behavior: "smooth",
+          });
+          return;
+        }
+        if (++tries <= 45) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    },
+    [isDiff, locatePin, effectiveRoundSeq, snapshots, ensureFileOpen, virt.scrollToLine],
+  );
+
+  // "Quote in note": drop the file-pane selection into the anchored note as a `>`
+  // blockquote, then focus the composer. It lives in the feedback panel (out of
+  // this subtree), so it's reached by its data attr rather than a ref.
+  const quoteIntoNote = useCallback(
+    (text: string) => {
+      const cur = getDraft(reviewId)?.text ?? "";
+      setDraftText(reviewId, quoteBlock(cur, text).text);
+      setFileQuote(null);
+      window.getSelection()?.removeAllRanges();
+      requestAnimationFrame(() => {
+        const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-anchored-composer]");
+        if (!ta) return;
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      });
+    },
+    [reviewId],
+  );
+
+  // Dismiss the file-pane quote bubble once its fixed position would go stale (the
+  // pane scrolled) or the selection collapsed.
+  useEffect(() => {
+    if (!fileQuote) return;
+    const root = scopeRef.current;
+    const onScroll = () => setFileQuote(null);
+    const onSel = () => {
+      const s = window.getSelection();
+      if (!s || s.isCollapsed) setFileQuote(null);
+    };
+    root?.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("selectionchange", onSel);
+    return () => {
+      root?.removeEventListener("scroll", onScroll);
+      document.removeEventListener("selectionchange", onSel);
+    };
+  }, [fileQuote]);
+
   // Anchor a draft to whatever text is selected in the file view. Listen at the
   // document level, not on the scroll pane: a selection drag can end anywhere —
   // notably over the feedback panel — where the pane's own mouseup never fires,
@@ -1441,11 +1563,19 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       const root = scopeRef.current;
       if (!root) return;
       const a = getSelectionAnchor(root);
-      if (a) setDraftAnchor(reviewId, a);
+      if (!a) return;
+      const sel = window.getSelection();
+      const text = sel?.toString() ?? "";
+      let rect: { left: number; top: number } | null = null;
+      if (sel && sel.rangeCount > 0) {
+        const r = sel.getRangeAt(0).getBoundingClientRect();
+        rect = { left: r.left + r.width / 2, top: r.top };
+      }
+      applyAnchorGesture(a, text, rect);
     };
     document.addEventListener("mouseup", onMouseUp);
     return () => document.removeEventListener("mouseup", onMouseUp);
-  }, [reviewId]);
+  }, [applyAnchorGesture]);
 
   // Cancel/✕/Esc discards the anchored composer; a draft with text confirms first
   // (4). Only the anchored composer is dropped — a general note or drafted reply on
@@ -1784,9 +1914,13 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             scrollNonce={scrollNonce}
             onLocateFeedback={locateFeedback}
             onLocatePin={locatePin}
+            onJumpRef={jumpToRef}
           />
         </div>
       </div>
+      {/* "Quote in note" bubble for a file-pane selection made while the anchored
+          composer already holds text — fixed-positioned, so it lives at the root. */}
+      {fileQuote && <QuoteBubble pos={fileQuote} label="Quote in note" onQuote={quoteIntoNote} />}
     </div>
   );
 }

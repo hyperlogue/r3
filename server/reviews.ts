@@ -452,6 +452,18 @@ export function applyReply(
     });
     if (err) return { error: err };
   }
+  // Pin the version this reply's inline `@path:Lx-y` refs resolve against: the
+  // latest stored round (diff reviews) or content snapshot (files reviews) at post
+  // time. The agent controls old-vs-new by ordering the snapshot/round before or
+  // after the reply; null when there's nothing captured yet.
+  const review = db.getReview(fb.review_id);
+  const seqs =
+    review?.kind === "diff"
+      ? db.listPatchMetas(fb.review_id).map((p) => p.seq)
+      : review?.kind === "files"
+        ? db.listSnapshotMetas(fb.review_id).map((s) => s.seq)
+        : [];
+  const refVersion = seqs.length ? Math.max(...seqs) : null;
   const reply = db.createReply(feedbackId, {
     author: body.author ?? "agent",
     action,
@@ -461,6 +473,7 @@ export function applyReply(
     line_start: body.patchSeq != null ? (body.lineStart ?? null) : null,
     line_end: body.patchSeq != null ? (body.lineEnd ?? null) : null,
     quote: body.patchSeq != null ? (body.quote ?? null) : null,
+    ref_version: refVersion,
   });
   let feedback = fb;
   if (action) {

@@ -106,9 +106,11 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx (the review)
   src/components/ DiffView, FileView, FileCard, FileBrowser, FeedbackPanel,
                  ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
-                 ReviewSummary, SnapshotSelect, Logo
+                 ReviewSummary, SnapshotSelect, Logo, Message (MessageProse +
+                 the shared QuoteBubble/useQuoteBubble selection-to-quote)
                  (each with a *.stories.tsx)
   src/api.ts     typed fetch wrappers    hooks.ts  SSE + query wiring
+  src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
   src/drafts.ts  per-review composer drafts (localStorage)   selection.ts  range select
   router.ts      tiny pathname router (`/` reviews list, `/review_<id>` a review)   ui.tsx  shared UI
@@ -162,6 +164,20 @@ rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
   posts a **plain reply** (`action=null`) — the human drives status from the UI.
   An unknown `action` string is treated as a plain reply, never as a status. One
   feedback can accumulate several pinned replies across rounds — the fix's history.
+  A reply also carries `ref_version`, captured at post time: the latest round
+  (diff) / snapshot (files), or null. It's the version the reply's inline
+  `@path:Lx-y` **code refs** resolve against, so a ref stays pointing at the code
+  as it was written (immutable) — the agent orders snapshot/round vs. reply to pin
+  old-vs-new, and splits a reply in two to cite both.
+
+**Message rendering.** Feedback bodies and replies are stored as **plain text** (the
+contract carries raw text — edited inline, created optimistically), and rendered
+**client-side** as safe Markdown (`web/src/markdown.ts`, markdown-it `html:false`).
+An agent-authored `@path:Lx-y` token becomes a **click-to-scroll** ref: it jumps the
+pane to that file/line, resolved against the message's version (a reply's
+`ref_version`, or a feedback body's own round). Humans don't type refs — selecting
+code while composing (or text in an agent reply) offers a **"Quote"** button that
+drops it in as a `>` blockquote instead.
 
 ## Review kinds & sources
 

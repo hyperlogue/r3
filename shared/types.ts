@@ -163,6 +163,12 @@ export interface Reply {
   // sent. Only human replies gate an unsent prompt — a human follow-up posted
   // after the last hand-off re-enables the prompt for its feedback.
   sent_at: string | null;
+  // The review version an agent's inline `@path:Lx-y` code references in `body`
+  // resolve against, captured at post time: the latest diff round (diff reviews)
+  // or content snapshot (files reviews); null when there was none. Immutable, so a
+  // ref keeps pointing at the code as it was when the reply was written — the agent
+  // orders snapshot/round vs. reply to pin old-vs-new (split replies to cite both).
+  ref_version: number | null;
 }
 
 export interface FeedbackWithReplies extends Feedback {

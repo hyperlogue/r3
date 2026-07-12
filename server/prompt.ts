@@ -84,6 +84,9 @@ function promptHeader(detail: ReviewDetail, count: number): string {
     `(say what you changed, why you disagree, or any follow-up — it's all just a reply):\n\n` +
     summary +
     `  r3 reply <feedback_id> -m "<msg>"\n` +
+    `      # <msg> renders Markdown; reference code with @path:Lx-y (a click-to-scroll link,\n` +
+    `      # pinned to the latest round/snapshot at reply time — snapshot/round before replying\n` +
+    `      # to point at new code, or reply first to point at old; split replies to cite both)\n` +
     `  r3 show ${id}   # full history — every item and thread, including what's already been sent\n\n` +
     followUp
   );

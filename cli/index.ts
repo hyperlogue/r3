@@ -1168,7 +1168,10 @@ const HELP = `r3 — local human<->agent review CLI
   reply  <feedback_id> -m "<msg>"
               [--diff <seq> --file <f> --line <a-b> [--quote "<text>"]]
                                                  # optional pin: where in round <seq> your
-                                                 #   change landed ("addressed in diff N")
+                                                 #   change landed ("addressed in diff N").
+                                                 # <msg> renders Markdown; reference code with
+                                                 #   @<path>:L<a-b> (a click-to-scroll link,
+                                                 #   pinned to the round/snapshot at post time)
   reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]
                                                  # files reviews only — a diff review's rounds
                                                  #   are immutable; pin a reply instead
@@ -1239,6 +1242,23 @@ again). Append fixes as a new round; rounds never change, so feedback can't orph
   git diff ... | r3 diff add <id> --label "round 2" --summary "<what changed>"
   r3 reply <feedback_id> -m "..." --diff <seq> --file <f> --line <a-b>  # pin the reply to the fix
   r3 diff list|rm <id> [seq]  # reanchor is files-only
+
+## Referencing code in replies
+
+Point the human at exact code in a reply with @<path>:L<start>[-end], e.g.
+@server/db.ts:L13 or @web/src/api.ts:L11-20 — a clickable link that scrolls their
+pane to that spot, instead of pasting bare line numbers into prose. Reply bodies
+also render Markdown (\`code\`, **bold**, lists, fenced blocks). These inline @refs
+complement the --diff pin above (the one structured "here's where the fix landed"
+marker); this syntax is yours — humans quote code via the UI.
+
+A ref is pinned to the review's version when you post, so it keeps pointing at the
+code as written. Diff review: the latest round (always present). Files review: the
+latest snapshot — snapshot first for a stable ref, else the ref tracks live content
+and can drift as you edit. Order the work to choose old-vs-new:
+  - snapshot / add a round, THEN reply -> refs point at the new code
+  - reply, THEN change the code        -> refs point at the old code
+  - to cite both, split into two replies (one before the change, one after)
 
 ## Create a review
 

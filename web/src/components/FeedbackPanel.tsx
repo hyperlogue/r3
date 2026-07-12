@@ -18,7 +18,7 @@ import {
   useGeneralDraft,
   useReplyDraft,
 } from "../drafts.ts";
-import { useMentionTarget } from "../mention.ts";
+import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
   Author,
@@ -40,6 +40,7 @@ import {
   TrashIcon,
   useCopyFlash,
 } from "../ui.tsx";
+import { MessageProse, QuoteBubble, quoteBlock, useQuoteBubble } from "./Message.tsx";
 
 // Custom auto-animate plugins BYPASS its built-in reduced-motion guard (index.mjs
 // gates that on `!isPlugin`), so every plugin below checks this and collapses its
@@ -254,7 +255,7 @@ const PENDING_INPUT =
 
 // The shared composer shell for both the anchored draft (NewFeedback) and the
 // general note (GeneralFeedback): the primary-rail block, a header (label slot +
-// ✕), an optional quote, the mention-wired textarea (⌘/Ctrl+Enter submits), and
+// ✕), an optional quote, the auto-growing textarea (⌘/Ctrl+Enter submits), and
 // the Cancel/Add button row. The two wrappers own only what genuinely differs —
 // their mutation, label, quote, keyboard affordances, and button/placeholder text
 // — so the composer's look lives in exactly one place.
@@ -271,6 +272,7 @@ function ComposerBlock({
   onSubmit,
   submitPending,
   onClose,
+  anchored,
 }: {
   label: ReactNode;
   labelMono?: boolean;
@@ -284,10 +286,10 @@ function ComposerBlock({
   onSubmit: () => void;
   submitPending: boolean;
   onClose: () => void;
+  // Tags the anchored composer's textarea (data-anchored-composer) so a file-pane
+  // "Quote in note" click can find + focus it from ReviewView (a different subtree).
+  anchored?: boolean;
 }) {
-  // Picking a line range while the note already has text drops an `@path:Lx-y`
-  // mention (mention.ts) rather than re-pointing/starting an anchored draft.
-  const mention = useMentionTarget(textareaRef, value, onChange);
   const growRef = useAutoGrow(textareaRef, value, 3);
   return (
     // Embedded-block style shared with the saved feedback blocks: flush to the
@@ -319,10 +321,9 @@ function ComposerBlock({
       )}
       <textarea
         ref={growRef}
+        data-anchored-composer={anchored ? "" : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onFocus={mention.onFocus}
-        onBlur={mention.onBlur}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && value.trim()) onSubmit();
         }}
@@ -503,6 +504,7 @@ function NewFeedback({
       submitLabel="Add feedback"
       onSubmit={() => add.mutate()}
       submitPending={add.isPending}
+      anchored
       onClose={onDiscard}
     />
   );
@@ -524,6 +526,7 @@ function ReplyBlock({
   onEditCancel,
   canSave,
   onLocatePin,
+  onJumpRef,
 }: {
   rp: Reply;
   // The card puts its *last human reply* into edit mode (see FeedbackCard); every
@@ -536,6 +539,9 @@ function ReplyBlock({
   onEditCancel: () => void;
   canSave: boolean;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
+  // Jump the pane to an `@path:Lx-y` ref clicked inside this reply's rendered
+  // Markdown (already bound with the reply's version context by the card).
+  onJumpRef?: (ref: MessageRef) => void;
 }) {
   const isAgent = rp.author === "agent";
   const editRef = useRef<HTMLTextAreaElement>(null);
@@ -569,11 +575,14 @@ function ReplyBlock({
           className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
         />
       ) : (
-        // First-class content — same size as the feedback body and the file view.
-        // Relaxed leading so long agent replies don't read as a wall of text.
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-200">
-          {rp.body}
-        </div>
+        // First-class content — same size as the feedback body and the file view,
+        // rendered as Markdown. Relaxed leading so long agent replies don't read as
+        // a wall of text.
+        <MessageProse
+          source={rp.body}
+          className="text-sm leading-relaxed text-neutral-700 dark:text-neutral-200"
+          onJumpRef={onJumpRef}
+        />
       )}
       {/* Anchored reply: where the change addressing this feedback landed
           — jump to the pinned round/file/line. */}
@@ -600,6 +609,7 @@ function FeedbackCard({
   onLocate,
   onLocatePin,
   onResolved,
+  onJumpRef,
   isActive,
 }: {
   fb: FeedbackWithReplies;
@@ -607,6 +617,8 @@ function FeedbackCard({
   onLocate: () => void;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
   onResolved: () => void;
+  // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message.
+  onJumpRef: (ref: MessageRef, patchSeq: number | null) => void;
   isActive: boolean;
 }) {
   const qc = useQueryClient();
@@ -638,10 +650,16 @@ function FeedbackCard({
   // Which reply (if any) is being edited inline — only ever the last human reply,
   // set by the Edit action below.
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
-  // Picking a line range while this reply has text references it as an
-  // `@path:Lx-y` mention rather than starting a new anchored draft (mention.ts).
-  const mention = useMentionTarget(replyRef, reply, setReply);
   const replyGrowRef = useAutoGrow(replyRef, reply, 2);
+  // Selecting text inside one of this card's agent replies raises a "Quote in
+  // reply" bubble; clicking it drops the selection into the reply draft as a `>`
+  // blockquote and opens the composer, caret past the quote (quoteBlock).
+  const eligibleAgentReply = useCallback((range: Range) => {
+    const n = range.commonAncestorContainer;
+    const el = n instanceof Element ? n : n.parentElement;
+    return !!el?.closest('[data-reply-author="agent"]');
+  }, []);
+  const { pos: quotePos, hide: hideQuote } = useQuoteBubble(cardRef, eligibleAgentReply);
   // The body/reply editors reuse the same grow behaviour; the editor mounts only
   // while editing, so the callback ref sizes it to the existing text on the first
   // frame (a long body opens already-expanded, not clipped to the min).
@@ -736,9 +754,10 @@ function FeedbackCard({
   // A quiet colored word only for the non-default decisions; open/resolved are
   // already implied by the tab, so they get just the dot.
   const statusLabel = fb.status === "accepted" || fb.status === "refuted" ? fb.status : null;
-  // Show the last two replies by default (the latest human/agent exchange); the
-  // rest fold behind the expander.
-  const earlier = fb.replies.length - 2;
+  // Show the last three replies by default (a version-pinned answer often splits
+  // into more than one reply — old vs. new — so keep a little more of the tail in
+  // view); the rest fold behind the expander.
+  const earlier = fb.replies.length - 3;
 
   // Reveal the composer, then — only if the last agent reply (the message the
   // human is most likely responding to) is scrolled out of view — bring it to the
@@ -762,6 +781,24 @@ function FeedbackCard({
         if (t.bottom > p.top && t.top < p.bottom) return;
       }
       target.scrollIntoView({ behavior: "smooth", block: lastAgent ? "start" : "nearest" });
+    });
+  };
+
+  // Drop the selected agent-reply text into the reply draft as a `>` blockquote,
+  // open the composer, and land the caret on the blank line after it — ready to
+  // respond to the quoted passage. Clears the browser selection so the bubble
+  // dismisses and refocus goes cleanly to the textarea.
+  const quoteIntoReply = (text: string) => {
+    const { text: next, caret } = quoteBlock(reply, text);
+    setReply(next);
+    setReplyOpen(true);
+    hideQuote();
+    window.getSelection()?.removeAllRanges();
+    requestAnimationFrame(() => {
+      const el = replyRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(caret, caret);
     });
   };
 
@@ -910,10 +947,12 @@ function FeedbackCard({
         />
       ) : (
         // The body is the headline of the card — a notch larger than everything
-        // else around it.
-        <p className="whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-100">
-          {fb.body}
-        </p>
+        // else around it — rendered as Markdown.
+        <MessageProse
+          source={fb.body}
+          className="text-sm text-neutral-800 dark:text-neutral-100"
+          onJumpRef={(ref) => onJumpRef(ref, fb.patch_seq ?? null)}
+        />
       )}
 
       {fb.replies.length > 0 && (
@@ -922,7 +961,7 @@ function FeedbackCard({
         // reply (mt-2.5 == the replies' space-y-2.5). Agent bubbles set themselves
         // apart with their tint; human replies read as continued prose.
         <div className="mt-2.5">
-          {/* Fold to the last two replies by default (agent replies can be
+          {/* Fold to the last three replies by default (agent replies can be
               essays); an expander slides the earlier ones open above them.
               Collapsed every render. Spacing is manual (not space-y) so the
               folded Collapse contributes no phantom gap. */}
@@ -940,7 +979,7 @@ function FeedbackCard({
               </button>
               <Collapse open={repliesExpanded}>
                 <div className="space-y-2.5 pb-2.5">
-                  {fb.replies.slice(0, -2).map((rp) => (
+                  {fb.replies.slice(0, -3).map((rp) => (
                     <ReplyBlock
                       key={rp.id}
                       rp={rp}
@@ -951,6 +990,7 @@ function FeedbackCard({
                       onEditCancel={cancelEdit}
                       canSave={editText.trim().length > 0 && !saveEdit.isPending}
                       onLocatePin={onLocatePin}
+                      onJumpRef={(ref) => onJumpRef(ref, rp.ref_version ?? null)}
                     />
                   ))}
                 </div>
@@ -958,7 +998,7 @@ function FeedbackCard({
             </>
           )}
           <div ref={replyAnim} className="space-y-2.5">
-            {fb.replies.slice(-2).map((rp) => (
+            {fb.replies.slice(-3).map((rp) => (
               <ReplyBlock
                 key={rp.id}
                 rp={rp}
@@ -969,6 +1009,7 @@ function FeedbackCard({
                 onEditCancel={cancelEdit}
                 canSave={editText.trim().length > 0 && !saveEdit.isPending}
                 onLocatePin={onLocatePin}
+                onJumpRef={(ref) => onJumpRef(ref, rp.ref_version ?? null)}
               />
             ))}
           </div>
@@ -986,8 +1027,6 @@ function FeedbackCard({
           ref={replyGrowRef}
           value={reply}
           onChange={(e) => setReply(e.target.value)}
-          onFocus={mention.onFocus}
-          onBlur={mention.onBlur}
           onKeyDown={(e) => {
             if (
               e.key === "Enter" &&
@@ -1103,6 +1142,10 @@ function FeedbackCard({
           </>
         )}
       </div>
+      {/* "Quote in reply" bubble for a text selection inside one of this card's
+          agent replies. Fixed-positioned (measured off the selection), so it
+          escapes the card's overflow. */}
+      {quotePos && <QuoteBubble pos={quotePos} label="Quote in reply" onQuote={quoteIntoReply} />}
     </div>
   );
 }
@@ -1118,6 +1161,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   scrollNonce,
   onLocateFeedback,
   onLocatePin,
+  onJumpRef,
 }: {
   detail: ReviewDetail;
   pending: PendingAnchor | null;
@@ -1129,6 +1173,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // null clears the active feedback (focus nothing).
   onLocateFeedback: (fb: FeedbackWithReplies | null) => void;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
+  // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message. The
+  // second arg is the message's pinned version — a reply's `ref_version` (round /
+  // snapshot captured at post time), or a feedback body's own round.
+  onJumpRef: (ref: MessageRef, version: number | null) => void;
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
@@ -1607,6 +1655,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     onLocate={() => onLocateFeedback(fb)}
                     onLocatePin={onLocatePin}
                     onResolved={() => advanceAfterResolve(fb.id)}
+                    onJumpRef={onJumpRef}
                   />
                 ))}
                 {/* Zone divider between the "your turn" cards and the rest — only
@@ -1638,6 +1687,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     onLocate={() => onLocateFeedback(fb)}
                     onLocatePin={onLocatePin}
                     onResolved={() => advanceAfterResolve(fb.id)}
+                    onJumpRef={onJumpRef}
                   />
                 ))}
               </div>
@@ -1658,6 +1708,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   onLocatePin={onLocatePin}
                   // A resolved card has no Resolve button, so this never fires.
                   onResolved={() => {}}
+                  onJumpRef={onJumpRef}
                 />
               ))}
             </div>

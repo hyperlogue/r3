@@ -51,6 +51,7 @@ const meta = {
     scrollNonce: 0,
     onLocateFeedback: fn(),
     onLocatePin: fn(),
+    onJumpRef: fn(),
   },
   argTypes: {
     detail: { control: false },
@@ -199,6 +200,15 @@ export const GrownComposer: Story = {
 // Clicking a card's file:line path highlights it (amber left rail + faint wash) and scrolls the
 // diff/files pane to the anchored line.
 export const ActiveCard: Story = {
+  args: { activeFeedbackId: "feedback_pragma" },
+};
+
+// Messages render as Markdown: the `feedback_pragma` body shows bold + inline
+// `code` + a bullet list, and an `@server/db.ts:L11-12` reference rendered as a
+// clickable jump chip. Its agent thread (`feedback_accepted`) has a reply with a
+// fenced code block and its own `@ref`. Selecting text inside an agent reply
+// raises the "Quote in reply" bubble (not visible in a static snapshot).
+export const MarkdownMessages: Story = {
   args: { activeFeedbackId: "feedback_pragma" },
 };
 
