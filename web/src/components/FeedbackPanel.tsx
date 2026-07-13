@@ -282,7 +282,6 @@ function ComposerBlock({
   error,
   onClose,
   anchored,
-  general,
 }: {
   label: ReactNode;
   labelMono?: boolean;
@@ -299,11 +298,9 @@ function ComposerBlock({
   // composer just sits there otherwise; show the server's message under the input.
   error?: string | null;
   onClose: () => void;
-  // Tags the composer's textarea (data-anchored-composer / data-general-composer)
-  // so a "Quote in note" click — the file pane's (anchored) or the summary's
-  // (general) — can find + focus it from ReviewView (a different subtree).
+  // Tags the composer's textarea (data-anchored-composer) so a "Quote in note"
+  // click can find + focus it from ReviewView (a different subtree).
   anchored?: boolean;
-  general?: boolean;
 }) {
   const growRef = useAutoGrow(textareaRef, value, 3);
   return (
@@ -337,7 +334,6 @@ function ComposerBlock({
       <textarea
         ref={growRef}
         data-anchored-composer={anchored ? "" : undefined}
-        data-general-composer={general ? "" : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -445,7 +441,6 @@ function GeneralFeedback({
       onSubmit={() => add.mutate()}
       submitPending={add.isPending}
       error={add.isError ? apiErrorText(add.error) : null}
-      general
       onClose={onClose}
     />
   );

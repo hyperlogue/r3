@@ -885,14 +885,14 @@ function HeaderActions({
   );
 }
 
-// Focus one of the feedback panel's composers (they live outside the calling
-// subtree, so they're reached by data attr rather than a ref) and land the caret
+// Focus the feedback panel's anchored composer (it lives outside the calling
+// subtree, so it's reached by a data attr rather than a ref) and land the caret
 // at the end. One rAF is enough: the draft-store write flushes its subscribers
 // synchronously inside the click event, so the textarea is committed before the
 // frame fires.
-function focusComposer(kind: "anchored" | "general") {
+function focusComposer() {
   requestAnimationFrame(() => {
-    const ta = document.querySelector<HTMLTextAreaElement>(`textarea[data-${kind}-composer]`);
+    const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-anchored-composer]");
     if (!ta) return;
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
@@ -1566,7 +1566,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       setDraftText(reviewId, quoteBlock(cur, text).text);
       setFileQuote(null);
       window.getSelection()?.removeAllRanges();
-      focusComposer("anchored");
+      focusComposer();
     },
     [reviewId],
   );
