@@ -38,10 +38,11 @@ const VERY_LONG = Array.from(
 const meta = {
   title: "Components/ReviewSummary",
   component: ReviewSummary,
-  // Sits full-width under the review header — frame it on a page-like surface.
+  // Docks at the top of the file-viewer column — frame it on a page-like surface.
   // Read-only for humans (the summary is set from the CLI), so the story
-  // exercises display, collapse, the markdown render (with @ref jump chips),
-  // and the select-to-quote bubble.
+  // exercises display, collapse, the markdown render (with @ref jump chips), and
+  // the select-to-anchor gesture (onAnchorSummary fires; ReviewView decides
+  // anchor-vs-quote-bubble from the composer state).
   decorators: [
     (Story) => (
       <div className="w-[720px] bg-white dark:bg-neutral-950">
@@ -52,7 +53,7 @@ const meta = {
   args: {
     summary: SHORT,
     onJumpRef: fn(),
-    onQuote: fn(),
+    onAnchorSummary: fn(),
   },
 } satisfies Meta<typeof ReviewSummary>;
 

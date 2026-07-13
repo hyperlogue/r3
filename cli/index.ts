@@ -981,27 +981,45 @@ async function cmdSnapshot(args: Args) {
 
 async function cmdReanchor(args: Args) {
   const fid =
-    args.positional[0] ?? fail("reanchor <feedback_id> --file <f> --line <a-b> [--quote <text>]");
-  const lineSpec = (args.flags.line as string) ?? fail("reanchor needs --line <a-b>");
-  const [a, b] = lineSpec.split("-");
-  const lineStart = Number(a);
-  const lineEnd = Number(b ?? a);
-  if (
-    !Number.isInteger(lineStart) ||
-    lineStart < 1 ||
-    !Number.isInteger(lineEnd) ||
-    lineEnd < lineStart
-  )
-    fail("reanchor --line expects <a-b> with integer line numbers a ≤ b (≥ 1)");
+    args.positional[0] ??
+    fail(
+      'reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   (files-review anchor)\n' +
+        '         reanchor <feedback_id> --quote "<new text>" [--line <a-b>]      (review summary)',
+    );
+  // Two shapes: a files-review anchor names --file + --line (the server derives
+  // the quote from live content when --quote is omitted); a review-summary
+  // re-anchor names no file (it stays @summary) and carries the new quote as the
+  // whole anchor (--line is an optional best-effort hint).
+  const summaryMode = !args.flags.file;
+  let lineStart: number | null = null;
+  let lineEnd: number | null = null;
+  if (args.flags.line) {
+    const [a, b] = (args.flags.line as string).split("-");
+    lineStart = Number(a);
+    lineEnd = Number(b ?? a);
+    if (
+      !Number.isInteger(lineStart) ||
+      lineStart < 1 ||
+      !Number.isInteger(lineEnd) ||
+      lineEnd < lineStart
+    )
+      fail("reanchor --line expects <a-b> with integer line numbers a ≤ b (≥ 1)");
+  } else if (!summaryMode) {
+    fail("reanchor needs --line <a-b> (or drop --file to re-anchor a review summary by --quote)");
+  }
+  if (summaryMode && !args.flags.quote)
+    fail(
+      'reanchor needs --quote "<new text>" (review summary) or --file <f> --line <a-b> (files-review anchor)',
+    );
   const res = await api("PATCH", `/api/feedback/${fid}/anchor`, {
     file: args.flags.file ? toRepoRelative(args.flags.file as string) : undefined,
     lineStart,
     lineEnd,
     quote: args.flags.quote ?? null,
   });
-  console.log(
-    `re-anchored ${fid} → ${res.file}:L${res.line_start}-${res.line_end} (${res.anchor})`,
-  );
+  const where =
+    res.file === SUMMARY_FILE ? "review summary" : `${res.file}:L${res.line_start}-${res.line_end}`;
+  console.log(`re-anchored ${fid} → ${where} (${res.anchor})`);
 }
 
 async function cmdStatus(id: string, status: "approved" | "abandoned", note?: string) {
@@ -1322,8 +1340,13 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   unless --quote pins it). --diff names the
                                                  #   round (default: latest); --side default new.
   reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]
-                                                 # files reviews only — a diff review's rounds
-                                                 #   are immutable; pin a reply instead
+                                                 # re-point a files-review anchor after an edit
+                                                 #   moved the code. A diff review's file/round
+                                                 #   anchors are immutable — pin a reply instead.
+  reanchor <feedback_id> --quote "<new text>" [--line <a-b>]
+                                                 # re-point a REVIEW-summary note (any kind) after
+                                                 #   r3 edit --summary moved its text; the quote is
+                                                 #   the anchor. Round summaries stay immutable.
   edit   <id> [--title "<t>"] [--summary "<s>"]  # set a review's title/summary. An empty value
                                                  #   ("" ) clears that field; --summary - reads the
                                                  #   summary from stdin (long/multi-line). Only the
@@ -1412,7 +1435,10 @@ the summary is the map, feedback items are the pins. The summary renders as
 Markdown in their UI and supports the same @<path>:L<a>[-b] code refs as
 replies — but a summary ref resolves against the review's CURRENT content
 (the summary is edited in place; nothing is version-pinned), so keep it
-pointing at things that hold across rounds.
+pointing at things that hold across rounds. The human can also leave feedback
+anchored to a passage of the summary itself; since the summary is edited in
+place, that anchor can drift when you rewrite it — re-point it with
+  r3 reanchor <feedback_id> --quote "<the passage's new text>"
 
 ## Two kinds of review
 
@@ -1427,7 +1453,8 @@ diff — immutable rounds: the diff is snapshotted once (git is never consulted
 again). Append fixes as a new round; rounds never change, so feedback can't orphan.
   git diff ... | r3 diff add <id> --label "round 2" --summary "<what changed>"
   r3 reply <feedback_id> -m "..." --diff <seq> --file <f> --line <a-b>  # pin the reply to the fix
-  r3 diff list|rm <id> [seq]  # reanchor is files-only
+  r3 diff list|rm <id> [seq]  # file/round anchors don't re-anchor (immutable); the
+                              #   review summary still does — r3 reanchor <fid> --quote "..."
 
 ## Referencing code in replies
 

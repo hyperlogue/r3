@@ -174,11 +174,14 @@ rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
   resolved = done, and the _why_ — fixed, answered, dismissed — lives in the
   thread, not the enum). The agent references feedback by its
   **stable `id`** (`feedback_<short>`), never a positional index. Two span-less
-  variants exist, and neither is ever re-anchored: a **summary** note (`file` is
-  the `SUMMARY_FILE` sentinel `@summary`; `patch_seq` names a round's summary,
-  null = the review summary; shown as "review summary" / "diff N summary") and a
-  **whole-file** note (a real `file` path with `line_start`/`line_end`/`quote` all
-  null; shown as "`<path>` (whole file)").
+  variants exist: a **summary** note (`file` is the `SUMMARY_FILE` sentinel
+  `@summary`; `patch_seq` names a round's summary, null = the review summary; shown
+  as "review summary" / "diff N summary") and a **whole-file** note (a real `file`
+  path with `line_start`/`line_end`/`quote` all null; shown as "`<path>` (whole
+  file)"). The automatic re-anchor pass skips both (no worktree span behind them);
+  the whole-file note and the immutable **round**-summary note are never
+  re-anchored, but the **review**-summary note (edited in place, so its quote can
+  drift) is **agent-re-anchorable by quote** — the one exception (see Anchoring).
 - **Reply** — `feedback_id`, `author`, `body`, plus an optional **pin**
   (`patch_seq`, `file`, `line_start/end`, `quote`)
   saying where in a later round the change addressing the feedback landed
@@ -199,13 +202,23 @@ An agent-authored `@path:Lx-y` token becomes a **click-to-scroll** ref: it jumps
 pane to that file/line, resolved against the message's version (a reply's
 `ref_version`, or a feedback body's own round). Humans don't type refs — selecting
 code while composing (or text in an agent reply) offers a **"Quote"** button that
-drops it in as a `>` blockquote instead. **The review summary renders the same
-way** (`ReviewSummary`) — markdown + refs — but a summary is edited in place, so
-its refs pin no version and resolve against the **live/current view**. Selecting
-summary text offers "Quote in note" (a general-feedback blockquote), replacing
-the old select-to-anchor there: rendered markdown has no stable source offsets to
-anchor a quote to. Round summaries in the diff pane keep their plain-text anchor
-flow, and legacy `@summary`-anchored feedback still renders.
+drops it in as a `>` blockquote instead. **Both summaries — the review summary
+(`ReviewSummary`) and each diff round's summary (`DiffView`) — render the same
+way** (markdown + refs); a round-summary ref resolves against its round, a review
+summary is edited in place so its refs pin no version and resolve against the
+**live/current view**.
+
+**Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
+summary, and the review summary all route a text selection through the same
+`applyAnchorGesture` (`ReviewView`): an **empty composer anchors** a note to the
+selection; a **composer already holding text** raises a **"Quote in note"** bubble
+instead (drops the selection as a `>` blockquote, never clobbers). A summary
+selection anchors a `@summary` note by **quote** (the rendered markdown has no
+stable source offsets, so the quote is the whole anchor and line numbers are a
+best-effort hint); an active summary note is located by finding its quote in the
+rendered prose (`mdhighlight.rangeForQuote`), best-effort, falling back to flashing
+the whole block when it can't be found. Because the review summary is mutable, its
+note can drift and is agent-re-anchorable; round-summary anchors are immutable.
 
 ## Review kinds & sources
 
@@ -321,11 +334,21 @@ UI display name; `--agent-id` a precise machine handle other tools read from
 
 ## Anchoring — keeping feedback from orphaning
 
-**Diff reviews can't orphan by construction**: feedback anchors into an immutable
-stored round (`patch_seq` + quote), so nothing drifts and `reanchor` is rejected.
-The response side is the **anchored reply** — the agent pins where its fix landed in
-a later round (`r3 reply … --diff <seq> …`), validated against the stored patch at
-post time and stable forever.
+**Diff reviews can't orphan by construction**: file/round feedback anchors into an
+immutable stored round (`patch_seq` + quote), so nothing drifts and `reanchor` is
+rejected (the review summary is the one exception — see below). The response side
+is the **anchored reply** — the agent pins where its fix landed in a later round
+(`r3 reply … --diff <seq> …`), validated against the stored patch at post time and
+stable forever.
+
+**Summaries anchor by quote.** A `@summary` note has no worktree span, so the
+automatic pass skips it and the client locates it by finding the quote in the
+rendered prose (`mdhighlight.rangeForQuote`, best-effort; whole-block flash when it
+can't be found). A **diff-round** summary is immutable → its quote can't drift and
+`reanchor` stays rejected; the **review** summary is edited in place (`r3 edit
+--summary`) → its note can drift, so it's the one `@summary` note the agent
+re-points, on any review kind: `r3 reanchor <fid> --quote "<new text>"` (quote is
+the whole anchor; `--line` is an optional best-effort hint).
 
 **Files reviews** (`WORKING`/`SCRATCH`) **change under the review**, so keep
 anchors fresh from **both sides**:
@@ -374,8 +397,10 @@ content sha, so the WASM/grammar weight never reaches the browser.
   `sent_at`). `GET …/watchers` + `POST …/submit` — live `watch` clients / fire a
   `submitted` event.
 - **Feedback + replies:** `POST /api/reviews/:id/feedback`, `PATCH
-  /api/feedback/:id`, `PATCH /api/feedback/:id/anchor` (re-anchor; files reviews
-  only, else 400), `DELETE /api/feedback/:id`; `POST /api/feedback/:id/replies`
+  /api/feedback/:id`, `PATCH /api/feedback/:id/anchor` (re-anchor; a files-review
+  file anchor, or a review-summary note by `quote` on any kind — diff file/round
+  anchors and round summaries are immutable, else 400), `DELETE /api/feedback/:id`;
+  `POST /api/feedback/:id/replies`
   (optional pin validated against the stored round), `PATCH /api/replies/:id`
   (edit the last human message; web-only, no CLI).
 - **Live:** `GET /api/events?review=:id[&session=&agentId=]` — SSE
@@ -414,7 +439,8 @@ r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <s
 r3 reply  <feedback_id> -m "<msg>" [--diff <seq> --file <f> --line <a-b> [--quote "<text>"]]
 r3 feedback add <id> -m "<msg>" [--file <f> [--line <a-b>] [--quote "<t>"] [--side old|new]]
             [--diff <seq>]                      # agent-authored feedback (see The review loop)
-r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   # files reviews only
+r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   # files-review anchor
+r3 reanchor <feedback_id> --quote "<new text>" [--line <a-b>]          # review summary (any kind)
 r3 edit   <id> [--title "<t>"] [--summary "<s>"]   # "" clears; --summary - = stdin
 r3 approve <id> [--note "<next steps>"] | abandon <id>
 r3 auth create-token [--label L] | list-tokens [--json] | revoke-token <id> | --all

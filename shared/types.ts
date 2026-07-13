@@ -19,11 +19,16 @@ export type Creator = "human" | "agent" | "cli";
 // `WORKING`/`SCRATCH` track live content and get re-read + re-anchored on change.
 export type GitRef = string; // sentinel ("WORKING" | "STAGED" | "SCRATCH" | "HEAD") or sha/ref
 
-// Feedback whose `file` is this sentinel is anchored to a *summary* (prose), not a
-// repo file: the review's own summary when `patch_seq` is null, or a diff round's
-// summary when `patch_seq` names that round. The `quote` is still the anchor of
-// record; there's no worktree file to re-anchor against, so summary feedback is
-// skipped by the automatic re-anchor pass. The `@` prefix keeps it clear of any
+// Feedback whose `file` is this sentinel is anchored to a *summary* (prose, now
+// Markdown-rendered on both), not a repo file: the review's own summary when
+// `patch_seq` is null, or a diff round's summary when `patch_seq` names that round.
+// The `quote` is the anchor of record — there's no worktree file behind it, so
+// the automatic re-anchor pass skips summary feedback and the client locates it by
+// quote in the rendered prose. A diff-round summary is immutable (rounds never
+// change) so its quote can't drift; the *review* summary is edited in place
+// (`r3 edit --summary`), so its note can drift and IS agent-re-anchorable by quote
+// (`r3 reanchor <fid> --quote …`, PATCH …/anchor) on any review kind — the one
+// exception to "summaries aren't re-anchored". The `@` prefix keeps it clear of any
 // repo-relative path (which never starts with `@/`).
 export const SUMMARY_FILE = "@summary";
 

@@ -1,11 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useGutterDrag } from "../gutter.ts";
+import type { MessageRef } from "../markdown.ts";
 import { getSummaryAnchor, type PendingAnchor } from "../selection.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
 import { Collapse, cn, FoldTriangle, Pill } from "../ui.tsx";
 import { diffViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
+import { MessageProse } from "./Message.tsx";
 
 // One global preference (like the review summary's own collapse): fold a round
 // summary and it stays folded as you move between rounds and reviews.
@@ -455,6 +457,7 @@ export function DiffView({
   onPickLines,
   onFileFeedback,
   onAnchorSummary,
+  onJumpRef,
   foldSignal,
 }: {
   rounds: PatchDiff[];
@@ -477,9 +480,18 @@ export function DiffView({
   // Called from a file header's feedback button to anchor a note to the whole
   // file within the given round (no line span).
   onFileFeedback?: (file: string, patchSeq: number) => void;
-  // Called when the human selects text in a round's summary to anchor feedback
-  // to it (the anchor carries the summary sentinel + the round's seq).
-  onAnchorSummary?: (anchor: PendingAnchor) => void;
+  // Called when the human selects text in a round's summary. ReviewView routes it
+  // through the one applyAnchorGesture (anchor when the composer is empty, "Quote
+  // in note" bubble when it holds text) — the anchor carries the summary sentinel
+  // + the round's seq, the quote is the record, the rect positions the bubble.
+  onAnchorSummary?: (
+    anchor: PendingAnchor,
+    quoteText: string,
+    rect: { left: number; top: number } | null,
+  ) => void;
+  // An `@path:Lx-y` ref clicked in a round summary (now Markdown-rendered) — jump
+  // the pane, resolving the ref against this round (its seq is the version).
+  onJumpRef?: (ref: MessageRef, patchSeq: number) => void;
   // The pane toolbar's fold/unfold-all broadcast, passed through to every file.
   foldSignal?: FoldSignal | null;
 }) {
@@ -523,7 +535,7 @@ export function DiffView({
           )}
           {/* What this round changes overall — prose set at append
               time, distinct from the short `label` title. Shown whenever present.
-              Foldable like the review summary (a "Summary" toggle + one-line
+              Foldable like the review summary (a "Diff summary" toggle + one-line
               preview when collapsed); the prose is selectable to anchor feedback. */}
           {round.summary && (
             <div>
@@ -535,7 +547,7 @@ export function DiffView({
               >
                 <span className="flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300">
                   <FoldTriangle open={!summaryCollapsed} />
-                  Summary
+                  Diff summary
                 </span>
                 {summaryCollapsed && (
                   <span className="max-w-prose truncate text-[0.6875rem] text-neutral-400 dark:text-neutral-500">
@@ -544,19 +556,36 @@ export function DiffView({
                 )}
               </button>
               <Collapse open={!summaryCollapsed}>
-                <p
+                {/* Markdown-rendered like the review summary (same MessageProse
+                    treatment — headings/lists/code + clickable @refs resolved
+                    against this round). data-summary="round" is the anchor +
+                    highlight hook; a selection anchors by quote (getSummaryAnchor),
+                    routed through applyAnchorGesture with the selection rect. The
+                    round is immutable, so a round-summary quote never drifts. */}
+                <div
                   data-summary="round"
                   onMouseUp={(e) => {
                     const a = getSummaryAnchor(e.currentTarget, round.seq);
-                    if (a) onAnchorSummary?.(a);
+                    if (!a) return;
+                    const sel = window.getSelection();
+                    const r = sel?.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
+                    onAnchorSummary?.(
+                      a,
+                      a.quote ?? "",
+                      r ? { left: r.left + r.width / 2, top: r.top } : null,
+                    );
                   }}
                   title="Select text to leave feedback on this round's summary"
-                  // Cap the measure at ~65ch so summary prose stays readable instead
-                  // of stretching the full width of a wide diff pane.
-                  className="mt-1 max-w-prose whitespace-pre-wrap border-l-2 border-neutral-300 pl-2 text-xs leading-relaxed text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
+                  className="mt-1 border-l-2 border-neutral-300 pl-2 dark:border-neutral-700"
                 >
-                  {round.summary}
-                </p>
+                  <MessageProse
+                    source={round.summary}
+                    onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
+                    // Cap the measure at ~65ch so summary prose stays readable
+                    // instead of stretching the full width of a wide diff pane.
+                    className="max-w-prose text-xs leading-relaxed text-neutral-600 dark:text-neutral-400"
+                  />
+                </div>
               </Collapse>
             </div>
           )}

@@ -30,8 +30,8 @@ export const Default: Story = {};
 
 // Two rounds — a follow-up diff addressing feedback. Only one round
 // renders at a time; with no `activeSeq` it defaults to the latest (diff 2),
-// whose round summary shows the foldable "Summary" toggle (click to collapse it
-// to a one-line preview, mirroring the review summary).
+// whose round summary shows the foldable "Diff summary" toggle (click to collapse
+// it to a one-line preview, mirroring the review summary).
 export const MultiRound: Story = {
   args: { rounds: multiRound },
 };

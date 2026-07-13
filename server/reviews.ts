@@ -642,10 +642,28 @@ export async function reanchorFeedback(
 ): Promise<Feedback | Rejected | null> {
   const fb = db.getFeedback(feedbackId);
   if (!fb) return null;
-  // Summary feedback's quote is its whole anchor (there's no worktree file behind
-  // it), so re-anchoring doesn't apply.
-  if (fb.file === SUMMARY_FILE)
-    return { error: "summary feedback isn't re-anchorable — its quote is the anchor" };
+  if (fb.file === SUMMARY_FILE) {
+    // A diff *round* summary lives in an immutable stored round — it can't drift,
+    // so there's nothing to re-anchor. The *review* summary (patch_seq null) is
+    // edited in place (r3 edit --summary), so its quote can drift: let the same
+    // agent that changed the summary re-point the note. The quote stays the anchor
+    // of record (there's no worktree file behind a summary — file stays @summary);
+    // the line range is a best-effort hint, kept when the caller omits it.
+    if (fb.patch_seq != null)
+      return { error: "a diff-round summary isn't re-anchorable (rounds are immutable)" };
+    if (body.quote == null || !body.quote.trim())
+      return { error: "review-summary re-anchor needs --quote (the note's new anchor text)" };
+    const next = db.updateFeedback(feedbackId, {
+      line_start: body.lineStart ?? fb.line_start,
+      line_end: body.lineEnd ?? fb.line_end,
+      quote: body.quote,
+      code_sha: await blobSha(body.quote),
+      anchor: "anchored",
+    });
+    broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
+    broadcast({ type: "review-updated", reviewId: fb.review_id });
+    return next;
+  }
   // Diff-review anchors live in immutable stored rounds — they can't drift, so
   // there's nothing to re-anchor. "Where the fix landed" is an anchored reply.
   const review = db.getReview(fb.review_id);

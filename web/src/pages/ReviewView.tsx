@@ -24,7 +24,6 @@ import {
   getDraft,
   setDraftAnchor,
   setDraftText,
-  setGeneralText,
   useDraftAnchor,
 } from "../drafts.ts";
 import { shortSha, sourceLabel } from "../format.ts";
@@ -109,6 +108,11 @@ function useActiveLineHighlight(
     for (const el of root.querySelectorAll(".r3-active-line"))
       el.classList.remove("r3-active-line");
     setHighlightRanges(HL_ACTIVE, []);
+    // Summary notes (prose, not file rows) are owned by useActiveSummaryHighlight,
+    // which also drives HL_ACTIVE for the located quote — bail before this hook
+    // would fight it over the same registry (or spin its retry loop on a
+    // non-existent `@summary` file).
+    if (file === SUMMARY_FILE) return;
     // Scroll only on a human navigation — a new feedback or a re-clicked locate; a
     // background anchor shift (same fbId + nonce) re-marks the rows in place.
     const shouldScroll =
@@ -269,11 +273,16 @@ function useActiveLineHighlight(
   }, [scope, fbId, file, side, lineStart, lineEnd, patchSeq, quote, scrollNonce, scrollToLine]);
 }
 
-// Flash the summary an active summary-feedback points at — the review summary
-// (a header, outside the scroll scope) or a round summary (inside it) — and bring
-// it into view. Separate from useActiveLineHighlight because summary feedback
-// targets prose blocks tagged with data-summary, not data-file/data-line rows;
-// it uses its own class so the two effects never clear each other's marks.
+// Locate the summary an active summary-feedback points at — the review summary
+// (top of the file-viewer column, outside the scroll scope) or a round summary
+// (inside it) — and bring it into view. Both summaries render as Markdown, so
+// there are no per-line rows: highlight the exact `quote` within the rendered
+// prose (best-effort, via the CSS Custom Highlight API) and scroll it on screen;
+// fall back to flashing the whole block when the quote can't be found. A round
+// summary is immutable so its quote always locates; the review summary is edited
+// in place, so a drifted quote lands on the whole-block fallback (accepted).
+// Separate from useActiveLineHighlight (which bails on SUMMARY_FILE) so the two
+// never fight over the shared HL_ACTIVE registry.
 function useActiveSummaryHighlight(
   scope: React.RefObject<HTMLElement | null>,
   fb: FeedbackWithReplies | null,
@@ -282,20 +291,35 @@ function useActiveSummaryHighlight(
   const isSummary = fb?.file === SUMMARY_FILE;
   const fbId = fb?.id ?? null;
   const patchSeq = fb?.patch_seq ?? null;
+  const quote = fb?.quote ?? null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: scrollNonce is an intentional re-trigger dep
   useEffect(() => {
     for (const el of document.querySelectorAll(".r3-summary-active"))
       el.classList.remove("r3-summary-active");
+    setHighlightRanges(HL_ACTIVE, []);
     if (!isSummary || fbId == null) return;
-    const el =
+    const block =
       patchSeq == null
         ? document.querySelector('[data-summary="review"]')
         : (scope.current?.querySelector(`[data-round="${patchSeq}"] [data-summary="round"]`) ??
           null);
-    if (!el) return;
-    el.classList.add("r3-summary-active");
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [scope, isSummary, fbId, patchSeq, scrollNonce]);
+    if (!block) return;
+    const range = quote && supportsHighlights() ? rangeForQuote(block, quote) : null;
+    if (range) {
+      setHighlightRanges(HL_ACTIVE, [range]);
+      // scrollIntoView on the quote's element pulls it through every scroll
+      // ancestor (the summary's own max-h scroll AND the pane), so it lands even
+      // when the quote sits below the summary bar's internal fold.
+      (range.startContainer.parentElement ?? block).scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    } else {
+      block.classList.add("r3-summary-active");
+      block.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return () => setHighlightRanges(HL_ACTIVE, []);
+  }, [scope, isSummary, fbId, patchSeq, quote, scrollNonce]);
 }
 
 interface Region {
@@ -1547,29 +1571,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [reviewId],
   );
 
-  // A summary selection's "Quote in note": drop it into the *general* (review-
-  // level) composer — non-empty general text makes the panel show that composer
-  // on its own (showGeneral), so writing the draft is what opens it. Focus lands
-  // via the composer's data attr, same pattern as quoteIntoNote above.
-  const quoteIntoGeneral = useCallback(
-    (text: string) => {
-      // With an anchored composer open (a pending draft), the general composer
-      // never mounts (the panel renders the pending one instead) — writing the
-      // general draft would vanish into an invisible store, so the quote drops
-      // into the open composer instead. Otherwise non-empty general text is what
-      // makes the panel show that composer (showGeneral), so writing the draft
-      // is what opens it.
-      if (pending) {
-        quoteIntoNote(text);
-        return;
-      }
-      const cur = getDraft(reviewId)?.general ?? "";
-      setGeneralText(reviewId, quoteBlock(cur, text).text);
-      focusComposer("general");
-    },
-    [reviewId, pending, quoteIntoNote],
-  );
-
   // Dismiss the file-pane quote bubble once its fixed position would go stale (the
   // pane scrolled) or the selection collapsed.
   useEffect(() => {
@@ -1795,14 +1796,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           Move files to the top level of the scratch directory.
         </div>
       )}
-      {/* Summary refs pin no version (the summary is edited in place), so they
-          resolve against the live/current view: null → the round on screen for a
-          diff review, the live file for a files review. */}
-      <ReviewSummary
-        summary={detail.summary}
-        onJumpRef={(ref) => jumpToRef(ref, null)}
-        onQuote={quoteIntoGeneral}
-      />
       <div ref={splitRef} className="flex min-h-0 flex-1">
         {fileList.length > 0 && (
           <FileBrowser
@@ -1816,6 +1809,17 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             switcher above the scroll pane so the file panel shows a single round
             at a time (the pane stays scrollable under it). */}
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* The review summary docks at the top of the file-viewer column rather
+              than full-width above the split: its prose is width-capped, so the
+              extra width the full span bought was wasted whitespace on the right.
+              Refs pin no version (the summary is edited in place), so they resolve
+              against the live/current view: null → the round on screen for a diff
+              review, the live file for a files review. */}
+          <ReviewSummary
+            summary={detail.summary}
+            onJumpRef={(ref) => jumpToRef(ref, null)}
+            onAnchorSummary={applyAnchorGesture}
+          />
           {/* Pinned above the scroll pane (not sticky inside it), so it never
               competes with the file headers' own sticky top-0. A multi-round diff
               docks its round switcher to the right; an empty round still shows the
@@ -1861,7 +1865,8 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   toggle={toggleViewed}
                   onPickLines={onPickLines}
                   onFileFeedback={onFileFeedback}
-                  onAnchorSummary={(a) => setDraftAnchor(reviewId, a)}
+                  onAnchorSummary={applyAnchorGesture}
+                  onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
                   foldSignal={foldSignal}
                 />
               )}
@@ -1886,7 +1891,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     // omitting isViewed/toggle hides the toggle.
                     onPickLines={onPickLines}
                     onFileFeedback={onFileFeedback}
-                    onAnchorSummary={(a) => setDraftAnchor(reviewId, a)}
+                    // Synthetic snapshot-diff rounds carry no summary, so the
+                    // round-summary anchor/ref paths never fire here — wire the
+                    // gesture for parity anyway.
+                    onAnchorSummary={applyAnchorGesture}
                     foldSignal={foldSignal}
                   />
                 ) : (
