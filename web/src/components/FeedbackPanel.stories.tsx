@@ -64,14 +64,13 @@ type Story = StoryObj<typeof meta>;
 
 // Active tab, no composer open. Every card shows the steady Resolve · ⋯ · Reply
 // action row (the composer stays hidden until "Reply" is clicked). Attention-first
-// ordering: the two "your turn" cards (agent replied last) — the outdated one
-// (amber ⚠ prefixing the file name) and the refuted one — float to the top, each
-// marked with the primary "your turn" dot in the header's right corner, above a
-// muted "no response needed" divider. Below it the rest recede (an open item, the
-// accepted+already-sent long thread whose replies fold to the last two — agent
-// replies get a soft blue tinted fill, human replies render as plain prose — plus
-// the general/whole-file/summary notes). "Copy prompt" is enabled — the unsent
-// items still have content.
+// ordering: the "your turn" card (agent replied last) — the outdated one (amber ⚠
+// prefixing the file name) — floats to the top, marked with the primary "your
+// turn" dot in the header's right corner, above a muted "no response needed"
+// divider. Below it the rest recede (an open item, the already-sent long thread
+// whose replies fold to the last three — agent replies get a soft blue tinted
+// fill, human replies render as plain prose — plus the general/whole-file/summary
+// notes). "Copy prompt" is enabled — the unsent items still have content.
 export const Default: Story = {};
 
 // The attention split on its own: cards where the agent had the last word rank to
@@ -86,9 +85,9 @@ export const AttentionOrdering: Story = {};
 // menu's Edit targets the last thing the human wrote (their last reply, else the
 // feedback body) and is disabled once the agent has replied last.
 export const ActiveMultiReply: Story = {
-  args: { activeFeedbackId: "feedback_accepted" },
+  args: { activeFeedbackId: "feedback_thread" },
   play: async ({ canvasElement }) => {
-    const card = canvasElement.querySelector<HTMLElement>('[data-fb-card="feedback_accepted"]');
+    const card = canvasElement.querySelector<HTMLElement>('[data-fb-card="feedback_thread"]');
     if (card) await userEvent.click(within(card).getByRole("button", { name: "Reply" }));
   },
 };
@@ -97,9 +96,9 @@ export const ActiveMultiReply: Story = {
 // editor in place and the bottom action row becomes Save/Cancel (replacing the
 // Reply button), instead of a second Save/Cancel row under the editor.
 export const EditingReply: Story = {
-  args: { activeFeedbackId: "feedback_accepted" },
+  args: { activeFeedbackId: "feedback_thread" },
   play: async ({ canvasElement }) => {
-    const card = canvasElement.querySelector<HTMLElement>('[data-fb-card="feedback_accepted"]');
+    const card = canvasElement.querySelector<HTMLElement>('[data-fb-card="feedback_thread"]');
     if (!card) return;
     await userEvent.click(within(card).getByTitle("More actions"));
     await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
@@ -205,7 +204,7 @@ export const ActiveCard: Story = {
 
 // Messages render as Markdown: the `feedback_pragma` body shows bold + inline
 // `code` + a bullet list, and an `@server/db.ts:L11-12` reference rendered as a
-// clickable jump chip. Its agent thread (`feedback_accepted`) has a reply with a
+// clickable jump chip. Its agent thread (`feedback_thread`) has a reply with a
 // fenced code block and its own `@ref`. Selecting text inside an agent reply
 // raises the "Quote in reply" bubble (not visible in a static snapshot).
 export const MarkdownMessages: Story = {

@@ -11,6 +11,7 @@ import type {
   CreateReviewBody,
   DiffResult,
   Feedback,
+  FeedbackStatus,
   GitLogEntry,
   GitStatus,
   GitTreeEntry,
@@ -167,7 +168,7 @@ export const api = {
   // feedback + replies
   addFeedback: (reviewId: string, body: CreateFeedbackBody) =>
     req<Feedback>("POST", `/api/reviews/${reviewId}/feedback`, body),
-  editFeedback: (id: string, body: { body?: string; status?: string }) =>
+  editFeedback: (id: string, body: { body?: string; status?: FeedbackStatus }) =>
     req<Feedback>("PATCH", `/api/feedback/${id}`, body),
   reanchor: (id: string, body: ReanchorBody) =>
     req<Feedback>("PATCH", `/api/feedback/${id}/anchor`, body),

@@ -354,13 +354,13 @@ const fb = (
   created_at: ISO,
   updated_at: ISO,
   sent_at: null,
+  status_unsent: false,
   replies: [],
   ...over,
 });
 
 const rp = (over: Partial<Reply> & Pick<Reply, "id" | "feedback_id" | "body">): Reply => ({
   author: "agent",
-  action: null,
   patch_seq: null,
   file: null,
   line_start: null,
@@ -417,7 +417,6 @@ export const reviewDetail: ReviewDetail = {
         rp({
           id: "reply_1",
           feedback_id: "feedback_outdated",
-          action: "accept",
           body: "Good catch — renamed it to idx_feedback_review.",
           // Anchored reply: the fix landed in round 2.
           patch_seq: 2,
@@ -427,24 +426,22 @@ export const reviewDetail: ReviewDetail = {
         }),
       ],
     }),
-    // Accepted and already delivered to the agent (sent_at set → no Edit in its
-    // ⋯ menu), with a long thread whose earlier turns are sent and one unsent
-    // human follow-up — the state a follow-up prompt renders as a compact block.
-    // Also exercises the folded thread (last two shown) + the "accepted" label.
+    // Already delivered to the agent (sent_at set → no Edit in its ⋯ menu),
+    // with a long thread whose earlier turns are sent and one unsent human
+    // follow-up — the state a follow-up prompt renders as a compact block.
+    // Also exercises the folded thread (last two shown).
     fb({
-      id: "feedback_accepted",
+      id: "feedback_thread",
       body: "The WAL pragma should run before any writes so the very first transaction is journaled correctly — move it to the top of open().",
       file: "server/db.ts",
       line_start: 10,
       line_end: 10,
       quote: "  const db = new Database(path);",
-      status: "accepted",
       sent_at: SENT_ISO,
       replies: [
         rp({
           id: "reply_a1",
-          feedback_id: "feedback_accepted",
-          action: "accept",
+          feedback_id: "feedback_thread",
           sent_at: SENT_ISO,
           body:
             "Agreed, and it's a real ordering hazard rather than a style nit. SQLite decides " +
@@ -458,16 +455,14 @@ export const reviewDetail: ReviewDetail = {
         }),
         rp({
           id: "reply_a2",
-          feedback_id: "feedback_accepted",
+          feedback_id: "feedback_thread",
           author: "human",
-          action: null,
           sent_at: SENT_ISO,
           body: "Great — can you also confirm the busy_timeout is set on that same early path?",
         }),
         rp({
           id: "reply_a3",
-          feedback_id: "feedback_accepted",
-          action: null,
+          feedback_id: "feedback_thread",
           sent_at: SENT_ISO,
           body:
             "Yes. The busy_timeout is set in the same pragma block, right after journal_mode, so " +
@@ -483,28 +478,31 @@ export const reviewDetail: ReviewDetail = {
         // The one unsent turn: a human follow-up posted after the last hand-off.
         rp({
           id: "reply_a4",
-          feedback_id: "feedback_accepted",
+          feedback_id: "feedback_thread",
           author: "human",
-          action: null,
           body: "Perfect. One more — does the same ordering hold for the :memory: test db?",
         }),
       ],
     }),
-    // Refuted — the muted "refuted" decision label + red dot, with the agent's
-    // reasoning as a single reply.
+    // Resolved after the agent pushed back — the disagreement lives in the
+    // thread, not a status (the old refuted verdict folded into resolved). Its
+    // bare resolution hasn't been delivered yet (status_unsent), the state a
+    // follow-up prompt reports as "[resolved] — no action needed".
     fb({
-      id: "feedback_refuted",
+      id: "feedback_pushback",
       body: "Do we need foreign_keys ON here? It adds overhead on every write.",
       file: "server/db.ts",
       line_start: 12,
       line_end: 12,
       quote: '  db.exec("PRAGMA foreign_keys = ON;");',
-      status: "refuted",
+      status: "resolved",
+      sent_at: SENT_ISO,
+      status_unsent: true,
       replies: [
         rp({
           id: "reply_r1",
-          feedback_id: "feedback_refuted",
-          action: "refute",
+          feedback_id: "feedback_pushback",
+          sent_at: SENT_ISO,
           body:
             "Keeping it on. The overhead is a per-statement check that's negligible for our write " +
             "volume, and it's the only thing stopping an orphaned reply from outliving its " +
@@ -567,7 +565,6 @@ export const reviewDetail: ReviewDetail = {
           id: "reply_2",
           feedback_id: "feedback_resolved",
           author: "human",
-          action: "resolve",
           body: "Fixed.",
         }),
       ],
@@ -583,6 +580,7 @@ export const allSentDetail: ReviewDetail = {
   feedback: reviewDetail.feedback.map((f) => ({
     ...f,
     sent_at: SENT_ISO,
+    status_unsent: false,
     replies: f.replies.map((r) => ({ ...r, sent_at: SENT_ISO })),
   })),
 };

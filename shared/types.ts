@@ -4,12 +4,15 @@
 
 export type ReviewKind = "diff" | "files";
 export type ReviewStatus = "open" | "approved" | "abandoned";
-export type FeedbackStatus = "open" | "accepted" | "refuted" | "resolved";
+// Feedback has exactly two states, and the human drives both: `open` = needs
+// attention, `resolved` = done (fixed, answered, or dismissed — the *why* lives
+// in the thread, not the enum). Replies are pure messages with no status of
+// their own; resolving is a status toggle, not a kind of reply.
+export type FeedbackStatus = "open" | "resolved";
 export type AnchorState = "anchored" | "outdated";
 export type DiffSide = "old" | "new";
 export type Author = "human" | "agent";
 export type Creator = "human" | "agent" | "cli";
-export type ReplyAction = "accept" | "refute" | "resolve" | "followup" | null;
 
 // `WORKING` = the working tree, `STAGED` = the index, `SCRATCH` = an adhoc doc
 // stored in the daemon's scratch dir (not git); anything else is a git ref/sha.
@@ -140,14 +143,20 @@ export interface Feedback {
   // When this feedback was last delivered to the agent via a prompt hand-off
   // (Copy / `r3 prompt` / `r3 watch`); null = never sent. Drives unsent-only
   // prompts — a prompt re-sends only feedback the agent hasn't seen.
+  // Agent-authored feedback is born delivered (sent_at = created_at): the agent
+  // wrote it, so only the human's replies/resolution flow back through prompts.
   sent_at: string | null;
+  // True when the status changed since the last hand-off (a bare Resolve/Reopen
+  // click posts no reply, so sent_at alone can't see it). Makes the decision
+  // itself deliverable: the next prompt reports "feedback_x [resolved]" and
+  // clears the flag. Set on every real status flip, cleared on delivery.
+  status_unsent: boolean;
 }
 
 export interface Reply {
   id: string; // reply_<short>
   feedback_id: string;
   author: Author;
-  action: ReplyAction; // drives the parent feedback's status; null = plain message
   body: string;
   // Optional anchor: where this reply's change landed. The feedback
   // keeps pointing at what the human commented on; an anchored reply points at
@@ -277,7 +286,6 @@ export interface ReanchorBody {
 
 export interface AddReplyBody {
   author?: Author;
-  action?: ReplyAction;
   body: string;
   // Optional pin: where the change addressing this feedback landed. `patchSeq`
   // names a stored round; file/lines/quote locate the spot inside it (new side).

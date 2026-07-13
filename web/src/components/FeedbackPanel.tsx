@@ -515,8 +515,7 @@ function NewFeedback({
 // the human's own voice, same as the feedback body above it, so it renders as
 // plain prose flush with the body rather than a second styled block; that also
 // keeps it from reading as quoted text (the left-border idiom belongs to the
-// anchor quote). Author (+ any action) rides in the title for hover/accessibility;
-// a non-null action gets a subtle muted tag up top, since the author label is gone.
+// anchor quote). The author rides in the title for hover/accessibility.
 function ReplyBlock({
   rp,
   editing,
@@ -548,16 +547,13 @@ function ReplyBlock({
   const editGrowRef = useAutoGrow(editRef, editValue, 3);
   return (
     <div
-      title={rp.action ? `${rp.author} · ${rp.action}` : rp.author}
+      title={rp.author}
       data-reply-author={rp.author}
       className={cn(
         "text-xs",
         isAgent && "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
       )}
     >
-      {rp.action && (
-        <div className="mb-0.5 text-[0.625rem] font-medium text-neutral-400">{rp.action}</div>
-      )}
       {editing ? (
         <textarea
           ref={editGrowRef}
@@ -694,14 +690,15 @@ function FeedbackCard({
     setEditingReplyId(null);
   };
 
+  // Post the composer text (if any) as a plain reply and — for Resolve — flip
+  // the status. A reply never carries a status itself; a bare Resolve with an
+  // empty composer is a pure status toggle, no filler "Resolved." message.
   const postReply = useMutation({
-    mutationFn: (action: "resolve" | null) =>
-      api.addReply(fb.id, {
-        author: "human",
-        action,
-        body: reply || (action === "resolve" ? "Resolved." : ""),
-      }),
-    onSuccess: (_data, action) => {
+    mutationFn: async (resolve: boolean) => {
+      if (reply.trim()) await api.addReply(fb.id, { author: "human", body: reply });
+      if (resolve) await api.editFeedback(fb.id, { status: "resolved" });
+    },
+    onSuccess: (_data, resolve) => {
       setReply("");
       // Collapse the composer once the reply lands — the thread now shows it, so
       // the open input has nothing left to hold. The action row's "Reply" reopens
@@ -711,7 +708,7 @@ function FeedbackCard({
       // Resolving hands focus off to the next still-open item (the parent picks
       // which) — never linger on the just-resolved card or follow it to the
       // Resolved tab.
-      if (action === "resolve") onResolved();
+      if (resolve) onResolved();
     },
   });
   const reopen = useMutation({
@@ -751,9 +748,6 @@ function FeedbackCard({
   }, [menuOpen]);
 
   const resolved = fb.status === "resolved";
-  // A quiet colored word only for the non-default decisions; open/resolved are
-  // already implied by the tab, so they get just the dot.
-  const statusLabel = fb.status === "accepted" || fb.status === "refuted" ? fb.status : null;
   // Show the last three replies by default (a version-pinned answer often splits
   // into more than one reply — old vs. new — so keep a little more of the tail in
   // view); the rest fold behind the expander.
@@ -813,7 +807,7 @@ function FeedbackCard({
     <Button
       variant="ghost"
       className={resolveOutline}
-      onClick={() => postReply.mutate("resolve")}
+      onClick={() => postReply.mutate(true)}
       title="Mark resolved"
     >
       ✓ Resolve
@@ -876,25 +870,12 @@ function FeedbackCard({
           )}
           <span className="truncate">{locLabel(fb)}</span>
         </span>
-        {statusLabel && (
-          <span
-            className={cn(
-              "ml-auto shrink-0 text-[0.6875rem]",
-              fb.status === "accepted"
-                ? "text-success-600 dark:text-success-400"
-                : "text-danger-600 dark:text-danger-400",
-            )}
-          >
-            {statusLabel}
-          </span>
-        )}
         {/* "Your turn" dot — an unread-style marker pinned to the header's right
-            edge (top-right of the card) when the agent replied last. It takes the
-            ml-auto only when no decision word already pushed itself right. */}
+            edge (top-right of the card) when the agent replied last. */}
         {awaitingYou && (
           <span
             title="The agent replied — your turn."
-            className={cn("flex shrink-0 items-center", !statusLabel && "ml-auto")}
+            className="ml-auto flex shrink-0 items-center"
           >
             <span className="block size-2 rounded-full bg-primary-500 dark:bg-primary-400" />
           </span>
@@ -1034,7 +1015,7 @@ function FeedbackCard({
               reply.trim() &&
               !postReply.isPending
             )
-              postReply.mutate(null);
+              postReply.mutate(false);
             // Esc closes the box only when it's empty — with text typed, Esc is a
             // no-op so an accidental press can't discard the draft.
             else if (e.key === "Escape" && !reply.trim()) setReplyOpen(false);
@@ -1135,7 +1116,7 @@ function FeedbackCard({
               variant="default"
               className={replyOpen ? undefined : "ml-auto"}
               disabled={replyOpen && (!reply.trim() || postReply.isPending)}
-              onClick={() => (replyOpen ? postReply.mutate(null) : openReply())}
+              onClick={() => (replyOpen ? postReply.mutate(false) : openReply())}
             >
               {replyOpen ? "Save" : "Reply"}
             </Button>
@@ -1180,14 +1161,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
-  // Mirror the server's unsent predicate: a candidate (open|accepted)
-  // feedback has content the agent hasn't seen when it was never sent, or a human
-  // reply arrived after the last hand-off. Gates Copy/Submit — there's nothing to
-  // send once everything's delivered (a fresh reply/feedback re-enables it live).
-  const hasUnsent = detail.feedback.some(
-    (f) =>
-      (f.status === "open" || f.status === "accepted") &&
-      (f.sent_at == null || f.replies.some((r) => r.author === "human" && r.sent_at == null)),
+  // Mirror the server's unsent predicate (prompt.ts hasUnsentContent): feedback
+  // has content the agent hasn't seen when it was never sent (and is still
+  // open), or a human reply / undelivered status flip (a bare Resolve/Reopen)
+  // arrived after the last hand-off. Gates Copy/Submit — there's nothing to
+  // send once everything's delivered (a fresh reply/feedback/decision
+  // re-enables it live).
+  const hasUnsent = detail.feedback.some((f) =>
+    f.sent_at == null
+      ? f.status === "open"
+      : f.replies.some((r) => r.author === "human" && r.sent_at == null) || f.status_unsent,
   );
   // The general note's text lives in the browser draft store (persisted, lights the
   // pill); `generalOpen` is just the local "is the composer showing" bit. It's kept

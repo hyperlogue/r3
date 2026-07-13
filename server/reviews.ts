@@ -1,6 +1,6 @@
 // Domain rules over the storage layer: building a review's full detail with
-// live re-anchoring, applying a reply's action to its parent feedback's status,
-// and explicit agent re-anchoring. Storage stays in db.ts;
+// live re-anchoring, posting feedback/replies, and explicit agent
+// re-anchoring. Storage stays in db.ts;
 // this module owns the rules and the SSE side effects.
 
 import type {
@@ -167,8 +167,8 @@ export async function buildAndMarkPrompt(
   const detail = await buildReviewDetail(id);
   if (!detail) return null;
   const { text, included } = buildUnsentPrompt(detail, { feedbackIds });
-  if (included.feedback.length || included.replies.length) {
-    db.markContentSent(id, included.feedback, included.replies);
+  if (included.feedback.length || included.replies.length || included.statuses.length) {
+    db.markContentSent(id, included.feedback, included.replies, included.statuses);
     broadcast({ type: "review-updated", reviewId: id });
   }
   return text;
@@ -425,22 +425,15 @@ export async function addFeedback(
   return fb;
 }
 
-const ACTION_STATUS = {
-  accept: "accepted",
-  refute: "refuted",
-  resolve: "resolved",
-  followup: "open",
-} as const;
-
-export function applyReply(
+// Post a reply to a feedback. A reply is a pure message — it never changes the
+// parent's status (resolve/reopen is a status toggle on the feedback itself,
+// PATCH /api/feedback/:id); an `action` key from a stale client is ignored.
+export function addReply(
   feedbackId: string,
   body: AddReplyBody,
 ): { reply: Reply; feedback: Feedback } | Rejected | null {
   const fb = db.getFeedback(feedbackId);
   if (!fb) return null;
-  // Only a known action drives status; an unknown string (including inherited
-  // keys like "toString"/"__proto__") is recorded as a plain reply, not a status.
-  const action = body.action && Object.hasOwn(ACTION_STATUS, body.action) ? body.action : null;
   // An anchored reply pins where the change addressing this feedback landed.
   // Validate against the stored round now — rounds are immutable,
   // so a pin that passes here holds forever.
@@ -466,7 +459,6 @@ export function applyReply(
   const refVersion = seqs.length ? Math.max(...seqs) : null;
   const reply = db.createReply(feedbackId, {
     author: body.author ?? "agent",
-    action,
     body: body.body,
     patch_seq: body.patchSeq ?? null,
     file: body.patchSeq != null ? (body.file ?? null) : null,
@@ -475,13 +467,9 @@ export function applyReply(
     quote: body.patchSeq != null ? (body.quote ?? null) : null,
     ref_version: refVersion,
   });
-  let feedback = fb;
-  if (action) {
-    feedback = db.updateFeedback(feedbackId, { status: ACTION_STATUS[action] }) ?? fb;
-  }
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
   broadcast({ type: "review-updated", reviewId: fb.review_id });
-  return { reply, feedback };
+  return { reply, feedback: fb };
 }
 
 export async function reanchorFeedback(

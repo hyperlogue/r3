@@ -130,10 +130,10 @@ npm/             the published `r3` launcher (bunx/npx): resolves+execs the matc
 Three persistent entities — **Review**, **Feedback**, **Reply** — plus **Patch**,
 a diff review's stored rounds (full shapes in `shared/types.ts`, SQL schema in
 `server/db.ts`). Feedback and Reply stay **separate**: feedback has a
-lifecycle/**status** + an anchor; a reply is just a message in the thread with **no
-status** (merging them would make illegal states — a "reply" that's "accepted" —
-representable). A reply's `action` _drives_ the parent feedback's status; it is not
-a status of its own.
+lifecycle/**status** + an anchor; a reply is a **pure message** in the thread with
+no status of its own (merging them would make illegal states — a "reply" that's
+"resolved" — representable). Resolving is a **status toggle on the feedback**
+(`PATCH /api/feedback/:id`), never a property of a reply.
 
 - **Review** — `id`, `repo_id`, `worktree`, `title` (editable via `r3 edit` or the
   UI), `summary` (a short free-form overview; editable via `r3 edit` only —
@@ -150,19 +150,21 @@ rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
   `quote` (**the anchor of record** — the line number is only a hint), `code_sha`
   (recorded at anchor time; staleness surfaced via `anchor`), `anchor`
   (`anchored|outdated`), `patch_seq` (which round, for diff reviews), `status`
-  (`open|accepted|refuted|resolved`). The agent references feedback by its
+  (**`open|resolved`** — two states, human-driven; open = needs attention,
+  resolved = done, and the _why_ — fixed, answered, dismissed — lives in the
+  thread, not the enum). The agent references feedback by its
   **stable `id`** (`feedback_<short>`), never a positional index. Two span-less
   variants exist, and neither is ever re-anchored: a **summary** note (`file` is
   the `SUMMARY_FILE` sentinel `@summary`; `patch_seq` names a round's summary,
   null = the review summary; shown as "review summary" / "diff N summary") and a
   **whole-file** note (a real `file` path with `line_start`/`line_end`/`quote` all
   null; shown as "`<path>` (whole file)").
-- **Reply** — `feedback_id`, `author`, `action` (`accept|refute|resolve|followup|null`),
-  `body`, plus an optional **pin** (`patch_seq`, `file`, `line_start/end`, `quote`)
+- **Reply** — `feedback_id`, `author`, `body`, plus an optional **pin**
+  (`patch_seq`, `file`, `line_start/end`, `quote`)
   saying where in a later round the change addressing the feedback landed
-  (`r3 reply <fid> -m … --diff <seq> --file <f> --line <a-b>`). `r3 reply` always
-  posts a **plain reply** (`action=null`) — the human drives status from the UI.
-  An unknown `action` string is treated as a plain reply, never as a status. One
+  (`r3 reply <fid> -m … --diff <seq> --file <f> --line <a-b>`). A reply is always
+  a plain message — the human drives status (resolve/reopen) from the UI; an
+  `action` key from a stale client is ignored. One
   feedback can accumulate several pinned replies across rounds — the fix's history.
   A reply also carries `ref_version`, captured at post time: the latest round
   (diff) / snapshot (files), or null. It's the version the reply's inline
@@ -261,13 +263,16 @@ naive `while r3 watch; do …` is wrong — branch on `$?`. Ending the loop is t
 human's move — `r3 approve <id>` (optionally with `--note "<next steps>"`) or
 `r3 abandon <id>`, or the Approve/Abandon buttons in the UI.
 
-**Delivery is tracked** (`sent_at`): every hand-off marks the feedback + human
-replies it renders sent, so a prompt is **unsent-only** — new feedback in full plus
-a compact `(follow-up)` block for any feedback that gained a human reply since
-(agent replies never re-appear — the agent wrote them). Copy/Submit disable once
-nothing is unsent (a fresh reply re-enables them); `r3 show <id>` (or `r3 prompt
-<id> --all`) re-prints the full history without marking. A restarted `watch` won't
-re-emit what was already delivered.
+**Delivery is tracked** (`sent_at` + `status_unsent`): every hand-off marks the
+feedback + human replies it renders sent, so a prompt is **unsent-only** — new
+feedback in full plus a compact `(follow-up)` block for any feedback that gained a
+human reply since (agent replies never re-appear — the agent wrote them). **The
+decision itself is deliverable**: a bare Resolve/Reopen click posts no reply, so a
+status flip raises `status_unsent` and the next prompt reports "`[resolved]` — no
+action needed" (then clears the flag) — the agent tracks each item to resolution.
+Copy/Submit disable once nothing is unsent (a fresh reply or decision re-enables
+them); `r3 show <id>` (or `r3 prompt <id> --all`) re-prints the full history
+without marking. A restarted `watch` won't re-emit what was already delivered.
 
 `watch` also returns immediately if feedback is already pending; `--timeout <sec>`
 (default 0 = never) bounds the wait; `--auto-fetch-timeout <sec>` opts into

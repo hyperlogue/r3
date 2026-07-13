@@ -725,6 +725,11 @@ app.post("/api/reviews/:id/feedback", async (c) => {
 app.patch("/api/feedback/:id", async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.text("bad json", 400);
+  // The status enum is two-valued and human-driven; reject anything else (e.g.
+  // a stale client still sending the removed accepted/refuted verdicts) rather
+  // than storing an unrenderable value.
+  if (body.status !== undefined && body.status !== "open" && body.status !== "resolved")
+    return c.text("bad status (open|resolved)", 400);
   const fb = reviews.editFeedback(c.req.param("id"), { body: body.body, status: body.status });
   return fb ? c.json(fb) : c.text("not found", 404);
 });
@@ -750,7 +755,7 @@ app.delete("/api/feedback/:id", (c) =>
 app.post("/api/feedback/:id/replies", async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body?.body) return c.text("missing body", 400);
-  const res = reviews.applyReply(c.req.param("id"), body);
+  const res = reviews.addReply(c.req.param("id"), body);
   if (!res) return c.text("not found", 404);
   if (reviews.isRejected(res)) return c.text(res.error, 400);
   return c.json(res);

@@ -250,18 +250,17 @@ async function api(method: string, path: string, body?: unknown): Promise<any> {
   }
 }
 
-// A feedback is awaiting the agent when it's still actionable (open|accepted —
-// the same candidate set the prompt renders and the UI's Submit gates on) and
-// holds content the agent hasn't been sent yet: the feedback itself was never
-// delivered, or a human reply landed since the last hand-off. This is delivery
-// state (sent_at), not a last-speaker heuristic — so a restarted `watch` no
-// longer re-emits items already delivered (that's the point; `r3 show` recovers
-// the full history).
+// A feedback is awaiting the agent when it holds content the agent hasn't been
+// sent yet — mirrors the server's unsent predicate (prompt.ts hasUnsentContent):
+// never delivered (only while still open — a note resolved before any hand-off
+// was settled without the agent), or a human reply / undelivered status flip
+// (bare Resolve/Reopen) landed since the last hand-off. This is delivery state
+// (sent_at + status_unsent), not a last-speaker heuristic — so a restarted
+// `watch` no longer re-emits items already delivered (that's the point;
+// `r3 show` recovers the full history).
 function awaitingAgent(fb: any): boolean {
-  return (
-    (fb.status === "open" || fb.status === "accepted") &&
-    (fb.sent_at == null || fb.replies.some((r: any) => r.author === "human" && !r.sent_at))
-  );
+  if (fb.sent_at == null) return fb.status === "open";
+  return fb.replies.some((r: any) => r.author === "human" && !r.sent_at) || !!fb.status_unsent;
 }
 
 async function awaitingIds(id: string): Promise<string[]> {
@@ -563,16 +562,16 @@ async function cmdShow(args: Args) {
         rp.patch_seq != null
           ? ` [diff ${rp.patch_seq}${rp.file ? ` ${rp.file}${rp.line_start ? `:L${rp.line_start}` : ""}` : ""}]`
           : "";
-      console.log(`      ↳ ${rp.author}${rp.action ? ` (${rp.action})` : ""}${pin}: ${rp.body}`);
+      console.log(`      ↳ ${rp.author}${pin}: ${rp.body}`);
     }
   }
 }
 
 // The agent prompt for a review. Default POSTs: it prints only feedback the
-// agent hasn't seen yet (new items + human follow-ups) and marks it delivered,
-// so the next call won't repeat it. `--all` GETs and re-prints every open/accepted
-// item (already-delivered ones included) and marks nothing — the escape hatch; for
-// the true full history (resolved/refuted too) use `r3 show`. `--feedback`
+// agent hasn't seen yet (new items, human follow-ups, resolutions) and marks it
+// delivered, so the next call won't repeat it. `--all` GETs and re-prints every
+// open item (already-delivered ones included) and marks nothing — the escape
+// hatch; for the true full history (resolved too) use `r3 show`. `--feedback`
 // narrows to a comma-separated subset of ids.
 async function cmdPrompt(args: Args) {
   const id = args.positional[0] ?? fail("prompt <id> [--all] [--feedback <fid,...>]");
@@ -741,20 +740,20 @@ async function cmdWatch(args: Args) {
 
 async function cmdReply(args: Args) {
   // The agent addresses a feedback by its globally-unique id; no review id or
-  // action — a reply is just a reply, its intent (accept/refute/...) lives in
-  // the prose. The human still sets feedback status from the web UI.
+  // action — a reply is just a reply, its intent lives in the prose. The human
+  // still resolves/reopens feedback from the web UI.
   const fid =
     args.positional[0] ??
     fail('reply <feedback_id> -m "<msg>" [--diff <seq> --file <f> --line <a-b> [--quote <text>]]');
-  // `r3 reply` ALWAYS posts a plain reply (action=null): by design the human
-  // drives status (accept/refute/resolve) from the UI. These action flags never
-  // did anything — reject them loudly so a stale `r3 reply <fid> --accept` fails
-  // instead of silently succeeding with the feedback status unchanged.
+  // A reply is always a plain message: by design the human drives status
+  // (resolve/reopen) from the UI. Reject the old action flags loudly so a stale
+  // `r3 reply <fid> --accept` fails instead of silently succeeding with the
+  // feedback status unchanged.
   const reserved = ["accept", "refute", "followup", "resolve"].filter((k) => k in args.flags);
   if (reserved.length)
     fail(
       `reply doesn't take --${reserved[0]} — a reply is always a plain message; ` +
-        "the human drives status (accept/refute/resolve) from the UI. Say what you " +
+        "the human resolves feedback from the UI. Say what you " +
         'did in -m "…" and let them decide.',
     );
   const message = (args.flags.message as string) ?? fail("reply needs -m <message>");
@@ -1121,10 +1120,11 @@ const HELP = `r3 — local human<->agent review CLI
   list   [--meta k=v]... [--status open]         # filter by meta, e.g. --meta session=<id>
   show   <id> [--json]                           # full history: every item, thread, and round
   prompt <id> [--all] [--feedback <fid,...>]     # print feedback you haven't seen yet (new
-                                                 #   items + human follow-ups) and mark it
-                                                 #   delivered, so the next call won't repeat it.
-                                                 #   --all: re-print all open/accepted items,
-                                                 #     mark nothing (r3 show = full history)
+                                                 #   items, human follow-ups, resolutions) and
+                                                 #   mark it delivered, so the next call won't
+                                                 #   repeat it.
+                                                 #   --all: re-print all open items, mark
+                                                 #     nothing (r3 show = full history)
                                                  #   --feedback: limit to a subset of ids
   watch  <id> [--session <name>] [--agent-id <id>]
               [--auto-fetch-timeout <sec>] [--timeout <sec>]
@@ -1212,7 +1212,8 @@ lazily on your first command — run commands from inside the repo under review.
    0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out.
 3. Work each item, then: r3 reply <feedback_id> -m "what you did / why not".
    Reply by the stable feedback id, never a positional index; replies are plain
-   messages (the human sets accept/refute/resolve in the UI).
+   messages (the human resolves/reopens items in the UI — you'll see
+   "[resolved]" in a later prompt when they do).
 4. Watch again for the next round.
 
 Watch by default: after creating a review, and after each round of replies, run

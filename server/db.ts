@@ -15,7 +15,6 @@ import type {
   FeedbackStatus,
   PatchMeta,
   Reply,
-  ReplyAction,
   RepoRecord,
   Review,
   ReviewKind,
@@ -75,13 +74,13 @@ CREATE TABLE IF NOT EXISTS feedback (
   status      TEXT NOT NULL DEFAULT 'open',
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL,
-  sent_at     TEXT
+  sent_at     TEXT,
+  status_unsent INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS replies (
   id          TEXT PRIMARY KEY,
   feedback_id TEXT NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
   author      TEXT NOT NULL,
-  action      TEXT,
   body        TEXT NOT NULL,
   patch_seq   INTEGER,
   file        TEXT,
@@ -173,6 +172,18 @@ if (!hasColumn("replies", "sent_at")) db.exec("ALTER TABLE replies ADD COLUMN se
 // migrate to NULL (their refs, if any, resolve live/best-effort).
 if (!hasColumn("replies", "ref_version"))
   db.exec("ALTER TABLE replies ADD COLUMN ref_version INTEGER");
+// Undelivered-status-change flag (see shared/types.ts Feedback.status_unsent).
+// Existing rows migrate to 0 = delivered, so an upgrade doesn't re-announce
+// every old decision.
+if (!hasColumn("feedback", "status_unsent"))
+  db.exec("ALTER TABLE feedback ADD COLUMN status_unsent INTEGER NOT NULL DEFAULT 0");
+// Feedback status collapsed to open|resolved: the accepted/refuted verdicts
+// never earned their keep (both are "the human decided; it's settled"), so
+// legacy rows fold into resolved. Idempotent — nothing matches once converted.
+db.exec("UPDATE feedback SET status = 'resolved' WHERE status IN ('accepted','refuted')");
+// Replies lost their `action` column with the same change: a reply is a pure
+// message, and resolve became a status toggle on the feedback itself.
+if (hasColumn("replies", "action")) db.exec("ALTER TABLE replies DROP COLUMN action");
 // Snapshot "present but non-diffable" marker: a file that exists at
 // capture time but is binary/oversize is stored as a marker row (content='',
 // skipped=1) instead of being omitted, so the derived diff renders it as a binary
@@ -265,12 +276,12 @@ interface FeedbackRow {
   created_at: string;
   updated_at: string;
   sent_at: string | null;
+  status_unsent: number; // sqlite boolean (0/1)
 }
 interface ReplyRow {
   id: string;
   feedback_id: string;
   author: Author;
-  action: ReplyAction;
   body: string;
   patch_seq: number | null;
   file: string | null;
@@ -333,6 +344,7 @@ function rowToFeedback(r: FeedbackRow): Feedback {
     created_at: r.created_at,
     updated_at: r.updated_at,
     sent_at: r.sent_at,
+    status_unsent: !!r.status_unsent,
   };
 }
 
@@ -656,9 +668,14 @@ export function updateFeedback(
   for (const [k, v] of Object.entries(fields)) {
     if (v !== undefined) (next as Record<string, unknown>)[k] = v;
   }
+  // A real status flip (resolve/reopen) is content the agent hasn't heard:
+  // raise the undelivered-status flag so the next prompt reports it. Anything
+  // else (re-anchor, body edit) leaves the flag as it stands; delivery clears
+  // it (markContentSent).
+  if (fields.status !== undefined && fields.status !== cur.status) next.status_unsent = true;
   db.query(
     `UPDATE feedback SET body=$body, status=$status, anchor=$anchor, file=$file, side=$side,
-       line_start=$ls, line_end=$le, quote=$quote, code_sha=$sha, updated_at=$ts WHERE id=$id`,
+       line_start=$ls, line_end=$le, quote=$quote, code_sha=$sha, status_unsent=$su, updated_at=$ts WHERE id=$id`,
   ).run({
     $id: id,
     $body: next.body,
@@ -670,6 +687,7 @@ export function updateFeedback(
     $le: next.line_end,
     $quote: next.quote,
     $sha: next.code_sha,
+    $su: next.status_unsent ? 1 : 0,
     $ts: nowIso(),
   });
   touchReview(cur.review_id);
@@ -700,7 +718,6 @@ export function createReply(
   feedbackId: string,
   input: {
     author?: Author;
-    action?: ReplyAction;
     body: string;
     // Optional pin: where the change addressing the feedback landed.
     patch_seq?: number | null;
@@ -717,13 +734,12 @@ export function createReply(
   // insertWithMintedId) so a clash re-mints rather than 500s + drops the reply.
   const id = insertWithMintedId(newReplyId, (id) => {
     db.query(
-      `INSERT INTO replies (id, feedback_id, author, action, body, patch_seq, file, line_start, line_end, quote, ref_version, created_at)
-       VALUES ($id, $fid, $author, $action, $body, $patch_seq, $file, $ls, $le, $quote, $ref_version, $ts)`,
+      `INSERT INTO replies (id, feedback_id, author, body, patch_seq, file, line_start, line_end, quote, ref_version, created_at)
+       VALUES ($id, $fid, $author, $body, $patch_seq, $file, $ls, $le, $quote, $ref_version, $ts)`,
     ).run({
       $id: id,
       $fid: feedbackId,
       $author: input.author ?? "agent",
-      $action: input.action ?? null,
       $body: input.body,
       $patch_seq: input.patch_seq ?? null,
       $file: input.file ?? null,
@@ -761,18 +777,27 @@ export function listReplies(feedbackId: string): Reply[] {
 }
 
 // Stamp `sent_at = now` on the given feedback + reply ids in one transaction —
-// marking them delivered to the agent. Bumps the review's
+// marking them delivered to the agent. `statusIds` are the feedback whose
+// current status the prompt just reported (every rendered block carries it),
+// so their undelivered-status flag clears too. Bumps the review's
 // updated_at so the change lands like any other feedback write; the SSE
 // broadcast is the caller's (reviews.ts owns the side effects). A no-op for
 // empty lists.
-export function markContentSent(reviewId: string, feedbackIds: string[], replyIds: string[]): void {
-  if (feedbackIds.length === 0 && replyIds.length === 0) return;
+export function markContentSent(
+  reviewId: string,
+  feedbackIds: string[],
+  replyIds: string[],
+  statusIds: string[] = [],
+): void {
+  if (feedbackIds.length === 0 && replyIds.length === 0 && statusIds.length === 0) return;
   const ts = nowIso();
   const stampFeedback = db.query("UPDATE feedback SET sent_at = $ts WHERE id = $id");
   const stampReply = db.query("UPDATE replies SET sent_at = $ts WHERE id = $id");
+  const clearStatus = db.query("UPDATE feedback SET status_unsent = 0 WHERE id = $id");
   db.transaction(() => {
     for (const id of feedbackIds) stampFeedback.run({ $ts: ts, $id: id });
     for (const id of replyIds) stampReply.run({ $ts: ts, $id: id });
+    for (const id of statusIds) clearStatus.run({ $id: id });
   })();
   touchReview(reviewId);
 }

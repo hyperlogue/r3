@@ -52,9 +52,8 @@ function feedbackBlock(fb: FeedbackWithReplies): string {
   out.push("");
   out.push(fb.body.trim());
   for (const r of fb.replies) {
-    const tag = r.action ? `[${r.author} ${r.action}]` : `[${r.author}]`;
     out.push("");
-    out.push(`  ${tag} ${r.body.trim()}`);
+    out.push(`  [${r.author}] ${r.body.trim()}`);
   }
   return out.join("\n");
 }
@@ -92,17 +91,29 @@ function promptHeader(detail: ReviewDetail, count: number): string {
   );
 }
 
-// The candidate set for a prompt: open + accepted feedback (the working set the
-// agent still acts on; resolved/refuted are settled).
+// The candidate set for the full-history prompt: open feedback (the working set
+// the agent still acts on; resolved is settled).
 function isCandidate(fb: FeedbackWithReplies): boolean {
-  return fb.status === "open" || fb.status === "accepted";
+  return fb.status === "open";
 }
 
-// A feedback has content the agent hasn't been sent yet: the feedback itself was
-// never delivered, or a human reply was posted since the last hand-off. Agent
-// replies never count — the agent wrote them.
+// The human replies the agent hasn't been sent yet. Agent replies never count —
+// the agent wrote them.
+function unsentReplies(fb: FeedbackWithReplies): Reply[] {
+  return fb.replies.filter((r) => r.author === "human" && r.sent_at == null);
+}
+
+// A feedback has content the agent hasn't been sent yet.
+// - Never delivered: only while still open — a note the human wrote *and*
+//   resolved before any hand-off was settled without the agent; don't announce
+//   it after the fact. (Agent-authored feedback is born delivered, so it can't
+//   land here.)
+// - Already delivered: a human reply posted since the last hand-off, or an
+//   undelivered status flip (a bare Resolve/Reopen click) — the decision itself
+//   is content the agent tracks to resolution.
 function hasUnsentContent(fb: FeedbackWithReplies): boolean {
-  return fb.sent_at == null || fb.replies.some((r) => r.author === "human" && r.sent_at == null);
+  if (fb.sent_at == null) return fb.status === "open";
+  return unsentReplies(fb).length > 0 || fb.status_unsent;
 }
 
 // Full-history prompt (GET /api/reviews/:id/prompt, `r3 prompt --all`): every
@@ -118,15 +129,24 @@ export function buildPrompt(detail: ReviewDetail, opts: { feedbackIds?: string[]
   return `${header}\n${items.map(feedbackBlock).join("\n\n")}\n`;
 }
 
-// A compact block for feedback the agent has already seen but that gained a new
-// human reply — only the new replies, with a pointer to the full thread. Named
-// "(follow-up)" so the header row is unmistakable next to a full block.
+// A compact block for feedback the agent has already seen but that gained new
+// content — new human replies and/or an undelivered status flip. Named
+// "(follow-up)" so the header row is unmistakable next to a full block; the
+// header always carries the current status, so a bare Resolve/Reopen click
+// (no reply) still reaches the agent as "[resolved] — no action needed".
 function followUpBlock(reviewId: string, fb: FeedbackWithReplies, replies: Reply[]): string {
   const out: string[] = [`### ${fb.id} — ${locOf(fb)} [${fb.status}] (follow-up)`];
   for (const r of replies) {
-    const tag = r.action ? `[${r.author} ${r.action}]` : `[${r.author}]`;
     out.push("");
-    out.push(`  ${tag} ${r.body.trim()}`);
+    out.push(`  [${r.author}] ${r.body.trim()}`);
+  }
+  if (replies.length === 0 && fb.status_unsent) {
+    out.push("");
+    out.push(
+      fb.status === "resolved"
+        ? "  (the human marked this resolved — no action needed)"
+        : "  (the human reopened this — it needs another look)",
+    );
   }
   out.push("");
   out.push(`  (earlier discussion omitted — run \`r3 show ${reviewId}\` for the full thread)`);
@@ -134,25 +154,30 @@ function followUpBlock(reviewId: string, fb: FeedbackWithReplies, replies: Reply
 }
 
 // What buildUnsentPrompt rendered, so the caller marks exactly those rows sent.
+// `statuses` lists every rendered feedback id — each block shows the current
+// status, so their undelivered-status flags clear on delivery.
 export interface UnsentPrompt {
   text: string;
-  included: { feedback: string[]; replies: string[] };
+  included: { feedback: string[]; replies: string[]; statuses: string[] };
 }
 
 // Unsent-only prompt (POST /api/reviews/:id/prompt, `r3 prompt` / `r3 watch`):
 // only feedback the agent hasn't seen — new feedback rendered in full, and a
-// compact follow-up block for feedback whose only new content is a human reply.
-// `feedbackIds` narrows the candidates but never forces already-sent content
-// back in. Reports the ids it rendered so the caller can mark precisely those.
+// compact follow-up block for feedback whose only new content is a human reply
+// or an undelivered status flip (see hasUnsentContent). Status no longer gates
+// the candidate set: a resolved item with undelivered content reports once,
+// then settles. `feedbackIds` narrows the candidates but never forces
+// already-sent content back in. Reports the ids it rendered so the caller can
+// mark precisely those.
 export function buildUnsentPrompt(
   detail: ReviewDetail,
   opts: { feedbackIds?: string[] } = {},
 ): UnsentPrompt {
   const only = opts.feedbackIds;
-  let candidates = detail.feedback.filter((f) => isCandidate(f) && hasUnsentContent(f));
+  let candidates = detail.feedback.filter(hasUnsentContent);
   if (only?.length) candidates = candidates.filter((f) => only.includes(f.id));
   const header = promptHeader(detail, candidates.length);
-  const included = { feedback: [] as string[], replies: [] as string[] };
+  const included = { feedback: [] as string[], replies: [] as string[], statuses: [] as string[] };
   if (candidates.length === 0) {
     return {
       text: `${header}\n(no unsent feedback — run \`r3 show ${detail.id}\` for the full history)\n`,
@@ -161,14 +186,15 @@ export function buildUnsentPrompt(
   }
   const blocks: string[] = [];
   for (const fb of candidates) {
+    included.statuses.push(fb.id); // every block form shows the current status
     if (fb.sent_at == null) {
       // Never delivered — render the whole item (quote, body, thread) as today.
       blocks.push(feedbackBlock(fb));
       included.feedback.push(fb.id);
       for (const r of fb.replies) included.replies.push(r.id);
     } else {
-      // Already delivered; only the new human replies are unsent.
-      const unsent = fb.replies.filter((r) => r.author === "human" && r.sent_at == null);
+      // Already delivered; the new human replies (and/or status flip) are unsent.
+      const unsent = unsentReplies(fb);
       blocks.push(followUpBlock(detail.id, fb, unsent));
       for (const r of unsent) included.replies.push(r.id);
     }
