@@ -1255,7 +1255,10 @@ const HELP = `r3 — local human<->agent review CLI
   edit   <id> [--title "<t>"] [--summary "<s>"]  # set a review's title/summary. An empty value
                                                  #   ("" ) clears that field; --summary - reads the
                                                  #   summary from stdin (long/multi-line). Only the
-                                                 #   flags you pass are touched.
+                                                 #   flags you pass are touched. The summary renders
+                                                 #   as Markdown in the UI and supports @<path>:L<a-b>
+                                                 #   refs (resolved against current content — not
+                                                 #   version-pinned like reply refs).
   approve <id> [--note "<next steps>"]           # accept the work (--note/-m: optional next
                                                  #   steps for the agent, printed by r3 watch;
                                                  #   --note - reads it from stdin)
@@ -1318,7 +1321,11 @@ Your items appear live in their UI; the human replies or resolves them, and
 those answers reach you through the same watch/prompt loop (a bare resolve
 arrives as "[resolved] — no action needed"). Your own feedback never echoes
 back to you. Pair it with a review summary (r3 edit --summary) for orientation:
-the summary is the map, feedback items are the pins.
+the summary is the map, feedback items are the pins. The summary renders as
+Markdown in their UI and supports the same @<path>:L<a>[-b] code refs as
+replies — but a summary ref resolves against the review's CURRENT content
+(the summary is edited in place; nothing is version-pinned), so keep it
+pointing at things that hold across rounds.
 
 ## Two kinds of review
 

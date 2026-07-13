@@ -24,6 +24,7 @@ import {
   getDraft,
   setDraftAnchor,
   setDraftText,
+  setGeneralText,
   useDraftAnchor,
 } from "../drafts.ts";
 import { shortSha, sourceLabel } from "../format.ts";
@@ -1533,6 +1534,24 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [reviewId],
   );
 
+  // A summary selection's "Quote in note": drop it into the *general* (review-
+  // level) composer — non-empty general text makes the panel show that composer
+  // on its own (showGeneral), so writing the draft is what opens it. Focus lands
+  // via the composer's data attr, same pattern as quoteIntoNote above.
+  const quoteIntoGeneral = useCallback(
+    (text: string) => {
+      const cur = getDraft(reviewId)?.general ?? "";
+      setGeneralText(reviewId, quoteBlock(cur, text).text);
+      requestAnimationFrame(() => {
+        const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-general-composer]");
+        if (!ta) return;
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      });
+    },
+    [reviewId],
+  );
+
   // Dismiss the file-pane quote bubble once its fixed position would go stale (the
   // pane scrolled) or the selection collapsed.
   useEffect(() => {
@@ -1756,7 +1775,14 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           Move files to the top level of the scratch directory.
         </div>
       )}
-      <ReviewSummary summary={detail.summary} onAnchor={(a) => setDraftAnchor(reviewId, a)} />
+      {/* Summary refs pin no version (the summary is edited in place), so they
+          resolve against the live/current view: null → the round on screen for a
+          diff review, the live file for a files review. */}
+      <ReviewSummary
+        summary={detail.summary}
+        onJumpRef={(ref) => jumpToRef(ref, null)}
+        onQuote={quoteIntoGeneral}
+      />
       <div ref={splitRef} className="flex min-h-0 flex-1">
         {fileList.length > 0 && (
           <FileBrowser

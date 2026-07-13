@@ -136,8 +136,9 @@ no status of its own (merging them would make illegal states — a "reply" that'
 (`PATCH /api/feedback/:id`), never a property of a reply.
 
 - **Review** — `id`, `repo_id`, `worktree`, `title` (editable via `r3 edit` or the
-  UI), `summary` (a short free-form overview; editable via `r3 edit` only —
-  CLI-only, read-only in the UI), `kind` (`'diff'|'files'` — the render mode),
+  UI), `summary` (a short free-form overview — the agent's *guide* to the review;
+  editable via `r3 edit` only — CLI-only, read-only in the UI, rendered as
+  Markdown with `@path:Lx-y` refs), `kind` (`'diff'|'files'` — the render mode),
   `source` (files: what to fetch; diff: provenance only), `meta` (free-form,
   **queryable** — e.g. `{ session, agent, branch }`), `status`
   (`open|approved|abandoned`).
@@ -189,7 +190,13 @@ An agent-authored `@path:Lx-y` token becomes a **click-to-scroll** ref: it jumps
 pane to that file/line, resolved against the message's version (a reply's
 `ref_version`, or a feedback body's own round). Humans don't type refs — selecting
 code while composing (or text in an agent reply) offers a **"Quote"** button that
-drops it in as a `>` blockquote instead.
+drops it in as a `>` blockquote instead. **The review summary renders the same
+way** (`ReviewSummary`) — markdown + refs — but a summary is edited in place, so
+its refs pin no version and resolve against the **live/current view**. Selecting
+summary text offers "Quote in note" (a general-feedback blockquote), replacing
+the old select-to-anchor there: rendered markdown has no stable source offsets to
+anchor a quote to. Round summaries in the diff pane keep their plain-text anchor
+flow, and legacy `@summary`-anchored feedback still renders.
 
 ## Review kinds & sources
 
