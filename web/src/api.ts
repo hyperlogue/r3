@@ -203,5 +203,4 @@ export const api = {
   createAuthToken: (body: CreateAuthTokenBody) =>
     req<CreateAuthTokenResponse>("POST", "/api/auth/tokens", body),
   revokeAuthToken: (id: string) => req<{ ok: true }>("DELETE", `/api/auth/tokens/${id}`),
-  revokeAllAuthTokens: () => req<{ revoked: number }>("DELETE", "/api/auth/tokens"),
 };
