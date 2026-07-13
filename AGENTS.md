@@ -541,6 +541,15 @@ optimistically so the fold is instant).
   `X-Forwarded-Proto`). The **master token never reaches a browser** when exposed —
   it's cookie-only. Revoking a login token deletes its sessions immediately. The
   per-user token stays the CLI's credential, unaffected.
+  A **Host-rewriting reverse proxy** is the blind spot of this deployment-decides
+  model: `EXPOSED` is inferred from r3's own bind + advertised host, so a proxy
+  that forwards `Host: 127.0.0.1` (nginx's default `proxy_pass`) reads as
+  loopback-only, and `/api/boot` would hand a remote browser the per-user token —
+  r3 can't see the real client name, and a naive proxy sends no `X-Forwarded-*` to
+  key off either. Any roll-your-own reverse-proxy deployment must set
+  `R3_REQUIRE_LOGIN=1` (or point `R3_PUBLIC_URL`/`R3_ALLOWED_HOSTS` at the public
+  name, which arms the gate); `tailscale serve` forwards the real Host, so
+  `R3_PUBLIC_URL` alone covers it.
 - **Path inputs** are validated against the requesting review's **worktree** root
   (or the scratch root for `SCRATCH`) — repo-relative, no `..`, no absolute.
 - **Git arg-injection guard**: reject refs/paths beginning with `-` before they

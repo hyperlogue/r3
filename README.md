@@ -144,6 +144,13 @@ then on holds only the cookie. (The login token is a scoped, revocable credentia
 daemon's own per-user API token — the CLI's credential — is never handed to a browser
 when exposed.) Force it either way with `R3_REQUIRE_LOGIN=1|0`.
 
+> **Behind your own reverse proxy, set `R3_REQUIRE_LOGIN=1`.** r3 decides whether
+> to require a login from its own bind + advertised host — it can't see that
+> through a proxy that rewrites the `Host` header to `127.0.0.1` (nginx's default
+> `proxy_pass`), which reads as loopback-only and hands the browser the per-user
+> token. Setting `R3_PUBLIC_URL` to the public name fixes it too; `tailscale serve`
+> forwards the real host, so it's already covered.
+
 ```sh
 # on the host:
 export R3_PUBLIC_URL=https://myhost.tailnet.ts.net      # allows that Host + requires login
