@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { api } from "../api.ts";
 import { useGutterDrag } from "../gutter.ts";
 import { useSyntaxTheme } from "../settings.ts";
@@ -63,6 +63,9 @@ const LineRow = memo(function LineRow({
   onDown: GutterHandler;
   onEnter: EnterHandler;
 }) {
+  // Stable `{__html}` wrapper so React 19 doesn't re-set innerHTML (wiping a
+  // selection) when the row re-renders on a gutter `selected` flip.
+  const html = useMemo(() => ({ __html: ln.html || "&nbsp;" }), [ln.html]);
   return (
     <div
       className="grid min-w-full grid-cols-[3.5rem_1fr] font-mono text-xs"
@@ -85,10 +88,7 @@ const LineRow = memo(function LineRow({
       >
         {ln.lineNo}
       </span>
-      <code
-        className="shiki-code px-2 whitespace-pre"
-        dangerouslySetInnerHTML={{ __html: ln.html || "&nbsp;" }}
-      />
+      <code className="shiki-code px-2 whitespace-pre" dangerouslySetInnerHTML={html} />
     </div>
   );
 });
@@ -200,6 +200,11 @@ function FileViewImpl({
     if (data?.sha) onSha?.(path, data.sha);
   }, [data?.sha, path, onSha]);
 
+  // Stable `{__html}` wrapper for the rendered-markdown div — a fresh inline
+  // literal makes React 19 re-set innerHTML on every commit, wiping selections.
+  // Placed with the hooks, before the early return below, to keep hook order stable.
+  const markdownHtml = useMemo(() => ({ __html: data?.markdownHtml ?? "" }), [data?.markdownHtml]);
+
   // Until the blob loads we still render a [data-file] stub so the file browser
   // can scroll to it and active-line highlighting can target it.
   if (!data) {
@@ -245,10 +250,7 @@ function FileViewImpl({
       foldSignal={foldSignal}
     >
       {isMarkdown && mdView === "rendered" ? (
-        <div
-          className="r3-markdown px-5 py-3 text-sm"
-          dangerouslySetInnerHTML={{ __html: data.markdownHtml ?? "" }}
-        />
+        <div className="r3-markdown px-5 py-3 text-sm" dangerouslySetInnerHTML={markdownHtml} />
       ) : (
         <CodeBody
           data={data}

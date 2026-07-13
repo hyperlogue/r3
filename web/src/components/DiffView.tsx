@@ -98,6 +98,9 @@ const Row = memo(function Row({
   onDown: GutterHandler;
   onEnter: EnterHandler;
 }) {
+  // Stable `{__html}` wrapper so React 19 doesn't re-set innerHTML (wiping a
+  // selection) when the row re-renders on a gutter `selected` flip.
+  const html = useMemo(() => ({ __html: ln.html || "&nbsp;" }), [ln.html]);
   if (ln.type === "hunk") {
     return (
       <div
@@ -137,7 +140,7 @@ const Row = memo(function Row({
       />
       <code className="shiki-code px-2 whitespace-pre">
         <span className="mr-1 select-none text-neutral-400">{SIGN[ln.type]}</span>
-        <span dangerouslySetInnerHTML={{ __html: ln.html || "&nbsp;" }} />
+        <span dangerouslySetInnerHTML={html} />
       </code>
     </div>
   );

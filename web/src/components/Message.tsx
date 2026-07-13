@@ -31,8 +31,11 @@ export function MessageProse({
     [onJumpRef],
   );
   // Parse once per distinct source — a card re-renders on every reply keystroke,
-  // and re-parsing the whole thread's Markdown each time would be wasteful.
-  const html = useMemo(() => renderMessageHtml(source), [source]);
+  // and re-parsing the whole thread's Markdown each time would be wasteful. The
+  // memo must return the `{__html}` wrapper object itself, not just the string:
+  // React 19 re-sets innerHTML on every commit whenever that object's identity
+  // changes (a fresh inline literal never ===), wiping any text selection inside.
+  const html = useMemo(() => ({ __html: renderMessageHtml(source) }), [source]);
   return (
     // renderMessageHtml runs markdown-it with html:false, so raw HTML in the
     // message is escaped, not injected — safe for dangerouslySetInnerHTML.
@@ -40,7 +43,7 @@ export function MessageProse({
     <div
       className={cn("r3-markdown r3-msg", className)}
       onClick={onClick}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={html}
     />
   );
 }
