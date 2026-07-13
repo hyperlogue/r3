@@ -1287,6 +1287,10 @@ lazily on your first command — run commands from inside the repo under review.
 ## The loop
 
 1. r3 create ...  — prints an id + URL; surface the URL to the human.
+   Before they start reading, orient them: set a summary (r3 edit <id>
+   --summary "...") and open feedback on the spots that matter
+   (r3 feedback add — see "Guide the review" below). A guided review reads
+   faster than a wall of 30 files.
 2. r3 watch <id>  — blocks until the human clicks Submit, then prints the new
    feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
    0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out.
