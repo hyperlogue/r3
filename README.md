@@ -134,8 +134,8 @@ forward (`ssh -L 8791:localhost:8791 devbox`), `tailscale serve`, or a Cloudflar
 tunnel. **Never** bind `0.0.0.0`.
 
 **Exposing r3 beyond loopback turns on an optional login gate.** It's pure security
-hardening — **on by default whenever r3 is exposed** (a non-loopback bind, an
-`R3_PUBLIC_URL`, or a non-loopback `R3_ALLOWED_HOSTS`), and **off on a plain
+hardening — **on by default whenever r3 is exposed** (a non-loopback bind, a
+non-loopback `R3_PUBLIC_URL`, or a non-loopback `R3_ALLOWED_HOSTS`), and **off on a plain
 `localhost:8791`** so the default setup needs
 no login at all. Over an SSH forward you browse `localhost`, so nothing changes. When
 it's on, create a token on the host and paste it into the browser once: the browser
@@ -164,6 +164,6 @@ kills its sessions immediately).
 
 Env: `R3_PORT` (default 8791), `R3_BIND` (default `127.0.0.1`), `R3_ALLOWED_HOSTS`
 (comma-separated exact Host names, never `*`; a non-loopback name here also marks r3
-exposed), `R3_PUBLIC_URL` (its host is auto-allowed **and** it marks r3 exposed, so
-this alone covers the common single-name `tailscale serve` case), `R3_REQUIRE_LOGIN`
+exposed), `R3_PUBLIC_URL` (a non-loopback host is auto-allowed **and** marks r3
+exposed, so this alone covers the common single-name `tailscale serve` case), `R3_REQUIRE_LOGIN`
 (`1`/`0` to force the login requirement on or off explicitly).

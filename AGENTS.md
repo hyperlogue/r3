@@ -156,7 +156,7 @@ rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
   both get the same anchors, threads, and lifecycle. Agent-authored feedback is
   **born delivered** (`sent_at` = creation), so it never echoes back in the
   agent's own prompts — only the human's replies/resolution flow back; it wears an
-  `[agent-authored]` label in the text surfaces (`r3 show`, prompt blocks) and
+  `[agent-authored]` label in prompt blocks (and `[agent]` in `r3 show`) and
   doesn't gate the UI's Approve button (only the human's open items do). Fields:
   `file`, `side` (`old|new|null`), `line_start/end`,
   `quote` (**the anchor of record** — the line number is only a hint; for a
