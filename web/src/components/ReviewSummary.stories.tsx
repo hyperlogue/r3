@@ -24,6 +24,17 @@ const LONG = Array.from(
     "can't be found.",
 ).join("\n\n");
 
+// Multi-screen summary: taller than the 50vh cap, so the expanded body scrolls
+// inside its own region instead of pushing the file/feedback split off screen.
+const VERY_LONG = Array.from(
+  { length: 40 },
+  (_, i) =>
+    `Paragraph ${i + 1}: this round reworks the daemon's worktree resolution so a ` +
+    "moved clone relinks by name → branch instead of a stored path, tightens the " +
+    "anchoring pass so feedback keeps pointing at the right lines after a " +
+    "restructure, and surfaces staleness in the review detail.",
+).join("\n\n");
+
 const meta = {
   title: "Components/ReviewSummary",
   component: ReviewSummary,
@@ -63,6 +74,28 @@ export const MarkdownGuide: Story = {
 // comfortable even on a wide review pane.
 export const LongSummary: Story = {
   args: { summary: LONG },
+};
+
+// A multi-screen summary, expanded. The bar is shrink-0 in ReviewView's flex
+// column, so without a height bound it would push the file content off screen.
+// The 50vh cap + internal scroll keeps the mock content pane below visible and
+// reachable while the summary scrolls within its own region. The decorator
+// mimics ReviewView's h-full flex column (header · summary · content split).
+export const VeryLongSummary: Story = {
+  args: { summary: VERY_LONG },
+  decorators: [
+    (Story) => (
+      <div className="flex h-screen flex-col bg-white dark:bg-neutral-950">
+        <div className="shrink-0 border-b border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700">
+          Review header
+        </div>
+        <Story />
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 text-sm text-neutral-600 dark:text-neutral-400">
+          File content pane — stays visible and scrollable no matter how long the summary is.
+        </div>
+      </div>
+    ),
+  ],
 };
 
 // No summary set: the component renders nothing (humans can't add one — it's CLI-only).

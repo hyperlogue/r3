@@ -105,8 +105,16 @@ export function ReviewSummary({
             a selection here quotable. Cap the measure at ~65ch so lines stay a
             comfortable, readable length instead of stretching the full width of
             a wide review pane. pl lines the text up under the label (px-3 +
-            size-2.5 icon + gap-1 = 1.625rem). */}
-        <div data-summary="review" title="Select text to quote it in a general note">
+            size-2.5 icon + gap-1 = 1.625rem). max-h + overflow-y-auto bound the
+            expanded body: this bar is shrink-0 in ReviewView's flex column, so
+            an unbounded long summary would push the file/feedback split off
+            screen — instead it scrolls internally and never eats more than half
+            the viewport. */}
+        <div
+          data-summary="review"
+          title="Select text to quote it in a general note"
+          className="max-h-[50vh] overflow-y-auto"
+        >
           <MessageProse
             source={summary.trim()}
             onJumpRef={onJumpRef}
