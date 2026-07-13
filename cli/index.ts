@@ -8,7 +8,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { type DaemonInfo, R3_VERSION, readDaemonJson, removeDaemonJson } from "../server/config.ts";
-import { hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
+import { type AuthTokenInfo, hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
 
 interface ServerInfo {
   url: string;
@@ -1101,6 +1101,16 @@ async function runDaemon(): Promise<void> {
   await startDaemon();
 }
 
+// The command line that launched the running daemon, as recorded in daemon.json
+// by the serving process. `argv` is the full command (interpreter + script +
+// args); `exec` is just the binary. Falls back to `exec`, then a placeholder for
+// a pre-field daemon.json.
+function daemonCommand(info: DaemonInfo): string {
+  if (info.argv?.length) return info.argv.join(" ");
+  if (info.exec) return info.exec;
+  return "unknown (daemon predates this field — restart to record it)";
+}
+
 async function cmdDaemonStatus(): Promise<void> {
   const info = readDaemonJson();
   if (!info) {
@@ -1112,10 +1122,12 @@ async function cmdDaemonStatus(): Promise<void> {
     console.log(
       `r3: daemon.json present (pid ${info.pid}, ${info.url}) but not responding — stale`,
     );
+    console.log(`  exec: ${daemonCommand(info)}`);
     return;
   }
   const skew = h.version !== R3_VERSION ? `  ⚠ CLI v${R3_VERSION} — restart to upgrade` : "";
   console.log(`r3 daemon: ${info.url}  pid ${info.pid}  v${h.version}${skew}`);
+  console.log(`  exec: ${daemonCommand(info)}`);
 }
 
 async function cmdDaemonStart(): Promise<void> {
@@ -1160,6 +1172,58 @@ async function cmdDaemonRestart(): Promise<void> {
   await cmdDaemonStop();
   await sleep(150);
   await cmdDaemonStart();
+}
+
+// Login-token management for reaching r3's web UI over a non-loopback origin (e.g.
+// `tailscale serve`). A token is created here, shown once, then pasted into the
+// browser login screen; loopback browsing needs none. See `r3 guide` / AGENTS.md.
+async function cmdAuth(args: Args): Promise<void> {
+  const sub = args.positional[0];
+  switch (sub) {
+    case "create-token": {
+      const label = (args.flags.label as string) ?? null;
+      const res = await api("POST", "/api/auth/tokens", { label });
+      // The token is the only stdout line (pipe-friendly); the human-facing note
+      // goes to stderr. It's hashed at rest, so this is the one time it's shown.
+      console.log(res.token);
+      console.error(
+        `r3: login token created — id ${res.info.id}${res.info.label ? ` (${res.info.label})` : ""}`,
+      );
+      console.error("    store it now — it is hashed at rest and can't be shown again.");
+      return;
+    }
+    case "list-tokens": {
+      const rows: AuthTokenInfo[] = await api("GET", "/api/auth/tokens");
+      if (args.flags.json) {
+        console.log(JSON.stringify(rows, null, 2));
+        return;
+      }
+      if (rows.length === 0) {
+        console.log("no login tokens (loopback browsing needs none)");
+        return;
+      }
+      for (const t of rows) {
+        console.log(
+          `${t.id}  ${t.label ?? "(no label)"}  created ${t.createdAt}  ${t.lastUsedAt ? `last used ${t.lastUsedAt}` : "unused"}`,
+        );
+      }
+      return;
+    }
+    case "revoke-token": {
+      if (args.flags.all) {
+        const r = await api("DELETE", "/api/auth/tokens");
+        console.log(`revoked ${r.revoked} token(s)`);
+        return;
+      }
+      const target = args.positional[1];
+      if (!target) fail("auth revoke-token <token-id> | --all");
+      await api("DELETE", `/api/auth/tokens/${encodeURIComponent(target)}`);
+      console.log(`revoked ${target}`);
+      return;
+    }
+    default:
+      fail("auth <create-token [--label L] | list-tokens [--json] | revoke-token <id> | --all>");
+  }
 }
 
 const HELP = `r3 — local human<->agent review CLI
@@ -1275,6 +1339,13 @@ const HELP = `r3 — local human<->agent review CLI
   repo list                                      # registered projects + live status
   repo relink <repo-id> <path>                   # reattach a moved repo
   forget <repo-id>                               # drop a project and its reviews
+  auth create-token [--label L]                  # mint a login token for opening the web UI when r3 is
+                                                 #   exposed beyond loopback (tailscale serve / bound IP /
+                                                 #   R3_REQUIRE_LOGIN). Prints the token ONCE on stdout —
+                                                 #   paste it into the browser login screen. A
+                                                 #   loopback-only daemon needs none.
+  auth list-tokens [--json]                      # live login tokens (id, label, last-used)
+  auth revoke-token <id> | --all                 # revoke a token (immediately kills its sessions)
   start | stop | status | restart                # per-user daemon lifecycle
   guide                                          # how r3 works (the agent orientation),
                                                  #   then this full reference. start here.
@@ -1399,6 +1470,7 @@ Every form prints id + URL; tag with --meta session=<your-session>.
   r3 edit <id> --title "..." | --summary "..."  # rename / add overview (--summary - reads stdin)
   r3 approve <id> [--note "..."]  # ends the loop (r3 watch exits 0)
   r3 abandon <id>  # close without approving
+  r3 auth create-token  # a login token to open the web UI when r3 is exposed (loopback needs none)
   r3 restart  # if the daemon drifts; not mid-loop (drops in-flight watches)
 
 Run r3 -h for the full flag reference.
@@ -1424,6 +1496,7 @@ const SERVER_COMMANDS = new Set([
   "snapshot",
   "repo",
   "forget",
+  "auth",
 ]);
 
 async function main() {
@@ -1491,6 +1564,8 @@ async function main() {
       return cmdRepo(args);
     case "forget":
       return cmdForget(args);
+    case "auth":
+      return cmdAuth(args);
     default:
       fail(
         `unknown command "${cmd}"\n\n${HELP}\n\nNew to r3? Run 'r3 guide' for how it works and the review loop.`,

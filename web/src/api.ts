@@ -7,6 +7,10 @@
 
 import type {
   AddReplyBody,
+  AuthTokenInfo,
+  BootResponse,
+  CreateAuthTokenBody,
+  CreateAuthTokenResponse,
   CreateFeedbackBody,
   CreateReviewBody,
   DiffResult,
@@ -15,6 +19,7 @@ import type {
   GitLogEntry,
   GitStatus,
   GitTreeEntry,
+  LoginBody,
   ReanchorBody,
   RenderedFile,
   Reply,
@@ -36,16 +41,25 @@ import type {
 
 // Populated by loadBoot() before the app renders (main.tsx awaits it). A
 // module-level live binding, so `req()` below reads the real token at call time.
+// Empty when the browser authenticates by session cookie alone (any remote login),
+// so the master token never leaves the box — `req()` then relies on the cookie.
 export let TOKEN = "";
 
-// Fetch the per-user token from the daemon. Same-origin JSON (never an executable
-// <script>, never CORS-exposed), so a cross-origin page can't read it and the
-// daemon's Host allowlist + this endpoint's same-origin check keep it loopback-only.
-export async function loadBoot(): Promise<void> {
+// Bootstrap before first render. When the daemon isn't exposed it returns the
+// per-user token (sent as x-r3-token below); when exposed it needs a login-token
+// session and answers 401 `{ needsAuth:true }`, and the caller shows the login screen.
+export async function loadBoot(): Promise<{ needsAuth: boolean }> {
   const r = await fetch("/api/boot");
+  // 401 = a remote origin with no valid session. Not an error — the signal to log in.
+  if (r.status === 401) {
+    const b = (await r.json().catch(() => ({}))) as Partial<BootResponse>;
+    return { needsAuth: b.needsAuth ?? true };
+  }
   if (!r.ok) throw new Error(`GET /api/boot → ${r.status}`);
-  const b = (await r.json()) as { token: string };
-  TOKEN = b.token;
+  const b = (await r.json()) as BootResponse;
+  if (b.needsAuth) return { needsAuth: true };
+  TOKEN = b.token ?? "";
+  return { needsAuth: false };
 }
 
 // An HTTP error from `req()`, carrying the response `status` so callers can react
@@ -62,12 +76,14 @@ export class ApiError extends Error {
 }
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  // Loopback boot hands us the token; a remote session authenticates by the
+  // HttpOnly cookie (sent automatically same-origin), so only add the header when we
+  // actually hold a token — an empty x-r3-token would just fail the constant-time compare.
+  if (TOKEN) headers["x-r3-token"] = TOKEN;
   const r = await fetch(path, {
     method,
-    headers: {
-      "content-type": "application/json",
-      "x-r3-token": TOKEN,
-    },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) throw new ApiError(r.status, `${method} ${path} → ${r.status}: ${await r.text()}`);
@@ -176,4 +192,16 @@ export const api = {
   addReply: (feedbackId: string, body: AddReplyBody) =>
     req<{ reply: Reply; feedback: Feedback }>("POST", `/api/feedback/${feedbackId}/replies`, body),
   editReply: (id: string, body: UpdateReplyBody) => req<Reply>("PATCH", `/api/replies/${id}`, body),
+
+  // auth (quick-auth: login token -> session cookie). login() is the only call
+  // that runs before a session exists; the rest manage login tokens and require auth
+  // (the per-user token, or a valid session cookie).
+  login: (token: string) =>
+    req<{ ok: true }>("POST", "/api/auth/login", { token } satisfies LoginBody),
+  logout: () => req<{ ok: true }>("POST", "/api/auth/logout"),
+  authTokens: () => req<AuthTokenInfo[]>("GET", "/api/auth/tokens"),
+  createAuthToken: (body: CreateAuthTokenBody) =>
+    req<CreateAuthTokenResponse>("POST", "/api/auth/tokens", body),
+  revokeAuthToken: (id: string) => req<{ ok: true }>("DELETE", `/api/auth/tokens/${id}`),
+  revokeAllAuthTokens: () => req<{ revoked: number }>("DELETE", "/api/auth/tokens"),
 };

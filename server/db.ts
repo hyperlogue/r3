@@ -10,6 +10,7 @@ import { dirname } from "node:path";
 import type {
   AnchorState,
   Author,
+  AuthTokenInfo,
   Creator,
   Feedback,
   FeedbackStatus,
@@ -24,7 +25,15 @@ import type {
   WorktreeDescriptor,
 } from "../shared/types.ts";
 import { stateDbPath } from "./config.ts";
-import { newFeedbackId, newReplyId, newRepoId, newReviewId, nowIso } from "./ids.ts";
+import {
+  newAuthTokenId,
+  newFeedbackId,
+  newReplyId,
+  newRepoId,
+  newReviewId,
+  newSessionId,
+  nowIso,
+} from "./ids.ts";
 
 const DB_PATH = stateDbPath();
 mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -126,8 +135,34 @@ CREATE TABLE IF NOT EXISTS viewed_marks (
   key         TEXT NOT NULL,
   PRIMARY KEY (review_id, key)
 );
+-- Quick-auth (see shared/types.ts): user-created login tokens (hashed, shown
+-- once) and the browser session cookies they mint when the daemon is exposed.
+-- Daemon-wide, not per-repo, so they live in the global store like the repos
+-- registry. Revocation is immediate: revokeAuthToken soft-marks the token
+-- (revoked_at, kept for the audit trail) AND deletes its sessions explicitly. The FK
+-- ON DELETE CASCADE is only a safety net, since token rows are never hard-deleted.
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id           TEXT PRIMARY KEY,
+  label        TEXT,
+  token_hash   TEXT NOT NULL UNIQUE,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+);
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id           TEXT PRIMARY KEY,
+  token_id     TEXT NOT NULL REFERENCES auth_tokens(id) ON DELETE CASCADE,
+  session_hash TEXT NOT NULL UNIQUE,
+  created_at   TEXT NOT NULL,
+  expires_at   TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS feedback_by_review ON feedback(review_id);
 CREATE INDEX IF NOT EXISTS replies_by_feedback ON replies(feedback_id);
+-- No index on token_hash / session_hash: their UNIQUE constraints already create
+-- one, so the login + cookie lookups are covered. token_id ISN'T unique (many
+-- sessions per token) and SQLite doesn't auto-index a foreign key, so this one is
+-- worth it — it's the revoke path (DELETE FROM auth_sessions WHERE token_id = ?).
+CREATE INDEX IF NOT EXISTS sessions_by_token ON auth_sessions(token_id);
 `);
 // NOTE: the reviews expression indexes (reviews_by_repo, reviews_by_session) are
 // created AFTER the defensive migrations below, not in the block above — building
@@ -988,4 +1023,125 @@ export function deleteSnapshot(reviewId: string, seq: number): boolean {
     .run({ $rid: reviewId, $seq: seq });
   if (r.changes > 0) touchReview(reviewId);
   return r.changes > 0;
+}
+
+// ---- auth: login tokens + session cookies ----
+//
+// Pure storage — hashing, cookie parsing, and TTL policy live in server/auth.ts.
+// This module only stores/queries the already-hashed token/session values.
+
+interface AuthTokenRow {
+  id: string;
+  label: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+function rowToAuthTokenInfo(r: AuthTokenRow): AuthTokenInfo {
+  return {
+    id: r.id,
+    label: r.label,
+    createdAt: r.created_at,
+    lastUsedAt: r.last_used_at,
+  };
+}
+
+// Mint a login token row. `tokenHash` is the sha256 of the plaintext token the
+// caller shows the user once; only the hash is ever stored.
+export function createAuthToken(input: { label: string | null; tokenHash: string }): AuthTokenInfo {
+  const ts = nowIso();
+  const id = insertWithMintedId(newAuthTokenId, (id) => {
+    db.query(
+      `INSERT INTO auth_tokens (id, label, token_hash, created_at) VALUES ($id, $label, $hash, $ts)`,
+    ).run({ $id: id, $label: input.label, $hash: input.tokenHash, $ts: ts });
+    return id;
+  });
+  return rowToAuthTokenInfo(
+    db.query("SELECT * FROM auth_tokens WHERE id = $id").get({ $id: id }) as AuthTokenRow,
+  );
+}
+
+// Look up a live (non-revoked) login token by its hash — the login path. Returns its
+// id, or null on no match / revoked.
+export function authTokenForLogin(tokenHash: string): string | null {
+  const r = db
+    .query("SELECT id FROM auth_tokens WHERE token_hash = $hash AND revoked_at IS NULL")
+    .get({ $hash: tokenHash }) as { id: string } | null;
+  return r?.id ?? null;
+}
+
+export function touchAuthTokenUsed(id: string): void {
+  db.query("UPDATE auth_tokens SET last_used_at = $ts WHERE id = $id").run({
+    $ts: nowIso(),
+    $id: id,
+  });
+}
+
+// Live login tokens, newest first (revoked ones are dropped — they can't be used).
+export function listAuthTokens(): AuthTokenInfo[] {
+  const rows = db
+    .query("SELECT * FROM auth_tokens WHERE revoked_at IS NULL ORDER BY created_at DESC")
+    .all() as AuthTokenRow[];
+  return rows.map(rowToAuthTokenInfo);
+}
+
+// Revoke one token: mark it revoked (audit trail) and delete its live sessions so
+// the revocation takes effect immediately. Returns false if the id is unknown or
+// already revoked.
+export function revokeAuthToken(id: string): boolean {
+  const r = db
+    .query("UPDATE auth_tokens SET revoked_at = $ts WHERE id = $id AND revoked_at IS NULL")
+    .run({ $ts: nowIso(), $id: id });
+  if (r.changes > 0) db.query("DELETE FROM auth_sessions WHERE token_id = $id").run({ $id: id });
+  return r.changes > 0;
+}
+
+// Revoke every live login token (and, via revokeAuthToken, their sessions).
+export function revokeAllAuthTokens(): number {
+  const live = db.query("SELECT id FROM auth_tokens WHERE revoked_at IS NULL").all() as {
+    id: string;
+  }[];
+  for (const { id } of live) revokeAuthToken(id);
+  return live.length;
+}
+
+// Create a session row for a freshly-minted cookie. `sessionHash` is the sha256 of
+// the cookie value; `tokenId` is the login token it was minted from.
+export function createSession(input: {
+  sessionHash: string;
+  tokenId: string;
+  expiresAt: string;
+}): void {
+  insertWithMintedId(newSessionId, (id) => {
+    db.query(
+      `INSERT INTO auth_sessions (id, token_id, session_hash, created_at, expires_at)
+       VALUES ($id, $tid, $hash, $ts, $exp)`,
+    ).run({
+      $id: id,
+      $tid: input.tokenId,
+      $hash: input.sessionHash,
+      $ts: nowIso(),
+      $exp: input.expiresAt,
+    });
+    return id;
+  });
+}
+
+// Does a valid (unexpired) session with this cookie-hash exist? A revoked token's
+// sessions are already gone (revokeAuthToken deletes them), so an existing row is
+// trustworthy. ISO-8601 UTC strings sort lexically, so `> now` is a correct compare.
+export function sessionExists(sessionHash: string): boolean {
+  return !!db
+    .query("SELECT 1 FROM auth_sessions WHERE session_hash = $hash AND expires_at > $now")
+    .get({ $hash: sessionHash, $now: nowIso() });
+}
+
+export function deleteSession(sessionHash: string): void {
+  db.query("DELETE FROM auth_sessions WHERE session_hash = $hash").run({ $hash: sessionHash });
+}
+
+// Sweep expired session rows. Cheap housekeeping — an expired row is already rejected
+// by sessionExists, so this only bounds table growth.
+export function deleteExpiredSessions(): void {
+  db.query("DELETE FROM auth_sessions WHERE expires_at <= $now").run({ $now: nowIso() });
 }

@@ -133,5 +133,30 @@ its web UI from your local device through a tunnel. Set one up however you like:
 forward (`ssh -L 8791:localhost:8791 devbox`), `tailscale serve`, or a Cloudflare
 tunnel. **Never** bind `0.0.0.0`.
 
+**Exposing r3 beyond loopback turns on an optional login gate.** It's pure security
+hardening — **on by default whenever r3 is exposed** (a non-loopback bind, an
+`R3_PUBLIC_URL`, or a non-loopback `R3_ALLOWED_HOSTS`), and **off on a plain
+`localhost:8791`** so the default setup needs
+no login at all. Over an SSH forward you browse `localhost`, so nothing changes. When
+it's on, create a token on the host and paste it into the browser once: the browser
+posts that **login token** to the daemon to mint an HttpOnly session cookie, and from
+then on holds only the cookie. (The login token is a scoped, revocable credential; the
+daemon's own per-user API token — the CLI's credential — is never handed to a browser
+when exposed.) Force it either way with `R3_REQUIRE_LOGIN=1|0`.
+
+```sh
+# on the host:
+export R3_PUBLIC_URL=https://myhost.tailnet.ts.net      # allows that Host + requires login
+r3 restart
+tailscale serve --bg 8791                                # -> https://myhost.tailnet.ts.net/
+r3 auth create-token --label laptop                      # prints the token once — paste it in the browser
+```
+
+`r3 auth list-tokens` / `r3 auth revoke-token <id> | --all` manage them (revoking
+kills its sessions immediately).
+
 Env: `R3_PORT` (default 8791), `R3_BIND` (default `127.0.0.1`), `R3_ALLOWED_HOSTS`
-(comma-separated exact Host names, never `*`), `R3_PUBLIC_URL`.
+(comma-separated exact Host names, never `*`; a non-loopback name here also marks r3
+exposed), `R3_PUBLIC_URL` (its host is auto-allowed **and** it marks r3 exposed, so
+this alone covers the common single-name `tailscale serve` case), `R3_REQUIRE_LOGIN`
+(`1`/`0` to force the login requirement on or off explicitly).

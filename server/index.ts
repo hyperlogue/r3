@@ -11,11 +11,16 @@
 import { timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { type Context, Hono } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { streamSSE } from "hono/streaming";
 import type {
   AddPatchBody,
+  BootResponse,
+  CreateAuthTokenBody,
+  CreateAuthTokenResponse,
   CreateReviewBody,
   CreateSnapshotBody,
+  LoginBody,
   ReviewFilesBody,
   ReviewStatus,
   ServerEvent,
@@ -26,10 +31,12 @@ import type {
 // and pre-bundled + embedded into the binary by `scripts/compile.ts`. Served
 // natively below through Bun.serve's `routes`.
 import index from "../web/index.html";
+import * as auth from "./auth.ts";
 import {
   acquireDaemonLock,
   BIND,
   type DaemonInfo,
+  EXPOSED,
   getToken,
   isAllowedHost,
   LOCAL_URL,
@@ -85,23 +92,43 @@ function tokenEq(candidate: string | null): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function hasToken(req: Request): boolean {
-  const auth = req.headers.get("authorization");
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-  const header = req.headers.get("x-r3-token");
-  return tokenEq(bearer) || tokenEq(header);
+// The request's Host, port stripped (bracketed IPv6 kept intact:
+// "[::1]:8791" -> "[::1]"). Null when absent.
+function reqHostname(req: Request): string | null {
+  const host = req.headers.get("host");
+  if (!host) return null;
+  return host.startsWith("[") ? host.slice(0, host.indexOf("]") + 1) : host.split(":")[0];
 }
 
-// The Host must be one of ours (loopback, or an explicitly allowlisted MagicDNS
-// name). Defends against DNS-rebinding: an attacker page that rebinds its domain
-// to our IP still sends its own domain as Host, so it's rejected before it can
-// read any GET endpoint.
+// The Host must be one of ours (loopback, an allowlisted MagicDNS name, or the
+// advertised public host — config.ts). Defends against DNS-rebinding: an attacker
+// page that rebinds its domain to our IP still sends its own domain as Host, so
+// it's rejected before it can read any endpoint.
 function allowedHost(req: Request): boolean {
-  const host = req.headers.get("host");
-  if (!host) return false;
-  // Strip the port; keep bracketed IPv6 literals intact ("[::1]:8791" -> "[::1]").
-  const hostname = host.startsWith("[") ? host.slice(0, host.indexOf("]") + 1) : host.split(":")[0];
-  return isAllowedHost(hostname);
+  const h = reqHostname(req);
+  return h != null && isAllowedHost(h);
+}
+
+// Is the browser<->edge leg HTTPS? The daemon always speaks plain HTTP (it holds no
+// cert; TLS terminates at a proxy like `tailscale serve`), so the only signal is the
+// proxy's X-Forwarded-Proto. Keyed per-request — NOT off R3_PUBLIC_URL's scheme,
+// which would wrongly mark the cookie Secure on a plain-HTTP leg to the same daemon
+// (loopback, or a bound IP over http), making the browser drop it → a silent login
+// loop / dead SSE. Used only for the session cookie's Secure attribute.
+function isHttps(c: Context): boolean {
+  return c.req.header("x-forwarded-proto") === "https";
+}
+
+// Resolve a request's authentication: the per-user API token (header/bearer — the
+// CLI, and the SPA when the daemon isn't exposed) OR a valid session cookie (a
+// browser that logged in — only possible when exposed). No mode branch needed: a
+// cookie simply doesn't exist unless the daemon is exposed.
+function resolveAuth(c: Context): boolean {
+  const authz = c.req.header("authorization");
+  const bearer = authz?.startsWith("Bearer ") ? authz.slice(7) : null;
+  const header = c.req.header("x-r3-token") ?? null;
+  if (tokenEq(bearer) || tokenEq(header)) return true;
+  return auth.sessionValid(getCookie(c, auth.COOKIE_NAME));
 }
 
 const app = new Hono();
@@ -112,26 +139,28 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-// Guard the API surface. Mutating routes stay same-origin + token.
-// GET/HEAD reads ALSO require the token now: on a shared host loopback is
-// reachable by every local UID, and the Host allowlist stops DNS-rebinding but is
-// NOT a local-user boundary — without this, every review + file's contents were
-// readable by any local process with no token at all. Three paths must stay
-// token-free:
+// Guard the API surface. Auth is the per-user token (header/bearer) OR a valid
+// session cookie (resolveAuth). Reads require it too: loopback is reachable by every
+// local UID, and the Host allowlist stops DNS-rebinding but is NOT a local-user
+// boundary. Always token-free:
 //   /api/health — discovery (the CLI probes it before it holds any token)
-//   /api/boot   — hands out the token itself (its handler is same-origin gated)
-//   /api/events — SSE; EventSource can't set request headers
-// Both real clients already send x-r3-token on every request (web req(), CLI
-// api()), so this exempts nothing they rely on.
+//   /api/boot   — bootstraps the token/cookie itself (same-origin gated in its handler)
+//   /api/auth/login (POST) — trades a login token for a session (you have none yet);
+//                            still same-origin gated below
+// /api/events (SSE) is token-free ONLY when the daemon isn't EXPOSED (loopback-only,
+// and EventSource can't set headers); when exposed, a session cookie rides
+// EventSource, so it's gated like any read. Every state-changing verb (incl. PUT —
+// the …/viewed route) stays same-origin gated; a stray verb must not fall to the read
+// path.
 app.use("/api/*", async (c, next) => {
   const m = c.req.method;
-  if (m === "POST" || m === "PATCH" || m === "DELETE") {
+  const p = c.req.path;
+  if (m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE") {
     if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
-    if (!hasToken(c.req.raw)) return c.text("forbidden (token)", 403);
+    if (p !== "/api/auth/login" && !resolveAuth(c)) return c.text("forbidden (token)", 403);
   } else {
-    const p = c.req.path;
-    const tokenExempt = p === "/api/health" || p === "/api/boot" || p === "/api/events";
-    if (!tokenExempt && !hasToken(c.req.raw)) return c.text("forbidden (token)", 403);
+    const tokenFree = p === "/api/health" || p === "/api/boot" || (p === "/api/events" && !EXPOSED);
+    if (!tokenFree && !resolveAuth(c)) return c.text("forbidden (token)", 403);
   }
   await next();
 });
@@ -210,20 +239,63 @@ async function requestRepo(
 // lets the CLI detect daemon/client skew after a binary upgrade.
 app.get("/api/health", (c) => c.json({ ok: true, version: R3_VERSION }));
 
-// Hand the same-origin SPA its per-user token before it renders (web/src/api.ts
-// loadBoot). Not injected into the served HTML — that keeps the SPA shell a
-// cacheable/embeddable static asset. The gates it runs under are the global Host
-// allowlist (this endpoint is /api/*, so it's behind that guard) plus the
-// same-origin check below. Be clear on what that buys: sameOrigin() passes any
-// request with NO Origin header, so a local process (e.g. curl from another UID
-// on this box) can still fetch the token — the check stops browser-borne
-// cross-origin reads (DNS-rebinding / CSRF), NOT other local users. (Its lack of
-// CORS headers is a secondary, browser-enforced backstop.) It must stay a JSON
-// fetch, never a <script src> a cross-origin page could load.
+// Bootstrap the SPA before it renders (web/src/api.ts loadBoot). Same-origin gated;
+// not injected into the served HTML — keeping the SPA shell a cacheable/embeddable
+// static asset. Behaviour splits on whether the daemon is EXPOSED (config.ts):
+//   not exposed (default, loopback-only) — every client is already local: hand the
+//     same-origin page the per-user `token` (its header path, unchanged). No login.
+//   exposed (tailscale serve / bound IP / R3_REQUIRE_LOGIN) — require a login-token
+//     session: a valid cookie -> { needsAuth:false, token:null } (the master token
+//     never goes to a browser); otherwise { needsAuth:true } -> the login screen.
+// sameOrigin() still passes a no-Origin client (curl from another local UID); on a
+// non-exposed daemon that's the intentional local-trust boundary, not a new hole (a
+// real per-UID boundary needs an OS peer-credential check — see Security in AGENTS.md).
 app.get("/api/boot", (c) => {
   if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
-  return c.json({ token: TOKEN });
+  if (!EXPOSED) return c.json({ needsAuth: false, token: TOKEN } satisfies BootResponse);
+  if (auth.sessionValid(getCookie(c, auth.COOKIE_NAME)))
+    return c.json({ needsAuth: false, token: null } satisfies BootResponse);
+  return c.json({ needsAuth: true, token: null } satisfies BootResponse, 401);
 });
+
+// ---- auth: login tokens -> session cookies (see shared/types.ts, server/auth.ts) ----
+
+// Trade a login token for a session cookie. Token-free (you have none yet) but
+// same-origin gated by the middleware; 401 on a bad/revoked token.
+app.post("/api/auth/login", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as LoginBody | null;
+  if (typeof body?.token !== "string") return c.text("missing token", 400);
+  const res = auth.verifyLogin(body.token);
+  if (!res) return c.text("invalid token", 401);
+  const { cookieValue, maxAgeSeconds } = auth.mintSession(res.tokenId);
+  setCookie(c, auth.COOKIE_NAME, cookieValue, auth.cookieOptions(isHttps(c), maxAgeSeconds));
+  return c.json({ ok: true });
+});
+
+// End the current session (drops the row + expires the cookie).
+app.post("/api/auth/logout", (c) => {
+  auth.destroySession(getCookie(c, auth.COOKIE_NAME));
+  deleteCookie(c, auth.COOKIE_NAME, { path: "/" });
+  return c.json({ ok: true });
+});
+
+// Login-token management — the CLI (`r3 auth …`) and the settings UI share these.
+app.get("/api/auth/tokens", (c) => c.json(db.listAuthTokens()));
+
+app.post("/api/auth/tokens", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as CreateAuthTokenBody | null;
+  const label = typeof body?.label === "string" && body.label.trim() ? body.label.trim() : null;
+  const { token, info } = auth.createLoginToken(label);
+  return c.json({ token, info } satisfies CreateAuthTokenResponse);
+});
+
+// Revoke all live login tokens (and their sessions). Distinct path from the :id
+// form so it can't be reached by a stray id.
+app.delete("/api/auth/tokens", (c) => c.json({ revoked: db.revokeAllAuthTokens() }));
+
+app.delete("/api/auth/tokens/:id", (c) =>
+  db.revokeAuthToken(c.req.param("id")) ? c.json({ ok: true }) : c.text("not found", 404),
+);
 
 // Syntax-theme options for the settings picker (curated families + all bundled
 // Shiki themes). Static, so it's safe to cache hard in the browser.
@@ -895,6 +967,12 @@ export async function startDaemon(): Promise<void> {
   // Runs in the background — until a review converts, GET …/diff falls back to
   // rendering live from its refs.
   void reviews.migrateLegacyDiffReviews();
+  // Housekeeping: drop expired session rows (an expired one is already rejected by
+  // sessionExists; this just bounds table growth). Re-sweep periodically too — the
+  // daemon runs for months and logins accrue over time. `.unref()` so the timer never
+  // keeps the process alive on its own.
+  db.deleteExpiredSessions();
+  setInterval(() => db.deleteExpiredSessions(), 6 * 60 * 60 * 1000).unref();
 
   let server: ReturnType<typeof Bun.serve>;
   try {
@@ -936,6 +1014,11 @@ export async function startDaemon(): Promise<void> {
     pid: process.pid,
     token: TOKEN,
     version: R3_VERSION,
+    // Record how we were actually launched (not how the CLI meant to launch us),
+    // so `r3 status` can report the binary/command line serving this port — the
+    // authoritative answer even for a hand-started `bun server/index.ts`.
+    exec: process.execPath,
+    argv: process.argv,
   });
   const stopWatcher = process.env.R3_NO_WATCH !== "1" ? startWatcher() : null;
 

@@ -19,6 +19,12 @@ export const newReviewId = () => `review_${short()}`;
 export const newFeedbackId = () => `feedback_${short()}`;
 export const newReplyId = () => `reply_${short()}`;
 export const newRepoId = () => `repo_${short()}`;
+// A login token's public handle (used to revoke it); the token *value* is a
+// separate high-entropy secret minted in server/auth.ts and only stored hashed.
+export const newAuthTokenId = () => `authtok_${short()}`;
+// Internal session-row id (never leaves the server; the cookie carries a separate
+// hashed secret).
+export const newSessionId = () => `sess_${short()}`;
 
 export function nowIso(): string {
   return new Date().toISOString();

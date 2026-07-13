@@ -498,3 +498,54 @@ export interface WatcherInfo {
 export interface WatchersResponse {
   watchers: WatcherInfo[];
 }
+
+// ---- auth (quick-auth: login token -> session cookie) ----
+//
+// r3's browser auth follows the zellij web-client model, and it's gated by ONE
+// deployment property: whether the daemon is EXPOSED beyond loopback (server/
+// config.ts, decided at startup — not inferred per request).
+//   NOT exposed (default: loopback bind, no public URL) — every client is already
+//     local, so /api/boot hands the same-origin page the per-user API **token** and
+//     there's no login. Unchanged, zero-friction.
+//   Exposed (a `tailscale serve` name, a non-loopback bind, or R3_REQUIRE_LOGIN=1) —
+//     the web UI requires a **login token** (user-created, hashed, shown once,
+//     revocable) traded via POST /api/auth/login for an HttpOnly session cookie. The
+//     per-user token is NEVER sent to a browser; the CLI still uses it directly.
+
+// GET /api/boot — the SPA's first call. `needsAuth:true` (only possible when exposed)
+// means "no valid session" → render the login screen; `token` is then null.
+export interface BootResponse {
+  needsAuth: boolean;
+  // The per-user API token when the daemon isn't exposed (the SPA sends it as
+  // x-r3-token, as it always has); null when exposed (the browser authenticates by
+  // the session cookie alone, so the master token stays on the box).
+  token: string | null;
+}
+
+// A login token's metadata (GET /api/auth/tokens, `r3 auth list-tokens`). The token
+// value itself is hashed at rest and shown only once at creation — never returned.
+export interface AuthTokenInfo {
+  id: string; // authtok_<short> — the handle used to revoke
+  label: string | null; // human hint (device/purpose)
+  createdAt: string;
+  lastUsedAt: string | null; // last successful login with this token; null if unused
+  // (revoked tokens are dropped from every listing, so there's no `revokedAt` here —
+  // the audit-trail column stays DB-side; see server/db.ts listAuthTokens.)
+}
+
+// POST /api/auth/login — trade a login token for a session cookie (Set-Cookie in the
+// response). Same-origin gated, token-free (you have no session yet). 401 on a bad
+// or revoked token.
+export interface LoginBody {
+  token: string;
+}
+
+// POST /api/auth/tokens — mint a login token. The raw `token` is returned ONCE here
+// and never again (only its hash is stored); persist it somewhere safe.
+export interface CreateAuthTokenBody {
+  label?: string | null;
+}
+export interface CreateAuthTokenResponse {
+  token: string; // the one-time plaintext login token
+  info: AuthTokenInfo;
+}

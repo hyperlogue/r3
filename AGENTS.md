@@ -99,6 +99,7 @@ server/          Hono daemon + bun:sqlite global store
   prompt.ts      the agent-prompt text (same as the UI's "Copy agent prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
   watchers.ts    live `watch` presence registry (who's blocked on a review)
+  auth.ts        quick-auth: login tokens -> HttpOnly session cookies (only when EXPOSED)
   scratch.ts     adhoc scratch-review storage (ref:'SCRATCH') outside any repo
   paths.ts       pure safePathIn(root, p) path guard    ids.ts  id minting
 cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the binary
@@ -106,7 +107,9 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx (the review)
   src/components/ DiffView, FileView, FileCard, FileBrowser, FeedbackPanel,
                  ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
-                 ReviewSummary, SnapshotSelect, Logo, Message (MessageProse +
+                 ReviewSummary, SnapshotSelect, Logo, Login (remote-access token
+                 screen), TokenManager (login-token panel in SettingsPopup),
+                 Message (MessageProse +
                  the shared QuoteBubble/useQuoteBubble selection-to-quote)
                  (each with a *.stories.tsx)
   src/api.ts     typed fetch wrappers    hooks.ts  SSE + query wiring
@@ -379,8 +382,17 @@ content sha, so the WASM/grammar weight never reaches the browser.
   (`review-updated`, `feedback-updated`, `file-changed`, `watchers-changed`,
   `submitted`, `reviews-changed`); a connection with `session` registers as a
   watcher. `GET/PUT …/viewed` — per-reviewer read progress (no SSE, no CLI).
-  Token-free: `/api/health` (liveness), `/api/boot` (same-origin gated, hands out
-  the token), `/api/events` (SSE can't set headers).
+- **Auth (quick-auth):** `GET /api/boot` bootstraps the SPA — when the daemon isn't
+  `EXPOSED` (config.ts) it returns the per-user `token`; when exposed it needs a
+  login-token session and answers `401 { needsAuth }` otherwise. `POST
+  /api/auth/login { token }` trades a login token for an HttpOnly cookie; `POST
+  /api/auth/logout` ends it. `GET/POST /api/auth/tokens` + `DELETE
+  /api/auth/tokens[/:id]` list / mint / revoke (one or all) login tokens — the CLI
+  `r3 auth …` and the settings UI share them. Token-free (still Host-gated):
+  `/api/health`, `/api/boot` (same-origin), `/api/auth/login` (same-origin), and
+  `/api/events` **only when not exposed**. **Everything else** — reads, all
+  mutations, and `/api/events` once exposed (a session cookie rides EventSource) —
+  requires the per-user token **or** a valid session cookie.
 
 ## CLI surface
 
@@ -405,10 +417,15 @@ r3 feedback add <id> -m "<msg>" [--file <f> [--line <a-b>] [--quote "<t>"] [--si
 r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   # files reviews only
 r3 edit   <id> [--title "<t>"] [--summary "<s>"]   # "" clears; --summary - = stdin
 r3 approve <id> [--note "<next steps>"] | abandon <id>
+r3 auth create-token [--label L] | list-tokens [--json] | revoke-token <id> | --all
 r3 guide                                            # print the agent orientation text
 r3 start | stop | status | restart                 # per-user daemon lifecycle
 r3 repo list | repo relink <repo-id> <path> | forget <repo-id>
 ```
+
+`r3 auth` manages the login tokens that open the web UI when the daemon is exposed
+beyond loopback (a `tailscale serve` name / bound IP / `R3_REQUIRE_LOGIN`); a
+loopback-only daemon needs none. `create-token` prints the token once (hashed at rest).
 
 `--meta session=<id>` ties a review to a session; `list --meta session=<id>` lets
 an agent find its own reviews. `watch`'s exit code is the loop branch signal (see
@@ -419,15 +436,19 @@ The review loop).
 All under XDG, keyed by `server/config.ts`:
 
 - `$XDG_STATE_HOME/r3/r3.sqlite` — the one global store (reviews + feedback +
-  replies + per-reviewer `viewed_marks` + the `repos` registry). `R3_DB` overrides
-  (tests).
+  replies + per-reviewer `viewed_marks` + the `repos` registry + the quick-auth
+  `auth_tokens` / `auth_sessions` — login tokens hashed at rest, and the browser
+  session cookies they mint, also hashed). `R3_DB` overrides (tests).
 - `$XDG_STATE_HOME/r3/token` (mode 0600) — the per-user API token (see Security);
-  handed to the same-origin page by `/api/boot`, read from `daemon.json` by the CLI.
+  handed to the same-origin page by `/api/boot` (only when not exposed), read from
+  `daemon.json` by the CLI. Distinct from the user-created **login tokens** above.
 - `$XDG_STATE_HOME/r3/scratch/<review_id>/` — scratch reviews' file directories
   (legacy single-file docs live as `scratch/<review_id>.md`). Diff rounds live
   in the sqlite `patches` table, not on disk.
 - `$XDG_RUNTIME_DIR/r3/daemon.json` (fallback state dir, mode 0600) — `{ url, port,
-pid, token, version }`; the CLI's discovery record.
+pid, token, version, exec, argv }`; the CLI's discovery record. `exec`/`argv` are
+  the serving process's own `process.execPath` / `process.argv` (the binary +
+  command line actually running), surfaced by `r3 status`.
 - `$XDG_RUNTIME_DIR/r3/daemon.lock` — O*EXCL start-lock (Bun defaults SO_REUSEPORT
   on, so the port is \_not* a lock); colocated with `daemon.json` so a reboot drops
   both. A stale lock (dead pid) is stolen on next start.
@@ -452,33 +473,60 @@ optimistically so the fold is instant).
 
 - Binds **`127.0.0.1`** by default (`R3_BIND` to override — an explicit opt-in).
 - Every request **that returns data or the token** — i.e. all of `/api/*`,
-  including `/api/boot` — must carry a **Host** that is loopback or an allowlisted
-  name (`R3_ALLOWED_HOSTS`, exact names, never `*`): the DNS-rebinding defense.
-  The **static SPA shell + hashed JS/CSS/favicon** are served natively by
-  `Bun.serve`'s `routes` _outside_ this Hono guard — that's fine because they
-  carry no secrets and grant no capability (the app is inert until the
-  Host-gated `/api/boot` hands it the token). Never let a data/token endpoint
-  out from behind the guard.
-- **Every `/api` data endpoint requires the per-user token** — reads as well as
-  writes. The token + `/api/boot` gate defend against **browser-borne** attack
-  (DNS-rebinding pages, cross-origin `fetch`) and casual remote access — **not**
-  against other local UIDs: `/api/boot`'s same-origin check passes any request that
-  carries no `Origin` header (as `curl` sends none), so any local process of any UID
-  can read the token and then use every endpoint. A real local-user boundary would
-  need an OS-level peer-credential check on `/api/boot`. The only token-free
-  endpoints are `/api/health` (liveness), `/api/boot` (hands the same-origin page
-  the token, so it's same-origin gated instead), and `/api/events` (SSE).
-  **Mutating routes** (POST/PATCH/DELETE) additionally require **same-origin**.
-  `sameOrigin()` dropped the port pin (so a forward/proxy that changes the port
-  still passes) and leans on the Host allowlist + token.
+  including `/api/boot` — must carry a **Host** that is loopback, an allowlisted
+  name (`R3_ALLOWED_HOSTS`, exact names, never `*`), or the **advertised public
+  host**: the DNS-rebinding defense. The public host is derived from `R3_PUBLIC_URL`
+  and allowed implicitly (config.ts) — since r3 hands that URL out, it must resolve,
+  so a single `R3_PUBLIC_URL=https://<name>` is enough for `tailscale serve` (no
+  separate `R3_ALLOWED_HOSTS` for the common one-host case). The **static SPA shell +
+  hashed JS/CSS/favicon** are served natively by `Bun.serve`'s `routes` _outside_
+  this Hono guard — that's fine because they carry no secrets and grant no capability
+  (the app is inert until the Host-gated `/api/boot` bootstraps it). Never let a
+  data/token endpoint out from behind the guard.
+- **Every `/api` data endpoint requires the per-user token _or_ a valid session
+  cookie** (`resolveAuth`) — reads as well as writes. This defends against
+  **browser-borne** attack (DNS-rebinding, cross-origin `fetch`) and casual remote
+  access — **not** against other local UIDs: `/api/boot`'s same-origin check passes
+  any request with no `Origin` header (as `curl` sends none), so when the daemon
+  isn't exposed any local process of any UID can still fetch the token. A real
+  local-user boundary needs an OS-level peer-credential check. Always token-free:
+  `/api/health`, `/api/boot` (same-origin gated), `/api/auth/login` (same-origin
+  gated — you have no session yet). `/api/events` (SSE) is token-free **only when
+  not exposed** (loopback-only, EventSource can't set headers); when exposed a
+  session cookie rides EventSource, so it's gated like any read. **Mutating routes**
+  (POST/PUT/PATCH/DELETE) additionally require **same-origin**. `sameOrigin()`
+  dropped the port pin (so a forward/proxy that changes the port still passes) and
+  leans on the Host allowlist + token/cookie.
+- **Quick-auth (login token → session cookie)** is an **optional login gate** — pure
+  security hardening — on the zellij model (server/auth.ts), gated by ONE startup
+  decision: is the daemon **`EXPOSED`** beyond loopback (config.ts: a non-loopback
+  bind, a non-loopback `R3_PUBLIC_URL`, or any non-loopback `R3_ALLOWED_HOSTS` name —
+  allowing a remote Host is itself an exposure signal)? `R3_REQUIRE_LOGIN` (1/0)
+  forces it on/off.
+  It's a *deployment* property, decided once — **not inferred per request** (inferring
+  loopback from `Host`/peer/forwarding headers is leaky — a naive TCP forward defeats
+  it). **Not exposed** (default): the daemon binds loopback, every client is already
+  local, so `/api/boot` hands the same-origin page the per-user token — no login,
+  unchanged. **Exposed** (default-on there): the web UI wants a **login token**
+  (`r3 auth create-token`, hashed at rest, shown once, revocable) for *every* session,
+  incl. the operator's own localhost. `/api/boot`
+  returns `401 { needsAuth }` until `/api/auth/login` trades the token for an
+  **HttpOnly, SameSite=Strict** cookie (Secure when the edge is HTTPS, from
+  `X-Forwarded-Proto`). The **master token never reaches a browser** when exposed —
+  it's cookie-only. Revoking a login token deletes its sessions immediately. The
+  per-user token stays the CLI's credential, unaffected.
 - **Path inputs** are validated against the requesting review's **worktree** root
   (or the scratch root for `SCRATCH`) — repo-relative, no `..`, no absolute.
 - **Git arg-injection guard**: reject refs/paths beginning with `-` before they
   reach git (an option like `--output=<file>` would write a file).
-- Remote access keeps this model: loopback + `ssh -L 8791:localhost:8791`, or
-  `tailscale serve` (r3 stays on loopback — prefer it over binding the tailnet IP
+- Remote access keeps this model: loopback + `ssh -L 8791:localhost:8791` (you
+  browse `localhost`, so the daemon isn't exposed → still zero-friction, no login),
+  or `tailscale serve` (r3 stays on loopback — prefer it over binding the tailnet IP
   so TLS terminates at Tailscale and identity headers stay available for future
-  per-user auth). **Never bind `0.0.0.0`.**
+  per-user auth). For the tailscale case, set `R3_PUBLIC_URL=https://<magicdns-name>`
+  (which auto-allows that Host **and** marks the daemon exposed) and
+  `r3 auth create-token`; browsers then log in with that token. **Never bind
+  `0.0.0.0`.**
 
 ## Build & distribution
 

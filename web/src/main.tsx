@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
 import { loadBoot } from "./api.ts";
+import { Login } from "./components/Login.tsx";
 import { FONT_MAX, FONT_MIN } from "./settings.ts";
 import "./main.css";
 
@@ -25,10 +26,24 @@ if (Number.isFinite(savedFont) && savedFont > 0) {
 // the daemon, so on a normal load this is an instant loopback round-trip. If it
 // fails (daemon down / unreachable), paint a fallback instead of an empty #root.
 async function main() {
+  let boot: { needsAuth: boolean };
   try {
-    await loadBoot();
+    boot = await loadBoot();
   } catch (err) {
     renderBootError(err);
+    return;
+  }
+
+  const root = createRoot(document.getElementById("root")!);
+
+  // A remote origin with no session: render the login screen. On success it reloads,
+  // so boot re-runs (now with a session cookie) and falls through to the app.
+  if (boot.needsAuth) {
+    root.render(
+      <StrictMode>
+        <Login />
+      </StrictMode>,
+    );
     return;
   }
 
@@ -36,7 +51,7 @@ async function main() {
     defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: true } },
   });
 
-  createRoot(document.getElementById("root")!).render(
+  root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <App />

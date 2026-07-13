@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api } from "../api.ts";
+import { api, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
 import {
   FONT_MAX,
@@ -12,7 +12,8 @@ import {
   useSyntaxTheme,
 } from "../settings.ts";
 import type { ThemeOption } from "../types.ts";
-import { cn } from "../ui.tsx";
+import { Button, cn } from "../ui.tsx";
+import { TokenManager } from "./TokenManager.tsx";
 
 // Group theme options by their `group` field, preserving first-seen order.
 function groupThemes(options: ThemeOption[]): { name: string; items: ThemeOption[] }[] {
@@ -207,6 +208,25 @@ export function SettingsPopup() {
                 “Auto” themes follow light/dark mode; the rest apply as-is.
               </p>
             </Section>
+
+            {/* Login tokens for reaching r3 when it's exposed beyond loopback. */}
+            <Section label="Access">
+              <TokenManager />
+            </Section>
+
+            {/* Sign out — only an exposed (cookie) session can; a non-exposed one
+                holds the token (TOKEN != "") and has nothing to sign out of. */}
+            {TOKEN === "" && (
+              <Section label="Session">
+                <Button
+                  variant="default"
+                  onClick={() => api.logout().finally(() => location.reload())}
+                  className="w-full justify-center"
+                >
+                  Sign out
+                </Button>
+              </Section>
+            )}
           </div>
         </>
       )}

@@ -30,28 +30,6 @@ export const PORT = Number(process.env.R3_PORT?.trim()) || DEFAULT_PORT;
 // an explicit opt-in that also requires a Host allowlist.
 export const BIND = process.env.R3_BIND?.trim() || "127.0.0.1";
 
-// Host allowlist for the DNS-rebinding + CSRF defenses. Loopback
-// names are always allowed; `R3_ALLOWED_HOSTS` adds exact extra names (e.g. a
-// MagicDNS name — never `*`, which would gut the rebinding defense). A
-// non-loopback bind address is allowed too, so reaching the bound IP works.
-export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
-  "127.0.0.1",
-  "localhost",
-  "::1",
-  "[::1]",
-  ...(process.env.R3_ALLOWED_HOSTS?.split(",")
-    .map((s) => s.trim())
-    .filter(Boolean) ?? []),
-  // A specific non-loopback bind address is allowed (so reaching the bound IP
-  // works); the all-interfaces wildcards (v4 `0.0.0.0`, v6 `::`) are not — they
-  // aren't a Host a client sends, and r3's model is never-all-interfaces.
-  ...(!["127.0.0.1", "localhost", "0.0.0.0", "::"].includes(BIND) ? [BIND] : []),
-]);
-
-export function isAllowedHost(hostname: string): boolean {
-  return ALLOWED_HOSTS.has(hostname);
-}
-
 // The on-box URL the daemon advertises to the local CLI + uses for self-health.
 // Loopback for a loopback/all-interfaces bind (also what an `ssh -L
 // <PORT>:localhost:<PORT>` forward targets); the bind address itself when bound
@@ -60,8 +38,81 @@ const HEALTH_HOST = BIND === "0.0.0.0" || BIND === "::" ? "127.0.0.1" : BIND;
 export const LOCAL_URL = `http://${HEALTH_HOST}:${PORT}`;
 // The URL surfaced in agent-printed review links + the served page. Defaults to
 // loopback (works through an SSH forward that maps the same port); override with
-// `R3_PUBLIC_URL` for a tailnet/MagicDNS address.
+// `R3_PUBLIC_URL` for a tailnet/MagicDNS address (e.g. a `tailscale serve` name).
 export const PUBLIC_URL = process.env.R3_PUBLIC_URL?.trim().replace(/\/+$/, "") || LOCAL_URL;
+
+// The hostname a URL advertises, or null if it can't be parsed (a malformed
+// R3_PUBLIC_URL contributes no host rather than throwing at import).
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+// Loopback host names — always trusted (a loopback bind, or an `ssh -L` forward,
+// is already access-controlled). The allowlist seeds from these, and `EXPOSED`
+// (below) uses them to decide whether r3 is reachable beyond loopback.
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+// File-local: only the allowlist seeding + EXPOSED below consult it.
+function isLoopbackHost(hostname: string): boolean {
+  return LOOPBACK_HOSTS.has(hostname);
+}
+
+// Host allowlist for the DNS-rebinding + CSRF defenses. Loopback names are always
+// allowed; `R3_ALLOWED_HOSTS` adds exact extra names (e.g. a MagicDNS name — never
+// `*`, which would gut the rebinding defense). A non-loopback bind address is
+// allowed too, so reaching the bound IP works. The **public origin's host is
+// allowed implicitly**: we hand that URL out (in review links + the served page),
+// so it must resolve — which makes a single `R3_PUBLIC_URL=https://<name>` enough
+// for the common `tailscale serve` case, with no separate R3_ALLOWED_HOSTS.
+const PUBLIC_HOST = hostnameOf(PUBLIC_URL);
+export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
+  ...LOOPBACK_HOSTS,
+  ...(process.env.R3_ALLOWED_HOSTS?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) ?? []),
+  // A specific non-loopback bind address is allowed (so reaching the bound IP
+  // works); the all-interfaces wildcards (v4 `0.0.0.0`, v6 `::`) are not — they
+  // aren't a Host a client sends, and r3's model is never-all-interfaces.
+  ...(!["127.0.0.1", "localhost", "0.0.0.0", "::"].includes(BIND) ? [BIND] : []),
+  // The advertised public host (skipping loopback — already covered — and the
+  // all-interfaces wildcards, which are never a real Host). `new URL().hostname`
+  // brackets an IPv6 literal, so `::` arrives as `[::]` — exclude both forms.
+  ...(PUBLIC_HOST &&
+  !isLoopbackHost(PUBLIC_HOST) &&
+  !["0.0.0.0", "::", "[::]"].includes(PUBLIC_HOST)
+    ? [PUBLIC_HOST]
+    : []),
+]);
+
+export function isAllowedHost(hostname: string): boolean {
+  return ALLOWED_HOSTS.has(hostname);
+}
+
+// Is r3 reachable beyond this machine's loopback? This is a **deployment**
+// property, decided once at startup — not inferred per request — and it's the whole
+// auth switch: when false (the default), the daemon binds loopback and every client
+// is already local, so the browser gets the per-user token from /api/boot with no
+// login (unchanged, zero-friction). When true, the web UI requires a **login token**
+// (server/auth.ts) for every session — the master token never goes to a browser.
+// Exposed iff any of: an explicit `R3_REQUIRE_LOGIN` (1/0 overrides either way); a
+// non-loopback bind (incl. the all-interfaces wildcards); or ANY non-loopback name
+// in the Host allowlist — which folds in a non-loopback `R3_PUBLIC_URL` (auto-allowed
+// above) AND `R3_ALLOWED_HOSTS`. The last one matters: allowing a remote Host is what
+// makes r3 reachable by that name, so it must arm the login gate too — otherwise a
+// `R3_ALLOWED_HOSTS=<name>` + `tailscale serve` setup (no `R3_PUBLIC_URL`) would serve
+// the master token to any browser that reaches it.
+function envFlag(v: string | undefined): boolean | null {
+  const t = v?.trim().toLowerCase();
+  if (t === "1" || t === "true" || t === "yes") return true;
+  if (t === "0" || t === "false" || t === "no") return false;
+  return null;
+}
+export const EXPOSED =
+  envFlag(process.env.R3_REQUIRE_LOGIN) ??
+  (!isLoopbackHost(BIND) || [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)));
 
 // $XDG_STATE_HOME/r3 (default ~/.local/state/r3): the persistent home for the
 // global sqlite, the per-user token, and the fallback daemon.json.
@@ -99,6 +150,14 @@ export interface DaemonInfo {
   pid: number;
   token: string;
   version: string;
+  // How this daemon was launched, recorded by the serving process itself:
+  // `exec` is its binary/interpreter (process.execPath — the compiled r3 binary,
+  // or the bun that ran the script), `argv` the full command line
+  // (process.argv). Surfaced by `r3 status` so you can see which binary is
+  // actually serving. Optional: a daemon started before this field existed omits
+  // them.
+  exec?: string;
+  argv?: string[];
 }
 
 export function readDaemonJson(): DaemonInfo | null {
