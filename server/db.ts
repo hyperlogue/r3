@@ -178,8 +178,15 @@ if (!hasColumn("replies", "ref_version"))
 if (!hasColumn("feedback", "status_unsent"))
   db.exec("ALTER TABLE feedback ADD COLUMN status_unsent INTEGER NOT NULL DEFAULT 0");
 // Feedback status collapsed to open|resolved: the accepted/refuted verdicts
-// never earned their keep (both are "the human decided; it's settled"), so
-// legacy rows fold into resolved. Idempotent — nothing matches once converted.
+// never earned their keep (both are "the human decided; it's settled"). A
+// never-delivered `accepted` item was still awaiting hand-off under the old
+// candidate set (open|accepted), and the new unsent predicate ignores
+// never-sent non-open items entirely — folding it straight to resolved would
+// silently drop it (and its unsent human replies) from every delivery surface,
+// so it re-opens first. Accepted-and-sent items keep delivering their unsent
+// replies via the follow-up path, and refuted was never a candidate, so both
+// fold to resolved. Idempotent — nothing matches once converted.
+db.exec("UPDATE feedback SET status = 'open' WHERE status = 'accepted' AND sent_at IS NULL");
 db.exec("UPDATE feedback SET status = 'resolved' WHERE status IN ('accepted','refuted')");
 // Replies lost their `action` column with the same change: a reply is a pure
 // message, and resolve became a status toggle on the feedback itself.
@@ -672,11 +679,14 @@ export function updateFeedback(
   for (const [k, v] of Object.entries(fields)) {
     if (v !== undefined) (next as Record<string, unknown>)[k] = v;
   }
-  // A real status flip (resolve/reopen) is content the agent hasn't heard:
-  // raise the undelivered-status flag so the next prompt reports it. Anything
-  // else (re-anchor, body edit) leaves the flag as it stands; delivery clears
-  // it (markContentSent).
-  if (fields.status !== undefined && fields.status !== cur.status) next.status_unsent = true;
+  // A real status flip of a *delivered* item is content the agent hasn't heard:
+  // raise the undelivered-status flag so the next prompt reports it. An
+  // undelivered item owes nothing extra — if open it delivers in full with its
+  // current status, and a note resolved before any hand-off is settled without
+  // the agent (see shared/types.ts hasUnsentContent). Anything else (re-anchor,
+  // body edit) leaves the flag as it stands; delivery clears it (markContentSent).
+  if (fields.status !== undefined && fields.status !== cur.status && cur.sent_at != null)
+    next.status_unsent = true;
   db.query(
     `UPDATE feedback SET body=$body, status=$status, anchor=$anchor, file=$file, side=$side,
        line_start=$ls, line_end=$le, quote=$quote, code_sha=$sha, status_unsent=$su, updated_at=$ts WHERE id=$id`,
@@ -699,11 +709,14 @@ export function updateFeedback(
 }
 
 // Reset a feedback's delivery marker so it re-delivers on the next prompt.
-// Called when a human edits the feedback *body* after it was already
-// handed off: sent_at is otherwise only ever set, never cleared, so an edited
-// note would silently stay "delivered" (Copy/Submit disabled, omitted from the
-// unsent prompt) even though its text changed. A status-only edit does NOT clear
-// it — status flips aren't content the agent needs re-sent.
+// Called only when a human edits the *body* of an already-delivered feedback
+// that is still OPEN (the caller gates on that — see reviews.editFeedback):
+// sent_at is otherwise only ever set, never cleared, so an edited note would
+// silently stay "delivered" (Copy/Submit disabled, omitted from the unsent
+// prompt) even though its text changed. Nulling a resolved item's sent_at would
+// orphan its pending status_unsent (a never-sent non-open item is invisible to
+// hasUnsentContent) and lose the undelivered decision; status flips travel via
+// status_unsent, never via this.
 export function clearFeedbackSent(id: string): void {
   db.query("UPDATE feedback SET sent_at = NULL WHERE id = $id").run({ $id: id });
 }
@@ -780,28 +793,24 @@ export function listReplies(feedbackId: string): Reply[] {
     .all({ $fid: feedbackId }) as ReplyRow[] as Reply[];
 }
 
-// Stamp `sent_at = now` on the given feedback + reply ids in one transaction —
-// marking them delivered to the agent. `statusIds` are the feedback whose
-// current status the prompt just reported (every rendered block carries it),
-// so their undelivered-status flag clears too. Bumps the review's
-// updated_at so the change lands like any other feedback write; the SSE
-// broadcast is the caller's (reviews.ts owns the side effects). A no-op for
-// empty lists.
-export function markContentSent(
-  reviewId: string,
-  feedbackIds: string[],
-  replyIds: string[],
-  statusIds: string[] = [],
-): void {
-  if (feedbackIds.length === 0 && replyIds.length === 0 && statusIds.length === 0) return;
+// Mark the prompt's rendered content delivered to the agent, in one transaction.
+// `feedbackIds` is EVERY feedback the prompt rendered (full blocks and
+// follow-ups): each stamps `sent_at` (COALESCE keeps a follow-up's original
+// hand-off time) and clears `status_unsent` in the same statement, since every
+// rendered block shows the current status. `replyIds` stamp the human replies
+// the prompt carried. Bumps the review's updated_at so the change lands like any
+// other feedback write; the SSE broadcast is the caller's (reviews.ts owns the
+// side effects). A no-op for empty lists.
+export function markContentSent(reviewId: string, feedbackIds: string[], replyIds: string[]): void {
+  if (feedbackIds.length === 0 && replyIds.length === 0) return;
   const ts = nowIso();
-  const stampFeedback = db.query("UPDATE feedback SET sent_at = $ts WHERE id = $id");
+  const stampFeedback = db.query(
+    "UPDATE feedback SET sent_at = COALESCE(sent_at, $ts), status_unsent = 0 WHERE id = $id",
+  );
   const stampReply = db.query("UPDATE replies SET sent_at = $ts WHERE id = $id");
-  const clearStatus = db.query("UPDATE feedback SET status_unsent = 0 WHERE id = $id");
   db.transaction(() => {
     for (const id of feedbackIds) stampFeedback.run({ $ts: ts, $id: id });
     for (const id of replyIds) stampReply.run({ $ts: ts, $id: id });
-    for (const id of statusIds) clearStatus.run({ $id: id });
   })();
   touchReview(reviewId);
 }

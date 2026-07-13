@@ -767,9 +767,13 @@ function HeaderActions({
   onDelete,
 }: {
   status: ReviewStatus;
-  // How many feedback items are still open (status !== "resolved"). Approve is
-  // blocked while any remain — approving is the review's terminal success, so it
-  // shouldn't skip past feedback that never got a decision.
+  // How many of the *human's* feedback items are still open (status !== "resolved"
+  // && author === "human"). Approve is blocked while any remain — approving is the
+  // review's terminal success, so it shouldn't skip past feedback that never got a
+  // decision. Agent-authored notes (guidance, questions) rank into the attention
+  // zone but must not block the human's terminal action: the server and CLI enforce
+  // no gate at all, so this is purely a UI guardrail against skipping your own
+  // undecided feedback, not the agent's.
   unresolvedCount: number;
   onSetStatus: (s: ReviewStatus) => void;
   onApprove: (note: string) => void;
@@ -795,7 +799,7 @@ function HeaderActions({
           disabled={unresolvedCount > 0}
           title={
             unresolvedCount > 0
-              ? `Resolve all feedback first — ${unresolvedCount} still ${unresolvedCount === 1 ? "needs a" : "need"} decision${unresolvedCount === 1 ? "" : "s"}`
+              ? `Resolve your open feedback first — ${unresolvedCount} still ${unresolvedCount === 1 ? "needs a" : "need"} decision${unresolvedCount === 1 ? "" : "s"}`
               : undefined
           }
         >
@@ -855,6 +859,20 @@ function HeaderActions({
       )}
     </>
   );
+}
+
+// Focus one of the feedback panel's composers (they live outside the calling
+// subtree, so they're reached by data attr rather than a ref) and land the caret
+// at the end. One rAF is enough: the draft-store write flushes its subscribers
+// synchronously inside the click event, so the textarea is committed before the
+// frame fires.
+function focusComposer(kind: "anchored" | "general") {
+  requestAnimationFrame(() => {
+    const ta = document.querySelector<HTMLTextAreaElement>(`textarea[data-${kind}-composer]`);
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
 }
 
 export function ReviewView({ reviewId }: { reviewId: string }) {
@@ -1524,12 +1542,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       setDraftText(reviewId, quoteBlock(cur, text).text);
       setFileQuote(null);
       window.getSelection()?.removeAllRanges();
-      requestAnimationFrame(() => {
-        const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-anchored-composer]");
-        if (!ta) return;
-        ta.focus();
-        ta.setSelectionRange(ta.value.length, ta.value.length);
-      });
+      focusComposer("anchored");
     },
     [reviewId],
   );
@@ -1540,16 +1553,21 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // via the composer's data attr, same pattern as quoteIntoNote above.
   const quoteIntoGeneral = useCallback(
     (text: string) => {
+      // With an anchored composer open (a pending draft), the general composer
+      // never mounts (the panel renders the pending one instead) — writing the
+      // general draft would vanish into an invisible store, so the quote drops
+      // into the open composer instead. Otherwise non-empty general text is what
+      // makes the panel show that composer (showGeneral), so writing the draft
+      // is what opens it.
+      if (pending) {
+        quoteIntoNote(text);
+        return;
+      }
       const cur = getDraft(reviewId)?.general ?? "";
       setGeneralText(reviewId, quoteBlock(cur, text).text);
-      requestAnimationFrame(() => {
-        const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-general-composer]");
-        if (!ta) return;
-        ta.focus();
-        ta.setSelectionRange(ta.value.length, ta.value.length);
-      });
+      focusComposer("general");
     },
-    [reviewId],
+    [reviewId, pending, quoteIntoNote],
   );
 
   // Dismiss the file-pane quote bubble once its fixed position would go stale (the
@@ -1750,7 +1768,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         </div>
         <HeaderActions
           status={detail.status}
-          unresolvedCount={detail.feedback.filter((f) => f.status !== "resolved").length}
+          unresolvedCount={
+            detail.feedback.filter((f) => f.status !== "resolved" && f.author === "human").length
+          }
           onSetStatus={(s) => setStatus.mutate({ status: s })}
           onApprove={(note) => setStatus.mutate({ status: "approved", note: note || null })}
           onDelete={() => {

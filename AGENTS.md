@@ -152,12 +152,18 @@ rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
   agent via `r3 feedback add` (guide the reading order, ask, flag a risk), and
   both get the same anchors, threads, and lifecycle. Agent-authored feedback is
   **born delivered** (`sent_at` = creation), so it never echoes back in the
-  agent's own prompts — only the human's replies/resolution flow back. Fields:
+  agent's own prompts — only the human's replies/resolution flow back; it wears an
+  `[agent-authored]` label in the text surfaces (`r3 show`, prompt blocks) and
+  doesn't gate the UI's Approve button (only the human's open items do). Fields:
   `file`, `side` (`old|new|null`), `line_start/end`,
   `quote` (**the anchor of record** — the line number is only a hint; for a
   line-anchored `r3 feedback add` without `--quote` the server derives it from
-  the round/live content, rejecting an unreadable range rather than storing a
-  driftable quote-less anchor), `code_sha`
+  the round/live content, rejecting a range that isn't fully within what the
+  round/file shows (partial or hunk-gap-spanning) rather than storing a driftable
+  quote-less anchor, and capping the derived quote at `MAX_QUOTE_LINES` like the
+  web's selection anchors; a whole-file or quoted anchor gets its path validated
+  against the review — round contents / file membership — so no dangling note is
+  stored), `code_sha`
   (recorded at anchor time; staleness surfaced via `anchor`), `anchor`
   (`anchored|outdated`), `patch_seq` (which round, for diff reviews; a
   line-anchored note naming no round lands in the latest), `status`
@@ -293,11 +299,16 @@ feedback + human replies it renders sent, so a prompt is **unsent-only** — new
 feedback in full plus a compact `(follow-up)` block for any feedback that gained a
 human reply since (agent replies never re-appear — the agent wrote them). **The
 decision itself is deliverable**: a bare Resolve/Reopen click posts no reply, so a
-status flip raises `status_unsent` and the next prompt reports "`[resolved]` — no
-action needed" (then clears the flag) — the agent tracks each item to resolution.
-Copy/Submit disable once nothing is unsent (a fresh reply or decision re-enables
-them); `r3 show <id>` (or `r3 prompt <id> --all`) re-prints the full history
-without marking. A restarted `watch` won't re-emit what was already delivered.
+status flip **of a delivered item** raises `status_unsent` and the next prompt
+reports "`[resolved]` — no action needed" (then clears the flag) — the agent
+tracks each item to resolution. An undelivered item owes nothing extra: an open
+one delivers in full with its current status, and a note resolved before any
+hand-off is settled without the agent ever seeing it. Copy/Submit disable once
+nothing is unsent (a fresh reply or decision re-enables them); `r3 show <id>` (or
+`r3 prompt <id> --all`) re-prints the full history without marking. A restarted
+`watch` won't re-emit what was already delivered. The unsent predicate lives once
+in `shared/types.ts` (`hasUnsentContent`) — the server's prompt, the CLI's
+`watch`/`prompt`, and the web's Copy/Submit gate all call the same function.
 
 `watch` also returns immediately if feedback is already pending; `--timeout <sec>`
 (default 0 = never) bounds the wait; `--auto-fetch-timeout <sec>` opts into

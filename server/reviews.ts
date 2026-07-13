@@ -14,7 +14,7 @@ import type {
   ReviewDetail,
   SnapshotMeta,
 } from "../shared/types.ts";
-import { SUMMARY_FILE } from "../shared/types.ts";
+import { MAX_QUOTE_LINES, SUMMARY_FILE } from "../shared/types.ts";
 import { findQuote, type ProjectedDoc, projectDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
@@ -167,8 +167,8 @@ export async function buildAndMarkPrompt(
   const detail = await buildReviewDetail(id);
   if (!detail) return null;
   const { text, included } = buildUnsentPrompt(detail, { feedbackIds });
-  if (included.feedback.length || included.replies.length || included.statuses.length) {
-    db.markContentSent(id, included.feedback, included.replies, included.statuses);
+  if (included.feedback.length || included.replies.length) {
+    db.markContentSent(id, included.feedback, included.replies);
     broadcast({ type: "review-updated", reviewId: id });
   }
   return text;
@@ -387,12 +387,21 @@ export async function repoForReview(id: string): Promise<Repo | null> {
   return resolveRepoForReview(review);
 }
 
+// Cap a derived quote to its first few lines — the same cap the web's selection
+// anchors apply (short quotes relocate far more reliably); the stored line range
+// still carries the full span.
+function capQuote(text: string): string {
+  const lines = text.split("\n");
+  return lines.length > MAX_QUOTE_LINES ? lines.slice(0, MAX_QUOTE_LINES).join("\n") : text;
+}
+
 // Derive the verbatim text of a line range so the quote — the anchor of record —
 // exists even when the client sent only line numbers (`r3 feedback add`'s
 // line-anchored form). Diff review: the named round's rows on the anchor side;
 // files review: the live content (worktree or scratch). Rejected (not a silent
-// null) when the range can't be read — a quote-less line anchor can never
-// relocate or flag itself stale, so it would mis-point silently.
+// null) when the range can't be read IN FULL — a quote-less, blank, or fabricated
+// anchor can never relocate or flag itself stale, so it would mis-point silently.
+// The result is capped at MAX_QUOTE_LINES, like the web's selection anchors.
 async function deriveQuote(
   review: Review,
   patchSeq: number | null,
@@ -414,11 +423,22 @@ async function deriveQuote(
       const n = want === "new" ? ln.newLine : ln.oldLine;
       return n != null && n >= lineStart && n <= lineEnd;
     });
-    if (!rows.length)
+    // Require FULL coverage: a partially-covered span (reaching across the gap
+    // between hunks) would stitch non-contiguous rows into a quote that exists
+    // nowhere. Per-side row numbers are strictly increasing, so full count ⇔
+    // contiguous coverage.
+    if (rows.length !== lineEnd - lineStart + 1)
       return {
-        error: `L${lineStart}-${lineEnd} (${want} side) isn't in diff ${patchSeq} for ${file}`,
+        error: `L${lineStart}-${lineEnd} (${want} side) isn't fully in diff ${patchSeq} for ${file} — anchor lines the round shows contiguously, or pass a quote`,
       };
-    return rows.map((ln) => ln.text).join("\n");
+    // A blank quote is falsy, so re-anchoring and blobSha skip it forever — reject
+    // rather than store an anchor that can never relocate or flag itself stale.
+    const text = capQuote(rows.map((ln) => ln.text).join("\n"));
+    if (!text.trim())
+      return {
+        error: `L${lineStart}-${lineEnd} in diff ${patchSeq} for ${file} is blank — pass a quote or anchor a non-empty range`,
+      };
+    return text;
   }
   const repo = await resolveRepoForReview(review);
   if (!repo || (repo.stale && !isScratchReview(review)))
@@ -427,9 +447,58 @@ async function deriveQuote(
   const content = await readContentAt(repo, file, src.ref);
   if (content == null) return { error: `can't read ${file} to anchor — check the path` };
   const all = content.split("\n");
-  if (lineStart > all.length)
-    return { error: `${file} has ${all.length} lines — L${lineStart} is out of range` };
-  return all.slice(lineStart - 1, Math.min(lineEnd, all.length)).join("\n");
+  // split("\n") on newline-terminated content yields a phantom trailing "" — drop
+  // it so the count reflects real lines.
+  if (content.endsWith("\n")) all.pop();
+  const range = `L${lineStart}${lineEnd !== lineStart ? `-${lineEnd}` : ""}`;
+  // Reject the whole range when it overruns — no silent truncation: the stored
+  // line range must match the derived quote.
+  if (lineEnd > all.length)
+    return { error: `${file} has ${all.length} lines — ${range} is out of range` };
+  const text = capQuote(all.slice(lineStart - 1, lineEnd).join("\n"));
+  if (!text.trim())
+    return { error: `${file} ${range} is blank — pass a quote or anchor a non-empty range` };
+  return text;
+}
+
+// A stored path nothing can show is a dangling note — its card matches nothing
+// and (quote-less) it is never re-anchored, so a click is a silent no-op forever.
+// Validates the anchor shapes deriveQuote doesn't already cover: whole-file notes
+// and quote-supplied line anchors. Files review: membership is the cheap truth
+// (a deleted file legitimately carries feedback — its live copy is gone but it's
+// still a member); scratch membership is a live directory scan that can lag a
+// just-dropped file, so fall back to reading the file itself. Diff review: the
+// named round, else any round (latest first — a whole-file note usually means
+// the file as the review last showed it); legacy no-round reviews render live,
+// nothing to check.
+async function validateFeedbackFile(
+  review: Review,
+  file: string,
+  patchSeq: number | null,
+): Promise<Rejected | null> {
+  if (review.kind === "diff") {
+    const seqs =
+      patchSeq != null
+        ? [patchSeq]
+        : db
+            .listPatchMetas(review.id)
+            .map((m) => m.seq)
+            .reverse();
+    if (!seqs.length) return null;
+    for (const seq of seqs) {
+      const patch = db.getPatch(review.id, seq);
+      const files = patch ? parsePatch(patch.body) : null;
+      if (files?.some((x) => x.path === file || x.oldPath === file)) return null;
+    }
+    return { error: `${file} isn't touched by this review's diffs — check the path` };
+  }
+  const src = review.source as { ref: string; files: string[] };
+  if (src.files.includes(file)) return null;
+  if (isScratchReview(review)) {
+    const repo = await resolveRepoForReview(review);
+    if (repo && (await readContentAt(repo, file, src.ref)) != null) return null;
+  }
+  return { error: `${file} isn't part of this review — check the path against its file list` };
 }
 
 export async function addFeedback(
@@ -440,6 +509,14 @@ export async function addFeedback(
   if (!review) return null;
   const author = body.author ?? "human";
   const lineAnchored = !!body.file && body.file !== SUMMARY_FILE && body.lineStart != null;
+  // Validate the range server-side — the contract is the product, so a raw API
+  // client gets the same guardrails as the CLI. lineEnd defaults to lineStart.
+  if (lineAnchored) {
+    const ls = body.lineStart as number;
+    const le = body.lineEnd ?? ls;
+    if (!Number.isInteger(ls) || ls < 1 || !Number.isInteger(le) || le < ls)
+      return { error: "bad line range — expects integers 1 ≤ start ≤ end" };
+  }
   // A patch_seq must name a stored round. seq 0 (the legacy synthetic live
   // round) and files-review view seqs store as null = "the first/only round",
   // as ever; a named-but-missing round ≥ 1 on a diff review is a client error
@@ -478,6 +555,12 @@ export async function addFeedback(
     );
     if (isRejected(derived)) return derived;
     quote = derived;
+  }
+  // deriveQuote already validated the quote-less line-anchored shape.
+  const realFile = !!body.file && body.file !== SUMMARY_FILE;
+  if (realFile && (!lineAnchored || body.quote != null)) {
+    const bad = await validateFeedbackFile(review, body.file as string, patchSeq);
+    if (bad) return bad;
   }
   const codeSha = quote ? await blobSha(quote) : null;
   const fb = db.createFeedback(reviewId, {
@@ -593,11 +676,15 @@ export function editFeedback(
   const fb = db.getFeedback(feedbackId);
   if (!fb) return null;
   const next = db.updateFeedback(feedbackId, fields);
-  // If the human changed the *body* of an already-delivered feedback, reset its
-  // delivery marker so it re-delivers — otherwise the edited text
-  // stays invisible to the agent (Copy/Submit disabled, omitted from the unsent
-  // prompt). A status-only edit leaves sent_at as-is.
-  if (fields.body !== undefined && fields.body !== fb.body) db.clearFeedbackSent(feedbackId);
+  // Re-deliver an edited OPEN note in full (sent_at null → full block), but never
+  // null a resolved item's sent_at — that would orphan a pending status_unsent
+  // (never-sent non-open items are invisible to the unsent predicate), silently
+  // losing the undelivered decision (Submit would claim "everything sent" while
+  // the agent never hears the resolve); a settled note's wording tweak isn't
+  // content the agent needs anyway. Status flips travel via status_unsent.
+  const statusAfter = fields.status ?? fb.status;
+  if (fields.body !== undefined && fields.body !== fb.body && statusAfter === "open")
+    db.clearFeedbackSent(feedbackId);
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
   broadcast({ type: "review-updated", reviewId: fb.review_id });
   return next;

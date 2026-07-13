@@ -86,9 +86,16 @@ export function useQuoteBubble(
   const [pos, setPos] = useState<QuotePos | null>(null);
   const hide = useCallback(() => setPos(null), []);
   useEffect(() => {
-    const scope = scopeRef.current;
-    if (!scope) return;
+    // Consumers may mount their scope element *after* this hook first runs (e.g.
+    // ReviewSummary renders null until a summary arrives over SSE), so the listener
+    // lives on `document` and reads the live `scopeRef.current` per event rather than
+    // capturing the element at effect time — otherwise a scope that appears later
+    // never gets a listener. mouseup is a discrete event, so N cards each paying a
+    // cheap no-op check per click is fine (unlike selectionchange, which is why the
+    // second effect below still attaches only while a bubble is up).
     const onMouseUp = () => {
+      const scope = scopeRef.current;
+      if (!scope) return; // scope-less consumer never had a bubble; dismissal is the second effect's job
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPos(null);
       const text = sel.toString();
@@ -100,8 +107,8 @@ export function useQuoteBubble(
       const r = range.getBoundingClientRect();
       setPos({ left: r.left + r.width / 2, top: r.top, text });
     };
-    scope.addEventListener("mouseup", onMouseUp);
-    return () => scope.removeEventListener("mouseup", onMouseUp);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => document.removeEventListener("mouseup", onMouseUp);
   }, [scopeRef, isEligible]);
   // The global dismiss listeners attach only while a bubble is up: every feedback
   // card runs this hook, so idle cards must cost zero document/scroll listeners

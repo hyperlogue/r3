@@ -29,7 +29,7 @@ import type {
   WatcherInfo,
   WatchersResponse,
 } from "../types.ts";
-import { SUMMARY_FILE } from "../types.ts";
+import { hasUnsentContent, SUMMARY_FILE } from "../types.ts";
 import {
   Button,
   Collapse,
@@ -41,6 +41,14 @@ import {
   useCopyFlash,
 } from "../ui.tsx";
 import { MessageProse, QuoteBubble, quoteBlock, useQuoteBubble } from "./Message.tsx";
+
+// A mutation's only failure surface: api.ts throws `${method} ${path} → ${status}: ${text}` —
+// keep just the server's message tail, which is written for humans ("no diff 2 in
+// this review (see r3 diff list)").
+function apiErrorText(e: unknown): string {
+  const msg = e instanceof Error ? e.message : "";
+  return msg.replace(/^\w+ \S+ → \d+: /, "") || "request failed — is the daemon running?";
+}
 
 // Custom auto-animate plugins BYPASS its built-in reduced-motion guard (index.mjs
 // gates that on `!isPlugin`), so every plugin below checks this and collapses its
@@ -271,6 +279,7 @@ function ComposerBlock({
   submitLabel,
   onSubmit,
   submitPending,
+  error,
   onClose,
   anchored,
   general,
@@ -286,6 +295,9 @@ function ComposerBlock({
   submitLabel: string;
   onSubmit: () => void;
   submitPending: boolean;
+  // A failed add has no other surface — the mutation errors silently and the
+  // composer just sits there otherwise; show the server's message under the input.
+  error?: string | null;
   onClose: () => void;
   // Tags the composer's textarea (data-anchored-composer / data-general-composer)
   // so a "Quote in note" click — the file pane's (anchored) or the summary's
@@ -339,6 +351,9 @@ function ComposerBlock({
         // auto-grown from useAutoGrow above (no fixed h-*).
         className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
       />
+      {error && (
+        <div className="mt-1 text-[0.6875rem] text-danger-600 dark:text-danger-400">{error}</div>
+      )}
       <div className="mt-3 flex justify-end gap-1.5">
         <Button variant="ghost" onClick={onClose}>
           Cancel
@@ -429,6 +444,7 @@ function GeneralFeedback({
       submitLabel="Save"
       onSubmit={() => add.mutate()}
       submitPending={add.isPending}
+      error={add.isError ? apiErrorText(add.error) : null}
       general
       onClose={onClose}
     />
@@ -509,6 +525,7 @@ function NewFeedback({
       submitLabel="Add feedback"
       onSubmit={() => add.mutate()}
       submitPending={add.isPending}
+      error={add.isError ? apiErrorText(add.error) : null}
       anchored
       onClose={onDiscard}
     />
@@ -697,14 +714,19 @@ function FeedbackCard({
 
   // Post the composer text (if any) as a plain reply and — for Resolve — flip
   // the status. A reply never carries a status itself; a bare Resolve with an
-  // empty composer is a pure status toggle, no filler "Resolved." message.
+  // empty composer is a pure status toggle, no filler "Resolved." message. The
+  // two calls are separate requests — the composer text clears the moment the
+  // reply lands (inside mutationFn), so a retry after a failed status flip can't
+  // double-post it.
   const postReply = useMutation({
     mutationFn: async (resolve: boolean) => {
-      if (reply.trim()) await api.addReply(fb.id, { author: "human", body: reply });
+      if (reply.trim()) {
+        await api.addReply(fb.id, { author: "human", body: reply });
+        setReply("");
+      }
       if (resolve) await api.editFeedback(fb.id, { status: "resolved" });
     },
     onSuccess: (_data, resolve) => {
-      setReply("");
       // Collapse the composer once the reply lands — the thread now shows it, so
       // the open input has nothing left to hold. The action row's "Reply" reopens
       // it for the next one.
@@ -805,13 +827,19 @@ function FeedbackCard({
   // with the filled "Reply" — the ⋯ menu beside it stays a bare ghost trigger.
   const resolveOutline = "border border-neutral-300 dark:border-neutral-700";
   const resolveButton = resolved ? (
-    <Button variant="ghost" className={resolveOutline} onClick={() => reopen.mutate()}>
+    <Button
+      variant="ghost"
+      className={resolveOutline}
+      disabled={reopen.isPending}
+      onClick={() => reopen.mutate()}
+    >
       ↺ Reopen
     </Button>
   ) : (
     <Button
       variant="ghost"
       className={resolveOutline}
+      disabled={postReply.isPending}
       onClick={() => postReply.mutate(true)}
       title="Mark resolved"
     >
@@ -1139,6 +1167,14 @@ function FeedbackCard({
           </>
         )}
       </div>
+      {/* A failed reply/resolve/reopen is otherwise silent — the card just sits
+          there — so surface the server's message under the action row. Pick
+          whichever mutation errored (only one runs per click). */}
+      {(postReply.isError || reopen.isError) && (
+        <div className="mt-1 text-[0.6875rem] text-danger-600 dark:text-danger-400">
+          Couldn't save — {apiErrorText(postReply.error ?? reopen.error)}
+        </div>
+      )}
       {/* "Quote in reply" bubble for a text selection inside one of this card's
           agent replies. Fixed-positioned (measured off the selection), so it
           escapes the card's overflow. */}
@@ -1177,17 +1213,11 @@ export const FeedbackPanel = memo(function FeedbackPanel({
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
-  // Mirror the server's unsent predicate (prompt.ts hasUnsentContent): feedback
-  // has content the agent hasn't seen when it was never sent (and is still
-  // open), or a human reply / undelivered status flip (a bare Resolve/Reopen)
-  // arrived after the last hand-off. Gates Copy/Submit — there's nothing to
-  // send once everything's delivered (a fresh reply/feedback/decision
+  // The SHARED unsent predicate (shared/types.ts hasUnsentContent — the same one
+  // the server renders prompts by and `r3 watch` wakes on); gates Copy/Submit —
+  // nothing to send once everything's delivered (a fresh reply/feedback/decision
   // re-enables it live).
-  const hasUnsent = detail.feedback.some((f) =>
-    f.sent_at == null
-      ? f.status === "open"
-      : f.replies.some((r) => r.author === "human" && r.sent_at == null) || f.status_unsent,
-  );
+  const hasUnsent = detail.feedback.some(hasUnsentContent);
   // The general note's text lives in the browser draft store (persisted, lights the
   // pill); `generalOpen` is just the local "is the composer showing" bit. It's kept
   // showing while there's text too (below), so it survives being hidden behind an

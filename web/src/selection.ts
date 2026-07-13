@@ -4,10 +4,11 @@
 // [data-file] ancestor (the quote is the anchor of record).
 
 import type { DiffSide } from "./types.ts";
-import { SUMMARY_FILE } from "./types.ts";
-
-// Cap the stored quote to this many leading lines (see getSelectionAnchor).
-const MAX_QUOTE_LINES = 4;
+// MAX_QUOTE_LINES (the cap on a stored quote's leading lines, applied in
+// getSelectionAnchor / getSummaryAnchor below) lives in shared/ because the
+// server's line-anchored derived quotes (server/reviews.ts deriveQuote) apply the
+// same cap — so the two sides agree on how long an anchor quote can get.
+import { MAX_QUOTE_LINES, SUMMARY_FILE } from "./types.ts";
 
 export interface PendingAnchor {
   file: string;

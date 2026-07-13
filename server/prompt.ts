@@ -11,7 +11,7 @@
 // so the caller can mark those rows sent.
 
 import type { FeedbackWithReplies, Reply, ReviewDetail, ReviewSource } from "../shared/types.ts";
-import { SUMMARY_FILE } from "../shared/types.ts";
+import { hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
 
 function describeSource(kind: string, source: ReviewSource): string {
   if ("ref" in source) {
@@ -41,11 +41,18 @@ function locOf(fb: FeedbackWithReplies): string {
   return `${fb.file}:${range}${side}${round}`;
 }
 
+// Tag the agent's own guidance notes so a fresh session doesn't work its own FYI
+// as if the human wrote it — the prompt/`--all` output otherwise gives no way to
+// tell them from human asks. Human authorship is the norm, so only agent is tagged.
+function authorTag(fb: FeedbackWithReplies): string {
+  return fb.author === "agent" ? " [agent-authored]" : "";
+}
+
 function feedbackBlock(fb: FeedbackWithReplies): string {
   const out: string[] = [];
   const stale =
     fb.anchor === "outdated" ? "  ⚠ anchor outdated — the code this refers to changed" : "";
-  out.push(`### ${fb.id} — ${locOf(fb)} [${fb.status}]${stale}`);
+  out.push(`### ${fb.id} — ${locOf(fb)} [${fb.status}]${authorTag(fb)}${stale}`);
   if (fb.quote) {
     for (const line of fb.quote.split("\n")) out.push(`> ${line}`);
   }
@@ -103,19 +110,6 @@ function unsentReplies(fb: FeedbackWithReplies): Reply[] {
   return fb.replies.filter((r) => r.author === "human" && r.sent_at == null);
 }
 
-// A feedback has content the agent hasn't been sent yet.
-// - Never delivered: only while still open — a note the human wrote *and*
-//   resolved before any hand-off was settled without the agent; don't announce
-//   it after the fact. (Agent-authored feedback is born delivered, so it can't
-//   land here.)
-// - Already delivered: a human reply posted since the last hand-off, or an
-//   undelivered status flip (a bare Resolve/Reopen click) — the decision itself
-//   is content the agent tracks to resolution.
-function hasUnsentContent(fb: FeedbackWithReplies): boolean {
-  if (fb.sent_at == null) return fb.status === "open";
-  return unsentReplies(fb).length > 0 || fb.status_unsent;
-}
-
 // Full-history prompt (GET /api/reviews/:id/prompt, `r3 prompt --all`): every
 // candidate item with its whole thread, no marking. `feedbackIds` narrows to a
 // specific subset. This is the escape hatch that always re-prints everything.
@@ -135,7 +129,7 @@ export function buildPrompt(detail: ReviewDetail, opts: { feedbackIds?: string[]
 // header always carries the current status, so a bare Resolve/Reopen click
 // (no reply) still reaches the agent as "[resolved] — no action needed".
 function followUpBlock(reviewId: string, fb: FeedbackWithReplies, replies: Reply[]): string {
-  const out: string[] = [`### ${fb.id} — ${locOf(fb)} [${fb.status}] (follow-up)`];
+  const out: string[] = [`### ${fb.id} — ${locOf(fb)} [${fb.status}]${authorTag(fb)} (follow-up)`];
   for (const r of replies) {
     out.push("");
     out.push(`  [${r.author}] ${r.body.trim()}`);
@@ -154,11 +148,13 @@ function followUpBlock(reviewId: string, fb: FeedbackWithReplies, replies: Reply
 }
 
 // What buildUnsentPrompt rendered, so the caller marks exactly those rows sent.
-// `statuses` lists every rendered feedback id — each block shows the current
-// status, so their undelivered-status flags clear on delivery.
+// `feedback` lists every rendered feedback id (full blocks and follow-ups): every
+// rendered block shows the current status, so delivery both stamps sent_at (kept
+// for already-sent follow-ups via COALESCE in db.markContentSent) and clears the
+// undelivered-status flag in one statement.
 export interface UnsentPrompt {
   text: string;
-  included: { feedback: string[]; replies: string[]; statuses: string[] };
+  included: { feedback: string[]; replies: string[] };
 }
 
 // Unsent-only prompt (POST /api/reviews/:id/prompt, `r3 prompt` / `r3 watch`):
@@ -177,7 +173,7 @@ export function buildUnsentPrompt(
   let candidates = detail.feedback.filter(hasUnsentContent);
   if (only?.length) candidates = candidates.filter((f) => only.includes(f.id));
   const header = promptHeader(detail, candidates.length);
-  const included = { feedback: [] as string[], replies: [] as string[], statuses: [] as string[] };
+  const included = { feedback: [] as string[], replies: [] as string[] };
   if (candidates.length === 0) {
     return {
       text: `${header}\n(no unsent feedback — run \`r3 show ${detail.id}\` for the full history)\n`,
@@ -186,11 +182,10 @@ export function buildUnsentPrompt(
   }
   const blocks: string[] = [];
   for (const fb of candidates) {
-    included.statuses.push(fb.id); // every block form shows the current status
+    included.feedback.push(fb.id); // every rendered block (full or follow-up) shows the current status
     if (fb.sent_at == null) {
       // Never delivered — render the whole item (quote, body, thread) as today.
       blocks.push(feedbackBlock(fb));
-      included.feedback.push(fb.id);
       for (const r of fb.replies) included.replies.push(r.id);
     } else {
       // Already delivered; the new human replies (and/or status flip) are unsent.

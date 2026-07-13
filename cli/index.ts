@@ -8,7 +8,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { type DaemonInfo, R3_VERSION, readDaemonJson, removeDaemonJson } from "../server/config.ts";
-import { SUMMARY_FILE } from "../shared/types.ts";
+import { hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
 
 interface ServerInfo {
   url: string;
@@ -250,22 +250,15 @@ async function api(method: string, path: string, body?: unknown): Promise<any> {
   }
 }
 
-// A feedback is awaiting the agent when it holds content the agent hasn't been
-// sent yet — mirrors the server's unsent predicate (prompt.ts hasUnsentContent):
-// never delivered (only while still open — a note resolved before any hand-off
-// was settled without the agent), or a human reply / undelivered status flip
-// (bare Resolve/Reopen) landed since the last hand-off. This is delivery state
-// (sent_at + status_unsent), not a last-speaker heuristic — so a restarted
-// `watch` no longer re-emits items already delivered (that's the point;
-// `r3 show` recovers the full history).
-function awaitingAgent(fb: any): boolean {
-  if (fb.sent_at == null) return fb.status === "open";
-  return fb.replies.some((r: any) => r.author === "human" && !r.sent_at) || !!fb.status_unsent;
-}
-
+// A feedback is awaiting the agent when it holds undelivered content — the SHARED
+// predicate (shared/types.ts hasUnsentContent), the same one the server's prompt
+// renders by and the web gates Copy/Submit on, so `watch` can never wake for
+// content the prompt then omits. Delivery state (sent_at + status_unsent), not a
+// last-speaker heuristic — a restarted `watch` doesn't re-emit what was already
+// delivered; `r3 show` recovers the full history.
 async function awaitingIds(id: string): Promise<string[]> {
   const detail = await api("GET", `/api/reviews/${id}`);
-  return detail.feedback.filter(awaitingAgent).map((f: any) => f.id);
+  return detail.feedback.filter(hasUnsentContent).map((f: any) => f.id);
 }
 
 // Read the server's SSE stream and call `onEvent(name)` per event, reconnecting
@@ -556,7 +549,10 @@ async function cmdShow(args: Args) {
       const round = fb.patch_seq != null ? ` [diff ${fb.patch_seq}]` : "";
       target = `${fb.file}${loc}${round}`;
     }
-    console.log(`\n  ${fb.id} [${fb.status}]${stale} ${target}`);
+    // Tag agent-authored notes so a fresh agent session recovering state via
+    // `r3 show` doesn't read its own guidance back as a human ask.
+    const author = fb.author === "agent" ? " [agent]" : "";
+    console.log(`\n  ${fb.id} [${fb.status}]${author}${stale} ${target}`);
     console.log(`    ${fb.body.replace(/\n/g, "\n    ")}`);
     for (const rp of fb.replies) {
       const pin =
@@ -680,7 +676,7 @@ async function cmdWatch(args: Args) {
   };
 
   // Pick up anything already waiting (left before this watch, or after a restart).
-  const pending = detail0.feedback.filter(awaitingAgent).map((f: any) => f.id);
+  const pending = detail0.feedback.filter(hasUnsentContent).map((f: any) => f.id);
   if (pending.length) {
     await emit(autoFetchMs > 0 ? await settle(pending) : pending);
     process.exit(WATCH_EXIT.feedback);
@@ -721,7 +717,7 @@ async function cmdWatch(args: Args) {
       controller.abort();
       finishClosed(detail);
     }
-    const ids = detail.feedback.filter(awaitingAgent).map((f: any) => f.id);
+    const ids = detail.feedback.filter(hasUnsentContent).map((f: any) => f.id);
     if (!ids.length) continue;
     if (submitted) {
       controller.abort();
@@ -813,8 +809,17 @@ async function cmdFeedback(args: Args) {
     lineStart: null,
     lineEnd: null,
   };
-  if (args.flags.file) body.file = toRepoRelative(args.flags.file as string);
-  if (args.flags.line) {
+  if ("file" in args.flags) {
+    const raw = args.flags.file as string;
+    if (!raw) fail("feedback add --file needs a value");
+    // Resolve cwd-relative only when the path exists locally; otherwise pass it
+    // through verbatim — a scratch review's files ("<review_id>/<name>" in the
+    // daemon's scratch dir) aren't repo paths, and a server-side rejection should
+    // name the path as typed, not a cwd-mangled guess.
+    body.file = existsSync(resolve(process.cwd(), raw)) ? toRepoRelative(raw) : raw;
+  }
+  if ("line" in args.flags) {
+    if (!args.flags.line) fail("feedback add --line needs a value");
     if (!body.file) fail("feedback add --line needs --file");
     const [a, b] = (args.flags.line as string).split("-");
     const lineStart = Number(a);
@@ -829,14 +834,17 @@ async function cmdFeedback(args: Args) {
     body.lineStart = lineStart;
     body.lineEnd = lineEnd;
   }
-  if (args.flags.quote) {
+  if ("quote" in args.flags) {
+    if (!args.flags.quote) fail("feedback add --quote needs a value");
     if (body.lineStart == null) fail("feedback add --quote needs --line (a line-anchored note)");
     body.quote = args.flags.quote;
   }
-  if (args.flags.side) {
-    if (body.lineStart == null) fail("feedback add --side needs --line (a line-anchored note)");
+  if ("side" in args.flags) {
+    // Validate the enum before the --line gate so `--side ""` (an unset shell var)
+    // fails loudly on the value rather than sliding through a truthiness guard.
     if (args.flags.side !== "old" && args.flags.side !== "new")
       fail("feedback add --side expects old|new");
+    if (body.lineStart == null) fail("feedback add --side needs --line (a line-anchored note)");
     body.side = args.flags.side;
   }
   // Which stored round the anchor lives in (diff reviews). Omitted = the latest
@@ -1321,6 +1329,10 @@ that matter, ask a question, flag a risk you're unsure about:
   r3 feedback add <id> -m "..."  # review-level note
   r3 feedback add <id> -m "..." --file src/db.ts  # about one file
   r3 feedback add <id> -m "..." --file src/db.ts --line 40-52  # anchored to lines
+On a scratch review, --file takes the name the review shows (see r3 show or the
+file card header), not a local path. feedback add rejects a --file/--line the
+review can't actually show — an out-of-range or hunk-gap-spanning line, or a
+file not in the review — rather than storing a note that points nowhere.
 Your items appear live in their UI; the human replies or resolves them, and
 those answers reach you through the same watch/prompt loop (a bare resolve
 arrives as "[resolved] — no action needed"). Your own feedback never echoes

@@ -27,6 +27,12 @@ export type GitRef = string; // sentinel ("WORKING" | "STAGED" | "SCRATCH" | "HE
 // repo-relative path (which never starts with `@/`).
 export const SUMMARY_FILE = "@summary";
 
+// Cap stored anchor quotes to this many leading lines: a short span relocates far
+// more reliably than a paragraphs-long one. Applied by every quote producer — the
+// web's selection anchors (web/src/selection.ts) and the server's derived quotes
+// (server/reviews.ts deriveQuote) — while the recorded line range keeps the full span.
+export const MAX_QUOTE_LINES = 4;
+
 export type ReviewSource =
   // kind: 'diff' — provenance only (what round 1 was snapshotted from; "" = piped
   // in via stdin). The rendered content is the review's stored patches: an
@@ -149,7 +155,10 @@ export interface Feedback {
   // True when the status changed since the last hand-off (a bare Resolve/Reopen
   // click posts no reply, so sent_at alone can't see it). Makes the decision
   // itself deliverable: the next prompt reports "feedback_x [resolved]" and
-  // clears the flag. Set on every real status flip, cleared on delivery.
+  // clears the flag. Set on every real status flip of a *delivered* item (an
+  // undelivered one owes nothing extra: open items deliver in full with their
+  // current status, and a note resolved before any hand-off is settled without
+  // the agent), cleared on delivery.
   status_unsent: boolean;
 }
 
@@ -182,6 +191,22 @@ export interface Reply {
 
 export interface FeedbackWithReplies extends Feedback {
   replies: Reply[];
+}
+
+// A feedback holds content the agent hasn't been sent yet — THE unsent predicate,
+// shared so the server's unsent prompt (server/prompt.ts), the CLI's watch/prompt
+// wake-up, and the web's Copy/Submit gate can never drift apart.
+// - Never delivered: counts only while still open — a note the human wrote *and*
+//   resolved before any hand-off was settled without the agent; don't announce it
+//   after the fact. (Agent-authored feedback is born delivered, so it can't land
+//   here.)
+// - Already delivered: a human reply posted since the last hand-off (agent replies
+//   never count — the agent wrote them), or an undelivered status flip (a bare
+//   Resolve/Reopen click) — the decision itself is content the agent tracks to
+//   resolution.
+export function hasUnsentContent(fb: FeedbackWithReplies): boolean {
+  if (fb.sent_at == null) return fb.status === "open";
+  return fb.replies.some((r) => r.author === "human" && r.sent_at == null) || fb.status_unsent;
 }
 
 export interface ReviewDetail extends Review {
