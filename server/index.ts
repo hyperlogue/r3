@@ -719,7 +719,9 @@ app.post("/api/reviews/:id/feedback", async (c) => {
   // `file` is optional: general (review-level) feedback isn't tied to a path.
   if (!body?.body) return c.text("missing body", 400);
   const fb = await reviews.addFeedback(c.req.param("id"), body);
-  return fb ? c.json(fb) : c.text("review not found", 404);
+  if (!fb) return c.text("review not found", 404);
+  if (reviews.isRejected(fb)) return c.text(fb.error, 400);
+  return c.json(fb);
 });
 
 app.patch("/api/feedback/:id", async (c) => {

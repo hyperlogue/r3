@@ -519,6 +519,20 @@ export const reviewDetail: ReviewDetail = {
       line_end: null,
       quote: null,
     }),
+    // Agent-authored (r3 feedback add): the agent guiding the human — wears the
+    // "agent" chip and, with no replies yet, floats into the attention zone
+    // ("your turn"). Born delivered (sent_at set), so it never re-enters the
+    // agent's own prompts; the human's reply/resolution flows back instead.
+    fb({
+      id: "feedback_agent_note",
+      author: "agent",
+      body: "Start with `server/db.ts` — the WAL ordering is the risky part; the rest of the diff is mechanical renames.",
+      file: "server/db.ts",
+      line_start: 10,
+      line_end: 12,
+      quote: '  const db = new Database(path);\n  db.exec("PRAGMA journal_mode = WAL;");',
+      sent_at: SENT_ISO,
+    }),
     // Anchored to a whole file (the file header's feedback button): a real path
     // with no line span or quote — renders as the path alone (no ":Lx"), and the
     // agent prompt shows "server/db.ts (whole file)".

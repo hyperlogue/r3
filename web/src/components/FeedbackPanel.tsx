@@ -870,6 +870,17 @@ function FeedbackCard({
           )}
           <span className="truncate">{locLabel(fb)}</span>
         </span>
+        {/* Agent-authored feedback wears a quiet chip in the agent's voice color
+            (the same primary tint as its reply bubbles): this item is the agent
+            guiding you, not your own note coming back. */}
+        {fb.author === "agent" && (
+          <span
+            title="Opened by the agent"
+            className="shrink-0 rounded bg-primary-100/60 px-1 py-px text-[0.625rem] font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300"
+          >
+            agent
+          </span>
+        )}
         {/* "Your turn" dot — an unread-style marker pinned to the header's right
             edge (top-right of the card) when the agent replied last. */}
         {awaitingYou && (

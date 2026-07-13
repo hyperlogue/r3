@@ -64,12 +64,13 @@ type Story = StoryObj<typeof meta>;
 
 // Active tab, no composer open. Every card shows the steady Resolve · ⋯ · Reply
 // action row (the composer stays hidden until "Reply" is clicked). Attention-first
-// ordering: the "your turn" card (agent replied last) — the outdated one (amber ⚠
-// prefixing the file name) — floats to the top, marked with the primary "your
-// turn" dot in the header's right corner, above a muted "no response needed"
-// divider. Below it the rest recede (an open item, the already-sent long thread
-// whose replies fold to the last three — agent replies get a soft blue tinted
-// fill, human replies render as plain prose — plus the general/whole-file/summary
+// ordering: the "your turn" cards (agent had the last word) — the outdated one
+// (amber ⚠ prefixing the file name) and the agent-authored note (the "agent"
+// chip in the header) — float to the top, marked with the primary "your turn"
+// dot in the header's right corner, above a muted "no response needed" divider.
+// Below it the rest recede (an open item, the already-sent long thread whose
+// replies fold to the last three — agent replies get a soft blue tinted fill,
+// human replies render as plain prose — plus the general/whole-file/summary
 // notes). "Copy prompt" is enabled — the unsent items still have content.
 export const Default: Story = {};
 

@@ -340,6 +340,7 @@ const TYPED = new Set([
   "status",
   "feedback",
   "ref",
+  "side",
 ]);
 
 // Pull the value that follows a value flag at argv[i]. Two guards keep a flag
@@ -788,6 +789,71 @@ async function cmdReply(args: Args) {
   );
 }
 
+// ---- agent-authored feedback: r3 feedback add ----
+
+// Open a feedback item as the agent — the same entity the human's notes use
+// (same anchors, same thread, same open/resolved lifecycle), pointed the other
+// way: guide the human to the spots that matter, ask a question, flag a risk.
+// Three anchor shapes, like the UI's: review-level (no --file), whole-file
+// (--file only), line-anchored (--file + --line; the server derives the quote —
+// the anchor of record — from the round/live content when --quote is omitted).
+// Agent feedback is born delivered: it never echoes back in your own prompts,
+// but the human's replies and resolution do (watch/prompt as usual).
+async function cmdFeedback(args: Args) {
+  const usage =
+    'feedback add <review_id> -m "<msg>" [--file <f> [--line <a-b>] [--quote "<text>"] ' +
+    "[--side old|new]] [--diff <seq>]";
+  const sub = args.positional[0];
+  if (sub !== "add") fail(usage);
+  const id = args.positional[1] ?? fail(usage);
+  const message = (args.flags.message as string) ?? fail("feedback add needs -m <message>");
+  const body: Record<string, unknown> = {
+    author: "agent",
+    body: message,
+    lineStart: null,
+    lineEnd: null,
+  };
+  if (args.flags.file) body.file = toRepoRelative(args.flags.file as string);
+  if (args.flags.line) {
+    if (!body.file) fail("feedback add --line needs --file");
+    const [a, b] = (args.flags.line as string).split("-");
+    const lineStart = Number(a);
+    const lineEnd = Number(b ?? a);
+    if (
+      !Number.isInteger(lineStart) ||
+      lineStart < 1 ||
+      !Number.isInteger(lineEnd) ||
+      lineEnd < lineStart
+    )
+      fail("feedback add --line expects <a-b> with integer line numbers a ≤ b (≥ 1)");
+    body.lineStart = lineStart;
+    body.lineEnd = lineEnd;
+  }
+  if (args.flags.quote) {
+    if (body.lineStart == null) fail("feedback add --quote needs --line (a line-anchored note)");
+    body.quote = args.flags.quote;
+  }
+  if (args.flags.side) {
+    if (body.lineStart == null) fail("feedback add --side needs --line (a line-anchored note)");
+    if (args.flags.side !== "old" && args.flags.side !== "new")
+      fail("feedback add --side expects old|new");
+    body.side = args.flags.side;
+  }
+  // Which stored round the anchor lives in (diff reviews). Omitted = the latest
+  // round (the server defaults it); files reviews ignore it.
+  if (args.flags.diff !== undefined) {
+    const seq = Number(args.flags.diff);
+    if (!Number.isInteger(seq) || seq < 1)
+      fail("feedback add --diff expects a round number (seq ≥ 1)");
+    body.patchSeq = seq;
+  }
+  const fb = await api("POST", `/api/reviews/${id}/feedback`, body);
+  const loc = fb.file
+    ? `${fb.file}${fb.line_start ? `:L${fb.line_start}${fb.line_end && fb.line_end !== fb.line_start ? `-${fb.line_end}` : ""}` : " (whole file)"}`
+    : "(review-level)";
+  console.log(`${fb.id}  ${loc}`);
+}
+
 // ---- stored diff rounds: r3 diff add | list | rm ----
 
 async function cmdDiff(args: Args) {
@@ -1172,6 +1238,17 @@ const HELP = `r3 — local human<->agent review CLI
                                                  # <msg> renders Markdown; reference code with
                                                  #   @<path>:L<a-b> (a click-to-scroll link,
                                                  #   pinned to the round/snapshot at post time)
+  feedback add <id> -m "<msg>"
+              [--file <f> [--line <a-b>] [--quote "<text>"] [--side old|new]] [--diff <seq>]
+                                                 # open a feedback item yourself — guide the
+                                                 #   human to what matters, ask, flag a risk.
+                                                 #   Same entity as their notes: they reply /
+                                                 #   resolve it and you see that via watch/prompt.
+                                                 #   No --file = a review-level note; --file
+                                                 #   alone = whole-file; +--line = anchored (the
+                                                 #   quote is derived from the round/live content
+                                                 #   unless --quote pins it). --diff names the
+                                                 #   round (default: latest); --side default new.
   reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]
                                                  # files reviews only — a diff review's rounds
                                                  #   are immutable; pin a reply instead
@@ -1228,6 +1305,20 @@ caps how long a command can run, run it in the background rather than cutting th
 wait short.
 
 Some items target a whole file or a summary (no line span) — reply the same way.
+
+## Guide the review (agent-authored feedback)
+
+Feedback flows both ways: you can open items too, with the same anchors and
+threads as the human's notes. Use it to steer a big review — point at the files
+that matter, ask a question, flag a risk you're unsure about:
+  r3 feedback add <id> -m "..."  # review-level note
+  r3 feedback add <id> -m "..." --file src/db.ts  # about one file
+  r3 feedback add <id> -m "..." --file src/db.ts --line 40-52  # anchored to lines
+Your items appear live in their UI; the human replies or resolves them, and
+those answers reach you through the same watch/prompt loop (a bare resolve
+arrives as "[resolved] — no action needed"). Your own feedback never echoes
+back to you. Pair it with a review summary (r3 edit --summary) for orientation:
+the summary is the map, feedback items are the pins.
 
 ## Two kinds of review
 
@@ -1299,6 +1390,7 @@ const SERVER_COMMANDS = new Set([
   "prompt",
   "watch",
   "reply",
+  "feedback",
   "reanchor",
   "approve",
   "resolve",
@@ -1355,6 +1447,8 @@ async function main() {
       return cmdWatch(args);
     case "reply":
       return cmdReply(args);
+    case "feedback":
+      return cmdFeedback(args);
     case "reanchor":
       return cmdReanchor(args);
     case "diff":

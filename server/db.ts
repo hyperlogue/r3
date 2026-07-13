@@ -575,6 +575,9 @@ export function createFeedback(
     quote?: string | null;
     code_sha?: string | null;
     patch_seq?: number | null;
+    // "Born delivered" (sent_at = created_at) for agent-authored feedback —
+    // the domain rule lives in reviews.addFeedback; this is just the column.
+    sent_at?: string | null;
   },
 ): Feedback {
   const ts = nowIso();
@@ -583,8 +586,8 @@ export function createFeedback(
   const id = insertWithMintedId(newFeedbackId, (id) => {
     db.query(
       `INSERT INTO feedback
-         (id, review_id, author, body, file, side, line_start, line_end, quote, code_sha, anchor, status, patch_seq, created_at, updated_at)
-       VALUES ($id, $review_id, $author, $body, $file, $side, $ls, $le, $quote, $sha, 'anchored', 'open', $patch_seq, $ts, $ts)`,
+         (id, review_id, author, body, file, side, line_start, line_end, quote, code_sha, anchor, status, patch_seq, created_at, updated_at, sent_at)
+       VALUES ($id, $review_id, $author, $body, $file, $side, $ls, $le, $quote, $sha, 'anchored', 'open', $patch_seq, $ts, $ts, $sent)`,
     ).run({
       $id: id,
       $review_id: reviewId,
@@ -598,6 +601,7 @@ export function createFeedback(
       $sha: input.code_sha ?? null,
       $patch_seq: input.patch_seq ?? null,
       $ts: ts,
+      $sent: input.sent_at ?? null,
     });
     return id;
   });

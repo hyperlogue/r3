@@ -19,7 +19,7 @@ import { findQuote, type ProjectedDoc, projectDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
 import { blobSha, readContentAt, snapshotDiff } from "./git.ts";
-import { newReviewId } from "./ids.ts";
+import { newReviewId, nowIso } from "./ids.ts";
 import { MAX_PATCH_BYTES, parsePatch, validateReplyPin } from "./patches.ts";
 import { buildUnsentPrompt } from "./prompt.ts";
 import { isImmutableSource, type Repo, resolveRepoForReview } from "./repo.ts";
@@ -387,32 +387,113 @@ export async function repoForReview(id: string): Promise<Repo | null> {
   return resolveRepoForReview(review);
 }
 
+// Derive the verbatim text of a line range so the quote — the anchor of record —
+// exists even when the client sent only line numbers (`r3 feedback add`'s
+// line-anchored form). Diff review: the named round's rows on the anchor side;
+// files review: the live content (worktree or scratch). Rejected (not a silent
+// null) when the range can't be read — a quote-less line anchor can never
+// relocate or flag itself stale, so it would mis-point silently.
+async function deriveQuote(
+  review: Review,
+  patchSeq: number | null,
+  file: string,
+  side: "old" | "new" | null,
+  lineStart: number,
+  lineEnd: number,
+): Promise<string | Rejected> {
+  if (review.kind === "diff") {
+    const patch = patchSeq != null ? db.getPatch(review.id, patchSeq) : null;
+    if (!patch)
+      return { error: "quote required — this review has no stored round to derive it from" };
+    const files = parsePatch(patch.body);
+    const f = files?.find((x) => x.path === file || x.oldPath === file);
+    if (!f) return { error: `diff ${patchSeq} doesn't touch ${file}` };
+    const want = side ?? "new";
+    const rows = f.lines.filter((ln) => {
+      if (ln.type === "hunk") return false;
+      const n = want === "new" ? ln.newLine : ln.oldLine;
+      return n != null && n >= lineStart && n <= lineEnd;
+    });
+    if (!rows.length)
+      return {
+        error: `L${lineStart}-${lineEnd} (${want} side) isn't in diff ${patchSeq} for ${file}`,
+      };
+    return rows.map((ln) => ln.text).join("\n");
+  }
+  const repo = await resolveRepoForReview(review);
+  if (!repo || (repo.stale && !isScratchReview(review)))
+    return { error: `worktree unavailable — pass a quote to anchor ${file}` };
+  const src = review.source as { ref: string };
+  const content = await readContentAt(repo, file, src.ref);
+  if (content == null) return { error: `can't read ${file} to anchor — check the path` };
+  const all = content.split("\n");
+  if (lineStart > all.length)
+    return { error: `${file} has ${all.length} lines — L${lineStart} is out of range` };
+  return all.slice(lineStart - 1, Math.min(lineEnd, all.length)).join("\n");
+}
+
 export async function addFeedback(
   reviewId: string,
   body: CreateFeedbackBody,
-): Promise<Feedback | null> {
+): Promise<Feedback | Rejected | null> {
   const review = db.getReview(reviewId);
   if (!review) return null;
-  const codeSha = body.quote ? await blobSha(body.quote) : null;
-  // A patch_seq must name a stored round; anything else (files review, legacy
-  // live render, stray number) is stored as null = "the first/only round".
-  const patchSeq =
-    body.patchSeq != null && db.getPatch(reviewId, body.patchSeq) ? body.patchSeq : null;
+  const author = body.author ?? "human";
+  const lineAnchored = !!body.file && body.file !== SUMMARY_FILE && body.lineStart != null;
+  // A patch_seq must name a stored round. seq 0 (the legacy synthetic live
+  // round) and files-review view seqs store as null = "the first/only round",
+  // as ever; a named-but-missing round ≥ 1 on a diff review is a client error
+  // (an `r3 feedback add --diff` typo), rejected rather than silently nulled.
+  // A line-anchored diff note that names no round lands in the LATEST one — the
+  // natural target for a client with no round picker (the CLI).
+  let patchSeq: number | null = null;
+  if (review.kind === "diff") {
+    if (body.patchSeq != null && body.patchSeq >= 1) {
+      if (!db.getPatch(reviewId, body.patchSeq))
+        return { error: `no diff ${body.patchSeq} in this review (see r3 diff list)` };
+      patchSeq = body.patchSeq;
+    } else if (body.patchSeq == null && lineAnchored) {
+      const metas = db.listPatchMetas(reviewId);
+      patchSeq = metas.length ? metas[metas.length - 1].seq : null;
+    }
+  }
+  // A files review's canonical anchor is the single-sided live file, so its
+  // feedback is sideless — even when left on the old (deleted) side of a
+  // snapshot-diff view. The diff view re-derives the side by quote at display
+  // time; persisting side='old' would leave it unmatchable in the live file
+  // view (which renders only a 'new' side). Diff reviews keep the picked side;
+  // a line anchor with no side defaults to 'new' (a null side would highlight
+  // both sides of the row and be unreachable by the active-line jump).
+  const side =
+    review.kind === "files" ? null : lineAnchored ? (body.side ?? "new") : (body.side ?? null);
+  let quote = body.quote ?? null;
+  if (quote == null && lineAnchored) {
+    const derived = await deriveQuote(
+      review,
+      patchSeq,
+      body.file as string,
+      side,
+      body.lineStart as number,
+      body.lineEnd ?? (body.lineStart as number),
+    );
+    if (isRejected(derived)) return derived;
+    quote = derived;
+  }
+  const codeSha = quote ? await blobSha(quote) : null;
   const fb = db.createFeedback(reviewId, {
-    author: body.author ?? "human",
+    author,
     body: body.body,
     file: body.file ?? "", // empty for general (review-level) feedback
-    // A files review's canonical anchor is the single-sided live file, so its
-    // feedback is sideless — even when left on the old (deleted) side of a
-    // snapshot-diff view. The diff view re-derives the side by quote at display
-    // time; persisting side='old' would leave it unmatchable in the live file
-    // view (which renders only a 'new' side). Diff reviews keep the picked side.
-    side: review.kind === "files" ? null : (body.side ?? null),
+    side,
     line_start: body.lineStart,
     line_end: body.lineEnd,
-    quote: body.quote ?? null,
+    quote,
     code_sha: codeSha,
     patch_seq: patchSeq,
+    // Agent-authored feedback is born delivered: the agent wrote it, so it must
+    // never come back as "new feedback to act on" — only the human's replies
+    // and resolution flow back through the unsent prompt.
+    sent_at: author === "agent" ? nowIso() : null,
   });
   // Feedback on a files review may have been left against a snapshot or a
   // snapshot-diff view, whose line numbers differ from the live file. Mark the

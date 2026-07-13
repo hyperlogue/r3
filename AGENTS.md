@@ -146,10 +146,20 @@ no status of its own (merging them would make illegal states — a "reply" that'
   of what the round changed, shown per-round in the UI), `body` (raw unified diff).
   Appended via `r3 diff add` (`--label`/`--summary`), removed whole via `r3 diff
 rm` — never edited, no hunk-level surgery. Cascade-deleted with the review.
-- **Feedback** — an anchored note. `file`, `side` (`old|new|null`), `line_start/end`,
-  `quote` (**the anchor of record** — the line number is only a hint), `code_sha`
+- **Feedback** — an anchored note, authored by **either side**: `author`
+  (`human|agent`) is a first-class axis — the human annotates in the UI, the
+  agent via `r3 feedback add` (guide the reading order, ask, flag a risk), and
+  both get the same anchors, threads, and lifecycle. Agent-authored feedback is
+  **born delivered** (`sent_at` = creation), so it never echoes back in the
+  agent's own prompts — only the human's replies/resolution flow back. Fields:
+  `file`, `side` (`old|new|null`), `line_start/end`,
+  `quote` (**the anchor of record** — the line number is only a hint; for a
+  line-anchored `r3 feedback add` without `--quote` the server derives it from
+  the round/live content, rejecting an unreadable range rather than storing a
+  driftable quote-less anchor), `code_sha`
   (recorded at anchor time; staleness surfaced via `anchor`), `anchor`
-  (`anchored|outdated`), `patch_seq` (which round, for diff reviews), `status`
+  (`anchored|outdated`), `patch_seq` (which round, for diff reviews; a
+  line-anchored note naming no round lands in the latest), `status`
   (**`open|resolved`** — two states, human-driven; open = needs attention,
   resolved = done, and the _why_ — fixed, answered, dismissed — lives in the
   thread, not the enum). The agent references feedback by its
@@ -253,6 +263,14 @@ reply saying what it changed / why it disagrees / a follow-up (`r3 reply <fid> -
   "↳ addressed in diff N" with a jump.
 - **files review** — if an edit moves the code a feedback points at, **re-anchor**
   (`r3 reanchor <fid> --file <f> --line <a-b> --quote "<new text>"`).
+
+**Feedback flows both ways.** The agent can open items too (`r3 feedback add
+<id> -m … [--file <f> [--line <a-b>]]`) — guide the human through a big review
+(point at the 3 files that matter out of 30), ask a question, flag a risk. They
+appear live in the UI wearing an "agent" chip, rank into the human's attention
+zone, and the human replies/resolves like any other item; those responses reach
+the agent through the same watch/prompt loop. This is a *usage pattern*, not a
+protocol change — post-then-watch and post-then-move-on both just work.
 
 Each reply/round/re-anchor SSE-pushes so the chip (or the new round) appears
 live. Then `r3 watch <id>` again — a back-and-forth loop with no copy-paste. The
@@ -364,6 +382,8 @@ r3 diff   add <id> [--label L] [--summary S] | list <id> [--json] | rm <id> <seq
 r3 files  add <id> <path|glob>... | rm <id> <path>...
 r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <seq>
 r3 reply  <feedback_id> -m "<msg>" [--diff <seq> --file <f> --line <a-b> [--quote "<text>"]]
+r3 feedback add <id> -m "<msg>" [--file <f> [--line <a-b>] [--quote "<t>"] [--side old|new]]
+            [--diff <seq>]                      # agent-authored feedback (see The review loop)
 r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   # files reviews only
 r3 edit   <id> [--title "<t>"] [--summary "<s>"]   # "" clears; --summary - = stdin
 r3 approve <id> [--note "<next steps>"] | abandon <id>
