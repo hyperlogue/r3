@@ -1,8 +1,8 @@
 // Quick-auth: login tokens -> HttpOnly session cookies (the zellij web-client
-// model), used only when the daemon is EXPOSED (config.ts) — reachable beyond
-// loopback. This module owns the policy — token generation, hashing, cookie
-// name/attributes, session TTL; server/db.ts is pure storage and server/index.ts
-// wires it into the request guard + routes.
+// model), used only when REQUIRE_LOGIN is on (config.ts) — the login policy for a
+// deployment reachable beyond loopback. This module owns the mechanism — token
+// generation, hashing, cookie name/attributes, session TTL; server/db.ts is pure
+// storage and server/index.ts wires it into the request guard + routes.
 //
 // A login token is a high-entropy secret shown to the user once; only its sha256 is
 // stored (db.createAuthToken). A browser trades it for a session cookie (mintSession)

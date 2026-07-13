@@ -507,23 +507,25 @@ export interface WatchersResponse {
 // ---- auth (quick-auth: login token -> session cookie) ----
 //
 // r3's browser auth follows the zellij web-client model, and it's gated by ONE
-// deployment property: whether the daemon is EXPOSED beyond loopback (server/
-// config.ts, decided at startup — not inferred per request).
-//   NOT exposed (default: loopback bind, no public URL) — every client is already
-//     local, so /api/boot hands the same-origin page the per-user API **token** and
-//     there's no login. Unchanged, zero-friction.
-//   Exposed (a `tailscale serve` name, a non-loopback bind, or R3_REQUIRE_LOGIN=1) —
-//     the web UI requires a **login token** (user-created, hashed, shown once,
-//     revocable) traded via POST /api/auth/login for an HttpOnly session cookie. The
-//     per-user token is NEVER sent to a browser; the CLI still uses it directly.
+// login policy: REQUIRE_LOGIN (server/config.ts, decided at startup — a policy, not
+// a per-request detection, since r3 can't tell a truly-local client from a proxied
+// one).
+//   login not required (default: loopback bind, no public URL) — every client is
+//     already local, so /api/boot hands the same-origin page the per-user API
+//     **token** and there's no login. Unchanged, zero-friction.
+//   login required (a `tailscale serve` name, a non-loopback bind, or
+//     R3_REQUIRE_LOGIN=1) — the web UI requires a **login token** (user-created,
+//     hashed, shown once, revocable) traded via POST /api/auth/login for an HttpOnly
+//     session cookie. The per-user token is NEVER sent to a browser; the CLI still
+//     uses it directly.
 
-// GET /api/boot — the SPA's first call. `needsAuth:true` (only possible when exposed)
-// means "no valid session" → render the login screen; `token` is then null.
+// GET /api/boot — the SPA's first call. `needsAuth:true` (only when login is
+// required) means "no valid session" → render the login screen; `token` is then null.
 export interface BootResponse {
   needsAuth: boolean;
-  // The per-user API token when the daemon isn't exposed (the SPA sends it as
-  // x-r3-token, as it always has); null when exposed (the browser authenticates by
-  // the session cookie alone, so the master token stays on the box).
+  // The per-user API token when login isn't required (the SPA sends it as
+  // x-r3-token, as it always has); null when login is required (the browser
+  // authenticates by the session cookie alone, so the master token stays on the box).
   token: string | null;
 }
 

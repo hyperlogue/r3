@@ -36,13 +36,13 @@ import {
   acquireDaemonLock,
   BIND,
   type DaemonInfo,
-  EXPOSED,
   getToken,
   isAllowedHost,
   LOCAL_URL,
   PORT,
   PUBLIC_URL,
   R3_VERSION,
+  REQUIRE_LOGIN,
   readDaemonJson,
   releaseDaemonLock,
   removeDaemonJson,
@@ -120,9 +120,9 @@ function isHttps(c: Context): boolean {
 }
 
 // Resolve a request's authentication: the per-user API token (header/bearer — the
-// CLI, and the SPA when the daemon isn't exposed) OR a valid session cookie (a
-// browser that logged in — only possible when exposed). No mode branch needed: a
-// cookie simply doesn't exist unless the daemon is exposed.
+// CLI, and the SPA when login isn't required) OR a valid session cookie (a browser
+// that logged in — only possible when login is required). No mode branch needed: a
+// cookie simply doesn't exist unless login is required.
 function resolveAuth(c: Context): boolean {
   const authz = c.req.header("authorization");
   const bearer = authz?.startsWith("Bearer ") ? authz.slice(7) : null;
@@ -147,8 +147,8 @@ app.use("*", async (c, next) => {
 //   /api/boot   — bootstraps the token/cookie itself (same-origin gated in its handler)
 //   /api/auth/login (POST) — trades a login token for a session (you have none yet);
 //                            still same-origin gated below
-// /api/events (SSE) is token-free ONLY when the daemon isn't EXPOSED (loopback-only,
-// and EventSource can't set headers); when exposed, a session cookie rides
+// /api/events (SSE) is token-free ONLY when login isn't required (loopback-only, and
+// EventSource can't set headers); when login is required, a session cookie rides
 // EventSource, so it's gated like any read. Every state-changing verb (incl. PUT —
 // the …/viewed route) stays same-origin gated; a stray verb must not fall to the read
 // path.
@@ -159,7 +159,8 @@ app.use("/api/*", async (c, next) => {
     if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
     if (p !== "/api/auth/login" && !resolveAuth(c)) return c.text("forbidden (token)", 403);
   } else {
-    const tokenFree = p === "/api/health" || p === "/api/boot" || (p === "/api/events" && !EXPOSED);
+    const tokenFree =
+      p === "/api/health" || p === "/api/boot" || (p === "/api/events" && !REQUIRE_LOGIN);
     if (!tokenFree && !resolveAuth(c)) return c.text("forbidden (token)", 403);
   }
   await next();
@@ -241,18 +242,18 @@ app.get("/api/health", (c) => c.json({ ok: true, version: R3_VERSION }));
 
 // Bootstrap the SPA before it renders (web/src/api.ts loadBoot). Same-origin gated;
 // not injected into the served HTML — keeping the SPA shell a cacheable/embeddable
-// static asset. Behaviour splits on whether the daemon is EXPOSED (config.ts):
-//   not exposed (default, loopback-only) — every client is already local: hand the
-//     same-origin page the per-user `token` (its header path, unchanged). No login.
-//   exposed (tailscale serve / bound IP / R3_REQUIRE_LOGIN) — require a login-token
-//     session: a valid cookie -> { needsAuth:false, token:null } (the master token
-//     never goes to a browser); otherwise { needsAuth:true } -> the login screen.
-// sameOrigin() still passes a no-Origin client (curl from another local UID); on a
-// non-exposed daemon that's the intentional local-trust boundary, not a new hole (a
+// static asset. Behaviour splits on REQUIRE_LOGIN (config.ts):
+//   login not required (default, loopback-only) — every client is already local:
+//     hand the same-origin page the per-user `token` (its header path, unchanged).
+//   login required (tailscale serve / bound IP / R3_REQUIRE_LOGIN) — require a
+//     login-token session: a valid cookie -> { needsAuth:false, token:null } (the
+//     master token never goes to a browser); else { needsAuth:true } -> login screen.
+// sameOrigin() still passes a no-Origin client (curl from another local UID); when
+// login isn't required that's the intentional local-trust boundary, not a new hole (a
 // real per-UID boundary needs an OS peer-credential check — see Security in AGENTS.md).
 app.get("/api/boot", (c) => {
   if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
-  if (!EXPOSED) return c.json({ needsAuth: false, token: TOKEN } satisfies BootResponse);
+  if (!REQUIRE_LOGIN) return c.json({ needsAuth: false, token: TOKEN } satisfies BootResponse);
   if (auth.sessionValid(getCookie(c, auth.COOKIE_NAME)))
     return c.json({ needsAuth: false, token: null } satisfies BootResponse);
   return c.json({ needsAuth: true, token: null } satisfies BootResponse, 401);

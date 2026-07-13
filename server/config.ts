@@ -52,10 +52,10 @@ function hostnameOf(url: string): string | null {
 }
 
 // Loopback host names — always trusted (a loopback bind, or an `ssh -L` forward,
-// is already access-controlled). The allowlist seeds from these, and `EXPOSED`
-// (below) uses them to decide whether r3 is reachable beyond loopback.
+// is already access-controlled). The allowlist seeds from these, and `REQUIRE_LOGIN`
+// (below) uses them to default the login policy.
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-// File-local: only the allowlist seeding + EXPOSED below consult it.
+// File-local: only the allowlist seeding + REQUIRE_LOGIN below consult it.
 function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname);
 }
@@ -91,26 +91,30 @@ export function isAllowedHost(hostname: string): boolean {
   return ALLOWED_HOSTS.has(hostname);
 }
 
-// Is r3 reachable beyond this machine's loopback? This is a **deployment**
-// property, decided once at startup — not inferred per request — and it's the whole
-// auth switch: when false (the default), the daemon binds loopback and every client
-// is already local, so the browser gets the per-user token from /api/boot with no
-// login (unchanged, zero-friction). When true, the web UI requires a **login token**
-// (server/auth.ts) for every session — the master token never goes to a browser.
-// Exposed iff any of: an explicit `R3_REQUIRE_LOGIN` (1/0 overrides either way); a
-// non-loopback bind (incl. the all-interfaces wildcards); or ANY non-loopback name
-// in the Host allowlist — which folds in a non-loopback `R3_PUBLIC_URL` (auto-allowed
-// above) AND `R3_ALLOWED_HOSTS`. The last one matters: allowing a remote Host is what
-// makes r3 reachable by that name, so it must arm the login gate too — otherwise a
-// `R3_ALLOWED_HOSTS=<name>` + `tailscale serve` setup (no `R3_PUBLIC_URL`) would serve
-// the master token to any browser that reaches it.
+// Must the web UI log in (a login token → session cookie), or does /api/boot hand
+// the browser the per-user token directly? This is a **login policy**, not a
+// detected fact: r3 can't tell from a request whether the client is truly local (a
+// reverse proxy can rewrite/forge Host and Origin), so it's decided once at startup
+// from how the operator configured access, and it's the whole auth switch —
+//   off (the default): the daemon binds loopback and advertises no extra host, so
+//     every client is already local; the browser gets the per-user token from
+//     /api/boot, no login (zero-friction, unchanged).
+//   on: the web UI requires a **login token** (server/auth.ts) for every session,
+//     and the master token never goes to a browser.
+// Defaults on iff any non-loopback access is configured: a non-loopback bind (incl.
+// the all-interfaces wildcards `0.0.0.0`/`::`, which aren't in the allowlist) OR ANY
+// non-loopback name in the Host allowlist — which folds in a non-loopback
+// `R3_PUBLIC_URL` (auto-allowed above) and `R3_ALLOWED_HOSTS`. Allowing a remote Host
+// is itself the signal: it's what makes r3 reachable by that name, so it arms the
+// gate. `R3_REQUIRE_LOGIN=1|0` forces it either way — set it to 1 behind a reverse
+// proxy that rewrites Host to loopback, which r3 has no way to detect.
 function envFlag(v: string | undefined): boolean | null {
   const t = v?.trim().toLowerCase();
   if (t === "1" || t === "true" || t === "yes") return true;
   if (t === "0" || t === "false" || t === "no") return false;
   return null;
 }
-export const EXPOSED =
+export const REQUIRE_LOGIN =
   envFlag(process.env.R3_REQUIRE_LOGIN) ??
   (!isLoopbackHost(BIND) || [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)));
 

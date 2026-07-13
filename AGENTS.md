@@ -99,7 +99,7 @@ server/          Hono daemon + bun:sqlite global store
   prompt.ts      the agent-prompt text (same as the UI's "Copy agent prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
   watchers.ts    live `watch` presence registry (who's blocked on a review)
-  auth.ts        quick-auth: login tokens -> HttpOnly session cookies (only when EXPOSED)
+  auth.ts        quick-auth: login tokens -> HttpOnly session cookies (only when REQUIRE_LOGIN)
   scratch.ts     adhoc scratch-review storage (ref:'SCRATCH') outside any repo
   paths.ts       pure safePathIn(root, p) path guard    ids.ts  id minting
 cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the binary
@@ -407,8 +407,8 @@ content sha, so the WASM/grammar weight never reaches the browser.
   (`review-updated`, `feedback-updated`, `file-changed`, `watchers-changed`,
   `submitted`, `reviews-changed`); a connection with `session` registers as a
   watcher. `GET/PUT …/viewed` — per-reviewer read progress (no SSE, no CLI).
-- **Auth (quick-auth):** `GET /api/boot` bootstraps the SPA — when the daemon isn't
-  `EXPOSED` (config.ts) it returns the per-user `token`; when exposed it needs a
+- **Auth (quick-auth):** `GET /api/boot` bootstraps the SPA — when `REQUIRE_LOGIN` is
+  off (config.ts) it returns the per-user `token`; when on it needs a
   login-token session and answers `401 { needsAuth }` otherwise. `POST
   /api/auth/login { token }` trades a login token for an HttpOnly cookie; `POST
   /api/auth/logout` ends it. `GET/POST /api/auth/tokens` + `DELETE
@@ -525,24 +525,24 @@ optimistically so the fold is instant).
   leans on the Host allowlist + token/cookie.
 - **Quick-auth (login token → session cookie)** is an **optional login gate** — pure
   security hardening — on the zellij model (server/auth.ts), gated by ONE startup
-  decision: is the daemon **`EXPOSED`** beyond loopback (config.ts: a non-loopback
-  bind, a non-loopback `R3_PUBLIC_URL`, or any non-loopback `R3_ALLOWED_HOSTS` name —
-  allowing a remote Host is itself an exposure signal)? `R3_REQUIRE_LOGIN` (1/0)
-  forces it on/off.
-  It's a *deployment* property, decided once — **not inferred per request** (inferring
-  loopback from `Host`/peer/forwarding headers is leaky — a naive TCP forward defeats
-  it). **Not exposed** (default): the daemon binds loopback, every client is already
+  policy: **`REQUIRE_LOGIN`** (config.ts). It's a *login policy*, not a detected fact
+  — r3 can't tell a truly-local client from a proxied one (a reverse proxy rewrites
+  `Host`/`Origin`), so it's decided once at startup and defaults **on whenever any
+  non-loopback access is configured**: a non-loopback (or wildcard) bind, a
+  non-loopback `R3_PUBLIC_URL`, or any non-loopback `R3_ALLOWED_HOSTS` name — allowing
+  a remote Host is itself the signal. `R3_REQUIRE_LOGIN` (1/0) forces it either way.
+  **Login not required** (default): the daemon binds loopback, every client is already
   local, so `/api/boot` hands the same-origin page the per-user token — no login,
-  unchanged. **Exposed** (default-on there): the web UI wants a **login token**
+  unchanged. **Login required**: the web UI wants a **login token**
   (`r3 auth create-token`, hashed at rest, shown once, revocable) for *every* session,
   incl. the operator's own localhost. `/api/boot`
   returns `401 { needsAuth }` until `/api/auth/login` trades the token for an
   **HttpOnly, SameSite=Strict** cookie (Secure when the edge is HTTPS, from
-  `X-Forwarded-Proto`). The **master token never reaches a browser** when exposed —
-  it's cookie-only. Revoking a login token deletes its sessions immediately. The
-  per-user token stays the CLI's credential, unaffected.
-  A **Host-rewriting reverse proxy** is the blind spot of this deployment-decides
-  model: `EXPOSED` is inferred from r3's own bind + advertised host, so a proxy
+  `X-Forwarded-Proto`). The **master token never reaches a browser** when login is
+  required — it's cookie-only. Revoking a login token deletes its sessions
+  immediately. The per-user token stays the CLI's credential, unaffected.
+  A **Host-rewriting reverse proxy** is the blind spot of this default: it's derived
+  from r3's own bind + advertised host, so a proxy
   that forwards `Host: 127.0.0.1` (nginx's default `proxy_pass`) reads as
   loopback-only, and `/api/boot` would hand a remote browser the per-user token —
   r3 can't see the real client name, and a naive proxy sends no `X-Forwarded-*` to

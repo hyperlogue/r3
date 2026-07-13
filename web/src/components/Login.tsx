@@ -3,12 +3,12 @@ import { ApiError, api } from "../api.ts";
 import { Button } from "../ui.tsx";
 import { Logo } from "./Logo.tsx";
 
-// The login screen shown when the daemon is exposed (server/config.ts EXPOSED, e.g.
+// The login screen shown when login is required (server/config.ts REQUIRE_LOGIN, e.g.
 // `tailscale serve`) and there's no valid session yet. The user pastes a login token
 // minted on the host with `r3 auth create-token`; POST /api/auth/login sets an
 // HttpOnly session cookie, and we reload so boot re-runs — now authenticated — and
-// renders the app. A non-exposed (loopback-only) daemon never reaches this: /api/boot
-// hands the page the per-user token instead.
+// renders the app. A loopback-only daemon (no login required) never reaches this:
+// /api/boot hands the page the per-user token instead.
 export function Login() {
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
