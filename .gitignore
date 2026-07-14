@@ -24,3 +24,6 @@ node_modules/
 
 /.beads
 /CLAUDE.local.md
+
+# bv (beads viewer) local config and caches
+.bv/
