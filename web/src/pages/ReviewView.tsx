@@ -299,8 +299,14 @@ function useActiveSummaryHighlight(
   useEffect(() => {
     for (const el of document.querySelectorAll(".r3-summary-active"))
       el.classList.remove("r3-summary-active");
-    setHighlightRanges(HL_ACTIVE, []);
+    // Only clear/drive HL_ACTIVE for an actual summary note. The shared HL_ACTIVE
+    // registry also carries a non-summary note's precise-quote highlight, which is
+    // owned by useActiveLineHighlight (declared first, so it runs before this hook).
+    // Clearing it here unconditionally wiped the focused range's yellow on every
+    // rendered-file/diff feedback. useActiveLineHighlight clears HL_ACTIVE itself
+    // whenever the active note changes, so a stale summary range never leaks.
     if (!isSummary || fbId == null) return;
+    setHighlightRanges(HL_ACTIVE, []);
     const block =
       patchSeq == null
         ? document.querySelector('[data-summary="review"]')
