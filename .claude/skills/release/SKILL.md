@@ -1,13 +1,14 @@
 ---
 name: release
-description: Cut an r3 release — draft the CHANGELOG entry, bump every version string in lockstep, commit, and create the annotated `vX.Y.Z` tag. Use when the user wants to release a new version, bump the version, write or update the changelog, or (re-)tag a release.
+description: Cut an r3 release — draft the CHANGELOG entry, bump every version string in lockstep, commit, then cut the annotated `vX.Y.Z` tag whose message carries the changelog section (the release CI turns it into the GitHub release notes). Use when the user wants to release a new version, bump the version, write or update the changelog, or tag a release.
 ---
 
 # Releasing r3
 
 A release is one version-bump commit plus an annotated tag on it. The whole job
 is: write the changelog, move **every** version string to the new number
-together, commit, tag, push.
+together, commit, then tag with the changelog section as the tag message — the
+release CI lifts that message into the GitHub release notes — and push.
 
 ## The one rule: bump *before* you tag
 
@@ -41,11 +42,19 @@ if they drift, so keep them in lockstep:
      block, above the previous version. Use the release date.
    - Group bullets under `### Added` / `### Changed` / `### Fixed` / `### Removed`
      — only the groups that apply, in that order.
-   - Write for **users**, not as diff narration. Match the existing voice: a bold
-     lead-in (`**Feature.**`) then a sentence or two of what changed and why it
-     matters. Fold several related commits into one bullet.
+   - Write from the **user's** vantage point: what they can now do, or no longer
+     run into — not the internal mechanics, refactors, or scaffolding that got it
+     there. Frame each entry as what *shipped*, not what was turned off or reworked
+     mid-development; internal churn a user never observes doesn't belong in the
+     log at all. Match the existing voice: a bold lead-in (`**Feature.**`) then a
+     sentence or two on the change and why it matters; fold related commits into
+     one bullet.
    - Add the compare link at the very bottom, with the others:
      `[X.Y.Z]: https://github.com/hyperlogue/r3/compare/v<prev>...vX.Y.Z`
+
+   This entry is the release's public face — from step 6 it becomes the tag
+   message and the GitHub release notes verbatim. **Show the draft to the user and
+   get their sign-off before you commit.**
 
 3. **Bump all three version sources** to `X.Y.Z` — do not forget the four npm
    pins in `npm/package.json`.
@@ -65,11 +74,17 @@ if they drift, so keep them in lockstep:
    git commit -m "chore: release vX.Y.Z"
    ```
 
-6. **Tag** — annotated, message `r3 vX.Y.Z` (the convention since v0.2.0), on the
-   commit you just made:
+6. **Tag** — annotated, on the commit you just made, carrying the changelog
+   section as the message **body** so the CI can lift it into the GitHub release
+   notes (the `r3 vX.Y.Z` subject is the convention since v0.2.0). The awk pulls
+   the newest `## […]` section, drops its heading (the release title already shows
+   the version) and any leading blanks — no version substitution needed:
    ```sh
-   git tag -a vX.Y.Z -m "r3 vX.Y.Z"
+   V=X.Y.Z
+   NOTES=$(awk '/^## \[/{n++} n==1' CHANGELOG.md | tail -n +2 | sed '/./,$!d')
+   printf 'r3 v%s\n\n%s\n' "$V" "$NOTES" | git tag -a "v$V" -F -
    ```
+   Eyeball the message before pushing: `git tag -l --format='%(contents)' "v$V"`.
 
 7. **Push** — leave the actual push to the user unless they ask, and note that
    this environment often has no push credentials (SSH key / `gh` auth may be
@@ -80,25 +95,29 @@ if they drift, so keep them in lockstep:
 
 ## After the tag lands on GitHub
 
-The tag-driven pipeline cross-compiles the four `r3-<os>-<arch>` binaries +
-`SHA256SUMS` (GitHub Release: curl / Homebrew) and publishes the npm launcher
-(`@hyperlogue/r3`) with its per-platform optional-dependency packages. The pins
-were already synced in step 3, so there is nothing else to bump by hand.
+The tag-driven pipeline (`.github/workflows/release.yml`) cross-compiles the four
+`r3-<os>-<arch>` binaries + `SHA256SUMS` (GitHub Release: curl / Homebrew) and
+publishes the npm launcher (`@hyperlogue/r3`) with its per-platform
+optional-dependency packages. It fills the **release description from the tag
+message body** — the changelog section from step 6 — falling back to GitHub's
+auto-generated notes only if the tag carries none. The pins were already synced
+in step 3, so there is nothing else to bump by hand.
 
-## Re-tagging a botched release
+## If you botch a release
 
-If a tag was cut on the wrong commit (e.g. before the version bump): make the
-fix, commit it, then move the tag onto the corrected commit:
+**Immutable releases are enabled**, so a published `vX.Y.Z` tag can't be moved or
+deleted through the normal path — which is the whole reason steps 1–6 get it right
+the first time (bump before tag, changelog into the tag). Recovery depends on how
+far it got:
 
-```sh
-git tag -f -a vX.Y.Z -m "r3 vX.Y.Z" <commit>
-git push --force origin vX.Y.Z
-```
-
-Force-pushing a moved tag **overwrites a published tag** and requires disabling
-GitHub's immutable-tag / release protection first. It is outward-facing and hard
-to reverse — confirm with the user before pushing, and if the branch commit and
-the tag can't both push (e.g. protection still on), stop and report rather than
-half-applying.
+- **Not pushed yet** — the tag is still local. Delete and recut it: `git tag -d
+vX.Y.Z`, fix, then redo step 6. Cheap.
+- **Already pushed / released** — don't fight the immutability. **Cut the next
+  patch version** (`vX.Y.(Z+1)`) carrying the fix; that is the intended recovery.
+  Force-moving a published tag is a rare escape hatch that needs the user to
+  *temporarily* lift GitHub's immutable-tag / release protection, then `git tag -f
+-a vX.Y.Z -F - <commit>` and `git push --force origin vX.Y.Z`. It's
+  outward-facing and hard to reverse — confirm with the user first, and if the
+  branch and tag can't both push, stop and report rather than half-applying.
 
 [Keep a Changelog]: https://keepachangelog.com/en/1.1.0/
