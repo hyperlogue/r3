@@ -635,7 +635,52 @@ function FeedbackCard({
   isActive: boolean;
 }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["review", reviewId] });
+  const reviewKey = ["review", reviewId] as const;
+  const invalidate = () => qc.invalidateQueries({ queryKey: reviewKey });
+  // --- Optimistic mutation plumbing --------------------------------------
+  // The card mutations below (resolve/reopen, reply, edit, delete) patch the
+  // cached ReviewDetail in onMutate so the card reflects the change the instant
+  // it's clicked, roll the snapshot back in onError (the server's message stays
+  // visible under the action row), and reconcile the authoritative row in
+  // onSettled. onMutate cancels any in-flight refetch first, so a mid-mutation
+  // SSE invalidate can't clobber the optimistic patch and flicker. We deliberately
+  // do NOT synthesize the server-computed delivery fields (sent_at, status_unsent,
+  // and the hasUnsentContent gating that drives Copy/Submit) — a brief settle
+  // where the pill/anchor corrects itself once onSettled refetches is acceptable.
+  //
+  // Halt any in-flight refetch and snapshot the cache so the optimistic write is
+  // authoritative until the mutation settles; the snapshot is the rollback target.
+  const beginPatch = async () => {
+    await qc.cancelQueries({ queryKey: reviewKey });
+    return qc.getQueryData<ReviewDetail>(reviewKey);
+  };
+  const restore = (prev: ReviewDetail | undefined) => {
+    if (prev) qc.setQueryData(reviewKey, prev);
+  };
+  // Replace this card's feedback row in the cached detail in place (a no-op if the
+  // detail or the row is already gone).
+  const patchThisFeedback = (fn: (f: FeedbackWithReplies) => FeedbackWithReplies) =>
+    qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
+      d ? { ...d, feedback: d.feedback.map((f) => (f.id === fb.id ? fn(f) : f)) } : d,
+    );
+  // A stand-in reply row shown in the thread while the POST is in flight. Its id
+  // is a throwaway the onSettled reconcile discards, and the server-assigned
+  // fields aren't known yet: sent_at/ref_version stay null (so its `@path` refs
+  // simply don't resolve until the settle — fine transiently).
+  const optimisticReply = (body: string): Reply => ({
+    id: `reply_tmp_${crypto.randomUUID().slice(0, 8)}`,
+    feedback_id: fb.id,
+    author: "human",
+    body,
+    patch_seq: null,
+    file: null,
+    line_start: null,
+    line_end: null,
+    quote: null,
+    created_at: new Date().toISOString(),
+    sent_at: null,
+    ref_version: null,
+  });
   // The in-progress reply lives in the browser draft store (drafts.ts), keyed by
   // review + this feedback's id — so it survives a review-switch/reload and lights
   // the hand-off pill, same as the new-feedback composers. setReply("") drops it.
@@ -710,46 +755,113 @@ function FeedbackCard({
   // Post the composer text (if any) as a plain reply and — for Resolve — flip
   // the status. A reply never carries a status itself; a bare Resolve with an
   // empty composer is a pure status toggle, no filler "Resolved." message. The
-  // two calls are separate requests — the composer text clears the moment the
-  // reply lands (inside mutationFn), so a retry after a failed status flip can't
-  // double-post it.
+  // two calls are separate requests.
+  //
+  // The reply body travels as a mutate *variable*, NOT read from the `reply` draft
+  // inside mutationFn: onMutate clears the composer (setReply("")), which
+  // re-renders and — because React Query re-syncs a pending mutation's options —
+  // swaps mutationFn to a fresh closure that would see the cleared "". Passing the
+  // captured body through keeps both legs working off the same immutable value.
+  //
+  // repliedRef lets onError know whether the reply already reached the server, so a
+  // failed resolve *after* a successful reply doesn't restore the composer text
+  // (which would double-post it on retry).
+  const repliedRef = useRef(false);
   const postReply = useMutation({
-    mutationFn: async (resolve: boolean) => {
-      if (reply.trim()) {
-        await api.addReply(fb.id, { author: "human", body: reply });
-        setReply("");
+    onMutate: async ({ resolve, body }: { resolve: boolean; body: string }) => {
+      repliedRef.current = false;
+      const prev = await beginPatch();
+      const text = body.trim();
+      patchThisFeedback((f) => ({
+        ...f,
+        status: resolve ? "resolved" : f.status,
+        replies: text ? [...f.replies, optimisticReply(body)] : f.replies,
+      }));
+      // Clear the composer instantly so the text isn't shown twice (thread +
+      // input); restored in onError only if the reply never actually posted.
+      if (text) setReply("");
+      // Collapse the composer once the reply lands — the thread now shows it, so
+      // the open input has nothing left to hold. "Reply" reopens it for the next.
+      setReplyOpen(false);
+      // Resolving hands focus off to the next still-open item (the parent picks
+      // which). Fired here off this render's pre-resolve list — exactly what
+      // advanceAfterResolve wants — never lingering on the just-resolved card.
+      if (resolve) onResolved();
+      return { prev, body };
+    },
+    mutationFn: async ({ resolve, body }: { resolve: boolean; body: string }) => {
+      if (body.trim()) {
+        await api.addReply(fb.id, { author: "human", body });
+        repliedRef.current = true;
       }
       if (resolve) await api.editFeedback(fb.id, { status: "resolved" });
     },
-    onSuccess: (_data, resolve) => {
-      // Collapse the composer once the reply lands — the thread now shows it, so
-      // the open input has nothing left to hold. The action row's "Reply" reopens
-      // it for the next one.
-      setReplyOpen(false);
-      invalidate();
-      // Resolving hands focus off to the next still-open item (the parent picks
-      // which) — never linger on the just-resolved card or follow it to the
-      // Resolved tab.
-      if (resolve) onResolved();
+    onError: (_e, _vars, ctx) => {
+      restore(ctx?.prev);
+      // The reply never left the browser → put the draft back so it isn't lost. If
+      // it did post and only the resolve failed, leave the composer empty: the
+      // onSettled refetch brings the real reply back and a retry can't dup it.
+      if (ctx?.body.trim() && !repliedRef.current) {
+        setReply(ctx.body);
+        setReplyOpen(true);
+      }
     },
+    onSettled: invalidate,
   });
   const reopen = useMutation({
+    onMutate: async () => {
+      const prev = await beginPatch();
+      patchThisFeedback((f) => ({ ...f, status: "open" }));
+      return { prev };
+    },
     mutationFn: () => api.editFeedback(fb.id, { status: "open" }),
-    onSuccess: invalidate,
+    onError: (_e, _v, ctx) => restore(ctx?.prev),
+    onSettled: invalidate,
   });
   const remove = useMutation({
+    onMutate: async () => {
+      const prev = await beginPatch();
+      qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
+        d ? { ...d, feedback: d.feedback.filter((f) => f.id !== fb.id) } : d,
+      );
+      return { prev };
+    },
     mutationFn: () => api.deleteFeedback(fb.id),
-    onSuccess: invalidate,
+    onError: (_e, _v, ctx) => restore(ctx?.prev),
+    onSettled: invalidate,
   });
+  // Save an inline edit of the last human message — a reply (`replyId` set) or the
+  // feedback body (null). Like postReply, the target + text ride as variables:
+  // onMutate calls cancelEdit() (which nulls editingReplyId) and the pending-mutation
+  // option re-sync would otherwise make mutationFn read the post-cancel state and
+  // edit the wrong target.
   const saveEdit = useMutation({
-    mutationFn: async () => {
-      if (editingReplyId) await api.editReply(editingReplyId, { body: editText });
-      else await api.editFeedback(fb.id, { body: editText });
-    },
-    onSuccess: () => {
-      invalidate();
+    onMutate: async ({ replyId, body }: { replyId: string | null; body: string }) => {
+      const prev = await beginPatch();
+      if (replyId) {
+        patchThisFeedback((f) => ({
+          ...f,
+          replies: f.replies.map((r) => (r.id === replyId ? { ...r, body } : r)),
+        }));
+      } else {
+        patchThisFeedback((f) => ({ ...f, body }));
+      }
+      // Close the editor instantly to reveal the patched body (the editor renders
+      // in place of the body while open, so the change isn't visible until then).
       cancelEdit();
+      return { prev, replyId };
     },
+    mutationFn: async ({ replyId, body }: { replyId: string | null; body: string }) => {
+      if (replyId) await api.editReply(replyId, { body });
+      else await api.editFeedback(fb.id, { body });
+    },
+    onError: (_e, _vars, ctx) => {
+      restore(ctx?.prev);
+      // Reopen the editor with the edited text intact so a failed save isn't lost.
+      if (ctx?.replyId) setEditingReplyId(ctx.replyId);
+      else setEditing(true);
+    },
+    onSettled: invalidate,
   });
 
   // Focus the composer the moment it opens (the human clicked "Reply").
@@ -835,7 +947,7 @@ function FeedbackCard({
       variant="ghost"
       className={resolveOutline}
       disabled={postReply.isPending}
-      onClick={() => postReply.mutate(true)}
+      onClick={() => postReply.mutate({ resolve: true, body: reply })}
       title="Mark resolved"
     >
       ✓ Resolve
@@ -955,7 +1067,8 @@ function FeedbackCard({
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && editText.trim()) saveEdit.mutate();
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && editText.trim())
+              saveEdit.mutate({ replyId: editingReplyId, body: editText });
             else if (e.key === "Escape") cancelEdit();
           }}
           // biome-ignore lint/a11y/noAutofocus: the editor is opened by an explicit menu click
@@ -1006,7 +1119,9 @@ function FeedbackCard({
                       editing={rp.id === editingReplyId}
                       editValue={editText}
                       onEditChange={setEditText}
-                      onEditSave={() => saveEdit.mutate()}
+                      onEditSave={() =>
+                        saveEdit.mutate({ replyId: editingReplyId, body: editText })
+                      }
                       onEditCancel={cancelEdit}
                       canSave={editText.trim().length > 0 && !saveEdit.isPending}
                       onLocatePin={onLocatePin}
@@ -1025,7 +1140,7 @@ function FeedbackCard({
                 editing={rp.id === editingReplyId}
                 editValue={editText}
                 onEditChange={setEditText}
-                onEditSave={() => saveEdit.mutate()}
+                onEditSave={() => saveEdit.mutate({ replyId: editingReplyId, body: editText })}
                 onEditCancel={cancelEdit}
                 canSave={editText.trim().length > 0 && !saveEdit.isPending}
                 onLocatePin={onLocatePin}
@@ -1054,7 +1169,7 @@ function FeedbackCard({
               reply.trim() &&
               !postReply.isPending
             )
-              postReply.mutate(false);
+              postReply.mutate({ resolve: false, body: reply });
             // Esc closes the box only when it's empty — with text typed, Esc is a
             // no-op so an accidental press can't discard the draft.
             else if (e.key === "Escape" && !reply.trim()) setReplyOpen(false);
@@ -1078,7 +1193,7 @@ function FeedbackCard({
             <Button
               variant="primary"
               disabled={!editText.trim() || saveEdit.isPending}
-              onClick={() => saveEdit.mutate()}
+              onClick={() => saveEdit.mutate({ replyId: editingReplyId, body: editText })}
             >
               Save
             </Button>
@@ -1155,19 +1270,23 @@ function FeedbackCard({
               variant="default"
               className={replyOpen ? undefined : "ml-auto"}
               disabled={replyOpen && (!reply.trim() || postReply.isPending)}
-              onClick={() => (replyOpen ? postReply.mutate(false) : openReply())}
+              onClick={() =>
+                replyOpen ? postReply.mutate({ resolve: false, body: reply }) : openReply()
+              }
             >
               {replyOpen ? "Save" : "Reply"}
             </Button>
           </>
         )}
       </div>
-      {/* A failed reply/resolve/reopen is otherwise silent — the card just sits
-          there — so surface the server's message under the action row. Pick
-          whichever mutation errored (only one runs per click). */}
-      {(postReply.isError || reopen.isError) && (
+      {/* A failed mutation is otherwise silent once its optimistic patch rolls
+          back — the card just snaps to its old state — so surface the server's
+          message under the action row. Pick whichever errored (only one runs per
+          interaction); a delete gets its own verb. */}
+      {(postReply.isError || reopen.isError || saveEdit.isError || remove.isError) && (
         <div className="mt-1 text-[0.6875rem] text-danger-600 dark:text-danger-400">
-          Couldn't save — {apiErrorText(postReply.error ?? reopen.error)}
+          {remove.isError ? "Couldn't delete" : "Couldn't save"} —{" "}
+          {apiErrorText(postReply.error ?? reopen.error ?? saveEdit.error ?? remove.error)}
         </div>
       )}
       {/* "Quote in reply" bubble for a text selection inside one of this card's

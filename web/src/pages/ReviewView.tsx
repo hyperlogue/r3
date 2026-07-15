@@ -44,6 +44,7 @@ import type {
   DiffSide,
   FeedbackWithReplies,
   PatchDiff,
+  ReviewDetail,
   ReviewStatus,
   SnapshotRef,
   UpdateReviewBody,
@@ -1677,22 +1678,54 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
   }, [reviewId]);
 
+  // The review-level edits (approve/abandon/reopen, rename) are lower-frequency
+  // than the per-card ones but share the shape: patch the cached ReviewDetail in
+  // onMutate so the status pill / title change instantly, roll back on error, and
+  // reconcile in onSettled. Cancel in-flight refetches first so an SSE invalidate
+  // mid-mutation can't clobber the optimistic patch. (`remove` below navigates away
+  // on success, so there's nothing to keep optimistic.)
+  const reviewKey = ["review", reviewId] as const;
+  const beginReviewPatch = async () => {
+    await qc.cancelQueries({ queryKey: reviewKey });
+    return qc.getQueryData<ReviewDetail>(reviewKey);
+  };
+  const restoreReview = (prev: ReviewDetail | undefined) => {
+    if (prev) qc.setQueryData(reviewKey, prev);
+  };
+  const settleReview = () => {
+    qc.invalidateQueries({ queryKey: reviewKey });
+    qc.invalidateQueries({ queryKey: ["reviews"] });
+  };
   const setStatus = useMutation({
-    mutationFn: (body: UpdateReviewBody) => api.patchReview(reviewId, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["review", reviewId] });
-      qc.invalidateQueries({ queryKey: ["reviews"] });
+    onMutate: async (body: UpdateReviewBody) => {
+      const prev = await beginReviewPatch();
+      // Patch only the visible status; note→meta.next_steps is invisible, so let
+      // onSettled reconcile it.
+      if (body.status !== undefined)
+        qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
+          d ? { ...d, status: body.status ?? d.status } : d,
+        );
+      return { prev };
     },
+    mutationFn: (body: UpdateReviewBody) => api.patchReview(reviewId, body),
+    onError: (_e, _v, ctx) => restoreReview(ctx?.prev),
+    onSettled: settleReview,
   });
   // Rename (title) goes through PATCH; the server also broadcasts review-updated
   // so other tabs + the reviews list refresh live. (The summary is CLI-only — set it
   // with `r3 edit --summary` — so the UI never PATCHes it.)
   const patch = useMutation({
-    mutationFn: (body: { title?: string | null }) => api.patchReview(reviewId, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["review", reviewId] });
-      qc.invalidateQueries({ queryKey: ["reviews"] });
+    onMutate: async (body: { title?: string | null }) => {
+      const prev = await beginReviewPatch();
+      if (body.title !== undefined)
+        qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
+          d ? { ...d, title: body.title ?? null } : d,
+        );
+      return { prev };
     },
+    mutationFn: (body: { title?: string | null }) => api.patchReview(reviewId, body),
+    onError: (_e, _v, ctx) => restoreReview(ctx?.prev),
+    onSettled: settleReview,
   });
   const remove = useMutation({
     mutationFn: () => api.deleteReview(reviewId),
