@@ -4,6 +4,30 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-07-14
+
+### Changed
+
+- **Optimistic UI updates.** Most UI operations apply at the instant you click,
+  instead of waiting for backend to acknowledge. This improves the user experience
+  when running r3 on a remote server.
+- **Replying advances focus** to the next item down, like resolving already did,
+  instead of following the just-answered card down to the bottom of the list.
+- **Version-switch crossfade.** Changing diff rounds or a snapshot from/to
+  comparison briefly crossfades the file pane instead of hard-cutting; scroll and
+  fold state are preserved.
+
+### Fixed
+
+- Resolving or replying to a feedback triggers a single review refetch, not three
+  (a redundant self-invalidation plus a doubled SSE broadcast).
+- Focusing a rendered-file or diff feedback no longer loses its yellow quote
+  highlight (the summary-highlight pass was clearing the shared registry).
+- The settings font-size slider no longer clips the `+` button at small sizes.
+- Revoking the login token behind your own session is refused (`409`) instead of
+  locking you out; the settings list marks it "this session" and disables its
+  revoke. CLI (master-token) callers and bulk revoke-all are unaffected.
+
 ## [0.3.0] - 2026-07-12
 
 ### Added
@@ -73,6 +97,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.4.0]: https://github.com/hyperlogue/r3/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hyperlogue/r3/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hyperlogue/r3/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hyperlogue/r3/releases/tag/v0.1.0
