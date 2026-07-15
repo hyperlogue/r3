@@ -97,6 +97,13 @@ jobs:
       # GitHub Release FIRST (reversible) — the manual/curl channel. Prerelease
       # tags (v*-*) are marked so they never become the repo's "Latest". Idempotent:
       # a re-run re-uploads assets with --clobber (a no-op when we reused them above).
+      #
+      # The release description is the annotated tag's message BODY — the CHANGELOG
+      # section the release skill puts there — so the release page matches the
+      # changelog verbatim instead of a commit-derived summary. Fall back to
+      # GitHub's --generate-notes only when the tag carries no body (e.g. a
+      # hand-cut lightweight tag). The update path never rewrites an existing
+      # release's body (it may have been hand-edited) — it only re-syncs assets.
       - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -106,8 +113,18 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
-              --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE
+            # Ensure the annotated tag OBJECT is local (checkout may hold only the
+            # commit it points at), then take its message body as the notes. Public
+            # repo → the anonymous fetch needs no creds; non-fatal if already here.
+            git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" 2>/dev/null || true
+            git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:body)' > /tmp/relnotes.md
+            if [ -s /tmp/relnotes.md ] && grep -q '[^[:space:]]' /tmp/relnotes.md; then
+              gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+                --title "$GITHUB_REF_NAME" --notes-file /tmp/relnotes.md $PRERELEASE
+            else
+              gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+                --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE
+            fi
           fi
 
       # Stage the four per-platform npm packages (dist/npm/<pkg>/) from the
