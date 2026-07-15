@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type CSSProperties,
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -899,6 +900,31 @@ function focusComposer() {
   });
 }
 
+// Crossfade the content pane when the rendered version changes — a diff-round
+// switch or a snapshot from/to change should read as a deliberate move, not a hard
+// cut. Played imperatively (WAAPI) on the *existing* pane element so the
+// virtualized file cards never remount: a remount would reset scroll position and
+// each card's local fold state (worse than no animation). `key` encodes only the
+// rendered version, so unrelated re-renders (SSE feedback, scroll-spy, theme
+// refetch) don't fire it; a null key means "nothing rendered yet" and is skipped
+// on both sides so an initial load or a loading gap never animates. Reduced-motion
+// swaps instantly. No cleanup: the animation has fill:none and reverts to the
+// pane's resting opacity of 1.
+function usePaneCrossfade(ref: RefObject<HTMLElement | null>, key: string | null) {
+  const prev = useRef<string | null>(null);
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = key;
+    if (from == null || key == null || from === key) return;
+    const el = ref.current;
+    if (!el) return;
+    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches)
+      return;
+    for (const a of el.getAnimations()) a.cancel();
+    el.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
+  }, [ref, key]);
+}
+
 export function ReviewView({ reviewId }: { reviewId: string }) {
   const qc = useQueryClient();
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -1091,6 +1117,18 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   }, [activeFb, diffMode, diffPlacements]);
   useActiveLineHighlight(scopeRef, activeFbHighlight, scrollNonce, virt.scrollToLine);
   useActiveSummaryHighlight(scopeRef, activeFb, scrollNonce);
+
+  // The version the content pane currently renders: a diff review's active round,
+  // else the files review's snapshot from/to selection (covers plain view, a pinned
+  // snapshot, and a snapshot-diff). A diff review renders null while its rounds load
+  // — skipped so the initial load (and a theme refetch that briefly drops `diff`)
+  // doesn't count as a switch; a files selection always maps to a concrete key.
+  const paneVersionKey = isDiff
+    ? effectiveRoundSeq != null
+      ? `d:${effectiveRoundSeq}`
+      : null
+    : `s:${fromSnap ?? "none"}:${toSnap}`;
+  usePaneCrossfade(scopeRef, paneVersionKey);
 
   // Regions any unresolved (non-resolved) feedback anchors to, for a persistent
   // highlight in the file view. Diff reviews are excluded (side-aware rows).
