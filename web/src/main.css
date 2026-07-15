@@ -285,6 +285,16 @@ html.dark .gutter-del {
 .r3-markdown .r3-feedback-region[data-fb-id]:hover {
   background-color: color-mix(in srgb, var(--color-primary-500) 20%, transparent);
 }
+/* A focused (active) row is also a feedback region, so without these it would take
+   the blue region hover above — which out-specifies the plain .r3-active-line
+   amber. Keep the hover yellow, just brighter. Same specificity as the blue rules,
+   declared after, so it wins on source order. */
+.r3-active-line[data-fb-id]:hover {
+  background-color: color-mix(in srgb, var(--color-warning-500) 42%, transparent);
+}
+.r3-markdown .r3-active-line[data-fb-id]:hover {
+  background-color: color-mix(in srgb, var(--color-warning-500) 46%, transparent);
+}
 
 /* Rendered Markdown (kind:'files' .md). Restrained, readable. */
 .r3-markdown {
