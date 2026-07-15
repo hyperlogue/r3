@@ -1140,6 +1140,16 @@ export function deleteSession(sessionHash: string): void {
   db.query("DELETE FROM auth_sessions WHERE session_hash = $hash").run({ $hash: sessionHash });
 }
 
+// The login token that minted the (live, unexpired) session with this cookie-hash,
+// or null if none matches. Lets the API refuse revoking the token the caller is
+// currently logged in with (which would delete this very session).
+export function tokenIdForSession(sessionHash: string): string | null {
+  const row = db
+    .query("SELECT token_id FROM auth_sessions WHERE session_hash = $hash AND expires_at > $now")
+    .get({ $hash: sessionHash, $now: nowIso() }) as { token_id: string } | undefined;
+  return row?.token_id ?? null;
+}
+
 // Sweep expired session rows. Cheap housekeeping — an expired row is already rejected
 // by sessionExists, so this only bounds table growth.
 export function deleteExpiredSessions(): void {

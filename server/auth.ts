@@ -65,6 +65,14 @@ export function sessionValid(cookieValue: string | undefined): boolean {
   return cookieValue != null && db.sessionExists(hashSecret(cookieValue));
 }
 
+// The login token id backing this cookie's session, or null (no cookie / invalid /
+// expired). Unlike sessionValid, the id matters: the token route uses it to mark the
+// caller's own token and to refuse revoking it (self-lockout). A master-token caller
+// carries no cookie, so this is null and no token is "current".
+export function sessionTokenId(cookieValue: string | undefined): string | null {
+  return cookieValue == null ? null : db.tokenIdForSession(hashSecret(cookieValue));
+}
+
 // Log out: drop the session row so its cookie stops authenticating.
 export function destroySession(cookieValue: string | undefined): void {
   if (cookieValue) db.deleteSession(hashSecret(cookieValue));

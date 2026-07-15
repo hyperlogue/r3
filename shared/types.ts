@@ -538,6 +538,11 @@ export interface AuthTokenInfo {
   lastUsedAt: string | null; // last successful login with this token; null if unused
   // (revoked tokens are dropped from every listing, so there's no `revokedAt` here —
   // the audit-trail column stays DB-side; see server/db.ts listAuthTokens.)
+  // Request-scoped, not stored: true for the token that minted the caller's own
+  // session cookie (GET /api/auth/tokens only). Revoking it would sign the caller
+  // out, so the server refuses that DELETE and the UI disables its revoke button.
+  // Absent when the caller used the per-user token (loopback SPA / CLI, no cookie).
+  current?: boolean;
 }
 
 // POST /api/auth/login — trade a login token for a session cookie (Set-Cookie in the

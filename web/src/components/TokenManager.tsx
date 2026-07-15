@@ -65,8 +65,7 @@ export function TokenManager() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-[0.625rem] leading-relaxed text-neutral-400">
-        Tokens to open r3 when it's exposed beyond loopback (e.g. tailscale serve). Loopback needs
-        none.
+        Tokens to open r3 when it's exposed beyond loopback (e.g. tailscale serve).
       </p>
 
       <input
@@ -88,12 +87,20 @@ export function TokenManager() {
             >
               <span className="min-w-0 flex-1 truncate">
                 {t.label ?? <span className="text-neutral-400">(no label)</span>}
+                {t.current && (
+                  <span className="ml-1.5 text-[0.625rem] text-neutral-400">this session</span>
+                )}
               </span>
               <button
                 type="button"
-                title="Revoke"
+                disabled={t.current}
+                title={
+                  t.current
+                    ? "You're signed in with this token — revoking it would sign you out"
+                    : "Revoke"
+                }
                 onClick={() => revoke(t.id)}
-                className="shrink-0 cursor-pointer text-neutral-400 hover:text-danger-600"
+                className="shrink-0 text-neutral-400 enabled:cursor-pointer enabled:hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <TrashIcon className="size-3.5" />
               </button>

@@ -281,7 +281,12 @@ app.post("/api/auth/logout", (c) => {
 });
 
 // Login-token management — the CLI (`r3 auth …`) and the settings UI share these.
-app.get("/api/auth/tokens", (c) => c.json(db.listAuthTokens()));
+// The list marks the caller's own token (the one behind its session cookie) so the
+// UI can disable its revoke; a master-token caller has no cookie ⇒ nothing marked.
+app.get("/api/auth/tokens", (c) => {
+  const current = auth.sessionTokenId(getCookie(c, auth.COOKIE_NAME));
+  return c.json(db.listAuthTokens().map((t) => (t.id === current ? { ...t, current: true } : t)));
+});
 
 app.post("/api/auth/tokens", async (c) => {
   const body = (await c.req.json().catch(() => null)) as CreateAuthTokenBody | null;
@@ -294,9 +299,15 @@ app.post("/api/auth/tokens", async (c) => {
 // form so it can't be reached by a stray id.
 app.delete("/api/auth/tokens", (c) => c.json({ revoked: db.revokeAllAuthTokens() }));
 
-app.delete("/api/auth/tokens/:id", (c) =>
-  db.revokeAuthToken(c.req.param("id")) ? c.json({ ok: true }) : c.text("not found", 404),
-);
+// Refuse revoking the token behind the caller's own session — it would delete this
+// very session and lock the caller out mid-request. (revoke-all above is the explicit
+// "burn it all down" escape hatch and isn't guarded; the web UI never calls it.)
+app.delete("/api/auth/tokens/:id", (c) => {
+  const id = c.req.param("id");
+  if (id === auth.sessionTokenId(getCookie(c, auth.COOKIE_NAME)))
+    return c.text("can't revoke the token for your current session", 409);
+  return db.revokeAuthToken(id) ? c.json({ ok: true }) : c.text("not found", 404);
+});
 
 // Syntax-theme options for the settings picker (curated families + all bundled
 // Shiki themes). Static, so it's safe to cache hard in the browser.

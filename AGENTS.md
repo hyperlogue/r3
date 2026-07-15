@@ -413,7 +413,12 @@ content sha, so the WASM/grammar weight never reaches the browser.
   /api/auth/login { token }` trades a login token for an HttpOnly cookie; `POST
   /api/auth/logout` ends it. `GET/POST /api/auth/tokens` + `DELETE
   /api/auth/tokens[/:id]` list / mint / revoke (one or all) login tokens — the CLI
-  `r3 auth …` and the settings UI share them. Token-free (still Host-gated):
+  `r3 auth …` and the settings UI share them. The list flags the caller's **own**
+  token (the one behind its session cookie) `current:true` so the UI disables its
+  revoke, and `DELETE …/:id` **refuses that token** (`409`) — revoking it would
+  delete the caller's live session and lock them out mid-request; a master-token
+  caller carries no cookie, so nothing is `current`. Bulk `DELETE …/tokens`
+  (revoke-all) is the deliberate escape hatch and isn't guarded. Token-free (still Host-gated):
   `/api/health`, `/api/boot` (same-origin), `/api/auth/login` (same-origin), and
   `/api/events` **only when not exposed**. **Everything else** — reads, all
   mutations, and `/api/events` once exposed (a session cookie rides EventSource) —

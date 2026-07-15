@@ -8,6 +8,7 @@ const tokens: AuthTokenInfo[] = [
     label: "laptop",
     createdAt: "2026-07-10T12:00:00Z",
     lastUsedAt: "2026-07-12T09:30:00Z",
+    current: true, // the caller's own session token — revoke is disabled
   },
   {
     id: "authtok_ef34gh",
@@ -36,7 +37,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// The create form + a list of two live tokens (one never used).
+// The create form + two live tokens: the caller's own session token (revoke disabled,
+// "this session") and a second, never-used one that can be revoked.
 export const WithTokens: Story = {};
 
 // No tokens yet — just the create form.
