@@ -67,18 +67,17 @@ type Story = StoryObj<typeof meta>;
 // ordering: the "your turn" cards (agent had the last word) — the outdated one
 // (amber ⚠ prefixing the file name) and the agent-authored note (the "agent"
 // chip in the header) — float to the top, marked with the primary "your turn"
-// dot in the header's right corner, above a muted "no response needed" divider.
-// Below it the rest recede (an open item, the already-sent long thread whose
+// dot in the header's right corner. Below them the rest recede (an open item, the already-sent long thread whose
 // replies fold to the last three — agent replies get a soft blue tinted fill,
 // human replies render as plain prose — plus the general/whole-file/summary
 // notes). "Copy prompt" is enabled — the unsent items still have content.
 export const Default: Story = {};
 
 // The attention split on its own: cards where the agent had the last word rank to
-// the top with the "your turn" dot; the "no response needed" divider separates them
-// from the rest (your open notes + human-last-reply threads), which recede below.
-// Replying to a top card (you get the last word) or resolving it sinks it past the
-// divider; a fresh agent reply raises a card back up.
+// the top with the "your turn" dot, above the rest (your open notes +
+// human-last-reply threads), which recede below. Replying to a top card (you get
+// the last word) or resolving it sinks it below the attention group; a fresh agent
+// reply raises a card back up.
 export const AttentionOrdering: Story = {};
 
 // A card made active (amber left rail + faint wash) with its reply composer opened via a click on

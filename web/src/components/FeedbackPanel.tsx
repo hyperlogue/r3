@@ -62,16 +62,7 @@ const prefersReduced = () =>
 // overflow-x-hidden), fading as it goes; the rest FLIP into their new slots.
 const feedbackAnimation: AutoAnimationPlugin = (el, action, a, b) => {
   const reduce = prefersReduced();
-  // The zone divider ("no response needed") between the attention groups isn't a
-  // card — fade it in/out in place instead of the card's rise-in / slide-off-right.
-  const isDivider = el instanceof HTMLElement && el.dataset.zoneDivider != null;
   if (action === "add") {
-    if (isDivider) {
-      return new KeyframeEffect(el, [{ opacity: 0 }, { opacity: 1 }], {
-        duration: reduce ? 0 : 200,
-        easing: "ease-out",
-      });
-    }
     // Fade fast (opacity done by offset 0.3) while the translateY glides the whole
     // (longer) duration — the fade is much quicker than the rise. Opacity +
     // translateY only, so the block never scales or resizes.
@@ -86,12 +77,6 @@ const feedbackAnimation: AutoAnimationPlugin = (el, action, a, b) => {
     );
   }
   if (action === "remove") {
-    if (isDivider) {
-      return new KeyframeEffect(el, [{ opacity: 1 }, { opacity: 0 }], {
-        duration: reduce ? 0 : 150,
-        easing: "ease-in",
-      });
-    }
     // Straight right, Y locked to 0 — an explicit 2D translate (not translateX) so
     // there is no chance of a stray vertical component — fading as it exits.
     return new KeyframeEffect(
@@ -623,6 +608,7 @@ function FeedbackCard({
   onLocate,
   onLocatePin,
   onResolved,
+  onReplied,
   onJumpRef,
   isActive,
 }: {
@@ -631,6 +617,8 @@ function FeedbackCard({
   onLocate: () => void;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
   onResolved: () => void;
+  // Plain reply (no resolve) landed — hand focus to the next open item.
+  onReplied: () => void;
   // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message.
   onJumpRef: (ref: MessageRef, patchSeq: number | null) => void;
   isActive: boolean;
@@ -787,10 +775,13 @@ function FeedbackCard({
       // Collapse the composer once the reply lands — the thread now shows it, so
       // the open input has nothing left to hold. "Reply" reopens it for the next.
       setReplyOpen(false);
-      // Resolving hands focus off to the next still-open item (the parent picks
-      // which). Fired here off this render's pre-resolve list — exactly what
-      // advanceAfterResolve wants — never lingering on the just-resolved card.
+      // Hand focus to the next item so a top-down pass keeps moving instead of
+      // trailing the just-answered card (which sinks out of the attention group)
+      // down to the bottom of the list. The parent picks which item; fired here
+      // off this render's pre-mutation list. Resolving advances-and-removes; a
+      // plain reply advances only if there's a genuinely-next card below.
       if (resolve) onResolved();
+      else if (text) onReplied();
       return { prev, body };
     },
     mutationFn: async ({ resolve, body }: { resolve: boolean; body: string }) => {
@@ -1441,8 +1432,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // order — a *stable* partition, so a card moves only when its turn actually flips
   // (reply/resolve sinks it; an agent reply raises it), which the list's
   // auto-animate then FLIPs. Nothing is hidden: the two tabs stay the clean
-  // active/resolved split — this only ranks within Active. A "no response needed"
-  // divider (below) sits between the groups when both are non-empty.
+  // active/resolved split — this only ranks within Active. The two groups run
+  // together with no labelled divider between them.
   const attention = active.filter(needsAttention);
   const rest = active.filter((f) => !needsAttention(f));
   const ordered = [...attention, ...rest];
@@ -1480,6 +1471,18 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     const idx = ordered.findIndex((f) => f.id === resolvedId);
     const remaining = ordered.filter((f) => f.id !== resolvedId);
     onLocateFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
+  };
+
+  // Replying (without resolving) keeps the card open but sinks it out of the
+  // attention group, so — like resolving — advance focus to the next item down
+  // instead of trailing the just-answered card to the bottom. Unlike resolve, the
+  // card stays in the list, so there's no "slides into its slot" fallback: move to
+  // the strictly-next item if one exists, else leave focus where it is (don't jump
+  // backward to a card already handled). Computed off this render's pre-reply order.
+  const advanceAfterReply = (repliedId: string) => {
+    const idx = ordered.findIndex((f) => f.id === repliedId);
+    const next = idx >= 0 ? ordered[idx + 1] : undefined;
+    if (next) onLocateFeedback(next);
   };
 
   // Commit a freshly-created feedback: drop it in as the optimistic card (so it
@@ -1803,29 +1806,13 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     onLocate={() => onLocateFeedback(fb)}
                     onLocatePin={onLocatePin}
                     onResolved={() => advanceAfterResolve(fb.id)}
+                    onReplied={() => advanceAfterReply(fb.id)}
                     onJumpRef={onJumpRef}
                   />
                 ))}
-                {/* Zone divider between the "your turn" cards and the rest — only
-                    when both groups exist. Fades in place (not slid off) via the
-                    data-zone-divider case in feedbackAnimation. The label speaks
-                    only to the response axis ("no response needed"): the group
-                    below is heterogeneous (your own unsent notes, items sent and
-                    awaiting the agent, threads you already replied to), so it is
-                    NOT uniformly "waiting on agent" — the one true thing is that no
-                    agent message there is sitting unanswered by you. */}
-                {attention.length > 0 && rest.length > 0 && (
-                  // The last attention card's own border-b-2 draws the separating
-                  // line; this is just the section label below it — no flanking
-                  // rules, so the two don't stack into a double line.
-                  <div
-                    key="zone-divider"
-                    data-zone-divider
-                    className="select-none px-3 py-1.5 text-center text-[0.625rem] font-medium tracking-wide text-neutral-400 uppercase dark:text-neutral-500"
-                  >
-                    no response needed
-                  </div>
-                )}
+                {/* Attention-first ordering keeps the "your turn" cards on top and
+                    sinks the rest below; the two groups run together with no
+                    labelled divider. */}
                 {rest.map((fb) => (
                   <FeedbackCard
                     key={fb.id}
@@ -1835,6 +1822,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     onLocate={() => onLocateFeedback(fb)}
                     onLocatePin={onLocatePin}
                     onResolved={() => advanceAfterResolve(fb.id)}
+                    onReplied={() => advanceAfterReply(fb.id)}
                     onJumpRef={onJumpRef}
                   />
                 ))}
@@ -1856,6 +1844,9 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   onLocatePin={onLocatePin}
                   // A resolved card has no Resolve button, so this never fires.
                   onResolved={() => {}}
+                  // Replies here stay in the Resolved tab (not part of the active
+                  // top-down pass), so don't advance focus.
+                  onReplied={() => {}}
                   onJumpRef={onJumpRef}
                 />
               ))}
