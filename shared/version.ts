@@ -4,4 +4,4 @@
 // client/server version-skew problem). `GET /api/health` reports this and the
 // CLI compares it against its own. Bump on any wire-format or
 // daemon-protocol change.
-export const R3_VERSION = "0.3.0";
+export const R3_VERSION = "0.4.0";
