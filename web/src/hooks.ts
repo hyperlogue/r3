@@ -3,16 +3,12 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { coalesceInvalidate } from "./invalidate.ts";
 import type { ServerEvent } from "./types.ts";
 
 export function useServerEvents(reviewId?: string) {
   const qc = useQueryClient();
   useEffect(() => {
-    // Batch invalidations so the daemon's paired events (feedback-updated +
-    // review-updated) — and a mutation's own onSettled invalidate — collapse into
-    // a single refetch per key instead of firing back-to-back requests.
-    const invalidate = (queryKey: readonly unknown[]) => coalesceInvalidate(qc, queryKey);
+    const invalidate = (queryKey: readonly unknown[]) => qc.invalidateQueries({ queryKey });
     const url = reviewId ? `/api/events?review=${reviewId}` : "/api/events";
     const es = new EventSource(url);
     // EventSource fires `open` on the first connect and again on every auto-reconnect.

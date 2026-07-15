@@ -584,8 +584,13 @@ export async function addFeedback(
   // live content — the canonical anchor stays live regardless of the view it was
   // created in.
   if (review.kind === "files") markDirty(reviewId);
+  // A feedback write implies the review changed, and the SPA's SSE handler runs the
+  // identical invalidation for feedback-updated and review-updated (it never reads
+  // feedbackId) — so feedback-updated alone reconciles every client. We don't also
+  // emit review-updated: the pair fired the review detail twice per write, and with
+  // the mutation no longer self-invalidating, one event = one refetch. (`review-
+  // updated` still stands alone for non-feedback changes: title, status, diff add.)
   broadcast({ type: "feedback-updated", reviewId, feedbackId: fb.id });
-  broadcast({ type: "review-updated", reviewId });
   return fb;
 }
 
@@ -632,7 +637,6 @@ export function addReply(
     ref_version: refVersion,
   });
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
-  broadcast({ type: "review-updated", reviewId: fb.review_id });
   return { reply, feedback: fb };
 }
 
@@ -661,7 +665,6 @@ export async function reanchorFeedback(
       anchor: "anchored",
     });
     broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
-    broadcast({ type: "review-updated", reviewId: fb.review_id });
     return next;
   }
   // Diff-review anchors live in immutable stored rounds — they can't drift, so
@@ -683,7 +686,6 @@ export async function reanchorFeedback(
     anchor: "anchored",
   });
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
-  broadcast({ type: "review-updated", reviewId: fb.review_id });
   return next;
 }
 
@@ -704,7 +706,6 @@ export function editFeedback(
   if (fields.body !== undefined && fields.body !== fb.body && statusAfter === "open")
     db.clearFeedbackSent(feedbackId);
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
-  broadcast({ type: "review-updated", reviewId: fb.review_id });
   return next;
 }
 
@@ -725,7 +726,6 @@ export function editReply(replyId: string, body: string): Reply | null {
   const next = db.updateReply(replyId, body);
   if (fb) {
     broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId: fb.id });
-    broadcast({ type: "review-updated", reviewId: fb.review_id });
   }
   return next;
 }

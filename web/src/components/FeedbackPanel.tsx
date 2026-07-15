@@ -18,7 +18,6 @@ import {
   useGeneralDraft,
   useReplyDraft,
 } from "../drafts.ts";
-import { coalesceInvalidate } from "../invalidate.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
@@ -625,20 +624,21 @@ function FeedbackCard({
 }) {
   const qc = useQueryClient();
   const reviewKey = ["review", reviewId] as const;
-  // Coalesce with the SSE echo of this same write (the daemon sends both a
-  // feedback-updated and a review-updated event) so onSettled + the two SSE
-  // invalidations collapse into one refetch instead of three.
-  const invalidate = () => coalesceInvalidate(qc, reviewKey);
   // --- Optimistic mutation plumbing --------------------------------------
   // The card mutations below (resolve/reopen, reply, edit, delete) patch the
   // cached ReviewDetail in onMutate so the card reflects the change the instant
-  // it's clicked, roll the snapshot back in onError (the server's message stays
-  // visible under the action row), and reconcile the authoritative row in
-  // onSettled. onMutate cancels any in-flight refetch first, so a mid-mutation
-  // SSE invalidate can't clobber the optimistic patch and flicker. We deliberately
-  // do NOT synthesize the server-computed delivery fields (sent_at, status_unsent,
-  // and the hasUnsentContent gating that drives Copy/Submit) — a brief settle
-  // where the pill/anchor corrects itself once onSettled refetches is acceptable.
+  // it's clicked, and roll the snapshot back in onError (the server's message
+  // stays visible under the action row). There is deliberately no onSettled
+  // refetch: every write broadcasts an SSE event that this tab receives too, and
+  // useServerEvents refetches the detail off it — so the live feed is the single
+  // reconcile path for the initiator and every other client alike, instead of the
+  // mutation self-invalidating and racing its own echo (which fired the review
+  // detail three times over). onMutate cancels any in-flight refetch first, so a
+  // mid-mutation SSE invalidate can't clobber the optimistic patch and flicker. We
+  // deliberately do NOT synthesize the server-computed delivery fields (sent_at,
+  // status_unsent, and the hasUnsentContent gating that drives Copy/Submit) — a
+  // brief settle where the pill/anchor corrects itself once the echo refetches is
+  // acceptable.
   //
   // Halt any in-flight refetch and snapshot the cache so the optimistic write is
   // authoritative until the mutation settles; the snapshot is the rollback target.
@@ -656,9 +656,9 @@ function FeedbackCard({
       d ? { ...d, feedback: d.feedback.map((f) => (f.id === fb.id ? fn(f) : f)) } : d,
     );
   // A stand-in reply row shown in the thread while the POST is in flight. Its id
-  // is a throwaway the onSettled reconcile discards, and the server-assigned
-  // fields aren't known yet: sent_at/ref_version stay null (so its `@path` refs
-  // simply don't resolve until the settle — fine transiently).
+  // is a throwaway the echo refetch discards, and the server-assigned fields
+  // aren't known yet: sent_at/ref_version stay null (so its `@path` refs simply
+  // don't resolve until the echo lands — fine transiently).
   const optimisticReply = (body: string): Reply => ({
     id: `reply_tmp_${crypto.randomUUID().slice(0, 8)}`,
     feedback_id: fb.id,
@@ -795,13 +795,12 @@ function FeedbackCard({
       restore(ctx?.prev);
       // The reply never left the browser → put the draft back so it isn't lost. If
       // it did post and only the resolve failed, leave the composer empty: the
-      // onSettled refetch brings the real reply back and a retry can't dup it.
+      // echo refetch brings the real reply back and a retry can't dup it.
       if (ctx?.body.trim() && !repliedRef.current) {
         setReply(ctx.body);
         setReplyOpen(true);
       }
     },
-    onSettled: invalidate,
   });
   const reopen = useMutation({
     onMutate: async () => {
@@ -811,7 +810,6 @@ function FeedbackCard({
     },
     mutationFn: () => api.editFeedback(fb.id, { status: "open" }),
     onError: (_e, _v, ctx) => restore(ctx?.prev),
-    onSettled: invalidate,
   });
   const remove = useMutation({
     onMutate: async () => {
@@ -823,7 +821,6 @@ function FeedbackCard({
     },
     mutationFn: () => api.deleteFeedback(fb.id),
     onError: (_e, _v, ctx) => restore(ctx?.prev),
-    onSettled: invalidate,
   });
   // Save an inline edit of the last human message — a reply (`replyId` set) or the
   // feedback body (null). Like postReply, the target + text ride as variables:
@@ -856,7 +853,6 @@ function FeedbackCard({
       if (ctx?.replyId) setEditingReplyId(ctx.replyId);
       else setEditing(true);
     },
-    onSettled: invalidate,
   });
 
   // Focus the composer the moment it opens (the human clicked "Reply").
@@ -1499,10 +1495,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     // for an anchored note the file pane jumps to its line. A general note has no
     // file, so it just lights the card.
     onLocateFeedback(row);
-    // Reconcile with server truth (derived anchor/sha fields, sent_at); the write
-    // also SSE-invalidates every client, so this is just determinism for us.
-    // Coalesced so it merges with those SSE echoes into one refetch.
-    coalesceInvalidate(qc, ["review", detail.id]);
+    // No explicit refetch: creating the feedback broadcast a feedback-updated
+    // event this tab receives too, and useServerEvents refetches the detail off
+    // it — which lands the authoritative row (derived anchor/sha, sent_at) and
+    // drops the local optimistic copy (the effect above keyed on detail.feedback).
   };
 
   // When a feedback becomes active — notably by clicking its highlighted region
