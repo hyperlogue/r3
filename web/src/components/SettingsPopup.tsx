@@ -175,7 +175,7 @@ export function SettingsPopup() {
                   max={FONT_MAX}
                   value={fontSize}
                   onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="h-1 flex-1 accent-primary-600"
+                  className="h-1 min-w-0 flex-1 accent-primary-600"
                 />
                 <button
                   type="button"
