@@ -18,6 +18,7 @@ import {
   useGeneralDraft,
   useReplyDraft,
 } from "../drafts.ts";
+import { coalesceInvalidate } from "../invalidate.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
@@ -636,7 +637,10 @@ function FeedbackCard({
 }) {
   const qc = useQueryClient();
   const reviewKey = ["review", reviewId] as const;
-  const invalidate = () => qc.invalidateQueries({ queryKey: reviewKey });
+  // Coalesce with the SSE echo of this same write (the daemon sends both a
+  // feedback-updated and a review-updated event) so onSettled + the two SSE
+  // invalidations collapse into one refetch instead of three.
+  const invalidate = () => coalesceInvalidate(qc, reviewKey);
   // --- Optimistic mutation plumbing --------------------------------------
   // The card mutations below (resolve/reopen, reply, edit, delete) patch the
   // cached ReviewDetail in onMutate so the card reflects the change the instant
@@ -1494,7 +1498,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     onLocateFeedback(row);
     // Reconcile with server truth (derived anchor/sha fields, sent_at); the write
     // also SSE-invalidates every client, so this is just determinism for us.
-    qc.invalidateQueries({ queryKey: ["review", detail.id] });
+    // Coalesced so it merges with those SSE echoes into one refetch.
+    coalesceInvalidate(qc, ["review", detail.id]);
   };
 
   // When a feedback becomes active — notably by clicking its highlighted region

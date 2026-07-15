@@ -3,11 +3,16 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { coalesceInvalidate } from "./invalidate.ts";
 import type { ServerEvent } from "./types.ts";
 
 export function useServerEvents(reviewId?: string) {
   const qc = useQueryClient();
   useEffect(() => {
+    // Batch invalidations so the daemon's paired events (feedback-updated +
+    // review-updated) — and a mutation's own onSettled invalidate — collapse into
+    // a single refetch per key instead of firing back-to-back requests.
+    const invalidate = (queryKey: readonly unknown[]) => coalesceInvalidate(qc, queryKey);
     const url = reviewId ? `/api/events?review=${reviewId}` : "/api/events";
     const es = new EventSource(url);
     // EventSource fires `open` on the first connect and again on every auto-reconnect.
@@ -31,7 +36,7 @@ export function useServerEvents(reviewId?: string) {
         "blob",
         "snapshot-diff",
       ]) {
-        qc.invalidateQueries({ queryKey: [key] });
+        invalidate([key]);
       }
     };
     const onAny = (raw: MessageEvent) => {
@@ -42,30 +47,30 @@ export function useServerEvents(reviewId?: string) {
         return;
       }
       if (ev.type === "review-updated" || ev.type === "feedback-updated") {
-        qc.invalidateQueries({ queryKey: ["review", ev.reviewId] });
+        invalidate(["review", ev.reviewId]);
         // A `diff add`/`diff rm` fires review-updated — refetch the rounds too.
-        qc.invalidateQueries({ queryKey: ["review-diff", ev.reviewId] });
-        qc.invalidateQueries({ queryKey: ["reviews"] });
+        invalidate(["review-diff", ev.reviewId]);
+        invalidate(["reviews"]);
       } else if (ev.type === "watchers-changed") {
-        qc.invalidateQueries({ queryKey: ["watchers", ev.reviewId] });
+        invalidate(["watchers", ev.reviewId]);
         // The list carries a live `watching` flag and ranks watched reviews to
         // the top — refetch so the ordering tracks who's watching.
-        qc.invalidateQueries({ queryKey: ["reviews"] });
+        invalidate(["reviews"]);
       } else if (ev.type === "reviews-changed") {
-        qc.invalidateQueries({ queryKey: ["reviews"] });
-        qc.invalidateQueries({ queryKey: ["repos"] });
+        invalidate(["reviews"]);
+        invalidate(["repos"]);
         // A delete/create elsewhere fires only reviews-changed — refetch any open
         // detail too, so a review deleted out from under an open tab 404s (which
         // ReviewView surfaces) instead of showing forever-stale cached content.
-        qc.invalidateQueries({ queryKey: ["review"] });
+        invalidate(["review"]);
       } else if (ev.type === "file-changed") {
         // Content moved under the review → refetch detail (re-anchors) + blobs.
-        qc.invalidateQueries({ queryKey: ["review"] });
-        qc.invalidateQueries({ queryKey: ["blob"] });
+        invalidate(["review"]);
+        invalidate(["blob"]);
         // A files review's snapshot→live diff (to=Current) is derived from the live
         // content, so a live edit must refresh it too. Snapshot→snapshot
         // diffs are immutable, so an unchanged-input refetch just revalidates.
-        qc.invalidateQueries({ queryKey: ["snapshot-diff"] });
+        invalidate(["snapshot-diff"]);
       }
     };
     const types = [

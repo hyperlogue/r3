@@ -28,6 +28,7 @@ import {
   useDraftAnchor,
 } from "../drafts.ts";
 import { shortSha, sourceLabel } from "../format.ts";
+import { coalesceInvalidate } from "../invalidate.ts";
 import type { MessageRef } from "../markdown.ts";
 import {
   HL_ACTIVE,
@@ -1692,9 +1693,11 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const restoreReview = (prev: ReviewDetail | undefined) => {
     if (prev) qc.setQueryData(reviewKey, prev);
   };
+  // Coalesced so onSettled merges with the SSE echo of the same PATCH (the daemon
+  // broadcasts review-updated + reviews-changed) into one refetch per key.
   const settleReview = () => {
-    qc.invalidateQueries({ queryKey: reviewKey });
-    qc.invalidateQueries({ queryKey: ["reviews"] });
+    coalesceInvalidate(qc, reviewKey);
+    coalesceInvalidate(qc, ["reviews"]);
   };
   const setStatus = useMutation({
     onMutate: async (body: UpdateReviewBody) => {
