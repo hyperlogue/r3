@@ -186,10 +186,11 @@ html.dark .gutter-del {
   );
 }
 
-/* Persistent marker on lines/blocks an unresolved feedback points at. Defined
-   before .r3-active-line so the amber "actively focused" ring wins when a line
-   carries both. */
-.r3-feedback-region {
+/* Persistent marker on lines/blocks an unresolved feedback points at. Every
+   painting region rule is scoped :not(.r3-active-line) so the amber "actively
+   focused" treatment below wins structurally when an element carries both —
+   never by source order, so new rules can land anywhere without flipping it. */
+.r3-feedback-region:not(.r3-active-line) {
   background-color: color-mix(in srgb, var(--color-primary-500) 10%, transparent);
   box-shadow: inset 3px 0 0 var(--color-primary-500);
 }
@@ -217,12 +218,12 @@ html.dark .gutter-del {
    inset left bar and would hide it. Redraw the bar on the first (leftmost)
    gutter cell so it stays visible and pinned to the left. Scoped to [data-line]
    rows so it never touches rendered-markdown blocks (which draw their bar via
-   ::before below). Active declared after region so amber wins when both apply. */
-.r3-feedback-region[data-line] > span:first-child {
-  box-shadow: inset 3px 0 0 var(--color-primary-500);
-}
+   ::before below). Region scoped :not(active) so amber wins when both apply. */
 .r3-active-line[data-line] > span:first-child {
   box-shadow: inset 2px 0 0 var(--color-warning-500);
+}
+.r3-feedback-region[data-line]:not(.r3-active-line) > span:first-child {
+  box-shadow: inset 3px 0 0 var(--color-primary-500);
 }
 
 /* Rendered-markdown blocks (a whole <p>/<table>/<ul>/heading) carry these classes
@@ -230,8 +231,8 @@ html.dark .gutter-del {
    bar overlaps the first character, and on a border-collapse <table> it fragments
    into per-row segments. So draw the gutter bar as a pseudo-element sitting in the
    .r3-markdown left padding — one continuous bar spanning the whole block, whatever
-   its internal layout. Region declared before active so amber wins on a block that
-   carries both (same ordering as the base rules above). */
+   its internal layout. Region scoped :not(active) so amber wins on a block that
+   carries both (same structural precedence as the base rules above). */
 .r3-markdown .r3-feedback-region,
 .r3-markdown .r3-active-line {
   position: relative;
@@ -248,10 +249,10 @@ html.dark .gutter-del {
   width: 3px;
   border-radius: 3px;
 }
-.r3-markdown .r3-feedback-region {
+.r3-markdown .r3-feedback-region:not(.r3-active-line) {
   background-color: color-mix(in srgb, var(--color-primary-500) 13%, transparent);
 }
-.r3-markdown .r3-feedback-region::before {
+.r3-markdown .r3-feedback-region:not(.r3-active-line)::before {
   background-color: var(--color-primary-500);
 }
 .r3-markdown .r3-active-line {
@@ -279,16 +280,15 @@ html.dark .gutter-del {
 .r3-markdown [data-fb-id] {
   cursor: pointer;
 }
-.r3-feedback-region[data-fb-id]:hover {
+.r3-feedback-region[data-fb-id]:not(.r3-active-line):hover {
   background-color: color-mix(in srgb, var(--color-primary-500) 18%, transparent);
 }
-.r3-markdown .r3-feedback-region[data-fb-id]:hover {
+.r3-markdown .r3-feedback-region[data-fb-id]:not(.r3-active-line):hover {
   background-color: color-mix(in srgb, var(--color-primary-500) 20%, transparent);
 }
-/* A focused (active) row is also a feedback region, so without these it would take
-   the blue region hover above — which out-specifies the plain .r3-active-line
-   amber. Keep the hover yellow, just brighter. Same specificity as the blue rules,
-   declared after, so it wins on source order. */
+/* A focused (active) row is also a feedback region; the blue hovers above exclude
+   it (:not, like every region rule), so these keep its hover yellow — just
+   brighter than the resting amber. */
 .r3-active-line[data-fb-id]:hover {
   background-color: color-mix(in srgb, var(--color-warning-500) 42%, transparent);
 }
