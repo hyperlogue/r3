@@ -632,15 +632,17 @@ function FeedbackCard({
   // it's clicked, and roll the snapshot back in onError (the server's message
   // stays visible under the action row). There is deliberately no onSettled
   // refetch: every write broadcasts an SSE event that this tab receives too, and
-  // useServerEvents refetches the detail off it — so the live feed is the single
-  // reconcile path for the initiator and every other client alike, instead of the
-  // mutation self-invalidating and racing its own echo (which fired the review
-  // detail three times over). onMutate cancels any in-flight refetch first, so a
-  // mid-mutation SSE invalidate can't clobber the optimistic patch and flicker. We
-  // deliberately do NOT synthesize the server-computed delivery fields (sent_at,
-  // status_unsent, and the hasUnsentContent gating that drives Copy/Submit) — a
-  // brief settle where the pill/anchor corrects itself once the echo refetches is
-  // acceptable.
+  // useServerEvents refetches the detail off it — so the live feed is the
+  // success-path reconcile for the initiator and every other client alike, instead
+  // of the mutation self-invalidating and racing its own echo (which fired the
+  // review detail three times over). onMutate cancels any refetch in flight at
+  // click time so it can't land over the optimistic patch — that closes only the
+  // click-time window: an echo arriving mid-mutation (another client's write, or
+  // leg 1 of reply+resolve) can still briefly refetch pre-commit state, which the
+  // next echo heals. We deliberately do NOT synthesize the server-computed
+  // delivery fields (sent_at, status_unsent, and the hasUnsentContent gating that
+  // drives Copy/Submit) — a brief settle where the pill/anchor corrects itself
+  // once the echo refetches is acceptable.
   //
   // Halt any in-flight refetch and snapshot the cache so the optimistic write is
   // authoritative until the mutation settles; the snapshot is the rollback target.
@@ -650,6 +652,12 @@ function FeedbackCard({
   };
   const restore = (prev: ReviewDetail | undefined) => {
     if (prev) qc.setQueryData(reviewKey, prev);
+    // A FAILED write has no SSE echo, so nothing else reconciles — and the
+    // snapshot can predate server truth (a concurrent write whose echo refetch
+    // beginPatch cancelled, or leg 1's posted reply when only leg 2 failed).
+    // Refetch after the rollback; after, because the manual setQueryData above
+    // marks the query fresh and would swallow an earlier invalidation.
+    qc.invalidateQueries({ queryKey: reviewKey });
   };
   // Replace this card's feedback row in the cached detail in place (a no-op if the
   // detail or the row is already gone).
@@ -768,10 +776,11 @@ function FeedbackCard({
       repliedRef.current = false;
       const prev = await beginPatch();
       const text = body.trim();
+      const pending = text ? optimisticReply(body) : null;
       patchThisFeedback((f) => ({
         ...f,
         status: resolve ? "resolved" : f.status,
-        replies: text ? [...f.replies, optimisticReply(body)] : f.replies,
+        replies: pending ? [...f.replies, pending] : f.replies,
       }));
       // Clear the composer instantly so the text isn't shown twice (thread +
       // input); restored in onError only if the reply never actually posted.
@@ -786,20 +795,38 @@ function FeedbackCard({
       // plain reply advances only if there's a genuinely-next card below.
       if (resolve) onResolved();
       else if (text) onReplied();
-      return { prev, body };
+      return { prev, body, tmpId: pending?.id ?? null };
     },
     mutationFn: async ({ resolve, body }: { resolve: boolean; body: string }) => {
+      let posted: Reply | null = null;
       if (body.trim()) {
-        await api.addReply(fb.id, { author: "human", body });
+        posted = (await api.addReply(fb.id, { author: "human", body })).reply;
         repliedRef.current = true;
       }
       if (resolve) await api.editFeedback(fb.id, { status: "resolved" });
+      return posted;
+    },
+    onSuccess: (posted, _vars, ctx) => {
+      // Swap the stand-in row for the server's authoritative reply (real id,
+      // sent_at/ref_version set) so the initiator is consistent even if the SSE
+      // echo never arrives (a silently dead EventSource) — without it the tmp row
+      // lingers and its Edit would PATCH a nonexistent id. A no-op when the echo's
+      // refetch already landed and replaced the whole list.
+      if (posted && ctx?.tmpId)
+        patchThisFeedback((f) => ({
+          ...f,
+          replies: f.replies.map((r) => (r.id === ctx.tmpId ? posted : r)),
+        }));
     },
     onError: (_e, _vars, ctx) => {
       restore(ctx?.prev);
+      // onMutate advanced focus to the next card; bring it back so the restored
+      // draft and the error banner aren't stranded on an unfocused, possibly
+      // scrolled-away card.
+      onLocate();
       // The reply never left the browser → put the draft back so it isn't lost. If
       // it did post and only the resolve failed, leave the composer empty: the
-      // echo refetch brings the real reply back and a retry can't dup it.
+      // restore() refetch brings the real reply back and a retry can't dup it.
       if (ctx?.body.trim() && !repliedRef.current) {
         setReply(ctx.body);
         setReplyOpen(true);

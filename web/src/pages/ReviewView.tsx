@@ -1689,9 +1689,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // onMutate so the status pill / title change instantly, and roll back on error.
   // Like the card mutations there is no onSettled refetch — the PATCH broadcasts a
   // review-updated event this tab receives too, and useServerEvents reconciles off
-  // it. Cancel in-flight refetches first so an SSE invalidate mid-mutation can't
-  // clobber the optimistic patch. (`remove` below navigates away on success, so
-  // there's nothing to keep optimistic.)
+  // it. Cancel refetches in flight at click time so they can't land over the
+  // optimistic patch. (`remove` below navigates away on success, so there's
+  // nothing to keep optimistic.)
   const reviewKey = ["review", reviewId] as const;
   const beginReviewPatch = async () => {
     await qc.cancelQueries({ queryKey: reviewKey });
@@ -1699,6 +1699,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   };
   const restoreReview = (prev: ReviewDetail | undefined) => {
     if (prev) qc.setQueryData(reviewKey, prev);
+    // A failed PATCH has no SSE echo and the snapshot may predate concurrent
+    // writes whose echo refetch beginReviewPatch cancelled — refetch server truth
+    // after the rollback (after: the manual set above marks the query fresh).
+    qc.invalidateQueries({ queryKey: reviewKey });
   };
   const setStatus = useMutation({
     onMutate: async (body: UpdateReviewBody) => {
