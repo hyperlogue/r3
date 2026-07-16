@@ -66,7 +66,8 @@ type Story = StoryObj<typeof meta>;
 // action row (the composer stays hidden until "Reply" is clicked). Attention-first
 // ordering: the "your turn" cards (agent had the last word) — the outdated one
 // (amber ⚠ prefixing the file name) and the agent-authored note (the "agent"
-// chip in the header) — float to the top, marked with the primary "your turn"
+// chip in the header, its body bound in the same soft blue bubble as an agent
+// reply so it reads as the agent's voice) — float to the top, marked with the primary "your turn"
 // dot in the header's right corner. Below them the rest recede (an open item, the already-sent long thread whose
 // replies fold to the last three — agent replies get a soft blue tinted fill,
 // human replies render as plain prose — plus the general/whole-file/summary
@@ -205,8 +206,9 @@ export const ActiveCard: Story = {
 // Messages render as Markdown: the `feedback_pragma` body shows bold + inline
 // `code` + a bullet list, and an `@server/db.ts:L11-12` reference rendered as a
 // clickable jump chip. Its agent thread (`feedback_thread`) has a reply with a
-// fenced code block and its own `@ref`. Selecting text inside an agent reply
-// raises the "Quote in reply" bubble (not visible in a static snapshot).
+// fenced code block and its own `@ref`. Selecting text inside any agent-voiced
+// content — an agent reply or an agent-authored feedback body (`feedback_agent_note`)
+// — raises the "Quote in reply" bubble (not visible in a static snapshot).
 export const MarkdownMessages: Story = {
   args: { activeFeedbackId: "feedback_pragma" },
 };

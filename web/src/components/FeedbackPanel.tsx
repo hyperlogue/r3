@@ -246,6 +246,11 @@ function needsAttention(fb: FeedbackWithReplies): boolean {
 const PENDING_INPUT =
   "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
+// The soft primary bubble marking agent-voiced content. An agent reply block and
+// an agent-authored feedback body wear the exact same fill so "the agent's voice"
+// reads as one surface — keep the two in lockstep through this constant.
+const AGENT_BUBBLE = "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15";
+
 // The shared composer shell for both the anchored draft (NewFeedback) and the
 // general note (GeneralFeedback): the primary-rail block, a header (label slot +
 // ✕), an optional quote, the auto-growing textarea (⌘/Ctrl+Enter submits), and
@@ -551,10 +556,7 @@ function ReplyBlock({
     <div
       title={rp.author}
       data-reply-author={rp.author}
-      className={cn(
-        "text-xs",
-        isAgent && "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
-      )}
+      className={cn("text-xs", isAgent && AGENT_BUBBLE)}
     >
       {editing ? (
         <textarea
@@ -701,15 +703,17 @@ function FeedbackCard({
   // set by the Edit action below.
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
   const replyGrowRef = useAutoGrow(replyRef, reply, 2);
-  // Selecting text inside one of this card's agent replies raises a "Quote in
-  // reply" bubble; clicking it drops the selection into the reply draft as a `>`
-  // blockquote and opens the composer, caret past the quote (quoteBlock).
-  const eligibleAgentReply = useCallback((range: Range) => {
+  // Selecting text inside any of this card's agent-voiced content — an agent reply
+  // or an agent-authored feedback body — raises a "Quote in reply" bubble; clicking
+  // it drops the selection into the reply draft as a `>` blockquote and opens the
+  // composer, caret past the quote (quoteBlock). Both wear a data-*-author="agent"
+  // marker so one closest() over the selector list covers them.
+  const eligibleAgentContent = useCallback((range: Range) => {
     const n = range.commonAncestorContainer;
     const el = n instanceof Element ? n : n.parentElement;
-    return !!el?.closest('[data-reply-author="agent"]');
+    return !!el?.closest('[data-reply-author="agent"], [data-body-author="agent"]');
   }, []);
-  const { pos: quotePos, hide: hideQuote } = useQuoteBubble(cardRef, eligibleAgentReply);
+  const { pos: quotePos, hide: hideQuote } = useQuoteBubble(cardRef, eligibleAgentContent);
   // The body/reply editors reuse the same grow behaviour; the editor mounts only
   // while editing, so the callback ref sizes it to the existing text on the first
   // frame (a long body opens already-expanded, not clipped to the min).
@@ -1071,12 +1075,19 @@ function FeedbackCard({
         />
       ) : (
         // The body is the headline of the card — a notch larger than everything
-        // else around it — rendered as Markdown.
-        <MessageProse
-          source={fb.body}
-          className="text-sm text-neutral-800 dark:text-neutral-100"
-          onJumpRef={(ref) => onJumpRef(ref, fb.patch_seq ?? null)}
-        />
+        // else around it — rendered as Markdown. Agent-authored feedback is bound
+        // in the same soft primary bubble as the agent's reply blocks: this item
+        // is the agent guiding you, not your own note coming back, so it sets
+        // itself apart from a human reply (plain prose) in the thread below. The
+        // data-body-author marker lets select-to-quote fire on agent-authored body
+        // text (same gesture as an agent reply).
+        <div data-body-author={fb.author} className={cn(fb.author === "agent" && AGENT_BUBBLE)}>
+          <MessageProse
+            source={fb.body}
+            className="text-sm text-neutral-800 dark:text-neutral-100"
+            onJumpRef={(ref) => onJumpRef(ref, fb.patch_seq ?? null)}
+          />
+        </div>
       )}
 
       {fb.replies.length > 0 && (
