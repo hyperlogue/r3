@@ -565,10 +565,11 @@ app.patch("/api/reviews/:id", async (c) => {
   const updated = db.updateReview(id, body);
   if (!updated) return c.text("not found", 404);
   // A rename / summary edit / status flip should reach the open review + the
-  // sidebar live, and wake a blocked `r3 watch` when a review is approved/abandoned
-  // (review-updated refreshes the detail; reviews-changed the multi-project list).
+  // sidebar live, and wake a blocked `r3 watch` when a review is approved/abandoned.
+  // One event only: the SPA's review-updated handler already refetches the reviews
+  // list too, so pairing it with reviews-changed double-fired the open tab's
+  // detail refetch (its handler hits the broad ["review"] key kept for deletes).
   broadcast({ type: "review-updated", reviewId: id });
-  broadcast({ type: "reviews-changed" });
   return c.json(updated);
 });
 

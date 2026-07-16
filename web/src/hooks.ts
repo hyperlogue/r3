@@ -44,9 +44,13 @@ export function useServerEvents(reviewId?: string) {
       }
       if (ev.type === "review-updated" || ev.type === "feedback-updated") {
         invalidate(["review", ev.reviewId]);
-        // A `diff add`/`diff rm` fires review-updated — refetch the rounds too.
-        invalidate(["review-diff", ev.reviewId]);
         invalidate(["reviews"]);
+        // Only review-updated can change a diff review's stored rounds (`diff
+        // add`/`diff rm` broadcast it); a feedback write fires feedback-updated
+        // alone and never touches the patches table — skip the rounds refetch on
+        // the hottest path (resolve/reply/edit). The onopen re-sync above still
+        // blanket-invalidates ["review-diff"] after a reconnect.
+        if (ev.type === "review-updated") invalidate(["review-diff", ev.reviewId]);
       } else if (ev.type === "watchers-changed") {
         invalidate(["watchers", ev.reviewId]);
         // The list carries a live `watching` flag and ranks watched reviews to
