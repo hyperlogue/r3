@@ -111,20 +111,31 @@ jobs:
           PRERELEASE=""
           [[ "$GITHUB_REF_NAME" == *-* ]] && PRERELEASE="--prerelease"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            # Immutable releases (enabled on this repo) freeze a published
+            # release's assets, so a re-run's re-upload is rejected — don't die on
+            # it: the release channel is already converged and the npm steps
+            # below may be the whole reason this run was retried.
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber ||
+              echo "asset upload rejected (immutable release) — keeping existing assets"
           else
-            # Ensure the annotated tag OBJECT is local (checkout may hold only the
-            # commit it points at), then take its message body as the notes. Public
-            # repo → the anonymous fetch needs no creds; non-fatal if already here.
+            # Ensure the annotated tag OBJECT is local (checkout leaves the ref
+            # peeled to the commit), then take its message body as the notes.
+            # Public repo → the anonymous fetch needs no creds; non-fatal when the
+            # object is already here. Gate on the ref's type: on a lightweight (or
+            # still-peeled) tag, %(contents:body) would emit the COMMIT's body —
+            # in this repo never blank (Co-Authored-By trailer) — so reading it
+            # unconditionally would publish a stray trailer instead of falling
+            # back to --generate-notes.
             git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" 2>/dev/null || true
-            git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:body)' > /tmp/relnotes.md
-            if [ -s /tmp/relnotes.md ] && grep -q '[^[:space:]]' /tmp/relnotes.md; then
-              gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
-                --title "$GITHUB_REF_NAME" --notes-file /tmp/relnotes.md $PRERELEASE
+            if [ "$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(objecttype)')" = tag ]; then
+              git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:body)' > /tmp/relnotes.md
             else
-              gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
-                --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE
+              : > /tmp/relnotes.md
             fi
+            NOTES="--generate-notes"
+            grep -q '[^[:space:]]' /tmp/relnotes.md && NOTES="--notes-file /tmp/relnotes.md"
+            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+              --title "$GITHUB_REF_NAME" $NOTES $PRERELEASE
           fi
 
       # Stage the four per-platform npm packages (dist/npm/<pkg>/) from the
