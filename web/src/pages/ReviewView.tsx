@@ -109,12 +109,16 @@ function useActiveLineHighlight(
     if (!root) return;
     for (const el of root.querySelectorAll(".r3-active-line"))
       el.classList.remove("r3-active-line");
-    setHighlightRanges(HL_ACTIVE, []);
     // Summary notes (prose, not file rows) are owned by useActiveSummaryHighlight,
     // which also drives HL_ACTIVE for the located quote — bail before this hook
     // would fight it over the same registry (or spin its retry loop on a
-    // non-existent `@summary` file).
+    // non-existent `@summary` file). The bail comes BEFORE the registry clear:
+    // this effect can re-run on line-hint-only dep changes the summary hook
+    // doesn't share (e.g. a re-anchor moving line_start under the same quote, or
+    // a snapshot-view flip nulling the hints), and clearing here would wipe a
+    // summary quote's highlight that the summary hook won't re-paint.
     if (file === SUMMARY_FILE) return;
+    setHighlightRanges(HL_ACTIVE, []);
     // Scroll only on a human navigation — a new feedback or a re-clicked locate; a
     // background anchor shift (same fbId + nonce) re-marks the rows in place.
     const shouldScroll =
@@ -302,8 +306,10 @@ function useActiveSummaryHighlight(
     // registry also carries a non-summary note's precise-quote highlight, which is
     // owned by useActiveLineHighlight (declared first, so it runs before this hook).
     // Clearing it here unconditionally wiped the focused range's yellow on every
-    // rendered-file/diff feedback. useActiveLineHighlight clears HL_ACTIVE itself
-    // whenever the active note changes, so a stale summary range never leaks.
+    // rendered-file/diff feedback. The two hooks stay out of each other's slot:
+    // the line hook clears only for non-summary notes (it bails on `@summary`
+    // before touching the registry), and a stale summary range is cleared by this
+    // effect's own cleanup below when the active note changes.
     if (!isSummary || fbId == null) return;
     setHighlightRanges(HL_ACTIVE, []);
     const block =
