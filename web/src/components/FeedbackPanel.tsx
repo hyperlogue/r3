@@ -1510,15 +1510,18 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     onLocateFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
   };
 
-  // Replying (without resolving) keeps the card open but sinks it out of the
-  // attention group, so — like resolving — advance focus to the next item down
-  // instead of trailing the just-answered card to the bottom. Unlike resolve, the
-  // card stays in the list, so there's no "slides into its slot" fallback: move to
-  // the strictly-next item if one exists, else leave focus where it is (don't jump
-  // backward to a card already handled). Computed off this render's pre-reply order.
+  // Replying (without resolving) to an attention-group card sinks it out of the
+  // group, so — like resolving — advance focus to the next item down instead of
+  // trailing the just-answered card to the bottom. A rest-group card doesn't move
+  // on a plain reply (the human already had the last word), so advancing off it
+  // would yank the view from a stationary card — leave focus where it is. Unlike
+  // resolve, the card stays in the list, so there's no "slides into its slot"
+  // fallback: strictly-next or stay (don't jump backward to a card already
+  // handled). Computed off this render's pre-reply order.
   const advanceAfterReply = (repliedId: string) => {
     const idx = ordered.findIndex((f) => f.id === repliedId);
-    const next = idx >= 0 ? ordered[idx + 1] : undefined;
+    if (idx < 0 || !needsAttention(ordered[idx])) return;
+    const next = ordered[idx + 1];
     if (next) onLocateFeedback(next);
   };
 
@@ -1847,9 +1850,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     onJumpRef={onJumpRef}
                   />
                 ))}
-                {/* Attention-first ordering keeps the "your turn" cards on top and
-                    sinks the rest below; the two groups run together with no
-                    labelled divider. */}
                 {rest.map((fb) => (
                   <FeedbackCard
                     key={fb.id}
