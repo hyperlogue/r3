@@ -77,14 +77,21 @@ if they drift, so keep them in lockstep:
 6. **Tag** — annotated, on the commit you just made, carrying the changelog
    section as the message **body** so the CI can lift it into the GitHub release
    notes (the `r3 vX.Y.Z` subject is the convention since v0.2.0). The awk pulls
-   the newest `## […]` section, drops its heading (the release title already shows
-   the version) and any leading blanks — no version substitution needed:
+   exactly the `## [X.Y.Z]` section (never a stray `[Unreleased]` or the previous
+   release), minus its heading (the release title already shows the version), and
+   the guard refuses to tag when that section is missing or empty. `--cleanup`
+   matters: git's default mode strips `#`-prefixed lines as comments, which would
+   silently delete every `### Added/Changed/Fixed` group heading from the tag —
+   `whitespace` keeps them and still trims trailing blanks:
    ```sh
    V=X.Y.Z
-   NOTES=$(awk '/^## \[/{n++} n==1' CHANGELOG.md | tail -n +2 | sed '/./,$!d')
-   printf 'r3 v%s\n\n%s\n' "$V" "$NOTES" | git tag -a "v$V" -F -
+   NOTES=$(awk -v v="$V" 'index($0, "## [" v "]")==1{f=1; next} /^## \[/{f=0} f' CHANGELOG.md | sed '/./,$!d')
+   test -n "$NOTES" &&
+     printf 'r3 v%s\n\n%s\n' "$V" "$NOTES" | git tag --cleanup=whitespace -a "v$V" -F - ||
+     echo "refusing to tag: no populated '## [$V]' section in CHANGELOG.md" >&2
    ```
-   Eyeball the message before pushing: `git tag -l --format='%(contents)' "v$V"`.
+   Eyeball the message before pushing — the `###` group headings must have
+   survived: `git tag -l --format='%(contents)' "v$V"`.
 
 7. **Push** — leave the actual push to the user unless they ask, and note that
    this environment often has no push credentials (SSH key / `gh` auth may be
@@ -116,7 +123,8 @@ vX.Y.Z`, fix, then redo step 6. Cheap.
   patch version** (`vX.Y.(Z+1)`) carrying the fix; that is the intended recovery.
   Force-moving a published tag is a rare escape hatch that needs the user to
   *temporarily* lift GitHub's immutable-tag / release protection, then `git tag -f
--a vX.Y.Z -F - <commit>` and `git push --force origin vX.Y.Z`. It's
+--cleanup=whitespace -a vX.Y.Z -F - <commit>` and `git push --force origin
+vX.Y.Z`. It's
   outward-facing and hard to reverse — confirm with the user first, and if the
   branch and tag can't both push, stop and report rather than half-applying.
 
