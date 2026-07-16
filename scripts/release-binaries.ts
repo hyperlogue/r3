@@ -19,14 +19,23 @@ import { browserLoweredCssPlugin } from "./spa-css.ts";
 const DIR = join(import.meta.dir, "..");
 const OUT = join(DIR, "dist");
 
-// Three version sources must agree: shared/version.ts (baked into the binary +
-// reported by /api/health), the git tag the assets are uploaded to, and
-// npm/package.json (what `bunx @hyperlogue/r3` resolves — the launcher pins its
-// platform packages at exactly this version). Fail loudly on drift.
+// The version sources must agree: shared/version.ts (baked into the binary +
+// reported by /api/health), the top-level package.json, the git tag the assets
+// are uploaded to, and npm/package.json (what `bunx @hyperlogue/r3` resolves —
+// the launcher pins its platform packages at exactly this version). Fail loudly
+// on drift.
 const npmVersion = JSON.parse(readFileSync(join(DIR, "npm/package.json"), "utf8")).version;
 if (npmVersion !== R3_VERSION) {
   console.error(
     `version mismatch: npm/package.json is ${npmVersion} but shared/version.ts is ${R3_VERSION}.\n` +
+      `Sync them, then upload dist/* to a release tagged v${R3_VERSION}.`,
+  );
+  process.exit(1);
+}
+const rootVersion = JSON.parse(readFileSync(join(DIR, "package.json"), "utf8")).version;
+if (rootVersion !== R3_VERSION) {
+  console.error(
+    `version mismatch: package.json is ${rootVersion} but shared/version.ts is ${R3_VERSION}.\n` +
       `Sync them, then upload dist/* to a release tagged v${R3_VERSION}.`,
   );
   process.exit(1);
