@@ -670,7 +670,10 @@ function FeedbackCard({
   // aren't known yet: sent_at/ref_version stay null (so its `@path` refs simply
   // don't resolve until the echo lands — fine transiently).
   const optimisticReply = (body: string): Reply => ({
-    id: `reply_tmp_${crypto.randomUUID().slice(0, 8)}`,
+    // Not crypto.randomUUID(): that's secure-context-only, and the SPA is served
+    // over plain http on a non-loopback bind (R3_BIND) — Math.random is plenty
+    // for a throwaway local id.
+    id: `reply_tmp_${Math.random().toString(36).slice(2, 10)}`,
     feedback_id: fb.id,
     author: "human",
     body,
