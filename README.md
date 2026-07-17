@@ -8,6 +8,11 @@
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey" alt="platforms: macOS, Linux">
+  <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
+</p>
+
+<p align="center">
+  <a href="https://hyperlogue.github.io/r3/demo/"><b>▶&nbsp;Try the live demo</b></a> — the full UI, running entirely in your browser. No install, no sign-up.
 </p>
 
 r3 is a review tool for the diffs and docs produced by your coding agents, running

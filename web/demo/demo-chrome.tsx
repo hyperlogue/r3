@@ -5,6 +5,7 @@
 // re-opens the intro; the intro carries the Reset action (restore the seeded state).
 
 import { useCallback, useEffect, useState } from "react";
+import { hrefFor } from "../src/router.ts";
 import { Button, cn } from "../src/ui.tsx";
 import { resetDemo } from "./store.ts";
 
@@ -40,7 +41,8 @@ export function DemoChrome() {
     )
       return;
     resetDemo();
-    location.reload(); // base-agnostic: re-seed and reload the current URL
+    // Back to the demo's own root (e.g. /r3/demo/, not the site root "/"), re-seeded.
+    location.href = hrefFor("/");
   }
 
   // Escape closes the intro, matching the settings popup.
@@ -53,17 +55,29 @@ export function DemoChrome() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
 
+  // The badge and the Reset pill share px-2/py-0.5/text-[0.7rem]/rounded-full, so
+  // the two sit as an equal-height, matched pair to the left of the settings gear.
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        title="This runs entirely in your browser — no server. Click for a quick intro."
-        className="mr-2 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary-300 bg-primary-50 px-2 py-0.5 text-[0.7rem] font-medium text-primary-700 transition-colors hover:bg-primary-100 dark:border-primary-800/70 dark:bg-primary-950/50 dark:text-primary-300 dark:hover:bg-primary-900/50"
-      >
-        <span className="size-1.5 rounded-full bg-primary-500" aria-hidden="true" />
-        Live demo
-      </button>
+      <div className="mr-2 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          title="This runs entirely in your browser — no server. Click for a quick intro."
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary-300 bg-primary-50 px-2 py-0.5 text-[0.7rem] font-medium text-primary-700 transition-colors hover:bg-primary-100 dark:border-primary-800/70 dark:bg-primary-950/50 dark:text-primary-300 dark:hover:bg-primary-900/50"
+        >
+          <span className="size-1.5 rounded-full bg-primary-500" aria-hidden="true" />
+          Live demo
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          title="Reset the demo — discard your edits and restore the seeded reviews"
+          className="inline-flex shrink-0 items-center rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[0.7rem] font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+        >
+          ⟳ Reset
+        </button>
+      </div>
 
       {open && <IntroDialog onClose={close} onReset={reset} />}
     </>
