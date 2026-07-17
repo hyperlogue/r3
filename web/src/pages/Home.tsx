@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api.ts";
 import { clearDraft, useHasDraft } from "../drafts.ts";
 import { STATUS_DOT, sortReviews, sourceLabel } from "../format.ts";
-import { navigate } from "../router.ts";
+import { hrefFor, navigate } from "../router.ts";
 import type { RepoRecord, Review } from "../types.ts";
 import { cn } from "../ui.tsx";
 
@@ -89,7 +89,7 @@ function ReviewRow({
           new tab natively, while a plain left-click stays in-app (preventDefault
           + client-side navigate). Modified/aux clicks fall through to the browser. */}
       <a
-        href={`/${r.id}`}
+        href={hrefFor(`/${r.id}`)}
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();

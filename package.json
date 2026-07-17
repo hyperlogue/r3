@@ -13,6 +13,9 @@
     "dev": "R3_DEV=1 bun --watch server/index.ts",
     "build": "bun scripts/compile.ts",
     "cli": "bun cli/index.ts",
+    "gen:demo": "bun scripts/gen-demo-fixtures.ts",
+    "build:demo": "bun scripts/build-demo.ts",
+    "stage:pages": "bun scripts/stage-pages.ts",
     "typecheck": "tsc --noEmit",
     "storybook": "storybook dev -p 6007",
     "build-storybook": "storybook build"

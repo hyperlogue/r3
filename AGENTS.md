@@ -116,13 +116,19 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
   src/drafts.ts  per-review composer drafts (localStorage)   selection.ts  range select
-  router.ts      tiny pathname router (`/` reviews list, `/review_<id>` a review)   ui.tsx  shared UI
+  router.ts      tiny pathname router (`/` reviews list, `/review_<id>` a review);
+                 base-aware (`hrefFor`) so the demo can mount under a sub-path   ui.tsx  shared UI
+  demo/          the frontend-only demo's in-browser backend (see Build & distribution):
+                 api.ts (aliased over web/src/api.ts) + backend/store/bus/agent/watchers +
+                 fixtures.gen.ts (baked seed) — no daemon, no git, all in the browser
 shared/types.ts  the HTTP contract (domain model + request/response shapes)
 shared/version.ts build version — /api/health reports it; the CLI warns on skew
 scripts/compile.ts  one `Bun.build({compile})` — bundles+embeds the SPA -> ./r3 binary
 scripts/spa-css.ts  browser-target Tailwind CSS pre-pass for compile builds (de-nests)
 scripts/release-binaries.ts  cross-compile dist/r3-<os>-<arch> + SHA256SUMS for a release
 scripts/stage-npm-packages.ts  stage the 4 per-platform npm binary packages + stamp launcher pins
+scripts/gen-demo-fixtures.ts  bake the demo seed (rendered Shiki/markdown HTML) -> web/demo/fixtures.gen.ts
+scripts/build-demo.ts  Bun.build the frontend-only demo -> dist/demo (sub-path aware)
 bunfig.toml      registers bun-plugin-tailwind so the from-source daemon bundles CSS
 npm/             the published `r3` launcher (bunx/npx): resolves+execs the matching
                  per-platform binary package (`@hyperlogue/r3-<os>-<arch>`, an optional dep)
@@ -596,6 +602,29 @@ optimistically so the fold is instant).
   pins that name to an empty stub. The plugin has no public source repo — report
   issues to oven-sh/bun, and drop the override if a release marks the peer
   optional or moves it to `engines`.
+- **Frontend-only demo → GitHub Pages.** `bun run build:demo` (`scripts/build-demo.ts`)
+  produces a static `dist/demo/` that runs the **whole SPA with no daemon** — a
+  third client of the same components, but its "backend" is an **in-browser store**
+  (`web/demo/`) over `localStorage`. It's the *same* `web/index.html` Bun.build,
+  with one `onResolve` alias swapping `web/src/api.ts` → `web/demo/api.ts` (so every
+  fetch/SSE call hits the browser backend) and an `EventSource` shim; the demo
+  reuses the server's genuinely *pure* modules verbatim (`anchor.ts`, `textdiff.ts`,
+  `prompt.ts`, `shared/types.ts`) and **pre-bakes** all Shiki/markdown HTML at build
+  time (`gen-demo-fixtures.ts`), so **no highlighter, sqlite, or git ships to the
+  browser**. The seed dogfoods r3 on its own code; a scripted agent watches each
+  review and closes the submit→reply→round loop. `.github/workflows/pages.yml`
+  builds it and deploys to Pages on push to `main`, mounting it at
+  **`…/r3/demo/`** — the project page (`/r3/`, the repo name, forced by Pages) plus
+  a `/demo` sub-path. `R3_DEMO_BASE=<base_path>/demo` (base_path from
+  configure-pages) bakes that prefix into the router (`hrefFor`/`__R3_BASE__`) and
+  asset `publicPath`, then `stage-pages.ts` lays out `dist/pages`: the build under
+  `demo/`, a root→demo redirect, and — because **Pages honors only a single
+  site-root `404.html`** (subdirectory ones are ignored) — the SPA copied to the
+  site-root `404.html` so a deep-link reload of `/r3/demo/review_x` still boots it
+  (its asset URLs are absolute). Local `build:demo` defaults to root base so
+  `bunx serve -s dist/demo` just works. Reviews can't be *created* in the demo (no
+  git) — it's a read-and-respond tour of the seeded reviews. **The demo must never
+  fork the contract**: it implements `shared/types.ts`, it doesn't extend it.
 - **Heritage.** v1 was one server per repo with a gitignored per-repo
   `.r3/review.sqlite`; v2 replaced it with the one per-user daemon + global store
   described above. Some code comments still cite the old model as history.
@@ -609,6 +638,8 @@ process-compose up          # the dev daemon, isolated to workspace/ on port 889
 bun cli/index.ts <cmd>      # drive the CLI against the running daemon (lazily spawns one)
 bun run storybook           # component workshop on :6007 (process-compose up storybook)
 bun run build               # Bun.build --compile -> single ./r3 binary (embeds the SPA)
+bun run gen:demo            # re-bake the demo seed fixtures (only after editing canned content)
+bun run build:demo          # Bun.build the frontend-only demo -> dist/demo (serve: bunx serve -s dist/demo)
 ```
 
 - **Nix + direnv**: `direnv allow` (or `nix develop`) gives bun and biome.

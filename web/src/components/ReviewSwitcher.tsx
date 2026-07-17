@@ -1,4 +1,4 @@
-import { navigate } from "../router.ts";
+import { hrefFor, navigate } from "../router.ts";
 
 // The "Reviews" breadcrumb back to the reviews home list — always present in the
 // top navbar (App.Header), whether or not a review is open — the reviews list is
@@ -11,7 +11,7 @@ import { navigate } from "../router.ts";
 export function ReviewSwitcher() {
   return (
     <a
-      href="/"
+      href={hrefFor("/")}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
