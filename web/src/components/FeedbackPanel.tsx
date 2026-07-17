@@ -10,6 +10,7 @@ import {
   clearGeneral,
   getDraft,
   pruneReplyDrafts,
+  setDraftAnchor,
   setDraftText,
   setGeneralText,
   setReplyText,
@@ -22,7 +23,6 @@ import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
   Author,
-  Feedback,
   FeedbackWithReplies,
   Reply,
   ReviewDetail,
@@ -395,13 +395,19 @@ function useComposerKeys(
 function GeneralFeedback({
   reviewId,
   onClose,
-  onCommit,
+  onSubmit,
+  submitPending,
+  submitError,
 }: {
   reviewId: string;
-  // onClose discards the general note (clears the draft + closes); onCommit hands
-  // the panel the new row (optimistic insert + cache reconcile + close).
+  // onClose discards the general note (clears the draft + closes). The panel owns
+  // the mutation (optimistic insert + rollback + reconcile) so it survives this
+  // composer unmounting the instant the note is submitted — onSubmit just hands it
+  // the note text.
   onClose: () => void;
-  onCommit: (fb: Feedback) => void;
+  onSubmit: (body: string) => void;
+  submitPending: boolean;
+  submitError: string | null;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const value = useGeneralDraft(reviewId);
@@ -409,16 +415,6 @@ function GeneralFeedback({
   // cancels when empty. onClose already clears the draft + closes. No Space-to-focus
   // — the input is autofocused, so Space must type a space, not jump focus.
   useComposerKeys(textareaRef, onClose, false);
-  const add = useMutation({
-    mutationFn: () =>
-      api.addFeedback(reviewId, {
-        lineStart: null,
-        lineEnd: null,
-        body: value,
-        author: "human",
-      }),
-    onSuccess: (fb) => onCommit(fb),
-  });
   return (
     <ComposerBlock
       label="General feedback"
@@ -428,9 +424,9 @@ function GeneralFeedback({
       placeholder={`A note about the review as a whole…  (${SUBMIT_KEYS} to add · Esc to cancel)`}
       autoFocus
       submitLabel="Save"
-      onSubmit={() => add.mutate()}
-      submitPending={add.isPending}
-      error={add.isError ? apiErrorText(add.error) : null}
+      onSubmit={() => onSubmit(value)}
+      submitPending={submitPending}
+      error={submitError}
       onClose={onClose}
     />
   );
@@ -440,15 +436,19 @@ function NewFeedback({
   reviewId,
   pending,
   onDiscard,
-  onCommit,
+  onSubmit,
+  submitPending,
+  submitError,
 }: {
   reviewId: string;
   pending: PendingAnchor;
   onDiscard: () => void;
-  // The panel owns the post-create work (optimistic insert + cache reconcile +
-  // draft clear), so a successful add just hands it the new row. onDiscard stays
-  // for Cancel/✕.
-  onCommit: (fb: Feedback) => void;
+  // The panel owns the mutation (optimistic insert + rollback + reconcile) so it
+  // survives this composer unmounting the instant the note is submitted — onSubmit
+  // just hands it the note text. onDiscard stays for Cancel/✕.
+  onSubmit: (body: string) => void;
+  submitPending: boolean;
+  submitError: string | null;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // The anchored note lives in the browser draft store, keyed to this review.
@@ -464,21 +464,6 @@ function NewFeedback({
   // Esc-cancels-when-empty (shared with the general note); Space-to-focus only for
   // the non-autofocused selection composers, so an autofocused input types spaces.
   useComposerKeys(textareaRef, onDiscard, !autoFocusInput);
-
-  const add = useMutation({
-    mutationFn: () =>
-      api.addFeedback(reviewId, {
-        file: pending.file,
-        side: pending.side,
-        lineStart: pending.lineStart,
-        lineEnd: pending.lineEnd,
-        quote: pending.quote,
-        body: draftText,
-        author: "human",
-        patchSeq: pending.patchSeq ?? null,
-      }),
-    onSuccess: (fb) => onCommit(fb),
-  });
 
   const label =
     pending.file === SUMMARY_FILE ? (
@@ -508,9 +493,9 @@ function NewFeedback({
       }
       autoFocus={autoFocusInput}
       submitLabel="Add feedback"
-      onSubmit={() => add.mutate()}
-      submitPending={add.isPending}
-      error={add.isError ? apiErrorText(add.error) : null}
+      onSubmit={() => onSubmit(draftText)}
+      submitPending={submitPending}
+      error={submitError}
       anchored
       onClose={onDiscard}
     />
@@ -1371,12 +1356,24 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   const [generalOpen, setGeneralOpen] = useState(false);
   const generalText = useGeneralDraft(detail.id);
   const showGeneral = generalOpen || generalText.trim() !== "";
-  // A just-created feedback rides in local state so the new card appears the
-  // instant the composer clears — no wait for the refetch — which lets auto-animate
-  // play its enter animation on it right away. Dropped once the real review row
-  // (SSE/refetch) carries the same id, so the card swaps to the server copy in
-  // place — same key, no remount.
-  const [optimistic, setOptimistic] = useState<FeedbackWithReplies | null>(null);
+  // A failed create's message: the create mutation lives on the panel (below), so
+  // its error can't ride the composer's own hook — surface it back on the restored
+  // composer. Cleared when a fresh compose starts (onMutate) or a composer closes.
+  const [createError, setCreateError] = useState<string | null>(null);
+  // The optimistic create inserts a stand-in card under a throwaway id, then swaps
+  // in the server row (real id) once the POST returns. Keying the card on the
+  // server id would make that swap a list remove+add — the placeholder would slide
+  // out while the real card rises in. Instead pin the real row back under the
+  // placeholder's key so the card keeps its DOM node across the swap (auto-animate
+  // sees no structural change). realId → stable key; every other row keys on its
+  // own id (keyFor falls through).
+  const clientKey = useRef(new Map<string, string>());
+  const keyFor = (id: string) => clientKey.current.get(id) ?? id;
+  // The latest active feedback id, read inside the async create mutation without
+  // re-subscribing it — so onSuccess can tell whether the human is still focused on
+  // the just-created card (re-select it under its real id) or has moved on.
+  const activeIdRef = useRef(activeFeedbackId);
+  activeIdRef.current = activeFeedbackId;
 
   // The composer region sits at the *bottom* of the list; reveal it when a new
   // anchor selection or the general note opens it (a scrolled-down user needs it
@@ -1454,16 +1451,13 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     );
   }, [detail.id, feedbackIdsKey]);
 
-  // Resolved feedback lives in its own tab so the working set stays focused.
+  // Resolved feedback lives in its own tab so the working set stays focused. A
+  // just-created feedback's stand-in row is already in detail.feedback (the create
+  // mutation's onMutate patched the cached ReviewDetail), so it sorts in naturally
+  // — feedback is created_at ASC, so it lands last, right above the composer it was
+  // typed in.
   const resolved = detail.feedback.filter((f) => f.status === "resolved");
-  // Fold the optimistic card (if its real row hasn't landed) onto the end of the
-  // active list — feedback is created_at ASC, so a new one sorts last, right above
-  // the bottom composer it was typed in. `optimistic && …` narrows it non-null.
-  const activeReal = detail.feedback.filter((f) => f.status !== "resolved");
-  const active =
-    optimistic && !detail.feedback.some((f) => f.id === optimistic.id)
-      ? [...activeReal, optimistic]
-      : activeReal;
+  const active = detail.feedback.filter((f) => f.status !== "resolved");
   // Attention-first ordering within the Active tab: cards where the agent had the
   // last word ("your turn") float above the rest, each group keeping its created_at
   // order — a *stable* partition, so a card moves only when its turn actually flips
@@ -1474,12 +1468,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   const attention = active.filter(needsAttention);
   const rest = active.filter((f) => !needsAttention(f));
   const ordered = [...attention, ...rest];
-
-  // Once the real review row for the optimistic card lands, drop the local copy;
-  // the server row takes its slot under the same key (no remount, no flicker).
-  useEffect(() => {
-    if (optimistic && detail.feedback.some((f) => f.id === optimistic.id)) setOptimistic(null);
-  }, [detail.feedback, optimistic]);
 
   // A single highlight pill that slides (translateX + width) to the active filter
   // tab. The two pills are different, count-dependent widths, so measure the
@@ -1525,25 +1513,122 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     if (next) onLocateFeedback(next);
   };
 
-  // Commit a freshly-created feedback: drop it in as the optimistic card (so it
-  // appears the instant the composer clears) on the active tab. auto-animate then
-  // plays the enter animation (feedbackAnimation) on the new card. The real row
-  // reconciles in behind the same id.
-  const commitCreated = (fb: Feedback, clearComposer: () => void) => {
-    const row: FeedbackWithReplies = { ...fb, replies: [] };
-    setOptimistic(row);
-    setTab("active");
-    clearComposer();
-    // Focus the just-saved feedback: select it (amber rail) and scroll its card
-    // into view — the effect keyed on activeFeedbackId brings the new card up, and
-    // for an anchored note the file pane jumps to its line. A general note has no
-    // file, so it just lights the card.
-    onLocateFeedback(row);
-    // No explicit refetch: creating the feedback broadcast a feedback-updated
-    // event this tab receives too, and useServerEvents refetches the detail off
-    // it — which lands the authoritative row (derived anchor/sha, sent_at) and
-    // drops the local optimistic copy (the effect above keyed on detail.feedback).
-  };
+  // Create feedback optimistically — the same shape as the card mutations
+  // (resolve/reply/edit/delete): onMutate patches the cached ReviewDetail so the
+  // new card appears the instant the composer is submitted, onError rolls the
+  // snapshot back (and restores the composer draft so a failed add isn't lost), and
+  // the write's own SSE echo refetch reconciles the server-derived fields (real id,
+  // code_sha, exact anchor state, sent_at). No onSettled refetch — the echo is the
+  // single reconcile path, as with the other mutations.
+  //
+  // The mutation lives here on the panel rather than in the composer components:
+  // onMutate clears the composer (which unmounts NewFeedback/GeneralFeedback), and a
+  // child's mutation callbacks can't be relied on to run after it unmounts. The
+  // note body + anchor + composer clear/restore all ride as mutate *variables* so a
+  // pending mutation's re-synced options never read post-clear draft state.
+  const reviewKey = ["review", detail.id] as const;
+  // A stand-in feedback row shown while the POST is in flight. Its id is a throwaway
+  // the reconcile re-keys under (clientKey); the server-derived fields aren't known
+  // yet, so code_sha/sent_at stay null and the anchor is an optimistic "anchored"
+  // (the echo corrects it — a files-review note against a snapshot may relocate).
+  const optimisticFeedback = (anchor: PendingAnchor | null, body: string): FeedbackWithReplies => ({
+    // Math.random (not crypto.randomUUID, which is secure-context-only) — a
+    // throwaway local id, same as the optimistic-reply stand-in.
+    id: `feedback_tmp_${Math.random().toString(36).slice(2, 10)}`,
+    review_id: detail.id,
+    author: "human",
+    body,
+    file: anchor?.file ?? "", // "" = general (review-level) feedback
+    side: anchor?.side ?? null,
+    line_start: anchor?.lineStart ?? null,
+    line_end: anchor?.lineEnd ?? null,
+    quote: anchor?.quote ?? null,
+    code_sha: null,
+    anchor: "anchored",
+    status: "open",
+    patch_seq: anchor?.patchSeq ?? null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    sent_at: null,
+    status_unsent: false,
+    replies: [],
+  });
+  const addFeedback = useMutation({
+    onMutate: async (v: {
+      anchor: PendingAnchor | null;
+      body: string;
+      clear: () => void;
+      restore: () => void;
+    }) => {
+      setCreateError(null);
+      // Halt any in-flight refetch and snapshot the cache so the optimistic insert
+      // is authoritative until the mutation settles (the snapshot is the rollback
+      // target) — a mid-mutation echo can't clobber it and flicker.
+      await qc.cancelQueries({ queryKey: reviewKey });
+      const prev = qc.getQueryData<ReviewDetail>(reviewKey);
+      const row = optimisticFeedback(v.anchor, v.body);
+      qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
+        d ? { ...d, feedback: [...d.feedback, row] } : d,
+      );
+      // Clear the composer + reveal the new card the instant it's submitted, and
+      // focus it: select it (amber rail), scroll its card up, and for an anchored
+      // note jump the file pane to its line (a general note just lights the card).
+      v.clear();
+      setTab("active");
+      onLocateFeedback(row);
+      return { prev, tmpId: row.id };
+    },
+    mutationFn: (v: {
+      anchor: PendingAnchor | null;
+      body: string;
+      clear: () => void;
+      restore: () => void;
+    }) =>
+      api.addFeedback(
+        detail.id,
+        v.anchor
+          ? {
+              file: v.anchor.file,
+              side: v.anchor.side,
+              lineStart: v.anchor.lineStart,
+              lineEnd: v.anchor.lineEnd,
+              quote: v.anchor.quote,
+              body: v.body,
+              author: "human",
+              patchSeq: v.anchor.patchSeq ?? null,
+            }
+          : { lineStart: null, lineEnd: null, body: v.body, author: "human" },
+      ),
+    onSuccess: (fb, _v, ctx) => {
+      if (!ctx?.tmpId) return;
+      // Pin the server row back under the placeholder's key so the card keeps its
+      // DOM node across the id swap (no exit/enter animation), then swap the
+      // stand-in for the authoritative row (real id) so an immediate
+      // resolve/reply/edit hits a real id even if the SSE echo never lands.
+      clientKey.current.set(fb.id, ctx.tmpId);
+      qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
+        d
+          ? {
+              ...d,
+              feedback: d.feedback.map((f) => (f.id === ctx.tmpId ? { ...fb, replies: [] } : f)),
+            }
+          : d,
+      );
+      // Re-select the card under its real id so it stays lit across the swap — but
+      // only if the human is still focused on it (they may have clicked away).
+      if (activeIdRef.current === ctx.tmpId) onLocateFeedback({ ...fb, replies: [] });
+    },
+    onError: (e, v, ctx) => {
+      // A failed write has no SSE echo, so nothing else reconciles: restore the
+      // snapshot, then refetch (after, so the manual setQueryData doesn't swallow
+      // the invalidation) in case it predates a concurrent write.
+      if (ctx?.prev) qc.setQueryData(reviewKey, ctx.prev);
+      qc.invalidateQueries({ queryKey: reviewKey });
+      // Put the composer back with its text so the note isn't lost, and show why.
+      v.restore();
+      setCreateError(apiErrorText(e));
+    },
+  });
 
   // When a feedback becomes active — notably by clicking its highlighted region
   // in the file pane — reveal its tab, then scroll its card into view. Split in
@@ -1617,14 +1702,43 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     <NewFeedback
       reviewId={detail.id}
       pending={pending}
-      onDiscard={onDiscardPending}
-      onCommit={(fb) => commitCreated(fb, onSubmittedPending)}
+      onDiscard={() => {
+        setCreateError(null);
+        onDiscardPending();
+      }}
+      onSubmit={(body) =>
+        addFeedback.mutate({
+          anchor: pending,
+          body,
+          clear: onSubmittedPending,
+          // Rebuild the anchored draft (anchor + text) so a failed add reopens the
+          // composer exactly as it was submitted.
+          restore: () => {
+            setDraftAnchor(detail.id, pending);
+            setDraftText(detail.id, body);
+          },
+        })
+      }
+      submitPending={addFeedback.isPending}
+      submitError={createError}
     />
   ) : showGeneral ? (
     <GeneralFeedback
       reviewId={detail.id}
-      onClose={closeGeneral}
-      onCommit={(fb) => commitCreated(fb, closeGeneral)}
+      onClose={() => {
+        setCreateError(null);
+        closeGeneral();
+      }}
+      onSubmit={(body) =>
+        addFeedback.mutate({
+          anchor: null,
+          body,
+          clear: closeGeneral,
+          restore: () => setGeneralText(detail.id, body),
+        })
+      }
+      submitPending={addFeedback.isPending}
+      submitError={createError}
     />
   ) : null;
   const heldComposer = useRef<ReactNode>(null);
@@ -1679,6 +1793,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               aria-label="Add general feedback"
               title="Add general feedback — a note about the review as a whole, not tied to any line"
               onClick={() => {
+                setCreateError(null);
                 onDiscardPending();
                 setTab("active");
                 setGeneralOpen(true);
@@ -1839,7 +1954,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               <div ref={listAnim}>
                 {attention.map((fb) => (
                   <FeedbackCard
-                    key={fb.id}
+                    key={keyFor(fb.id)}
                     fb={fb}
                     reviewId={detail.id}
                     isActive={fb.id === activeFeedbackId}
@@ -1852,7 +1967,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 ))}
                 {rest.map((fb) => (
                   <FeedbackCard
-                    key={fb.id}
+                    key={keyFor(fb.id)}
                     fb={fb}
                     reviewId={detail.id}
                     isActive={fb.id === activeFeedbackId}
@@ -1873,7 +1988,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
             <div ref={listAnim}>
               {resolved.map((fb) => (
                 <FeedbackCard
-                  key={fb.id}
+                  key={keyFor(fb.id)}
                   fb={fb}
                   reviewId={detail.id}
                   isActive={fb.id === activeFeedbackId}
