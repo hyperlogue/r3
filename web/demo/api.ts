@@ -21,15 +21,14 @@ import * as backend from "./backend.ts";
 import { broadcast, installEventSourceShim } from "./bus.ts";
 import { ApiError } from "./errors.ts";
 import { getState, persist } from "./store.ts";
-import { installDemoChrome } from "./ui.ts";
 import { armDemoWatchers, getWatchers, stopWatching } from "./watchers.ts";
 
-// Install the SSE shim before anything constructs an EventSource, paint the demo
-// chrome, and seed the scripted agent as a live watcher on every review (so the
-// panel opens in "Submit to agent" mode). All safe at import time (main.tsx
-// imports this first, synchronously, before any query runs).
+// Install the SSE shim before anything constructs an EventSource, and seed the
+// scripted agent as a live watcher on every review (so the panel opens in "Submit
+// to agent" mode). Both are safe at import time (main.tsx imports this first,
+// synchronously, before any query runs). The nav-bar "Live demo" badge + intro
+// render via <DemoChrome> in the header (web/demo/demo-chrome.tsx), not here.
 installEventSourceShim();
-installDemoChrome();
 armDemoWatchers();
 
 // The real app sends this as x-r3-token; in the demo it's cosmetic but must be

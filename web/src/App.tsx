@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Logo, type LogoHandle } from "./components/Logo.tsx";
 import { ReviewSwitcher } from "./components/ReviewSwitcher.tsx";
 import { SettingsPopup } from "./components/SettingsPopup.tsx";
+import { DemoChrome } from "./demo-chrome.tsx";
 import { useServerEvents } from "./hooks.ts";
 import { Home } from "./pages/Home.tsx";
 import { ReviewView } from "./pages/ReviewView.tsx";
@@ -32,7 +33,12 @@ function Header() {
         <span aria-hidden="true" className="h-4 w-px shrink-0 bg-neutral-200 dark:bg-neutral-800" />
         <ReviewSwitcher />
       </div>
-      <SettingsPopup />
+      {/* Right cluster: the demo badge (only rendered by the frontend-only demo
+          build — a no-op stub otherwise) sits just left of the settings gear. */}
+      <div className="flex items-center self-stretch">
+        <DemoChrome />
+        <SettingsPopup />
+      </div>
     </header>
   );
 }

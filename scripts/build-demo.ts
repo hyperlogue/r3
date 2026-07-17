@@ -19,9 +19,15 @@ import type { BunPlugin } from "bun";
 import tailwind from "bun-plugin-tailwind";
 
 const DIR = join(import.meta.dir, "..");
-const REAL_API = join(DIR, "web/src/api.ts");
-const DEMO_API = join(DIR, "web/demo/api.ts");
 const OUT = join(DIR, "dist/demo");
+
+// web/src modules the demo build swaps for its own: api.ts routes every fetch/SSE
+// call to the in-browser backend; demo-chrome.tsx replaces the production no-op
+// stub with the real "Live demo" badge + intro.
+const ALIASES: Record<string, string> = {
+  [join(DIR, "web/src/api.ts")]: join(DIR, "web/demo/api.ts"),
+  [join(DIR, "web/src/demo-chrome.tsx")]: join(DIR, "web/demo/demo-chrome.tsx"),
+};
 
 // Normalize R3_DEMO_BASE to a leading+trailing-slash prefix: "/" (root),
 // "/r3/" (a project page), or "/r3/demo/" (a sub-path within one). split/filter
@@ -29,16 +35,17 @@ const OUT = join(DIR, "dist/demo");
 const slug = (process.env.R3_DEMO_BASE ?? "/").split("/").filter(Boolean).join("/");
 const BASE = slug ? `/${slug}/` : "/";
 
-// Redirect only the SPA's own api module (web/src/api.ts). Every importer reaches
-// it as "./api.ts" or "../api.ts"; resolve against the importer and match the
-// exact file so nothing else ending in api.ts is touched.
-const aliasDemoApi: BunPlugin = {
-  name: "r3-demo-api-alias",
+// Redirect the aliased web/src modules to their web/demo counterparts. Every
+// importer reaches them as "./x" or "../x"; resolve against the importer and match
+// the exact file so nothing else with the same basename is touched.
+const aliasDemo: BunPlugin = {
+  name: "r3-demo-alias",
   setup(build) {
-    build.onResolve({ filter: /api\.ts$/ }, (args) => {
+    build.onResolve({ filter: /(api\.ts|demo-chrome\.tsx)$/ }, (args) => {
       if (!args.importer) return undefined;
       const target = resolve(dirname(args.importer), args.path);
-      return target === REAL_API ? { path: DEMO_API } : undefined;
+      const to = ALIASES[target];
+      return to ? { path: to } : undefined;
     });
   },
 };
@@ -50,7 +57,7 @@ await rm(OUT, { recursive: true, force: true });
 const result = await Bun.build({
   entrypoints: [join(DIR, "web/index.html")],
   outdir: OUT,
-  plugins: [tailwind, aliasDemoApi],
+  plugins: [tailwind, aliasDemo],
   minify: true,
   sourcemap: "none",
   // publicPath prefixes every emitted asset URL so they resolve from a deep
