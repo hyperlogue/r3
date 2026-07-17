@@ -1392,7 +1392,9 @@ lazily on your first command — run commands from inside the repo under review.
    Before they start reading, orient them: set a summary (r3 edit <id>
    --summary "...") and open feedback on the spots that matter
    (r3 feedback add — see "Guide the review" below). A guided review reads
-   faster than a wall of 30 files.
+   faster than a wall of 30 files. For a files review, also snapshot the
+   starting state now (r3 snapshot <id>) before handing off, so your later
+   edits diff against exactly the content they reviewed.
 2. r3 watch <id>  — blocks until the human clicks Submit, then prints the new
    feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
    0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out.
@@ -1446,6 +1448,7 @@ files — a live view of current content: watched, edits appear immediately, fee
 re-anchors as files change.
   r3 files add|rm <id> <path|glob>...  # change the file set
   r3 snapshot <id> --label "..."  # freeze content so the human can diff your changes across turns
+                                  #   (snapshot the starting state before handoff, then after each round)
   r3 snapshot list|rm <id> [seq]
   r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "..."]  # when an edit moved the code
 
