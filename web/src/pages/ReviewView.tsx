@@ -16,6 +16,7 @@ import { FeedbackPanel } from "../components/FeedbackPanel.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { FileView } from "../components/FileView.tsx";
+import { JumpToFile } from "../components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos, quoteBlock } from "../components/Message.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
@@ -36,6 +37,11 @@ import {
   setHighlightRanges,
   supportsHighlights,
 } from "../mdhighlight.ts";
+// The one sanctioned mobile-module import (see AGENTS.md "Mobile"): ReviewView
+// is the single mount point that swaps the desktop side-dock for the phone
+// chrome. Everything else mobile is inert max-md:/pointer-coarse: classes.
+import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
+import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
@@ -672,11 +678,21 @@ const TOOLBAR_BTN =
 // so its round switcher stays reachable).
 function PaneToolbar({
   hasFiles,
+  files,
+  viewed,
+  activePath,
+  onSelectFile,
   onJump,
   onFoldAll,
   right,
 }: {
   hasFiles: boolean;
+  // The jump-to-file picker's data — the same list/viewed/active the sidebar
+  // tree gets, so the two navigations can't disagree.
+  files: string[];
+  viewed: Set<string>;
+  activePath: string | null;
+  onSelectFile: (path: string) => void;
   onJump: (dir: 1 | -1) => void;
   onFoldAll: (mode: "fold" | "unfold") => void;
   right?: ReactNode;
@@ -686,7 +702,7 @@ function PaneToolbar({
   // only — we deliberately DON'T match the feedback panel's bars across the split
   // (equal heights there read as one connected bar); those keep their own heights.
   return (
-    <div className="flex h-8 shrink-0 items-center border-b border-neutral-300 bg-white px-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+    <div className="flex h-8 shrink-0 items-center border-b border-neutral-300 bg-white px-1.5 max-md:overflow-x-auto dark:border-neutral-700 dark:bg-neutral-950">
       {hasFiles && (
         <>
           <button
@@ -717,6 +733,14 @@ function PaneToolbar({
           >
             <ToolbarIcon d={["m7 15 5 5 5-5", "m7 9 5-5 5 5"]} />
           </button>
+          <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+          <JumpToFile
+            files={files}
+            viewed={viewed}
+            activePath={activePath}
+            onSelect={onSelectFile}
+            btnClassName={TOOLBAR_BTN}
+          />
         </>
       )}
       {/* Full-height, flush-right slot: `self-stretch` fills the bar's height and
@@ -995,6 +1019,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     defaultFraction: 0.382,
     containerRef: splitRef,
   });
+  // Phone tier: the side dock and sidebar don't mount; the same FeedbackPanel
+  // renders inside the MobileReviewChrome sheet instead (closed / composer-peek
+  // / full). All mobile deltas live at this mount-point fork + the sheet-state
+  // nudges below — never inside the panel or the domain state.
+  const isMobile = useIsMobile();
+  const [sheet, setSheet] = useState<MobileSheetState>("closed");
 
   const {
     data: detail,
@@ -1446,8 +1476,11 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       }
       setFileQuote(null);
       setDraftAnchor(reviewId, anchor);
+      // Phone tier: raise the composer peek — not the full sheet — so the code
+      // just annotated stays on screen while typing.
+      if (isMobile) setSheet("peek");
     },
-    [reviewId],
+    [reviewId, isMobile],
   );
 
   const onPickLines = useCallback(
@@ -1488,8 +1521,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         quote: null,
         patchSeq,
       });
+      if (isMobile) setSheet("peek");
     },
-    [reviewId],
+    [reviewId, isMobile],
   );
 
   // Jump to a reply pin ("addressed in diff N"): scroll the pinned row into
@@ -1681,6 +1715,40 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // keeps any general/reply drafts on the review.
   const onSubmittedPending = useCallback(() => dropAnchor(reviewId), [reviewId]);
 
+  // The phone sheet's FeedbackPanel gets these thin wrappers instead of the raw
+  // handlers: any locate/jump lands in the code pane, so the sheet must get out
+  // of the way first; finishing the composer (post or discard) retires a
+  // composer-peek but never collapses a deliberately opened full sheet.
+  const locateFeedbackMobile = useCallback(
+    (fb: FeedbackWithReplies | null) => {
+      if (fb) setSheet("closed");
+      locateFeedback(fb);
+    },
+    [locateFeedback],
+  );
+  const locatePinMobile = useCallback(
+    (patchSeq: number, file: string | null, line: number | null) => {
+      setSheet("closed");
+      locatePin(patchSeq, file, line);
+    },
+    [locatePin],
+  );
+  const jumpToRefMobile = useCallback(
+    (ref: MessageRef, version: number | null) => {
+      setSheet("closed");
+      jumpToRef(ref, version);
+    },
+    [jumpToRef],
+  );
+  const discardPendingMobile = useCallback(() => {
+    setSheet((s) => (s === "peek" ? "closed" : s));
+    discardPending();
+  }, [discardPending]);
+  const onSubmittedPendingMobile = useCallback(() => {
+    setSheet((s) => (s === "peek" ? "closed" : s));
+    onSubmittedPending();
+  }, [onSubmittedPending]);
+
   // Leaving the review (remount on switch) drops a text-less anchor so an empty
   // composer doesn't linger/reopen; a draft with text (of any kind) stays persisted.
   useEffect(() => {
@@ -1773,8 +1841,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
-        <div className="min-w-0 flex-1">
+      {/* max-md: the actions row wraps under the title instead of crushing it. */}
+      <div className="flex items-center gap-2 border-b border-neutral-300 bg-white px-3 py-2 max-md:flex-wrap dark:border-neutral-700 dark:bg-neutral-950">
+        <div className="min-w-0 flex-1 max-md:basis-full">
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
@@ -1880,7 +1949,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         </div>
       )}
       <div ref={splitRef} className="flex min-h-0 flex-1">
-        {fileList.length > 0 && (
+        {!isMobile && fileList.length > 0 && (
           <FileBrowser
             files={fileList}
             viewed={viewedPaths}
@@ -1910,6 +1979,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           {(fileList.length > 0 || (isDiff && rounds.length > 1) || snapshots.length > 0) && (
             <PaneToolbar
               hasFiles={fileList.length > 0}
+              files={fileList}
+              viewed={viewedPaths}
+              activePath={activePath}
+              onSelectFile={scrollToFile}
               onJump={jumpFile}
               onFoldAll={foldAll}
               right={
@@ -2030,31 +2103,53 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           </div>
         </div>
 
-        <div
-          className="relative shrink-0 border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
-          style={{ width: feedbackWidth }}
-        >
-          {/* Drag handle straddling the left border; grabs a 8px strip and
-              widens the panel as you pull it left. Double-click resets the split. */}
+        {!isMobile && (
           <div
-            onPointerDown={onFeedbackResize}
-            onDoubleClick={onFeedbackResetSplit}
-            title="Drag to resize · double-click to reset"
-            className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
-          />
+            className="relative shrink-0 border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
+            style={{ width: feedbackWidth }}
+          >
+            {/* Drag handle straddling the left border; grabs a 8px strip and
+                widens the panel as you pull it left. Double-click resets the split. */}
+            <div
+              onPointerDown={onFeedbackResize}
+              onDoubleClick={onFeedbackResetSplit}
+              title="Drag to resize · double-click to reset"
+              className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
+            />
+            <FeedbackPanel
+              detail={detail}
+              pending={pending}
+              onDiscardPending={discardPending}
+              onSubmittedPending={onSubmittedPending}
+              activeFeedbackId={activeFbId}
+              scrollNonce={scrollNonce}
+              onLocateFeedback={locateFeedback}
+              onLocatePin={locatePin}
+              onJumpRef={jumpToRef}
+            />
+          </div>
+        )}
+      </div>
+      {isMobile && (
+        <MobileReviewChrome
+          openCount={detail.feedback.filter((f) => f.status !== "resolved").length}
+          watchers={watchersData?.watchers ?? []}
+          sheet={sheet}
+          onSetSheet={setSheet}
+        >
           <FeedbackPanel
             detail={detail}
             pending={pending}
-            onDiscardPending={discardPending}
-            onSubmittedPending={onSubmittedPending}
+            onDiscardPending={discardPendingMobile}
+            onSubmittedPending={onSubmittedPendingMobile}
             activeFeedbackId={activeFbId}
             scrollNonce={scrollNonce}
-            onLocateFeedback={locateFeedback}
-            onLocatePin={locatePin}
-            onJumpRef={jumpToRef}
+            onLocateFeedback={locateFeedbackMobile}
+            onLocatePin={locatePinMobile}
+            onJumpRef={jumpToRefMobile}
           />
-        </div>
-      </div>
+        </MobileReviewChrome>
+      )}
       {/* "Quote in note" bubble for a file-pane selection made while the anchored
           composer already holds text — fixed-positioned, so it lives at the root. */}
       {fileQuote && <QuoteBubble pos={fileQuote} label="Quote in note" onQuote={quoteIntoNote} />}

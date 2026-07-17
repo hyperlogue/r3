@@ -109,9 +109,13 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
                  ReviewSummary, SnapshotSelect, Logo, Login (remote-access token
                  screen), TokenManager (login-token panel in SettingsPopup),
-                 Message (MessageProse +
+                 JumpToFile (toolbar file picker: popover on desktop, bottom
+                 sheet below md), Message (MessageProse +
                  the shared QuoteBubble/useQuoteBubble selection-to-quote)
                  (each with a *.stories.tsx)
+  src/mobile/    the phone tier's containers ONLY (see Mobile): useIsMobile +
+                 MobileReviewChrome (bottom bar + the 3-state feedback sheet);
+                 desktop components never import from here
   src/api.ts     typed fetch wrappers    hooks.ts  SSE + query wiring
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
@@ -505,6 +509,30 @@ CASCADE` drops the marks with the review — no cap/LRU/cleanup. Two
 token+same-origin routes (`GET/PUT …/viewed`), no SSE, no CLI — a pure UI
 affordance that does **not** bump `review.updated_at` (`web/src/viewed.ts` writes
 optimistically so the fold is instant).
+
+## Mobile (the phone tier)
+
+Phones are **not first-class** — no productive authoring expected — but reading
+code, switching rounds/snapshots, reading feedback, resolve/submit, replying, and
+adding feedback all work below Tailwind `md` (768px; portrait tablets keep the
+desktop layout). The **prime rule: isolate, don't interleave** — mobile must not
+add complexity to desktop code. All mobile UI lives in `web/src/mobile/` (desktop
+components never import from it); existing components get only inert `max-md:` /
+`pointer-coarse:` class tweaks; the **single mount point** is `ReviewView`, which
+swaps the side dock for `MobileReviewChrome` — panel/domain state never forks,
+and the same `FeedbackPanel` renders with the same props either way.
+
+- **Layout**: the sidebar hides; a persistent bottom bar (`Feedback · N open` +
+  watching dot) toggles a bottom **sheet** hosting the panel, with three discrete
+  tap-only states — closed · **composer peek** (short sheet: the composer over
+  the still-visible code; raised by any anchor gesture) · full. Locate/ref jumps
+  close the sheet before scrolling the code pane.
+- **Navigation**: the shared `JumpToFile` picker (a toolbar button on both
+  tiers) — flat filterable list with viewed ticks, filter input pinned at the
+  bottom, Enter jumps to the top match; popover on desktop, sheet below `md`.
+- **Pending** (design in review_ac97a7745990): touch anchoring (line-number tap
+  + a selection "Add feedback" pill), then ergonomics polish (44px targets, 16px
+  inputs, `pointer-coarse:` hover-reveal audit, gutter compression).
 
 ## Security
 
