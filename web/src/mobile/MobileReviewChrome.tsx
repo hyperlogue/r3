@@ -34,17 +34,33 @@ export function MobileReviewChrome({
     <>
       {/* The bar is in-flow at the bottom of ReviewView's column (not fixed), so
           it never overlaps the last code line; safe-area padding clears the home
-          indicator. */}
-      <div className="flex shrink-0 items-center justify-between border-t border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950">
+          indicator. It wears the feedback surface (panel-header white/near-black)
+          behind a 2px rule — the desktop dock's border weight — so it reads as
+          the feedback panel's edge, not another file-header strip. */}
+      <div className="flex shrink-0 items-center justify-between border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950">
         <button
           type="button"
           onClick={() => onSetSheet(sheet === "closed" ? "full" : "closed")}
           className="flex min-h-11 flex-1 items-center gap-2 px-3 text-sm font-semibold"
         >
+          {/* Chevron-up: the affordance that this bar expands upward. */}
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={cn(
+              "size-4 text-neutral-400 transition-transform duration-200",
+              sheet !== "closed" && "rotate-180",
+            )}
+          >
+            <path d="m6 15 6-6 6 6" />
+          </svg>
           Feedback
-          <span className="font-normal text-neutral-500">
-            · {openCount} open{sheet !== "closed" ? " ·  ✕" : ""}
-          </span>
+          <span className="font-normal text-neutral-500">· {openCount} open</span>
         </button>
         {watcher && (
           <span
@@ -76,21 +92,26 @@ export function MobileReviewChrome({
           sheet === "closed" && "translate-y-full",
         )}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-1.5 dark:border-neutral-800">
+        {/* Header strip: thin, borderless, on the panel-header surface so it and
+            the FeedbackPanel header right below it read as one unified header.
+            The expand/shrink button spans the whole strip with the grab-handle
+            glyph truly screen-centered (absolute — not flexed against the ✕'s
+            leftover space); the ✕ overlays the right edge. */}
+        <div className="relative h-7 shrink-0 rounded-t-xl bg-white dark:bg-neutral-950">
           <button
             type="button"
             onClick={() => onSetSheet(sheet === "full" ? "peek" : "full")}
             title={sheet === "full" ? "Shrink — keep the code visible" : "Expand"}
-            className="flex min-h-10 flex-1 items-center justify-center"
+            className="absolute inset-0 rounded-t-xl"
           >
             {/* Grab-handle look, but it's a plain tap target (expand/shrink). */}
-            <span className="h-1 w-8 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+            <span className="absolute left-1/2 top-1/2 h-1 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300 dark:bg-neutral-600" />
           </button>
           <button
             type="button"
             aria-label="Close feedback"
             onClick={() => onSetSheet("closed")}
-            className="flex min-h-10 min-w-11 items-center justify-center text-neutral-500"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-neutral-500"
           >
             ✕
           </button>

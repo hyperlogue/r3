@@ -678,21 +678,16 @@ const TOOLBAR_BTN =
 // so its round switcher stays reachable).
 function PaneToolbar({
   hasFiles,
-  files,
-  viewed,
-  activePath,
-  onSelectFile,
+  filePicker,
   onJump,
   onFoldAll,
   right,
 }: {
   hasFiles: boolean;
-  // The jump-to-file picker's data — the same list/viewed/active the sidebar
-  // tree gets, so the two navigations can't disagree.
-  files: string[];
-  viewed: Set<string>;
-  activePath: string | null;
-  onSelectFile: (path: string) => void;
+  // The jump-to-file picker, composed by the caller (a slot, like `right`) so
+  // its data wiring stays with the owner of that data instead of threading four
+  // pass-through props here.
+  filePicker?: ReactNode;
   onJump: (dir: 1 | -1) => void;
   onFoldAll: (mode: "fold" | "unfold") => void;
   right?: ReactNode;
@@ -734,13 +729,7 @@ function PaneToolbar({
             <ToolbarIcon d={["m7 15 5 5 5-5", "m7 9 5-5 5 5"]} />
           </button>
           <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
-          <JumpToFile
-            files={files}
-            viewed={viewed}
-            activePath={activePath}
-            onSelect={onSelectFile}
-            btnClassName={TOOLBAR_BTN}
-          />
+          {filePicker}
         </>
       )}
       {/* Full-height, flush-right slot: `self-stretch` fills the bar's height and
@@ -1264,6 +1253,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         setActiveFbId(null);
         return;
       }
+      // The locate lands in the code pane, so the phone sheet gets out of the way.
+      // Unconditional: on desktop the sheet is already "closed", so this is a
+      // same-value set React bails out of (no wrapper fork needed).
+      setSheet("closed");
       // Anchored to a specific round → select its tab first so that round's DOM is
       // mounted before the highlight effect (keyed on scrollNonce) queries + scrolls
       // to it; both state updates batch into one render, effects run after commit.
@@ -1530,6 +1523,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // view, preferring the new side — pins point at the fix, not the old code.
   const locatePin = useCallback(
     (patchSeq: number, file: string | null, line: number | null) => {
+      setSheet("closed"); // the jump lands in the code pane (no-op on desktop)
       // The pin usually names a different round than the one on screen — select
       // its tab, and open the pinned file if it's folded, then scroll to the row.
       setActiveRoundSeq(patchSeq);
@@ -1598,6 +1592,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // against), else scrolls the live file.
   const jumpToRef = useCallback(
     (ref: MessageRef, version: number | null) => {
+      setSheet("closed"); // the jump lands in the code pane (no-op on desktop)
       if (isDiff) {
         locatePin(version ?? effectiveRoundSeq ?? 0, ref.file, ref.lineStart);
         return;
@@ -1707,47 +1702,19 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     // Cancel/✕ discards immediately — no confirm, matching the general note's close.
     // Esc already preserves a non-empty note (it only blurs, never discards), so the
     // deliberate Cancel/✕ click is the discard path and doesn't need a guard.
+    // Finishing the composer retires a phone composer-peek, but never collapses a
+    // deliberately opened full sheet (and is a same-value no-op on desktop).
+    setSheet((s) => (s === "peek" ? "closed" : s));
     dropAnchor(reviewId);
   }, [reviewId]);
 
   // Stable handler so the memoized FeedbackPanel isn't re-rendered on every
   // scroll-spy activePath change. A committed add drops the anchored composer but
-  // keeps any general/reply drafts on the review.
-  const onSubmittedPending = useCallback(() => dropAnchor(reviewId), [reviewId]);
-
-  // The phone sheet's FeedbackPanel gets these thin wrappers instead of the raw
-  // handlers: any locate/jump lands in the code pane, so the sheet must get out
-  // of the way first; finishing the composer (post or discard) retires a
-  // composer-peek but never collapses a deliberately opened full sheet.
-  const locateFeedbackMobile = useCallback(
-    (fb: FeedbackWithReplies | null) => {
-      if (fb) setSheet("closed");
-      locateFeedback(fb);
-    },
-    [locateFeedback],
-  );
-  const locatePinMobile = useCallback(
-    (patchSeq: number, file: string | null, line: number | null) => {
-      setSheet("closed");
-      locatePin(patchSeq, file, line);
-    },
-    [locatePin],
-  );
-  const jumpToRefMobile = useCallback(
-    (ref: MessageRef, version: number | null) => {
-      setSheet("closed");
-      jumpToRef(ref, version);
-    },
-    [jumpToRef],
-  );
-  const discardPendingMobile = useCallback(() => {
+  // keeps any general/reply drafts on the review (peek handling as in discard).
+  const onSubmittedPending = useCallback(() => {
     setSheet((s) => (s === "peek" ? "closed" : s));
-    discardPending();
-  }, [discardPending]);
-  const onSubmittedPendingMobile = useCallback(() => {
-    setSheet((s) => (s === "peek" ? "closed" : s));
-    onSubmittedPending();
-  }, [onSubmittedPending]);
+    dropAnchor(reviewId);
+  }, [reviewId]);
 
   // Leaving the review (remount on switch) drops a text-less anchor so an empty
   // composer doesn't linger/reopen; a draft with text (of any kind) stays persisted.
@@ -1979,10 +1946,15 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           {(fileList.length > 0 || (isDiff && rounds.length > 1) || snapshots.length > 0) && (
             <PaneToolbar
               hasFiles={fileList.length > 0}
-              files={fileList}
-              viewed={viewedPaths}
-              activePath={activePath}
-              onSelectFile={scrollToFile}
+              filePicker={
+                <JumpToFile
+                  files={fileList}
+                  viewed={viewedPaths}
+                  activePath={activePath}
+                  onSelect={scrollToFile}
+                  btnClassName={TOOLBAR_BTN}
+                />
+              }
               onJump={jumpFile}
               onFoldAll={foldAll}
               right={
@@ -2140,13 +2112,13 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           <FeedbackPanel
             detail={detail}
             pending={pending}
-            onDiscardPending={discardPendingMobile}
-            onSubmittedPending={onSubmittedPendingMobile}
+            onDiscardPending={discardPending}
+            onSubmittedPending={onSubmittedPending}
             activeFeedbackId={activeFbId}
             scrollNonce={scrollNonce}
-            onLocateFeedback={locateFeedbackMobile}
-            onLocatePin={locatePinMobile}
-            onJumpRef={jumpToRefMobile}
+            onLocateFeedback={locateFeedback}
+            onLocatePin={locatePin}
+            onJumpRef={jumpToRef}
           />
         </MobileReviewChrome>
       )}
