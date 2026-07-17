@@ -75,7 +75,7 @@ export function DemoChrome() {
           title="Reset the demo — discard your edits and restore the seeded reviews"
           className="inline-flex shrink-0 items-center rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[0.7rem] font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
         >
-          ⟳ Reset
+          Reset
         </button>
       </div>
 
@@ -135,11 +135,11 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
             type="button"
             onClick={onReset}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              "inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
               "text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800",
             )}
           >
-            ⟳ Reset demo
+            Reset demo
           </button>
           <Button variant="primary" onClick={onClose}>
             Explore →
