@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://hyperlogue.github.io/r3/demo/"><b>▶&nbsp;Try the live demo</b></a> — the full UI, running entirely in your browser. No install, no sign-up.
+  <a href="https://hyperlogue.github.io/r3/demo/"><b>▶&nbsp;Try the live demo</b></a> — the full UI, running entirely in your browser.
 </p>
 
 r3 is a review tool for the diffs and docs produced by your coding agents, running
