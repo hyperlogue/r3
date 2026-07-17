@@ -23,10 +23,13 @@ const OUT = join(DIR, "dist/demo");
 
 // web/src modules the demo build swaps for its own: api.ts routes every fetch/SSE
 // call to the in-browser backend; demo-chrome.tsx replaces the production no-op
-// stub with the real "Live demo" badge + intro.
+// stub with the real "Demo" badge + intro; main.css swaps in a CSS entry that
+// also scans web/demo for Tailwind classes (see web/demo/main.css), so the demo
+// chrome's utilities actually get generated.
 const ALIASES: Record<string, string> = {
   [join(DIR, "web/src/api.ts")]: join(DIR, "web/demo/api.ts"),
   [join(DIR, "web/src/demo-chrome.tsx")]: join(DIR, "web/demo/demo-chrome.tsx"),
+  [join(DIR, "web/src/main.css")]: join(DIR, "web/demo/main.css"),
 };
 
 // Normalize R3_DEMO_BASE to a leading+trailing-slash prefix: "/" (root),
@@ -41,7 +44,7 @@ const BASE = slug ? `/${slug}/` : "/";
 const aliasDemo: BunPlugin = {
   name: "r3-demo-alias",
   setup(build) {
-    build.onResolve({ filter: /(api\.ts|demo-chrome\.tsx)$/ }, (args) => {
+    build.onResolve({ filter: /(api\.ts|demo-chrome\.tsx|main\.css)$/ }, (args) => {
       if (!args.importer) return undefined;
       const target = resolve(dirname(args.importer), args.path);
       const to = ALIASES[target];

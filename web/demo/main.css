@@ -1,0 +1,12 @@
+/* The demo's CSS entry. The daemon serves web/src/main.css directly; the demo
+   build (scripts/build-demo.ts) aliases that CSS import to this file, which pulls
+   in the app stylesheet (the single `@import "tailwindcss"` + every custom rule)
+   and then adds web/demo's own components to Tailwind's sources. Without this,
+   utilities used ONLY in the demo chrome — the "Demo" badge and intro dialog,
+   e.g. `mr-4` — are never generated, because main.css scans only web/src. This is
+   the same trick .storybook/preview.css uses for the story decorators, and keeps
+   the demo-only classes out of the app's production bundle. Scoped to *.tsx so
+   Tailwind never reads the large baked fixtures.gen.ts. @source is relative to
+   this file. */
+@import "../src/main.css";
+@source "./**/*.tsx";
