@@ -1389,6 +1389,18 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     setActivePath(path);
   }, []);
 
+  // Picking a file from the browser tree or the jump-to-file picker: unfold it,
+  // then scroll to it. Clicking a file in the list is a "show me this" gesture,
+  // so a viewed (auto-folded) file you click is one you want to read again —
+  // open it rather than leaving it collapsed under its header.
+  const selectFile = useCallback(
+    (path: string) => {
+      ensureFileOpen(path);
+      scrollToFile(path);
+    },
+    [ensureFileOpen, scrollToFile],
+  );
+
   // Toolbar: fold/unfold-all broadcast — a fresh nonce each click so repeating
   // the same action still overrides folds the user toggled by hand in between.
   const foldAll = useCallback((mode: "fold" | "unfold") => {
@@ -1930,7 +1942,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             files={fileList}
             viewed={viewedPaths}
             activePath={activePath}
-            onSelect={scrollToFile}
+            onSelect={selectFile}
           />
         )}
         {/* Content column: a diff review with more than one round gets a round
@@ -1960,7 +1972,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   files={fileList}
                   viewed={viewedPaths}
                   activePath={activePath}
-                  onSelect={scrollToFile}
+                  onSelect={selectFile}
                   btnClassName={TOOLBAR_BTN}
                 />
               }

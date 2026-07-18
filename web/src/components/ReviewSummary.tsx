@@ -87,7 +87,10 @@ export function ReviewSummary({
             type="button"
             onClick={toggleCollapsed}
             title="Collapse summary"
-            className="flex items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+            // Muted while expanded — the same dimmed tone the collapsed one-line
+            // body preview wears (text-neutral-400 dark:text-neutral-500), so the
+            // label recedes and the prose below is what reads.
+            className="flex items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
           >
             <FoldTriangle open={true} />
             Review summary
@@ -101,8 +104,9 @@ export function ReviewSummary({
             anchor (getSummaryAnchor with a null round = the review summary) and
             hands it to ReviewView's applyAnchorGesture with the selection rect.
             Cap the measure at ~65ch so lines stay a comfortable, readable length
-            instead of stretching the full width of a wide review pane. pl lines
-            the text up under the label (px-3 + size-2.5 icon + gap-1 = 1.625rem).
+            instead of stretching the full width of a wide review pane. px-3 lines
+            the prose up under the fold triangle (same 0.75rem left as the header),
+            not the label text — the body reads as the triangle's content.
             max-h + overflow-y-auto bound the expanded body: this bar is shrink-0
             in ReviewView's flex column, so an unbounded long summary would push
             the file/feedback split off screen — instead it scrolls internally and
@@ -126,7 +130,7 @@ export function ReviewSummary({
           <MessageProse
             source={summary.trim()}
             onJumpRef={onJumpRef}
-            className="max-w-prose px-3 pb-2 pl-6.5 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300"
+            className="max-w-prose px-3 pb-2 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300"
           />
         </div>
       </Collapse>
