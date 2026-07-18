@@ -353,8 +353,10 @@ export function RoundSelect({
     // the whole top-to-bottom line and the hover fill the top/bottom/right space.
     // Below md the slot is the toolbar's full-width first row, so the trigger
     // truly fills it: no width cap, no left divider (there's nothing to divide
-    // from), and the chevron pushed to the far right edge.
-    <div className="relative flex max-md:flex-1">
+    // from), and the chevron pushed to the far right edge. min-w-0 down the
+    // wrapper→trigger chain lets the label truncate instead of propagating its
+    // full min-content width up and overflowing the row (and the viewport).
+    <div className="relative flex min-w-0 max-md:flex-1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -364,7 +366,7 @@ export function RoundSelect({
         // divider (no box, no rounding) with only inner padding. While the menu is
         // open, desaturate + dim the trigger so the eye lands on the menu's rows.
         className={cn(
-          "flex max-w-[18rem] items-center gap-1.5 border-l border-neutral-300 pl-1.5 pr-1.5 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:flex-1 max-md:max-w-none max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          "flex min-w-0 max-w-[18rem] items-center gap-1.5 border-l border-neutral-300 pl-1.5 pr-1.5 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:flex-1 max-md:max-w-none max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
           open && "opacity-60 grayscale",
         )}
       >
@@ -484,34 +486,46 @@ export function RoundSummary({
     });
   };
   if (!round.summary) return null;
+  // Mirrors ReviewSummary's structure exactly so the two bars are the same
+  // height in every state — h-8 rows, matching the pane toolbar and the file
+  // headers, so the stacked bars read as one consistent header stack.
   return (
     <div
       data-round-summary={round.seq}
-      className="border-b border-neutral-300 px-3 py-2 dark:border-neutral-700"
+      className="border-b border-neutral-300 dark:border-neutral-700"
     >
-      <button
-        type="button"
-        onClick={toggleCollapsed}
-        title={collapsed ? "Expand round summary" : "Collapse round summary"}
-        className="group flex w-full items-center gap-1.5 text-left"
-      >
-        <span
-          className={cn(
-            "flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300",
-            // Muted while expanded, like the review summary's label — it recedes
-            // and the prose below is what reads.
-            !collapsed && "dark:text-neutral-500",
-          )}
+      {collapsed ? (
+        // Collapsed: the entire bar is the expand affordance, with a one-line
+        // preview of the summary (same shape as the review summary's bar).
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title="Expand round summary"
+          className="group flex h-8 w-full items-center gap-1.5 px-3 text-left"
         >
-          <FoldTriangle open={!collapsed} />
-          Diff summary
-        </span>
-        {collapsed && (
+          <span className="flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300">
+            <FoldTriangle open={false} />
+            Diff summary
+          </span>
           <span className="max-w-prose truncate text-[0.6875rem] text-neutral-400 dark:text-neutral-500">
             {round.summary.replace(/\s+/g, " ")}
           </span>
-        )}
-      </button>
+        </button>
+      ) : (
+        <div className="flex h-8 items-center gap-1.5 px-3">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            title="Collapse round summary"
+            // Muted while expanded, like the review summary's label — it recedes
+            // and the prose below is what reads.
+            className="flex items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+          >
+            <FoldTriangle open={true} />
+            Diff summary
+          </button>
+        </div>
+      )}
       <Collapse open={!collapsed}>
         {/* Markdown-rendered like the review summary (same MessageProse
             treatment — headings/lists/code + clickable @refs resolved against
@@ -534,12 +548,12 @@ export function RoundSummary({
             );
           }}
           title="Select text to leave feedback on this round's summary"
-          className="mt-1 max-h-[50vh] overflow-y-auto"
+          className="max-h-[50vh] overflow-y-auto"
         >
           <MessageProse
             source={round.summary}
             onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
-            className="max-w-prose text-sm leading-relaxed text-neutral-700 dark:text-neutral-300"
+            className="max-w-prose px-3 pb-2 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300"
           />
         </div>
       </Collapse>

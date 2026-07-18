@@ -150,15 +150,16 @@ export function SnapshotSelect({
   return (
     // Below md the slot is the toolbar's full-width first row (same treatment as
     // RoundSelect): the trigger fills it — no width cap, no left divider — with
-    // the chevron pushed to the far right edge.
-    <div className="relative flex max-md:flex-1">
+    // the chevron pushed to the far right edge. min-w-0 down the wrapper→trigger
+    // chain lets the version label truncate instead of overflowing the row.
+    <div className="relative flex min-w-0 max-md:flex-1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="Choose which versions to view or diff"
         className={cn(
-          "flex max-w-[16rem] items-center gap-1.5 border-l border-neutral-300 pr-1.5 pl-3 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:max-w-none max-md:flex-1 max-md:justify-between max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          "flex min-w-0 max-w-[16rem] items-center gap-1.5 border-l border-neutral-300 pr-1.5 pl-3 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:max-w-none max-md:flex-1 max-md:justify-between max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
           open && "opacity-60 grayscale",
         )}
       >
