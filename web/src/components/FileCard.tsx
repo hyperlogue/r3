@@ -182,7 +182,7 @@ export function FileCard({
           {copied ? (
             <CheckIcon className="size-3 shrink-0 text-success-600 dark:text-success-400" />
           ) : (
-            <CopyIcon className="size-3 shrink-0 text-neutral-400 opacity-0 transition-opacity group-hover/path:opacity-100" />
+            <CopyIcon className="size-3 shrink-0 text-neutral-400 opacity-0 transition-opacity group-hover/path:opacity-100 pointer-coarse:opacity-100" />
           )}
         </button>
         {typeof stats === "function" ? stats(open) : stats}

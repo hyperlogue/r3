@@ -558,9 +558,25 @@ and the same `FeedbackPanel` renders with the same props either way.
 - **Navigation**: the shared `JumpToFile` picker (a toolbar button on both
   tiers) — flat filterable list with viewed ticks, filter input pinned at the
   bottom, Enter jumps to the top match; popover on desktop, sheet below `md`.
-- **Pending** (design in review_ac97a7745990): touch anchoring (line-number tap
-  + a selection "Add feedback" pill), then ergonomics polish (44px targets, 16px
-  inputs, `pointer-coarse:` hover-reveal audit, gutter compression).
+- **Anchoring (touch)**: keyed on the *pointer*, not the width tier
+  (`usePointerCoarse` — primary pointer coarse; a narrow desktop window keeps
+  instant mouseup-anchoring, a portrait tablet still gets touch anchoring): the
+  document-mouseup selection path swaps for a debounced `selectionchange`
+  listener raising a floating "Add feedback" pill (`AddFeedbackPill`; the
+  anchor/quote/rect are captured at selectionchange time — iOS collapses the
+  selection on tap — and the position clamps into the viewport). While the
+  anchored composer holds text the pill reads "Quote in note" and quotes in one
+  tap. Line-number taps anchor through the existing gutter path
+  (`touch-manipulation`). Tap-tap range extension and summary selection via the
+  pill are deferred.
+- **Ergonomics**: below `md`, 44px touch targets (shared `Button` gets
+  `min-h-11`; the h-8 header stack — pane toolbar, file headers, summary bars —
+  is deliberately exempt and stays h-8) and 16px composer/input fonts (kills
+  iOS zoom-on-focus); hover-reveal affordances forced visible on
+  `pointer-coarse:`; the diff gutter compresses 3rem→2.25rem per column (files
+  view 3.5rem→2.5rem) with the new-side sticky pin following;
+  `interactive-widget=resizes-content` on the viewport meta. A real-device iOS
+  Safari pass is still owed before touch anchoring is called done.
 
 ## Security
 

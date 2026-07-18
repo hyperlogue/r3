@@ -68,3 +68,17 @@ export const WithStats: Story = {
 export const NestedPath: Story = {
   args: { path: "web/src/components/feedback/FeedbackPanel.tsx" },
 };
+
+// The card at phone width: the h-8 sticky header stays h-8 (a decided design), the
+// deep path truncates to fit, and the header controls keep their hit areas (the
+// whole-file feedback button widens into the header padding on coarse pointers).
+// Sized to a 390px phone so the sub-md layout is what renders.
+export const Mobile: Story = {
+  args: { path: "web/src/components/feedback/FeedbackPanel.tsx" },
+  parameters: {
+    viewport: {
+      viewports: { phone: { name: "Phone", styles: { width: "390px", height: "780px" } } },
+      defaultViewport: "phone",
+    },
+  },
+};

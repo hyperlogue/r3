@@ -217,3 +217,20 @@ export const MarkdownMessages: Story = {
 export const Empty: Story = {
   args: { detail: { ...reviewDetail, feedback: [] } },
 };
+
+// The phone tier: below md every shared Button in the card action rows and the
+// composer grows to a 44px touch target, and the composer/reply/edit inputs lift
+// to 16px so iOS won't zoom on focus. Rendered sub-md so those max-md: variants
+// engage (they key on the viewport, not a wrapper width); the viewport is a touch
+// wider than a phone only so the panel's fixed 440px story frame still fits.
+export const Mobile: Story = {
+  args: { pending: pendingAnchor },
+  parameters: {
+    viewport: {
+      viewports: {
+        phone: { name: "Phone (panel frame)", styles: { width: "520px", height: "860px" } },
+      },
+      defaultViewport: "phone",
+    },
+  },
+};

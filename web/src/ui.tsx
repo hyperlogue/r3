@@ -296,8 +296,13 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "default" | "primary" | "ghost" | "danger" | "success";
 }) {
+  // max-md:min-h-11 gives every shared button a 44px touch target below md
+  // (inert on desktop). The shared Button is only used off the protected h-8
+  // header stack (the feedback action rows, composers, panel/review-header CTAs,
+  // login, settings) — those bars use their own raw buttons — so this can't grow
+  // any h-8 bar.
   const base =
-    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer";
+    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer max-md:min-h-11";
   const variants = {
     default:
       "bg-neutral-100 hover:bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100",

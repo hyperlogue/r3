@@ -64,7 +64,8 @@ export function Login() {
           spellCheck={false}
           autoCapitalize="off"
           autoComplete="off"
-          className="w-full rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 font-mono text-xs outline-none focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900"
+          // max-md:text-base keeps iOS from zooming the login screen on focus.
+          className="w-full rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 font-mono text-xs outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900"
         />
         {error && <p className="mt-2 text-xs text-danger-600 dark:text-danger-500">{error}</p>}
         <Button

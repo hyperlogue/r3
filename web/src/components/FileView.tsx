@@ -68,7 +68,11 @@ const LineRow = memo(function LineRow({
   const html = useMemo(() => ({ __html: ln.html || "&nbsp;" }), [ln.html]);
   return (
     <div
-      className="grid min-w-full grid-cols-[3.5rem_1fr] font-mono text-xs"
+      // Below md the single 3.5rem gutter compresses to 2.5rem (with px tightened
+      // to 1) to give the code more of a phone's width; a 4-digit line number
+      // still fits. The gutter pins at left-0, so there's no derived left offset to
+      // follow (unlike DiffView's two-column new-side pin).
+      className="grid min-w-full grid-cols-[3.5rem_1fr] font-mono text-xs max-md:grid-cols-[2.5rem_1fr]"
       data-line={ln.lineNo}
       data-side="new"
     >
@@ -79,7 +83,7 @@ const LineRow = memo(function LineRow({
           // horizontally. Must stay opaque — the code slides under it —
           // and painted on the theme surface so it matches the code bg.
           // touch-manipulation so a tap-to-anchor never registers as a double-tap zoom.
-          "sticky left-0 z-0 cursor-pointer touch-manipulation border-r border-neutral-300/70 px-2 text-right text-neutral-400 select-none hover:text-neutral-700 dark:border-neutral-700 dark:hover:text-neutral-200",
+          "sticky left-0 z-0 cursor-pointer touch-manipulation border-r border-neutral-300/70 px-2 text-right text-neutral-400 select-none hover:text-neutral-700 max-md:px-1 dark:border-neutral-700 dark:hover:text-neutral-200",
           selected
             ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100"
             : "gutter-surface",

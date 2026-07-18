@@ -69,11 +69,14 @@ function GutterCell({
     <span
       className={cn(
         // Frozen line-number rail: sticky so only the code scrolls horizontally.
-        // The old/new columns are 3rem each, so the new-side gutter pins at 3rem.
-        // Must stay opaque — the code slides *under* it as it scrolls.
+        // The old/new columns are 3rem each, so the new-side gutter pins at 3rem
+        // (left-12). Below md both columns shrink to 2.25rem (see the row grid), so
+        // the new side re-pins at 2.25rem (left-9) to stay glued to the old column,
+        // and px tightens to 0.5 so a 4-digit line number still fits the narrower
+        // cell. Must stay opaque — the code slides *under* it as it scrolls.
         // touch-manipulation so a tap-to-anchor never registers as a double-tap zoom.
-        "sticky z-0 touch-manipulation select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 dark:border-neutral-700",
-        side === "old" ? "left-0" : "left-12",
+        "sticky z-0 touch-manipulation select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 max-md:px-0.5 dark:border-neutral-700",
+        side === "old" ? "left-0" : "left-12 max-md:left-9",
         line != null && "cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-200",
         selected ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100" : bg,
       )}
@@ -107,7 +110,12 @@ const Row = memo(function Row({
   if (ln.type === "hunk") {
     return (
       <div
-        className={cn("grid min-w-full grid-cols-[3rem_3rem_1fr] font-mono text-xs", ROW_BG.hunk)}
+        className={cn(
+          // Below md the two 3rem gutter columns compress to 2.25rem (96px→72px on
+          // a phone); GutterCell's new-side pin follows (left-12 → left-9).
+          "grid min-w-full grid-cols-[3rem_3rem_1fr] font-mono text-xs max-md:grid-cols-[2.25rem_2.25rem_1fr]",
+          ROW_BG.hunk,
+        )}
       >
         {/* No vertical padding: virtualization sizes every row at one line height
             (a fixed estimate), so a taller hunk row would drift scroll-to-line. */}
@@ -121,7 +129,12 @@ const Row = memo(function Row({
   const gutterBg = GUTTER_BG[ln.type];
   return (
     <div
-      className={cn("grid min-w-full grid-cols-[3rem_3rem_1fr] font-mono text-xs", ROW_BG[ln.type])}
+      className={cn(
+        // Below md the two 3rem gutter columns compress to 2.25rem, in lockstep
+        // with the hunk row above and GutterCell's new-side pin (left-12 → left-9).
+        "grid min-w-full grid-cols-[3rem_3rem_1fr] font-mono text-xs max-md:grid-cols-[2.25rem_2.25rem_1fr]",
+        ROW_BG[ln.type],
+      )}
       data-line={line ?? undefined}
       data-side={side}
     >

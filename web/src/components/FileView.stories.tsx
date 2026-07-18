@@ -58,3 +58,18 @@ export const Viewed: Story = {
     queryData: [[["blob", REVIEW_ID, renderedCode.path, REF, theme], renderedCode]],
   },
 };
+
+// The phone tier: below md the single 3.5rem line-number gutter compresses to
+// 2.5rem (padding tightened) to give the code more of the narrow screen; a
+// 4-digit line number still fits. Sized to a 390px phone so the max-md: variant
+// engages (it keys on the viewport, not a wrapper width).
+export const Mobile: Story = {
+  args: { path: renderedCode.path },
+  parameters: {
+    queryData: [[["blob", REVIEW_ID, renderedCode.path, REF, theme], renderedCode]],
+    viewport: {
+      viewports: { phone: { name: "Phone", styles: { width: "390px", height: "780px" } } },
+      defaultViewport: "phone",
+    },
+  },
+};

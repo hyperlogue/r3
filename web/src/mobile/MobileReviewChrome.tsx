@@ -80,12 +80,13 @@ export function MobileReviewChrome({
           sheet === "closed" && "translate-y-full",
         )}
       >
-        {/* Header strip: thin, borderless, on the panel-header surface so it and
-            the FeedbackPanel header right below it read as one unified header.
-            The expand/shrink button spans the whole strip with the grab-handle
-            glyph truly screen-centered (absolute — not flexed against the ✕'s
-            leftover space); the ✕ overlays the right edge. */}
-        <div className="relative h-7 shrink-0 rounded-t-xl bg-white dark:bg-neutral-950">
+        {/* Header strip: borderless, on the panel-header surface so it and the
+            FeedbackPanel header right below it read as one unified header. h-11
+            gives the two controls a 44px touch target — the expand/shrink button
+            spans the whole strip with the grab-handle glyph truly screen-centered
+            (absolute — not flexed against the ✕'s leftover space); the ✕ overlays
+            the right edge (w-11, so it's a 44px square). */}
+        <div className="relative h-11 shrink-0 rounded-t-xl bg-white dark:bg-neutral-950">
           <button
             type="button"
             onClick={() => onSetSheet(sheet === "full" ? "peek" : "full")}

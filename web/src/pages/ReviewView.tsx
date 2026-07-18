@@ -609,8 +609,9 @@ function EditableTitle({
         placeholder={placeholder}
         // -my-px offsets the border so the editor is exactly the display height —
         // opening it never grows the row. Width auto-sizes to content (min keeps
-        // it usable when empty, max keeps it inside the row).
-        className="-my-px min-w-[3rem] max-w-full rounded border border-primary-400 bg-white px-1 text-sm font-semibold outline-none dark:bg-neutral-900"
+        // it usable when empty, max keeps it inside the row). max-md:text-base
+        // keeps iOS from zooming when the title field takes focus on a phone.
+        className="-my-px min-w-[3rem] max-w-full rounded border border-primary-400 bg-white px-1 text-sm font-semibold outline-none max-md:text-base dark:bg-neutral-900"
       />
     );
   }
@@ -628,7 +629,7 @@ function EditableTitle({
         type="button"
         onClick={startEditing}
         title="Rename review"
-        className="shrink-0 text-neutral-400 opacity-0 transition-opacity hover:text-neutral-600 group-hover:opacity-100 dark:hover:text-neutral-300"
+        className="shrink-0 text-neutral-400 opacity-0 transition-opacity hover:text-neutral-600 group-hover:opacity-100 pointer-coarse:opacity-100 dark:hover:text-neutral-300"
       >
         <svg
           viewBox="0 0 24 24"
@@ -812,7 +813,9 @@ function ApproveDialog({
           }}
           placeholder="Next steps for the agent (optional)…"
           rows={3}
-          className="mt-3 w-full resize-y rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+          // max-md:text-base keeps iOS from zooming when this note field takes
+          // focus on a phone (the Approve flow is reachable on mobile).
+          className="mt-3 w-full resize-y rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-primary-500 focus:outline-none max-md:text-base dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
         />
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>

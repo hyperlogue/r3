@@ -243,8 +243,12 @@ function needsAttention(fb: FeedbackWithReplies): boolean {
 // overflow-hidden would otherwise clip a margin on the textarea itself).
 // The height is driven inline by useAutoGrow (autogrow.ts) — the box grows with
 // its text up to a line cap, then scrolls.
+// max-md:text-base lifts every composer/reply/edit input to 16px below md, so
+// iOS doesn't zoom the page on focus (it does for any field under 16px). This
+// one constant feeds the anchored composer, the general note, the reply box, and
+// both inline editors, so bumping it here covers all of them.
 const PENDING_INPUT =
-  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
+  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
 // The soft primary bubble marking agent-voiced content. An agent reply block and
 // an agent-authored feedback body wear the exact same fill so "the agent's voice"
@@ -1278,7 +1282,9 @@ function FeedbackCard({
                   setReply("");
                   setReplyOpen(false);
                 }}
-                className="ml-auto rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-danger-50 hover:text-danger-600 dark:text-neutral-500 dark:hover:bg-danger-950/40 dark:hover:text-danger-400"
+                // Below md the icon grows a 44px touch target so it matches the
+                // min-h-11 Buttons sharing this action row.
+                className="ml-auto rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-danger-50 hover:text-danger-600 max-md:flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center dark:text-neutral-500 dark:hover:bg-danger-950/40 dark:hover:text-danger-400"
               >
                 <TrashIcon className="size-4" />
               </button>
@@ -1798,7 +1804,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 setTab("active");
                 setGeneralOpen(true);
               }}
-              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              // max-md:size-11 gives the icon a 44px touch target below md (the
+              // icon itself stays size-4); it sits beside the min-h-11 Submit/Copy
+              // button, so the header row reads as one comfortable-tap cluster.
+              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 max-md:size-11 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
             >
               <CommentPlusIcon className="size-4" />
             </button>

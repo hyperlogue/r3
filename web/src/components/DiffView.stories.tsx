@@ -81,6 +81,21 @@ export const WideLines: Story = {
   args: { rounds: wideRound },
 };
 
+// The phone tier: below md the two 3rem gutter columns compress to 2.25rem so the
+// code gets more of the narrow screen, and the frozen new-side gutter re-pins
+// (left-12 → left-9) to stay glued to the old column. Sized to a 390px phone so
+// the max-md: variants actually engage (they key on the viewport, not a wrapper
+// width); wideRound scrolls horizontally, showing the compressed rail stay frozen.
+export const Mobile: Story = {
+  args: { rounds: wideRound },
+  parameters: {
+    viewport: {
+      viewports: { phone: { name: "Phone", styles: { width: "390px", height: "780px" } } },
+      defaultViewport: "phone",
+    },
+  },
+};
+
 // The code surface paints on the syntax theme's OWN background: in the app,
 // ReviewView sets --shiki-*-bg / --shiki-* on the content pane from
 // /api/theme-style and DiffView paints against them (add/del are translucent
