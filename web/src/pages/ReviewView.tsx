@@ -11,7 +11,7 @@ import {
 } from "react";
 import { ApiError, api } from "../api.ts";
 import { copyText } from "../clipboard.ts";
-import { DiffView, RoundSelect } from "../components/DiffView.tsx";
+import { DiffView, RoundSelect, RoundSummary } from "../components/DiffView.tsx";
 import { FeedbackPanel } from "../components/FeedbackPanel.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
@@ -295,11 +295,7 @@ function useActiveLineHighlight(
 // in place, so a drifted quote lands on the whole-block fallback (accepted).
 // Separate from useActiveLineHighlight (which bails on SUMMARY_FILE) so the two
 // never fight over the shared HL_ACTIVE registry.
-function useActiveSummaryHighlight(
-  scope: React.RefObject<HTMLElement | null>,
-  fb: FeedbackWithReplies | null,
-  scrollNonce: number,
-) {
+function useActiveSummaryHighlight(fb: FeedbackWithReplies | null, scrollNonce: number) {
   const isSummary = fb?.file === SUMMARY_FILE;
   const fbId = fb?.id ?? null;
   const patchSeq = fb?.patch_seq ?? null;
@@ -318,11 +314,13 @@ function useActiveSummaryHighlight(
     // effect's own cleanup below when the active note changes.
     if (!isSummary || fbId == null) return;
     setHighlightRanges(HL_ACTIVE, []);
+    // Document-scoped on purpose: RoundSummary's mobile mount lives in the pane
+    // toolbar, outside the scroll pane. data-round-summary pins the seq so a note
+    // on a non-displayed round's summary highlights nothing (never the wrong one).
     const block =
       patchSeq == null
         ? document.querySelector('[data-summary="review"]')
-        : (scope.current?.querySelector(`[data-round="${patchSeq}"] [data-summary="round"]`) ??
-          null);
+        : document.querySelector(`[data-round-summary="${patchSeq}"] [data-summary="round"]`);
     if (!block) return;
     const range = quote && supportsHighlights() ? rangeForQuote(block, quote) : null;
     if (range) {
@@ -339,7 +337,7 @@ function useActiveSummaryHighlight(
       block.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     return () => setHighlightRanges(HL_ACTIVE, []);
-  }, [scope, isSummary, fbId, patchSeq, quote, scrollNonce]);
+  }, [isSummary, fbId, patchSeq, quote, scrollNonce]);
 }
 
 interface Region {
@@ -682,6 +680,7 @@ function PaneToolbar({
   onJump,
   onFoldAll,
   right,
+  summary,
 }: {
   hasFiles: boolean;
   // The jump-to-file picker, composed by the caller (a slot, like `right`) so
@@ -691,15 +690,19 @@ function PaneToolbar({
   onJump: (dir: 1 | -1) => void;
   onFoldAll: (mode: "fold" | "unfold") => void;
   right?: ReactNode;
+  // Mobile only (ReviewView passes it only below md): the active round's summary
+  // as the stacked bar's middle row — between the switcher and the buttons.
+  summary?: ReactNode;
 }) {
   // h-8 matches the file header height so the file pane's two stacked bars (this
   // toolbar + each file header) read as one consistent header stack. Intra-panel
   // only — we deliberately DON'T match the feedback panel's bars across the split
   // (equal heights there read as one connected bar); those keep their own heights.
-  // Below md one row is too crowded, so the bar wraps into two: the round/snapshot
+  // Below md one row is too crowded, so the bar wraps into rows: the round/snapshot
   // switcher first at full width (`order-first` + `w-full` under the flex-wrap),
-  // then the buttons left-aligned — with no switcher the first row simply never
-  // exists.
+  // then the round summary (also order-first — later in the DOM, so it lands
+  // second), then the buttons left-aligned — with no switcher/summary those rows
+  // simply never exist.
   return (
     <div className="flex h-8 shrink-0 items-center border-b border-neutral-300 bg-white px-1.5 max-md:h-auto max-md:flex-wrap dark:border-neutral-700 dark:bg-neutral-950">
       {hasFiles && (
@@ -744,6 +747,13 @@ function PaneToolbar({
         <div className="-mr-1.5 ml-auto flex items-stretch self-stretch max-md:order-first max-md:-ml-1.5 max-md:h-8 max-md:w-[calc(100%+0.75rem)] max-md:border-b max-md:border-neutral-300 max-md:dark:border-neutral-700">
           {right}
         </div>
+      )}
+      {/* Full-bleed like the switcher row (cancel the bar's px-1.5); the summary
+          block carries its own padding + bottom border. order-first ties with the
+          switcher row and DOM order breaks the tie, so this lands between it and
+          the buttons. */}
+      {summary && (
+        <div className="-ml-1.5 -mr-1.5 w-[calc(100%+0.75rem)] max-md:order-first">{summary}</div>
       )}
     </div>
   );
@@ -1157,7 +1167,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
   }, [activeFb, diffMode, diffPlacements]);
   useActiveLineHighlight(scopeRef, activeFbHighlight, scrollNonce, virt.scrollToLine);
-  useActiveSummaryHighlight(scopeRef, activeFb, scrollNonce);
+  useActiveSummaryHighlight(activeFb, scrollNonce);
 
   // The version the content pane currently renders: a diff review's active round,
   // else the files review's snapshot from/to selection (covers plain view, a pinned
@@ -1313,6 +1323,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // For a diff review only the active round renders, so the browser lists that
   // round's files (a path recurring across rounds isn't a concern here).
   const filesSrc = detail && "files" in detail.source ? detail.source : null;
+  // Also the round behind the RoundSummary mounts — ReviewView owns that
+  // placement (desktop: top of the scroll pane; mobile: the toolbar's middle
+  // row). Undefined until the rounds load, so the summary appears with the diff.
   const activeRound = isDiff ? rounds.find((r) => r.seq === effectiveRoundSeq) : null;
   // The files a plain (non-diff) view browses: the live membership at `to=Current`,
   // else the chosen snapshot's captured file set.
@@ -1978,6 +1991,15 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
               }
               onJump={jumpFile}
               onFoldAll={foldAll}
+              summary={
+                isMobile && activeRound ? (
+                  <RoundSummary
+                    round={activeRound}
+                    onAnchorSummary={applyAnchorGesture}
+                    onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
+                  />
+                ) : undefined
+              }
               right={
                 isDiff && rounds.length > 1 ? (
                   <RoundSelect
@@ -2006,6 +2028,16 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             style={surfaceVars}
           >
             <VirtualPaneProvider scrollRef={scopeRef} registry={virt.registry}>
+              {/* Desktop keeps the round summary at the top of the scrollable
+                  content, above the file blocks (mobile mounts it in the toolbar
+                  instead — the `summary` slot above). */}
+              {!isMobile && activeRound && (
+                <RoundSummary
+                  round={activeRound}
+                  onAnchorSummary={applyAnchorGesture}
+                  onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
+                />
+              )}
               {isDiff && diff && (
                 <DiffView
                   rounds={rounds}
@@ -2014,8 +2046,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   toggle={toggleViewed}
                   onPickLines={onPickLines}
                   onFileFeedback={onFileFeedback}
-                  onAnchorSummary={applyAnchorGesture}
-                  onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
                   foldSignal={foldSignal}
                 />
               )}
@@ -2040,10 +2070,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     // omitting isViewed/toggle hides the toggle.
                     onPickLines={onPickLines}
                     onFileFeedback={onFileFeedback}
-                    // Synthetic snapshot-diff rounds carry no summary, so the
-                    // round-summary anchor/ref paths never fire here — wire the
-                    // gesture for parity anyway.
-                    onAnchorSummary={applyAnchorGesture}
                     foldSignal={foldSignal}
                   />
                 ) : (
@@ -2126,7 +2152,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       {isMobile && (
         <MobileReviewChrome
           openCount={detail.feedback.filter((f) => f.status !== "resolved").length}
-          watchers={watchersData?.watchers ?? []}
           sheet={sheet}
           onSetSheet={setSheet}
         >

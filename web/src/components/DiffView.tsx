@@ -351,7 +351,10 @@ export function RoundSelect({
     // `flex` so the trigger stretches to the toolbar slot's full height (its
     // wrapper cancels the toolbar's own padding) — that makes the left divider run
     // the whole top-to-bottom line and the hover fill the top/bottom/right space.
-    <div className="relative flex">
+    // Below md the slot is the toolbar's full-width first row, so the trigger
+    // truly fills it: no width cap, no left divider (there's nothing to divide
+    // from), and the chevron pushed to the far right edge.
+    <div className="relative flex max-md:flex-1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -361,7 +364,7 @@ export function RoundSelect({
         // divider (no box, no rounding) with only inner padding. While the menu is
         // open, desaturate + dim the trigger so the eye lands on the menu's rows.
         className={cn(
-          "flex max-w-[18rem] items-center gap-1.5 border-l border-neutral-300 pl-1.5 pr-1.5 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          "flex max-w-[18rem] items-center gap-1.5 border-l border-neutral-300 pl-1.5 pr-1.5 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:flex-1 max-md:max-w-none max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
           open && "opacity-60 grayscale",
         )}
       >
@@ -377,7 +380,7 @@ export function RoundSelect({
           strokeLinecap="round"
           strokeLinejoin="round"
           className={cn(
-            "ml-0.5 size-3.5 shrink-0 text-neutral-400 transition-transform",
+            "ml-0.5 size-3.5 shrink-0 text-neutral-400 transition-transform max-md:ml-auto",
             open && "rotate-180",
           )}
         >
@@ -442,13 +445,116 @@ export function RoundSelect({
   );
 }
 
+// The active round's summary — prose set at append time (immutable, like the
+// round), distinct from the short `label` title. Extracted from DiffView so
+// ReviewView owns the mount point: desktop docks it at the top of the scroll
+// pane above the file blocks; mobile mounts it as the pane toolbar's middle row
+// (between the round switcher and the buttons). It follows the review summary's
+// type treatment (same prose size/color, same fold affordance);
+// `data-round-summary` + `data-summary="round"` are the locate/highlight hooks
+// (document-scoped — the mobile mount lives outside the scroll pane).
+export function RoundSummary({
+  round,
+  onAnchorSummary,
+  onJumpRef,
+}: {
+  round: PatchMeta;
+  // A selection in the summary, routed through ReviewView's applyAnchorGesture
+  // (anchor when the composer is empty, "Quote in note" when it holds text) —
+  // the anchor carries the summary sentinel + this round's seq, the quote is the
+  // record, the rect positions the bubble.
+  onAnchorSummary?: (
+    anchor: PendingAnchor,
+    quoteText: string,
+    rect: { left: number; top: number } | null,
+  ) => void;
+  // An `@path:Lx-y` ref clicked in the summary — resolved against this round.
+  onJumpRef?: (ref: MessageRef, patchSeq: number) => void;
+}) {
+  // Folds like the review summary — one global preference, default expanded
+  // (collapse it only if a prior session stored "1").
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem(ROUND_SUMMARY_COLLAPSE_KEY) === "1",
+  );
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem(ROUND_SUMMARY_COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
+  if (!round.summary) return null;
+  return (
+    <div
+      data-round-summary={round.seq}
+      className="border-b border-neutral-300 px-3 py-2 dark:border-neutral-700"
+    >
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        title={collapsed ? "Expand round summary" : "Collapse round summary"}
+        className="group flex w-full items-center gap-1.5 text-left"
+      >
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300",
+            // Muted while expanded, like the review summary's label — it recedes
+            // and the prose below is what reads.
+            !collapsed && "dark:text-neutral-500",
+          )}
+        >
+          <FoldTriangle open={!collapsed} />
+          Diff summary
+        </span>
+        {collapsed && (
+          <span className="max-w-prose truncate text-[0.6875rem] text-neutral-400 dark:text-neutral-500">
+            {round.summary.replace(/\s+/g, " ")}
+          </span>
+        )}
+      </button>
+      <Collapse open={!collapsed}>
+        {/* Markdown-rendered like the review summary (same MessageProse
+            treatment — headings/lists/code + clickable @refs resolved against
+            this round). A selection anchors by quote (getSummaryAnchor), routed
+            through applyAnchorGesture with the selection rect — the round is
+            immutable, so a round-summary quote never drifts. max-h bounds the
+            body like the review summary's: the mobile mount sits above the
+            scroll pane, where an unbounded summary would crowd out the code. */}
+        <div
+          data-summary="round"
+          onMouseUp={(e) => {
+            const a = getSummaryAnchor(e.currentTarget, round.seq);
+            if (!a) return;
+            const sel = window.getSelection();
+            const r = sel?.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
+            onAnchorSummary?.(
+              a,
+              a.quote ?? "",
+              r ? { left: r.left + r.width / 2, top: r.top } : null,
+            );
+          }}
+          title="Select text to leave feedback on this round's summary"
+          className="mt-1 max-h-[50vh] overflow-y-auto"
+        >
+          <MessageProse
+            source={round.summary}
+            onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
+            className="max-w-prose text-sm leading-relaxed text-neutral-700 dark:text-neutral-300"
+          />
+        </div>
+      </Collapse>
+    </div>
+  );
+}
+
 // A diff review's content: its stored rounds are independent,
 // immutable patches — line numbers needn't agree across rounds — so every round
 // gets its own [data-round] scope: feedback anchors and reply pins resolve
 // (round, file, line), never just (file, line). Only the round named by
 // `activeSeq` is rendered; the caller (ReviewView) drives the selection through
-// the RoundSelect switcher. With a single round there's no switcher and this
-// looks exactly like a plain single-diff review.
+// the RoundSelect switcher (and mounts the round's summary — RoundSummary —
+// itself). With a single round there's no switcher and this looks exactly like
+// a plain single-diff review.
 export function DiffView({
   rounds,
   activeSeq,
@@ -456,8 +562,6 @@ export function DiffView({
   toggle,
   onPickLines,
   onFileFeedback,
-  onAnchorSummary,
-  onJumpRef,
   foldSignal,
 }: {
   rounds: PatchDiff[];
@@ -480,117 +584,15 @@ export function DiffView({
   // Called from a file header's feedback button to anchor a note to the whole
   // file within the given round (no line span).
   onFileFeedback?: (file: string, patchSeq: number) => void;
-  // Called when the human selects text in a round's summary. ReviewView routes it
-  // through the one applyAnchorGesture (anchor when the composer is empty, "Quote
-  // in note" bubble when it holds text) — the anchor carries the summary sentinel
-  // + the round's seq, the quote is the record, the rect positions the bubble.
-  onAnchorSummary?: (
-    anchor: PendingAnchor,
-    quoteText: string,
-    rect: { left: number; top: number } | null,
-  ) => void;
-  // An `@path:Lx-y` ref clicked in a round summary (now Markdown-rendered) — jump
-  // the pane, resolving the ref against this round (its seq is the version).
-  onJumpRef?: (ref: MessageRef, patchSeq: number) => void;
   // The pane toolbar's fold/unfold-all broadcast, passed through to every file.
   foldSignal?: FoldSignal | null;
 }) {
-  // Round summaries fold like the review summary — one global preference, default
-  // expanded (collapse it only if a prior session stored "1").
-  const [summaryCollapsed, setSummaryCollapsed] = useState(
-    () => localStorage.getItem(ROUND_SUMMARY_COLLAPSE_KEY) === "1",
-  );
-  const toggleSummary = () => {
-    setSummaryCollapsed((c) => {
-      const next = !c;
-      localStorage.setItem(ROUND_SUMMARY_COLLAPSE_KEY, next ? "1" : "0");
-      return next;
-    });
-  };
-
   if (rounds.length === 0 || rounds.every((r) => r.files.length === 0)) {
     return <p className="p-6 text-sm text-neutral-400">No changes in this review.</p>;
   }
-  const multi = rounds.length > 1;
   const round = rounds.find((r) => r.seq === activeSeq) ?? rounds[rounds.length - 1];
   return (
     <section key={round.seq} data-round={round.seq}>
-      {/* Round context (label + timestamp + summary) sits in its own full-width
-          strip above the file blocks — the files themselves are full-bleed, so
-          this strip carries the padding. */}
-      {(multi || round.summary) && (
-        <div className="space-y-2 border-b border-neutral-300 px-3 py-2 dark:border-neutral-700">
-          {/* The tab already carries the "diff N" pill + label; inside the pane
-              we keep the full (untruncated) label and the round's timestamp for
-              context. Only shown for multi-round reviews. */}
-          {multi && (
-            <div className="flex items-baseline gap-2">
-              {round.label && (
-                <span className="truncate text-xs text-neutral-500">{round.label}</span>
-              )}
-              <span className="ml-auto shrink-0 text-[0.6875rem] text-neutral-400">
-                {new Date(round.created_at).toLocaleString()}
-              </span>
-            </div>
-          )}
-          {/* What this round changes overall — prose set at append
-              time, distinct from the short `label` title. Shown whenever present.
-              Foldable like the review summary (a "Diff summary" toggle + one-line
-              preview when collapsed); the prose is selectable to anchor feedback. */}
-          {round.summary && (
-            <div>
-              <button
-                type="button"
-                onClick={toggleSummary}
-                title={summaryCollapsed ? "Expand round summary" : "Collapse round summary"}
-                className="group flex w-full items-center gap-1.5 text-left"
-              >
-                <span className="flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300">
-                  <FoldTriangle open={!summaryCollapsed} />
-                  Diff summary
-                </span>
-                {summaryCollapsed && (
-                  <span className="max-w-prose truncate text-[0.6875rem] text-neutral-400 dark:text-neutral-500">
-                    {round.summary.replace(/\s+/g, " ")}
-                  </span>
-                )}
-              </button>
-              <Collapse open={!summaryCollapsed}>
-                {/* Markdown-rendered like the review summary (same MessageProse
-                    treatment — headings/lists/code + clickable @refs resolved
-                    against this round). data-summary="round" is the anchor +
-                    highlight hook; a selection anchors by quote (getSummaryAnchor),
-                    routed through applyAnchorGesture with the selection rect. The
-                    round is immutable, so a round-summary quote never drifts. */}
-                <div
-                  data-summary="round"
-                  onMouseUp={(e) => {
-                    const a = getSummaryAnchor(e.currentTarget, round.seq);
-                    if (!a) return;
-                    const sel = window.getSelection();
-                    const r = sel?.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
-                    onAnchorSummary?.(
-                      a,
-                      a.quote ?? "",
-                      r ? { left: r.left + r.width / 2, top: r.top } : null,
-                    );
-                  }}
-                  title="Select text to leave feedback on this round's summary"
-                  className="mt-1 border-l-2 border-neutral-300 pl-2 dark:border-neutral-700"
-                >
-                  <MessageProse
-                    source={round.summary}
-                    onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
-                    // Cap the measure at ~65ch so summary prose stays readable
-                    // instead of stretching the full width of a wide diff pane.
-                    className="max-w-prose text-xs leading-relaxed text-neutral-600 dark:text-neutral-400"
-                  />
-                </div>
-              </Collapse>
-            </div>
-          )}
-        </div>
-      )}
       {round.files.length === 0 && (
         <p className="px-3 py-2 text-xs text-neutral-400">(empty round)</p>
       )}

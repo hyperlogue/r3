@@ -29,7 +29,6 @@ const meta = {
   ],
   args: {
     openCount: 3,
-    watchers: [{ session: "claude-mobile", agentId: "claude-1" }],
     sheet: "closed",
     onSetSheet: fn(),
     children: <PanelStandIn />,
@@ -42,11 +41,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Bar only — the sheet is closed (translated away + inert).
+// Bar only — the sheet is closed (translated away + inert). The whole bar is
+// the expand button; watcher presence shows inside the panel, not here.
 export const Closed: Story = {};
 
-export const NoWatcher: Story = {
-  args: { watchers: [], openCount: 0 },
+export const NothingOpen: Story = {
+  args: { openCount: 0 },
 };
 
 // Composer peek: the short sheet leaves the code readable above it.

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { WatcherInfo } from "../types.ts";
 import { cn } from "../ui.tsx";
 
 // The phone-tier review chrome (see AGENTS.md "Mobile"): a persistent bottom
@@ -18,30 +17,29 @@ export type MobileSheetState = "closed" | "peek" | "full";
 
 export function MobileReviewChrome({
   openCount,
-  watchers,
   sheet,
   onSetSheet,
   children,
 }: {
   openCount: number;
-  watchers: WatcherInfo[];
   sheet: MobileSheetState;
   onSetSheet: (s: MobileSheetState) => void;
   children: ReactNode; // the FeedbackPanel (fills the sheet: it's h-full flex-col)
 }) {
-  const watcher = watchers[0];
   return (
     <>
       {/* The bar is in-flow at the bottom of ReviewView's column (not fixed), so
           it never overlaps the last code line; safe-area padding clears the home
           indicator. It wears the feedback surface (panel-header white/near-black)
           behind a 2px rule — the desktop dock's border weight — so it reads as
-          the feedback panel's edge, not another file-header strip. */}
-      <div className="flex shrink-0 items-center justify-between border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950">
+          the feedback panel's edge, not another file-header strip. The whole bar
+          is one expand/collapse button — no other controls live here (watcher
+          presence shows inside the panel, where Submit is). */}
+      <div className="shrink-0 border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950">
         <button
           type="button"
           onClick={() => onSetSheet(sheet === "closed" ? "full" : "closed")}
-          className="flex min-h-11 flex-1 items-center gap-2 px-3 text-sm font-semibold"
+          className="flex min-h-11 w-full items-center gap-2 px-3 text-sm font-semibold"
         >
           {/* Chevron-up: the affordance that this bar expands upward. */}
           <svg
@@ -62,16 +60,6 @@ export function MobileReviewChrome({
           Feedback
           <span className="font-normal text-neutral-500">· {openCount} open</span>
         </button>
-        {watcher && (
-          <span
-            className="flex shrink-0 items-center gap-1.5 px-3 text-xs text-neutral-500"
-            title={`${watchers.length > 1 ? `${watchers.length} agents` : "agent"} watching — Submit hands your feedback off live`}
-          >
-            <span className="text-success-500">●</span>
-            <span className="max-w-24 truncate">{watcher.session}</span>
-            watching
-          </span>
-        )}
       </div>
 
       {/* Full-height sheet gets a dimmed click-away backdrop; the peek doesn't —

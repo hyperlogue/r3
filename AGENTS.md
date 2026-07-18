@@ -213,10 +213,12 @@ pane to that file/line, resolved against the message's version (a reply's
 `ref_version`, or a feedback body's own round). Humans don't type refs — selecting
 code while composing (or text in an agent reply) offers a **"Quote"** button that
 drops it in as a `>` blockquote instead. **Both summaries — the review summary
-(`ReviewSummary`) and each diff round's summary (`DiffView`) — render the same
-way** (markdown + refs); a round-summary ref resolves against its round, a review
-summary is edited in place so its refs pin no version and resolve against the
-**live/current view**.
+(`ReviewSummary`) and the active round's summary (`RoundSummary`, in
+`DiffView.tsx` but mounted by `ReviewView`: desktop at the top of the scroll
+pane, mobile as the pane toolbar's middle row) — render the same way** (markdown
++ refs, same prose type treatment); a round-summary ref resolves against its
+round, a review summary is edited in place so its refs pin no version and
+resolve against the **live/current view**.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a text selection through the same
@@ -522,10 +524,13 @@ components never import from it); existing components get only inert `max-md:` /
 swaps the side dock for `MobileReviewChrome` — panel/domain state never forks,
 and the same `FeedbackPanel` renders with the same props either way.
 
-- **Layout**: the sidebar hides; a persistent bottom bar (`Feedback · N open` +
-  watching dot) toggles a bottom **sheet** hosting the panel, with three discrete
-  tap-only states — closed · **composer peek** (short sheet: the composer over
-  the still-visible code; raised by any anchor gesture) · full. Locate/ref jumps
+- **Layout**: the sidebar hides; the pane toolbar wraps into stacked full-width
+  rows — round/snapshot selector (full-bleed trigger, chevron far right) · the
+  round summary · the buttons; a persistent bottom bar (`Feedback · N open`, the
+  whole bar is the toggle — watcher presence shows only inside the panel)
+  toggles a bottom **sheet** hosting the panel, with three discrete tap-only
+  states — closed · **composer peek** (short sheet: the composer over the
+  still-visible code; raised by any anchor gesture) · full. Locate/ref jumps
   close the sheet before scrolling the code pane.
 - **Navigation**: the shared `JumpToFile` picker (a toolbar button on both
   tiers) — flat filterable list with viewed ticks, filter input pinned at the

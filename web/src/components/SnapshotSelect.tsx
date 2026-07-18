@@ -148,14 +148,17 @@ export function SnapshotSelect({
   };
 
   return (
-    <div className="relative flex">
+    // Below md the slot is the toolbar's full-width first row (same treatment as
+    // RoundSelect): the trigger fills it — no width cap, no left divider — with
+    // the chevron pushed to the far right edge.
+    <div className="relative flex max-md:flex-1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="Choose which versions to view or diff"
         className={cn(
-          "flex max-w-[16rem] items-center gap-1.5 border-l border-neutral-300 pr-1.5 pl-3 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          "flex max-w-[16rem] items-center gap-1.5 border-l border-neutral-300 pr-1.5 pl-3 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:max-w-none max-md:flex-1 max-md:justify-between max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
           open && "opacity-60 grayscale",
         )}
       >
@@ -185,7 +188,7 @@ export function SnapshotSelect({
       <div
         inert={!open}
         className={cn(
-          "absolute top-full right-0 z-50 max-h-80 min-w-[17rem] max-w-[24rem] overflow-y-auto bg-white shadow-2xl transition-[opacity,transform] duration-150 ease-out dark:bg-neutral-700",
+          "absolute top-full right-0 z-50 max-h-80 min-w-[17rem] max-w-[24rem] overflow-y-auto bg-white shadow-2xl transition-[opacity,transform] duration-150 ease-out max-md:left-0 max-md:max-w-none dark:bg-neutral-700",
           open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         )}
       >
