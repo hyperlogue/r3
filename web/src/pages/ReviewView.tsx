@@ -27,6 +27,7 @@ import {
   setDraftAnchor,
   setDraftText,
   useDraftAnchor,
+  useHasAnchoredText,
 } from "../drafts.ts";
 import { shortSha, sourceLabel } from "../format.ts";
 import type { MessageRef } from "../markdown.ts";
@@ -40,8 +41,10 @@ import {
 // The one sanctioned mobile-module import (see AGENTS.md "Mobile"): ReviewView
 // is the single mount point that swaps the desktop side-dock for the phone
 // chrome. Everything else mobile is inert max-md:/pointer-coarse: classes.
+import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
+import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
@@ -1033,6 +1036,14 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // nudges below — never inside the panel or the domain state.
   const isMobile = useIsMobile();
   const [sheet, setSheet] = useState<MobileSheetState>("closed");
+  // Touch anchoring keys on the *pointer*, not the width tier (see usePointerCoarse
+  // / AGENTS.md "Mobile"): a coarse pointer swaps the desktop mouseup selection path
+  // for the AddFeedbackPill, on either layout tier. `composing` mirrors
+  // applyAnchorGesture's own branch so the pill's label tells the truth — an empty
+  // composer anchors a note, a composer already holding text quotes the selection in.
+  const coarse = usePointerCoarse();
+  const hasAnchoredText = useHasAnchoredText(reviewId);
+  const composing = pending != null && hasAnchoredText;
 
   const {
     data: detail,
@@ -1709,8 +1720,11 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // which is why re-selecting near the panel edge used to leave the pending
   // draft stuck on the old region. getSelectionAnchor returns null unless the
   // selection actually lands on a file line, so clicks and panel-internal
-  // selections are ignored.
+  // selections are ignored. Coarse pointers never fire a usable mouseup for a
+  // long-press selection — the AddFeedbackPill (mounted below) drives them off
+  // selectionchange instead — so skip this listener there.
   useEffect(() => {
+    if (coarse) return;
     const onMouseUp = () => {
       const root = scopeRef.current;
       if (!root) return;
@@ -1727,7 +1741,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
     document.addEventListener("mouseup", onMouseUp);
     return () => document.removeEventListener("mouseup", onMouseUp);
-  }, [applyAnchorGesture]);
+  }, [applyAnchorGesture, coarse]);
 
   // Cancel/✕/Esc discards the anchored composer; a draft with text confirms first
   // (4). Only the anchored composer is dropped — a general note or drafted reply on
@@ -2171,6 +2185,26 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       {/* "Quote in note" bubble for a file-pane selection made while the anchored
           composer already holds text — fixed-positioned, so it lives at the root. */}
       {fileQuote && <QuoteBubble pos={fileQuote} label="Quote in note" onQuote={quoteIntoNote} />}
+      {/* Touch-tier selection anchoring: the pill floats over a code selection and
+          routes the tap through the same applyAnchorGesture the mouseup path uses.
+          Coarse-pointer only (it replaces that mouseup path), on either layout tier.
+          While composing the pill IS the quote affordance — it quotes directly in
+          one tap rather than routing through applyAnchorGesture, whose composing
+          branch would only summon the desktop bubble for a second tap. Label and
+          action read the same `composing`, so they can't disagree. */}
+      {coarse && (
+        <AddFeedbackPill
+          scopeRef={scopeRef}
+          composing={composing}
+          onAdd={(anchor, quote, rect) => {
+            if (!composing) return applyAnchorGesture(anchor, quote, rect);
+            // The sheet may have been dismissed since typing began — raise the
+            // peek so the note the quote just landed in is on screen.
+            if (isMobile) setSheet((s) => (s === "closed" ? "peek" : s));
+            quoteIntoNote(quote);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -201,6 +201,13 @@ export function useDraftAnchor(reviewId: string): PendingAnchor | null {
 export function useDraftText(reviewId: string): string {
   return useSyncExternalStore(subscribe, () => cache.get(reviewId)?.text ?? "");
 }
+// Whether the anchored composer already holds text — a boolean slice (unlike
+// useDraftText) so a subscriber that only cares about the empty/non-empty flip
+// (ReviewView, for the touch pill's "Add feedback" vs "Quote in note" label)
+// doesn't re-render on every keystroke.
+export function useHasAnchoredText(reviewId: string): boolean {
+  return useSyncExternalStore(subscribe, () => (cache.get(reviewId)?.text ?? "").trim() !== "");
+}
 export function useGeneralDraft(reviewId: string): string {
   return useSyncExternalStore(subscribe, () => cache.get(reviewId)?.general ?? "");
 }

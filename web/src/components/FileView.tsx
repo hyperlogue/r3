@@ -78,7 +78,8 @@ const LineRow = memo(function LineRow({
           // Frozen line-number rail: sticky so only the code scrolls
           // horizontally. Must stay opaque — the code slides under it —
           // and painted on the theme surface so it matches the code bg.
-          "sticky left-0 z-0 cursor-pointer border-r border-neutral-300/70 px-2 text-right text-neutral-400 select-none hover:text-neutral-700 dark:border-neutral-700 dark:hover:text-neutral-200",
+          // touch-manipulation so a tap-to-anchor never registers as a double-tap zoom.
+          "sticky left-0 z-0 cursor-pointer touch-manipulation border-r border-neutral-300/70 px-2 text-right text-neutral-400 select-none hover:text-neutral-700 dark:border-neutral-700 dark:hover:text-neutral-200",
           selected
             ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100"
             : "gutter-surface",

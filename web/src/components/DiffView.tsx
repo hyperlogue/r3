@@ -71,7 +71,8 @@ function GutterCell({
         // Frozen line-number rail: sticky so only the code scrolls horizontally.
         // The old/new columns are 3rem each, so the new-side gutter pins at 3rem.
         // Must stay opaque — the code slides *under* it as it scrolls.
-        "sticky z-0 select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 dark:border-neutral-700",
+        // touch-manipulation so a tap-to-anchor never registers as a double-tap zoom.
+        "sticky z-0 touch-manipulation select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 dark:border-neutral-700",
         side === "old" ? "left-0" : "left-12",
         line != null && "cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-200",
         selected ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100" : bg,

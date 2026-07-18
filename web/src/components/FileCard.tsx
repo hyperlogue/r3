@@ -229,7 +229,10 @@ export function FileCard({
             // donates its px-1.5 right padding to the gap, while the pill before
             // *it* sits flush (border at its box edge, no padding donated). Pulling
             // the icon left by that same px-1.5 makes both inter-control gaps equal.
-            className="-ml-1.5 flex shrink-0 items-center rounded px-1 py-0.5 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            // pointer-coarse:py-2/pr-2 grow the touch target vertically (absorbed by
+            // the h-8 header's items-center — no height change) and rightward into
+            // the header's own px-2 padding, never leftward toward the Viewed pill.
+            className="-ml-1.5 flex shrink-0 items-center rounded px-1 py-0.5 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700 pointer-coarse:py-2 pointer-coarse:pr-2 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
           >
             <CommentPlusIcon className="size-3.5" />
           </button>
