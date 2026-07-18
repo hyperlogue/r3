@@ -72,7 +72,9 @@ export function TokenManager() {
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Label (e.g. laptop)"
-        className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs outline-none focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900"
+        // max-md:text-base keeps iOS from zooming when the label field takes
+        // focus on a phone (settings are reachable on mobile).
+        className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900"
       />
       <Button variant="primary" onClick={create} disabled={busy} className="justify-center">
         {busy ? "Creating…" : "Create login token"}

@@ -192,7 +192,9 @@ export function SettingsPopup() {
               <select
                 value={syntaxTheme}
                 onChange={(e) => setSyntaxTheme(e.target.value)}
-                className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-700 outline-none focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                // max-md:text-base — iOS zooms on focusing a <select> under 16px
+                // too, same as text inputs.
+                className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-700 outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
               >
                 {themeGroups.map((g) => (
                   <optgroup key={g.name} label={g.name}>

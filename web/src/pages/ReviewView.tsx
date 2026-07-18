@@ -621,7 +621,10 @@ function EditableTitle({
         type="button"
         onClick={startEditing}
         title="Rename review"
-        className="min-w-0 cursor-text truncate text-left text-sm font-semibold"
+        // max-md:text-base keeps the display the same size as the edit input
+        // (which lifts to 16px+ below md against iOS zoom-on-focus), so opening
+        // the editor never grows the header row on a phone either.
+        className="min-w-0 cursor-text truncate text-left text-sm font-semibold max-md:text-base"
       >
         {title || placeholder}
       </button>
@@ -2199,8 +2202,11 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         <AddFeedbackPill
           scopeRef={scopeRef}
           composing={composing}
-          onAdd={(anchor, quote, rect) => {
-            if (!composing) return applyAnchorGesture(anchor, quote, rect);
+          onAdd={(anchor, quote) => {
+            // No rect: applyAnchorGesture only reads it in its composing branch
+            // (to place the desktop QuoteBubble), which the pill never reaches —
+            // composing routes to quoteIntoNote below instead.
+            if (!composing) return applyAnchorGesture(anchor, quote, null);
             // The sheet may have been dismissed since typing began — raise the
             // peek so the note the quote just landed in is on screen.
             if (isMobile) setSheet((s) => (s === "closed" ? "peek" : s));

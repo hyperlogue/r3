@@ -270,7 +270,9 @@ export function Home() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search reviews…"
-              className="w-56 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+              // max-md:text-base keeps iOS from zooming the page when the search
+              // field takes focus (it does for any field under 16px).
+              className="w-56 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
           )}
         </div>
