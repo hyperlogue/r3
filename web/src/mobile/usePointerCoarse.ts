@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useMediaQuery } from "./useMediaQuery.ts";
 
 // The gesture-affordance test (see AGENTS.md "Mobile"): keys on the *primary*
 // pointer being coarse, NOT the viewport-width tier `useIsMobile` reads. The two
@@ -6,15 +6,8 @@ import { useSyncExternalStore } from "react";
 // the instant mouseup→anchor path, and a portrait tablet (coarse pointer, desktop
 // layout) must still get touch anchoring. So layout forks on `useIsMobile`; every
 // touch-anchor affordance (the AddFeedbackPill, the mouseup-listener skip) gates
-// on this.
-const QUERY = "(pointer: coarse)";
-
-function subscribe(onChange: () => void): () => void {
-  const mq = window.matchMedia(QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-
+// on this. No fallback probe like useIsMobile's: `(pointer: coarse)` is a plain
+// feature query with no old/new syntax split.
 export function usePointerCoarse(): boolean {
-  return useSyncExternalStore(subscribe, () => window.matchMedia(QUERY).matches);
+  return useMediaQuery("(pointer: coarse)");
 }

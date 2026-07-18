@@ -108,15 +108,18 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx (the review)
   src/components/ DiffView, FileView, FileCard, FileBrowser, FeedbackPanel,
                  ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
-                 ReviewSummary, SnapshotSelect, Logo, Login (remote-access token
-                 screen), TokenManager (login-token panel in SettingsPopup),
+                 ReviewSummary + DiffView's RoundSummary (both thin wrappers over
+                 the shared SummaryBar), SnapshotSelect, Logo, Login (remote-access
+                 token screen), TokenManager (login-token panel in SettingsPopup),
                  JumpToFile (toolbar file picker: popover on desktop, bottom
                  sheet below md), Message (MessageProse +
                  the shared QuoteBubble/useQuoteBubble selection-to-quote)
                  (each with a *.stories.tsx)
   src/mobile/    the phone tier's containers ONLY (see Mobile): useIsMobile +
-                 MobileReviewChrome (bottom bar + the 3-state feedback sheet);
-                 desktop components never import from here
+                 usePointerCoarse (both over useMediaQuery), MobileReviewChrome
+                 (bottom bar + the 3-state feedback sheet), AddFeedbackPill (the
+                 touch selection-anchor pill); desktop components never import
+                 from here
   src/api.ts     typed fetch wrappers    hooks.ts  SSE + query wiring
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { type CSSProperties, useState } from "react";
+import { phoneViewport } from "../storyViewport.ts";
 import { multiRound, singleRound, wideRound } from "./_fixtures.ts";
 import { DiffView, RoundSelect, RoundSummary } from "./DiffView.tsx";
 
@@ -88,12 +89,7 @@ export const WideLines: Story = {
 // width); wideRound scrolls horizontally, showing the compressed rail stay frozen.
 export const Mobile: Story = {
   args: { rounds: wideRound },
-  parameters: {
-    viewport: {
-      viewports: { phone: { name: "Phone", styles: { width: "390px", height: "780px" } } },
-      defaultViewport: "phone",
-    },
-  },
+  parameters: phoneViewport(),
 };
 
 // The code surface paints on the syntax theme's OWN background: in the app,

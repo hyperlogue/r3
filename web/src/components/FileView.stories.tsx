@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { getSyntaxTheme } from "../settings.ts";
+import { phoneViewport } from "../storyViewport.ts";
 import { renderedCode, renderedMarkdown } from "./_fixtures.ts";
 import { FileView } from "./FileView.tsx";
 
@@ -67,9 +68,6 @@ export const Mobile: Story = {
   args: { path: renderedCode.path },
   parameters: {
     queryData: [[["blob", REVIEW_ID, renderedCode.path, REF, theme], renderedCode]],
-    viewport: {
-      viewports: { phone: { name: "Phone", styles: { width: "390px", height: "780px" } } },
-      defaultViewport: "phone",
-    },
+    ...phoneViewport(),
   },
 };

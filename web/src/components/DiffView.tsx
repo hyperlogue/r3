@@ -1,13 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useGutterDrag } from "../gutter.ts";
 import type { MessageRef } from "../markdown.ts";
-import { getSummaryAnchor, type PendingAnchor } from "../selection.ts";
+import type { PendingAnchor } from "../selection.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
-import { Collapse, cn, FoldTriangle, Pill } from "../ui.tsx";
+import { cn, Pill } from "../ui.tsx";
 import { diffViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
-import { MessageProse } from "./Message.tsx";
+import { SummaryBar } from "./SummaryBar.tsx";
 
 // One global preference (like the review summary's own collapse): fold a round
 // summary and it stays folded as you move between rounds and reviews.
@@ -43,6 +43,16 @@ const GUTTER_BG: Record<string, string> = {
 
 const SIGN: Record<string, string> = { add: "+", del: "−", context: " ", hunk: "" };
 
+// The row grid shared by the hunk row and the normal row. --gutter-w is the
+// single source of the gutter column width: the two grid columns and
+// GutterCell's sticky new-side pin (left-[var(--gutter-w)]) all read it, so the
+// pin structurally tracks the width at every breakpoint instead of a separate
+// left-* literal kept in lockstep by hand. Below md the columns compress
+// (3rem → 2.25rem, 96px → 72px on a phone) to give the code more of the narrow
+// screen; a 4-digit line number still fits at GutterCell's tightened px.
+const ROW_GRID =
+  "grid min-w-full [--gutter-w:3rem] max-md:[--gutter-w:2.25rem] grid-cols-[var(--gutter-w)_var(--gutter-w)_1fr] font-mono text-xs";
+
 type GutterHandler = (side: DiffSide, line: number, e: React.MouseEvent) => void;
 type EnterHandler = (side: DiffSide, line: number) => void;
 
@@ -69,14 +79,14 @@ function GutterCell({
     <span
       className={cn(
         // Frozen line-number rail: sticky so only the code scrolls horizontally.
-        // The old/new columns are 3rem each, so the new-side gutter pins at 3rem
-        // (left-12). Below md both columns shrink to 2.25rem (see the row grid), so
-        // the new side re-pins at 2.25rem (left-9) to stay glued to the old column,
-        // and px tightens to 0.5 so a 4-digit line number still fits the narrower
-        // cell. Must stay opaque — the code slides *under* it as it scrolls.
-        // touch-manipulation so a tap-to-anchor never registers as a double-tap zoom.
+        // The new side pins at exactly one column width — left reads the same
+        // --gutter-w the row grid (ROW_GRID) declares, so it stays glued to the
+        // old column at every breakpoint. px tightens below md so a 4-digit line
+        // number still fits the compressed cell. Must stay opaque — the code
+        // slides *under* it as it scrolls. touch-manipulation so a tap-to-anchor
+        // never registers as a double-tap zoom.
         "sticky z-0 touch-manipulation select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 max-md:px-0.5 dark:border-neutral-700",
-        side === "old" ? "left-0" : "left-12 max-md:left-9",
+        side === "old" ? "left-0" : "left-[var(--gutter-w)]",
         line != null && "cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-200",
         selected ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100" : bg,
       )}
@@ -109,14 +119,7 @@ const Row = memo(function Row({
   const html = useMemo(() => ({ __html: ln.html || "&nbsp;" }), [ln.html]);
   if (ln.type === "hunk") {
     return (
-      <div
-        className={cn(
-          // Below md the two 3rem gutter columns compress to 2.25rem (96px→72px on
-          // a phone); GutterCell's new-side pin follows (left-12 → left-9).
-          "grid min-w-full grid-cols-[3rem_3rem_1fr] font-mono text-xs max-md:grid-cols-[2.25rem_2.25rem_1fr]",
-          ROW_BG.hunk,
-        )}
-      >
+      <div className={cn(ROW_GRID, ROW_BG.hunk)}>
         {/* No vertical padding: virtualization sizes every row at one line height
             (a fixed estimate), so a taller hunk row would drift scroll-to-line. */}
         <div className="col-span-3 truncate px-3 select-none">{ln.text}</div>
@@ -128,16 +131,7 @@ const Row = memo(function Row({
   const line = ln.type === "del" ? ln.oldLine : ln.newLine;
   const gutterBg = GUTTER_BG[ln.type];
   return (
-    <div
-      className={cn(
-        // Below md the two 3rem gutter columns compress to 2.25rem, in lockstep
-        // with the hunk row above and GutterCell's new-side pin (left-12 → left-9).
-        "grid min-w-full grid-cols-[3rem_3rem_1fr] font-mono text-xs max-md:grid-cols-[2.25rem_2.25rem_1fr]",
-        ROW_BG[ln.type],
-      )}
-      data-line={line ?? undefined}
-      data-side={side}
-    >
+    <div className={cn(ROW_GRID, ROW_BG[ln.type])} data-line={line ?? undefined} data-side={side}>
       <GutterCell
         line={ln.oldLine}
         side="old"
@@ -487,91 +481,24 @@ export function RoundSummary({
   // An `@path:Lx-y` ref clicked in the summary — resolved against this round.
   onJumpRef?: (ref: MessageRef, patchSeq: number) => void;
 }) {
-  // Folds like the review summary — one global preference, default expanded
-  // (collapse it only if a prior session stored "1").
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(ROUND_SUMMARY_COLLAPSE_KEY) === "1",
-  );
-  const toggleCollapsed = () => {
-    setCollapsed((c) => {
-      const next = !c;
-      localStorage.setItem(ROUND_SUMMARY_COLLAPSE_KEY, next ? "1" : "0");
-      return next;
-    });
-  };
   if (!round.summary) return null;
-  // Mirrors ReviewSummary's structure exactly so the two bars are the same
-  // height in every state — h-8 rows, matching the pane toolbar and the file
-  // headers, so the stacked bars read as one consistent header stack.
+  // The chrome is the shared SummaryBar (one implementation with ReviewSummary,
+  // so the two bars are the same h-8 height in every state and can't drift);
+  // this wrapper binds the round's data: refs resolve against this round, the
+  // anchor names the round's seq, and — the round being immutable — its
+  // summary quote never drifts.
   return (
-    <div
-      data-round-summary={round.seq}
-      className="border-b border-neutral-300 dark:border-neutral-700"
-    >
-      {collapsed ? (
-        // Collapsed: the entire bar is the expand affordance, with a one-line
-        // preview of the summary (same shape as the review summary's bar).
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          title="Expand round summary"
-          className="group flex h-8 w-full items-center gap-1.5 px-3 text-left"
-        >
-          <span className="flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300">
-            <FoldTriangle open={false} />
-            Diff summary
-          </span>
-          <span className="max-w-prose truncate text-[0.6875rem] text-neutral-400 dark:text-neutral-500">
-            {round.summary.replace(/\s+/g, " ")}
-          </span>
-        </button>
-      ) : (
-        <div className="flex h-8 items-center gap-1.5 px-3">
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            title="Collapse round summary"
-            // Muted while expanded, like the review summary's label — it recedes
-            // and the prose below is what reads.
-            className="flex items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-          >
-            <FoldTriangle open={true} />
-            Diff summary
-          </button>
-        </div>
-      )}
-      <Collapse open={!collapsed}>
-        {/* Markdown-rendered like the review summary (same MessageProse
-            treatment — headings/lists/code + clickable @refs resolved against
-            this round). A selection anchors by quote (getSummaryAnchor), routed
-            through applyAnchorGesture with the selection rect — the round is
-            immutable, so a round-summary quote never drifts. max-h bounds the
-            body like the review summary's: the mobile mount sits above the
-            scroll pane, where an unbounded summary would crowd out the code. */}
-        <div
-          data-summary="round"
-          onMouseUp={(e) => {
-            const a = getSummaryAnchor(e.currentTarget, round.seq);
-            if (!a) return;
-            const sel = window.getSelection();
-            const r = sel?.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
-            onAnchorSummary?.(
-              a,
-              a.quote ?? "",
-              r ? { left: r.left + r.width / 2, top: r.top } : null,
-            );
-          }}
-          title="Select text to leave feedback on this round's summary"
-          className="max-h-[50vh] overflow-y-auto"
-        >
-          <MessageProse
-            source={round.summary}
-            onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
-            className="max-w-prose px-3 pb-2 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300"
-          />
-        </div>
-      </Collapse>
-    </div>
+    <SummaryBar
+      label="Diff summary"
+      source={round.summary}
+      collapseKey={ROUND_SUMMARY_COLLAPSE_KEY}
+      roundSeq={round.seq}
+      expandTitle="Expand round summary"
+      collapseTitle="Collapse round summary"
+      selectTitle="Select text to leave feedback on this round's summary"
+      onAnchorSummary={onAnchorSummary}
+      onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
+    />
   );
 }
 

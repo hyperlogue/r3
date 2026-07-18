@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
+import { phoneViewport } from "../storyViewport.ts";
 import { Pill } from "../ui.tsx";
 import { FileCard } from "./FileCard.tsx";
 
@@ -75,10 +76,5 @@ export const NestedPath: Story = {
 // Sized to a 390px phone so the sub-md layout is what renders.
 export const Mobile: Story = {
   args: { path: "web/src/components/feedback/FeedbackPanel.tsx" },
-  parameters: {
-    viewport: {
-      viewports: { phone: { name: "Phone", styles: { width: "390px", height: "780px" } } },
-      defaultViewport: "phone",
-    },
-  },
+  parameters: phoneViewport(),
 };

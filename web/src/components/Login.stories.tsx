@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, userEvent, within } from "@storybook/test";
+import { phoneViewport } from "../storyViewport.ts";
 import { Login } from "./Login.tsx";
 
 // The remote-access login screen. Rendered by main.tsx when GET /api/boot reports
@@ -31,4 +32,12 @@ export const Typed: Story = {
     await userEvent.type(canvas.getByPlaceholderText("r3tok_…"), "r3tok_deadbeef");
     await expect(canvas.getByRole("button", { name: "Sign in" })).toBeEnabled();
   },
+};
+
+// The phone tier: below md the token input lifts to 16px (max-md:text-base) so
+// iOS doesn't zoom the login screen on focus, and the shared Button grows to a
+// 44px touch target. Rendered at a real sub-md viewport so those max-md:
+// variants engage.
+export const Mobile: Story = {
+  parameters: { layout: "fullscreen", ...phoneViewport() },
 };

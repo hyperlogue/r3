@@ -2,6 +2,7 @@ import type { Decorator, Meta, StoryObj } from "@storybook/react";
 import { fn, userEvent, within } from "@storybook/test";
 import { useEffect } from "react";
 import { clearDraft, setDraftText } from "../drafts.ts";
+import { phoneViewport } from "../storyViewport.ts";
 import {
   allSentDetail,
   noWatchers,
@@ -225,12 +226,5 @@ export const Empty: Story = {
 // wider than a phone only so the panel's fixed 440px story frame still fits.
 export const Mobile: Story = {
   args: { pending: pendingAnchor },
-  parameters: {
-    viewport: {
-      viewports: {
-        phone: { name: "Phone (panel frame)", styles: { width: "520px", height: "860px" } },
-      },
-      defaultViewport: "phone",
-    },
-  },
+  parameters: phoneViewport(520, 860, "Phone (panel frame)"),
 };

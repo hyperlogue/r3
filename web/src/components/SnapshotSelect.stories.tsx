@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { useState } from "react";
+import { phoneViewport } from "../storyViewport.ts";
 import type { SnapshotMeta, SnapshotRef } from "../types.ts";
 import { SnapshotSelect } from "./SnapshotSelect.tsx";
 
@@ -62,4 +63,31 @@ export const Interactive: Story = {
 // A single snapshot: from can only be None or v1; to is Current or v1.
 export const OneSnapshot: Story = {
   args: { snapshots: snapshots.slice(0, 1) },
+};
+
+// A label long enough to overflow: min-w-0 down the wrapper→trigger chain lets
+// the version label truncate instead of propagating its min-content width and
+// overflowing the toolbar row (the desktop trigger caps at max-w-[16rem]).
+export const LongLabel: Story = {
+  args: {
+    snapshots: [
+      ...snapshots.slice(0, 2),
+      {
+        seq: 3,
+        label: "after reworking the anchoring section per round-2 feedback",
+        created_at: ISO,
+        files: ["doc/notes.md"],
+      },
+    ],
+    from: 3,
+    to: "WORKING",
+  },
+};
+
+// The phone tier: below md the trigger becomes the toolbar's full-width first
+// row (max-md:flex-1, no width cap, no left divider) and the long label
+// truncates inside it instead of overflowing the viewport.
+export const Mobile: Story = {
+  args: LongLabel.args,
+  parameters: phoneViewport(),
 };

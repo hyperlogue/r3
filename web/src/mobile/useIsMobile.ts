@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useMediaQuery } from "./useMediaQuery.ts";
 
 // The one JS-side mobile test, matching Tailwind's `max-md:` tier. Tailwind v4
 // compiles max-md to `(width < 48rem)` (strictly-less, rem against the initial
@@ -11,12 +11,6 @@ import { useSyncExternalStore } from "react";
 const RANGE = "(width < 48rem)";
 const QUERY = window.matchMedia(RANGE).media !== "not all" ? RANGE : "(max-width: 767.98px)";
 
-function subscribe(onChange: () => void): () => void {
-  const mq = window.matchMedia(QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-
 export function useIsMobile(): boolean {
-  return useSyncExternalStore(subscribe, () => window.matchMedia(QUERY).matches);
+  return useMediaQuery(QUERY);
 }
