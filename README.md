@@ -158,17 +158,27 @@ when exposed.) Force it either way with `R3_REQUIRE_LOGIN=1|0`.
 
 ```sh
 # on the host:
-export R3_PUBLIC_URL=https://myhost.tailnet.ts.net      # allows that Host + requires login
-r3 restart
-tailscale serve --bg 8791                                # -> https://myhost.tailnet.ts.net/
-r3 auth create-token --label laptop                      # prints the token once — paste it in the browser
+r3 config set publicUrl https://myhost.tailnet.ts.net    # allows that Host + requires login
+r3 restart                                                # config.json is read below env
+tailscale serve --bg 8791                                 # -> https://myhost.tailnet.ts.net/
+r3 auth create-token --label laptop                       # prints the token once — paste it in the browser
 ```
 
-`r3 auth list-tokens` / `r3 auth revoke-token <id> | --all` manage them (revoking
+`r3 config set` **persists** these settings to `$XDG_CONFIG_HOME/r3/config.json`, so
+a restart — or a daemon lazily re-spawned by any CLI call from a shell that never
+exported the env vars — keeps serving remotely instead of silently dropping to
+loopback-only. (`export R3_PUBLIC_URL=…` still works for a one-off run; it just
+isn't remembered.) The store is a flat map — names `bind`, `port`, `publicUrl`,
+`allowedHosts` (comma list), `requireLogin`: `r3 config show` dumps the JSON,
+`r3 config get <name>` prints one value, `r3 config unset <name>` reverts one.
+
+`r3 auth list-tokens` / `r3 auth revoke-token <id> | --all` manage tokens (revoking
 kills its sessions immediately).
 
-Env: `R3_PORT` (default 8791), `R3_BIND` (default `127.0.0.1`), `R3_ALLOWED_HOSTS`
+Settings: `R3_PORT` (default 8791), `R3_BIND` (default `127.0.0.1`), `R3_ALLOWED_HOSTS`
 (comma-separated exact Host names, never `*`; a non-loopback name here also marks r3
 exposed), `R3_PUBLIC_URL` (a non-loopback host is auto-allowed **and** marks r3
 exposed, so this alone covers the common single-name `tailscale serve` case), `R3_REQUIRE_LOGIN`
-(`1`/`0` to force the login requirement on or off explicitly).
+(`1`/`0` to force the login requirement on or off explicitly). Each resolves
+**env → `config.json` (via `r3 config set`) → default**, so env overrides the
+persisted file for a single run.

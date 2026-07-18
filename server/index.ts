@@ -1032,6 +1032,11 @@ export async function startDaemon(): Promise<void> {
     // authoritative answer even for a hand-started `bun server/index.ts`.
     exec: process.execPath,
     argv: process.argv,
+    // The exposure posture this daemon resolved (its own env + config.json), so
+    // `r3 status` can report whether it's serving remotely / requiring login even
+    // from a shell with different env.
+    publicUrl: ORIGIN,
+    requireLogin: REQUIRE_LOGIN,
   });
   const stopWatcher = process.env.R3_NO_WATCH !== "1" ? startWatcher() : null;
 

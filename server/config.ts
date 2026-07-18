@@ -1,8 +1,10 @@
 // Daemon configuration + discovery. The v2 per-user daemon lives
 // on a stable port behind one origin, and announces itself in an XDG location so
 // the CLI finds it with zero config. This module is intentionally dependency-
-// light (node builtins + the shared version) and side-effect-free at import, so
-// the thin CLI can import the path/IO helpers without pulling in the server.
+// light (node builtins + the shared version) and free of *mutating* side effects
+// at import — it does read the persisted config.json read-only, to seed the
+// exposure defaults below env (see readConfig/PERSISTED) — so the thin CLI can
+// import the path/IO helpers without pulling in the server.
 
 import { randomBytes } from "node:crypto";
 import {
@@ -11,6 +13,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
   writeSync,
@@ -22,13 +25,24 @@ import { R3_VERSION } from "../shared/version.ts";
 export { R3_VERSION };
 
 const DEFAULT_PORT = 8791;
-// `|| DEFAULT` (not `?? DEFAULT`) so an empty/blank/non-numeric R3_PORT — common
-// in shell profiles / CI — falls back instead of becoming Number("")===0 (which
-// would bind an ephemeral port and advertise `:0`, wedging the CLI).
-export const PORT = Number(process.env.R3_PORT?.trim()) || DEFAULT_PORT;
+// The persisted exposure config (config.json), read once at import. It sits
+// *below env* in every resolution below (`env ?? PERSISTED ?? default`), so it's
+// the durable memory of how the daemon was last configured to serve — surviving a
+// restart / lazy-spawn from a shell that never exported the R3_* vars — while a
+// one-off `R3_X=… r3 …` still wins for that run. `readConfig`/`writeConfig` are
+// defined with the other XDG helpers below (hoisted, so callable here).
+const PERSISTED: PersistedConfig = readConfig();
+// A *usable* env port wins; an empty/blank/non-numeric R3_PORT — common in shell
+// profiles / CI — falls THROUGH to the persisted port, then DEFAULT_PORT (rather
+// than jumping straight to the default, which would skip the file layer and break
+// the env→file→default precedence). Mirrors how REQUIRE_LOGIN treats an invalid
+// R3_REQUIRE_LOGIN as "unset". `|| DEFAULT` also catches a hand-edited port of 0.
+const ENV_PORT = Number(process.env.R3_PORT?.trim());
+export const PORT =
+  (Number.isInteger(ENV_PORT) && ENV_PORT > 0 ? ENV_PORT : PERSISTED.port) || DEFAULT_PORT;
 // Bind address. Default loopback; a non-loopback bind (e.g. a tailnet addr) is
 // an explicit opt-in that also requires a Host allowlist.
-export const BIND = process.env.R3_BIND?.trim() || "127.0.0.1";
+export const BIND = process.env.R3_BIND?.trim() || PERSISTED.bind || "127.0.0.1";
 
 // The on-box URL the daemon advertises to the local CLI + uses for self-health.
 // Loopback for a loopback/all-interfaces bind (also what an `ssh -L
@@ -39,7 +53,8 @@ export const LOCAL_URL = `http://${HEALTH_HOST}:${PORT}`;
 // The URL surfaced in agent-printed review links + the served page. Defaults to
 // loopback (works through an SSH forward that maps the same port); override with
 // `R3_PUBLIC_URL` for a tailnet/MagicDNS address (e.g. a `tailscale serve` name).
-export const PUBLIC_URL = process.env.R3_PUBLIC_URL?.trim().replace(/\/+$/, "") || LOCAL_URL;
+export const PUBLIC_URL =
+  (process.env.R3_PUBLIC_URL?.trim() || PERSISTED.publicUrl || "").replace(/\/+$/, "") || LOCAL_URL;
 
 // The hostname a URL advertises, or null if it can't be parsed (a malformed
 // R3_PUBLIC_URL contributes no host rather than throwing at import).
@@ -55,9 +70,17 @@ function hostnameOf(url: string): string | null {
 // is already access-controlled). The allowlist seeds from these, and `REQUIRE_LOGIN`
 // (below) uses them to default the login policy.
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-// File-local: only the allowlist seeding + REQUIRE_LOGIN below consult it.
-function isLoopbackHost(hostname: string): boolean {
+export function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname);
+}
+
+// Does a URL advertise a loopback host? A URL that can't be parsed is treated as
+// non-loopback (conservative — an odd advertised host reads as "exposed"). Used by
+// `r3 status` to tell an exposed daemon from a loopback one and by `r3 config set`
+// to warn about exposing with login off.
+export function isLoopbackUrl(url: string): boolean {
+  const h = hostnameOf(url);
+  return h != null && isLoopbackHost(h);
 }
 
 // Host allowlist for the DNS-rebinding + CSRF defenses. Loopback names are always
@@ -68,11 +91,17 @@ function isLoopbackHost(hostname: string): boolean {
 // so it must resolve — which makes a single `R3_PUBLIC_URL=https://<name>` enough
 // for the common `tailscale serve` case, with no separate R3_ALLOWED_HOSTS.
 const PUBLIC_HOST = hostnameOf(PUBLIC_URL);
+// Extra allowed Host names: env if present (even empty — an explicit
+// `R3_ALLOWED_HOSTS=""` overrides to clear), else the persisted list, else none.
+const EXTRA_HOSTS: string[] =
+  process.env.R3_ALLOWED_HOSTS != null
+    ? process.env.R3_ALLOWED_HOSTS.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : (PERSISTED.allowedHosts ?? []);
 export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
   ...LOOPBACK_HOSTS,
-  ...(process.env.R3_ALLOWED_HOSTS?.split(",")
-    .map((s) => s.trim())
-    .filter(Boolean) ?? []),
+  ...EXTRA_HOSTS,
   // A specific non-loopback bind address is allowed (so reaching the bound IP
   // works); the all-interfaces wildcards (v4 `0.0.0.0`, v6 `::`) are not — they
   // aren't a Host a client sends, and r3's model is never-all-interfaces.
@@ -108,14 +137,19 @@ export function isAllowedHost(hostname: string): boolean {
 // is itself the signal: it's what makes r3 reachable by that name, so it arms the
 // gate. `R3_REQUIRE_LOGIN=1|0` forces it either way — set it to 1 behind a reverse
 // proxy that rewrites Host to loopback, which r3 has no way to detect.
-function envFlag(v: string | undefined): boolean | null {
+// Parse a boolean-ish flag string (1/true/yes → true, 0/false/no → false, else
+// null). Shared by the R3_REQUIRE_LOGIN env read here and `r3 config set
+// requireLogin` in the CLI, so the env and persisted paths accept exactly the
+// same tokens (no drift).
+export function parseBoolFlag(v: string | undefined): boolean | null {
   const t = v?.trim().toLowerCase();
   if (t === "1" || t === "true" || t === "yes") return true;
   if (t === "0" || t === "false" || t === "no") return false;
   return null;
 }
 export const REQUIRE_LOGIN =
-  envFlag(process.env.R3_REQUIRE_LOGIN) ??
+  parseBoolFlag(process.env.R3_REQUIRE_LOGIN) ??
+  PERSISTED.requireLogin ??
   (!isLoopbackHost(BIND) || [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)));
 
 // $XDG_STATE_HOME/r3 (default ~/.local/state/r3): the persistent home for the
@@ -123,6 +157,96 @@ export const REQUIRE_LOGIN =
 export function stateDir(): string {
   const base = process.env.XDG_STATE_HOME?.trim() || join(homedir(), ".local", "state");
   return join(base, "r3");
+}
+
+// ---- persisted exposure config (config.json) ----
+//
+// The durable record of how the daemon should serve — bind/port/public URL/allowed
+// hosts/require-login — so a restart or lazy-spawn from a shell without the R3_*
+// env vars keeps the last remote-serving posture instead of silently reverting to
+// loopback-only. Written explicitly via `r3 config set` (never auto-persisted from
+// env), read as the fallback below env in the resolutions at the top of this file.
+// Carries NO secrets (just hostnames/flags); the per-user token stays in stateDir.
+export interface PersistedConfig {
+  bind?: string;
+  port?: number;
+  publicUrl?: string;
+  allowedHosts?: string[];
+  requireLogin?: boolean;
+}
+
+// $XDG_CONFIG_HOME/r3 (default ~/.config/r3): the home for config.json. Separate
+// from the state dir (data) and the runtime dir (volatile daemon.json/lock).
+export function configDir(): string {
+  const base = process.env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config");
+  return join(base, "r3");
+}
+
+export function configPath(): string {
+  return join(configDir(), "config.json");
+}
+
+// Keep only correctly-typed fields. config.json is hand-editable, so a wrong-typed
+// value must fail SAFE — dropped, so the setting falls to env/derived default —
+// rather than corrupt security state: a bare-string `allowedHosts` would otherwise
+// spread into the Host allowlist *character by character* (single-letter Hosts
+// allowed, the intended host silently not), and a non-boolean `requireLogin` (a
+// string, or the number 0) would slip past a `??` check and flip the login gate.
+function sanitizeConfig(o: Record<string, unknown>): PersistedConfig {
+  const out: PersistedConfig = {};
+  if (typeof o.bind === "string") out.bind = o.bind;
+  if (typeof o.port === "number" && Number.isInteger(o.port)) out.port = o.port;
+  if (typeof o.publicUrl === "string") out.publicUrl = o.publicUrl;
+  if (Array.isArray(o.allowedHosts) && o.allowedHosts.every((h) => typeof h === "string")) {
+    out.allowedHosts = o.allowedHosts as string[];
+  }
+  if (typeof o.requireLogin === "boolean") out.requireLogin = o.requireLogin;
+  return out;
+}
+
+// Parse config JSON text into a validated PersistedConfig. THROWS on invalid JSON
+// (the caller decides tolerate-vs-error); a parseable non-object (array, number,
+// null) and wrong-typed fields are normalized away by sanitizeConfig.
+function parseConfig(text: string): PersistedConfig {
+  const raw = JSON.parse(text) as unknown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return sanitizeConfig(raw as Record<string, unknown>);
+}
+
+// Read the persisted config, tolerating an absent or malformed file (→ {}), so a
+// bad file can never wedge daemon startup or the CLI's import of this module.
+export function readConfig(): PersistedConfig {
+  try {
+    return parseConfig(readFileSync(configPath(), "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+// Like readConfig, but for the MUTATING CLI path (`config set`/`unset`): it
+// distinguishes "absent" (fresh {}) from "present but unparseable" (throws), so a
+// merge-then-write never silently discards the other keys of a file we couldn't
+// read. Wrong-typed but parseable fields are still tolerated (sanitized away).
+export function readConfigForWrite(): PersistedConfig {
+  let text: string;
+  try {
+    text = readFileSync(configPath(), "utf8");
+  } catch {
+    return {}; // absent → start fresh
+  }
+  return parseConfig(text); // a JSON syntax error propagates to the caller
+}
+
+// Persist the config (the whole object; callers merge). Pretty-printed and
+// trailing-newline'd so it's hand-editable. No secret, so no 0600 dance. Written
+// to a temp file then renamed so a daemon reading config.json mid-write never sees
+// a truncated file (rename is atomic on the same filesystem).
+export function writeConfig(next: PersistedConfig): void {
+  const p = configPath();
+  ensureDir(dirname(p));
+  const tmp = `${p}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(tmp, p);
 }
 
 // $XDG_RUNTIME_DIR/r3: volatile per-boot dir; the natural home for daemon.json
@@ -162,6 +286,12 @@ export interface DaemonInfo {
   // them.
   exec?: string;
   argv?: string[];
+  // The exposure posture this daemon actually resolved at startup (its own
+  // env+config.json), so `r3 status` can report whether it's serving remotely and
+  // whether login is required — even when the querying shell has different env.
+  // Optional: a daemon predating these fields omits them.
+  publicUrl?: string;
+  requireLogin?: boolean;
 }
 
 export function readDaemonJson(): DaemonInfo | null {

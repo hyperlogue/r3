@@ -84,7 +84,8 @@ context), and `cli/index.ts` (the binary and the agent's entry point).
 ```
 server/          Hono daemon + bun:sqlite global store
   index.ts       startDaemon(): HTTP/JSON API + SPA serving + host/token guards
-  config.ts      XDG discovery: daemon.json, token, start-lock, bind/allowlist, URLs
+  config.ts      XDG discovery: daemon.json, token, start-lock, bind/allowlist, URLs;
+                 persisted exposure config.json (readConfig/writeConfig, below env)
   repo.ts        per-request Repo context: identity, registry, worktree resolution
   db.ts          global store + repos registry + reviews/feedback/replies CRUD
   git.ts         git ops (log/tree/diff/status) + unified-diff parser + content reads
@@ -461,6 +462,7 @@ r3 reanchor <feedback_id> --quote "<new text>" [--line <a-b>]          # review 
 r3 edit   <id> [--title "<t>"] [--summary "<s>"]   # "" clears; --summary - = stdin
 r3 approve <id> [--note "<next steps>"] | abandon <id>
 r3 auth create-token [--label L] | list-tokens [--json] | revoke-token <id> | --all
+r3 config show | get <name> | set <name> <value> | unset <name>   # flat keys: bind|port|publicUrl|allowedHosts|requireLogin
 r3 guide                                            # print the agent orientation text
 r3 start | stop | status | restart                 # per-user daemon lifecycle
 r3 repo list | repo relink <repo-id> <path> | forget <repo-id>
@@ -469,6 +471,17 @@ r3 repo list | repo relink <repo-id> <path> | forget <repo-id>
 `r3 auth` manages the login tokens that open the web UI when the daemon is exposed
 beyond loopback (a `tailscale serve` name / bound IP / `R3_REQUIRE_LOGIN`); a
 loopback-only daemon needs none. `create-token` prints the token once (hashed at rest).
+
+`r3 config` persists the exposure settings to `$XDG_CONFIG_HOME/r3/config.json` so
+they survive a restart or lazy-spawn, instead of only living in the `R3_*` env of
+whatever shell happened to start the daemon. It's a **flat key→value store** whose
+names are exactly the JSON fields `config show` prints —
+`bind | port | publicUrl | allowedHosts | requireLogin` (`allowedHosts` is a comma
+list); `set <name> <value>` / `unset <name>` mutate one, `get <name>` prints one,
+`show` dumps the JSON. It's a pure file op (never touches the running daemon); each
+setting is read **below env** (`env ?? config.json ?? default`), and changes take
+effect on the next `r3 restart`. It writes no secret — the per-user token stays in
+the state dir.
 
 `--meta session=<id>` ties a review to a session; `list --meta session=<id>` lets
 an agent find its own reviews. `watch`'s exit code is the loop branch signal (see
@@ -488,16 +501,26 @@ All under XDG, keyed by `server/config.ts`:
 - `$XDG_STATE_HOME/r3/scratch/<review_id>/` — scratch reviews' file directories
   (legacy single-file docs live as `scratch/<review_id>.md`). Diff rounds live
   in the sqlite `patches` table, not on disk.
+- `$XDG_CONFIG_HOME/r3/config.json` — the **persisted exposure config**
+  (`{ bind?, port?, publicUrl?, allowedHosts?, requireLogin? }`, only set keys
+  present, **no secrets**). Written explicitly by `r3 config set`, read at daemon
+  startup as the fallback **below env** (`env ?? config.json ?? default`), so a
+  restart / lazy-spawn from a shell without the `R3_*` vars keeps the last
+  remote-serving posture instead of reverting to loopback-only. Hand-editable;
+  an absent/malformed file is tolerated (→ no persisted config).
 - `$XDG_RUNTIME_DIR/r3/daemon.json` (fallback state dir, mode 0600) — `{ url, port,
-pid, token, version, exec, argv }`; the CLI's discovery record. `exec`/`argv` are
-  the serving process's own `process.execPath` / `process.argv` (the binary +
-  command line actually running), surfaced by `r3 status`.
+pid, token, version, exec, argv, publicUrl, requireLogin }`; the CLI's discovery
+  record. `exec`/`argv` are the serving process's own `process.execPath` /
+  `process.argv` (the binary + command line actually running); `publicUrl`/
+  `requireLogin` are the exposure posture it resolved at startup — both surfaced by
+  `r3 status`.
 - `$XDG_RUNTIME_DIR/r3/daemon.lock` — O*EXCL start-lock (Bun defaults SO_REUSEPORT
   on, so the port is \_not* a lock); colocated with `daemon.json` so a reboot drops
   both. A stale lock (dead pid) is stolen on next start.
 
-`process-compose.yaml` points both XDG dirs at `workspace/` and uses port 8891, so
-the dev stack never collides with a normally-running daemon.
+`process-compose.yaml` points all three XDG dirs (state, runtime, config) at
+`workspace/` and uses port 8891, so the dev stack never collides with — or writes
+into — a normally-running daemon.
 
 ## Viewed-state (per-reviewer read progress)
 
@@ -542,6 +565,15 @@ and the same `FeedbackPanel` renders with the same props either way.
 ## Security
 
 - Binds **`127.0.0.1`** by default (`R3_BIND` to override — an explicit opt-in).
+- The exposure knobs below (`R3_BIND`, `R3_PORT`, `R3_PUBLIC_URL`,
+  `R3_ALLOWED_HOSTS`, `R3_REQUIRE_LOGIN`) can also be **persisted** in
+  `$XDG_CONFIG_HOME/r3/config.json` via `r3 config set`; each is resolved
+  **`env ?? config.json ?? default`**, so the file is a durable fallback that keeps
+  a remote-serving daemon exposed across restarts/lazy-spawns (env still wins for a
+  one-off run, and a one-off env value is never auto-persisted). It carries no
+  secret. Because `config.json` values feed the same derivation, persisting
+  `publicUrl`/`allowedHosts` **re-arms the `REQUIRE_LOGIN` default on restart**, so
+  a persisted remote posture never silently drops its login gate.
 - Every request **that returns data or the token** — i.e. all of `/api/*`,
   including `/api/boot` — must carry a **Host** that is loopback, an allowlisted
   name (`R3_ALLOWED_HOSTS`, exact names, never `*`), or the **advertised public
@@ -593,7 +625,9 @@ and the same `FeedbackPanel` renders with the same props either way.
   key off either. Any roll-your-own reverse-proxy deployment must set
   `R3_REQUIRE_LOGIN=1` (or point `R3_PUBLIC_URL`/`R3_ALLOWED_HOSTS` at the public
   name, which arms the gate); `tailscale serve` forwards the real Host, so
-  `R3_PUBLIC_URL` alone covers it.
+  `R3_PUBLIC_URL` alone covers it. Either way, persist it once —
+  `r3 config set requireLogin 1` / `r3 config set publicUrl …` — so a restart /
+  lazy-spawn can't drop back to the loopback default.
 - **Path inputs** are validated against the requesting review's **worktree** root
   (or the scratch root for `SCRATCH`) — repo-relative, no `..`, no absolute.
 - **Git arg-injection guard**: reject refs/paths beginning with `-` before they
@@ -604,8 +638,9 @@ and the same `FeedbackPanel` renders with the same props either way.
   so TLS terminates at Tailscale and identity headers stay available for future
   per-user auth). For the tailscale case, set `R3_PUBLIC_URL=https://<magicdns-name>`
   (which auto-allows that Host **and** marks the daemon exposed) and
-  `r3 auth create-token`; browsers then log in with that token. **Never bind
-  `0.0.0.0`.**
+  `r3 auth create-token`; browsers then log in with that token. Persist the URL
+  with `r3 config set publicUrl https://<magicdns-name>` so it survives a
+  restart without re-exporting the env. **Never bind `0.0.0.0`.**
 
 ## Build & distribution
 

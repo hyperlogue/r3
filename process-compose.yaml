@@ -7,9 +7,10 @@ processes:
   # with no daemon restart, no separate build step). Pinned to a non-default port
   # and an isolated, gitignored data dir so this compose instance never collides
   # with — or writes into — an r3 daemon you run normally (default port 8791,
-  # state under ~/.local/state/r3). Pointing both XDG dirs at workspace/ puts the
-  # sqlite, token, daemon.json, and lock under workspace/r3/. ${PWD} expands to
-  # the dir process-compose is launched from (the repo root); run it from there.
+  # state under ~/.local/state/r3). Pointing all three XDG dirs at workspace/ puts
+  # the sqlite, token, config.json, daemon.json, and lock under workspace/r3/.
+  # ${PWD} expands to the dir process-compose is launched from (the repo root);
+  # run it from there.
   server:
     command: bun run dev
     availability:
@@ -19,6 +20,7 @@ processes:
       - "R3_PORT=8891"
       - "XDG_STATE_HOME=${PWD}/workspace"
       - "XDG_RUNTIME_DIR=${PWD}/workspace"
+      - "XDG_CONFIG_HOME=${PWD}/workspace"
   # Component workshop on http://127.0.0.1:6007 (off the default 6006 so it
   # doesn't clash with another project's Storybook). Off by default; enable
   # with `process-compose up storybook` or flip disabled to false.

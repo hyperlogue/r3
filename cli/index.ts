@@ -7,7 +7,20 @@
 
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
-import { type DaemonInfo, R3_VERSION, readDaemonJson, removeDaemonJson } from "../server/config.ts";
+import {
+  configPath,
+  type DaemonInfo,
+  isLoopbackHost,
+  isLoopbackUrl,
+  type PersistedConfig,
+  parseBoolFlag,
+  R3_VERSION,
+  readConfig,
+  readConfigForWrite,
+  readDaemonJson,
+  removeDaemonJson,
+  writeConfig,
+} from "../server/config.ts";
 import { type AuthTokenInfo, hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
 
 interface ServerInfo {
@@ -1146,6 +1159,20 @@ async function cmdDaemonStatus(): Promise<void> {
   const skew = h.version !== R3_VERSION ? `  ⚠ CLI v${R3_VERSION} — restart to upgrade` : "";
   console.log(`r3 daemon: ${info.url}  pid ${info.pid}  v${h.version}${skew}`);
   console.log(`  exec: ${daemonCommand(info)}`);
+  // The posture this daemon resolved at startup (from its own env + config.json),
+  // so you can confirm it's serving remotely / requiring login regardless of the
+  // current shell's env. Omitted for a daemon predating these daemon.json fields.
+  // The label reports the actual flag + whether the advertised host is loopback —
+  // never asserting "(loopback)" as the reason, which would mask an exposed,
+  // login-off daemon (the most dangerous posture) as if it were safe.
+  if (info.publicUrl) {
+    const login = info.requireLogin
+      ? "login required"
+      : isLoopbackUrl(info.publicUrl)
+        ? "no login (loopback)"
+        : "no login — EXPOSED";
+    console.log(`  serving: ${info.publicUrl}  ·  ${login}`);
+  }
 }
 
 async function cmdDaemonStart(): Promise<void> {
@@ -1241,6 +1268,157 @@ async function cmdAuth(args: Args): Promise<void> {
     }
     default:
       fail("auth <create-token [--label L] | list-tokens [--json] | revoke-token <id> | --all>");
+  }
+}
+
+// The persisted exposure config (config.json), managed as a **flat** key→value
+// store — the keys are exactly the JSON field names `config show` prints. A pure
+// file operation: the settings are needed *before* the daemon binds, so `config`
+// never touches the running daemon and changes take effect on the next
+// `r3 restart`. Precedence when the daemon resolves each setting is
+// env → this file → built-in default, so a one-off `R3_X=… r3 …` still wins.
+const CONFIG_NAMES = ["bind", "port", "publicUrl", "allowedHosts", "requireLogin"] as const;
+
+// Validate a user-supplied <name> against the flat schema, failing with the list.
+function asConfigName(name: string | undefined): (typeof CONFIG_NAMES)[number] {
+  if (name && (CONFIG_NAMES as readonly string[]).includes(name)) {
+    return name as (typeof CONFIG_NAMES)[number];
+  }
+  return fail(`config: unknown name "${name ?? ""}" — one of: ${CONFIG_NAMES.join(", ")}`);
+}
+
+function parseRequireLogin(raw: string): boolean {
+  // Same token set as the R3_REQUIRE_LOGIN env read (parseBoolFlag), so the env
+  // and persisted paths can't drift.
+  const b = parseBoolFlag(raw);
+  if (b === null) fail(`config: requireLogin expects 1/0 (or true/false), got "${raw}"`);
+  return b;
+}
+
+// True when the persisted config would serve remotely (a non-loopback advertised
+// host, extra allowed host, or bind) — used to warn when login is explicitly off.
+function configExposes(cfg: PersistedConfig): boolean {
+  return (
+    (cfg.publicUrl != null && !isLoopbackUrl(cfg.publicUrl)) ||
+    (cfg.allowedHosts?.some((h) => !isLoopbackHost(h)) ?? false) ||
+    (cfg.bind != null && !isLoopbackHost(cfg.bind))
+  );
+}
+
+// Render one stored value for `config get` (scalar-friendly: arrays comma-joined).
+function formatConfigValue(v: PersistedConfig[keyof PersistedConfig]): string {
+  return Array.isArray(v) ? v.join(",") : String(v);
+}
+
+// Load the current config for a MUTATING op, refusing to proceed on a file we
+// can't parse — else the merge-then-write would silently drop the user's other
+// (hand-edited) keys. An absent file is a fresh {}.
+function loadConfigForWrite(): PersistedConfig {
+  try {
+    return readConfigForWrite();
+  } catch {
+    return fail(`config: ${configPath()} is not valid JSON — fix or delete it before set/unset`);
+  }
+}
+
+async function cmdConfig(args: Args): Promise<void> {
+  const sub = args.positional[0] ?? "show";
+  switch (sub) {
+    case "show":
+      // The whole persisted config as JSON ({} when nothing is set). The running
+      // daemon's *resolved* posture (env + file + defaults) is in `r3 status`.
+      console.log(JSON.stringify(readConfig(), null, 2));
+      return;
+    case "get": {
+      const name = asConfigName(args.positional[1]);
+      const v = readConfig()[name];
+      // Unset → print nothing (pipe-friendly), exit 0.
+      if (v !== undefined) console.log(formatConfigValue(v));
+      return;
+    }
+    case "set": {
+      const name = asConfigName(args.positional[1]);
+      const raw = args.positional[2];
+      if (raw === undefined) fail("config set <name> <value>");
+      // An empty value would persist a key every resolver treats as unset (stored
+      // state disagreeing with effective) — steer to `unset`, which is how you clear.
+      if (raw.trim() === "") {
+        fail(`config set: empty value — use \`r3 config unset ${name}\` to clear`);
+      }
+      const next: PersistedConfig = { ...loadConfigForWrite() };
+      switch (name) {
+        case "bind":
+          next.bind = raw.trim();
+          if (next.bind === "0.0.0.0" || next.bind === "::") {
+            process.stderr.write(
+              "r3: warning — binding all interfaces; prefer loopback + `tailscale serve` or " +
+                "`ssh -L` (see AGENTS.md Security).\n",
+            );
+          }
+          break;
+        case "publicUrl": {
+          const url = raw.trim().replace(/\/+$/, "");
+          let host: string | null = null;
+          try {
+            const u = new URL(url);
+            if (u.protocol === "http:" || u.protocol === "https:") host = u.hostname;
+          } catch {}
+          if (!host) fail(`config: publicUrl expects an http(s) URL, got "${raw}"`);
+          next.publicUrl = url;
+          break;
+        }
+        case "port": {
+          const n = Number(raw.trim());
+          if (!Number.isInteger(n) || n <= 0 || n > 65535) {
+            fail(`config: port expects 1..65535, got "${raw}"`);
+          }
+          next.port = n;
+          break;
+        }
+        case "allowedHosts":
+          next.allowedHosts = raw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          break;
+        case "requireLogin":
+          next.requireLogin = parseRequireLogin(raw);
+          break;
+        default: {
+          // Exhaustiveness guard: a new CONFIG_NAMES entry without a case here is a
+          // compile error, not a `set` that silently no-ops while printing "saved".
+          const unhandled: never = name;
+          fail(`config: unhandled name "${String(unhandled)}"`);
+        }
+      }
+      writeConfig(next);
+      console.log(`saved ${configPath()} — run \`r3 restart\` to apply`);
+      // The persisted config wins the login default over the auto-arm, so surface a
+      // durable exposed-with-login-off posture rather than letting it pass silently.
+      if (next.requireLogin === false && configExposes(next)) {
+        process.stderr.write(
+          "r3: warning — requireLogin is off while the persisted config exposes r3; " +
+            "remote browsers would receive the per-user token. " +
+            "Run `r3 config set requireLogin 1` to gate it.\n",
+        );
+      }
+      return;
+    }
+    case "unset": {
+      const name = asConfigName(args.positional[1]);
+      const cfg = loadConfigForWrite();
+      if (!(name in cfg)) {
+        console.log(`config: ${name} was not set`);
+        return;
+      }
+      const next: PersistedConfig = { ...cfg };
+      delete next[name];
+      writeConfig(next);
+      console.log(`saved ${configPath()} — run \`r3 restart\` to apply`);
+      return;
+    }
+    default:
+      fail("config <show | get <name> | set <name> <value> | unset <name>>");
   }
 }
 
@@ -1369,6 +1547,17 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   loopback-only daemon needs none.
   auth list-tokens [--json]                      # live login tokens (id, label, last-used)
   auth revoke-token <id> | --all                 # revoke a token (immediately kills its sessions)
+  config show                                    # print the persisted exposure config as JSON
+  config get <name>                              # print one value (name: bind | port | publicUrl |
+                                                 #   allowedHosts | requireLogin)
+  config set <name> <value>                      # persist how the daemon serves (flat config.json in
+                                                 #   $XDG_CONFIG_HOME/r3) so a restart / lazy-spawn
+                                                 #   keeps the remote-serving posture instead of
+                                                 #   reverting to loopback-only. Read as the fallback
+                                                 #   BELOW env. allowedHosts is a comma list, e.g.
+                                                 #   \`config set allowedHosts a.ts.net,b.ts.net\`.
+                                                 #   Takes effect on the next \`r3 restart\`.
+  config unset <name>                            # drop one persisted setting
   start | stop | status | restart                # per-user daemon lifecycle
   guide                                          # how r3 works (the agent orientation),
                                                  #   then this full reference. start here.
@@ -1501,6 +1690,7 @@ Every form prints id + URL; tag with --meta session=<your-session>.
   r3 approve <id> [--note "..."]  # ends the loop (r3 watch exits 0)
   r3 abandon <id>  # close without approving
   r3 auth create-token  # a login token to open the web UI when r3 is exposed (loopback needs none)
+  r3 config set publicUrl https://<name>  # persist how the daemon serves (survives restart/respawn)
   r3 restart  # if the daemon drifts; not mid-loop (drops in-flight watches)
 
 Run r3 -h for the full flag reference.
@@ -1545,6 +1735,10 @@ async function main() {
       return cmdDaemonStatus();
     case "restart":
       return cmdDaemonRestart();
+    case "config":
+      // A launch-time file op (settings are read before the daemon binds), so it
+      // manages config.json directly and never spawns/talks to the daemon.
+      return cmdConfig(parseArgs(rest));
     case "guide":
       // The single orientation command: the how-to prose + common commands. The
       // exhaustive flag reference lives in HELP (`r3 -h`), which the guide points to.
