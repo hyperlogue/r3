@@ -696,10 +696,14 @@ function PaneToolbar({
   // toolbar + each file header) read as one consistent header stack. Intra-panel
   // only — we deliberately DON'T match the feedback panel's bars across the split
   // (equal heights there read as one connected bar); those keep their own heights.
+  // Below md one row is too crowded, so the bar wraps into two: the round/snapshot
+  // switcher first at full width (`order-first` + `w-full` under the flex-wrap),
+  // then the buttons left-aligned — with no switcher the first row simply never
+  // exists.
   return (
-    <div className="flex h-8 shrink-0 items-center border-b border-neutral-300 bg-white px-1.5 max-md:overflow-x-auto dark:border-neutral-700 dark:bg-neutral-950">
+    <div className="flex h-8 shrink-0 items-center border-b border-neutral-300 bg-white px-1.5 max-md:h-auto max-md:flex-wrap dark:border-neutral-700 dark:bg-neutral-950">
       {hasFiles && (
-        <>
+        <div className="flex items-center max-md:h-8">
           <button
             type="button"
             title="Previous file"
@@ -730,12 +734,17 @@ function PaneToolbar({
           </button>
           <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
           {filePicker}
-        </>
+        </div>
       )}
       {/* Full-height, flush-right slot: `self-stretch` fills the bar's height and
           `-mr-1.5` cancels the toolbar's horizontal padding, so an embedded widget
-          (the round switcher) reaches the bar's top/bottom/right edges. */}
-      {right && <div className="-mr-1.5 ml-auto flex items-stretch self-stretch">{right}</div>}
+          (the round switcher) reaches the bar's top/bottom/right edges. On mobile
+          it becomes the full-width first row instead. */}
+      {right && (
+        <div className="-mr-1.5 ml-auto flex items-stretch self-stretch max-md:order-first max-md:-ml-1.5 max-md:h-8 max-md:w-[calc(100%+0.75rem)] max-md:border-b max-md:border-neutral-300 max-md:dark:border-neutral-700">
+          {right}
+        </div>
+      )}
     </div>
   );
 }

@@ -55,22 +55,29 @@ function FileRow({
       >
         ✓
       </span>
-      {/* Front-truncation: the outer span is RTL so the ellipsis lands on the
-          LEFT while the inner LTR embed keeps the path reading normally. The
-          basename sits outside the clip (shrink-0) so it always survives whole,
-          a shade brighter than its directory. */}
-      {dir && (
-        <span className="min-w-0 shrink truncate text-left [direction:rtl]">
-          <span className="[direction:ltr] [unicode-bidi:embed]">{dir}</span>
-        </span>
-      )}
-      <span
-        className={cn(
-          "-ml-1.5 shrink-0",
-          !viewed && "font-medium text-neutral-800 dark:text-neutral-200",
+      {/* One gapless path container (the ✓'s gap-1.5 applies once, to it — so a
+          root-level file with no dir span keeps the same left edge as everyone).
+          Front-truncation: the dir span is RTL so the ellipsis lands on the LEFT
+          while the inner LTR embed keeps the path reading normally. The basename
+          sits outside the clip (shrink-0) so it always survives whole, and its
+          brightness boost is *relative* in both states — a viewed row dims as a
+          whole but its basename still leads its directory. */}
+      <span className="flex min-w-0 items-center">
+        {dir && (
+          <span className="min-w-0 shrink truncate text-left [direction:rtl]">
+            <span className="[direction:ltr] [unicode-bidi:embed]">{dir}</span>
+          </span>
         )}
-      >
-        {base}
+        <span
+          className={cn(
+            "shrink-0 font-medium",
+            viewed
+              ? "text-neutral-500 dark:text-neutral-400"
+              : "text-neutral-800 dark:text-neutral-200",
+          )}
+        >
+          {base}
+        </span>
       </span>
     </button>
   );
@@ -185,18 +192,30 @@ export function JumpToFile({
   // panel, `visible` drives the transition (desktop: fade+scale from the button
   // corner; mobile sheet: slide up from the bottom edge — a different motion for
   // a different layout). Mount → next frame flips visible so the entry
-  // transition actually runs; close → transition out, unmount on transitionend.
+  // transition actually runs. Unmount does NOT trust transitionend — mobile
+  // Safari drops it often enough that the invisible full-screen backdrop was
+  // left swallowing every tap — so closing always arms a timer a beat past the
+  // 150ms transition, with transitionend as the fast path.
   const [shown, setShown] = useState(false);
   const [visible, setVisible] = useState(false);
+  const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openPicker = () => {
+    if (unmountTimer.current != null) clearTimeout(unmountTimer.current);
     setShown(true);
     requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
   };
-  const closePicker = () => setVisible(false);
+  const closePicker = () => {
+    setVisible(false);
+    if (unmountTimer.current != null) clearTimeout(unmountTimer.current);
+    unmountTimer.current = setTimeout(() => setShown(false), 250);
+  };
+  useEffect(() => () => clearTimeout(unmountTimer.current ?? undefined), []);
+  const closeRef = useRef(closePicker);
+  closeRef.current = closePicker;
   useEffect(() => {
     if (!shown) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVisible(false);
+      if (e.key === "Escape") closeRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -240,7 +259,10 @@ export function JumpToFile({
             onClick={closePicker}
             className={cn(
               "fixed inset-0 z-40 cursor-default transition-opacity duration-150 max-md:bg-black/30",
-              !visible && "opacity-0",
+              // While animating out (and in any state where the panel isn't
+              // interactive) the backdrop must not intercept taps — a lingering
+              // invisible layer here is a dead page.
+              !visible && "pointer-events-none opacity-0",
             )}
           />
           {/* Desktop: popover under the button (clear of the toolbar's edge),
@@ -257,7 +279,7 @@ export function JumpToFile({
               "absolute left-0 top-full z-50 mt-2.5 flex h-80 w-[27rem] origin-top-left flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl transition-[transform,opacity] duration-150 ease-out max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:mt-0 max-md:h-[24rem] max-md:max-h-[80dvh] max-md:w-auto max-md:origin-bottom max-md:rounded-b-none dark:border-neutral-700 dark:bg-neutral-950",
               visible
                 ? "scale-100 opacity-100 max-md:translate-y-0"
-                : "scale-95 opacity-0 max-md:translate-y-full max-md:scale-100 max-md:opacity-100",
+                : "pointer-events-none scale-95 opacity-0 max-md:translate-y-full max-md:scale-100 max-md:opacity-100",
             )}
           >
             <JumpToFileList
