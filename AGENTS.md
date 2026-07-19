@@ -107,7 +107,9 @@ cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the 
 web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx (the review)
   src/components/ DiffView, FileView, FileCard, FileBrowser, FeedbackPanel,
-                 ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
+                 ReviewHeader (status pill · editable title · copyable meta ·
+                 Approve/⋯ actions), PaneToolbar (the file-nav strip above the
+                 pane), ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
                  ReviewSummary + DiffView's RoundSummary (both thin wrappers over
                  the shared SummaryBar), SnapshotSelect, Logo, Login (remote-access
                  token screen), TokenManager (login-token panel in SettingsPopup),
@@ -121,6 +123,9 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  touch selection-anchor pill); desktop components never import
                  from here
   src/api.ts     typed fetch wrappers    hooks.ts  SSE + query wiring
+  src/highlights.ts the imperative feedback-highlight hooks (active-line ring,
+                 summary quote, region wash) + markdown click refinement
+  src/pane.ts    content-pane helpers: retrying row jump, composer focus, crossfade
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
   src/drafts.ts  per-review composer drafts (localStorage)   selection.ts  range select

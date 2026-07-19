@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ApiError, api } from "../api.ts";
 import { DiffView, RoundSelect, RoundSummary } from "../components/DiffView.tsx";
 import { FeedbackPanel } from "../components/FeedbackPanel.tsx";
@@ -37,7 +45,7 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
-import { focusComposer, SCROLL_RATIO, usePaneCrossfade } from "../pane.ts";
+import { focusComposer, retryScrollToRow, usePaneCrossfade } from "../pane.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
@@ -60,6 +68,35 @@ import { fileScrollKey, useVirtualPaneController, VirtualPaneProvider } from "..
 // patch_seq null (it isn't scoped to a round), so this only scopes the DOM query
 // for active-line highlighting — it never reaches the server.
 const SNAPSHOT_DIFF_SEQ = 0;
+
+// Mobile: wraps the pane toolbar so it sticks at the pane top (z-20 paints it
+// over FileCard's z-10 header) and reports its live height up — the toolbar
+// grows/shrinks as the round-summary row expands/collapses or its rows wrap, so
+// a ResizeObserver mirrors it; unmounting (desktop, or no toolbar) reports 0.
+function StickyToolbar({
+  onHeight,
+  children,
+}: {
+  onHeight: (h: number) => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => onHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      onHeight(0);
+    };
+  }, [onHeight]);
+  return (
+    <div ref={ref} className="sticky top-0 z-20">
+      {children}
+    </div>
+  );
+}
 
 export function ReviewView({ reviewId }: { reviewId: string }) {
   const qc = useQueryClient();
@@ -133,24 +170,27 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const hasAnchoredText = useHasAnchoredText(reviewId);
   const composing = pending != null && hasAnchoredText;
 
+  // The mobile-sheet policies, named once (each is an inert no-op on desktop,
+  // where the sheet is already — and stays — "closed"): a jump landing in the
+  // code pane closes the sheet so the target is visible; an anchor gesture
+  // raises the composer *peek*, not the full sheet, so the code being annotated
+  // stays on screen while typing; finishing the composer (submit/discard)
+  // retires a peek but never collapses a deliberately opened full sheet.
+  const closeSheetForJump = useCallback(() => setSheet("closed"), []);
+  const peekSheetForCompose = useCallback(() => {
+    if (isMobile) setSheet("peek");
+  }, [isMobile]);
+  const settleSheetAfterCompose = useCallback(
+    () => setSheet((s) => (s === "peek" ? "closed" : s)),
+    [],
+  );
+
   // Mobile: the pane toolbar sticks at the pane top while the review header +
-  // summary above it scroll away, and each FileCard header pins just below it.
-  // The toolbar's height is live (the round-summary row expands/collapses, rows
-  // wrap), so a ResizeObserver mirrors it into state and the scroll pane
-  // publishes it as --pane-sticky-h — FileCard's header `top` and the
-  // anchor-in-view test both read it. 0 (var unset) on desktop / with no toolbar.
-  const stickyToolbarRef = useRef<HTMLDivElement | null>(null);
+  // summary above it scroll away, and each FileCard header pins just below it
+  // (StickyToolbar reports the live height; the scroll pane publishes it as
+  // --pane-sticky-h — FileCard's header `top` and the anchor-in-view test both
+  // read it). 0 (var unset) on desktop / with no toolbar.
   const [stickyToolbarH, setStickyToolbarH] = useState(0);
-  useEffect(() => {
-    const el = stickyToolbarRef.current;
-    if (!el) {
-      setStickyToolbarH(0);
-      return;
-    }
-    const ro = new ResizeObserver(() => setStickyToolbarH(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  });
 
   const {
     data: detail,
@@ -390,10 +430,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         setActiveFbId(null);
         return;
       }
-      // The locate lands in the code pane, so the phone sheet gets out of the way.
-      // Unconditional: on desktop the sheet is already "closed", so this is a
-      // same-value set React bails out of (no wrapper fork needed).
-      setSheet("closed");
+      closeSheetForJump();
       // Anchored to a specific round → select its tab first so that round's DOM is
       // mounted before the highlight effect (keyed on scrollNonce) queries + scrolls
       // to it; both state updates batch into one render, effects run after commit.
@@ -405,7 +442,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       setActiveFbId(fb.id);
       setScrollNonce((n) => n + 1);
     },
-    [ensureFileOpen],
+    [ensureFileOpen, closeSheetForJump],
   );
 
   // The inverse of the above: click a highlighted region in the file pane to jump
@@ -621,11 +658,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       }
       setFileQuote(null);
       setDraftAnchor(reviewId, anchor);
-      // Phone tier: raise the composer peek — not the full sheet — so the code
-      // just annotated stays on screen while typing.
-      if (isMobile) setSheet("peek");
+      peekSheetForCompose();
     },
-    [reviewId, isMobile],
+    [reviewId, peekSheetForCompose],
   );
 
   const onPickLines = useCallback(
@@ -666,74 +701,32 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         quote: null,
         patchSeq,
       });
-      if (isMobile) setSheet("peek");
+      peekSheetForCompose();
     },
-    [reviewId, isMobile],
+    [reviewId, peekSheetForCompose],
   );
 
   // Jump to a reply pin ("addressed in diff N"): scroll the pinned row into
   // view, preferring the new side — pins point at the fix, not the old code.
   const locatePin = useCallback(
     (patchSeq: number, file: string | null, line: number | null) => {
-      setSheet("closed"); // the jump lands in the code pane (no-op on desktop)
+      closeSheetForJump();
       // The pin usually names a different round than the one on screen — select
-      // its tab, and open the pinned file if it's folded, then scroll to the row.
+      // its tab, and open the pinned file if it's folded, then scroll to the
+      // row (retryScrollToRow waits out the round tab + unfold mounting).
       setActiveRoundSeq(patchSeq);
       if (file) ensureFileOpen(file);
-      // Retry across a few frames while the round tab + a folded/virtualized file
-      // mount: re-issue the virtualizer scroll until it registers, else scroll to
-      // the DOM row once it exists (waiting for it before settling for the file
-      // top). Bounded to cover the ~200ms unfold.
-      let tries = 0;
-      let scrolledAt = -1;
-      const step = () => {
-        const root = scopeRef.current;
-        if (!root) return;
-        // A virtualized file's pinned row may be unmounted — let its virtualizer
-        // bring it on screen (pins point at the fix, so prefer the new side). Keep
-        // re-issuing for a settle window past the first hit so scroll anchoring
-        // can't drift the pane off as an unfolding file grows. Returns false for a
-        // short / non-virtualized file → the DOM scroll below.
-        if (
-          file != null &&
-          line != null &&
-          virt.scrollToLine(fileScrollKey(patchSeq, file), line, "new")
-        ) {
-          if (scrolledAt < 0) scrolledAt = tries;
-          if (tries - scrolledAt > 15) return;
-          tries++;
-          requestAnimationFrame(step);
-          return;
-        }
-        const roundSel = `[data-round="${patchSeq}"]`;
-        const fileEl = file
-          ? root.querySelector(`${roundSel} [data-file="${CSS.escape(file)}"]`)
-          : root.querySelector(roundSel);
-        if (fileEl) {
-          const row =
-            line != null
-              ? (fileEl.querySelector(`[data-line="${line}"][data-side="new"]`) ??
-                fileEl.querySelector(`[data-line="${line}"]`))
-              : null;
-          // Line named but its row hasn't mounted yet (file still opening) — wait
-          // a few frames before settling for the file top.
-          if (!row && line != null && ++tries <= 45) {
-            requestAnimationFrame(step);
-            return;
-          }
-          const target = row ?? fileEl;
-          const offset = target.getBoundingClientRect().top - root.getBoundingClientRect().top;
-          root.scrollTo({
-            top: root.scrollTop + offset - root.clientHeight * SCROLL_RATIO,
-            behavior: "smooth",
-          });
-          return;
-        }
-        if (++tries <= 45) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
+      const roundSel = `[data-round="${patchSeq}"]`;
+      retryScrollToRow({
+        getRoot: () => scopeRef.current,
+        scrollToLine: virt.scrollToLine,
+        scrollKey: file != null && line != null ? fileScrollKey(patchSeq, file) : null,
+        containerSel: file ? `${roundSel} [data-file="${CSS.escape(file)}"]` : roundSel,
+        line,
+        side: "new",
+      });
     },
-    [virt.scrollToLine, ensureFileOpen],
+    [virt.scrollToLine, ensureFileOpen, closeSheetForJump],
   );
 
   // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message,
@@ -744,7 +737,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // against), else scrolls the live file.
   const jumpToRef = useCallback(
     (ref: MessageRef, version: number | null) => {
-      setSheet("closed"); // the jump lands in the code pane (no-op on desktop)
+      closeSheetForJump();
       if (isDiff) {
         locatePin(version ?? effectiveRoundSeq ?? 0, ref.file, ref.lineStart);
         return;
@@ -755,38 +748,24 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         setToSnap(version);
       }
       ensureFileOpen(ref.file);
-      let tries = 0;
-      let scrolledAt = -1;
-      const step = () => {
-        const root = scopeRef.current;
-        if (!root) return;
-        if (virt.scrollToLine(fileScrollKey(null, ref.file), ref.lineStart, null)) {
-          if (scrolledAt < 0) scrolledAt = tries;
-          if (tries - scrolledAt > 15) return;
-          tries++;
-          requestAnimationFrame(step);
-          return;
-        }
-        const fileEl = root.querySelector(`[data-file="${CSS.escape(ref.file)}"]`);
-        if (fileEl) {
-          const row = fileEl.querySelector(`[data-line="${ref.lineStart}"]`);
-          if (!row && ++tries <= 45) {
-            requestAnimationFrame(step);
-            return;
-          }
-          const target = row ?? fileEl;
-          const offset = target.getBoundingClientRect().top - root.getBoundingClientRect().top;
-          root.scrollTo({
-            top: root.scrollTop + offset - root.clientHeight * SCROLL_RATIO,
-            behavior: "smooth",
-          });
-          return;
-        }
-        if (++tries <= 45) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
+      retryScrollToRow({
+        getRoot: () => scopeRef.current,
+        scrollToLine: virt.scrollToLine,
+        scrollKey: fileScrollKey(null, ref.file),
+        containerSel: `[data-file="${CSS.escape(ref.file)}"]`,
+        line: ref.lineStart,
+        side: null,
+      });
     },
-    [isDiff, locatePin, effectiveRoundSeq, snapshots, ensureFileOpen, virt.scrollToLine],
+    [
+      isDiff,
+      locatePin,
+      effectiveRoundSeq,
+      snapshots,
+      ensureFileOpen,
+      virt.scrollToLine,
+      closeSheetForJump,
+    ],
   );
 
   // "Quote in note": drop the file-pane selection into the anchored note as a `>`
@@ -857,19 +836,17 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     // Cancel/✕ discards immediately — no confirm, matching the general note's close.
     // Esc already preserves a non-empty note (it only blurs, never discards), so the
     // deliberate Cancel/✕ click is the discard path and doesn't need a guard.
-    // Finishing the composer retires a phone composer-peek, but never collapses a
-    // deliberately opened full sheet (and is a same-value no-op on desktop).
-    setSheet((s) => (s === "peek" ? "closed" : s));
+    settleSheetAfterCompose();
     dropAnchor(reviewId);
-  }, [reviewId]);
+  }, [reviewId, settleSheetAfterCompose]);
 
   // Stable handler so the memoized FeedbackPanel isn't re-rendered on every
   // scroll-spy activePath change. A committed add drops the anchored composer but
   // keeps any general/reply drafts on the review (peek handling as in discard).
   const onSubmittedPending = useCallback(() => {
-    setSheet((s) => (s === "peek" ? "closed" : s));
+    settleSheetAfterCompose();
     dropAnchor(reviewId);
-  }, [reviewId]);
+  }, [reviewId, settleSheetAfterCompose]);
 
   // Leaving the review (remount on switch) drops a text-less anchor so an empty
   // composer doesn't linger/reopen; a draft with text (of any kind) stays persisted.
@@ -988,6 +965,17 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       onAnchorSummary={applyAnchorGesture}
     />
   );
+  // The active round's summary, built once and mounted per tier — desktop at
+  // the top of the scrollable content, mobile as the toolbar's middle row — so
+  // its props can't drift between the two mounts. A round-summary ref resolves
+  // against its own round.
+  const roundSummaryEl = activeRound ? (
+    <RoundSummary
+      round={activeRound}
+      onAnchorSummary={applyAnchorGesture}
+      onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
+    />
+  ) : null;
   // A multi-round diff gets a round switcher so the file panel shows a single
   // round at a time; an empty round still shows the strip so the switcher stays
   // reachable.
@@ -1006,15 +994,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         }
         onJump={jumpFile}
         onFoldAll={foldAll}
-        summary={
-          isMobile && activeRound ? (
-            <RoundSummary
-              round={activeRound}
-              onAnchorSummary={applyAnchorGesture}
-              onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
-            />
-          ) : undefined
-        }
+        summary={isMobile ? roundSummaryEl : undefined}
         right={
           isDiff && rounds.length > 1 ? (
             <RoundSelect
@@ -1034,6 +1014,22 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         }
       />
     ) : null;
+  // The one FeedbackPanel, mounted in the desktop side dock or the mobile
+  // bottom sheet — built once so the two mounts can't drift apart.
+  const feedbackPanel = (
+    <FeedbackPanel
+      detail={detail}
+      pending={pending}
+      onDiscardPending={discardPending}
+      onSubmittedPending={onSubmittedPending}
+      activeFeedbackId={activeFbId}
+      scrollNonce={scrollNonce}
+      onLocateFeedback={locateFeedback}
+      onLocatePin={locatePin}
+      onJumpRef={jumpToRef}
+      coarse={coarse}
+    />
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -1090,30 +1086,20 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             <VirtualPaneProvider scrollRef={scopeRef} registry={virt.registry}>
               {/* Mobile: the header + summary scroll away with the code, but the
                   toolbar (switcher · round summary · buttons) sticks at the pane
-                  top — the sticky header stack is toolbar + file header. z-20
-                  paints it over FileCard's z-10 header, which pins below it via
-                  --pane-sticky-h (measured off this wrapper — see the effect). */}
+                  top — the sticky header stack is toolbar + file header. */}
               {isMobile && (
                 <>
                   {reviewHeader}
                   {reviewSummaryEl}
                   {paneToolbarEl && (
-                    <div ref={stickyToolbarRef} className="sticky top-0 z-20">
-                      {paneToolbarEl}
-                    </div>
+                    <StickyToolbar onHeight={setStickyToolbarH}>{paneToolbarEl}</StickyToolbar>
                   )}
                 </>
               )}
               {/* Desktop keeps the round summary at the top of the scrollable
                   content, above the file blocks (mobile mounts it in the toolbar
                   instead — the `summary` slot above). */}
-              {!isMobile && activeRound && (
-                <RoundSummary
-                  round={activeRound}
-                  onAnchorSummary={applyAnchorGesture}
-                  onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
-                />
-              )}
+              {!isMobile && roundSummaryEl}
               {isDiff && diff && (
                 <DiffView
                   rounds={rounds}
@@ -1211,18 +1197,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
               title="Drag to resize · double-click to reset"
               className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
             />
-            <FeedbackPanel
-              detail={detail}
-              pending={pending}
-              onDiscardPending={discardPending}
-              onSubmittedPending={onSubmittedPending}
-              activeFeedbackId={activeFbId}
-              scrollNonce={scrollNonce}
-              onLocateFeedback={locateFeedback}
-              onLocatePin={locatePin}
-              onJumpRef={jumpToRef}
-              coarse={coarse}
-            />
+            {feedbackPanel}
           </div>
         )}
       </div>
@@ -1232,18 +1207,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           sheet={sheet}
           onSetSheet={setSheet}
         >
-          <FeedbackPanel
-            detail={detail}
-            pending={pending}
-            onDiscardPending={discardPending}
-            onSubmittedPending={onSubmittedPending}
-            activeFeedbackId={activeFbId}
-            scrollNonce={scrollNonce}
-            onLocateFeedback={locateFeedback}
-            onLocatePin={locatePin}
-            onJumpRef={jumpToRef}
-            coarse={coarse}
-          />
+          {feedbackPanel}
         </MobileReviewChrome>
       )}
       {/* "Quote in note" bubble for a file-pane selection made while the anchored
