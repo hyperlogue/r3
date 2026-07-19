@@ -1860,99 +1860,171 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const commit =
     "base" in detail.source && (detail.source.base || detail.source.head) ? detail.source : null;
 
+  // The review header (status/title/meta + the Approve/Abandon actions).
+  // Desktop pins it above the split; mobile mounts it INSIDE the scroll pane
+  // (see below) so it scrolls away with the rest of the header stack.
+  // max-md: the actions row wraps under the title instead of crushing it.
+  const reviewHeader = (
+    <div className="flex items-center gap-2 border-b border-neutral-300 bg-white px-3 py-2 max-md:flex-wrap dark:border-neutral-700 dark:bg-neutral-950">
+      <div className="min-w-0 flex-1 max-md:basis-full">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "shrink-0 rounded border px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase leading-none",
+              detail.status === "open"
+                ? "border-transparent bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
+                : detail.status === "approved"
+                  ? "border-success-500 bg-success-50 text-success-700 dark:border-success-500 dark:bg-success-950 dark:text-success-300"
+                  : "border-transparent bg-neutral-200 text-neutral-500 dark:bg-neutral-800",
+            )}
+          >
+            {detail.status}
+          </span>
+          <EditableTitle
+            title={detail.title}
+            placeholder={sourceLabel(detail, { ref: true })}
+            onSave={(title) => patch.mutate({ title })}
+          />
+        </div>
+        <div className="truncate font-mono text-[0.6875rem] text-neutral-400">
+          {detail.repoName ? (
+            <>
+              {projectDir ? (
+                <CopyMeta value={projectDir} hint={`Copy path: ${projectDir}`}>
+                  {detail.repoName}
+                </CopyMeta>
+              ) : (
+                detail.repoName
+              )}
+              {" · "}
+            </>
+          ) : (
+            ""
+          )}
+          {detail.kind} ·{" "}
+          {commit ? (
+            <>
+              <CopyMeta value={commit.base} hint={`Copy base commit: ${commit.base}`}>
+                {shortSha(commit.base)}
+              </CopyMeta>
+              <CopyMeta
+                value={`${commit.base}..${commit.head}`}
+                hint={`Copy commit range: ${commit.base}..${commit.head}`}
+              >
+                ..
+              </CopyMeta>
+              <CopyMeta value={commit.head} hint={`Copy head commit: ${commit.head}`}>
+                {shortSha(commit.head)}
+              </CopyMeta>
+            </>
+          ) : (
+            sourceLabel(detail, { ref: true })
+          )}
+          {detail.branch ? (
+            <>
+              {" · ⎇ "}
+              <CopyMeta value={detail.branch} hint={`Copy branch: ${detail.branch}`}>
+                {detail.branch}
+              </CopyMeta>
+            </>
+          ) : (
+            ""
+          )}
+          {detail.meta.session ? (
+            <>
+              {" · "}
+              <CopyMeta value={detail.meta.session} hint={`Copy: ${detail.meta.session}`}>
+                {detail.meta.session}
+              </CopyMeta>
+            </>
+          ) : (
+            ""
+          )}
+        </div>
+      </div>
+      <HeaderActions
+        status={detail.status}
+        unresolvedCount={
+          detail.feedback.filter((f) => f.status !== "resolved" && f.author === "human").length
+        }
+        onSetStatus={(s) => setStatus.mutate({ status: s })}
+        onApprove={(note) => setStatus.mutate({ status: "approved", note: note || null })}
+        onDelete={() => {
+          if (confirm("Delete this review and all its feedback?")) remove.mutate();
+        }}
+      />
+    </div>
+  );
+
+  // The review summary + pane toolbar. Desktop docks them above the scroll pane
+  // (pinned, so they never compete with the file headers' own sticky top-0); on
+  // mobile they mount — together with the header above — INSIDE the pane, at the
+  // top of the scrollable content. That gives the phone a whole-page-scroll
+  // feel: scrolling down slides the header stack (title, review summary, round
+  // selector, diff summary, toolbar) off screen, the sticky file headers take
+  // over at the pane top, and the code gets the full height between the navbar
+  // and the bottom bar.
+  //
+  // ReviewSummary refs pin no version (the summary is edited in place), so they
+  // resolve against the live/current view: null → the round on screen for a
+  // diff review, the live file for a files review.
+  const reviewSummaryEl = (
+    <ReviewSummary
+      summary={detail.summary}
+      onJumpRef={(ref) => jumpToRef(ref, null)}
+      onAnchorSummary={applyAnchorGesture}
+    />
+  );
+  // A multi-round diff gets a round switcher so the file panel shows a single
+  // round at a time; an empty round still shows the strip so the switcher stays
+  // reachable.
+  const paneToolbarEl =
+    fileList.length > 0 || (isDiff && rounds.length > 1) || snapshots.length > 0 ? (
+      <PaneToolbar
+        hasFiles={fileList.length > 0}
+        filePicker={
+          <JumpToFile
+            files={fileList}
+            viewed={viewedPaths}
+            activePath={activePath}
+            onSelect={selectFile}
+            btnClassName={TOOLBAR_BTN}
+          />
+        }
+        onJump={jumpFile}
+        onFoldAll={foldAll}
+        summary={
+          isMobile && activeRound ? (
+            <RoundSummary
+              round={activeRound}
+              onAnchorSummary={applyAnchorGesture}
+              onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
+            />
+          ) : undefined
+        }
+        right={
+          isDiff && rounds.length > 1 ? (
+            <RoundSelect
+              rounds={rounds}
+              activeSeq={effectiveRoundSeq}
+              onSelect={setActiveRoundSeq}
+            />
+          ) : snapshots.length > 0 ? (
+            <SnapshotSelect
+              snapshots={snapshots}
+              from={fromSnap}
+              to={toSnap}
+              onFromChange={setFromSnap}
+              onToChange={setToSnap}
+            />
+          ) : undefined
+        }
+      />
+    ) : null;
+
   return (
     <div className="flex h-full flex-col">
-      {/* max-md: the actions row wraps under the title instead of crushing it. */}
-      <div className="flex items-center gap-2 border-b border-neutral-300 bg-white px-3 py-2 max-md:flex-wrap dark:border-neutral-700 dark:bg-neutral-950">
-        <div className="min-w-0 flex-1 max-md:basis-full">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "shrink-0 rounded border px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase leading-none",
-                detail.status === "open"
-                  ? "border-transparent bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
-                  : detail.status === "approved"
-                    ? "border-success-500 bg-success-50 text-success-700 dark:border-success-500 dark:bg-success-950 dark:text-success-300"
-                    : "border-transparent bg-neutral-200 text-neutral-500 dark:bg-neutral-800",
-              )}
-            >
-              {detail.status}
-            </span>
-            <EditableTitle
-              title={detail.title}
-              placeholder={sourceLabel(detail, { ref: true })}
-              onSave={(title) => patch.mutate({ title })}
-            />
-          </div>
-          <div className="truncate font-mono text-[0.6875rem] text-neutral-400">
-            {detail.repoName ? (
-              <>
-                {projectDir ? (
-                  <CopyMeta value={projectDir} hint={`Copy path: ${projectDir}`}>
-                    {detail.repoName}
-                  </CopyMeta>
-                ) : (
-                  detail.repoName
-                )}
-                {" · "}
-              </>
-            ) : (
-              ""
-            )}
-            {detail.kind} ·{" "}
-            {commit ? (
-              <>
-                <CopyMeta value={commit.base} hint={`Copy base commit: ${commit.base}`}>
-                  {shortSha(commit.base)}
-                </CopyMeta>
-                <CopyMeta
-                  value={`${commit.base}..${commit.head}`}
-                  hint={`Copy commit range: ${commit.base}..${commit.head}`}
-                >
-                  ..
-                </CopyMeta>
-                <CopyMeta value={commit.head} hint={`Copy head commit: ${commit.head}`}>
-                  {shortSha(commit.head)}
-                </CopyMeta>
-              </>
-            ) : (
-              sourceLabel(detail, { ref: true })
-            )}
-            {detail.branch ? (
-              <>
-                {" · ⎇ "}
-                <CopyMeta value={detail.branch} hint={`Copy branch: ${detail.branch}`}>
-                  {detail.branch}
-                </CopyMeta>
-              </>
-            ) : (
-              ""
-            )}
-            {detail.meta.session ? (
-              <>
-                {" · "}
-                <CopyMeta value={detail.meta.session} hint={`Copy: ${detail.meta.session}`}>
-                  {detail.meta.session}
-                </CopyMeta>
-              </>
-            ) : (
-              ""
-            )}
-          </div>
-        </div>
-        <HeaderActions
-          status={detail.status}
-          unresolvedCount={
-            detail.feedback.filter((f) => f.status !== "resolved" && f.author === "human").length
-          }
-          onSetStatus={(s) => setStatus.mutate({ status: s })}
-          onApprove={(note) => setStatus.mutate({ status: "approved", note: note || null })}
-          onDelete={() => {
-            if (confirm("Delete this review and all its feedback?")) remove.mutate();
-          }}
-        />
-      </div>
-
+      {!isMobile && reviewHeader}
       {detail.stale && (
         <div className="shrink-0 border-b border-warning-300 bg-warning-50 px-4 py-2 text-xs text-warning-800 dark:border-warning-900/60 dark:bg-warning-950/40 dark:text-warning-300">
           ⚠ This review's worktree isn't available (moved, removed, or the repo path is missing).
@@ -1982,63 +2054,14 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             switcher above the scroll pane so the file panel shows a single round
             at a time (the pane stays scrollable under it). */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* The review summary docks at the top of the file-viewer column rather
-              than full-width above the split: its prose is width-capped, so the
-              extra width the full span bought was wasted whitespace on the right.
-              Refs pin no version (the summary is edited in place), so they resolve
-              against the live/current view: null → the round on screen for a diff
-              review, the live file for a files review. */}
-          <ReviewSummary
-            summary={detail.summary}
-            onJumpRef={(ref) => jumpToRef(ref, null)}
-            onAnchorSummary={applyAnchorGesture}
-          />
-          {/* Pinned above the scroll pane (not sticky inside it), so it never
-              competes with the file headers' own sticky top-0. A multi-round diff
-              docks its round switcher to the right; an empty round still shows the
-              strip so the switcher stays reachable. */}
-          {(fileList.length > 0 || (isDiff && rounds.length > 1) || snapshots.length > 0) && (
-            <PaneToolbar
-              hasFiles={fileList.length > 0}
-              filePicker={
-                <JumpToFile
-                  files={fileList}
-                  viewed={viewedPaths}
-                  activePath={activePath}
-                  onSelect={selectFile}
-                  btnClassName={TOOLBAR_BTN}
-                />
-              }
-              onJump={jumpFile}
-              onFoldAll={foldAll}
-              summary={
-                isMobile && activeRound ? (
-                  <RoundSummary
-                    round={activeRound}
-                    onAnchorSummary={applyAnchorGesture}
-                    onJumpRef={(ref, seq) => jumpToRef(ref, seq)}
-                  />
-                ) : undefined
-              }
-              right={
-                isDiff && rounds.length > 1 ? (
-                  <RoundSelect
-                    rounds={rounds}
-                    activeSeq={effectiveRoundSeq}
-                    onSelect={setActiveRoundSeq}
-                  />
-                ) : snapshots.length > 0 ? (
-                  <SnapshotSelect
-                    snapshots={snapshots}
-                    from={fromSnap}
-                    to={toSnap}
-                    onFromChange={setFromSnap}
-                    onToChange={setToSnap}
-                  />
-                ) : undefined
-              }
-            />
-          )}
+          {/* Desktop: the review summary docks at the top of the file-viewer
+              column rather than full-width above the split (its prose is
+              width-capped, so the extra width the full span bought was wasted
+              whitespace on the right), and the toolbar is pinned above the
+              scroll pane. Mobile mounts both inside the pane instead — see the
+              header-stack comment above. */}
+          {!isMobile && reviewSummaryEl}
+          {!isMobile && paneToolbarEl}
           {/* shiki-surface paints the pane in the syntax theme's own editor
               background, so the full-bleed file blocks read as one continuous
               full-height surface (no card insets, nothing peeking around them). */}
@@ -2048,6 +2071,15 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             style={surfaceVars}
           >
             <VirtualPaneProvider scrollRef={scopeRef} registry={virt.registry}>
+              {/* Mobile: the whole header stack scrolls with the code (the
+                  round summary rides in the toolbar's summary slot). */}
+              {isMobile && (
+                <>
+                  {reviewHeader}
+                  {reviewSummaryEl}
+                  {paneToolbarEl}
+                </>
+              )}
               {/* Desktop keeps the round summary at the top of the scrollable
                   content, above the file blocks (mobile mounts it in the toolbar
                   instead — the `summary` slot above). */}

@@ -1282,9 +1282,9 @@ function FeedbackCard({
                   setReply("");
                   setReplyOpen(false);
                 }}
-                // Below md the icon grows a 44px touch target so it matches the
-                // min-h-11 Buttons sharing this action row.
-                className="ml-auto rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-danger-50 hover:text-danger-600 max-md:flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center dark:text-neutral-500 dark:hover:bg-danger-950/40 dark:hover:text-danger-400"
+                // Below md the icon grows a compact touch target matching the
+                // min-h-9 Buttons sharing this action row.
+                className="ml-auto rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-danger-50 hover:text-danger-600 max-md:flex max-md:size-9 max-md:items-center max-md:justify-center dark:text-neutral-500 dark:hover:bg-danger-950/40 dark:hover:text-danger-400"
               >
                 <TrashIcon className="size-4" />
               </button>
@@ -1804,10 +1804,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 setTab("active");
                 setGeneralOpen(true);
               }}
-              // max-md:size-11 gives the icon a 44px touch target below md (the
-              // icon itself stays size-4); it sits beside the min-h-11 Submit/Copy
+              // max-md:size-9 gives the icon a compact touch target below md (the
+              // icon itself stays size-4); it sits beside the min-h-9 Submit/Copy
               // button, so the header row reads as one comfortable-tap cluster.
-              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 max-md:size-11 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
             >
               <CommentPlusIcon className="size-4" />
             </button>

@@ -552,7 +552,12 @@ and the same `FeedbackPanel` renders with the same props either way.
 
 - **Layout**: the sidebar hides; the pane toolbar wraps into stacked full-width
   rows — round/snapshot selector (full-bleed trigger, chevron far right) · the
-  round summary · the buttons; a persistent bottom bar (`Feedback · N open`, the
+  round summary · the buttons. The whole header stack (review header, review
+  summary, toolbar rows) mounts **inside the scroll pane** on mobile, so
+  scrolling down slides it off screen and the code gets the full height between
+  the navbar and the bottom bar (the sticky file headers take over at the pane
+  top) — a whole-page-scroll feel while the pane stays the one scroll container
+  (virtualization unchanged). A persistent bottom bar (`Feedback · N open`, the
   whole bar is the toggle — watcher presence shows only inside the panel)
   toggles a bottom **sheet** hosting the panel, with three discrete tap-only
   states — closed · **composer peek** (short sheet: the composer over the
@@ -567,13 +572,17 @@ and the same `FeedbackPanel` renders with the same props either way.
   document-mouseup selection path swaps for a debounced `selectionchange`
   listener raising a floating "Add feedback" pill (`AddFeedbackPill`; the
   anchor/quote/rect are captured at selectionchange time — iOS collapses the
-  selection on tap — and the position clamps into the viewport). While the
+  selection on tap — and the position clamps into the viewport). The pill sits
+  **under** the selection — the native iOS Copy/Look Up callout owns the space
+  above — flipping above only when there's no room at the viewport bottom;
+  any scroll dismisses it. While the
   anchored composer holds text the pill reads "Quote in note" and quotes in one
   tap. Line-number taps anchor through the existing gutter path
   (`touch-manipulation`). Tap-tap range extension and summary selection via the
   pill are deferred.
-- **Ergonomics**: below `md`, 44px touch targets (shared `Button` gets
-  `min-h-11`; the h-8 header stack — pane toolbar, file headers, summary bars —
+- **Ergonomics**: below `md`, compact ~40px touch targets (shared `Button` gets
+  `min-h-9`, icon buttons `size-9` — real-device feedback found full 44px CTAs
+  too tall; the h-8 header stack — pane toolbar, file headers, summary bars —
   is deliberately exempt and stays h-8) and 16px composer/input fonts (kills
   iOS zoom-on-focus); hover-reveal affordances forced visible on
   `pointer-coarse:`; the diff gutter compresses 3rem→2.25rem per column (files

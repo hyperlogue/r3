@@ -52,7 +52,8 @@ const meta = {
   title: "Mobile/AddFeedbackPill",
   component: AddFeedbackPill,
   // Frame it phone-narrow; the pill itself is fixed to the viewport, so it floats
-  // over the selection wherever it lands — the real geometry on a phone.
+  // under the selection wherever it lands (below, not above — iOS's native
+  // callout owns the space above) — the real geometry on a phone.
   decorators: [
     (Story) => (
       <div className="w-[390px] border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
