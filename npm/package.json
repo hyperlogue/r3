@@ -1,6 +1,6 @@
 {
   "name": "@hyperlogue/r3",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Review. Revise. Resolve. — a local-first review tool for AI-generated code and docs. Runs the matching prebuilt native r3 binary (shipped as a per-platform optional dependency); works with `bunx @hyperlogue/r3` and `npx @hyperlogue/r3`.",
   "license": "MIT",
   "type": "module",
@@ -17,10 +17,10 @@
     "launch.mjs"
   ],
   "optionalDependencies": {
-    "@hyperlogue/r3-darwin-arm64": "0.4.0",
-    "@hyperlogue/r3-darwin-x64": "0.4.0",
-    "@hyperlogue/r3-linux-x64": "0.4.0",
-    "@hyperlogue/r3-linux-arm64": "0.4.0"
+    "@hyperlogue/r3-darwin-arm64": "0.5.0",
+    "@hyperlogue/r3-darwin-x64": "0.5.0",
+    "@hyperlogue/r3-linux-x64": "0.5.0",
+    "@hyperlogue/r3-linux-arm64": "0.5.0"
   },
   "engines": {
     "node": ">=18"

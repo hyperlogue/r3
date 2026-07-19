@@ -4,6 +4,45 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-07-19
+
+### Added
+
+- **Mobile-friendly review UI.** Below 768px the review becomes one pane: the
+  feedback panel moves into a bottom bar + sheet, touch selections raise an
+  "Add feedback" pill, and the toolbar + file headers stick while the header
+  scrolls away. Reading, replying, resolving, submitting, and adding feedback
+  all work on a phone; desktop is unchanged.
+- **Jump-to-file picker.** A filterable file list with viewed ticks on both
+  tiers — popover on desktop, bottom sheet on mobile. Picking a viewed
+  (folded) file re-expands it.
+- **Live browser demo.** The whole SPA runs fully in the browser at
+  <https://hyperlogue.github.io/r3/demo/> — seeded reviews, a scripted agent
+  answering Submit, nothing to install.
+- **Persisted server config.** `r3 config show|get|set|unset` stores
+  bind/port/publicUrl/allowedHosts/requireLogin in
+  `$XDG_CONFIG_HOME/r3/config.json` (read below env), so a restart keeps a
+  remote-serving posture instead of reverting to loopback-only.
+
+### Changed
+
+- Creating feedback is optimistic like the other mutations; a failed add
+  restores your draft.
+- Agent-authored feedback bodies render in the agent's bubble and support
+  select-to-quote.
+- The agent prompt nudges an initial snapshot on files reviews at hand-off.
+
+### Fixed
+
+- Replying over plain HTTP on a non-loopback bind no longer crashes
+  (`crypto.randomUUID` is secure-context-only).
+- Failed or echo-less optimistic writes reconcile instead of leaving stale
+  cards or erasing newer server truth.
+- Replying to a card that stays put no longer yanks focus to the next item.
+- A summary note's highlight survives snapshot switches and re-anchors.
+- Fewer redundant refetches: one review refetch per write, and diff rounds
+  refetch only when rounds change.
+
 ## [0.4.0] - 2026-07-14
 
 ### Changed
@@ -97,6 +136,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.5.0]: https://github.com/hyperlogue/r3/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hyperlogue/r3/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hyperlogue/r3/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hyperlogue/r3/compare/v0.1.0...v0.2.0
