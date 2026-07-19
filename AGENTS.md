@@ -553,10 +553,13 @@ and the same `FeedbackPanel` renders with the same props either way.
 - **Layout**: the sidebar hides; the pane toolbar wraps into stacked full-width
   rows — round/snapshot selector (full-bleed trigger, chevron far right) · the
   round summary · the buttons. The whole header stack (review header, review
-  summary, toolbar rows) mounts **inside the scroll pane** on mobile, so
-  scrolling down slides it off screen and the code gets the full height between
-  the navbar and the bottom bar (the sticky file headers take over at the pane
-  top) — a whole-page-scroll feel while the pane stays the one scroll container
+  summary, toolbar rows) mounts **inside the scroll pane** on mobile; the review
+  header + summary scroll away with the code, while the **toolbar sticks** at
+  the pane top and each file header pins just below it (its live height rides
+  on the pane as `--pane-sticky-h`, which FileCard's header `top` and the
+  anchor-in-view test read; unset = 0 on desktop) — so the sticky header stack
+  is toolbar + file header, the code gets the full height between the navbar
+  and the bottom bar, and the pane stays the one scroll container
   (virtualization unchanged). A persistent bottom bar (`Feedback · N open`, the
   whole bar is the toggle — watcher presence shows only inside the panel)
   toggles a bottom **sheet** hosting the panel, with three discrete tap-only
@@ -584,7 +587,11 @@ and the same `FeedbackPanel` renders with the same props either way.
   `min-h-9`, icon buttons `size-9` — real-device feedback found full 44px CTAs
   too tall; the h-8 header stack — pane toolbar, file headers, summary bars —
   is deliberately exempt and stays h-8) and 16px composer/input fonts (kills
-  iOS zoom-on-focus); hover-reveal affordances forced visible on
+  iOS zoom-on-focus); composer placeholders drop their keyboard-shortcut hints
+  on a coarse pointer (no hardware keyboard — ReviewView feeds the pointer fact
+  to `FeedbackPanel` as a `coarse` prop), and a composer taller than its pane
+  reveals top-aligned (label + quote first), not bottom-aligned; hover-reveal
+  affordances forced visible on
   `pointer-coarse:`; the diff gutter compresses 3rem→2.25rem per column (files
   view 3.5rem→2.5rem) with the new-side sticky pin following;
   `interactive-widget=resizes-content` on the viewport meta. A real-device iOS

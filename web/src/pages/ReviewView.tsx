@@ -194,8 +194,13 @@ function useActiveLineHighlight(
         head = tail = (quote ? rangeForQuote(block, quote) : null) ?? block;
       }
       const p = root.getBoundingClientRect();
+      // The covered band at the pane top: the file header, plus the mobile
+      // sticky toolbar whose live height rides on the pane as --pane-sticky-h
+      // (0 when unset — desktop).
+      const toolbarPx =
+        Number.parseFloat(getComputedStyle(root).getPropertyValue("--pane-sticky-h")) || 0;
       return (
-        head.getBoundingClientRect().top >= p.top + STICKY_HEADER_PX &&
+        head.getBoundingClientRect().top >= p.top + toolbarPx + STICKY_HEADER_PX &&
         tail.getBoundingClientRect().bottom <= p.bottom
       );
     };
@@ -1050,6 +1055,25 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const coarse = usePointerCoarse();
   const hasAnchoredText = useHasAnchoredText(reviewId);
   const composing = pending != null && hasAnchoredText;
+
+  // Mobile: the pane toolbar sticks at the pane top while the review header +
+  // summary above it scroll away, and each FileCard header pins just below it.
+  // The toolbar's height is live (the round-summary row expands/collapses, rows
+  // wrap), so a ResizeObserver mirrors it into state and the scroll pane
+  // publishes it as --pane-sticky-h — FileCard's header `top` and the
+  // anchor-in-view test both read it. 0 (var unset) on desktop / with no toolbar.
+  const stickyToolbarRef = useRef<HTMLDivElement | null>(null);
+  const [stickyToolbarH, setStickyToolbarH] = useState(0);
+  useEffect(() => {
+    const el = stickyToolbarRef.current;
+    if (!el) {
+      setStickyToolbarH(0);
+      return;
+    }
+    const ro = new ResizeObserver(() => setStickyToolbarH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   const {
     data: detail,
@@ -2068,16 +2092,27 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           <div
             ref={scopeRef}
             className="shiki-surface min-w-0 flex-1 overflow-y-auto"
-            style={surfaceVars}
+            style={
+              stickyToolbarH > 0
+                ? ({ ...surfaceVars, "--pane-sticky-h": `${stickyToolbarH}px` } as CSSProperties)
+                : surfaceVars
+            }
           >
             <VirtualPaneProvider scrollRef={scopeRef} registry={virt.registry}>
-              {/* Mobile: the whole header stack scrolls with the code (the
-                  round summary rides in the toolbar's summary slot). */}
+              {/* Mobile: the header + summary scroll away with the code, but the
+                  toolbar (switcher · round summary · buttons) sticks at the pane
+                  top — the sticky header stack is toolbar + file header. z-20
+                  paints it over FileCard's z-10 header, which pins below it via
+                  --pane-sticky-h (measured off this wrapper — see the effect). */}
               {isMobile && (
                 <>
                   {reviewHeader}
                   {reviewSummaryEl}
-                  {paneToolbarEl}
+                  {paneToolbarEl && (
+                    <div ref={stickyToolbarRef} className="sticky top-0 z-20">
+                      {paneToolbarEl}
+                    </div>
+                  )}
                 </>
               )}
               {/* Desktop keeps the round summary at the top of the scrollable
@@ -2197,6 +2232,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
               onLocateFeedback={locateFeedback}
               onLocatePin={locatePin}
               onJumpRef={jumpToRef}
+              coarse={coarse}
             />
           </div>
         )}
@@ -2217,6 +2253,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             onLocateFeedback={locateFeedback}
             onLocatePin={locatePin}
             onJumpRef={jumpToRef}
+            coarse={coarse}
           />
         </MobileReviewChrome>
       )}

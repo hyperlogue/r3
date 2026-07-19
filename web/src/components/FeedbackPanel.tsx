@@ -2,7 +2,16 @@ import type { AutoAnimationPlugin } from "@formkit/auto-animate";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode, RefObject } from "react";
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { api } from "../api.ts";
 import { useAutoGrow } from "../autogrow.ts";
 import { copyText } from "../clipboard.ts";
@@ -141,6 +150,18 @@ const SUBMIT_KEYS = (() => {
     "";
   return /mac|iphone|ipad|ipod/i.test(platform) ? "⌘Enter" : "Ctrl+Enter";
 })();
+
+// Coarse primary pointer ⇒ almost certainly no hardware keyboard, so the
+// keyboard-shortcut hints in composer placeholders (Space to focus, ⌘Enter,
+// Esc) would name keys that don't exist. ReviewView passes the pointer fact in
+// as a prop (the panel can't probe it itself — desktop components don't import
+// from src/mobile/); a context carries it to the composers, which sit at
+// several depths, and this helper builds the placeholder: base prompt alone on
+// touch, base + parenthetical hints with a keyboard.
+const CoarsePointerContext = createContext(false);
+function usePlaceholder(base: string, hints: string): string {
+  return useContext(CoarsePointerContext) ? base : `${base}  (${hints})`;
+}
 
 // True when focus is on an element that should own the keystroke itself — a text
 // field (which receives the character) or an interactive control like a button or
@@ -425,7 +446,10 @@ function GeneralFeedback({
       textareaRef={textareaRef}
       value={value}
       onChange={(t) => setGeneralText(reviewId, t)}
-      placeholder={`A note about the review as a whole…  (${SUBMIT_KEYS} to add · Esc to cancel)`}
+      placeholder={usePlaceholder(
+        "A note about the review as a whole…",
+        `${SUBMIT_KEYS} to add · Esc to cancel`,
+      )}
       autoFocus
       submitLabel="Save"
       onSubmit={() => onSubmit(value)}
@@ -490,11 +514,10 @@ function NewFeedback({
       textareaRef={textareaRef}
       value={draftText}
       onChange={(t) => setDraftText(reviewId, t)}
-      placeholder={
-        autoFocusInput
-          ? `Leave feedback…  (${SUBMIT_KEYS} to add · Esc to cancel)`
-          : `Leave feedback…  (Space to focus · ${SUBMIT_KEYS} to add · Esc to cancel)`
-      }
+      placeholder={usePlaceholder(
+        "Leave feedback…",
+        `${autoFocusInput ? "" : "Space to focus · "}${SUBMIT_KEYS} to add · Esc to cancel`,
+      )}
       autoFocus={autoFocusInput}
       submitLabel="Add feedback"
       onSubmit={() => onSubmit(draftText)}
@@ -1195,7 +1218,7 @@ function FeedbackCard({
             // no-op so an accidental press can't discard the draft.
             else if (e.key === "Escape" && !reply.trim()) setReplyOpen(false);
           }}
-          placeholder={`Reply (${SUBMIT_KEYS} to send)`}
+          placeholder={usePlaceholder("Reply", `${SUBMIT_KEYS} to send`)}
           className={cn("mt-3 w-full", PENDING_INPUT)}
         />
       </Collapse>
@@ -1332,6 +1355,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   onLocateFeedback,
   onLocatePin,
   onJumpRef,
+  coarse = false,
 }: {
   detail: ReviewDetail;
   pending: PendingAnchor | null;
@@ -1347,6 +1371,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // second arg is the message's pinned version — a reply's `ref_version` (round /
   // snapshot captured at post time), or a feedback body's own round.
   onJumpRef: (ref: MessageRef, version: number | null) => void;
+  // True when the primary pointer is coarse (ReviewView's usePointerCoarse feeds
+  // it — this component can't probe src/mobile/ itself). Composer placeholders
+  // drop their keyboard-shortcut hints under it; see CoarsePointerContext.
+  coarse?: boolean;
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
@@ -1411,9 +1439,15 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     const startedAt = performance.now();
     let raf = 0;
     const keepInView = () => {
-      const overflowBelow =
-        el.getBoundingClientRect().bottom - pane.getBoundingClientRect().bottom + 12;
-      if (overflowBelow > 0) pane.scrollTop += overflowBelow;
+      const elR = el.getBoundingClientRect();
+      const paneR = pane.getBoundingClientRect();
+      const overflowBelow = elR.bottom - paneR.bottom + 12;
+      // Cap the nudge so the composer's TOP never scrolls out of view: when it's
+      // taller than the pane (the mobile peek sheet), pin the top — label + quote
+      // + input start — and let the buttons overflow below, instead of showing
+      // just the tail.
+      if (overflowBelow > 0)
+        pane.scrollTop += Math.min(overflowBelow, Math.max(0, elR.top - paneR.top));
       // Keep pace with the Collapse height slide (200ms); stop once it has settled.
       if (!reduce && performance.now() - startedAt < 240) raf = requestAnimationFrame(keepInView);
     };
@@ -1764,176 +1798,177 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   }, [composerOpen]);
 
   return (
-    <div className="flex h-full flex-col">
-      {/* The title/CTA row and the filter-pills row share one padded flex box:
+    <CoarsePointerContext.Provider value={coarse}>
+      <div className="flex h-full flex-col">
+        {/* The title/CTA row and the filter-pills row share one padded flex box:
           gap-2 between the rows and padding on the parent (not per-row py) keep
           their spacing consistent, and the border sits under the whole header.
           The header's heights are its own — deliberately NOT matched to the file
           pane's bars across the split (equal heights there read as one bar). */}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
-        <div className="flex items-center justify-between gap-2">
-          {/* Title + the unsaved-draft pill. The pill rides right of the title (not
+        <div className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
+          <div className="flex items-center justify-between gap-2">
+            {/* Title + the unsaved-draft pill. The pill rides right of the title (not
               down in the pills row) so it reads as a status on "Feedback" itself and
               stays visible even with no feedback/tabs yet. It counts every unsaved
               surface — the anchored draft, the general note, and any in-progress
               reply — since none has reached the server. */}
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-base font-semibold">Feedback</span>
-            {unsavedDraft && (
-              <span
-                title="Unsaved draft — add/post it to save, or discard it. It isn't sent to the agent until then."
-                className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
-              >
-                ✎ {draftCount === 1 ? "unsaved draft" : `${draftCount} unsaved drafts`}
-              </span>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {/* Add a review-level note not tied to any line. The composer opens at
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-base font-semibold">Feedback</span>
+              {unsavedDraft && (
+                <span
+                  title="Unsaved draft — add/post it to save, or discard it. It isn't sent to the agent until then."
+                  className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
+                >
+                  ✎ {draftCount === 1 ? "unsaved draft" : `${draftCount} unsaved drafts`}
+                </span>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {/* Add a review-level note not tied to any line. The composer opens at
                 the bottom of the list; a compact icon here replaces the old dashed
                 "+ General feedback" button that used to sit in the list. Opening it
                 discards a pending anchored draft (one composer at a time) and jumps
                 to the active tab, where composing happens. */}
-            <button
-              type="button"
-              aria-label="Add general feedback"
-              title="Add general feedback — a note about the review as a whole, not tied to any line"
-              onClick={() => {
-                setCreateError(null);
-                onDiscardPending();
-                setTab("active");
-                setGeneralOpen(true);
-              }}
-              // max-md:size-9 gives the icon a compact touch target below md (the
-              // icon itself stays size-4); it sits beside the min-h-9 Submit/Copy
-              // button, so the header row reads as one comfortable-tap cluster.
-              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            >
-              <CommentPlusIcon className="size-4" />
-            </button>
-            {/* The title lives on a wrapping span, not just the Button: a disabled
+              <button
+                type="button"
+                aria-label="Add general feedback"
+                title="Add general feedback — a note about the review as a whole, not tied to any line"
+                onClick={() => {
+                  setCreateError(null);
+                  onDiscardPending();
+                  setTab("active");
+                  setGeneralOpen(true);
+                }}
+                // max-md:size-9 gives the icon a compact touch target below md (the
+                // icon itself stays size-4); it sits beside the min-h-9 Submit/Copy
+                // button, so the header row reads as one comfortable-tap cluster.
+                className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              >
+                <CommentPlusIcon className="size-4" />
+              </button>
+              {/* The title lives on a wrapping span, not just the Button: a disabled
               Button has `pointer-events-none`, so its own `title` never fires on
               hover. The span stays hoverable and surfaces *why* the hand-off is
               disabled. */}
-            {watching ? (
-              <span
-                className="inline-flex shrink-0"
-                title={
-                  unsavedDraft
-                    ? "Add, post, or discard your unsaved draft(s) first"
-                    : !hasUnsent
-                      ? "Everything has been sent — a new reply or feedback re-enables this"
-                      : "Send the feedback to the watching agent"
-                }
-              >
-                <Button
-                  variant="primary"
-                  onClick={() => submit.mutate()}
-                  disabled={!hasUnsent || submit.isPending || unsavedDraft}
+              {watching ? (
+                <span
+                  className="inline-flex shrink-0"
+                  title={
+                    unsavedDraft
+                      ? "Add, post, or discard your unsaved draft(s) first"
+                      : !hasUnsent
+                        ? "Everything has been sent — a new reply or feedback re-enables this"
+                        : "Send the feedback to the watching agent"
+                  }
                 >
-                  Submit
-                </Button>
-              </span>
-            ) : (
-              <span
-                className="inline-flex shrink-0"
-                title={
-                  unsavedDraft
-                    ? "Add, post, or discard your unsaved draft(s) first"
-                    : !hasUnsent
-                      ? "Everything has been sent — a new reply or feedback re-enables this"
-                      : undefined
-                }
-              >
-                <Button
-                  variant="primary"
-                  onClick={() => copy()}
-                  disabled={!hasUnsent || unsavedDraft}
+                  <Button
+                    variant="primary"
+                    onClick={() => submit.mutate()}
+                    disabled={!hasUnsent || submit.isPending || unsavedDraft}
+                  >
+                    Submit
+                  </Button>
+                </span>
+              ) : (
+                <span
+                  className="inline-flex shrink-0"
+                  title={
+                    unsavedDraft
+                      ? "Add, post, or discard your unsaved draft(s) first"
+                      : !hasUnsent
+                        ? "Everything has been sent — a new reply or feedback re-enables this"
+                        : undefined
+                  }
                 >
-                  {sent ? "Sent ✓" : copied ? "Copied!" : failed ? "Copy failed" : "Copy prompt"}
-                </Button>
-              </span>
-            )}
+                  <Button
+                    variant="primary"
+                    onClick={() => copy()}
+                    disabled={!hasUnsent || unsavedDraft}
+                  >
+                    {sent ? "Sent ✓" : copied ? "Copied!" : failed ? "Copy failed" : "Copy prompt"}
+                  </Button>
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-        {(detail.feedback.length > 0 || watching) && (
-          // Fixed height (the pills' 1.25rem) so this secondary row never changes
-          // the header's height. Everything here is ≤ 1.25rem, so the min-height
-          // simply pins the row and its contents just center within it. (The
-          // unsaved-draft chip now lives up in the title row, not here.)
-          <div className="flex min-h-5 items-center justify-between gap-2">
-            {/* Left: the Active/Resolved filter pills — only when there's feedback.
+          {(detail.feedback.length > 0 || watching) && (
+            // Fixed height (the pills' 1.25rem) so this secondary row never changes
+            // the header's height. Everything here is ≤ 1.25rem, so the min-height
+            // simply pins the row and its contents just center within it. (The
+            // unsaved-draft chip now lives up in the title row, not here.)
+            <div className="flex min-h-5 items-center justify-between gap-2">
+              {/* Left: the Active/Resolved filter pills — only when there's feedback.
               When there isn't, this bar still draws so the watching indicator on
               the right has a home. */}
-            {detail.feedback.length > 0 ? (
-              <div className="relative flex gap-1">
-                {/* The bright fill lives on this one element and slides between the
+              {detail.feedback.length > 0 ? (
+                <div className="relative flex gap-1">
+                  {/* The bright fill lives on this one element and slides between the
                   pills; the buttons carry only text color now. The horizontal move
                   is a `translateX` (compositor-thread transform), not `left`
                   (main-thread layout), so the slide stays smooth even while the
                   panel is busy re-rendering cards / handling SSE. */}
-                {tabHi && (
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-0 rounded bg-neutral-200 transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none dark:bg-neutral-700"
-                    style={{
-                      top: tabHi.top,
-                      width: tabHi.w,
-                      height: tabHi.h,
-                      transform: `translateX(${tabHi.left}px)`,
-                    }}
-                  />
-                )}
-                {(
-                  [
-                    ["active", "Active", active.length],
-                    ["resolved", "Resolved", resolved.length],
-                  ] as const
-                ).map(([id, label, count]) => (
-                  <button
-                    key={id}
-                    ref={(el) => {
-                      tabRefs.current[id] = el;
-                    }}
-                    type="button"
-                    onClick={() => setTab(id)}
-                    className={cn(
-                      "relative z-10 rounded px-2 py-0.5 text-xs font-medium transition-colors",
-                      tab === id
-                        ? "text-neutral-900 dark:text-neutral-100"
-                        : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200",
-                    )}
-                  >
-                    {label} <span className="font-normal text-neutral-400">· {count}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span />
-            )}
-            {/* Right: the live watching indicator. It lives on this bar (rather than
+                  {tabHi && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-0 rounded bg-neutral-200 transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none dark:bg-neutral-700"
+                      style={{
+                        top: tabHi.top,
+                        width: tabHi.w,
+                        height: tabHi.h,
+                        transform: `translateX(${tabHi.left}px)`,
+                      }}
+                    />
+                  )}
+                  {(
+                    [
+                      ["active", "Active", active.length],
+                      ["resolved", "Resolved", resolved.length],
+                    ] as const
+                  ).map(([id, label, count]) => (
+                    <button
+                      key={id}
+                      ref={(el) => {
+                        tabRefs.current[id] = el;
+                      }}
+                      type="button"
+                      onClick={() => setTab(id)}
+                      className={cn(
+                        "relative z-10 rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                        tab === id
+                          ? "text-neutral-900 dark:text-neutral-100"
+                          : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200",
+                      )}
+                    >
+                      {label} <span className="font-normal text-neutral-400">· {count}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
+              {/* Right: the live watching indicator. It lives on this bar (rather than
               a standing header row) so the watching dot survives the zero-feedback
               setup state — the agent runs `r3 watch` before any feedback exists. */}
-            {watching && (
-              <div className="flex min-w-0 items-center gap-2 text-[0.6875rem]">
-                <span
-                  className="flex min-w-0 items-center gap-1.5 text-primary-700 dark:text-primary-400"
-                  title={watchersTitle(watchers)}
-                >
-                  {/* A steady dot, not a pulsing one — the blink was distracting. */}
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
-                  <span className="truncate">{watchersLabel(watchers)} watching</span>
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      {/* No padding on the scroll container: the composer region and feedback
+              {watching && (
+                <div className="flex min-w-0 items-center gap-2 text-[0.6875rem]">
+                  <span
+                    className="flex min-w-0 items-center gap-1.5 text-primary-700 dark:text-primary-400"
+                    title={watchersTitle(watchers)}
+                  >
+                    {/* A steady dot, not a pulsing one — the blink was distracting. */}
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                    <span className="truncate">{watchersLabel(watchers)} watching</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {/* No padding on the scroll container: the composer region and feedback
           blocks are full-bleed (each owns its p-3 + divider); the empty state
           restores its own padding. */}
-      <div ref={listRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        {/* The feedback list. Re-keyed on `tab` so switching filters remounts it
+        <div ref={listRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          {/* The feedback list. Re-keyed on `tab` so switching filters remounts it
             and replays the fade-slide (main.css); the composer region below sits
             outside it so an unsaved draft/note persists across tabs. The auto-animate
             (listAnim) ref goes on an inner container that holds *only* the cards, so
@@ -1941,10 +1976,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
             stays the remount fade-slide. The empty-state hints sit *outside* that
             container: they're not list items, so auto-animate mustn't slide them
             off-screen when the first card lands. */}
-        <div key={tab} className="relative r3-fade-slide-in">
-          {tab === "active" ? (
-            <>
-              {/* Absolute + out of flow: when the last card is removed and this hint
+          <div key={tab} className="relative r3-fade-slide-in">
+            {tab === "active" ? (
+              <>
+                {/* Absolute + out of flow: when the last card is removed and this hint
                   appears, it must not push the (auto-animate-pinned) exiting card
                   down — that reflow was the card's diagonal exit. Always mounted and
                   toggled via `.is-visible` (not conditionally rendered) so it can
@@ -1952,16 +1987,50 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   when a card/composer arrives (asymmetric durations in main.css);
                   pointer-events-none so the invisible overlay never eats a click on
                   the first card. */}
-              <p
-                className={cn(
-                  "r3-hint pointer-events-none absolute inset-x-0 top-0 px-4 py-6 text-center text-xs text-neutral-400",
-                  active.length === 0 && !pending && !showGeneral && "is-visible",
-                )}
-              >
-                Select text — or click a line number — in the diff or files to leave feedback.
+                <p
+                  className={cn(
+                    "r3-hint pointer-events-none absolute inset-x-0 top-0 px-4 py-6 text-center text-xs text-neutral-400",
+                    active.length === 0 && !pending && !showGeneral && "is-visible",
+                  )}
+                >
+                  Select text — or click a line number — in the diff or files to leave feedback.
+                </p>
+                <div ref={listAnim}>
+                  {attention.map((fb) => (
+                    <FeedbackCard
+                      key={keyFor(fb.id)}
+                      fb={fb}
+                      reviewId={detail.id}
+                      isActive={fb.id === activeFeedbackId}
+                      onLocate={() => onLocateFeedback(fb)}
+                      onLocatePin={onLocatePin}
+                      onResolved={() => advanceAfterResolve(fb.id)}
+                      onReplied={() => advanceAfterReply(fb.id)}
+                      onJumpRef={onJumpRef}
+                    />
+                  ))}
+                  {rest.map((fb) => (
+                    <FeedbackCard
+                      key={keyFor(fb.id)}
+                      fb={fb}
+                      reviewId={detail.id}
+                      isActive={fb.id === activeFeedbackId}
+                      onLocate={() => onLocateFeedback(fb)}
+                      onLocatePin={onLocatePin}
+                      onResolved={() => advanceAfterResolve(fb.id)}
+                      onReplied={() => advanceAfterReply(fb.id)}
+                      onJumpRef={onJumpRef}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : resolved.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-neutral-400">
+                No resolved feedback yet.
               </p>
+            ) : (
               <div ref={listAnim}>
-                {attention.map((fb) => (
+                {resolved.map((fb) => (
                   <FeedbackCard
                     key={keyFor(fb.id)}
                     fb={fb}
@@ -1969,53 +2038,19 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     isActive={fb.id === activeFeedbackId}
                     onLocate={() => onLocateFeedback(fb)}
                     onLocatePin={onLocatePin}
-                    onResolved={() => advanceAfterResolve(fb.id)}
-                    onReplied={() => advanceAfterReply(fb.id)}
-                    onJumpRef={onJumpRef}
-                  />
-                ))}
-                {rest.map((fb) => (
-                  <FeedbackCard
-                    key={keyFor(fb.id)}
-                    fb={fb}
-                    reviewId={detail.id}
-                    isActive={fb.id === activeFeedbackId}
-                    onLocate={() => onLocateFeedback(fb)}
-                    onLocatePin={onLocatePin}
-                    onResolved={() => advanceAfterResolve(fb.id)}
-                    onReplied={() => advanceAfterReply(fb.id)}
+                    // A resolved card has no Resolve button, so this never fires.
+                    onResolved={() => {}}
+                    // Replies here stay in the Resolved tab (not part of the active
+                    // top-down pass), so don't advance focus.
+                    onReplied={() => {}}
                     onJumpRef={onJumpRef}
                   />
                 ))}
               </div>
-            </>
-          ) : resolved.length === 0 ? (
-            <p className="px-4 py-6 text-center text-xs text-neutral-400">
-              No resolved feedback yet.
-            </p>
-          ) : (
-            <div ref={listAnim}>
-              {resolved.map((fb) => (
-                <FeedbackCard
-                  key={keyFor(fb.id)}
-                  fb={fb}
-                  reviewId={detail.id}
-                  isActive={fb.id === activeFeedbackId}
-                  onLocate={() => onLocateFeedback(fb)}
-                  onLocatePin={onLocatePin}
-                  // A resolved card has no Resolve button, so this never fires.
-                  onResolved={() => {}}
-                  // Replies here stay in the Resolved tab (not part of the active
-                  // top-down pass), so don't advance focus.
-                  onReplied={() => {}}
-                  onJumpRef={onJumpRef}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* Composer region, pinned to the *bottom* of the list — composing happens
+          {/* Composer region, pinned to the *bottom* of the list — composing happens
             below the existing feedback, so a newly-added card lands right where you
             were typing (feedback appends, created_at ASC). At most one composer is
             open: the anchored draft OR the general note (opened from the header's
@@ -2024,22 +2059,25 @@ export const FeedbackPanel = memo(function FeedbackPanel({
             It opens/closes with <Collapse> (height slide); a divider brackets it
             top+bottom while open. Renders composerContent while open, then the held
             copy through the close so the collapse has something to slide away. */}
-        <div ref={composerRef}>
-          <Collapse
-            open={composerOpen}
-            className={cn(composerOpen && "border-y-2 border-neutral-300 dark:border-neutral-700")}
-          >
-            {composerOpen ? composerContent : heldComposer.current}
-          </Collapse>
-        </div>
+          <div ref={composerRef}>
+            <Collapse
+              open={composerOpen}
+              className={cn(
+                composerOpen && "border-y-2 border-neutral-300 dark:border-neutral-700",
+              )}
+            >
+              {composerOpen ? composerContent : heldComposer.current}
+            </Collapse>
+          </div>
 
-        {/* Scroll safe-space: a trailing spacer sized to 38% of the pane, so the
+          {/* Scroll safe-space: a trailing spacer sized to 38% of the pane, so the
             last block can be scrolled up toward the middle once the list overflows
             — the panel's "scroll past the end". As a % of the (flex-definite)
             scroll pane it adds no scrollbar to a short list: the content must
             already exceed ~62% of the pane before this makes it scrollable. */}
-        <div aria-hidden="true" className="h-[38%]" />
+          <div aria-hidden="true" className="h-[38%]" />
+        </div>
       </div>
-    </div>
+    </CoarsePointerContext.Provider>
   );
 });

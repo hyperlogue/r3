@@ -150,13 +150,16 @@ export function FileCard({
 
   return (
     <div ref={rootRef} data-file={path}>
-      {/* -top-px, not top-0: the rem-scaled layout (root font-size setting) puts
-          row heights on fractional pixels, and a top-0 pin can round a hair below
+      {/* The -1px (not 0): the rem-scaled layout (root font-size setting) puts
+          row heights on fractional pixels, and an exact pin can round a hair below
           the scrollport edge — a sub-pixel slit of the scrolled code peeks over
           the header. Overshooting by 1px clips a pixel of the header's own
           background instead, which is invisible. (Costs a barely-perceptible 1px
-          settle as it pins — the lesser evil vs. the slit.) */}
-      <div className="sticky -top-px z-10 flex h-8 items-center gap-2 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
+          settle as it pins — the lesser evil vs. the slit.)
+          --pane-sticky-h is the mobile pane toolbar's live height (ReviewView sets
+          it on the scroll pane when the toolbar sticks above these headers); unset
+          — desktop, or no toolbar — it defaults to 0px, i.e. the plain -top-px pin. */}
+      <div className="sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
         {/* Enlarge the click target, not the glyph: `self-stretch` fills the
             header's full height and the wider `px-2` (with a `-ml-1` that reclaims
             the header's own left padding) widens it — the triangle stays put and
