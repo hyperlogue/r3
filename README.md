@@ -12,6 +12,11 @@
 </p>
 
 <p align="center">
+  <img alt="r3_cc" src="https://github.com/user-attachments/assets/ba85f5a2-e244-4a04-b673-22cb88694c2b" width="49.6%">
+  <img alt="r3_web" src="https://github.com/user-attachments/assets/4b99a128-3484-44ce-a727-8d72a3dc532b" width="42.4%">
+</p>
+ 
+<p align="center">
   <a href="https://hyperlogue.github.io/r3/demo/"><b>▶&nbsp;Try the live demo</b></a> — the full UI, running entirely in your browser.
 </p>
 
@@ -19,12 +24,12 @@ r3 is a review tool for the diffs and docs produced by your coding agents, runni
 locally with a web interface. You leave feedback pinned to the exact line or
 quote it's about, and track each comment to resolution.
 
-r3 fills a gap the chat box can't. Say your agent writes a long planning doc and
-you want to fix a handful of things. In a chat you copy-paste each passage to
-quote it, type your feedback, then lose track across turns of what's been handled.
-Instead of working in a linear, unstructured chat stream, r3 works like the code
-review tools you're used to, but just for you and your agents, and it runs fully
-locally.
+r3 fills a gap that chat boxes can’t. Say your agent writes a long planning
+document and you want to fix a handful of issues. In chat, you have to copy and
+paste each passage, explain your feedback, and then keep track of what has or
+hasn’t been addressed across multiple turns. r3 replaces that linear,
+unstructured stream with a workflow modeled on the code review tools you already
+know—built specifically for you and your agents, and running entirely locally.
 
 <div align="center">
   <video src="https://github.com/user-attachments/assets/0c1aefaf-0229-49e7-a4dc-e660dc0214f6" width="760" muted controls></video>
@@ -32,7 +37,7 @@ locally.
 
 ## Workflow
 
-The point of r3 is a tight, copy-paste-free review loop between you and an agent.
+r3 offers a tight, copy-paste-free review loop between you and an agent.
 
 ```mermaid
 sequenceDiagram
