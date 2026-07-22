@@ -625,6 +625,8 @@ function FeedbackCard({
   onReplied,
   onJumpRef,
   isActive,
+  error,
+  reportError,
 }: {
   fb: FeedbackWithReplies;
   reviewId: string;
@@ -636,14 +638,26 @@ function FeedbackCard({
   // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message.
   onJumpRef: (ref: MessageRef, patchSeq: number | null) => void;
   isActive: boolean;
+  // This card's last mutation error, and the reporter to set/clear it. Both live
+  // on the panel (keyed by feedback id) rather than in the card's own mutation
+  // state, so the message survives the unmount/remount that a status- or
+  // membership-changing action (Resolve/Reopen/Delete) triggers — see the panel's
+  // cardErrors store and the "Optimistic mutation plumbing" note below.
+  error: string | null;
+  reportError: (msg: string | null) => void;
 }) {
   const qc = useQueryClient();
   const reviewKey = ["review", reviewId] as const;
   // --- Optimistic mutation plumbing --------------------------------------
   // The card mutations below (resolve/reopen, reply, edit, delete) patch the
   // cached ReviewDetail in onMutate so the card reflects the change the instant
-  // it's clicked, and roll the snapshot back in onError (the server's message
-  // stays visible under the action row). There is deliberately no onSettled
+  // it's clicked, and roll the snapshot back in onError. A failed one also
+  // reports the server's message via reportError — the error lives on the PANEL
+  // (keyed by feedback id), not in the mutation's own isError, because a
+  // status/membership change (resolve/reopen/delete) filters this card out of the
+  // visible tab and unmounts it; the rollback then remounts a fresh card whose
+  // local mutation state is pristine, so a card-local banner would vanish. There
+  // is deliberately no onSettled
   // refetch: every write broadcasts an SSE event that this tab receives too, and
   // useServerEvents refetches the detail off it — so the live feed is the
   // success-path reconcile for the initiator and every other client alike, instead
@@ -660,6 +674,9 @@ function FeedbackCard({
   // Halt any in-flight refetch and snapshot the cache so the optimistic write is
   // authoritative until the mutation settles; the snapshot is the rollback target.
   const beginPatch = async () => {
+    // Clear any prior error banner as a new action starts (retry or a different
+    // action on the same card) — the panel-level store persists it otherwise.
+    reportError(null);
     await qc.cancelQueries({ queryKey: reviewKey });
     return qc.getQueryData<ReviewDetail>(reviewKey);
   };
@@ -834,8 +851,9 @@ function FeedbackCard({
           replies: f.replies.map((r) => (r.id === ctx.tmpId ? posted : r)),
         }));
     },
-    onError: (_e, _vars, ctx) => {
+    onError: (e, _vars, ctx) => {
       restore(ctx?.prev);
+      reportError(`Couldn't save — ${apiErrorText(e)}`);
       // onMutate advanced focus to the next card; bring it back so the restored
       // draft and the error banner aren't stranded on an unfocused, possibly
       // scrolled-away card.
@@ -856,7 +874,10 @@ function FeedbackCard({
       return { prev };
     },
     mutationFn: () => api.editFeedback(fb.id, { status: "open" }),
-    onError: (_e, _v, ctx) => restore(ctx?.prev),
+    onError: (e, _v, ctx) => {
+      restore(ctx?.prev);
+      reportError(`Couldn't save — ${apiErrorText(e)}`);
+    },
   });
   const remove = useMutation({
     onMutate: async () => {
@@ -867,7 +888,10 @@ function FeedbackCard({
       return { prev };
     },
     mutationFn: () => api.deleteFeedback(fb.id),
-    onError: (_e, _v, ctx) => restore(ctx?.prev),
+    onError: (e, _v, ctx) => {
+      restore(ctx?.prev);
+      reportError(`Couldn't delete — ${apiErrorText(e)}`);
+    },
   });
   // Save an inline edit of the last human message — a reply (`replyId` set) or the
   // feedback body (null). Like postReply, the target + text ride as variables:
@@ -894,8 +918,9 @@ function FeedbackCard({
       if (replyId) await api.editReply(replyId, { body });
       else await api.editFeedback(fb.id, { body });
     },
-    onError: (_e, _vars, ctx) => {
+    onError: (e, _vars, ctx) => {
       restore(ctx?.prev);
+      reportError(`Couldn't save — ${apiErrorText(e)}`);
       // Reopen the editor with the edited text intact so a failed save isn't lost.
       if (ctx?.replyId) setEditingReplyId(ctx.replyId);
       else setEditing(true);
@@ -1310,13 +1335,11 @@ function FeedbackCard({
       </div>
       {/* A failed mutation is otherwise silent once its optimistic patch rolls
           back — the card just snaps to its old state — so surface the server's
-          message under the action row. Pick whichever errored (only one runs per
-          interaction); a delete gets its own verb. */}
-      {(postReply.isError || reopen.isError || saveEdit.isError || remove.isError) && (
-        <div className="mt-1 text-[0.6875rem] text-danger-600 dark:text-danger-400">
-          {remove.isError ? "Couldn't delete" : "Couldn't save"} —{" "}
-          {apiErrorText(postReply.error ?? reopen.error ?? saveEdit.error ?? remove.error)}
-        </div>
+          message under the action row. The text comes from the panel's cardErrors
+          store (set in each onError above, with its own verb baked in) so it
+          survives the remount that resolve/reopen/delete cause. */}
+      {error && (
+        <div className="mt-1 text-[0.6875rem] text-danger-600 dark:text-danger-400">{error}</div>
       )}
       {/* "Quote in reply" bubble for a text selection inside one of this card's
           agent replies. Fixed-positioned (measured off the selection), so it
@@ -1377,6 +1400,23 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // its error can't ride the composer's own hook — surface it back on the restored
   // composer. Cleared when a fresh compose starts (onMutate) or a composer closes.
   const [createError, setCreateError] = useState<string | null>(null);
+  // Card-mutation errors (reply/resolve/reopen/edit/delete) keyed by feedback id.
+  // Hoisted here — not into the card — so a message survives the unmount/remount a
+  // status- or membership-changing action triggers: resolve/reopen/delete move the
+  // card across the Active/Resolved tab filter (or out of the list entirely), and
+  // the failed one's rollback remounts a fresh card whose local mutation state is
+  // reset. Each card's onError writes here; beginPatch clears it as the next action
+  // starts. Stale entries (feedback later deleted) are never read, so they're inert.
+  const [cardErrors, setCardErrors] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const setCardError = useCallback((id: string, msg: string | null) => {
+    setCardErrors((m) => {
+      if ((m.get(id) ?? null) === msg) return m;
+      const next = new Map(m);
+      if (msg == null) next.delete(id);
+      else next.set(id, msg);
+      return next;
+    });
+  }, []);
   // The optimistic create inserts a stand-in card under a throwaway id, then swaps
   // in the server row (real id) once the POST returns. Keying the card on the
   // server id would make that swap a list remove+add — the placeholder would slide
@@ -1561,6 +1601,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       onResolved={() => advanceAfterResolve(fb.id)}
       onReplied={() => advanceAfterReply(fb.id)}
       onJumpRef={onJumpRef}
+      error={cardErrors.get(fb.id) ?? null}
+      reportError={(msg) => setCardError(fb.id, msg)}
     />
   );
 
