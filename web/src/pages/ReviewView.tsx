@@ -742,10 +742,20 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         locatePin(version ?? effectiveRoundSeq ?? 0, ref.file, ref.lineStart);
         return;
       }
-      // A snapshot-pinned ref: show that snapshot plainly so the line lands right.
+      // A snapshot-pinned ref: show that snapshot plainly so the line lands right —
+      // but only if we're not already viewing it. "Current" (WORKING) continues the
+      // newest capture, so a ref pinned to the latest snapshot is already on screen
+      // while we're on Current; switching to `v<latest>` there would needlessly yank
+      // the pane off the live view for no visible change.
       if (version != null && snapshots.some((s) => s.seq === version)) {
-        setFromSnap(null);
-        setToSnap(version);
+        const latestSeq = Math.max(...snapshots.map((s) => s.seq));
+        const alreadyShown =
+          fromSnap === null &&
+          (toSnap === version || (toSnap === "WORKING" && version === latestSeq));
+        if (!alreadyShown) {
+          setFromSnap(null);
+          setToSnap(version);
+        }
       }
       ensureFileOpen(ref.file);
       retryScrollToRow({
@@ -762,6 +772,8 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       locatePin,
       effectiveRoundSeq,
       snapshots,
+      fromSnap,
+      toSnap,
       ensureFileOpen,
       virt.scrollToLine,
       closeSheetForJump,
