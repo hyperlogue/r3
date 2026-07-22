@@ -4,7 +4,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export function cn(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -153,6 +153,32 @@ export function useCopyFlash(ms = 1500): { copied: boolean; flash: () => void } 
     timer.current = setTimeout(() => setCopied(false), ms);
   };
   return { copied, flash };
+}
+
+// Close-on-Escape for popovers / menus / dialogs. While `active`, a window keydown
+// of Escape calls `onEscape`; no listener is installed while inactive. `onEscape`
+// is read through a ref so callers can pass an inline arrow without re-subscribing
+// on every render — the listener is added once, when `active` flips true.
+export function useEscape(active: boolean, onEscape: () => void): void {
+  const cb = useRef(onEscape);
+  cb.current = onEscape;
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cb.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+}
+
+// A stable `{ __html }` object for dangerouslySetInnerHTML. React 19 re-sets a
+// node's innerHTML whenever this object's identity changes, so a fresh inline
+// literal would reinject the HTML on every re-render — wiping a live text
+// selection, a running animation, or imperative setAttribute transforms. Memoized
+// on the string so the injection happens only when the HTML actually changes.
+export function useHtml(html: string): { __html: string } {
+  return useMemo(() => ({ __html: html }), [html]);
 }
 
 // --- Fold affordances -------------------------------------------------------

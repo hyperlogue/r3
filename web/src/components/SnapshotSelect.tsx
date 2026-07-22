@@ -1,6 +1,6 @@
-import { type MouseEvent as ReactMouseEvent, useEffect, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, useState } from "react";
 import type { SnapshotMeta, SnapshotRef } from "../types.ts";
-import { cn } from "../ui.tsx";
+import { cn, useEscape } from "../ui.tsx";
 
 // The version picker for a snapshotted files review, docked in the
 // pane toolbar's right slot the way RoundSelect is for a diff review. One dropdown
@@ -95,14 +95,7 @@ export function SnapshotSelect({
   onToChange: (v: SnapshotRef) => void;
 }) {
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  useEscape(open, () => setOpen(false));
 
   // Every version oldest→newest, Current last, so index = rank in the range order
   // (a valid span has from's index < to's index). Sorted defensively; the server
@@ -195,8 +188,10 @@ export function SnapshotSelect({
       >
         {/* Newest (Current) first; the row body picks `to`, so the menu closes on
             a body click but stays open on the from/to chips for setting a range. */}
-        {[...ordered].reverse().map((v) => {
-          const pos = ordered.indexOf(v);
+        {[...ordered].reverse().map((v, i) => {
+          // Reversed for display (newest first); `pos` is the index back in the
+          // oldest→newest `ordered`, which the range math below reads.
+          const pos = ordered.length - 1 - i;
           const isFrom = v.kind === "snap" && from === v.seq;
           const isTo = toRefOf(v) === to;
           // A version is "in range" when it sits inside the selected span

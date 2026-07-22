@@ -28,6 +28,28 @@ export interface GutterSelection {
   hi: number;
 }
 
+// The onDown/onEnter gutter handlers useGutterDrag returns, shared by the diff and
+// file panes' gutter cells so the two panes' gutter contract can't silently drift.
+export type GutterHandler = (side: DiffSide, line: number, e: React.MouseEvent) => void;
+export type EnterHandler = (side: DiffSide, line: number) => void;
+
+// The tint a gutter cell wears while inside the live drag selection — one class
+// string for both panes.
+export const GUTTER_SELECTED =
+  "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100";
+
+// Whether line `n` on `side` falls inside the live gutter selection. Both panes
+// derive each cell's `selected` boolean from this (a plain value, so memoized rows
+// only re-render when their own flag flips). A null `n` (no line on this side) is
+// never selected.
+export function inSelection(
+  sel: GutterSelection | null,
+  side: DiffSide,
+  n: number | null,
+): boolean {
+  return sel != null && sel.side === side && n != null && n >= sel.lo && n <= sel.hi;
+}
+
 export function useGutterDrag(opts: {
   // Raw text of the line numbered `line` on `side` (null if no such line).
   textForLine: (side: DiffSide, line: number) => string | null;

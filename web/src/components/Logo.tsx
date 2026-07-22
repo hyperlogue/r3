@@ -1,10 +1,11 @@
-import { type Ref, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
 // The r3 mark. Defined ONCE in web/favicon.svg — imported here as an asset (the
 // bundler hashes it and hands back its URL) and referenced by the same file in
 // index.html's <link rel="icon">, so favicon and nav logo can never drift apart.
 // To keep that single source AND animate the mark's insides, we fetch the same
 // asset once and inline it, rather than duplicating the SVG as JSX.
 import logoUrl from "../../favicon.svg";
+import { useHtml } from "../ui.tsx";
 
 // --- fidget motion --------------------------------------------------------------
 // flick() whirs the spinner (the .arms group + hub ball) two fast rounds, over-
@@ -167,7 +168,7 @@ export function Logo({ className, ref }: { className?: string; ref?: Ref<LogoHan
   // Stable `{__html}` wrapper: React 19 re-sets innerHTML whenever the object
   // identity changes, so a fresh inline literal would reinject the SVG (and wipe
   // the spinner's live setAttribute transforms) on every re-render.
-  const markHtml = useMemo(() => ({ __html: svg ?? "" }), [svg]);
+  const markHtml = useHtml(svg ?? "");
 
   // Until the inline copy arrives, render the asset as before — same pixels.
   if (!svg) return <img src={logoUrl} alt="" className={className} />;

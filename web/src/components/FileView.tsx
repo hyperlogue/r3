@@ -1,10 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { api } from "../api.ts";
-import { useGutterDrag } from "../gutter.ts";
+import {
+  type EnterHandler,
+  GUTTER_SELECTED,
+  type GutterHandler,
+  inSelection,
+  useGutterDrag,
+} from "../gutter.ts";
 import { useSyntaxTheme } from "../settings.ts";
 import type { DiffSide, RenderedFile, RenderedFileLine } from "../types.ts";
-import { cn } from "../ui.tsx";
+import { cn, useHtml } from "../ui.tsx";
 import { fileViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
@@ -46,9 +52,6 @@ function MdViewToggle({ value, onChange }: { value: MdView; onChange: (v: MdView
   );
 }
 
-type GutterHandler = (side: DiffSide, line: number, e: React.MouseEvent) => void;
-type EnterHandler = (side: DiffSide, line: number) => void;
-
 // Memoized on primitive/stable props (the line is stable from the query cache,
 // the handlers are stable from useGutterDrag, `selected` is a boolean), so a
 // gutter drag re-renders only the rows whose selection flips — not every line.
@@ -65,7 +68,7 @@ const LineRow = memo(function LineRow({
 }) {
   // Stable `{__html}` wrapper so React 19 doesn't re-set innerHTML (wiping a
   // selection) when the row re-renders on a gutter `selected` flip.
-  const html = useMemo(() => ({ __html: ln.html || "&nbsp;" }), [ln.html]);
+  const html = useHtml(ln.html || "&nbsp;");
   return (
     <div
       // Below md the single 3.5rem gutter compresses to 2.5rem (with px tightened
@@ -84,9 +87,7 @@ const LineRow = memo(function LineRow({
           // and painted on the theme surface so it matches the code bg.
           // touch-manipulation so a tap-to-anchor never registers as a double-tap zoom.
           "sticky left-0 z-0 cursor-pointer touch-manipulation border-r border-neutral-300/70 px-2 text-right text-neutral-400 select-none hover:text-neutral-700 max-md:px-1 dark:border-neutral-700 dark:hover:text-neutral-200",
-          selected
-            ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100"
-            : "gutter-surface",
+          selected ? GUTTER_SELECTED : "gutter-surface",
         )}
         onMouseDown={(e) => onDown("new", ln.lineNo, e)}
         onMouseEnter={() => onEnter("new", ln.lineNo)}
@@ -129,9 +130,7 @@ function CodeBody({
           return (
             <LineRow
               ln={ln}
-              selected={
-                sel != null && sel.side === "new" && ln.lineNo >= sel.lo && ln.lineNo <= sel.hi
-              }
+              selected={inSelection(sel, "new", ln.lineNo)}
               onDown={g.onDown}
               onEnter={g.onEnter}
             />
@@ -208,7 +207,7 @@ function FileViewImpl({
   // Stable `{__html}` wrapper for the rendered-markdown div — a fresh inline
   // literal makes React 19 re-set innerHTML on every commit, wiping selections.
   // Placed with the hooks, before the early return below, to keep hook order stable.
-  const markdownHtml = useMemo(() => ({ __html: data?.markdownHtml ?? "" }), [data?.markdownHtml]);
+  const markdownHtml = useHtml(data?.markdownHtml ?? "");
 
   // Until the blob loads we still render a [data-file] stub so the file browser
   // can scroll to it and active-line highlighting can target it.

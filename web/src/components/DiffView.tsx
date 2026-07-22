@@ -1,9 +1,15 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { useGutterDrag } from "../gutter.ts";
+import { memo, useCallback, useMemo, useState } from "react";
+import {
+  type EnterHandler,
+  GUTTER_SELECTED,
+  type GutterHandler,
+  inSelection,
+  useGutterDrag,
+} from "../gutter.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
-import { cn, Pill } from "../ui.tsx";
+import { cn, Pill, useEscape, useHtml } from "../ui.tsx";
 import { diffViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
@@ -53,9 +59,6 @@ const SIGN: Record<string, string> = { add: "+", del: "−", context: " ", hunk:
 const ROW_GRID =
   "grid min-w-full [--gutter-w:3rem] max-md:[--gutter-w:2.25rem] grid-cols-[var(--gutter-w)_var(--gutter-w)_1fr] font-mono text-xs";
 
-type GutterHandler = (side: DiffSide, line: number, e: React.MouseEvent) => void;
-type EnterHandler = (side: DiffSide, line: number) => void;
-
 // One gutter line-number cell: click to anchor feedback on that line, drag to
 // extend. Empty (no number on this side) cells are inert. `selected` is
 // precomputed by the parent from the live selection (a boolean, so memoized rows
@@ -88,7 +91,7 @@ function GutterCell({
         "sticky z-0 touch-manipulation select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 max-md:px-0.5 dark:border-neutral-700",
         side === "old" ? "left-0" : "left-[var(--gutter-w)]",
         line != null && "cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-200",
-        selected ? "bg-primary-200 text-primary-900 dark:bg-primary-800 dark:text-primary-100" : bg,
+        selected ? GUTTER_SELECTED : bg,
       )}
       onMouseDown={line != null ? (e) => onDown(side, line, e) : undefined}
       onMouseEnter={line != null ? () => onEnter(side, line) : undefined}
@@ -116,7 +119,7 @@ const Row = memo(function Row({
 }) {
   // Stable `{__html}` wrapper so React 19 doesn't re-set innerHTML (wiping a
   // selection) when the row re-renders on a gutter `selected` flip.
-  const html = useMemo(() => ({ __html: ln.html || "&nbsp;" }), [ln.html]);
+  const html = useHtml(ln.html || "&nbsp;");
   if (ln.type === "hunk") {
     return (
       <div className={cn(ROW_GRID, ROW_BG.hunk)}>
@@ -270,23 +273,11 @@ const FileBlock = memo(function FileBlock({
             resolveIndex={resolveIndex}
             renderRow={(i) => {
               const ln = f.lines[i];
-              const oldSel =
-                sel != null &&
-                sel.side === "old" &&
-                ln.oldLine != null &&
-                ln.oldLine >= sel.lo &&
-                ln.oldLine <= sel.hi;
-              const newSel =
-                sel != null &&
-                sel.side === "new" &&
-                ln.newLine != null &&
-                ln.newLine >= sel.lo &&
-                ln.newLine <= sel.hi;
               return (
                 <Row
                   ln={ln}
-                  oldSel={oldSel}
-                  newSel={newSel}
+                  oldSel={inSelection(sel, "old", ln.oldLine)}
+                  newSel={inSelection(sel, "new", ln.newLine)}
                   onDown={g.onDown}
                   onEnter={g.onEnter}
                 />
@@ -344,14 +335,7 @@ export function RoundSelect({
   const latestSeq = rounds[rounds.length - 1]?.seq;
   const active = rounds.find((r) => r.seq === activeSeq) ?? rounds[rounds.length - 1];
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  useEscape(open, () => setOpen(false));
 
   if (!active) return null;
 

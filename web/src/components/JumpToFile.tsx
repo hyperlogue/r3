@@ -1,6 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "../ui.tsx";
+import { cn, useEscape } from "../ui.tsx";
 
 // "Jump to file" picker: a toolbar button opening the review's files as a flat,
 // filterable list — the fast alternative to the sidebar tree (desktop) and the
@@ -210,16 +210,7 @@ export function JumpToFile({
     unmountTimer.current = setTimeout(() => setShown(false), 250);
   };
   useEffect(() => () => clearTimeout(unmountTimer.current ?? undefined), []);
-  const closeRef = useRef(closePicker);
-  closeRef.current = closePicker;
-  useEffect(() => {
-    if (!shown) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [shown]);
+  useEscape(shown, closePicker);
   const pick = (path: string) => {
     closePicker();
     onSelect(path);

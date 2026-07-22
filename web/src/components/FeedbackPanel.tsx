@@ -48,6 +48,7 @@ import {
   scrollParent,
   TrashIcon,
   useCopyFlash,
+  useEscape,
 } from "../ui.tsx";
 import { MessageProse, QuoteBubble, quoteBlock, useQuoteBubble } from "./Message.tsx";
 
@@ -908,21 +909,34 @@ function FeedbackCard({
     if (replyOpen) replyRef.current?.focus({ preventScroll: true });
   }, [replyOpen]);
 
-  // Close the ⋯ menu on Escape (mirrors SettingsPopup's popover pattern).
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
+  // Close the ⋯ menu on Escape.
+  useEscape(menuOpen, () => setMenuOpen(false));
 
   const resolved = fb.status === "resolved";
   // Show the last three replies by default (a version-pinned answer often splits
   // into more than one reply — old vs. new — so keep a little more of the tail in
   // view); the rest fold behind the expander.
   const earlier = fb.replies.length - 3;
+
+  // The one place a body/reply edit commits from — the body editor's ⌘Enter, each
+  // ReplyBlock's Save, and the action-row Save all call this.
+  const commitEdit = () => saveEdit.mutate({ replyId: editingReplyId, body: editText });
+  // A reply row: the folded "earlier replies" and the visible last-three render the
+  // same block, differing only in the slice of `fb.replies` they iterate.
+  const renderReply = (rp: Reply) => (
+    <ReplyBlock
+      key={rp.id}
+      rp={rp}
+      editing={rp.id === editingReplyId}
+      editValue={editText}
+      onEditChange={setEditText}
+      onEditSave={commitEdit}
+      onEditCancel={cancelEdit}
+      canSave={editText.trim().length > 0 && !saveEdit.isPending}
+      onLocatePin={onLocatePin}
+      onJumpRef={(ref) => onJumpRef(ref, rp.ref_version ?? null)}
+    />
+  );
 
   // Reveal the composer, then — only if the last agent reply (the message the
   // human is most likely responding to) is scrolled out of view — bring it to the
@@ -1104,8 +1118,7 @@ function FeedbackCard({
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && editText.trim())
-              saveEdit.mutate({ replyId: editingReplyId, body: editText });
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && editText.trim()) commitEdit();
             else if (e.key === "Escape") cancelEdit();
           }}
           // biome-ignore lint/a11y/noAutofocus: the editor is opened by an explicit menu click
@@ -1155,42 +1168,12 @@ function FeedbackCard({
                   : `${earlier} earlier ${earlier === 1 ? "reply" : "replies"}`}
               </button>
               <Collapse open={repliesExpanded}>
-                <div className="space-y-2.5 pb-2.5">
-                  {fb.replies.slice(0, -3).map((rp) => (
-                    <ReplyBlock
-                      key={rp.id}
-                      rp={rp}
-                      editing={rp.id === editingReplyId}
-                      editValue={editText}
-                      onEditChange={setEditText}
-                      onEditSave={() =>
-                        saveEdit.mutate({ replyId: editingReplyId, body: editText })
-                      }
-                      onEditCancel={cancelEdit}
-                      canSave={editText.trim().length > 0 && !saveEdit.isPending}
-                      onLocatePin={onLocatePin}
-                      onJumpRef={(ref) => onJumpRef(ref, rp.ref_version ?? null)}
-                    />
-                  ))}
-                </div>
+                <div className="space-y-2.5 pb-2.5">{fb.replies.slice(0, -3).map(renderReply)}</div>
               </Collapse>
             </>
           )}
           <div ref={replyAnim} className="space-y-2.5">
-            {fb.replies.slice(-3).map((rp) => (
-              <ReplyBlock
-                key={rp.id}
-                rp={rp}
-                editing={rp.id === editingReplyId}
-                editValue={editText}
-                onEditChange={setEditText}
-                onEditSave={() => saveEdit.mutate({ replyId: editingReplyId, body: editText })}
-                onEditCancel={cancelEdit}
-                canSave={editText.trim().length > 0 && !saveEdit.isPending}
-                onLocatePin={onLocatePin}
-                onJumpRef={(ref) => onJumpRef(ref, rp.ref_version ?? null)}
-              />
-            ))}
+            {fb.replies.slice(-3).map(renderReply)}
           </div>
         </div>
       )}
@@ -1237,7 +1220,7 @@ function FeedbackCard({
             <Button
               variant="primary"
               disabled={!editText.trim() || saveEdit.isPending}
-              onClick={() => saveEdit.mutate({ replyId: editingReplyId, body: editText })}
+              onClick={commitEdit}
             >
               Save
             </Button>
@@ -1478,6 +1461,14 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // crosses empty↔non-empty flips the count (and only then re-renders the panel).
   const draftCount = useDraftCount(detail.id);
   const unsavedDraft = draftCount > 0;
+  // Why the hand-off (Copy/Submit) is disabled, or null when it's live. Both the
+  // watching-Submit and the Copy button share this reason; only their *enabled*
+  // title differs (Submit names the action, Copy has none).
+  const disabledReason = unsavedDraft
+    ? "Add, post, or discard your unsaved draft(s) first"
+    : !hasUnsent
+      ? "Everything has been sent — a new reply or feedback re-enables this"
+      : null;
 
   // Reap reply drafts whose feedback is gone (deleted here or by another client) so
   // an orphan can't keep the pill lit / hand-off blocked with no card to clear it.
@@ -1552,6 +1543,26 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     const next = ordered[idx + 1];
     if (next) onLocateFeedback(next);
   };
+
+  // One card renderer for both tabs. The Active tab maps it over `ordered` (the
+  // attention-first concatenation of attention + rest, so the two groups run
+  // together in order); the Resolved tab reuses it unchanged — its advance
+  // callbacks are inert there: a resolved card shows Reopen (never Resolve), so
+  // onResolved never fires, and advanceAfterReply early-returns for an id that
+  // isn't in `ordered` (which holds only active items).
+  const renderCard = (fb: FeedbackWithReplies) => (
+    <FeedbackCard
+      key={keyFor(fb.id)}
+      fb={fb}
+      reviewId={detail.id}
+      isActive={fb.id === activeFeedbackId}
+      onLocate={() => onLocateFeedback(fb)}
+      onLocatePin={onLocatePin}
+      onResolved={() => advanceAfterResolve(fb.id)}
+      onReplied={() => advanceAfterReply(fb.id)}
+      onJumpRef={onJumpRef}
+    />
+  );
 
   // Create feedback optimistically — the same shape as the card mutations
   // (resolve/reply/edit/delete): onMutate patches the cached ReviewDetail so the
@@ -1724,7 +1735,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       // Optimistically drain the watcher list so the button flips to "Copy
       // prompt" the instant we submit. `r3 watch` exits on the `submitted`
       // broadcast, but its refetch lags ~1s. The next watchers-changed
-      // invalidation (or the 20s interval) overwrites this with server truth,
+      // invalidation (or the 30s interval) overwrites this with server truth,
       // so a fresh `r3 watch` re-shows the Submit button on its own.
       qc.setQueryData<WatchersResponse>(["watchers", detail.id], { watchers: [] });
       setSent(true);
@@ -1853,13 +1864,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               {watching ? (
                 <span
                   className="inline-flex shrink-0"
-                  title={
-                    unsavedDraft
-                      ? "Add, post, or discard your unsaved draft(s) first"
-                      : !hasUnsent
-                        ? "Everything has been sent — a new reply or feedback re-enables this"
-                        : "Send the feedback to the watching agent"
-                  }
+                  title={disabledReason ?? "Send the feedback to the watching agent"}
                 >
                   <Button
                     variant="primary"
@@ -1870,16 +1875,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   </Button>
                 </span>
               ) : (
-                <span
-                  className="inline-flex shrink-0"
-                  title={
-                    unsavedDraft
-                      ? "Add, post, or discard your unsaved draft(s) first"
-                      : !hasUnsent
-                        ? "Everything has been sent — a new reply or feedback re-enables this"
-                        : undefined
-                  }
-                >
+                <span className="inline-flex shrink-0" title={disabledReason ?? undefined}>
                   <Button
                     variant="primary"
                     onClick={() => copy()}
@@ -1995,58 +1991,14 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 >
                   Select text — or click a line number — in the diff or files to leave feedback.
                 </p>
-                <div ref={listAnim}>
-                  {attention.map((fb) => (
-                    <FeedbackCard
-                      key={keyFor(fb.id)}
-                      fb={fb}
-                      reviewId={detail.id}
-                      isActive={fb.id === activeFeedbackId}
-                      onLocate={() => onLocateFeedback(fb)}
-                      onLocatePin={onLocatePin}
-                      onResolved={() => advanceAfterResolve(fb.id)}
-                      onReplied={() => advanceAfterReply(fb.id)}
-                      onJumpRef={onJumpRef}
-                    />
-                  ))}
-                  {rest.map((fb) => (
-                    <FeedbackCard
-                      key={keyFor(fb.id)}
-                      fb={fb}
-                      reviewId={detail.id}
-                      isActive={fb.id === activeFeedbackId}
-                      onLocate={() => onLocateFeedback(fb)}
-                      onLocatePin={onLocatePin}
-                      onResolved={() => advanceAfterResolve(fb.id)}
-                      onReplied={() => advanceAfterReply(fb.id)}
-                      onJumpRef={onJumpRef}
-                    />
-                  ))}
-                </div>
+                <div ref={listAnim}>{ordered.map(renderCard)}</div>
               </>
             ) : resolved.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-neutral-400">
                 No resolved feedback yet.
               </p>
             ) : (
-              <div ref={listAnim}>
-                {resolved.map((fb) => (
-                  <FeedbackCard
-                    key={keyFor(fb.id)}
-                    fb={fb}
-                    reviewId={detail.id}
-                    isActive={fb.id === activeFeedbackId}
-                    onLocate={() => onLocateFeedback(fb)}
-                    onLocatePin={onLocatePin}
-                    // A resolved card has no Resolve button, so this never fires.
-                    onResolved={() => {}}
-                    // Replies here stay in the Resolved tab (not part of the active
-                    // top-down pass), so don't advance focus.
-                    onReplied={() => {}}
-                    onJumpRef={onJumpRef}
-                  />
-                ))}
-              </div>
+              <div ref={listAnim}>{resolved.map(renderCard)}</div>
             )}
           </div>
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
 import {
@@ -12,7 +12,7 @@ import {
   useSyntaxTheme,
 } from "../settings.ts";
 import type { ThemeOption } from "../types.ts";
-import { Button, cn } from "../ui.tsx";
+import { Button, cn, useEscape } from "../ui.tsx";
 import { TokenManager } from "./TokenManager.tsx";
 
 // Group theme options by their `group` field, preserving first-seen order.
@@ -44,6 +44,29 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       </div>
       {children}
     </div>
+  );
+}
+
+// A −/+ font-size stepper: one square button, differing only in delta, bound, and
+// glyph.
+function StepButton({
+  onClick,
+  disabled,
+  label,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-neutral-300 text-sm disabled:opacity-30 dark:border-neutral-700"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -90,15 +113,7 @@ export function SettingsPopup() {
   });
   const themeGroups = groupThemes(themes ?? FALLBACK_THEMES);
 
-  // Close on Escape.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  useEscape(open, () => setOpen(false));
 
   return (
     <div className="relative self-stretch">
@@ -161,14 +176,11 @@ export function SettingsPopup() {
 
             <Section label={`Font size · ${fontSize}px`}>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
+                <StepButton
                   onClick={() => setFontSize(fontSize - 1)}
                   disabled={fontSize <= FONT_MIN}
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-neutral-300 text-sm disabled:opacity-30 dark:border-neutral-700"
-                >
-                  −
-                </button>
+                  label="−"
+                />
                 <input
                   type="range"
                   min={FONT_MIN}
@@ -177,14 +189,11 @@ export function SettingsPopup() {
                   onChange={(e) => setFontSize(Number(e.target.value))}
                   className="h-1 min-w-0 flex-1 accent-primary-600"
                 />
-                <button
-                  type="button"
+                <StepButton
                   onClick={() => setFontSize(fontSize + 1)}
                   disabled={fontSize >= FONT_MAX}
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-neutral-300 text-sm disabled:opacity-30 dark:border-neutral-700"
-                >
-                  +
-                </button>
+                  label="+"
+                />
               </div>
             </Section>
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { copyText } from "../clipboard.ts";
 import { shortSha, sourceLabel } from "../format.ts";
 import type { ReviewDetail, ReviewStatus } from "../types.ts";
-import { Button, cn } from "../ui.tsx";
+import { Button, cn, useEscape } from "../ui.tsx";
 
 // A click-to-copy token in the header's metadata line (project dir, commit
 // range, branch, session). Underlines on hover, copies `value` on click, and
@@ -175,13 +175,7 @@ function ApproveDialog({
   onCancel: () => void;
 }) {
   const [note, setNote] = useState("");
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  useEscape(true, onCancel);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* backdrop: a real button so a click outside cancels (no nested-click hacks) */}
@@ -257,14 +251,7 @@ function HeaderActions({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
+  useEscape(menuOpen, () => setMenuOpen(false));
 
   return (
     <>
@@ -386,7 +373,7 @@ export function ReviewHeader({
           />
         </div>
         <div className="truncate font-mono text-[0.6875rem] text-neutral-400">
-          {detail.repoName ? (
+          {detail.repoName && (
             <>
               {projectDir ? (
                 <CopyMeta value={projectDir} hint={`Copy path: ${projectDir}`}>
@@ -397,8 +384,6 @@ export function ReviewHeader({
               )}
               {" · "}
             </>
-          ) : (
-            ""
           )}
           {detail.kind} ·{" "}
           {commit ? (
@@ -419,25 +404,21 @@ export function ReviewHeader({
           ) : (
             sourceLabel(detail, { ref: true })
           )}
-          {detail.branch ? (
+          {detail.branch && (
             <>
               {" · ⎇ "}
               <CopyMeta value={detail.branch} hint={`Copy branch: ${detail.branch}`}>
                 {detail.branch}
               </CopyMeta>
             </>
-          ) : (
-            ""
           )}
-          {detail.meta.session ? (
+          {detail.meta.session && (
             <>
               {" · "}
               <CopyMeta value={detail.meta.session} hint={`Copy: ${detail.meta.session}`}>
                 {detail.meta.session}
               </CopyMeta>
             </>
-          ) : (
-            ""
           )}
         </div>
       </div>
