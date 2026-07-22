@@ -345,49 +345,38 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     if (!detail) return [];
     const out: Region[] = [];
     for (const fb of detail.feedback) {
-      if (fb.status === "resolved" || !fb.file) continue;
-      // Summary feedback points at prose (data-summary), not a file's data-line
-      // rows — the file-region highlight can't place it, so skip it here.
-      if (fb.file === SUMMARY_FILE) continue;
+      // Skip resolved and file-less notes, plus summary notes — a summary points at
+      // prose (data-summary), not a file's data-line rows, so this can't place it.
+      if (fb.status === "resolved" || !fb.file || fb.file === SUMMARY_FILE) continue;
+      let start: number;
+      let end: number;
+      let side: Region["side"];
       if (detail.kind === "diff") {
-        // Diff review: feedback anchors into an immutable stored round (patch_seq
-        // + line/side). Only one round renders at a time and line numbers don't
-        // carry across rounds, so mark only the feedback belonging to the round on
-        // screen; the rest stay listed in the panel but unmarked here.
+        // Diff review: feedback anchors into an immutable stored round (patch_seq +
+        // line/side). Only one round renders at a time and line numbers don't carry
+        // across rounds, so mark only the round on screen; the rest stay listed in
+        // the panel but unmarked here.
         if (fb.patch_seq !== effectiveRoundSeq || fb.line_start == null) continue;
-        out.push({
-          id: fb.id,
-          file: fb.file,
-          start: fb.line_start,
-          end: fb.line_end ?? fb.line_start,
-          quote: fb.quote ?? "",
-          side: fb.side,
-        });
+        start = fb.line_start;
+        end = fb.line_end ?? fb.line_start;
+        side = fb.side;
       } else if (diffMode) {
-        // Files review, snapshot-diff view: place by quote, onto the side it
-        // lands on. Feedback whose quote isn't in this diff is listed, not marked.
+        // Files review, snapshot-diff view: place by quote, onto the side it lands
+        // on. Feedback whose quote isn't in this diff is listed, not marked.
         const p = diffPlacements.get(fb.id);
         if (!p) continue;
-        out.push({
-          id: fb.id,
-          file: fb.file,
-          start: p.lineStart,
-          end: p.lineEnd,
-          quote: fb.quote ?? "",
-          side: p.side,
-        });
+        start = p.lineStart;
+        end = p.lineEnd;
+        side = p.side;
       } else {
         // Files review, plain view: the server-anchored line (live content, or
-        // approximate for a historical snapshot browse).
+        // approximate for a historical snapshot browse). All rows are one side.
         if (fb.line_start == null) continue;
-        out.push({
-          id: fb.id,
-          file: fb.file,
-          start: fb.line_start,
-          end: fb.line_end ?? fb.line_start,
-          quote: fb.quote ?? "",
-        });
+        start = fb.line_start;
+        end = fb.line_end ?? fb.line_start;
+        side = undefined;
       }
+      out.push({ id: fb.id, file: fb.file, start, end, quote: fb.quote ?? "", side });
     }
     return out;
   }, [detail, diffMode, diffPlacements, effectiveRoundSeq]);
@@ -841,21 +830,13 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     return () => document.removeEventListener("mouseup", onMouseUp);
   }, [applyAnchorGesture, coarse]);
 
-  // Cancel/✕/Esc discards the anchored composer; a draft with text confirms first
-  // (4). Only the anchored composer is dropped — a general note or drafted reply on
-  // the same review is left untouched.
+  // Drop just the anchored composer (its anchor + note), leaving any general note
+  // or drafted reply on the review untouched. Both the deliberate Cancel/✕ discard
+  // and a committed add settle the mobile sheet and clear the anchor the same way —
+  // Cancel needs no confirm (Esc already preserves a non-empty note by only
+  // blurring). Stable so the memoized FeedbackPanel isn't re-rendered on every
+  // scroll-spy activePath change.
   const discardPending = useCallback(() => {
-    // Cancel/✕ discards immediately — no confirm, matching the general note's close.
-    // Esc already preserves a non-empty note (it only blurs, never discards), so the
-    // deliberate Cancel/✕ click is the discard path and doesn't need a guard.
-    settleSheetAfterCompose();
-    dropAnchor(reviewId);
-  }, [reviewId, settleSheetAfterCompose]);
-
-  // Stable handler so the memoized FeedbackPanel isn't re-rendered on every
-  // scroll-spy activePath change. A committed add drops the anchored composer but
-  // keeps any general/reply drafts on the review (peek handling as in discard).
-  const onSubmittedPending = useCallback(() => {
     settleSheetAfterCompose();
     dropAnchor(reviewId);
   }, [reviewId, settleSheetAfterCompose]);
@@ -889,33 +870,26 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     // after the rollback (after: the manual set above marks the query fresh).
     qc.invalidateQueries({ queryKey: reviewKey });
   };
-  const setStatus = useMutation({
+  // Every review-level edit (approve/abandon/reopen, rename) goes through one PATCH:
+  // optimistically patch whichever visible field the body carries (status, title) so
+  // the pill/title changes instantly; an invisible one (note→meta.next_steps)
+  // reconciles via the review-updated echo the server broadcasts to every tab + the
+  // reviews list. (The summary is CLI-only — `r3 edit --summary` — so it's never PATCHed
+  // here.)
+  const updateReview = useMutation({
     onMutate: async (body: UpdateReviewBody) => {
       const prev = await beginReviewPatch();
-      // Patch only the visible status; note→meta.next_steps is invisible, so let
-      // the echo refetch reconcile it.
       if (body.status !== undefined)
         qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
           d ? { ...d, status: body.status ?? d.status } : d,
         );
-      return { prev };
-    },
-    mutationFn: (body: UpdateReviewBody) => api.patchReview(reviewId, body),
-    onError: (_e, _v, ctx) => restoreReview(ctx?.prev),
-  });
-  // Rename (title) goes through PATCH; the server also broadcasts review-updated
-  // so other tabs + the reviews list refresh live. (The summary is CLI-only — set it
-  // with `r3 edit --summary` — so the UI never PATCHes it.)
-  const patch = useMutation({
-    onMutate: async (body: { title?: string | null }) => {
-      const prev = await beginReviewPatch();
       if (body.title !== undefined)
         qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
           d ? { ...d, title: body.title ?? null } : d,
         );
       return { prev };
     },
-    mutationFn: (body: { title?: string | null }) => api.patchReview(reviewId, body),
+    mutationFn: (body: UpdateReviewBody) => api.patchReview(reviewId, body),
     onError: (_e, _v, ctx) => restoreReview(ctx?.prev),
   });
   const remove = useMutation({
@@ -949,9 +923,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const reviewHeader = (
     <ReviewHeader
       detail={detail}
-      onSaveTitle={(title) => patch.mutate({ title })}
-      onSetStatus={(s) => setStatus.mutate({ status: s })}
-      onApprove={(note) => setStatus.mutate({ status: "approved", note: note || null })}
+      onSaveTitle={(title) => updateReview.mutate({ title })}
+      onSetStatus={(s) => updateReview.mutate({ status: s })}
+      onApprove={(note) => updateReview.mutate({ status: "approved", note: note || null })}
       onDelete={() => {
         if (confirm("Delete this review and all its feedback?")) remove.mutate();
       }}
@@ -1033,7 +1007,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       detail={detail}
       pending={pending}
       onDiscardPending={discardPending}
-      onSubmittedPending={onSubmittedPending}
+      onSubmittedPending={discardPending}
       activeFeedbackId={activeFbId}
       scrollNonce={scrollNonce}
       onLocateFeedback={locateFeedback}
