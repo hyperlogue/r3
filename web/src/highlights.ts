@@ -114,10 +114,7 @@ export function useActiveLineHighlight(
     const anchorInView = (): boolean => {
       const fileEl = root.querySelector(`${scopeSel}[data-file="${CSS.escape(file)}"]`);
       if (!fileEl) return false;
-      const row = (n: number) =>
-        side
-          ? fileEl.querySelector(`[data-line="${n}"][data-side="${side}"]`)
-          : fileEl.querySelector(`[data-line="${n}"]`);
+      const row = (n: number) => rowEl(fileEl, n, side);
       let head: Element | Range | null = row(lineStart);
       let tail: Element | Range | null =
         lineEnd == null || lineEnd === lineStart ? head : row(lineEnd);
@@ -156,9 +153,7 @@ export function useActiveLineHighlight(
       if (!fileEl) return false;
       let first: Element | null = null;
       for (let n = lineStart; n <= (lineEnd ?? lineStart); n++) {
-        const el = side
-          ? fileEl.querySelector(`[data-line="${n}"][data-side="${side}"]`)
-          : fileEl.querySelector(`[data-line="${n}"]`);
+        const el = rowEl(fileEl, n, side);
         if (el) {
           el.classList.add("r3-active-line");
           first ??= el;
@@ -214,6 +209,15 @@ export function useActiveLineHighlight(
       setHighlightRanges(HL_ACTIVE, []);
     };
   }, [scope, fbId, file, side, lineStart, lineEnd, patchSeq, quote, scrollNonce, scrollToLine]);
+}
+
+// The DOM row for line `n` on `side` within `fileEl`: a diff row carries data-side,
+// a files-review row is single-sided (a null `side` matches the first row with
+// that line number). The one place the side-scoping rule for a code row lives.
+function rowEl(fileEl: Element, n: number, side: DiffSide | null): Element | null {
+  return side
+    ? fileEl.querySelector(`[data-line="${n}"][data-side="${side}"]`)
+    : fileEl.querySelector(`[data-line="${n}"]`);
 }
 
 // Rendered markdown has no per-line rows; blocks span data-line-start..end — and

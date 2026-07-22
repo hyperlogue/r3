@@ -36,13 +36,9 @@ md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
 // a bare "@name" never linkifies. Anchored at the start of the remaining source.
 const REF_RE = /^@([A-Za-z0-9._~+\-/]+):L(\d+)(?:-(\d+))?/;
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+// markdown-it's own HTML escaper (maps the same four chars: & < > "). Reused so
+// our ref-anchor attributes escape exactly the way the library escapes text.
+const escapeHtml = md.utils.escapeHtml;
 
 // Inline rule: consume an `@path:Lx-y` token and emit an `r3ref` token carrying
 // the parsed file + line range. Placed before `emphasis` so a path containing `_`

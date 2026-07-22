@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
 import { loadBoot } from "./api.ts";
 import { Login } from "./components/Login.tsx";
-import { FONT_MAX, FONT_MIN } from "./settings.ts";
+import { clampFont } from "./settings.ts";
 import "./main.css";
 
 // Restore the saved theme before first paint.
@@ -18,8 +18,7 @@ if (savedTheme === "dark" || (savedTheme == null && prefersDark)) {
 // applied verbatim at first paint. Ignore non-numeric values (leave the CSS default).
 const savedFont = Number(localStorage.getItem("r3-font-size"));
 if (Number.isFinite(savedFont) && savedFont > 0) {
-  const px = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(savedFont)));
-  document.documentElement.style.setProperty("--r3-font-size", `${px}px`);
+  document.documentElement.style.setProperty("--r3-font-size", `${clampFont(savedFont)}px`);
 }
 
 // Fetch the token before rendering — every mutating request needs it. Served by

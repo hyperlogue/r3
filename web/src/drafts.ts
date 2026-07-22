@@ -60,10 +60,10 @@ function normalize(d: Partial<Draft> | null | undefined): Draft {
   };
 }
 
-// Live state: the current draft per review, and the set of reviews whose draft has
-// content (what the reviews-list badges read). Hydrated once from localStorage.
+// Live state: the current draft per review, hydrated once from localStorage.
+// Whether a review has badge-worthy content is derived on read (hasContent),
+// never tracked as a parallel set that could drift out of sync with the cache.
 const cache = new Map<string, Draft>();
-const present = new Set<string>();
 const listeners = new Set<() => void>();
 
 const subscribe = (cb: () => void) => {
@@ -85,7 +85,6 @@ try {
       const d = normalize(JSON.parse(localStorage.getItem(k) ?? "null"));
       if (hasContent(d)) {
         cache.set(id, d);
-        present.add(id);
       } else {
         localStorage.removeItem(k); // drop a persisted empty (shouldn't happen)
       }
@@ -102,26 +101,14 @@ try {
 // A fully blank record is dropped entirely.
 function commit(reviewId: string, draft: Draft | null): void {
   const norm = draft ? normalize(draft) : null;
-  if (!norm || isBlank(norm)) {
-    cache.delete(reviewId);
-    present.delete(reviewId);
-    try {
-      localStorage.removeItem(lsKey(reviewId));
-    } catch {}
-  } else {
-    cache.set(reviewId, norm);
-    if (hasContent(norm)) {
-      present.add(reviewId);
-      try {
-        localStorage.setItem(lsKey(reviewId), JSON.stringify(norm));
-      } catch {}
-    } else {
-      present.delete(reviewId);
-      try {
-        localStorage.removeItem(lsKey(reviewId));
-      } catch {}
-    }
-  }
+  if (!norm || isBlank(norm)) cache.delete(reviewId);
+  else cache.set(reviewId, norm);
+  // Persist only a content-bearing draft; a bare anchor lives in memory only (so its
+  // composer shows) and a blank record not at all — either way the stored key clears.
+  try {
+    if (norm && hasContent(norm)) localStorage.setItem(lsKey(reviewId), JSON.stringify(norm));
+    else localStorage.removeItem(lsKey(reviewId));
+  } catch {}
   emit();
 }
 
@@ -217,7 +204,7 @@ export function useReplyDraft(reviewId: string, feedbackId: string): string {
 // useHasDraft drives the reviews-list badge; useDraftCount drives the panel's pill
 // (and its hand-off guard) with a count of the distinct unsaved surfaces.
 export function useHasDraft(reviewId: string): boolean {
-  return useSyncExternalStore(subscribe, () => present.has(reviewId));
+  return useSyncExternalStore(subscribe, () => hasContent(cache.get(reviewId)));
 }
 export function useDraftCount(reviewId: string): number {
   return useSyncExternalStore(subscribe, () => contentCount(cache.get(reviewId)));
@@ -230,13 +217,8 @@ if (typeof window !== "undefined") {
     const id = e.key.slice(PREFIX.length);
     try {
       const d = e.newValue ? normalize(JSON.parse(e.newValue)) : null;
-      if (d && hasContent(d)) {
-        cache.set(id, d);
-        present.add(id);
-      } else {
-        cache.delete(id);
-        present.delete(id);
-      }
+      if (d && hasContent(d)) cache.set(id, d);
+      else cache.delete(id);
     } catch {}
     emit();
   });

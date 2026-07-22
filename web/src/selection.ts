@@ -24,6 +24,16 @@ export interface PendingAnchor {
   patchSeq?: number | null;
 }
 
+// Trim trailing whitespace and cap the quote at MAX_QUOTE_LINES leading lines: a
+// short span relocates far more reliably than a paragraphs-long one. Kept verbatim
+// (no ellipsis) so it still matches the source — the recorded line range still
+// covers the full selection. Shared by both anchor builders.
+function capQuote(raw: string): string {
+  const quote = raw.replace(/\s+$/, "");
+  const lines = quote.split("\n");
+  return lines.length > MAX_QUOTE_LINES ? lines.slice(0, MAX_QUOTE_LINES).join("\n") : quote;
+}
+
 function closest(node: Node | null, attr: string): HTMLElement | null {
   let el = node instanceof HTMLElement ? node : (node?.parentElement ?? null);
   while (el && !el.hasAttribute(attr)) el = el.parentElement;
@@ -94,14 +104,8 @@ export function getSelectionAnchor(scope: HTMLElement): PendingAnchor | null {
   // the line's own text — the quote is the re-anchor key. A genuine
   // one-line selection has no newline, so this is a no-op for it.
   if (lo === hi) quote = quote.split("\n", 1)[0];
-  quote = quote.replace(/\s+$/, "");
   if (!quote.trim()) return null;
-  // Cap a long multi-line selection to its first few lines: a short span
-  // relocates far more reliably than a paragraphs-long one. Kept verbatim (no
-  // ellipsis) so it still matches the source; the line range still records the
-  // full selection.
-  const qLines = quote.split("\n");
-  if (qLines.length > MAX_QUOTE_LINES) quote = qLines.slice(0, MAX_QUOTE_LINES).join("\n");
+  quote = capQuote(quote);
 
   const roundEl = closest(range.startContainer, "data-round");
   const patchSeq = roundEl ? Number(roundEl.getAttribute("data-round")) : null;
@@ -137,8 +141,8 @@ export function getSummaryAnchor(
   const range = sel.getRangeAt(0);
   if (!scope.contains(range.startContainer) || !scope.contains(range.endContainer)) return null;
 
-  let quote = sel.toString().replace(/\s+$/, "");
-  if (!quote.trim()) return null;
+  const raw = sel.toString();
+  if (!raw.trim()) return null;
 
   const full = scope.textContent ?? "";
   const startOff = offsetWithin(scope, range.startContainer, range.startOffset);
@@ -149,15 +153,12 @@ export function getSummaryAnchor(
   // A selection ending exactly at a line break doesn't cover the next line.
   if (hi > lo && full[Math.max(startOff, endOff) - 1] === "\n") hi -= 1;
 
-  const qLines = quote.split("\n");
-  if (qLines.length > MAX_QUOTE_LINES) quote = qLines.slice(0, MAX_QUOTE_LINES).join("\n");
-
   return {
     file: SUMMARY_FILE,
     side: null,
     lineStart: lo,
     lineEnd: Math.max(lo, hi),
-    quote,
+    quote: capQuote(raw),
     patchSeq,
   };
 }

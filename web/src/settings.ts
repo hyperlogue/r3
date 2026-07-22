@@ -31,13 +31,14 @@ export const useSyntaxTheme = syntax.use;
 export const FONT_MIN = 11;
 export const FONT_MAX = 24;
 const FONT_DEFAULT = 18;
-const clampFont = (n: number) => Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)));
+// Exported so the pre-paint boot read in main.tsx clamps identically (same bounds,
+// same rounding) instead of re-deriving the formula.
+export const clampFont = (n: number) => Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)));
 
 const font = persistedStore<number>("r3-font-size", {
   load: (raw) => clampFont(Number(raw) || FONT_DEFAULT),
   onSet: (px) => document.documentElement.style.setProperty("--r3-font-size", `${px}px`),
 });
-export const getFontSize = font.get;
 export const useFontSize = font.use;
 export function setFontSize(px: number): void {
   font.set(clampFont(px));
