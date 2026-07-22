@@ -261,8 +261,9 @@ md.core.ruler.push("line_numbers", (state) => {
       token.attrSet("data-line-start", String(token.map[0] + 1));
       token.attrSet("data-line-end", String(token.map[1]));
     }
-    // fences are self-contained (no _open/_close) — tag them directly
-    if (token.map && token.level === 0 && token.type === "fence") {
+    // fences and indented code blocks are self-contained (no _open/_close) —
+    // tag them directly, or a selection inside one finds no anchor ancestor.
+    if (token.map && token.level === 0 && (token.type === "fence" || token.type === "code_block")) {
       token.attrSet("data-line-start", String(token.map[0] + 1));
       token.attrSet("data-line-end", String(token.map[1]));
     }
