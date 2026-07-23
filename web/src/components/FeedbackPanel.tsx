@@ -153,7 +153,7 @@ const SUBMIT_KEYS = (() => {
 })();
 
 // Coarse primary pointer ⇒ almost certainly no hardware keyboard, so the
-// keyboard-shortcut hints in composer placeholders (Space to focus, ⌘Enter,
+// keyboard-shortcut hints in composer placeholders (Space/Tab to focus, ⌘Enter,
 // Esc) would name keys that don't exist. ReviewView passes the pointer fact in
 // as a prop (the panel can't probe it itself — desktop components don't import
 // from src/mobile/); a context carries it to the composers, which sit at
@@ -383,14 +383,14 @@ function ComposerBlock({
 // only when it's *empty* (mirrors the reply box), so a half-typed note isn't lost
 // to a stray keypress; with text, Esc just blurs the focused input — and both stand
 // down when focus is on some other control/popup so this global listener doesn't
-// hijack its keys (e.g. Esc closing the settings popup). `spaceToFocus` (only the
-// non-autofocused selection composers) lets Space — when focus isn't already on a
-// field/control — jump focus into the input; an autofocused composer omits it so
-// Space always types a space normally.
+// hijack its keys (e.g. Esc closing the settings popup). `keyToFocus` (only the
+// non-autofocused selection composers) lets Space or Tab — when focus isn't already
+// on a field/control — jump focus into the input; an autofocused composer omits it so
+// Space always types a space (and Tab moves focus) normally.
 function useComposerKeys(
   textareaRef: RefObject<HTMLTextAreaElement | null>,
   onCancel: () => void,
-  spaceToFocus: boolean,
+  keyToFocus: boolean,
 ) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -405,14 +405,16 @@ function useComposerKeys(
         }
         return;
       }
-      if (spaceToFocus && (e.key === " " || e.code === "Space") && !isInteractiveTarget(active)) {
-        e.preventDefault(); // also stops Space from page-scrolling the diff
+      const isSpace = e.key === " " || e.code === "Space";
+      const isTab = e.key === "Tab" && !e.shiftKey; // forward Tab only; Shift+Tab still navigates back
+      if (keyToFocus && (isSpace || isTab) && !isInteractiveTarget(active)) {
+        e.preventDefault(); // also stops Space page-scrolling / Tab moving focus away
         ta?.focus();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel, textareaRef, spaceToFocus]);
+  }, [onCancel, textareaRef, keyToFocus]);
 }
 
 // A free-form feedback item not tied to any file or line (review-level note). Its
@@ -438,8 +440,8 @@ function GeneralFeedback({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const value = useGeneralDraft(reviewId);
   // Same keyboard behavior as the anchored composer: autofocus (below) + Esc
-  // cancels when empty. onClose already clears the draft + closes. No Space-to-focus
-  // — the input is autofocused, so Space must type a space, not jump focus.
+  // cancels when empty. onClose already clears the draft + closes. No Space/Tab-to-focus
+  // — the input is autofocused, so Space types a space and Tab moves focus normally.
   useComposerKeys(textareaRef, onClose, false);
   return (
     <ComposerBlock
@@ -487,10 +489,10 @@ function NewFeedback({
   // header's feedback button — a deliberate composer-open click, like "add general
   // feedback", so focus the input immediately (below). A selection/gutter/summary
   // anchor is a text gesture in the file pane; autofocusing there would yank focus
-  // off the code, so those keep the Space-to-focus flow instead.
+  // off the code, so those keep the Space/Tab-to-focus flow instead.
   const autoFocusInput = pending.file !== SUMMARY_FILE && pending.lineStart == null;
 
-  // Esc-cancels-when-empty (shared with the general note); Space-to-focus only for
+  // Esc-cancels-when-empty (shared with the general note); Space/Tab-to-focus only for
   // the non-autofocused selection composers, so an autofocused input types spaces.
   useComposerKeys(textareaRef, onDiscard, !autoFocusInput);
 
@@ -517,7 +519,7 @@ function NewFeedback({
       onChange={(t) => setDraftText(reviewId, t)}
       placeholder={usePlaceholder(
         "Leave feedback…",
-        `${autoFocusInput ? "" : "Space to focus · "}${SUBMIT_KEYS} to add · Esc to cancel`,
+        `${autoFocusInput ? "" : "Space/Tab to focus · "}${SUBMIT_KEYS} to add · Esc to cancel`,
       )}
       autoFocus={autoFocusInput}
       submitLabel="Add feedback"
