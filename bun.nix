@@ -425,9 +425,9 @@
     url = "https://registry.npmjs.org/@storybook/addon-outline/-/addon-outline-8.6.14.tgz";
     hash = "sha512-CW857JvN6OxGWElqjlzJO2S69DHf+xO3WsEfT5mT3ZtIjmsvRDukdWfDU9bIYUFyA2lFvYjncBGjbK+I91XR7w==";
   };
-  "@storybook/addon-themes@8.6.18" = fetchurl {
-    url = "https://registry.npmjs.org/@storybook/addon-themes/-/addon-themes-8.6.18.tgz";
-    hash = "sha512-v+Xcxo/XB2ayw9E/RygGOqUIaPOXp9XEFv6EF7DRt41/RQkQ846yJBARTC2cH8kCb+7FYcvDLD3GN/ms7i8wNg==";
+  "@storybook/addon-themes@10.4.6" = fetchurl {
+    url = "https://registry.npmjs.org/@storybook/addon-themes/-/addon-themes-10.4.6.tgz";
+    hash = "sha512-80d622oB9xWZs3VH4uywkLOA5L2DAx04lVouvCM4XH+pLnJElidoylOLm3i3ByvlGkRjCbB27OUVsW94IgyDrw==";
   };
   "@storybook/addon-toolbars@8.6.14" = fetchurl {
     url = "https://registry.npmjs.org/@storybook/addon-toolbars/-/addon-toolbars-8.6.14.tgz";
