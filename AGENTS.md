@@ -681,6 +681,14 @@ and the same `FeedbackPanel` renders with the same props either way.
   `r3 auth create-token`; browsers then log in with that token. Persist the URL
   with `r3 config set publicUrl https://<magicdns-name>` so it survives a
   restart without re-exporting the env. **Never bind `0.0.0.0`.**
+- **Dependency cooldown (supply chain).** A new package version is adopted only
+  after a **3-week** minimum age, on both update paths: `bun`'s
+  `minimumReleaseAge` (`bunfig.toml`, seconds) gates every local `bun
+  install`/`add`/`update`, and a matching Dependabot `cooldown`
+  (`default-days: 21`, `.github/dependabot.yml`) gates bot PRs — so a
+  freshly-published compromised release can't be pulled in before it's had time
+  to be caught. Cooldown covers **version updates only**; Dependabot *security*
+  updates bypass it so a real fix isn't held back.
 
 ## Build & distribution
 

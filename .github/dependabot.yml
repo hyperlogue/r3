@@ -17,12 +17,22 @@
 # Deliberately NOT covered: npm/ — the launcher's optionalDependencies are
 # exact-version pins stamped by the release pipeline (stage-npm-packages.ts);
 # bumping them out-of-band would break the launcher↔binary version lockstep.
+#
+# Both ecosystems carry a `cooldown` (default-days: 21): Dependabot only opens a
+# version-update PR for a release that's been public for at least 3 weeks, so a
+# freshly-published compromised version can't reach a PR before it's had time to
+# be caught. This mirrors the `minimumReleaseAge` in bunfig.toml, which applies
+# the same 21-day policy to *manual* `bun install` / `bun update`. (Cooldown
+# covers version updates only — Dependabot *security* updates deliberately
+# bypass it so a real fix isn't held back.)
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 21
     commit-message:
       prefix: ci
     groups:
@@ -33,6 +43,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 21
     commit-message:
       prefix: chore
     groups:

@@ -1,3 +1,12 @@
+# Supply-chain cooldown: only ever resolve npm package versions that have been
+# public for at least 3 weeks, so a freshly-published compromised release can't
+# be pulled into a `bun install` / `bun add` / `bun update` before it's had time
+# to be caught. This gates *manual* updates; the matching Dependabot `cooldown`
+# in .github/dependabot.yml gates bot PRs — same 21-day policy on both paths.
+# (minimumReleaseAge needs Bun >= 1.3.0; value is in seconds.)
+[install]
+minimumReleaseAge = 1814400  # 21 days
+
 # The official Tailwind v4 Bun plugin, so the from-source daemon bundles the
 # SPA's CSS on demand (dev + lazy-spawn). The compiled binary embeds the
 # already-bundled SPA and never hits this path.
