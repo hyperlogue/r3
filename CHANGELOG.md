@@ -4,6 +4,31 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-07-27
+
+### Added
+
+- **Tab focuses the note composer.** The selection composers already took Space
+  to jump focus into the note input; forward Tab now does the same (Shift+Tab
+  still navigates backward).
+
+### Changed
+
+- Syntax highlighting moves to **Shiki 4**, with its newer grammars and themes.
+
+### Fixed
+
+- Selecting text inside a **4-space-indented Markdown code block** now raises
+  the composer. The anchor gesture was dead in indented blocks — every fenced
+  block around them worked, so only those regions were unresponsive.
+- A failed **Resolve, Reopen, or Delete** now shows its error. Those actions
+  move the card out of the visible tab, and the remount wiped the banner, so a
+  failure just snapped the card back with no message.
+- **Replying floats a review back to the top** of the reviews list; a posted
+  reply wasn't re-stamping the review's `updated_at`.
+- Clicking an `@path:Lx-y` ref no longer **yanks the pane off the live view**
+  when the snapshot it points at is what you're already looking at.
+
 ## [0.5.0] - 2026-07-19
 
 ### Added
@@ -136,6 +161,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.6.0]: https://github.com/hyperlogue/r3/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hyperlogue/r3/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hyperlogue/r3/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hyperlogue/r3/compare/v0.2.0...v0.3.0
