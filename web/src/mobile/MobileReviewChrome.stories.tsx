@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import { fn } from "@storybook/test";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
+import { fn } from "storybook/test";
 import { MobileReviewChrome, type MobileSheetState } from "./MobileReviewChrome.tsx";
 
 // A stand-in for the FeedbackPanel the sheet hosts in the app (the real panel

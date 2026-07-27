@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import { fn } from "@storybook/test";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { fn } from "storybook/test";
 import { phoneViewport } from "../storyViewport.ts";
 import { multiRound } from "./_fixtures.ts";
 import { RoundSelect, RoundSummary } from "./DiffView.tsx";

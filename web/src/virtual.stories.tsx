@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "./ui.tsx";
 import { useVirtualPaneController, VirtualLines, VirtualPaneProvider } from "./virtual.tsx";

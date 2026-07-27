@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import { fn } from "@storybook/test";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { fn } from "storybook/test";
 import { getSyntaxTheme } from "../settings.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import { renderedCode, renderedMarkdown } from "./_fixtures.ts";

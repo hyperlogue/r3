@@ -1,6 +1,6 @@
-import type { Decorator, Meta, StoryObj } from "@storybook/react";
-import { fn, userEvent, within } from "@storybook/test";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect } from "react";
+import { fn, userEvent, within } from "storybook/test";
 import { clearDraft, setDraftText } from "../drafts.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import {

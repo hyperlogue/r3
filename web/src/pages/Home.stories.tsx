@@ -1,4 +1,4 @@
-import type { Decorator, Meta, StoryObj } from "@storybook/react";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect } from "react";
 import { repos, reviews } from "../components/_fixtures.ts";
 import { clearDraft, setDraftText } from "../drafts.ts";

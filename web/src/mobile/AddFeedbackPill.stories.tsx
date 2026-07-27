@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import { fn } from "@storybook/test";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useRef } from "react";
+import { fn } from "storybook/test";
 import { AddFeedbackPill } from "./AddFeedbackPill.tsx";
 
 // The pill is selection-driven, so the story is a real selectable code pane: the

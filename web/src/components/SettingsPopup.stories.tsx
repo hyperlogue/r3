@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import { expect, userEvent, within } from "@storybook/test";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { FONT_MAX, FONT_MIN, setFontSize } from "../settings.ts";
 import { themeOptions } from "./_fixtures.ts";
 import { SettingsPopup } from "./SettingsPopup.tsx";

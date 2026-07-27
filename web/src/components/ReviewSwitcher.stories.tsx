@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReviewSwitcher } from "./ReviewSwitcher.tsx";
 
 // The always-present "Reviews" breadcrumb; clicking it returns to the home list.

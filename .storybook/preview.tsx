@@ -1,5 +1,5 @@
 import { withThemeByClassName } from "@storybook/addon-themes";
-import type { Decorator, Preview } from "@storybook/react";
+import type { Decorator, Preview } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 // Storybook's CSS entry: re-exports the app stylesheet and adds .storybook to
