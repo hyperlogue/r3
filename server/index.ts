@@ -250,7 +250,7 @@ app.get("/api/health", (c) => c.json({ ok: true, version: R3_VERSION }));
 //     master token never goes to a browser); else { needsAuth:true } -> login screen.
 // sameOrigin() still passes a no-Origin client (curl from another local UID); when
 // login isn't required that's the intentional local-trust boundary, not a new hole (a
-// real per-UID boundary needs an OS peer-credential check — see Security in AGENTS.md).
+// real per-UID boundary needs an OS peer-credential check — see the security-model skill).
 app.get("/api/boot", (c) => {
   if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
   if (!REQUIRE_LOGIN) return c.json({ needsAuth: false, token: TOKEN } satisfies BootResponse);

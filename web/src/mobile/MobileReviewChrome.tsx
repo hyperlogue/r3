@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../ui.tsx";
 
-// The phone-tier review chrome (see AGENTS.md "Mobile"): a persistent bottom
+// The phone-tier review chrome (see the mobile-tier skill): a persistent bottom
 // bar summarizing the feedback state, and a bottom sheet hosting the one
 // FeedbackPanel instance. Three discrete states — closed, "peek" (short sheet:
 // the composer, which the panel auto-scrolls into view, over the code being

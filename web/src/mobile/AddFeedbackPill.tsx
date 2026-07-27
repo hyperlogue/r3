@@ -2,7 +2,7 @@ import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "re
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 
 // The touch-tier replacement for ReviewView's desktop `mouseup` selection-anchor
-// listener (see AGENTS.md "Mobile" → Anchoring (touch)). iOS/Android never fire a
+// listener (see the mobile-tier skill → Anchoring (touch)). iOS/Android never fire a
 // usable `mouseup` for a long-press selection gesture, so on coarse pointers we watch
 // `selectionchange` instead and float an "Add feedback" pill under the selection
 // (under, not over — iOS's native Copy/Look Up callout owns the space above).

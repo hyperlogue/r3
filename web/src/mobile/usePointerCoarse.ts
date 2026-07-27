@@ -1,6 +1,6 @@
 import { useMediaQuery } from "./useMediaQuery.ts";
 
-// The gesture-affordance test (see AGENTS.md "Mobile"): keys on the *primary*
+// The gesture-affordance test (see the mobile-tier skill): keys on the *primary*
 // pointer being coarse, NOT the viewport-width tier `useIsMobile` reads. The two
 // diverge on purpose — a narrow desktop window (fine pointer below md) must keep
 // the instant mouseup→anchor path, and a portrait tablet (coarse pointer, desktop

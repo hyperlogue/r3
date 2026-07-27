@@ -1353,7 +1353,7 @@ async function cmdConfig(args: Args): Promise<void> {
           if (next.bind === "0.0.0.0" || next.bind === "::") {
             process.stderr.write(
               "r3: warning — binding all interfaces; prefer loopback + `tailscale serve` or " +
-                "`ssh -L` (see AGENTS.md Security).\n",
+                "`ssh -L` (see Remote access in the README).\n",
             );
           }
           break;

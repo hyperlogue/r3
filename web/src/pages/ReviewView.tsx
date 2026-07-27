@@ -38,7 +38,7 @@ import {
   useRegionHighlight,
 } from "../highlights.ts";
 import type { MessageRef } from "../markdown.ts";
-// The one sanctioned mobile-module import (see AGENTS.md "Mobile"): ReviewView
+// The one sanctioned mobile-module import (see the mobile-tier skill): ReviewView
 // is the single mount point that swaps the desktop side-dock for the phone
 // chrome. Everything else mobile is inert max-md:/pointer-coarse: classes.
 import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
@@ -162,7 +162,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const isMobile = useIsMobile();
   const [sheet, setSheet] = useState<MobileSheetState>("closed");
   // Touch anchoring keys on the *pointer*, not the width tier (see usePointerCoarse
-  // / AGENTS.md "Mobile"): a coarse pointer swaps the desktop mouseup selection path
+  // / the mobile-tier skill): a coarse pointer swaps the desktop mouseup selection path
   // for the AddFeedbackPill, on either layout tier. `composing` mirrors
   // applyAnchorGesture's own branch so the pill's label tells the truth — an empty
   // composer anchors a note, a composer already holding text quotes the selection in.
