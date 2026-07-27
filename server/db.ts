@@ -766,6 +766,9 @@ export function deleteFeedback(id: string): boolean {
 
 // ---- replies ----
 
+// Post a reply into a feedback's thread. Bumps the parent review's updated_at
+// (via the feedback), like updateReply — a fresh reply is activity, so the review
+// re-sorts to the top of the `updated_at DESC` list.
 export function createReply(
   feedbackId: string,
   input: {
@@ -803,6 +806,8 @@ export function createReply(
     });
     return id;
   });
+  const fb = getFeedback(feedbackId);
+  if (fb) touchReview(fb.review_id);
   return db.query("SELECT * FROM replies WHERE id = $id").get({ $id: id }) as Reply;
 }
 
