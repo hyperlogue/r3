@@ -491,8 +491,9 @@ export type ServerEvent =
   // an unrelated change. Absent/empty ⇒ broadcast to all (safe fallback).
   | { type: "file-changed"; paths: string[]; reviewIds?: string[] }
   | { type: "reviews-changed" }
-  // a `watch` client connected/disconnected, or the human hit Submit
+  // a `watch` client connected/disconnected
   | { type: "watchers-changed"; reviewId: string }
+  // the human hit Submit — any watching agent picks the feedback up now
   | { type: "submitted"; reviewId: string };
 
 // An agent currently blocked on `r3 watch <id>` for a review.

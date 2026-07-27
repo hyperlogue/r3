@@ -1,6 +1,6 @@
 // Live-watcher presence for the demo. The real daemon tracks `r3 watch` clients
-// (server/watchers.ts) so the feedback panel can flip from "Copy agent prompt" to
-// "Submit to agent". Here there's no daemon and no CLI — the scripted agent
+// (server/watchers.ts) so the feedback panel's hand-off button can flip from "Copy
+// prompt" to "Submit". Here there's no daemon and no CLI — the scripted agent
 // (agent.ts) IS the watcher, so we keep a tiny in-memory registry and seed it on
 // every review at startup. Presence is ephemeral (never persisted): a reload
 // re-arms it, exactly like a fresh `r3 watch`.

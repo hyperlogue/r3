@@ -1,6 +1,6 @@
-// Render one file at a ref for `kind:'files'` reviews and the diff "expand
-// hidden lines" path. Markdown renders to block HTML
-// with source-line mapping; code renders to Shiki-highlighted per-line rows.
+// Render one file at a ref for `kind:'files'` reviews (GET /api/blob).
+// Markdown renders to block HTML with source-line mapping; code renders to
+// Shiki-highlighted per-line rows.
 
 import type { RenderedFile, RenderedFileLine } from "../shared/types.ts";
 import { blobSha, readContentAt } from "./git.ts";

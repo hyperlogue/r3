@@ -44,7 +44,8 @@ export function isSafeRef(ref: GitRef): boolean {
   return isSentinel(ref) || !ref.startsWith("-");
 }
 
-// blob_sha used for highlight cache + feedback staleness.
+// Content sha: the highlight cache key, and the `code_sha` recorded on a feedback
+// anchor (stored only — staleness is surfaced via `anchor`, see shared/types.ts).
 export async function blobSha(content: string): Promise<string> {
   const hasher = new Bun.CryptoHasher("sha1");
   hasher.update(content);

@@ -861,7 +861,8 @@ async function cmdFeedback(args: Args) {
     body.side = args.flags.side;
   }
   // Which stored round the anchor lives in (diff reviews). Omitted = the latest
-  // round (the server defaults it); files reviews ignore it.
+  // round for a line anchor (the server defaults it), else round-less; files
+  // reviews ignore it.
   if (args.flags.diff !== undefined) {
     const seq = Number(args.flags.diff);
     if (!Number.isInteger(seq) || seq < 1)
@@ -1475,8 +1476,7 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   waiting for Submit, auto-send pending feedback
                                                  #   after N idle seconds. Use it on long reviews so
                                                  #   the agent starts fixing sooner without a manual
-                                                 #   Submit; the UI shows a "streaming to agent"
-                                                 #   indicator while it's on. 0 = off (wait for Submit).
+                                                 #   Submit. 0 = off (wait for Submit).
   diff add <id> [--label L] [--summary S]        # append a diff round from stdin, e.g.
                                                  #   git diff | r3 diff add <id> --label "round 2" \
                                                  #     --summary "what changed overall this round"
@@ -1515,8 +1515,9 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   No --file = a review-level note; --file
                                                  #   alone = whole-file; +--line = anchored (the
                                                  #   quote is derived from the round/live content
-                                                 #   unless --quote pins it). --diff names the
-                                                 #   round (default: latest); --side default new.
+                                                 #   unless --quote pins it). --diff names the round
+                                                 #   (a line anchor defaults to the latest);
+                                                 #   --side default new.
   reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]
                                                  # re-point a files-review anchor after an edit
                                                  #   moved the code. A diff review's file/round
@@ -1559,8 +1560,8 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   Takes effect on the next \`r3 restart\`.
   config unset <name>                            # drop one persisted setting
   start | stop | status | restart                # per-user daemon lifecycle
-  guide                                          # how r3 works (the agent orientation),
-                                                 #   then this full reference. start here.
+  guide                                          # how r3 works (the agent orientation
+                                                 #   and the review loop). start here.
 `;
 
 // The agent orientation: what r3 is, the review loop, and the commands in flow

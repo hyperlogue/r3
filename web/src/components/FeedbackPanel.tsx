@@ -265,8 +265,10 @@ function needsAttention(fb: FeedbackWithReplies): boolean {
 // overflow-hidden would otherwise clip a margin on the textarea itself).
 // The height is driven inline by useAutoGrow (autogrow.ts) — the box grows with
 // its text up to a line cap, then scrolls.
-// max-md:text-base lifts every composer/reply/edit input to 16px below md, so
-// iOS doesn't zoom the page on focus (it does for any field under 16px). This
+// max-md:text-base lifts every composer/reply/edit input to 1rem below md — 18px
+// at the default root font-size (main.css --r3-font-size), so iOS doesn't zoom the
+// page on focus (it does for any field under 16px; a user who shrinks the root
+// font below 16px trades that back). This
 // one constant feeds the anchored composer, the general note, the reply box, and
 // both inline editors, so bumping it here covers all of them.
 const PENDING_INPUT =

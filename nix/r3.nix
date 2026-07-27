@@ -1,9 +1,10 @@
-# The single-file `r3` binary. r3's build is two steps (see
-# scripts/compile.ts): `bun run build:web` builds the Vite SPA into one
-# self-contained index.html, then `bun build --compile` embeds that HTML and
-# the Hono server into a standalone executable. That's more than the bun2nix
-# default module->binary path, so we drive it with a custom buildPhase on top
-# of stdenv + the bun2nix hook (which installs the pinned deps from bun.nix).
+# The single-file `r3` binary. r3's build (see scripts/compile.ts) is one
+# `Bun.build({compile})` over the CLI entry — which imports the daemon, which
+# imports web/index.html — preceded by a browser-target Tailwind pass for the
+# SPA stylesheet, so the SPA and the Hono server land in one executable. That's
+# more than the bun2nix default module->binary path, so we drive it with a
+# custom buildPhase on top of stdenv + the bun2nix hook (which installs the
+# pinned deps from bun.nix).
 {
   lib,
   stdenv,
@@ -12,8 +13,9 @@
   gitRev ? null,
 }: let
   # Track the repo's declared version instead of hand-syncing a literal here —
-  # package.json is the version source the release flow already keys off
-  # (shared/version.ts asserts against it), so read it rather than let this drift.
+  # package.json is the version source the release flow already keys off (the
+  # release scripts assert shared/version.ts against it), so read it rather than
+  # let this drift.
   version = (builtins.fromJSON (builtins.readFile ../package.json)).version;
 
   # Only the inputs the build actually reads, so an unrelated edit (README,
@@ -59,7 +61,7 @@ in
       GIT_COMMIT = gitRev;
     };
 
-    # `bun run build` == scripts/compile.ts: vite build + bun build --compile -> ./r3
+    # `bun run build` == scripts/compile.ts: one Bun.build --compile -> ./r3
     buildPhase = ''
       runHook preBuild
       bun run build

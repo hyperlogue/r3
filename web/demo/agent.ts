@@ -1,6 +1,6 @@
 // The scripted "agent" that closes the loop in the demo. It stands in for a real
 // `r3 watch` client: the demo seeds it as a live watcher on every review (see
-// watchers.ts), so the feedback panel opens in "Submit to agent" mode. When the
+// watchers.ts), so the feedback panel's hand-off button opens as "Submit". When the
 // human hits Submit (the real hand-off path, markPrompt), this reacts a beat later
 // the way a live agent would — it replies by feedback id over the event bus with a
 // cheerful acknowledgement, and on a diff review's first hand-off it appends a

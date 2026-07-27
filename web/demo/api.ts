@@ -24,10 +24,11 @@ import { getState, persist } from "./store.ts";
 import { armDemoWatchers, getWatchers, stopWatching } from "./watchers.ts";
 
 // Install the SSE shim before anything constructs an EventSource, and seed the
-// scripted agent as a live watcher on every review (so the panel opens in "Submit
-// to agent" mode). Both are safe at import time (main.tsx imports this first,
-// synchronously, before any query runs). The nav-bar "Live demo" badge + intro
-// render via <DemoChrome> in the header (web/demo/demo-chrome.tsx), not here.
+// scripted agent as a live watcher on every review (so the panel opens with the
+// "Submit" button instead of "Copy prompt"). Both are safe at import time (main.tsx
+// imports this first, synchronously, before any query runs). The nav-bar "Demo"
+// badge + intro render via <DemoChrome> in the header (web/demo/demo-chrome.tsx),
+// not here.
 installEventSourceShim();
 armDemoWatchers();
 

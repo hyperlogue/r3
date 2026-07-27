@@ -35,11 +35,12 @@ agent ── CLI (thin HTTP client) ─ HTTP ───────┼──►  
 ```
 
 - **One per-user daemon** spans every repo, on a stable port (default 8791),
-  behind one origin. It's spawned **lazily** on the first CLI call (or by opening
-  the browser) à la the tmux server — nothing to start by hand — and announces
+  behind one origin. It's spawned **lazily** on the first CLI call à la the tmux
+  server — nothing to start by hand — and announces
   itself in `$XDG_RUNTIME_DIR/r3/daemon.json` so the CLI finds it with zero config.
 - **The CLI is the single entry point and the binary.** `cli/index.ts` is a thin
-  HTTP client — every command is one HTTP call; it never writes sqlite directly
+  HTTP client — every review command is one HTTP call (only daemon lifecycle,
+  `config`, and `guide` stay local); it never writes sqlite directly
   (single writer, the server stays authoritative). A hidden `__daemon` subcommand
   re-execs the same script/binary to _serve_; `ensureServer()`
   discovers-or-lazily-spawns the daemon.
@@ -56,13 +57,15 @@ gitText(), safePath() }`. `git()` runs with `cwd = worktreePath`; `safePath()`
   request resolves its `Repo` fresh, most-specific first: a `?review=<id>` (the row
   carries its repo), the CLI's `x-r3-repo` header (computed per call from the CLI's
   own checkout), or the browser's `?repo=<id>` selector. A request that names none
-  gets `null` → `400 "no repo context"`; the CLI refuses a repo-scoped command
-  (e.g. `r3 create`) run outside a git repo rather than letting it reach the daemon.
+  gets `null` → `400 "no repo context"`; the CLI fails `r3 create` outside a git
+  repo up front rather than letting it reach the daemon for the same answer.
 - **Freshness + live updates** flow one way to the clients: a file watcher
   (`server/watcher.ts`) watches only the files open reviews reference and pushes
-  `file-changed`; every review/feedback/reply write bumps `review.updated_at` and
-  broadcasts over SSE (`server/sse.ts`). The SPA invalidates its TanStack Query
-  cache on the matching event.
+  `file-changed`; every review/feedback/reply write broadcasts over SSE
+  (`server/sse.ts`) and bumps `review.updated_at` — which is what orders the
+  reviews list. (Known gap: `db.createReply` is the one write that broadcasts
+  without re-stamping `updated_at`, so a fresh reply doesn't re-sort the list.)
+  The SPA invalidates its TanStack Query cache on the matching event.
 
 A **worktree** shares its clone's common-dir, so it's the _same_ project — but it
 has its own working tree, index, and HEAD, so a review records a `worktree`
@@ -92,12 +95,12 @@ server/          Hono daemon + bun:sqlite global store
   reviews.ts     domain logic: create/list/detail, re-anchoring, rounds, membership
   patches.ts     stored diff rounds: parse/validate/render + reply-pin checks
   snapshots.ts   files-review content snapshots: capture + derived-diff render
-  textdiff.ts    in-process line differ (Myers/LCS) -> DiffFileChange, no git
+  textdiff.ts    in-process line differ (LCS DP + prefix/suffix trim) -> DiffFileChange
   anchor.ts      quote relocation — keep feedback from orphaning
   dirty.ts       lazy re-anchor gate: only re-anchor a review whose files changed
   highlight.ts   Shiki (code) + markdown-it (.md), content-sha cached
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
-  prompt.ts      the agent-prompt text (same as the UI's "Copy agent prompt")
+  prompt.ts      the agent-prompt text (same as the UI's "Copy prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
   watchers.ts    live `watch` presence registry (who's blocked on a review)
   auth.ts        quick-auth: login tokens -> HttpOnly session cookies (only when REQUIRE_LOGIN)
@@ -116,7 +119,7 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  JumpToFile (toolbar file picker: popover on desktop, bottom
                  sheet below md), Message (MessageProse +
                  the shared QuoteBubble/useQuoteBubble selection-to-quote)
-                 (each with a *.stories.tsx)
+                 (each with a *.stories.tsx, except the shared SummaryBar)
   src/mobile/    the phone tier's containers ONLY (see Mobile): useIsMobile +
                  usePointerCoarse (both over useMediaQuery), MobileReviewChrome
                  (bottom bar + the 3-state feedback sheet), AddFeedbackPill (the
@@ -126,14 +129,19 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/highlights.ts the imperative feedback-highlight hooks (active-line ring,
                  summary quote, region wash) + markdown click refinement
   src/pane.ts    content-pane helpers: retrying row jump, composer focus, crossfade
+  src/virtual.tsx per-file row virtualization inside the one scroll pane
+  src/gutter.ts  line-number pick/drag anchoring    resolveFeedback.ts  place a
+                 feedback into a snapshot/round diff by quote
+  src/mdhighlight.ts quote ranges in rendered markdown (CSS Custom Highlight)
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
   src/drafts.ts  per-review composer drafts (localStorage)   selection.ts  range select
   router.ts      tiny pathname router (`/` reviews list, `/review_<id>` a review);
                  base-aware (`hrefFor`) so the demo can mount under a sub-path   ui.tsx  shared UI
   demo/          the frontend-only demo's in-browser backend (see Build & distribution):
-                 api.ts (aliased over web/src/api.ts) + backend/store/bus/agent/watchers +
-                 fixtures.gen.ts (baked seed) — no daemon, no git, all in the browser
+                 api.ts + demo-chrome.tsx + main.css (all aliased over web/src/) +
+                 backend/store/bus/agent/watchers + model/errors + fixtures.gen.ts
+                 (baked seed) — no daemon, no git, all in the browser
 shared/types.ts  the HTTP contract (domain model + request/response shapes)
 shared/version.ts build version — /api/health reports it; the CLI warns on skew
 scripts/compile.ts  one `Bun.build({compile})` — bundles+embeds the SPA -> ./r3 binary
@@ -142,6 +150,8 @@ scripts/release-binaries.ts  cross-compile dist/r3-<os>-<arch> + SHA256SUMS for 
 scripts/stage-npm-packages.ts  stage the 4 per-platform npm binary packages + stamp launcher pins
 scripts/gen-demo-fixtures.ts  bake the demo seed (rendered Shiki/markdown HTML) -> web/demo/fixtures.gen.ts
 scripts/build-demo.ts  Bun.build the frontend-only demo -> dist/demo (sub-path aware)
+scripts/stage-pages.ts  lay out dist/pages: the demo under /<subdir>/, root redirect,
+                 site-root 404.html (Pages honors only that one)
 bunfig.toml      registers bun-plugin-tailwind so the from-source daemon bundles CSS
 npm/             the published `r3` launcher (bunx/npx): resolves+execs the matching
                  per-platform binary package (`@hyperlogue/r3-<os>-<arch>`, an optional dep)
@@ -295,10 +305,10 @@ prints this whole flow as agent-facing orientation text (the `GUIDE` constant in
 `cli/index.ts`) — external repos defer to it, so it must stay truthful (see
 House rules). Two paths:
 
-- **Copy prompt** (manual) — the human clicks "Copy agent prompt" and pastes it.
+- **Copy prompt** (manual) — the human clicks "Copy prompt" and pastes it.
 - **Watch + Submit** (hands-off) — the agent runs **`r3 watch <id>`**, which
   registers as a live watcher (`server/watchers.ts`) and **blocks**. The feedback
-  panel **adapts**: with a watcher it shows "Submit to agent" + a "● `<session>`
+  panel **adapts**: with a watcher it shows "Submit" + a "● `<session>`
   watching" indicator instead of "Copy prompt". The human leaves feedback and
   clicks **Submit**; the server broadcasts `submitted`, `watch` prints the prompt
   (review id + feedback ids + the exact reply/reanchor commands) and exits.
@@ -341,8 +351,9 @@ reports "`[resolved]` — no action needed" (then clears the flag) — the agent
 tracks each item to resolution. An undelivered item owes nothing extra: an open
 one delivers in full with its current status, and a note resolved before any
 hand-off is settled without the agent ever seeing it. Copy/Submit disable once
-nothing is unsent (a fresh reply or decision re-enables them); `r3 show <id>` (or
-`r3 prompt <id> --all`) re-prints the full history without marking. A restarted
+nothing is unsent (a fresh reply or decision re-enables them); `r3 show <id>`
+re-prints the full history without marking (`r3 prompt <id> --all` re-prints every
+_open_ item — resolved ones are settled and never appear). A restarted
 `watch` won't re-emit what was already delivered. The unsent predicate lives once
 in `shared/types.ts` (`hasUnsentContent`) — the server's prompt, the CLI's
 `watch`/`prompt`, and the web's Copy/Submit gate all call the same function.
@@ -375,8 +386,10 @@ the whole anchor; `--line` is an optional best-effort hint).
 anchors fresh from **both sides**:
 
 1. **Automatic (server, `anchor.ts`).** On render / file-change, search for `quote`
-   near `line_start`, whitespace-insensitively. Found → relocate + update the
-   range + `code_sha`, `anchor='anchored'`. Not found → `anchor='outdated'`, keep
+   near `line_start`, whitespace-insensitively; on an exact miss, a bounded
+   edit-distance pass (`fuzzyFind`, ≤25% edits, token-prefiltered and DP-capped)
+   still relocates a quote whose markup the browser stripped. Found → relocate +
+   update the range + `code_sha`, `anchor='anchored'`. Neither → `anchor='outdated'`, keep
    the original quote, surface "the code this refers to changed." Never silently
    mis-point. **Lazy** (`server/dirty.ts`): re-anchoring re-reads files, so it runs
    only when a review is _dirty_ — the watcher marked a referenced file changed, or
@@ -404,9 +417,10 @@ content sha, so the WASM/grammar weight never reaches the browser.
   /api/diff | /api/blob` — status, paged commit history, file tree at a ref, a
   structured highlighted diff, one rendered file.
 - **Reviews:** `GET/POST /api/reviews` — list (queryable by
-  `session`/`meta.<k>`/`status`; each row carries a live `watching` flag) / create
-  `{ kind, source, meta, title, summary }` → `{ id, url }` (`scratch:true` for a
-  scratch review; `patch:'<diff>'` stores a piped diff as round 1).
+  `session`/`meta.<k>`/`status`/`repo`; each row carries a live `watching` flag) /
+  create `{ kind, source, meta, title, summary }` → `{ id, url, review }`
+  (`scratch:true` for a scratch review, whose response adds the `scratchDir` path
+  the agent drops files into; `patch:'<diff>'` stores a piped diff as round 1).
   `GET /api/reviews/:id` — review + feedback[] (with replies[]) + round + snapshot
   metas. `GET …/diff` — a diff review's rendered rounds. `GET/POST/DELETE
   …/patches[/:seq]` — list / append / drop a round. `POST …/files` — membership
@@ -414,8 +428,11 @@ content sha, so the WASM/grammar weight never reaches the browser.
   `…/snapshot-blob` — content snapshots + their derived diffs. `PATCH
   /api/reviews/:id` — edit `{ status?, meta?, title?, summary?, note? }` (`note` →
   `meta.next_steps`); `DELETE /api/reviews/:id`.
-- **Hand-off:** `GET …/prompt?feedback=` — the `text/plain` agent prompt (stamps
-  `sent_at`). `GET …/watchers` + `POST …/submit` — live `watch` clients / fire a
+- **Hand-off:** `GET …/prompt[?scope=unsent][&feedback=]` — the `text/plain`
+  prompt, marking **nothing** (default = full history; `scope=unsent` previews the
+  hand-off text, which is how the web can copy first and mark only on success).
+  `POST …/prompt { feedback? }` — the unsent-only hand-off, and the one that stamps
+  `sent_at`. `GET …/watchers` + `POST …/submit` — live `watch` clients / fire a
   `submitted` event.
 - **Feedback + replies:** `POST /api/reviews/:id/feedback`, `PATCH
   /api/feedback/:id`, `PATCH /api/feedback/:id/anchor` (re-anchor; a files-review
@@ -424,6 +441,10 @@ content sha, so the WASM/grammar weight never reaches the browser.
   `POST /api/feedback/:id/replies`
   (optional pin validated against the stored round), `PATCH /api/replies/:id`
   (edit the last human message; web-only, no CLI).
+- **Repos + themes:** `GET /api/repos` · `PATCH /api/repos/:id` (rename) · `POST
+  /api/repos/:id/relink` · `DELETE /api/repos/:id` (forget) — the registry behind
+  `r3 repo …` and the browser's repo selector. `GET /api/themes` +
+  `GET /api/theme-style` — the highlight themes the SPA can pick from.
 - **Live:** `GET /api/events?review=:id[&session=&agentId=]` — SSE
   (`review-updated`, `feedback-updated`, `file-changed`, `watchers-changed`,
   `submitted`, `reviews-changed`); a connection with `session` registers as a
@@ -441,23 +462,25 @@ content sha, so the WASM/grammar weight never reaches the browser.
   caller carries no cookie, so nothing is `current`. Bulk `DELETE …/tokens`
   (revoke-all) is the deliberate escape hatch and isn't guarded. Token-free (still Host-gated):
   `/api/health`, `/api/boot` (same-origin), `/api/auth/login` (same-origin), and
-  `/api/events` **only when not exposed**. **Everything else** — reads, all
-  mutations, and `/api/events` once exposed (a session cookie rides EventSource) —
-  requires the per-user token **or** a valid session cookie.
+  `/api/events` **only while `REQUIRE_LOGIN` is off**. **Everything else** — reads,
+  all mutations, and `/api/events` once login is required (a session cookie rides
+  EventSource) — requires the per-user token **or** a valid session cookie.
 
 ## CLI surface
 
 `cli/index.ts` is the binary and the agent's entry point; it discovers the daemon
-via `$XDG_RUNTIME_DIR/r3/daemon.json` (or `R3_URL`) and every command is one HTTP
-call.
+via `$XDG_RUNTIME_DIR/r3/daemon.json` (or `R3_URL`) and every review command is one
+HTTP call (`start|stop|status|restart`, `config`, and `guide` are handled locally,
+before `ensureServer()`).
 
 ```
 r3 create --commit <sha> | --diff <base>..<head> | --working | --staged
-          | --stdin-diff [--label L] | --files <path|glob>... [--ref <ref>]
-          | --scratch                         [--title T] [--summary S] [--meta k=v]...
+          | --stdin-diff [--label L] | --scratch   [--title T] [--summary S] [--meta k=v]...
+r3 create [--ref <ref>] [--title T] [--summary S] [--meta k=v]... --files <path|glob>...
+                                                   # --files is GREEDY — every flag goes before it
 r3 list   [--meta k=v]... [--status open]
 r3 show   <id> [--json]
-r3 prompt <id> [--all] [--feedback <fid,...>]      # --all: full history, mark nothing
+r3 prompt <id> [--all] [--feedback <fid,...>]      # --all: re-print all open items, mark nothing
 r3 watch  <id> [--session <name>] [--agent-id <id>] [--auto-fetch-timeout <sec>] [--timeout <sec>]
 r3 diff   add <id> [--label L] [--summary S] | list <id> [--json] | rm <id> <seq>
 r3 files  add <id> <path|glob>... | rm <id> <path>...
@@ -468,7 +491,7 @@ r3 feedback add <id> -m "<msg>" [--file <f> [--line <a-b>] [--quote "<t>"] [--si
 r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   # files-review anchor
 r3 reanchor <feedback_id> --quote "<new text>" [--line <a-b>]          # review summary (any kind)
 r3 edit   <id> [--title "<t>"] [--summary "<s>"]   # "" clears; --summary - = stdin
-r3 approve <id> [--note "<next steps>"] | abandon <id>
+r3 approve <id> [--note|-m "<next steps>"] | abandon <id>      # --note - = stdin
 r3 auth create-token [--label L] | list-tokens [--json] | revoke-token <id> | --all
 r3 config show | get <name> | set <name> <value> | unset <name>   # flat keys: bind|port|publicUrl|allowedHosts|requireLogin
 r3 guide                                            # print the agent orientation text
@@ -504,8 +527,9 @@ All under XDG, keyed by `server/config.ts`:
   `auth_tokens` / `auth_sessions` — login tokens hashed at rest, and the browser
   session cookies they mint, also hashed). `R3_DB` overrides (tests).
 - `$XDG_STATE_HOME/r3/token` (mode 0600) — the per-user API token (see Security);
-  handed to the same-origin page by `/api/boot` (only when not exposed), read from
-  `daemon.json` by the CLI. Distinct from the user-created **login tokens** above.
+  handed to the same-origin page by `/api/boot` (only while `REQUIRE_LOGIN` is
+  off), read from `daemon.json` by the CLI. Distinct from the user-created **login
+  tokens** above.
 - `$XDG_STATE_HOME/r3/scratch/<review_id>/` — scratch reviews' file directories
   (legacy single-file docs live as `scratch/<review_id>.md`). Diff rounds live
   in the sqlite `patches` table, not on disk.
@@ -530,6 +554,10 @@ pid, token, version, exec, argv, publicUrl, requireLogin }`; the CLI's discovery
 `workspace/` and uses port 8891, so the dev stack never collides with — or writes
 into — a normally-running daemon.
 
+Dev/test overrides, on top of the exposure knobs in Security: `R3_DB` (store path),
+`R3_TOKEN` (per-user token), `R3_NO_WATCH` (skip the file watcher), `R3_DETACHED`
+(ignore SIGINT), `R3_DEV` (HMR), `R3_URL` (point the CLI at a specific daemon).
+
 ## Viewed-state (per-reviewer read progress)
 
 The GitHub-PR-style "Viewed" fold marker is **server-persisted** in `viewed_marks`
@@ -538,8 +566,8 @@ follow you across browsers/devices. The row `key` encodes **content identity**,
 not a path: a diff round's file is keyed `d:<seq>:<path>` (immutable rounds ⇒
 naturally per-round), a live files-review file `f:<path>@<sha>` (a changed file
 gets a new sha ⇒ its old mark stops matching ⇒ the card auto-unfolds). `ON DELETE
-CASCADE` drops the marks with the review — no cap/LRU/cleanup. Two
-token+same-origin routes (`GET/PUT …/viewed`), no SSE, no CLI — a pure UI
+CASCADE` drops the marks with the review — no cap/LRU/cleanup. Two token-gated
+routes (`GET/PUT …/viewed`; the PUT is same-origin too, like any write), no SSE, no CLI — a pure UI
 affordance that does **not** bump `review.updated_at` (`web/src/viewed.ts` writes
 optimistically so the fold is instant).
 
@@ -551,7 +579,10 @@ adding feedback all work below Tailwind `md` (768px; portrait tablets keep the
 desktop layout). The **prime rule: isolate, don't interleave** — mobile must not
 add complexity to desktop code. All mobile UI lives in `web/src/mobile/` (desktop
 components never import from it); existing components get only inert `max-md:` /
-`pointer-coarse:` class tweaks; the **single mount point** is `ReviewView`, which
+`pointer-coarse:` class tweaks — the one exception being `JumpToFile`'s inline
+`matchMedia("(pointer: coarse)")` probe, which suppresses autofocus on touch (it
+can't import `usePointerCoarse` without breaking the isolation rule); the **single
+mount point** is `ReviewView`, which
 swaps the side dock for `MobileReviewChrome` — panel/domain state never forks,
 and the same `FeedbackPanel` renders with the same props either way.
 
@@ -591,8 +622,10 @@ and the same `FeedbackPanel` renders with the same props either way.
 - **Ergonomics**: below `md`, compact ~40px touch targets (shared `Button` gets
   `min-h-9`, icon buttons `size-9` — real-device feedback found full 44px CTAs
   too tall; the h-8 header stack — pane toolbar, file headers, summary bars —
-  is deliberately exempt and stays h-8) and 16px composer/input fonts (kills
-  iOS zoom-on-focus); composer placeholders drop their keyboard-shortcut hints
+  is deliberately exempt and stays h-8) and ≥16px composer/input fonts via
+  `max-md:text-base` (1rem = 18px at the default root size, so iOS doesn't
+  zoom on focus — a user who shrinks the root font below 16px trades that
+  back); composer placeholders drop their keyboard-shortcut hints
   on a coarse pointer (no hardware keyboard — ReviewView feeds the pointer fact
   to `FeedbackPanel` as a `coarse` prop), and a composer taller than its pane
   reveals top-aligned (label + quote first), not bottom-aligned; hover-reveal
@@ -670,8 +703,10 @@ and the same `FeedbackPanel` renders with the same props either way.
   lazy-spawn can't drop back to the loopback default.
 - **Path inputs** are validated against the requesting review's **worktree** root
   (or the scratch root for `SCRATCH`) — repo-relative, no `..`, no absolute.
-- **Git arg-injection guard**: reject refs/paths beginning with `-` before they
-  reach git (an option like `--output=<file>` would write a file).
+- **Git arg-injection guard**: reject **refs** beginning with `-` before they reach
+  git (`isSafeRef` — an option like `--output=<file>` would write a file); paths go
+  through `safePathIn` and reach git only behind a `--` separator or as a
+  `ref:path` spec.
 - Remote access keeps this model: loopback + `ssh -L 8791:localhost:8791` (you
   browse `localhost`, so the daemon isn't exposed → still zero-friction, no login),
   or `tailscale serve` (r3 stays on loopback — prefer it over binding the tailnet IP
@@ -722,8 +757,10 @@ and the same `FeedbackPanel` renders with the same props either way.
   produces a static `dist/demo/` that runs the **whole SPA with no daemon** — a
   third client of the same components, but its "backend" is an **in-browser store**
   (`web/demo/`) over `localStorage`. It's the *same* `web/index.html` Bun.build,
-  with one `onResolve` alias swapping `web/src/api.ts` → `web/demo/api.ts` (so every
-  fetch/SSE call hits the browser backend) and an `EventSource` shim; the demo
+  with one `onResolve` plugin aliasing `web/src/{api.ts,demo-chrome.tsx,main.css}`
+  to their `web/demo/` counterparts (so every fetch/SSE call hits the browser
+  backend, the demo chrome replaces its production stub, and Tailwind scans
+  `web/demo` too) and an `EventSource` shim; the demo
   reuses the server's genuinely *pure* modules verbatim (`anchor.ts`, `textdiff.ts`,
   `prompt.ts`, `shared/types.ts`) and **pre-bakes** all Shiki/markdown HTML at build
   time (`gen-demo-fixtures.ts`), so **no highlighter, sqlite, or git ships to the
@@ -781,7 +818,7 @@ bun run build:demo          # Bun.build the frontend-only demo -> dist/demo (ser
 Before committing, run:
 
 ```sh
-bun run typecheck           # tsc --noEmit across server + cli + web + shared
+bun run typecheck           # tsc --noEmit across server + cli + web + shared + scripts
 biome check .               # lint + format (biome is in the nix shell, not a devDep)
 biome check --write .       # apply fixes
 ```

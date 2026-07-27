@@ -1019,8 +1019,9 @@ export async function startDaemon(): Promise<void> {
     throw err;
   }
 
-  // daemon.json advertises the loopback URL: the CLI is always on-box (or reaches
-  // us through an SSH forward to the same port). Printed review URLs use ORIGIN.
+  // daemon.json advertises the on-box URL (loopback, or the bound interface —
+  // config.ts LOCAL_URL): the CLI is always on-box (or reaches us through an SSH
+  // forward to the same port). Printed review URLs use ORIGIN.
   writeDaemonJson({
     url: LOCAL_URL,
     port: PORT,

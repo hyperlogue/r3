@@ -1,5 +1,5 @@
-// The agent reply protocol text. The human clicks "Copy prompt for
-// agent" (or the agent fetches the prompt via the CLI); the text embeds the
+// The agent reply protocol text. The human clicks "Copy prompt"
+// (or the agent fetches the prompt via the CLI); the text embeds the
 // review id + feedback ids and the exact CLI calls that round-trip decisions
 // back into the live UI.
 //

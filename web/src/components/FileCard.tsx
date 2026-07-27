@@ -134,7 +134,7 @@ export function FileCard({
     }
   }, [foldSignal, path]);
 
-  // Click the path to copy it (mirrors console's CopyableId); the chevron still
+  // Click the path to copy it (mirrors ReviewHeader's CopyMeta); the chevron still
   // toggles the fold.
   const { copied, flash } = useCopyFlash();
   const copyPath = () => {

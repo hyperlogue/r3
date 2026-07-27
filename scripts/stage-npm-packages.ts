@@ -73,7 +73,7 @@ for (const { asset, os, cpu, libc } of PLATFORMS) {
     os: [os],
     cpu: [cpu],
     // `libc` lets npm >=9.6 skip a glibc package on musl; the launcher's
-    // checkLibc is the real guard for older npm / Bun that ignore this field.
+    // isMusl() check is the real guard for older npm / Bun that ignore this field.
     ...(libc ? { libc: [libc] } : {}),
     repository: REPOSITORY,
     homepage: HOMEPAGE,

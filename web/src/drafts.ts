@@ -5,8 +5,8 @@
 // in-progress replies — so a half-written note of any kind survives a review-switch
 // (the view remounts per id) and a page reload, and surfaces as a badge/guard so it
 // can't be silently forgotten (none of it has reached the agent). A tiny reactive
-// external store (like project.ts) so the reviews-list badge, the panel header, and
-// each reply composer — different subtrees — stay in sync.
+// external store (like store.ts's persistedStore) so the reviews-list badge, the
+// panel header, and each reply composer — different subtrees — stay in sync.
 
 import { useSyncExternalStore } from "react";
 import type { PendingAnchor } from "./selection.ts";
