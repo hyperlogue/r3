@@ -292,7 +292,12 @@ export function trimOversizedFiles(
     changed = true;
     return renderUnifiedDiffFile({ ...files[0], lines: trimmed }).join("\n");
   });
-  return changed ? out.join("\n") : raw;
+  if (!changed) return raw;
+  // A re-emitted final segment drops the patch's trailing newline (the original
+  // carried it as a trailing empty line that the re-emit doesn't reproduce).
+  // Nothing downstream reads it, but a stored patch should still look like one.
+  const joined = out.join("\n");
+  return raw.endsWith("\n") && !joined.endsWith("\n") ? `${joined}\n` : joined;
 }
 
 // Snapshot a diff as raw patch text — the create-time source of a stored diff

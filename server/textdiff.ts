@@ -236,15 +236,21 @@ export function rehunk(
     for (let i = 0; i < emitted.length; i++) {
       const cur = emitted[i];
       const prev = emitted[i - 1];
+      const next = emitted[i + 1];
       const [runLo, runHi] = runs[cur.run];
       // Held rows are bounded by the CONTIGUOUS RUN, not the array: rows in a
       // different run sit across a gap the patch never captured, so they can't
       // be offered. Within a run everything between two hunks is held.
       const lowerBound = prev && prev.run === cur.run ? prev.to + 1 : runLo;
       const up = cur.from - lowerBound;
-      // Only the file's last hunk reports a downward gap — every other downward
-      // gap is the next hunk's `up`, and counting both would double-report it.
-      const down = i === emitted.length - 1 ? runHi - 1 - cur.to : 0;
+      // A downward gap is reported by the last hunk OF ITS RUN — not just the
+      // file's last hunk. Within a run every other downward gap is the next
+      // hunk's `up` and would be double-counted, but a run's tail is reported by
+      // nobody else: the next hunk belongs to a different run and its `up` is 0.
+      // A body has several runs whenever capture itself had gaps (a file trimmed
+      // to -U25 with change clusters far apart — exactly what the trim targets),
+      // so keying this on the file would strand those rows unreachable.
+      const down = !next || next.run !== cur.run ? runHi - 1 - cur.to : 0;
       if (up > 0 || down > 0) cur.header.expandable = { up, down };
     }
   }

@@ -2,10 +2,11 @@
 //
 // The server renders a diff at 3 lines of context but may HOLD more (a round
 // captured wide, or a snapshot diff where it owns both full contents). It says so
-// on each hunk row via `expandable` — `up` is the gap above that hunk, and `down`
-// is non-zero only on the last hunk, covering the file's trailing lines. Anything
-// it doesn't hold is reported as 0, so a legacy or piped round simply has no gaps
-// and the view shows the plain `@@` separator it always did.
+// on each hunk row via `expandable`: `up` is the gap above that hunk, `down` the
+// gap below it — the latter set on the last hunk of each contiguous run, since
+// within a run every other downward gap is the next hunk's `up`. Anything the
+// server doesn't hold is reported as 0, so a legacy or piped round has no gaps at
+// all and the view shows the plain `@@` separator it always did.
 //
 // Revealed rows are merged back into ONE row list here, and DiffView derives
 // everything from that merged list — the per-side text maps, the row-index maps,
@@ -20,13 +21,18 @@ import type { DiffLine } from "./types.ts";
 // Lines revealed per click of a chevron. The whole gap is one click on the label.
 export const EXPAND_STEP = 20;
 
-// Key of the synthetic gap after a file's last hunk. Real gaps are keyed by their
-// hunk row's index in the server's row list; the trailing gap has no row of its
-// own (hunk rows only ever precede a hunk), so the client synthesizes one.
-export const TRAILING_GAP = -1;
+// Ceiling on a single fetch, mirroring the server's own cap so "show all" on a
+// huge gap reveals as much as one request can carry instead of asking for more
+// than the route will serve and silently doing nothing.
+export const MAX_EXPAND_ROWS = 5000;
 
 export interface Gap {
-  key: number; // hunk row index in the source lines, or TRAILING_GAP
+  // Stable identity for this gap's reveal state: `u<i>` / `d<i>`, where i is the
+  // hunk row's index in the server's row list. One hunk can own both.
+  key: string;
+  // The row index this gap attaches to, and which side of it.
+  hunkIndex: number;
+  edge: "up" | "down";
   startNew: number; // first NEW-side line number hidden in this gap
   endNew: number; // last NEW-side line number hidden in this gap
 }
@@ -40,69 +46,81 @@ export interface GapReveal {
   top: DiffLine[];
   bottom: DiffLine[];
 }
-export type RevealMap = Record<number, GapReveal | undefined>;
+export type RevealMap = Record<string, GapReveal | undefined>;
 
-const revealed = (r: GapReveal | undefined) => (r ? r.top.length + r.bottom.length : 0);
+const revealedCount = (r: GapReveal | undefined) => (r ? r.top.length + r.bottom.length : 0);
 
 // Every expandable gap in a file, in document order. Returns [] when the server
 // reported nothing holdable — the common case for a legacy round, and what keeps
 // the expander entirely absent rather than present-and-failing.
 export function gapsOf(lines: DiffLine[]): Gap[] {
   const out: Gap[] = [];
-  let lastHunk = -1;
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
     if (ln.type !== "hunk") continue;
-    lastHunk = i;
     const up = ln.expandable?.up ?? 0;
-    if (up <= 0) continue;
-    // The gap sits immediately above this hunk's first NEW-side row. A hunk with
-    // no new side at all (a pure deletion) can't be positioned this way, so it
-    // simply gets no expander.
-    const firstNew = firstNewAfter(lines, i);
-    if (firstNew == null) continue;
-    out.push({ key: i, startNew: firstNew - up, endNew: firstNew - 1 });
-  }
-  const down = lastHunk >= 0 ? (lines[lastHunk].expandable?.down ?? 0) : 0;
-  if (down > 0) {
-    const lastNew = lastNewLine(lines);
-    if (lastNew != null) {
-      out.push({ key: TRAILING_GAP, startNew: lastNew + 1, endNew: lastNew + down });
+    const down = ln.expandable?.down ?? 0;
+    // The up-gap sits immediately above this hunk's first NEW-side row; the
+    // down-gap immediately below its last. A hunk with no new side at all (a
+    // pure deletion) can't be positioned this way and simply gets no expander.
+    if (up > 0) {
+      const firstNew = firstNewIn(lines, i);
+      if (firstNew != null) {
+        out.push({
+          key: `u${i}`,
+          hunkIndex: i,
+          edge: "up",
+          startNew: firstNew - up,
+          endNew: firstNew - 1,
+        });
+      }
+    }
+    if (down > 0) {
+      const lastNew = lastNewIn(lines, i);
+      if (lastNew != null) {
+        out.push({
+          key: `d${i}`,
+          hunkIndex: i,
+          edge: "down",
+          startNew: lastNew + 1,
+          endNew: lastNew + down,
+        });
+      }
     }
   }
   return out;
 }
 
-function firstNewAfter(lines: DiffLine[], from: number): number | null {
-  for (let i = from + 1; i < lines.length; i++) {
-    if (lines[i].type === "hunk") return null; // empty hunk — nothing to anchor to
+// First / last NEW-side line of the hunk beginning at `from` (its content runs
+// until the next hunk row or the end of the list).
+function firstNewIn(lines: DiffLine[], from: number): number | null {
+  for (let i = from + 1; i < lines.length && lines[i].type !== "hunk"; i++) {
     if (lines[i].newLine != null) return lines[i].newLine;
   }
   return null;
 }
-
-function lastNewLine(lines: DiffLine[]): number | null {
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].type !== "hunk" && lines[i].newLine != null) return lines[i].newLine;
+function lastNewIn(lines: DiffLine[], from: number): number | null {
+  let last: number | null = null;
+  for (let i = from + 1; i < lines.length && lines[i].type !== "hunk"; i++) {
+    if (lines[i].newLine != null) last = lines[i].newLine;
   }
-  return null;
+  return last;
 }
 
 // The NEW-side range one click should fetch. `edge` picks which end of the gap
-// grows: "bottom" reveals the lines just above the following hunk (nearest the
-// code you're reading), "top" the lines just below the preceding one, and "all"
-// takes whatever is left in one go.
+// grows: "bottom" reveals the lines nearest the following code, "top" the lines
+// nearest the preceding code, and "all" takes whatever is left — clamped to
+// MAX_EXPAND_ROWS, so a huge gap reveals in server-sized bites rather than
+// issuing a request the route refuses.
 export function rangeFor(
   gap: Gap,
   reveal: GapReveal | undefined,
   edge: "top" | "bottom" | "all",
 ): { start: number; end: number } | null {
-  const topLen = reveal?.top.length ?? 0;
-  const botLen = reveal?.bottom.length ?? 0;
-  const lo = gap.startNew + topLen;
-  const hi = gap.endNew - botLen;
+  const lo = gap.startNew + (reveal?.top.length ?? 0);
+  const hi = gap.endNew - (reveal?.bottom.length ?? 0);
   if (lo > hi) return null; // already closed
-  if (edge === "all") return { start: lo, end: hi };
+  if (edge === "all") return { start: lo, end: Math.min(hi, lo + MAX_EXPAND_ROWS - 1) };
   if (edge === "top") return { start: lo, end: Math.min(hi, lo + EXPAND_STEP - 1) };
   return { start: Math.max(lo, hi - EXPAND_STEP + 1), end: hi };
 }
@@ -116,37 +134,99 @@ export interface MergedLines {
   gapFor: Map<DiffLine, { gap: Gap; hidden: number }>;
 }
 
+// Are two consecutive rows adjacent in the FILE? Compare only the sides both
+// carry — within a change block a del (no new side) is followed by an add (no old
+// side), which shares no side and is correctly treated as adjacent.
+function fileAdjacent(a: DiffLine, b: DiffLine): boolean {
+  if (a.oldLine != null && b.oldLine != null && b.oldLine !== a.oldLine + 1) return false;
+  if (a.newLine != null && b.newLine != null && b.newLine !== a.newLine + 1) return false;
+  return true;
+}
+
 // Splice revealed rows back into the server's row list. A gap whose two edges
-// have met loses its separator entirely, so a fully-expanded file reads as one
-// continuous run with no leftover markers.
+// have met loses its separator, so a fully-expanded region reads as one
+// continuous run — but only where it really is continuous: `sealSeams` below puts
+// an inert marker back wherever the code still jumps.
 export function mergeRevealed(lines: DiffLine[], gaps: Gap[], reveal: RevealMap): MergedLines {
-  const byKey = new Map(gaps.map((g) => [g.key, g]));
+  const up = new Map<number, Gap>();
+  const down = new Map<number, Gap>();
+  for (const g of gaps) (g.edge === "up" ? up : down).set(g.hunkIndex, g);
+
   const out: DiffLine[] = [];
   const gapFor = new Map<DiffLine, { gap: Gap; hidden: number }>();
 
   const emitGap = (gap: Gap, separator: DiffLine | null) => {
     const r = reveal[gap.key];
-    const hidden = gapSize(gap) - revealed(r);
+    const hidden = gapSize(gap) - revealedCount(r);
     if (r) out.push(...r.top);
     if (hidden > 0) {
       // Clone so the separator's identity is unique per render pass and its
       // reported remaining count can't go stale.
-      const row: DiffLine = separator
-        ? { ...separator }
-        : { type: "hunk", oldLine: null, newLine: null, html: "", text: "" };
+      const row: DiffLine = separator ? { ...separator } : blankHunk();
       gapFor.set(row, { gap, hidden });
       out.push(row);
     }
     if (r) out.push(...r.bottom);
   };
 
+  // The down-gap of hunk H is emitted once H's content ends — i.e. just before
+  // the next hunk row, or at the end of the file.
+  let pendingDown: Gap | undefined;
+  const flushDown = () => {
+    if (pendingDown) emitGap(pendingDown, null);
+    pendingDown = undefined;
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
-    const gap = ln.type === "hunk" ? byKey.get(i) : undefined;
-    if (gap) emitGap(gap, ln);
-    else out.push(ln);
+    if (ln.type === "hunk") {
+      flushDown();
+      const u = up.get(i);
+      if (u) emitGap(u, ln);
+      else out.push(ln);
+      pendingDown = down.get(i);
+      continue;
+    }
+    out.push(ln);
   }
-  const trailing = byKey.get(TRAILING_GAP);
-  if (trailing) emitGap(trailing, null);
-  return { lines: out, gapFor };
+  flushDown();
+
+  return { lines: sealSeams(out, gapFor), gapFor };
+}
+
+function blankHunk(): DiffLine {
+  return { type: "hunk", oldLine: null, newLine: null, html: "", text: "" };
+}
+
+// Put an inert separator back wherever two adjacent rows aren't contiguous in the
+// file. Closing a gap removes its separator, but "the server holds nothing more
+// here" is NOT the same as "the code is continuous here": a body captured with
+// gaps (a trimmed round whose change clusters sit far apart) has stretches that
+// were never captured at all. Without this, expanding both sides of such a seam
+// would butt line 23 against line 100 with nothing between them — rendering a
+// hole as if it were the file, which is precisely what the server's
+// 404-rather-than-partial-fill rule exists to prevent.
+function sealSeams(
+  rows: DiffLine[],
+  gapFor: Map<DiffLine, { gap: Gap; hidden: number }>,
+): DiffLine[] {
+  const out: DiffLine[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const prev = out[out.length - 1];
+    const cur = rows[i];
+    if (
+      prev &&
+      prev.type !== "hunk" &&
+      cur.type !== "hunk" &&
+      !fileAdjacent(prev, cur) &&
+      !gapFor.has(cur)
+    ) {
+      const missing = (cur.newLine ?? 0) - (prev.newLine ?? 0) - 1;
+      const seam = blankHunk();
+      seam.text = missing > 0 ? `⋯ ${missing} lines not in this diff` : "⋯";
+      out.push(seam); // no gapFor entry ⇒ inert, no expander offered
+    }
+    out.push(cur);
+  }
+  return out;
 }

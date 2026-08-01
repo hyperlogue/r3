@@ -424,18 +424,28 @@ const FileBlock = memo(function FileBlock({
     () => (gaps.length ? mergeRevealed(f.lines, gaps, reveal) : EMPTY_MERGE(f.lines)),
     [f.lines, gaps, reveal],
   );
-  // A new payload (a round switch, a refetch) invalidates what was revealed.
+  // A new payload (a round switch, a snapshot from/to change, a refetch)
+  // invalidates what was revealed. `generation` also fences fetches that were
+  // already in flight: FileBlock is keyed `${seq}:${path}`, and a files review's
+  // snapshot diff always carries the SAME synthetic seq, so switching from/to
+  // reuses this component — a late reply would otherwise splice the previous
+  // pair's rows (old text, old numbers) into the new diff as if they were the file.
+  const generation = useRef(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: f.lines identity IS the reset signal
-  useEffect(() => setReveal({}), [f.lines]);
+  useEffect(() => {
+    generation.current++;
+    setReveal({});
+  }, [f.lines]);
 
   // One in-flight fetch per gap: a second click before the first resolves would
   // compute its range against a stale `reveal` and append the same rows twice.
-  const inFlight = useRef(new Set<number>());
+  const inFlight = useRef(new Set<string>());
   const expand = useCallback(
     async (gap: Gap, edge: "top" | "bottom" | "all") => {
       if (!fetchContext || inFlight.current.has(gap.key)) return;
       const range = rangeFor(gap, reveal[gap.key], edge);
       if (!range) return;
+      const gen = generation.current;
       inFlight.current.add(gap.key);
       let rows: DiffLine[] | null = null;
       try {
@@ -443,9 +453,17 @@ const FileBlock = memo(function FileBlock({
       } finally {
         inFlight.current.delete(gap.key);
       }
-      if (!rows?.length) return;
+      if (!rows?.length || gen !== generation.current) return;
       setReveal((prev) => {
         const cur = prev[gap.key] ?? { top: [], bottom: [] };
+        // Re-check the edge lengths inside the updater: between the fetch
+        // resolving and this commit a second click could have landed, and
+        // appending both replies would duplicate rows.
+        if (
+          cur.top.length !== (reveal[gap.key]?.top.length ?? 0) ||
+          cur.bottom.length !== (reveal[gap.key]?.bottom.length ?? 0)
+        )
+          return prev;
         // "all" closes the gap in one go, so it lands wholly on the top edge.
         return {
           ...prev,

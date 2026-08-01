@@ -14,6 +14,7 @@ import { diffFile } from "../../server/textdiff.ts";
 import {
   type AddReplyBody,
   type CreateFeedbackBody,
+  type DiffFileChange,
   type Feedback,
   type FeedbackWithReplies,
   MAX_QUOTE_LINES,
@@ -155,6 +156,18 @@ export function listReviews(filter: {
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
+// The demo has no gap-fill endpoint (there's no daemon to ask), so strip the
+// server's held-context markers from anything it renders — otherwise every
+// separator would grow an expander that does nothing when clicked. Applies to
+// both content paths: the baked fixtures (regenerated through the same differ)
+// and the in-browser derive below.
+function withoutExpandable(files: DiffFileChange[]): DiffFileChange[] {
+  for (const f of files) {
+    for (const ln of f.lines) if (ln.expandable) ln.expandable = undefined;
+  }
+  return files;
+}
+
 // ---- rendered content (pre-baked, with a plain fallback for edited content) ----
 
 export function reviewDiff(id: string): ReviewDiffResponse {
@@ -164,7 +177,7 @@ export function reviewDiff(id: string): ReviewDiffResponse {
       label,
       summary,
       created_at,
-      files,
+      files: withoutExpandable(files),
     })),
   };
 }
@@ -205,7 +218,7 @@ function contentAt(reviewId: string, to: SnapshotRef, path: string): string | un
 
 export function snapshotDiff(id: string, from: number, to: SnapshotRef): SnapshotDiffResponse {
   const pre = s().snapshotDiffs.find((d) => d.review_id === id && d.from === from && d.to === to);
-  if (pre) return { from, to, files: pre.files };
+  if (pre) return { from, to, files: withoutExpandable(pre.files) };
   // Derive in-browser via the pure differ (uncoloured — an edited-content path).
   const fromSnap = require404(
     s().snapshots.find((sn) => sn.review_id === id && sn.seq === from),
@@ -223,7 +236,7 @@ export function snapshotDiff(id: string, from: number, to: SnapshotRef): Snapsho
     for (const ln of dfc.lines) if (ln.type !== "hunk") ln.html = escapeHtml(ln.text);
     files.push(dfc);
   }
-  return { from, to, files };
+  return { from, to, files: withoutExpandable(files) };
 }
 
 export function snapshotBlob(id: string, path: string, to: SnapshotRef): RenderedFile {

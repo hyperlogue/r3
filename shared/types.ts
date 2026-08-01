@@ -398,11 +398,15 @@ export interface DiffLine {
   // this is the literal @@ header text (not highlighted).
   html: string;
   text: string; // raw text of the line (no leading +/-/space), for quote anchoring
-  // 'hunk' rows only: how many unchanged lines the server actually HOLDS on
-  // either side of this gap and could serve (…/diff-context). `up` is the gap
-  // immediately above this hunk; `down` is non-zero only on a file's LAST hunk,
-  // covering the trailing lines after it — every other downward gap is some
-  // other hunk's `up`, and reporting it twice would double-count one gap.
+  // 'hunk' rows only: how many unchanged lines the server actually HOLDS around
+  // this hunk and could serve (…/diff-context). `up` is the gap immediately
+  // above it; `down` the gap below, set on the last hunk of each CONTIGUOUS RUN.
+  // Within a run every other downward gap is the next hunk's `up` and would be
+  // double-counted — but a run's tail is reported by nobody else, since the next
+  // hunk sits across a stretch the patch never captured and its `up` is 0. Bodies
+  // have several runs whenever capture itself had gaps (a round trimmed to -U25
+  // whose change clusters sit far apart), so keying `down` to the file's last
+  // hunk alone would strand those rows unreachable.
   //
   // Absent or all-zero means "nothing more exists", which is the honest answer
   // for a legacy round, a `--stdin-diff` round captured at -U3, and the live

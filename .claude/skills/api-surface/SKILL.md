@@ -37,9 +37,10 @@ one rendered file.
   snapshot metas.
 - `GET …/diff` — a diff review's rendered rounds. Rounds are stored wide and
   rendered at 3 context lines; each hunk row carries `expandable {up,down}` saying
-  how many unchanged lines the server still HOLDS (`up` = the gap above that hunk,
-  `down` only on the last hunk = the trailing lines). All-zero/absent = nothing
-  more exists, and the client shows no expander.
+  how many unchanged lines the server still HOLDS: `up` = the gap above that hunk,
+  `down` = the gap below, set on the last hunk of each **contiguous run** (a body
+  has several runs when capture itself had gaps). All-zero/absent = nothing more
+  exists, and the client shows no expander.
 - `GET …/diff-context?file=&start=&end=&(seq= | from=&to=)[&theme=]` →
   `{ file, lines }` — fill one collapsed gap. `[start,end]` are **NEW-side** line
   numbers, capped at 5000 rows. `seq` selects a diff review's stored round;
