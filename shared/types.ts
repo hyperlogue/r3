@@ -38,6 +38,12 @@ export const SUMMARY_FILE = "@summary";
 // (server/reviews.ts deriveQuote) — while the recorded line range keeps the full span.
 export const MAX_QUOTE_LINES = 4;
 
+// Row ceiling on one expand-context request (GET …/diff-context). The server
+// rejects a larger range; the client clamps "show all" to it and reveals a huge
+// gap in successive bites. Shared so the two can't drift into a control that
+// silently 400s.
+export const MAX_CONTEXT_ROWS = 5000;
+
 export type ReviewSource =
   // kind: 'diff' — provenance only (what round 1 was snapshotted from; "" = piped
   // in via stdin). The rendered content is the review's stored patches: an

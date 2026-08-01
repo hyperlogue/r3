@@ -16,15 +16,15 @@
 // silently produce a quote with lines missing — the exact mis-anchor this feature
 // is supposed to make impossible.
 
-import type { DiffLine } from "./types.ts";
+import { type DiffLine, MAX_CONTEXT_ROWS } from "./types.ts";
 
 // Lines revealed per click of a chevron. The whole gap is one click on the label.
 export const EXPAND_STEP = 20;
 
-// Ceiling on a single fetch, mirroring the server's own cap so "show all" on a
-// huge gap reveals as much as one request can carry instead of asking for more
-// than the route will serve and silently doing nothing.
-export const MAX_EXPAND_ROWS = 5000;
+// The per-request row ceiling comes from the contract (shared/types.ts), so
+// "show all" on a huge gap asks for exactly what the route will serve — reveal
+// in bites rather than issue a request that 400s and looks like a dead control.
+// Deliberately not a second literal: the two would drift apart silently.
 
 export interface Gap {
   // Stable identity for this gap's reveal state: `u<i>` / `d<i>`, where i is the
@@ -110,7 +110,7 @@ function lastNewIn(lines: DiffLine[], from: number): number | null {
 // The NEW-side range one click should fetch. `edge` picks which end of the gap
 // grows: "bottom" reveals the lines nearest the following code, "top" the lines
 // nearest the preceding code, and "all" takes whatever is left — clamped to
-// MAX_EXPAND_ROWS, so a huge gap reveals in server-sized bites rather than
+// MAX_CONTEXT_ROWS, so a huge gap reveals in server-sized bites rather than
 // issuing a request the route refuses.
 export function rangeFor(
   gap: Gap,
@@ -120,7 +120,7 @@ export function rangeFor(
   const lo = gap.startNew + (reveal?.top.length ?? 0);
   const hi = gap.endNew - (reveal?.bottom.length ?? 0);
   if (lo > hi) return null; // already closed
-  if (edge === "all") return { start: lo, end: Math.min(hi, lo + MAX_EXPAND_ROWS - 1) };
+  if (edge === "all") return { start: lo, end: Math.min(hi, lo + MAX_CONTEXT_ROWS - 1) };
   if (edge === "top") return { start: lo, end: Math.min(hi, lo + EXPAND_STEP - 1) };
   return { start: Math.max(lo, hi - EXPAND_STEP + 1), end: hi };
 }
@@ -191,7 +191,7 @@ export function mergeRevealed(lines: DiffLine[], gaps: Gap[], reveal: RevealMap)
   }
   flushDown();
 
-  return { lines: sealSeams(out, gapFor), gapFor };
+  return { lines: sealSeams(out), gapFor };
 }
 
 function blankHunk(): DiffLine {
@@ -206,27 +206,29 @@ function blankHunk(): DiffLine {
 // would butt line 23 against line 100 with nothing between them — rendering a
 // hole as if it were the file, which is precisely what the server's
 // 404-rather-than-partial-fill rule exists to prevent.
-function sealSeams(
-  rows: DiffLine[],
-  gapFor: Map<DiffLine, { gap: Gap; hidden: number }>,
-): DiffLine[] {
+function sealSeams(rows: DiffLine[]): DiffLine[] {
   const out: DiffLine[] = [];
   for (let i = 0; i < rows.length; i++) {
     const prev = out[out.length - 1];
     const cur = rows[i];
-    if (
-      prev &&
-      prev.type !== "hunk" &&
-      cur.type !== "hunk" &&
-      !fileAdjacent(prev, cur) &&
-      !gapFor.has(cur)
-    ) {
-      const missing = (cur.newLine ?? 0) - (prev.newLine ?? 0) - 1;
+    if (prev && prev.type !== "hunk" && cur.type !== "hunk" && !fileAdjacent(prev, cur)) {
       const seam = blankHunk();
-      seam.text = missing > 0 ? `⋯ ${missing} lines not in this diff` : "⋯";
+      seam.text = `⋯ ${seamCount(prev, cur)}not in this diff`;
       out.push(seam); // no gapFor entry ⇒ inert, no expander offered
     }
     out.push(cur);
   }
   return out;
+}
+
+// How many lines the seam spans, when we can say honestly. A boundary row that's
+// a del (or an add) carries only one side, so if the two rows share no side the
+// distance isn't computable — say "lines" with no number rather than print one
+// derived from a missing value. An overstated count here would be its own small
+// version of the misrepresentation this marker exists to prevent.
+function seamCount(prev: DiffLine, cur: DiffLine): string {
+  const span = (a: number | null | undefined, b: number | null | undefined) =>
+    a != null && b != null ? b - a - 1 : null;
+  const n = span(prev.newLine, cur.newLine) ?? span(prev.oldLine, cur.oldLine);
+  return n != null && n > 0 ? `${n} lines ` : "lines ";
 }

@@ -27,6 +27,7 @@ import type {
   ServerEvent,
   UpdateReviewBody,
 } from "../shared/types.ts";
+import { MAX_CONTEXT_ROWS } from "../shared/types.ts";
 // The SPA entry. Bun's bundler turns this import into an HTMLBundle: on-demand
 // from source (dev + lazy-spawn, via the bun-plugin-tailwind in bunfig.toml),
 // and pre-bundled + embedded into the binary by `scripts/compile.ts`. Served
@@ -172,11 +173,6 @@ app.use("/api/*", async (c, next) => {
 // `git log --max-count=-1` (an unbounded full-history dump), `?cursor=-5` becomes
 // `--skip=-5`, and `?contextLines=99999999` forces whole-file context on every
 // hunk. A non-numeric value falls back to `d` (callers pass a default in-range).
-// Upper bound on one expand-context request. Generous enough for "expand the
-// whole gap" on a normal file, small enough that a crafted range can't ask the
-// daemon to highlight and ship an entire novel in one go.
-const MAX_CONTEXT_ROWS = 5000;
-
 const clampNum = (v: string | undefined, d: number, min: number, max: number) => {
   const n = Number(v);
   if (!Number.isFinite(n)) return d;
