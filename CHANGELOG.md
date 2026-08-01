@@ -4,6 +4,26 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-08-01
+
+### Added
+
+- **Side-by-side diffs.** A toolbar toggle switches between one unified column
+  and paired old/new columns, and the choice sticks across reviews. Anchoring,
+  highlighting, and viewed marks work as they do in unified. Phones stay unified.
+- **Expand the context around a change.** The gap between two hunks becomes a
+  control: reveal 20 more lines from either end, or the whole gap. Revealed lines
+  are ordinary code rows you can anchor feedback on, so a note is no longer
+  confined to the three lines around a change. Applies to snapshot diffs
+  immediately, and to diff rounds captured from this version on — older rounds
+  stored only three lines of context, so they show no control.
+
+### Changed
+
+- Diff rounds are **captured with far more context than they render**, which is
+  what makes expanding possible later. Stored review data grows roughly 3× per
+  round; very large files are capped and still expand 25 lines each way.
+
 ## [0.6.0] - 2026-07-27
 
 ### Added
@@ -161,6 +181,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.7.0]: https://github.com/hyperlogue/r3/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hyperlogue/r3/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hyperlogue/r3/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hyperlogue/r3/compare/v0.3.0...v0.4.0
