@@ -9,7 +9,7 @@
 // live view). Parsing/highlighting reuses the unified-diff machinery in git.ts;
 // storage is the `patches` table (db.ts), cascade-deleted with the review.
 
-import type { DiffFileChange, PatchDiff, PatchInfo } from "../shared/types.ts";
+import type { DiffFileChange, DiffLine, PatchDiff, PatchInfo } from "../shared/types.ts";
 import { normalizeWs } from "./anchor.ts";
 import * as db from "./db.ts";
 import { blobSha, parseUnifiedDiff, trimOversizedFiles } from "./git.ts";
@@ -93,11 +93,50 @@ export async function renderPatches(reviewId: string, theme?: string): Promise<P
     // Shiki then tokenizes the same ~3-context rows it always did, so a body
     // several times larger costs one linear text parse and nothing on the hot
     // path. A legacy -U3 round has nothing to drop and passes through untouched.
-    for (const f of files) f.lines = rehunk(f.lines, RENDER_CONTEXT);
+    for (const f of files) f.lines = rehunk(f.lines, RENDER_CONTEXT, { markExpandable: true });
     await highlightPatchFiles(files, theme);
     out.push({ seq: p.seq, label: p.label, summary: p.summary, created_at: p.created_at, files });
   }
   return out;
+}
+
+// Serve a slice of a stored round's held-but-not-rendered context: the rows
+// whose NEW-side line numbers fall in [start,end] for one file. Backs the diff
+// view's expand-context gaps.
+//
+// Only unchanged rows are servable. A range that isn't fully covered by held
+// context returns null (404) rather than a partial fill — the client asked for a
+// gap the round doesn't have, and silently returning less would leave a hole the
+// UI would render as if it were the file. Highlighted from the same per-side
+// pseudo-files the round itself uses, so the revealed rows match their
+// neighbours.
+export async function renderPatchContext(
+  reviewId: string,
+  seq: number,
+  file: string,
+  start: number,
+  end: number,
+  theme?: string,
+): Promise<DiffLine[] | null> {
+  const patch = db.getPatch(reviewId, seq);
+  if (!patch) return null;
+  const f = parseUnifiedDiff(patch.body).find((x) => x.path === file || x.oldPath === file);
+  if (!f) return null;
+  const rows = f.lines.filter(
+    (ln) => ln.type === "context" && ln.newLine != null && ln.newLine >= start && ln.newLine <= end,
+  );
+  if (rows.length !== end - start + 1) return null;
+  // Highlight the slice against the whole new side, so multi-line constructs
+  // colorize with the context they actually have.
+  const lang = langForPath(f.path);
+  const newRows = f.lines.filter((ln) => ln.type !== "hunk" && ln.newLine != null);
+  const content = newRows.map((ln) => ln.text).join("\n");
+  const hl = await highlightToLines(content, lang, await blobSha(content), theme);
+  const indexOfNew = new Map(newRows.map((ln, i) => [ln.newLine, i]));
+  return rows.map((ln) => ({
+    ...ln,
+    html: hl?.[indexOfNew.get(ln.newLine) ?? -1] ?? escapeHtml(ln.text),
+  }));
 }
 
 // Meta + cheap stats for every round (GET …/patches, `r3 diff list`).

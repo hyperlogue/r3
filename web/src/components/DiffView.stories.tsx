@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { type CSSProperties, useState } from "react";
 import { fn } from "storybook/test";
 import { phoneViewport } from "../storyViewport.ts";
-import { multiRound, singleRound, wideRound } from "./_fixtures.ts";
+import { expandableRound, multiRound, singleRound, wideRound } from "./_fixtures.ts";
 import { DiffView, RoundSelect, RoundSummary } from "./DiffView.tsx";
 
 const meta = {
@@ -84,6 +84,28 @@ export const SplitWideLines: Story = {
 // round is shown, so the switcher and the toggle compose without interacting.
 export const SplitMultiRound: Story = {
   args: { rounds: multiRound, layout: "split" },
+};
+
+// Expand-context. The server marks each hunk row with how many unchanged lines
+// it HOLDS but didn't render (`expandable`); the separator then becomes the
+// expander — ⌃/⌄ reveal a step at either end, the label reveals the whole gap,
+// and a gap whose edges meet loses its separator entirely. Revealed rows are
+// ordinary context rows: selectable and gutter-anchorable, which is the point —
+// today you can't leave feedback on a line more than 3 lines from a change.
+// Without `fetchContext` (as in every other story, and the demo) no expander is
+// offered at all, which is exactly how a legacy or piped round behaves.
+export const ExpandableContext: Story = {
+  args: {
+    rounds: expandableRound,
+    fetchContext: async (_file, start, end) =>
+      Array.from({ length: end - start + 1 }, (_, i) => ({
+        type: "context" as const,
+        oldLine: start + i,
+        newLine: start + i,
+        html: `<span>  // revealed line ${start + i}</span>`,
+        text: `  // revealed line ${start + i}`,
+      })),
+  },
 };
 
 // A viewed file collapses to just its header. Viewed is keyed per round

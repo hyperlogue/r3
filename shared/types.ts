@@ -398,6 +398,18 @@ export interface DiffLine {
   // this is the literal @@ header text (not highlighted).
   html: string;
   text: string; // raw text of the line (no leading +/-/space), for quote anchoring
+  // 'hunk' rows only: how many unchanged lines the server actually HOLDS on
+  // either side of this gap and could serve (…/diff-context). `up` is the gap
+  // immediately above this hunk; `down` is non-zero only on a file's LAST hunk,
+  // covering the trailing lines after it — every other downward gap is some
+  // other hunk's `up`, and reporting it twice would double-count one gap.
+  //
+  // Absent or all-zero means "nothing more exists", which is the honest answer
+  // for a legacy round, a `--stdin-diff` round captured at -U3, and the live
+  // getDiff fallback. The client shows no expander at all in that case rather
+  // than a control that fails — so the capture policy stays entirely
+  // server-side and the client needs to know nothing about it.
+  expandable?: { up: number; down: number };
 }
 
 export interface DiffFileChange {
@@ -420,6 +432,14 @@ export interface DiffResult {
 // One rendered diff round of a review (GET /api/reviews/:id/diff).
 export interface PatchDiff extends PatchMeta {
   files: DiffFileChange[];
+}
+
+// One filled gap (GET …/diff-context): the unchanged rows the server holds for
+// the requested NEW-side range. Always fully covers the range — a source that
+// can't is a 404, not a short answer.
+export interface DiffContextResponse {
+  file: string;
+  lines: DiffLine[];
 }
 
 // A diff review's full rendered content: its stored rounds, in seq order. A

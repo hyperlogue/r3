@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { ApiError, api } from "../api.ts";
-import { DiffView, RoundSelect, RoundSummary } from "../components/DiffView.tsx";
+import { DiffView, type FetchContext, RoundSelect, RoundSummary } from "../components/DiffView.tsx";
 import { FeedbackPanel } from "../components/FeedbackPanel.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
@@ -256,6 +256,32 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // split-preferring reader gets split back the moment the viewport is wide again.
   const diffLayoutPref = useDiffLayout();
   const diffLayout = isMobile ? "unified" : diffLayoutPref;
+
+  // Expand-context fetchers, one per rendered mode. Deliberately built
+  // separately rather than switched on a round seq: a files review's derived
+  // snapshot diff is presented as synthetic round 0, which would collide with
+  // the legacy live-render round 0 of a diff review. A null result (the source
+  // can't cover the range) leaves the gap exactly as it was.
+  const fetchRoundContext = useCallback<FetchContext>(
+    async (file, start, end) => {
+      if (effectiveRoundSeq == null) return null;
+      const r = await api
+        .diffContext(reviewId, { seq: effectiveRoundSeq }, file, start, end, syntaxTheme)
+        .catch(() => null);
+      return r?.lines ?? null;
+    },
+    [reviewId, effectiveRoundSeq, syntaxTheme],
+  );
+  const fetchSnapContext = useCallback<FetchContext>(
+    async (file, start, end) => {
+      if (fromSnap == null) return null;
+      const r = await api
+        .diffContext(reviewId, { from: fromSnap, to: toSnap }, file, start, end, syntaxTheme)
+        .catch(() => null);
+      return r?.lines ?? null;
+    },
+    [reviewId, fromSnap, toSnap, syntaxTheme],
+  );
   const { data: snapDiff } = useQuery({
     queryKey: ["snapshot-diff", reviewId, fromSnap, toSnap, syntaxTheme],
     queryFn: () => api.snapshotDiff(reviewId, fromSnap as number, toSnap, syntaxTheme),
@@ -1101,6 +1127,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   activeSeq={effectiveRoundSeq}
                   isViewed={isViewed}
                   layout={diffLayout}
+                  fetchContext={fetchRoundContext}
                   toggle={toggleViewed}
                   onPickLines={onPickLines}
                   onFileFeedback={onFileFeedback}
@@ -1125,6 +1152,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     rounds={snapRounds}
                     activeSeq={SNAPSHOT_DIFF_SEQ}
                     layout={diffLayout}
+                    fetchContext={fetchSnapContext}
                     // No viewed tracking in a files review's derived diff;
                     // omitting isViewed/toggle hides the toggle.
                     onPickLines={onPickLines}

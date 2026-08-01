@@ -94,6 +94,8 @@ server/          Hono daemon + bun:sqlite global store
   patches.ts     stored diff rounds: parse/validate/render + reply-pin checks
   snapshots.ts   files-review content snapshots: capture + derived-diff render
   textdiff.ts    in-process line differ (LCS DP + prefix/suffix trim) -> DiffFileChange
+                 + rehunk(): regroup rows at N context lines, marking each hunk
+                 with the held-but-hidden `expandable` counts
   anchor.ts      quote relocation — keep feedback from orphaning
   dirty.ts       lazy re-anchor gate: only re-anchor a review whose files changed
   highlight.ts   Shiki (code) + markdown-it (.md), content-sha cached
@@ -126,6 +128,8 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  quote, region wash) + markdown click refinement
   src/pane.ts    content-pane helpers: retrying row jump, composer focus, crossfade
   src/virtual.tsx per-file row virtualization inside the one scroll pane
+  src/expand.ts  expand-context: a diff's collapsed gaps -> revealed rows, merged
+                 back into ONE row list everything else derives from
   src/gutter.ts  line-number pick/drag anchoring    resolveFeedback.ts  place a
                  feedback into a snapshot/round diff by quote
   src/mdhighlight.ts quote ranges in rendered markdown (CSS Custom Highlight)
@@ -249,7 +253,12 @@ once, at capture time, never at render).
   (`--working` also synthesizes adds for untracked files). Follow-up work is
   appended as round 2, 3, … (`git diff … | r3 diff add <id>`); rounds are immutable
   and independent (line numbers needn't agree across rounds), the round is the unit,
-  and `source` is provenance only. No watching, no re-anchoring, no staleness — the
+  and `source` is provenance only. Capture is **wide, render is narrow**: because
+  git is never consulted again, context not taken at capture can never be
+  recovered, so a round is stored at `-U2000` (per-file trimmed to `-U25` above
+  64 KB) and re-hunked to 3 lines at render — which is what makes **expand
+  context** possible at all, and why an older or `--stdin-diff` round simply has
+  nothing to expand. No watching, no re-anchoring, no staleness — the
   Gerrit-patchset shape, minus everything Gerrit needs for server-side merging.
   (`server/patches.ts`)
 - A **files review** can also carry **content snapshots** — frozen full-text
@@ -312,6 +321,35 @@ Across snapshot/diff views the client **locates each feedback by its quote** amo
 the diff rows (unchanged/added text lands on the new side, deleted on the old),
 keeping feedback **singular** (one item, canonically on the live file) rather than
 forking a copy per view.
+
+## Diff rendering
+
+Two orthogonal display choices, both **pure client render modes** — the payload,
+the anchors, and every callback shape are identical either way:
+
+- **Layout** — unified (one interleaved column) or **side-by-side** (paired
+  old/new columns). One global persisted preference (`r3-diff-layout`, like font
+  size), toggled from `PaneToolbar`; never review state, never sent to the server.
+  Split pairs rows positionally (context with itself; a del run zipped against the
+  add run following it, shorter side padded with inert filler) — deliberately not a
+  re-diff, which could disagree with the line numbers anchors are keyed on. Each
+  half is its own horizontal scroll container; they stay vertically locked because
+  `VirtualLines` sizes every row at a fixed height, so two instances over one row
+  count mount identical windows. The phone tier **forces unified** without writing
+  the preference (`mobile-tier` skill).
+- **Expand context** — a hunk separator whose `expandable` counts are non-zero
+  becomes an expander (`web/src/expand.ts`, `GET …/diff-context`). Availability
+  rides the hunk row rather than a stored column, so the client needs to know
+  nothing about capture policy and an unexpandable round reports `0` and shows the
+  plain `@@` bar it always did. Revealed rows are **ordinary context rows** —
+  selectable and anchorable, which is the point: without them you can't leave
+  feedback on a line more than 3 lines from a change. They merge into ONE row list
+  that every derived structure reads (text maps, index maps, split pairing,
+  virtualizer count); deriving any of those from the unmerged payload instead would
+  let a gutter drag build a quote with lines silently missing.
+
+Anchoring in an expanded region needs no new server logic: `deriveQuote` and
+`validateReplyPin` parse the full stored body, not the rendered view.
 
 ## The review loop (the agent interface)
 

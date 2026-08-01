@@ -31,6 +31,12 @@ Mobile must not add complexity to desktop code.
 (both over `useMediaQuery`), `MobileReviewChrome` (bottom bar + the 3-state
 feedback sheet), and `AddFeedbackPill` (the touch selection-anchor pill).
 
+**Side-by-side diffs never render below `md`.** Two code columns don't fit a phone
+pane, so `ReviewView` forces `layout="unified"` and `PaneToolbar` hides the toggle
+(`max-md:hidden`, an inert class — desktop components still don't import from
+`mobile/`). The override deliberately does **not** write the persisted preference,
+so a split-preferring reader gets split back on a wide viewport.
+
 ## Layout
 
 The sidebar hides. The pane toolbar wraps into stacked full-width rows —

@@ -9,14 +9,20 @@
 // these functions are therefore feedback-agnostic.
 
 import { statSync } from "node:fs";
-import type { DiffFileChange, RenderedFile, Review, SnapshotMeta } from "../shared/types.ts";
+import type {
+  DiffFileChange,
+  DiffLine,
+  RenderedFile,
+  Review,
+  SnapshotMeta,
+} from "../shared/types.ts";
 import * as db from "./db.ts";
 import { blobSha, readContentAt } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
 import { renderContent } from "./render.ts";
 import type { Repo } from "./repo.ts";
 import { isScratchReview, scratchFiles, scratchSafePath } from "./scratch.ts";
-import { diffFile } from "./textdiff.ts";
+import { diffFile, FULL_CONTEXT } from "./textdiff.ts";
 
 // Per-file cap on captured content — snapshots live as TEXT rows in the global
 // sqlite, so an accidentally-huge file shouldn't bloat it. Files review content is
@@ -205,6 +211,37 @@ export async function renderSnapshotDiff(
     out.push(f);
   }
   return out;
+}
+
+// The expand-context counterpart of renderSnapshotDiff: the unchanged rows whose
+// NEW-side line numbers fall in [start,end] for one file. Unlike a stored round
+// (which can only serve what was captured), the daemon holds both full contents
+// here, so any in-range gap is servable — which is why files reviews get
+// expand-context with no capture policy behind it at all.
+export async function renderSnapshotContext(
+  reviewId: string,
+  from: number,
+  to: number | "WORKING",
+  path: string,
+  start: number,
+  end: number,
+  repo: Repo | null,
+  review: Review,
+  theme?: string,
+): Promise<DiffLine[] | null> {
+  const oldSide = await fileAt(reviewId, from, path, repo, review);
+  const newSide = await fileAt(reviewId, to, path, repo, review);
+  if (oldSide.skipped || newSide.skipped) return null;
+  // FULL_CONTEXT: a normal render drops exactly the rows being asked for.
+  const f = diffFile(path, oldSide.content, newSide.content, FULL_CONTEXT);
+  if (!f) return null;
+  await highlightDiff(f, oldSide.content, newSide.content, theme);
+  const rows = f.lines.filter(
+    (ln) => ln.type === "context" && ln.newLine != null && ln.newLine >= start && ln.newLine <= end,
+  );
+  // Partial coverage means the caller asked past what this diff shows — refuse
+  // rather than fill a hole with fewer rows than requested.
+  return rows.length === end - start + 1 ? rows : null;
 }
 
 // A files review's file rendered at a snapshot ref (full-file view for the

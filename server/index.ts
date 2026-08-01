@@ -20,6 +20,7 @@ import type {
   CreateAuthTokenResponse,
   CreateReviewBody,
   CreateSnapshotBody,
+  DiffLine,
   LoginBody,
   ReviewFilesBody,
   ReviewStatus,
@@ -51,13 +52,13 @@ import {
 import * as db from "./db.ts";
 import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDiff } from "./git.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
-import { fitPatchToLimit, patchInfos, renderPatches } from "./patches.ts";
+import { fitPatchToLimit, patchInfos, renderPatchContext, renderPatches } from "./patches.ts";
 import { buildPrompt, buildUnsentPrompt } from "./prompt.ts";
 import { renderFile } from "./render.ts";
 import { commonDirOf, type Repo, resolveRepoById, resolveRepoFromHeader } from "./repo.ts";
 import * as reviews from "./reviews.ts";
 import { migrateLegacyDocFiles, scratchReviewDir } from "./scratch.ts";
-import { renderSnapshotBlob, renderSnapshotDiff } from "./snapshots.ts";
+import { renderSnapshotBlob, renderSnapshotContext, renderSnapshotDiff } from "./snapshots.ts";
 import { broadcast, subscribe } from "./sse.ts";
 import { startWatcher } from "./watcher.ts";
 import { addWatcher, removeWatcher, watchersOf } from "./watchers.ts";
@@ -171,6 +172,11 @@ app.use("/api/*", async (c, next) => {
 // `git log --max-count=-1` (an unbounded full-history dump), `?cursor=-5` becomes
 // `--skip=-5`, and `?contextLines=99999999` forces whole-file context on every
 // hunk. A non-numeric value falls back to `d` (callers pass a default in-range).
+// Upper bound on one expand-context request. Generous enough for "expand the
+// whole gap" on a normal file, small enough that a crafted range can't ask the
+// daemon to highlight and ship an entire novel in one go.
+const MAX_CONTEXT_ROWS = 5000;
+
 const clampNum = (v: string | undefined, d: number, min: number, max: number) => {
   const n = Number(v);
   if (!Number.isFinite(n)) return d;
@@ -600,6 +606,50 @@ app.get("/api/reviews/:id/diff", async (c) => {
       { seq: 0, label: null, summary: null, created_at: review.created_at, files: live.files },
     ],
   });
+});
+
+// Expand-context: the unchanged rows a diff HOLDS but doesn't render, so the
+// view can fill a collapsed gap. One route, two sources, selected by which
+// params are present — `seq` for a diff review's stored round, `from`/`to` for a
+// files review's derived snapshot diff. Deliberately NOT keyed on a seq value:
+// the snapshot diff is presented to the client as synthetic round 0, which would
+// collide with the legacy live-render round 0.
+//
+// [start,end] are NEW-side line numbers. A range the source can't fully cover is
+// a 404, never a partial fill — a short answer would leave a hole the view would
+// render as if it were the file.
+app.get("/api/reviews/:id/diff-context", async (c) => {
+  const id = c.req.param("id");
+  const review = db.getReview(id);
+  if (!review) return c.text("not found", 404);
+  const file = c.req.query("file");
+  if (!file) return c.text("missing file", 400);
+  const start = Number(c.req.query("start"));
+  const end = Number(c.req.query("end"));
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start)
+    return c.text("bad range", 400);
+  // Bound the slice so one request can't ask the daemon to highlight a novel.
+  if (end - start + 1 > MAX_CONTEXT_ROWS) return c.text("range too large", 400);
+  const theme = c.req.query("theme") || undefined;
+
+  const seqRaw = c.req.query("seq");
+  let lines: DiffLine[] | null = null;
+  if (seqRaw != null) {
+    if (review.kind !== "diff") return c.text("not found", 404);
+    const seq = Number(seqRaw);
+    if (!Number.isInteger(seq)) return c.text("bad seq", 400);
+    lines = await renderPatchContext(id, seq, file, start, end, theme);
+  } else {
+    if (review.kind !== "files") return c.text("not found", 404);
+    const from = Number(c.req.query("from"));
+    if (!Number.isInteger(from) || !db.hasSnapshot(id, from)) return c.text("bad from", 400);
+    const to = parseSnapshotTo(id, c.req.query("to"));
+    if (to === null) return c.text("bad to", 400);
+    const repo = await reviews.repoForReview(id);
+    lines = await renderSnapshotContext(id, from, to, file, start, end, repo, review, theme);
+  }
+  if (!lines) return c.text("context unavailable", 404);
+  return jsonCached(c, { file, lines });
 });
 
 // Round metas + stats (`r3 diff list`).

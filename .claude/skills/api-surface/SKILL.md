@@ -35,7 +35,18 @@ one rendered file.
   piped diff as round 1.
 - `GET /api/reviews/:id` — review + feedback[] (with replies[]) + round and
   snapshot metas.
-- `GET …/diff` — a diff review's rendered rounds.
+- `GET …/diff` — a diff review's rendered rounds. Rounds are stored wide and
+  rendered at 3 context lines; each hunk row carries `expandable {up,down}` saying
+  how many unchanged lines the server still HOLDS (`up` = the gap above that hunk,
+  `down` only on the last hunk = the trailing lines). All-zero/absent = nothing
+  more exists, and the client shows no expander.
+- `GET …/diff-context?file=&start=&end=&(seq= | from=&to=)[&theme=]` →
+  `{ file, lines }` — fill one collapsed gap. `[start,end]` are **NEW-side** line
+  numbers, capped at 5000 rows. `seq` selects a diff review's stored round;
+  `from`/`to` a files review's snapshot diff — branch on **which params are
+  present, never on a seq value**, since the snapshot diff is presented as
+  synthetic round 0 and would collide with the legacy live-render round 0. A range
+  the source can't fully cover is a **404, never a partial fill**.
 - `GET/POST/DELETE …/patches[/:seq]` — list / append / drop a round.
 - `POST …/files` — membership `{ add?, remove? }`.
 - `GET/POST/DELETE …/snapshots[/:seq]`, `…/snapshot-diff`, `…/snapshot-blob` —

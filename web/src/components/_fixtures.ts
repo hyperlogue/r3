@@ -129,6 +129,46 @@ export const multiRound: PatchDiff[] = [
   },
 ];
 
+// A round whose hunk rows advertise held-but-unrendered context, as a wide
+// capture does: `up` is the gap above each hunk, and `down` rides the LAST hunk
+// only, covering the file's trailing lines (every other downward gap is the next
+// hunk's `up`, so reporting both would double-count one gap).
+export const expandableRound: PatchDiff[] = [
+  {
+    seq: 1,
+    label: "wide capture",
+    summary: null,
+    created_at: FIX_ISO,
+    files: [
+      {
+        oldPath: "server/db.ts",
+        newPath: "server/db.ts",
+        path: "server/db.ts",
+        status: "modified",
+        binary: false,
+        additions: 1,
+        deletions: 1,
+        lines: [
+          {
+            ...dl("hunk", null, null, "@@ -40,5 +40,5 @@ export function open(path: string) {"),
+            expandable: { up: 39, down: 0 },
+          },
+          dl("context", 40, 40, '  db.exec("PRAGMA journal_mode = WAL;");'),
+          dl("del", 41, null, '  db.exec("PRAGMA synchronous = FULL;");'),
+          dl("add", null, 41, '  db.exec("PRAGMA synchronous = NORMAL;");'),
+          dl("context", 42, 42, "  return db;"),
+          {
+            ...dl("hunk", null, null, "@@ -80,3 +80,3 @@ export function close() {"),
+            expandable: { up: 37, down: 64 },
+          },
+          dl("context", 80, 80, "export function close(db: Database) {"),
+          dl("context", 81, 81, "  db.close();"),
+        ],
+      },
+    ],
+  },
+];
+
 // A round with a line far wider than the panel — exercises the single
 // horizontal scrollbar per file (one scrollbar for the whole diff, not one per
 // line). Short rows and their add/del backgrounds still span the full scroll

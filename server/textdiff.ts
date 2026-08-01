@@ -11,6 +11,11 @@ import type { DiffFileChange, DiffLine } from "../shared/types.ts";
 
 const DEFAULT_CONTEXT = 3;
 
+// "Drop nothing": every unchanged line is kept, so the result is the file's full
+// row list grouped into one hunk per contiguous run. What the expand-context
+// slicer diffs against — it needs the rows a normal render throws away.
+export const FULL_CONTEXT = Number.MAX_SAFE_INTEGER;
+
 // Above this old×new product the exact LCS is skipped for a coarse
 // "delete-all-then-add-all" diff — a backstop against a pathological pair blowing
 // out the O(n·m) DP. Real design docs / code files sit far below it, and the
@@ -153,7 +158,15 @@ function fileAdjacent(a: DiffLine, b: DiffLine): boolean {
 // headers would otherwise throw away on every request for no gain. The
 // hunk-rows precondition matters: `diffFile` passes a header-less row list and
 // always needs headers emitted, however little gets dropped.
-export function rehunk(lines: DiffLine[], context: number): DiffLine[] {
+export function rehunk(
+  lines: DiffLine[],
+  context: number,
+  // Tag each emitted hunk row with how many rows the caller still HOLDS around
+  // it (see DiffLine.expandable). Only meaningful when `lines` is the full body:
+  // it reports what this row list contains, which is exactly what a gap-fill
+  // request can serve back.
+  opts: { markExpandable?: boolean } = {},
+): DiffLine[] {
   const rows = lines.filter((ln) => ln.type !== "hunk");
   if (rows.length === 0) return lines;
   const hadHeaders = rows.length !== lines.length;
@@ -171,8 +184,11 @@ export function rehunk(lines: DiffLine[], context: number): DiffLine[] {
 
   // Keep every change, plus any context row within `context` of one. Index
   // distance is valid here because it's measured inside a contiguous run.
-  const keep = rows.map((r) => r.type !== "context");
-  for (const [lo, hi] of runs) {
+  // FULL_CONTEXT short-circuits: nothing can be dropped, so skip the scan
+  // entirely rather than letting each row search the whole run for a change.
+  const keepAll = context >= rows.length;
+  const keep = rows.map((r) => keepAll || r.type !== "context");
+  for (const [lo, hi] of keepAll ? [] : runs) {
     for (let idx = lo; idx < hi; idx++) {
       if (rows[idx].type !== "context") continue;
       let near = false;
@@ -196,7 +212,11 @@ export function rehunk(lines: DiffLine[], context: number): DiffLine[] {
   if (hadHeaders && keep.every(Boolean)) return lines;
 
   const out: DiffLine[] = [];
-  for (const [lo, hi] of runs) {
+  // Emitted hunks in order, as [firstRowIdx, lastRowIdx] into `rows`, so the
+  // gap before each one (and after the last) can be measured below.
+  const emitted: { header: DiffLine; from: number; to: number; run: number }[] = [];
+  for (let r = 0; r < runs.length; r++) {
+    const [lo, hi] = runs[r];
     let h = lo;
     while (h < hi) {
       if (!keep[h]) {
@@ -205,8 +225,27 @@ export function rehunk(lines: DiffLine[], context: number): DiffLine[] {
       }
       let end = h;
       while (end < hi && keep[end]) end++;
-      out.push(...hunkFrom(rows.slice(h, end)));
+      const hunk = hunkFrom(rows.slice(h, end));
+      emitted.push({ header: hunk[0], from: h, to: end - 1, run: r });
+      out.push(...hunk);
       h = end;
+    }
+  }
+
+  if (opts.markExpandable) {
+    for (let i = 0; i < emitted.length; i++) {
+      const cur = emitted[i];
+      const prev = emitted[i - 1];
+      const [runLo, runHi] = runs[cur.run];
+      // Held rows are bounded by the CONTIGUOUS RUN, not the array: rows in a
+      // different run sit across a gap the patch never captured, so they can't
+      // be offered. Within a run everything between two hunks is held.
+      const lowerBound = prev && prev.run === cur.run ? prev.to + 1 : runLo;
+      const up = cur.from - lowerBound;
+      // Only the file's last hunk reports a downward gap — every other downward
+      // gap is the next hunk's `up`, and counting both would double-report it.
+      const down = i === emitted.length - 1 ? runHi - 1 - cur.to : 0;
+      if (up > 0 || down > 0) cur.header.expandable = { up, down };
     }
   }
   return out;
@@ -269,7 +308,10 @@ export function diffFile(
       all.push(row("add", null, op.newIdx + 1, newLines[op.newIdx]));
     }
   }
-  const lines = rehunk(all, context);
+  // `all` is the complete row list, so the held-context counts are always
+  // accurate here — a snapshot diff can expand from day one, with no capture
+  // policy involved: the daemon owns both full contents.
+  const lines = rehunk(all, context, { markExpandable: true });
 
   const status: DiffFileChange["status"] =
     oldContent == null ? "added" : newContent == null ? "deleted" : "modified";

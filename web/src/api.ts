@@ -13,6 +13,7 @@ import type {
   CreateAuthTokenResponse,
   CreateFeedbackBody,
   CreateReviewBody,
+  DiffContextResponse,
   DiffResult,
   Feedback,
   FeedbackStatus,
@@ -131,6 +132,22 @@ export const api = {
   // review with no stored rounds renders live from its refs as seq 0).
   reviewDiff: (id: string, theme?: string) =>
     req<ReviewDiffResponse>("GET", `/api/reviews/${id}/diff${qs({ theme })}`),
+  // Expand-context: the unchanged rows a diff holds but doesn't render, for one
+  // collapsed gap. `seq` names a diff review's stored round; `from`/`to` name a
+  // files review's snapshot diff. [start,end] are NEW-side line numbers, and a
+  // range the source can't fully cover 404s rather than filling partially.
+  diffContext: (
+    id: string,
+    where: { seq: number } | { from: number; to: SnapshotRef },
+    file: string,
+    start: number,
+    end: number,
+    theme?: string,
+  ) =>
+    req<DiffContextResponse>(
+      "GET",
+      `/api/reviews/${id}/diff-context${qs({ ...where, file, start, end, theme })}`,
+    ),
   // `review` ties the request to a review's repo/worktree so its content resolves
   // against the right project — the daemon is multi-repo.
   blob: (path: string, ref = "WORKING", theme?: string, review?: string) =>

@@ -1,4 +1,13 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  EXPAND_STEP,
+  type Gap,
+  gapsOf,
+  type MergedLines,
+  mergeRevealed,
+  type RevealMap,
+  rangeFor,
+} from "../expand.ts";
 import {
   type EnterHandler,
   GUTTER_SELECTED,
@@ -49,6 +58,16 @@ const GUTTER_BG: Record<string, string> = {
 };
 
 const SIGN: Record<string, string> = { add: "+", del: "−", context: " ", hunk: "" };
+
+// Fetch the unchanged rows for one gap, [start,end] as NEW-side line numbers.
+// Resolves to null when the source can't cover the range (the caller then leaves
+// the gap as it was), so a failed expand degrades to "nothing happened".
+export type FetchContext = (file: string, start: number, end: number) => Promise<DiffLine[] | null>;
+
+// A file with no expandable gaps: the merge is the identity, and the empty map
+// means every hunk row renders as the plain `@@` separator it always did.
+const NO_GAPS = new Map<DiffLine, { gap: Gap; hidden: number }>();
+const EMPTY_MERGE = (lines: DiffLine[]): MergedLines => ({ lines, gapFor: NO_GAPS });
 
 // The row grid shared by the hunk row and the normal row. --gutter-w is the
 // single source of the gutter column width: the two grid columns and
@@ -114,6 +133,56 @@ function GutterCell({
   );
 }
 
+// The contents of a hunk separator. Without a gap it's the plain `@@` text this
+// row has always shown; with one it becomes the expander — chevrons revealing a
+// step at either end, and the label revealing the whole gap. The arrow points at
+// where the new lines will appear: ⌃ adds them above the bar, ⌄ below it.
+//
+// Must stay ONE line tall: the virtualizer sizes every row identically (a fixed
+// estimate, no measureElement), so a taller bar would drift scroll-to-line.
+function HunkBar({
+  ln,
+  entry,
+  onExpand,
+}: {
+  ln: DiffLine;
+  entry?: { gap: Gap; hidden: number };
+  onExpand?: (gap: Gap, edge: "top" | "bottom" | "all") => void;
+}) {
+  if (!entry || !onExpand) return <span className="truncate">{ln.text}</span>;
+  const { gap, hidden } = entry;
+  const btn =
+    "px-1 leading-none rounded hover:bg-neutral-500/20 hover:text-neutral-700 dark:hover:text-neutral-200";
+  return (
+    <span className="flex items-center gap-1">
+      <button
+        type="button"
+        title={`Show ${EXPAND_STEP} lines above`}
+        className={btn}
+        onClick={() => onExpand(gap, "top")}
+      >
+        ⌃
+      </button>
+      <button
+        type="button"
+        title={`Show ${EXPAND_STEP} lines below`}
+        className={btn}
+        onClick={() => onExpand(gap, "bottom")}
+      >
+        ⌄
+      </button>
+      <button
+        type="button"
+        title="Show all unchanged lines here"
+        className="truncate rounded px-1 leading-none hover:bg-neutral-500/20 hover:text-neutral-700 dark:hover:text-neutral-200"
+        onClick={() => onExpand(gap, "all")}
+      >
+        {hidden} unchanged {hidden === 1 ? "line" : "lines"}
+      </button>
+    </span>
+  );
+}
+
 // Memoized on primitive/stable props (the line object is stable from the diff
 // payload, the handlers are stable from useGutterDrag, and the selected flags
 // are booleans), so a drag re-renders only the rows whose selection flips.
@@ -121,12 +190,16 @@ const Row = memo(function Row({
   ln,
   oldSel,
   newSel,
+  gapEntry,
+  onExpand,
   onDown,
   onEnter,
 }: {
   ln: DiffLine;
   oldSel: boolean;
   newSel: boolean;
+  gapEntry?: { gap: Gap; hidden: number };
+  onExpand?: (gap: Gap, edge: "top" | "bottom" | "all") => void;
   onDown: GutterHandler;
   onEnter: EnterHandler;
 }) {
@@ -138,7 +211,9 @@ const Row = memo(function Row({
       <div className={cn(ROW_GRID, ROW_BG.hunk)}>
         {/* No vertical padding: virtualization sizes every row at one line height
             (a fixed estimate), so a taller hunk row would drift scroll-to-line. */}
-        <div className="col-span-3 truncate px-3 select-none">{ln.text}</div>
+        <div className="col-span-3 truncate px-3 select-none">
+          <HunkBar ln={ln} entry={gapEntry} onExpand={onExpand} />
+        </div>
       </div>
     );
   }
@@ -227,12 +302,16 @@ const SplitHalfRow = memo(function SplitHalfRow({
   row,
   side,
   selected,
+  gapEntry,
+  onExpand,
   onDown,
   onEnter,
 }: {
   row: SplitRow;
   side: DiffSide;
   selected: boolean;
+  gapEntry?: { gap: Gap; hidden: number };
+  onExpand?: (gap: Gap, edge: "top" | "bottom" | "all") => void;
   onDown: GutterHandler;
   onEnter: EnterHandler;
 }) {
@@ -248,7 +327,8 @@ const SplitHalfRow = memo(function SplitHalfRow({
     return (
       <div className={cn(SPLIT_ROW_GRID, ROW_BG.hunk)}>
         <div className="col-span-2 truncate px-3 select-none">
-          {side === "old" ? row.ln.text : " "}
+          {/* Controls live in the left half only — never two expanders per gap. */}
+          {side === "old" ? <HunkBar ln={row.ln} entry={gapEntry} onExpand={onExpand} /> : " "}
         </div>
       </div>
     );
@@ -305,6 +385,7 @@ const FileBlock = memo(function FileBlock({
   patchSeq,
   viewed,
   layout,
+  fetchContext,
   toggle,
   onPickLines,
   onFileFeedback,
@@ -314,6 +395,9 @@ const FileBlock = memo(function FileBlock({
   patchSeq: number;
   viewed: boolean;
   layout: DiffLayout;
+  // Fetch the unchanged rows for one gap. Absent ⇒ no expanders, whatever the
+  // payload claims (the demo, and any caller with no route to ask).
+  fetchContext?: FetchContext;
   // Stable across renders; the per-round key is built here (not by the parent) so
   // the incoming props stay memo-stable. Absent ⇒ viewed isn't tracked.
   toggle?: (key: string) => void;
@@ -329,15 +413,61 @@ const FileBlock = memo(function FileBlock({
   onFileFeedback?: (file: string, patchSeq: number) => void;
   foldSignal?: FoldSignal | null;
 }) {
+  // Expand-context. `reveal` holds the rows fetched per gap; `merged` splices
+  // them back into one row list, which EVERYTHING below derives from — the text
+  // maps, the index maps, the split pairing, the virtualizer's count. Deriving
+  // any of them from `f.lines` instead would let a gutter drag across revealed
+  // rows build a quote with lines silently missing (see expand.ts).
+  const [reveal, setReveal] = useState<RevealMap>({});
+  const gaps = useMemo(() => (fetchContext ? gapsOf(f.lines) : []), [f.lines, fetchContext]);
+  const { lines: effectiveLines, gapFor } = useMemo(
+    () => (gaps.length ? mergeRevealed(f.lines, gaps, reveal) : EMPTY_MERGE(f.lines)),
+    [f.lines, gaps, reveal],
+  );
+  // A new payload (a round switch, a refetch) invalidates what was revealed.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: f.lines identity IS the reset signal
+  useEffect(() => setReveal({}), [f.lines]);
+
+  // One in-flight fetch per gap: a second click before the first resolves would
+  // compute its range against a stale `reveal` and append the same rows twice.
+  const inFlight = useRef(new Set<number>());
+  const expand = useCallback(
+    async (gap: Gap, edge: "top" | "bottom" | "all") => {
+      if (!fetchContext || inFlight.current.has(gap.key)) return;
+      const range = rangeFor(gap, reveal[gap.key], edge);
+      if (!range) return;
+      inFlight.current.add(gap.key);
+      let rows: DiffLine[] | null = null;
+      try {
+        rows = await fetchContext(f.path, range.start, range.end);
+      } finally {
+        inFlight.current.delete(gap.key);
+      }
+      if (!rows?.length) return;
+      setReveal((prev) => {
+        const cur = prev[gap.key] ?? { top: [], bottom: [] };
+        // "all" closes the gap in one go, so it lands wholly on the top edge.
+        return {
+          ...prev,
+          [gap.key]:
+            edge === "bottom"
+              ? { top: cur.top, bottom: [...rows, ...cur.bottom] }
+              : { top: [...cur.top, ...rows], bottom: cur.bottom },
+        };
+      });
+    },
+    [fetchContext, f.path, reveal],
+  );
+
   // Per-side line text (so a gutter range yields the exact quote — the anchor of
   // record) and per-side line→row-index maps (so scroll-to-line can reach a
-  // virtualized-away pinned row). Rebuilt only when the diff payload changes.
+  // virtualized-away pinned row). Rebuilt only when the merged rows change.
   const { oldText, newText, oldIdx, newIdx } = useMemo(() => {
     const oldText = new Map<number, string>();
     const newText = new Map<number, string>();
     const oldIdx = new Map<number, number>();
     const newIdx = new Map<number, number>();
-    f.lines.forEach((ln, i) => {
+    effectiveLines.forEach((ln, i) => {
       if (ln.type === "hunk") return;
       if (ln.oldLine != null) {
         oldText.set(ln.oldLine, ln.text);
@@ -349,7 +479,7 @@ const FileBlock = memo(function FileBlock({
       }
     });
     return { oldText, newText, oldIdx, newIdx };
-  }, [f.lines]);
+  }, [effectiveLines]);
 
   // Split rows + their own per-side line→row-index maps. Both halves render the
   // same paired list, so one index map serves both — and scroll-to-line resolves
@@ -357,7 +487,7 @@ const FileBlock = memo(function FileBlock({
   const { splitRows, splitOldIdx, splitNewIdx } = useMemo(() => {
     if (layout !== "split")
       return { splitRows: [] as SplitRow[], splitOldIdx: null, splitNewIdx: null };
-    const splitRows = pairRows(f.lines);
+    const splitRows = pairRows(effectiveLines);
     const splitOldIdx = new Map<number, number>();
     const splitNewIdx = new Map<number, number>();
     splitRows.forEach((row, i) => {
@@ -366,7 +496,7 @@ const FileBlock = memo(function FileBlock({
       if (row.new?.newLine != null) splitNewIdx.set(row.new.newLine, i);
     });
     return { splitRows, splitOldIdx, splitNewIdx };
-  }, [f.lines, layout]);
+  }, [effectiveLines, layout]);
 
   const g = useGutterDrag({
     textForLine: (side, n) => (side === "old" ? oldText : newText).get(n) ?? null,
@@ -466,6 +596,8 @@ const FileBlock = memo(function FileBlock({
                     <SplitHalfRow
                       row={row}
                       side={side}
+                      gapEntry={row.kind === "hunk" ? gapFor.get(row.ln) : undefined}
+                      onExpand={expand}
                       selected={inSelection(
                         sel,
                         side,
@@ -490,17 +622,19 @@ const FileBlock = memo(function FileBlock({
               row index via resolveIndex. */}
           <VirtualLines
             className="min-w-max"
-            count={f.lines.length}
+            count={effectiveLines.length}
             itemKey={(i) => i}
             scrollKey={fileScrollKey(patchSeq, f.path)}
             resolveIndex={resolveIndex}
             renderRow={(i) => {
-              const ln = f.lines[i];
+              const ln = effectiveLines[i];
               return (
                 <Row
                   ln={ln}
                   oldSel={inSelection(sel, "old", ln.oldLine)}
                   newSel={inSelection(sel, "new", ln.newLine)}
+                  gapEntry={gapFor.get(ln)}
+                  onExpand={expand}
                   onDown={g.onDown}
                   onEnter={g.onEnter}
                 />
@@ -722,6 +856,7 @@ export function DiffView({
   activeSeq,
   isViewed,
   layout = "unified",
+  fetchContext,
   toggle,
   onPickLines,
   onFileFeedback,
@@ -733,6 +868,9 @@ export function DiffView({
   // callback shape are identical either way. Defaults to unified so stories and
   // the demo need no wiring.
   layout?: DiffLayout;
+  // Fetch a gap's unchanged rows. Omitted ⇒ no expanders anywhere in this view —
+  // which is what a caller with no route to ask (the demo, stories) wants.
+  fetchContext?: FetchContext;
   // Which round to show. Defaults to the latest round when unset/unmatched.
   activeSeq?: number | null;
   // Viewed-state as content-identity predicates. Keyed per
@@ -771,6 +909,7 @@ export function DiffView({
           patchSeq={round.seq}
           viewed={isViewed?.(diffViewedKey(round.seq, f.path)) ?? false}
           layout={layout}
+          fetchContext={fetchContext}
           toggle={toggle}
           onPickLines={onPickLines}
           onFileFeedback={onFileFeedback}
