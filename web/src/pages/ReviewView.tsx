@@ -16,7 +16,7 @@ import type { FoldSignal } from "../components/FileCard.tsx";
 import { FileView } from "../components/FileView.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos, quoteBlock } from "../components/Message.tsx";
-import { PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
+import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ReviewHeader } from "../components/ReviewHeader.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
@@ -49,7 +49,7 @@ import { focusComposer, retryScrollToRow, usePaneCrossfade } from "../pane.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
-import { useSyntaxTheme } from "../settings.ts";
+import { useDiffLayout, useSyntaxTheme } from "../settings.ts";
 import type {
   DiffSide,
   FeedbackWithReplies,
@@ -250,6 +250,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     if (toSnap !== "WORKING" && !snapshots.some((s) => s.seq === toSnap)) setToSnap("WORKING");
   }, [snapKey]);
   const diffMode = detail?.kind === "files" && fromSnap != null;
+  // The phone tier forces unified — two code columns don't fit a phone pane, and
+  // the mobile rule is isolate-don't-interleave. Deliberately overridden here, at
+  // the one sanctioned mobile mount point, WITHOUT writing the preference: a
+  // split-preferring reader gets split back the moment the viewport is wide again.
+  const diffLayoutPref = useDiffLayout();
+  const diffLayout = isMobile ? "unified" : diffLayoutPref;
   const { data: snapDiff } = useQuery({
     queryKey: ["snapshot-diff", reviewId, fromSnap, toSnap, syntaxTheme],
     queryFn: () => api.snapshotDiff(reviewId, fromSnap as number, toSnap, syntaxTheme),
@@ -980,6 +986,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         }
         onJump={jumpFile}
         onFoldAll={foldAll}
+        // Only where a diff is actually rendered: a files review's plain view has
+        // no old/new sides to lay out.
+        layoutToggle={isDiff || diffMode ? <DiffLayoutToggle /> : undefined}
         summary={isMobile ? roundSummaryEl : undefined}
         right={
           isDiff && rounds.length > 1 ? (
@@ -1091,6 +1100,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   rounds={rounds}
                   activeSeq={effectiveRoundSeq}
                   isViewed={isViewed}
+                  layout={diffLayout}
                   toggle={toggleViewed}
                   onPickLines={onPickLines}
                   onFileFeedback={onFileFeedback}
@@ -1114,6 +1124,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   <DiffView
                     rounds={snapRounds}
                     activeSeq={SNAPSHOT_DIFF_SEQ}
+                    layout={diffLayout}
                     // No viewed tracking in a files review's derived diff;
                     // omitting isViewed/toggle hides the toggle.
                     onPickLines={onPickLines}

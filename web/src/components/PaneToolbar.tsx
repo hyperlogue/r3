@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { setDiffLayout, useDiffLayout } from "../settings.ts";
+import { cn } from "../ui.tsx";
 
 // Lucide-style stroked glyphs for the pane toolbar (24 viewBox, like
 // FoldChevrons in ui.tsx). `d` takes several paths for the two-chevron pairs.
@@ -26,6 +28,32 @@ function ToolbarIcon({ d }: { d: string[] }) {
 export const TOOLBAR_BTN =
   "flex rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
 
+// The unified/side-by-side switch. Reads and writes the global display
+// preference itself (like the settings popup's controls) rather than taking it
+// as a prop — layout is a reading habit, not review state, so there's nothing
+// for an owner to thread through. Mounted via PaneToolbar's `layoutToggle` slot
+// only where a diff is on screen.
+export function DiffLayoutToggle() {
+  const layout = useDiffLayout();
+  const split = layout === "split";
+  return (
+    <button
+      type="button"
+      title={split ? "Switch to unified diff" : "Switch to side-by-side diff"}
+      aria-pressed={split}
+      className={cn(TOOLBAR_BTN, split && "text-neutral-700 dark:text-neutral-200")}
+      onClick={() => setDiffLayout(split ? "unified" : "split")}
+    >
+      {/* One glyph, two states: a framed pane that grows a divider down the
+          middle when split is active — the control shows what you'd be reading,
+          not an abstract mode name. */}
+      <ToolbarIcon
+        d={split ? ["M3 4h18v16H3z", "M12 4v16"] : ["M3 4h18v16H3z", "M6.5 9.5h11", "M6.5 14.5h11"]}
+      />
+    </button>
+  );
+}
+
 // Sticky strip above the file pane: jump to the previous/next file block and
 // fold/unfold every file at once (icon-only; the titles carry the words), plus
 // an optional right-docked slot for the multi-round diff switcher. The file
@@ -36,6 +64,7 @@ export function PaneToolbar({
   filePicker,
   onJump,
   onFoldAll,
+  layoutToggle,
   right,
   summary,
 }: {
@@ -46,6 +75,11 @@ export function PaneToolbar({
   filePicker?: ReactNode;
   onJump: (dir: 1 | -1) => void;
   onFoldAll: (mode: "fold" | "unfold") => void;
+  // The unified/side-by-side switch, composed by the caller (a slot, like
+  // `filePicker`) so it's mounted only where a diff is actually on screen — a
+  // plain files view has no layout to switch. Hidden below md, where the phone
+  // tier forces unified regardless.
+  layoutToggle?: ReactNode;
   right?: ReactNode;
   // Mobile only (ReviewView passes it only below md): the active round's summary
   // as the stacked bar's middle row — between the switcher and the buttons.
@@ -94,6 +128,15 @@ export function PaneToolbar({
           </button>
           <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
           {filePicker}
+          {/* Desktop-only: the phone tier forces unified, so the control would
+              be a lie below md. Hidden with an inert utility rather than a JS
+              breakpoint read — desktop components don't import from mobile/. */}
+          {layoutToggle && (
+            <div className="flex items-center max-md:hidden">
+              <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+              {layoutToggle}
+            </div>
+          )}
         </div>
       )}
       {/* Full-height, flush-right slot: `self-stretch` fills the bar's height and

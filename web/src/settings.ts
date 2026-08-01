@@ -35,6 +35,27 @@ const FONT_DEFAULT = 18;
 // same rounding) instead of re-deriving the formula.
 export const clampFont = (n: number) => Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)));
 
+// ---- diff layout (unified vs side-by-side) ----
+
+// How DiffView renders a diff: one interleaved column ("unified", the default) or
+// two parallel old/new columns ("split"). A pure render mode — the server ships
+// the same `DiffFileChange.lines` either way, and the pairing happens in the
+// client — so this is a display preference like the two above, NOT review state:
+// it never reaches the server and never bumps `review.updated_at`.
+//
+// Global rather than per-review on purpose: which layout you read diffs in is a
+// habit, not a property of any one review. The phone tier forces unified
+// (two code columns don't fit) WITHOUT writing here, so a split-preferring user
+// gets split back the moment the viewport is wide again — see ReviewView.
+export type DiffLayout = "unified" | "split";
+
+const diffLayout = persistedStore<DiffLayout>("r3-diff-layout", {
+  load: (raw) => (raw === "split" ? "split" : "unified"),
+});
+export const getDiffLayout = diffLayout.get;
+export const setDiffLayout = diffLayout.set;
+export const useDiffLayout = diffLayout.use;
+
 const font = persistedStore<number>("r3-font-size", {
   load: (raw) => clampFont(Number(raw) || FONT_DEFAULT),
   onSet: (px) => document.documentElement.style.setProperty("--r3-font-size", `${px}px`),

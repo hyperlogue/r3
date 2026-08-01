@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   type EnterHandler,
   GUTTER_SELECTED,
@@ -8,6 +8,7 @@ import {
 } from "../gutter.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
+import type { DiffLayout } from "../settings.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
 import { cn, Pill, useEscape, useHtml } from "../ui.tsx";
 import { diffViewedKey } from "../viewed.ts";
@@ -59,6 +60,13 @@ const SIGN: Record<string, string> = { add: "+", del: "−", context: " ", hunk:
 const ROW_GRID =
   "grid min-w-full [--gutter-w:3rem] max-md:[--gutter-w:2.25rem] grid-cols-[var(--gutter-w)_var(--gutter-w)_1fr] font-mono text-xs";
 
+// The split (side-by-side) row grid: ONE gutter, not two — each half shows only
+// its own side's numbers, so the second column the unified grid spends on the
+// other side's rail becomes code width. Same --gutter-w so the two layouts line
+// up at every breakpoint and GutterCell's px tightening still applies.
+const SPLIT_ROW_GRID =
+  "grid min-w-full [--gutter-w:3rem] max-md:[--gutter-w:2.25rem] grid-cols-[var(--gutter-w)_1fr] font-mono text-xs";
+
 // One gutter line-number cell: click to anchor feedback on that line, drag to
 // extend. Empty (no number on this side) cells are inert. `selected` is
 // precomputed by the parent from the live selection (a boolean, so memoized rows
@@ -68,6 +76,7 @@ function GutterCell({
   side,
   selected,
   bg,
+  pinClass,
   onDown,
   onEnter,
 }: {
@@ -75,6 +84,10 @@ function GutterCell({
   side: DiffSide;
   selected: boolean;
   bg: string;
+  // Where this rail freezes within its own horizontal scroll container. Unified
+  // stacks both rails in one container, so the new side pins one column in
+  // (the default below); a split half owns its container and pins at left-0.
+  pinClass?: string;
   onDown: GutterHandler;
   onEnter: EnterHandler;
 }) {
@@ -89,7 +102,7 @@ function GutterCell({
         // slides *under* it as it scrolls. touch-manipulation so a tap-to-anchor
         // never registers as a double-tap zoom.
         "sticky z-0 touch-manipulation select-none border-r border-neutral-300/70 px-1 text-right text-neutral-400 max-md:px-0.5 dark:border-neutral-700",
-        side === "old" ? "left-0" : "left-[var(--gutter-w)]",
+        pinClass ?? (side === "old" ? "left-0" : "left-[var(--gutter-w)]"),
         line != null && "cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-200",
         selected ? GUTTER_SELECTED : bg,
       )}
@@ -159,6 +172,131 @@ const Row = memo(function Row({
   );
 });
 
+// ---- side-by-side (split) layout ----
+
+// One row of the split view: either a full-width hunk separator, or a pair of
+// lines shown across the two halves. Either half of a pair can be null — that's
+// the filler cell opposite an unmatched add/del (inert, no line number).
+type SplitRow =
+  | { kind: "hunk"; ln: DiffLine }
+  | { kind: "pair"; old: DiffLine | null; new: DiffLine | null };
+
+// Pair a unified row list into split rows. `context` pairs with itself (one
+// DiffLine shown on both sides); within a hunk a maximal run of `del` rows zips
+// against the run of `add` rows immediately following it (del[i] opposite
+// add[i]), and the shorter run pads with nulls. That zip is what makes a
+// rewritten line read as old-vs-new on one row instead of two stacked ones.
+//
+// Deliberately positional, not a re-diff: the server already decided what
+// changed, and re-matching here could disagree with the line numbers every
+// anchor, pin and highlight is keyed on.
+function pairRows(lines: DiffLine[]): SplitRow[] {
+  const out: SplitRow[] = [];
+  for (let i = 0; i < lines.length; ) {
+    const ln = lines[i];
+    if (ln.type === "hunk") {
+      out.push({ kind: "hunk", ln });
+      i++;
+      continue;
+    }
+    if (ln.type === "context") {
+      out.push({ kind: "pair", old: ln, new: ln });
+      i++;
+      continue;
+    }
+    // A change block: the del run, then the add run that follows it. Either can
+    // be empty (a pure addition or a pure deletion).
+    const dels: DiffLine[] = [];
+    while (i < lines.length && lines[i].type === "del") dels.push(lines[i++]);
+    const adds: DiffLine[] = [];
+    while (i < lines.length && lines[i].type === "add") adds.push(lines[i++]);
+    const n = Math.max(dels.length, adds.length);
+    for (let k = 0; k < n; k++) {
+      out.push({ kind: "pair", old: dels[k] ?? null, new: adds[k] ?? null });
+    }
+  }
+  return out;
+}
+
+// One side of one split row. Carries `data-line`/`data-side` itself — in split
+// the unified row div no longer exists, and every consumer (highlights.ts's row
+// lookup + region sweep, pane.ts's retrying jump, selection.ts's pointFrom)
+// resolves those attributes by closest/querySelector rather than by position, so
+// moving them down to the half is transparent to all of them.
+const SplitHalfRow = memo(function SplitHalfRow({
+  row,
+  side,
+  selected,
+  onDown,
+  onEnter,
+}: {
+  row: SplitRow;
+  side: DiffSide;
+  selected: boolean;
+  onDown: GutterHandler;
+  onEnter: EnterHandler;
+}) {
+  const ln = row.kind === "hunk" ? row.ln : side === "old" ? row.old : row.new;
+  // Stable {__html} wrapper, same reason as the unified Row: React 19 must not
+  // re-set innerHTML (wiping a live selection) on a `selected` flip.
+  const html = useHtml(ln?.html || "&nbsp;");
+
+  if (row.kind === "hunk") {
+    // Painted in BOTH halves so the two independently-scrolling columns keep the
+    // same vertical rhythm; only the old (left) half shows the @@ text, so the
+    // separator reads as one bar rather than a doubled label.
+    return (
+      <div className={cn(SPLIT_ROW_GRID, ROW_BG.hunk)}>
+        <div className="col-span-2 truncate px-3 select-none">
+          {side === "old" ? row.ln.text : " "}
+        </div>
+      </div>
+    );
+  }
+
+  // A filler cell opposite an unmatched add/del: no line, no sign, no tint — the
+  // surface shows through so the eye reads "nothing here on this side".
+  if (!ln) {
+    return (
+      <div className={cn(SPLIT_ROW_GRID, "bg-neutral-500/[0.06]")}>
+        <GutterCell
+          line={null}
+          side={side}
+          selected={false}
+          bg={GUTTER_BG.context}
+          pinClass="left-0"
+          onDown={onDown}
+          onEnter={onEnter}
+        />
+        <code className="shiki-code px-2 whitespace-pre">&nbsp;</code>
+      </div>
+    );
+  }
+
+  const line = side === "old" ? ln.oldLine : ln.newLine;
+  return (
+    <div
+      className={cn(SPLIT_ROW_GRID, ROW_BG[ln.type])}
+      data-line={line ?? undefined}
+      data-side={side}
+    >
+      <GutterCell
+        line={line}
+        side={side}
+        selected={selected}
+        bg={GUTTER_BG[ln.type]}
+        pinClass="left-0"
+        onDown={onDown}
+        onEnter={onEnter}
+      />
+      <code className="shiki-code px-2 whitespace-pre">
+        <span className="mr-1 select-none text-neutral-400">{SIGN[ln.type]}</span>
+        <span dangerouslySetInnerHTML={html} />
+      </code>
+    </div>
+  );
+});
+
 // Memoized so a parent re-render (activePath/scroll) doesn't re-reconcile every
 // diff row. Takes the path-binding callbacks straight from the parent (stable
 // refs) and binds f.path itself, so memo isn't defeated by per-row closures.
@@ -166,6 +304,7 @@ const FileBlock = memo(function FileBlock({
   f,
   patchSeq,
   viewed,
+  layout,
   toggle,
   onPickLines,
   onFileFeedback,
@@ -174,6 +313,7 @@ const FileBlock = memo(function FileBlock({
   f: DiffFileChange;
   patchSeq: number;
   viewed: boolean;
+  layout: DiffLayout;
   // Stable across renders; the per-round key is built here (not by the parent) so
   // the incoming props stay memo-stable. Absent ⇒ viewed isn't tracked.
   toggle?: (key: string) => void;
@@ -210,6 +350,24 @@ const FileBlock = memo(function FileBlock({
     });
     return { oldText, newText, oldIdx, newIdx };
   }, [f.lines]);
+
+  // Split rows + their own per-side line→row-index maps. Both halves render the
+  // same paired list, so one index map serves both — and scroll-to-line resolves
+  // against the layout actually on screen.
+  const { splitRows, splitOldIdx, splitNewIdx } = useMemo(() => {
+    if (layout !== "split")
+      return { splitRows: [] as SplitRow[], splitOldIdx: null, splitNewIdx: null };
+    const splitRows = pairRows(f.lines);
+    const splitOldIdx = new Map<number, number>();
+    const splitNewIdx = new Map<number, number>();
+    splitRows.forEach((row, i) => {
+      if (row.kind !== "pair") return;
+      if (row.old?.oldLine != null) splitOldIdx.set(row.old.oldLine, i);
+      if (row.new?.newLine != null) splitNewIdx.set(row.new.newLine, i);
+    });
+    return { splitRows, splitOldIdx, splitNewIdx };
+  }, [f.lines, layout]);
+
   const g = useGutterDrag({
     textForLine: (side, n) => (side === "old" ? oldText : newText).get(n) ?? null,
     onPick: (p) => onPickLines(f.path, p.side, p.lineStart, p.lineEnd, p.quote, patchSeq),
@@ -219,11 +377,31 @@ const FileBlock = memo(function FileBlock({
   // null side (shouldn't happen in a diff) prefers the new side.
   const resolveIndex = useCallback(
     (line: number, side: DiffSide | null) => {
-      const primary = side === "old" ? oldIdx : newIdx;
-      return primary.get(line) ?? (side == null ? (oldIdx.get(line) ?? null) : null);
+      const [primary, fallback] =
+        splitOldIdx && splitNewIdx
+          ? [side === "old" ? splitOldIdx : splitNewIdx, splitOldIdx]
+          : [side === "old" ? oldIdx : newIdx, oldIdx];
+      return primary.get(line) ?? (side == null ? (fallback.get(line) ?? null) : null);
     },
-    [oldIdx, newIdx],
+    [oldIdx, newIdx, splitOldIdx, splitNewIdx],
   );
+
+  // Confine a drag-selection to the half it starts in. Stamping the wrapper on
+  // mousedown — before the drag can extend — lets one CSS rule (main.css) make
+  // the opposite half unselectable, so the cross-column range never forms rather
+  // than being repaired afterwards. Imperative on purpose: a re-render mid-drag
+  // would disturb the very selection being made.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const beginSelect = useCallback((side: DiffSide) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    el.setAttribute("data-selecting", side);
+    const clear = () => {
+      el.removeAttribute("data-selecting");
+      window.removeEventListener("mouseup", clear);
+    };
+    window.addEventListener("mouseup", clear);
+  }, []);
 
   const stats = (
     <>
@@ -257,6 +435,51 @@ const FileBlock = memo(function FileBlock({
     >
       {f.binary ? (
         <div className="px-3 py-2 text-xs text-neutral-400">Binary file not shown.</div>
+      ) : layout === "split" ? (
+        // Two independently-scrolling halves. They stay vertically locked for
+        // free: VirtualLines sizes every row at a FIXED height (no
+        // measureElement — virtual.tsx) and both instances read the same pane as
+        // their scroll element over the same row count, so they mount identical
+        // windows. Only the left registers scrollKey — the paired row index is
+        // the same on both sides, so one registration serves both jumps.
+        <div ref={wrapRef} className="shiki-surface flex">
+          {(["old", "new"] as const).map((side) => (
+            <div
+              key={side}
+              data-split-half={side}
+              onMouseDown={() => beginSelect(side)}
+              className={cn(
+                "w-1/2 min-w-0 overflow-x-auto",
+                side === "new" && "border-l border-neutral-300 dark:border-neutral-700",
+              )}
+            >
+              <VirtualLines
+                className="min-w-max"
+                count={splitRows.length}
+                itemKey={(i) => i}
+                scrollKey={side === "old" ? fileScrollKey(patchSeq, f.path) : undefined}
+                resolveIndex={side === "old" ? resolveIndex : undefined}
+                renderRow={(i) => {
+                  const row = splitRows[i];
+                  const ln = row.kind === "pair" ? (side === "old" ? row.old : row.new) : null;
+                  return (
+                    <SplitHalfRow
+                      row={row}
+                      side={side}
+                      selected={inSelection(
+                        sel,
+                        side,
+                        (side === "old" ? ln?.oldLine : ln?.newLine) ?? null,
+                      )}
+                      onDown={g.onDown}
+                      onEnter={g.onEnter}
+                    />
+                  );
+                }}
+              />
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="shiki-surface overflow-x-auto">
           {/* One horizontal scrollbar per file: rows share a max-content wrapper
@@ -498,12 +721,18 @@ export function DiffView({
   rounds,
   activeSeq,
   isViewed,
+  layout = "unified",
   toggle,
   onPickLines,
   onFileFeedback,
   foldSignal,
 }: {
   rounds: PatchDiff[];
+  // How to render each file: one interleaved column, or two parallel old/new
+  // columns. A pure display choice — the payload, the anchors, and every
+  // callback shape are identical either way. Defaults to unified so stories and
+  // the demo need no wiring.
+  layout?: DiffLayout;
   // Which round to show. Defaults to the latest round when unset/unmatched.
   activeSeq?: number | null;
   // Viewed-state as content-identity predicates. Keyed per
@@ -541,6 +770,7 @@ export function DiffView({
           f={f}
           patchSeq={round.seq}
           viewed={isViewed?.(diffViewedKey(round.seq, f.path)) ?? false}
+          layout={layout}
           toggle={toggle}
           onPickLines={onPickLines}
           onFileFeedback={onFileFeedback}

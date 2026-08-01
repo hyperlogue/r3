@@ -186,6 +186,19 @@ html.dark .gutter-del {
   );
 }
 
+/* Side-by-side diff: while a drag-selection is live in one half (DiffView stamps
+   data-selecting on mousedown), the opposite half is unselectable — so a range
+   spanning both columns never forms. That matters because `quote` is the anchor
+   of record and the two halves are separate scroll containers: a cross-column
+   selection's text is DOM-ordered (all of the left column, then all of the
+   right), which is not what the reader highlighted. Prevention beats repair;
+   selection.ts still refuses a cross-half range for the paths no mousedown
+   covers (touch long-press, shift+arrow, Ctrl+A). */
+[data-selecting="old"] [data-split-half="new"],
+[data-selecting="new"] [data-split-half="old"] {
+  user-select: none;
+}
+
 /* Persistent marker on lines/blocks an unresolved feedback points at. Every
    painting region rule is scoped :not(.r3-active-line) so the amber "actively
    focused" treatment below wins structurally when an element carries both —

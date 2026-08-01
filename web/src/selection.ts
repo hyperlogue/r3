@@ -82,6 +82,21 @@ export function getSelectionAnchor(scope: HTMLElement): PendingAnchor | null {
   // in-view part below.
   if (!scope.contains(range.startContainer) && !scope.contains(range.endContainer)) return null;
 
+  // Side-by-side layout: refuse a range whose endpoints sit in different halves.
+  // The two halves are separate scroll containers, so such a selection's text is
+  // DOM-ordered (the whole left column, then the whole right) — nothing like what
+  // was highlighted — and that text is what the "Quote in note" bubble would
+  // insert verbatim. The clamp below protects the *anchor* (file/side come from
+  // the start, so endLine collapses to it), but not the quote text, so this is a
+  // hard refusal rather than a clamp. CSS blocks the mouse path outright
+  // (main.css, data-selecting); this covers touch long-press, shift+arrow and
+  // Ctrl+A. Scoped to split — in unified there are no halves and the attribute
+  // is absent, so a selection running from a del run into an add run (picking a
+  // whole hunk, very common) keeps working exactly as before.
+  const startHalf = closest(range.startContainer, "data-split-half");
+  const endHalf = closest(range.endContainer, "data-split-half");
+  if (startHalf && endHalf && startHalf !== endHalf) return null;
+
   const start = pointFrom(range.startContainer, "start");
   if (!start || start.file == null) return null;
   const end = pointFrom(range.endContainer, "end");

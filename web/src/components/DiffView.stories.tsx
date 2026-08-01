@@ -64,6 +64,28 @@ export const MultiRoundWithSwitcher: Story = {
   },
 };
 
+// Side-by-side: old on the left, new on the right, paired so a rewritten line
+// reads across one row instead of two stacked ones. Unmatched adds/deletions get
+// an inert filler cell opposite them (no line number — not anchorable). Each half
+// is its own horizontal scroll container with its own frozen gutter, and the two
+// stay vertically locked because VirtualLines sizes every row identically.
+// Gutter click/drag anchors exactly as in unified; a drag can't cross the divider.
+export const SplitLayout: Story = {
+  args: { layout: "split" },
+};
+
+// Split with a wide line: proves the halves scroll independently — scrolling the
+// left column's long line does NOT drag the right column out of view.
+export const SplitWideLines: Story = {
+  args: { rounds: wideRound, layout: "split" },
+};
+
+// Split across rounds: the layout is a display preference, orthogonal to which
+// round is shown, so the switcher and the toggle compose without interacting.
+export const SplitMultiRound: Story = {
+  args: { rounds: multiRound, layout: "split" },
+};
+
 // A viewed file collapses to just its header. Viewed is keyed per round
 // (d:<seq>:<path>), so we match on the path suffix regardless of the round seq.
 export const SomeViewed: Story = {
