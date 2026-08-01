@@ -17,7 +17,7 @@ on:
 
 permissions:
   contents: write # create the GitHub Release + upload assets
-  id-token: write # npm provenance attestation
+  id-token: write # npm trusted publishing (OIDC) + provenance attestation
 
 # Never cancel a half-finished publish — queue instead.
 concurrency:
@@ -29,9 +29,24 @@ defaults:
   run:
     shell: bash
 
+# npm auth is TRUSTED PUBLISHING (OIDC) — there is no npm token anywhere in this
+# repo's secrets. npm mints a short-lived, publish-only credential from the
+# runner's OIDC identity, scoped to (org, repo, workflow filename). Consequences
+# to respect when editing this file:
+#
+#   - RENAMING THIS FILE BREAKS PUBLISHING. Each of the five packages
+#     (@hyperlogue/r3 + the four @hyperlogue/r3-<os>-<arch>) registers
+#     `release.yml` by name on npmjs.com → Settings → Trusted Publisher. Rename
+#     it and every publish 404s until all five registrations are updated.
+#   - Publishing from another workflow, a fork, or a self-hosted runner won't
+#     work — that's the point.
+#   - A brand-new package name (say, adding a windows target) has no trusted
+#     publisher yet, so its FIRST publish must be done by hand from a laptop;
+#     then register `release.yml` on it before the next release.
+#
 # Third-party actions are pinned to commit SHAs (the trailing comment is the
 # tag): a tag can be force-moved to malicious code, a SHA can't — and this job
-# holds the npm token.
+# can publish to npm.
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -151,22 +166,33 @@ jobs:
           test -x dist/npm/r3-linux-x64/bin/r3
           ./dist/npm/r3-linux-x64/bin/r3 --help
 
-      # setup-node wires NODE_AUTH_TOKEN for the registry (node 22 → npm 10,
-      # which supports --provenance).
+      # node 24 + `npm@latest` — trusted publishing needs npm >= 11.5.1 (node 24
+      # ships 11.3.x, so the explicit upgrade is load-bearing, not hygiene).
+      #
+      # `registry-url:` is deliberately OMITTED. It exists to write an .npmrc
+      # holding `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` — and with
+      # no token to expand, npm sends the literal placeholder and fails the
+      # publish with a misleading "token expired or revoked" instead of falling
+      # through to OIDC. No .npmrc ⇒ npm uses its default registry
+      # (registry.npmjs.org, what we want) and the OIDC path is the only auth.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 24
+
+      - name: Use an npm that speaks OIDC
+        run: |
+          npm install -g npm@latest
+          npm --version
 
       # Publish the four per-platform binary packages BEFORE the launcher: the
       # launcher's optionalDependencies pin them at this exact version, so a user
       # must never resolve a launcher whose platform package isn't on the registry
       # yet. Each publish is idempotent (skip if this version already exists) so a
       # re-run after a partial failure converges. --provenance attests the actual
-      # binary bytes, not just the launcher shim.
+      # binary bytes, not just the launcher shim (trusted publishing is
+      # documented to attach provenance on its own, but the flag is what we
+      # actually verify, so keep it explicit).
       - name: Publish platform binary packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for d in dist/npm/*/; do
             NAME=$(jq -r .name "$d/package.json")
@@ -208,8 +234,6 @@ jobs:
       # already matches.
       - name: Publish npm launcher
         working-directory: npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           V=$(jq -r .version package.json)
           if [ -n "$(npm view "@hyperlogue/r3@$V" version 2>/dev/null || true)" ]; then

@@ -38,6 +38,17 @@ The pre-pass lowers it flat; the compile build embeds it as-is. Don't remove it.
   resolves-and-execs that version's binary with **no runtime download** — the
   launcher only does `createRequire().resolve` + `spawn`.
 
+**npm auth is trusted publishing (OIDC) — there is no npm token.** Each of the
+five packages registers `release.yml` *by filename* as its trusted publisher on
+npmjs.com, and npm mints a short-lived publish-only credential from the runner's
+OIDC identity. So: **renaming `.github/workflows/release.yml` breaks publishing**
+until all five registrations are updated, publishing can't move to another
+workflow or a self-hosted runner, and a **brand-new** package name (adding a
+platform target) has no trusted publisher yet — its first publish is manual, then
+register `release.yml` on it. Requires npm ≥ 11.5.1, which is why the job upgrades
+npm and omits setup-node's `registry-url` (its `.npmrc` placeholder token would
+shadow OIDC).
+
 ## `package.json` overrides `bun` → `empty-npm-package`
 
 `bun-plugin-tailwind` peer-depends on the `bun` npm package, which would pull
