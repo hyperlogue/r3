@@ -24,6 +24,12 @@ export interface StoredPatch {
   summary: string | null;
   created_at: string;
   files: DiffFileChange[];
+  // The same diff at FULL context, baked at build time. Stands in for the
+  // daemon's wide stored body: the demo serves expand-context by slicing these
+  // rows. Baked rather than derived because the browser has no Shiki — revealed
+  // rows must arrive already highlighted or they'd read as plain text among
+  // coloured neighbours. Absent ⇒ that round simply can't expand.
+  fullFiles?: DiffFileChange[];
 }
 
 // A files-review content snapshot: every member file's full text at capture time.
@@ -52,6 +58,7 @@ export interface StoredSnapshotDiff {
   from: number;
   to: number | "WORKING";
   files: DiffFileChange[];
+  fullFiles?: DiffFileChange[]; // as StoredPatch.fullFiles
 }
 
 // Everything a fresh demo starts from — produced at build time and imported by

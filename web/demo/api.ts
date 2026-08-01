@@ -65,12 +65,13 @@ export const api = {
   diff: async (base: string, head: string): Promise<DiffResult> => ({ base, head, files: [] }),
 
   reviewDiff: async (id: string) => backend.reviewDiff(id),
-  // The demo's canned diffs carry no `expandable`, so the view never offers a
-  // gap to fill and this is never called. Present for type parity with the real
-  // client; it answers the way the daemon answers a gap it can't cover.
-  diffContext: async () => {
-    throw new Error("context unavailable");
-  },
+  diffContext: async (
+    id: string,
+    where: { seq: number } | { from: number; to: SnapshotRef },
+    file: string,
+    start: number,
+    end: number,
+  ) => backend.diffContext(id, where, file, start, end),
   blob: async (path: string, ref = "WORKING", _theme?: string, review?: string) =>
     backend.blob(path, ref, review),
 

@@ -10,11 +10,12 @@
 
 import { findQuote, normalizeWs, projectDoc } from "../../server/anchor.ts";
 import { buildUnsentPrompt } from "../../server/prompt.ts";
-import { diffFile } from "../../server/textdiff.ts";
+import { diffFile, FULL_CONTEXT } from "../../server/textdiff.ts";
 import {
   type AddReplyBody,
   type CreateFeedbackBody,
   type DiffFileChange,
+  type DiffLine,
   type Feedback,
   type FeedbackWithReplies,
   MAX_QUOTE_LINES,
@@ -156,18 +157,6 @@ export function listReviews(filter: {
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
-// The demo has no gap-fill endpoint (there's no daemon to ask), so strip the
-// server's held-context markers from anything it renders — otherwise every
-// separator would grow an expander that does nothing when clicked. Applies to
-// both content paths: the baked fixtures (regenerated through the same differ)
-// and the in-browser derive below.
-function withoutExpandable(files: DiffFileChange[]): DiffFileChange[] {
-  for (const f of files) {
-    for (const ln of f.lines) if (ln.expandable) ln.expandable = undefined;
-  }
-  return files;
-}
-
 // ---- rendered content (pre-baked, with a plain fallback for edited content) ----
 
 export function reviewDiff(id: string): ReviewDiffResponse {
@@ -177,7 +166,7 @@ export function reviewDiff(id: string): ReviewDiffResponse {
       label,
       summary,
       created_at,
-      files: withoutExpandable(files),
+      files,
     })),
   };
 }
@@ -218,7 +207,7 @@ function contentAt(reviewId: string, to: SnapshotRef, path: string): string | un
 
 export function snapshotDiff(id: string, from: number, to: SnapshotRef): SnapshotDiffResponse {
   const pre = s().snapshotDiffs.find((d) => d.review_id === id && d.from === from && d.to === to);
-  if (pre) return { from, to, files: withoutExpandable(pre.files) };
+  if (pre) return { from, to, files: pre.files };
   // Derive in-browser via the pure differ (uncoloured — an edited-content path).
   const fromSnap = require404(
     s().snapshots.find((sn) => sn.review_id === id && sn.seq === from),
@@ -236,7 +225,64 @@ export function snapshotDiff(id: string, from: number, to: SnapshotRef): Snapsho
     for (const ln of dfc.lines) if (ln.type !== "hunk") ln.html = escapeHtml(ln.text);
     files.push(dfc);
   }
-  return { from, to, files: withoutExpandable(files) };
+  return { from, to, files };
+}
+
+// Expand-context, the demo's stand-in for the daemon's gap-fill route. Rows come
+// from whichever full-context source backs this view: a round's baked
+// `fullFiles`, the canned snapshot diff's, or — for content the user edited in
+// the browser — a fresh full-context derive, which is unhighlighted exactly like
+// the narrow derive it would be revealed into.
+//
+// Mirrors the server's contract deliberately: NEW-side line numbers, and a range
+// the source can't fully cover is a 404 rather than a partial fill, so a hole
+// never renders as if it were the file.
+export function diffContext(
+  id: string,
+  where: { seq: number } | { from: number; to: SnapshotRef },
+  file: string,
+  start: number,
+  end: number,
+): { file: string; lines: DiffLine[] } {
+  const full =
+    "seq" in where ? fullForRound(id, where.seq) : fullForSnapshot(id, where.from, where.to);
+  const f = full?.find((x) => x.path === file || x.oldPath === file);
+  if (!f) throw new ApiError(404, "context unavailable");
+  const rows = f.lines.filter(
+    (ln) => ln.type === "context" && ln.newLine != null && ln.newLine >= start && ln.newLine <= end,
+  );
+  if (rows.length !== end - start + 1) throw new ApiError(404, "context unavailable");
+  return { file, lines: rows };
+}
+
+function fullForRound(id: string, seq: number): DiffFileChange[] | undefined {
+  return patchesFor(id).find((p) => p.seq === seq)?.fullFiles;
+}
+
+function fullForSnapshot(id: string, from: number, to: SnapshotRef): DiffFileChange[] | undefined {
+  const pre = s().snapshotDiffs.find((d) => d.review_id === id && d.from === from && d.to === to);
+  if (pre?.fullFiles) return pre.fullFiles;
+  // Edited content: derive at full context from the snapshots the demo holds.
+  const fromSnap = s().snapshots.find((sn) => sn.review_id === id && sn.seq === from);
+  if (!fromSnap) return undefined;
+  const toContents = s().snapshots.find((sn) => sn.review_id === id && sn.seq === to)?.contents;
+  const paths = new Set<string>([
+    ...Object.keys(fromSnap.contents),
+    ...Object.keys(to === "WORKING" ? (getState().fileContents[id] ?? {}) : (toContents ?? {})),
+  ]);
+  const out: DiffFileChange[] = [];
+  for (const path of paths) {
+    const dfc = diffFile(
+      path,
+      fromSnap.contents[path] ?? "",
+      contentAt(id, to, path) ?? "",
+      FULL_CONTEXT,
+    );
+    if (!dfc) continue;
+    for (const ln of dfc.lines) if (ln.type !== "hunk") ln.html = escapeHtml(ln.text);
+    out.push(dfc);
+  }
+  return out;
 }
 
 export function snapshotBlob(id: string, path: string, to: SnapshotRef): RenderedFile {

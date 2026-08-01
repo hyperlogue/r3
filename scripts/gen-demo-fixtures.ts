@@ -18,7 +18,7 @@ import {
   themeStyle,
 } from "../server/highlight.ts";
 import { renderContent } from "../server/render.ts";
-import { diffFile } from "../server/textdiff.ts";
+import { diffFile, FULL_CONTEXT } from "../server/textdiff.ts";
 import type {
   DiffFileChange,
   Feedback,
@@ -61,8 +61,13 @@ function quoteFrom(content: string, start: number, end: number): string {
 
 // Render a before/after pair into a highlighted DiffFileChange (Shiki inner HTML
 // mapped back onto each row, preferring the new side — same as the daemon).
-async function renderDiff(path: string, oldC: string, newC: string): Promise<DiffFileChange> {
-  const dfc = diffFile(path, oldC, newC);
+async function renderDiff(
+  path: string,
+  oldC: string,
+  newC: string,
+  context?: number,
+): Promise<DiffFileChange> {
+  const dfc = diffFile(path, oldC, newC, context);
   if (!dfc) throw new Error(`no diff for ${path} (identical content?)`);
   const lang = langForPath(path);
   const oldHtml = oldC ? await highlightToLines(oldC, lang, await blobSha(oldC)) : [];
@@ -121,7 +126,95 @@ function reply(r: Partial<Reply> & Pick<Reply, "id" | "feedback_id" | "author" |
 // that keeps a ref like `--output=<file>` from reaching git as an option.
 
 // Baseline ("main"): readContentAt shells out to `git show` with no ref guard.
-const gitOld = `const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
+// Unchanged code framing the reviewed change, identical in every round. It's
+// what gives the demo's diff real collapsed gaps: at 3 lines of context the
+// rendered hunk is small, and everything here sits behind the expander — which
+// is the only way the demo can show expand-context at all. Keep both blocks
+// byte-identical across gitOld/gitRound1/gitRound2 or they stop being context.
+const GIT_PRELUDE = `// Git access + a unified-diff parser. Everything shells out to \`git\` via
+// Bun.spawn. The daemon is multi-repo, so git ops run in a per-request \`Repo\`'s
+// worktree and validate paths against it, rather than a module-global ROOT.
+
+import { readFileSync } from "node:fs";
+import type { GitRef, GitStatus, GitTreeEntry } from "../shared/types.ts";
+import { realpathWithin } from "./paths.ts";
+import type { Repo } from "./repo.ts";
+
+// Low-level: run git in a given cwd. The Repo factory wraps this as \`repo.git()\`.
+export async function runGitIn(
+  cwd: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string; code: number }> {
+  const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const code = await proc.exited;
+  return { stdout, stderr, code };
+}
+
+// Content sha: the highlight cache key, and the \`code_sha\` recorded on a
+// feedback anchor at anchor time.
+export async function blobSha(content: string): Promise<string> {
+  const hasher = new Bun.CryptoHasher("sha1");
+  hasher.update(content);
+  return hasher.digest("hex");
+}
+
+`;
+
+const GIT_TAIL = `
+// Read a file at a sentinel ref: WORKING reads the working tree, STAGED the
+// index. A symlink inside the repo pointing outside it must not be followed, so
+// the resolved target is confirmed to still sit within the worktree.
+async function readSentinel(repo: Repo, path: string, ref: GitRef): Promise<string | null> {
+  const safe = repo.safePath(path);
+  if (!safe) return null;
+  if (ref === "WORKING") {
+    if (!realpathWithin(repo.worktreePath, safe)) return null;
+    try {
+      return readFileSync(safe, "utf8");
+    } catch {
+      return null;
+    }
+  }
+  const { stdout, code } = await repo.git(["show", \`:\${path}\`]);
+  return code === 0 ? stdout : null;
+}
+
+// ---- status ----
+
+export async function gitStatus(repo: Repo): Promise<GitStatus> {
+  const out = await repo.gitText(["status", "--porcelain=v2", "--branch", "-z"]);
+  const entries = [];
+  for (const line of out.split("\\0")) {
+    if (!line) continue;
+    if (line[0] === "1" || line[0] === "2") entries.push(parseEntry(line));
+  }
+  return { branch: branchOf(out), ahead: 0, behind: 0, entries };
+}
+
+// ---- tree ----
+
+export async function gitTree(repo: Repo, ref: GitRef, path?: string): Promise<GitTreeEntry[]> {
+  if (!isSafeRef(ref)) return [];
+  const args = ["ls-tree", "-r", "--name-only", "-z", isSentinel(ref) ? "HEAD" : ref];
+  if (path && repo.safePath(path)) args.push("--", path);
+  const out = await repo.gitText(args);
+  return out
+    .split("\\0")
+    .filter(Boolean)
+    .map((p) => ({ path: p, name: p.split("/").pop() ?? p, type: "blob" as const }));
+}
+`;
+
+// How far the reviewed code sits below the prelude — every anchor into the round
+// bodies is offset by this, so the framing above can grow without hand-editing
+// each feedback's line numbers.
+const CORE_OFFSET = linesOf(GIT_PRELUDE).length;
+
+const gitOldCore = `const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
 
 // Read a file's content at a given ref, within a repo's worktree. WORKING reads
 // disk, STAGED the index, anything else is \`git show <ref>:<path>\`.
@@ -133,7 +226,7 @@ export async function readContentAt(repo: Repo, path: string, ref: GitRef): Prom
 `;
 
 // Round 1: introduce isSafeRef and gate readContentAt on it.
-const gitRound1 = `const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
+const gitRound1Core = `const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
 
 // A ref beginning with "-" is parsed by git as an option, not a tree-ish —
 // argument injection (e.g. \`--output=<file>\` makes git show write a file).
@@ -154,7 +247,7 @@ export async function readContentAt(repo: Repo, path: string, ref: GitRef): Prom
 
 // Round 2 (the agent appends this on the first hand-off): also reject empty /
 // whitespace-only refs — exactly what feedback_gitref1 asks for.
-const gitRound2 = `const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
+const gitRound2Core = `const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
 
 // A ref beginning with "-" is parsed by git as an option, not a tree-ish —
 // argument injection (e.g. \`--output=<file>\` makes git show write a file). An
@@ -173,6 +266,13 @@ export async function readContentAt(repo: Repo, path: string, ref: GitRef): Prom
   return code === 0 ? stdout : null;
 }
 `;
+
+// The three round bodies: identical framing, differing only in the reviewed
+// middle, so every line outside the change reads as context the expander can
+// reveal.
+const gitOld = GIT_PRELUDE + gitOldCore + GIT_TAIL;
+const gitRound1 = GIT_PRELUDE + gitRound1Core + GIT_TAIL;
+const gitRound2 = GIT_PRELUDE + gitRound2Core + GIT_TAIL;
 
 // Review B — a files review of server/paths.ts + the README security note: add a
 // symlink-escape guard so an in-repo symlink can't read outside the review root.
@@ -281,6 +381,12 @@ async function main() {
   // Review A rounds.
   const round1Files = [await renderDiff("server/git.ts", gitOld, gitRound1)];
   const round2Files = [await renderDiff("server/git.ts", gitRound1, gitRound2)];
+  // The same diffs at FULL context. The demo has no daemon to ask for a gap
+  // fill, so it serves expand-context by slicing these — the browser can't run
+  // Shiki, so the revealed rows must be baked already highlighted or they'd land
+  // as plain text among coloured neighbours.
+  const round1Full = [await renderDiff("server/git.ts", gitOld, gitRound1, FULL_CONTEXT)];
+  const round2Full = [await renderDiff("server/git.ts", gitRound1, gitRound2, FULL_CONTEXT)];
   const patches: StoredPatch[] = [
     {
       review_id: "review_gitref",
@@ -289,6 +395,7 @@ async function main() {
       summary: "Round 1 — add `isSafeRef` and gate `readContentAt` on it.",
       created_at: T0,
       files: round1Files,
+      fullFiles: round1Full,
     },
   ];
   const pendingRounds: StoredPatch[] = [
@@ -299,6 +406,7 @@ async function main() {
       summary: "Also reject empty/whitespace refs, so a blank `?ref=` can't reach `git show`.",
       created_at: T2,
       files: round2Files,
+      fullFiles: round2Full,
     },
   ];
 
@@ -310,10 +418,10 @@ async function main() {
     body: 'An empty-string ref sails through `!"".startsWith("-")` — a blank `?ref=` would still reach `git show`. Can we also reject empty/whitespace refs here?',
     file: "server/git.ts",
     side: "new",
-    line_start: 7,
-    line_end: 7,
-    quote: quoteFrom(gitRound1, 7, 7),
-    code_sha: await blobSha(quoteFrom(gitRound1, 7, 7)),
+    line_start: CORE_OFFSET + 7,
+    line_end: CORE_OFFSET + 7,
+    quote: quoteFrom(gitRound1, CORE_OFFSET + 7, CORE_OFFSET + 7),
+    code_sha: await blobSha(quoteFrom(gitRound1, CORE_OFFSET + 7, CORE_OFFSET + 7)),
     patch_seq: 1,
   });
   fb({
@@ -335,10 +443,10 @@ async function main() {
     body: "Good — the guard runs before we ever build the `git show` argv.",
     file: "server/git.ts",
     side: "new",
-    line_start: 13,
-    line_end: 13,
-    quote: quoteFrom(gitRound1, 13, 13),
-    code_sha: await blobSha(quoteFrom(gitRound1, 13, 13)),
+    line_start: CORE_OFFSET + 13,
+    line_end: CORE_OFFSET + 13,
+    quote: quoteFrom(gitRound1, CORE_OFFSET + 13, CORE_OFFSET + 13),
+    code_sha: await blobSha(quoteFrom(gitRound1, CORE_OFFSET + 13, CORE_OFFSET + 13)),
     patch_seq: 1,
     status: "resolved",
     sent_at: T1,
@@ -384,6 +492,10 @@ async function main() {
       files: [
         await renderDiff("server/paths.ts", pathsBefore, pathsLive),
         await renderDiff("README.md", readmeBefore, readmeLive),
+      ],
+      fullFiles: [
+        await renderDiff("server/paths.ts", pathsBefore, pathsLive, FULL_CONTEXT),
+        await renderDiff("README.md", readmeBefore, readmeLive, FULL_CONTEXT),
       ],
     },
   ];
