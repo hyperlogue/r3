@@ -12,11 +12,27 @@
 import type { DiffFileChange, PatchDiff, PatchInfo } from "../shared/types.ts";
 import { normalizeWs } from "./anchor.ts";
 import * as db from "./db.ts";
-import { blobSha, parseUnifiedDiff } from "./git.ts";
+import { blobSha, parseUnifiedDiff, trimOversizedFiles } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
+import { rehunk } from "./textdiff.ts";
 
 // Generous cap — patches live as TEXT rows in the global sqlite.
 export const MAX_PATCH_BYTES = 10 * 1024 * 1024;
+
+// What a render collapses to. The stored body is wide; the default payload is
+// the same size it has always been.
+export const RENDER_CONTEXT = 3;
+
+// Last resort for a wide capture that's still over the storage cap after the
+// per-file trim (a very large refactor: enough files each just under the per-file
+// cap to add up past 10 MB). Re-trim the whole patch to render width — the round
+// then stores what a pre-wide-capture r3 would have stored, so it's created
+// successfully and simply can't expand, rather than being rejected outright.
+export function fitPatchToLimit(raw: string): string {
+  if (Buffer.byteLength(raw, "utf8") <= MAX_PATCH_BYTES) return raw;
+  // cap 0 = trim every file, not just the oversized ones.
+  return trimOversizedFiles(raw, RENDER_CONTEXT, 0);
+}
 
 // Parse a raw patch into file changes, or null when nothing parses (not a
 // unified diff / empty). The gate for every add path.
@@ -73,6 +89,11 @@ export async function renderPatches(reviewId: string, theme?: string): Promise<P
   const out: PatchDiff[] = [];
   for (const p of db.listPatches(reviewId)) {
     const files = parseUnifiedDiff(p.body);
+    // Collapse the stored (wide) context to the render width BEFORE highlighting:
+    // Shiki then tokenizes the same ~3-context rows it always did, so a body
+    // several times larger costs one linear text parse and nothing on the hot
+    // path. A legacy -U3 round has nothing to drop and passes through untouched.
+    for (const f of files) f.lines = rehunk(f.lines, RENDER_CONTEXT);
     await highlightPatchFiles(files, theme);
     out.push({ seq: p.seq, label: p.label, summary: p.summary, created_at: p.created_at, files });
   }

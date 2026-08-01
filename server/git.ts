@@ -19,6 +19,7 @@ import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
 import { realpathWithin } from "./paths.ts";
 import type { Repo } from "./repo.ts";
 import { scratchDir, scratchSafePath } from "./scratch.ts";
+import { rehunk } from "./textdiff.ts";
 
 // Low-level: run git in a given cwd. The Repo factory wraps this as `repo.git()`.
 export async function runGitIn(
@@ -211,6 +212,89 @@ export async function getDiff(
   return { base, head, files };
 }
 
+// How much context a round is CAPTURED with. Effectively whole-file: git merges
+// hunks whose context overlaps, so a wide -U doesn't duplicate anything and the
+// stored ceiling is the touched files' own size. Rounds are immutable and git is
+// never consulted again at render, so whatever isn't captured here can never be
+// expanded later — this number is the one chance to hold it.
+export const WIDE_CONTEXT = 2000;
+
+// …but "the file's own size" is the wrong price for a one-line edit to a
+// lockfile. A file whose wide entry exceeds MAX_ROUND_FILE_BYTES is re-emitted at
+// TRIM_CONTEXT instead, so the pathological cases stay bounded while ordinary
+// source files keep full expandability. Measured on this repo: capturing wide
+// costs ~5.8× the stored bytes of -U3, and this cap brings it to ~3.0× while
+// only clipping generated files and the largest few components (which still get
+// 25 lines each way — 8× what -U3 gave).
+export const MAX_ROUND_FILE_BYTES = 64 * 1024;
+export const TRIM_CONTEXT = 25;
+
+// Re-emit one parsed file change as unified-diff text. Only used on the trim
+// path, so it must round-trip through parseUnifiedDiff — it does, but it is NOT
+// byte-faithful to git: `index` lines, mode changes and the
+// "\ No newline at end of file" marker are dropped, because parseUnifiedDiff
+// doesn't retain them (git.ts) and nothing downstream reads them. That's why the
+// trim splices per file and leaves untouched files as git's own bytes.
+// Emits a line list (no trailing newline) so it splices back in exactly where a
+// segment came out — splitFileSegments works in lines and the caller re-joins.
+function renderUnifiedDiffFile(f: DiffFileChange): string[] {
+  const a = f.oldPath ?? f.path;
+  const b = f.newPath ?? f.path;
+  const out = [`diff --git a/${a} b/${b}`];
+  if (f.status === "added") out.push("new file mode 100644");
+  else if (f.status === "deleted") out.push("deleted file mode 100644");
+  else if (f.status === "renamed") out.push(`rename from ${a}`, `rename to ${b}`);
+  out.push(f.status === "added" ? "--- /dev/null" : `--- a/${a}`);
+  out.push(f.status === "deleted" ? "+++ /dev/null" : `+++ b/${b}`);
+  for (const ln of f.lines) {
+    if (ln.type === "hunk") out.push(ln.text);
+    else out.push(`${ln.type === "add" ? "+" : ln.type === "del" ? "-" : " "}${ln.text}`);
+  }
+  return out;
+}
+
+// Split a raw patch into its per-file segments, keeping each one's original
+// bytes. Everything before the first `diff --git ` (git's own preamble, if any)
+// rides along with nothing to trim.
+function splitFileSegments(raw: string): string[] {
+  const lines = raw.split("\n");
+  const segments: string[] = [];
+  let cur: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("diff --git ") && cur.length) {
+      segments.push(cur.join("\n"));
+      cur = [];
+    }
+    cur.push(line);
+  }
+  if (cur.length) segments.push(cur.join("\n"));
+  return segments;
+}
+
+// Bring a wide capture back under control per file: any segment bigger than
+// MAX_ROUND_FILE_BYTES is re-hunked to TRIM_CONTEXT and re-emitted; every other
+// segment keeps git's exact bytes. Splicing per file (rather than re-emitting
+// the whole patch) is what keeps the lossy re-emit confined to the files that
+// actually needed trimming.
+export function trimOversizedFiles(
+  raw: string,
+  context = TRIM_CONTEXT,
+  cap = MAX_ROUND_FILE_BYTES,
+): string {
+  if (!raw.includes("diff --git ")) return raw;
+  let changed = false;
+  const out = splitFileSegments(raw).map((seg) => {
+    if (Buffer.byteLength(seg, "utf8") <= cap) return seg;
+    const files = parseUnifiedDiff(seg);
+    if (files.length !== 1) return seg; // not a single clean file segment — leave it
+    const trimmed = rehunk(files[0].lines, context);
+    if (trimmed === files[0].lines) return seg; // nothing dropped — keep git's bytes
+    changed = true;
+    return renderUnifiedDiffFile({ ...files[0], lines: trimmed }).join("\n");
+  });
+  return changed ? out.join("\n") : raw;
+}
+
 // Snapshot a diff as raw patch text — the create-time source of a stored diff
 // round. One git run, then the refs are never consulted again. A
 // WORKING head also synthesizes added-file entries for untracked (non-ignored)
@@ -218,7 +302,11 @@ export async function getDiff(
 // exactly what the review is about.
 export async function snapshotDiff(repo: Repo, base: GitRef, head: GitRef): Promise<string> {
   if (!isSafeRef(base) || !isSafeRef(head)) throw new Error("unsafe ref");
-  let raw = await repo.gitText(diffArgs(base, head, {}));
+  // Capture WIDE, render narrow. The round is immutable and these refs are never
+  // consulted again, so context not taken here can never be recovered — a piped
+  // diff, an amended commit or a relinked repo would all fail to re-read it. What
+  // this holds is exactly what "expand context" can later reveal.
+  let raw = await repo.gitText(diffArgs(base, head, { context: WIDE_CONTEXT }));
   if (head === "WORKING") {
     const { stdout } = await repo.git(["ls-files", "--others", "--exclude-standard", "-z"]);
     for (const path of stdout.split("\0").filter(Boolean)) {
@@ -227,7 +315,10 @@ export async function snapshotDiff(repo: Repo, base: GitRef, head: GitRef): Prom
       raw += syntheticAddPatch(path, content);
     }
   }
-  return raw;
+  // Per-file trim so one tiny edit to a lockfile doesn't store the lockfile. The
+  // synthetic adds above are all-additions, so there's no context in them to
+  // drop — they're unaffected either way.
+  return trimOversizedFiles(raw);
 }
 
 // A minimal added-file patch for `path`, matching what `git diff` emits for a

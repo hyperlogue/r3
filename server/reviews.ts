@@ -20,7 +20,7 @@ import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
 import { blobSha, readContentAt, snapshotDiff } from "./git.ts";
 import { newReviewId, nowIso } from "./ids.ts";
-import { MAX_PATCH_BYTES, parsePatch, validateReplyPin } from "./patches.ts";
+import { fitPatchToLimit, MAX_PATCH_BYTES, parsePatch, validateReplyPin } from "./patches.ts";
 import { buildUnsentPrompt } from "./prompt.ts";
 import { isImmutableSource, type Repo, resolveRepoForReview } from "./repo.ts";
 import {
@@ -348,7 +348,7 @@ export async function migrateLegacyDiffReviews(): Promise<void> {
     const repo = await resolveRepoForReview(review, { touch: false });
     if (!repo || repo.stale) continue;
     try {
-      const raw = await snapshotDiff(repo, src.base, src.head);
+      const raw = fitPatchToLimit(await snapshotDiff(repo, src.base, src.head));
       if (parsePatch(raw)) db.addPatch(review.id, raw, defaultLabel(src));
     } catch {
       // repo present but the refs are gone (rebase, gc) — stays on the fallback

@@ -126,6 +126,115 @@ const row = (
   text,
 });
 
+// Are two consecutive rows adjacent in the FILE (not merely in the array)? Rows
+// parsed out of a `-U3` patch jump across hunk gaps, so array order alone would
+// happily merge lines 12 and 50 into one hunk. Compare only the sides both rows
+// carry: within a change block a del (new = null) is followed by an add
+// (old = null), which shares no side and is correctly treated as adjacent.
+function fileAdjacent(a: DiffLine, b: DiffLine): boolean {
+  if (a.oldLine != null && b.oldLine != null && b.oldLine !== a.oldLine + 1) return false;
+  if (a.newLine != null && b.newLine != null && b.newLine !== a.newLine + 1) return false;
+  return true;
+}
+
+// Regroup a row list into hunks holding up to `context` unchanged lines around
+// each change, dropping the context beyond that and regenerating the `@@`
+// headers. The inverse of "capture wide": a round is STORED with generous
+// context so it can be expanded later, and rendered narrow so the default
+// payload stays the size it is today.
+//
+// Existing hunk rows are discarded and recomputed. Rows that aren't file-adjacent
+// (a gap the stored patch never carried) can never be merged into one hunk — the
+// lines simply aren't there — so each contiguous run is regrouped on its own.
+//
+// Returns the input UNCHANGED when nothing would be dropped AND it already
+// carries hunk rows. That keeps a legacy `-U3` round byte-identical through a
+// render, including git's `@@ … @@ section heading` text, which regenerating
+// headers would otherwise throw away on every request for no gain. The
+// hunk-rows precondition matters: `diffFile` passes a header-less row list and
+// always needs headers emitted, however little gets dropped.
+export function rehunk(lines: DiffLine[], context: number): DiffLine[] {
+  const rows = lines.filter((ln) => ln.type !== "hunk");
+  if (rows.length === 0) return lines;
+  const hadHeaders = rows.length !== lines.length;
+
+  // Contiguous runs: [start, end) index pairs into `rows`.
+  const runs: [number, number][] = [];
+  let runStart = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (!fileAdjacent(rows[i - 1], rows[i])) {
+      runs.push([runStart, i]);
+      runStart = i;
+    }
+  }
+  runs.push([runStart, rows.length]);
+
+  // Keep every change, plus any context row within `context` of one. Index
+  // distance is valid here because it's measured inside a contiguous run.
+  const keep = rows.map((r) => r.type !== "context");
+  for (const [lo, hi] of runs) {
+    for (let idx = lo; idx < hi; idx++) {
+      if (rows[idx].type !== "context") continue;
+      let near = false;
+      for (let k = idx - 1; k >= lo && idx - k <= context; k--) {
+        if (rows[k].type !== "context") {
+          near = true;
+          break;
+        }
+      }
+      if (!near) {
+        for (let k = idx + 1; k < hi && k - idx <= context; k++) {
+          if (rows[k].type !== "context") {
+            near = true;
+            break;
+          }
+        }
+      }
+      if (near) keep[idx] = true;
+    }
+  }
+  if (hadHeaders && keep.every(Boolean)) return lines;
+
+  const out: DiffLine[] = [];
+  for (const [lo, hi] of runs) {
+    let h = lo;
+    while (h < hi) {
+      if (!keep[h]) {
+        h++;
+        continue;
+      }
+      let end = h;
+      while (end < hi && keep[end]) end++;
+      out.push(...hunkFrom(rows.slice(h, end)));
+      h = end;
+    }
+  }
+  return out;
+}
+
+// One hunk: its `@@` header followed by its rows. A hunk with no rows on a side
+// (a pure insertion into an empty file) reports start 0 there, matching git.
+function hunkFrom(hunk: DiffLine[]): DiffLine[] {
+  let oldStart = 0;
+  let newStart = 0;
+  let oldCount = 0;
+  let newCount = 0;
+  for (const r of hunk) {
+    if (r.oldLine != null) {
+      if (oldCount === 0) oldStart = r.oldLine;
+      oldCount++;
+    }
+    if (r.newLine != null) {
+      if (newCount === 0) newStart = r.newLine;
+      newCount++;
+    }
+  }
+  return [
+    row("hunk", null, null, `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`),
+    ...hunk,
+  ];
+}
+
 // Diff one file from its old/new full content into a `DiffFileChange`, grouping
 // changes into hunks with up to `context` unchanged lines around them (adjacent
 // hunks whose context would touch are merged). Returns null when the contents are
@@ -143,71 +252,24 @@ export function diffFile(
   const changed = ops.filter((o) => o.type !== "eq").length;
   if (changed === 0) return null;
 
-  // Merge changed regions with their surrounding context into hunks: an eq run
-  // longer than 2·context splits hunks; anything shorter stays inside one.
-  const keep = ops.map((o) => o.type !== "eq");
-  const n = ops.length;
-  for (let idx = 0; idx < n; idx++) {
-    if (ops[idx].type !== "eq") continue;
-    // Distance to the nearest change on either side.
-    let left = Infinity;
-    for (let k = idx - 1; k >= 0 && idx - k <= context; k--) {
-      if (ops[k].type !== "eq") {
-        left = idx - k;
-        break;
-      }
-    }
-    let right = Infinity;
-    for (let k = idx + 1; k < n && k - idx <= context; k++) {
-      if (ops[k].type !== "eq") {
-        right = k - idx;
-        break;
-      }
-    }
-    if (left <= context || right <= context) keep[idx] = true;
-  }
-
-  const lines: DiffLine[] = [];
+  // Every op as a row first, then let `rehunk` group them — the grouping rule is
+  // shared with the stored-round path (patches.ts renders a wide body narrow with
+  // the same function), so the two can't drift.
+  const all: DiffLine[] = [];
   let additions = 0;
   let deletions = 0;
-  let h = 0;
-  while (h < n) {
-    if (!keep[h]) {
-      h++;
-      continue;
+  for (const op of ops) {
+    if (op.type === "eq") {
+      all.push(row("context", op.oldIdx + 1, op.newIdx + 1, oldLines[op.oldIdx]));
+    } else if (op.type === "del") {
+      deletions++;
+      all.push(row("del", op.oldIdx + 1, null, oldLines[op.oldIdx]));
+    } else {
+      additions++;
+      all.push(row("add", null, op.newIdx + 1, newLines[op.newIdx]));
     }
-    // Collect a maximal run of kept ops into one hunk.
-    let end = h;
-    while (end < n && keep[end]) end++;
-    const hunk = ops.slice(h, end);
-    let oldStart = 0;
-    let newStart = 0;
-    let oldCount = 0;
-    let newCount = 0;
-    for (const op of hunk) {
-      if (op.oldIdx >= 0) {
-        if (oldCount === 0) oldStart = op.oldIdx + 1;
-        oldCount++;
-      }
-      if (op.newIdx >= 0) {
-        if (newCount === 0) newStart = op.newIdx + 1;
-        newCount++;
-      }
-    }
-    lines.push(row("hunk", null, null, `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`));
-    for (const op of hunk) {
-      if (op.type === "eq") {
-        lines.push(row("context", op.oldIdx + 1, op.newIdx + 1, oldLines[op.oldIdx]));
-      } else if (op.type === "del") {
-        deletions++;
-        lines.push(row("del", op.oldIdx + 1, null, oldLines[op.oldIdx]));
-      } else {
-        additions++;
-        lines.push(row("add", null, op.newIdx + 1, newLines[op.newIdx]));
-      }
-    }
-    h = end;
   }
+  const lines = rehunk(all, context);
 
   const status: DiffFileChange["status"] =
     oldContent == null ? "added" : newContent == null ? "deleted" : "modified";

@@ -51,7 +51,7 @@ import {
 import * as db from "./db.ts";
 import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDiff } from "./git.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
-import { patchInfos, renderPatches } from "./patches.ts";
+import { fitPatchToLimit, patchInfos, renderPatches } from "./patches.ts";
 import { buildPrompt, buildUnsentPrompt } from "./prompt.ts";
 import { renderFile } from "./render.ts";
 import { commonDirOf, type Repo, resolveRepoById, resolveRepoFromHeader } from "./repo.ts";
@@ -499,7 +499,9 @@ app.post("/api/reviews", async (c) => {
       };
       if (repo.stale) return c.text("worktree unavailable", 409);
       try {
-        patch = await snapshotDiff(repo, source.base, source.head);
+        // Wide capture can push a very large refactor past the storage cap;
+        // fall back to render-width context rather than refusing the review.
+        patch = fitPatchToLimit(await snapshotDiff(repo, source.base, source.head));
       } catch {
         return c.text("git diff failed (bad ref?)", 400);
       }
