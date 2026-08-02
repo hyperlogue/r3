@@ -27,10 +27,12 @@ The pre-pass lowers it flat; the compile build embeds it as-is. Don't remove it.
 
 ## Two release channels, one tag-driven pipeline
 
-`scripts/release-binaries.ts` cross-compiles the four `r3-<os>-<arch>` binaries +
-`SHA256SUMS`. From there:
+`scripts/release-binaries.ts` cross-compiles the four `r3-<os>-<arch>` binaries.
+From there:
 
-- **GitHub Releases** carry the raw assets (curl / Homebrew).
+- **GitHub Releases** carry the raw assets (curl / Homebrew). No checksum
+  manifest ships with them — GitHub publishes a sha256 digest per asset, and the
+  release job verifies against those digests on the reuse path.
 - **npm** ships a tiny launcher (`@hyperlogue/r3`, `npm/launch.mjs`) whose
   per-platform binaries are **optional-dependency packages**
   (`@hyperlogue/r3-<os>-<arch>`, staged by `scripts/stage-npm-packages.ts`). npm

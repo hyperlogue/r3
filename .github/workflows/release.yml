@@ -1,7 +1,7 @@
 name: Release
 
-# Tag-driven release. Pushing a `v<version>` tag builds all four native binaries
-# + SHA256SUMS, publishes a GitHub Release with those assets (the manual / curl /
+# Tag-driven release. Pushing a `v<version>` tag builds all four native
+# binaries, publishes a GitHub Release with those assets (the manual / curl /
 # brew channel), then publishes the npm packages: the four per-platform binary
 # packages FIRST, then the launcher that pins them — in that order, because a
 # user must never resolve a launcher whose platform dependency isn't on the
@@ -86,32 +86,46 @@ jobs:
           bun run typecheck
           bunx @biomejs/biome@2.4.15 check .
 
-      # Cross-compiles all 4 targets + SHA256SUMS into dist/ from this one runner
-      # (Bun cross-compiles every platform; no OS matrix). Also re-checks
+      # Cross-compiles all 4 targets into dist/ from this one runner (Bun
+      # cross-compiles every platform; no OS matrix). Also re-checks
       # npm ↔ shared/version.ts and fails loudly on drift.
       #
       # On a RE-RUN where this tag's GitHub Release already carries the assets,
       # reuse those exact bytes instead of rebuilding: Bun builds aren't
       # guaranteed byte-identical, and a partial prior run may already have
       # published some npm packages, so a rebuild would drift the two channels.
+      # That download is the one path where the bytes didn't come from this job,
+      # so verify it against GitHub's own per-asset sha256 digests — which is why
+      # we don't publish a checksum manifest of our own.
       - name: Build or reuse release binaries
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-             && gh release download "$GITHUB_REF_NAME" -D dist -p 'r3-*' -p 'SHA256SUMS' --clobber \
+             && gh release download "$GITHUB_REF_NAME" -D dist -p 'r3-*' --clobber \
              && [ "$(ls dist/r3-* 2>/dev/null | wc -l)" -ge 4 ]; then
             echo "Reusing binaries already attached to $GITHUB_REF_NAME."
+            # Only the r3-* assets — an older release may still carry a
+            # SHA256SUMS we didn't download, and sha256sum -c fails on a missing
+            # file. A release predating asset digests reports none: warn instead
+            # of failing, rather than block a re-run on a check we can't run.
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" \
+              --jq '.assets[] | select(.digest) | select(.name | startswith("r3-"))
+                    | "\(.digest | sub("^sha256:"; ""))  \(.name)"' > /tmp/digests
+            if [ "$(grep -c . /tmp/digests)" -ge 4 ]; then
+              (cd dist && sha256sum -c /tmp/digests)
+            else
+              echo "::warning::$GITHUB_REF_NAME exposes no asset digests — reusing the download unverified."
+            fi
           else
             bun scripts/release-binaries.ts
           fi
 
-      # sha256sum -c is a tautology on a fresh build, but on the reuse path it
-      # verifies the downloaded assets against the manifest built alongside them.
+      # The only platform this runner can actually execute; the other three are
+      # covered by the digest check above on the reuse path.
       - name: Smoke-test the built artifact
         run: |
-          test "$(grep -c . dist/SHA256SUMS)" = 4
-          (cd dist && sha256sum -c SHA256SUMS)
+          test "$(ls dist/r3-* | wc -l)" = 4
           chmod +x dist/r3-linux-x64
           ./dist/r3-linux-x64 --help
 

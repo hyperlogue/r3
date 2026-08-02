@@ -102,11 +102,11 @@ if they drift, so keep them in lockstep:
 ## After the tag lands on GitHub
 
 The tag-driven pipeline (`.github/workflows/release.yml`) cross-compiles the four
-`r3-<os>-<arch>` binaries + `SHA256SUMS` (GitHub Release: curl / Homebrew) and
-publishes the npm launcher (`@hyperlogue/r3`) with its per-platform
-optional-dependency packages. It fills the **release description from the
-`## [X.Y.Z]` section of `CHANGELOG.md` in the tagged tree** — step 2's entry,
-verbatim — falling back to GitHub's auto-generated notes only if that section is
+`r3-<os>-<arch>` binaries (GitHub Release: curl / Homebrew) and publishes the npm
+launcher (`@hyperlogue/r3`) with its per-platform optional-dependency packages.
+It fills the **release description from the `## [X.Y.Z]` section of
+`CHANGELOG.md` in the tagged tree** — step 2's entry, verbatim —
+falling back to GitHub's auto-generated notes only if that section is
 missing or empty (the version guard warns when it is). This is why the tag must
 sit on the bump commit: a tag one commit early carries a changelog that doesn't
 describe it yet. The pins were already synced in step 3, so there is nothing else
