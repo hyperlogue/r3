@@ -92,8 +92,9 @@ export const SplitMultiRound: Story = {
 // and a gap whose edges meet loses its separator entirely. Revealed rows are
 // ordinary context rows: selectable and gutter-anchorable, which is the point —
 // today you can't leave feedback on a line more than 3 lines from a change.
-// Without `fetchContext` (as in every other story, and the demo) no expander is
-// offered at all, which is exactly how a legacy or piped round behaves.
+// Without `fetchContext` (as in every other story) no expander is offered at all,
+// which is exactly how a round holding nothing spare behaves — one stored before
+// wide capture, or piped at `-U3` or narrower.
 const revealContext = async (_file: string, start: number, end: number) =>
   Array.from({ length: end - start + 1 }, (_, i) => ({
     type: "context" as const,

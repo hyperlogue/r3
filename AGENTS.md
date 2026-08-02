@@ -257,8 +257,13 @@ once, at capture time, never at render).
   git is never consulted again, context not taken at capture can never be
   recovered, so a round is stored at `-U2000` (per-file trimmed to `-U25` above
   64 KB) and re-hunked to 3 lines at render — which is what makes **expand
-  context** possible at all, and why an older or `--stdin-diff` round simply has
-  nothing to expand. No watching, no re-anchoring, no staleness — the
+  context** possible at all. Every round renders at 3 and expands **as far as its
+  own stored body reaches**, whatever wrote it: a piped round (`--stdin-diff`,
+  `r3 diff add`) expands up to the `-U` it was piped at, and one piped at `-U3` or
+  narrower is byte-identical passthrough with no expander at all — same for a
+  round stored before wide capture. Deliberately no `--context` flag: the render
+  width is a display default, not per-round state. No watching, no re-anchoring, no
+  staleness — the
   Gerrit-patchset shape, minus everything Gerrit needs for server-side merging.
   (`server/patches.ts`)
 - A **files review** can also carry **content snapshots** — frozen full-text

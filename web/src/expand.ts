@@ -5,8 +5,10 @@
 // on each hunk row via `expandable`: `up` is the gap above that hunk, `down` the
 // gap below it — the latter set on the last hunk of each contiguous run, since
 // within a run every other downward gap is the next hunk's `up`. Anything the
-// server doesn't hold is reported as 0, so a legacy or piped round has no gaps at
-// all and the view shows the plain `@@` separator it always did.
+// server doesn't hold is reported as 0, so a round with nothing spare — one
+// stored before wide capture, or piped at `-U3` or narrower — has no gaps at all
+// and shows the plain `@@` separator it always did. A round piped wider expands
+// exactly as far as its own body reaches; the client never learns which is which.
 //
 // Revealed rows are merged back into ONE row list here, and DiffView derives
 // everything from that merged list — the per-side text maps, the row-index maps,
