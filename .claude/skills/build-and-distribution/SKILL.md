@@ -81,7 +81,12 @@ gen:demo` only after editing canned content.
 
 The seed dogfoods r3 on its own code; a scripted agent watches each review and
 closes the submit→reply→round loop. Reviews can't be *created* in the demo (no git)
-— it's a read-and-respond tour of the seeded reviews.
+— it's a read-and-respond tour of the seeded reviews. Daemon-only affordances are
+gated by a build-time flag the aliased `api.ts` exports rather than by a
+demo check inside the component: `CAN_MANAGE_TOKENS` is `false` there, so
+SettingsPopup drops its whole "Access" (login tokens) section — nothing beyond
+this tab is reachable, so remote-access tokens have no meaning and a control that
+could only fail is worse than none.
 
 **The demo must never fork the contract**: it implements `shared/types.ts`, it
 doesn't extend it.

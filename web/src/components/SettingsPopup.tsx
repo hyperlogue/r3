@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, TOKEN } from "../api.ts";
+import { api, CAN_MANAGE_TOKENS, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
 import {
   FONT_MAX,
@@ -220,10 +220,13 @@ export function SettingsPopup() {
               </p>
             </Section>
 
-            {/* Login tokens for reaching r3 when it's exposed beyond loopback. */}
-            <Section label="Access">
-              <TokenManager />
-            </Section>
+            {/* Login tokens for reaching r3 when it's exposed beyond loopback —
+                absent in the browser demo, which has no daemon to expose. */}
+            {CAN_MANAGE_TOKENS && (
+              <Section label="Access">
+                <TokenManager />
+              </Section>
+            )}
 
             {/* Sign out — only an exposed (cookie) session can; a non-exposed one
                 holds the token (TOKEN != "") and has nothing to sign out of. */}

@@ -36,6 +36,11 @@ armDemoWatchers();
 // non-empty so SettingsPopup treats the session as local (hides "Sign out").
 export const TOKEN = "demo";
 
+// Nothing here is reachable beyond this tab, so login tokens are meaningless —
+// SettingsPopup drops its "Access" section entirely (the api methods below stay,
+// so the surface still type-checks against the real module).
+export const CAN_MANAGE_TOKENS = false;
+
 export { ApiError };
 
 // No daemon to reach — the demo never needs to log in.

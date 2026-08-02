@@ -46,6 +46,12 @@ import type {
 // so the master token never leaves the box — `req()` then relies on the cookie.
 export let TOKEN = "";
 
+// Whether this build can mint login tokens for remote access. Always true against
+// a daemon; the browser demo aliases this module and sets it false (there is no
+// daemon to expose beyond loopback, so the settings popup drops the whole "Access"
+// section rather than offering a control that can only fail).
+export const CAN_MANAGE_TOKENS = true;
+
 // Bootstrap before first render. When the daemon isn't exposed it returns the
 // per-user token (sent as x-r3-token below); when exposed it needs a login-token
 // session and answers 401 `{ needsAuth:true }`, and the caller shows the login screen.
