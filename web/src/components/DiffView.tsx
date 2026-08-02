@@ -326,16 +326,23 @@ const SplitHalfRow = memo(function SplitHalfRow({
     // separator reads as one bar rather than a doubled label.
     return (
       <div className={cn(SPLIT_ROW_GRID, ROW_BG.hunk)}>
-        <div className="col-span-2 truncate px-3 select-none">
+        {/* The right half is the same generated blank as a filler cell: it holds
+            the row's height without owning a text node a selection could pick up. */}
+        <div
+          className={cn("col-span-2 truncate px-3 select-none", side !== "old" && "split-filler")}
+        >
           {/* Controls live in the left half only — never two expanders per gap. */}
-          {side === "old" ? <HunkBar ln={row.ln} entry={gapEntry} onExpand={onExpand} /> : " "}
+          {side === "old" ? <HunkBar ln={row.ln} entry={gapEntry} onExpand={onExpand} /> : null}
         </div>
       </div>
     );
   }
 
   // A filler cell opposite an unmatched add/del: no line, no sign, no tint — the
-  // surface shows through so the eye reads "nothing here on this side".
+  // surface shows through so the eye reads "nothing here on this side". Its blank
+  // comes from `split-filler` (generated content, unselectable) rather than an
+  // &nbsp; text node, so a selection running past it can't pick up a line the file
+  // doesn't have — see main.css.
   if (!ln) {
     return (
       <div className={cn(SPLIT_ROW_GRID, "bg-neutral-500/[0.06]")}>
@@ -348,7 +355,7 @@ const SplitHalfRow = memo(function SplitHalfRow({
           onDown={onDown}
           onEnter={onEnter}
         />
-        <code className="shiki-code px-2 whitespace-pre">&nbsp;</code>
+        <code className="shiki-code split-filler px-2 whitespace-pre" />
       </div>
     );
   }

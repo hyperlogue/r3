@@ -199,6 +199,24 @@ html.dark .gutter-del {
   user-select: none;
 }
 
+/* Side-by-side filler: the empty half opposite an unmatched add/del. It must
+   occupy a row (the two columns stay vertically locked only while both mount the
+   same number of equal-height rows) while contributing NOTHING to a selection —
+   it stands for "no line here on this side", so a selection dragged past it must
+   not gain a line. Its blank is generated content, not a text node, so no
+   serializer can emit it and no engine can put a stray newline in `quote`; a
+   literal &nbsp; child leaked exactly that. Prevention over repair, again:
+   stripping blank lines from the quote afterwards would be indistinguishable
+   from stripping a blank line the file really has, and `quote` is the anchor of
+   record — it's searched for verbatim. user-select:none covers the same ground
+   for any future text child. */
+.split-filler {
+  user-select: none;
+}
+.split-filler::before {
+  content: "\00a0";
+}
+
 /* Persistent marker on lines/blocks an unresolved feedback points at. Every
    painting region rule is scoped :not(.r3-active-line) so the amber "actively
    focused" treatment below wins structurally when an element carries both —

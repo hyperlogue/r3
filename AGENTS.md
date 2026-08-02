@@ -332,11 +332,13 @@ the anchors, and every callback shape are identical either way:
   size), toggled from `PaneToolbar`; never review state, never sent to the server.
   Split pairs rows positionally (context with itself; a del run zipped against the
   add run following it, shorter side padded with inert filler) — deliberately not a
-  re-diff, which could disagree with the line numbers anchors are keyed on. Each
-  half is its own horizontal scroll container; they stay vertically locked because
-  `VirtualLines` sizes every row at a fixed height, so two instances over one row
-  count mount identical windows. The phone tier **forces unified** without writing
-  the preference (`mobile-tier` skill).
+  re-diff, which could disagree with the line numbers anchors are keyed on. Filler
+  occupies a row but owns **no text node** (`.split-filler`, a generated blank), so
+  it can never enter a `quote` as a line the file doesn't have. Each half is its own
+  horizontal scroll container; they stay vertically locked because `VirtualLines`
+  sizes every row at a fixed height, so two instances over one row count mount
+  identical windows. The phone tier **forces unified** without writing the
+  preference (`mobile-tier` skill).
 - **Expand context** — a hunk separator whose `expandable` counts are non-zero
   becomes an expander (`web/src/expand.ts`, `GET …/diff-context`). Availability
   rides the hunk row rather than a stored column, so the client needs to know
