@@ -1,14 +1,16 @@
 ---
 name: release
-description: Cut an r3 release — draft the CHANGELOG entry, bump every version string in lockstep, commit, then cut the annotated `vX.Y.Z` tag whose message carries the changelog section (the release CI turns it into the GitHub release notes). Use when the user wants to release a new version, bump the version, write or update the changelog, or tag a release.
+description: Cut an r3 release — draft the CHANGELOG entry, bump every version string in lockstep, commit, then cut the annotated `vX.Y.Z` tag on that commit (the release CI lifts the changelog section into the GitHub release notes). Use when the user wants to release a new version, bump the version, write or update the changelog, or tag a release.
 ---
 
 # Releasing r3
 
 A release is one version-bump commit plus an annotated tag on it. The whole job
 is: write the changelog, move **every** version string to the new number
-together, commit, then tag with the changelog section as the tag message — the
-release CI lifts that message into the GitHub release notes — and push.
+together, commit, tag that commit, and push. The release CI reads
+`CHANGELOG.md` **out of the tagged tree** for the GitHub release notes, so the
+changelog entry is the release's public face and the tag carries no notes of its
+own.
 
 ## The one rule: bump *before* you tag
 
@@ -52,9 +54,9 @@ if they drift, so keep them in lockstep:
    - Add the compare link at the very bottom, with the others:
      `[X.Y.Z]: https://github.com/hyperlogue/r3/compare/v<prev>...vX.Y.Z`
 
-   This entry is the release's public face — from step 6 it becomes the tag
-   message and the GitHub release notes verbatim. **Show the draft to the user and
-   get their sign-off before you commit.**
+   This entry is the release's public face — the CI publishes this exact section
+   as the GitHub release notes. **Show the draft to the user and get their
+   sign-off before you commit.**
 
 3. **Bump all three version sources** to `X.Y.Z` — do not forget the four npm
    pins in `npm/package.json`.
@@ -74,24 +76,21 @@ if they drift, so keep them in lockstep:
    git commit -m "chore: release vX.Y.Z"
    ```
 
-6. **Tag** — annotated, on the commit you just made, carrying the changelog
-   section as the message **body** so the CI can lift it into the GitHub release
-   notes (the `r3 vX.Y.Z` subject is the convention since v0.2.0). The awk pulls
-   exactly the `## [X.Y.Z]` section (never a stray `[Unreleased]` or the previous
-   release), minus its heading (the release title already shows the version), and
-   the guard refuses to tag when that section is missing or empty. `--cleanup`
-   matters: git's default mode strips `#`-prefixed lines as comments, which would
-   silently delete every `### Added/Changed/Fixed` group heading from the tag —
-   `whitespace` keeps them and still trims trailing blanks:
+6. **Tag** — annotated, on the commit you just made (the `r3 vX.Y.Z` subject is
+   the convention since v0.2.0). The tag needs no body: CI reads the changelog
+   section from the tagged tree. The awk is the same extraction CI runs, used
+   here only as a **guard** — it refuses to tag when the `## [X.Y.Z]` section is
+   missing or empty, which is exactly when the release would silently fall back
+   to GitHub's auto-generated notes:
    ```sh
    V=X.Y.Z
    NOTES=$(awk -v v="$V" 'index($0, "## [" v "]")==1{f=1; next} /^## \[/{f=0} f' CHANGELOG.md | sed '/./,$!d')
    test -n "$NOTES" &&
-     printf 'r3 v%s\n\n%s\n' "$V" "$NOTES" | git tag --cleanup=whitespace -a "v$V" -F - ||
+     git tag -a "v$V" -m "r3 v$V" ||
      echo "refusing to tag: no populated '## [$V]' section in CHANGELOG.md" >&2
    ```
-   Eyeball the message before pushing — the `###` group headings must have
-   survived: `git tag -l --format='%(contents)' "v$V"`.
+   Eyeball what CI will publish before pushing — that's `$NOTES`, or
+   `git show "v$V":CHANGELOG.md | head -40`.
 
 7. **Push** — leave the actual push to the user unless they ask, and note that
    this environment often has no push credentials (SSH key / `gh` auth may be
@@ -105,10 +104,13 @@ if they drift, so keep them in lockstep:
 The tag-driven pipeline (`.github/workflows/release.yml`) cross-compiles the four
 `r3-<os>-<arch>` binaries + `SHA256SUMS` (GitHub Release: curl / Homebrew) and
 publishes the npm launcher (`@hyperlogue/r3`) with its per-platform
-optional-dependency packages. It fills the **release description from the tag
-message body** — the changelog section from step 6 — falling back to GitHub's
-auto-generated notes only if the tag carries none. The pins were already synced
-in step 3, so there is nothing else to bump by hand.
+optional-dependency packages. It fills the **release description from the
+`## [X.Y.Z]` section of `CHANGELOG.md` in the tagged tree** — step 2's entry,
+verbatim — falling back to GitHub's auto-generated notes only if that section is
+missing or empty (the version guard warns when it is). This is why the tag must
+sit on the bump commit: a tag one commit early carries a changelog that doesn't
+describe it yet. The pins were already synced in step 3, so there is nothing else
+to bump by hand.
 
 ## If you botch a release
 
@@ -123,8 +125,7 @@ vX.Y.Z`, fix, then redo step 6. Cheap.
   patch version** (`vX.Y.(Z+1)`) carrying the fix; that is the intended recovery.
   Force-moving a published tag is a rare escape hatch that needs the user to
   *temporarily* lift GitHub's immutable-tag / release protection, then `git tag -f
---cleanup=whitespace -a vX.Y.Z -F - <commit>` and `git push --force origin
-vX.Y.Z`. It's
+-a vX.Y.Z -m "r3 vX.Y.Z" <commit>` and `git push --force origin vX.Y.Z`. It's
   outward-facing and hard to reverse — confirm with the user first, and if the
   branch and tag can't both push, stop and report rather than half-applying.
 

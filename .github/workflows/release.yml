@@ -66,6 +66,10 @@ jobs:
       # npm ↔ shared/version.ts check, this transitively pins all three sources.
       # We never auto-fix here — the tag is the human's assertion; drift means a
       # mistake, so fail and make them re-tag.
+      #
+      # The changelog section is only WARNED about, not enforced: it degrades to
+      # --generate-notes below rather than shipping wrong notes, and a prerelease
+      # tag (v1.0.0-rc.1) legitimately has no section of its own.
       - name: Verify tag matches npm/package.json version
         run: |
           PKG_V=$(jq -r .version npm/package.json)
@@ -73,6 +77,8 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME != npm/package.json v$PKG_V — fix versions, delete the tag, re-tag."
             exit 1
           fi
+          grep -qF "## [$PKG_V]" CHANGELOG.md ||
+            echo "::warning::no '## [$PKG_V]' section in CHANGELOG.md — the release will fall back to auto-generated notes."
 
       # A tag can land on an unchecked commit — cheap insurance.
       - name: Typecheck + lint
@@ -113,12 +119,13 @@ jobs:
       # tags (v*-*) are marked so they never become the repo's "Latest". Idempotent:
       # a re-run re-uploads assets with --clobber (a no-op when we reused them above).
       #
-      # The release description is the annotated tag's message BODY — the CHANGELOG
-      # section the release skill puts there — so the release page matches the
-      # changelog verbatim instead of a commit-derived summary. Fall back to
-      # GitHub's --generate-notes only when the tag carries no body (e.g. a
-      # hand-cut lightweight tag). The update path never rewrites an existing
-      # release's body (it may have been hand-edited) — it only re-syncs assets.
+      # The release description is this version's CHANGELOG.md section, read from
+      # the tagged tree — so the release page matches the changelog verbatim
+      # instead of a commit-derived summary, from the same single source the repo
+      # already maintains (the tag needs no message body, and can't drift from the
+      # changelog). Fall back to GitHub's --generate-notes only when that section
+      # is missing or empty. The update path never rewrites an existing release's
+      # body (it may have been hand-edited) — it only re-syncs assets.
       - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -133,20 +140,14 @@ jobs:
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber ||
               echo "asset upload rejected (immutable release) — keeping existing assets"
           else
-            # Ensure the annotated tag OBJECT is local (checkout leaves the ref
-            # peeled to the commit), then take its message body as the notes.
-            # Public repo → the anonymous fetch needs no creds; non-fatal when the
-            # object is already here. Gate on the ref's type: on a lightweight (or
-            # still-peeled) tag, %(contents:body) would emit the COMMIT's body —
-            # in this repo never blank (Co-Authored-By trailer) — so reading it
-            # unconditionally would publish a stray trailer instead of falling
-            # back to --generate-notes.
-            git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" 2>/dev/null || true
-            if [ "$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(objecttype)')" = tag ]; then
-              git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:body)' > /tmp/relnotes.md
-            else
-              : > /tmp/relnotes.md
-            fi
+            # Pull exactly the `## [X.Y.Z]` section — never a stray [Unreleased]
+            # or the previous release — minus its heading, since the release title
+            # already shows the version; the sed drops the leading blank line.
+            # index(…)==1 anchors the match at column 1 so a bullet mentioning the
+            # version can't open the section.
+            awk -v v="${GITHUB_REF_NAME#v}" \
+              'index($0, "## [" v "]")==1 {f=1; next} /^## \[/{f=0} f' CHANGELOG.md |
+              sed '/./,$!d' > /tmp/relnotes.md
             NOTES="--generate-notes"
             grep -q '[^[:space:]]' /tmp/relnotes.md && NOTES="--notes-file /tmp/relnotes.md"
             gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
