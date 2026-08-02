@@ -8,8 +8,10 @@
 // Layout is spacer-based (a top pad, the live rows in normal flow, a bottom pad)
 // rather than absolute positioning, so the existing `min-w-max` wrapper keeps
 // driving each file's horizontal scroll extent from its widest *mounted* line —
-// no manual width bookkeeping. Rows are measured (`measureElement`) because a
-// diff interleaves slightly-taller hunk separators among the code rows.
+// no manual width bookkeeping. Row heights are NOT measured — every row is sized
+// at one line height, a fixed estimate (see `estimateSize` below for why), which
+// callers must hold to: a row that renders shorter or taller drifts scroll-to-line
+// and, in the split diff layout, desyncs the two columns.
 //
 // The ReviewView content pane wraps its children in <VirtualPaneProvider>, which
 // hands down the scroll element, a `layoutVersion` that bumps when the stacked

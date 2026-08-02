@@ -94,18 +94,26 @@ export const SplitMultiRound: Story = {
 // today you can't leave feedback on a line more than 3 lines from a change.
 // Without `fetchContext` (as in every other story, and the demo) no expander is
 // offered at all, which is exactly how a legacy or piped round behaves.
+const revealContext = async (_file: string, start: number, end: number) =>
+  Array.from({ length: end - start + 1 }, (_, i) => ({
+    type: "context" as const,
+    oldLine: start + i,
+    newLine: start + i,
+    html: `<span>  // revealed line ${start + i}</span>`,
+    text: `  // revealed line ${start + i}`,
+  }));
+
 export const ExpandableContext: Story = {
-  args: {
-    rounds: expandableRound,
-    fetchContext: async (_file, start, end) =>
-      Array.from({ length: end - start + 1 }, (_, i) => ({
-        type: "context" as const,
-        oldLine: start + i,
-        newLine: start + i,
-        html: `<span>  // revealed line ${start + i}</span>`,
-        text: `  // revealed line ${start + i}`,
-      })),
-  },
+  args: { rounds: expandableRound, fetchContext: revealContext },
+};
+
+// The two features crossed — the configuration where a row-height slip shows up
+// worst. An expander lives in the LEFT half only (never two per gap), so if that
+// separator rendered at anything but one line height the halves would drift apart
+// by the difference at every gap. Both columns must stay level here, before and
+// after revealing rows.
+export const SplitExpandableContext: Story = {
+  args: { rounds: expandableRound, fetchContext: revealContext, layout: "split" },
 };
 
 // A viewed file collapses to just its header. Viewed is keyed per round

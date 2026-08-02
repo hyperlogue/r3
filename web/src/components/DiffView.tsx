@@ -154,7 +154,12 @@ function HunkBar({
   const btn =
     "px-1 leading-none rounded hover:bg-neutral-500/20 hover:text-neutral-700 dark:hover:text-neutral-200";
   return (
-    <span className="flex items-center gap-1">
+    // h-4 (= 1rem = text-xs's line-height = the virtualizer's per-row estimate).
+    // A flex box has no line-box strut, so without it this row would be as tall as
+    // its `leading-none` buttons — 0.75rem — and every expander would shorten its
+    // row: scroll-to-line drifts in unified, and in split the left half (which owns
+    // the controls) desyncs from the right half, which is a plain blank line box.
+    <span className="flex h-4 items-center gap-1">
       <button
         type="button"
         title={`Show ${EXPAND_STEP} lines above`}
