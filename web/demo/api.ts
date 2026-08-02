@@ -37,8 +37,9 @@ armDemoWatchers();
 export const TOKEN = "demo";
 
 // Nothing here is reachable beyond this tab, so login tokens are meaningless —
-// SettingsPopup drops its "Access" section entirely (the api methods below stay,
-// so the surface still type-checks against the real module).
+// SettingsPopup drops its "Access" section entirely. The auth methods below stay
+// anyway: this module is resolved by name at bundle time, so every export the SPA
+// imports has to exist here or the demo build fails.
 export const CAN_MANAGE_TOKENS = false;
 
 export { ApiError };
