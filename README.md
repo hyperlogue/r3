@@ -136,6 +136,19 @@ Feedback anchors to a **quote**, not a line number: in a files review your notes
 follow the code as it's edited; in a diff review the rounds are immutable, so
 nothing drifts.
 
+## How r3 compares to similar tools
+
+| Tool                                                                                   | How r3 differs                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [difit](https://github.com/yoshiko-pg/difit) / [diffx](https://github.com/wong2/diffx) | r3 makes the review loop live. The agent `watch`es, you Submit, replies land back in the UI, tracking every item to resolution. r3 also supports raw text files like design docs, not just diffs. |
+| GitHub / GitLab PRs                                                                    | r3 drives the local pre-PR loop with your agent: nothing needs a remote, a push, or even a commit.                                                                                                |
+| AI review bots (CodeRabbit, Copilot code review, …)                                    | In r3 _you_ review the AI's work: the agent is the author, addressing your feedback.                                                                                                              |
+
+If you want a one-shot look at a diff with no state left behind, difit and diffx
+are good enough. r3 shines when the review outgrows a single pass — feedback
+spans several rounds, and each item keeps its thread and status until it's
+resolved.
+
 ## Remote access
 
 If you work on a remote dev server, r3 listens on loopback there, and you reach
