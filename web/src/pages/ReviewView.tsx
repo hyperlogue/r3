@@ -744,7 +744,18 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // than ~85% of the pane could never win the test above — the file before it
       // still fills the screen — so it would never be current, and `]` (which
       // indexes on activePath) would stick on its predecessor forever.
-      const atEnd = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+      //
+      // Only when there IS something to scroll. A pane whose content fits is at
+      // its end from the first frame, and handing the marker to the last file
+      // there is backwards — nothing has been scrolled past. That's also what a
+      // cold load looks like: the first measure runs before the content exists
+      // (a files review renders one small [data-file] stub per file until its
+      // blob lands), so the marker went to the LAST file while the reader was
+      // looking at the first. Fall through instead — every block is wholly
+      // visible then, so the loop below marks the first one.
+      const atEnd =
+        root.scrollHeight > root.clientHeight + 1 &&
+        root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
       let current: string | null = atEnd ? (last?.getAttribute("data-file") ?? null) : null;
       for (let i = 0; !current && i < blocks.length; i++) {
         const r = blocks[i].getBoundingClientRect();
@@ -773,9 +784,21 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       if (!raf) raf = requestAnimationFrame(measure);
     };
     root.addEventListener("scroll", onScroll, { passive: true });
+    // The pane's content mostly arrives AFTER this effect, and none of it fires a
+    // scroll event: a files review paints [data-file] stubs until each blob lands,
+    // and a fold/unfold restacks everything below it. Without a resize signal the
+    // marker would keep whatever it computed against the stubs — the reported "the
+    // first file isn't marked on open". The pane's OWN box is worth watching too:
+    // its height is the 15% denominator, so a feedback-panel drag or a window
+    // resize changes the answer. The pane has exactly one child — the stacked file
+    // content (VirtualPaneProvider's wrapper) — so its height is the content height.
+    const ro = new ResizeObserver(onScroll);
+    ro.observe(root);
+    if (root.firstElementChild) ro.observe(root.firstElementChild);
     measure();
     return () => {
       root.removeEventListener("scroll", onScroll);
+      ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
   }, [detail, fileListKey]);

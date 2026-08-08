@@ -471,7 +471,16 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
   (a folded file is one 2rem header and could never clear 15%, so a bare share
   test would skip every folded file), and at the **end of the scroll** the last
   block wins outright (a final file shorter than ~85% of the pane could otherwise
-  never win, and `]` would stick on its predecessor).
+  never win, and `]` would stick on its predecessor) — but only when there **is**
+  something to scroll, since a pane whose content fits is at its end from the
+  first frame and nothing has been scrolled past.
+- **The spy re-measures on resize, not just on scroll.** Most of the pane's
+  content arrives after the effect attaches and fires no scroll event — a files
+  review paints one small `[data-file]` stub per file until its blob lands — so a
+  `ResizeObserver` on the pane and on its content watches for that (and for the
+  fold/unfold restack, and for the feedback-panel drag, which changes the 15%
+  denominator). Without it the marker keeps whatever it computed against stubs,
+  which is how it once opened a review with no file marked at all.
 - One flat map, no modes, no prefixes, no counts. The layer stands down whenever
   focus is in a text field, and everything but `?` stands down while the overlay
   is up (`suspendKeys`; `keysSuspended()` lets the composer's own `Esc` listener
