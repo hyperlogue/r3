@@ -14,7 +14,7 @@ import type {
   ReviewDetail,
   SnapshotMeta,
 } from "../shared/types.ts";
-import { MAX_QUOTE_LINES, SUMMARY_FILE } from "../shared/types.ts";
+import { capQuote, SUMMARY_FILE } from "../shared/types.ts";
 import { findQuote, type ProjectedDoc, projectDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
@@ -385,14 +385,6 @@ export async function repoForReview(id: string): Promise<Repo | null> {
   const review = db.getReview(id);
   if (!review) return null;
   return resolveRepoForReview(review);
-}
-
-// Cap a derived quote to its first few lines — the same cap the web's selection
-// anchors apply (short quotes relocate far more reliably); the stored line range
-// still carries the full span.
-function capQuote(text: string): string {
-  const lines = text.split("\n");
-  return lines.length > MAX_QUOTE_LINES ? lines.slice(0, MAX_QUOTE_LINES).join("\n") : text;
 }
 
 // Derive the verbatim text of a line range so the quote — the anchor of record —

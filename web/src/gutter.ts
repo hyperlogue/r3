@@ -5,7 +5,7 @@
 // is instantiated per block, so the anchor never crosses files.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DiffSide } from "./types.ts";
+import { capQuote, type DiffSide, MAX_QUOTE_LINES } from "./types.ts";
 
 export interface GutterPick {
   side: DiffSide;
@@ -74,11 +74,16 @@ export function useGutterDrag(opts: {
       const lo = Math.min(a.line, end);
       const hi = Math.max(a.line, end);
       const parts: string[] = [];
-      for (let n = lo; n <= hi; n++) {
+      // Only collect up to the cap: a drag down a 2000-line file would otherwise
+      // build the whole file's text just to throw all but four lines away.
+      for (let n = lo; n <= hi && parts.length < MAX_QUOTE_LINES; n++) {
         const t = tf(a.side, n);
         if (t != null) parts.push(t);
       }
-      pick({ side: a.side, lineStart: lo, lineEnd: hi, quote: parts.join("\n") });
+      // Same cap as a text selection (selection.ts) and a server-derived quote
+      // (server/reviews.ts) — the gesture that made a quote must not change its
+      // shape. lineStart/lineEnd still carry the full picked span.
+      pick({ side: a.side, lineStart: lo, lineEnd: hi, quote: capQuote(parts.join("\n")) });
       setAnchor(null);
       setHead(null);
     };

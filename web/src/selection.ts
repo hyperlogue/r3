@@ -4,11 +4,12 @@
 // [data-file] ancestor (the quote is the anchor of record).
 
 import type { DiffSide } from "./types.ts";
-// MAX_QUOTE_LINES (the cap on a stored quote's leading lines, applied in
-// getSelectionAnchor / getSummaryAnchor below) lives in shared/ because the
-// server's line-anchored derived quotes (server/reviews.ts deriveQuote) apply the
-// same cap — so the two sides agree on how long an anchor quote can get.
-import { MAX_QUOTE_LINES, SUMMARY_FILE } from "./types.ts";
+// capQuote (the cap on a stored quote's leading lines, applied in
+// getSelectionAnchor / getSummaryAnchor below) lives in shared/ because every
+// other quote producer applies it too — the gutter pick (gutter.ts) and the
+// server's line-anchored derived quotes (server/reviews.ts deriveQuote) — so all
+// three agree on how long an anchor quote can get.
+import { capQuote, SUMMARY_FILE } from "./types.ts";
 
 export interface PendingAnchor {
   file: string;
@@ -22,16 +23,6 @@ export interface PendingAnchor {
   // Which stored diff round the selection was made in (diff reviews; the rows
   // live under a [data-round] wrapper). Absent/null for files reviews.
   patchSeq?: number | null;
-}
-
-// Trim trailing whitespace and cap the quote at MAX_QUOTE_LINES leading lines: a
-// short span relocates far more reliably than a paragraphs-long one. Kept verbatim
-// (no ellipsis) so it still matches the source — the recorded line range still
-// covers the full selection. Shared by both anchor builders.
-function capQuote(raw: string): string {
-  const quote = raw.replace(/\s+$/, "");
-  const lines = quote.split("\n");
-  return lines.length > MAX_QUOTE_LINES ? lines.slice(0, MAX_QUOTE_LINES).join("\n") : quote;
 }
 
 function closest(node: Node | null, attr: string): HTMLElement | null {

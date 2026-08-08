@@ -33,10 +33,22 @@ export type GitRef = string; // sentinel ("WORKING" | "STAGED" | "SCRATCH" | "HE
 export const SUMMARY_FILE = "@summary";
 
 // Cap stored anchor quotes to this many leading lines: a short span relocates far
-// more reliably than a paragraphs-long one. Applied by every quote producer — the
-// web's selection anchors (web/src/selection.ts) and the server's derived quotes
-// (server/reviews.ts deriveQuote) — while the recorded line range keeps the full span.
+// more reliably than a paragraphs-long one. The recorded line range keeps the full
+// span either way — only the quote is truncated.
 export const MAX_QUOTE_LINES = 4;
+
+// The one truncation every quote producer runs through, so a quote's shape can't
+// depend on which gesture made it: the web's text selections and gutter picks
+// (web/src/selection.ts, web/src/gutter.ts) and the server's derived quotes
+// (server/reviews.ts deriveQuote). Trailing whitespace goes first — it is never
+// part of what the note points at, and it would otherwise count toward the cap as
+// a blank final line. Truncation is verbatim (no ellipsis) so the result still
+// matches the source, which is what re-anchoring searches for.
+export function capQuote(raw: string): string {
+  const quote = raw.replace(/\s+$/, "");
+  const lines = quote.split("\n");
+  return lines.length > MAX_QUOTE_LINES ? lines.slice(0, MAX_QUOTE_LINES).join("\n") : quote;
+}
 
 // Row ceiling on one expand-context request (GET …/diff-context). The server
 // rejects a larger range; the client clamps "show all" to it and reveals a huge
