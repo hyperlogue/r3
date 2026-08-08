@@ -70,10 +70,10 @@ export const NestedPath: Story = {
   args: { path: "web/src/components/feedback/FeedbackPanel.tsx" },
 };
 
-// The scroll-spy's current file — the one `z` / `x` / `a` act on. An accent rail
-// on the leading edge plus a half-step darker header fill. Compare against
-// Default: it has to be findable when you look for it and ignorable when you
-// don't, since one of these is on screen at all times.
+// The scroll-spy's current file — the one `z` / `x` / `a` act on. Just an accent
+// rail on the leading edge: compare against Default, since one of these is on
+// screen at all times, so it has to be findable when you look for it and
+// ignorable when you don't. (A header fill was tried here and read as too loud.)
 export const Current: Story = {
   args: { current: true },
 };

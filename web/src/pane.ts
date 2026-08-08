@@ -24,9 +24,11 @@ const HEADER_REM = 2;
 // The covered band at the pane's top edge: each file's sticky header, plus the
 // mobile pane toolbar whose live height rides on the pane as --pane-sticky-h (0
 // when unset — desktop, or no toolbar). Anything landing above this line is
-// hidden under the chrome, so the "is the anchor on screen?" test (highlights.ts),
-// the scroll-spy's scanline (ReviewView), and a scroll asking to land at the pane
-// top (virtual.tsx's align:"start") all have to clear it.
+// hidden under the chrome, so both the "is the anchor on screen?" test
+// (highlights.ts) and a scroll asking to land at the pane top (virtual.tsx's
+// align:"start") have to clear it. NOT the scroll-spy: it measures how much of a
+// file the pane shows, and while a file is current the band holds that file's own
+// header — which is a label, not lost reading height.
 export function stickyBandPx(pane: HTMLElement): number {
   const toolbar =
     Number.parseFloat(getComputedStyle(pane).getPropertyValue("--pane-sticky-h")) || 0;

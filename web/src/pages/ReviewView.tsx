@@ -47,7 +47,7 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
-import { focusComposer, retryScrollToRow, stickyBandPx, usePaneCrossfade } from "../pane.ts";
+import { focusComposer, retryScrollToRow, usePaneCrossfade } from "../pane.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
@@ -70,6 +70,14 @@ import { fileScrollKey, useVirtualPaneController, VirtualPaneProvider } from "..
 // patch_seq null (it isn't scoped to a round), so this only scopes the DOM query
 // for active-line highlighting — it never reaches the server.
 const SNAPSHOT_DIFF_SEQ = 0;
+
+// The scroll-spy hands the "current file" marker on to the next block once the
+// one above it is down to this share of the pane's height — i.e. it's nearly
+// scrolled away and you're already reading its successor. Below the crossover the
+// marker moves while the next file's header is still travelling toward the top,
+// which is the point: waiting for it to arrive left the marker a full screen
+// behind. See the spy for why a block that's wholly visible is exempt.
+const ACTIVE_HANDOFF_SHARE = 0.15;
 
 // Mobile: wraps the pane toolbar so it sticks at the pane top (z-20 paints it
 // over FileCard's z-10 header) and reports its live height up — the toolbar
@@ -687,7 +695,21 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [isDiff, rounds, effectiveRoundSeq, snapshots, toSnap, fromSnap],
   );
 
-  // Scroll-spy: mark the file whose block currently sits at the top of the pane.
+  // Scroll-spy: mark the file you're mostly looking at.
+  //
+  // The rule is "the first file block still showing in the pane — unless it's
+  // nearly gone and something follows it." A crossed-scanline test (what this was)
+  // only hands over once the NEXT file reaches the top, so the marker stayed on a
+  // file reduced to a sliver while its successor filled the screen. Handing over
+  // at ACTIVE_HANDOFF_SHARE means the marker moves while you're still scrolling
+  // toward the next file, which is when you've already started reading it.
+  //
+  // The `clipped` half of the test is what keeps small blocks safe: a folded file
+  // is one 2rem header and can NEVER occupy 15% of the pane, so a bare share test
+  // would skip past every folded file — and `]`/`[` index on activePath, so
+  // stepping onto one would immediately report the file after it. A block that is
+  // wholly on screen is never handed off, whatever its size.
+  //
   // The listener reads the DOM live, so it stays correct as blocks load/render
   // without re-subscribing. Keyed on `detail` (not []) because the first commit
   // early-returns "Loading review…" — scopeRef is null there, and a one-shot
@@ -711,23 +733,37 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // A toolbar jump owns activePath while its animation flies — mid-flight
       // frames must not re-spy it back to a block the ride is passing through.
       if (scrollAnimating.current) return;
-      const top = root.getBoundingClientRect().top;
-      // The scanline that decides "current": the sticky band, i.e. exactly where
-      // a file header pins. A block crossing it is the one whose header now owns
-      // the pane top, so the spy and what you see agree by construction. The old
-      // bare 8px flipped ~24px late on desktop and — since it ignored
-      // --pane-sticky-h — flipped while the block was still hidden BEHIND the
-      // mobile pane toolbar, which is what put the jump-to-file picker's active
-      // row on a file you weren't looking at. Hoisted out of the loop: it reads
-      // computed style, and this runs per scrolled frame over every block.
-      const scanline = top + stickyBandPx(root);
+      const pane = root.getBoundingClientRect();
+      // Measured against the pane's own box, NOT the sticky band: while a file is
+      // current the band holds that file's own header, so it isn't lost height.
+      const paneH = pane.height;
       const blocks = root.querySelectorAll("[data-file]");
-      let current: string | null = blocks[0]?.getAttribute("data-file") ?? null;
-      for (const b of blocks) {
-        if (b.getBoundingClientRect().top <= scanline) current = b.getAttribute("data-file");
-        else break;
+      const last = blocks[blocks.length - 1] ?? null;
+      // At the end of the scroll there is nothing left to scroll toward, so the
+      // last block takes the marker outright. Without this a final file shorter
+      // than ~85% of the pane could never win the test above — the file before it
+      // still fills the screen — so it would never be current, and `]` (which
+      // indexes on activePath) would stick on its predecessor forever.
+      const atEnd = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+      let current: string | null = atEnd ? (last?.getAttribute("data-file") ?? null) : null;
+      for (let i = 0; !current && i < blocks.length; i++) {
+        const r = blocks[i].getBoundingClientRect();
+        if (r.bottom <= pane.top + 1) continue; // scrolled off the top entirely
+        if (r.top >= pane.bottom) break; // this one and everything after is below
+        // How much of this block the pane is actually showing.
+        const shown = Math.min(r.bottom, pane.bottom) - Math.max(r.top, pane.top);
+        const clipped = shown < r.height - 1;
+        const next = blocks[i + 1];
+        current =
+          next && clipped && shown < paneH * ACTIVE_HANDOFF_SHARE
+            ? next.getAttribute("data-file")
+            : blocks[i].getAttribute("data-file");
+        break;
       }
-      setActivePath(current);
+      // Nothing intersects (trailing padding under the last block, or a pane
+      // shorter than its own chrome) — keep the last file rather than dropping to
+      // null, which would unbind every per-file shortcut mid-scroll.
+      setActivePath(current ?? last?.getAttribute("data-file") ?? null);
     };
     // rAF-throttle: a wheel/trackpad flick fires many scroll events per frame, but
     // the spy only needs to run once per painted frame. Coalesce them so a fast

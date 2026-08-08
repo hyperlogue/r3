@@ -457,9 +457,21 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
 - **The two "cursors" already existed**: `activePath` (the scroll-spy's current
   file) and `activeFbId` (the focused feedback). Every per-file and per-feedback
   binding targets one of them, which is why this needed no new review state.
-  `activePath` is now marked on the file's own header (`FileCard current`) —
-  `z`/`x`/`a` mutate, so the target can't be implicit, and the scroll-spy
-  re-measures on a version switch so the target is never a file the pane dropped.
+  `activePath` is marked on the file's own header (`FileCard current`) with an
+  accent rail and nothing else — `z`/`x`/`a` mutate, so the target can't be
+  implicit, but one of these is on screen at all times, so it has to stay quiet.
+  The spy also re-measures on a version switch, so the target is never a file the
+  pane dropped.
+- **"Current file" = the first block still showing, unless it's nearly gone.** It
+  hands over to the next block once the top one is down to `ACTIVE_HANDOFF_SHARE`
+  (15%) of the pane — you're already reading its successor by then, and the old
+  crossed-a-scanline test only handed over when the next file *reached the top*,
+  a full screen later. Two clauses keep the marker reachable, which matters
+  because `]`/`[` index on it: a block that is **wholly visible** never hands off
+  (a folded file is one 2rem header and could never clear 15%, so a bare share
+  test would skip every folded file), and at the **end of the scroll** the last
+  block wins outright (a final file shorter than ~85% of the pane could otherwise
+  never win, and `]` would stick on its predecessor).
 - One flat map, no modes, no prefixes, no counts. The layer stands down whenever
   focus is in a text field, and everything but `?` stands down while the overlay
   is up (`suspendKeys`; `keysSuspended()` lets the composer's own `Esc` listener
@@ -473,6 +485,11 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
 - `Ctrl-n`/`Ctrl-p` ship as **aliases** only: `Ctrl-n` is a reserved browser
   shortcut on Windows/Linux that page JS cannot cancel. `j`/`k` are the documented
   primary and behave identically everywhere.
+- Keys that belong to ONE focused widget stay out of KEYMAP and live on that
+  widget: the jump-to-file picker's ↑/↓ (`Ctrl-p`/`Ctrl-n`) cursor and `Enter`
+  ride its filter input, which is exactly where the global layer has already stood
+  down. Putting them in the map would mean tracking "is the picker open" globally
+  to stop `j` doing two things at once.
 
 ## Deep reference
 

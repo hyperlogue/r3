@@ -180,20 +180,19 @@ export function FileCard({
           it on the scroll pane when the toolbar sticks above these headers); unset
           — desktop, or no toolbar — it defaults to 0px, i.e. the plain -top-px pin. */}
       {/* The current-file marker is a 2px accent rail on the header's leading edge
-          plus a half-step darker header fill — quiet enough to ignore while you
-          read, unmistakable when you go looking for "which file does `x` hit?".
-          Deliberately not a badge or a label: it marks state that already existed,
-          it isn't a new control, and there is one of these per file on screen. The
-          rail is a `before` pseudo-element so it costs no layout box and can't
-          shift the fold triangle that sits at the same edge; `sticky` already
-          positions the header, so it needs no `relative` to anchor to (adding one
-          would fight the sticky pin — both set `position`). */}
+          and NOTHING else — no fill, no badge, no label. A header tint was tried
+          and read as too loud: one of these is on screen at all times, so the
+          marker has to be ignorable while you read and only findable when you go
+          looking for "which file does `x` hit?". The rail is a `before`
+          pseudo-element so it costs no layout box and can't shift the fold
+          triangle that sits at the same edge; `sticky` already positions the
+          header, so it needs no `relative` to anchor to (adding one would fight
+          the sticky pin — both set `position`). */}
       <div
         className={cn(
-          "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 border-b border-neutral-300 px-2 backdrop-blur dark:border-neutral-700",
-          current
-            ? "bg-neutral-100/95 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:bg-neutral-800/95 dark:before:bg-primary-400"
-            : "bg-neutral-50/95 dark:bg-neutral-900/95",
+          "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95",
+          current &&
+            "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:before:bg-primary-400",
         )}
       >
         {/* Enlarge the click target, not the glyph: `self-stretch` fills the
