@@ -74,11 +74,19 @@ export function useGutterDrag(opts: {
       const lo = Math.min(a.line, end);
       const hi = Math.max(a.line, end);
       const parts: string[] = [];
-      // Only collect up to the cap: a drag down a 2000-line file would otherwise
-      // build the whole file's text just to throw all but four lines away.
-      for (let n = lo; n <= hi && parts.length < MAX_QUOTE_LINES; n++) {
+      // Only collect as far as the cap can consume: a drag down a 2000-line file
+      // would otherwise build the whole file's text just to throw all but four
+      // lines away. The stop condition counts SURVIVING lines, not collected ones,
+      // because capQuote trims trailing blanks before it counts — stopping at four
+      // raw lines would hand it "code\n\n\n" and store the one-line quote "code"
+      // where a text selection over the same span keeps four. Blank lines are free
+      // to carry along, so the early exit still holds.
+      let kept = 0;
+      for (let n = lo; n <= hi && kept < MAX_QUOTE_LINES; n++) {
         const t = tf(a.side, n);
-        if (t != null) parts.push(t);
+        if (t == null) continue;
+        parts.push(t);
+        if (t.trim()) kept = parts.length;
       }
       // Same cap as a text selection (selection.ts) and a server-derived quote
       // (server/reviews.ts) — the gesture that made a quote must not change its

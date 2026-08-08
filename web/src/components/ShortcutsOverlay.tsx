@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { type Binding, formatChord, KEYMAP, suspendKeys, useKeyBindings } from "../keys.ts";
-import { useEscape } from "../ui.tsx";
+import {
+  type Binding,
+  formatChord,
+  isBound,
+  KEYMAP,
+  suspendKeys,
+  useKeyBindings,
+} from "../keys.ts";
+import { cn, useEscape } from "../ui.tsx";
 
 // The `?` cheat sheet. Rendered entirely from KEYMAP, so it cannot drift from the
 // dispatcher — adding a binding there adds a row here, and a binding nobody
@@ -20,9 +27,13 @@ function Key({ chord }: { chord: string }) {
   );
 }
 
-function Row({ b }: { b: Binding }) {
+// `bound` = some component currently owns this id. A key that doesn't apply to
+// the view on screen (`\` with no diff, `<`/`>` in a single-round review, `x`
+// where viewed isn't tracked) registers no handler and does nothing — so dim it
+// rather than listing it as if it were live.
+function Row({ b, bound }: { b: Binding; bound: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 py-1">
+    <div className={cn("flex items-baseline justify-between gap-4 py-1", !bound && "opacity-40")}>
       <span className="text-xs text-neutral-600 dark:text-neutral-300">{b.label}</span>
       {/* The first chord is the documented primary; the rest are aliases, joined by
           a thin "or" so nobody reads `j Ctrl-n` as a two-key sequence. */}
@@ -80,7 +91,7 @@ export function ShortcutsOverlay() {
                 </h3>
                 <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                   {rows.map((b) => (
-                    <Row key={b.id} b={b} />
+                    <Row key={b.id} b={b} bound={isBound(b.id)} />
                   ))}
                 </div>
               </section>

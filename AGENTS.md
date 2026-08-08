@@ -449,16 +449,27 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
   owns the binding — `FeedbackPanel` the Review + Feedback groups, `ReviewView`
   the Files + View groups, `JumpToFile` its own opener. Nothing is lifted or
   drilled to serve a keystroke. A handler left `undefined` is simply unbound, so a
-  key that doesn't apply to the view on screen does nothing.
+  key that doesn't apply to the view on screen does nothing — and its row in the
+  `?` sheet renders dimmed (`isBound`), so "nothing happened" reads as unavailable
+  rather than broken. **Mounted-but-hidden counts as not on screen**: below `md`
+  the panel lives in a closed, `inert` sheet, so `ReviewView` passes
+  `keysActive={!isMobile || sheet !== "closed"}` and its group unbinds there.
 - **The two "cursors" already existed**: `activePath` (the scroll-spy's current
   file) and `activeFbId` (the focused feedback). Every per-file and per-feedback
   binding targets one of them, which is why this needed no new review state.
   `activePath` is now marked on the file's own header (`FileCard current`) —
-  `z`/`x`/`a` mutate, so the target can't be implicit.
+  `z`/`x`/`a` mutate, so the target can't be implicit, and the scroll-spy
+  re-measures on a version switch so the target is never a file the pane dropped.
 - One flat map, no modes, no prefixes, no counts. The layer stands down whenever
   focus is in a text field, and everything but `?` stands down while the overlay
-  is up (`suspendKeys`). `Esc` is deliberately NOT in the map — it stays owned by
+  is up (`suspendKeys`; `keysSuspended()` lets the composer's own `Esc` listener
+  stand down with it, so one press doesn't both close the sheet and discard the
+  composer behind it). `Esc` is deliberately NOT in the map — it stays owned by
   whatever popup or composer is open.
+- **OS key repeat is opt-in** (`Binding.repeatable`, only the four next/prev
+  bindings). Most of this map mutates and repeat fires ~30×/s: a leaned-on `e`
+  would walk the list resolving every open item, since each resolve advances focus
+  to the next card. A non-repeatable chord is still swallowed, just not re-fired.
 - `Ctrl-n`/`Ctrl-p` ship as **aliases** only: `Ctrl-n` is a reserved browser
   shortcut on Windows/Linux that page JS cannot cancel. `j`/`k` are the documented
   primary and behave identically everywhere.

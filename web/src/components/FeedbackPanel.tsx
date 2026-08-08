@@ -28,7 +28,7 @@ import {
   useGeneralDraft,
   useReplyDraft,
 } from "../drafts.ts";
-import { isInteractiveTarget, useKeyBindings } from "../keys.ts";
+import { isInteractiveTarget, keysSuspended, useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
@@ -379,6 +379,10 @@ function useComposerKeys(textareaRef: RefObject<HTMLTextAreaElement | null>, onC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // The shortcuts sheet is up and owns this Esc (it closes on it). Both
+      // listeners are on window, so without this one press would close the sheet
+      // AND discard the composer sitting behind it.
+      if (keysSuspended()) return;
       const ta = textareaRef.current;
       const active = document.activeElement;
       const empty = !(ta?.value ?? "").trim();
@@ -1379,6 +1383,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   onLocatePin,
   onJumpRef,
   coarse = false,
+  keysActive = true,
 }: {
   detail: ReviewDetail;
   pending: PendingAnchor | null;
@@ -1398,6 +1403,13 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // it — this component can't probe src/mobile/ itself). Composer placeholders
   // drop their keyboard-shortcut hints under it; see CoarsePointerContext.
   coarse?: boolean;
+  // False when the panel is mounted but not on screen — below md ReviewView keeps
+  // it mounted inside a closed (translated-away, `inert`) bottom sheet, which a
+  // desktop window narrowed under 768px enters too. The bindings below fire
+  // controls in THIS panel, so leaving them live there would let `S` hand the
+  // review to a watching agent, and `e` resolve an item, with nothing on screen
+  // to show it happened. An inert prop, not a mobile import (like `coarse`).
+  keysActive?: boolean;
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
@@ -1836,35 +1848,43 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     if (!id) return;
     setCardCommand((c) => ({ id, action, nonce: (c?.nonce ?? 0) + 1 }));
   };
-  useKeyBindings({
-    generalNote: () => {
-      setCreateError(null);
-      onDiscardPending(); // one composer at a time — same as the header's + button
-      setTab("active");
-      setGeneralOpen(true);
-    },
-    // The one binding that sends data out of the app; `disabledReason` is exactly
-    // what greys the button out, so a shifted `S` on a disabled hand-off is inert.
-    handOff: () => {
-      if (disabledReason) return;
-      if (watching) {
-        if (!submit.isPending) submit.mutate();
-      } else {
-        copy();
-      }
-    },
-    fbNext: () => step(1),
-    fbPrev: () => step(-1),
-    // Re-locating the already-active feedback re-scrolls the pane to its anchor
-    // (onLocateFeedback bumps scrollNonce), which is the whole point of `o`:
-    // you've scrolled away reading and want to get back to what the note is about.
-    fbLocate: () => {
-      const fb = detail.feedback.find((f) => f.id === activeFeedbackId);
-      if (fb) onLocateFeedback(fb);
-    },
-    fbReply: () => command("reply"),
-    fbResolve: () => command("resolve"),
-  });
+  // An empty map with the panel off screen (`keysActive`): every id falls through
+  // to unbound, which is also what greys its row in the `?` sheet.
+  useKeyBindings(
+    keysActive
+      ? {
+          generalNote: () => {
+            setCreateError(null);
+            onDiscardPending(); // one composer at a time — same as the header's + button
+            setTab("active");
+            setGeneralOpen(true);
+          },
+          // The one binding that sends data out of the app; `disabledReason` is
+          // exactly what greys the button out, so a shifted `S` on a disabled
+          // hand-off is inert.
+          handOff: () => {
+            if (disabledReason) return;
+            if (watching) {
+              if (!submit.isPending) submit.mutate();
+            } else {
+              copy();
+            }
+          },
+          fbNext: () => step(1),
+          fbPrev: () => step(-1),
+          // Re-locating the already-active feedback re-scrolls the pane to its
+          // anchor (onLocateFeedback bumps scrollNonce), which is the whole point
+          // of `o`: you've scrolled away reading and want to get back to what the
+          // note is about.
+          fbLocate: () => {
+            const fb = detail.feedback.find((f) => f.id === activeFeedbackId);
+            if (fb) onLocateFeedback(fb);
+          },
+          fbReply: () => command("reply"),
+          fbResolve: () => command("resolve"),
+        }
+      : {},
+  );
 
   // The composer (one at a time: the anchored draft, else the general note). It
   // opens/closes with <Collapse>. Collapse needs its content present to animate the

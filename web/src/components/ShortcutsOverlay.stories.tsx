@@ -18,7 +18,10 @@ type Story = StoryObj<typeof meta>;
 export const Closed: Story = {};
 
 // The sheet as `?` opens it: four groups rendered straight from KEYMAP, so this
-// story is also the check that a newly added binding shows up documented.
+// story is also the check that a newly added binding shows up documented. Every
+// row but `?` renders DIMMED here — the overlay stands alone, so no component has
+// registered a handler; in the app that dimming is what marks a key the current
+// view doesn't support.
 export const Open: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.keyboard("?");

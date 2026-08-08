@@ -134,7 +134,12 @@ export function useActiveLineHighlight(
     // markdown returns false and we scroll to the row ourselves. A folded file
     // that locateFeedback just told to open registers a frame or two late, so
     // the retry below keeps re-issuing this until it takes. Only when scrolling.
-    let scrolled = doScroll && scrollToLine(scrollKey, lineStart, side, { align: "center" });
+    // One opts object for BOTH issues of this scroll: the retry below re-issues it
+    // every frame while an unfolding file settles, so passing align here and
+    // dropping it there would let the last frame land the row at the default 30%
+    // — i.e. the alignment would only ever hold for an already-mounted row.
+    const scrollOpts = { align: "center" } as const;
+    let scrolled = doScroll && scrollToLine(scrollKey, lineStart, side, scrollOpts);
 
     // Mark the anchored rows/block and return the first (or null if not yet
     // mounted). Re-runnable so we can retry until the virtualizer mounts the row.
@@ -188,7 +193,7 @@ export function useActiveLineHighlight(
     let tries = 0;
     let foundAt = -1;
     let raf = requestAnimationFrame(function retry() {
-      if (doScroll) scrolled = scrollToLine(scrollKey, lineStart, side) || scrolled;
+      if (doScroll) scrolled = scrollToLine(scrollKey, lineStart, side, scrollOpts) || scrolled;
       if (mark() && foundAt < 0) foundAt = tries;
       if (foundAt >= 0 && (!doScroll || !scrolled || tries - foundAt > 15)) return;
       if (++tries > 60) return;

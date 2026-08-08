@@ -592,9 +592,18 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [ensureFileOpen, scrollToFile],
   );
 
+  // Which way a *directionless* fold-all goes next — the `Z` key, which has one
+  // key to the toolbar's two buttons. It lives here, next to foldAll, rather than
+  // at the key site so the toolbar's own clicks update it too: after clicking
+  // "Fold all", `Z` has to unfold, not fold an already-folded pane again. Starts
+  // at "fold", the useful direction from a freshly-opened review. A ref, not
+  // state — nothing renders from it.
+  const foldAllDir = useRef<"fold" | "unfold">("fold");
+
   // Toolbar: fold/unfold-all broadcast — a fresh nonce each click so repeating
   // the same action still overrides folds the user toggled by hand in between.
   const foldAll = useCallback((mode: "fold" | "unfold") => {
+    foldAllDir.current = mode === "fold" ? "unfold" : "fold";
     setFoldSignal((s) => ({ mode, nonce: (s?.nonce ?? 0) + 1 }));
   }, []);
 
@@ -683,7 +692,16 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // without re-subscribing. Keyed on `detail` (not []) because the first commit
   // early-returns "Loading review…" — scopeRef is null there, and a one-shot
   // effect would never attach on a cold load.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: detail is the re-attach trigger; the listener reads the DOM, not the object
+  //
+  // ALSO keyed on the rendered file set: a version switch (a round tab, `<`/`>`, a
+  // snapshot pick) swaps the pane's blocks without touching `detail` and without
+  // necessarily firing a scroll event, so the spy would keep reporting a file the
+  // new view doesn't render. That used to be cosmetic; the per-file shortcuts
+  // MUTATE against activePath, so a stale one means `x` writes a viewed mark under
+  // a key no card reads and `a` opens a whole-file note the server rejects as
+  // untouched by the round. Re-measuring on the swap keeps the target honest.
+  const fileListKey = fileList.join("\n");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: detail + the rendered file set are the re-attach/re-measure triggers; the listener reads the DOM, not either object
   useEffect(() => {
     const root = scopeRef.current;
     if (!root) return;
@@ -724,7 +742,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       root.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [detail]);
+  }, [detail, fileListKey]);
 
   // A floating "Quote in note" bubble raised over the file pane when a selection
   // or line-pick is made while the anchored composer already holds text (see
@@ -1019,11 +1037,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // anyway — every handler no-ops on an empty fileList.)
   const hasFiles = fileList.length > 0;
   const canStepVersion = isDiff ? rounds.length > 1 : snapshots.length > 0;
-  // `Z` alternates rather than taking a direction: the toolbar has two buttons,
-  // but one key can't. Which way it goes next is remembered in a ref (not state —
-  // nothing renders from it), starting at "fold" so the first press collapses
-  // everything, which is the useful direction from a freshly-opened review.
-  const foldAllDir = useRef<"fold" | "unfold">("fold");
+  // Where `x` has something to toggle — the same condition that decides whether a
+  // file header shows the Viewed pill at all (toggleViewedPath's two branches). A
+  // snapshot-diff / pinned-snapshot browse tracks no viewed state, so leave the
+  // key UNBOUND there rather than bound-but-silently-inert: an unbound key falls
+  // through (and greys its row in the `?` sheet) instead of swallowing the press.
+  const canToggleViewed = isDiff ? effectiveRoundSeq != null : liveFilesView;
   useKeyBindings({
     fileNext: hasFiles ? () => jumpFile(1) : undefined,
     filePrev: hasFiles ? () => jumpFile(-1) : undefined,
@@ -1034,13 +1053,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         ? () =>
             setFoldSignal((s) => ({ mode: "toggle", nonce: (s?.nonce ?? 0) + 1, path: activePath }))
         : undefined,
-    foldAll: hasFiles
-      ? () => {
-          foldAll(foldAllDir.current);
-          foldAllDir.current = foldAllDir.current === "fold" ? "unfold" : "fold";
-        }
-      : undefined,
-    fileViewed: activePath ? () => toggleViewedPath(activePath) : undefined,
+    // One key, two toolbar buttons — foldAll itself remembers which way is next,
+    // so the buttons and the key can't fall out of step.
+    foldAll: hasFiles ? () => foldAll(foldAllDir.current) : undefined,
+    fileViewed: activePath && canToggleViewed ? () => toggleViewedPath(activePath) : undefined,
     fileNote: activePath ? () => onFileFeedback(activePath, feedbackPatchSeq) : undefined,
     versionNext: canStepVersion ? () => stepVersion(1) : undefined,
     versionPrev: canStepVersion ? () => stepVersion(-1) : undefined,
@@ -1168,6 +1184,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       onLocatePin={locatePin}
       onJumpRef={jumpToRef}
       coarse={coarse}
+      // Below md the panel stays mounted inside a closed (translated-away,
+      // `inert`) sheet — so its keys must stand down until the sheet is up, or
+      // they'd fire controls nobody can see.
+      keysActive={!isMobile || sheet !== "closed"}
     />
   );
 

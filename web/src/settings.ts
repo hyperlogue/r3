@@ -61,6 +61,9 @@ const font = persistedStore<number>("r3-font-size", {
   onSet: (px) => document.documentElement.style.setProperty("--r3-font-size", `${px}px`),
 });
 export const useFontSize = font.use;
+// The non-reactive read, for the rem→px math outside React (pane.ts's sticky-band
+// helper): rem-sized chrome is only a fixed pixel count if you know this value.
+export const getFontSize = font.get;
 export function setFontSize(px: number): void {
   font.set(clampFont(px));
 }

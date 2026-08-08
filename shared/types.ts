@@ -45,7 +45,10 @@ export const MAX_QUOTE_LINES = 4;
 // a blank final line. Truncation is verbatim (no ellipsis) so the result still
 // matches the source, which is what re-anchoring searches for.
 export function capQuote(raw: string): string {
-  const quote = raw.replace(/\s+$/, "");
+  // trimEnd(), not /\s+$/: it strips the same character set, and the regex
+  // backtracks per start offset over a long whitespace run (quadratic on the
+  // mostly-blank ranges deriveQuote can be handed).
+  const quote = raw.trimEnd();
   const lines = quote.split("\n");
   return lines.length > MAX_QUOTE_LINES ? lines.slice(0, MAX_QUOTE_LINES).join("\n") : quote;
 }

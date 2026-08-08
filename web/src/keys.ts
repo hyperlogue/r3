@@ -49,6 +49,12 @@ export interface Binding {
   keys: string[];
   label: string;
   group: "Review" | "Feedback" | "Files" | "View";
+  // Opt in to OS key repeat. Off by default because most of this map MUTATES and
+  // repeat fires ~30×/s: a leaned-on `e` walks the whole list resolving items
+  // (each resolve advances focus to the next card, which the next repeat then
+  // resolves), and a leaned-on `S` re-fires the hand-off. Only the four
+  // navigation bindings — which just move a selection — are safe to hold.
+  repeatable?: boolean;
 }
 
 export const KEYMAP: readonly Binding[] = [
@@ -64,8 +70,20 @@ export const KEYMAP: readonly Binding[] = [
   // Ctrl-p can be cancelled, Ctrl-n cannot — it is a reserved browser shortcut
   // that opens a window whatever we do. j/k behave identically everywhere, so
   // they are what the overlay leads with.
-  { id: "fbNext", keys: ["j", "ctrl+n"], label: "Next feedback", group: "Feedback" },
-  { id: "fbPrev", keys: ["k", "ctrl+p"], label: "Previous feedback", group: "Feedback" },
+  {
+    id: "fbNext",
+    keys: ["j", "ctrl+n"],
+    label: "Next feedback",
+    group: "Feedback",
+    repeatable: true,
+  },
+  {
+    id: "fbPrev",
+    keys: ["k", "ctrl+p"],
+    label: "Previous feedback",
+    group: "Feedback",
+    repeatable: true,
+  },
   // `o`, not Enter: a focused button already activates on Enter natively, so a
   // global Enter binding would fight it or double-fire depending on where focus
   // sits. Enter stays unbound everywhere.
@@ -73,8 +91,8 @@ export const KEYMAP: readonly Binding[] = [
   { id: "fbReply", keys: ["r"], label: "Reply", group: "Feedback" },
   { id: "fbResolve", keys: ["e"], label: "Resolve / reopen", group: "Feedback" },
 
-  { id: "fileNext", keys: ["]"], label: "Next file", group: "Files" },
-  { id: "filePrev", keys: ["["], label: "Previous file", group: "Files" },
+  { id: "fileNext", keys: ["]"], label: "Next file", group: "Files", repeatable: true },
+  { id: "filePrev", keys: ["["], label: "Previous file", group: "Files", repeatable: true },
   { id: "filePicker", keys: ["f"], label: "Jump to file…", group: "Files" },
   { id: "fileFold", keys: ["z"], label: "Fold / unfold current file", group: "Files" },
   { id: "foldAll", keys: ["Z"], label: "Fold / unfold all files", group: "Files" },
@@ -88,6 +106,7 @@ export const KEYMAP: readonly Binding[] = [
 
 const CHORDS = new Map<string, KeyId>();
 for (const b of KEYMAP) for (const k of b.keys) CHORDS.set(k, b.id);
+const REPEATABLE = new Set<KeyId>(KEYMAP.filter((b) => b.repeatable).map((b) => b.id));
 
 // Pretty-print a chord for the overlay: "ctrl+n" -> "Ctrl-n", everything else is
 // already the literal character you press.
@@ -146,6 +165,21 @@ export function suspendKeys(): () => void {
   };
 }
 
+// For the OTHER global key listeners this map doesn't own — notably the
+// composer's Esc (FeedbackPanel's useComposerKeys). Esc is deliberately out of
+// KEYMAP, so without this the shortcuts sheet's own Esc and the composer's would
+// both fire on one press: the sheet closes AND the open composer is discarded.
+export function keysSuspended(): boolean {
+  return suspended > 0;
+}
+
+// Whether anything currently owns `id`. The `?` sheet greys the rest, so a key
+// that doesn't apply to the view on screen reads as unavailable instead of
+// looking live and silently doing nothing.
+export function isBound(id: KeyId): boolean {
+  return handlers.has(id);
+}
+
 let attached = false;
 function ensureListener() {
   if (attached) return;
@@ -162,7 +196,10 @@ function ensureListener() {
     if (suspended > 0 && id !== "help") return;
     const fn = handlers.get(id);
     if (!fn) return;
+    // Swallow the key either way (a held `S` must not leak anywhere), but only
+    // the navigation bindings actually re-fire on OS key repeat — see Binding.
     e.preventDefault();
+    if (e.repeat && !REPEATABLE.has(id)) return;
     fn();
   });
 }
