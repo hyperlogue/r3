@@ -119,6 +119,31 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Keyboard focus, everywhere. The app is largely built from bare <button>s whose
+   classes set no focus style at all, so before this a Tab press moved focus
+   invisibly — the ring existed in exactly one place (ReviewHeader's title). One
+   base rule is the fix: `:focus-visible` fires only for keyboard/AT focus, never
+   a mouse click, so this costs the pointer path nothing.
+
+   `outline` (not a ring shadow) so it follows the element's border-radius, never
+   participates in layout, and can't be clipped by an `overflow-hidden` ancestor —
+   which matters here, since the panes and popovers are full of them.
+
+   In `@layer base` so any utility beats it: the composers and token fields already
+   style their own focus (`outline-none focus:border-primary-400`), and an unlayered
+   rule would win over that `outline-none` and double up on every text field. This
+   way the ring fills the gap — bare buttons — and stays out of the way where a
+   component has decided. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 1px;
+  }
+  html.dark :focus-visible {
+    outline-color: var(--color-primary-400);
+  }
+}
+
 /* Shiki dual-theme: each token span carries --shiki-light / --shiki-dark; pick
    the active one. Spans set the variables, the rule reads them. */
 .shiki-code span {

@@ -28,6 +28,7 @@ import {
   useGeneralDraft,
   useReplyDraft,
 } from "../drafts.ts";
+import { isInteractiveTarget, useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
@@ -153,33 +154,15 @@ const SUBMIT_KEYS = (() => {
 })();
 
 // Coarse primary pointer ⇒ almost certainly no hardware keyboard, so the
-// keyboard-shortcut hints in composer placeholders (Space/Tab to focus, ⌘Enter,
-// Esc) would name keys that don't exist. ReviewView passes the pointer fact in
-// as a prop (the panel can't probe it itself — desktop components don't import
+// keyboard-shortcut hints in composer placeholders (⌘Enter, Esc) would name keys
+// that don't exist. ReviewView passes the pointer fact in as a prop (the panel
+// can't probe it itself — desktop components don't import
 // from src/mobile/); a context carries it to the composers, which sit at
 // several depths, and this helper builds the placeholder: base prompt alone on
 // touch, base + parenthetical hints with a keyboard.
 const CoarsePointerContext = createContext(false);
 function usePlaceholder(base: string, hints: string): string {
   return useContext(CoarsePointerContext) ? base : `${base}  (${hints})`;
-}
-
-// True when focus is on an element that should own the keystroke itself — a text
-// field (which receives the character) or an interactive control like a button or
-// link (Space activates it; Esc may dismiss its own popup). A global Space/Esc
-// shortcut must stand down for these so it doesn't hijack normal interaction.
-function isInteractiveTarget(el: Element | null): boolean {
-  if (!(el instanceof HTMLElement)) return false;
-  const tag = el.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    tag === "BUTTON" ||
-    tag === "A" ||
-    el.isContentEditable ||
-    el.getAttribute("role") === "button"
-  );
 }
 
 const shortLabel = (s: string) => (s.length > 14 ? `${s.slice(0, 12)}…` : s);
@@ -385,38 +368,29 @@ function ComposerBlock({
 // only when it's *empty* (mirrors the reply box), so a half-typed note isn't lost
 // to a stray keypress; with text, Esc just blurs the focused input — and both stand
 // down when focus is on some other control/popup so this global listener doesn't
-// hijack its keys (e.g. Esc closing the settings popup). `keyToFocus` (only the
-// non-autofocused selection composers) lets Space or Tab — when focus isn't already
-// on a field/control — jump focus into the input; an autofocused composer omits it so
-// Space always types a space (and Tab moves focus) normally.
-function useComposerKeys(
-  textareaRef: RefObject<HTMLTextAreaElement | null>,
-  onCancel: () => void,
-  keyToFocus: boolean,
-) {
+// hijack its keys (e.g. Esc closing the settings popup).
+//
+// Esc is all that's left here. A non-autofocused composer used to also grab Space
+// and Tab to pull focus into its textarea; that retired with the keyboard layer
+// (keys.ts) — a global listener that swallows Tab makes the focus ring unusable,
+// and it swallowed Space (page scroll) for as long as a composer sat open. Esc is
+// not in KEYMAP precisely because it stays owned by whatever is open.
+function useComposerKeys(textareaRef: RefObject<HTMLTextAreaElement | null>, onCancel: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
       const ta = textareaRef.current;
       const active = document.activeElement;
-      if (e.key === "Escape") {
-        const empty = !(ta?.value ?? "").trim();
-        if (active === ta || !isInteractiveTarget(active)) {
-          e.preventDefault();
-          if (empty) onCancel();
-          else if (active === ta) ta?.blur();
-        }
-        return;
-      }
-      const isSpace = e.key === " " || e.code === "Space";
-      const isTab = e.key === "Tab" && !e.shiftKey; // forward Tab only; Shift+Tab still navigates back
-      if (keyToFocus && (isSpace || isTab) && !isInteractiveTarget(active)) {
-        e.preventDefault(); // also stops Space page-scrolling / Tab moving focus away
-        ta?.focus();
+      const empty = !(ta?.value ?? "").trim();
+      if (active === ta || !isInteractiveTarget(active)) {
+        e.preventDefault();
+        if (empty) onCancel();
+        else if (active === ta) ta?.blur();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel, textareaRef, keyToFocus]);
+  }, [onCancel, textareaRef]);
 }
 
 // A free-form feedback item not tied to any file or line (review-level note). Its
@@ -442,9 +416,8 @@ function GeneralFeedback({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const value = useGeneralDraft(reviewId);
   // Same keyboard behavior as the anchored composer: autofocus (below) + Esc
-  // cancels when empty. onClose already clears the draft + closes. No Space/Tab-to-focus
-  // — the input is autofocused, so Space types a space and Tab moves focus normally.
-  useComposerKeys(textareaRef, onClose, false);
+  // cancels when empty. onClose already clears the draft + closes.
+  useComposerKeys(textareaRef, onClose);
   return (
     <ComposerBlock
       label="General feedback"
@@ -491,12 +464,12 @@ function NewFeedback({
   // header's feedback button — a deliberate composer-open click, like "add general
   // feedback", so focus the input immediately (below). A selection/gutter/summary
   // anchor is a text gesture in the file pane; autofocusing there would yank focus
-  // off the code, so those keep the Space/Tab-to-focus flow instead.
+  // off the code (and collapse the selection you just made), so those open unfocused
+  // and you click into the box — the same click the gesture already ended near.
   const autoFocusInput = pending.file !== SUMMARY_FILE && pending.lineStart == null;
 
-  // Esc-cancels-when-empty (shared with the general note); Space/Tab-to-focus only for
-  // the non-autofocused selection composers, so an autofocused input types spaces.
-  useComposerKeys(textareaRef, onDiscard, !autoFocusInput);
+  // Esc-cancels-when-empty, shared with the general note.
+  useComposerKeys(textareaRef, onDiscard);
 
   const label =
     pending.file === SUMMARY_FILE ? (
@@ -519,10 +492,7 @@ function NewFeedback({
       textareaRef={textareaRef}
       value={draftText}
       onChange={(t) => setDraftText(reviewId, t)}
-      placeholder={usePlaceholder(
-        "Leave feedback…",
-        `${autoFocusInput ? "" : "Space/Tab to focus · "}${SUBMIT_KEYS} to add · Esc to cancel`,
-      )}
+      placeholder={usePlaceholder("Leave feedback…", `${SUBMIT_KEYS} to add · Esc to cancel`)}
       autoFocus={autoFocusInput}
       submitLabel="Add feedback"
       onSubmit={() => onSubmit(draftText)}
@@ -620,6 +590,21 @@ function ReplyBlock({
   );
 }
 
+// A keystroke aimed at one card (`r` / `e`). The panel owns the binding (it knows
+// which card is active); the card owns the buttons and just clicks its own. Both
+// guards FileCard's FoldSignal carries are needed here for the same reasons:
+//
+//   `id` — the addressed feedback, so the panel hands it to that card and null to
+//   every other. Without it, pressing `r` and then `j` would deliver the same
+//   command to the newly-focused card (its nonce goes undefined → n) and open a
+//   composer the user never asked for. This is FoldSignal's `path`.
+//
+//   monotonic `nonce`, matched against a ref SEEDED AT MOUNT — so pressing the
+//   same key twice fires twice, while a card remounting under a command it
+//   already ran (a tab switch, or the remount a status change causes) doesn't
+//   replay it. Replaying `e` would silently reopen the item it just resolved.
+export type CardCommand = { id: string; action: "reply" | "resolve"; nonce: number };
+
 function FeedbackCard({
   fb,
   reviewId,
@@ -629,6 +614,7 @@ function FeedbackCard({
   onReplied,
   onJumpRef,
   isActive,
+  command,
   error,
   reportError,
 }: {
@@ -642,6 +628,7 @@ function FeedbackCard({
   // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message.
   onJumpRef: (ref: MessageRef, patchSeq: number | null) => void;
   isActive: boolean;
+  command: CardCommand | null;
   // This card's last mutation error, and the reporter to set/clear it. Both live
   // on the panel (keyed by feedback id) rather than in the card's own mutation
   // state, so the message survives the unmount/remount that a status- or
@@ -1034,6 +1021,32 @@ function FeedbackCard({
     </Button>
   );
 
+  // `r` / `e` arriving from the keyboard layer. Each runs this card's own button
+  // onClick, under that button's own `disabled` condition — a keystroke must never
+  // fire a mutation the button wouldn't. The ref is seeded at mount so a card
+  // remounting under a command it already ran doesn't replay it (see CardCommand).
+  const seenCommand = useRef(command?.nonce);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `command` is the trigger; the card's own state is read live when one arrives
+  useEffect(() => {
+    if (!command || command.nonce === seenCommand.current) return;
+    seenCommand.current = command.nonce;
+    // While an editor is open the action row is Save/Cancel — neither Reply nor
+    // Resolve is on screen, so neither key may act. (The reply composer is inert
+    // then too, so the focus below would silently fail anyway.)
+    if (isEditing) return;
+    if (command.action === "reply") {
+      if (!replyOpen) openReply();
+      // Put the caret in the box: the click you'd have made next. preventScroll so
+      // it doesn't undo openReply's scroll-the-last-agent-reply-into-view; the rAF
+      // waits out the Collapse's `inert` clearing on the render openReply queued.
+      requestAnimationFrame(() => replyRef.current?.focus({ preventScroll: true }));
+    } else if (resolved) {
+      if (!reopen.isPending) reopen.mutate();
+    } else if (!postReply.isPending) {
+      postReply.mutate({ resolve: true, body: reply });
+    }
+  }, [command]);
+
   return (
     <div
       ref={cardRef}
@@ -1412,6 +1425,10 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // reset. Each card's onError writes here; beginPatch clears it as the next action
   // starts. Stale entries (feedback later deleted) are never read, so they're inert.
   const [cardErrors, setCardErrors] = useState<ReadonlyMap<string, string>>(() => new Map());
+  // The last `r`/`e` keystroke, addressed to the card that was active when it was
+  // pressed; renderCard hands it to that card and null to every other. See
+  // CardCommand for why it carries both an id and a nonce.
+  const [cardCommand, setCardCommand] = useState<CardCommand | null>(null);
   const setCardError = useCallback((id: string, msg: string | null) => {
     setCardErrors((m) => {
       if ((m.get(id) ?? null) === msg) return m;
@@ -1605,6 +1622,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       onResolved={() => advanceAfterResolve(fb.id)}
       onReplied={() => advanceAfterReply(fb.id)}
       onJumpRef={onJumpRef}
+      command={cardCommand?.id === fb.id ? cardCommand : null}
       error={cardErrors.get(fb.id) ?? null}
       reportError={(msg) => setCardError(fb.id, msg)}
     />
@@ -1787,6 +1805,65 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       setSent(true);
       setTimeout(() => setSent(false), 1800);
     },
+  });
+
+  // --- Keyboard bindings (keys.ts) ---------------------------------------
+  // The panel owns the Review + Feedback groups because it owns the state they
+  // read: the composer, the hand-off, and which card is active. Every handler is
+  // the onClick of a control rendered below, under the same guard — a keystroke
+  // must never do something its button wouldn't.
+  //
+  // `j`/`k` walk the list AS DISPLAYED (the active tab's order — attention-first
+  // in Active), so the selection moves the way the eye does. With nothing active
+  // they enter from the end you're heading toward: `j` takes the first card, `k`
+  // the last. onLocateFeedback is the same callback a card click fires, so the
+  // pane scrolls and rings the anchor exactly as clicking would.
+  const navList = tab === "active" ? ordered : resolved;
+  const step = (delta: 1 | -1) => {
+    if (navList.length === 0) return;
+    const at = navList.findIndex((f) => f.id === activeFeedbackId);
+    if (at < 0) {
+      onLocateFeedback(delta === 1 ? navList[0] : navList[navList.length - 1]);
+      return;
+    }
+    // Clamped, not wrapping: running off the end shouldn't silently teleport you
+    // back to the top of a list you just finished walking.
+    const next = navList[Math.min(navList.length - 1, Math.max(0, at + delta))];
+    if (next) onLocateFeedback(next);
+  };
+  const command = (action: CardCommand["action"]) => {
+    const id = activeFeedbackId;
+    if (!id) return;
+    setCardCommand((c) => ({ id, action, nonce: (c?.nonce ?? 0) + 1 }));
+  };
+  useKeyBindings({
+    generalNote: () => {
+      setCreateError(null);
+      onDiscardPending(); // one composer at a time — same as the header's + button
+      setTab("active");
+      setGeneralOpen(true);
+    },
+    // The one binding that sends data out of the app; `disabledReason` is exactly
+    // what greys the button out, so a shifted `S` on a disabled hand-off is inert.
+    handOff: () => {
+      if (disabledReason) return;
+      if (watching) {
+        if (!submit.isPending) submit.mutate();
+      } else {
+        copy();
+      }
+    },
+    fbNext: () => step(1),
+    fbPrev: () => step(-1),
+    // Re-locating the already-active feedback re-scrolls the pane to its anchor
+    // (onLocateFeedback bumps scrollNonce), which is the whole point of `o`:
+    // you've scrolled away reading and want to get back to what the note is about.
+    fbLocate: () => {
+      const fb = detail.feedback.find((f) => f.id === activeFeedbackId);
+      if (fb) onLocateFeedback(fb);
+    },
+    fbReply: () => command("reply"),
+    fbResolve: () => command("resolve"),
   });
 
   // The composer (one at a time: the anchored draft, else the general note). It

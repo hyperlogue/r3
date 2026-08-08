@@ -396,6 +396,7 @@ const FileBlock = memo(function FileBlock({
   f,
   patchSeq,
   viewed,
+  current,
   layout,
   fetchContext,
   toggle,
@@ -406,6 +407,10 @@ const FileBlock = memo(function FileBlock({
   f: DiffFileChange;
   patchSeq: number;
   viewed: boolean;
+  // Resolved to a per-file boolean by the parent (not passed down as the current
+  // path) so this stays memo-stable: a scroll-spy move re-renders exactly the two
+  // blocks whose flag flipped, not every file in the round.
+  current: boolean;
   layout: DiffLayout;
   // Fetch the unchanged rows for one gap. Absent ⇒ no expanders, whatever the
   // payload claims (the demo, and any caller with no route to ask).
@@ -591,6 +596,7 @@ const FileBlock = memo(function FileBlock({
       onToggleViewed={toggle ? () => toggle(diffViewedKey(patchSeq, f.path)) : undefined}
       onFileFeedback={onFileFeedback ? () => onFileFeedback(f.path, patchSeq) : undefined}
       autoFold={f.lines.length > AUTOFOLD_ROWS}
+      current={current}
       foldSignal={foldSignal}
     >
       {f.binary ? (
@@ -885,6 +891,7 @@ export function DiffView({
   rounds,
   activeSeq,
   isViewed,
+  currentPath,
   layout = "unified",
   fetchContext,
   toggle,
@@ -909,6 +916,10 @@ export function DiffView({
   // snapshot-diff, where viewed isn't tracked).
   isViewed?: (key: string) => boolean;
   toggle?: (key: string) => void;
+  // The scroll-spy's current file — the one a per-file keyboard shortcut acts on.
+  // Marked on its header; resolved to a boolean per file here so the memoized
+  // FileBlocks don't all re-render when it moves.
+  currentPath?: string | null;
   onPickLines: (
     file: string,
     side: DiffSide,
@@ -938,6 +949,7 @@ export function DiffView({
           f={f}
           patchSeq={round.seq}
           viewed={isViewed?.(diffViewedKey(round.seq, f.path)) ?? false}
+          current={f.path === currentPath}
           layout={layout}
           fetchContext={fetchContext}
           toggle={toggle}

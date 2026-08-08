@@ -1,5 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useKeyBindings } from "../keys.ts";
 import { cn, useEscape } from "../ui.tsx";
 
 // "Jump to file" picker: a toolbar button opening the review's files as a flat,
@@ -211,6 +212,12 @@ export function JumpToFile({
   };
   useEffect(() => () => clearTimeout(unmountTimer.current ?? undefined), []);
   useEscape(shown, closePicker);
+  // `f` opens the picker (and closes it again). Registered here rather than by the
+  // toolbar or ReviewView because open/closed is this component's own state — the
+  // binding is a click on the trigger button right above, nothing more. Guarded by
+  // `visible` the same way that click is, so a press mid-open-animation doesn't
+  // immediately close what it just opened.
+  useKeyBindings({ filePicker: () => (shown && visible ? closePicker() : openPicker()) });
   const pick = (path: string) => {
     closePicker();
     onSelect(path);

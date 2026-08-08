@@ -118,7 +118,8 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  token screen), TokenManager (login-token panel in SettingsPopup),
                  JumpToFile (toolbar file picker: popover on desktop, bottom
                  sheet below md), Message (MessageProse + the shared
-                 QuoteBubble/useQuoteBubble selection-to-quote)
+                 QuoteBubble/useQuoteBubble selection-to-quote), ShortcutsOverlay
+                 (the `?` cheat sheet, rendered from KEYMAP)
                  (each with a *.stories.tsx, except the shared SummaryBar)
   src/mobile/    the phone tier's containers ONLY (mobile-tier skill): useIsMobile +
                  usePointerCoarse, MobileReviewChrome, AddFeedbackPill; desktop
@@ -134,6 +135,8 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  feedback into a snapshot/round diff by quote
   src/mdhighlight.ts quote ranges in rendered markdown (CSS Custom Highlight)
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
+  src/keys.ts    the keyboard layer: one flat KEYMAP + one window listener; feeds
+                 both the dispatcher and the `?` overlay
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
   src/drafts.ts  per-review composer drafts (localStorage)   selection.ts  range select
   router.ts      tiny pathname router (`/` reviews list, `/review_<id>` a review);
@@ -421,6 +424,44 @@ the marks with the review — no cap/LRU/cleanup. Two token-gated routes (`GET/P
 …/viewed`; the PUT is same-origin too, like any write), no SSE, no CLI — a pure UI
 affordance that does **not** bump `review.updated_at` (`web/src/viewed.ts` writes
 optimistically so the fold is instant).
+
+## Keyboard shortcuts
+
+**One rule decides the whole map: a shortcut fires a control that already exists
+on screen.** No binding invents a capability, a mode, or review state — it is a
+keystroke for a button you could have clicked, under that button's own `disabled`
+condition. That is what keeps the list short enough to hold in your head, keeps
+`web/src/keys.ts` free of behaviour, and makes "should this be bound?" answerable:
+if there's no control behind it, no.
+
+**Anchoring a line range stays mouse-only.** A keyboard selection would need a
+line cursor kept alive through virtualization, a visual mode, and an operator
+grammar — the bulk of the cost for a fraction of the loop. Reading, navigating,
+replying, resolving and handing off are all keyboard-driven; marking the spot is a
+drag. Consistently: no in-pane search, no expand-context binding (it needs a
+target hunk, and with no cursor there isn't one), and no `Enter` binding anywhere
+(a focused button already activates on Enter natively).
+
+- **`KEYMAP` is the single source** for both the dispatcher and the `?` overlay
+  (`ShortcutsOverlay` renders straight off it), so the help can't drift from the
+  behaviour — the `hasUnsentContent` pattern.
+- **Handlers register per-component** (`useKeyBindings`): whoever owns the state
+  owns the binding — `FeedbackPanel` the Review + Feedback groups, `ReviewView`
+  the Files + View groups, `JumpToFile` its own opener. Nothing is lifted or
+  drilled to serve a keystroke. A handler left `undefined` is simply unbound, so a
+  key that doesn't apply to the view on screen does nothing.
+- **The two "cursors" already existed**: `activePath` (the scroll-spy's current
+  file) and `activeFbId` (the focused feedback). Every per-file and per-feedback
+  binding targets one of them, which is why this needed no new review state.
+  `activePath` is now marked on the file's own header (`FileCard current`) —
+  `z`/`x`/`a` mutate, so the target can't be implicit.
+- One flat map, no modes, no prefixes, no counts. The layer stands down whenever
+  focus is in a text field, and everything but `?` stands down while the overlay
+  is up (`suspendKeys`). `Esc` is deliberately NOT in the map — it stays owned by
+  whatever popup or composer is open.
+- `Ctrl-n`/`Ctrl-p` ship as **aliases** only: `Ctrl-n` is a reserved browser
+  shortcut on Windows/Linux that page JS cannot cancel. `j`/`k` are the documented
+  primary and behave identically everywhere.
 
 ## Deep reference
 

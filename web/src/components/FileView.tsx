@@ -156,6 +156,7 @@ function FileViewImpl({
   onSha,
   onPickLines,
   onFileFeedback,
+  current,
   foldSignal,
 }: {
   path: string;
@@ -185,6 +186,10 @@ function FileViewImpl({
   ) => void;
   // Open the composer anchored to this whole file (the header's feedback button).
   onFileFeedback?: (file: string) => void;
+  // Marks this as the scroll-spy's current file — what a per-file shortcut acts
+  // on. A boolean, not the current path, so a spy move re-renders only the two
+  // cards whose flag changed (this component is memoized).
+  current?: boolean;
   foldSignal?: FoldSignal | null;
 }) {
   const syntaxTheme = useSyntaxTheme();
@@ -251,6 +256,7 @@ function FileViewImpl({
       onToggleViewed={toggle ? () => toggle(fileViewedKey(path, data.sha)) : undefined}
       onFileFeedback={onFileFeedback ? () => onFileFeedback(path) : undefined}
       autoFold={lineCount > BIG_FILE_LINES}
+      current={current}
       foldSignal={foldSignal}
     >
       {isMarkdown && mdView === "rendered" ? (

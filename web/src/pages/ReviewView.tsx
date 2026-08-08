@@ -19,6 +19,7 @@ import { QuoteBubble, type QuotePos, quoteBlock } from "../components/Message.ts
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ReviewHeader } from "../components/ReviewHeader.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
+import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
 import {
   clearDraft,
@@ -37,6 +38,7 @@ import {
   useActiveSummaryHighlight,
   useRegionHighlight,
 } from "../highlights.ts";
+import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 // The one sanctioned mobile-module import (see the mobile-tier skill): ReviewView
 // is the single mount point that swaps the desktop side-dock for the phone
@@ -49,7 +51,7 @@ import { focusComposer, retryScrollToRow, stickyBandPx, usePaneCrossfade } from 
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
-import { useDiffLayout, useSyntaxTheme } from "../settings.ts";
+import { setDiffLayout, useDiffLayout, useSyntaxTheme } from "../settings.ts";
 import type {
   DiffSide,
   FeedbackWithReplies,
@@ -616,6 +618,66 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [fileList, activePath, scrollToFile, ensureFileOpen],
   );
 
+  // Toggle Viewed on one path (the `x` shortcut). The file headers build their own
+  // content-identity key — a diff round's file from the round seq, a live file from
+  // the sha only that card has loaded — so this rebuilds the same key from what the
+  // view knows: `shas`, reported up by each FileView for exactly this reason.
+  // Views that don't track viewed (a snapshot-diff, a pinned-snapshot browse) hide
+  // the pill, and this no-ops for the same reason.
+  const toggleViewedPath = useCallback(
+    (path: string) => {
+      if (isDiff && effectiveRoundSeq != null) toggleViewed(diffViewedKey(effectiveRoundSeq, path));
+      else if (liveFilesView) {
+        const sha = shas.get(path);
+        if (sha) toggleViewed(fileViewedKey(path, sha));
+      }
+    },
+    [isDiff, effectiveRoundSeq, liveFilesView, shas, toggleViewed],
+  );
+
+  // The round a whole-file note opens against, matching what each view passes to
+  // its own header button: the active round in a diff review, the synthetic round
+  // in a snapshot-diff, and nothing in a plain files view.
+  const feedbackPatchSeq = isDiff
+    ? (effectiveRoundSeq ?? undefined)
+    : diffMode
+      ? SNAPSHOT_DIFF_SEQ
+      : undefined;
+
+  // `<` / `>`: step the version on screen. For a diff review that's the round
+  // strip; for a snapshotted files review it's the `to` bound of the from→to
+  // range, over the same oldest→newest→Current order SnapshotSelect lists (so the
+  // keys walk the dropdown top-to-bottom as drawn). Clamped at both ends — no
+  // wrap: stepping past the newest round should stop, not silently restart at the
+  // oldest. Stepping `to` can invert the range, so `from` snaps down with it,
+  // exactly as picking that row in the dropdown would.
+  const stepVersion = useCallback(
+    (dir: 1 | -1) => {
+      if (isDiff) {
+        if (rounds.length === 0) return;
+        const at = rounds.findIndex((r) => r.seq === effectiveRoundSeq);
+        const next = rounds[Math.min(rounds.length - 1, Math.max(0, (at < 0 ? 0 : at) + dir))];
+        if (next) setActiveRoundSeq(next.seq);
+        return;
+      }
+      if (snapshots.length === 0) return;
+      const order: SnapshotRef[] = [
+        ...[...snapshots].sort((a, b) => a.seq - b.seq).map((s) => s.seq),
+        "WORKING",
+      ];
+      const at = order.indexOf(toSnap);
+      const pos = Math.min(order.length - 1, Math.max(0, (at < 0 ? order.length - 1 : at) + dir));
+      if (pos === at) return;
+      const fromPos = fromSnap == null ? -1 : order.indexOf(fromSnap);
+      if (fromPos >= pos) {
+        const below = order[pos - 1];
+        setFromSnap(pos - 1 >= 0 && below !== "WORKING" ? below : null);
+      }
+      setToSnap(order[pos]);
+    },
+    [isDiff, rounds, effectiveRoundSeq, snapshots, toSnap, fromSnap],
+  );
+
   // Scroll-spy: mark the file whose block currently sits at the top of the pane.
   // The listener reads the DOM live, so it stays correct as blocks load/render
   // without re-subscribing. Keyed on `detail` (not []) because the first commit
@@ -942,6 +1004,54 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     },
   });
 
+  // --- Keyboard bindings (keys.ts) ---------------------------------------
+  // The Files + View groups: this view owns the scroll-spy's current file, the
+  // fold broadcast, the round/snapshot selection, and the layout preference, so
+  // it owns their keys. Each handler is the onClick of a control in the pane
+  // toolbar or a file header — a shortcut never reaches past the UI.
+  //
+  // A handler left `undefined` is simply not bound, so a key falls through to
+  // nothing rather than doing something surprising: `\` in a files review's plain
+  // view has no old/new columns to swap, and `<`/`>` has nothing to step through
+  // in a single-round review. Same conditions the toolbar uses to show or hide
+  // the corresponding control. (These sit above the early returns below: hooks
+  // can't be called conditionally, and there is nothing to bind on a dead view
+  // anyway — every handler no-ops on an empty fileList.)
+  const hasFiles = fileList.length > 0;
+  const canStepVersion = isDiff ? rounds.length > 1 : snapshots.length > 0;
+  // `Z` alternates rather than taking a direction: the toolbar has two buttons,
+  // but one key can't. Which way it goes next is remembered in a ref (not state —
+  // nothing renders from it), starting at "fold" so the first press collapses
+  // everything, which is the useful direction from a freshly-opened review.
+  const foldAllDir = useRef<"fold" | "unfold">("fold");
+  useKeyBindings({
+    fileNext: hasFiles ? () => jumpFile(1) : undefined,
+    filePrev: hasFiles ? () => jumpFile(-1) : undefined,
+    // Path-scoped "toggle": the card flips whatever it currently is, matching a
+    // click on its own triangle (see FoldSignal).
+    fileFold:
+      hasFiles && activePath
+        ? () =>
+            setFoldSignal((s) => ({ mode: "toggle", nonce: (s?.nonce ?? 0) + 1, path: activePath }))
+        : undefined,
+    foldAll: hasFiles
+      ? () => {
+          foldAll(foldAllDir.current);
+          foldAllDir.current = foldAllDir.current === "fold" ? "unfold" : "fold";
+        }
+      : undefined,
+    fileViewed: activePath ? () => toggleViewedPath(activePath) : undefined,
+    fileNote: activePath ? () => onFileFeedback(activePath, feedbackPatchSeq) : undefined,
+    versionNext: canStepVersion ? () => stepVersion(1) : undefined,
+    versionPrev: canStepVersion ? () => stepVersion(-1) : undefined,
+    // Mobile forces unified regardless of the stored preference, so binding the
+    // toggle there would write a preference with no visible effect.
+    layoutToggle:
+      (isDiff || diffMode) && !isMobile
+        ? () => setDiffLayout(diffLayoutPref === "split" ? "unified" : "split")
+        : undefined,
+  });
+
   // Replace the view with an error when there's no data at all (a first-load
   // failure from a stale URL) OR when the open review was deleted out from under
   // us — a 404 on refetch, even though TanStack still holds the last-good detail.
@@ -1135,6 +1245,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   rounds={rounds}
                   activeSeq={effectiveRoundSeq}
                   isViewed={isViewed}
+                  currentPath={activePath}
                   layout={diffLayout}
                   fetchContext={fetchRoundContext}
                   toggle={toggleViewed}
@@ -1160,6 +1271,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   <DiffView
                     rounds={snapRounds}
                     activeSeq={SNAPSHOT_DIFF_SEQ}
+                    currentPath={activePath}
                     layout={diffLayout}
                     fetchContext={fetchSnapContext}
                     // No viewed tracking in a files review's derived diff;
@@ -1211,6 +1323,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     onSha={liveFilesView ? onSha : undefined}
                     onPickLines={onPickLines}
                     onFileFeedback={onFileFeedback}
+                    current={f === activePath}
                     foldSignal={foldSignal}
                   />
                 ))}
@@ -1244,6 +1357,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           {feedbackPanel}
         </MobileReviewChrome>
       )}
+      {/* The `?` cheat sheet. Mounted here, not in App: every binding in the map is
+          review-scoped, so on the reviews list the sheet would document keys that
+          do nothing. Owns its own open state and the `help` binding. */}
+      <ShortcutsOverlay />
       {/* "Quote in note" bubble for a file-pane selection made while the anchored
           composer already holds text — fixed-positioned, so it lives at the root. */}
       {fileQuote && <QuoteBubble pos={fileQuote} label="Quote in note" onQuote={quoteIntoNote} />}

@@ -50,8 +50,13 @@ function CopyIcon({ className }: { className?: string }) {
 // "fold all" twice re-folds files the user re-opened in between. With `path`
 // set the signal is scoped to that one file — how next/prev navigation unfolds
 // the block it's about to land on.
+//
+// `"toggle"` flips whatever the receiving card currently is, rather than driving
+// it to a known state — the keyboard `z` on the current file, which has to behave
+// like clicking that file's own triangle. It's only ever sent path-scoped: an
+// unscoped toggle would flip each card independently and shatter the fold state.
 export interface FoldSignal {
-  mode: "fold" | "unfold";
+  mode: "fold" | "unfold" | "toggle";
   nonce: number;
   path?: string;
 }
@@ -70,6 +75,7 @@ export function FileCard({
   onToggleViewed,
   onFileFeedback,
   autoFold = false,
+  current = false,
   foldSignal,
   children,
 }: {
@@ -85,6 +91,13 @@ export function FileCard({
   // ⇒ no button (a view where whole-file feedback doesn't apply).
   onFileFeedback?: () => void;
   autoFold?: boolean;
+  // This is the file the scroll-spy calls current — the one a per-file keyboard
+  // shortcut (`z` fold, `x` viewed, `a` note) would act on. The per-file bindings
+  // MUTATE, so the target can't be implicit: before this the only hint was a
+  // subtle tint in the desktop-only file browser, which is no help at all on a
+  // phone or with the sidebar closed. Marking the header puts it where the eye
+  // already is — the header of the current file is the one pinned to the pane top.
+  current?: boolean;
   foldSignal?: FoldSignal | null;
   children: ReactNode;
 }) {
@@ -130,9 +143,16 @@ export function FileCard({
       (foldSignal.path == null || foldSignal.path === path)
     ) {
       seenNonce.current = foldSignal.nonce;
-      setOpen(foldSignal.mode === "unfold");
+      // A "toggle" is one deliberate act on one card, so it folds through
+      // foldToTop exactly as the header triangle does (re-pinning the pane so the
+      // collapse doesn't drop you into a later file). A fold-ALL deliberately does
+      // NOT: it would fire a smooth scrollBy per card, all fighting each other.
+      if (foldSignal.mode === "toggle") {
+        if (open) foldToTop();
+        else setOpen(true);
+      } else setOpen(foldSignal.mode === "unfold");
     }
-  }, [foldSignal, path]);
+  }, [foldSignal, path, open, foldToTop]);
 
   // Click the path to copy it (mirrors ReviewHeader's CopyMeta); the chevron still
   // toggles the fold.
@@ -159,7 +179,23 @@ export function FileCard({
           --pane-sticky-h is the mobile pane toolbar's live height (ReviewView sets
           it on the scroll pane when the toolbar sticks above these headers); unset
           — desktop, or no toolbar — it defaults to 0px, i.e. the plain -top-px pin. */}
-      <div className="sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
+      {/* The current-file marker is a 2px accent rail on the header's leading edge
+          plus a half-step darker header fill — quiet enough to ignore while you
+          read, unmistakable when you go looking for "which file does `x` hit?".
+          Deliberately not a badge or a label: it marks state that already existed,
+          it isn't a new control, and there is one of these per file on screen. The
+          rail is a `before` pseudo-element so it costs no layout box and can't
+          shift the fold triangle that sits at the same edge; `sticky` already
+          positions the header, so it needs no `relative` to anchor to (adding one
+          would fight the sticky pin — both set `position`). */}
+      <div
+        className={cn(
+          "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 border-b border-neutral-300 px-2 backdrop-blur dark:border-neutral-700",
+          current
+            ? "bg-neutral-100/95 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:bg-neutral-800/95 dark:before:bg-primary-400"
+            : "bg-neutral-50/95 dark:bg-neutral-900/95",
+        )}
+      >
         {/* Enlarge the click target, not the glyph: `self-stretch` fills the
             header's full height and the wider `px-2` (with a `-ml-1` that reclaims
             the header's own left padding) widens it — the triangle stays put and

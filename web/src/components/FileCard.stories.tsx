@@ -70,6 +70,20 @@ export const NestedPath: Story = {
   args: { path: "web/src/components/feedback/FeedbackPanel.tsx" },
 };
 
+// The scroll-spy's current file — the one `z` / `x` / `a` act on. An accent rail
+// on the leading edge plus a half-step darker header fill. Compare against
+// Default: it has to be findable when you look for it and ignorable when you
+// don't, since one of these is on screen at all times.
+export const Current: Story = {
+  args: { current: true },
+};
+
+// Current *and* folded: the marker rides the header, which is all that's left of
+// a folded card — so `z` (fold/unfold) stays legible about what it just acted on.
+export const CurrentFolded: Story = {
+  args: { current: true, viewed: true },
+};
+
 // The card at phone width: the h-8 sticky header stays h-8 (a decided design), the
 // deep path truncates to fit, and the header controls keep their hit areas (the
 // whole-file feedback button widens into the header padding on coarse pointers).
