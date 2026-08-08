@@ -45,7 +45,7 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
-import { focusComposer, retryScrollToRow, usePaneCrossfade } from "../pane.ts";
+import { focusComposer, retryScrollToRow, stickyBandPx, usePaneCrossfade } from "../pane.ts";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
@@ -632,10 +632,19 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // frames must not re-spy it back to a block the ride is passing through.
       if (scrollAnimating.current) return;
       const top = root.getBoundingClientRect().top;
+      // The scanline that decides "current": the sticky band, i.e. exactly where
+      // a file header pins. A block crossing it is the one whose header now owns
+      // the pane top, so the spy and what you see agree by construction. The old
+      // bare 8px flipped ~24px late on desktop and — since it ignored
+      // --pane-sticky-h — flipped while the block was still hidden BEHIND the
+      // mobile pane toolbar, which is what put the jump-to-file picker's active
+      // row on a file you weren't looking at. Hoisted out of the loop: it reads
+      // computed style, and this runs per scrolled frame over every block.
+      const scanline = top + stickyBandPx(root);
       const blocks = root.querySelectorAll("[data-file]");
       let current: string | null = blocks[0]?.getAttribute("data-file") ?? null;
       for (const b of blocks) {
-        if (b.getBoundingClientRect().top - top <= 8) current = b.getAttribute("data-file");
+        if (b.getBoundingClientRect().top <= scanline) current = b.getAttribute("data-file");
         else break;
       }
       setActivePath(current);
