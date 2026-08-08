@@ -33,6 +33,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { SCROLL_RATIO, stickyBandPx } from "./pane.ts";
 import { useFontSize } from "./settings.ts";
 import type { DiffSide } from "./types.ts";
 
@@ -42,12 +43,31 @@ import type { DiffSide } from "./types.ts";
 // window so virtualization only kicks in where it actually pays.
 const VIRTUALIZE_MIN = 150;
 const OVERSCAN = 24;
-// Where a scrolled-to line lands in the pane: 30% down, matching ReviewView's
-// SCROLL_RATIO so a virtualized jump and a DOM-scroll jump feel the same.
-const LINE_SCROLL_RATIO = 0.3;
 
 export interface ScrollToLineOpts {
   align?: "start" | "center" | "end";
+}
+
+// How much pane height to leave ABOVE the scrolled-to row, per `align`.
+//
+// No align keeps the historical landing — SCROLL_RATIO (30%) down the pane, the
+// same constant the DOM-scroll path uses (pane.ts), so a virtualized jump and a
+// non-virtualized one feel identical. Every existing locate/pin jump is tuned to
+// that, so it stays the default.
+//
+// `start` has to clear the sticky header stack or the row lands *under* the
+// chrome; `center`/`end` sit well clear of it, so they're plain arithmetic.
+function leadFor(pane: HTMLElement, rowH: number, align: ScrollToLineOpts["align"]): number {
+  switch (align) {
+    case "start":
+      return stickyBandPx(pane);
+    case "center":
+      return (pane.clientHeight - rowH) / 2;
+    case "end":
+      return pane.clientHeight - rowH;
+    default:
+      return pane.clientHeight * SCROLL_RATIO;
+  }
 }
 // Bring `line` (on `side`, for diffs) into view within its file. Returns false
 // when the file isn't virtualized / the line isn't in this list, so the caller
@@ -214,7 +234,7 @@ export function VirtualLines({
       pane.register(scrollKey, null);
       return;
     }
-    const fn: ScrollToLineFn = (line, side) => {
+    const fn: ScrollToLineFn = (line, side, opts) => {
       const idx = resolveIndex ? resolveIndex(line, side) : line - 1;
       if (idx == null || idx < 0 || idx >= count) return false;
       const c = containerRef.current;
@@ -226,9 +246,10 @@ export function VirtualLines({
       // getOffsetForIndex: those read the virtualizer's internal scrollMargin,
       // which lags during a fold/unfold and sent the jump wildly off. The live
       // rect is always right, so re-issuing this each frame (see ReviewView)
-      // converges as an unfolding file settles. Land the line ~30% down the pane.
+      // converges as an unfolding file settles. Where in the pane the line lands
+      // is `align`'s call (leadFor above); unset = ~30% down.
       const rowTop = c.getBoundingClientRect().top - s.getBoundingClientRect().top + s.scrollTop;
-      const target = rowTop + idx * fontSize - s.clientHeight * LINE_SCROLL_RATIO;
+      const target = rowTop + idx * fontSize - leadFor(s, fontSize, opts?.align);
       s.scrollTo({ top: Math.max(0, target) });
       return true;
     };

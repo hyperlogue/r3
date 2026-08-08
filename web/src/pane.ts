@@ -12,6 +12,22 @@ import type { ScrollToLine } from "./virtual.tsx";
 // reading context above it.
 export const SCROLL_RATIO = 0.3;
 
+// FileCard's sticky header (h-8 = 32px) overlays the top of the scroll pane, so
+// a row in that band sits inside the pane's box but is visually covered.
+const STICKY_HEADER_PX = 32;
+
+// The covered band at the pane's top edge: each file's sticky header, plus the
+// mobile pane toolbar whose live height rides on the pane as --pane-sticky-h (0
+// when unset — desktop, or no toolbar). Anything landing above this line is
+// hidden under the chrome, so both the "is the anchor on screen?" test
+// (highlights.ts) and a scroll asking to land at the pane top (virtual.tsx's
+// align:"start") have to clear it.
+export function stickyBandPx(pane: HTMLElement): number {
+  const toolbar =
+    Number.parseFloat(getComputedStyle(pane).getPropertyValue("--pane-sticky-h")) || 0;
+  return toolbar + STICKY_HEADER_PX;
+}
+
 // The retrying scroll-a-row-into-view loop behind ReviewView's pin/ref jumps
 // (locatePin, jumpToRef). Try the virtualizer first — a virtualized file's
 // target row may be unmounted, so only its virtualizer can bring it on screen —

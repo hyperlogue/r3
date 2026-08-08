@@ -18,15 +18,10 @@ import {
   setHighlightRanges,
   supportsHighlights,
 } from "./mdhighlight.ts";
-import { SCROLL_RATIO } from "./pane.ts";
+import { SCROLL_RATIO, stickyBandPx } from "./pane.ts";
 import type { DiffSide, FeedbackWithReplies } from "./types.ts";
 import { SUMMARY_FILE } from "./types.ts";
 import { fileScrollKey, type ScrollToLine } from "./virtual.tsx";
-
-// FileCard's sticky header (h-8 = 32px) overlays the top of the scroll pane, so
-// a row in that band sits inside the pane's box but is visually covered — the
-// anchor-in-view test treats it as off screen.
-const STICKY_HEADER_PX = 32;
 
 // Imperatively ring the lines an active feedback points at (its DOM rows live
 // inside dangerouslySetInnerHTML content, so we toggle a class directly) and,
@@ -127,13 +122,8 @@ export function useActiveLineHighlight(
         head = tail = (quote ? rangeForQuote(block, quote) : null) ?? block;
       }
       const p = root.getBoundingClientRect();
-      // The covered band at the pane top: the file header, plus the mobile
-      // sticky toolbar whose live height rides on the pane as --pane-sticky-h
-      // (0 when unset — desktop).
-      const toolbarPx =
-        Number.parseFloat(getComputedStyle(root).getPropertyValue("--pane-sticky-h")) || 0;
       return (
-        head.getBoundingClientRect().top >= p.top + toolbarPx + STICKY_HEADER_PX &&
+        head.getBoundingClientRect().top >= p.top + stickyBandPx(root) &&
         tail.getBoundingClientRect().bottom <= p.bottom
       );
     };
