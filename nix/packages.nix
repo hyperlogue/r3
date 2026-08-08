@@ -1,12 +1,8 @@
 # Flake packages: `nix build` / `nix run` produce the r3 binary.
 {...}: {
-  perSystem = {
-    pkgs,
-    gitRev,
-    ...
-  }: {
+  perSystem = {pkgs, ...}: {
     packages = let
-      r3 = pkgs.callPackage ./r3.nix {inherit gitRev;};
+      r3 = pkgs.callPackage ./r3.nix {};
     in {
       inherit r3;
       default = r3;

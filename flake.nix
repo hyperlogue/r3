@@ -23,7 +23,6 @@
 
       imports = [
         ./nix/nixpkgs.nix
-        ./nix/git-rev.nix
         ./nix/packages.nix
         ./nix/shell.nix
       ];

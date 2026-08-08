@@ -10,7 +10,6 @@
   stdenv,
   bun,
   bun2nix,
-  gitRev ? null,
 }: let
   # Track the repo's declared version instead of hand-syncing a literal here —
   # package.json is the version source the release flow already keys off (the
@@ -54,12 +53,6 @@ in
     dontFixup = true;
     # No bun:test suite; don't let the hook's default checkPhase run `bun test`.
     doCheck = false;
-
-    # r3's server reads no git rev today, but bake it in so a future /version
-    # route has it without a packaging change.
-    env = lib.optionalAttrs (gitRev != null) {
-      GIT_COMMIT = gitRev;
-    };
 
     # `bun run build` == scripts/compile.ts: one Bun.build --compile -> ./r3
     buildPhase = ''
