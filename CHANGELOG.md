@@ -4,6 +4,50 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-08-08
+
+### Added
+
+- **Drive the review loop from the keyboard.** `?` lists the map: `j`/`k` step
+  through feedback, `o` jumps to a note's anchor, `r` replies, `e` resolves, `n`
+  starts a note, `S` hands the review to the agent; `]`/`[` step files, `f`
+  jumps to one, `z`/`Z` fold, `x` marks viewed, `a` annotates the current file;
+  `<`/`>` walk diff rounds and snapshots, `\` toggles side-by-side. Every
+  shortcut fires a control that's already on screen, under that button's own
+  disabled condition. Marking a line range stays a mouse drag.
+- **The jump-to-file picker takes the keyboard**: ↑/↓ (or Ctrl-p/Ctrl-n) move
+  the selection and Enter opens it.
+- **Keyboard focus is visible.** Tabbing through the UI now shows a focus ring.
+
+### Changed
+
+- The browser demo now shows **side-by-side diffs and expand-context**, so both
+  can be tried without installing anything.
+
+### Fixed
+
+- Selecting across a **side-by-side diff** no longer puts blank lines into the
+  quote where one column had fewer lines than the other. Since the quote is what
+  re-anchoring searches for, those blanks were not cosmetic.
+- The two columns of a side-by-side diff **stay vertically aligned** across
+  expandable gaps; each one drifted them a quarter line apart.
+- **Dragging the line gutter** now caps the quote the way a text selection
+  already did — a 40-line drag stored a 40-line quote, which is exactly what
+  re-anchoring relocates worst.
+- **Jumping to a feedback centers its line** instead of always landing 30% down
+  the pane.
+- The **current-file highlight** — in the file browser and the jump-to-file
+  picker — is right on open and while you scroll. It was picked against a hidden
+  8px line rather than where a header actually pins, which on a phone could
+  highlight a file behind the toolbar, and on opening a review it marked no file
+  at all until you scrolled.
+
+### Removed
+
+- Releases no longer ship a **`SHA256SUMS`** manifest — GitHub publishes a
+  sha256 digest for every release asset, and a second copy is a second thing
+  that can disagree.
+
 ## [0.7.0] - 2026-08-01
 
 ### Added
@@ -181,6 +225,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.8.0]: https://github.com/hyperlogue/r3/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/hyperlogue/r3/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hyperlogue/r3/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hyperlogue/r3/compare/v0.4.0...v0.5.0
