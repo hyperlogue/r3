@@ -32,7 +32,7 @@ From there:
 
 - **GitHub Releases** carry the raw assets (curl / Homebrew). No checksum
   manifest ships with them — GitHub publishes a sha256 digest per asset, and the
-  release job verifies against those digests on the reuse path.
+  build job verifies against those digests on the reuse path.
 - **npm** ships a tiny launcher (`@hyperlogue/r3`, `npm/launch.mjs`) whose
   per-platform binaries are **optional-dependency packages**
   (`@hyperlogue/r3-<os>-<arch>`, staged by `scripts/stage-npm-packages.ts`). npm
@@ -50,6 +50,39 @@ platform target) has no trusted publisher yet — its first publish is manual, t
 register `release.yml` on it. Requires npm ≥ 11.5.1, which is why the job upgrades
 npm and omits setup-node's `registry-url` (its `.npmrc` placeholder token would
 shadow OIDC).
+
+### Three jobs, and the approval gate
+
+`release.yml` is **verify → build → publish**, and the split exists for the last
+one:
+
+- **`verify`** checks the tag *shape* (plain SemVer — a git ref may contain
+  `$( )`, backticks and `;`, so an unvalidated tag reaching a `run:` block is an
+  injection vector) and the tag ↔ `npm/package.json` lockstep, then exports the
+  verified version. Seconds, before a runner cross-compiles. A missing
+  `## [X.Y.Z]` changelog section only **warns** — the release degrades to
+  `--generate-notes`, and a prerelease tag legitimately has no section.
+- **`build`** compiles (or, on a re-run, re-downloads and digest-verifies this
+  tag's existing assets), execs the linux-x64 binary as a smoke test, and hands
+  `dist/r3-*` to `publish` as an artifact. It can only read.
+- **`publish`** runs under **`environment: release`** — the human approval gate.
+  It is the only job with `contents: write` + `id-token: write`, so nothing
+  outward-facing happens until someone approves. This matters because **a tag
+  push bypasses branch protection**: without the gate, anyone with write access
+  could tag an arbitrary commit straight into a signed npm publish. Configure the
+  environment's required reviewers in repo settings (GitHub creates it
+  implicitly, so the workflow runs ungated until you do) plus a tag ruleset on
+  `v*`. npm's trusted-publisher config has an *optional* environment field:
+  blank keeps working, and if it's ever filled in it must say `release` on all
+  five packages.
+
+Two consequences worth keeping: the workflow-level default is `contents: read`
+(only `publish` elevates), and **`publish` never execs a release binary** — it
+only stats them for the exec bit. `build` already ran the one natively-runnable
+target, and exec'ing an unverified artifact in the job that can mint a publish
+credential would let a poisoned binary rewrite the other three platform packages
+first. The artifact's `retention-days: 7` also bounds how long the approval may
+idle; past that, re-run the whole workflow.
 
 ## `package.json` overrides `bun` → `empty-npm-package`
 

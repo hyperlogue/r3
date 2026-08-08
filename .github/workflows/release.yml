@@ -1,25 +1,41 @@
 name: Release
 
-# Tag-driven release. Pushing a `v<version>` tag builds all four native
-# binaries, publishes a GitHub Release with those assets (the manual / curl /
-# brew channel), then publishes the npm packages: the four per-platform binary
-# packages FIRST, then the launcher that pins them — in that order, because a
-# user must never resolve a launcher whose platform dependency isn't on the
-# registry yet.
+# Tag-driven release, gated on a human approval. Pushing a `v<version>` tag runs
+# three jobs:
+#
+#   verify   — the tag's shape and the version lockstep, in seconds, before a
+#              runner spends half an hour cross-compiling.
+#   build    — the four native binaries (or, on a re-run, the exact bytes already
+#              attached to this tag's release), handed to `publish` as an
+#              artifact. Holds no write permission and no publish credential.
+#   publish  — the GitHub Release (the manual / curl / brew channel), then the
+#              npm packages: the four per-platform binary packages FIRST, then
+#              the launcher that pins them — in that order, because a user must
+#              never resolve a launcher whose platform dependency isn't on the
+#              registry yet.
+#
+# The split exists for the `environment: release` gate on `publish` (see the
+# comment there): everything outward-facing waits behind an approval, and the two
+# jobs that run unattended on a tag push can only read. It also means the
+# binaries are already built and smoke-tested by the time the approval is asked
+# for, so approving is a decision about publishing, not about waiting.
 #
 # Three version sources must agree exactly: the git tag, npm/package.json, and
 # shared/version.ts. stage-npm-packages.ts stamps the launcher's per-platform
 # pins from that one version, and two guards enforce the rest transitively (see
-# below); a release dies in <1 min on drift, before anything is published.
+# below); a release dies in <1 min on drift, before anything is built.
 on:
   push:
     tags: ['v*']
 
+# Least privilege by default: only `publish` elevates, and only from behind the
+# environment gate.
 permissions:
-  contents: write # create the GitHub Release + upload assets
-  id-token: write # npm trusted publishing (OIDC) + provenance attestation
+  contents: read
 
-# Never cancel a half-finished publish — queue instead.
+# Never cancel a half-finished publish — queue instead. (This also holds a run
+# parked on the approval gate: an approval that arrives late still publishes the
+# tag it was asked about.)
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -39,46 +55,81 @@ defaults:
 #     `release.yml` by name on npmjs.com → Settings → Trusted Publisher. Rename
 #     it and every publish 404s until all five registrations are updated.
 #   - Publishing from another workflow, a fork, or a self-hosted runner won't
-#     work — that's the point.
+#     work — that's the point. (Publishing from another *job* of this file is
+#     fine: the claim names the workflow, not the job.)
 #   - A brand-new package name (say, adding a windows target) has no trusted
 #     publisher yet, so its FIRST publish must be done by hand from a laptop;
 #     then register `release.yml` on it before the next release.
 #
 # Third-party actions are pinned to commit SHAs (the trailing comment is the
-# tag): a tag can be force-moved to malicious code, a SHA can't — and this job
-# can publish to npm.
+# tag): a tag can be force-moved to malicious code, a SHA can't — and this
+# workflow can publish to npm.
+#
+# No `run:` block below interpolates a `${{ }}` expression into its script body.
+# Expressions are substituted into the script *text* before bash parses it, so a
+# value carrying `$( )`, a backtick, or `;` would become code. Values reach
+# scripts through `env:` instead, where bash treats them as data.
 jobs:
-  release:
+  # Gate the whole release on the tag before a build runner starts.
+  #
+  # (1) SHAPE. `github.ref_name` flows on into shell scripts and release titles,
+  #     and git accepts `$( )`, backticks, quotes, `;`, `&` and `|` in a ref name
+  #     (only space and `*` are rejected) — so an unvalidated tag is a
+  #     script-injection vector. Pinning it to plain SemVer kills the class at the
+  #     source; the env indirection everywhere downstream is the second layer.
+  # (2) VERSION. tag ↔ npm/package.json. Combined with release-binaries.ts's own
+  #     npm ↔ shared/version.ts check, this transitively pins all three sources.
+  #     We never auto-fix here — the tag is the human's assertion; drift means a
+  #     mistake, so fail and make them re-tag.
+  # (3) NOTES. The changelog section is only WARNED about, not enforced: it
+  #     degrades to --generate-notes below rather than shipping wrong notes, and a
+  #     prerelease tag (v1.0.0-rc.1) legitimately has no section of its own.
+  verify:
+    name: verify tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false # nothing here pushes
+
+      - name: Verify the tag shape and the version lockstep
+        id: tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag '$GITHUB_REF_NAME' is not a plain SemVer v-tag (vMAJOR.MINOR.PATCH[-prerelease]). Delete it and re-tag."
+            exit 1
+          fi
+
+          PKG_V=$(jq -r .version npm/package.json)
+          if [ "$GITHUB_REF_NAME" != "v$PKG_V" ]; then
+            echo "::error::tag $GITHUB_REF_NAME != npm/package.json v$PKG_V — fix versions, delete the tag, re-tag."
+            exit 1
+          fi
+
+          grep -qF "## [$PKG_V]" CHANGELOG.md ||
+            echo "::warning::no '## [$PKG_V]' section in CHANGELOG.md — the release will fall back to auto-generated notes."
+
+          echo "version=$PKG_V" >> "$GITHUB_OUTPUT"
+          echo "verified $GITHUB_REF_NAME against npm/package.json v$PKG_V"
+
+  build:
+    name: build binaries
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          persist-credentials: false # gh uses GH_TOKEN; nothing pushes via git
+          persist-credentials: false # nothing here pushes
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.13
 
       - run: bun install --frozen-lockfile
-
-      # Guard 1: tag ↔ npm/package.json. Combined with release-binaries.ts's own
-      # npm ↔ shared/version.ts check, this transitively pins all three sources.
-      # We never auto-fix here — the tag is the human's assertion; drift means a
-      # mistake, so fail and make them re-tag.
-      #
-      # The changelog section is only WARNED about, not enforced: it degrades to
-      # --generate-notes below rather than shipping wrong notes, and a prerelease
-      # tag (v1.0.0-rc.1) legitimately has no section of its own.
-      - name: Verify tag matches npm/package.json version
-        run: |
-          PKG_V=$(jq -r .version npm/package.json)
-          if [ "$GITHUB_REF_NAME" != "v$PKG_V" ]; then
-            echo "::error::tag $GITHUB_REF_NAME != npm/package.json v$PKG_V — fix versions, delete the tag, re-tag."
-            exit 1
-          fi
-          grep -qF "## [$PKG_V]" CHANGELOG.md ||
-            echo "::warning::no '## [$PKG_V]' section in CHANGELOG.md — the release will fall back to auto-generated notes."
 
       # A tag can land on an unchecked commit — cheap insurance.
       - name: Typecheck + lint
@@ -122,16 +173,86 @@ jobs:
           fi
 
       # The only platform this runner can actually execute; the other three are
-      # covered by the digest check above on the reuse path.
+      # covered by the digest check above on the reuse path. This is deliberately
+      # the LAST place a release binary is executed — `publish` only stats them
+      # (see the note there).
       - name: Smoke-test the built artifact
         run: |
           test "$(ls dist/r3-* | wc -l)" = 4
           chmod +x dist/r3-linux-x64
           ./dist/r3-linux-x64 --help
 
+      # Hand the binaries to `publish` rather than rebuilding them there: that job
+      # can write releases and mint an npm credential, so the less that happens
+      # inside it the better. The exec bit doesn't survive an artifact round-trip
+      # and doesn't need to — release assets are downloaded as plain bytes, and
+      # stage-npm-packages.ts chmods 0755 as it stages.
+      #
+      # `retention-days` also bounds how long the approval gate may idle: approve
+      # within a week, or re-run the whole workflow (which rebuilds, or reuses
+      # whatever already shipped).
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: r3-binaries
+          path: dist/r3-*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish release
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # THE APPROVAL GATE — the reason this workflow is three jobs. This job creates
+    # the GitHub Release and holds the OIDC identity npm mints publish credentials
+    # from, and a tag push bypasses branch protection: without a gate, anyone with
+    # write access (or any workflow holding contents:write) could tag an arbitrary
+    # commit straight into a signed publish. Configure this environment in repo
+    # settings with required reviewers, and add a tag ruleset on `v*`. GitHub
+    # creates the environment implicitly if it doesn't exist yet, so the workflow
+    # still runs — it just isn't gated until you configure it.
+    #
+    # npm's trusted-publisher config takes an OPTIONAL environment name. Leaving
+    # that field blank (as all five packages have it today) keeps working; if you
+    # ever fill it in, it must be this exact name on every one of them.
+    environment: release
+    permissions:
+      contents: write # create the GitHub Release + upload assets
+      id-token: write # npm trusted publishing (OIDC) + provenance attestation
+    env:
+      # The verified value, not the raw ref: the string is identical (verify
+      # proved it) but sourcing it from the guard's output means an unvalidated
+      # tag can't reach these scripts even if this file is edited later.
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false # gh uses GH_TOKEN; nothing pushes via git
+
+      # By exact name, so a stray artifact uploaded by some future job in this run
+      # can't ride along into the release assets or the npm packages. v8 verifies
+      # the artifact's digest on the way out and fails the step on a mismatch.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: r3-binaries
+          path: dist
+
+      # The bytes came from another job, so confirm the set is complete before
+      # anything outward-facing happens. Deliberately does NOT exec them: `build`
+      # already smoke-tested the one natively-runnable target, and running an
+      # unverified binary inside the job that can mint an npm publish credential
+      # would let a poisoned artifact rewrite the other three platform packages
+      # before they're published.
+      - name: Check the downloaded binaries
+        run: |
+          test "$(ls dist/r3-* | wc -l)" = 4
+          ls -l dist
+
       # GitHub Release FIRST (reversible) — the manual/curl channel. Prerelease
       # tags (v*-*) are marked so they never become the repo's "Latest". Idempotent:
-      # a re-run re-uploads assets with --clobber (a no-op when we reused them above).
+      # a re-run re-uploads assets with --clobber (a no-op when build reused them).
+      # Globbed as `dist/r3-*` rather than `dist/*` so only the intended asset kind
+      # is ever attached, whatever else lands in dist/ later.
       #
       # The release description is this version's CHANGELOG.md section, read from
       # the tagged tree — so the release page matches the changelog verbatim
@@ -151,7 +272,7 @@ jobs:
             # release's assets, so a re-run's re-upload is rejected — don't die on
             # it: the release channel is already converged and the npm steps
             # below may be the whole reason this run was retried.
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber ||
+            gh release upload "$GITHUB_REF_NAME" dist/r3-* --clobber ||
               echo "asset upload rejected (immutable release) — keeping existing assets"
           else
             # Pull exactly the `## [X.Y.Z]` section — never a stray [Unreleased]
@@ -159,14 +280,21 @@ jobs:
             # already shows the version; the sed drops the leading blank line.
             # index(…)==1 anchors the match at column 1 so a bullet mentioning the
             # version can't open the section.
-            awk -v v="${GITHUB_REF_NAME#v}" \
+            awk -v v="$VERSION" \
               'index($0, "## [" v "]")==1 {f=1; next} /^## \[/{f=0} f' CHANGELOG.md |
               sed '/./,$!d' > /tmp/relnotes.md
             NOTES="--generate-notes"
             grep -q '[^[:space:]]' /tmp/relnotes.md && NOTES="--notes-file /tmp/relnotes.md"
-            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+            gh release create "$GITHUB_REF_NAME" dist/r3-* --verify-tag \
               --title "$GITHUB_REF_NAME" $NOTES $PRERELEASE
           fi
+
+      # Bun to run the staging script; no `bun install` — it imports nothing but
+      # node: builtins and shared/version.ts, so this job pulls no third-party
+      # dependency into the process that can publish.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.13
 
       # Stage the four per-platform npm packages (dist/npm/<pkg>/) from the
       # binaries and stamp the launcher's optionalDependencies pins to this
@@ -176,10 +304,14 @@ jobs:
 
       # The binary ships 0755 in the tarball (npm preserves modes); a 0644 binary
       # would EACCES on every install, so verify the staged package kept the bit.
-      - name: Smoke-test the staged package
+      # Stat only — see "Check the downloaded binaries" for why nothing is exec'd
+      # in this job.
+      - name: Check the staged packages
         run: |
-          test -x dist/npm/r3-linux-x64/bin/r3
-          ./dist/npm/r3-linux-x64/bin/r3 --help
+          for d in dist/npm/*/; do
+            test -x "$d/bin/r3"
+            echo "  ok $d"
+          done
 
       # node 24 + `npm@latest` — trusted publishing needs npm >= 11.5.1 (node 24
       # ships 11.3.x, so the explicit upgrade is load-bearing, not hygiene).

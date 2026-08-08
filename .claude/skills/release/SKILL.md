@@ -101,10 +101,18 @@ if they drift, so keep them in lockstep:
 
 ## After the tag lands on GitHub
 
-The tag-driven pipeline (`.github/workflows/release.yml`) cross-compiles the four
-`r3-<os>-<arch>` binaries (GitHub Release: curl / Homebrew) and publishes the npm
-launcher (`@hyperlogue/r3`) with its per-platform optional-dependency packages.
-It fills the **release description from the `## [X.Y.Z]` section of
+The tag-driven pipeline (`.github/workflows/release.yml`) verifies the tag,
+cross-compiles the four `r3-<os>-<arch>` binaries, and then **stops and waits for
+a human approval** before publishing anything: the job that creates the GitHub
+Release (curl / Homebrew) and publishes the npm launcher (`@hyperlogue/r3`) with
+its per-platform optional-dependency packages runs under the `release`
+environment. **Tell the user the run is parked** — a pushed tag no longer
+completes on its own. Approve it from the run page (Actions → the run → *Review
+deployments*); the binaries are already built and smoke-tested by then, so the
+approval is purely the decision to publish. Approve within a week — the build
+artifact expires after 7 days, and a lapsed run has to be re-run whole.
+
+The publish job fills the **release description from the `## [X.Y.Z]` section of
 `CHANGELOG.md` in the tagged tree** — step 2's entry, verbatim —
 falling back to GitHub's auto-generated notes only if that section is
 missing or empty (the version guard warns when it is). This is why the tag must
