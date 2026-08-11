@@ -4,6 +4,14 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - 2026-08-11
+
+### Fixed
+
+- **Space and Tab focus the feedback composer again.** A note anchored from the
+  file pane opens unfocused so your selection survives; either key now puts the
+  caret in it instead of re-firing the last button you clicked.
+
 ## [0.9.0] - 2026-08-10
 
 ### Changed
@@ -277,6 +285,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.9.1]: https://github.com/hyperlogue/r3/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/hyperlogue/r3/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/hyperlogue/r3/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/hyperlogue/r3/compare/v0.6.0...v0.7.0
