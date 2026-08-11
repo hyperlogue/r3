@@ -280,6 +280,38 @@ export async function highlightToLines(
 // heading/paragraph/code-fence by source line. ----
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+// Same two hardening rules the client renderer applies to messages
+// (web/src/markdown.ts) — a reviewed `.md` comes from a tree we don't trust, so
+// it needs them at least as much.
+//
+// Scheme-required auto-linking only: fuzzy mode promotes any bare filename whose
+// extension doubles as a TLD — README.md, setup.py, build.sh — and every bare
+// domain in prose into a live external link that isn't in the file's markup.
+md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
+// Remote images fetch with no click, so they'd beacon on view; render them as
+// links instead. `data:` makes no request. (Twin: REMOTE_URL_RE in web/src/markdown.ts.)
+const REMOTE_URL_RE = /^(?!data:)[a-z][a-z0-9+.-]*:|^\/\//i;
+const defaultImage =
+  md.renderer.rules.image ??
+  ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+md.renderer.rules.image = (tokens, idx, options, env, self) => {
+  const src = tokens[idx].attrGet("src") ?? "";
+  if (!REMOTE_URL_RE.test(src)) return defaultImage(tokens, idx, options, env, self);
+  const alt = self.renderInlineAsText(tokens[idx].children ?? [], options, env);
+  return (
+    `<a class="r3-remote-img" href="${escapeHtml(src)}" target="_blank" rel="noopener noreferrer"` +
+    ` title="Remote image — not loaded automatically">${escapeHtml(alt || src)}</a>`
+  );
+};
+// A link with no target navigates the SPA away in-tab, discarding open composers.
+const defaultLinkOpen =
+  md.renderer.rules.link_open ??
+  ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+  tokens[idx].attrSet("target", "_blank");
+  tokens[idx].attrSet("rel", "noopener noreferrer");
+  return defaultLinkOpen(tokens, idx, options, env, self);
+};
 
 // Inject data-line attributes from token.map onto block-level open tokens.
 md.core.ruler.push("line_numbers", (state) => {

