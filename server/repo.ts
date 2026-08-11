@@ -97,7 +97,22 @@ function worktreeNameMap(commonDir: string): Map<string, string> {
   return map;
 }
 
+// One `git worktree list` per common-dir per beat rather than per request. Every
+// review-scoped request resolves a Repo, and a files review's page load is one
+// /api/blob per file — so a 100-file review forked git 100 times (~2.8 ms each,
+// and process spawns don't parallelize away) before reading a single byte, and
+// did it again on every file-changed. The layout changes on the order of days,
+// so a couple of seconds of staleness is invisible: shorter than the watcher's
+// own 4 s tick, so a `git worktree add/move` outside r3 still resolves within a
+// beat. Keyed on commonDir, so `r3 repo relink` invalidates for free.
+const WORKTREES_TTL_MS = 2_000;
+const worktreesMemo = new Map<string, { at: number; v: LiveWorktree[] }>();
+
 async function listWorktrees(commonDir: string): Promise<LiveWorktree[]> {
+  const hit = worktreesMemo.get(commonDir);
+  // Copy out: callers mutate `name` in place, and the existsSync freshness
+  // filter stays outside the memo so a rm -rf'd worktree is still caught.
+  if (hit && Date.now() - hit.at < WORKTREES_TTL_MS) return hit.v.map((w) => ({ ...w }));
   const { stdout, code } = await runGitIn(commonDir, ["worktree", "list", "--porcelain"]);
   if (code !== 0) return [];
   const names = worktreeNameMap(commonDir);
@@ -113,6 +128,7 @@ async function listWorktrees(commonDir: string): Promise<LiveWorktree[]> {
   }
   if (cur) out.push(cur);
   for (const w of out) w.name = names.get(realpathOrSelf(w.path)) ?? "";
+  worktreesMemo.set(commonDir, { at: Date.now(), v: out.map((w) => ({ ...w })) });
   return out;
 }
 
