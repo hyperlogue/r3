@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api.ts";
+import { copyText } from "../clipboard.ts";
 import { Button, TrashIcon, useCopyFlash } from "../ui.tsx";
 
 // Manage login tokens from the browser (the settings popup) instead of dropping to
@@ -48,9 +49,14 @@ export function TokenManager() {
           {revealed}
         </div>
         <div className="flex gap-1.5">
+          {/* copyText, not navigator.clipboard: login tokens exist FOR the
+              exposed deployments, which is exactly where the page is plain HTTP
+              and navigator.clipboard is undefined — the optional chain then
+              short-circuited the whole expression, so the button did nothing at
+              all and the one-time token was unrecoverable. */}
           <Button
             variant="default"
-            onClick={() => navigator.clipboard?.writeText(revealed).then(flash)}
+            onClick={() => void copyText(revealed).then((ok) => ok && flash())}
           >
             {copied ? "Copied" : "Copy"}
           </Button>
