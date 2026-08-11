@@ -27,7 +27,7 @@ import type {
   ServerEvent,
   UpdateReviewBody,
 } from "../shared/types.ts";
-import { MAX_CONTEXT_ROWS } from "../shared/types.ts";
+import { isReviewStatus, MAX_CONTEXT_ROWS, REVIEW_STATUSES } from "../shared/types.ts";
 // The SPA entry. Bun's bundler turns this import into an HTMLBundle: on-demand
 // from source (dev + lazy-spawn, via the bun-plugin-tailwind in bunfig.toml),
 // and pre-bundled + embedded into the binary by `scripts/compile.ts`. Served
@@ -570,6 +570,8 @@ app.patch("/api/reviews/:id", async (c) => {
   } catch {
     return c.text("bad json", 400);
   }
+  if (body.status !== undefined && !isReviewStatus(body.status))
+    return c.text(`bad status (expected ${REVIEW_STATUSES.join("|")})`, 400);
   const id = c.req.param("id");
   const updated = db.updateReview(id, body);
   if (!updated) return c.text("not found", 404);

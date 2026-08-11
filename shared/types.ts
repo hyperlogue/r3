@@ -4,6 +4,13 @@
 
 export type ReviewKind = "diff" | "files";
 export type ReviewStatus = "open" | "approved" | "abandoned";
+// Runtime twin of ReviewStatus. A review's status is a state machine `r3 watch`
+// branches its exit code on, so an unrecognized value doesn't just look wrong —
+// it makes the loop take the "abandoned" branch and stops the watcher tracking
+// the review's files. Validate it at the edge rather than trusting the cast.
+export const REVIEW_STATUSES = ["open", "approved", "abandoned"] as const;
+export const isReviewStatus = (v: unknown): v is ReviewStatus =>
+  typeof v === "string" && (REVIEW_STATUSES as readonly string[]).includes(v);
 // Feedback has exactly two states, and the human drives both: `open` = needs
 // attention, `resolved` = done (fixed, answered, or dismissed — the *why* lives
 // in the thread, not the enum). Replies are pure messages with no status of
