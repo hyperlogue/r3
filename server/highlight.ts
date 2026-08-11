@@ -188,6 +188,14 @@ function tokensToLineHtml(line: ThemedToken[]): string {
   return out;
 }
 
+// Tokenizing costs ~8-40 ms/KB and blocks the daemon's only thread for all of
+// it — a 2 MB checked-in bundle measured 83 s with zero event-loop ticks in
+// between, which stalls every other request, the SSE heartbeat, and any blocked
+// `r3 watch`. Nothing above this is hand-written (this repo's largest source
+// file is ~100 KB); past it we serve the same escaped plain lines the
+// unknown-grammar path already produces, so no caller or client changes.
+export const MAX_HIGHLIGHT_BYTES = 256 * 1024;
+
 // Bounded LRU so a long-running server doesn't accumulate the highlighted copy
 // of every blob ever rendered. Map iteration order is insertion order, so the
 // first key is the least-recently-used.
@@ -226,7 +234,7 @@ export async function highlightToLines(
   }
 
   let lines: string[];
-  if (!lang) {
+  if (!lang || code.length > MAX_HIGHLIGHT_BYTES) {
     lines = code.split("\n").map((l) => escapeHtml(l));
   } else {
     try {
