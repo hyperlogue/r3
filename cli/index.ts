@@ -723,7 +723,16 @@ async function cmdWatch(args: Args) {
       ? Math.min(30000, Math.max(1, timeoutMs - (Date.now() - startedAt)))
       : 30000;
     await Promise.race([new Promise<void>((r) => (wake = r)), sleep(waitMs)]);
-    const detail = await api("GET", `/api/reviews/${id}`);
+    let detail: Awaited<ReturnType<typeof api>>;
+    try {
+      detail = await api("GET", `/api/reviews/${id}`);
+    } catch {
+      // Transport error, not a rejection from the daemon (api() exits on a
+      // non-2xx). `r3 watch` blocks for hours, so a restart or a momentary blip
+      // must not end it — the SSE half already reconnects; match it here.
+      await sleep(1000);
+      continue;
+    }
     // The human can close the review out from under us (approve/abandon); stop
     // waiting once it's no longer open — approved exits 0 (+ next steps), else 3.
     if (detail.status !== "open") {
@@ -1798,4 +1807,11 @@ async function main() {
   }
 }
 
-main();
+// Bun exits 1 on an unhandled rejection after dumping an internal stack trace.
+// `fail()` already uses 1 for a clean error, so match it rather than inventing a
+// code an agent's `case $?` can't know about — but print the message, not the
+// trace. Matters most for `r3 watch`, whose documented exits are 10/0/3/2.
+main().catch((err) => {
+  console.error(`r3: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+});
