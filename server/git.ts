@@ -348,6 +348,9 @@ function syntheticAddPatch(path: string, content: string): string {
 export function parseUnifiedDiff(raw: string): DiffFileChange[] {
   const files: DiffFileChange[] = [];
   const lines = raw.split("\n");
+  // The patch's own trailing newline, not a body row — it has to go before an
+  // empty line can be read as content (below), or it becomes a phantom row.
+  if (lines[lines.length - 1] === "") lines.pop();
   let cur: DiffFileChange | null = null;
   // Once a hunk header is seen, every +/-/space line is hunk *content*, not a
   // file header — otherwise a deleted `-- comment` (Lua/SQL) or added `++ x`
@@ -440,7 +443,12 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
         html: "",
         text: line.slice(1),
       });
-    } else if (line.startsWith(" ")) {
+    } else if (line.startsWith(" ") || line === "") {
+      // `""` is an empty context line whose marker space was stripped in
+      // transit (editors, mail, chat). Skipping it would drop the row AND leave
+      // oldNo/newNo un-advanced, shifting every later line in the round. git's
+      // own apply.c has the same case; `"".slice(1)` is `""`, so the text is
+      // right and renderUnifiedDiffFile re-emits it as `" "`.
       cur.lines.push({
         type: "context",
         oldLine: oldNo++,
@@ -449,7 +457,7 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
         text: line.slice(1),
       });
     }
-    // "\ No newline at end of file" and any stray blank line are ignored.
+    // "\ No newline at end of file" is ignored.
   }
   push();
   return files;
