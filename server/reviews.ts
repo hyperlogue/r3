@@ -540,7 +540,13 @@ export async function addFeedback(
   // both sides of the row and be unreachable by the active-line jump).
   const side =
     review.kind === "files" ? null : lineAnchored ? (body.side ?? "new") : (body.side ?? null);
-  let quote = body.quote ?? null;
+  // capQuote is "the one truncation every quote producer runs through, so a
+  // quote's shape can't depend on which gesture made it" (shared/types.ts) — but
+  // a client-supplied quote skipped it, so a raw API caller stored quotes of any
+  // size while the web and deriveQuote were capped at MAX_QUOTE_LINES. It also
+  // sets the anchor's cost: findQuote's fuzzy pass is O(quote x file) per
+  // feedback per dirty render, and the quote side of that product was unbounded.
+  let quote = body.quote != null ? capQuote(body.quote) : null;
   if (quote == null && lineAnchored) {
     const derived = await deriveQuote(
       review,
@@ -654,11 +660,12 @@ export async function reanchorFeedback(
       return { error: "a diff-round summary isn't re-anchorable (rounds are immutable)" };
     if (body.quote == null || !body.quote.trim())
       return { error: "review-summary re-anchor needs --quote (the note's new anchor text)" };
+    const summaryQuote = capQuote(body.quote);
     const next = db.updateFeedback(feedbackId, {
       line_start: body.lineStart ?? fb.line_start,
       line_end: body.lineEnd ?? fb.line_end,
-      quote: body.quote,
-      code_sha: await blobSha(body.quote),
+      quote: summaryQuote,
+      code_sha: await blobSha(summaryQuote),
       anchor: "anchored",
     });
     broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
@@ -681,7 +688,7 @@ export async function reanchorFeedback(
   // pointing at text that has moved: the next automatic pass searches for it,
   // relocates the note straight back or flags it outdated, and the repair the
   // agent was told to perform silently undoes itself.
-  let quote = body.quote ?? null;
+  let quote = body.quote != null ? capQuote(body.quote) : null;
   if (quote == null && review && lineStart != null && lineEnd != null) {
     const derived = await deriveQuote(review, fb.patch_seq, file, fb.side, lineStart, lineEnd);
     if (isRejected(derived)) return derived;
