@@ -527,15 +527,15 @@ export function listReviews(filter: {
   }
   let i = 0;
   for (const [k, v] of Object.entries(filter.meta ?? {})) {
-    // Sanitize the key to a bare json path segment (the value is a bound param).
-    const safeKey = k.replace(/[^\w.]/g, "");
-    // Defense in depth: a key that's entirely invalid chars sanitizes to "",
-    // which would build the malformed path '$.' and make SQLite error the whole
-    // query (a 500). Skip it — a sibling guard also drops empty keys at the route.
-    if (!safeKey) continue;
+    // Require a well-formed json path segment rather than stripping characters
+    // out of a bad one. Stripping left `.` in the allowed set, so a dots-only key
+    // survived as itself: `?meta..=1` built the path '$..', which SQLite rejects
+    // outright ("bad JSON path") and takes the whole reviews-list query down with
+    // it — a 500 on the SPA's most-refetched endpoint from a single typo.
+    if (!/^\w+(\.\w+)*$/.test(k)) continue;
     const key = `$m${i++}`;
-    // json_extract path is a literal; the key is validated by the route layer.
-    where.push(`json_extract(meta, '$.${safeKey}') = ${key}`);
+    // json_extract path is a literal; the key is shape-checked immediately above.
+    where.push(`json_extract(meta, '$.${k}') = ${key}`);
     params[key] = v;
   }
   const sql =
