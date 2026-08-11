@@ -214,6 +214,12 @@ export function VirtualLines({
   }, [enabled, scrollEl, pane?.layoutVersion, fontSize, count]);
 
   const virtualizer = useVirtualizer({
+    // Without this the virtualizer subscribes even for a file we render whole:
+    // one ResizeObserver plus scroll/touchstart/touchend listeners on the ONE
+    // shared pane, per file, and a synchronous re-render of every instance on
+    // each isScrolling flip. A 120-file review paid 120 observers, 360
+    // listeners and 240 renders per scroll gesture for nothing.
+    enabled,
     count,
     getScrollElement: () => scrollEl,
     // Every row is one mono line whose height is text-xs's 1rem line-height = the
