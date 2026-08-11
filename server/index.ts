@@ -916,8 +916,15 @@ app.get("/api/events", (c) => {
   // A `watch` client passes ?session=<display> (+ optional ?agentId=<id>) so it
   // shows up as a live watcher on its review; browser tabs omit it and are not
   // counted.
-  const session = c.req.query("session");
-  const agentId = c.req.query("agentId") || undefined;
+  // Registering a watcher is a state change — it flips the panel's "Copy prompt"
+  // to "Submit" for every viewer — so it needs the token/cookie even though the
+  // stream itself stays token-free for EventSource (which cannot set headers).
+  // `r3 watch` sends x-r3-token; a browser tab passes no ?session at all, so
+  // this costs neither of them anything. Cap the strings: they are rendered in
+  // the watcher tooltip and held in a process-global map.
+  const mayWatch = resolveAuth(c);
+  const session = mayWatch ? c.req.query("session")?.slice(0, 200) : undefined;
+  const agentId = (mayWatch ? c.req.query("agentId")?.slice(0, 200) : undefined) || undefined;
   return streamSSE(c, async (stream) => {
     // Serialize every write (event pushes + heartbeats) through one chain so
     // concurrent writeSSE calls can't interleave or race on the stream. Track the
