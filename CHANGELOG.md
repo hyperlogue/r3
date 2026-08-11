@@ -4,6 +4,58 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-08-10
+
+### Changed
+
+- **Untrusted Markdown no longer loads remote images.** An image in
+  agent-authored feedback or in a reviewed `.md` renders as a link you can click
+  instead of fetching the moment you open the review. Reviewed `.md` also stops
+  promoting bare filenames like `setup.py` to external links, and its links open
+  in a new tab rather than navigating the app away.
+- **The "agent is watching" indicator can no longer be faked.** While `r3 watch`
+  is running, the feedback panel shows the agent as connected and swaps *Copy
+  prompt* for *Submit*. Any website open in your browser could trigger that
+  against your local daemon, so r3 could offer to hand your feedback to an agent
+  that was never there. Registering as a watcher now needs the API token;
+  `r3 watch` itself works as before.
+
+### Fixed
+
+- **Feedback keeps the line range you picked.** A note dragged over 10 lines was
+  rewritten to the first 4 on the next render, and `r3 reanchor --quote` blanked
+  a note's range entirely. `r3 reanchor --file --line` now re-derives the quote,
+  so the repair sticks instead of drifting back to "outdated".
+- **Editing a reply hands it to the agent again** — a correction typed into an
+  already-delivered reply was marked as sent and never arrived.
+- **A large file no longer freezes the daemon.** One 2 MB file blocked every
+  request, live update, and waiting `r3 watch` for over a minute; large files now
+  render unhighlighted. Syntax highlighting also holds a memory budget rather
+  than a file count, which had it retaining gigabytes.
+- **Diff line numbers are correct** for patches whose blank context lines lost
+  their leading space in transit, and two hunks separated by a gap no longer
+  merge into one under a fabricated `@@` header.
+- **Deleting a review can no longer delete another review's scratch files.**
+- **The daemon survives a background error**, and a hung `git` call times out
+  instead of silently ending file-watching for the rest of the session.
+- **`r3 watch` survives a daemon restart** instead of exiting with a code the
+  loop doesn't define and dropping the review.
+- **Reply pins are validated against the round**, so a line the round never had
+  is refused rather than stored as a jump that goes nowhere.
+- **In-progress composer drafts** are no longer skipped at startup and then
+  overwritten, and the **login-token Copy button** works on the plain-HTTP
+  deployments those tokens exist for, where it silently did nothing.
+- A malformed `--meta` filter no longer returns a 500.
+- **Large files and long diff rounds open folded again**, instead of expanded.
+  The released binary was built against a development React that ran every
+  effect twice, which defeated the fold-on-open the row count is meant to
+  trigger.
+- **Faster reviews**: the released binary is ~200 KB smaller, a file change
+  refetches only that file rather than every open one, and diff rounds and
+  worktree lookups are cached instead of recomputed on every request.
+- **Browser demo**: expand-context works on the round the demo's agent appends,
+  and returning visitors get the current fixtures instead of a stale copy.
+
 ## [0.8.0] - 2026-08-08
 
 ### Added
@@ -225,6 +277,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.9.0]: https://github.com/hyperlogue/r3/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/hyperlogue/r3/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/hyperlogue/r3/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hyperlogue/r3/compare/v0.5.0...v0.6.0
