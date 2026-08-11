@@ -21,18 +21,37 @@ import type { Repo } from "./repo.ts";
 import { scratchDir, scratchSafePath } from "./scratch.ts";
 import { rehunk } from "./textdiff.ts";
 
+// git can block indefinitely through no fault of ours: a common-dir on a stale
+// NFS/sshfs mount, a core.fsmonitor hook that never returns, a GIT_ASKPASS
+// pointing at a GUI prompt. One such call is permanent damage — the watcher's
+// `refreshing` guard is cleared only in a `finally`, so a call that never
+// settles stops it establishing any new watch for the daemon's whole lifetime.
+const GIT_TIMEOUT_MS = 30_000;
+
 // Low-level: run git in a given cwd. The Repo factory wraps this as `repo.git()`.
 export async function runGitIn(
   cwd: string,
   args: string[],
 ): Promise<{ stdout: string; stderr: string; code: number }> {
-  const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
+  const proc = Bun.spawn(["git", ...args], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: GIT_TIMEOUT_MS,
+    killSignal: "SIGKILL",
+  });
+  const read = Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+  // `timeout` kills git itself, but the reads are awaited before `exited`, so a
+  // forked helper (pager, credential, git-remote-*) that inherited the pipe and
+  // outlived it would still hold us. Race the reads too.
+  const got = await Promise.race([read, Bun.sleep(GIT_TIMEOUT_MS + 1_000).then(() => null)]);
+  if (!got) {
+    proc.kill(9);
+    // Non-zero is already the universal failure path for every caller.
+    return { stdout: "", stderr: `git ${args.join(" ")} timed out`, code: 124 };
+  }
   const code = await proc.exited;
-  return { stdout, stderr, code };
+  return { stdout: got[0], stderr: got[1], code };
 }
 
 const isSentinel = (r: GitRef): r is "WORKING" | "STAGED" => r === "WORKING" || r === "STAGED";
