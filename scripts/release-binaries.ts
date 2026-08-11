@@ -71,6 +71,8 @@ for (const { target, asset } of PLATFORMS) {
     entrypoints: [join(DIR, "cli/index.ts")],
     plugins: [spaCss],
     minify: true,
+    // Production React in the SPA bundle — see scripts/compile.ts.
+    define: { "process.env.NODE_ENV": '"production"' },
     compile: { target, outfile },
   });
   if (!result.success) {

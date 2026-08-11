@@ -20,6 +20,11 @@ const result = await Bun.build({
   entrypoints: [join(DIR, "cli/index.ts")],
   plugins: [spaCss],
   minify: true,
+  // Without this the SPA bundle resolves React's *development* export, which
+  // ships ~200 KB of dev machinery and makes <StrictMode> double-invoke every
+  // effect in the released binary. `Bun.serve`'s own HTML bundling (the
+  // from-source daemon) already defaults to production; --compile does not.
+  define: { "process.env.NODE_ENV": '"production"' },
   compile: { outfile: join(DIR, "r3") },
 });
 
