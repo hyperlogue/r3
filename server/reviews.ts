@@ -676,8 +676,12 @@ export async function reanchorFeedback(
   const codeSha = quote ? await blobSha(quote) : fb.code_sha;
   const next = db.updateFeedback(feedbackId, {
     file: body.file ?? fb.file,
-    line_start: body.lineStart,
-    line_end: body.lineEnd,
+    // Keep the existing range when the caller names none — the route normalizes
+    // an absent field to null, and updateFeedback only skips `undefined`, so
+    // writing body.lineStart straight through would turn a line-anchored note
+    // into a whole-file one. The summary branch above already does this.
+    line_start: body.lineStart ?? fb.line_start,
+    line_end: body.lineEnd ?? fb.line_end,
     quote,
     code_sha: codeSha,
     anchor: "anchored",
