@@ -254,7 +254,12 @@ export function rehunk(
       while (end < hi && keep[end]) end++;
       const hunk = hunkFrom(rows.slice(h, end));
       emitted.push({ header: hunk[0], from: h, to: end - 1, run: r });
-      out.push(...hunk);
+      // Not `out.push(...hunk)`: a spread passes every row as a call argument, so
+      // a hunk past a few hundred thousand rows throws RangeError. That is
+      // reachable without any exotic input — two large wholly-different files
+      // trip MAX_DP_CELLS into the coarse del-all/add-all path, which is ONE run
+      // and therefore one hunk, and renderSnapshotContext rehunks at FULL_CONTEXT.
+      for (const row of hunk) out.push(row);
       h = end;
     }
   }
