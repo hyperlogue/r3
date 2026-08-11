@@ -20,7 +20,13 @@ import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
 import { blobSha, readContentAt, snapshotDiff } from "./git.ts";
 import { newReviewId, nowIso } from "./ids.ts";
-import { fitPatchToLimit, MAX_PATCH_BYTES, parsePatch, validateReplyPin } from "./patches.ts";
+import {
+  fitPatchToLimit,
+  forgetRenderedRounds,
+  MAX_PATCH_BYTES,
+  parsePatch,
+  validateReplyPin,
+} from "./patches.ts";
 import { buildUnsentPrompt } from "./prompt.ts";
 import { isImmutableSource, type Repo, resolveRepoForReview } from "./repo.ts";
 import {
@@ -275,6 +281,9 @@ export function addPatchToReview(
 // renders them inert ("diff N removed") rather than cascading them away.
 export function removePatch(reviewId: string, seq: number): boolean {
   const ok = db.deletePatch(reviewId, seq);
+  // Removing the highest round can free its seq for reuse with a different body,
+  // which is the only way a memoized round render could go stale.
+  if (ok) forgetRenderedRounds(reviewId);
   if (ok) broadcast({ type: "review-updated", reviewId });
   return ok;
 }

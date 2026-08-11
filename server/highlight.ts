@@ -33,7 +33,7 @@ const BUNDLED_IDS = new Set(bundledThemesInfo.map((t) => t.id));
 // Resolve a (possibly unknown/undefined) theme id to a canonical name + the
 // light/dark theme pair to render. A curated family resolves to its pair; any
 // bundled theme id resolves to itself for both slots; anything else → default.
-function resolveTheme(name?: string): { name: string; light: string; dark: string } {
+export function resolveTheme(name?: string): { name: string; light: string; dark: string } {
   if (name && THEME_FAMILIES[name]) return { name, ...THEME_FAMILIES[name] };
   if (name && BUNDLED_IDS.has(name)) return { name, light: name, dark: name };
   return { name: DEFAULT_SYNTAX_THEME, ...THEME_FAMILIES[DEFAULT_SYNTAX_THEME] };

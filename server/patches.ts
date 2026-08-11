@@ -13,7 +13,7 @@ import type { DiffFileChange, DiffLine, PatchDiff, PatchInfo } from "../shared/t
 import { normalizeWs } from "./anchor.ts";
 import * as db from "./db.ts";
 import { blobSha, parseUnifiedDiff, trimOversizedFiles } from "./git.ts";
-import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
+import { escapeHtml, highlightToLines, langForPath, resolveTheme } from "./highlight.ts";
 import { rehunk } from "./textdiff.ts";
 
 // Generous cap — patches live as TEXT rows in the global sqlite.
@@ -83,11 +83,34 @@ async function highlightPatchFiles(files: DiffFileChange[], theme?: string): Pro
   );
 }
 
+// Rendered rounds, memoized on (review, seq, theme). A round is IMMUTABLE — the
+// house rule is that changes arrive as new rounds, never as edits — so a stored
+// (review, seq) always renders the same bytes. `diff rm` is the one exception
+// (it can free a seq for reuse) and calls forgetRenderedRounds below.
+//
+// Worth it because GET /api/reviews/:id/diff re-renders EVERY stored round on
+// every request while the client shows one, and the SPA refetches it on each
+// review-updated (Copy prompt, Submit, diff add/rm, snapshot, files add/rm). Six
+// real rounds measured 1.5 s cold. Budgeted in bytes of source, like the line
+// cache, since a round's render is proportional to its stored body.
+const ROUND_CACHE_MAX_BYTES = 8 * 1024 * 1024;
+const roundCache = new Map<string, { cost: number; v: PatchDiff }>();
+let roundCacheBytes = 0;
+
 // All of a review's rounds, rendered (GET /api/reviews/:id/diff for stored
 // reviews). Order is seq ascending — oldest round first, like reading history.
 export async function renderPatches(reviewId: string, theme?: string): Promise<PatchDiff[]> {
   const out: PatchDiff[] = [];
+  const themeName = resolveTheme(theme).name;
   for (const p of db.listPatches(reviewId)) {
+    const key = `${reviewId}:${p.seq}:${themeName}`;
+    const hit = roundCache.get(key);
+    if (hit) {
+      roundCache.delete(key); // LRU: re-insert to move to the newest slot.
+      roundCache.set(key, hit);
+      out.push(hit.v);
+      continue;
+    }
     const files = parseUnifiedDiff(p.body);
     // Collapse the stored (wide) context to the render width BEFORE highlighting:
     // Shiki then tokenizes the same ~3-context rows it always did, so a body
@@ -95,9 +118,36 @@ export async function renderPatches(reviewId: string, theme?: string): Promise<P
     // path. A legacy -U3 round has nothing to drop and passes through untouched.
     for (const f of files) f.lines = rehunk(f.lines, RENDER_CONTEXT, { markExpandable: true });
     await highlightPatchFiles(files, theme);
-    out.push({ seq: p.seq, label: p.label, summary: p.summary, created_at: p.created_at, files });
+    const v: PatchDiff = {
+      seq: p.seq,
+      label: p.label,
+      summary: p.summary,
+      created_at: p.created_at,
+      files,
+    };
+    roundCache.set(key, { cost: p.body.length, v });
+    roundCacheBytes += p.body.length;
+    while (roundCacheBytes > ROUND_CACHE_MAX_BYTES && roundCache.size > 1) {
+      const oldest = roundCache.keys().next().value;
+      if (oldest === undefined) break;
+      roundCacheBytes -= roundCache.get(oldest)?.cost ?? 0;
+      roundCache.delete(oldest);
+    }
+    out.push(v);
   }
   return out;
+}
+
+// Drop a review's cached renders. Required for `diff rm`: addPatch allocates
+// MAX(seq)+1 over patches ∪ feedback.patch_seq ∪ replies.patch_seq, so removing
+// the highest round with nothing referencing it lets that seq be handed out
+// again with a DIFFERENT body — the one case where the key could go stale.
+export function forgetRenderedRounds(reviewId: string): void {
+  for (const key of [...roundCache.keys()])
+    if (key.startsWith(`${reviewId}:`)) {
+      roundCacheBytes -= roundCache.get(key)?.cost ?? 0;
+      roundCache.delete(key);
+    }
 }
 
 // Serve a slice of a stored round's held-but-not-rendered context: the rows
