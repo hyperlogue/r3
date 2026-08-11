@@ -5,7 +5,7 @@
 // identity + worktree resolution live in repo.ts.
 
 import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type {
   AnchorState,
@@ -36,9 +36,23 @@ import {
 } from "./ids.ts";
 
 const DB_PATH = stateDbPath();
-mkdirSync(dirname(DB_PATH), { recursive: true });
+// Owner-only, matching the 0600 the token file next to it already takes. This
+// store holds every review's content — the code the agent captured, every quoted
+// snippet — plus the hashed auth_tokens/auth_sessions rows, and it was landing
+// world-readable (0644 in a 0755 dir) under the default umask. Other local UIDs
+// are outside the threat model, but there's no reason to widen the blast radius
+// of a home directory that isn't itself 0700.
+mkdirSync(dirname(DB_PATH), { recursive: true, mode: 0o700 });
+try {
+  chmodSync(dirname(DB_PATH), 0o700); // `mode` above only applies to dirs we create
+} catch {}
 
 const db = new Database(DB_PATH, { create: true });
+// Before WAL: sqlite clones the main file's mode onto the -wal/-shm it creates,
+// and those hold the most recent writes.
+try {
+  chmodSync(DB_PATH, 0o600);
+} catch {}
 db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA foreign_keys = ON");
 
