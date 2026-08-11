@@ -199,8 +199,18 @@ export const MAX_HIGHLIGHT_BYTES = 256 * 1024;
 // Bounded LRU so a long-running server doesn't accumulate the highlighted copy
 // of every blob ever rendered. Map iteration order is insertion order, so the
 // first key is the least-recently-used.
-const LINE_CACHE_MAX = 512;
+// Budgeted in BYTES, not entries: an entry is a whole file's per-line HTML, so
+// a count bound says nothing about what is retained. 512 entries of a 19 KB
+// source measured 1.1 GB RSS, and one 2 MB file makes a single entry ~39 MB.
+const LINE_CACHE_MAX_BYTES = 16 * 1024 * 1024;
 const lineCache = new Map<string, string[]>();
+const lineCacheCost = new Map<string, number>();
+let lineCacheBytes = 0;
+function costOf(v: string[]): number {
+  let n = 0;
+  for (const l of v) n += l.length + 64; // + per-string object overhead
+  return n;
+}
 function cacheGet(key: string): string[] | undefined {
   const v = lineCache.get(key);
   if (v) {
@@ -210,10 +220,19 @@ function cacheGet(key: string): string[] | undefined {
   return v;
 }
 function cacheSet(key: string, v: string[]): void {
+  lineCacheBytes -= lineCacheCost.get(key) ?? 0;
+  const cost = costOf(v);
   lineCache.set(key, v);
-  if (lineCache.size > LINE_CACHE_MAX) {
+  lineCacheCost.set(key, cost);
+  lineCacheBytes += cost;
+  // A loop, not an `if`: one oversized insert can overshoot the budget by more
+  // than a single eviction reclaims.
+  while (lineCacheBytes > LINE_CACHE_MAX_BYTES && lineCache.size > 1) {
     const oldest = lineCache.keys().next().value;
-    if (oldest !== undefined) lineCache.delete(oldest);
+    if (oldest === undefined) break;
+    lineCacheBytes -= lineCacheCost.get(oldest) ?? 0;
+    lineCache.delete(oldest);
+    lineCacheCost.delete(oldest);
   }
 }
 
