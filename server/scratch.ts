@@ -116,6 +116,13 @@ export function deleteScratch(review: Review): void {
   if (!isScratchReview(review)) return;
   rmSync(scratchReviewDir(review.id), { recursive: true, force: true });
   for (const f of review.source.files) {
+    // Only this review's OWN legacy flat doc. `scratchSafePath` is rooted at the
+    // whole scratch tree (that root is the documented read boundary), so an
+    // unscoped unlink here deletes whatever path the row happens to name —
+    // including another live review's files. The `--scratch` directory is
+    // already gone wholesale on the line above; this loop exists purely for the
+    // pre-directory `scratch/<id>.md` layout.
+    if (f !== `${review.id}.md`) continue;
     const abs = scratchSafePath(f);
     if (abs)
       try {

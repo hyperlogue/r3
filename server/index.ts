@@ -535,6 +535,11 @@ app.post("/api/reviews", async (c) => {
     if (!f || f.startsWith("/") || f.split(/[/\\]/).includes("..") || f.includes("\0"))
       return c.text("bad path", 400);
   }
+  // Scratch membership is daemon-owned — it's derived from the review's own
+  // directory (scratchFiles()), and `r3 files add|rm` refuses to edit it. A
+  // caller-supplied list would only let one review name another review's scratch
+  // paths, which every scratch-relative read and unlink would then honour.
+  if (body.source.ref === "SCRATCH" && files.length) return c.text("bad path", 400);
   // Pin an immutable ref to its full sha for stable anchoring.
   const source = { ref: await resolveRev(repo, body.source.ref), files };
   const review = db.createReview({
