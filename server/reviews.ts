@@ -724,6 +724,12 @@ export function editReply(replyId: string, body: string): Reply | null {
   const rp = db.getReply(replyId);
   if (!rp) return null;
   const fb = db.getFeedback(rp.feedback_id);
+  // Re-deliver an edited human reply, exactly as editFeedback re-delivers an
+  // edited open note: hasUnsentContent reads each human reply's own sent_at, so
+  // leaving the stamp on means a correction the human just typed is invisible to
+  // Submit and the agent keeps acting on the wording it already got. Cleared
+  // BEFORE the update so the returned row reports the reply's real state.
+  if (rp.author === "human" && body !== rp.body) db.clearReplySent(replyId);
   const next = db.updateReply(replyId, body);
   if (fb) {
     broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId: fb.id });

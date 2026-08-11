@@ -756,6 +756,14 @@ export function clearFeedbackSent(id: string): void {
   db.query("UPDATE feedback SET sent_at = NULL WHERE id = $id").run({ $id: id });
 }
 
+// The reply twin (see reviews.editReply). hasUnsentContent keys a delivered
+// feedback's follow-ups on each reply's own sent_at, so an edited reply has to
+// give its stamp back or the correction never reaches the agent. Simpler than
+// the feedback case: a reply carries no status, so there's nothing to orphan.
+export function clearReplySent(id: string): void {
+  db.query("UPDATE replies SET sent_at = NULL WHERE id = $id").run({ $id: id });
+}
+
 export function deleteFeedback(id: string): boolean {
   const fb = getFeedback(id);
   if (!fb) return false;
