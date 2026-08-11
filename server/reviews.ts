@@ -613,6 +613,8 @@ export function addReply(
     const err = validateReplyPin(fb.review_id, {
       patchSeq: body.patchSeq,
       file: body.file,
+      lineStart: body.lineStart,
+      lineEnd: body.lineEnd,
       quote: body.quote,
     });
     if (err) return { error: err };

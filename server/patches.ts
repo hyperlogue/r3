@@ -162,7 +162,13 @@ export function patchInfos(reviewId: string): PatchInfo[] {
 // string for a 400, or null when the pin holds up.
 export function validateReplyPin(
   reviewId: string,
-  pin: { patchSeq: number; file?: string | null; quote?: string | null },
+  pin: {
+    patchSeq: number;
+    file?: string | null;
+    lineStart?: number | null;
+    lineEnd?: number | null;
+    quote?: string | null;
+  },
 ): string | null {
   const patch = db.getPatch(reviewId, pin.patchSeq);
   if (!patch) return `no diff ${pin.patchSeq} in this review (see r3 diff list)`;
@@ -170,6 +176,19 @@ export function validateReplyPin(
   const files = parseUnifiedDiff(patch.body);
   const f = files.find((x) => x.path === pin.file || x.oldPath === pin.file);
   if (!f) return `diff ${pin.patchSeq} doesn't touch ${pin.file}`;
+  // A pin names the NEW side — where the fix landed — so check the range against
+  // the rows carrying new-side numbers. Against the FULL stored body, not the
+  // rehunked render, so a line inside an expandable region still validates. A
+  // file the round only deletes has no new side, so there's nothing to check.
+  const newRows = f.lines.filter((ln) => ln.type !== "hunk" && ln.newLine != null);
+  if (pin.lineStart != null && newRows.length) {
+    const lo = pin.lineStart;
+    const hi = pin.lineEnd ?? lo;
+    const have = new Set(newRows.map((ln) => ln.newLine as number));
+    for (let n = lo; n <= hi; n++)
+      if (!have.has(n))
+        return `L${lo}${hi !== lo ? `-${hi}` : ""} isn't in diff ${pin.patchSeq} for ${pin.file} — pin lines the round shows`;
+  }
   if (!pin.quote) return null;
   const first = normalizeWs(pin.quote.split("\n", 1)[0]);
   if (!first) return null;
