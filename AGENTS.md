@@ -487,6 +487,16 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
   stand down with it, so one press doesn't both close the sheet and discard the
   composer behind it). `Esc` is deliberately NOT in the map — it stays owned by
   whatever popup or composer is open.
+- **`Space`/`Tab` are composer-owned too, for the same reason** — KEYMAP binds only
+  letters and punctuation so a focused control keeps its own `Space`/`Enter`. The
+  one composer that opens **unfocused** (a selection/gutter/summary anchor, where
+  autofocus would collapse the selection you just made) takes `Space` and forward
+  `Tab` as a jump into its textarea, so the note is one keystroke away without
+  reaching back for the mouse. It stands down for a **keyboard-focused** target
+  (`isKeyboardFocused` = `:focus-visible`), not for every interactive one: focus
+  stranded on a *clicked* pane button shows no ring and would otherwise eat the
+  `Space` by re-firing that button, while a control you actually tabbed to keeps
+  both keys — which is what keeps the focus ring usable.
 - **OS key repeat is opt-in** (`Binding.repeatable`, only the four next/prev
   bindings). Most of this map mutates and repeat fires ~30×/s: a leaned-on `e`
   would walk the list resolving every open item, since each resolve advances focus

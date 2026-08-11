@@ -137,6 +137,27 @@ export function isInteractiveTarget(el: Element | null): boolean {
   return isTextEntry(el) || tag === "BUTTON" || tag === "A" || el.getAttribute("role") === "button";
 }
 
+// True when the focused element got there BY KEYBOARD — the user tabbed to it and
+// can see the ring, so its keys are its own. `:focus-visible` is exactly that
+// distinction: a control focused by a *click* matches `:focus` but not
+// `:focus-visible`, and a text field matches either way. That's the difference
+// isInteractiveTarget can't see, and it's what a click-driven affordance needs:
+// after a mouse gesture in the file pane, focus is stranded on whatever button was
+// clicked last (an expander chevron, a fold toggle) with no ring showing — pressing
+// Space there re-fires that button, which is the "default browser action" instead
+// of the composer. Stealing the key from stranded focus is safe; stealing it from a
+// visible focus ring is not.
+export function isKeyboardFocused(el: Element | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    // No :focus-visible (very old engine) — fall back to the conservative test, so
+    // an unsupported browser keeps every control's own keys.
+    return isInteractiveTarget(el);
+  }
+}
+
 // The chord a keydown represents, or null when nothing here could match it. Only
 // single-character keys are bindable (no F-keys, no arrows), and Alt/Meta chords
 // are left entirely to the browser and the OS.

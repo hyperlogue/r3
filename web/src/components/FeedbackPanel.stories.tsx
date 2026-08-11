@@ -139,7 +139,10 @@ export const AgentWatching: Story = {
 
 // A line range was just picked in the diff → the anchored-draft composer opens at
 // the bottom of the list (embedded-block style, primary left rail), below the
-// existing feedback, so a newly-added card lands right where you were typing.
+// existing feedback, so a newly-added card lands right where you were typing. It
+// opens UNFOCUSED (the gesture was in the file pane; autofocus would collapse the
+// selection), so its placeholder leads with the "Space/Tab to focus" hint that the
+// autofocused composers below omit.
 export const NewFeedbackComposer: Story = {
   args: { pending: pendingAnchor },
 };

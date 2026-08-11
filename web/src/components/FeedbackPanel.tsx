@@ -28,7 +28,13 @@ import {
   useGeneralDraft,
   useReplyDraft,
 } from "../drafts.ts";
-import { isInteractiveTarget, keysSuspended, useKeyBindings } from "../keys.ts";
+import {
+  isInteractiveTarget,
+  isKeyboardFocused,
+  isTextEntry,
+  keysSuspended,
+  useKeyBindings,
+} from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
@@ -154,12 +160,12 @@ const SUBMIT_KEYS = (() => {
 })();
 
 // Coarse primary pointer ⇒ almost certainly no hardware keyboard, so the
-// keyboard-shortcut hints in composer placeholders (⌘Enter, Esc) would name keys
-// that don't exist. ReviewView passes the pointer fact in as a prop (the panel
-// can't probe it itself — desktop components don't import
-// from src/mobile/); a context carries it to the composers, which sit at
-// several depths, and this helper builds the placeholder: base prompt alone on
-// touch, base + parenthetical hints with a keyboard.
+// keyboard-shortcut hints in composer placeholders (Space/Tab to focus, ⌘Enter,
+// Esc) would name keys that don't exist. ReviewView passes the pointer fact in as
+// a prop (the panel can't probe it itself — desktop components don't import from
+// src/mobile/); a context carries it to the composers, which sit at several
+// depths, and this helper builds the placeholder: base prompt alone on touch, base
+// + parenthetical hints with a keyboard.
 const CoarsePointerContext = createContext(false);
 function usePlaceholder(base: string, hints: string): string {
   return useContext(CoarsePointerContext) ? base : `${base}  (${hints})`;
@@ -370,31 +376,57 @@ function ComposerBlock({
 // down when focus is on some other control/popup so this global listener doesn't
 // hijack its keys (e.g. Esc closing the settings popup).
 //
-// Esc is all that's left here. A non-autofocused composer used to also grab Space
-// and Tab to pull focus into its textarea; that retired with the keyboard layer
-// (keys.ts) — a global listener that swallows Tab makes the focus ring unusable,
-// and it swallowed Space (page scroll) for as long as a composer sat open. Esc is
-// not in KEYMAP precisely because it stays owned by whatever is open.
-function useComposerKeys(textareaRef: RefObject<HTMLTextAreaElement | null>, onCancel: () => void) {
+// `keyToFocus` (only the non-autofocused composer, which opens from a pointer
+// gesture in the file pane) lets Space or forward-Tab pull focus into the input, so
+// the note you just anchored is one keystroke away without reaching back for the
+// mouse. Neither key is in KEYMAP: like Esc, they stay owned by whatever is open —
+// KEYMAP binds only letters and punctuation, precisely so a focused control keeps
+// its own Space/Enter.
+//
+// It stands down for a KEYBOARD-focused target (isKeyboardFocused), not for every
+// interactive one. That guard is the fix for both halves of the old bug: focus
+// stranded on a clicked pane button has no visible ring and would otherwise eat the
+// Space by re-firing that button (the "default browser action"), while a control
+// you actually tabbed to keeps Space and Tab — so the focus ring stays usable,
+// which is what retired the first version of this. Nothing is swallowed when the
+// key can't act (no textarea, or it sits in the phone tier's closed `inert` sheet).
+function useComposerKeys(
+  textareaRef: RefObject<HTMLTextAreaElement | null>,
+  onCancel: () => void,
+  keyToFocus = false,
+) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // The shortcuts sheet is up and owns this Esc (it closes on it). Both
+      // The shortcuts sheet is up and owns these keys (Esc closes it). Both
       // listeners are on window, so without this one press would close the sheet
       // AND discard the composer sitting behind it.
       if (keysSuspended()) return;
       const ta = textareaRef.current;
       const active = document.activeElement;
-      const empty = !(ta?.value ?? "").trim();
-      if (active === ta || !isInteractiveTarget(active)) {
-        e.preventDefault();
-        if (empty) onCancel();
-        else if (active === ta) ta?.blur();
+      if (e.key === "Escape") {
+        const empty = !(ta?.value ?? "").trim();
+        if (active === ta || !isInteractiveTarget(active)) {
+          e.preventDefault();
+          if (empty) onCancel();
+          else if (active === ta) ta?.blur();
+        }
+        return;
       }
+      if (!keyToFocus || e.defaultPrevented || e.isComposing) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Forward Tab only — Shift+Tab still navigates backward.
+      const isSpace = e.key === " " || e.code === "Space";
+      if (!isSpace && !(e.key === "Tab" && !e.shiftKey)) return;
+      if (isTextEntry(active) || isKeyboardFocused(active)) return;
+      if (!ta || ta.closest("[inert]")) return;
+      e.preventDefault(); // Space would re-fire a stranded button; Tab would leave
+      ta.focus();
+      // Caret at the end: a persisted draft is resumed, not overwritten.
+      ta.setSelectionRange(ta.value.length, ta.value.length);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel, textareaRef]);
+  }, [onCancel, textareaRef, keyToFocus]);
 }
 
 // A free-form feedback item not tied to any file or line (review-level note). Its
@@ -420,7 +452,9 @@ function GeneralFeedback({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const value = useGeneralDraft(reviewId);
   // Same keyboard behavior as the anchored composer: autofocus (below) + Esc
-  // cancels when empty. onClose already clears the draft + closes.
+  // cancels when empty. onClose already clears the draft + closes. No
+  // Space/Tab-to-focus — the input is autofocused, so Space types a space and Tab
+  // moves focus onward, both normally.
   useComposerKeys(textareaRef, onClose);
   return (
     <ComposerBlock
@@ -469,11 +503,13 @@ function NewFeedback({
   // feedback", so focus the input immediately (below). A selection/gutter/summary
   // anchor is a text gesture in the file pane; autofocusing there would yank focus
   // off the code (and collapse the selection you just made), so those open unfocused
-  // and you click into the box — the same click the gesture already ended near.
+  // — you click into the box, or press Space/Tab (below), which is the same reach
+  // without leaving the keyboard.
   const autoFocusInput = pending.file !== SUMMARY_FILE && pending.lineStart == null;
 
-  // Esc-cancels-when-empty, shared with the general note.
-  useComposerKeys(textareaRef, onDiscard);
+  // Esc-cancels-when-empty (shared with the general note); Space/Tab-to-focus only
+  // for the non-autofocused composer, so an autofocused input types spaces.
+  useComposerKeys(textareaRef, onDiscard, !autoFocusInput);
 
   const label =
     pending.file === SUMMARY_FILE ? (
@@ -496,7 +532,10 @@ function NewFeedback({
       textareaRef={textareaRef}
       value={draftText}
       onChange={(t) => setDraftText(reviewId, t)}
-      placeholder={usePlaceholder("Leave feedback…", `${SUBMIT_KEYS} to add · Esc to cancel`)}
+      placeholder={usePlaceholder(
+        "Leave feedback…",
+        `${autoFocusInput ? "" : "Space/Tab to focus · "}${SUBMIT_KEYS} to add · Esc to cancel`,
+      )}
       autoFocus={autoFocusInput}
       submitLabel="Add feedback"
       onSubmit={() => onSubmit(draftText)}
