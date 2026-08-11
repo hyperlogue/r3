@@ -1033,19 +1033,39 @@ export async function startDaemon(): Promise<void> {
     process.exit(0);
   }
 
+  // A stray error in a background timer or a fire-and-forget task must not take
+  // the daemon down with every open review session and every blocked `r3 watch`.
+  // Bun's default for both is exit(1). Installed AFTER the lock/bind sequence so
+  // a genuine startup failure still exits loudly rather than being swallowed.
+  process.on("unhandledRejection", (err) => console.error("r3: unhandled rejection:", err));
+  process.on("uncaughtException", (err) => console.error("r3: uncaught exception:", err));
+
   // One-time: move legacy adhoc-doc files (docs/ -> scratch/) to match the row
   // conversion db.ts ran at import. Idempotent; runs only on the serving daemon.
   migrateLegacyDocFiles();
   // One-time (idempotent): snapshot legacy diff reviews into stored rounds.
   // Runs in the background — until a review converts, GET …/diff falls back to
   // rendering live from its refs.
-  void reviews.migrateLegacyDiffReviews();
+  void reviews
+    .migrateLegacyDiffReviews()
+    .catch((err) => console.error("r3: legacy diff migration failed:", err));
   // Housekeeping: drop expired session rows (an expired one is already rejected by
   // sessionExists; this just bounds table growth). Re-sweep periodically too — the
   // daemon runs for months and logins accrue over time. `.unref()` so the timer never
   // keeps the process alive on its own.
   db.deleteExpiredSessions();
-  setInterval(() => db.deleteExpiredSessions(), 6 * 60 * 60 * 1000).unref();
+  setInterval(
+    () => {
+      // A sqlite throw here (disk full, IOERR on a network-mounted state dir) is
+      // an uncaught exception six hours after startup with nothing to correlate.
+      try {
+        db.deleteExpiredSessions();
+      } catch (err) {
+        console.error("r3: session sweep failed:", err);
+      }
+    },
+    6 * 60 * 60 * 1000,
+  ).unref();
 
   let server: ReturnType<typeof Bun.serve>;
   try {
