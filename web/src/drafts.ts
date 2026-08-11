@@ -77,9 +77,16 @@ const emit = () => {
 };
 
 try {
+  // Collect first, then mutate. `key(i)` indexes an ordered map, so removing an
+  // entry mid-loop slides the next key down into the slot we just read and `i++`
+  // steps straight over it — skipping a real draft, which then gets clobbered by
+  // the first keystroke that commits over the blank record.
+  const keys: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (!k?.startsWith(PREFIX)) continue;
+    if (k?.startsWith(PREFIX)) keys.push(k);
+  }
+  for (const k of keys) {
     const id = k.slice(PREFIX.length);
     try {
       const d = normalize(JSON.parse(localStorage.getItem(k) ?? "null"));
