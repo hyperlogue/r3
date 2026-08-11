@@ -77,6 +77,10 @@ export function runAgentHandoff(reviewId: string, feedbackIds: string[]): void {
               label: next.label,
               summary: next.summary,
               files: next.files,
+              // The baked full-context rows are what diffContext slices; dropping
+              // them here left the appended round with no expandable source, so
+              // every expander on round 2 404'd (see fullForRound).
+              fullFiles: next.fullFiles,
             });
             pin = pinInRound(next);
           }
