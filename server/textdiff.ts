@@ -135,11 +135,24 @@ const row = (
 // parsed out of a `-U3` patch jump across hunk gaps, so array order alone would
 // happily merge lines 12 and 50 into one hunk. Compare only the sides both rows
 // carry: within a change block a del (new = null) is followed by an add
-// (old = null), which shares no side and is correctly treated as adjacent.
-function fileAdjacent(a: DiffLine, b: DiffLine): boolean {
-  if (a.oldLine != null && b.oldLine != null && b.oldLine !== a.oldLine + 1) return false;
-  if (a.newLine != null && b.newLine != null && b.newLine !== a.newLine + 1) return false;
-  return true;
+// (old = null), which shares no side.
+//
+// Sharing no side proves nothing on its own, though — a hunk ending in a del
+// followed by a hunk starting with an add is the same shape as one change block,
+// so the rows alone cannot tell them apart. The `@@` row that sat between them
+// is the evidence, and `hunkBetween` carries it: a patch that wrote a header
+// there is a patch that jumped a gap it never captured.
+function fileAdjacent(a: DiffLine, b: DiffLine, hunkBetween: boolean): boolean {
+  let shared = false;
+  if (a.oldLine != null && b.oldLine != null) {
+    if (b.oldLine !== a.oldLine + 1) return false;
+    shared = true;
+  }
+  if (a.newLine != null && b.newLine != null) {
+    if (b.newLine !== a.newLine + 1) return false;
+    shared = true;
+  }
+  return shared ? true : !hunkBetween;
 }
 
 // Regroup a row list into hunks holding up to `context` unchanged lines around
@@ -167,7 +180,21 @@ export function rehunk(
   // request can serve back.
   opts: { markExpandable?: boolean } = {},
 ): DiffLine[] {
-  const rows = lines.filter((ln) => ln.type !== "hunk");
+  // Drop the hunk rows, but remember where they were: `hunkBefore[i]` says a
+  // `@@` header stood immediately before rows[i], which is the only evidence
+  // that a del/add pair spans a gap rather than one change block (fileAdjacent).
+  const rows: DiffLine[] = [];
+  const hunkBefore: boolean[] = [];
+  let sawHunk = false;
+  for (const ln of lines) {
+    if (ln.type === "hunk") {
+      sawHunk = true;
+      continue;
+    }
+    rows.push(ln);
+    hunkBefore.push(sawHunk);
+    sawHunk = false;
+  }
   if (rows.length === 0) return lines;
   const hadHeaders = rows.length !== lines.length;
 
@@ -175,7 +202,7 @@ export function rehunk(
   const runs: [number, number][] = [];
   let runStart = 0;
   for (let i = 1; i < rows.length; i++) {
-    if (!fileAdjacent(rows[i - 1], rows[i])) {
+    if (!fileAdjacent(rows[i - 1], rows[i], hunkBefore[i])) {
       runs.push([runStart, i]);
       runStart = i;
     }
