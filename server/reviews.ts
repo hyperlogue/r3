@@ -84,14 +84,19 @@ export async function reanchorReview(repo: Repo, review: Review): Promise<boolea
       continue;
     }
     const sha = await blobSha(match.text);
+    // The quote is only the span's LEADING lines (capQuote caps it at
+    // MAX_QUOTE_LINES), so a match can never be wider than the cap — relocating
+    // must move the range, not shrink it. `shared/types.ts`: "The recorded line
+    // range keeps the full span either way — only the quote is truncated."
+    const span =
+      fb.line_start != null && fb.line_end != null ? Math.max(0, fb.line_end - fb.line_start) : 0;
+    const lineEnd = Math.max(match.lineEnd, match.lineStart + span);
     const moved =
-      fb.line_start !== match.lineStart ||
-      fb.line_end !== match.lineEnd ||
-      fb.anchor !== "anchored";
+      fb.line_start !== match.lineStart || fb.line_end !== lineEnd || fb.anchor !== "anchored";
     if (moved) {
       db.updateFeedback(fb.id, {
         line_start: match.lineStart,
-        line_end: match.lineEnd,
+        line_end: lineEnd,
         code_sha: sha,
         anchor: "anchored",
       });
