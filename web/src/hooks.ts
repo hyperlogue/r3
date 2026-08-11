@@ -66,7 +66,18 @@ export function useServerEvents(reviewId?: string) {
       } else if (ev.type === "file-changed") {
         // Content moved under the review → refetch detail (re-anchors) + blobs.
         invalidate(["review"]);
-        invalidate(["blob"]);
+        // Only the blobs whose file actually changed. `paths` carry the same
+        // shape the blob key holds (repo-relative, or `<review id>/<name>` for a
+        // scratch review), so a plain set membership test is exact. Without it
+        // one agent write refetches every mounted file in the review — a
+        // 40-file scratch review re-renders all 40 on each save, and an agent
+        // writing them in a loop squares that. An empty list can't be narrowed.
+        const changed = new Set(ev.paths);
+        if (changed.size === 0) invalidate(["blob"]);
+        else
+          qc.invalidateQueries({
+            predicate: (q) => q.queryKey[0] === "blob" && changed.has(q.queryKey[2] as string),
+          });
         // A files review's snapshot→live diff (to=Current) is derived from the live
         // content, so a live edit must refresh it too. Snapshot→snapshot
         // diffs are immutable, so an unchanged-input refetch just revalidates.
