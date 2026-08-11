@@ -672,16 +672,31 @@ export async function reanchorFeedback(
       error:
         "diff reviews don't re-anchor (rounds are immutable) — pin an anchored reply instead: r3 reply <fid> --diff <seq> --file <f> --line <a-b>",
     };
-  const quote = body.quote ?? fb.quote;
+  const file = body.file ?? fb.file;
+  const lineStart = body.lineStart ?? fb.line_start;
+  const lineEnd = body.lineEnd ?? fb.line_end;
+  // `--quote` is optional in the documented form (`reanchor <fid> --file <f>
+  // --line <a-b>`), so derive it from the new range the same way `feedback add`
+  // does. Keeping the old quote instead would leave the ANCHOR OF RECORD
+  // pointing at text that has moved: the next automatic pass searches for it,
+  // relocates the note straight back or flags it outdated, and the repair the
+  // agent was told to perform silently undoes itself.
+  let quote = body.quote ?? null;
+  if (quote == null && review && lineStart != null && lineEnd != null) {
+    const derived = await deriveQuote(review, fb.patch_seq, file, fb.side, lineStart, lineEnd);
+    if (isRejected(derived)) return derived;
+    quote = derived;
+  }
+  quote = quote ?? fb.quote;
   const codeSha = quote ? await blobSha(quote) : fb.code_sha;
   const next = db.updateFeedback(feedbackId, {
-    file: body.file ?? fb.file,
+    file,
     // Keep the existing range when the caller names none — the route normalizes
     // an absent field to null, and updateFeedback only skips `undefined`, so
     // writing body.lineStart straight through would turn a line-anchored note
     // into a whole-file one. The summary branch above already does this.
-    line_start: body.lineStart ?? fb.line_start,
-    line_end: body.lineEnd ?? fb.line_end,
+    line_start: lineStart,
+    line_end: lineEnd,
     quote,
     code_sha: codeSha,
     anchor: "anchored",
