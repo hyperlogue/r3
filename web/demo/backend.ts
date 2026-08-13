@@ -92,7 +92,7 @@ function reanchorFilesReview(rv: Review): void {
       fb.anchor = "outdated";
       continue;
     }
-    const match = findQuote(doc, fb.quote, fb.line_start);
+    const match = findQuote(doc, fb.quote, fb.line_start, fb.line_end);
     if (!match) {
       fb.anchor = "outdated";
       continue;

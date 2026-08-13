@@ -81,7 +81,7 @@ export async function reanchorReview(repo: Repo, review: Review): Promise<boolea
       }
       continue;
     }
-    const match = findQuote(doc, fb.quote, fb.line_start);
+    const match = findQuote(doc, fb.quote, fb.line_start, fb.line_end);
     if (!match) {
       if (fb.anchor !== "outdated") {
         db.updateFeedback(fb.id, { anchor: "outdated" });
@@ -483,13 +483,17 @@ async function locateQuote(
   file: string,
   quote: string,
   hintLine: number,
+  hintEndLine: number | null,
 ): Promise<{ lineStart: number; lineEnd: number } | null> {
   const repo = await resolveRepoForReview(review);
   if (!repo || (repo.stale && !isScratchReview(review))) return null;
   const src = review.source as { ref: string };
   const content = await readContentAt(repo, file, src.ref);
   if (content == null) return null;
-  const match = findQuote(projectDoc(content), quote, hintLine);
+  // The whole hinted span is the hint, not just its first line: the selection
+  // happened somewhere inside that block, so a repeated phrase must resolve to
+  // the copy *in* it rather than one that merely sits closer to its first line.
+  const match = findQuote(projectDoc(content), quote, hintLine, hintEndLine);
   return match ? { lineStart: match.lineStart, lineEnd: match.lineEnd } : null;
 }
 
@@ -608,7 +612,13 @@ export async function addFeedback(
   let lineStart = body.lineStart ?? null;
   let lineEnd = body.lineEnd ?? null;
   if (review.kind === "files" && lineAnchored && body.quote != null) {
-    const at = await locateQuote(review, body.file as string, body.quote, lineStart as number);
+    const at = await locateQuote(
+      review,
+      body.file as string,
+      body.quote,
+      lineStart as number,
+      lineEnd,
+    );
     if (at) {
       lineStart = at.lineStart;
       lineEnd = at.lineEnd;

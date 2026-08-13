@@ -37,9 +37,25 @@ interface LinePoint {
   line: number;
 }
 
+// Markdown blocks nest (a <li> in its <ul>, a <tr> in <tbody>), and the text
+// nodes *between* them (markdown-it's newlines) belong to the container — so an
+// endpoint that lands in one of those gaps resolves to the whole list/table.
+// Narrow it to the innermost tagged block the selection actually touches:
+// the first one for the start, the last for the end. Loops instead of taking one
+// step so a nested list descends all the way in.
+function narrowToTouched(el: HTMLElement, range: Range, which: "start" | "end"): HTMLElement {
+  for (let cur = el; ; ) {
+    const inner = [...cur.querySelectorAll<HTMLElement>("[data-line-start]")].filter((k) =>
+      range.intersectsNode(k),
+    );
+    if (inner.length === 0) return cur;
+    cur = which === "start" ? inner[0] : inner[inner.length - 1];
+  }
+}
+
 // `which` picks the line attribute: a code/diff row carries data-line; a
 // Markdown block carries data-line-start (its first line) and data-line-end.
-function pointFrom(node: Node | null, which: "start" | "end"): LinePoint | null {
+function pointFrom(node: Node | null, range: Range, which: "start" | "end"): LinePoint | null {
   const lineEl = closest(node, "data-line");
   if (lineEl) {
     const side = (closest(node, "data-side")?.getAttribute("data-side") || null) as DiffSide | null;
@@ -55,7 +71,7 @@ function pointFrom(node: Node | null, which: "start" | "end"): LinePoint | null 
     return {
       file: closest(node, "data-file")?.getAttribute("data-file") ?? null,
       side: null,
-      line: Number(blockEl.getAttribute(attr)),
+      line: Number(narrowToTouched(blockEl, range, which).getAttribute(attr)),
     };
   }
   return null;
@@ -88,9 +104,9 @@ export function getSelectionAnchor(scope: HTMLElement): PendingAnchor | null {
   const endHalf = closest(range.endContainer, "data-split-half");
   if (startHalf && endHalf && startHalf !== endHalf) return null;
 
-  const start = pointFrom(range.startContainer, "start");
+  const start = pointFrom(range.startContainer, range, "start");
   if (!start || start.file == null) return null;
-  const end = pointFrom(range.endContainer, "end");
+  const end = pointFrom(range.endContainer, range, "end");
 
   let endLine = end?.line ?? start.line;
   // A selection that ends at the very start of a row (caret at offset 0) does

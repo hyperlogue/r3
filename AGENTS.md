@@ -316,7 +316,10 @@ re-points, on any review kind: `r3 reanchor <fid> --quote "<new text>"`.
 fresh from **both sides**:
 
 1. **Automatic (server, `anchor.ts`).** On render / file-change, search for `quote`
-   near `line_start`, whitespace-insensitively; on an exact miss, a bounded
+   near the recorded **range**, whitespace-insensitively — an occurrence anywhere
+   inside `line_start..line_end` counts as "at" the hint, so a repeated phrase
+   resolves to the copy the note sits on rather than one nearer the range's first
+   line; on an exact miss, a bounded
    edit-distance pass (`fuzzyFind`, ≤25% edits, token-prefiltered and DP-capped)
    still relocates a quote whose markup the browser stripped. Found → relocate +
    update the range + `code_sha`, `anchor='anchored'`. Neither → `anchor='outdated'`,

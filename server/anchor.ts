@@ -84,12 +84,19 @@ export function projectDoc(content: string): ProjectedDoc {
 }
 
 // Find `quote` in a projected file, whitespace-insensitively, preferring the
-// occurrence nearest `hintLine` (1-based). Returns the matched 1-based line
-// range, or null.
+// occurrence nearest the hint — the caller's *range* (`hintLine`..`hintEndLine`,
+// 1-based), not just its first line: an occurrence anywhere inside the hinted
+// span is equally "at" the hint, so a repeated phrase resolves to the copy the
+// note was actually left on rather than to whichever copy happens to sit closer
+// to the span's first line. Matters most for a rendered-Markdown anchor, whose
+// hint is the whole enclosing block. Omitting `hintEndLine` collapses the range
+// to the single line and behaves exactly as before. Returns the matched 1-based
+// line range, or null.
 export function findQuote(
   doc: ProjectedDoc,
   quote: string,
   hintLine?: number | null,
+  hintEndLine?: number | null,
 ): AnchorMatch | null {
   const target = normalizeWs(quote);
   if (!target) return null;
@@ -106,25 +113,43 @@ export function findQuote(
     from = idx + 1;
   }
   if (offsets.length > 0) {
-    const best = nearestOffset(offsets, lineOf, hintLine);
+    const best = nearestOffset(offsets, lineOf, hintLine, hintEndLine);
     return windowMatch(best, best + target.length, lines, lineOf);
   }
 
   // No verbatim match — fall back to the fuzzy search (rendered-Markdown markup,
   // minor edits). Bail rather than mis-point if it, too, comes up empty.
-  const hit = fuzzyFind(norm, target, lineOf, hintLine);
+  const hit = fuzzyFind(norm, target, lineOf, hintLine, hintEndLine);
   if (!hit) return null;
   return windowMatch(hit.start, hit.end, lines, lineOf);
 }
 
+// How far a (0-based) line sits from the hinted span: zero anywhere inside it,
+// else the gap to the nearer end. The one place "near the hint" is defined, so
+// the exact and fuzzy searches rank candidates identically.
+function hintDistance(
+  line0: number,
+  hintLine?: number | null,
+  hintEndLine?: number | null,
+): number {
+  if (hintLine == null) return 0;
+  const lo = hintLine - 1;
+  const hi = Math.max(lo, (hintEndLine ?? hintLine) - 1);
+  return line0 < lo ? lo - line0 : line0 > hi ? line0 - hi : 0;
+}
+
 // Among exact-match offsets, the one whose start line is closest to the hint.
-function nearestOffset(offsets: number[], lineOf: number[], hintLine?: number | null): number {
+function nearestOffset(
+  offsets: number[],
+  lineOf: number[],
+  hintLine?: number | null,
+  hintEndLine?: number | null,
+): number {
   if (hintLine == null) return offsets[0];
-  const hint0 = hintLine - 1;
   let best = offsets[0];
   let bestDist = Infinity;
   for (const off of offsets) {
-    const dist = Math.abs(lineOf[off] - hint0);
+    const dist = hintDistance(lineOf[off], hintLine, hintEndLine);
     if (dist < bestDist) {
       bestDist = dist;
       best = off;
@@ -178,6 +203,7 @@ function fuzzyFind(
   target: string,
   lineOf: number[],
   hintLine?: number | null,
+  hintEndLine?: number | null,
 ): FuzzyHit | null {
   const m = target.length;
   const n = norm.length;
@@ -232,14 +258,13 @@ function fuzzyFind(
   for (let j = 1; j <= n; j++) if (prev[j] < bestDist) bestDist = prev[j];
   if (bestDist > maxDist) return null;
 
-  const hint0 = hintLine != null ? hintLine - 1 : null;
   let hit: FuzzyHit | null = null;
   let bestHintDist = Infinity;
   for (let j = 1; j <= n; j++) {
     if (prev[j] !== bestDist) continue;
     const start = prevStart[j];
     if (j <= start) continue; // empty window
-    const hd = hint0 == null ? 0 : Math.abs((lineOf[start] ?? 0) - hint0);
+    const hd = hintDistance(lineOf[start] ?? 0, hintLine, hintEndLine);
     if (hd < bestHintDist) {
       bestHintDist = hd;
       hit = { start, end: j };
