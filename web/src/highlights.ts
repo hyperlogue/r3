@@ -6,8 +6,8 @@
 // sibling (useActiveSummaryHighlight — the two split ownership of the shared
 // HL_ACTIVE registry, see the comments at each), and the persistent
 // unresolved-feedback region wash (useRegionHighlight) — plus the Region shape
-// they share and the click refinement that resolves a markdown block's
-// overlapping feedback to the quote under the cursor. Extracted from
+// they share and the click refinement that resolves a markdown block's click to
+// the feedback whose quote is actually under the cursor. Extracted from
 // ReviewView.tsx verbatim.
 
 import { useEffect, useRef } from "react";
@@ -122,10 +122,15 @@ export function useActiveLineHighlight(
         head = tail = (quote ? rangeForQuote(block, quote) : null) ?? block;
       }
       const p = root.getBoundingClientRect();
-      return (
-        head.getBoundingClientRect().top >= p.top + stickyBandPx(root) &&
-        tail.getBoundingClientRect().bottom <= p.bottom
-      );
+      const bandTop = p.top + stickyBandPx(root);
+      const top = head.getBoundingClientRect().top;
+      const bottom = tail.getBoundingClientRect().bottom;
+      // In view = fits inside the visible band, OR is taller than it and already
+      // spans it. A big anchor (a long quote, a whole washed markdown list) can
+      // never satisfy the first test, so without the second one it re-seated the
+      // pane on every activation — including a click landing *inside* it, which
+      // yanked the very text under the cursor to 30%.
+      return (top >= bandTop && bottom <= p.bottom) || (top <= bandTop && bottom >= p.bottom);
     };
     const doScroll = shouldScroll && !anchorInView();
     // If the file is virtualized, scroll the anchor line on screen first — the
@@ -317,13 +322,18 @@ function caretNodeOffset(x: number, y: number): { node: Node; offset: number } |
   return null;
 }
 
-// A rendered-markdown block carries a *single* data-fb-id even when it spans
-// several feedbacks' anchors (a whole <ul>/<ol>/<p>), so a click resolved by
-// `closest` alone always lands on the first one. Refine it: when the tagged
-// element is a markdown block (data-line-start) that more than one feedback
-// overlaps, pick the feedback whose quote actually sits under the cursor. Code
-// rows (data-line, tagged per-line already) have no data-line-start, so they pass
-// straight through as `fallbackId`.
+// A rendered-markdown block carries a *single* data-fb-id for the whole
+// <p>/<ul>/<table> even though the anchor is usually one phrase inside it — and
+// when the quote is locatable, the paint is that phrase alone (::highlight
+// (r3-feedback), not the block wash). Resolving a click by `closest` alone
+// therefore made the entire block a hit target: clicking prose nowhere near the
+// mark focused a feedback and jumped the pane. Match the click target to what's
+// actually painted — the feedback whose quote sits under the cursor wins, and a
+// click that misses every located quote is a miss (null), like clicking blank
+// file space. The exception is a hit whose quote we couldn't locate: that one IS
+// washed block-wide (see useRegionHighlight), so the whole block stays its
+// target. Code rows (data-line, tagged per-line already) have no
+// data-line-start, so they pass straight through as `fallbackId`.
 export function refineMarkdownClick(
   holder: Element,
   x: number,
@@ -333,18 +343,23 @@ export function refineMarkdownClick(
 ): string | null {
   const bsAttr = holder.getAttribute("data-line-start");
   if (bsAttr == null) return fallbackId;
+  // No Custom Highlight API → useRegionHighlight washes whole blocks and paints
+  // no quote ranges at all, so the block is the mark and stays the hit target.
+  if (!supportsHighlights()) return fallbackId;
   const bs = Number(bsAttr);
   const be = Number(holder.getAttribute("data-line-end") ?? bsAttr);
   const file = holder.closest("[data-file]")?.getAttribute("data-file");
   const hits = regions.filter((r) => r.file === file && bs <= r.end && be >= r.start);
-  if (hits.length <= 1) return fallbackId;
+  if (hits.length === 0) return fallbackId;
   const caret = caretNodeOffset(x, y);
   if (!caret) return fallbackId;
+  const unlocated: string[] = [];
   for (const h of hits) {
     const range = rangeForQuote(holder, h.quote);
-    if (range?.isPointInRange(caret.node, caret.offset)) return h.id;
+    if (!range) unlocated.push(h.id);
+    else if (range.isPointInRange(caret.node, caret.offset)) return h.id;
   }
-  return fallbackId;
+  return unlocated[0] ?? null;
 }
 
 // Persistently mark the lines/blocks that unresolved feedback points at (a steady

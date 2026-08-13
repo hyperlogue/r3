@@ -492,8 +492,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       if (!target || target.closest("[data-gutter]") || target.closest("a")) return;
       const holder = target.closest("[data-fb-id]");
       const fallbackId = holder?.getAttribute("data-fb-id") ?? null;
-      // A markdown block's one data-fb-id covers every feedback in it; resolve to
-      // the one whose quote is actually under the cursor (no-op for code rows).
+      // A markdown block's one data-fb-id covers the whole <p>/<ul>, far wider
+      // than the marked quote; resolve to the feedback whose quote is actually
+      // under the cursor, or to nothing (no-op for code rows).
       const id = holder
         ? refineMarkdownClick(holder, e.clientX, e.clientY, unresolvedRegions, fallbackId)
         : null;
