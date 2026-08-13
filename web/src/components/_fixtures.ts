@@ -252,10 +252,17 @@ export const renderedMarkdown: RenderedFile = {
   markdownHtml: [
     '<h1 data-line-start="1" data-line-end="1">r3</h1>',
     '<p data-line-start="3" data-line-end="3">Review. Revise. Resolve.</p>',
-    '<ul data-line-start="5" data-line-end="6"><li>Local-first</li><li>Agent-aware</li></ul>',
-    '<table data-line-start="8" data-line-end="11"><thead><tr><th>Kind</th><th>Source</th><th>Watched</th></tr></thead>' +
-      "<tbody><tr><td>files</td><td>live view of now</td><td>yes</td></tr>" +
-      "<tr><td>diff</td><td>immutable rounds</td><td>no</td></tr></tbody></table>",
+    // Nested blocks carry their own range too (server/highlight.ts tags every
+    // mapped token), which is what keeps a note on one bullet/row from
+    // anchoring — and washing — its whole list/table.
+    '<ul data-line-start="5" data-line-end="6"><li data-line-start="5" data-line-end="5">Local-first</li>' +
+      '<li data-line-start="6" data-line-end="6">Agent-aware</li></ul>',
+    '<table data-line-start="8" data-line-end="11"><thead data-line-start="8" data-line-end="8">' +
+      '<tr data-line-start="8" data-line-end="8"><th>Kind</th><th>Source</th><th>Watched</th></tr></thead>' +
+      '<tbody data-line-start="10" data-line-end="11">' +
+      '<tr data-line-start="10" data-line-end="10"><td>files</td><td>live view of now</td><td>yes</td></tr>' +
+      '<tr data-line-start="11" data-line-end="11"><td>diff</td><td>immutable rounds</td><td>no</td></tr>' +
+      "</tbody></table>",
   ].join("\n"),
 };
 

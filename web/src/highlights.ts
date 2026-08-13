@@ -223,14 +223,25 @@ function rowEl(fileEl: Element, n: number, side: DiffSide | null): Element | nul
 // Rendered markdown has no per-line rows; blocks span data-line-start..end — and
 // the anchor line rarely equals a block's *start* line, so find the block that
 // *contains* the range (the same overlap test as the region highlight), not one
-// starting exactly at the anchor.
+// starting exactly at the anchor. Blocks nest (a <li> inside its <ul>, a <tr>
+// inside <tbody>), so take the narrowest overlap — the <ul> covers the range too
+// but ringing it would mark the whole list for a note on one item. Ties keep the
+// first in document order: an ancestor and descendant with the identical range
+// (<thead>/<tr>) are the same target, and for a range spanning siblings the first
+// is where it starts.
 function findBlockForRange(fileEl: Element, start: number, end: number): Element | null {
+  let best: Element | null = null;
+  let bestSpan = Number.POSITIVE_INFINITY;
   for (const el of fileEl.querySelectorAll("[data-line-start]")) {
     const bs = Number(el.getAttribute("data-line-start"));
     const be = Number(el.getAttribute("data-line-end") ?? bs);
-    if (bs <= end && be >= start) return el;
+    if (bs > end || be < start) continue;
+    if (be - bs < bestSpan) {
+      best = el;
+      bestSpan = be - bs;
+    }
   }
-  return null;
+  return best;
 }
 
 // Locate the summary an active summary-feedback points at — the review summary
@@ -402,16 +413,23 @@ export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, r
           el.classList.add("r3-feedback-region");
           el.setAttribute("data-fb-id", tightest(cover).id);
         }
-        // Rendered-markdown blocks span data-line-start..data-line-end — much
+        // Rendered-markdown blocks span data-line-start..data-line-end — still
         // wider than the anchored text. Highlight each overlapping feedback's
         // exact quote inside the block; only fall back to washing the whole
         // block for a quote we can't locate (an outdated anchor) or where the
-        // browser lacks the Custom Highlight API.
+        // browser lacks the Custom Highlight API. Blocks nest (<li> in <ul>,
+        // <tr> in <tbody>), and an ancestor overlaps whatever its descendant
+        // does, so mark only the INNERMOST overlapping blocks — otherwise one
+        // bullet's note washes (and makes clickable) the entire list.
+        const marks: { el: Element; hits: Region[] }[] = [];
         for (const el of fileEl.querySelectorAll("[data-line-start]")) {
           const bs = Number(el.getAttribute("data-line-start"));
           const be = Number(el.getAttribute("data-line-end") ?? bs);
           const hits = rs.filter((r) => bs <= r.end && be >= r.start);
-          if (hits.length === 0) continue;
+          if (hits.length > 0) marks.push({ el, hits });
+        }
+        for (const { el, hits } of marks) {
+          if (marks.some((m) => m.el !== el && el.contains(m.el))) continue;
           const foundIds: string[] = [];
           if (supportsHighlights()) {
             for (const h of hits) {

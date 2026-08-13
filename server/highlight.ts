@@ -275,9 +275,9 @@ export async function highlightToLines(
   return lines;
 }
 
-// ---- Markdown render with per-block source-line mapping. Each top-level token
-// gets data-line-start/end so the client can anchor feedback to a
-// heading/paragraph/code-fence by source line. ----
+// ---- Markdown render with per-block source-line mapping. Every mapped block
+// token gets data-line-start/end so the client can anchor feedback to a
+// heading/paragraph/code-fence/list-item/table-row by source line. ----
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
 // Same two hardening rules the client renderer applies to messages
@@ -314,15 +314,22 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
 };
 
 // Inject data-line attributes from token.map onto block-level open tokens.
+// NESTED blocks are tagged too, not just top-level ones: markdown has no
+// per-line rows, so whatever we tag is the finest range a browser selection can
+// report, and a top-level-only pass made a note on one bullet come back as its
+// whole <ul> (a table cell as the whole table). markdown-it maps list_item_open
+// and tr_open individually, so tagging them narrows the anchor to the item/row.
+// The client resolves a click/selection to the INNERMOST tagged ancestor and
+// marks only innermost blocks (web/src/highlights.ts), so the ancestors that
+// still carry a range never widen it back.
 md.core.ruler.push("line_numbers", (state) => {
   for (const token of state.tokens) {
-    if (token.map && token.level === 0 && token.type.endsWith("_open")) {
-      token.attrSet("data-line-start", String(token.map[0] + 1));
-      token.attrSet("data-line-end", String(token.map[1]));
-    }
+    // Hidden tokens (a tight list item's implicit paragraph) render no element,
+    // and their map duplicates the item's anyway.
+    if (!token.map || token.hidden) continue;
     // fences and indented code blocks are self-contained (no _open/_close) —
-    // tag them directly, or a selection inside one finds no anchor ancestor.
-    if (token.map && token.level === 0 && (token.type === "fence" || token.type === "code_block")) {
+    // tag them too, or a selection inside one finds no anchor ancestor.
+    if (token.type.endsWith("_open") || token.type === "fence" || token.type === "code_block") {
       token.attrSet("data-line-start", String(token.map[0] + 1));
       token.attrSet("data-line-end", String(token.map[1]));
     }

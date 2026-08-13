@@ -467,6 +467,32 @@ async function deriveQuote(
   return text;
 }
 
+// Where a *supplied* quote actually sits in the file, so the stored range is the
+// quote's own lines rather than the client's hint. Rendered Markdown is the case
+// that needs it: it has no per-line rows, so the render tags whole blocks
+// (a <p>, a <ul>, a <table>) and a browser selection can only report its
+// enclosing block's source range — a note on one bullet came in as the whole
+// list, and the same coarse range then had to serve as the search hint. The
+// re-anchor pass would have corrected it on the next detail build; doing it here
+// means the range is right in the create response (no wrong line number flashing
+// in the UI) and stays right for the sources that pass never touches — a files
+// review pinned to an immutable ref. null = not findable: keep what the client
+// sent, exactly as before, and let the pass flag it outdated.
+async function locateQuote(
+  review: Review,
+  file: string,
+  quote: string,
+  hintLine: number,
+): Promise<{ lineStart: number; lineEnd: number } | null> {
+  const repo = await resolveRepoForReview(review);
+  if (!repo || (repo.stale && !isScratchReview(review))) return null;
+  const src = review.source as { ref: string };
+  const content = await readContentAt(repo, file, src.ref);
+  if (content == null) return null;
+  const match = findQuote(projectDoc(content), quote, hintLine);
+  return match ? { lineStart: match.lineStart, lineEnd: match.lineEnd } : null;
+}
+
 // A stored path nothing can show is a dangling note — its card matches nothing
 // and (quote-less) it is never re-anchored, so a click is a silent no-op forever.
 // Validates the anchor shapes deriveQuote doesn't already cover: whole-file notes
@@ -574,14 +600,28 @@ export async function addFeedback(
     const bad = await validateFeedbackFile(review, body.file as string, patchSeq);
     if (bad) return bad;
   }
+  // The quote is the anchor of record and the line is a hint, so a files review
+  // stores the lines the quote actually occupies (see locateQuote). Only when the
+  // client supplied the quote: a derived one came *from* the range and already
+  // agrees with it. Diff reviews are excluded — their anchors are per-row exact
+  // and validated against an immutable round.
+  let lineStart = body.lineStart ?? null;
+  let lineEnd = body.lineEnd ?? null;
+  if (review.kind === "files" && lineAnchored && body.quote != null) {
+    const at = await locateQuote(review, body.file as string, body.quote, lineStart as number);
+    if (at) {
+      lineStart = at.lineStart;
+      lineEnd = at.lineEnd;
+    }
+  }
   const codeSha = quote ? await blobSha(quote) : null;
   const fb = db.createFeedback(reviewId, {
     author,
     body: body.body,
     file: body.file ?? "", // empty for general (review-level) feedback
     side,
-    line_start: body.lineStart,
-    line_end: body.lineEnd,
+    line_start: lineStart,
+    line_end: lineEnd,
     quote,
     code_sha: codeSha,
     patch_seq: patchSeq,

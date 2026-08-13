@@ -192,6 +192,11 @@ representable). Resolving is a **status toggle on the feedback**
     round/file shows (partial or hunk-gap-spanning) rather than storing a driftable
     quote-less anchor, and capping it at `MAX_QUOTE_LINES`. A whole-file or quoted
     anchor gets its path validated against the review, so no dangling note is stored.
+    Conversely, when the quote **is** supplied, a files review stores the lines that
+    quote actually occupies (`locateQuote`), not the sent ones — the hint is
+    corrected at write time instead of waiting for the re-anchor pass, which is what
+    a rendered-Markdown selection needs (below) and what a pinned/immutable source
+    would otherwise never get.
   - `status` is **`open|resolved`** — two states, human-driven. Open = needs
     attention, resolved = done; the _why_ (fixed, answered, dismissed) lives in the
     thread, not the enum. The agent references feedback by its **stable `id`**
@@ -324,6 +329,15 @@ fresh from **both sides**:
 2. **Explicit (agent, `PATCH /api/feedback/:id/anchor`).** When a restructure makes
    the quote un-findable, the same agent that moved the code tells the server where
    the feedback now belongs (`r3 reanchor`).
+
+**Rendered Markdown has no per-line rows**, so both ends of an anchor go through
+blocks: the render tags every mapped markdown-it token — nested `<li>`/`<tr>`
+included, not just top-level blocks — with its source range, a browser selection
+reports the **innermost** one it lands in, and the exact lines then come from
+locating the quote in the source (`locateQuote` at write time, `anchor.ts` on every
+pass after). The client mirrors that narrowing: it marks only innermost blocks and
+highlights the located **quote** inside one (`mdhighlight`), so a note on one bullet
+never washes — or swallows the clicks of — its whole list.
 
 Across snapshot/diff views the client **locates each feedback by its quote** among
 the diff rows (unchanged/added text lands on the new side, deleted on the old),

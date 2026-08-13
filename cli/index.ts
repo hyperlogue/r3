@@ -814,7 +814,9 @@ async function cmdReply(args: Args) {
 // way: guide the human to the spots that matter, ask a question, flag a risk.
 // Three anchor shapes, like the UI's: review-level (no --file), whole-file
 // (--file only), line-anchored (--file + --line; the server derives the quote —
-// the anchor of record — from the round/live content when --quote is omitted).
+// the anchor of record — from the round/live content when --quote is omitted,
+// and conversely snaps a files review's stored range to where a supplied --quote
+// actually sits, since the line is only a hint).
 // Agent feedback is born delivered: it never echoes back in your own prompts,
 // but the human's replies and resolution do (watch/prompt as usual).
 async function cmdFeedback(args: Args) {

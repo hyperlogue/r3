@@ -65,7 +65,9 @@ one rendered file.
   event.
 
 **Feedback + replies**
-`POST /api/reviews/:id/feedback` · `PATCH /api/feedback/:id` ·
+`POST /api/reviews/:id/feedback` (on a **files** review a supplied `quote` wins over
+the sent line range: the server stores the lines that quote actually occupies,
+keeping the hint only when it can't find it) · `PATCH /api/feedback/:id` ·
 `PATCH /api/feedback/:id/anchor` (re-anchor: a files-review file anchor, or a
 review-summary note by `quote` on any kind — diff file/round anchors and round
 summaries are immutable, else 400) · `DELETE /api/feedback/:id` ·
