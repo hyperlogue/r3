@@ -4,6 +4,17 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] - 2026-08-12
+
+### Fixed
+
+- **Feedback on rendered Markdown anchors to what you selected.** A note on a
+  bullet, a table cell, or a phrase mid-paragraph was recorded as the whole
+  list, table, or paragraph, and now lands on the lines its quote occupies.
+- **Clicking prose in a `.md` review no longer hijacks the page.** Only a click
+  on the highlighted quote focuses its feedback, instead of a click anywhere in
+  the block around it.
+
 ## [0.9.1] - 2026-08-11
 
 ### Fixed
@@ -285,6 +296,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.9.2]: https://github.com/hyperlogue/r3/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/hyperlogue/r3/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/hyperlogue/r3/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/hyperlogue/r3/compare/v0.7.0...v0.8.0
