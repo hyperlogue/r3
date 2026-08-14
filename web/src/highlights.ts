@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import {
   HL_ACTIVE,
   HL_FEEDBACK,
+  quotePos,
   rangeForQuote,
   setHighlightRanges,
   supportsHighlights,
@@ -119,7 +120,10 @@ export function useActiveLineHighlight(
       if (!head || !tail) {
         const block = findBlockForRange(fileEl, lineStart, lineEnd ?? lineStart);
         if (!block) return false;
-        head = tail = (quote ? rangeForQuote(block, quote) : null) ?? block;
+        head = tail =
+          (quote
+            ? rangeForQuote(block, quote, quotePos(block, lineStart, lineEnd ?? lineStart))
+            : null) ?? block;
       }
       const p = root.getBoundingClientRect();
       const bandTop = p.top + stickyBandPx(root);
@@ -166,7 +170,10 @@ export function useActiveLineHighlight(
       if (!first) {
         const block = findBlockForRange(fileEl, lineStart, lineEnd ?? lineStart);
         if (block) {
-          const range = quote && supportsHighlights() ? rangeForQuote(block, quote) : null;
+          const range =
+            quote && supportsHighlights()
+              ? rangeForQuote(block, quote, quotePos(block, lineStart, lineEnd ?? lineStart))
+              : null;
           if (range) setHighlightRanges(HL_ACTIVE, [range]);
           else block.classList.add("r3-active-line");
           first = block;
@@ -391,16 +398,34 @@ export function refineMarkdownClick(
   if (!supportsHighlights()) return fallbackId;
   const bs = Number(bsAttr);
   const be = Number(holder.getAttribute("data-line-end") ?? bsAttr);
-  const file = holder.closest("[data-file]")?.getAttribute("data-file");
+  const fileEl = holder.closest("[data-file]");
+  const file = fileEl?.getAttribute("data-file");
   const hits = regions.filter((r) => r.file === file && bs <= r.end && be >= r.start);
-  if (hits.length === 0) return fallbackId;
+  if (hits.length === 0 || !fileEl) return fallbackId;
   const caret = caretNodeOffset(x, y);
   if (!caret) return fallbackId;
+  const blocks = blockList(fileEl);
   const unlocated: string[] = [];
   for (const h of hits) {
-    const range = rangeForQuote(holder, h.quote);
-    if (!range) unlocated.push(h.id);
-    else if (range.isPointInRange(caret.node, caret.offset)) return h.id;
+    // Locate the quote in the block(s) the region RESOLVES to (blocksForRange),
+    // not the clicked holder: a note spanning two <li> resolves to — and is
+    // painted in — the <ul>, while the click lands in a nested <li> where the
+    // quote can't fully match. Searching only the holder counted such a note
+    // "unlocated", making blank space in either bullet jump to it. This mirrors
+    // useRegionHighlight, so "unlocated" means the same thing in both: only a
+    // note that is actually washed block-wide keeps its block as the target —
+    // and only when the click landed inside that washed block.
+    let range: Range | null = null;
+    const els = blocksForRange(blocks, h.start, h.end);
+    for (const el of els) {
+      range = rangeForQuote(el, h.quote, quotePos(el, h.start, h.end));
+      if (range) break;
+    }
+    if (range) {
+      if (range.isPointInRange(caret.node, caret.offset)) return h.id;
+    } else if (els.some((el) => el === holder || el.contains(holder))) {
+      unlocated.push(h.id);
+    }
   }
   return unlocated[0] ?? null;
 }
@@ -467,7 +492,7 @@ export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, r
           const foundIds: string[] = [];
           if (supportsHighlights()) {
             for (const h of hits) {
-              const range = rangeForQuote(el, h.quote);
+              const range = rangeForQuote(el, h.quote, quotePos(el, h.start, h.end));
               if (range) {
                 ranges.push(range);
                 foundIds.push(h.id);
