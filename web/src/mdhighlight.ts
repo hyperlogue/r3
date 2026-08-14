@@ -39,8 +39,14 @@ export function setHighlightRanges(name: string, ranges: Range[]): void {
   else reg.set(name, new Highlight(...ranges));
 }
 
+// MUST be the same character class the quote side collapses with (/\s+/ in
+// rangeForQuote, normalizeWs on the server): JS \s includes U+00A0 and the
+// other Unicode spaces, so an `&nbsp;` in the source — a real non-breaking
+// space in the rendered text — normalizes identically on both sides. A
+// narrower list here left the map holding U+00A0 while the quote held a plain
+// space, and such a quote could never match from either direction.
 function isWs(ch: string): boolean {
-  return ch === " " || ch === "\t" || ch === "\n" || ch === "\r" || ch === "\f";
+  return /\s/.test(ch);
 }
 
 interface Mapped {
