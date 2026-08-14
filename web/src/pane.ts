@@ -55,12 +55,17 @@ export function retryScrollToRow(opts: {
   // (round-scoped) file, or the round itself for a file-less pin.
   containerSel: string;
   line: number | null;
+  // Selector for a target inside the container that isn't addressed by line —
+  // a rendered-markdown heading (a doc link's `#fragment`). Takes the same
+  // wait-for-it-to-mount budget as a line row, and falls back to the container
+  // the same way when it never appears (a stale slug lands on the file).
+  rowSel?: string | null;
   // Preferred row side, passed to the virtualizer and the DOM query (pins
   // prefer "new" — they point at the fix, not the old code); a side-less query
   // falls back to the first matching row.
   side: DiffSide | null;
 }): void {
-  const { getRoot, scrollToLine, scrollKey, containerSel, line, side } = opts;
+  const { getRoot, scrollToLine, scrollKey, containerSel, line, rowSel, side } = opts;
   let tries = 0;
   let scrolledAt = -1;
   const step = () => {
@@ -75,15 +80,16 @@ export function retryScrollToRow(opts: {
     }
     const container = root.querySelector(containerSel);
     if (container) {
-      const row =
-        line != null
+      const row = rowSel
+        ? container.querySelector(rowSel)
+        : line != null
           ? ((side
               ? container.querySelector(`[data-line="${line}"][data-side="${side}"]`)
               : null) ?? container.querySelector(`[data-line="${line}"]`))
           : null;
-      // Line named but its row hasn't mounted yet (file still opening) — wait
+      // Target named but it hasn't mounted yet (file still opening) — wait
       // a few frames before settling for the container top.
-      if (!row && line != null && ++tries <= 45) {
+      if (!row && (line != null || rowSel) && ++tries <= 45) {
         requestAnimationFrame(step);
         return;
       }

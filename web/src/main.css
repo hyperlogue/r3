@@ -447,6 +447,21 @@ html.dark .r3-markdown a {
 .r3-markdown [data-line-start] {
   scroll-margin-top: 4rem;
 }
+/* A relative link in a reviewed `.md` (server/highlight.ts resolves it against
+   the containing file; web/src/doclinks.ts jumps the pane to it). It looks like
+   the ordinary markdown link it is — only the cursor says it never leaves the
+   page. A target that isn't part of the review has nowhere to go: drop the link
+   color and dot the underline so it reads as prose with a note, not a dead
+   link you're expected to click. */
+.r3-markdown a.r3-doclink {
+  cursor: pointer;
+}
+.r3-markdown a.r3-doclink-missing {
+  color: inherit;
+  cursor: default;
+  text-decoration-style: dotted;
+  opacity: 0.75;
+}
 
 /* Compact message prose — feedback bodies + replies in the panel. Reuses the
    .r3-markdown styling above but tightens the block rhythm and trims the outer

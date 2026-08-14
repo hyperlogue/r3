@@ -135,6 +135,7 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  feedback into a snapshot/round diff by quote
   src/mdhighlight.ts quote ranges in rendered markdown (CSS Custom Highlight)
   src/markdown.ts client Markdown render (markdown-it, html:false) + @path:Lx-y refs
+  src/doclinks.ts a reviewed .md's relative links -> a jump to that file's card
   src/keys.ts    the keyboard layer: one flat KEYMAP + one window listener; feeds
                  both the dispatcher and the `?` overlay
   src/viewed.ts  server-backed per-round/per-sha "viewed" fold-state
@@ -230,6 +231,20 @@ button that drops it in as a `>` blockquote. Both summaries — the review summa
 `DiffView.tsx` but mounted by `ReviewView`) — render the same way; a round-summary
 ref resolves against its round, a review summary is edited in place so its refs pin
 no version and resolve against the **live/current view**.
+
+**A reviewed doc set links to itself.** A relative link in a rendered `.md`
+(`[models-and-cost.md](models-and-cost.md)`) is written against the file that
+contains it, but the browser resolves it against the *page* — `/review_<id>` —
+so it used to open a URL that never existed. The server resolves it against the
+containing file's directory and emits an `a.r3-doclink` carrying the
+repo-relative target (plus a heading slug for a `#fragment`); the client jumps
+the pane to that file's card instead of navigating (`web/src/doclinks.ts`).
+Headings are tagged `data-r3-heading`, **not** `id` — every file renders into one
+page, so two docs sharing a "## Cost" would collide; the lookup is scoped to the
+target card. Only a genuinely off-repo link (a scheme, `//host`) still opens a
+new tab. A target that isn't part of the review has nowhere to go, so it renders
+**dead** (dimmed, with the reason on hover) rather than looking live and doing
+nothing.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a selection through the same

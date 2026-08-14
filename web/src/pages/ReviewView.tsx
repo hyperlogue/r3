@@ -21,6 +21,7 @@ import { ReviewHeader } from "../components/ReviewHeader.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
+import type { DocLink } from "../doclinks.ts";
 import {
   clearDraft,
   dropAnchor,
@@ -950,6 +951,36 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     ],
   );
 
+  // Click a relative link inside a rendered `.md` — the way a doc set points at
+  // its neighbours — and land on that file in this pane, rather than letting the
+  // browser resolve it against the review's own URL. A link naming a heading
+  // scrolls to it (the server tags each heading with its slug; the lookup is
+  // scoped to the target file's card, so two docs may share a slug), otherwise
+  // it's the same jump the file browser does. A target outside the review has
+  // nowhere to go — it renders dead (doclinks.ts), and this ignores it.
+  const hasFile = useCallback((path: string) => fileList.includes(path), [fileList]);
+  const openDocLink = useCallback(
+    (link: DocLink) => {
+      if (!hasFile(link.file)) return;
+      closeSheetForJump();
+      if (!link.hash) {
+        selectFile(link.file);
+        return;
+      }
+      ensureFileOpen(link.file);
+      retryScrollToRow({
+        getRoot: () => scopeRef.current,
+        scrollToLine: virt.scrollToLine,
+        scrollKey: null,
+        containerSel: `[data-file="${CSS.escape(link.file)}"]`,
+        rowSel: `[data-r3-heading="${CSS.escape(link.hash)}"]`,
+        line: null,
+        side: null,
+      });
+    },
+    [hasFile, selectFile, ensureFileOpen, virt.scrollToLine, closeSheetForJump],
+  );
+
   // "Quote in note": drop the file-pane selection into the anchored note as a `>`
   // blockquote, then focus the composer. It lives in the feedback panel (out of
   // this subtree), so it's reached by its data attr rather than a ref.
@@ -1403,6 +1434,8 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     onSha={liveFilesView ? onSha : undefined}
                     onPickLines={onPickLines}
                     onFileFeedback={onFileFeedback}
+                    onDocLink={openDocLink}
+                    hasFile={hasFile}
                     current={f === activePath}
                     foldSignal={foldSignal}
                   />

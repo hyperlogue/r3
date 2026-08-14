@@ -43,9 +43,15 @@ export const Code: Story = {
 };
 
 // A markdown file renders HTML by default; the header toggle switches to the
-// (line-anchorable) raw source.
+// (line-anchorable) raw source. Its relative links are in-review doc links: the
+// review here holds AGENTS.md, so that one is live (clicking jumps the pane to
+// it) while CONTRIBUTING.md, which isn't in the review, renders dead.
 export const Markdown: Story = {
-  args: { path: renderedMarkdown.path },
+  args: {
+    path: renderedMarkdown.path,
+    hasFile: (p: string) => p === "AGENTS.md",
+    onDocLink: fn(),
+  },
   parameters: {
     queryData: [[["blob", REVIEW_ID, renderedMarkdown.path, REF, theme], renderedMarkdown]],
   },

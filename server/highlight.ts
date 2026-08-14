@@ -303,13 +303,80 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
     ` title="Remote image — not loaded automatically">${escapeHtml(alt || src)}</a>`
   );
 };
-// A link with no target navigates the SPA away in-tab, discarding open composers.
+// ---- Links. A reviewed doc set links to its neighbours the way it would on
+// GitHub — `[models-and-cost.md](models-and-cost.md)`, relative to the file that
+// contains it. Rendered inside the SPA those resolve against the *page* URL
+// (`/review_<id>`), so a click used to open `/models-and-cost.md` in a new tab:
+// never the file, which the review is very likely already showing. Resolve a
+// relative target against the containing file's directory instead and hand the
+// click to the client, which scrolls to that file's card (web/src/doclinks.ts).
+// Only a genuinely off-repo link (a scheme, `//host`) keeps the new-tab
+// treatment — a link with no target navigates the SPA away in-tab, discarding
+// open composers. ----
+
+// Resolve a link target against the directory of the file that contains it.
+// Lexical only, no fs: the result is matched against the review's file list on
+// the client and never read, so a path that climbs out of the repo simply fails
+// to match (and renders dead) rather than needing a guard. A leading `/` is
+// repo-root-relative, as it is on GitHub.
+//
+// It is deliberately NOT safePathIn: it has to be able to *return* `../…` so the
+// client can recognize an out-of-review target. That makes it unsafe as a read
+// path — anything that ever turns one of these into a file read must put it
+// through `repo.safePath()` first.
+function resolveDocPath(from: string, href: string): string {
+  const out = href.startsWith("/") ? [] : from.split("/").slice(0, -1);
+  for (const seg of href.replace(/^\//, "").split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === ".." && out.length > 0 && out[out.length - 1] !== "..") out.pop();
+    else out.push(seg);
+  }
+  return out.join("/");
+}
+
+// GitHub-style heading slug: lowercased, punctuation dropped, spaces to dashes.
+// Unicode-aware, so a CJK or accented heading keeps its letters instead of
+// slugging to nothing.
+function slugify(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
+    .replace(/\s+/g, "-");
+}
+
 const defaultLinkOpen =
   md.renderer.rules.link_open ??
   ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-  tokens[idx].attrSet("target", "_blank");
-  tokens[idx].attrSet("rel", "noopener noreferrer");
+  const token = tokens[idx];
+  const href = token.attrGet("href") ?? "";
+  if (REMOTE_URL_RE.test(href)) {
+    token.attrSet("target", "_blank");
+    token.attrSet("rel", "noopener noreferrer");
+    return defaultLinkOpen(tokens, idx, options, env, self);
+  }
+  // markdown-it percent-encodes the href it stores; the path we hand back is
+  // compared against review file paths, so undo that first (a malformed escape
+  // just stays as written).
+  let raw = href;
+  try {
+    raw = decodeURIComponent(href);
+  } catch {}
+  const hashAt = raw.indexOf("#");
+  const hash = hashAt === -1 ? "" : raw.slice(hashAt + 1);
+  // Drop a query string: it means nothing to a file in a review.
+  const path = (hashAt === -1 ? raw : raw.slice(0, hashAt)).split("?")[0];
+  const from = (env as { path?: string } | undefined)?.path ?? "";
+  // A bare `#fragment` points inside the file being rendered.
+  const file = path === "" ? from : resolveDocPath(from, path);
+  token.attrJoin("class", "r3-doclink");
+  token.attrSet("data-r3-doc-file", file);
+  if (hash) token.attrSet("data-r3-doc-hash", slugify(hash));
+  // `href="#"` keeps the link focusable (so Enter fires the same click) while
+  // making the fallback navigation harmless — the client preventDefaults it.
+  token.attrSet("href", "#");
+  if (token.attrGet("title") == null) token.attrSet("title", hash ? `${file}#${hash}` : file);
   return defaultLinkOpen(tokens, idx, options, env, self);
 };
 
@@ -337,6 +404,28 @@ md.core.ruler.push("line_numbers", (state) => {
   return true;
 });
 
-export function renderMarkdown(source: string): string {
-  return md.render(source);
+// Tag each heading with its slug so a doc link's `#fragment` has something to
+// land on. NOT an `id`: every file in a review renders into one page, so two
+// docs with a "## Cost" section would collide on a global id and native
+// fragment nav would scroll to whichever came first. The client scopes the
+// lookup to the target file's card instead. Duplicates within one file get the
+// `-1`, `-2` suffix GitHub uses.
+md.core.ruler.push("heading_slugs", (state) => {
+  const seen = new Map<string, number>();
+  state.tokens.forEach((token, i) => {
+    if (token.type !== "heading_open") return;
+    const inline = state.tokens[i + 1];
+    const slug = slugify(inline?.type === "inline" ? inline.content : "");
+    if (!slug) return;
+    const n = seen.get(slug) ?? 0;
+    seen.set(slug, n + 1);
+    token.attrSet("data-r3-heading", n === 0 ? slug : `${slug}-${n}`);
+  });
+  return true;
+});
+
+// `path` is the reviewed file's repo-relative path — the base every relative
+// link in it resolves against (see the link rule above).
+export function renderMarkdown(source: string, path: string): string {
+  return md.render(source, { path });
 }

@@ -528,7 +528,11 @@ export interface RenderedFile {
   sha: string;
   // For code: line-by-line highlighted rows. For markdown: `markdownHtml` holds
   // the rendered block HTML (with data-line attributes) and `lines` the raw
-  // source lines used for anchoring + a source view.
+  // source lines used for anchoring + a source view. A relative link in that
+  // HTML is an `a.r3-doclink` carrying the target's repo-relative path in
+  // `data-r3-doc-file` (+ a heading slug in `data-r3-doc-hash`, matching a
+  // heading's `data-r3-heading`) — resolved against `path`, for the client to
+  // jump to rather than navigate (server/highlight.ts, web/src/doclinks.ts).
   lines: RenderedFileLine[];
   markdownHtml: string | null;
 }

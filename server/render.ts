@@ -59,7 +59,7 @@ export async function renderContent(
       lang: "markdown",
       sha,
       lines,
-      markdownHtml: renderMarkdown(content),
+      markdownHtml: renderMarkdown(content, path),
     };
   }
 

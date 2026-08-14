@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
+import { type DocLink, docLinkFromEvent, markMissingDocLinks } from "../doclinks.ts";
 import {
   type EnterHandler,
   GUTTER_SELECTED,
@@ -156,6 +157,8 @@ function FileViewImpl({
   onSha,
   onPickLines,
   onFileFeedback,
+  onDocLink,
+  hasFile,
   current,
   foldSignal,
 }: {
@@ -186,6 +189,11 @@ function FileViewImpl({
   ) => void;
   // Open the composer anchored to this whole file (the header's feedback button).
   onFileFeedback?: (file: string) => void;
+  // A relative link inside this file's rendered Markdown was clicked: jump the
+  // pane to that file (doclinks.ts). `hasFile` says whether a target is part of
+  // the review, so the ones that aren't render dead instead of no-oping.
+  onDocLink?: (link: DocLink) => void;
+  hasFile?: (path: string) => boolean;
   // Marks this as the scroll-spy's current file — what a per-file shortcut acts
   // on. A boolean, not the current path, so a spy move re-renders only the two
   // cards whose flag changed (this component is memoized).
@@ -213,6 +221,15 @@ function FileViewImpl({
   // literal makes React 19 re-set innerHTML on every commit, wiping selections.
   // Placed with the hooks, before the early return below, to keep hook order stable.
   const markdownHtml = useHtml(data?.markdownHtml ?? "");
+
+  // Dim the doc links pointing outside the review, right after React commits the
+  // server HTML — hence the dependency on the `{__html}` identity, which is what
+  // decides whether that HTML was (re)injected — and again if membership changes
+  // under it.
+  const mdRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (hasFile && markdownHtml.__html) markMissingDocLinks(mdRef.current, hasFile);
+  }, [hasFile, markdownHtml]);
 
   // Until the blob loads we still render a [data-file] stub so the file browser
   // can scroll to it and active-line highlighting can target it.
@@ -260,7 +277,21 @@ function FileViewImpl({
       foldSignal={foldSignal}
     >
       {isMarkdown && mdView === "rendered" ? (
-        <div className="r3-markdown px-5 py-3 text-sm" dangerouslySetInnerHTML={markdownHtml} />
+        // The doc-link click is caught here rather than on the pane so it stays
+        // next to the missing-link marking above. It always preventDefaults: the
+        // anchor's `href="#"` exists only to keep it focusable.
+        // biome-ignore lint/a11y/useKeyWithClickEvents: delegated to real <a>s, which fire click on Enter
+        <div
+          ref={mdRef}
+          className="r3-markdown px-5 py-3 text-sm"
+          onClick={(e) => {
+            const link = docLinkFromEvent(e.target);
+            if (!link) return;
+            e.preventDefault();
+            onDocLink?.(link);
+          }}
+          dangerouslySetInnerHTML={markdownHtml}
+        />
       ) : (
         <CodeBody
           data={data}

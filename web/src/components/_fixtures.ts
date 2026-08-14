@@ -241,6 +241,8 @@ const mdSource = [
   "| --- | --- | --- |",
   "| files | live view of now | yes |",
   "| diff | immutable rounds | no |",
+  "",
+  "See [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md).",
 ];
 export const renderedMarkdown: RenderedFile = {
   path: "README.md",
@@ -250,7 +252,7 @@ export const renderedMarkdown: RenderedFile = {
   sha: "f00ba12",
   lines: mdSource.map((text, i) => ({ lineNo: i + 1, text, html: esc(text) })),
   markdownHtml: [
-    '<h1 data-line-start="1" data-line-end="1">r3</h1>',
+    '<h1 data-line-start="1" data-line-end="1" data-r3-heading="r3">r3</h1>',
     '<p data-line-start="3" data-line-end="3">Review. Revise. Resolve.</p>',
     // Nested blocks carry their own range too (server/highlight.ts tags every
     // mapped token), which is what keeps a note on one bullet/row from
@@ -263,6 +265,14 @@ export const renderedMarkdown: RenderedFile = {
       '<tr data-line-start="10" data-line-end="10"><td>files</td><td>live view of now</td><td>yes</td></tr>' +
       '<tr data-line-start="11" data-line-end="11"><td>diff</td><td>immutable rounds</td><td>no</td></tr>' +
       "</tbody></table>",
+    // The relative links a doc set uses to point at its neighbours, resolved
+    // against this file's directory by the server (server/highlight.ts). The
+    // client jumps the pane to the target instead of navigating; one of these
+    // two isn't in the review, so it renders dead (doclinks.ts).
+    '<p data-line-start="13" data-line-end="13">See <a href="#" class="r3-doclink"' +
+      ' data-r3-doc-file="AGENTS.md" title="AGENTS.md">AGENTS.md</a> and' +
+      ' <a href="#" class="r3-doclink" data-r3-doc-file="CONTRIBUTING.md"' +
+      ' title="CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>',
   ].join("\n"),
 };
 
