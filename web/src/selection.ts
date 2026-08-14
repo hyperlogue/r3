@@ -35,6 +35,12 @@ interface LinePoint {
   file: string | null;
   side: DiffSide | null;
   line: number;
+  // Set when the point resolved through a rendered-markdown block rather than a
+  // per-line row: the narrowed block element and its data-line-start. Block
+  // geometry needs different endpoint corrections than rows — a block's `line`
+  // for an end point is its LAST line, so row arithmetic ("back up one") lands
+  // inside content the selection never touched (see getSelectionAnchor).
+  block?: { el: HTMLElement; start: number };
 }
 
 // Markdown blocks nest (a <li> in its <ul>, a <tr> in <tbody>), and the text
@@ -68,13 +74,25 @@ function pointFrom(node: Node | null, range: Range, which: "start" | "end"): Lin
   const attr = which === "start" ? "data-line-start" : "data-line-end";
   const blockEl = closest(node, attr);
   if (blockEl) {
+    const el = narrowToTouched(blockEl, range, which);
     return {
       file: closest(node, "data-file")?.getAttribute("data-file") ?? null,
       side: null,
-      line: Number(narrowToTouched(blockEl, range, which).getAttribute(attr)),
+      line: Number(el.getAttribute(attr)),
+      block: { el, start: Number(el.getAttribute("data-line-start")) },
     };
   }
   return null;
+}
+
+// Does the selection cover any actual text of `el`? A range ending at the very
+// start of a block still *intersects* it (the boundary point sits inside the
+// element), so intersection can't answer this — measure the covered prefix
+// instead. Setting a clone's start past its own end just collapses it ("").
+function coversText(range: Range, el: HTMLElement): boolean {
+  const r = range.cloneRange();
+  r.setStart(el, 0);
+  return r.toString().trim() !== "";
 }
 
 export function getSelectionAnchor(scope: HTMLElement): PendingAnchor | null {
@@ -110,22 +128,48 @@ export function getSelectionAnchor(scope: HTMLElement): PendingAnchor | null {
 
   let endLine = end?.line ?? start.line;
   // A selection that ends at the very start of a row (caret at offset 0) does
-  // not actually cover that row — back up one.
-  if (end && range.endOffset === 0 && endLine > start.line) endLine -= 1;
+  // not actually cover that row — back up one. Rows only: a block end's `line`
+  // is the block's LAST line, so "-1" would land inside a block the selection
+  // never touched.
+  if (end && !end.block && range.endOffset === 0 && endLine > start.line) endLine -= 1;
+  // The block twin of that correction: an end block the selection doesn't
+  // actually reach into (a triple-click parks the caret at the next block's
+  // offset 0) contributes nothing — back up to just before the block.
+  if (end?.block && endLine > start.line && !coversText(range, end.block.el))
+    endLine = Math.max(start.line, end.block.start - 1);
+
+  let quote = sel.toString();
   // The anchor's file+side come from the start; if the selection crosses into a
   // different file or diff side — or spills out of the file view, so `end` never
   // resolves — don't mix line numbers: clamp to the start.
-  if (!end || end.file !== start.file || end.side !== start.side) endLine = start.line;
+  if (!end || end.file !== start.file || end.side !== start.side) {
+    if (start.block) {
+      // Block geometry: the in-file part of the selection is the start block's
+      // tail. Anchor the whole block — the honest hint; the server relocates by
+      // quote — and cut the quote at the block's edge, so panel or next-file
+      // text never leaks into the anchor of record. The row rule below
+      // (truncate to the first line) would instead throw away every rendered
+      // line after the first soft break.
+      endLine = Number(start.block.el.getAttribute("data-line-end")) || start.line;
+      const r = range.cloneRange();
+      r.setEnd(start.block.el, start.block.el.childNodes.length);
+      quote = r.toString();
+    } else {
+      endLine = start.line;
+    }
+  }
 
   const lo = Math.min(start.line, endLine);
   const hi = Math.max(start.line, endLine);
 
-  let quote = sel.toString();
-  // A single-line anchor: the DOM selection may have run past that line into the
-  // panel or the next file (a drag released outside the file view), so keep only
-  // the line's own text — the quote is the re-anchor key. A genuine
-  // one-line selection has no newline, so this is a no-op for it.
-  if (lo === hi) quote = quote.split("\n", 1)[0];
+  // A single-line ROW anchor: the DOM selection may have run past that line
+  // into the panel or the next file (a drag released outside the file view), so
+  // keep only the line's own text — the quote is the re-anchor key. A genuine
+  // one-line selection has no newline, so this is a no-op for it. Never for a
+  // block anchor: one source line legitimately renders many lines of text (a
+  // table row's cells), and the spill case was already clamped at the block's
+  // edge above.
+  if (lo === hi && !start.block) quote = quote.split("\n", 1)[0];
   if (!quote.trim()) return null;
   quote = capQuote(quote);
 
