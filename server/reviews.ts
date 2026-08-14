@@ -14,7 +14,7 @@ import type {
   ReviewDetail,
   SnapshotMeta,
 } from "../shared/types.ts";
-import { capQuote, SUMMARY_FILE } from "../shared/types.ts";
+import { capQuote, MAX_QUOTE_LINES, SUMMARY_FILE } from "../shared/types.ts";
 import { findQuote, type ProjectedDoc, projectDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
@@ -620,8 +620,20 @@ export async function addFeedback(
       lineEnd,
     );
     if (at) {
+      // The quote may be only the selection's LEADING lines (capQuote), so a
+      // match starting exactly at the sent start keeps the sent end — the sent
+      // range is row-exact there (code, raw view) and "the recorded line range
+      // keeps the full span either way — only the quote is truncated". A match
+      // starting elsewhere means the sent range was a block hint (rendered
+      // markdown), where the quote's own lines are the best extent we have.
+      // Only when the quote is long enough to have been truncated: a shorter
+      // quote covers its whole selection, and its match IS the extent (keeping
+      // the sent end there would re-widen a markdown block hint).
+      const mayBeTruncated = (quote as string).split("\n").length >= MAX_QUOTE_LINES;
+      const sentEnd = lineEnd ?? (lineStart as number);
+      const keepSentEnd = mayBeTruncated && at.lineStart === lineStart;
       lineStart = at.lineStart;
-      lineEnd = at.lineEnd;
+      lineEnd = keepSentEnd ? Math.max(at.lineEnd, sentEnd) : at.lineEnd;
     }
   }
   const codeSha = quote ? await blobSha(quote) : null;
