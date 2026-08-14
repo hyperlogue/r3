@@ -114,11 +114,33 @@ export function findQuote(
   }
   if (offsets.length > 0) {
     const best = nearestOffset(offsets, lineOf, hintLine, hintEndLine);
+    // A verbatim copy inside the hinted span is the anchor — settle immediately.
+    if (hintLine == null || hintDistance(lineOf[best], hintLine, hintEndLine) === 0)
+      return windowMatch(best, best + target.length, lines, lineOf);
+    // Every verbatim copy sits OUTSIDE the span the note was left in. A
+    // rendered-Markdown quote loses its markup, so the copy *at* the note can
+    // fail the exact search (backticks, emphasis, link syntax) while a plain
+    // near-duplicate elsewhere passes — and anchoring there silently mis-points,
+    // the one thing this module must never do. Before settling for the far copy,
+    // fuzzy-search just the hinted span: a within-threshold hit there is the
+    // likelier anchor. Nothing inside → the far copy stands (a real relocation,
+    // e.g. the text moved and the hint is stale).
+    const near = fuzzyFindNearHint(norm, target, lineOf, hintLine, hintEndLine);
+    if (near) return windowMatch(near.start, near.end, lines, lineOf);
     return windowMatch(best, best + target.length, lines, lineOf);
   }
 
   // No verbatim match — fall back to the fuzzy search (rendered-Markdown markup,
-  // minor edits). Bail rather than mis-point if it, too, comes up empty.
+  // minor edits). The hinted span gets first claim here too: the global search
+  // minimizes edits and only tie-breaks by hint, so the copy the note was left
+  // on — costing extra edits for its stripped markup — lost to any near-
+  // duplicate elsewhere (one case-changed word beats two `**`). Only when
+  // nothing within threshold sits at the hint does the global search decide.
+  // Bail rather than mis-point if it, too, comes up empty.
+  if (hintLine != null) {
+    const near = fuzzyFindNearHint(norm, target, lineOf, hintLine, hintEndLine);
+    if (near) return windowMatch(near.start, near.end, lines, lineOf);
+  }
   const hit = fuzzyFind(norm, target, lineOf, hintLine, hintEndLine);
   if (!hit) return null;
   return windowMatch(hit.start, hit.end, lines, lineOf);
@@ -178,6 +200,45 @@ function windowMatch(
 interface FuzzyHit {
   start: number; // inclusive offset into the normalized projection
   end: number; // exclusive
+}
+
+// First index whose lineOf value is >= line (lineOf is nondecreasing).
+function lowerBound(lineOf: number[], line: number): number {
+  let lo = 0;
+  let hi = lineOf.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (lineOf[mid] < line) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+// Fuzzy-search only the projection slice covering the hinted lines (plus a
+// quote-sized margin on each side so a match may straddle the span's edge).
+// Used by findQuote's exact path when every verbatim copy lies outside the hint:
+// the slice keeps the DP tiny, and a hit is accepted only if it actually touches
+// the hinted lines — a margin-only hit would be the far-copy problem again.
+function fuzzyFindNearHint(
+  norm: string,
+  target: string,
+  lineOf: number[],
+  hintLine: number,
+  hintEndLine?: number | null,
+): FuzzyHit | null {
+  const lo0 = hintLine - 1;
+  const hi0 = Math.max(lo0, (hintEndLine ?? hintLine) - 1);
+  let lo = lowerBound(lineOf, lo0);
+  let hi = lowerBound(lineOf, hi0 + 1);
+  if (lo >= hi) return null;
+  lo = Math.max(0, lo - target.length);
+  hi = Math.min(norm.length, hi + target.length);
+  const hit = fuzzyFind(norm.slice(lo, hi), target, lineOf.slice(lo, hi), hintLine, hintEndLine);
+  if (!hit) return null;
+  const startLine = lineOf[hit.start + lo];
+  const endLine = lineOf[hit.end + lo - 1] ?? startLine;
+  if (endLine < lo0 || startLine > hi0) return null;
+  return { start: hit.start + lo, end: hit.end + lo };
 }
 
 // Cheap pre-filter for fuzzyFind: does the quote's longest alphanumeric token
