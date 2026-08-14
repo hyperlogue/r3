@@ -1,14 +1,17 @@
 // The in-browser "backend". It reimplements the daemon's domain rules against the
 // localStorage store, reusing the server's genuinely PURE modules verbatim — the
-// quote relocation (anchor.ts), the line differ (textdiff.ts), the agent-prompt
-// builder (prompt.ts), and the unsent predicate (shared/types.ts). Everything git-
+// quote relocation (anchor.ts) and its rendered-markdown projection
+// (mdproject.ts — markdown-it only, no highlighter), the line differ
+// (textdiff.ts), the agent-prompt builder (prompt.ts), and the unsent predicate
+// (shared/types.ts). Everything git-
 // or sqlite-bound is replaced by the store; every rendered payload is pre-baked at
 // build time, so no highlighter ships to the browser (see model.ts / fixtures).
 //
 // The rules here mirror server/reviews.ts closely (derive-quote, delivery/sent_at
 // bookkeeping, re-anchoring, the SSE events fired) so the UI behaves identically.
 
-import { findQuote, normalizeWs, projectDoc } from "../../server/anchor.ts";
+import { findQuoteAcross, normalizeWs, type ProjectedDoc } from "../../server/anchor.ts";
+import { projectionsFor } from "../../server/mdproject.ts";
 import { buildUnsentPrompt } from "../../server/prompt.ts";
 import { diffFile, FULL_CONTEXT } from "../../server/textdiff.ts";
 import {
@@ -79,20 +82,20 @@ function require404<T>(v: T | undefined | null, what: string): T {
 
 function reanchorFilesReview(rv: Review): void {
   if (rv.kind !== "files") return;
-  const docs = new Map<string, ReturnType<typeof projectDoc> | null>();
+  const docs = new Map<string, ProjectedDoc[] | null>();
   for (const fb of s().feedback) {
     if (fb.review_id !== rv.id || !fb.quote || fb.file === SUMMARY_FILE) continue;
     let doc = docs.get(fb.file);
     if (doc === undefined) {
       const content = getState().fileContents[rv.id]?.[fb.file];
-      doc = content == null ? null : projectDoc(content);
+      doc = content == null ? null : projectionsFor(fb.file, content);
       docs.set(fb.file, doc);
     }
     if (doc == null) {
       fb.anchor = "outdated";
       continue;
     }
-    const match = findQuote(doc, fb.quote, fb.line_start, fb.line_end);
+    const match = findQuoteAcross(doc, fb.quote, fb.line_start, fb.line_end);
     if (!match) {
       fb.anchor = "outdated";
       continue;

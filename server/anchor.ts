@@ -7,13 +7,14 @@
 // A quote captured in the browser comes from *rendered* text: selecting inside a
 // Markdown block yields the prose with source markup stripped (`` `code` ``,
 // *em*, `[links]`), so a verbatim substring search against the raw file misses
-// even when the text is plainly there. When the exact search fails we fall back
-// to an edit-distance search for the closest window (`fuzzyFind`), which tolerates
-// the handful of markup characters the renderer dropped. Anchoring rendered
-// Markdown onto its source is inherently lossy — this closes the common cases
-// (inline code, emphasis) without pretending to solve it in general.
+// even when the text is plainly there. Markdown files therefore search TWO
+// projections of the same content (findQuoteAcross): the rendered-text
+// projection (mdproject.ts — what the browser shows, where such quotes match
+// exactly) and the raw source (agent CLI quotes, the raw view). The
+// edit-distance fallback (`fuzzyFind`) still catches minor edits in any
+// projection.
 
-interface AnchorMatch {
+export interface AnchorMatch {
   lineStart: number; // 1-based
   lineEnd: number; // 1-based
   text: string; // the matched span's current text
@@ -83,67 +84,93 @@ export function projectDoc(content: string): ProjectedDoc {
   return { lines, norm, lineOf };
 }
 
-// Find `quote` in a projected file, whitespace-insensitively, preferring the
-// occurrence nearest the hint — the caller's *range* (`hintLine`..`hintEndLine`,
-// 1-based), not just its first line: an occurrence anywhere inside the hinted
-// span is equally "at" the hint, so a repeated phrase resolves to the copy the
-// note was actually left on rather than to whichever copy happens to sit closer
-// to the span's first line. Matters most for a rendered-Markdown anchor, whose
-// hint is the whole enclosing block. Omitting `hintEndLine` collapses the range
-// to the single line and behaves exactly as before. Returns the matched 1-based
-// line range, or null.
-export function findQuote(
-  doc: ProjectedDoc,
+// Find `quote` across every projection of one file (rendered markdown; raw
+// source — see mdproject.ts projectionsFor), whitespace-insensitively. All
+// projections map back to the same source lines, so the winner's provenance
+// doesn't matter to the caller.
+//
+// The hint is the caller's *range* (`hintLine`..`hintEndLine`, 1-based), not
+// just its first line: an occurrence anywhere inside the hinted span is equally
+// "at" the hint, so a repeated phrase resolves to the copy the note was
+// actually left on. Omitting `hintEndLine` collapses the range to the single
+// line.
+//
+// Candidates rank by locality first, precision second — across ALL projections
+// at each stage, not projection-by-projection:
+//
+//   1. verbatim, inside the hinted span
+//   2. fuzzy, inside the hinted span
+//   3. verbatim anywhere, nearest the hint
+//   4. fuzzy anywhere (global best window)
+//
+// Locality-first is what keeps the search from silently mis-pointing — the one
+// thing this module must never do. A rendered-Markdown quote loses its markup,
+// so the copy *at* the note can fail the exact search (backticks, emphasis,
+// link syntax) while a plain near-duplicate elsewhere passes; and the global
+// fuzzy minimizes edits, so one case-changed word in that duplicate would beat
+// the true copy behind its two `**`. Only when the hinted span has nothing
+// within threshold do the global stages decide — a real relocation (the text
+// moved; the hint is stale). Cross-projection staging matters for the same
+// reason: a verbatim raw-source hit (an agent's CLI quote, markup intact) must
+// not lose to a sloppier fuzzy window in the rendered projection.
+export function findQuoteAcross(
+  docs: ProjectedDoc[],
   quote: string,
   hintLine?: number | null,
   hintEndLine?: number | null,
 ): AnchorMatch | null {
   const target = normalizeWs(quote);
   if (!target) return null;
-  const { norm, lineOf, lines } = doc;
 
-  // Exact fast path: collect all verbatim occurrences, pick the one nearest the
-  // hint. Handles unchanged code/plain prose without paying for the DP below.
-  const offsets: number[] = [];
-  let from = 0;
-  for (;;) {
-    const idx = norm.indexOf(target, from);
-    if (idx === -1) break;
-    offsets.push(idx);
-    from = idx + 1;
-  }
-  if (offsets.length > 0) {
-    const best = nearestOffset(offsets, lineOf, hintLine, hintEndLine);
-    // A verbatim copy inside the hinted span is the anchor — settle immediately.
-    if (hintLine == null || hintDistance(lineOf[best], hintLine, hintEndLine) === 0)
-      return windowMatch(best, best + target.length, lines, lineOf);
-    // Every verbatim copy sits OUTSIDE the span the note was left in. A
-    // rendered-Markdown quote loses its markup, so the copy *at* the note can
-    // fail the exact search (backticks, emphasis, link syntax) while a plain
-    // near-duplicate elsewhere passes — and anchoring there silently mis-points,
-    // the one thing this module must never do. Before settling for the far copy,
-    // fuzzy-search just the hinted span: a within-threshold hit there is the
-    // likelier anchor. Nothing inside → the far copy stands (a real relocation,
-    // e.g. the text moved and the hint is stale).
-    const near = fuzzyFindNearHint(norm, target, lineOf, hintLine, hintEndLine);
-    if (near) return windowMatch(near.start, near.end, lines, lineOf);
-    return windowMatch(best, best + target.length, lines, lineOf);
-  }
+  // Verbatim occurrences per projection, nearest-to-hint (cheap indexOf scans).
+  const exacts = docs.map((doc) => {
+    const offsets: number[] = [];
+    let from = 0;
+    for (;;) {
+      const idx = doc.norm.indexOf(target, from);
+      if (idx === -1) break;
+      offsets.push(idx);
+      from = idx + 1;
+    }
+    if (offsets.length === 0) return null;
+    const best = nearestOffset(offsets, doc.lineOf, hintLine, hintEndLine);
+    return {
+      best,
+      inHint: hintLine == null || hintDistance(doc.lineOf[best], hintLine, hintEndLine) === 0,
+    };
+  });
 
-  // No verbatim match — fall back to the fuzzy search (rendered-Markdown markup,
-  // minor edits). The hinted span gets first claim here too: the global search
-  // minimizes edits and only tie-breaks by hint, so the copy the note was left
-  // on — costing extra edits for its stripped markup — lost to any near-
-  // duplicate elsewhere (one case-changed word beats two `**`). Only when
-  // nothing within threshold sits at the hint does the global search decide.
-  // Bail rather than mis-point if it, too, comes up empty.
+  for (let i = 0; i < docs.length; i++) {
+    const e = exacts[i];
+    if (e?.inHint)
+      return windowMatch(e.best, e.best + target.length, docs[i].lines, docs[i].lineOf);
+  }
   if (hintLine != null) {
-    const near = fuzzyFindNearHint(norm, target, lineOf, hintLine, hintEndLine);
-    if (near) return windowMatch(near.start, near.end, lines, lineOf);
+    for (const doc of docs) {
+      const near = fuzzyFindNearHint(doc.norm, target, doc.lineOf, hintLine, hintEndLine);
+      if (near) return windowMatch(near.start, near.end, doc.lines, doc.lineOf);
+    }
   }
-  const hit = fuzzyFind(norm, target, lineOf, hintLine, hintEndLine);
-  if (!hit) return null;
-  return windowMatch(hit.start, hit.end, lines, lineOf);
+  for (let i = 0; i < docs.length; i++) {
+    const e = exacts[i];
+    if (e) return windowMatch(e.best, e.best + target.length, docs[i].lines, docs[i].lineOf);
+  }
+  for (const doc of docs) {
+    const hit = fuzzyFind(doc.norm, target, doc.lineOf, hintLine, hintEndLine);
+    if (hit) return windowMatch(hit.start, hit.end, doc.lines, doc.lineOf);
+  }
+  return null;
+}
+
+// The single-projection view of the same search — non-markdown callers and the
+// per-file re-anchor fast path.
+export function findQuote(
+  doc: ProjectedDoc,
+  quote: string,
+  hintLine?: number | null,
+  hintEndLine?: number | null,
+): AnchorMatch | null {
+  return findQuoteAcross([doc], quote, hintLine, hintEndLine);
 }
 
 // How far a (0-based) line sits from the hinted span: zero anywhere inside it,

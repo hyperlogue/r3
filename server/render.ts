@@ -4,13 +4,8 @@
 
 import type { RenderedFile, RenderedFileLine } from "../shared/types.ts";
 import { blobSha, readContentAt } from "./git.ts";
-import {
-  escapeHtml,
-  highlightToLines,
-  isMarkdown,
-  langForPath,
-  renderMarkdown,
-} from "./highlight.ts";
+import { escapeHtml, highlightToLines, langForPath, renderMarkdown } from "./highlight.ts";
+import { isMarkdown } from "./mdproject.ts";
 import type { Repo } from "./repo.ts";
 
 export async function renderFile(

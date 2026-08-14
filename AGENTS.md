@@ -97,8 +97,13 @@ server/          Hono daemon + bun:sqlite global store
                  + rehunk(): regroup rows at N context lines, marking each hunk
                  with the held-but-hidden `expandable` counts
   anchor.ts      quote relocation — keep feedback from orphaning
+  mdproject.ts   the markdown-it instance + rendered-text projection of a .md
+                 (what the browser shows, mapped back to source lines) — the
+                 first projection anchor.ts searches; Shiki-free so the demo's
+                 backend mirror can import it
   dirty.ts       lazy re-anchor gate: only re-anchor a review whose files changed
-  highlight.ts   Shiki (code) + markdown-it (.md), content-sha cached
+  highlight.ts   Shiki (code) + markdown render (decorates mdproject's instance
+                 with images/doclinks/data-line rules), content-sha cached
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
   prompt.ts      the agent-prompt text (same as the UI's "Copy prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
@@ -331,15 +336,23 @@ re-points, on any review kind: `r3 reanchor <fid> --quote "<new text>"`.
 fresh from **both sides**:
 
 1. **Automatic (server, `anchor.ts`).** On render / file-change, search for `quote`
-   near the recorded **range**, whitespace-insensitively — an occurrence anywhere
-   inside `line_start..line_end` counts as "at" the hint, so a repeated phrase
-   resolves to the copy the note sits on rather than one nearer the range's first
-   line; on an exact miss, a bounded
-   edit-distance pass (`fuzzyFind`, ≤25% edits, token-prefiltered and DP-capped)
-   still relocates a quote whose markup the browser stripped. Found → relocate +
-   update the range + `code_sha`, `anchor='anchored'`. Neither → `anchor='outdated'`,
-   keep the original quote, surface "the code this refers to changed." **Never
-   silently mis-point.** **Lazy** (`server/dirty.ts`): re-anchoring re-reads files,
+   near the recorded **range**, whitespace-insensitively. A markdown file is
+   searched in **two projections** of the same content (`findQuoteAcross`): the
+   **rendered-text projection** (`mdproject.ts` — the parsed token stream flattened
+   to what the browser shows, entities decoded and markup stripped, each character
+   mapped back to its source line), where a browser selection's quote matches
+   *exactly* — links, tables, emphasis included — and the raw source (agent CLI
+   quotes, the raw view; the only projection other file kinds have). Candidates
+   rank **locality first, precision second**, across all projections per stage:
+   verbatim-in-hint, fuzzy-in-hint, verbatim anywhere, fuzzy anywhere — an
+   occurrence anywhere inside `line_start..line_end` counts as "at" the hint, so a
+   repeated phrase resolves to the copy the note sits on, and a plain
+   near-duplicate elsewhere can't outbid the marked-up copy at the note. The fuzzy
+   stages are a bounded edit-distance pass (`fuzzyFind`, ≤25% edits,
+   token-prefiltered and DP-capped). Found → relocate + update the range +
+   `code_sha`, `anchor='anchored'`. Nothing → `anchor='outdated'`, keep the
+   original quote, surface "the code this refers to changed." **Never silently
+   mis-point.** **Lazy** (`server/dirty.ts`): re-anchoring re-reads files,
    so it runs only when a review is _dirty_ — the watcher marked a referenced file
    changed, or the review hasn't been anchored this daemon lifetime. An incidental
    refetch (a reply, a status flip) skips it, so an item flips to `outdated` only

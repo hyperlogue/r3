@@ -15,11 +15,12 @@ import type {
   SnapshotMeta,
 } from "../shared/types.ts";
 import { capQuote, MAX_QUOTE_LINES, SUMMARY_FILE } from "../shared/types.ts";
-import { findQuote, type ProjectedDoc, projectDoc } from "./anchor.ts";
+import { findQuoteAcross, type ProjectedDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
 import { blobSha, readContentAt, snapshotDiff } from "./git.ts";
 import { newReviewId, nowIso } from "./ids.ts";
+import { projectionsFor } from "./mdproject.ts";
 import {
   fitPatchToLimit,
   forgetRenderedRounds,
@@ -62,7 +63,7 @@ export async function reanchorReview(repo: Repo, review: Review): Promise<boolea
   // Many feedback typically share one file, so read + project each file at most
   // once per pass (undefined = not yet loaded, null = file absent) instead of
   // re-reading and re-scanning it per feedback.
-  const docs = new Map<string, ProjectedDoc | null>();
+  const docs = new Map<string, ProjectedDoc[] | null>();
   for (const fb of db.listFeedback(review.id)) {
     if (!fb.quote) continue;
     // Summary feedback anchors to prose in the review/round summary, not a
@@ -71,7 +72,7 @@ export async function reanchorReview(repo: Repo, review: Review): Promise<boolea
     let doc = docs.get(fb.file);
     if (doc === undefined) {
       const content = await readContentAt(repo, fb.file, src.ref);
-      doc = content == null ? null : projectDoc(content);
+      doc = content == null ? null : projectionsFor(fb.file, content);
       docs.set(fb.file, doc);
     }
     if (doc == null) {
@@ -81,7 +82,7 @@ export async function reanchorReview(repo: Repo, review: Review): Promise<boolea
       }
       continue;
     }
-    const match = findQuote(doc, fb.quote, fb.line_start, fb.line_end);
+    const match = findQuoteAcross(doc, fb.quote, fb.line_start, fb.line_end);
     if (!match) {
       if (fb.anchor !== "outdated") {
         db.updateFeedback(fb.id, { anchor: "outdated" });
@@ -493,7 +494,7 @@ async function locateQuote(
   // The whole hinted span is the hint, not just its first line: the selection
   // happened somewhere inside that block, so a repeated phrase must resolve to
   // the copy *in* it rather than one that merely sits closer to its first line.
-  const match = findQuote(projectDoc(content), quote, hintLine, hintEndLine);
+  const match = findQuoteAcross(projectionsFor(file, content), quote, hintLine, hintEndLine);
   return match ? { lineStart: match.lineStart, lineEnd: match.lineEnd } : null;
 }
 

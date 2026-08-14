@@ -3,9 +3,9 @@
 // never reaches the browser. Dual-theme (light+dark) in one pass via CSS
 // variables, and per-blob caching keyed by content sha.
 
-import MarkdownIt from "markdown-it";
 import { bundledThemesInfo, codeToTokens, type ThemedToken } from "shiki";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
+import { md, REMOTE_URL_RE } from "./mdproject.ts";
 
 // Curated syntax-theme *families*: each is a light/dark pair mapped onto the
 // `--shiki-light` / `--shiki-dark` CSS variables, so the client's dark-mode
@@ -165,10 +165,6 @@ export function langForPath(path: string): string | null {
   return EXT_LANG[ext] ?? null;
 }
 
-export function isMarkdown(path: string): boolean {
-  return /\.(md|markdown|mdx)$/i.test(path);
-}
-
 function styleOf(t: ThemedToken): string {
   const s = t.htmlStyle;
   if (!s) return t.color ? `color:${t.color}` : "";
@@ -277,20 +273,13 @@ export async function highlightToLines(
 
 // ---- Markdown render with per-block source-line mapping. Every mapped block
 // token gets data-line-start/end so the client can anchor feedback to a
-// heading/paragraph/code-fence/list-item/table-row by source line. ----
+// heading/paragraph/code-fence/list-item/table-row by source line. The `md`
+// instance itself lives in mdproject.ts (the anchor search projects the same
+// parse — the two must agree on what the browser shows); this module decorates
+// it with the render-only rules below.
 
-const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
-// Same two hardening rules the client renderer applies to messages
-// (web/src/markdown.ts) — a reviewed `.md` comes from a tree we don't trust, so
-// it needs them at least as much.
-//
-// Scheme-required auto-linking only: fuzzy mode promotes any bare filename whose
-// extension doubles as a TLD — README.md, setup.py, build.sh — and every bare
-// domain in prose into a live external link that isn't in the file's markup.
-md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
 // Remote images fetch with no click, so they'd beacon on view; render them as
-// links instead. `data:` makes no request. (Twin: REMOTE_URL_RE in web/src/markdown.ts.)
-const REMOTE_URL_RE = /^(?!data:)[a-z][a-z0-9+.-]*:|^\/\//i;
+// links instead (REMOTE_URL_RE, mdproject.ts).
 const defaultImage =
   md.renderer.rules.image ??
   ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
