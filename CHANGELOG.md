@@ -4,6 +4,34 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.3] - 2026-08-15
+
+### Changed
+
+- **Focusing a note no longer moves the file pane.** Resolving or replying
+  advances to the next card — and `j`/`k` walk the list — with each anchor
+  ringing where it already is; the pane jumps only on an explicit locate: a
+  card's file:line header, a reply's pin, or `o`.
+
+### Fixed
+
+- **Selecting rendered Markdown anchors exactly what you picked.**
+  - A quote crossing a link, a table row, bold text, or an `&nbsp;` is matched
+    against the text the browser shows, so it no longer comes back "the text
+    this refers to changed" the moment it's saved.
+  - When a doc repeats a phrase, the note — and its highlight — lands on the
+    copy you selected, not a near-duplicate elsewhere in the file.
+  - A selection longer than the quote cap keeps its full line range instead of
+    being rewritten to the quote's first lines.
+  - A triple-clicked paragraph no longer extends the anchor into the block
+    after it, and a drag released over the feedback panel keeps the paragraph's
+    whole text in the quote.
+- **Relative links between reviewed docs work.** A `[setup.md](setup.md)` link
+  in a rendered `.md` opened a URL that never existed; it now jumps to that
+  file's card in the review — `#heading` fragments included — and a link to a
+  file outside the review renders as dead instead of looking live and doing
+  nothing.
+
 ## [0.9.2] - 2026-08-12
 
 ### Fixed
@@ -296,6 +324,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.9.3]: https://github.com/hyperlogue/r3/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/hyperlogue/r3/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/hyperlogue/r3/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/hyperlogue/r3/compare/v0.8.0...v0.9.0
