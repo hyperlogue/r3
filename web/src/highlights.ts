@@ -26,13 +26,15 @@ import { fileScrollKey, type ScrollToLine } from "./virtual.tsx";
 
 // Imperatively ring the lines an active feedback points at (its DOM rows live
 // inside dangerouslySetInnerHTML content, so we toggle a class directly) and,
-// only on a human navigation, scroll them to ~30% of the pane. Two concerns,
+// only on an explicit locate, scroll them to ~30% of the pane. Two concerns,
 // split: the effect re-runs and re-marks the rows on any anchor-primitive change
 // (so a live re-anchor keeps the ring on the right line), but it issues a scroll
-// ONLY when `fbId` or `scrollNonce` differs from the previous run — the human
-// clicked a feedback, or re-clicked locate. A background anchor shift (server
-// re-anchor → new line_start, or a diff-placement move) re-rings in place without
-// yanking the pane. Even a navigation skips the scroll when the anchored rows are
+// ONLY when `scrollNonce` differs from the previous run — the human clicked a
+// card's file:line header, a reply's pin, or pressed `o`. Merely *focusing* a
+// different card (resolve/reply advancing down the list, `j`/`k`, clicking a
+// highlighted region) re-rings in place without yanking the pane, as does a
+// background anchor shift (server re-anchor → new line_start, or a
+// diff-placement move). Even a locate skips the scroll when the anchored rows are
 // already fully on screen — saving a note on the selection under your eyes (or
 // locating a visible line) rings in place instead of re-seating the pane.
 export function useActiveLineHighlight(
@@ -48,13 +50,19 @@ export function useActiveLineHighlight(
   const lineEnd = fb?.line_end ?? null;
   const patchSeq = fb?.patch_seq ?? null;
   const quote = fb?.quote ?? null;
-  // The fbId/scrollNonce of the previous run, so a run can tell a human navigation
-  // (scroll) from an anchor merely shifting under a stable selection (mark only).
-  const prevScroll = useRef<{ fbId: string | null; nonce: number }>({ fbId: null, nonce: -1 });
+  // The scrollNonce of the previous run, so a run can tell an explicit locate
+  // (scroll) from focus landing on a card or an anchor shifting (mark only).
+  // Initialized to the mount-time nonce so the first mere focus doesn't scroll.
+  const prevScroll = useRef(scrollNonce);
   // scrollNonce is both read (to decide shouldScroll below) and a dep, so an
   // explicit locate click re-runs this and re-scrolls even when the anchor hasn't
   // changed.
   useEffect(() => {
+    // Consume the nonce before any bail (the summary bail below runs for summary
+    // notes), so a locate that this run can't act on doesn't linger and fire a
+    // scroll on a later focus-only run.
+    const shouldScroll = scrollNonce !== prevScroll.current;
+    prevScroll.current = scrollNonce;
     const root = scope.current;
     if (!root) return;
     for (const el of root.querySelectorAll(".r3-active-line"))
@@ -69,11 +77,6 @@ export function useActiveLineHighlight(
     // summary quote's highlight that the summary hook won't re-paint.
     if (file === SUMMARY_FILE) return;
     setHighlightRanges(HL_ACTIVE, []);
-    // Scroll only on a human navigation — a new feedback or a re-clicked locate; a
-    // background anchor shift (same fbId + nonce) re-marks the rows in place.
-    const shouldScroll =
-      fbId !== prevScroll.current.fbId || scrollNonce !== prevScroll.current.nonce;
-    prevScroll.current = { fbId, nonce: scrollNonce };
     // A whole-file note has a real path but no line span: bring the file's header
     // into view without marking a row. Retry across a few frames so a folded file
     // that locateFeedback just unfolded has time to mount.
@@ -298,8 +301,13 @@ export function useActiveSummaryHighlight(fb: FeedbackWithReplies | null, scroll
   const fbId = fb?.id ?? null;
   const patchSeq = fb?.patch_seq ?? null;
   const quote = fb?.quote ?? null;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scrollNonce is an intentional re-trigger dep
+  // Same locate-vs-focus split as useActiveLineHighlight: only a nonce bump (an
+  // explicit locate) scrolls; focus landing on a summary note marks in place.
+  const prevScroll = useRef(scrollNonce);
   useEffect(() => {
+    // Consume the nonce before the non-summary bail, mirroring the line hook.
+    const shouldScroll = scrollNonce !== prevScroll.current;
+    prevScroll.current = scrollNonce;
     for (const el of document.querySelectorAll(".r3-summary-active"))
       el.classList.remove("r3-summary-active");
     // Only clear/drive HL_ACTIVE for an actual summary note. The shared HL_ACTIVE
@@ -326,13 +334,15 @@ export function useActiveSummaryHighlight(fb: FeedbackWithReplies | null, scroll
       // scrollIntoView on the quote's element pulls it through every scroll
       // ancestor (the summary's own max-h scroll AND the pane), so it lands even
       // when the quote sits below the summary bar's internal fold.
-      (range.startContainer.parentElement ?? block).scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      if (shouldScroll) {
+        (range.startContainer.parentElement ?? block).scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
     } else {
       block.classList.add("r3-summary-active");
-      block.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (shouldScroll) block.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     return () => setHighlightRanges(HL_ACTIVE, []);
   }, [isSummary, fbId, patchSeq, quote, scrollNonce]);

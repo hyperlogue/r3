@@ -477,6 +477,16 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [ensureFileOpen, closeSheetForJump],
   );
 
+  // Focus a feedback without moving the content pane: light its card and re-ring
+  // its anchor where it already is. Everything that merely shifts *which* note is
+  // current — resolve/reply advancing down the list, `j`/`k`, clicking a
+  // highlighted region — goes through this; only an explicit locate (the card's
+  // file:line header, a reply's pin, `o`) jumps the pane, via locateFeedback's
+  // scrollNonce bump.
+  const focusFeedback = useCallback((fb: FeedbackWithReplies | null) => {
+    setActiveFbId(fb?.id ?? null);
+  }, []);
+
   // The inverse of the above: click a highlighted region in the file pane to jump
   // the feedback panel to its feedback (regions carry data-fb-id, set by
   // useRegionHighlight). A *plain* click only — a drag that leaves a selection is
@@ -500,12 +510,14 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         ? refineMarkdownClick(holder, e.clientX, e.clientY, unresolvedRegions, fallbackId)
         : null;
       const fb = id ? detail?.feedback.find((f) => f.id === id) : null;
-      if (fb) locateFeedback(fb);
-      else setActiveFbId(null);
+      // Focus, don't locate: the clicked region is already under the cursor, so
+      // there is nothing to scroll to — only the feedback panel moves (its card
+      // scrolls into view off the activeFeedbackId change).
+      focusFeedback(fb ?? null);
     };
     root.addEventListener("click", onClick);
     return () => root.removeEventListener("click", onClick);
-  }, [detail, locateFeedback, unresolvedRegions]);
+  }, [detail, focusFeedback, unresolvedRegions]);
 
   // The list of files shown in the center, for the file browser + scroll-spy.
   // For a diff review only the active round renders, so the browser lists that
@@ -1272,6 +1284,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       activeFeedbackId={activeFbId}
       scrollNonce={scrollNonce}
       onLocateFeedback={locateFeedback}
+      onFocusFeedback={focusFeedback}
       onLocatePin={locatePin}
       onJumpRef={jumpToRef}
       coarse={coarse}

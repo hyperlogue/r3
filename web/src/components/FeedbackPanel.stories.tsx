@@ -51,6 +51,7 @@ const meta = {
     activeFeedbackId: null,
     scrollNonce: 0,
     onLocateFeedback: fn(),
+    onFocusFeedback: fn(),
     onLocatePin: fn(),
     onJumpRef: fn(),
   },

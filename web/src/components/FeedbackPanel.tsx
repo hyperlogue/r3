@@ -652,6 +652,7 @@ function FeedbackCard({
   fb,
   reviewId,
   onLocate,
+  onFocus,
   onLocatePin,
   onResolved,
   onReplied,
@@ -664,6 +665,9 @@ function FeedbackCard({
   fb: FeedbackWithReplies;
   reviewId: string;
   onLocate: () => void;
+  // Re-select this card without jumping the content pane (the error-recovery
+  // "bring focus back" — the card matters there, not its anchor).
+  onFocus: () => void;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
   onResolved: () => void;
   // Plain reply (no resolve) landed — hand focus to the next open item.
@@ -890,8 +894,9 @@ function FeedbackCard({
       reportError(`Couldn't save — ${apiErrorText(e)}`);
       // onMutate advanced focus to the next card; bring it back so the restored
       // draft and the error banner aren't stranded on an unfocused, possibly
-      // scrolled-away card.
-      onLocate();
+      // scrolled-away card. Focus only — the panel scrolls this card into view;
+      // the content pane has no reason to move.
+      onFocus();
       // The reply never left the browser → put the draft back so it isn't lost. If
       // it did post and only the resolve failed, leave the composer empty: the
       // restore() refetch brings the real reply back and a retry can't dup it.
@@ -1419,6 +1424,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   activeFeedbackId,
   scrollNonce,
   onLocateFeedback,
+  onFocusFeedback,
   onLocatePin,
   onJumpRef,
   coarse = false,
@@ -1431,8 +1437,15 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   activeFeedbackId: string | null;
   // Bumped on each locate so re-selecting the already-active feedback re-scrolls.
   scrollNonce: number;
-  // null clears the active feedback (focus nothing).
+  // Locate: focus the feedback AND jump the content pane to its anchor. Only the
+  // explicit "take me there" controls fire it — a card's file:line header and the
+  // `o` key. null clears the active feedback (focus nothing).
   onLocateFeedback: (fb: FeedbackWithReplies | null) => void;
+  // Focus without the jump: the card lights (and scrolls into view in THIS
+  // panel), the anchor rings where it already is, the content pane stays put.
+  // Everything that merely moves the selection — resolve/reply advancing,
+  // `j`/`k`, the optimistic-create select — fires this.
+  onFocusFeedback: (fb: FeedbackWithReplies | null) => void;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
   // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message. The
   // second arg is the message's pinned version — a reply's `ref_version` (round /
@@ -1635,10 +1648,13 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // was last, fall back to the new last; if nothing's left, focus nothing.
   // Computed off this render's pre-resolve `ordered` list (the displayed,
   // attention-first order — which still includes the item being resolved).
+  // Focus, not locate (both advances): the human is working the *list*, so the
+  // content pane must not chase each next card's anchor across the review —
+  // jumping stays an explicit gesture (the file:line header, `o`).
   const advanceAfterResolve = (resolvedId: string) => {
     const idx = ordered.findIndex((f) => f.id === resolvedId);
     const remaining = ordered.filter((f) => f.id !== resolvedId);
-    onLocateFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
+    onFocusFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
   };
 
   // Replying (without resolving) to an attention-group card sinks it out of the
@@ -1653,7 +1669,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     const idx = ordered.findIndex((f) => f.id === repliedId);
     if (idx < 0 || !needsAttention(ordered[idx])) return;
     const next = ordered[idx + 1];
-    if (next) onLocateFeedback(next);
+    if (next) onFocusFeedback(next);
   };
 
   // One card renderer for both tabs. The Active tab maps it over `ordered` (the
@@ -1669,6 +1685,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       reviewId={detail.id}
       isActive={fb.id === activeFeedbackId}
       onLocate={() => onLocateFeedback(fb)}
+      onFocus={() => onFocusFeedback(fb)}
       onLocatePin={onLocatePin}
       onResolved={() => advanceAfterResolve(fb.id)}
       onReplied={() => advanceAfterReply(fb.id)}
@@ -1737,11 +1754,12 @@ export const FeedbackPanel = memo(function FeedbackPanel({
         d ? { ...d, feedback: [...d.feedback, row] } : d,
       );
       // Clear the composer + reveal the new card the instant it's submitted, and
-      // focus it: select it (amber rail), scroll its card up, and for an anchored
-      // note jump the file pane to its line (a general note just lights the card).
+      // focus it: select it (amber rail) and scroll its card up. Focus, not
+      // locate — an anchored note's lines are the selection still under the
+      // human's eyes, so there is nothing to jump the file pane to.
       v.clear();
       setTab("active");
-      onLocateFeedback(row);
+      onFocusFeedback(row);
       return { prev, tmpId: row.id };
     },
     mutationFn: (v: {
@@ -1782,7 +1800,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       );
       // Re-select the card under its real id so it stays lit across the swap — but
       // only if the human is still focused on it (they may have clicked away).
-      if (activeIdRef.current === ctx.tmpId) onLocateFeedback({ ...fb, replies: [] });
+      // Focus: a background id swap must never move the content pane.
+      if (activeIdRef.current === ctx.tmpId) onFocusFeedback({ ...fb, replies: [] });
     },
     onError: (e, v, ctx) => {
       // A failed write has no SSE echo, so nothing else reconciles: restore the
@@ -1867,20 +1886,20 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // `j`/`k` walk the list AS DISPLAYED (the active tab's order — attention-first
   // in Active), so the selection moves the way the eye does. With nothing active
   // they enter from the end you're heading toward: `j` takes the first card, `k`
-  // the last. onLocateFeedback is the same callback a card click fires, so the
-  // pane scrolls and rings the anchor exactly as clicking would.
+  // the last. Focus only: the ring moves card to card but the content pane stays
+  // put — `o` is the explicit "take me to its anchor".
   const navList = tab === "active" ? ordered : resolved;
   const step = (delta: 1 | -1) => {
     if (navList.length === 0) return;
     const at = navList.findIndex((f) => f.id === activeFeedbackId);
     if (at < 0) {
-      onLocateFeedback(delta === 1 ? navList[0] : navList[navList.length - 1]);
+      onFocusFeedback(delta === 1 ? navList[0] : navList[navList.length - 1]);
       return;
     }
     // Clamped, not wrapping: running off the end shouldn't silently teleport you
     // back to the top of a list you just finished walking.
     const next = navList[Math.min(navList.length - 1, Math.max(0, at + delta))];
-    if (next) onLocateFeedback(next);
+    if (next) onFocusFeedback(next);
   };
   const command = (action: CardCommand["action"]) => {
     const id = activeFeedbackId;
