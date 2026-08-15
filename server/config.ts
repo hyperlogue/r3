@@ -330,6 +330,12 @@ export function removeDaemonJson(): void {
 // concurrent spawn creates it, and a crashed daemon's stale lock (dead pid) is
 // stolen on the next start. Combined with `reusePort:false` on the listener as
 // defense-in-depth.
+//
+// The one state this can't resolve by itself is a lock held by a pid that is
+// ALIVE but no longer serving (a wedged event loop). Liveness says "held", so
+// every spawn steps aside forever. Nothing here can tell the difference — it's
+// sync and can't probe — so `r3 stop` owns that recovery: it kills the process
+// and clears the lock (see killDaemonProcess in cli/index.ts).
 
 // Colocate the lock with daemon.json (same volatile dir) so their lifetimes
 // match: after a reboot $XDG_RUNTIME_DIR is cleared, dropping BOTH. A lock left
@@ -350,6 +356,30 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
+// Who holds the start lock, or null if it's free/unreadable. This is the SECOND
+// record of who is serving, and it outlives daemon.json — a daemon that stopped
+// answering can have its announcement cleared while it keeps the lock. `r3 stop`
+// reads it to find such a process, which daemon.json alone can no longer name.
+export function readDaemonLockOwner(): number | null {
+  try {
+    const pid = Number(readFileSync(lockPath(), "utf8").trim());
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+// Drop the lock regardless of owner. Only for `r3 stop` after it has killed the
+// owning process: a killed daemon never runs releaseDaemonLock(), and while the
+// lock names a pid the OS may later recycle, every spawn risks losing to a
+// stranger. (acquireDaemonLock steals a dead owner's lock on its own, so this is
+// belt-and-braces — it just closes the reuse window immediately.)
+export function forceReleaseDaemonLock(): void {
+  try {
+    rmSync(lockPath());
+  } catch {}
+}
+
 // Try to become the sole starting daemon. Returns true if we hold the lock.
 export function acquireDaemonLock(): boolean {
   const lock = lockPath();
@@ -363,10 +393,7 @@ export function acquireDaemonLock(): boolean {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
       // Held — by a live daemon, or stale from a crash?
-      let owner = 0;
-      try {
-        owner = Number(readFileSync(lock, "utf8").trim());
-      } catch {}
+      const owner = readDaemonLockOwner() ?? 0;
       if (owner !== process.pid && isPidAlive(owner)) return false; // someone else holds it
       try {
         rmSync(lock); // stale (dead/empty owner) — steal and retry

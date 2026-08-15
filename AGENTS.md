@@ -450,6 +450,19 @@ All under XDG, keyed by `server/config.ts`:
   on, so the port is _not_ a lock); colocated with `daemon.json` so a reboot drops
   both. A stale lock (dead pid) is stolen on next start.
 
+**A daemon that is alive but no longer serving is `r3 stop`'s problem, not the
+lock's.** `acquireDaemonLock` is sync and can't probe, so liveness is all it has:
+a wedged owner (deadlocked event loop) reads as "held", every spawn steps aside,
+and `r3 start` fails forever. So `stop` never infers "unhealthy ⇒ crashed" — it
+identifies the process (`__daemon` in its command line, or daemon.json's recorded
+`exec`) and **kills it**, SIGTERM escalating to SIGKILL, because a wedged daemon
+can't run its own JS signal handler. Clearing `daemon.json` and walking away —
+what it used to do — is the one move that makes the state unrecoverable: the
+process keeps the port and the lock with nothing left naming it. For the same
+reason `stop` falls back to the **lock** when `daemon.json` is already gone (the
+lock is the second record of who is serving), and a spawn that times out reports
+the blocking pid instead of a bare timeout.
+
 `process-compose.yaml` points all three XDG dirs at `workspace/` and uses port 8891,
 so the dev stack never collides with — or writes into — a normally-running daemon.
 
