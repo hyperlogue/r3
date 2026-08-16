@@ -112,23 +112,27 @@ function TreeDir({
         const isCollapsed = collapsed.has(label);
         return (
           <div key={full}>
-            <button
-              type="button"
-              onClick={() =>
-                setCollapsed((s) => {
-                  const n = new Set(s);
-                  n.has(label) ? n.delete(label) : n.add(label);
-                  return n;
-                })
-              }
-              style={pad(depth)}
-              className="flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[0.6875rem] text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800/60"
-            >
-              {/* size-2.5 + gap-1 = the file rows' w-2 tick + gap-1.5, so dir
-                  labels and file names share a left edge. */}
-              <FoldTriangle open={!isCollapsed} className="size-2.5" />
-              <span className="truncate font-medium">{label}/</span>
-            </button>
+            {/* The indent rides a wrapper, exactly like the file rows below: an
+                inline paddingLeft on the button itself would beat its own px-1.5
+                and pull every dir 0.375rem left of the files beside it. */}
+            <div style={pad(depth)}>
+              <button
+                type="button"
+                onClick={() =>
+                  setCollapsed((s) => {
+                    const n = new Set(s);
+                    n.has(label) ? n.delete(label) : n.add(label);
+                    return n;
+                  })
+                }
+                className="flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[0.6875rem] text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800/60"
+              >
+                {/* size-2.5 + gap-1 = the file rows' w-2 tick + gap-1.5, so dir
+                    labels and file names share a left edge. */}
+                <FoldTriangle open={!isCollapsed} className="size-2.5" />
+                <span className="truncate font-medium">{label}/</span>
+              </button>
+            </div>
             <Collapse open={!isCollapsed}>
               <TreeDir
                 node={child}

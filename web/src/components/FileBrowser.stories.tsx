@@ -68,6 +68,23 @@ export const CollapsedChain: Story = {
   },
 };
 
+// A dir and its sibling files at the same level: the sub-dir's triangle+label
+// and the file names below it must share one left edge (the indent rides a
+// wrapper so the row's own px-1.5 survives).
+export const MixedLevel: Story = {
+  args: {
+    files: [
+      "doc/dynamo/comparisons/difit.md",
+      "doc/dynamo/characters.md",
+      "doc/dynamo/engine.md",
+      "doc/dynamo/models-and-cost.md",
+      "doc/dynamo/overview.md",
+    ],
+    viewed: new Set<string>(["doc/dynamo/overview.md"]),
+    activePath: "doc/dynamo/engine.md",
+  },
+};
+
 // Folded to the thin rail (the collapse state persists in localStorage; seed it
 // for this story and clean up so the other stories render expanded).
 export const Collapsed: Story = {
