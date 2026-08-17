@@ -4,6 +4,8 @@
 
 <h1 align="center">r3: Review. Revise. Resolve.</h1>
 
+<p align="center"><b>Chat is a terrible UI for reviewing large amounts of agent-generated code and docs.<br>r3 is where you do it instead.</b></p>
+
 <p align="center">
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
@@ -11,33 +13,45 @@
   <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
 </p>
 
-<p align="center">
-  <img alt="r3_cc" src="https://github.com/user-attachments/assets/ba85f5a2-e244-4a04-b673-22cb88694c2b" width="49.6%">
-  <img alt="r3_web" src="https://github.com/user-attachments/assets/4b99a128-3484-44ce-a727-8d72a3dc532b" width="42.4%">
-</p>
- 
-<p align="center">
-  <a href="https://hyperlogue.github.io/r3/demo/"><b>▶&nbsp;Try the live demo</b></a> — the full UI, running entirely in your browser.
-</p>
+Imagine your agent just wrote a 2,000-word design doc and six new files. A handful of
+passages need work. In a chat box you paste each one back, retype what is wrong with
+it, and from then on you are the one remembering which notes got addressed and which
+quietly dropped two turns ago.
 
-r3 is a review tool for the diffs and docs produced by your coding agents, running
-locally with a web interface. You leave feedback pinned to the exact line or
-quote it's about, and track each comment to resolution.
+r3 is a local review tool for what your coding agent writes. Your agent opens a review
+of its diff or its doc, you leave notes on the exact lines, and it works through them
+one at a time. This is the loop you already know from code review, running entirely on your
+own machine.
 
-r3 fills a gap that chat boxes can’t. Say your agent writes a long planning
-document and you want to fix a handful of issues. In chat, you have to copy and
-paste each passage, explain your feedback, and then keep track of what has or
-hasn’t been addressed across multiple turns. r3 replaces that linear,
-unstructured stream with a workflow modeled on the code review tools you already
-know—built specifically for you and your agents, and running entirely locally.
+- **Your note sits on the line it's about.** Select a line of code, or a sentence
+  inside a rendered Markdown doc, and type. Nothing gets pasted into a chat window to
+  explain which part you meant.
+- **The agent is waiting to revise.** It blocks on `r3 watch` while you read. Hit
+  Submit and it wakes with your notes; its replies show up in the browser without a
+  refresh.
+- **Every note is tracked to resolution.** Each one carries its own thread and status,
+  so three rounds later you can still see which four are open.
 
 <div align="center">
   <video src="https://github.com/user-attachments/assets/0c1aefaf-0229-49e7-a4dc-e660dc0214f6" width="760" muted controls></video>
 </div>
 
+```sh
+npm install -g @hyperlogue/r3    # or: bun add -g @hyperlogue/r3 · npx @hyperlogue/r3@latest
+```
+
+Then tell your agent to put its changes up for review. If you'd rather look before
+installing anything, [**▶&nbsp;try the live demo**](https://hyperlogue.github.io/r3/demo/) —
+the whole UI runs in your browser.
+
 ## Workflow
 
 r3 offers a tight, copy-paste-free review loop between you and an agent.
+
+<p align="center">
+  <img alt="r3_cc" src="https://github.com/user-attachments/assets/ba85f5a2-e244-4a04-b673-22cb88694c2b" width="49.6%">
+  <img alt="r3_web" src="https://github.com/user-attachments/assets/4b99a128-3484-44ce-a727-8d72a3dc532b" width="42.4%">
+</p>
 
 ```mermaid
 sequenceDiagram
@@ -74,14 +88,14 @@ your tool's equivalent), or just try it out by pasting it into a new session:
 
 ```md
 This project uses r3 for review. Run it with whichever of these you have:
-`npx @hyperlogue/r3@latest`, `bunx @hyperlogue/r3@latest`, or `nix run github:hyperlogue/r3 --`.
-`r3 guide` will show how to use it.
+`r3` (if installed), `npx @hyperlogue/r3@latest`, `bunx @hyperlogue/r3@latest`, or
+`nix run github:hyperlogue/r3 --`. `r3 guide` will show how to use it.
 ```
 
-Then just ask: "put your changes up for review." Your agent runs
-`npx @hyperlogue/r3@latest create …`, shares the URL, and waits while you leave feedback in
-the browser. The launcher lazily starts the web server on localhost and opens the
-review.
+Then just ask: "put your changes up for review." Your agent runs `r3 create …`,
+shares the URL, and waits while you leave feedback in the browser. Nothing needs to
+be installed first — the `npx`/`bunx`/`nix` forms work standalone, and whichever one
+your agent uses lazily starts the web server on localhost and opens the review.
 
 One **web server** spans all your repos on a stable port (default 8791). The first
 call spawns it automatically, so there's nothing to start by hand;
@@ -110,15 +124,6 @@ You rarely type the commands yourself — you ask your agent, and it runs the ri
 "Start a review with a scratch folder and put your draft design doc there."
   → adhoc scratch review with no git source
 ```
-
-To install `r3` permanently — a persistent command instead of `npx`/`bunx` each
-time — add `-g`:
-
-```sh
-npm install -g @hyperlogue/r3    # or: bun add -g @hyperlogue/r3
-```
-
-Then run `r3 …` from anywhere.
 
 ## Reviews
 
