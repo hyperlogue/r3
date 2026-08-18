@@ -359,7 +359,13 @@ fresh from **both sides**:
    after a real content change.
 2. **Explicit (agent, `PATCH /api/feedback/:id/anchor`).** When a restructure makes
    the quote un-findable, the same agent that moved the code tells the server where
-   the feedback now belongs (`r3 reanchor`).
+   the feedback now belongs (`r3 reanchor`). It **relocates, never re-points**: the
+   target is where the *quoted text* landed, not where the fix landed (that's an
+   anchored reply), and the quote is never swapped for different text — one the
+   agent rewrote or deleted is left `outdated`, the honest state. Since the server
+   re-derives the quote from the named range when `--quote` is omitted, a range
+   aimed anywhere else silently rewrites the anchor of record to text the human
+   never marked — the failure this rule exists to prevent.
 
 **Rendered Markdown has no per-line rows**, so both ends of an anchor go through
 blocks: the render tags every mapped markdown-it token — nested `<li>`/`<tr>`

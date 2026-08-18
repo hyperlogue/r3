@@ -164,8 +164,11 @@ status from the UI. The follow-up move differs by kind:
   change landed: `git diff … | r3 diff add <id> --label "round 2"`, then `r3 reply
   <fid> -m "…" --diff <seq> --file <f> --line <a-b>`. The UI shows "↳ addressed in
   diff N" with a jump.
-- **files review** — if an edit moves the code a feedback points at, **re-anchor**
-  (`r3 reanchor <fid> --file <f> --line <a-b> --quote "<new text>"`).
+- **files review** — if an edit **moves** the text a feedback quotes, **re-anchor**
+  the note to where that text landed (`r3 reanchor <fid> --file <f> --line <a-b>`;
+  the quote is re-derived from that range when `--quote` is omitted). Never
+  re-anchor to where the *fix* landed — that's the reply — and never onto different
+  text: a quote the agent rewrote or deleted stays `outdated`.
 
 **Feedback flows both ways.** The agent can open items too (`r3 feedback add`) — to
 guide the human through a big review, ask a question, or flag a risk. They appear

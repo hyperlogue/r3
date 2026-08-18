@@ -71,8 +71,9 @@ function promptHeader(detail: ReviewDetail, count: number): string {
   const id = detail.id;
   // The follow-up moves differ by kind: a files review is a live
   // view (content re-anchors; the agent re-anchors explicitly after a
-  // restructure), while a diff review is immutable rounds (the agent appends the
-  // fix as a new round and pins replies into it).
+  // restructure — following the quoted text to its new lines, never re-pointing
+  // a note at where the fix landed), while a diff review is immutable rounds
+  // (the agent appends the fix as a new round and pins replies into it).
   const followUp =
     detail.kind === "diff"
       ? `After making the changes, append them as a new diff round (tag it with a ` +
@@ -80,8 +81,11 @@ function promptHeader(detail: ReviewDetail, count: number): string {
         `landed in it:\n` +
         `  git diff <base>..<head> | r3 diff add ${id} --label "<title>" --summary "<what changed overall>"\n` +
         `  r3 reply <feedback_id> -m "<msg>" --diff <seq> --file <f> --line <a-b>\n`
-      : `If your change moves the code a feedback points at, re-anchor it so it doesn't orphan:\n` +
-        `  r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<new text>"]\n`;
+      : `If your change MOVES the text a feedback quotes, re-anchor the note to where that ` +
+        `text landed so it doesn't orphan — not to where you made the fix (that belongs in the ` +
+        `reply), and never onto different text. A quote you rewrote or deleted is left alone: ` +
+        `"outdated" is the honest state.\n` +
+        `  r3 reanchor <feedback_id> --file <f> --line <a-b>\n`;
   // A short overview, if the human/agent set one, gives context before the items.
   const summary = detail.summary?.trim() ? `Summary: ${detail.summary.trim()}\n\n` : "";
   return (
