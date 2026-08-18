@@ -1067,13 +1067,14 @@ async function cmdReanchor(args: Args) {
   const fid =
     args.positional[0] ??
     fail(
-      'reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   (files-review anchor)\n' +
-        '         reanchor <feedback_id> --quote "<new text>" [--line <a-b>]      (review summary)',
+      "reanchor <feedback_id> --file <f> --line <a-b>   (files-review anchor: where the quoted text moved to)\n" +
+        '         reanchor <feedback_id> --quote "<new text>" [--line <a-b>]   (review summary)',
     );
-  // Two shapes: a files-review anchor names --file + --line (the server derives
-  // the quote from live content when --quote is omitted); a review-summary
-  // re-anchor names no file (it stays @summary) and carries the new quote as the
-  // whole anchor (--line is an optional best-effort hint).
+  // Two shapes: a files-review anchor names --file + --line, saying where the
+  // note's existing quote now lives (the server keeps that quote — it rejects one
+  // that differs, and only derives text for a whole-file note that has none); a
+  // review-summary re-anchor names no file (it stays @summary) and carries the new
+  // quote as the whole anchor (--line is an optional best-effort hint).
   const summaryMode = !args.flags.file;
   let lineStart: number | null = null;
   let lineEnd: number | null = null;
@@ -1600,14 +1601,14 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   unless --quote pins it). --diff names the round
                                                  #   (a line anchor defaults to the latest);
                                                  #   --side default new.
-  reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]
+  reanchor <feedback_id> --file <f> --line <a-b>
                                                  # re-point a files-review anchor after an edit
                                                  #   MOVED the quoted text: --line is where that
-                                                 #   text landed (the quote is re-read from those
-                                                 #   lines when --quote is omitted), never where
-                                                 #   you made the fix — that's a reply. Never
-                                                 #   quote different text; a quote you deleted
-                                                 #   stays "outdated". A diff review's file/round
+                                                 #   text landed, never where you made the fix —
+                                                 #   that's a reply. The note keeps its quote (it
+                                                 #   is the anchor; a --quote that differs is
+                                                 #   rejected), so a quote you deleted stays
+                                                 #   "outdated". A diff review's file/round
                                                  #   anchors are immutable — pin a reply instead.
   reanchor <feedback_id> --quote "<new text>" [--line <a-b>]
                                                  # re-point a REVIEW-summary note (any kind) after
@@ -1729,8 +1730,8 @@ re-anchors as files change.
   r3 snapshot <id> --label "..."  # freeze content so the human can diff your changes across turns
                                   #   (snapshot the starting state before handoff, then after each round)
   r3 snapshot list|rm <id> [seq]
-  r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "..."]  # ONLY when your edit moved
-                                  #   the quoted text — --line is where that text landed (below)
+  r3 reanchor <feedback_id> --file <f> --line <a-b>  # ONLY when your edit moved the quoted
+                                  #   text — --line is where that text landed (see below)
 
 diff — immutable rounds: the diff is snapshotted once (git is never consulted
 again). Append fixes as a new round; rounds never change, so feedback can't orphan.
@@ -1748,12 +1749,12 @@ answered this at line 100, so I re-anchored it to 100" is wrong; where the fix
 landed goes in a reply (r3 reply, and on a diff review the --diff pin).
 
 NEVER change the text a note quotes. The quote is the anchor of record — the
-human marked that exact passage — and --line is only a hint saying where it
-now lives. With --quote omitted the server re-reads the quote from the lines
-you name, so a range pointing anywhere but the moved text silently rewrites the
-note to quote something the human never marked. Pass --quote only to restate
-the SAME passage verbatim (a summary re-anchor needs it, since there are no
-line numbers to move); never to point the note at different content.
+human marked that exact passage — and --line is only a hint saying where it now
+lives. The server holds you to it: a files-review re-anchor keeps the stored
+quote whatever range you name, and rejects a --quote that differs. The one place
+a quote IS the whole anchor is a review-summary note (no file, no line numbers
+to move), so --quote is required there and must restate that same passage as it
+now reads.
 
 If the quoted text is gone — you rewrote or deleted it — do nothing. The note
 flips to "outdated", which is the truth: the human still sees their original

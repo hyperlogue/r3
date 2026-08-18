@@ -335,6 +335,12 @@ export interface CreateFeedbackBody {
   patchSeq?: number | null; // diff reviews: which round the anchor is in
 }
 
+// Re-point a note at where its quoted text MOVED to. `quote` is the anchor of
+// record and is never rewritten here: on a files-review anchor the server keeps
+// the stored quote and reads `lineStart`/`lineEnd` as the new hint (a `quote` that
+// differs from it is rejected, not applied), and only a whole-file note — which has
+// none — can gain one. The exception is a review-summary note, where the quote IS
+// the anchor (no file, no lines to move) and so must be supplied.
 export interface ReanchorBody {
   file?: string;
   lineStart: number | null;

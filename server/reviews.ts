@@ -15,7 +15,7 @@ import type {
   SnapshotMeta,
 } from "../shared/types.ts";
 import { capQuote, MAX_QUOTE_LINES, SUMMARY_FILE } from "../shared/types.ts";
-import { findQuoteAcross, type ProjectedDoc } from "./anchor.ts";
+import { findQuoteAcross, normalizeWs, type ProjectedDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
 import { blobSha, readContentAt, snapshotDiff } from "./git.ts";
@@ -756,20 +756,36 @@ export async function reanchorFeedback(
   const file = body.file ?? fb.file;
   const lineStart = body.lineStart ?? fb.line_start;
   const lineEnd = body.lineEnd ?? fb.line_end;
-  // `--quote` is optional in the documented form (`reanchor <fid> --file <f>
-  // --line <a-b>`), so derive it from the new range the same way `feedback add`
-  // does. Keeping the old quote instead would leave the ANCHOR OF RECORD
-  // pointing at text that has moved: the next automatic pass searches for it,
-  // relocates the note straight back or flags it outdated, and the repair the
-  // agent was told to perform silently undoes itself.
-  let quote = body.quote != null ? capQuote(body.quote) : null;
-  if (quote == null && review && lineStart != null && lineEnd != null) {
-    const derived = await deriveQuote(review, fb.patch_seq, file, fb.side, lineStart, lineEnd);
-    if (isRejected(derived)) return derived;
-    quote = derived;
+  // A re-anchor moves the HINT; the quote is the anchor of record and survives
+  // verbatim. Re-deriving it from the new range (what this used to do) means any
+  // range that isn't exactly where that text landed silently rewrites the note to
+  // be about code the human never marked — and "I fixed this at line 100, so I
+  // re-anchored it to 100" is the mistake agents actually make, which that path
+  // turned into a rewritten quote instead of a wrong line number. A wrong range is
+  // self-correcting: the next automatic pass searches for the original quote and
+  // either relocates the note or flags it `outdated`. Visibly stale beats
+  // confidently wrong — so a quote whose text is genuinely gone stays gone, and the
+  // reply is where the agent explains what happened to it.
+  if (fb.quote && body.quote != null && normalizeWs(body.quote) !== normalizeWs(fb.quote))
+    return {
+      error:
+        "re-anchoring can't change a note's quote — it's the anchor of record. Pass only --file/--line, naming where that same text moved to; if the text is gone, leave the note alone (it flags itself outdated) and say so in a reply",
+    };
+  // Nothing to preserve on a whole-file note (no quote, no span), so giving it one
+  // derives from the range exactly like `feedback add` — the only re-anchor that
+  // writes a quote at all. Otherwise the stored quote and its sha are carried
+  // through untouched, which is also why this path reads no file content: the
+  // range it was handed is a hint, and reality is the automatic pass's job.
+  let quote = fb.quote;
+  if (quote == null) {
+    quote = body.quote != null ? capQuote(body.quote) : null;
+    if (quote == null && review && lineStart != null && lineEnd != null) {
+      const derived = await deriveQuote(review, fb.patch_seq, file, fb.side, lineStart, lineEnd);
+      if (isRejected(derived)) return derived;
+      quote = derived;
+    }
   }
-  quote = quote ?? fb.quote;
-  const codeSha = quote ? await blobSha(quote) : fb.code_sha;
+  const codeSha = quote && quote !== fb.quote ? await blobSha(quote) : fb.code_sha;
   const next = db.updateFeedback(feedbackId, {
     file,
     // Keep the existing range when the caller names none — the route normalizes

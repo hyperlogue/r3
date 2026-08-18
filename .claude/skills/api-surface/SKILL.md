@@ -68,9 +68,12 @@ one rendered file.
 `POST /api/reviews/:id/feedback` (on a **files** review a supplied `quote` wins over
 the sent line range: the server stores the lines that quote actually occupies,
 keeping the hint only when it can't find it) · `PATCH /api/feedback/:id` ·
-`PATCH /api/feedback/:id/anchor` (re-anchor: a files-review file anchor, or a
-review-summary note by `quote` on any kind — diff file/round anchors and round
-summaries are immutable, else 400) · `DELETE /api/feedback/:id` ·
+`PATCH /api/feedback/:id/anchor` (re-anchor a files-review file anchor: the stored
+`quote` is kept and the lines are only its new hint, so a differing `quote` is
+**400** rather than applied, and only a whole-file note — which has none — derives
+one from the range. A review-summary note re-anchors by `quote` on any kind, the
+quote being the whole anchor; diff file/round anchors and round summaries are
+immutable, else 400) · `DELETE /api/feedback/:id` ·
 `POST /api/feedback/:id/replies` (optional pin, validated against the stored round)
 · `PATCH /api/replies/:id` (edit the last human message; web-only, no CLI).
 
@@ -116,7 +119,7 @@ r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <s
 r3 reply  <feedback_id> -m "<msg>" [--diff <seq> --file <f> --line <a-b> [--quote "<text>"]]
 r3 feedback add <id> -m "<msg>" [--file <f> [--line <a-b>] [--quote "<t>"] [--side old|new]]
             [--diff <seq>]                      # agent-authored feedback
-r3 reanchor <feedback_id> --file <f> --line <a-b> [--quote "<text>"]   # files-review anchor
+r3 reanchor <feedback_id> --file <f> --line <a-b>                      # files-review anchor
 r3 reanchor <feedback_id> --quote "<new text>" [--line <a-b>]          # review summary (any kind)
 r3 edit   <id> [--title "<t>"] [--summary "<s>"]   # "" clears; --summary - = stdin
 r3 approve <id> [--note|-m "<next steps>"] | abandon <id>      # --note - = stdin
@@ -166,9 +169,9 @@ status from the UI. The follow-up move differs by kind:
   diff N" with a jump.
 - **files review** — if an edit **moves** the text a feedback quotes, **re-anchor**
   the note to where that text landed (`r3 reanchor <fid> --file <f> --line <a-b>`;
-  the quote is re-derived from that range when `--quote` is omitted). Never
-  re-anchor to where the *fix* landed — that's the reply — and never onto different
-  text: a quote the agent rewrote or deleted stays `outdated`.
+  the stored quote is kept; the lines are just the new hint). Never re-anchor to
+  where the *fix* landed — that's the reply — and never onto different text: a
+  quote the agent rewrote or deleted stays `outdated`.
 
 **Feedback flows both ways.** The agent can open items too (`r3 feedback add`) — to
 guide the human through a big review, ask a question, or flag a risk. They appear

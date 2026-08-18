@@ -541,12 +541,19 @@ export function reanchor(id: string, body: ReanchorBody): Feedback {
       400,
       "diff reviews don't re-anchor (rounds are immutable) — pin an anchored reply",
     );
-  const quote = body.quote ?? fb.quote;
+  // Mirrors reviews.reanchorFeedback: the quote is the anchor of record, so a
+  // re-anchor moves the line hint and never rewrites it (only a whole-file note,
+  // which has none, can gain one).
+  if (fb.quote && body.quote != null && body.quote.trim() !== fb.quote.trim())
+    throw new ApiError(400, "re-anchoring can't change a note's quote — pass only file/lines");
+  const quote = fb.quote ?? body.quote ?? null;
   if (body.file !== undefined) fb.file = body.file;
   fb.line_start = body.lineStart;
   fb.line_end = body.lineEnd;
-  fb.quote = quote;
-  fb.code_sha = quote ? contentSha(quote) : fb.code_sha;
+  if (quote !== fb.quote) {
+    fb.quote = quote;
+    if (quote) fb.code_sha = contentSha(quote);
+  }
   fb.anchor = "anchored";
   touchReview(fb.review_id);
   persist();

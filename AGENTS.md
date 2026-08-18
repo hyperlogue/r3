@@ -361,11 +361,14 @@ fresh from **both sides**:
    the quote un-findable, the same agent that moved the code tells the server where
    the feedback now belongs (`r3 reanchor`). It **relocates, never re-points**: the
    target is where the *quoted text* landed, not where the fix landed (that's an
-   anchored reply), and the quote is never swapped for different text — one the
-   agent rewrote or deleted is left `outdated`, the honest state. Since the server
-   re-derives the quote from the named range when `--quote` is omitted, a range
-   aimed anywhere else silently rewrites the anchor of record to text the human
-   never marked — the failure this rule exists to prevent.
+   anchored reply). The **quote is immutable** here — the server keeps the stored
+   one and treats the range as the new hint, rejecting a supplied `quote` that
+   differs (a whole-file note, which has none, is the one that derives one from the
+   range). It used to re-derive the quote from whatever range it was handed, which
+   turned the mistake agents actually make — re-anchoring to where the *fix* landed
+   — into a note silently re-quoting code the human never marked; now that lands as
+   a wrong hint the automatic pass corrects. A quote whose text the agent rewrote or
+   deleted is simply left `outdated`: visibly stale beats confidently wrong.
 
 **Rendered Markdown has no per-line rows**, so both ends of an anchor go through
 blocks: the render tags every mapped markdown-it token — nested `<li>`/`<tr>`
