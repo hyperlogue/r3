@@ -54,7 +54,7 @@ export async function renderContent(
       lang: "markdown",
       sha,
       lines,
-      markdownHtml: renderMarkdown(content, path),
+      markdownHtml: await renderMarkdown(content, path, theme),
     };
   }
 

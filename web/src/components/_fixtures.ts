@@ -243,6 +243,10 @@ const mdSource = [
   "| diff | immutable rounds | no |",
   "",
   "See [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md).",
+  "",
+  "```sh",
+  "r3 create --files docs/",
+  "```",
 ];
 export const renderedMarkdown: RenderedFile = {
   path: "README.md",
@@ -273,6 +277,19 @@ export const renderedMarkdown: RenderedFile = {
       ' data-r3-doc-file="AGENTS.md" title="AGENTS.md">AGENTS.md</a> and' +
       ' <a href="#" class="r3-doclink" data-r3-doc-file="CONTRIBUTING.md"' +
       ' title="CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>',
+    // A fence naming its grammar comes back Shiki-highlighted, from the same
+    // pass and syntax theme the code view uses (server/highlight.ts): the token
+    // spans carry --shiki-light/--shiki-dark and `.shiki-code` maps whichever
+    // one the active colour scheme wants onto `color`.
+    '<pre><code data-line-start="15" data-line-end="17" class="shiki-code language-sh">' +
+      '<span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">r3</span>' +
+      '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
+      '<span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">create</span>' +
+      '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
+      '<span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">--files</span>' +
+      '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
+      '<span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">docs/</span>\n' +
+      "</code></pre>",
   ].join("\n"),
 };
 

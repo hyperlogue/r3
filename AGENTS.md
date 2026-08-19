@@ -102,8 +102,9 @@ server/          Hono daemon + bun:sqlite global store
                  first projection anchor.ts searches; Shiki-free so the demo's
                  backend mirror can import it
   dirty.ts       lazy re-anchor gate: only re-anchor a review whose files changed
-  highlight.ts   Shiki (code) + markdown render (decorates mdproject's instance
-                 with images/doclinks/data-line rules), content-sha cached
+  highlight.ts   Shiki (code + a doc's fenced blocks) + markdown render
+                 (decorates mdproject's instance with images/doclinks/fence/
+                 data-line rules), content-sha cached
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
   prompt.ts      the agent-prompt text (same as the UI's "Copy prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
@@ -250,6 +251,18 @@ target card. Only a genuinely off-repo link (a scheme, `//host`) still opens a
 new tab. A target that isn't part of the review has nowhere to go, so it renders
 **dead** (dimmed, with the reason on hover) rather than looking live and doing
 nothing.
+
+**A fence carries its own grammar.** A reviewed doc is mostly prose *about*
+code, so a fenced block that names a language (`` ```ts ``) goes through the same
+Shiki pass — and the reader's own syntax theme — the code view uses; without it
+the rendered view was the one place code stopped looking like code. markdown-it
+renders synchronously and Shiki tokenizes asynchronously, so `renderMarkdown`
+parses once, highlights every fence token in that stream, and renders those same
+tokens (no second parse, no module-level scratch state). The grammar is resolved
+against Shiki's bundled ids *and* aliases, so `ts`/`sh`/`c++` need no table of
+r3's own; an unknown or absent language stays escaped and unstyled rather than
+guessing. Messages — feedback, replies, both summaries — render **client-side**
+and stay unhighlighted by design: Shiki's WASM never reaches the browser.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a selection through the same

@@ -3,7 +3,7 @@
 // never reaches the browser. Dual-theme (light+dark) in one pass via CSS
 // variables, and per-blob caching keyed by content sha.
 
-import { bundledThemesInfo, codeToTokens, type ThemedToken } from "shiki";
+import { bundledLanguages, bundledThemesInfo, codeToTokens, type ThemedToken } from "shiki";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
 import { md, REMOTE_URL_RE } from "./mdproject.ts";
 
@@ -163,6 +163,20 @@ export function langForPath(path: string): string | null {
   if (base.toLowerCase() === "dockerfile") return "docker";
   const ext = base.includes(".") ? (base.split(".").pop()?.toLowerCase() ?? "") : "";
   return EXT_LANG[ext] ?? null;
+}
+
+// The grammar a Markdown fence names: the first word of its info string
+// (```ts, ```js {1,3}, ```bash title=run.sh). Shiki's bundled map is keyed by
+// language id AND alias, so `ts`, `sh`, `c++` resolve without a table of our
+// own; an extension spelling it doesn't know (`gql`) falls back to the path
+// map. Unknown — including the deliberate `text`/`plaintext` — → null, which
+// renders the fence escaped and unstyled exactly as it did before.
+export function langForFence(info: string): string | null {
+  const word = info.trim().split(/[\s,{]/)[0];
+  const key = word ? word.toLowerCase() : "";
+  if (!key) return null;
+  if (key in bundledLanguages) return key;
+  return EXT_LANG[key] ?? null;
 }
 
 function styleOf(t: ThemedToken): string {
@@ -369,6 +383,56 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return defaultLinkOpen(tokens, idx, options, env, self);
 };
 
+// ---- Fenced code blocks. A reviewed doc is mostly prose *about* code, so a
+// fence that names its grammar (```ts) gets the same Shiki pass — and the same
+// syntax theme — the code view uses; the rendered view was the one place code
+// stopped looking like code. An unknown/absent language still renders escaped
+// and unstyled, so nothing regresses to a wrong grammar.
+//
+// markdown-it renders synchronously and Shiki tokenizes asynchronously, so the
+// highlight can't happen inside the rule. `renderMarkdown` parses once,
+// highlights every fence in that token stream, hangs the HTML on the token, and
+// renders those same tokens — no second parse to keep in step, and no
+// module-level scratch state an interleaved render could read.
+
+interface FenceHighlight {
+  html: string;
+}
+
+const defaultFence =
+  md.renderer.rules.fence ??
+  ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  const token = tokens[idx];
+  const hl = (token.meta as FenceHighlight | undefined)?.html;
+  if (hl == null) return defaultFence(tokens, idx, options, env, self);
+  // The wrapper the default rule would have emitted — the fence's own info word
+  // as `language-*`, plus the data-line-* the core rule tagged — with the
+  // highlighted body in place of the escaped text. `shiki-code` is what maps
+  // each token span's --shiki-light/--shiki-dark onto `color` (web/src/main.css),
+  // the same class the code rows carry.
+  const info = md.utils.unescapeAll(token.info).trim().split(/\s+/)[0];
+  token.attrJoin("class", "shiki-code");
+  if (info) token.attrJoin("class", options.langPrefix + info);
+  return `<pre><code${self.renderAttrs(token)}>${hl}</code></pre>\n`;
+};
+
+// Highlight every fence in a parsed token stream (in parallel — each is an
+// independent Shiki pass, cached by content sha like any other blob). The token
+// stream is flat, so a fence nested in a list item or blockquote is covered too.
+async function highlightFences(tokens: ReturnType<typeof md.parse>, theme?: string): Promise<void> {
+  await Promise.all(
+    tokens.map(async (token) => {
+      if (token.type !== "fence") return;
+      const lang = langForFence(md.utils.unescapeAll(token.info));
+      if (!lang) return;
+      const sha = new Bun.CryptoHasher("sha1").update(token.content).digest("hex");
+      const lines = await highlightToLines(token.content, lang, sha, theme);
+      token.meta = { ...(token.meta ?? {}), html: lines.join("\n") } satisfies FenceHighlight;
+    }),
+  );
+}
+
 // Inject data-line attributes from token.map onto block-level open tokens.
 // NESTED blocks are tagged too, not just top-level ones: markdown has no
 // per-line rows, so whatever we tag is the finest range a browser selection can
@@ -414,7 +478,19 @@ md.core.ruler.push("heading_slugs", (state) => {
 });
 
 // `path` is the reviewed file's repo-relative path — the base every relative
-// link in it resolves against (see the link rule above).
-export function renderMarkdown(source: string, path: string): string {
-  return md.render(source, { path });
+// link in it resolves against (see the link rule above). `theme` is the
+// reader's syntax theme, applied to the fences (above).
+//
+// Deliberately parse → highlight → render rather than `md.render`: the fence
+// highlights are async and ride the tokens, so the renderer has to see the very
+// tokens that were highlighted.
+export async function renderMarkdown(
+  source: string,
+  path: string,
+  theme?: string,
+): Promise<string> {
+  const env = { path };
+  const tokens = md.parse(source, env);
+  await highlightFences(tokens, theme);
+  return md.renderer.render(tokens, md.options, env);
 }
