@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { copyText } from "../clipboard.ts";
 import { shortSha, sourceLabel } from "../format.ts";
-import { hasUnsentContent, type ReviewDetail, type ReviewStatus } from "../types.ts";
+import {
+  type FeedbackWithReplies,
+  hasUnsentContent,
+  type ReviewDetail,
+  type ReviewStatus,
+  unsentHumanReplies,
+} from "../types.ts";
 import { Button, cn, useEscape } from "../ui.tsx";
 
 // A click-to-copy token in the header's metadata line (project dir, commit
@@ -224,15 +230,26 @@ function ApproveDialog({
   );
 }
 
+// Does approving drop something *unread*? Narrower than the shared
+// `hasUnsentContent`, which also counts an undelivered status flip: on a resolved
+// item that flip says what approving is about to say at review scope, so
+// demanding a Submit round-trip first is a loop carrying no content. Prose still
+// counts — a human reply written since the last hand-off is a message nobody has
+// read. Delivery is untouched either way; the flip stays unsent, so Submit and
+// the next prompt still carry it.
+function blocksApprove(fb: FeedbackWithReplies): boolean {
+  if (!hasUnsentContent(fb)) return false;
+  return fb.status !== "resolved" || unsentHumanReplies(fb).length > 0;
+}
+
 // Why Approve can't be clicked yet, as its own tooltip — null when it can.
-// Approving is the review's terminal success, so it only stands aside for work
-// still *in flight*, never for an open note you read and chose not to chase.
-// Two things are in flight: content the agent has never been handed (the shared
-// `hasUnsentContent` — approving first drops it on the floor unread), and items
-// an agent holds a live claim on (a reply is still coming). Both clear on their
-// own, so the block is transient by construction.
+// Approving is the review's terminal success, so it stands aside only for work
+// still *in flight*: unread content (`blocksApprove` above) or an item under a
+// live agent claim, a reply still landing. Never for an open note you read and
+// chose not to chase. Both blockers clear on their own, so this is transient by
+// construction.
 function approveBlockReason(detail: ReviewDetail): string | null {
-  const unsent = detail.feedback.filter(hasUnsentContent).length;
+  const unsent = detail.feedback.filter(blocksApprove).length;
   if (unsent > 0)
     return `Submit your feedback first — ${unsent} ${unsent === 1 ? "note hasn't" : "notes haven't"} reached the agent`;
   const working = detail.feedback.filter((f) => f.claim != null).length;

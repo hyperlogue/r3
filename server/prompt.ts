@@ -11,7 +11,7 @@
 // so the caller can mark those rows sent.
 
 import type { FeedbackWithReplies, Reply, ReviewDetail, ReviewSource } from "../shared/types.ts";
-import { hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
+import { hasUnsentContent, SUMMARY_FILE, unsentHumanReplies } from "../shared/types.ts";
 
 function describeSource(kind: string, source: ReviewSource): string {
   if ("ref" in source) {
@@ -110,12 +110,6 @@ function isCandidate(fb: FeedbackWithReplies): boolean {
   return fb.status === "open";
 }
 
-// The human replies the agent hasn't been sent yet. Agent replies never count —
-// the agent wrote them.
-function unsentReplies(fb: FeedbackWithReplies): Reply[] {
-  return fb.replies.filter((r) => r.author === "human" && r.sent_at == null);
-}
-
 // Full-history prompt (GET /api/reviews/:id/prompt, `r3 prompt --all`): every
 // candidate item with its whole thread, no marking. `feedbackIds` narrows to a
 // specific subset. This is the escape hatch that always re-prints everything.
@@ -195,7 +189,7 @@ export function buildUnsentPrompt(
       for (const r of fb.replies) included.replies.push(r.id);
     } else {
       // Already delivered; the new human replies (and/or status flip) are unsent.
-      const unsent = unsentReplies(fb);
+      const unsent = unsentHumanReplies(fb);
       blocks.push(followUpBlock(detail.id, fb, unsent));
       for (const r of unsent) included.replies.push(r.id);
     }

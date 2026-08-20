@@ -261,13 +261,15 @@ export function unsentHumanReplies(fb: FeedbackWithReplies): Reply[] {
 //   resolved before any hand-off was settled without the agent; don't announce it
 //   after the fact. (Agent-authored feedback is born delivered, so it can't land
 //   here.)
-// - Already delivered: a human reply posted since the last hand-off (agent replies
-//   never count — the agent wrote them), or an undelivered status flip (a bare
-//   Resolve/Reopen click) — the decision itself is content the agent tracks to
-//   resolution.
+// - Already delivered: a human reply posted since the last hand-off, or an
+//   undelivered status flip (a bare Resolve/Reopen click) — the decision itself is
+//   content the agent tracks to resolution.
+//
+// This is the *delivery* question. "Would approving lose something?" is narrower
+// and belongs to the UI alone — see ReviewHeader's `blocksApprove`.
 export function hasUnsentContent(fb: FeedbackWithReplies): boolean {
   if (fb.sent_at == null) return fb.status === "open";
-  return fb.replies.some((r) => r.author === "human" && r.sent_at == null) || fb.status_unsent;
+  return unsentHumanReplies(fb).length > 0 || fb.status_unsent;
 }
 
 export interface ReviewDetail extends Review {

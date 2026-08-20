@@ -459,14 +459,20 @@ needed". The predicate lives once in `shared/types.ts` (`hasUnsentContent`) and 
 server, CLI, and web all call it.
 
 **Approve is gated on work in flight, not on open feedback.** The UI blocks the
-terminal action while something would be *lost or interrupted* by it — feedback
-the agent has never been handed (`hasUnsentContent`: Submit it, or approving
-drops it unread) or an item under a live `feedback_claims` lease (a reply is
-still landing). An open note you read and chose not to chase blocks nothing:
-approving is the human's call, and "resolved" is a decision, not a chore. Both
-blockers clear on their own, so the button is never stuck. The server and CLI
-enforce no gate at all — `PATCH /api/reviews/:id` approves whatever it's asked
-to — so this is a guardrail on the one click that ends the loop, not a rule.
+terminal action while something would be *lost or interrupted* by it — content
+the agent has never read, or an item under a live `feedback_claims` lease (a
+reply is still landing). An open note you read and chose not to chase blocks
+nothing: approving is the human's call, and "resolved" is a decision, not a
+chore. **Unread is narrower than undelivered**: the gate starts from
+`hasUnsentContent` but drops a *resolved* item whose only undelivered thing is
+its own status flip — handing the agent "this is resolved" is what approving is
+about to say at review scope, so requiring a Submit round-trip first is a loop
+carrying no content. Prose still blocks (a human reply written since the last
+hand-off), and delivery is untouched: the flip stays unsent, so Submit and the
+next prompt carry it as before. Both blockers clear on their own, so the button
+is never stuck. The server and CLI enforce no gate at all — `PATCH
+/api/reviews/:id` approves whatever it's asked to — so this is a guardrail on
+the one click that ends the loop, not a rule.
 
 **Full protocol, delivery rules, and every command → the `api-surface` skill;
 `r3 guide` prints the agent-facing version.**

@@ -2,7 +2,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { phoneViewport } from "../storyViewport.ts";
 import type { ReviewDetail } from "../types.ts";
-import { allSentDetail, reviewDetail, reviews, workingDetail } from "./_fixtures.ts";
+import {
+  allSentDetail,
+  resolvedUnsentDetail,
+  reviewDetail,
+  reviews,
+  workingDetail,
+} from "./_fixtures.ts";
 import { ReviewHeader } from "./ReviewHeader.tsx";
 
 // An untitled files review: the source label stands in for the title, and the
@@ -38,6 +44,13 @@ export const Default: Story = {};
 // terminal action. Click it for the confirm dialog (optional next-steps note).
 export const Approvable: Story = {
   args: { detail: allSentDetail },
+};
+
+// A resolved item's status flip hasn't been handed over yet. Submit is live in
+// the panel, but Approve stays enabled — a decision you already made isn't
+// content approving would drop unread.
+export const ResolvedUnsent: Story = {
+  args: { detail: resolvedUnsentDetail },
 };
 
 // An agent holds a live claim on one item: Approve goes back to disabled ("still

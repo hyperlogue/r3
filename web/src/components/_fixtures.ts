@@ -674,6 +674,17 @@ export const allSentDetail: ReviewDetail = {
   })),
 };
 
+// Everything delivered, then one *resolved* item's status flip left unsent (a
+// bare Resolve click after the last hand-off). The panel's Submit re-enables —
+// the flip is still undelivered content — but Approve stays available: telling
+// the agent "resolved" is what approving is about to say anyway.
+export const resolvedUnsentDetail: ReviewDetail = {
+  ...allSentDetail,
+  feedback: allSentDetail.feedback.map((f) =>
+    f.status === "resolved" ? { ...f, status_unsent: true } : f,
+  ),
+};
+
 // Delivered feedback with one active agent lease: the header replaces the inert
 // Copy-prompt affordance with Working, and the item carries its session chip.
 export const workingDetail: ReviewDetail = {
