@@ -1717,7 +1717,7 @@ const HELP = `r3 — local human<->agent review CLI
 // daemon and no repo, like help.
 const GUIDE = `r3 — agent guide
 
-r3 is a local-first review tool for human <-> agent collaboration. You (the agent)
+r3 is a local review tool for human <-> agent collaboration. You (the agent)
 put work up as a *review*; the human reads it in the browser and leaves *feedback*
 (anchored to a line/quote, a whole file, or a summary); you reply to each item by id
 and the decision shows up live. One per-user daemon serves every repo and spawns
@@ -1725,78 +1725,77 @@ lazily on your first command — run commands from inside the repo under review.
 
 ## The loop
 
-1. r3 create ...  — prints an id + URL; surface the URL to the human.
-   Before they start reading, orient them: set a summary (r3 edit <id>
-   --summary "...") and open feedback on the spots that matter
-   (r3 feedback add — see "Guide the review" below). A guided review reads
-   faster than a wall of 30 files. For a files review, also snapshot the
-   starting state now (r3 snapshot <id>) before handing off, so your later
-   edits diff against exactly the content they reviewed.
-2. r3 watch <id>  — blocks until the human clicks Submit, then prints the new
+1. \`r3 create ... --summary "..."\` — every create form accepts a summary and
+   prints an id + URL; surface the URL to the human. Before they start reading,
+   open feedback on the spots that matter (\`r3 feedback add\` — see "Guide the
+   review" below). A guided review reads faster than a wall of 30 files. For a
+   files review, also snapshot the starting state now (\`r3 snapshot <id>\`)
+   before handing off, so your later edits diff against exactly the content they
+   reviewed.
+2. \`r3 watch <id>\` — blocks until the human clicks Submit, then prints the new
    feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
    0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out.
-3. Work each item, then: r3 reply <feedback_id> -m "what you did / why not".
-   Reply by the stable feedback id, never a positional index; replies are plain
+3. Claim the items before editing so the human sees that you are working:
+   \`r3 claim <feedback_id_1> <feedback_id_2>...\` (60-minute lease; repeat to
+   renew a long task).
+4. Work each item, then: \`r3 reply <feedback_id> -m "what you did / why not"\`.
+   Reply by the stable feedback id; replies are plain
    messages (the human resolves/reopens items in the UI — you'll see
-   "[resolved]" in a later prompt when they do).
-4. Watch again for the next round.
+   "[resolved]" in a later prompt when they do). A successful agent reply clears
+   that item's working claim automatically.
+5. Watch again for the next round.
 
 Watch by default: after creating a review, and after each round of replies, run
-r3 watch <id> unless the human told you not to — that's how you receive feedback
+\`r3 watch <id>\` unless the human told you not to — that's how you receive feedback
 and learn when they approve. Each call is one round: it exits 10 when there's
-feedback (act on it, then run r3 watch <id> again) and 0 when the human approves
+feedback (act on it, then run \`r3 watch <id>\` again) and 0 when the human approves
 (you're done). Just re-run the command each round — no shell loop needed.
 
-r3 watch never times out by default (it blocks until the human acts). Unless the
-user asks you to set a timeout, run it with no timeout — and if your tool harness
-caps how long a command can run, run it in the background rather than cutting the
-wait short.
+\`r3 watch\` never times out by default (it blocks until the human acts). Unless the
+user asks you to set a timeout, run it with no timeout. If your tool harness sends
+background-process completion back to the agent, launch \`r3 watch <id>\` there
+directly, like a development server. A detached process whose output only buffers
+will NOT wake you; use the harness's awaited/monitored process handle instead.
+Do not put watch in a shell loop: its exit 10 intentionally returns control so you
+can act on the round and reply. Then launch a fresh \`r3 watch <id>\`; repeat until
+it exits 0 (approved) or 3 (abandoned).
 
 Some items target a whole file or a summary (no line span) — reply the same way.
 
 ## Guide the review (agent-authored feedback)
 
-Feedback flows both ways: you can open items too, with the same anchors and
-threads as the human's notes. Use it to steer a big review — point at the files
-that matter, ask a question, flag a risk you're unsure about:
-  r3 feedback add <id> -m "..."  # review-level note
-  r3 feedback add <id> -m "..." --file src/db.ts  # about one file
-  r3 feedback add <id> -m "..." --file src/db.ts --line 40-52  # anchored to lines
-On a scratch review, --file takes the name the review shows (see r3 show or the
-file card header), not a local path. feedback add rejects a --file/--line the
-review can't actually show — an out-of-range or hunk-gap-spanning line, or a
-file not in the review — rather than storing a note that points nowhere.
-Your items appear live in their UI; the human replies or resolves them, and
-those answers reach you through the same watch/prompt loop (a bare resolve
-arrives as "[resolved] — no action needed"). Your own feedback never echoes
-back to you. Pair it with a review summary (r3 edit --summary) for orientation:
-the summary is the map, feedback items are the pins. The summary renders as
-Markdown in their UI and supports the same @<path>:L<a>[-b] code refs as
-replies — but a summary ref resolves against the review's CURRENT content
-(the summary is edited in place; nothing is version-pinned), so keep it
-pointing at things that hold across rounds. The human can also leave feedback
-anchored to a passage of the summary itself; since the summary is edited in
-place, that anchor can drift when you rewrite it — re-point it at that same
-passage where it now sits (see "Re-anchoring" below) with
-  r3 reanchor <feedback_id> --quote "<the passage's new text>"
+You can open the same anchored feedback as the human. Use it to point at key
+files, ask a question, or flag a risk:
+  \`r3 feedback add <id> -m "..."\` — review-level note
+  \`r3 feedback add <id> -m "..." --file src/db.ts\` — about one file
+  \`r3 feedback add <id> -m "..." --file src/db.ts --line 40-52\` — anchored to lines
+On scratch reviews, --file is the displayed name, not a local path. Invalid
+files/ranges are rejected. Your notes appear live; human replies and status
+changes return through \`r3 watch\`, while your own notes do not echo back.
+
+Use the review summary as the map and feedback as pins. Summary @path:Lx-y refs
+track current content. If editing the summary moves text that feedback quotes,
+relocate that summary anchor with
+  \`r3 reanchor <feedback_id> --quote "<the passage's new text>"\`
 
 ## Two kinds of review
 
 files — a live view of current content: watched, edits appear immediately, feedback
 re-anchors as files change.
-  r3 files add|rm <id> <path|glob>...  # change the file set
-  r3 snapshot <id> --label "..."  # freeze content so the human can diff your changes across turns
-                                  #   (snapshot the starting state before handoff, then after each round)
-  r3 snapshot list|rm <id> [seq]
-  r3 reanchor <feedback_id> --file <f> --line <a-b>  # ONLY when your edit moved the quoted
-                                  #   text — --line is where that text landed (see below)
+  \`r3 files add|rm <id> <path|glob>...\` — change the file set
+  \`r3 snapshot <id> --label "..."\` — freeze content so the human can diff
+  your changes across turns (snapshot the starting state before handoff, then
+  after each round)
+  \`r3 snapshot list|rm <id> [seq]\`
+  \`r3 reanchor <feedback_id> --file <f> --line <a-b>\` — ONLY when your edit
+  moved the quoted text; --line is where that text landed (see below)
 
 diff — immutable rounds: the diff is snapshotted once (git is never consulted
 again). Append fixes as a new round; rounds never change, so feedback can't orphan.
-  git diff ... | r3 diff add <id> --label "round 2" --summary "<what changed>"
-  r3 reply <feedback_id> -m "..." --diff <seq> --file <f> --line <a-b>  # pin the reply to the fix
-  r3 diff list|rm <id> [seq]  # file/round anchors don't re-anchor (immutable); the
-                              #   review summary still does — r3 reanchor <fid> --quote "..."
+  \`git diff ... | r3 diff add <id> --label "round 2" --summary "<what changed>"\`
+  \`r3 reply <feedback_id> -m "..." --diff <seq> --file <f> --line <a-b>\` — pin the reply to the fix
+  \`r3 diff list|rm <id> [seq]\` — file/round anchors don't re-anchor (immutable);
+  the review summary still does — \`r3 reanchor <fid> --quote "..."\`
 
 ## Re-anchoring (files reviews + the review summary)
 
@@ -1804,15 +1803,11 @@ Re-anchor for ONE reason: your edit MOVED the text a note quotes, so the note
 has to follow it. "My change pushed this passage down to line 150, so I
 re-anchor it to 150." It is not a marker for where you did the work — "I
 answered this at line 100, so I re-anchored it to 100" is wrong; where the fix
-landed goes in a reply (r3 reply, and on a diff review the --diff pin).
+landed goes in a reply (\`r3 reply\`, and on a diff review the --diff pin).
 
-NEVER change the text a note quotes. The quote is the anchor of record — the
-human marked that exact passage — and --line is only a hint saying where it now
-lives. The server holds you to it: a files-review re-anchor keeps the stored
-quote whatever range you name, and rejects a --quote that differs. The one place
-a quote IS the whole anchor is a review-summary note (no file, no line numbers
-to move), so --quote is required there and must restate that same passage as it
-now reads.
+The CLI cannot replace a file note's stored quote: --line is only a new location
+hint, and a differing --quote is rejected. A review-summary note has no file
+range, so its required --quote must restate the same passage at its new location.
 
 If the quoted text is gone — you rewrote or deleted it — do nothing. The note
 flips to "outdated", which is the truth: the human still sees their original
@@ -1838,33 +1833,32 @@ and can drift as you edit. Order the work to choose old-vs-new:
 
 ## Create a review
 
-Every form prints id + URL; tag with --meta session=<your-session>.
-  r3 create --working  # working-tree diff (untracked included)
-  r3 create --staged  # index diff
-  r3 create --commit <sha>  # one commit
-  r3 create --diff <base>..<head>  # branch / range
-  git diff ... | r3 create --stdin-diff  # any piped diff
-  r3 create [--title T] [--meta k=v]... --files 'src/**/*.py' '*.md'  # live file set
-       # --files is GREEDY: it swallows every following token as a path/glob, so all
-       # other flags (--title/--meta/--ref/--summary) MUST come BEFORE it.
-       #   WRONG: r3 create --files 'src/**/*.py' --meta session=abc --title X
-       #          (--meta, session=abc, --title, X are all read as filenames -> fails)
-       #   RIGHT: r3 create --meta session=abc --title X --files 'src/**/*.py'
-  r3 create --scratch  # no git source; prints a dir path on line 3; drop files there (flat dir), appear live
+Every form accepts --summary/--title/--meta and prints id + URL.
+
+- \`r3 create --working\` — working-tree diff (untracked included)
+- \`r3 create --staged\` — index diff
+- \`r3 create --commit <sha>\` — one commit
+- \`r3 create --diff <base>..<head>\` — branch / range
+- \`git diff ... | r3 create --stdin-diff\` — any piped diff
+- \`r3 create [--title T] [--meta k=v]... --files 'src/**/*.py' '*.md'\` — live file set
+  - --files is GREEDY, so put every other flag before it.
+  - WRONG: \`r3 create --files 'src/**/*.py' --meta session=abc --title X\`
+  - RIGHT: \`r3 create --meta session=abc --title X --files 'src/**/*.py'\`
+- \`r3 create --scratch\` — empty scratch review; prints its flat directory path
 
 ## Other commands
 
-  r3 show <id> [--json]  # full history: every item, thread, round
-  r3 prompt <id> [--all]  # unseen feedback only, marks it delivered; --all reprints all open
-  r3 list --meta session=<id>  # your reviews
-  r3 edit <id> --title "..." | --summary "..."  # rename / add overview (--summary - reads stdin)
-  r3 approve <id> [--note "..."]  # ends the loop (r3 watch exits 0)
-  r3 abandon <id>  # close without approving
-  r3 auth create-token  # a login token to open the web UI when r3 is exposed (loopback needs none)
-  r3 config set publicUrl https://<name>  # persist how the daemon serves (survives restart/respawn)
-  r3 restart  # if the daemon drifts; not mid-loop (drops in-flight watches)
+  \`r3 show <id> [--json]\` — full history: every item, thread, round
+  \`r3 prompt <id> [--all]\` — unseen feedback only, marks it delivered; --all reprints all open
+  \`r3 list --meta session=<id>\` — your reviews
+  \`r3 edit <id> --title "..." | --summary "..."\` — rename / add overview (--summary - reads stdin)
+  \`r3 approve <id> [--note "..."]\` — ends the loop (\`r3 watch\` exits 0)
+  \`r3 abandon <id>\` — close without approving
+  \`r3 auth create-token\` — mint a browser login token when r3 is exposed (loopback needs none)
+  \`r3 config set publicUrl https://<name>\` — persist how the daemon serves (survives restart/respawn)
+  \`r3 restart\` — if the daemon drifts; not mid-loop (drops in-flight watches)
 
-Run r3 -h for the full flag reference.
+Run \`r3 -h\` for the full flag reference.
 `;
 
 // Commands that talk to the daemon (everything but lifecycle + help). They need
