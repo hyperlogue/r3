@@ -666,15 +666,27 @@ bun run build:demo          # Bun.build the frontend-only demo -> dist/demo
   huge repo and exhaust fds). The compiled binary embeds the SPA, so its cwd is
   irrelevant — it inherits the CLI's.
 
-## Checks (there is no unit-test runner)
+## Checks
 
 Before committing, run:
 
 ```sh
 bun run typecheck           # tsc --noEmit across server + cli + web + shared + scripts
+bun test                    # the targeted server tests (bun:test, `*.test.ts`)
 biome check .               # lint + format (biome is in the nix shell, not a devDep)
 biome check --write .       # apply fixes
 ```
+
+**Tests are targeted, not a suite.** There is no coverage goal and most of the
+server has no test at all — a review tool's behaviour lives in git, sqlite, and
+the browser, where a type checker and a story catch more per minute than a mock
+would. What earns a test is a **rule with states and a clock**: cheap to state,
+expensive to get wrong at runtime, and invisible to `tsc`. The claim lease is the
+worked example (`server/claims.test.ts`) — who may renew, what a reply releases,
+when expiry stops counting. A test **must** point `R3_DB` at its own temp store
+and `await import()` the modules under test, because `server/db.ts` opens its
+singleton at import time; a static import would open the real
+`$XDG_STATE_HOME/r3/r3.sqlite` before the env var lands.
 
 Components have **Storybook stories** (`*.stories.tsx`) as the visual test surface —
 add/update a story when you change a component. Config lives in `biome.jsonc`

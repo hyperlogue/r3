@@ -17,6 +17,7 @@
     "build:demo": "bun scripts/build-demo.ts",
     "stage:pages": "bun scripts/stage-pages.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "storybook": "storybook dev -p 6007",
     "build-storybook": "storybook build"
   },
