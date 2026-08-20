@@ -2,15 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { phoneViewport } from "../storyViewport.ts";
 import type { ReviewDetail } from "../types.ts";
-import { reviewDetail, reviews } from "./_fixtures.ts";
+import { allSentDetail, reviewDetail, reviews, workingDetail } from "./_fixtures.ts";
 import { ReviewHeader } from "./ReviewHeader.tsx";
-
-// Approve is gated on the *human's* open feedback; flip everything resolved to
-// show the enabled terminal action.
-const allResolved: ReviewDetail = {
-  ...reviewDetail,
-  feedback: reviewDetail.feedback.map((f) => ({ ...f, status: "resolved" as const })),
-};
 
 // An untitled files review: the source label stands in for the title, and the
 // metadata line shows the label instead of a base..head commit range.
@@ -36,20 +29,27 @@ type Story = StoryObj<typeof meta>;
 
 // An open diff review: status pill, editable title (hover pencil), and the
 // copyable metadata line (repo → worktree path, base..head split into three copy
-// targets, branch, session). The fixture still has open human feedback, so
-// Approve is disabled with the "resolve your open feedback first" tooltip.
+// targets, branch, session). The fixture holds feedback the agent hasn't been
+// handed, so Approve is disabled with the "Submit your feedback first" tooltip.
 export const Default: Story = {};
 
-// Every human item resolved: Approve enables (it opens the confirm dialog with
-// the optional next-steps note — click it to see; onApprove fires on confirm).
-export const AllResolved: Story = {
-  args: { detail: allResolved },
+// Everything delivered and nothing claimed: Approve enables even though open
+// items remain — an undecided note you chose not to chase doesn't block the
+// terminal action. Click it for the confirm dialog (optional next-steps note).
+export const Approvable: Story = {
+  args: { detail: allSentDetail },
+};
+
+// An agent holds a live claim on one item: Approve goes back to disabled ("still
+// working on 1 item") until it replies or the lease expires.
+export const AgentWorking: Story = {
+  args: { detail: workingDetail },
 };
 
 // A closed review: the primary action flips to Reopen and the ⋯ menu drops
 // Abandon (only Delete remains).
 export const Approved: Story = {
-  args: { detail: { ...allResolved, status: "approved" } },
+  args: { detail: { ...allSentDetail, status: "approved" } },
 };
 
 // An untitled files review: the title falls back to the source label, and the

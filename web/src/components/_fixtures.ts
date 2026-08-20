@@ -430,6 +430,7 @@ const fb = (
   sent_at: null,
   status_unsent: false,
   replies: [],
+  claim: null,
   ...over,
 });
 
@@ -671,6 +672,28 @@ export const allSentDetail: ReviewDetail = {
     status_unsent: false,
     replies: f.replies.map((r) => ({ ...r, sent_at: SENT_ISO })),
   })),
+};
+
+// Delivered feedback with one active agent lease: the header replaces the inert
+// Copy-prompt affordance with Working, and the item carries its session chip.
+export const workingDetail: ReviewDetail = {
+  ...allSentDetail,
+  working: true,
+  feedback: allSentDetail.feedback.map((f, i) =>
+    i === 0
+      ? {
+          ...f,
+          claim: {
+            feedback_id: f.id,
+            session: "claude-remote",
+            agentId: "agent_7f3a",
+            claimed_at: ISO,
+            renewed_at: ISO,
+            expires_at: "2026-06-30T16:15:00.000Z",
+          },
+        }
+      : f,
+  ),
 };
 
 export const pendingAnchor: PendingAnchor = {

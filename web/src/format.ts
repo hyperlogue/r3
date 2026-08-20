@@ -4,12 +4,12 @@
 
 import type { Review } from "./types.ts";
 
-// Reviews-list ranking: an agent blocked on `r3 watch` floats to the
-// top (someone's waiting on it right now), then open work, then approved, then
-// abandoned. Within a tier, most-recently-updated first. Lives here so the home
-// list (and the future quick-switch popup) can't drift out of order.
+// Reviews-list ranking: live agent activity (blocked on `r3 watch`, or explicitly
+// claiming feedback) floats to the top, then open work, approved, and abandoned.
+// Within a tier, most-recently-updated first. Lives here so the home list (and the
+// future quick-switch popup) can't drift out of order.
 function reviewRank(r: Review): number {
-  if (r.watching) return 0;
+  if (r.watching || r.working) return 0;
   switch (r.status) {
     case "open":
       return 1;
@@ -29,9 +29,9 @@ export function sortReviews(reviews: Review[]): Review[] {
 }
 
 // Status → dot classes. `open` is a HOLLOW indigo ring — work in progress with
-// nobody watching. A live watcher overrides this at the call site with a SOLID
-// indigo dot (same hue, filled in to say "an agent is on it right now"), matching
-// the feedback panel's "watching" indicator. The terminal states keep a solid
+// no live agent activity. A watcher or working claim overrides this at the call
+// site with a SOLID indigo dot (same hue, filled in to say "an agent is on it
+// right now"). The terminal states keep a solid
 // colored dot — approved green, abandoned gray — so a finished review still reads
 // at a glance; green is theirs alone now (it no longer doubles as "watching").
 export const STATUS_DOT: Record<string, string> = {

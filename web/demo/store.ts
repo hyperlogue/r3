@@ -10,7 +10,8 @@ const KEY = "r3-demo-state";
 // Bump when the seed/row shape changes: an older stored blob won't match and the
 // browser falls back to a fresh seed instead of rendering against a stale schema.
 // 2: `fullFiles` (expand-context rows) added to StoredPatch/StoredSnapshotDiff.
-const VERSION = 2;
+// 3: feedback-scoped active-work claims.
+const VERSION = 3;
 
 function seedState(): DemoState {
   // structuredClone so mutating the store never reaches back into the frozen SEED.

@@ -10,6 +10,7 @@ import {
   reviewDetail,
   watching,
   wholeFilePendingAnchor,
+  workingDetail,
 } from "./_fixtures.ts";
 import { FeedbackPanel } from "./FeedbackPanel.tsx";
 
@@ -136,6 +137,15 @@ export const ResolvedTab: Story = {
 // live presence indicator appears.
 export const AgentWatching: Story = {
   parameters: { queryData: [[WATCHERS_KEY, watching]] },
+};
+
+// The agent left `watch`, explicitly claimed an item, and is now working. The
+// claim appears both on its card and in the panel header, sinks that card below
+// all unclaimed work, and dims the card without dimming its working badge. With
+// everything already delivered, the primary affordance reads Working instead of
+// falling back to Copy.
+export const AgentWorking: Story = {
+  args: { detail: workingDetail },
 };
 
 // A line range was just picked in the diff → the anchored-draft composer opens at

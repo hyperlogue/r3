@@ -29,8 +29,8 @@ export function startWatching(reviewId: string, info: WatcherInfo = AGENT): void
   broadcast({ type: "watchers-changed", reviewId });
 }
 
-// The agent leaves `watch` to go work on a submitted round — the dot clears and
-// the panel briefly falls back to "Copy prompt" until the agent re-arms.
+// The agent leaves `watch` to go work on a submitted round. Its feedback claims
+// then carry the active-work indicator until replies land and it re-arms.
 export function stopWatching(reviewId: string): void {
   watchers.delete(reviewId);
   broadcast({ type: "watchers-changed", reviewId });

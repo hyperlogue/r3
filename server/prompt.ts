@@ -93,7 +93,9 @@ function promptHeader(detail: ReviewDetail, count: number): string {
     `Work through each, then reply by feedback id so it appears in my review UI ` +
     `(say what you changed, why you disagree, or any follow-up — it's all just a reply):\n\n` +
     summary +
+    `  r3 claim <feedback_id_1> <feedback_id_2>...   # first, claim the items you will act on (60-minute lease; skip resolved/no-action items)\n` +
     `  r3 reply <feedback_id> -m "<msg>"\n` +
+    `      # a successful agent reply releases that feedback's working claim\n` +
     `      # <msg> renders Markdown; reference code with @path:Lx-y (a click-to-scroll link,\n` +
     `      # pinned to the latest round/snapshot at reply time — snapshot/round before replying\n` +
     `      # to point at new code, or reply first to point at old; split replies to cite both)\n` +

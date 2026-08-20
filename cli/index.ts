@@ -24,7 +24,14 @@ import {
   removeDaemonJson,
   writeConfig,
 } from "../server/config.ts";
-import { type AuthTokenInfo, hasUnsentContent, SUMMARY_FILE } from "../shared/types.ts";
+import {
+  type AuthTokenInfo,
+  DEFAULT_CLAIM_LEASE_SECONDS,
+  hasUnsentContent,
+  MAX_CLAIM_LEASE_SECONDS,
+  MIN_CLAIM_LEASE_SECONDS,
+  SUMMARY_FILE,
+} from "../shared/types.ts";
 
 interface ServerInfo {
   url: string;
@@ -388,7 +395,7 @@ const MULTI = new Set(["meta"]);
 // must come last on the line (after --title/--meta/--ref). This is what makes
 // `--files $(git ls-files)` and `--files 'server/**/*.ts' '*.md'` both work.
 const REST = new Set(["files"]);
-const BOOL = new Set(["working", "staged", "scratch", "stdin-diff", "json", "all"]);
+const BOOL = new Set(["working", "staged", "scratch", "stdin-diff", "json", "all", "release"]);
 // Value flags whose argument is numeric/structured (a seq, a `a-b` range, a
 // count of seconds, a `base..head`, a ref/sha, a status enum, a fid list) — none
 // of which can legitimately start with "-". So a following "-…" token is always a
@@ -406,6 +413,7 @@ const TYPED = new Set([
   "feedback",
   "ref",
   "side",
+  "lease",
 ]);
 
 // Pull the value that follows a value flag at argv[i]. Two guards keep a flag
@@ -624,7 +632,8 @@ async function cmdShow(args: Args) {
     // Tag agent-authored notes so a fresh agent session recovering state via
     // `r3 show` doesn't read its own guidance back as a human ask.
     const author = fb.author === "agent" ? " [agent]" : "";
-    console.log(`\n  ${fb.id} [${fb.status}]${author}${stale} ${target}`);
+    const claim = fb.claim ? ` [working: ${fb.claim.session} until ${fb.claim.expires_at}]` : "";
+    console.log(`\n  ${fb.id} [${fb.status}]${author}${stale}${claim} ${target}`);
     console.log(`    ${fb.body.replace(/\n/g, "\n    ")}`);
     for (const rp of fb.replies) {
       const pin =
@@ -864,6 +873,48 @@ async function cmdReply(args: Args) {
   console.log(
     `replied to ${fid}${body.patchSeq != null ? ` (pinned to diff ${body.patchSeq})` : ""}`,
   );
+}
+
+// Assert that this agent session is actively handling one or more feedback
+// items. A repeat by the same owner renews the lease; a successful agent reply
+// releases that item's claim on the server atomically.
+async function cmdClaim(args: Args) {
+  const ids = [...new Set(args.positional)];
+  if (!ids.length)
+    fail(
+      "claim <feedback_id>... [--session <name>] [--agent-id <id>] [--lease <minutes>] [--release]",
+    );
+
+  const release = args.flags.release === true;
+  if (release && args.flags.lease !== undefined) fail("claim --release doesn't take --lease");
+  let leaseSeconds = DEFAULT_CLAIM_LEASE_SECONDS;
+  if (args.flags.lease !== undefined) {
+    const minutes = Number(args.flags.lease);
+    if (
+      !Number.isFinite(minutes) ||
+      minutes * 60 < MIN_CLAIM_LEASE_SECONDS ||
+      minutes * 60 > MAX_CLAIM_LEASE_SECONDS ||
+      !Number.isInteger(minutes * 60)
+    )
+      fail(
+        `claim --lease expects ${MIN_CLAIM_LEASE_SECONDS / 60}–${MAX_CLAIM_LEASE_SECONDS / 60} minutes`,
+      );
+    leaseSeconds = minutes * 60;
+  }
+
+  for (const id of ids) {
+    if (release) {
+      await api("DELETE", `/api/feedback/${id}/claim`);
+      console.log(`released ${id}`);
+      continue;
+    }
+    const claim = await api("PUT", `/api/feedback/${id}/claim`, {
+      ...(typeof args.flags.session === "string" ? { session: args.flags.session } : {}),
+      ...(typeof args.flags["agent-id"] === "string" ? { agentId: args.flags["agent-id"] } : {}),
+      leaseSeconds,
+    });
+    console.log(`claimed ${id} as "${claim.session}" until ${claim.expires_at}`);
+  }
 }
 
 // ---- agent-authored feedback: r3 feedback add ----
@@ -1560,6 +1611,13 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   after N idle seconds. Use it on long reviews so
                                                  #   the agent starts fixing sooner without a manual
                                                  #   Submit. 0 = off (wait for Submit).
+  claim  <feedback_id>... [--session <name>] [--agent-id <id>]
+              [--lease <minutes>] [--release]
+                                                 # show that this agent is actively working on
+                                                 #   each item. Default lease: 60 minutes;
+                                                 #   repeat to renew. A successful agent reply
+                                                 #   releases that item's claim automatically.
+                                                 #   --release clears it without replying.
   diff add <id> [--label L] [--summary S]        # append a diff round from stdin, e.g.
                                                  #   git diff | r3 diff add <id> --label "round 2" \
                                                  #     --summary "what changed overall this round"
@@ -1817,6 +1875,7 @@ const SERVER_COMMANDS = new Set([
   "show",
   "prompt",
   "watch",
+  "claim",
   "reply",
   "feedback",
   "reanchor",
@@ -1878,6 +1937,8 @@ async function main() {
       return cmdPrompt(args);
     case "watch":
       return cmdWatch(args);
+    case "claim":
+      return cmdClaim(args);
     case "reply":
       return cmdReply(args);
     case "feedback":

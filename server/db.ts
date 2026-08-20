@@ -13,6 +13,7 @@ import type {
   AuthTokenInfo,
   Creator,
   Feedback,
+  FeedbackClaim,
   FeedbackStatus,
   PatchMeta,
   Reply,
@@ -114,6 +115,17 @@ CREATE TABLE IF NOT EXISTS replies (
   sent_at     TEXT,
   ref_version INTEGER
 );
+-- A claim is not feedback lifecycle state: it is a time-bounded assertion that
+-- one agent session is actively handling an item. One active owner per feedback;
+-- the FK makes delete/repo-forget cleanup automatic.
+CREATE TABLE IF NOT EXISTS feedback_claims (
+  feedback_id TEXT PRIMARY KEY REFERENCES feedback(id) ON DELETE CASCADE,
+  session     TEXT NOT NULL,
+  agent_id    TEXT,
+  claimed_at  TEXT NOT NULL,
+  renewed_at  TEXT NOT NULL,
+  expires_at  TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS patches (
   review_id   TEXT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
   seq         INTEGER NOT NULL,
@@ -172,6 +184,7 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 );
 CREATE INDEX IF NOT EXISTS feedback_by_review ON feedback(review_id);
 CREATE INDEX IF NOT EXISTS replies_by_feedback ON replies(feedback_id);
+CREATE INDEX IF NOT EXISTS feedback_claims_by_expiry ON feedback_claims(expires_at);
 -- No index on token_hash / session_hash: their UNIQUE constraints already create
 -- one, so the login + cookie lookups are covered. token_id ISN'T unique (many
 -- sessions per token) and SQLite doesn't auto-index a foreign key, so this one is
@@ -347,6 +360,14 @@ interface ReplyRow {
   created_at: string;
   sent_at: string | null;
 }
+interface FeedbackClaimRow {
+  feedback_id: string;
+  session: string;
+  agent_id: string | null;
+  claimed_at: string;
+  renewed_at: string;
+  expires_at: string;
+}
 interface PatchRow {
   review_id: string;
   seq: number;
@@ -401,6 +422,16 @@ function rowToFeedback(r: FeedbackRow): Feedback {
     updated_at: r.updated_at,
     sent_at: r.sent_at,
     status_unsent: !!r.status_unsent,
+  };
+}
+function rowToFeedbackClaim(r: FeedbackClaimRow): FeedbackClaim {
+  return {
+    feedback_id: r.feedback_id,
+    session: r.session,
+    ...(r.agent_id ? { agentId: r.agent_id } : {}),
+    claimed_at: r.claimed_at,
+    renewed_at: r.renewed_at,
+    expires_at: r.expires_at,
   };
 }
 
@@ -593,6 +624,7 @@ export function updateReview(
     $summary: fields.summary !== undefined ? fields.summary : cur.summary,
     $ts: nowIso(),
   });
+  if ((fields.status ?? cur.status) !== "open") deleteFeedbackClaimsForReview(id);
   return getReview(id);
 }
 
@@ -679,6 +711,93 @@ export function listFeedback(reviewId: string): Feedback[] {
   return rows.map(rowToFeedback);
 }
 
+// ---- active-work claims -------------------------------------------------
+
+// The active predicate lives in SQL so an expired row is invisible immediately,
+// even before the background sweeper physically removes it and broadcasts the
+// expiry to already-open clients.
+export function getFeedbackClaim(feedbackId: string): FeedbackClaim | null {
+  const row = db
+    .query("SELECT * FROM feedback_claims WHERE feedback_id = $id AND expires_at > $now")
+    .get({ $id: feedbackId, $now: nowIso() }) as FeedbackClaimRow | null;
+  return row ? rowToFeedbackClaim(row) : null;
+}
+
+export function listFeedbackClaims(reviewId: string): FeedbackClaim[] {
+  const rows = db
+    .query(
+      `SELECT c.* FROM feedback_claims c
+         JOIN feedback f ON f.id = c.feedback_id
+        WHERE f.review_id = $rid AND c.expires_at > $now
+        ORDER BY c.claimed_at ASC`,
+    )
+    .all({ $rid: reviewId, $now: nowIso() }) as FeedbackClaimRow[];
+  return rows.map(rowToFeedbackClaim);
+}
+
+export function reviewIdsWithFeedbackClaims(): Set<string> {
+  const rows = db
+    .query(
+      `SELECT DISTINCT f.review_id FROM feedback_claims c
+         JOIN feedback f ON f.id = c.feedback_id
+        WHERE c.expires_at > $now`,
+    )
+    .all({ $now: nowIso() }) as { review_id: string }[];
+  return new Set(rows.map((r) => r.review_id));
+}
+
+export function putFeedbackClaim(claim: FeedbackClaim): FeedbackClaim {
+  db.query(
+    `INSERT INTO feedback_claims
+       (feedback_id, session, agent_id, claimed_at, renewed_at, expires_at)
+     VALUES ($fid, $session, $agent_id, $claimed, $renewed, $expires)
+     ON CONFLICT(feedback_id) DO UPDATE SET
+       session=excluded.session,
+       agent_id=excluded.agent_id,
+       claimed_at=excluded.claimed_at,
+       renewed_at=excluded.renewed_at,
+       expires_at=excluded.expires_at`,
+  ).run({
+    $fid: claim.feedback_id,
+    $session: claim.session,
+    $agent_id: claim.agentId ?? null,
+    $claimed: claim.claimed_at,
+    $renewed: claim.renewed_at,
+    $expires: claim.expires_at,
+  });
+  return getFeedbackClaim(claim.feedback_id)!;
+}
+
+export function deleteFeedbackClaim(feedbackId: string): boolean {
+  return (
+    db.query("DELETE FROM feedback_claims WHERE feedback_id = $id").run({ $id: feedbackId })
+      .changes > 0
+  );
+}
+
+export function deleteFeedbackClaimsForReview(reviewId: string): void {
+  db.query(
+    `DELETE FROM feedback_claims
+      WHERE feedback_id IN (SELECT id FROM feedback WHERE review_id = $rid)`,
+  ).run({ $rid: reviewId });
+}
+
+// Returns the affected parents so the domain layer can broadcast exactly the
+// feedback/review rows whose visible working state expired.
+export function deleteExpiredFeedbackClaims(): { feedbackId: string; reviewId: string }[] {
+  const now = nowIso();
+  const expired = db
+    .query(
+      `SELECT c.feedback_id, f.review_id FROM feedback_claims c
+         JOIN feedback f ON f.id = c.feedback_id
+        WHERE c.expires_at <= $now`,
+    )
+    .all({ $now: now }) as { feedback_id: string; review_id: string }[];
+  if (expired.length)
+    db.query("DELETE FROM feedback_claims WHERE expires_at <= $now").run({ $now: now });
+  return expired.map((r) => ({ feedbackId: r.feedback_id, reviewId: r.review_id }));
+}
+
 // Per-reviewer viewed-state. Keys are opaque content-identity
 // tokens minted by the client; the daemon just stores/returns them per review.
 export function listViewed(reviewId: string): string[] {
@@ -753,6 +872,7 @@ export function updateFeedback(
     $su: next.status_unsent ? 1 : 0,
     $ts: nowIso(),
   });
+  if (next.status === "resolved") deleteFeedbackClaim(id);
   touchReview(cur.review_id);
   return getFeedback(id);
 }
@@ -804,33 +924,39 @@ export function createReply(
     quote?: string | null;
     // Version the reply's inline `@path:Lx-y` refs resolve against (round/snapshot).
     ref_version?: number | null;
+    // Agent replies complete an active-work claim. Keep this in storage so the
+    // reply insert + claim delete are one SQLite transaction.
+    release_claim?: boolean;
   },
 ): Reply {
-  const ts = nowIso();
-  // Auto-minted id: retry on the vanishing chance of a PK collision (see
-  // insertWithMintedId) so a clash re-mints rather than 500s + drops the reply.
-  const id = insertWithMintedId(newReplyId, (id) => {
-    db.query(
-      `INSERT INTO replies (id, feedback_id, author, body, patch_seq, file, line_start, line_end, quote, ref_version, created_at)
-       VALUES ($id, $fid, $author, $body, $patch_seq, $file, $ls, $le, $quote, $ref_version, $ts)`,
-    ).run({
-      $id: id,
-      $fid: feedbackId,
-      $author: input.author ?? "agent",
-      $body: input.body,
-      $patch_seq: input.patch_seq ?? null,
-      $file: input.file ?? null,
-      $ls: input.line_start ?? null,
-      $le: input.line_end ?? null,
-      $quote: input.quote ?? null,
-      $ref_version: input.ref_version ?? null,
-      $ts: ts,
+  return db.transaction(() => {
+    const ts = nowIso();
+    // Auto-minted id: retry on the vanishing chance of a PK collision (see
+    // insertWithMintedId) so a clash re-mints rather than 500s + drops the reply.
+    const id = insertWithMintedId(newReplyId, (id) => {
+      db.query(
+        `INSERT INTO replies (id, feedback_id, author, body, patch_seq, file, line_start, line_end, quote, ref_version, created_at)
+         VALUES ($id, $fid, $author, $body, $patch_seq, $file, $ls, $le, $quote, $ref_version, $ts)`,
+      ).run({
+        $id: id,
+        $fid: feedbackId,
+        $author: input.author ?? "agent",
+        $body: input.body,
+        $patch_seq: input.patch_seq ?? null,
+        $file: input.file ?? null,
+        $ls: input.line_start ?? null,
+        $le: input.line_end ?? null,
+        $quote: input.quote ?? null,
+        $ref_version: input.ref_version ?? null,
+        $ts: ts,
+      });
+      return id;
     });
-    return id;
-  });
-  const fb = getFeedback(feedbackId);
-  if (fb) touchReview(fb.review_id);
-  return db.query("SELECT * FROM replies WHERE id = $id").get({ $id: id }) as Reply;
+    if (input.release_claim) deleteFeedbackClaim(feedbackId);
+    const fb = getFeedback(feedbackId);
+    if (fb) touchReview(fb.review_id);
+    return db.query("SELECT * FROM replies WHERE id = $id").get({ $id: id }) as Reply;
+  })();
 }
 
 export function getReply(id: string): Reply | null {

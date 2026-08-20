@@ -154,6 +154,11 @@ export interface Review {
   // Set by GET /api/reviews (ephemeral connection presence, like RepoRecord.present)
   // so clients can surface and rank watched reviews to the top.
   watching?: boolean;
+  // Live, derived from unexpired feedback claims: is an agent actively working
+  // on at least one item in this review? Unlike `watching` this survives a daemon
+  // restart until its lease expires, but it is still operational presence rather
+  // than review lifecycle state.
+  working?: boolean;
 }
 
 export interface Feedback {
@@ -222,8 +227,31 @@ export interface Reply {
   ref_version: number | null;
 }
 
+// A feedback-scoped, time-bounded assertion from an agent that it is actively
+// handling the item. This is deliberately separate from Feedback.status:
+// open|resolved remains human-controlled, while a claim is operational presence
+// that expires or is released by an agent reply.
+export interface FeedbackClaim {
+  feedback_id: string;
+  session: string; // human-readable display label
+  agentId?: string; // stable machine handle when the agent host has one
+  claimed_at: string;
+  renewed_at: string;
+  expires_at: string;
+}
+
 export interface FeedbackWithReplies extends Feedback {
   replies: Reply[];
+  claim: FeedbackClaim | null;
+}
+
+// The human replies the agent hasn't been handed yet — agent replies never count,
+// the agent wrote them. Named because three callers need exactly this set: the
+// unsent predicate below, the prompt's follow-up block (server/prompt.ts), and
+// the web's Approve gate (ReviewHeader) — which are the three places it drifted
+// as three hand-written copies.
+export function unsentHumanReplies(fb: FeedbackWithReplies): Reply[] {
+  return fb.replies.filter((r) => r.author === "human" && r.sent_at == null);
 }
 
 // A feedback holds content the agent hasn't been sent yet — THE unsent predicate,
@@ -359,6 +387,19 @@ export interface AddReplyBody {
   lineEnd?: number | null;
   quote?: string | null;
 }
+
+// PUT /api/feedback/:id/claim. Repeating it for the same owner renews the
+// feedback's lease; another active owner gets a conflict. The daemon supplies
+// the review's meta.session (then "agent") when session is omitted.
+export interface ClaimFeedbackBody {
+  session?: string;
+  agentId?: string;
+  leaseSeconds?: number;
+}
+
+export const DEFAULT_CLAIM_LEASE_SECONDS = 60 * 60;
+export const MIN_CLAIM_LEASE_SECONDS = 60;
+export const MAX_CLAIM_LEASE_SECONDS = 4 * 60 * 60;
 
 // Edit a reply's prose (PATCH /api/replies/:id). A human-only convenience for
 // fixing the last thing they wrote — like PATCH /api/feedback/:id, it's a UI

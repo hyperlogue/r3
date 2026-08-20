@@ -5,16 +5,25 @@
 
 import type {
   AddReplyBody,
+  ClaimFeedbackBody,
   CreateFeedbackBody,
   Creator,
   Feedback,
+  FeedbackClaim,
   FeedbackWithReplies,
   Reply,
   Review,
   ReviewDetail,
   SnapshotMeta,
 } from "../shared/types.ts";
-import { capQuote, MAX_QUOTE_LINES, SUMMARY_FILE } from "../shared/types.ts";
+import {
+  capQuote,
+  DEFAULT_CLAIM_LEASE_SECONDS,
+  MAX_CLAIM_LEASE_SECONDS,
+  MAX_QUOTE_LINES,
+  MIN_CLAIM_LEASE_SECONDS,
+  SUMMARY_FILE,
+} from "../shared/types.ts";
 import { findQuoteAcross, normalizeWs, type ProjectedDoc } from "./anchor.ts";
 import * as db from "./db.ts";
 import { forget, markAnchored, markDirty, needsReanchor } from "./dirty.ts";
@@ -45,6 +54,7 @@ import { broadcast } from "./sse.ts";
 // A domain-level rejection the route layer turns into a 400 (vs null = 404).
 export interface Rejected {
   error: string;
+  status?: 400 | 409;
 }
 export const isRejected = (v: unknown): v is Rejected =>
   !!v && typeof v === "object" && "error" in v;
@@ -138,9 +148,11 @@ export async function buildReviewDetail(id: string): Promise<ReviewDetail | null
     markAnchored(id);
     await reanchorReview(repo, review);
   }
+  const claims = new Map(db.listFeedbackClaims(id).map((claim) => [claim.feedback_id, claim]));
   const feedback: FeedbackWithReplies[] = db.listFeedback(id).map((fb) => ({
     ...fb,
     replies: db.listReplies(fb.id),
+    claim: claims.get(fb.id) ?? null,
   }));
   // A scratch review's file list is derived live from its directory (the agent
   // adds/removes files there), so refresh source.files from the current scan.
@@ -152,6 +164,7 @@ export async function buildReviewDetail(id: string): Promise<ReviewDetail | null
   const snapshots = review.kind === "files" ? db.listSnapshotMetas(id) : [];
   return {
     ...review,
+    working: feedback.some((fb) => fb.claim != null),
     source,
     feedback,
     // Daemon-owned content never goes stale: scratch docs live in the data dir,
@@ -703,8 +716,9 @@ export function addReply(
         ? db.listSnapshotMetas(fb.review_id).map((s) => s.seq)
         : [];
   const refVersion = seqs.length ? Math.max(...seqs) : null;
+  const author = body.author ?? "agent";
   const reply = db.createReply(feedbackId, {
-    author: body.author ?? "agent",
+    author,
     body: body.body,
     patch_seq: body.patchSeq ?? null,
     file: body.patchSeq != null ? (body.file ?? null) : null,
@@ -712,9 +726,81 @@ export function addReply(
     line_end: body.patchSeq != null ? (body.lineEnd ?? null) : null,
     quote: body.patchSeq != null ? (body.quote ?? null) : null,
     ref_version: refVersion,
+    // A successful agent response is the completion signal for this item. The
+    // storage layer deletes the claim in the same transaction as the reply, so
+    // neither half can land alone.
+    release_claim: author === "agent",
   });
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
   return { reply, feedback: fb };
+}
+
+function sameClaimOwner(current: FeedbackClaim, session: string, agentId?: string): boolean {
+  // Once a stable machine id is present it is authoritative. A session-only
+  // claim may be upgraded to an id by the same display session on renewal.
+  if (current.agentId) return current.agentId === agentId;
+  return current.session === session;
+}
+
+export function claimFeedback(
+  feedbackId: string,
+  body: ClaimFeedbackBody,
+): FeedbackClaim | Rejected | null {
+  const fb = db.getFeedback(feedbackId);
+  if (!fb) return null;
+  const review = db.getReview(fb.review_id);
+  if (!review) return null;
+  if (review.status !== "open") return { error: `review is ${review.status}` };
+  if (fb.status !== "open") return { error: "resolved feedback can't be claimed" };
+
+  const session = (body.session?.trim() || review.meta.session || "agent").slice(0, 200);
+  const agentId = body.agentId?.trim().slice(0, 200) || undefined;
+  const leaseSeconds = body.leaseSeconds ?? DEFAULT_CLAIM_LEASE_SECONDS;
+  if (
+    !Number.isInteger(leaseSeconds) ||
+    leaseSeconds < MIN_CLAIM_LEASE_SECONDS ||
+    leaseSeconds > MAX_CLAIM_LEASE_SECONDS
+  )
+    return {
+      error: `lease must be ${MIN_CLAIM_LEASE_SECONDS / 60}–${MAX_CLAIM_LEASE_SECONDS / 60} minutes`,
+    };
+
+  const current = db.getFeedbackClaim(feedbackId);
+  if (current && !sameClaimOwner(current, session, agentId))
+    return {
+      error: `${feedbackId} is already claimed by "${current.session}" until ${current.expires_at}`,
+      status: 409,
+    };
+
+  const now = nowIso();
+  const claim = db.putFeedbackClaim({
+    feedback_id: feedbackId,
+    session,
+    ...(agentId ? { agentId } : {}),
+    claimed_at: current?.claimed_at ?? now,
+    renewed_at: now,
+    expires_at: new Date(Date.now() + leaseSeconds * 1000).toISOString(),
+  });
+  broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
+  return claim;
+}
+
+export function releaseFeedbackClaim(feedbackId: string): boolean | null {
+  const fb = db.getFeedback(feedbackId);
+  if (!fb) return null;
+  const removed = db.deleteFeedbackClaim(feedbackId);
+  if (removed) broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
+  return removed;
+}
+
+export function expireFeedbackClaims(): void {
+  for (const expired of db.deleteExpiredFeedbackClaims()) {
+    broadcast({
+      type: "feedback-updated",
+      reviewId: expired.reviewId,
+      feedbackId: expired.feedbackId,
+    });
+  }
 }
 
 export async function reanchorFeedback(

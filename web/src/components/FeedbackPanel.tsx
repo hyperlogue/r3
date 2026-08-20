@@ -39,6 +39,7 @@ import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type {
   Author,
+  FeedbackClaim,
   FeedbackWithReplies,
   Reply,
   ReviewDetail,
@@ -179,6 +180,23 @@ function watchersLabel(watchers: WatcherInfo[]): string {
 }
 function watchersTitle(watchers: WatcherInfo[]): string {
   return `watching: ${watchers.map((w) => (w.agentId ? `${w.session} (${w.agentId})` : w.session)).join(", ")}`;
+}
+
+function claimsLabel(claims: FeedbackClaim[]): string {
+  const sessions = [...new Set(claims.map((claim) => claim.session))];
+  if (sessions.length === 1) {
+    const label = shortLabel(sessions[0]);
+    return claims.length === 1 ? `${label} working` : `${label} working on ${claims.length}`;
+  }
+  return `${sessions.length} agents working`;
+}
+function claimsTitle(claims: FeedbackClaim[]): string {
+  return claims
+    .map(
+      (claim) =>
+        `${claim.session}${claim.agentId ? ` (${claim.agentId})` : ""} working on ${claim.feedback_id}`,
+    )
+    .join("\n");
 }
 
 // Copy the agent prompt. Uses copyText (not navigator.clipboard directly) so it
@@ -1107,7 +1125,7 @@ function FeedbackCard({
         // (border-b-2) is the only thing between one feedback and the next, so the
         // list reads as one surface rather than a stack of cards. The last block
         // drops the rule so no divider dangles at the end.
-        "border-b-2 border-b-neutral-300 border-l-2 border-l-transparent p-3 transition-colors last:border-b-0 dark:border-b-neutral-700",
+        "relative border-b-2 border-b-neutral-300 border-l-2 border-l-transparent p-3 transition-colors last:border-b-0 dark:border-b-neutral-700",
         // Active feedback: just the amber left rail — no fill (a full-card wash
         // was too loud). The border-l-2 above is always reserved, so activating
         // adds no layout shift. The outdated-anchor state stays on the ⚠ by the
@@ -1115,6 +1133,16 @@ function FeedbackCard({
         isActive && "border-l-warning-400 dark:border-l-warning-500",
       )}
     >
+      {/* A claimed item is deliberately de-emphasized while the agent owns the
+          next move. Use a translucent overlay instead of parent opacity so the
+          working badge can sit above it at full emphasis. Pointer events pass
+          through: the human can still inspect, reply to, or resolve the card. */}
+      {fb.claim && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 bg-neutral-50/45 dark:bg-neutral-950/45"
+        />
+      )}
       {/* Header: the file:line/general/summary jump (with a stale-anchor ⚠
           prefixing the name) sits at the left for every anchor kind; an optional
           decision word floats to the right. One flex row that truncates, never
@@ -1160,6 +1188,15 @@ function FeedbackCard({
             className="shrink-0 rounded bg-primary-100/60 px-1 py-px text-[0.625rem] font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300"
           >
             agent
+          </span>
+        )}
+        {fb.claim && (
+          <span
+            title={`${fb.claim.session}${fb.claim.agentId ? ` (${fb.claim.agentId})` : ""} is working on this feedback`}
+            className="relative z-20 flex shrink-0 items-center gap-1 rounded-full bg-primary-100 px-1.5 py-px text-[0.625rem] font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-300"
+          >
+            <span className="size-1.5 rounded-full bg-primary-500" />
+            {shortLabel(fb.claim.session)} working
           </span>
         )}
         {/* "Your turn" dot — an unread-style marker pinned to the header's right
@@ -1470,6 +1507,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // nothing to send once everything's delivered (a fresh reply/feedback/decision
   // re-enables it live).
   const hasUnsent = detail.feedback.some(hasUnsentContent);
+  const claims = detail.feedback.flatMap((fb) => (fb.claim ? [fb.claim] : []));
+  const working = claims.length > 0;
   // The general note's text lives in the browser draft store (persisted, lights the
   // pill); `generalOpen` is just the local "is the composer showing" bit. It's kept
   // showing while there's text too (below), so it survives being hidden behind an
@@ -1614,16 +1653,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // typed in.
   const resolved = detail.feedback.filter((f) => f.status === "resolved");
   const active = detail.feedback.filter((f) => f.status !== "resolved");
-  // Attention-first ordering within the Active tab: cards where the agent had the
-  // last word ("your turn") float above the rest, each group keeping its created_at
-  // order — a *stable* partition, so a card moves only when its turn actually flips
-  // (reply/resolve sinks it; an agent reply raises it), which the list's
-  // auto-animate then FLIPs. Nothing is hidden: the two tabs stay the clean
-  // active/resolved split — this only ranks within Active. The two groups run
-  // together with no labelled divider between them.
-  const attention = active.filter(needsAttention);
-  const rest = active.filter((f) => !needsAttention(f));
-  const ordered = [...attention, ...rest];
+  // Attention-first ordering within the Active tab, with claimed cards ALWAYS at
+  // the bottom: once the agent owns the next move, that work gets out of the
+  // human's queue regardless of who spoke last. Every partition is stable, so
+  // cards retain created_at order within attention/rest/claimed and move only
+  // when their turn or claim state changes; auto-animate then FLIPs the reflow.
+  const claimed = active.filter((f) => f.claim != null);
+  const unclaimed = active.filter((f) => f.claim == null);
+  const attention = unclaimed.filter(needsAttention);
+  const rest = unclaimed.filter((f) => !needsAttention(f));
+  const ordered = [...attention, ...rest, ...claimed];
 
   // A single highlight pill that slides (translateX + width) to the active filter
   // tab. The two pills are different, count-dependent widths, so measure the
@@ -1673,8 +1712,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   };
 
   // One card renderer for both tabs. The Active tab maps it over `ordered` (the
-  // attention-first concatenation of attention + rest, so the two groups run
-  // together in order); the Resolved tab reuses it unchanged — its advance
+  // attention-first unclaimed cards followed by claimed cards); the Resolved tab
+  // reuses it unchanged — its advance
   // callbacks are inert there: a resolved card shows Reopen (never Resolve), so
   // onResolved never fires, and advanceAfterReply early-returns for an id that
   // isn't in `ordered` (which holds only active items).
@@ -1735,6 +1774,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     sent_at: null,
     status_unsent: false,
     replies: [],
+    claim: null,
   });
   const addFeedback = useMutation({
     onMutate: async (v: {
@@ -1794,14 +1834,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
         d
           ? {
               ...d,
-              feedback: d.feedback.map((f) => (f.id === ctx.tmpId ? { ...fb, replies: [] } : f)),
+              feedback: d.feedback.map((f) =>
+                f.id === ctx.tmpId ? { ...fb, replies: [], claim: null } : f,
+              ),
             }
           : d,
       );
       // Re-select the card under its real id so it stays lit across the swap — but
       // only if the human is still focused on it (they may have clicked away).
       // Focus: a background id swap must never move the content pane.
-      if (activeIdRef.current === ctx.tmpId) onFocusFeedback({ ...fb, replies: [] });
+      if (activeIdRef.current === ctx.tmpId) onFocusFeedback({ ...fb, replies: [], claim: null });
     },
     onError: (e, v, ctx) => {
       // A failed write has no SSE echo, so nothing else reconciles: restore the
@@ -2075,6 +2117,12 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                     Submit
                   </Button>
                 </span>
+              ) : working && !hasUnsent ? (
+                <span className="inline-flex shrink-0" title={claimsTitle(claims)}>
+                  <Button variant="primary" disabled>
+                    Working…
+                  </Button>
+                </span>
               ) : (
                 <span className="inline-flex shrink-0" title={disabledReason ?? undefined}>
                   <Button
@@ -2088,7 +2136,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               )}
             </div>
           </div>
-          {(detail.feedback.length > 0 || watching) && (
+          {(detail.feedback.length > 0 || watching || working) && (
             // Fixed height (the pills' 1.25rem) so this secondary row never changes
             // the header's height. Everything here is ≤ 1.25rem, so the min-height
             // simply pins the row and its contents just center within it. (The
@@ -2143,19 +2191,30 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               ) : (
                 <span />
               )}
-              {/* Right: the live watching indicator. It lives on this bar (rather than
-              a standing header row) so the watching dot survives the zero-feedback
-              setup state — the agent runs `r3 watch` before any feedback exists. */}
-              {watching && (
-                <div className="flex min-w-0 items-center gap-2 text-[0.6875rem]">
-                  <span
-                    className="flex min-w-0 items-center gap-1.5 text-primary-700 dark:text-primary-400"
-                    title={watchersTitle(watchers)}
-                  >
-                    {/* A steady dot, not a pulsing one — the blink was distracting. */}
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
-                    <span className="truncate">{watchersLabel(watchers)} watching</span>
-                  </span>
+              {/* Right: live working + watching indicators. They live on this bar
+              rather than a standing header row; watching also survives the
+              zero-feedback setup state (`r3 watch` starts before feedback exists). */}
+              {(watching || working) && (
+                <div className="flex min-w-0 items-center gap-3 text-[0.6875rem]">
+                  {working && (
+                    <span
+                      className="flex min-w-0 items-center gap-1.5 text-primary-700 dark:text-primary-400"
+                      title={claimsTitle(claims)}
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                      <span className="truncate">{claimsLabel(claims)}</span>
+                    </span>
+                  )}
+                  {watching && (
+                    <span
+                      className="flex min-w-0 items-center gap-1.5 text-primary-700 dark:text-primary-400"
+                      title={watchersTitle(watchers)}
+                    >
+                      {/* A steady dot, not a pulsing one — the blink was distracting. */}
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                      <span className="truncate">{watchersLabel(watchers)} watching</span>
+                    </span>
+                  )}
                 </div>
               )}
             </div>

@@ -434,6 +434,7 @@ app.get("/api/reviews", (c) => {
     if (!key) continue;
     meta[key] = Array.isArray(v) ? v[0] : (v as string);
   }
+  const working = db.reviewIdsWithFeedbackClaims();
   return c.json(
     db
       .listReviews({
@@ -442,10 +443,13 @@ app.get("/api/reviews", (c) => {
         repoId: c.req.query("repo") || undefined,
         meta: Object.keys(meta).length ? meta : undefined,
       })
-      // Live-derived: does this review have an agent blocked on `r3 watch` right
-      // now? Ephemeral connection presence (like RepoRecord.present), so clients
-      // can float watched reviews to the top of the list.
-      .map((r) => ({ ...r, watching: watchersOf(r.id).length > 0 })),
+      // Live-derived operational presence: waiting in `r3 watch`, and actively
+      // working under an unexpired feedback claim. Neither touches updated_at.
+      .map((r) => ({
+        ...r,
+        watching: watchersOf(r.id).length > 0,
+        working: working.has(r.id),
+      })),
   );
 });
 
@@ -894,6 +898,27 @@ app.delete("/api/feedback/:id", (c) =>
   reviews.deleteFeedback(c.req.param("id")) ? c.json({ ok: true }) : c.text("not found", 404),
 );
 
+// Feedback-scoped active-work lease. PUT is idempotent for the same owner (a
+// renewal) and conflicts with a different unexpired owner. This presence never
+// changes the human-controlled feedback status.
+app.put("/api/feedback/:id/claim", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body) return c.text("bad json", 400);
+  const result = reviews.claimFeedback(c.req.param("id"), {
+    session: typeof body?.session === "string" ? body.session : undefined,
+    agentId: typeof body?.agentId === "string" ? body.agentId : undefined,
+    leaseSeconds: body?.leaseSeconds,
+  });
+  if (!result) return c.text("not found", 404);
+  if (reviews.isRejected(result)) return c.text(result.error, result.status ?? 400);
+  return c.json(result);
+});
+
+app.delete("/api/feedback/:id/claim", (c) => {
+  const result = reviews.releaseFeedbackClaim(c.req.param("id"));
+  return result == null ? c.text("not found", 404) : c.json({ ok: true });
+});
+
 app.post("/api/feedback/:id/replies", async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body?.body) return c.text("missing body", 400);
@@ -1068,6 +1093,19 @@ export async function startDaemon(): Promise<void> {
     },
     6 * 60 * 60 * 1000,
   ).unref();
+
+  // Working claims are durable across daemon restarts but bounded by their
+  // lease. Sweep frequently enough that an open UI drops an expired indicator
+  // promptly; reads independently filter by expires_at, so this timer is only
+  // physical cleanup + the SSE nudge.
+  reviews.expireFeedbackClaims();
+  setInterval(() => {
+    try {
+      reviews.expireFeedbackClaims();
+    } catch (err) {
+      console.error("r3: feedback-claim sweep failed:", err);
+    }
+  }, 30 * 1000).unref();
 
   let server: ReturnType<typeof Bun.serve>;
   try {

@@ -64,8 +64,10 @@ sequenceDiagram
         A->>S: [2] `r3 watch` (blocks for feedback)
         U->>S: [3] leave feedback + Submit
         S-->>A: `r3 watch` prints your feedback to stdout and exits
-        A->>S: [4] `r3 reply` by feedback id
-        S-->>U: [5] web UI updates live
+        A->>S: [4] `r3 claim` feedback being worked
+        S-->>U: working indicator appears live
+        A->>S: [5] `r3 reply` by feedback id (releases claim)
+        S-->>U: [6] reply + claim release update live
     end
 ```
 
@@ -74,10 +76,13 @@ sequenceDiagram
    waits for feedback.
 3. You leave feedback anchored to the exact lines it's about, then click
    **Submit**. `watch` prints your feedback to stdout that's captured by the agent.
-4. The agent works each item and **replies by feedback id**
+4. The agent claims the items it starts (`r3 claim <fid>...`), so the UI shows
+   which session is actively working. Claims are 60-minute leases and can be
+   renewed by repeating the command.
+5. The agent works each item and **replies by feedback id**
    (`r3 reply <fid> -m "what I changed"`), saying what it changed, or the
-   reasoning for why it didn't.
-5. Every reply lands on the web UI through live updates. The agent `watch`es again
+   reasoning for why it didn't. A successful agent reply releases that claim.
+6. Every reply lands on the web UI through live updates. The agent `watch`es again
    until you **Approve** or **Abandon** the review.
 
 ## Quick start

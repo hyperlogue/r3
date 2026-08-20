@@ -556,6 +556,7 @@ async function main() {
     repo,
     reviews,
     feedback,
+    claims: [],
     replies,
     patches,
     snapshots,

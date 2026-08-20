@@ -9,6 +9,7 @@ import type {
   AddReplyBody,
   AuthTokenInfo,
   BootResponse,
+  ClaimFeedbackBody,
   CreateAuthTokenBody,
   CreateAuthTokenResponse,
   CreateFeedbackBody,
@@ -16,6 +17,7 @@ import type {
   DiffContextResponse,
   DiffResult,
   Feedback,
+  FeedbackClaim,
   FeedbackStatus,
   GitLogEntry,
   GitStatus,
@@ -212,6 +214,9 @@ export const api = {
   reanchor: (id: string, body: ReanchorBody) =>
     req<Feedback>("PATCH", `/api/feedback/${id}/anchor`, body),
   deleteFeedback: (id: string) => req<{ ok: true }>("DELETE", `/api/feedback/${id}`),
+  claimFeedback: (id: string, body: ClaimFeedbackBody) =>
+    req<FeedbackClaim>("PUT", `/api/feedback/${id}/claim`, body),
+  releaseFeedbackClaim: (id: string) => req<{ ok: true }>("DELETE", `/api/feedback/${id}/claim`),
   addReply: (feedbackId: string, body: AddReplyBody) =>
     req<{ reply: Reply; feedback: Feedback }>("POST", `/api/feedback/${feedbackId}/replies`, body),
   editReply: (id: string, body: UpdateReplyBody) => req<Reply>("PATCH", `/api/replies/${id}`, body),

@@ -16,12 +16,17 @@ import { buildUnsentPrompt } from "../../server/prompt.ts";
 import { diffFile, FULL_CONTEXT } from "../../server/textdiff.ts";
 import {
   type AddReplyBody,
+  type ClaimFeedbackBody,
   type CreateFeedbackBody,
+  DEFAULT_CLAIM_LEASE_SECONDS,
   type DiffFileChange,
   type DiffLine,
   type Feedback,
+  type FeedbackClaim,
   type FeedbackWithReplies,
+  MAX_CLAIM_LEASE_SECONDS,
   MAX_QUOTE_LINES,
+  MIN_CLAIM_LEASE_SECONDS,
   type ReanchorBody,
   type RenderedFile,
   type Reply,
@@ -68,6 +73,8 @@ function liveLines(reviewId: string, file: string): string[] | null {
 const s = getState;
 const review = (id: string): Review | undefined => s().reviews.find((r) => r.id === id);
 const feedbackRow = (id: string): Feedback | undefined => s().feedback.find((f) => f.id === id);
+const activeClaim = (id: string): FeedbackClaim | null =>
+  s().claims.find((claim) => claim.feedback_id === id && claim.expires_at > nowIso()) ?? null;
 const patchesFor = (id: string): StoredPatch[] =>
   s()
     .patches.filter((p) => p.review_id === id)
@@ -117,6 +124,7 @@ export function buildDetail(id: string): ReviewDetail {
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((fb) => ({
       ...fb,
+      claim: activeClaim(fb.id),
       replies: s()
         .replies.filter((r) => r.feedback_id === fb.id)
         .sort((a, b) => a.created_at.localeCompare(b.created_at)),
@@ -133,6 +141,7 @@ export function buildDetail(id: string): ReviewDetail {
     .map(({ seq, label, created_at, files }) => ({ seq, label, created_at, files }));
   return {
     ...rv,
+    working: feedback.some((fb) => fb.claim != null),
     feedback,
     stale: false,
     repoName: s().repo.name,
@@ -156,7 +165,11 @@ export function listReviews(filter: {
       if (filter.repo && r.repo_id !== filter.repo) return false;
       return true;
     })
-    .map((r) => ({ ...r, watching: isWatching(r.id) }))
+    .map((r) => ({
+      ...r,
+      watching: isWatching(r.id),
+      working: s().feedback.some((fb) => fb.review_id === r.id && activeClaim(fb.id) != null),
+    }))
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
@@ -429,6 +442,73 @@ export function addFeedback(reviewId: string, body: CreateFeedbackBody): Feedbac
   return fb;
 }
 
+function sameClaimOwner(current: FeedbackClaim, session: string, agentId?: string): boolean {
+  if (current.agentId) return current.agentId === agentId;
+  return current.session === session;
+}
+
+export function claimFeedback(id: string, body: ClaimFeedbackBody): FeedbackClaim {
+  const fb = require404(feedbackRow(id), "feedback");
+  const rv = require404(review(fb.review_id), "review");
+  if (rv.status !== "open") throw new ApiError(400, `review is ${rv.status}`);
+  if (fb.status !== "open") throw new ApiError(400, "resolved feedback can't be claimed");
+  const session = (body.session?.trim() || rv.meta.session || "agent").slice(0, 200);
+  const agentId = body.agentId?.trim().slice(0, 200) || undefined;
+  const leaseSeconds = body.leaseSeconds ?? DEFAULT_CLAIM_LEASE_SECONDS;
+  if (
+    !Number.isInteger(leaseSeconds) ||
+    leaseSeconds < MIN_CLAIM_LEASE_SECONDS ||
+    leaseSeconds > MAX_CLAIM_LEASE_SECONDS
+  )
+    throw new ApiError(
+      400,
+      `lease must be ${MIN_CLAIM_LEASE_SECONDS / 60}–${MAX_CLAIM_LEASE_SECONDS / 60} minutes`,
+    );
+  const current = activeClaim(id);
+  if (current && !sameClaimOwner(current, session, agentId))
+    throw new ApiError(
+      409,
+      `${id} is already claimed by "${current.session}" until ${current.expires_at}`,
+    );
+  const now = nowIso();
+  const claim: FeedbackClaim = {
+    feedback_id: id,
+    session,
+    ...(agentId ? { agentId } : {}),
+    claimed_at: current?.claimed_at ?? now,
+    renewed_at: now,
+    expires_at: new Date(Date.now() + leaseSeconds * 1000).toISOString(),
+  };
+  s().claims = s().claims.filter((row) => row.feedback_id !== id);
+  s().claims.push(claim);
+  persist();
+  broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId: id });
+  // The real daemon's sweeper supplies this expiry event. The demo schedules the
+  // exact lease so its UI drops "working" without waiting for another action.
+  window.setTimeout(
+    () => {
+      const live = activeClaim(id);
+      if (!live || live.expires_at !== claim.expires_at) return;
+      s().claims = s().claims.filter((row) => row.feedback_id !== id);
+      persist();
+      broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId: id });
+    },
+    leaseSeconds * 1000 + 10,
+  );
+  return claim;
+}
+
+export function releaseFeedbackClaim(id: string): { ok: true } {
+  const fb = require404(feedbackRow(id), "feedback");
+  const before = s().claims.length;
+  s().claims = s().claims.filter((claim) => claim.feedback_id !== id);
+  if (s().claims.length !== before) {
+    persist();
+    broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId: id });
+  }
+  return { ok: true };
+}
+
 // Validate a reply pin against a stored round (rounds are immutable → valid
 // forever). Mirrors patches.validateReplyPin over the pre-parsed rows.
 function validateReplyPin(
@@ -489,6 +569,8 @@ export function addReply(
     ref_version: refVersion,
   };
   s().replies.push(reply);
+  if (author === "agent")
+    s().claims = s().claims.filter((claim) => claim.feedback_id !== feedbackId);
   touchReview(fb.review_id);
   persist();
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
@@ -507,6 +589,8 @@ export function editFeedback(
   const bodyChanged = fields.body !== undefined && fields.body !== fb.body;
   if (fields.body !== undefined) fb.body = fields.body;
   if (fields.status !== undefined) fb.status = fields.status;
+  if (fields.status === "resolved")
+    s().claims = s().claims.filter((claim) => claim.feedback_id !== id);
   fb.updated_at = nowIso();
   // Re-deliver an edited OPEN note in full; never null a resolved item's sent_at.
   if (bodyChanged && statusAfter === "open") fb.sent_at = null;
@@ -565,6 +649,7 @@ export function deleteFeedback(id: string): { ok: true } {
   const fb = require404(feedbackRow(id), "feedback");
   const st = s();
   st.feedback = st.feedback.filter((f) => f.id !== id);
+  st.claims = st.claims.filter((claim) => claim.feedback_id !== id);
   st.replies = st.replies.filter((r) => r.feedback_id !== id);
   touchReview(fb.review_id);
   persist();
@@ -592,6 +677,14 @@ export function editReply(id: string, bodyText: string): Reply {
 export function patchReview(id: string, body: UpdateReviewBody): Review {
   const rv = require404(review(id), "review");
   if (body.status !== undefined) rv.status = body.status;
+  if (body.status !== undefined && body.status !== "open") {
+    const feedbackIds = new Set(
+      s()
+        .feedback.filter((fb) => fb.review_id === id)
+        .map((fb) => fb.id),
+    );
+    s().claims = s().claims.filter((claim) => !feedbackIds.has(claim.feedback_id));
+  }
   if (body.title !== undefined) rv.title = body.title;
   if (body.summary !== undefined) rv.summary = body.summary;
   if (body.meta !== undefined) rv.meta = { ...rv.meta, ...body.meta };
@@ -612,6 +705,7 @@ export function deleteReview(id: string): { ok: true } {
   const feedbackIds = new Set(st.feedback.filter((f) => f.review_id === id).map((f) => f.id));
   st.reviews = st.reviews.filter((r) => r.id !== id);
   st.feedback = st.feedback.filter((f) => f.review_id !== id);
+  st.claims = st.claims.filter((claim) => !feedbackIds.has(claim.feedback_id));
   st.replies = st.replies.filter((r) => !feedbackIds.has(r.feedback_id));
   st.patches = st.patches.filter((p) => p.review_id !== id);
   st.snapshots = st.snapshots.filter((sn) => sn.review_id !== id);

@@ -88,7 +88,7 @@ server/          Hono daemon + bun:sqlite global store
   config.ts      XDG discovery: daemon.json, token, start-lock, bind/allowlist, URLs;
                  persisted exposure config.json (readConfig/writeConfig, below env)
   repo.ts        per-request Repo context: identity, registry, worktree resolution
-  db.ts          global store + repos registry + reviews/feedback/replies CRUD
+  db.ts          global store + repos registry + reviews/feedback/replies/claims CRUD
   git.ts         git ops (log/tree/diff/status) + unified-diff parser + content reads
   reviews.ts     domain logic: create/list/detail, re-anchoring, rounds, membership
   patches.ts     stored diff rounds: parse/validate/render + reply-pin checks
@@ -165,8 +165,9 @@ npm/             the published `r3` launcher (bunx/npx): resolves+execs the matc
 
 ## Domain model
 
-Three persistent entities — **Review**, **Feedback**, **Reply** — plus **Patch**, a
-diff review's stored rounds. **Full field shapes live in `shared/types.ts`; the SQL
+Three durable review entities — **Review**, **Feedback**, **Reply** — plus **Patch**,
+a diff review's stored rounds, and a time-bounded **FeedbackClaim** presence lease.
+**Full field shapes live in `shared/types.ts`; the SQL
 schema in `server/db.ts`** — this section is the *why*, not the field list.
 
 Feedback and Reply stay **separate**: feedback has a lifecycle/**status** + an
@@ -191,8 +192,7 @@ representable). Resolving is a **status toggle on the feedback**
   the same anchors, threads, and lifecycle. Agent-authored feedback is **born
   delivered** (`sent_at` = creation) so it never echoes back in the agent's own
   prompts — only the human's replies/resolution flow back; it wears an
-  `[agent-authored]` label in prompt blocks (`[agent]` in `r3 show`) and doesn't
-  gate the UI's Approve button (only the human's open items do).
+  `[agent-authored]` label in prompt blocks (`[agent]` in `r3 show`).
   - `quote` is **the anchor of record** — the line number is only a hint. For a
     line-anchored `r3 feedback add` without `--quote`, the server derives one from
     the round/live content, **rejecting** a range that isn't fully within what the
@@ -225,6 +225,19 @@ representable). Resolving is a **status toggle on the feedback**
   null): the version its inline `@path:Lx-y` **code refs** resolve against, so a ref
   stays pointing at the code as it was written. The agent orders snapshot/round vs.
   reply to pin old-vs-new, and splits a reply in two to cite both.
+- **FeedbackClaim** — an agent's explicit, feedback-scoped assertion that it is
+  actively handling the item: `session`, optional `agentId`, and
+  `claimed_at`/`renewed_at`/`expires_at`. It is a 60-minute renewable lease, not a
+  third feedback status — `open|resolved` stays human-controlled. `r3 claim
+  <feedback_id>...` creates or renews it; another live owner conflicts; a successful
+  agent reply deletes that feedback's claim in the same transaction. Resolve,
+  review close, delete, and expiry clear it too. Claims do not mark content
+  delivered or bump `review.updated_at`; list/detail responses derive live
+  `working` presence from unexpired rows and SSE keeps it current. In the active
+  feedback list, claimed items rank below every unclaimed item and wear a slight
+  card-wide dimming overlay; the working badge stays above that overlay at full
+  emphasis. Claim tooltips name the owner/work item but deliberately omit the
+  lease end time — expiry is implementation detail, not reviewer guidance.
 
 **Message rendering.** Feedback bodies and replies are stored as **plain text** (the
 contract carries raw text — edited inline, created optimistically) and rendered
@@ -436,12 +449,24 @@ a live watcher and blocks until the human clicks **Submit**. The agent replies b
 feedback id (`r3 reply <fid> -m "…"`), appends a new round or re-anchors as the kind
 requires, and watches again. **`watch`'s exit code is the loop's branch signal** —
 `10` submitted · `0` approved · `3` abandoned · `2` timed out — so a naive `while r3
-watch; do …` is wrong.
+watch; do …` is wrong. After an exit-10 hand-off, the agent runs `r3 claim
+<feedback_id>...` before editing so the browser shows active work; repeating it
+renews a long task, and each `r3 reply` releases its item's claim.
 
 Delivery is tracked (`sent_at` + `status_unsent`), so a prompt is **unsent-only**
 and even a bare Resolve/Reopen click reaches the agent as "`[resolved]` — no action
 needed". The predicate lives once in `shared/types.ts` (`hasUnsentContent`) and the
 server, CLI, and web all call it.
+
+**Approve is gated on work in flight, not on open feedback.** The UI blocks the
+terminal action while something would be *lost or interrupted* by it — feedback
+the agent has never been handed (`hasUnsentContent`: Submit it, or approving
+drops it unread) or an item under a live `feedback_claims` lease (a reply is
+still landing). An open note you read and chose not to chase blocks nothing:
+approving is the human's call, and "resolved" is a decision, not a chore. Both
+blockers clear on their own, so the button is never stuck. The server and CLI
+enforce no gate at all — `PATCH /api/reviews/:id` approves whatever it's asked
+to — so this is a guardrail on the one click that ends the loop, not a rule.
 
 **Full protocol, delivery rules, and every command → the `api-surface` skill;
 `r3 guide` prints the agent-facing version.**
@@ -451,7 +476,7 @@ server, CLI, and web all call it.
 All under XDG, keyed by `server/config.ts`:
 
 - `$XDG_STATE_HOME/r3/r3.sqlite` — the one global store (reviews + feedback +
-  replies + per-reviewer `viewed_marks` + the `repos` registry + the quick-auth
+  replies + renewable `feedback_claims` + per-reviewer `viewed_marks` + the `repos` registry + the quick-auth
   `auth_tokens` / `auth_sessions`, both hashed at rest).
 - `$XDG_STATE_HOME/r3/token` (mode 0600) — the per-user API token, handed to the
   same-origin page by `/api/boot` (only while `REQUIRE_LOGIN` is off), read from

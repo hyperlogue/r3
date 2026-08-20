@@ -101,13 +101,21 @@ function ReviewRow({
           <span
             className={cn(
               "h-1.5 w-1.5 shrink-0 rounded-full",
-              // A live watcher fills the dot solid indigo (matching the panel's
-              // "watching" indicator) — the review is ranked to the top and this says
-              // why. Without one, an open review is a hollow indigo ring (STATUS_DOT);
-              // the terminal states keep their solid color.
-              r.watching ? "bg-primary-500" : (STATUS_DOT[r.status] ?? "bg-neutral-400"),
+              // Live watching or claimed work fills the dot solid indigo — the
+              // review is ranked to the top and this says why. Without either, an
+              // open review is a hollow indigo ring (STATUS_DOT); terminal states
+              // keep their solid color.
+              r.watching || r.working
+                ? "bg-primary-500"
+                : (STATUS_DOT[r.status] ?? "bg-neutral-400"),
             )}
-            title={r.watching ? "an agent is watching" : `status: ${r.status}`}
+            title={
+              r.working
+                ? "an agent is working on feedback"
+                : r.watching
+                  ? "an agent is watching"
+                  : `status: ${r.status}`
+            }
           />
           <span className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
             {r.title || sourceLabel(r)}
@@ -200,16 +208,16 @@ export function Home() {
   const { data: reviews = [], isLoading } = useQuery({
     queryKey: ["reviews"],
     queryFn: () => api.listReviews(),
-    // The live `watching` flag drives ranking; a watcher on a review you're not
-    // viewing arrives on a review-scoped SSE stream we don't see, so poll as a
-    // safety net beyond the watchers-changed event (as FeedbackPanel does).
+    // Live `watching` / `working` flags drive ranking. Activity on a review you're
+    // not viewing can arrive while this tab's stream is suspended, so poll as a
+    // safety net beyond SSE (as FeedbackPanel does for watchers).
     refetchInterval: 30000,
     refetchIntervalInBackground: true, // keep ranking fresh while the tab is hidden
   });
   const { data: repos = [] } = useQuery({ queryKey: ["repos"], queryFn: () => api.repos() });
   const { relink, forget } = useRepoMutations();
   const openCount = reviews.filter((r) => r.status === "open").length;
-  // Display order: watching > open > approved > abandoned, then most-recent first.
+  // Display order: agent-active > open > approved > abandoned, then most-recent first.
   const ordered = useMemo(() => sortReviews(reviews), [reviews]);
 
   // Reviews FK repos, so every review's repo_id is in `repos` (it returns all of

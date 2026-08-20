@@ -440,16 +440,16 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   useRegionHighlight(scopeRef, unresolvedRegions);
 
   // Browser tab title: "<review name (truncated)> - <repo> - r3". App.tsx resets
-  // it to "r3" when no review is open. A leading "• " mirrors the in-app "watching"
-  // indicator so a backgrounded tab shows at a glance that an agent is watching
-  // (and waiting on) this review. A small bullet, not U+25CF — the black circle
-  // renders oversized in the tab strip.
+  // it to "r3" when no review is open. A leading "• " mirrors live agent presence,
+  // so a backgrounded tab shows that an agent is watching or actively working on
+  // this review. A small bullet, not U+25CF — the black circle renders oversized
+  // in the tab strip.
   useEffect(() => {
     if (!detail) return;
     const name = detail.title || sourceLabel(detail, { ref: true });
     const short = name.length > 60 ? `${name.slice(0, 59)}…` : name;
     const base = [short, detail.repoName, "r3"].filter(Boolean).join(" - ");
-    document.title = watching ? `• ${base}` : base;
+    document.title = watching || detail.working ? `• ${base}` : base;
   }, [detail, watching]);
 
   // Clicking a feedback card's file:line jumps the file pane to that line and

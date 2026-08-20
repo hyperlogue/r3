@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { copyText } from "../clipboard.ts";
 import { shortSha, sourceLabel } from "../format.ts";
-import type { ReviewDetail, ReviewStatus } from "../types.ts";
+import { hasUnsentContent, type ReviewDetail, type ReviewStatus } from "../types.ts";
 import { Button, cn, useEscape } from "../ui.tsx";
 
 // A click-to-copy token in the header's metadata line (project dir, commit
@@ -224,6 +224,23 @@ function ApproveDialog({
   );
 }
 
+// Why Approve can't be clicked yet, as its own tooltip — null when it can.
+// Approving is the review's terminal success, so it only stands aside for work
+// still *in flight*, never for an open note you read and chose not to chase.
+// Two things are in flight: content the agent has never been handed (the shared
+// `hasUnsentContent` — approving first drops it on the floor unread), and items
+// an agent holds a live claim on (a reply is still coming). Both clear on their
+// own, so the block is transient by construction.
+function approveBlockReason(detail: ReviewDetail): string | null {
+  const unsent = detail.feedback.filter(hasUnsentContent).length;
+  if (unsent > 0)
+    return `Submit your feedback first — ${unsent} ${unsent === 1 ? "note hasn't" : "notes haven't"} reached the agent`;
+  const working = detail.feedback.filter((f) => f.claim != null).length;
+  if (working > 0)
+    return `An agent is still working on ${working} item${working === 1 ? "" : "s"} — wait for ${working === 1 ? "its reply" : "its replies"}`;
+  return null;
+}
+
 // Review-header status controls: the primary Approve/Reopen button, plus a ⋯
 // menu holding the rarer, heavier actions (Abandon, Delete) so they don't crowd
 // the header. Approve opens a confirm dialog (optional next-steps note); Delete
@@ -231,20 +248,16 @@ function ApproveDialog({
 // mechanics as the feedback card's ⋯ menu (click-catcher + Escape).
 function HeaderActions({
   status,
-  unresolvedCount,
+  approveBlock,
   onSetStatus,
   onApprove,
   onDelete,
 }: {
   status: ReviewStatus;
-  // How many of the *human's* feedback items are still open (status !== "resolved"
-  // && author === "human"). Approve is blocked while any remain — approving is the
-  // review's terminal success, so it shouldn't skip past feedback that never got a
-  // decision. Agent-authored notes (guidance, questions) rank into the attention
-  // zone but must not block the human's terminal action: the server and CLI enforce
-  // no gate at all, so this is purely a UI guardrail against skipping your own
-  // undecided feedback, not the agent's.
-  unresolvedCount: number;
+  // Why Approve is unavailable, as its tooltip — null when it's clickable
+  // (`approveBlockReason` above; the server and CLI gate nothing, so this is
+  // purely a UI guardrail).
+  approveBlock: string | null;
   onSetStatus: (s: ReviewStatus) => void;
   onApprove: (note: string) => void;
   onDelete: () => void;
@@ -259,12 +272,8 @@ function HeaderActions({
         <Button
           variant="success"
           onClick={() => setApproveOpen(true)}
-          disabled={unresolvedCount > 0}
-          title={
-            unresolvedCount > 0
-              ? `Resolve your open feedback first — ${unresolvedCount} still ${unresolvedCount === 1 ? "needs a" : "need"} decision${unresolvedCount === 1 ? "" : "s"}`
-              : undefined
-          }
+          disabled={approveBlock != null}
+          title={approveBlock ?? undefined}
         >
           Approve
         </Button>
@@ -424,9 +433,7 @@ export function ReviewHeader({
       </div>
       <HeaderActions
         status={detail.status}
-        unresolvedCount={
-          detail.feedback.filter((f) => f.status !== "resolved" && f.author === "human").length
-        }
+        approveBlock={approveBlockReason(detail)}
         onSetStatus={onSetStatus}
         onApprove={onApprove}
         onDelete={onDelete}

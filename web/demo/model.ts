@@ -7,6 +7,7 @@
 import type {
   DiffFileChange,
   Feedback,
+  FeedbackClaim,
   RenderedFile,
   Reply,
   RepoRecord,
@@ -67,6 +68,7 @@ export interface DemoSeed {
   repo: RepoRecord;
   reviews: Review[];
   feedback: Feedback[];
+  claims: FeedbackClaim[];
   replies: Reply[];
   patches: StoredPatch[];
   snapshots: StoredSnapshot[];

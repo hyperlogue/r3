@@ -6,6 +6,7 @@
 
 import type {
   AddReplyBody,
+  ClaimFeedbackBody,
   CreateFeedbackBody,
   CreateReviewBody,
   DiffResult,
@@ -108,8 +109,8 @@ export const api = {
   },
   watchers: async (id: string) => ({ watchers: getWatchers(id) }),
   // Submit-to-agent path: this is the demo's headline loop. The watching agent
-  // "wakes", fetches the prompt (marks it delivered), leaves `watch` to work
-  // (dot clears), then replies + appends a round and re-registers as a watcher.
+  // "wakes", fetches the prompt (marks it delivered), leaves `watch`, claims the
+  // items while working, then replies + appends a round and re-registers.
   submit: async (id: string) => {
     const { feedbackIds } = backend.markPrompt(id);
     stopWatching(id);
@@ -127,6 +128,8 @@ export const api = {
     backend.editFeedback(id, body),
   reanchor: async (id: string, body: ReanchorBody) => backend.reanchor(id, body),
   deleteFeedback: async (id: string) => backend.deleteFeedback(id),
+  claimFeedback: async (id: string, body: ClaimFeedbackBody) => backend.claimFeedback(id, body),
+  releaseFeedbackClaim: async (id: string) => backend.releaseFeedbackClaim(id),
   addReply: async (feedbackId: string, body: AddReplyBody) => backend.addReply(feedbackId, body),
   editReply: async (id: string, body: UpdateReplyBody) => backend.editReply(id, body.body),
 
