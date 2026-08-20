@@ -201,16 +201,18 @@ async function spawnDaemon(): Promise<DaemonInfo> {
     const d = readDaemonJson();
     if (d && (await probe(d.url))) return d;
   }
-  // Almost always this means an older daemon is alive but no longer serving: it
-  // still holds the start lock, so the daemon we just spawned stepped aside and
-  // never announced itself. Name the culprit — on its own the timeout reads as
-  // "r3 is broken" and leaves nothing to act on.
+  // This can mean an older daemon is alive but no longer serving: it still holds
+  // the start lock, so the daemon we just spawned stepped aside and never
+  // announced itself. It can also mean this CLI is sandboxed away from a healthy
+  // per-user daemon. Give both cases an actionable diagnosis.
   const owner = readDaemonLockOwner();
   fail(
     "daemon failed to start (no healthy daemon.json after 5s)" +
       (owner && owner !== proc.pid && isDaemonProcess(owner)
         ? `\nr3: pid ${owner} holds the start lock but isn't responding — \`r3 stop\` clears it`
-        : ""),
+        : "") +
+      "\nr3: hint — sandboxed processes need localhost/network access to reach the daemon" +
+      " (Codex workspace-write: set `sandbox_workspace_write.network_access = true`)",
   );
 }
 
