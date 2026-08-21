@@ -77,6 +77,9 @@ export function FileCard({
   autoFold = false,
   current = false,
   foldSignal,
+  unscopedFold = null,
+  ownsFileMarker = true,
+  onOpenChange,
   children,
 }: {
   path: string;
@@ -99,9 +102,23 @@ export function FileCard({
   // already is — the header of the current file is the one pinned to the pane top.
   current?: boolean;
   foldSignal?: FoldSignal | null;
+  // Last toolbar fold-all / unfold-all. A deferred FileCard never saw that
+  // nonce, so it takes this as its initial open rather than replaying the stale
+  // unscoped signal (which would clobber autoFold/viewed).
+  unscopedFold?: "fold" | "unfold" | null;
+  // ProgressiveFile owns the stable outer [data-file] block in large reviews;
+  // direct FileCard/FileView renders keep the historical marker here.
+  ownsFileMarker?: boolean;
+  // Review-level progressive rendering preserves a folded block's offscreen
+  // placeholder height without lifting control of the fold itself.
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(() => !(viewed || autoFold));
+  const [open, setOpen] = useState(() => {
+    if (unscopedFold === "fold") return false;
+    if (unscopedFold === "unfold") return true;
+    return !(viewed || autoFold);
+  });
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Fold this file, re-pinning the scroll pane first. Folding a file you've
@@ -122,20 +139,37 @@ export function FileCard({
   // Fold when marked viewed, unfold when unmarked — but don't let this run on
   // mount clobber the autoFold-driven initial state.
   const mounted = useRef(false);
+  // A progressively loaded card reports its sha just after mounting, so its
+  // stored viewed flag can arrive one commit after a targeted jump or unfold-all
+  // opened it. Preserve that only through this mount beat; a later user "Viewed"
+  // toggle must retain the normal fold behavior.
+  const preserveTargetedUnfold = useRef(
+    (foldSignal?.path === path && foldSignal.mode === "unfold") || unscopedFold === "unfold",
+  );
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      preserveTargetedUnfold.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
       return;
     }
-    if (viewed) foldToTop();
-    else setOpen(true);
+    if (viewed) {
+      if (preserveTargetedUnfold.current) {
+        preserveTargetedUnfold.current = false;
+        setOpen(true);
+      } else foldToTop();
+    } else setOpen(true);
   }, [viewed, foldToTop]);
 
-  // Apply the toolbar's fold/unfold signal (all files, or just this path when
-  // scoped). Seed the ref with the mount-time nonce so a card mounting late
-  // (async blob load) doesn't replay a signal that was fired before it existed
-  // over its autoFold/viewed initial state.
-  const seenNonce = useRef(foldSignal?.nonce);
+  // Apply the toolbar's fold/unfold signal. A path-scoped jump may target a
+  // progressively deferred file before this card exists, so replay that targeted
+  // signal on mount. Ignore an old unscoped fold-all, which may predate the card
+  // and would otherwise clobber its autoFold/viewed initial state.
+  const seenNonce = useRef(foldSignal?.path === path ? undefined : foldSignal?.nonce);
   useEffect(() => {
     if (
       foldSignal &&
@@ -154,6 +188,8 @@ export function FileCard({
     }
   }, [foldSignal, path, open, foldToTop]);
 
+  useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
+
   // Click the path to copy it (mirrors ReviewHeader's CopyMeta); the chevron still
   // toggles the fold.
   const { copied, flash } = useCopyFlash();
@@ -169,7 +205,7 @@ export function FileCard({
   const { dir, name } = splitPath(path);
 
   return (
-    <div ref={rootRef} data-file={path}>
+    <div ref={rootRef} data-file={ownsFileMarker ? path : undefined}>
       {/* The -1px (not 0): the rem-scaled layout (root font-size setting) puts
           row heights on fractional pixels, and an exact pin can round a hair below
           the scrollport edge — a sub-pixel slit of the scrolled code peeks over

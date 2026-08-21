@@ -13,6 +13,9 @@ node_modules/
 # ($XDG_STATE_HOME/r3), so this dir is only stale remnants; still ignored.
 .r3/
 
+# local env overrides (never commit secrets)
+.env
+
 # nix / direnv
 /result
 /result-*

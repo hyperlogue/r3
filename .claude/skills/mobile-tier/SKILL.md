@@ -50,7 +50,14 @@ just below it. The toolbar's live height rides on the pane as **`--pane-sticky-h
 which `FileCard`'s header `top` and the anchor-in-view test both read (unset = 0 on
 desktop). So the sticky stack is toolbar + file header, the code gets the full
 height between the navbar and the bottom bar, and **the pane stays the one scroll
-container** (virtualization unchanged).
+container**.
+
+Large plain-file reviews progressively hydrate file bodies through the shared
+`web/src/progressive.tsx` layer on both tiers. Every file keeps a stable measured
+block in that same pane (so sticky headers, the scroll spy, file picker, and
+feedback jumps retain one geometry), but only bodies within the preload band are
+mounted; one shared observer replaces a scroll/touch listener set per offscreen
+file. This is shared scale behavior, not a mobile fork.
 
 A persistent bottom bar (`Feedback · N open` — the whole bar is the toggle; watcher
 presence shows only inside the panel) toggles a bottom **sheet** hosting the panel,

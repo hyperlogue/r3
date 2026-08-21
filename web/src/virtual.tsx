@@ -19,7 +19,7 @@
 // scrollMargin), and a scroll-to-line registry so ReviewView's locate/pin jumps
 // can bring a virtualized-away row on screen before highlighting it.
 
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { elementScroll, useVirtualizer } from "@tanstack/react-virtual";
 import {
   createContext,
   Fragment,
@@ -189,9 +189,12 @@ export function VirtualLines({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fontSize = useFontSize();
 
-  // The scroll element only exists after the pane commits, so read it into state
-  // (a null→element transition then re-renders us and flips on virtualization).
-  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  // The scroll element only exists after the pane's first commit. Read it
+  // immediately for bodies mounted later (review-level progressive hydration),
+  // while the initial page render still takes the null→element effect path.
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(
+    () => pane?.scrollRef.current ?? null,
+  );
   useLayoutEffect(() => {
     setScrollEl(pane?.scrollRef.current ?? null);
   }, [pane]);
@@ -222,6 +225,17 @@ export function VirtualLines({
     enabled,
     count,
     getScrollElement: () => scrollEl,
+    // A body can hydrate while the shared pane is already thousands of pixels
+    // down. Seed from the live scrollTop so the first window isn't computed at
+    // offset 0 (empty items until the next scroll event). The handshake still
+    // tries to write that offset into the pane — suppress connection/public
+    // writes (no `adjustments`); r3 never uses scrollToIndex, and row jumps use
+    // the exact pane calculation below. Measurement adjustments keep elementScroll.
+    initialOffset: () => scrollEl?.scrollTop ?? 0,
+    scrollToFn: (offset, options, instance) => {
+      if (options.adjustments == null) return;
+      elementScroll(offset, options, instance);
+    },
     // Every row is one mono line whose height is text-xs's 1rem line-height = the
     // root font size, so a FIXED size is exact for all of them (callers keep their
     // rows uniform — a diff's hunk separator is sized like a code row). Deliberately

@@ -49,6 +49,13 @@ export const AutoFolded: Story = {
   args: { autoFold: true },
 };
 
+// Toolbar fold-all is remembered at review scope, so a FileCard that hydrates
+// later (never saw the nonce) still starts folded — even when it isn't viewed
+// or autoFold-long.
+export const FoldAll: Story = {
+  args: { unscopedFold: "fold" },
+};
+
 // The `stats` slot renders between the filename and the Viewed toggle — here a
 // status pill plus +/- line counts, like DiffView passes.
 export const WithStats: Story = {

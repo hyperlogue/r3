@@ -49,6 +49,12 @@ import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileRevie
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
 import { focusComposer, retryScrollToRow, usePaneCrossfade } from "../pane.ts";
+import {
+  PROGRESSIVE_FILES_MIN,
+  ProgressiveFile,
+  ProgressiveFileProvider,
+  useProgressiveFileController,
+} from "../progressive.tsx";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
@@ -116,14 +122,38 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // ReviewView renders the pane provider as a child, so it can't consume that
   // context and holds the registry here instead (used by the locate/pin jumps).
   const virt = useVirtualPaneController();
+  // The sibling review-level registry wakes a deferred file body before a
+  // picker/feedback/ref jump asks the existing row retry machinery to find it.
+  const progressive = useProgressiveFileController();
   // Fold/unfold broadcast to the file cards: the toolbar's fold-all, and the
   // path-scoped unfolds that a next/prev jump or a feedback-locate fires so a
   // folded target file opens (mounting its rows) before we scroll to its line.
   // A fresh nonce each time so repeating an action overrides hand-toggled folds.
   const [foldSignal, setFoldSignal] = useState<FoldSignal | null>(null);
-  const ensureFileOpen = useCallback((path: string) => {
-    setFoldSignal((s) => ({ mode: "unfold", nonce: (s?.nonce ?? 0) + 1, path }));
-  }, []);
+  // Last unscoped fold-all / unfold-all, so a FileCard that hydrates later
+  // (never saw the nonce) still opens in that mode.
+  const [unscopedFold, setUnscopedFold] = useState<"fold" | "unfold" | null>(null);
+  const fileSelectNonce = useRef(0);
+  const scrollAnim = useRef(0);
+  const scrollAnimating = useRef(false);
+  const ensureFileOpen = useCallback(
+    (path: string, onHydrated?: () => void) => {
+      setFoldSignal((s) => ({ mode: "unfold", nonce: (s?.nonce ?? 0) + 1, path }));
+      if (progressive.activate(path, onHydrated)) return;
+      if (!onHydrated) return;
+      // Diff/small reviews never register shells. A snapshot switch remounts
+      // them on the next commit, so retry a few frames before running the jump
+      // anyway — the old DOM-retry budget cannot wait out a blob fetch.
+      let tries = 0;
+      const retry = () => {
+        if (progressive.activate(path, onHydrated)) return;
+        if (progressive.registry.current.size === 0 || ++tries >= 30) onHydrated();
+        else requestAnimationFrame(retry);
+      };
+      requestAnimationFrame(retry);
+    },
+    [progressive.activate, progressive.registry],
+  );
   // The in-progress anchored composer's target, persisted per review in the browser
   // (drafts.ts) so it hides on switch and restores on return. Subscribe to just the
   // anchor (not the whole draft record) so typing in the composer/reply/general
@@ -467,12 +497,21 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // mounted before the highlight effect (keyed on scrollNonce) queries + scrolls
       // to it; both state updates batch into one render, effects run after commit.
       if (fb.patch_seq != null) setActiveRoundSeq(fb.patch_seq);
-      // A folded target file has no mounted rows to scroll to — open it first (the
-      // highlight effect's retry then catches the row once it mounts). Summary
-      // feedback points at prose, not a file, so there's nothing to unfold.
-      if (fb.file && fb.file !== SUMMARY_FILE) ensureFileOpen(fb.file);
+      // A folded / deferred target has no mounted rows to scroll to — open and
+      // hydrate it first, then bump the nonce so the highlight effect retries
+      // against the real body rather than the shell's ~1s DOM budget.
+      if (fb.file && fb.file !== SUMMARY_FILE) {
+        const nonce = ++fileSelectNonce.current;
+        cancelAnimationFrame(scrollAnim.current);
+        scrollAnimating.current = false;
+        ensureFileOpen(fb.file, () => {
+          if (fileSelectNonce.current !== nonce) return;
+          setScrollNonce((n) => n + 1);
+        });
+      } else {
+        setScrollNonce((n) => n + 1);
+      }
       setActiveFbId(fb.id);
-      setScrollNonce((n) => n + 1);
     },
     [ensureFileOpen, closeSheetForJump],
   );
@@ -541,6 +580,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     : diffMode
       ? (snapDiff?.files.map((f) => f.path) ?? [])
       : browseFiles;
+  // Large plain-file views progressively hydrate bodies. Diff rounds already
+  // arrive as one bounded rendered payload and keep their existing path.
+  const progressiveFiles = !isDiff && !diffMode && browseFiles.length >= PROGRESSIVE_FILES_MIN;
+  const progressiveVersion = `${reviewId}:${toSnap}:${syntaxTheme}`;
 
   // Viewed paths for the file-tree, resolved through the same content-identity
   // keys the cards use: a diff review keys on the active
@@ -564,16 +607,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // jump starts) and a flag the scroll-spy checks so mid-flight frames don't
   // overwrite the activePath the jump just set (rapid next/next must step from
   // the *target*, not from wherever the animation happens to be).
-  const scrollAnim = useRef(0);
-  const scrollAnimating = useRef(false);
-
   const scrollToFile = useCallback((path: string, opts?: { animate?: boolean }) => {
     const root = scopeRef.current;
     if (!root) return;
     const el = root.querySelector(`[data-file="${CSS.escape(path)}"]`);
     if (!el) return;
     cancelAnimationFrame(scrollAnim.current);
-    scrollAnimating.current = false;
     if (opts?.animate) {
       // Toolbar next/prev: a short fixed-duration ease-out — smooth, but it
       // reaches the destination in ~200ms no matter how far. (Native
@@ -590,7 +629,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           root.scrollTop + el.getBoundingClientRect().top - root.getBoundingClientRect().top;
         root.scrollTop = from + (dest - from) * eased;
         if (t < 1) scrollAnim.current = requestAnimationFrame(step);
-        else scrollAnimating.current = false;
+        // Leave scrollAnimating set — selectFile's post-hydrate settle owns
+        // clearing it, so the spy can't steal activePath while the deferred
+        // body is still growing.
       };
       scrollAnim.current = requestAnimationFrame(step);
     } else {
@@ -607,9 +648,27 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // so a viewed (auto-folded) file you click is one you want to read again —
   // open it rather than leaving it collapsed under its header.
   const selectFile = useCallback(
-    (path: string) => {
-      ensureFileOpen(path);
-      scrollToFile(path);
+    (path: string, opts?: { animate?: boolean }) => {
+      const nonce = ++fileSelectNonce.current;
+      // Jump immediately against the stable shell, then once more after a
+      // deferred body commits. Nearby preload shells may finish in the same
+      // beat and shift the stack, so re-pin for a short post-hydration window;
+      // a newer selection invalidates every older callback/frame. Hold the spy
+      // until that settle ends so `]`/`[` can't land on a still-growing block.
+      cancelAnimationFrame(scrollAnim.current);
+      scrollAnimating.current = true;
+      ensureFileOpen(path, () => {
+        if (fileSelectNonce.current !== nonce) return;
+        let frame = 0;
+        const settle = () => {
+          if (fileSelectNonce.current !== nonce) return;
+          scrollToFile(path);
+          if (++frame < 18) scrollAnim.current = requestAnimationFrame(settle);
+          else scrollAnimating.current = false;
+        };
+        settle();
+      });
+      scrollToFile(path, opts);
     },
     [ensureFileOpen, scrollToFile],
   );
@@ -626,6 +685,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // the same action still overrides folds the user toggled by hand in between.
   const foldAll = useCallback((mode: "fold" | "unfold") => {
     foldAllDir.current = mode === "fold" ? "unfold" : "fold";
+    setUnscopedFold(mode);
     setFoldSignal((s) => ({ mode, nonce: (s?.nonce ?? 0) + 1 }));
   }, []);
 
@@ -643,10 +703,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             : fileList.length - 1
           : Math.min(fileList.length - 1, Math.max(0, idx + dir));
       const target = fileList[next];
-      ensureFileOpen(target);
-      scrollToFile(target, { animate: true });
+      selectFile(target, { animate: true });
     },
-    [fileList, activePath, scrollToFile, ensureFileOpen],
+    [fileList, activePath, selectFile],
   );
 
   // Toggle Viewed on one path (the `x` shortcut). The file headers build their own
@@ -898,16 +957,25 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // its tab, and open the pinned file if it's folded, then scroll to the
       // row (retryScrollToRow waits out the round tab + unfold mounting).
       setActiveRoundSeq(patchSeq);
-      if (file) ensureFileOpen(file);
       const roundSel = `[data-round="${patchSeq}"]`;
-      retryScrollToRow({
-        getRoot: () => scopeRef.current,
-        scrollToLine: virt.scrollToLine,
-        scrollKey: file != null && line != null ? fileScrollKey(patchSeq, file) : null,
-        containerSel: file ? `${roundSel} [data-file="${CSS.escape(file)}"]` : roundSel,
-        line,
-        side: "new",
-      });
+      const jump = () =>
+        retryScrollToRow({
+          getRoot: () => scopeRef.current,
+          scrollToLine: virt.scrollToLine,
+          scrollKey: file != null && line != null ? fileScrollKey(patchSeq, file) : null,
+          containerSel: file ? `${roundSel} [data-file="${CSS.escape(file)}"]` : roundSel,
+          line,
+          side: "new",
+        });
+      if (file) {
+        const nonce = ++fileSelectNonce.current;
+        cancelAnimationFrame(scrollAnim.current);
+        scrollAnimating.current = false;
+        ensureFileOpen(file, () => {
+          if (fileSelectNonce.current !== nonce) return;
+          jump();
+        });
+      } else jump();
     },
     [virt.scrollToLine, ensureFileOpen, closeSheetForJump],
   );
@@ -940,14 +1008,19 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           setToSnap(version);
         }
       }
-      ensureFileOpen(ref.file);
-      retryScrollToRow({
-        getRoot: () => scopeRef.current,
-        scrollToLine: virt.scrollToLine,
-        scrollKey: fileScrollKey(null, ref.file),
-        containerSel: `[data-file="${CSS.escape(ref.file)}"]`,
-        line: ref.lineStart,
-        side: null,
+      const nonce = ++fileSelectNonce.current;
+      cancelAnimationFrame(scrollAnim.current);
+      scrollAnimating.current = false;
+      ensureFileOpen(ref.file, () => {
+        if (fileSelectNonce.current !== nonce) return;
+        retryScrollToRow({
+          getRoot: () => scopeRef.current,
+          scrollToLine: virt.scrollToLine,
+          scrollKey: fileScrollKey(null, ref.file),
+          containerSel: `[data-file="${CSS.escape(ref.file)}"]`,
+          line: ref.lineStart,
+          side: null,
+        });
       });
     },
     [
@@ -979,15 +1052,21 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         selectFile(link.file);
         return;
       }
-      ensureFileOpen(link.file);
-      retryScrollToRow({
-        getRoot: () => scopeRef.current,
-        scrollToLine: virt.scrollToLine,
-        scrollKey: null,
-        containerSel: `[data-file="${CSS.escape(link.file)}"]`,
-        rowSel: `[data-r3-heading="${CSS.escape(link.hash)}"]`,
-        line: null,
-        side: null,
+      const hash = link.hash;
+      const nonce = ++fileSelectNonce.current;
+      cancelAnimationFrame(scrollAnim.current);
+      scrollAnimating.current = false;
+      ensureFileOpen(link.file, () => {
+        if (fileSelectNonce.current !== nonce) return;
+        retryScrollToRow({
+          getRoot: () => scopeRef.current,
+          scrollToLine: virt.scrollToLine,
+          scrollKey: null,
+          containerSel: `[data-file="${CSS.escape(link.file)}"]`,
+          rowSel: `[data-r3-heading="${CSS.escape(hash)}"]`,
+          line: null,
+          side: null,
+        });
       });
     },
     [hasFile, selectFile, ensureFileOpen, virt.scrollToLine, closeSheetForJump],
@@ -1348,111 +1427,128 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             }
           >
             <VirtualPaneProvider scrollRef={scopeRef} registry={virt.registry}>
-              {/* Mobile: the header + summary scroll away with the code, but the
+              <ProgressiveFileProvider
+                scrollRef={scopeRef}
+                registry={progressive.registry}
+                enabled={progressiveFiles}
+              >
+                {/* Mobile: the header + summary scroll away with the code, but the
                   toolbar (switcher · round summary · buttons) sticks at the pane
                   top — the sticky header stack is toolbar + file header. */}
-              {isMobile && (
-                <>
-                  {reviewHeader}
-                  {reviewSummaryEl}
-                  {paneToolbarEl && (
-                    <StickyToolbar onHeight={setStickyToolbarH}>{paneToolbarEl}</StickyToolbar>
-                  )}
-                </>
-              )}
-              {/* Desktop keeps the round summary at the top of the scrollable
+                {isMobile && (
+                  <>
+                    {reviewHeader}
+                    {reviewSummaryEl}
+                    {paneToolbarEl && (
+                      <StickyToolbar onHeight={setStickyToolbarH}>{paneToolbarEl}</StickyToolbar>
+                    )}
+                  </>
+                )}
+                {/* Desktop keeps the round summary at the top of the scrollable
                   content, above the file blocks (mobile mounts it in the toolbar
                   instead — the `summary` slot above). */}
-              {!isMobile && roundSummaryEl}
-              {isDiff && diff && (
-                <DiffView
-                  rounds={rounds}
-                  activeSeq={effectiveRoundSeq}
-                  isViewed={isViewed}
-                  currentPath={activePath}
-                  layout={diffLayout}
-                  fetchContext={fetchRoundContext}
-                  toggle={toggleViewed}
-                  onPickLines={onPickLines}
-                  onFileFeedback={onFileFeedback}
-                  foldSignal={foldSignal}
-                />
-              )}
-              {isDiff && !diff && (
-                <p
-                  className={cn("p-6 text-sm", diffError ? "text-danger-500" : "text-neutral-400")}
-                >
-                  {diffError ? (diffError as Error).message : "Loading diff…"}
-                </p>
-              )}
-
-              {/* Files review, diff mode: the derived snapshot→snapshot (or
-                snapshot→live) diff, rendered through DiffView as one synthetic
-                round. Feedback is placed onto it by quote. */}
-              {!isDiff &&
-                diffMode &&
-                (snapDiff ? (
+                {!isMobile && roundSummaryEl}
+                {isDiff && diff && (
                   <DiffView
-                    rounds={snapRounds}
-                    activeSeq={SNAPSHOT_DIFF_SEQ}
+                    rounds={rounds}
+                    activeSeq={effectiveRoundSeq}
+                    isViewed={isViewed}
                     currentPath={activePath}
                     layout={diffLayout}
-                    fetchContext={fetchSnapContext}
-                    // No viewed tracking in a files review's derived diff;
-                    // omitting isViewed/toggle hides the toggle.
+                    fetchContext={fetchRoundContext}
+                    toggle={toggleViewed}
                     onPickLines={onPickLines}
                     onFileFeedback={onFileFeedback}
                     foldSignal={foldSignal}
                   />
-                ) : (
-                  <p className="p-6 text-sm text-neutral-400">Loading diff…</p>
-                ))}
-
-              {/* Files review, plain view: the live files (to=Current) or a chosen
-                snapshot's captured content (to=snapshot N). */}
-              {!isDiff &&
-                !diffMode &&
-                filesSrc &&
-                filesSrc.files.length === 0 &&
-                toSnap === "WORKING" &&
-                detail.scratchDir && (
-                  <div className="p-8 text-center text-sm text-neutral-400">
-                    <p className="font-medium text-neutral-500 dark:text-neutral-400">
-                      No files yet
-                    </p>
-                    <p className="mt-1">
-                      Drop files into this scratch directory — they appear here live:
-                    </p>
-                    <code className="mt-2 inline-block rounded bg-neutral-100 px-2 py-1 font-mono text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                      {detail.scratchDir}
-                    </code>
-                  </div>
                 )}
-              {!isDiff &&
-                !diffMode &&
-                filesSrc &&
-                browseFiles.map((f) => (
-                  <FileView
-                    key={f}
-                    path={f}
-                    refName={filesSrc.ref}
-                    reviewId={reviewId}
-                    snapshotSeq={toSnap === "WORKING" ? undefined : toSnap}
-                    // Viewed only in the live view: a
-                    // parent-computed per-file boolean (keyed through the reported
-                    // sha in viewedPaths) plus the stable toggle. A pinned snapshot
-                    // browse omits the toggle, hiding it.
-                    viewed={liveFilesView ? viewedPaths.has(f) : false}
-                    toggle={liveFilesView ? toggleViewed : undefined}
-                    onSha={liveFilesView ? onSha : undefined}
-                    onPickLines={onPickLines}
-                    onFileFeedback={onFileFeedback}
-                    onDocLink={openDocLink}
-                    hasFile={hasFile}
-                    current={f === activePath}
-                    foldSignal={foldSignal}
-                  />
-                ))}
+                {isDiff && !diff && (
+                  <p
+                    className={cn(
+                      "p-6 text-sm",
+                      diffError ? "text-danger-500" : "text-neutral-400",
+                    )}
+                  >
+                    {diffError ? (diffError as Error).message : "Loading diff…"}
+                  </p>
+                )}
+
+                {/* Files review, diff mode: the derived snapshot→snapshot (or
+                snapshot→live) diff, rendered through DiffView as one synthetic
+                round. Feedback is placed onto it by quote. */}
+                {!isDiff &&
+                  diffMode &&
+                  (snapDiff ? (
+                    <DiffView
+                      rounds={snapRounds}
+                      activeSeq={SNAPSHOT_DIFF_SEQ}
+                      currentPath={activePath}
+                      layout={diffLayout}
+                      fetchContext={fetchSnapContext}
+                      // No viewed tracking in a files review's derived diff;
+                      // omitting isViewed/toggle hides the toggle.
+                      onPickLines={onPickLines}
+                      onFileFeedback={onFileFeedback}
+                      foldSignal={foldSignal}
+                    />
+                  ) : (
+                    <p className="p-6 text-sm text-neutral-400">Loading diff…</p>
+                  ))}
+
+                {/* Files review, plain view: the live files (to=Current) or a chosen
+                snapshot's captured content (to=snapshot N). */}
+                {!isDiff &&
+                  !diffMode &&
+                  filesSrc &&
+                  filesSrc.files.length === 0 &&
+                  toSnap === "WORKING" &&
+                  detail.scratchDir && (
+                    <div className="p-8 text-center text-sm text-neutral-400">
+                      <p className="font-medium text-neutral-500 dark:text-neutral-400">
+                        No files yet
+                      </p>
+                      <p className="mt-1">
+                        Drop files into this scratch directory — they appear here live:
+                      </p>
+                      <code className="mt-2 inline-block rounded bg-neutral-100 px-2 py-1 font-mono text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                        {detail.scratchDir}
+                      </code>
+                    </div>
+                  )}
+                {!isDiff &&
+                  !diffMode &&
+                  filesSrc &&
+                  browseFiles.map((f) => (
+                    <ProgressiveFile key={f} path={f} version={progressiveVersion}>
+                      {({ active, onHydrated, onOpenChange }) => (
+                        <FileView
+                          path={f}
+                          refName={filesSrc.ref}
+                          reviewId={reviewId}
+                          snapshotSeq={toSnap === "WORKING" ? undefined : toSnap}
+                          // Viewed only in the live view: a
+                          // parent-computed per-file boolean (keyed through the reported
+                          // sha in viewedPaths) plus the stable toggle. A pinned snapshot
+                          // browse omits the toggle, hiding it.
+                          viewed={liveFilesView ? viewedPaths.has(f) : false}
+                          toggle={liveFilesView ? toggleViewed : undefined}
+                          onSha={liveFilesView ? onSha : undefined}
+                          onPickLines={onPickLines}
+                          onFileFeedback={onFileFeedback}
+                          onDocLink={openDocLink}
+                          hasFile={hasFile}
+                          current={f === activePath}
+                          foldSignal={foldSignal}
+                          unscopedFold={unscopedFold}
+                          active={active}
+                          ownsFileMarker={false}
+                          onHydrated={onHydrated}
+                          onOpenChange={onOpenChange}
+                        />
+                      )}
+                    </ProgressiveFile>
+                  ))}
+              </ProgressiveFileProvider>
             </VirtualPaneProvider>
           </div>
         </div>

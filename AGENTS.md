@@ -135,6 +135,8 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  quote, region wash) + markdown click refinement
   src/pane.ts    content-pane helpers: retrying row jump, composer focus, crossfade
   src/virtual.tsx per-file row virtualization inside the one scroll pane
+  src/progressive.tsx large files-review body hydration: one observer, measured
+                 offscreen file shells, explicit-jump activation
   src/expand.ts  expand-context: a diff's collapsed gaps -> revealed rows, merged
                  back into ONE row list everything else derives from
   src/gutter.ts  line-number pick/drag anchoring    resolveFeedback.ts  place a

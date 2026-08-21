@@ -161,6 +161,11 @@ function FileViewImpl({
   hasFile,
   current,
   foldSignal,
+  unscopedFold,
+  active = true,
+  ownsFileMarker = true,
+  onHydrated,
+  onOpenChange,
 }: {
   path: string;
   refName: string;
@@ -199,16 +204,32 @@ function FileViewImpl({
   // cards whose flag changed (this component is memoized).
   current?: boolean;
   foldSignal?: FoldSignal | null;
+  unscopedFold?: "fold" | "unfold" | null;
+  // Large reviews leave every cheap file shell mounted but activate blob fetch +
+  // body rendering only near the viewport (ProgressiveFile).
+  active?: boolean;
+  ownsFileMarker?: boolean;
+  onHydrated?: (ready: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const syntaxTheme = useSyntaxTheme();
   const [mdView, setMdView] = useState<MdView>("rendered");
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["blob", reviewId, path, snapshotSeq ?? refName, syntaxTheme],
     queryFn: () =>
       snapshotSeq != null
         ? api.snapshotBlob(reviewId, path, snapshotSeq, syntaxTheme)
         : api.blob(path, refName, syntaxTheme, reviewId),
+    enabled: active,
+    // File-change SSE invalidates the exact blob key. Keeping an otherwise
+    // immutable cached body fresh forever prevents viewport exit/re-entry from
+    // re-running Shiki + JSON serialization after the global 5s stale window.
+    staleTime: Number.POSITIVE_INFINITY,
   });
+
+  useEffect(() => {
+    if (active) onHydrated?.((data != null && !isFetching) || error != null);
+  }, [active, data, isFetching, error, onHydrated]);
 
   // Bubble the content sha up once loaded (and whenever it changes) so the tree's
   // viewed markers stay consistent with this card's. Before the callback exists
@@ -228,14 +249,14 @@ function FileViewImpl({
   // under it.
   const mdRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (hasFile && markdownHtml.__html) markMissingDocLinks(mdRef.current, hasFile);
-  }, [hasFile, markdownHtml]);
+    if (active && hasFile && markdownHtml.__html) markMissingDocLinks(mdRef.current, hasFile);
+  }, [active, hasFile, markdownHtml]);
 
-  // Until the blob loads we still render a [data-file] stub so the file browser
-  // can scroll to it and active-line highlighting can target it.
+  // Loading/error chrome only. ProgressiveFile owns the [data-file] marker in
+  // large reviews (`ownsFileMarker` false); standalone renders keep it here.
   if (!data) {
     return (
-      <div data-file={path}>
+      <div data-file={ownsFileMarker ? path : undefined}>
         <div className="flex h-8 items-center border-b border-neutral-300 bg-neutral-50/95 px-2 font-mono text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/95">
           {path}
         </div>
@@ -275,8 +296,11 @@ function FileViewImpl({
       autoFold={lineCount > BIG_FILE_LINES}
       current={current}
       foldSignal={foldSignal}
+      unscopedFold={unscopedFold}
+      ownsFileMarker={ownsFileMarker}
+      onOpenChange={onOpenChange}
     >
-      {isMarkdown && mdView === "rendered" ? (
+      {!active ? null : isMarkdown && mdView === "rendered" ? (
         // The doc-link click is caught here rather than on the pane so it stays
         // next to the missing-link marking above. It always preventDefaults: the
         // anchor's `href="#"` exists only to keep it focusable.
