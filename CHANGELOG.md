@@ -4,6 +4,34 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] - 2026-08-21
+
+### Added
+
+- **Claim work in flight.** `r3 claim <feedback_id>...` shows in the UI
+  which notes an agent is handling, so a long edit no longer looks like
+  the agent wandered off.
+- **Fenced code in a reviewed `.md` is highlighted** with the same syntax
+  theme as the code view.
+- **Large files reviews stay scrollable.** Bodies load as you approach
+  them, instead of all at once.
+
+### Changed
+
+- **Approve no longer waits on open notes you chose not to chase.** It
+  blocks on unread content, or on an item the agent has claimed.
+
+### Fixed
+
+- **Re-anchoring keeps the quote you marked**, instead of rewriting the
+  note to whatever lines it was pointed at.
+- **`r3 stop` kills a stuck daemon** instead of abandoning it, so later
+  starts can recover.
+- **A spawn timeout names a sandbox** that can't reach localhost, instead
+  of only blaming a stuck daemon.
+- **Directory rows in the file tree line up** with the files at the same
+  depth.
+
 ## [0.9.3] - 2026-08-15
 
 ### Changed
@@ -324,6 +352,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.10.0]: https://github.com/hyperlogue/r3/compare/v0.9.3...v0.10.0
 [0.9.3]: https://github.com/hyperlogue/r3/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/hyperlogue/r3/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/hyperlogue/r3/compare/v0.9.0...v0.9.1
