@@ -31,6 +31,8 @@ import {
   MAX_CLAIM_LEASE_SECONDS,
   MIN_CLAIM_LEASE_SECONDS,
   SUMMARY_FILE,
+  SUPERSEDED_EVENT,
+  type WatchRefusedResponse,
 } from "../shared/types.ts";
 
 interface ServerInfo {
@@ -346,19 +348,32 @@ async function awaitingIds(id: string): Promise<string[]> {
 // if it drops. `session` (display string) registers us as a live watcher on the
 // review (so the web UI shows who's watching and offers Submit instead of Copy);
 // `agentId` is a precise machine handle other tools can use to find this agent.
+//
+// The connection IS the watch slot, and a review only has one (server/
+// watchers.ts): `onOpen` fires when it's ours, `onRefused` when another session
+// holds it. A refusal ends the stream instead of retrying — the holder is a live
+// connection, not a blip, so reconnecting would only spin. It can also land on a
+// LATER connect: a reconnect of the same client is admitted and evicts the ghost,
+// so the process that lost the slot learns about it here.
 async function streamEvents(
   id: string,
   session: string,
   agentId: string | undefined,
   onEvent: (name: string) => void,
   signal: AbortSignal,
+  hooks: { onOpen?: () => void; onRefused?: (holder: WatchRefusedResponse | null) => void } = {},
 ): Promise<void> {
   let url = `${SERVER.url}/api/events?review=${encodeURIComponent(id)}&session=${encodeURIComponent(session)}`;
   if (agentId) url += `&agentId=${encodeURIComponent(agentId)}`;
   while (!signal.aborted) {
     try {
       const r = await fetch(url, { headers: { "x-r3-token": SERVER.token }, signal });
+      if (r.status === 409) {
+        hooks.onRefused?.(((await r.json().catch(() => null)) as WatchRefusedResponse) ?? null);
+        return;
+      }
       if (!r.ok || !r.body) throw new Error(`events ${r.status}`);
+      hooks.onOpen?.();
       const reader = r.body.getReader();
       const dec = new TextDecoder();
       let buf = "";
@@ -676,7 +691,10 @@ async function cmdPrompt(args: Args) {
 //        then `r3 watch` again for the next round.
 //   2  = timed out (no Submit within --timeout).
 //   3  = review ABANDONED — closed without approval; stop looping.
-const WATCH_EXIT = { approved: 0, feedback: 10, timeout: 2, abandoned: 3 } as const;
+//   4  = another watch already holds this review — refused (a different session
+//        has it) or superseded (a newer `watch` of the SAME session took over).
+//        Either way this process is not the watcher; stop, don't retry.
+const WATCH_EXIT = { approved: 0, feedback: 10, timeout: 2, abandoned: 3, busy: 4 } as const;
 
 // Block until the human hits Submit in the web UI, then print the agent prompt
 // for the awaiting items so the coding agent can act without copy-paste. While
@@ -758,29 +776,72 @@ async function cmdWatch(args: Args) {
     return cur;
   };
 
-  // Pick up anything already waiting (left before this watch, or after a restart).
-  const pending = detail0.feedback.filter(hasUnsentContent).map((f: any) => f.id);
+  // Take the review's one watch slot BEFORE draining anything. The pending
+  // hand-off below marks items delivered, which is the whole reason a second
+  // watcher can't be allowed: it would stamp them sent between this one's read
+  // and its POST, and one of the two would wake with an empty prompt.
+  const controller = new AbortController();
+  let submitted = false;
+  let wake: () => void = () => {};
+  let admit: () => void = () => {};
+  const admitted = new Promise<void>((resolve) => {
+    admit = resolve;
+  });
+  streamEvents(
+    id,
+    session,
+    agentId,
+    (name) => {
+      if (name === SUPERSEDED_EVENT) {
+        process.stderr.write(
+          `r3: another \`r3 watch ${id}\` for session "${session}" took over — this one is done.\n`,
+        );
+        process.exit(WATCH_EXIT.busy);
+      }
+      if (name === "submitted") submitted = true;
+      wake();
+    },
+    controller.signal,
+    {
+      onOpen: admit,
+      onRefused: (refusal) => {
+        const holder = refusal?.holder?.session;
+        process.stderr.write(
+          `r3: ${id} is already being watched${holder ? ` by "${holder}"` : ""} — one watch per review.\n` +
+            `    Stop that one, or run this again after it exits.\n`,
+        );
+        process.exit(WATCH_EXIT.busy);
+      },
+    },
+  );
+  // Only a daemon that stops answering can hold this up (the GET above already
+  // proved it was there), but --timeout promises a bounded wait, so bound it.
+  if (timeoutMs) {
+    const ok = await Promise.race([admitted.then(() => true), sleep(timeoutMs).then(() => false)]);
+    if (!ok) {
+      controller.abort();
+      process.stderr.write("r3: watch timed out.\n");
+      process.exit(WATCH_EXIT.timeout);
+    }
+  } else {
+    await admitted;
+  }
+
+  // Pick up anything already waiting (left before this watch, or after a
+  // restart). Re-read rather than reusing detail0: it was fetched before the
+  // slot was ours, and a Copy prompt in the browser could have taken those items
+  // in between — emitting them would print a prompt with nothing in it.
+  const pending = await awaitingIds(id);
   if (pending.length) {
-    await emit(autoFetchMs > 0 ? await settle(pending) : pending);
+    const ids = autoFetchMs > 0 ? await settle(pending) : pending;
+    controller.abort();
+    await emit(ids);
     process.exit(WATCH_EXIT.feedback);
   }
 
   process.stderr.write(
     `r3: watching ${id} as "${session}" — waiting for you to Submit.  (Ctrl-C to stop)\n` +
       `    ${SERVER.url}/${id}\n`,
-  );
-  const controller = new AbortController();
-  let submitted = false;
-  let wake: () => void = () => {};
-  streamEvents(
-    id,
-    session,
-    agentId,
-    (name) => {
-      if (name === "submitted") submitted = true;
-      wake();
-    },
-    controller.signal,
   );
 
   for (;;) {
@@ -1604,7 +1665,10 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   Exit codes: 10 = feedback submitted
                                                  #   (act on it, watch again); 0 = review
                                                  #   approved (done — any next-steps note is
-                                                 #   printed); 3 = abandoned; 2 = timed out.
+                                                 #   printed); 3 = abandoned; 2 = timed out;
+                                                 #   4 = someone else is already watching this
+                                                 #   review (only one watch at a time), or a
+                                                 #   newer watch of the same --session took over.
                                                  #   --session: display name shown in the UI
                                                  #   --agent-id: machine handle for other tools
                                                  #   --timeout: give-up deadline in seconds (default 0 = never)
@@ -1736,7 +1800,10 @@ lazily on your first command — run commands from inside the repo under review.
    reviewed.
 2. \`r3 watch <id>\` — blocks until the human clicks Submit, then prints the new
    feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
-   0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out.
+   0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out,
+   4 = already being watched (a review takes one watch at a time — someone else
+   has it, or a newer watch of your own \`--session\` replaced this one). On 4,
+   stop: don't retry, and don't start a second watch alongside it.
 3. Claim the items before editing so the human sees that you are working:
    \`r3 claim <feedback_id_1> <feedback_id_2>...\` (60-minute lease; repeat to
    renew a long task).
@@ -1760,7 +1827,10 @@ directly, like a development server. A detached process whose output only buffer
 will NOT wake you; use the harness's awaited/monitored process handle instead.
 Do not put watch in a shell loop: its exit 10 intentionally returns control so you
 can act on the round and reply. Then launch a fresh \`r3 watch <id>\`; repeat until
-it exits 0 (approved) or 3 (abandoned).
+it exits 0 (approved) or 3 (abandoned). Keep one watch per review at a time — a
+second one is refused (exit 4), because two watchers race each other's delivery
+and one of them wakes with an empty prompt. Re-running \`r3 watch\` with the same
+\`--session\` is fine: it takes over from your own earlier one, which exits 4.
 
 Some items target a whole file or a summary (no line span) — reply the same way.
 

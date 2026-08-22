@@ -173,10 +173,10 @@ function usePlaceholder(base: string, hints: string): string {
 }
 
 const shortLabel = (s: string) => (s.length > 14 ? `${s.slice(0, 12)}…` : s);
+// A review admits one watch at a time (server/watchers.ts), so this names the
+// holder rather than counting a crowd; an empty list hides the indicator entirely.
 function watchersLabel(watchers: WatcherInfo[]): string {
-  if (watchers.length === 1) return shortLabel(watchers[0].session);
-  if (watchers.length === 2) return watchers.map((w) => shortLabel(w.session)).join(", ");
-  return `${watchers.length} agents`;
+  return shortLabel(watchers[0]?.session ?? "agent");
 }
 function watchersTitle(watchers: WatcherInfo[]): string {
   return `watching: ${watchers.map((w) => (w.agentId ? `${w.session} (${w.agentId})` : w.session)).join(", ")}`;

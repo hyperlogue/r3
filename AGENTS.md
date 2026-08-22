@@ -108,7 +108,7 @@ server/          Hono daemon + bun:sqlite global store
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
   prompt.ts      the agent-prompt text (same as the UI's "Copy prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
-  watchers.ts    live `watch` presence registry (who's blocked on a review)
+  watchers.ts    live `watch` presence registry — the one watch slot per review
   auth.ts        quick-auth: login tokens -> HttpOnly session cookies (only when REQUIRE_LOGIN)
   scratch.ts     adhoc scratch-review storage (ref:'SCRATCH') outside any repo
   paths.ts       pure safePathIn(root, p) path guard    ids.ts  id minting
@@ -450,10 +450,25 @@ clicking **"Copy prompt"**, or hands-off via **`r3 watch <id>`**, which register
 a live watcher and blocks until the human clicks **Submit**. The agent replies by
 feedback id (`r3 reply <fid> -m "…"`), appends a new round or re-anchors as the kind
 requires, and watches again. **`watch`'s exit code is the loop's branch signal** —
-`10` submitted · `0` approved · `3` abandoned · `2` timed out — so a naive `while r3
-watch; do …` is wrong. After an exit-10 hand-off, the agent runs `r3 claim
-<feedback_id>...` before editing so the browser shows active work; repeating it
-renews a long task, and each `r3 reply` releases its item's claim.
+`10` submitted · `0` approved · `3` abandoned · `2` timed out · `4` already watched
+— so a naive `while r3 watch; do …` is wrong. After an exit-10 hand-off, the agent
+runs `r3 claim <feedback_id>...` before editing so the browser shows active work;
+repeating it renews a long task, and each `r3 reply` releases its item's claim.
+
+**A review admits one watch at a time.** Two agents blocked on the same review
+don't split the round, they race it: delivery is stamped at POST time, so one can
+mark the awaiting items sent between the other's read and its POST and that one
+wakes with an empty prompt — and "● `<session>` watching" can only name an owner
+if there is one. The slot **is** the SSE connection (`server/watchers.ts`): a
+second `?session=` connect is refused `409` before the stream opens, naming the
+holder, and `r3 watch` exits `4`. It takes the slot **before** draining anything
+already pending, so the early exit-10 hand-off is inside the exclusion, not before
+it. The one client allowed to displace the holder is **itself** — the same
+`--session` + `--agent-id` — because a dropped SSE or a restarted agent must not
+be locked out by its own ghost and nothing else would ever clear it; the displaced
+stream is told (a stream-local `superseded` frame) and exits `4` rather than
+reconnecting, which would otherwise have the two trading the slot every second.
+Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
 
 Delivery is tracked (`sent_at` + `status_unsent`), so a prompt is **unsent-only**
 and even a bare Resolve/Reopen click reaches the agent as "`[resolved]` — no action
@@ -685,7 +700,9 @@ the browser, where a type checker and a story catch more per minute than a mock
 would. What earns a test is a **rule with states and a clock**: cheap to state,
 expensive to get wrong at runtime, and invisible to `tsc`. The claim lease is the
 worked example (`server/claims.test.ts`) — who may renew, what a reply releases,
-when expiry stops counting. A test **must** point `R3_DB` at its own temp store
+when expiry stops counting; the watch slot is the other
+(`server/watchers.test.ts`) — who is refused, who may take the slot back, whose
+late cleanup must not free it. A test **must** point `R3_DB` at its own temp store
 and `await import()` the modules under test, because `server/db.ts` opens its
 singleton at import time; a static import would open the real
 `$XDG_STATE_HOME/r3/r3.sqlite` before the env var lands.

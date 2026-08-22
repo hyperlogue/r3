@@ -61,8 +61,8 @@ one rendered file.
   hand-off text, which is how the web copies first and marks only on success.
 - `POST …/prompt { feedback? }` — the unsent-only hand-off, and **the one that
   stamps `sent_at`**.
-- `GET …/watchers` + `POST …/submit` — live `watch` clients / fire a `submitted`
-  event.
+- `GET …/watchers` + `POST …/submit` — live `watch` clients (0 or 1: a review
+  admits one watch at a time) / fire a `submitted` event.
 
 **Feedback + replies**
 `POST /api/reviews/:id/feedback` (on a **files** review a supplied `quote` wins over
@@ -86,7 +86,13 @@ SPA can pick from.
 **Live**
 `GET /api/events?review=:id[&session=&agentId=]` — SSE (`review-updated`,
 `feedback-updated`, `file-changed`, `watchers-changed`, `submitted`,
-`reviews-changed`); a connection with `session` registers as a watcher.
+`reviews-changed`); a connection with `session` registers as a watcher. **The
+connection is the review's one watch slot**: a `session` connect on a review
+another client already holds is refused **`409 WatchRefusedResponse`** (naming the
+holder) *before* the stream opens; the same `session`+`agentId` reconnecting is
+admitted and evicts its own ghost, which gets a stream-local `superseded` frame
+(`SUPERSEDED_EVENT`, not a broadcast) and closes. Browser tabs pass no `session`,
+are never watchers, and are never refused.
 `GET/PUT …/viewed` — per-reviewer read progress (no SSE, no CLI).
 
 **Auth (quick-auth)** — see the **security-model** skill for the policy behind these.
@@ -158,6 +164,15 @@ Two hand-off paths:
   watcher it shows "Submit" + a "● `<session>` watching" indicator instead of "Copy
   prompt". The human clicks Submit, the server broadcasts `submitted`, and `watch`
   prints the prompt and exits.
+  **One watch per review.** Two watchers don't share a review, they race it:
+  delivery is stamped at POST time, so one can mark the awaiting ids sent between
+  the other's read and its POST and that one exits 10 with an empty prompt
+  (r3-9fc). `watch` therefore takes the slot **before** it drains anything
+  pending, and a refusal is exit `4`. The exception is the same client
+  reconnecting (identical `--session` + `--agent-id`): it takes its own slot back,
+  since a dropped SSE or a restarted agent must not be locked out by its own
+  ghost, and the displaced process exits `4` too rather than reconnecting into a
+  fight over the slot.
 
 The agent then **replies by feedback id** — always a plain reply saying what it
 changed / why it disagrees / a follow-up (`r3 reply <fid> -m "…"`); the human drives
@@ -182,9 +197,10 @@ live wearing an "agent" chip and rank into the human's attention zone. This is a
 
 `r3 watch` exits: **`10`** = feedback submitted (act on it, watch again) · **`0`** =
 approved (terminal success; the human's optional "next steps" note prints to
-stdout) · **`3`** = abandoned · **`2`** = timed out. A naive `while r3 watch; do …`
-is **wrong** — branch on `$?`. Ending the loop is the human's move (`r3 approve`
-/ `r3 abandon`, or the UI buttons).
+stdout) · **`3`** = abandoned · **`2`** = timed out · **`4`** = another watch holds
+this review (refused, or superseded by a newer watch of the same session) — stop,
+don't retry. A naive `while r3 watch; do …` is **wrong** — branch on `$?`. Ending
+the loop is the human's move (`r3 approve` / `r3 abandon`, or the UI buttons).
 
 `watch` also returns immediately if feedback is already pending. `--timeout <sec>`
 (default 0 = never) bounds the wait; `--auto-fetch-timeout <sec>` opts into

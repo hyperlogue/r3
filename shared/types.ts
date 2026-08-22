@@ -606,9 +606,24 @@ export interface WatcherInfo {
   session: string; // human-readable display string (a session name)
   agentId?: string; // precise machine id, for other tools to jump to the agent
 }
+// A review admits ONE live watch at a time, so this holds 0 or 1 — it stays an
+// array because three clients read the shape and the singular case reads the
+// same either way.
 export interface WatchersResponse {
   watchers: WatcherInfo[];
 }
+// `GET /api/events?session=` on a review another client already watches: 409,
+// naming the holder so the refused agent can say who has it.
+export interface WatchRefusedResponse {
+  error: string;
+  holder: WatcherInfo;
+}
+// Not a broadcast — a stream-local control frame the events endpoint writes to a
+// watch connection just before closing it because the SAME client reconnected and
+// took the slot. Without it the displaced process can't tell eviction from a
+// dropped connection, so it would reconnect, evict its own successor, and the two
+// would trade the slot forever.
+export const SUPERSEDED_EVENT = "superseded";
 
 // ---- auth (quick-auth: login token -> session cookie) ----
 //

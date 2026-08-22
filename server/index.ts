@@ -26,8 +26,14 @@ import type {
   ReviewStatus,
   ServerEvent,
   UpdateReviewBody,
+  WatchRefusedResponse,
 } from "../shared/types.ts";
-import { isReviewStatus, MAX_CONTEXT_ROWS, REVIEW_STATUSES } from "../shared/types.ts";
+import {
+  isReviewStatus,
+  MAX_CONTEXT_ROWS,
+  REVIEW_STATUSES,
+  SUPERSEDED_EVENT,
+} from "../shared/types.ts";
 // The SPA entry. Bun's bundler turns this import into an HTMLBundle: on-demand
 // from source (dev + lazy-spawn, via the bun-plugin-tailwind in bunfig.toml),
 // and pre-bundled + embedded into the binary by `scripts/compile.ts`. Served
@@ -952,6 +958,37 @@ app.get("/api/events", (c) => {
   const mayWatch = resolveAuth(c);
   const session = mayWatch ? c.req.query("session")?.slice(0, 200) : undefined;
   const agentId = (mayWatch ? c.req.query("agentId")?.slice(0, 200) : undefined) || undefined;
+  // A review admits ONE live watch (server/watchers.ts). Claim the slot HERE,
+  // before the stream opens, so a refusal is an ordinary 409 the CLI can act on
+  // — a client that has already been handed a 200 SSE stream looks like it is
+  // watching, and telling it otherwise would need a protocol of its own. A
+  // same-session reconnect is admitted and evicts its own ghost through this
+  // controller, which the stream below turns into an abort.
+  let watcherId: number | null = null;
+  const evicted = new AbortController();
+  if (session && filter) {
+    const admission = addWatcher(filter, { session, agentId }, () => evicted.abort());
+    if (!admission.ok) {
+      const body: WatchRefusedResponse = {
+        error: `review ${filter} is already being watched by "${admission.holder.session}"`,
+        holder: admission.holder,
+      };
+      return c.json(body, 409);
+    }
+    watcherId = admission.id;
+    broadcast({ type: "watchers-changed", reviewId: filter });
+  }
+  // Releasing is id-scoped, so a ghost's late cleanup can't drop the slot its
+  // successor now holds. Hung off the request signal too: the slot is taken
+  // before streamSSE runs its callback, so a client that vanishes in between
+  // would otherwise hold the review forever.
+  const release = () => {
+    if (watcherId == null || !filter) return;
+    const freed = removeWatcher(filter, watcherId);
+    watcherId = null;
+    if (freed) broadcast({ type: "watchers-changed", reviewId: filter });
+  };
+  if (watcherId != null) c.req.raw.signal.addEventListener("abort", release);
   return streamSSE(c, async (stream) => {
     // Serialize every write (event pushes + heartbeats) through one chain so
     // concurrent writeSSE calls can't interleave or race on the stream. Track the
@@ -1001,20 +1038,20 @@ app.get("/api/events", (c) => {
         return;
       send({ event: ev.type, data: JSON.stringify(ev) });
     });
-    let watcherId: number | null = null;
-    if (session && filter) {
-      watcherId = addWatcher(filter, { session, agentId });
-      broadcast({ type: "watchers-changed", reviewId: filter });
-    }
     const cleanup = () => {
       unsub();
-      if (watcherId != null && filter) {
-        removeWatcher(filter, watcherId);
-        broadcast({ type: "watchers-changed", reviewId: filter });
-        watcherId = null;
-      }
+      release();
     };
     stream.onAbort(cleanup);
+    // Superseded by a reconnect of the same client: the slot already belongs to
+    // the newcomer, so name that before closing. A bare abort is indistinguishable
+    // from a dropped connection, and this client's reconnect would then evict its
+    // own successor — the two would trade the slot every second forever.
+    const supersede = () => {
+      void send({ event: SUPERSEDED_EVENT, data: "{}" }).then(() => stream.abort());
+    };
+    if (evicted.signal.aborted) supersede();
+    else evicted.signal.addEventListener("abort", supersede);
     // Heartbeat keeps the connection alive through proxies/idle timeouts.
     while (!stream.aborted) {
       await send({ event: "ping", data: "{}" });
