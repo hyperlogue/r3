@@ -662,6 +662,11 @@ export function editReply(id: string, bodyText: string): Reply {
     s().replies.find((r) => r.id === id),
     "reply",
   );
+  // Re-deliver an edited human reply, matching reviews.editReply: hasUnsentContent
+  // keys follow-ups on each reply's own sent_at, so a correction has to give its
+  // stamp back or the agent keeps acting on the wording it already got. Cleared
+  // before the body write so the returned row reports the reply's real state.
+  if (reply.author === "human" && bodyText !== reply.body) reply.sent_at = null;
   reply.body = bodyText;
   const fb = feedbackRow(reply.feedback_id);
   if (fb) {

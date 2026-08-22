@@ -222,9 +222,13 @@ item owes nothing extra: an open one delivers in full with its current status, a
 note resolved before any hand-off is settled without the agent ever seeing it.
 
 Copy/Submit disable once nothing is unsent (a fresh reply or decision re-enables
-them). `r3 show <id>` re-prints the full history without marking; `r3 prompt <id>
---all` re-prints every **open** item without marking. A restarted `watch` won't
-re-emit what was already delivered.
+them). Editing a delivered human reply (`PATCH /api/replies/:id`) or an open
+note's body (`PATCH /api/feedback/:id`) clears that row's `sent_at`, so the
+correction is unsent again — otherwise `hasUnsentContent` would skip it and the
+agent would keep acting on the old wording. Agent-authored replies stay stamped
+(the agent wrote them); a same-body no-op does not clear. `r3 show <id>` re-prints
+the full history without marking; `r3 prompt <id> --all` re-prints every **open**
+item without marking. A restarted `watch` won't re-emit what was already delivered.
 
 The unsent predicate lives once in `shared/types.ts` (`hasUnsentContent`) — the
 server's prompt, the CLI's `watch`/`prompt`, and the web's Copy/Submit gate all call

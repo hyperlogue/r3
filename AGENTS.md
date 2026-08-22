@@ -472,8 +472,9 @@ Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
 
 Delivery is tracked (`sent_at` + `status_unsent`), so a prompt is **unsent-only**
 and even a bare Resolve/Reopen click reaches the agent as "`[resolved]` — no action
-needed". The predicate lives once in `shared/types.ts` (`hasUnsentContent`) and the
-server, CLI, and web all call it.
+needed". Editing a delivered human reply or an open note's body clears that row's
+`sent_at` so the correction re-enters the next prompt. The predicate lives once in
+`shared/types.ts` (`hasUnsentContent`) and the server, CLI, and web all call it.
 
 **Approve is gated on work in flight, not on open feedback.** The UI blocks the
 terminal action while something would be *lost or interrupted* by it — content
