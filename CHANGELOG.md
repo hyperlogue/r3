@@ -4,6 +4,18 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.1] - 2026-08-22
+
+### Added
+
+- **One agent watches a review at a time.** Two `r3 watch` clients on the
+  same review no longer race the round. A second watcher is refused.
+
+### Fixed
+
+- **Editing a sent reply sends the new wording to the agent.** The next
+  Copy prompt, Submit, or `r3 watch` includes the correction.
+
 ## [0.10.0] - 2026-08-21
 
 ### Added
@@ -89,8 +101,8 @@ All notable changes to r3 are documented here. The format follows
   promoting bare filenames like `setup.py` to external links, and its links open
   in a new tab rather than navigating the app away.
 - **The "agent is watching" indicator can no longer be faked.** While `r3 watch`
-  is running, the feedback panel shows the agent as connected and swaps *Copy
-  prompt* for *Submit*. Any website open in your browser could trigger that
+  is running, the feedback panel shows the agent as connected and swaps _Copy
+  prompt_ for _Submit_. Any website open in your browser could trigger that
   against your local daemon, so r3 could offer to hand your feedback to an agent
   that was never there. Registering as a watcher now needs the API token;
   `r3 watch` itself works as before.
@@ -352,6 +364,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.10.1]: https://github.com/hyperlogue/r3/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/hyperlogue/r3/compare/v0.9.3...v0.10.0
 [0.9.3]: https://github.com/hyperlogue/r3/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/hyperlogue/r3/compare/v0.9.1...v0.9.2
