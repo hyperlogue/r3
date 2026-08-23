@@ -34,8 +34,7 @@ The **static SPA shell + hashed JS/CSS/favicon** are served natively by
 `Bun.serve`'s `routes`, *outside* this Hono guard. That's fine: they carry no
 secrets and grant no capability — the app is inert until the Host-gated
 `/api/boot` bootstraps it. **Never let a data/token endpoint out from behind the
-guard.** SPA + API send `Content-Security-Policy: frame-ancestors 'none'` and
-`X-Frame-Options: DENY` so a loopback iframe cannot clickjack `/api/boot`.
+guard.**
 
 ## Layer 2 — token or session cookie on every data endpoint
 

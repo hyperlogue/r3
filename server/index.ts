@@ -115,25 +115,6 @@ function allowedHost(req: Request): boolean {
   return h != null && isAllowedHost(h);
 }
 
-// Clickjacking: a same-scheme page can iframe http://127.0.0.1:<port>/ and, with
-// REQUIRE_LOGIN off, same-origin /api/boot hands the master token. Deny framing
-// on every response. Hono/Bun responses may be immutable — clone, then mutate.
-function withFrameGuard(res: Response): Response {
-  const out = new Response(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: res.headers,
-  });
-  out.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
-  out.headers.set("X-Frame-Options", "DENY");
-  return out;
-}
-
-function setFrameHeaders(c: Context) {
-  c.header("Content-Security-Policy", "frame-ancestors 'none'");
-  c.header("X-Frame-Options", "DENY");
-}
-
 // Is the browser<->edge leg HTTPS? The daemon always speaks plain HTTP (it holds no
 // cert; TLS terminates at a proxy like `tailscale serve`), so the only signal is the
 // proxy's X-Forwarded-Proto. Keyed per-request — NOT off R3_PUBLIC_URL's scheme,
@@ -157,15 +138,6 @@ function resolveAuth(c: Context): boolean {
 }
 
 const app = new Hono();
-
-// Frame-deny every Hono response (403s included). After-next `c.header` clones a
-// finalized body; skip `/api/events` so the SSE stream is not wrapped — that
-// handler sets the same headers on the original `streamSSE` response.
-app.use("*", async (c, next) => {
-  await next();
-  if (c.req.path === "/api/events") return;
-  setFrameHeaders(c);
-});
 
 // Every request must target an allowed host (DNS-rebinding defense).
 app.use("*", async (c, next) => {
@@ -976,8 +948,6 @@ app.patch("/api/replies/:id", async (c) => {
 
 // ---- live (SSE) ----
 app.get("/api/events", (c) => {
-  // Set on the original streamSSE response (not a clone of its body).
-  setFrameHeaders(c);
   const filter = c.req.query("review");
   // A `watch` client passes ?session=<display> (+ optional ?agentId=<id>) so it
   // shows up as a live watcher on its review; browser tabs omit it and are not
@@ -1094,11 +1064,10 @@ app.get("/api/events", (c) => {
   });
 });
 
-// The SPA (its HTML shell, JS, CSS, favicon) is served from the `index`
-// HTMLBundle — not through Hono. It carries no secrets (the token comes from the
-// guarded /api/boot), so it needs no Host/token guard, but it does get the
-// frame-ancestors deny (see startDaemon): an iframe of the shell is same-origin
-// to /api/boot. Unknown /api/* paths still 404 here rather than falling to the SPA.
+// The SPA (HTML shell, JS, CSS, favicon) is served natively by Bun.serve's
+// `routes` from the `index` HTMLBundle — not through Hono. It carries no secrets
+// (the token comes from the guarded /api/boot), so it needs no Host/token guard.
+// Unknown /api/* paths still 404 here rather than falling to the SPA.
 app.all("/api/*", (c) => c.text("not found", 404));
 
 // Is a *healthy* daemon already serving our port? Used to lose the lazy-spawn
@@ -1178,131 +1147,32 @@ export async function startDaemon(): Promise<void> {
   }, 30 * 1000).unref();
 
   let server: ReturnType<typeof Bun.serve>;
-  let spaServer: ReturnType<typeof Bun.serve> | undefined;
   try {
-    // `routes` serves the SPA (HTMLBundle shell + hashed /chunk-* + favicon)
-    // and /api/* (Hono). /api/* is more specific than /*; unmatched deep paths
-    // fall through to the shell for client-side routing.
-    //
-    // This Bun's HTMLBundle has no `.fetch` and is not a Response, so `"/*":
-    // index` cannot be wrapped in-place. A loopback HTMLBundle server is the
-    // bundle; public /* fetches it and frame-guards. R3_DEV HMR (`/_bun/hmr`)
-    // is a WebSocket — fetch-proxying the 101 drops control frames — so the
-    // public server upgrades and pipes bytes.
+    // `routes` serves the SPA natively (the HTMLBundle registers the shell at
+    // /* plus its hashed /chunk-*.{js,css} + favicon assets); /api/* is routed
+    // to Hono, whose Host/origin/token middleware runs there. Route specificity
+    // puts /api/* above the /* SPA catch-all, and unmatched deep paths fall
+    // through to the shell for client-side routing.
     //
     // development is gated on R3_DEV (only `bun run dev` / process-compose set
     // it): HMR must never turn on for a lazily-spawned daemon, whose cwd is an
-    // arbitrary — possibly huge — repo that Bun's dev watcher would crawl and
+    // arbitrary — possibly huge — repo that Bun's watcher would crawl and
     // exhaust fds on. reusePort:false so a foreign listener on the port is
     // a hard error, not a silent second bind (Bun defaults SO_REUSEPORT on).
-    const dev = process.env.R3_DEV === "1";
-    const bundleFetch = (index as { fetch?: (req: Request) => Response | Promise<Response> }).fetch;
-    if (typeof bundleFetch !== "function") {
-      spaServer = Bun.serve({
-        port: 0,
-        hostname: "127.0.0.1",
-        reusePort: false,
-        idleTimeout: 120,
-        development: dev ? { hmr: true } : false,
-        routes: { "/*": index },
-      });
-    }
-    const spaOrigin = spaServer ? `http://127.0.0.1:${spaServer.port}` : null;
-
-    type HmrData = { backend: WebSocket; buf: (string | ArrayBuffer)[] };
-
-    const handleSpa = async (
-      req: Request,
-      srv: { upgrade(req: Request, opts: { data: HmrData }): boolean },
-    ): Promise<Response | undefined> => {
-      if (dev && req.headers.get("upgrade")?.toLowerCase() === "websocket" && spaServer) {
-        const u = new URL(req.url);
-        const backend = new WebSocket(`ws://127.0.0.1:${spaServer.port}${u.pathname}${u.search}`);
-        if (srv.upgrade(req, { data: { backend, buf: [] } })) return;
-        backend.close();
-        return new Response("upgrade failed", { status: 400 });
-      }
-      let res: Response;
-      if (typeof bundleFetch === "function") {
-        res = await bundleFetch.call(index, req);
-      } else {
-        const u = new URL(req.url);
-        res = await fetch(
-          new Request(`${spaOrigin}${u.pathname}${u.search}`, {
-            method: req.method,
-            headers: req.headers,
-            body: req.method === "GET" || req.method === "HEAD" ? undefined : req.body,
-            redirect: "manual",
-            signal: req.signal,
-          }),
-        );
-      }
-      return withFrameGuard(res);
-    };
-
-    const handleApi = async (req: Request): Promise<Response> => {
-      const res = await app.fetch(req);
-      // SSE: headers live on the original streamSSE response; do not wrap its body.
-      if (new URL(req.url).pathname === "/api/events") return res;
-      return withFrameGuard(res);
-    };
-
     server = Bun.serve({
       port: PORT,
       hostname: BIND,
       reusePort: false,
-      idleTimeout: 120,
-      development: dev ? { hmr: true } : false,
-      websocket: {
-        open(ws) {
-          const { backend, buf } = ws.data as HmrData;
-          const flush = () => {
-            for (const m of buf) ws.send(m);
-            buf.length = 0;
-          };
-          backend.addEventListener("message", (ev) => {
-            const data = ev.data as string | ArrayBuffer;
-            if (ws.readyState === WebSocket.OPEN) ws.send(data);
-            else buf.push(data);
-          });
-          backend.addEventListener("close", (ev) => {
-            try {
-              ws.close(ev.code, ev.reason);
-            } catch {
-              /* already closed */
-            }
-          });
-          backend.addEventListener("error", () => {
-            try {
-              ws.close();
-            } catch {
-              /* already closed */
-            }
-          });
-          if (backend.readyState === WebSocket.OPEN) flush();
-          else backend.addEventListener("open", flush);
-        },
-        message(ws, message) {
-          const { backend } = ws.data as HmrData;
-          if (backend.readyState === WebSocket.OPEN) backend.send(message);
-        },
-        close(ws) {
-          try {
-            (ws.data as HmrData).backend.close();
-          } catch {
-            /* already closed */
-          }
-        },
-      },
       routes: {
-        "/api/*": (req: Request) => handleApi(req),
-        "/*": (req: Request, srv) => handleSpa(req, srv),
+        "/api/*": (req: Request) => app.fetch(req),
+        "/*": index,
       },
+      idleTimeout: 120,
+      development: process.env.R3_DEV === "1" ? { hmr: true } : false,
     });
   } catch (err) {
     // Port taken by something we don't control. If it's a healthy daemon, that's
     // success from the caller's view; otherwise surface the bind error.
-    spaServer?.stop(true);
     releaseDaemonLock();
     if (await daemonAlreadyHealthy()) process.exit(0);
     throw err;
@@ -1332,7 +1202,6 @@ export async function startDaemon(): Promise<void> {
 
   const shutdown = () => {
     stopWatcher?.();
-    spaServer?.stop(true);
     server.stop(true);
     // Only clear daemon.json if it's still ours (don't clobber a successor).
     if (readDaemonJson()?.pid === process.pid) removeDaemonJson();
