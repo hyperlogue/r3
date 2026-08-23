@@ -916,16 +916,17 @@ export function editFeedback(
 ): Feedback | null {
   const fb = db.getFeedback(feedbackId);
   if (!fb) return null;
-  const next = db.updateFeedback(feedbackId, fields);
   // Re-deliver an edited OPEN note in full (sent_at null → full block), but never
   // null a resolved item's sent_at — that would orphan a pending status_unsent
   // (never-sent non-open items are invisible to the unsent predicate), silently
   // losing the undelivered decision (Submit would claim "everything sent" while
   // the agent never hears the resolve); a settled note's wording tweak isn't
   // content the agent needs anyway. Status flips travel via status_unsent.
+  // Cleared BEFORE the update so the returned row reports the note's real state.
   const statusAfter = fields.status ?? fb.status;
   if (fields.body !== undefined && fields.body !== fb.body && statusAfter === "open")
     db.clearFeedbackSent(feedbackId);
+  const next = db.updateFeedback(feedbackId, fields);
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
   return next;
 }

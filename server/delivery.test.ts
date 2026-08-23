@@ -117,3 +117,36 @@ describe("edited human replies re-enter delivery", () => {
     expect(edited?.sent_at).toBe(stamped);
   });
 });
+
+describe("edited open feedback re-enters delivery", () => {
+  test("editing a delivered open note clears sent_at so the new wording is unsent", () => {
+    const fb = feedback();
+    db.markContentSent(reviewId, [fb.id], []);
+    expect(db.getFeedback(fb.id)?.sent_at).not.toBeNull();
+    expect(hasUnsentContent(withReplies(db.getFeedback(fb.id)!))).toBe(false);
+
+    const edited = reviews.editFeedback(fb.id, { body: "Please fix the off-by-one" });
+    expect(edited?.body).toBe("Please fix the off-by-one");
+    expect(edited?.sent_at).toBeNull();
+    expect(db.getFeedback(fb.id)?.sent_at).toBeNull();
+
+    const next = withReplies(db.getFeedback(fb.id)!);
+    expect(hasUnsentContent(next)).toBe(true);
+
+    const prompt = buildUnsentPrompt(promptDetail(db.getFeedback(fb.id)!));
+    expect(prompt.included.feedback).toEqual([fb.id]);
+    expect(prompt.text).toContain("Please fix the off-by-one");
+    expect(prompt.text).not.toContain("Please address this");
+  });
+
+  test("a same-body no-op leaves the delivery stamp on", () => {
+    const fb = feedback();
+    db.markContentSent(reviewId, [fb.id], []);
+    const stamped = db.getFeedback(fb.id)?.sent_at;
+    expect(stamped).not.toBeNull();
+
+    const edited = reviews.editFeedback(fb.id, { body: "Please address this" });
+    expect(edited?.sent_at).toBe(stamped);
+    expect(hasUnsentContent(withReplies(db.getFeedback(fb.id)!))).toBe(false);
+  });
+});
