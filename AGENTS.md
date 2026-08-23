@@ -105,6 +105,8 @@ server/          Hono daemon + bun:sqlite global store
   highlight.ts   Shiki (code + a doc's fenced blocks) + markdown render
                  (decorates mdproject's instance with images/doclinks/fence/
                  data-line rules), content-sha cached
+  mermaid.ts     mermaid fence → safe SVG (flowchart + sequenceDiagram);
+                 anything else falls through to the ordinary code fence
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
   prompt.ts      the agent-prompt text (same as the UI's "Copy prompt")
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
@@ -276,7 +278,12 @@ parses once, highlights every fence token in that stream, and renders those same
 tokens (no second parse, no module-level scratch state). The grammar is resolved
 against Shiki's bundled ids *and* aliases, so `ts`/`sh`/`c++` need no table of
 r3's own; an unknown or absent language stays escaped and unstyled rather than
-guessing. Messages — feedback, replies, both summaries — render **client-side**
+guessing. A `` ```mermaid `` (or `` ```mmd ``) fence is the one exception: a
+**flowchart** or **sequenceDiagram** renders to a safe inline SVG
+(`server/mermaid.ts`) instead of highlighted source — mermaid.js never loads
+(no DOM, no label-XSS surface, no extra SPA weight). Other diagram kinds, and
+a fence we can't parse, fall through to the ordinary highlighted/plain fence.
+Messages — feedback, replies, both summaries — render **client-side**
 and stay unhighlighted by design: Shiki's WASM never reaches the browser.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round

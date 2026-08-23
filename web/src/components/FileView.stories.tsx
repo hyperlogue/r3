@@ -45,7 +45,8 @@ export const Code: Story = {
 // A markdown file renders HTML by default; the header toggle switches to the
 // (line-anchorable) raw source. Its relative links are in-review doc links: the
 // review here holds AGENTS.md, so that one is live (clicking jumps the pane to
-// it) while CONTRIBUTING.md, which isn't in the review, renders dead.
+// it) while CONTRIBUTING.md, which isn't in the review, renders dead. A mermaid
+// flowchart fence renders as an inline SVG, not highlighted source.
 export const Markdown: Story = {
   args: {
     path: renderedMarkdown.path,

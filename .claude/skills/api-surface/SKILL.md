@@ -17,7 +17,8 @@ three clients (browser, CLI, agent). When you change behavior, change
 
 Routes are served by `server/index.ts` behind the Host + token guards (see the
 **security-model** skill). **Highlighting runs server-side** — Shiki for code,
-markdown-it for `.md` (with per-block source-line mapping for anchoring) — shipping
+markdown-it for `.md` (with per-block source-line mapping for anchoring; a
+`` ```mermaid `` flowchart/sequenceDiagram fence becomes a safe SVG) — shipping
 tokens to the client cached by content sha, so the WASM/grammar weight never
 reaches the browser.
 

@@ -6,6 +6,7 @@
 import { bundledLanguages, bundledThemesInfo, codeToTokens, type ThemedToken } from "shiki";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
 import { md, REMOTE_URL_RE } from "./mdproject.ts";
+import { renderMermaidSvg } from "./mermaid.ts";
 
 // Curated syntax-theme *families*: each is a light/dark pair mapped onto the
 // `--shiki-light` / `--shiki-dark` CSS variables, so the client's dark-mode
@@ -389,6 +390,10 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
 // stopped looking like code. An unknown/absent language still renders escaped
 // and unstyled, so nothing regresses to a wrong grammar.
 //
+// ` ```mermaid ` / ` ```mmd ` is the exception: flowchart and sequenceDiagram
+// fences render to a safe SVG (server/mermaid.ts) instead of being highlighted
+// as source. A diagram we don't parse falls through to the Shiki/plain path.
+//
 // markdown-it renders synchronously and Shiki tokenizes asynchronously, so the
 // highlight can't happen inside the rule. `renderMarkdown` parses once,
 // highlights every fence in that token stream, hangs the HTML on the token, and
@@ -397,6 +402,7 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
 
 interface FenceHighlight {
   html: string;
+  mermaid?: boolean;
 }
 
 const defaultFence =
@@ -404,8 +410,14 @@ const defaultFence =
   ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
-  const hl = (token.meta as FenceHighlight | undefined)?.html;
-  if (hl == null) return defaultFence(tokens, idx, options, env, self);
+  const hl = token.meta as FenceHighlight | undefined;
+  if (hl?.html == null) return defaultFence(tokens, idx, options, env, self);
+  if (hl.mermaid) {
+    // The data-line-* the core rule tagged ride the wrapper so a note on the
+    // fence still has an innermost range, same as a <pre><code> fence.
+    token.attrJoin("class", "r3-mermaid");
+    return `<div${self.renderAttrs(token)}>${hl.html}</div>\n`;
+  }
   // The wrapper the default rule would have emitted — the fence's own info word
   // as `language-*`, plus the data-line-* the core rule tagged — with the
   // highlighted body in place of the escaped text. `shiki-code` is what maps
@@ -414,7 +426,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const info = md.utils.unescapeAll(token.info).trim().split(/\s+/)[0];
   token.attrJoin("class", "shiki-code");
   if (info) token.attrJoin("class", options.langPrefix + info);
-  return `<pre><code${self.renderAttrs(token)}>${hl}</code></pre>\n`;
+  return `<pre><code${self.renderAttrs(token)}>${hl.html}</code></pre>\n`;
 };
 
 // Highlight every fence in a parsed token stream (in parallel — each is an
@@ -424,7 +436,13 @@ async function highlightFences(tokens: ReturnType<typeof md.parse>, theme?: stri
   await Promise.all(
     tokens.map(async (token) => {
       if (token.type !== "fence") return;
-      const lang = langForFence(md.utils.unescapeAll(token.info));
+      const info = md.utils.unescapeAll(token.info);
+      const svg = renderMermaidSvg(info, token.content);
+      if (svg) {
+        token.meta = { ...(token.meta ?? {}), html: svg, mermaid: true } satisfies FenceHighlight;
+        return;
+      }
+      const lang = langForFence(info);
       if (!lang) return;
       const sha = new Bun.CryptoHasher("sha1").update(token.content).digest("hex");
       const lines = await highlightToLines(token.content, lang, sha, theme);

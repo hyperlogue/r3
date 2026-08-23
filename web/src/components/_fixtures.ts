@@ -247,6 +247,12 @@ const mdSource = [
   "```sh",
   "r3 create --files docs/",
   "```",
+  "",
+  "```mermaid",
+  "flowchart LR",
+  "  Create[r3 create] --> Watch[r3 watch]",
+  "  Watch --> Reply[r3 reply]",
+  "```",
 ];
 export const renderedMarkdown: RenderedFile = {
   path: "README.md",
@@ -290,6 +296,21 @@ export const renderedMarkdown: RenderedFile = {
       '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
       '<span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">docs/</span>\n' +
       "</code></pre>",
+    // A ```mermaid flowchart fence renders to a safe SVG (server/mermaid.ts)
+    // instead of highlighted source — mermaid.js never loads.
+    '<div class="r3-mermaid" data-line-start="19" data-line-end="23">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 386 55" width="386" height="55" role="img" aria-label="flowchart">' +
+      '<defs><marker id="r3m-story-a" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="8" markerHeight="7" orient="auto">' +
+      '<path class="r3-mmd-arrow" d="M0 0 L10 4 L0 8 z"/></marker></defs>' +
+      '<path class="r3-mmd-edge" d="M 103 27.5 C 131 27.5, 127 27.5, 155 27.5" marker-end="url(#r3m-story-a)"/>' +
+      '<path class="r3-mmd-edge" d="M 239 27.5 C 267 27.5, 262 27.5, 290 27.5" marker-end="url(#r3m-story-a)"/>' +
+      '<rect class="r3-mmd-node" x="12" y="12" width="91" height="31" rx="6"/>' +
+      '<text class="r3-mmd-label" x="57.5" y="27.5" text-anchor="middle" dominant-baseline="middle">r3 create</text>' +
+      '<rect class="r3-mmd-node" x="155" y="12" width="84" height="31" rx="6"/>' +
+      '<text class="r3-mmd-label" x="197" y="27.5" text-anchor="middle" dominant-baseline="middle">r3 watch</text>' +
+      '<rect class="r3-mmd-node" x="290" y="12" width="84" height="31" rx="6"/>' +
+      '<text class="r3-mmd-label" x="332" y="27.5" text-anchor="middle" dominant-baseline="middle">r3 reply</text>' +
+      "</svg></div>",
   ].join("\n"),
 };
 

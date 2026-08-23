@@ -463,6 +463,70 @@ html.dark .r3-markdown a {
   opacity: 0.75;
 }
 
+/* Mermaid fences (flowchart + sequenceDiagram) render to an inline SVG
+   (server/mermaid.ts). Horizontal scroll on a wide LR chart, like tables;
+   currentColor so the same strokes/fills follow the light/dark surface. */
+.r3-markdown .r3-mermaid {
+  margin: 0.8em 0;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.r3-markdown .r3-mermaid svg {
+  display: block;
+}
+.r3-markdown .r3-mmd-node {
+  fill: color-mix(in srgb, currentColor 7%, transparent);
+  stroke: color-mix(in srgb, currentColor 38%, transparent);
+  stroke-width: 1.25;
+}
+.r3-markdown .r3-mmd-cluster {
+  fill: color-mix(in srgb, currentColor 4%, transparent);
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-dasharray: 5 3;
+  stroke-width: 1;
+}
+.r3-markdown .r3-mmd-edge {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 50%, transparent);
+  stroke-width: 1.25;
+}
+.r3-markdown .r3-mmd-edge.r3-mmd-dotted {
+  stroke-dasharray: 5 4;
+}
+.r3-markdown .r3-mmd-edge.r3-mmd-thick {
+  stroke-width: 2.5;
+}
+.r3-markdown .r3-mmd-arrow {
+  fill: color-mix(in srgb, currentColor 55%, transparent);
+}
+.r3-markdown .r3-mmd-label,
+.r3-markdown .r3-mmd-edgelabel,
+.r3-markdown .r3-mmd-cluster-title {
+  fill: currentColor;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  user-select: text;
+}
+.r3-markdown .r3-mmd-cluster-title {
+  font-weight: 600;
+  opacity: 0.75;
+}
+.r3-markdown .r3-mmd-edgelabel {
+  font-size: 11px;
+}
+.r3-markdown .r3-mmd-edgelabel-bg {
+  fill: var(--color-neutral-50);
+}
+html.dark .r3-markdown .r3-mmd-edgelabel-bg {
+  fill: var(--color-neutral-950);
+}
+.r3-markdown .r3-mmd-life {
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+
 /* Compact message prose — feedback bodies + replies in the panel. Reuses the
    .r3-markdown styling above but tightens the block rhythm and trims the outer
    margins so a rendered message sits flush in its card like the plain text it
