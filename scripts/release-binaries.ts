@@ -68,7 +68,11 @@ for (const { target, asset } of PLATFORMS) {
   console.log(`• compiling ${asset} (${target}) …`);
   const outfile = join(OUT, asset);
   const result = await Bun.build({
-    entrypoints: [join(DIR, "cli/index.ts")],
+    entrypoints: [
+      join(DIR, "cli/index.ts"),
+      // bun --compile does not auto-embed `new Worker(new URL("./x", import.meta.url))`.
+      join(DIR, "server/highlight-worker.ts"),
+    ],
     plugins: [spaCss],
     minify: true,
     // Production React in the SPA bundle — see scripts/compile.ts.

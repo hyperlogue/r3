@@ -78,11 +78,7 @@ export async function themeStyle(theme?: string): Promise<ThemeStyle> {
   if (hit) return hit;
   let out: ThemeStyle = { lightBg: "", darkBg: "", lightFg: "", darkFg: "" };
   try {
-    const r = (await codeToTokens("x", {
-      lang: "typescript" as never,
-      themes: { light, dark },
-      defaultColor: false,
-    })) as { bg?: string; fg?: string };
+    const r = await tokenize("x", "typescript", light, dark);
     out = {
       lightBg: pickVar(r.bg, "--shiki-light-bg"),
       darkBg: pickVar(r.bg, "--shiki-dark-bg"),
@@ -199,12 +195,11 @@ function tokensToLineHtml(line: ThemedToken[]): string {
   return out;
 }
 
-// Tokenizing costs ~8-40 ms/KB and blocks the daemon's only thread for all of
-// it — a 2 MB checked-in bundle measured 83 s with zero event-loop ticks in
-// between, which stalls every other request, the SSE heartbeat, and any blocked
-// `r3 watch`. Nothing above this is hand-written (this repo's largest source
-// file is ~100 KB); past it we serve the same escaped plain lines the
-// unknown-grammar path already produces, so no caller or client changes.
+// Tokenizing is ~8-40 ms/KB. Cap on main before posting to the worker: nothing
+// above this is hand-written (this repo's largest source file is ~100 KB), and
+// a 2 MB checked-in bundle measured 83 s. Past it we serve the same escaped
+// plain lines the unknown-grammar path already produces, so no caller or
+// client changes.
 export const MAX_HIGHLIGHT_BYTES = 256 * 1024;
 
 // Bounded LRU so a long-running server doesn't accumulate the highlighted copy
@@ -247,6 +242,155 @@ function cacheSet(key: string, v: string[]): void {
   }
 }
 
+// codeToTokens on one reused worker so highlighting does not block SSE / r3
+// watch. Idle-unref so tests and gen-demo-fixtures can exit. Worker missing
+// or failing to load → in-process; timeout / tokenizer error → throw (escaped
+// plain lines, same as today's catch).
+const TOKENIZE_TIMEOUT_MS = 30_000;
+
+type TokenizeResult = { tokens: ThemedToken[][]; bg?: string; fg?: string };
+type HighlightWorker = Worker & { ref(): void; unref(): void };
+type Pending = {
+  resolve: (r: TokenizeResult) => void;
+  reject: (e: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+let worker: HighlightWorker | null = null;
+let workerDisabled = false;
+let workerEverOk = false;
+let nextTokenizeId = 0;
+const pending = new Map<number, Pending>();
+
+function tokenizeLocal(
+  code: string,
+  lang: string,
+  light: string,
+  dark: string,
+): Promise<TokenizeResult> {
+  return codeToTokens(code, {
+    lang: lang as never,
+    themes: { light, dark },
+    defaultColor: false,
+  }).then((r) => {
+    const { tokens, bg, fg } = r as TokenizeResult;
+    return { tokens, bg, fg };
+  });
+}
+
+function dropWorker(err: Error): void {
+  const w = worker;
+  worker = null;
+  const jobs = [...pending.values()];
+  pending.clear();
+  for (const p of jobs) {
+    clearTimeout(p.timer);
+    p.reject(err);
+  }
+  if (!w) return;
+  try {
+    w.terminate();
+  } catch {
+    // already gone
+  }
+}
+
+function onWorkerMessage(ev: MessageEvent): void {
+  const data = ev.data as {
+    id?: number;
+    tokens?: ThemedToken[][];
+    bg?: string;
+    fg?: string;
+    error?: string;
+  };
+  if (data.id == null) return;
+  const p = pending.get(data.id);
+  if (!p) return;
+  pending.delete(data.id);
+  clearTimeout(p.timer);
+  if (pending.size === 0) worker?.unref();
+  if (data.error != null || data.tokens == null) {
+    p.reject(new Error(data.error ?? "highlight worker returned no tokens"));
+    return;
+  }
+  workerEverOk = true;
+  p.resolve({ tokens: data.tokens, bg: data.bg, fg: data.fg });
+}
+
+function onWorkerGone(): void {
+  if (!workerEverOk) workerDisabled = true;
+  dropWorker(new Error("highlight worker stopped"));
+}
+
+function highlightWorkerSpecifier(): string | URL {
+  // From-source: resolve next to this file. bun --compile does not rewrite
+  // `new URL("./x", import.meta.url)` into an embedded worker (even listed as
+  // an extra entrypoint); the compiled lookup is the extra entry's path.
+  const p = import.meta.path;
+  if (p.includes("$bunfs") || p.includes("~BUN")) return "./server/highlight-worker.ts";
+  return new URL("./highlight-worker.ts", import.meta.url);
+}
+
+function ensureWorker(): HighlightWorker | null {
+  if (workerDisabled) return null;
+  if (worker) return worker;
+  if (typeof Worker === "undefined") {
+    workerDisabled = true;
+    return null;
+  }
+  try {
+    const w = new Worker(highlightWorkerSpecifier()) as HighlightWorker;
+    w.addEventListener("message", onWorkerMessage);
+    w.addEventListener("error", onWorkerGone);
+    w.addEventListener("close", onWorkerGone);
+    w.unref();
+    worker = w;
+    return w;
+  } catch {
+    workerDisabled = true;
+    return null;
+  }
+}
+
+function requestTokens(
+  w: HighlightWorker,
+  code: string,
+  lang: string,
+  light: string,
+  dark: string,
+): Promise<TokenizeResult> {
+  return new Promise((resolve, reject) => {
+    const id = ++nextTokenizeId;
+    const timer = setTimeout(() => {
+      if (!pending.has(id)) return;
+      if (!workerEverOk) workerDisabled = true;
+      dropWorker(new Error("highlight worker timeout"));
+    }, TOKENIZE_TIMEOUT_MS);
+    pending.set(id, { resolve, reject, timer });
+    w.ref();
+    w.postMessage({ id, code, lang, light, dark });
+  });
+}
+
+async function tokenize(
+  code: string,
+  lang: string,
+  light: string,
+  dark: string,
+): Promise<TokenizeResult> {
+  const w = ensureWorker();
+  if (!w) return tokenizeLocal(code, lang, light, dark);
+  try {
+    return await requestTokens(w, code, lang, light, dark);
+  } catch (e) {
+    // Timeout → escaped plain (caller catch), even if we also disable a worker
+    // that never came up. Load/spawn failure → in-process so tests still highlight.
+    if (e instanceof Error && e.message === "highlight worker timeout") throw e;
+    if (workerDisabled) return tokenizeLocal(code, lang, light, dark);
+    throw e;
+  }
+}
+
 // Highlight `code` into an array of per-line inner HTML (one entry per source
 // line). The spans carry `--shiki-light` / `--shiki-dark` CSS variables; the
 // client's CSS picks the active one. Cached by `cacheKey` (a content sha).
@@ -268,11 +412,7 @@ export async function highlightToLines(
     lines = code.split("\n").map((l) => escapeHtml(l));
   } else {
     try {
-      const { tokens } = await codeToTokens(code, {
-        lang: lang as never,
-        themes: { light, dark },
-        defaultColor: false,
-      });
+      const { tokens } = await tokenize(code, lang, light, dark);
       lines = tokens.map(tokensToLineHtml);
     } catch {
       // Unknown grammar or tokenizer failure → plain, never crash a render.

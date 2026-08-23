@@ -17,7 +17,11 @@ const spaCss = await browserLoweredCssPlugin();
 
 console.log("• compiling r3 (CLI + daemon + embedded SPA)…");
 const result = await Bun.build({
-  entrypoints: [join(DIR, "cli/index.ts")],
+  entrypoints: [
+    join(DIR, "cli/index.ts"),
+    // bun --compile does not auto-embed `new Worker(new URL("./x", import.meta.url))`.
+    join(DIR, "server/highlight-worker.ts"),
+  ],
   plugins: [spaCss],
   minify: true,
   // Without this the SPA bundle resolves React's *development* export, which
