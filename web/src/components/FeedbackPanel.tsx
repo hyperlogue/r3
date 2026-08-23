@@ -13,7 +13,6 @@ import {
   useState,
 } from "react";
 import { api } from "../api.ts";
-import { useAutoGrow } from "../autogrow.ts";
 import { copyText } from "../clipboard.ts";
 import {
   clearGeneral,
@@ -58,7 +57,9 @@ import {
   useCopyFlash,
   useEscape,
 } from "../ui.tsx";
+import { useOptimisticPatch } from "../useOptimistic.ts";
 import { MessageProse, QuoteBubble, quoteBlock, useQuoteBubble } from "./Message.tsx";
+import { MessageEditor } from "./MessageEditor.tsx";
 
 // A mutation's only failure surface: api.ts throws `${method} ${path} → ${status}: ${text}` —
 // keep just the server's message tail, which is written for humans ("no diff 2 in
@@ -263,24 +264,6 @@ function needsAttention(fb: FeedbackWithReplies): boolean {
   return (fb.replies.at(-1)?.author ?? fb.author) === "agent";
 }
 
-// The "pending input" look shared by the new-feedback composer and the per-card
-// reply box: not a floating bordered widget but a full-bleed strip embedded into
-// the block — no side border, no radius, a faint recessed fill marking "this is
-// an input awaiting your text", closed off by top/bottom rules that warm to
-// primary on focus. The caller supplies the full-bleed width (a self `-mx-3` for
-// the composer; the reply box's Collapse wrapper carries it, since that wrapper's
-// overflow-hidden would otherwise clip a margin on the textarea itself).
-// The height is driven inline by useAutoGrow (autogrow.ts) — the box grows with
-// its text up to a line cap, then scrolls.
-// max-md:text-base lifts every composer/reply/edit input to 1rem below md — 18px
-// at the default root font-size (main.css --r3-font-size), so iOS doesn't zoom the
-// page on focus (it does for any field under 16px; a user who shrinks the root
-// font below 16px trades that back). This
-// one constant feeds the anchored composer, the general note, the reply box, and
-// both inline editors, so bumping it here covers all of them.
-const PENDING_INPUT =
-  "resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500";
-
 // The soft primary bubble marking agent-voiced content. An agent reply block and
 // an agent-authored feedback body wear the exact same fill so "the agent's voice"
 // reads as one surface — keep the two in lockstep through this constant.
@@ -327,7 +310,6 @@ function ComposerBlock({
   // click can find + focus it from ReviewView (a different subtree).
   anchored?: boolean;
 }) {
-  const growRef = useAutoGrow(textareaRef, value, 3);
   return (
     // Embedded-block style shared with the saved feedback blocks: flush to the
     // panel (no rounded box, no tinted fill) with a primary left rail marking the
@@ -356,21 +338,17 @@ function ComposerBlock({
           {quote}
         </pre>
       )}
-      <textarea
-        ref={growRef}
-        data-anchored-composer={anchored ? "" : undefined}
+      {/* Full-bleed to the block's edges (-mx-3 cancels the p-3). Esc is owned by
+          useComposerKeys (empty cancels, text blurs) — not the textarea. */}
+      <MessageEditor
+        textareaRef={textareaRef}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && value.trim()) onSubmit();
-        }}
+        onChange={onChange}
+        onSubmit={onSubmit}
         placeholder={placeholder}
-        // biome-ignore lint/a11y/noAutofocus: composers open on an explicit user action (click / range select)
         autoFocus={autoFocus}
-        // Full-bleed to the block's edges (-mx-3 cancels the p-3), so the input
-        // reads as an embedded band rather than a boxed widget. Height is
-        // auto-grown from useAutoGrow above (no fixed h-*).
-        className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
+        anchored={anchored}
+        className="-mx-3 w-[calc(100%_+_1.5rem)]"
       />
       {error && (
         <div className="mt-1 text-[0.6875rem] text-danger-600 dark:text-danger-400">{error}</div>
@@ -598,8 +576,6 @@ function ReplyBlock({
   onJumpRef?: (ref: MessageRef) => void;
 }) {
   const isAgent = rp.author === "agent";
-  const editRef = useRef<HTMLTextAreaElement>(null);
-  const editGrowRef = useAutoGrow(editRef, editValue, 3);
   return (
     <div
       title={rp.author}
@@ -607,20 +583,15 @@ function ReplyBlock({
       className={cn("text-xs", isAgent && AGENT_BUBBLE)}
     >
       {editing ? (
-        <textarea
-          ref={editGrowRef}
+        <MessageEditor
           value={editValue}
-          onChange={(e) => onEditChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSave) onEditSave();
-            else if (e.key === "Escape") onEditCancel();
+          onChange={onEditChange}
+          onSubmit={() => {
+            if (canSave) onEditSave();
           }}
-          // biome-ignore lint/a11y/noAutofocus: the editor is opened by an explicit Edit click
+          onCancel={onEditCancel}
           autoFocus
-          // Full-bleed band (matches the composer / reply box), not a boxed
-          // widget: -mx-3 cancels the card's p-3 so it spans edge to edge. Save/Cancel
-          // live in the card's bottom action row, not here. Height auto-grows.
-          className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
+          className="-mx-3 w-[calc(100%_+_1.5rem)]"
         />
       ) : (
         // First-class content — same size as the feedback body and the file view,
@@ -726,24 +697,12 @@ function FeedbackCard({
   // delivery fields (sent_at, status_unsent, and the hasUnsentContent gating that
   // drives Copy/Submit) — a brief settle where the pill/anchor corrects itself
   // once the echo refetches is acceptable.
-  //
-  // Halt any in-flight refetch and snapshot the cache so the optimistic write is
-  // authoritative until the mutation settles; the snapshot is the rollback target.
+  const { beginPatch: snapshotPatch, restore } = useOptimisticPatch(reviewId);
   const beginPatch = async () => {
     // Clear any prior error banner as a new action starts (retry or a different
     // action on the same card) — the panel-level store persists it otherwise.
     reportError(null);
-    await qc.cancelQueries({ queryKey: reviewKey });
-    return qc.getQueryData<ReviewDetail>(reviewKey);
-  };
-  const restore = (prev: ReviewDetail | undefined) => {
-    if (prev) qc.setQueryData(reviewKey, prev);
-    // A FAILED write has no SSE echo, so nothing else reconciles — and the
-    // snapshot can predate server truth (a concurrent write whose echo refetch
-    // beginPatch cancelled, or leg 1's posted reply when only leg 2 failed).
-    // Refetch after the rollback; after, because the manual setQueryData above
-    // marks the query fresh and would swallow an earlier invalidation.
-    qc.invalidateQueries({ queryKey: reviewKey });
+    return snapshotPatch();
   };
   // Replace this card's feedback row in the cached detail in place (a no-op if the
   // detail or the row is already gone).
@@ -799,7 +758,6 @@ function FeedbackCard({
   // Which reply (if any) is being edited inline — only ever the last human reply,
   // set by the Edit action below.
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
-  const replyGrowRef = useAutoGrow(replyRef, reply, 2);
   // Selecting text inside any of this card's agent-voiced content — an agent reply
   // or an agent-authored feedback body — raises a "Quote in reply" bubble; clicking
   // it drops the selection into the reply draft as a `>` blockquote and opens the
@@ -811,11 +769,6 @@ function FeedbackCard({
     return !!el?.closest('[data-reply-author="agent"], [data-body-author="agent"]');
   }, []);
   const { pos: quotePos, hide: hideQuote } = useQuoteBubble(cardRef, eligibleAgentContent);
-  // The body/reply editors reuse the same grow behaviour; the editor mounts only
-  // while editing, so the callback ref sizes it to the existing text on the first
-  // frame (a long body opens already-expanded, not clipped to the min).
-  const editBodyRef = useRef<HTMLTextAreaElement>(null);
-  const editBodyGrowRef = useAutoGrow(editBodyRef, editText, 3);
 
   // Edit targets the *last thing the human wrote* — their last reply, or the
   // feedback body if no one has replied. It's disabled once the agent has the last
@@ -1240,20 +1193,13 @@ function FeedbackCard({
       )}
 
       {editing ? (
-        <textarea
-          ref={editBodyGrowRef}
+        <MessageEditor
           value={editText}
-          onChange={(e) => setEditText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && editText.trim()) commitEdit();
-            else if (e.key === "Escape") cancelEdit();
-          }}
-          // biome-ignore lint/a11y/noAutofocus: the editor is opened by an explicit menu click
+          onChange={setEditText}
+          onSubmit={commitEdit}
+          onCancel={cancelEdit}
           autoFocus
-          // Full-bleed band (matches the composer / reply box), not a boxed
-          // widget: -mx-3 cancels the card's p-3 so it spans edge to edge. Save/Cancel
-          // live in the bottom action row. Height auto-grows (no fixed h-*).
-          className={cn("-mx-3 w-[calc(100%_+_1.5rem)]", PENDING_INPUT)}
+          className="-mx-3 w-[calc(100%_+_1.5rem)]"
         />
       ) : (
         // The body is the headline of the card — a notch larger than everything
@@ -1312,24 +1258,21 @@ function FeedbackCard({
           wrapper carries the full-bleed and the textarea just fills it. Hidden
           while an edit is in progress so only the editor shows (draft is kept). */}
       <Collapse open={replyOpen && !isEditing} className="-mx-3">
-        <textarea
-          ref={replyGrowRef}
+        <MessageEditor
+          textareaRef={replyRef}
           value={reply}
-          onChange={(e) => setReply(e.target.value)}
-          onKeyDown={(e) => {
-            if (
-              e.key === "Enter" &&
-              (e.metaKey || e.ctrlKey) &&
-              reply.trim() &&
-              !postReply.isPending
-            )
-              postReply.mutate({ resolve: false, body: reply });
-            // Esc closes the box only when it's empty — with text typed, Esc is a
-            // no-op so an accidental press can't discard the draft.
-            else if (e.key === "Escape" && !reply.trim()) setReplyOpen(false);
+          onChange={setReply}
+          onSubmit={() => {
+            if (!postReply.isPending) postReply.mutate({ resolve: false, body: reply });
+          }}
+          // Esc closes the box only when it's empty — with text typed, Esc is a
+          // no-op so an accidental press can't discard the draft.
+          onCancel={() => {
+            if (!reply.trim()) setReplyOpen(false);
           }}
           placeholder={usePlaceholder("Reply", `${SUBMIT_KEYS} to send`)}
-          className={cn("mt-3 w-full", PENDING_INPUT)}
+          minRows={2}
+          className="mt-3 w-full"
         />
       </Collapse>
       {/* Action row — always present. While editing the body or a reply it becomes
@@ -1749,6 +1692,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // note body + anchor + composer clear/restore all ride as mutate *variables* so a
   // pending mutation's re-synced options never read post-clear draft state.
   const reviewKey = ["review", detail.id] as const;
+  const { beginPatch, restore } = useOptimisticPatch(detail.id);
   // A stand-in feedback row shown while the POST is in flight. Its id is a throwaway
   // the reconcile re-keys under (clientKey); the server-derived fields aren't known
   // yet, so code_sha/sent_at stay null and the anchor is an optimistic "anchored"
@@ -1784,11 +1728,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       restore: () => void;
     }) => {
       setCreateError(null);
-      // Halt any in-flight refetch and snapshot the cache so the optimistic insert
-      // is authoritative until the mutation settles (the snapshot is the rollback
-      // target) — a mid-mutation echo can't clobber it and flicker.
-      await qc.cancelQueries({ queryKey: reviewKey });
-      const prev = qc.getQueryData<ReviewDetail>(reviewKey);
+      const prev = await beginPatch();
       const row = optimisticFeedback(v.anchor, v.body);
       qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
         d ? { ...d, feedback: [...d.feedback, row] } : d,
@@ -1846,11 +1786,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       if (activeIdRef.current === ctx.tmpId) onFocusFeedback({ ...fb, replies: [], claim: null });
     },
     onError: (e, v, ctx) => {
-      // A failed write has no SSE echo, so nothing else reconciles: restore the
-      // snapshot, then refetch (after, so the manual setQueryData doesn't swallow
-      // the invalidation) in case it predates a concurrent write.
-      if (ctx?.prev) qc.setQueryData(reviewKey, ctx.prev);
-      qc.invalidateQueries({ queryKey: reviewKey });
+      restore(ctx?.prev);
       // Put the composer back with its text so the note isn't lost, and show why.
       v.restore();
       setCreateError(apiErrorText(e));

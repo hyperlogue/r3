@@ -21,7 +21,6 @@ import { ReviewHeader } from "../components/ReviewHeader.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
-import type { DocLink } from "../doclinks.ts";
 import {
   clearDraft,
   dropAnchor,
@@ -40,7 +39,6 @@ import {
   useRegionHighlight,
 } from "../highlights.ts";
 import { useKeyBindings } from "../keys.ts";
-import type { MessageRef } from "../markdown.ts";
 // The one sanctioned mobile-module import (see the mobile-tier skill): ReviewView
 // is the single mount point that swaps the desktop side-dock for the phone
 // chrome. Everything else mobile is inert max-md:/pointer-coarse: classes.
@@ -48,7 +46,7 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
-import { focusComposer, retryScrollToRow, usePaneCrossfade } from "../pane.ts";
+import { focusComposer, usePaneCrossfade } from "../pane.ts";
 import {
   PROGRESSIVE_FILES_MIN,
   ProgressiveFile,
@@ -69,8 +67,10 @@ import type {
 } from "../types.ts";
 import { SUMMARY_FILE } from "../types.ts";
 import { Button, cn, useResizableWidth } from "../ui.tsx";
+import { useOptimisticPatch } from "../useOptimistic.ts";
+import { usePaneJumps } from "../usePaneJumps.ts";
 import { diffViewedKey, fileViewedKey, useViewedFiles } from "../viewed.ts";
-import { fileScrollKey, useVirtualPaneController, VirtualPaneProvider } from "../virtual.tsx";
+import { useVirtualPaneController, VirtualPaneProvider } from "../virtual.tsx";
 
 // A files review's derived snapshot-diff is rendered through DiffView as a single
 // synthetic round; this is its [data-round] seq. Feedback in a files review keeps
@@ -133,27 +133,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // Last unscoped fold-all / unfold-all, so a FileCard that hydrates later
   // (never saw the nonce) still opens in that mode.
   const [unscopedFold, setUnscopedFold] = useState<"fold" | "unfold" | null>(null);
-  const fileSelectNonce = useRef(0);
-  const scrollAnim = useRef(0);
-  const scrollAnimating = useRef(false);
-  const ensureFileOpen = useCallback(
-    (path: string, onHydrated?: () => void) => {
-      setFoldSignal((s) => ({ mode: "unfold", nonce: (s?.nonce ?? 0) + 1, path }));
-      if (progressive.activate(path, onHydrated)) return;
-      if (!onHydrated) return;
-      // Diff/small reviews never register shells. A snapshot switch remounts
-      // them on the next commit, so retry a few frames before running the jump
-      // anyway — the old DOM-retry budget cannot wait out a blob fetch.
-      let tries = 0;
-      const retry = () => {
-        if (progressive.activate(path, onHydrated)) return;
-        if (progressive.registry.current.size === 0 || ++tries >= 30) onHydrated();
-        else requestAnimationFrame(retry);
-      };
-      requestAnimationFrame(retry);
-    },
-    [progressive.activate, progressive.registry],
-  );
   // The in-progress anchored composer's target, persisted per review in the browser
   // (drafts.ts) so it hides on switch and restores on return. Subscribe to just the
   // anchor (not the whole draft record) so typing in the composer/reply/general
@@ -482,40 +461,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     document.title = watching || detail.working ? `• ${base}` : base;
   }, [detail, watching]);
 
-  // Clicking a feedback card's file:line jumps the file pane to that line and
-  // highlights it. Bumping the nonce re-scrolls even if it's already active.
-  const locateFeedback = useCallback(
-    (fb: FeedbackWithReplies | null) => {
-      // null clears the active feedback (focus nothing) — e.g. after resolving the
-      // last open item, with no next card to advance to.
-      if (!fb) {
-        setActiveFbId(null);
-        return;
-      }
-      closeSheetForJump();
-      // Anchored to a specific round → select its tab first so that round's DOM is
-      // mounted before the highlight effect (keyed on scrollNonce) queries + scrolls
-      // to it; both state updates batch into one render, effects run after commit.
-      if (fb.patch_seq != null) setActiveRoundSeq(fb.patch_seq);
-      // A folded / deferred target has no mounted rows to scroll to — open and
-      // hydrate it first, then bump the nonce so the highlight effect retries
-      // against the real body rather than the shell's ~1s DOM budget.
-      if (fb.file && fb.file !== SUMMARY_FILE) {
-        const nonce = ++fileSelectNonce.current;
-        cancelAnimationFrame(scrollAnim.current);
-        scrollAnimating.current = false;
-        ensureFileOpen(fb.file, () => {
-          if (fileSelectNonce.current !== nonce) return;
-          setScrollNonce((n) => n + 1);
-        });
-      } else {
-        setScrollNonce((n) => n + 1);
-      }
-      setActiveFbId(fb.id);
-    },
-    [ensureFileOpen, closeSheetForJump],
-  );
-
   // Focus a feedback without moving the content pane: light its card and re-ring
   // its anchor where it already is. Everything that merely shifts *which* note is
   // current — resolve/reply advancing down the list, `j`/`k`, clicking a
@@ -584,6 +529,27 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // arrive as one bounded rendered payload and keep their existing path.
   const progressiveFiles = !isDiff && !diffMode && browseFiles.length >= PROGRESSIVE_FILES_MIN;
   const progressiveVersion = `${reviewId}:${toSnap}:${syntaxTheme}`;
+  const hasFile = useCallback((path: string) => fileList.includes(path), [fileList]);
+  const { locateFeedback, locatePin, jumpToRef, openDocLink, selectFile, scrollAnimating } =
+    usePaneJumps({
+      scopeRef,
+      scrollToLine: virt.scrollToLine,
+      progressive,
+      setFoldSignal,
+      closeSheetForJump,
+      setActiveFbId,
+      setScrollNonce,
+      setActiveRoundSeq,
+      setActivePath,
+      isDiff,
+      effectiveRoundSeq,
+      snapshots,
+      fromSnap,
+      toSnap,
+      setFromSnap,
+      setToSnap,
+      hasFile,
+    });
 
   // Viewed paths for the file-tree, resolved through the same content-identity
   // keys the cards use: a diff review keys on the active
@@ -602,76 +568,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     }
     return s;
   }, [isDiff, effectiveRoundSeq, liveFilesView, fileList, shas, isViewed]);
-
-  // In-flight toolbar scroll animation: the rAF handle (to cancel when a new
-  // jump starts) and a flag the scroll-spy checks so mid-flight frames don't
-  // overwrite the activePath the jump just set (rapid next/next must step from
-  // the *target*, not from wherever the animation happens to be).
-  const scrollToFile = useCallback((path: string, opts?: { animate?: boolean }) => {
-    const root = scopeRef.current;
-    if (!root) return;
-    const el = root.querySelector(`[data-file="${CSS.escape(path)}"]`);
-    if (!el) return;
-    cancelAnimationFrame(scrollAnim.current);
-    if (opts?.animate) {
-      // Toolbar next/prev: a short fixed-duration ease-out — smooth, but it
-      // reaches the destination in ~200ms no matter how far. (Native
-      // behavior:"smooth" is distance-scaled: it crawls through dozens of
-      // Shiki-highlighted blocks.) The destination is re-measured every frame,
-      // so it stays exact while the target block is still unfolding under it.
-      const from = root.scrollTop;
-      const start = performance.now();
-      scrollAnimating.current = true;
-      const step = (now: number) => {
-        const t = Math.min(1, (now - start) / 200);
-        const eased = 1 - (1 - t) ** 3;
-        const dest =
-          root.scrollTop + el.getBoundingClientRect().top - root.getBoundingClientRect().top;
-        root.scrollTop = from + (dest - from) * eased;
-        if (t < 1) scrollAnim.current = requestAnimationFrame(step);
-        // Leave scrollAnimating set — selectFile's post-hydrate settle owns
-        // clearing it, so the spy can't steal activePath while the deferred
-        // body is still growing.
-      };
-      scrollAnim.current = requestAnimationFrame(step);
-    } else {
-      // File-browser click: instant jump — an animation through an arbitrary
-      // distance of highlighted code reads as lag. Set scrollTop directly
-      // (block:"start" of the target relative to the scroll container).
-      root.scrollTop += el.getBoundingClientRect().top - root.getBoundingClientRect().top;
-    }
-    setActivePath(path);
-  }, []);
-
-  // Picking a file from the browser tree or the jump-to-file picker: unfold it,
-  // then scroll to it. Clicking a file in the list is a "show me this" gesture,
-  // so a viewed (auto-folded) file you click is one you want to read again —
-  // open it rather than leaving it collapsed under its header.
-  const selectFile = useCallback(
-    (path: string, opts?: { animate?: boolean }) => {
-      const nonce = ++fileSelectNonce.current;
-      // Jump immediately against the stable shell, then once more after a
-      // deferred body commits. Nearby preload shells may finish in the same
-      // beat and shift the stack, so re-pin for a short post-hydration window;
-      // a newer selection invalidates every older callback/frame. Hold the spy
-      // until that settle ends so `]`/`[` can't land on a still-growing block.
-      cancelAnimationFrame(scrollAnim.current);
-      scrollAnimating.current = true;
-      ensureFileOpen(path, () => {
-        if (fileSelectNonce.current !== nonce) return;
-        let frame = 0;
-        const settle = () => {
-          if (fileSelectNonce.current !== nonce) return;
-          scrollToFile(path);
-          if (++frame < 18) scrollAnim.current = requestAnimationFrame(settle);
-          else scrollAnimating.current = false;
-        };
-        settle();
-      });
-      scrollToFile(path, opts);
-    },
-    [ensureFileOpen, scrollToFile],
-  );
 
   // Which way a *directionless* fold-all goes next — the `Z` key, which has one
   // key to the toolbar's two buttons. It lives here, next to foldAll, rather than
@@ -949,134 +845,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [reviewId, peekSheetForCompose],
   );
 
-  // Jump to a reply pin ("addressed in diff N"): scroll the pinned row into
-  // view, preferring the new side — pins point at the fix, not the old code.
-  const locatePin = useCallback(
-    (patchSeq: number, file: string | null, line: number | null) => {
-      closeSheetForJump();
-      // The pin usually names a different round than the one on screen — select
-      // its tab, and open the pinned file if it's folded, then scroll to the
-      // row (retryScrollToRow waits out the round tab + unfold mounting).
-      setActiveRoundSeq(patchSeq);
-      const roundSel = `[data-round="${patchSeq}"]`;
-      const jump = () =>
-        retryScrollToRow({
-          getRoot: () => scopeRef.current,
-          scrollToLine: virt.scrollToLine,
-          scrollKey: file != null && line != null ? fileScrollKey(patchSeq, file) : null,
-          containerSel: file ? `${roundSel} [data-file="${CSS.escape(file)}"]` : roundSel,
-          line,
-          side: "new",
-        });
-      if (file) {
-        const nonce = ++fileSelectNonce.current;
-        cancelAnimationFrame(scrollAnim.current);
-        scrollAnimating.current = false;
-        ensureFileOpen(file, () => {
-          if (fileSelectNonce.current !== nonce) return;
-          jump();
-        });
-      } else jump();
-    },
-    [virt.scrollToLine, ensureFileOpen, closeSheetForJump],
-  );
-
-  // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message,
-  // resolved against the message's pinned `version` (a reply's ref_version, or a
-  // feedback body's round). A diff review reuses the immutable round pin jump; a
-  // files review whose ref names a content snapshot switches the pane to a plain
-  // view of that snapshot first (its line numbers are what the ref was written
-  // against), else scrolls the live file.
-  const jumpToRef = useCallback(
-    (ref: MessageRef, version: number | null) => {
-      closeSheetForJump();
-      if (isDiff) {
-        locatePin(version ?? effectiveRoundSeq ?? 0, ref.file, ref.lineStart);
-        return;
-      }
-      // A snapshot-pinned ref: show that snapshot plainly so the line lands right —
-      // but only if we're not already viewing it. "Current" (WORKING) continues the
-      // newest capture, so a ref pinned to the latest snapshot is already on screen
-      // while we're on Current; switching to `v<latest>` there would needlessly yank
-      // the pane off the live view for no visible change.
-      if (version != null && snapshots.some((s) => s.seq === version)) {
-        const latestSeq = Math.max(...snapshots.map((s) => s.seq));
-        const alreadyShown =
-          fromSnap === null &&
-          (toSnap === version || (toSnap === "WORKING" && version === latestSeq));
-        if (!alreadyShown) {
-          setFromSnap(null);
-          setToSnap(version);
-        }
-      } else if (fromSnap != null || toSnap !== "WORKING") {
-        // No snapshot on the ref — force live so the jump's `:path` isn't DiffView's `0:path`.
-        setFromSnap(null);
-        setToSnap("WORKING");
-      }
-      const nonce = ++fileSelectNonce.current;
-      cancelAnimationFrame(scrollAnim.current);
-      scrollAnimating.current = false;
-      ensureFileOpen(ref.file, () => {
-        if (fileSelectNonce.current !== nonce) return;
-        retryScrollToRow({
-          getRoot: () => scopeRef.current,
-          scrollToLine: virt.scrollToLine,
-          scrollKey: fileScrollKey(null, ref.file),
-          containerSel: `[data-file="${CSS.escape(ref.file)}"]`,
-          line: ref.lineStart,
-          side: null,
-        });
-      });
-    },
-    [
-      isDiff,
-      locatePin,
-      effectiveRoundSeq,
-      snapshots,
-      fromSnap,
-      toSnap,
-      ensureFileOpen,
-      virt.scrollToLine,
-      closeSheetForJump,
-    ],
-  );
-
-  // Click a relative link inside a rendered `.md` — the way a doc set points at
-  // its neighbours — and land on that file in this pane, rather than letting the
-  // browser resolve it against the review's own URL. A link naming a heading
-  // scrolls to it (the server tags each heading with its slug; the lookup is
-  // scoped to the target file's card, so two docs may share a slug), otherwise
-  // it's the same jump the file browser does. A target outside the review has
-  // nowhere to go — it renders dead (doclinks.ts), and this ignores it.
-  const hasFile = useCallback((path: string) => fileList.includes(path), [fileList]);
-  const openDocLink = useCallback(
-    (link: DocLink) => {
-      if (!hasFile(link.file)) return;
-      closeSheetForJump();
-      if (!link.hash) {
-        selectFile(link.file);
-        return;
-      }
-      const hash = link.hash;
-      const nonce = ++fileSelectNonce.current;
-      cancelAnimationFrame(scrollAnim.current);
-      scrollAnimating.current = false;
-      ensureFileOpen(link.file, () => {
-        if (fileSelectNonce.current !== nonce) return;
-        retryScrollToRow({
-          getRoot: () => scopeRef.current,
-          scrollToLine: virt.scrollToLine,
-          scrollKey: null,
-          containerSel: `[data-file="${CSS.escape(link.file)}"]`,
-          rowSel: `[data-r3-heading="${CSS.escape(hash)}"]`,
-          line: null,
-          side: null,
-        });
-      });
-    },
-    [hasFile, selectFile, ensureFileOpen, virt.scrollToLine, closeSheetForJump],
-  );
-
   // "Quote in note": drop the file-pane selection into the anchored note as a `>`
   // blockquote, then focus the composer. It lives in the feedback panel (out of
   // this subtree), so it's reached by its data attr rather than a ref.
@@ -1158,26 +926,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
   }, [reviewId]);
 
-  // The review-level edits (approve/abandon/reopen, rename) are lower-frequency
-  // than the per-card ones but share the shape: patch the cached ReviewDetail in
-  // onMutate so the status pill / title change instantly, and roll back on error.
-  // Like the card mutations there is no onSettled refetch — the PATCH broadcasts a
-  // review-updated event this tab receives too, and useServerEvents reconciles off
-  // it. Cancel refetches in flight at click time so they can't land over the
-  // optimistic patch. (`remove` below navigates away on success, so there's
-  // nothing to keep optimistic.)
+  // The review-level edits (approve/abandon/reopen, rename) share the card
+  // mutations' snapshot/rollback (`useOptimisticPatch`); there is no onSettled
+  // refetch — the PATCH broadcasts a review-updated event this tab receives too.
+  // (`remove` below navigates away on success, so there's nothing to keep optimistic.)
   const reviewKey = ["review", reviewId] as const;
-  const beginReviewPatch = async () => {
-    await qc.cancelQueries({ queryKey: reviewKey });
-    return qc.getQueryData<ReviewDetail>(reviewKey);
-  };
-  const restoreReview = (prev: ReviewDetail | undefined) => {
-    if (prev) qc.setQueryData(reviewKey, prev);
-    // A failed PATCH has no SSE echo and the snapshot may predate concurrent
-    // writes whose echo refetch beginReviewPatch cancelled — refetch server truth
-    // after the rollback (after: the manual set above marks the query fresh).
-    qc.invalidateQueries({ queryKey: reviewKey });
-  };
+  const { beginPatch, restore } = useOptimisticPatch(reviewId);
   // Every review-level edit (approve/abandon/reopen, rename) goes through one PATCH:
   // optimistically patch whichever visible field the body carries (status, title) so
   // the pill/title changes instantly; an invisible one (note→meta.next_steps)
@@ -1186,7 +940,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // here.)
   const updateReview = useMutation({
     onMutate: async (body: UpdateReviewBody) => {
-      const prev = await beginReviewPatch();
+      const prev = await beginPatch();
       if (body.status !== undefined)
         qc.setQueryData<ReviewDetail>(reviewKey, (d) =>
           d ? { ...d, status: body.status ?? d.status } : d,
@@ -1198,7 +952,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       return { prev };
     },
     mutationFn: (body: UpdateReviewBody) => api.patchReview(reviewId, body),
-    onError: (_e, _v, ctx) => restoreReview(ctx?.prev),
+    onError: (_e, _v, ctx) => restore(ctx?.prev),
   });
   const remove = useMutation({
     mutationFn: () => api.deleteReview(reviewId),
