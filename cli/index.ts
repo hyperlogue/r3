@@ -209,9 +209,18 @@ async function spawnDaemon(): Promise<DaemonInfo> {
   });
   proc.unref();
   for (let i = 0; i < 100; i++) {
-    await sleep(50);
+    await Promise.race([sleep(50), proc.exited]);
     const d = readDaemonJson();
     if (d && (await probe(d.url))) return d;
+    if (proc.exitCode != null) {
+      const owner = readDaemonLockOwner();
+      fail(
+        `daemon failed to start (child exited with status ${proc.exitCode})` +
+          (owner && owner !== proc.pid && isDaemonProcess(owner)
+            ? `\nr3: pid ${owner} holds the start lock but isn't responding — \`r3 stop\` clears it`
+            : ""),
+      );
+    }
   }
   // This can mean an older daemon is alive but no longer serving: it still holds
   // the start lock, so the daemon we just spawned stepped aside and never
