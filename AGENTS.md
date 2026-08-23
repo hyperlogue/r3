@@ -93,7 +93,7 @@ server/          Hono daemon + bun:sqlite global store
   reviews.ts     domain logic: create/list/detail, re-anchoring, rounds, membership
   patches.ts     stored diff rounds: parse/validate/render + reply-pin checks
   snapshots.ts   files-review content snapshots: capture + derived-diff render
-  textdiff.ts    in-process line differ (LCS DP + prefix/suffix trim) -> DiffFileChange
+  textdiff.ts    in-process line differ (Myers SES + prefix/suffix trim) -> DiffFileChange
                  + rehunk(): regroup rows at N context lines, marking each hunk
                  with the held-but-hidden `expandable` counts
   anchor.ts      quote relocation — keep feedback from orphaning

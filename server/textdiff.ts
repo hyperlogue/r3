@@ -1,11 +1,9 @@
-// In-process line diff (files-review snapshots). Produces a
-// `DiffFileChange` for one file from its old/new *full content* — the same shape
-// `parseUnifiedDiff` emits from `git diff`, so `DiffView` renders it unchanged.
-// This is how a files review's snapshot→snapshot (or snapshot→live) diff is
-// derived: the daemon owns both full contents, so it can diff them itself, with
-// no git and no temp files (which matters for scratch reviews outside any repo).
-// Per-line `html` is left empty here; the caller (snapshots.ts) fills it by
-// highlighting each side from the full contents (accurate multi-line context).
+// In-process line diff (files-review snapshots). Myers shortest-edit-script
+// (git's default) plus prefix/suffix trim, producing a `DiffFileChange` — the
+// same shape `parseUnifiedDiff` emits from `git diff`, so `DiffView` renders it
+// unchanged. The daemon owns both full contents, so it can diff them itself
+// (scratch reviews have no git). Per-line `html` is left empty; snapshots.ts
+// fills it from each side's full text.
 
 import type { DiffFileChange, DiffLine } from "../shared/types.ts";
 
@@ -15,12 +13,6 @@ const DEFAULT_CONTEXT = 3;
 // row list grouped into one hunk per contiguous run. What the expand-context
 // slicer diffs against — it needs the rows a normal render throws away.
 export const FULL_CONTEXT = Number.MAX_SAFE_INTEGER;
-
-// Above this old×new product the exact LCS is skipped for a coarse
-// "delete-all-then-add-all" diff — a backstop against a pathological pair blowing
-// out the O(n·m) DP. Real design docs / code files sit far below it, and the
-// prefix/suffix trim below shrinks the DP to just the changed middle anyway.
-const MAX_DP_CELLS = 4_000_000;
 
 // Split content into lines the way a diff sees them: a single trailing newline is
 // the end-of-file marker, not an empty final line, so "a\nb\n" is ["a","b"].
@@ -41,53 +33,202 @@ interface Op {
   newIdx: number; // 0-based index into new lines, or -1
 }
 
-// Longest-common-subsequence edit script over two line arrays, in document order.
-// Standard O(n·m) DP + backtrack; deletions are emitted before additions at a
-// divergence (the conventional diff ordering).
-function lcsOps(a: string[], b: string[]): Op[] {
-  const m = a.length;
-  const n = b.length;
-  if (m === 0) return b.map((_, j) => ({ type: "add" as const, oldIdx: -1, newIdx: j }));
-  if (n === 0) return a.map((_, i) => ({ type: "del" as const, oldIdx: i, newIdx: -1 }));
-  if (m * n > MAX_DP_CELLS) {
-    return [
-      ...a.map((_, i) => ({ type: "del" as const, oldIdx: i, newIdx: -1 })),
-      ...b.map((_, j) => ({ type: "add" as const, oldIdx: -1, newIdx: j })),
-    ];
-  }
-  // dp[i][j] = LCS length of a[i:] and b[j:]. Sized (m+1)×(n+1), last row/col 0.
-  const dp: Uint32Array[] = Array.from({ length: m + 1 }, () => new Uint32Array(n + 1));
-  for (let i = m - 1; i >= 0; i--) {
-    const row = dp[i];
-    const next = dp[i + 1];
-    for (let j = n - 1; j >= 0; j--) {
-      row[j] = a[i] === b[j] ? next[j + 1] + 1 : Math.max(next[j], row[j + 1]);
+// Myers shortest-edit-script over two line arrays, in document order.
+// O((n+m)·d) in the number of edits, not O(n·m) in the file size — a 2k-line
+// file whose first and last lines changed is d≈2, not a 4e6-cell matrix.
+// Deletions are emitted before additions at a divergence (conventional diff
+// ordering). Linear-space bisect kicks in if d grows past TRACE_D_MAX so a
+// pair of huge unrelated files cannot retain O(d·(n+m)) V-snapshots.
+const TRACE_D_MAX = 256;
+
+function myersOps(a: string[], b: string[]): Op[] {
+  const n = a.length;
+  const m = b.length;
+  if (n === 0) return b.map((_, j) => ({ type: "add" as const, oldIdx: -1, newIdx: j }));
+  if (m === 0) return a.map((_, i) => ({ type: "del" as const, oldIdx: i, newIdx: -1 }));
+  const traced = myersTrace(a, b);
+  return traced ?? myersBisect(a, 0, n, b, 0, m);
+}
+
+function myersTrace(a: string[], b: string[]): Op[] | null {
+  const n = a.length;
+  const m = b.length;
+  const max = n + m;
+  const off = max;
+  const v = new Int32Array(2 * max + 1);
+  v[off + 1] = 0;
+  const trace: Int32Array[] = [];
+  for (let d = 0; d <= max; d++) {
+    if (d > TRACE_D_MAX) return null;
+    for (let k = -d; k <= d; k += 2) {
+      let x: number;
+      if (k === -d || (k !== d && v[off + k - 1] < v[off + k + 1])) {
+        x = v[off + k + 1];
+      } else {
+        x = v[off + k - 1] + 1;
+      }
+      let y = x - k;
+      while (x < n && y < m && a[x] === b[y]) {
+        x++;
+        y++;
+      }
+      v[off + k] = x;
+      if (x >= n && y >= m) {
+        trace.push(Int32Array.from(v));
+        return backtrack(a, b, trace, off);
+      }
     }
+    trace.push(Int32Array.from(v));
   }
+  return null;
+}
+
+function backtrack(a: string[], b: string[], trace: Int32Array[], off: number): Op[] {
   const ops: Op[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < m && j < n) {
-    if (a[i] === b[j]) {
-      ops.push({ type: "eq", oldIdx: i, newIdx: j });
-      i++;
-      j++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      ops.push({ type: "del", oldIdx: i, newIdx: -1 });
-      i++;
-    } else {
-      ops.push({ type: "add", oldIdx: -1, newIdx: j });
-      j++;
+  let x = a.length;
+  let y = b.length;
+  for (let d = trace.length - 1; d >= 0; d--) {
+    const v = trace[d];
+    const k = x - y;
+    const down = k === -d || (k !== d && v[off + k - 1] < v[off + k + 1]);
+    const prevK = down ? k + 1 : k - 1;
+    const prevX = d === 0 ? 0 : v[off + prevK];
+    const prevY = prevX - prevK;
+    while (x > prevX && y > prevY) {
+      x--;
+      y--;
+      ops.push({ type: "eq", oldIdx: x, newIdx: y });
     }
+    if (d === 0) break;
+    if (down) {
+      y--;
+      ops.push({ type: "add", oldIdx: -1, newIdx: y });
+    } else {
+      x--;
+      ops.push({ type: "del", oldIdx: x, newIdx: -1 });
+    }
+    x = prevX;
+    y = prevY;
   }
-  while (i < m) ops.push({ type: "del", oldIdx: i++, newIdx: -1 });
-  while (j < n) ops.push({ type: "add", oldIdx: -1, newIdx: j++ });
+  ops.reverse();
   return ops;
 }
 
+// Linear-space Myers: meet-in-the-middle split, then recurse. Used when the
+// greedy trace would retain too many V snapshots (a high-edit pair).
+function myersBisect(
+  a: string[],
+  as: number,
+  ae: number,
+  b: string[],
+  bs: number,
+  be: number,
+): Op[] {
+  const ops: Op[] = [];
+  walk(as, ae, bs, be);
+  return ops;
+
+  function walk(a0: number, a1: number, b0: number, b1: number): void {
+    while (a0 < a1 && b0 < b1 && a[a0] === b[b0]) {
+      ops.push({ type: "eq", oldIdx: a0, newIdx: b0 });
+      a0++;
+      b0++;
+    }
+    let aEnd = a1;
+    let bEnd = b1;
+    while (aEnd > a0 && bEnd > b0 && a[aEnd - 1] === b[bEnd - 1]) {
+      aEnd--;
+      bEnd--;
+    }
+    const n = aEnd - a0;
+    const m = bEnd - b0;
+    if (n > 0 && m > 0) {
+      const { x, y } = findSplit(a0, n, b0, m);
+      if ((x === 0 && y === 0) || (x === n && y === m)) {
+        for (let i = a0; i < aEnd; i++) ops.push({ type: "del", oldIdx: i, newIdx: -1 });
+        for (let j = b0; j < bEnd; j++) ops.push({ type: "add", oldIdx: -1, newIdx: j });
+      } else {
+        walk(a0, a0 + x, b0, b0 + y);
+        walk(a0 + x, aEnd, b0 + y, bEnd);
+      }
+    } else if (n > 0) {
+      for (let i = a0; i < aEnd; i++) ops.push({ type: "del", oldIdx: i, newIdx: -1 });
+    } else if (m > 0) {
+      for (let j = b0; j < bEnd; j++) ops.push({ type: "add", oldIdx: -1, newIdx: j });
+    }
+    for (let i = aEnd, j = bEnd; i < a1; i++, j++) {
+      ops.push({ type: "eq", oldIdx: i, newIdx: j });
+    }
+  }
+
+  function findSplit(a0: number, n: number, b0: number, m: number): { x: number; y: number } {
+    // Meet-in-the-middle: front and reverse D-paths, overlap is a point on an
+    // optimal path. max_d is ceil((n+m)/2) because the two searches together
+    // cover a full SES.
+    const maxD = Math.ceil((n + m) / 2);
+    const off = maxD;
+    const len = 2 * maxD;
+    const vf = new Int32Array(len).fill(-1);
+    const vr = new Int32Array(len).fill(-1);
+    vf[off + 1] = 0;
+    vr[off + 1] = 0;
+    const delta = n - m;
+    const front = (delta & 1) !== 0;
+    for (let d = 0; d < maxD; d++) {
+      for (let k = -d; k <= d; k += 2) {
+        const ki = off + k;
+        if (ki - 1 < 0 || ki + 1 >= len) continue;
+        let x: number;
+        if (k === -d || (k !== d && vf[ki - 1] < vf[ki + 1])) {
+          x = vf[ki + 1];
+        } else {
+          x = vf[ki - 1] + 1;
+        }
+        if (x < 0) x = 0;
+        let y = x - k;
+        while (x < n && y < m && y >= 0 && a[a0 + x] === b[b0 + y]) {
+          x++;
+          y++;
+        }
+        if (ki >= 0 && ki < len) vf[ki] = x;
+        if (front) {
+          const ri = off + delta - k;
+          if (ri >= 0 && ri < len && vr[ri] !== -1 && x >= n - vr[ri]) return { x, y };
+        }
+      }
+      for (let k = -d; k <= d; k += 2) {
+        const ki = off + k;
+        if (ki - 1 < 0 || ki + 1 >= len) continue;
+        let x: number;
+        if (k === -d || (k !== d && vr[ki - 1] < vr[ki + 1])) {
+          x = vr[ki + 1];
+        } else {
+          x = vr[ki - 1] + 1;
+        }
+        if (x < 0) x = 0;
+        let y = x - k;
+        while (x < n && y < m && y >= 0 && a[a0 + n - x - 1] === b[b0 + m - y - 1]) {
+          x++;
+          y++;
+        }
+        if (ki >= 0 && ki < len) vr[ki] = x;
+        if (!front) {
+          const fi = off + delta - k;
+          if (fi >= 0 && fi < len && vf[fi] !== -1) {
+            const xF = vf[fi];
+            const yF = xF - (fi - off);
+            if (xF >= n - x) return { x: xF, y: yF };
+          }
+        }
+      }
+    }
+    return { x: n, y: 0 };
+  }
+}
+
 // Full edit script with a common-prefix/suffix fast path: equal head + tail lines
-// are matched directly, so the O(n·m) DP only runs over the changed middle — the
-// common case (a few edits in a large file) stays cheap. Indices are absolute.
+// are matched directly, so Myers only runs over the changed middle — the common
+// case (a few edits in a large file) stays cheap. Indices are absolute.
 function diffOps(oldLines: string[], newLines: string[]): Op[] {
   let p = 0;
   while (p < oldLines.length && p < newLines.length && oldLines[p] === newLines[p]) p++;
@@ -101,7 +242,7 @@ function diffOps(oldLines: string[], newLines: string[]): Op[] {
 
   const ops: Op[] = [];
   for (let i = 0; i < p; i++) ops.push({ type: "eq", oldIdx: i, newIdx: i });
-  const mid = lcsOps(
+  const mid = myersOps(
     oldLines.slice(p, oldLines.length - s),
     newLines.slice(p, newLines.length - s),
   );
@@ -255,10 +396,9 @@ export function rehunk(
       const hunk = hunkFrom(rows.slice(h, end));
       emitted.push({ header: hunk[0], from: h, to: end - 1, run: r });
       // Not `out.push(...hunk)`: a spread passes every row as a call argument, so
-      // a hunk past a few hundred thousand rows throws RangeError. That is
-      // reachable without any exotic input — two large wholly-different files
-      // trip MAX_DP_CELLS into the coarse del-all/add-all path, which is ONE run
-      // and therefore one hunk, and renderSnapshotContext rehunks at FULL_CONTEXT.
+      // a hunk past a few hundred thousand rows throws RangeError — two large
+      // wholly-different files become one run and renderSnapshotContext rehunks
+      // at FULL_CONTEXT.
       for (const row of hunk) out.push(row);
       h = end;
     }
