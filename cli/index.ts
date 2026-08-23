@@ -750,6 +750,7 @@ async function cmdWatch(args: Args) {
   }
   const timeoutMs = timeoutSec * 1000;
   const startedAt = Date.now();
+  const deadline = timeoutMs ? startedAt + timeoutMs : 0;
 
   // The review left `open` — the human approved or abandoned it (maybe out from
   // under a live watch). Approved is the happy exit (0) and carries any "next
@@ -782,24 +783,38 @@ async function cmdWatch(args: Args) {
     console.log(await api("POST", `/api/reviews/${id}/prompt`, { feedback: ids }));
   };
 
+  // Take the review's one watch slot BEFORE draining anything. The pending
+  // hand-off below marks items delivered, which is the whole reason a second
+  // watcher can't be allowed: it would stamp them sent between this one's read
+  // and its POST, and one of the two would wake with an empty prompt.
+  const controller = new AbortController();
+
   // Debounce (only when --auto-fetch-timeout is set): wait, re-check, keep
   // waiting while the awaiting set is still growing so a burst emits as one batch.
-  const settle = async (ids: string[]): Promise<string[]> => {
+  // `deadline` is startedAt+timeoutMs, or 0 = none — don't let the debounce outlive `--timeout`.
+  const settle = async (ids: string[], deadline: number): Promise<string[]> => {
     let cur = ids;
     while (autoFetchMs > 0) {
-      await sleep(autoFetchMs);
+      if (deadline && Date.now() > deadline) {
+        controller.abort();
+        process.stderr.write("r3: watch timed out.\n");
+        process.exit(WATCH_EXIT.timeout);
+      }
+      const wait = deadline
+        ? Math.min(autoFetchMs, Math.max(0, deadline - Date.now()))
+        : autoFetchMs;
+      await sleep(wait);
+      if (deadline && Date.now() > deadline) {
+        controller.abort();
+        process.stderr.write("r3: watch timed out.\n");
+        process.exit(WATCH_EXIT.timeout);
+      }
       const next = await awaitingIds(id);
       if (next.length <= cur.length) return next.length ? next : cur;
       cur = next;
     }
     return cur;
   };
-
-  // Take the review's one watch slot BEFORE draining anything. The pending
-  // hand-off below marks items delivered, which is the whole reason a second
-  // watcher can't be allowed: it would stamp them sent between this one's read
-  // and its POST, and one of the two would wake with an empty prompt.
-  const controller = new AbortController();
   let submitted = false;
   let wake: () => void = () => {};
   let admit: () => void = () => {};
@@ -852,7 +867,7 @@ async function cmdWatch(args: Args) {
   // in between — emitting them would print a prompt with nothing in it.
   const pending = await awaitingIds(id);
   if (pending.length) {
-    const ids = autoFetchMs > 0 ? await settle(pending) : pending;
+    const ids = autoFetchMs > 0 ? await settle(pending, deadline) : pending;
     controller.abort();
     await emit(ids);
     process.exit(WATCH_EXIT.feedback);
@@ -897,7 +912,7 @@ async function cmdWatch(args: Args) {
       process.exit(WATCH_EXIT.feedback);
     }
     if (autoFetchMs > 0) {
-      const settled = await settle(ids);
+      const settled = await settle(ids, deadline);
       if (settled.length) {
         controller.abort();
         await emit(settled);
