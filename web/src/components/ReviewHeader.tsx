@@ -286,14 +286,17 @@ function HeaderActions({
   return (
     <>
       {status === "open" ? (
-        <Button
-          variant="success"
-          onClick={() => setApproveOpen(true)}
-          disabled={approveBlock != null}
-          title={approveBlock ?? undefined}
-        >
-          Approve
-        </Button>
+        // Title on a wrapping span: a disabled Button has `pointer-events-none`,
+        // so its own `title` never fires on hover.
+        <span className="inline-flex shrink-0" title={approveBlock ?? undefined}>
+          <Button
+            variant="success"
+            onClick={() => setApproveOpen(true)}
+            disabled={approveBlock != null}
+          >
+            Approve
+          </Button>
+        </span>
       ) : (
         <Button onClick={() => onSetStatus("open")}>Reopen</Button>
       )}

@@ -1007,6 +1007,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           setFromSnap(null);
           setToSnap(version);
         }
+      } else if (fromSnap != null || toSnap !== "WORKING") {
+        // No snapshot on the ref — force live so the jump's `:path` isn't DiffView's `0:path`.
+        setFromSnap(null);
+        setToSnap("WORKING");
       }
       const nonce = ++fileSelectNonce.current;
       cancelAnimationFrame(scrollAnim.current);
