@@ -32,7 +32,6 @@ export const PROGRESSIVE_FILES_MIN = 24;
 const INITIAL_HEIGHT = "16rem";
 const FOLDED_HEIGHT = "2rem"; // FileCard's protected h-8 header.
 const PRELOAD_MARGIN_PX = 1000;
-const FORCE_MS = 5000;
 
 type OnReady = () => void;
 type ActivateFile = (onReady?: OnReady) => void;
@@ -151,7 +150,6 @@ export function ProgressiveFile({
   const enabled = progressive?.enabled ?? false;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef(!enabled);
-  const forceTimer = useRef(0);
   const hydratedRef = useRef(false);
   const readyCallbacks = useRef(new Set<OnReady>());
   const [near, setNear] = useState(!enabled);
@@ -175,9 +173,10 @@ export function ProgressiveFile({
       if (hydratedRef.current) requestAnimationFrame(onReady);
       else readyCallbacks.current.add(onReady);
     }
+    // Hold until onHydrated (or unmount). A wall-clock expiry would drop
+    // `active` on an off-screen fetch, unmount the body, and never drain
+    // readyCallbacks — freezing the caller's scroll-spy.
     setForced(true);
-    window.clearTimeout(forceTimer.current);
-    forceTimer.current = window.setTimeout(() => setForced(false), FORCE_MS);
   }, []);
 
   useLayoutEffect(() => {
@@ -209,12 +208,10 @@ export function ProgressiveFile({
   }, [enabled]);
   useEffect(() => {
     if (!near || !forced || !hydrated) return;
-    window.clearTimeout(forceTimer.current);
     setForced(false);
   }, [near, forced, hydrated]);
   useEffect(
     () => () => {
-      window.clearTimeout(forceTimer.current);
       readyCallbacks.current.clear();
     },
     [],
