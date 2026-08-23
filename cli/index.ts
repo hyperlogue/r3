@@ -786,18 +786,16 @@ async function cmdWatch(args: Args) {
   const session = (args.flags.session as string) ?? detail0.meta?.session ?? "agent";
   const agentId = (args.flags["agent-id"] as string) ?? undefined;
 
-  const emit = async (ids: string[]) => {
-    process.stderr.write(
-      `\nr3: ${ids.length} feedback item${ids.length === 1 ? "" : "s"} from the human.\n\n`,
-    );
-    // POST marks these delivered so a later `watch`/`prompt` won't re-emit them.
-    console.log(await api("POST", `/api/reviews/${id}/prompt`, { feedback: ids }));
+  const emit = async (): Promise<boolean> => {
+    const text = (await api("POST", `/api/reviews/${id}/prompt`, {})) as string;
+    if (text.includes("(no unsent feedback")) return false;
+    process.stderr.write("\nr3: feedback from the human.\n\n");
+    console.log(text);
+    return true;
   };
 
-  // Take the review's one watch slot BEFORE draining anything. The pending
-  // hand-off below marks items delivered, which is the whole reason a second
-  // watcher can't be allowed: it would stamp them sent between this one's read
-  // and its POST, and one of the two would wake with an empty prompt.
+  // Take the review's one watch slot before draining. The slot is one Submit
+  // wakeup and the UI's "who's watching"; delivery is the server's atomic POST {}.
   const controller = new AbortController();
 
   // Debounce (only when --auto-fetch-timeout is set): wait, re-check, keep
@@ -872,16 +870,15 @@ async function cmdWatch(args: Args) {
     await admitted;
   }
 
-  // Pick up anything already waiting (left before this watch, or after a
-  // restart). Re-read rather than reusing detail0: it was fetched before the
-  // slot was ours, and a Copy prompt in the browser could have taken those items
-  // in between — emitting them would print a prompt with nothing in it.
+  // Peek unsent (does not stamp) so auto-fetch can settle; POST {} drains.
+  // Empty drain falls through — keep the SSE until a non-empty POST succeeds.
   const pending = await awaitingIds(id);
   if (pending.length) {
-    const ids = autoFetchMs > 0 ? await settle(pending, deadline) : pending;
-    controller.abort();
-    await emit(ids);
-    process.exit(WATCH_EXIT.feedback);
+    if (autoFetchMs > 0) await settle(pending, deadline);
+    if (await emit()) {
+      controller.abort();
+      process.exit(WATCH_EXIT.feedback);
+    }
   }
 
   process.stderr.write(
@@ -918,15 +915,17 @@ async function cmdWatch(args: Args) {
     const ids = detail.feedback.filter(hasUnsentContent).map((f: any) => f.id);
     if (!ids.length) continue;
     if (submitted) {
-      controller.abort();
-      await emit(ids);
-      process.exit(WATCH_EXIT.feedback);
+      if (await emit()) {
+        controller.abort();
+        process.exit(WATCH_EXIT.feedback);
+      }
+      submitted = false;
+      continue;
     }
     if (autoFetchMs > 0) {
-      const settled = await settle(ids, deadline);
-      if (settled.length) {
+      await settle(ids, deadline);
+      if (await emit()) {
         controller.abort();
-        await emit(settled);
         process.exit(WATCH_EXIT.feedback);
       }
     }
@@ -1879,8 +1878,8 @@ will NOT wake you; use the harness's awaited/monitored process handle instead.
 Do not put watch in a shell loop: its exit 10 intentionally returns control so you
 can act on the round and reply. Then launch a fresh \`r3 watch <id>\`; repeat until
 it exits 0 (approved) or 3 (abandoned). Keep one watch per review at a time — a
-second one is refused (exit 4), because two watchers race each other's delivery
-and one of them wakes with an empty prompt. Re-running \`r3 watch\` with the same
+second one is refused (exit 4). Watch POSTs an empty body; an empty drain keeps
+waiting rather than exiting 10. Re-running \`r3 watch\` with the same
 \`--session\` is fine: it takes over from your own earlier one, which exits 4.
 
 Some items target a whole file or a summary (no line span) — reply the same way.
