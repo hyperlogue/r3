@@ -1904,7 +1904,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   const watchers = watchersData?.watchers ?? [];
   const watching = watchers.length > 0;
 
-  const [sent, setSent] = useState(false);
+  const { copied: sent, flash: flashSent } = useCopyFlash(1800);
   const submit = useMutation({
     mutationFn: () => api.submit(detail.id),
     onSuccess: () => {
@@ -1914,8 +1914,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       // invalidation (or the 30s interval) overwrites this with server truth,
       // so a fresh `r3 watch` re-shows the Submit button on its own.
       qc.setQueryData<WatchersResponse>(["watchers", detail.id], { watchers: [] });
-      setSent(true);
-      setTimeout(() => setSent(false), 1800);
+      flashSent();
     },
   });
 
