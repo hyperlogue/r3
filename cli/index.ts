@@ -159,7 +159,7 @@ function isDaemonProcess(pid: number, info?: { exec?: string; argv?: string[] })
 // keeps both the port and the start lock — and a held lock makes every later
 // spawn step aside and exit 0, so `r3 start` reports "daemon failed to start"
 // forever, with no way out short of a hand-run `kill -9`.
-async function killDaemonProcess(pid: number): Promise<"stopped" | "killed"> {
+async function killDaemonProcess(pid: number): Promise<"stopped" | "killed" | "unkillable"> {
   try {
     process.kill(pid, "SIGTERM");
   } catch {
@@ -173,6 +173,9 @@ async function killDaemonProcess(pid: number): Promise<"stopped" | "killed"> {
     process.kill(pid, "SIGKILL");
   } catch {}
   for (let i = 0; i < 40 && isPidAlive(pid); i++) await sleep(50);
+  // SIGKILL didn't take: keep the lock. Dropping it would let the next start
+  // collide with a process we failed to stop.
+  if (isPidAlive(pid)) return "unkillable";
   // A killed daemon never ran its own cleanup, so do it for it: a lock left
   // naming a pid the OS is free to recycle would wedge the next start the same way.
   forceReleaseDaemonLock();
@@ -1389,6 +1392,9 @@ async function cmdDaemonStop(): Promise<void> {
     const owner = readDaemonLockOwner();
     if (owner && isDaemonProcess(owner)) {
       const how = await killDaemonProcess(owner);
+      if (how === "unkillable") {
+        fail(`could not kill daemon pid ${owner} (still alive after SIGKILL)`);
+      }
       console.log(`r3 daemon ${how} (pid ${owner} — held the start lock, no daemon.json)`);
       return;
     }
@@ -1402,7 +1408,7 @@ async function cmdDaemonStop(): Promise<void> {
   // but so does a daemon whose event loop wedged. Only the second is signallable,
   // so fall back to identifying the process itself.
   const healthy = await probe(info.url);
-  if (!healthy && !isDaemonProcess(info.pid, info)) {}
+  if (!healthy && !isDaemonProcess(info.pid, info)) {
     if (readDaemonJson()?.pid === info.pid) removeDaemonJson();
     if (readDaemonLockOwner() === info.pid) forceReleaseDaemonLock();
     console.log("r3: no live daemon (cleared stale daemon.json)");
@@ -1413,6 +1419,9 @@ async function cmdDaemonStop(): Promise<void> {
   // lock, and clearing daemon.json (as this used to do on its own) leaves nothing
   // naming it, so every later start fails and no command can recover it.
   const how = await killDaemonProcess(info.pid);
+  if (how === "unkillable") {
+    fail(`could not kill daemon pid ${info.pid} (still alive after SIGKILL)`);
+  }
   // Clear daemon.json only if it's still the one we stopped (don't clobber a successor).
   if (readDaemonJson()?.pid === info.pid) removeDaemonJson();
   console.log(`r3 daemon ${how} (pid ${info.pid}${healthy ? "" : " — was not responding"})`);
