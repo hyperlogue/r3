@@ -70,7 +70,8 @@ const REVIEWS_COLUMNS = `
   status      TEXT NOT NULL DEFAULT 'open',
   created_by  TEXT NOT NULL DEFAULT 'human',
   created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL
+  updated_at  TEXT NOT NULL,
+  stored_rounds INTEGER NOT NULL DEFAULT 0
 `;
 
 db.exec(`
@@ -209,6 +210,14 @@ if (!hasColumn("reviews", "repo_id")) db.exec("ALTER TABLE reviews ADD COLUMN re
 if (!hasColumn("reviews", "worktree")) db.exec("ALTER TABLE reviews ADD COLUMN worktree TEXT");
 // A short, editable overview of the review (nullable; existing rows have none).
 if (!hasColumn("reviews", "summary")) db.exec("ALTER TABLE reviews ADD COLUMN summary TEXT");
+// Sticky "this diff review once had stored rounds". Survives `diff rm` of the
+// last round so GET …/diff does not fall back to live git.
+if (!hasColumn("reviews", "stored_rounds")) {
+  db.exec("ALTER TABLE reviews ADD COLUMN stored_rounds INTEGER NOT NULL DEFAULT 0");
+  db.exec(
+    "UPDATE reviews SET stored_rounds = 1 WHERE id IN (SELECT DISTINCT review_id FROM patches)",
+  );
+}
 // Stored-diff rounds + reply pins: feedback anchors into a
 // round; a reply optionally pins where the change addressing it landed.
 if (!hasColumn("feedback", "patch_seq"))
@@ -1033,6 +1042,7 @@ export function addPatch(
     `INSERT INTO patches (review_id, seq, label, summary, body, created_at)
      VALUES ($rid, $seq, $label, $summary, $body, $ts)`,
   ).run({ $rid: reviewId, $seq: seq, $label: label, $summary: summary, $body: body, $ts: ts });
+  db.query("UPDATE reviews SET stored_rounds = 1 WHERE id = $rid").run({ $rid: reviewId });
   touchReview(reviewId);
   return { seq, label, summary, created_at: ts };
 }
@@ -1077,6 +1087,16 @@ export function deletePatch(reviewId: string, seq: number): boolean {
 
 export function hasPatches(reviewId: string): boolean {
   return !!db.query("SELECT 1 FROM patches WHERE review_id = $rid LIMIT 1").get({ $rid: reviewId });
+}
+
+// True once addPatch has ever succeeded for this review. Unlike hasPatches, this
+// stays set after the last round is removed, so the live-git fallback cannot
+// reappear.
+export function hadStoredRounds(reviewId: string): boolean {
+  const r = db
+    .query("SELECT stored_rounds FROM reviews WHERE id = $rid")
+    .get({ $rid: reviewId }) as { stored_rounds: number } | null;
+  return !!r?.stored_rounds;
 }
 
 // ---- snapshots (files-review content captures) ----

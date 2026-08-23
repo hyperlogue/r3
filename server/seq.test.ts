@@ -66,4 +66,18 @@ describe("seq allocation after rm", () => {
     const next = db.addSnapshot(reviewId, [{ path: "a.txt", content: "hello", sha: "abc" }], "s2");
     expect(next.seq).toBe(2);
   });
+
+  test("hadStoredRounds stays true after the last patch is removed", () => {
+    const reviewId = db.createReview({
+      repoId,
+      kind: "diff",
+      source: { base: "HEAD", head: "WORKING" },
+    }).id;
+    expect(db.hadStoredRounds(reviewId)).toBe(false);
+    db.addPatch(reviewId, "diff --git a/a b/a\n", "r1");
+    expect(db.hadStoredRounds(reviewId)).toBe(true);
+    expect(db.deletePatch(reviewId, 1)).toBe(true);
+    expect(db.hasPatches(reviewId)).toBe(false);
+    expect(db.hadStoredRounds(reviewId)).toBe(true);
+  });
 });
