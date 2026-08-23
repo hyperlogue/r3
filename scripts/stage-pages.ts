@@ -1,18 +1,6 @@
-// Stage the built demo (dist/demo) into a GitHub Pages site layout (dist/pages)
-// that serves the app under a sub-path — hyperlogue.github.io/r3/demo/. Run AFTER
-// `bun run build:demo` with a matching base (R3_DEMO_BASE=<base_path>/demo), then
-// upload dist/pages as the Pages artifact.
-//
-// Pages serves this repo's artifact at the PROJECT ROOT (/r3/), so we:
-//   dist/pages/<subdir>/    ← the whole build, i.e. /r3/demo/
-//   dist/pages/404.html     ← a copy of the SPA index
-//   dist/pages/index.html   ← a redirect from the bare root to the demo
-//
-// The 404 lives at the ROOT on purpose: GitHub Pages honors only a SINGLE custom
-// 404.html at the site root and ignores any in a subdirectory. A hard reload of
-// /r3/demo/review_x has no matching file, so Pages serves /r3/404.html — this
-// copy of the SPA, whose asset URLs are absolute (/r3/demo/…, from publicPath),
-// so it boots regardless of the requested path and routes client-side.
+// Stage dist/demo into a GitHub Pages layout. Pages honors only a SINGLE custom
+// 404.html at the site root (deep-link reload fallback); index.html redirects to
+// the demo subdir.
 
 import { cp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";

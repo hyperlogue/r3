@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { Collapse, cn, FoldChevrons, FoldTriangle } from "../ui.tsx";
 
-// Left-of-center panel listing the files in the current review as a directory
-// tree. Clicking a file scrolls the center view to that file's block; viewed
-// files are dimmed + ticked.
+// Directory-tree file list for the current review.
 
 interface DirNode {
   dirs: Map<string, DirNode>;

@@ -1,10 +1,4 @@
-// Per-request Repo context + project identity, registry, and
-// worktree resolution. A `Repo` carries everything a request
-// needs to act on one project's working tree: the registry id, the common-dir
-// (identity), the resolved worktree path used as git cwd + path-validation root,
-// and bound `git()` / `safePath()` helpers. The global sqlite is the only
-// process-wide singleton; everything else is resolved per request — from the
-// CLI's `x-r3-repo` header, a `?repo=<id>` selector, or a stored review row.
+// Per-request Repo context: identity, registry, worktree resolution.
 
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join, sep } from "node:path";

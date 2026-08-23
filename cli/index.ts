@@ -1,9 +1,6 @@
 #!/usr/bin/env bun
-// r3 CLI — a thin HTTP client to the per-user daemon. This is
-// the agent's entry point: it both *creates* reviews (returns a URL to surface in
-// chat) and *replies/re-anchors* on them. It discovers the daemon via an XDG
-// `daemon.json` (or R3_URL), and lazily spawns one — à la tmux — on the first
-// call when none is healthy. Lifecycle: `r3 start | stop | status | restart`.
+// r3 CLI — thin HTTP client to the per-user daemon. Discovers via daemon.json
+// (or R3_URL) and lazily spawns one when none is healthy.
 
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
@@ -187,15 +184,9 @@ async function killDaemonProcess(pid: number): Promise<"stopped" | "killed" | "u
 // the winner's daemon.json is what we poll for here.
 async function spawnDaemon(): Promise<DaemonInfo> {
   const [bin, ...rest] = daemonArgv();
-  // The daemon is repo-agnostic: every request self-describes its repo (the CLI's
-  // x-r3-repo header, a review id, or a browser ?repo selector), so the spawn
-  // passes no "default repo". cwd matters only from source: run in the r3 repo so
-  // Bun finds its bunfig.toml — which registers bun-plugin-tailwind for
-  // Bun.serve's static SPA bundling. Bun resolves bunfig.toml from the cwd, so
-  // spawned in an arbitrary user repo (the usual lazy-spawn case) it wouldn't find
-  // it, the SPA's `@import "tailwindcss"` would fail to bundle, and `/` would serve
-  // an empty page. The compiled binary embeds the SPA (no bundling, no bunfig), so
-  // its cwd is irrelevant — inherit ours.
+  // From-source: cwd must be the r3 repo so Bun finds bunfig.toml (tailwind
+  // plugin). Spawned in an arbitrary user repo, the SPA's `@import "tailwindcss"`
+  // would fail to bundle. Compiled binary embeds the SPA — inherit our cwd.
   const cwd = isCompiled() ? process.cwd() : resolve(dirname(Bun.main), "..");
   const proc = Bun.spawn([bin, ...rest], {
     cwd,
@@ -352,28 +343,16 @@ async function api(method: string, path: string, body?: unknown): Promise<any> {
   }
 }
 
-// A feedback is awaiting the agent when it holds undelivered content — the SHARED
-// predicate (shared/types.ts hasUnsentContent), the same one the server's prompt
-// renders by and the web gates Copy/Submit on, so `watch` can never wake for
-// content the prompt then omits. Delivery state (sent_at + status_unsent), not a
-// last-speaker heuristic — a restarted `watch` doesn't re-emit what was already
-// delivered; `r3 show` recovers the full history.
+// Shared unsent predicate (hasUnsentContent) so watch can't wake for content
+// the prompt then omits.
 async function awaitingIds(id: string): Promise<string[]> {
   const detail = await api("GET", `/api/reviews/${id}`);
   return detail.feedback.filter(hasUnsentContent).map((f: any) => f.id);
 }
 
-// Read the server's SSE stream and call `onEvent(name)` per event, reconnecting
-// if it drops. `session` (display string) registers us as a live watcher on the
-// review (so the web UI shows who's watching and offers Submit instead of Copy);
-// `agentId` is a precise machine handle other tools can use to find this agent.
-//
-// The connection IS the watch slot, and a review only has one (server/
-// watchers.ts): `onOpen` fires when it's ours, `onRefused` when another session
-// holds it. A refusal ends the stream instead of retrying — the holder is a live
-// connection, not a blip, so reconnecting would only spin. It can also land on a
-// LATER connect: a reconnect of the same client is admitted and evicts the ghost,
-// so the process that lost the slot learns about it here.
+// SSE stream; `session`/`agentId` take the watch slot. A 409 refusal ends the
+// stream instead of retrying — the holder is a live connection, not a blip. A
+// later connect of the same client evicts this one (superseded).
 async function streamEvents(
   id: string,
   session: string,
@@ -692,12 +671,8 @@ async function cmdShow(args: Args) {
   }
 }
 
-// The agent prompt for a review. Default POSTs: it prints only feedback the
-// agent hasn't seen yet (new items, human follow-ups, resolutions) and marks it
-// delivered, so the next call won't repeat it. `--all` GETs and re-prints every
-// open item (already-delivered ones included) and marks nothing — the escape
-// hatch; for the true full history (resolved too) use `r3 show`. `--feedback`
-// narrows to a comma-separated subset of ids.
+// Agent prompt. Default POSTs unsent-only and marks delivered; `--all` GETs
+// every open item and marks nothing.
 async function cmdPrompt(args: Args) {
   const id = args.positional[0] ?? fail("prompt <id> [--all] [--feedback <fid,...>]");
   const feedback = args.flags.feedback
@@ -726,12 +701,8 @@ async function cmdPrompt(args: Args) {
 //        Either way this process is not the watcher; stop, don't retry.
 const WATCH_EXIT = { approved: 0, feedback: 10, timeout: 2, abandoned: 3, busy: 4 } as const;
 
-// Block until the human hits Submit in the web UI, then print the agent prompt
-// for the awaiting items so the coding agent can act without copy-paste. While
-// watching we register as a live watcher so the UI shows who's listening and
-// offers Submit instead of Copy. `--auto-fetch-timeout <sec>` opts into an
-// auto-send debounce (for flows with no human to click Submit); the default
-// waits for Submit.
+// Block until Submit (or --auto-fetch-timeout), then print the unsent prompt.
+// Taking the watch slot flips Copy → Submit in the UI.
 async function cmdWatch(args: Args) {
   const id =
     args.positional[0] ??
@@ -1448,10 +1419,9 @@ async function cmdDaemonStop(): Promise<void> {
     console.log("r3: no live daemon (cleared stale daemon.json)");
     return;
   }
-  // Alive. If it isn't answering it's wedged, not crashed — kill it anyway
-  // instead of walking away: an abandoned daemon keeps the port and the start
-  // lock, and clearing daemon.json (as this used to do on its own) leaves nothing
-  // naming it, so every later start fails and no command can recover it.
+  // Alive. If it isn't answering it's wedged, not crashed — kill it: an abandoned
+  // daemon keeps the port and the start lock; clearing daemon.json alone leaves
+  // nothing naming it.
   const how = await killDaemonProcess(info.pid);
   if (how === "unkillable") {
     fail(`could not kill daemon pid ${info.pid} (still alive after SIGKILL)`);
@@ -1467,9 +1437,7 @@ async function cmdDaemonRestart(): Promise<void> {
   await cmdDaemonStart();
 }
 
-// Login-token management for reaching r3's web UI over a non-loopback origin (e.g.
-// `tailscale serve`). A token is created here, shown once, then pasted into the
-// browser login screen; loopback browsing needs none. See `r3 guide` / AGENTS.md.
+// Login-token management for a non-loopback origin. Loopback browsing needs none.
 async function cmdAuth(args: Args): Promise<void> {
   const sub = args.positional[0];
   switch (sub) {
@@ -1827,10 +1795,7 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   and the review loop). start here.
 `;
 
-// The agent orientation: what r3 is, the review loop, and the commands in flow
-// order. `r3 guide` is the text an AGENTS.md in another repo can defer to instead
-// of duplicating (and drifting from) these instructions. Static — needs no
-// daemon and no repo, like help.
+// Agent orientation. Static — needs no daemon and no repo, like help.
 const GUIDE = `r3 — agent guide
 
 r3 is a local review tool for human <-> agent collaboration. You (the agent)

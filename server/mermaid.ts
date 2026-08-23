@@ -1,17 +1,6 @@
-// Render a reviewed Markdown ` ```mermaid ` fence to a safe SVG. Mermaid.js is
-// not used: it needs a DOM, has a history of label-XSS, and is far too large
-// for the daemon. Instead we parse the two diagram kinds that show up in
-// design docs (flowchart/graph, sequenceDiagram) and emit SVG whose every
-// text node is escaped. Anything else — pie, gantt, class, a fence we can't
-// parse — returns null so highlight.ts falls through to the ordinary (escaped)
-// code fence, same as an unknown grammar.
-//
-// Layout is a longest-path rank on the main axis with subgraphs stacked on the
-// cross-axis, so a `flowchart LR` with two subgraphs reads as two labelled
-// bands sharing a column grid rather than overlapping boxes. Sequence diagrams
-// are columns of participants with message rows. No mermaid.js feature parity
-// is claimed: classDef/style/click are ignored, and an unrecognised statement
-// is skipped rather than failing the whole diagram.
+// Mermaid fence → safe SVG (flowchart + sequenceDiagram). Mermaid.js is not used
+// (DOM, label-XSS, size). Anything else returns null → ordinary code fence.
+// Unrecognised statements are skipped rather than failing the whole diagram.
 
 export const MAX_MERMAID_BYTES = 32 * 1024;
 export const MAX_MERMAID_NODES = 120;

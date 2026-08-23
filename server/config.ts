@@ -1,10 +1,6 @@
-// Daemon configuration + discovery. The v2 per-user daemon lives
-// on a stable port behind one origin, and announces itself in an XDG location so
-// the CLI finds it with zero config. This module is intentionally dependency-
-// light (node builtins + the shared version) and free of *mutating* side effects
-// at import — it does read the persisted config.json read-only, to seed the
-// exposure defaults below env (see readConfig/PERSISTED) — so the thin CLI can
-// import the path/IO helpers without pulling in the server.
+// Daemon configuration + discovery. Dependency-light and free of *mutating* side
+// effects at import (config.json is read-only here), so the CLI can import path/IO
+// helpers without pulling in the server.
 
 import { randomBytes } from "node:crypto";
 import {
@@ -120,27 +116,10 @@ export function isAllowedHost(hostname: string): boolean {
   return ALLOWED_HOSTS.has(hostname);
 }
 
-// Must the web UI log in (a login token → session cookie), or does /api/boot hand
-// the browser the per-user token directly? This is a **login policy**, not a
-// detected fact: r3 can't tell from a request whether the client is truly local (a
-// reverse proxy can rewrite/forge Host and Origin), so it's decided once at startup
-// from how the operator configured access, and it's the whole auth switch —
-//   off (the default): the daemon binds loopback and advertises no extra host, so
-//     every client is already local; the browser gets the per-user token from
-//     /api/boot, no login (zero-friction, unchanged).
-//   on: the web UI requires a **login token** (server/auth.ts) for every session,
-//     and the master token never goes to a browser.
-// Defaults on iff any non-loopback access is configured: a non-loopback bind (incl.
-// the all-interfaces wildcards `0.0.0.0`/`::`, which aren't in the allowlist) OR ANY
-// non-loopback name in the Host allowlist — which folds in a non-loopback
-// `R3_PUBLIC_URL` (auto-allowed above) and `R3_ALLOWED_HOSTS`. Allowing a remote Host
-// is itself the signal: it's what makes r3 reachable by that name, so it arms the
-// gate. `R3_REQUIRE_LOGIN=1|0` forces it either way — set it to 1 behind a reverse
-// proxy that rewrites Host to loopback, which r3 has no way to detect.
-// Parse a boolean-ish flag string (1/true/yes → true, 0/false/no → false, else
-// null). Shared by the R3_REQUIRE_LOGIN env read here and `r3 config set
-// requireLogin` in the CLI, so the env and persisted paths accept exactly the
-// same tokens (no drift).
+// Login policy, not detection (proxies can forge Host). Defaults on iff any
+// non-loopback access is configured; R3_REQUIRE_LOGIN=1|0 forces either way.
+// Parse a boolean-ish flag (1/true/yes → true, 0/false/no → false, else null).
+// Shared with `r3 config set requireLogin` so env and persisted paths agree.
 export function parseBoolFlag(v: string | undefined): boolean | null {
   const t = v?.trim().toLowerCase();
   if (t === "1" || t === "true" || t === "yes") return true;
@@ -160,13 +139,7 @@ export function stateDir(): string {
 }
 
 // ---- persisted exposure config (config.json) ----
-//
-// The durable record of how the daemon should serve — bind/port/public URL/allowed
-// hosts/require-login — so a restart or lazy-spawn from a shell without the R3_*
-// env vars keeps the last remote-serving posture instead of silently reverting to
-// loopback-only. Written explicitly via `r3 config set` (never auto-persisted from
-// env), read as the fallback below env in the resolutions at the top of this file.
-// Carries NO secrets (just hostnames/flags); the per-user token stays in stateDir.
+// Written only by `r3 config set` (never auto-persisted from env). No secrets.
 export interface PersistedConfig {
   bind?: string;
   port?: number;

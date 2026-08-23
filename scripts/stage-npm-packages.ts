@@ -1,15 +1,5 @@
-// Stage the four per-platform npm packages (@hyperlogue/r3-<os>-<arch>) that
-// carry the prebuilt binaries, and stamp the launcher's optionalDependencies to
-// match. Run AFTER scripts/release-binaries.ts has produced dist/<asset>.
-//
-// The launcher (npm/launch.mjs) resolves the matching package at runtime via
-// createRequire — no download — so each package's version must equal the
-// launcher's own version, and the launcher must be published only after these
-// packages exist (release.yml enforces the order). This script is the single
-// authority for that lockstep: it stamps every pin from the one version source,
-// so a release bumps only the top-level version and the pins follow.
-//
-// Usage: `bun scripts/stage-npm-packages.ts` -> dist/npm/<pkg>/{package.json,bin/r3,LICENSE}.
+// Stage per-platform npm packages and stamp the launcher's optionalDependencies
+// from the one version source (pins must not drift).
 
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

@@ -1,17 +1,6 @@
-// Row virtualization for the code panes (FileView / DiffView). A review pane is
-// ONE vertical scroll container stacking N files, each with its OWN horizontal
-// scroll and its own fold — so this is one virtualizer PER FILE, all pointed at
-// the shared pane as their scroll element via a measured `scrollMargin` (the
-// file's offset within the pane). Only the on-screen window of rows (+ overscan)
-// is mounted, cutting a thousand-line file from ~1900 rows to ~90.
-//
-// Layout is spacer-based (a top pad, the live rows in normal flow, a bottom pad)
-// rather than absolute positioning, so the existing `min-w-max` wrapper keeps
-// driving each file's horizontal scroll extent from its widest *mounted* line —
-// no manual width bookkeeping. Row heights are NOT measured — every row is sized
-// at one line height, a fixed estimate (see `estimateSize` below for why), which
-// callers must hold to: a row that renders shorter or taller drifts scroll-to-line
-// and, in the split diff layout, desyncs the two columns.
+// Per-file row virtualization inside the one scroll pane. Row heights are NOT
+// measured — every row is one line height; a shorter/taller row drifts
+// scroll-to-line and desyncs split columns.
 //
 // The ReviewView content pane wraps its children in <VirtualPaneProvider>, which
 // hands down the scroll element, a `layoutVersion` that bumps when the stacked

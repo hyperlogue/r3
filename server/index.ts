@@ -1,12 +1,6 @@
-// r3 daemon — the authoritative store + HTTP/JSON contract shared by the browser
-// SPA, the CLI, and the agent. Bun + Hono + bun:sqlite.
-// One long-running per-user daemon on a stable port; binds 127.0.0.1 by default;
-// mutating routes are same-origin + token gated. Announces itself in an XDG
-// `daemon.json` so the CLI finds it with zero config. `startDaemon()` is
-// the entry point; importing this module only mints-or-reads the per-user token
-// (`const TOKEN = getToken()` below — a cheap, idempotent fs side effect) and
-// does not serve, so the thin CLI can import it (to spawn the daemon in-process)
-// without standing up an HTTP listener.
+// Daemon entry: HTTP/JSON API + SPA serving + host/token guards.
+// Importing this module only mints-or-reads the per-user token and does not serve,
+// so the CLI can import it without standing up an HTTP listener.
 
 import { timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -34,10 +28,8 @@ import {
   REVIEW_STATUSES,
   SUPERSEDED_EVENT,
 } from "../shared/types.ts";
-// The SPA entry. Bun's bundler turns this import into an HTMLBundle: on-demand
-// from source (dev + lazy-spawn, via the bun-plugin-tailwind in bunfig.toml),
-// and pre-bundled + embedded into the binary by `scripts/compile.ts`. Served
-// natively below through Bun.serve's `routes`.
+// SPA entry — Bun turns this into an HTMLBundle (from-source via bunfig.toml,
+// or embedded by scripts/compile.ts).
 import index from "../web/index.html";
 import * as auth from "./auth.ts";
 import {
@@ -242,15 +234,10 @@ function jsonCached(c: Context, obj: unknown): Response {
   return c.body(json);
 }
 
-// Resolve the Repo a request acts on. Most specific first: an
-// id-addressed `?review=` (the row carries its repo), then the CLI's
-// `x-r3-repo` header, then a `?repo=<id>` selector (browser). The daemon is
-// repo-agnostic — it holds no ambient "default repo" — so a request that names
-// none resolves to null, and the caller returns 400 "no repo context". (A CLI
-// call run outside any git repo sends no header, so `r3 create` there is a 400
-// rather than binding to some arbitrary repo.) A *creating* mutation passes
-// `allowReview:false`: a new review must bind to the actor's own repo
-// (header/selector), never an arbitrary `?review` selector.
+// Resolve the Repo a request acts on. Most specific first: `?review=`, then
+// `x-r3-repo`, then `?repo=`. None → null (400 "no repo context"). Creating
+// mutations pass `allowReview:false` so a new review binds to the actor's own
+// repo, never an arbitrary `?review` selector.
 async function requestRepo(
   c: {
     req: { query: (k: string) => string | undefined; header: (k: string) => string | undefined };
@@ -282,17 +269,10 @@ async function requestRepo(
 // lets the CLI detect daemon/client skew after a binary upgrade.
 app.get("/api/health", (c) => c.json({ ok: true, version: R3_VERSION }));
 
-// Bootstrap the SPA before it renders (web/src/api.ts loadBoot). Same-origin gated;
-// not injected into the served HTML — keeping the SPA shell a cacheable/embeddable
-// static asset. Behaviour splits on REQUIRE_LOGIN (config.ts):
-//   login not required (default, loopback-only) — every client is already local:
-//     hand the same-origin page the per-user `token` (its header path, unchanged).
-//   login required (tailscale serve / bound IP / R3_REQUIRE_LOGIN) — require a
-//     login-token session: a valid cookie -> { needsAuth:false, token:null } (the
-//     master token never goes to a browser); else { needsAuth:true } -> login screen.
+// Bootstrap the SPA (web/src/api.ts loadBoot). Same-origin gated; token is not
+// injected into the served HTML (the SPA shell stays a cacheable static asset).
 // sameOrigin() still passes a no-Origin client (curl from another local UID); when
-// login isn't required that's the intentional local-trust boundary, not a new hole (a
-// real per-UID boundary needs an OS peer-credential check — see the security-model skill).
+// login isn't required that's the intentional local-trust boundary.
 app.get("/api/boot", (c) => {
   if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
   if (!REQUIRE_LOGIN) return c.json({ needsAuth: false, token: TOKEN } satisfies BootResponse);

@@ -1,14 +1,5 @@
-// The agent reply protocol text. The human clicks "Copy prompt"
-// (or the agent fetches the prompt via the CLI); the text embeds the
-// review id + feedback ids and the exact CLI calls that round-trip decisions
-// back into the live UI.
-//
-// Two builders share the header + block rendering: buildPrompt renders full
-// threads (the GET/`r3 prompt --all` escape hatch, no marking), while
-// buildUnsentPrompt renders only what the agent hasn't been sent — new feedback
-// in full, and a compact follow-up block for feedback whose only new content is
-// a human reply since the last hand-off — and reports exactly what it rendered
-// so the caller can mark those rows sent.
+// Agent-prompt text. buildPrompt = full threads (GET / `--all`);
+// buildUnsentPrompt = unsent-only, reporting what it rendered so the caller can mark sent.
 
 import type { FeedbackWithReplies, Reply, ReviewDetail, ReviewSource } from "../shared/types.ts";
 import { hasUnsentContent, SUMMARY_FILE, unsentHumanReplies } from "../shared/types.ts";

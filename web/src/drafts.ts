@@ -1,12 +1,4 @@
-// Client-only feedback drafts: the in-progress composers on a review that are NOT
-// saved on the server until the human posts them. One record per review holds all
-// three compose surfaces — the anchored new-feedback composer (a line/quote anchor
-// + its note), the general (review-level) note, and a per-feedback map of
-// in-progress replies — so a half-written note of any kind survives a review-switch
-// (the view remounts per id) and a page reload, and surfaces as a badge/guard so it
-// can't be silently forgotten (none of it has reached the agent). A tiny reactive
-// external store (like store.ts's persistedStore) so the reviews-list badge, the
-// panel header, and each reply composer — different subtrees — stay in sync.
+// Per-review composer drafts (localStorage). Not on the server until posted.
 
 import { useSyncExternalStore } from "react";
 import type { PendingAnchor } from "./selection.ts";

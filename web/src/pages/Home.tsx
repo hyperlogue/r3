@@ -7,10 +7,7 @@ import { hrefFor, navigate } from "../router.ts";
 import type { RepoRecord, Review } from "../types.ts";
 import { cn } from "../ui.tsx";
 
-// The reviews home page — the app's landing view at `/`. Reviews are created from
-// the CLI / agent (there's no in-browser repo browser), so this ranked list is
-// how you pick what to work on; opening one navigates to `/<id>`. Replaces the
-// old docked sidebar so a review gets the full window width for file + feedback.
+// Reviews list at `/`. Opening one navigates to `/<id>`.
 
 // A repo's path stems, e.g. /Users/dev/code/r3/.git -> ["Users","dev","code","r3"].
 // `commonDir` is the git object store; strip a trailing `.git` (a normal checkout)
@@ -300,7 +297,6 @@ export function Home() {
           <p className="px-1 py-4 text-sm text-neutral-400">No reviews match “{query.trim()}”.</p>
         )}
 
-        {/* Flat list; each row is repo- (disambiguated) + branch-labeled. */}
         <div className="flex flex-col gap-0.5">
           {filtered.map((r) => {
             const repo = repoById.get(r.repo_id);

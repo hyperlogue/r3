@@ -1,8 +1,4 @@
-// The demo's drop-in replacement for web/src/api.ts. The demo build aliases every
-// `import … from ".../api.ts"` to this module (see scripts/build-demo.ts), so the
-// whole SPA talks to the in-browser backend instead of a daemon — same method
-// names, same shapes, same ApiError. Importing this module also installs the
-// EventSource shim and the demo chrome, and it's the first thing main.tsx imports.
+// Demo drop-in for web/src/api.ts (aliased at build). Same method names/shapes.
 
 import type {
   AddReplyBody,
@@ -24,12 +20,7 @@ import { ApiError } from "./errors.ts";
 import { getState, persist } from "./store.ts";
 import { armDemoWatchers, getWatchers, stopWatching } from "./watchers.ts";
 
-// Install the SSE shim before anything constructs an EventSource, and seed the
-// scripted agent as a live watcher on every review (so the panel opens with the
-// "Submit" button instead of "Copy prompt"). Both are safe at import time (main.tsx
-// imports this first, synchronously, before any query runs). The nav-bar "Demo"
-// badge + intro render via <DemoChrome> in the header (web/demo/demo-chrome.tsx),
-// not here.
+// SSE shim + seed watchers at import (main.tsx imports this first).
 installEventSourceShim();
 armDemoWatchers();
 

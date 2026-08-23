@@ -1,18 +1,5 @@
-// In-memory registry of `r3 watch` clients, keyed by review. A watch
-// client identifies itself on its SSE connection with a human-readable session
-// string (shown in the UI) and an optional agent id (a precise machine handle
-// other tools can use to jump to the agent). The UI reads this to show "an agent
-// is watching" (and who), and to switch "Copy prompt" to "Submit". State is
-// intentionally ephemeral — it's just live connection presence.
-//
-// A review admits ONE watch at a time. Two agents blocked on the same review
-// don't split the work, they race it: delivery is marked at POST time, so one
-// can stamp the awaiting items sent between the other's GET and POST and that
-// one wakes up with an empty prompt (r3-9fc). "● <session> watching" can only
-// name an owner if there is exactly one, and Submit hands the round to whoever
-// happens to answer first. So a second session is refused — but the SAME client
-// reconnecting takes its own slot back: a dropped SSE or a restarted agent must
-// not be locked out by its own ghost, which nothing else would ever clear.
+// In-memory `r3 watch` presence: one slot per review. Same-client reconnects
+// take the slot back (a dropped SSE must not be locked out by its own ghost).
 
 import type { WatcherInfo } from "../shared/types.ts";
 

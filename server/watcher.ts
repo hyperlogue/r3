@@ -1,11 +1,5 @@
-// Watch only the files that open reviews actually point at, and push
-// `file-changed` over SSE so the UI stays fresh and the server re-anchors on the
-// next detail fetch. Watching whole repos recursively blows
-// the fd limit, and most diff reviews pin immutable shas anyway — so we track a
-// small, dynamic set: each open `files` review's source files plus every
-// feedback's anchored file. The v2 daemon is multi-repo, so each review's files
-// are resolved against *its* worktree — fd cost stays
-// bounded across repos because the set is still only what open reviews reference.
+// Watch only files open reviews reference (whole-repo recursive watch blows the
+// fd limit). Each review's files resolve against its worktree.
 
 import { type FSWatcher, watch } from "node:fs";
 import * as db from "./db.ts";

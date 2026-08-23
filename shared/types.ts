@@ -1,6 +1,4 @@
-// The domain model + HTTP contract shared by the server, the CLI, and the web
-// SPA. The HTTP/JSON API is the product's contract, so these
-// types are the single source of truth all three clients agree on.
+// Domain model + HTTP/JSON contract (server, CLI, SPA).
 
 export type ReviewKind = "diff" | "files";
 export type ReviewStatus = "open" | "approved" | "abandoned";
@@ -11,32 +9,20 @@ export type ReviewStatus = "open" | "approved" | "abandoned";
 export const REVIEW_STATUSES = ["open", "approved", "abandoned"] as const;
 export const isReviewStatus = (v: unknown): v is ReviewStatus =>
   typeof v === "string" && (REVIEW_STATUSES as readonly string[]).includes(v);
-// Feedback has exactly two states, and the human drives both: `open` = needs
-// attention, `resolved` = done (fixed, answered, or dismissed — the *why* lives
-// in the thread, not the enum). Replies are pure messages with no status of
-// their own; resolving is a status toggle, not a kind of reply.
+// Human-driven; resolving is a status toggle, not a kind of reply.
 export type FeedbackStatus = "open" | "resolved";
 export type AnchorState = "anchored" | "outdated";
 export type DiffSide = "old" | "new";
 export type Author = "human" | "agent";
 export type Creator = "human" | "agent" | "cli";
 
-// `WORKING` = the working tree, `STAGED` = the index, `SCRATCH` = an adhoc doc
-// stored in the daemon's scratch dir (not git); anything else is a git ref/sha.
-// `WORKING`/`SCRATCH` track live content and get re-read + re-anchored on change.
-export type GitRef = string; // sentinel ("WORKING" | "STAGED" | "SCRATCH" | "HEAD") or sha/ref
+// Sentinel ("WORKING" | "STAGED" | "SCRATCH" | "HEAD") or sha/ref. WORKING/SCRATCH
+// track live content.
+export type GitRef = string;
 
-// Feedback whose `file` is this sentinel is anchored to a *summary* (prose, now
-// Markdown-rendered on both), not a repo file: the review's own summary when
-// `patch_seq` is null, or a diff round's summary when `patch_seq` names that round.
-// The `quote` is the anchor of record — there's no worktree file behind it, so
-// the automatic re-anchor pass skips summary feedback and the client locates it by
-// quote in the rendered prose. A diff-round summary is immutable (rounds never
-// change) so its quote can't drift; the *review* summary is edited in place
-// (`r3 edit --summary`), so its note can drift and IS agent-re-anchorable by quote
-// (`r3 reanchor <fid> --quote …`, PATCH …/anchor) on any review kind — the one
-// exception to "summaries aren't re-anchored". The `@` prefix keeps it clear of any
-// repo-relative path (which never starts with `@/`).
+// Sentinel for summary-anchored feedback (`@` never starts a repo path). Quote is
+// the anchor of record; automatic re-anchor skips these except a drifted review
+// summary (`r3 reanchor --quote`).
 export const SUMMARY_FILE = "@summary";
 
 // Cap stored anchor quotes to this many leading lines: a short span relocates far
@@ -67,15 +53,10 @@ export function capQuote(raw: string): string {
 export const MAX_CONTEXT_ROWS = 5000;
 
 export type ReviewSource =
-  // kind: 'diff' — provenance only (what round 1 was snapshotted from; "" = piped
-  // in via stdin). The rendered content is the review's stored patches: an
-  // append-only list of immutable diff "rounds", never re-derived from
-  // these refs after creation.
-  { base: GitRef; head: GitRef } | { ref: GitRef; files: string[] }; // kind: 'files' — ref:'SCRATCH' = adhoc doc(s) in the scratch dir
+  // kind: 'diff' — provenance only ("" = piped); content is stored patches.
+  { base: GitRef; head: GitRef } | { ref: GitRef; files: string[] }; // kind: 'files' — ref:'SCRATCH' = adhoc scratch dir
 
-// One stored diff round of a `kind:'diff'` review. Rounds are
-// immutable once added — feedback anchored to a round can never orphan — and
-// independent: round N's line numbers owe nothing to round N-1's.
+// One stored diff round. Immutable once added — independent of other rounds.
 export interface PatchMeta {
   seq: number; // monotonic per review (1, 2, …); never reused after `diff rm`
   label: string | null; // short human hint, e.g. "abc123^..abc123" or "round 2: fixes"
@@ -93,13 +74,7 @@ export interface PatchInfo extends PatchMeta {
   deletions: number;
 }
 
-// A frozen capture of a files review's content at a moment. Unlike a
-// diff review's stored rounds (which hold unified-diff *text*), a snapshot stores
-// each file's *full content*, so the server can derive an accurate diff between
-// any two snapshots — or a snapshot and the live working content — on demand.
-// Snapshots are append-only + immutable, and feedback is NOT scoped to them: it
-// stays anchored to the live file (quote-first) and is located by quote in
-// whichever snapshot/diff view is shown. Only `kind:'files'` reviews have them.
+// Frozen full-text capture of a files review. Feedback stays on the live file.
 export interface SnapshotMeta {
   seq: number; // monotonic per review (1, 2, …)
   label: string | null; // short human hint, e.g. "before feedback" / "round 2"
@@ -122,8 +97,8 @@ export interface WorktreeDescriptor {
   pathHint: string;
 }
 
-// A registered project. Identity is the shared git object store
-// (common-dir), so all worktrees of one clone are one repo and copies are not.
+// Identity is the shared git object store (common-dir): worktrees of one clone
+// are one repo; copies are not.
 export interface RepoRecord {
   id: string; // repo_<short>
   commonDir: string; // realpath of `git rev-parse --git-common-dir`
@@ -168,11 +143,8 @@ export interface Feedback {
   body: string;
   file: string; // repo-relative path
   side: DiffSide | null; // diff side; null for files/raw
-  // A *whole-file* note carries a real `file` path but no span: `line_start`,
-  // `line_end`, and `quote` are all null (the file itself is the anchor). Like
-  // summary feedback it has no quote to relocate, so the automatic re-anchor pass
-  // skips it and it never goes `outdated`. Distinct from general (review-level)
-  // feedback, which has no `file` at all.
+  // Whole-file note: real `file`, but line_start/line_end/quote all null. Re-anchor
+  // skips these. Distinct from general (review-level) feedback, which has no `file`.
   line_start: number | null;
   line_end: number | null;
   quote: string | null; // verbatim selected text — the anchor of record
@@ -184,19 +156,9 @@ export interface Feedback {
   patch_seq: number | null;
   created_at: string;
   updated_at: string;
-  // When this feedback was last delivered to the agent via a prompt hand-off
-  // (Copy / `r3 prompt` / `r3 watch`); null = never sent. Drives unsent-only
-  // prompts — a prompt re-sends only feedback the agent hasn't seen.
-  // Agent-authored feedback is born delivered (sent_at = created_at): the agent
-  // wrote it, so only the human's replies/resolution flow back through prompts.
+  // Last prompt hand-off; null = never sent. Agent-authored feedback is born delivered.
   sent_at: string | null;
-  // True when the status changed since the last hand-off (a bare Resolve/Reopen
-  // click posts no reply, so sent_at alone can't see it). Makes the decision
-  // itself deliverable: the next prompt reports "feedback_x [resolved]" and
-  // clears the flag. Set on every real status flip of a *delivered* item (an
-  // undelivered one owes nothing extra: open items deliver in full with their
-  // current status, and a note resolved before any hand-off is settled without
-  // the agent), cleared on delivery.
+  // Status changed since last hand-off (bare Resolve/Reopen posts no reply).
   status_unsent: boolean;
 }
 
@@ -227,10 +189,7 @@ export interface Reply {
   ref_version: number | null;
 }
 
-// A feedback-scoped, time-bounded assertion from an agent that it is actively
-// handling the item. This is deliberately separate from Feedback.status:
-// open|resolved remains human-controlled, while a claim is operational presence
-// that expires or is released by an agent reply.
+// Time-bounded presence lease; not a third Feedback.status.
 export interface FeedbackClaim {
   feedback_id: string;
   session: string; // human-readable display label
@@ -245,28 +204,13 @@ export interface FeedbackWithReplies extends Feedback {
   claim: FeedbackClaim | null;
 }
 
-// The human replies the agent hasn't been handed yet — agent replies never count,
-// the agent wrote them. Named because three callers need exactly this set: the
-// unsent predicate below, the prompt's follow-up block (server/prompt.ts), and
-// the web's Approve gate (ReviewHeader) — which are the three places it drifted
-// as three hand-written copies.
+// Human replies the agent hasn't been handed (agent replies never count).
 export function unsentHumanReplies(fb: FeedbackWithReplies): Reply[] {
   return fb.replies.filter((r) => r.author === "human" && r.sent_at == null);
 }
 
-// A feedback holds content the agent hasn't been sent yet — THE unsent predicate,
-// shared so the server's unsent prompt (server/prompt.ts), the CLI's watch/prompt
-// wake-up, and the web's Copy/Submit gate can never drift apart.
-// - Never delivered: counts only while still open — a note the human wrote *and*
-//   resolved before any hand-off was settled without the agent; don't announce it
-//   after the fact. (Agent-authored feedback is born delivered, so it can't land
-//   here.)
-// - Already delivered: a human reply posted since the last hand-off, or an
-//   undelivered status flip (a bare Resolve/Reopen click) — the decision itself is
-//   content the agent tracks to resolution.
-//
-// This is the *delivery* question. "Would approving lose something?" is narrower
-// and belongs to the UI alone — see ReviewHeader's `blocksApprove`.
+// Shared unsent predicate (prompt, CLI watch, Copy/Submit). Never-delivered
+// counts only while still open; status_unsent is the delivery flag for a status flip.
 export function hasUnsentContent(fb: FeedbackWithReplies): boolean {
   if (fb.sent_at == null) return fb.status === "open";
   return unsentHumanReplies(fb).length > 0 || fb.status_unsent;
@@ -410,16 +354,8 @@ export interface UpdateReplyBody {
   body: string;
 }
 
-// ---- viewed marks (per-reviewer read-progress; server-persisted) ----
-
-// r3 is single-user (one daemon, one token), so "have I read this file" is this
-// reviewer's progress through the review — server-persisted (GET/PUT below) so it
-// follows the review across browsers/devices, not just the tab that set it. A
-// `key` is an opaque content-identity token minted by the client: `d:<seq>:<path>`
-// for a diff round's file (per round, immutable) and `f:<path>@<sha>` for a live
-// files-review file (so a file whose content changed drops its mark automatically,
-// since the new sha yields a new key). No SSE — a second tab reconciles on refetch.
-// It's a UI affordance with no CLI surface (the agent doesn't consume it).
+// ---- viewed marks (per-reviewer read-progress) ----
+// Key is content identity (`d:<seq>:<path>`, `f:<path>@<sha>`), not a path.
 export interface ViewedResponse {
   keys: string[];
 }
@@ -475,21 +411,8 @@ export interface DiffLine {
   // this is the literal @@ header text (not highlighted).
   html: string;
   text: string; // raw text of the line (no leading +/-/space), for quote anchoring
-  // 'hunk' rows only: how many unchanged lines the server actually HOLDS around
-  // this hunk and could serve (…/diff-context). `up` is the gap immediately
-  // above it; `down` the gap below, set on the last hunk of each CONTIGUOUS RUN.
-  // Within a run every other downward gap is the next hunk's `up` and would be
-  // double-counted — but a run's tail is reported by nobody else, since the next
-  // hunk sits across a stretch the patch never captured and its `up` is 0. Bodies
-  // have several runs whenever capture itself had gaps (a round trimmed to -U25
-  // whose change clusters sit far apart), so keying `down` to the file's last
-  // hunk alone would strand those rows unreachable.
-  //
-  // Absent or all-zero means "nothing more exists", which is the honest answer
-  // for a legacy round, a `--stdin-diff` round captured at -U3, and the live
-  // getDiff fallback. The client shows no expander at all in that case rather
-  // than a control that fails — so the capture policy stays entirely
-  // server-side and the client needs to know nothing about it.
+  // Hunk rows: held context for expand (`down` on the last hunk of each contiguous
+  // run). Absent/zero = no expander.
   expandable?: { up: number; down: number };
 }
 
@@ -606,9 +529,7 @@ export interface WatcherInfo {
   session: string; // human-readable display string (a session name)
   agentId?: string; // precise machine id, for other tools to jump to the agent
 }
-// A review admits ONE live watch at a time, so this holds 0 or 1 — it stays an
-// array because three clients read the shape and the singular case reads the
-// same either way.
+// 0 or 1 watchers; an array so clients keep the same shape.
 export interface WatchersResponse {
   watchers: WatcherInfo[];
 }
@@ -625,23 +546,9 @@ export interface WatchRefusedResponse {
 // would trade the slot forever.
 export const SUPERSEDED_EVENT = "superseded";
 
-// ---- auth (quick-auth: login token -> session cookie) ----
-//
-// r3's browser auth follows the zellij web-client model, and it's gated by ONE
-// login policy: REQUIRE_LOGIN (server/config.ts, decided at startup — a policy, not
-// a per-request detection, since r3 can't tell a truly-local client from a proxied
-// one).
-//   login not required (default: loopback bind, no public URL) — every client is
-//     already local, so /api/boot hands the same-origin page the per-user API
-//     **token** and there's no login. Unchanged, zero-friction.
-//   login required (a `tailscale serve` name, a non-loopback bind, or
-//     R3_REQUIRE_LOGIN=1) — the web UI requires a **login token** (user-created,
-//     hashed, shown once, revocable) traded via POST /api/auth/login for an HttpOnly
-//     session cookie. The per-user token is NEVER sent to a browser; the CLI still
-//     uses it directly.
+// ---- auth (login token → session cookie when REQUIRE_LOGIN) ----
 
-// GET /api/boot — the SPA's first call. `needsAuth:true` (only when login is
-// required) means "no valid session" → render the login screen; `token` is then null.
+// GET /api/boot. `needsAuth:true` → login screen; `token` is then null.
 export interface BootResponse {
   needsAuth: boolean;
   // The per-user API token when login isn't required (the SPA sends it as

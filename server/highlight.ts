@@ -1,7 +1,4 @@
-// Server-side syntax highlighting. We highlight on the server and
-// ship HTML/CSS-variable spans to the client, so Shiki's WASM/grammar weight
-// never reaches the browser. Dual-theme (light+dark) in one pass via CSS
-// variables, and per-blob caching keyed by content sha.
+// Server-side syntax highlighting. Dual-theme via CSS variables; cached by content sha.
 
 import { bundledLanguages, bundledThemesInfo, codeToTokens, type ThemedToken } from "shiki";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
@@ -426,12 +423,8 @@ export async function highlightToLines(
   return lines;
 }
 
-// ---- Markdown render with per-block source-line mapping. Every mapped block
-// token gets data-line-start/end so the client can anchor feedback to a
-// heading/paragraph/code-fence/list-item/table-row by source line. The `md`
-// instance itself lives in mdproject.ts (the anchor search projects the same
-// parse — the two must agree on what the browser shows); this module decorates
-// it with the render-only rules below.
+// ---- Markdown render. The `md` instance lives in mdproject.ts (anchor search
+// projects the same parse — the two must agree); this module adds render-only rules.
 
 // Remote images fetch with no click, so they'd beacon on view; render them as
 // links instead (REMOTE_URL_RE, mdproject.ts).
@@ -447,16 +440,9 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
     ` title="Remote image — not loaded automatically">${escapeHtml(alt || src)}</a>`
   );
 };
-// ---- Links. A reviewed doc set links to its neighbours the way it would on
-// GitHub — `[models-and-cost.md](models-and-cost.md)`, relative to the file that
-// contains it. Rendered inside the SPA those resolve against the *page* URL
-// (`/review_<id>`), so a click used to open `/models-and-cost.md` in a new tab:
-// never the file, which the review is very likely already showing. Resolve a
-// relative target against the containing file's directory instead and hand the
-// click to the client, which scrolls to that file's card (web/src/doclinks.ts).
-// Only a genuinely off-repo link (a scheme, `//host`) keeps the new-tab
-// treatment — a link with no target navigates the SPA away in-tab, discarding
-// open composers. ----
+// ---- Links. Relative targets resolve against the containing file's directory
+// (not the SPA page URL) and the client jumps to that file's card. A scheme /
+// `//host` keeps new-tab. A link with no target would navigate the SPA away. ----
 
 // Resolve a link target against the directory of the file that contains it.
 // Lexical only, no fs: the result is matched against the review's file list on
@@ -524,21 +510,10 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return defaultLinkOpen(tokens, idx, options, env, self);
 };
 
-// ---- Fenced code blocks. A reviewed doc is mostly prose *about* code, so a
-// fence that names its grammar (```ts) gets the same Shiki pass — and the same
-// syntax theme — the code view uses; the rendered view was the one place code
-// stopped looking like code. An unknown/absent language still renders escaped
-// and unstyled, so nothing regresses to a wrong grammar.
-//
-// ` ```mermaid ` / ` ```mmd ` is the exception: flowchart and sequenceDiagram
-// fences render to a safe SVG (server/mermaid.ts) instead of being highlighted
-// as source. A diagram we don't parse falls through to the Shiki/plain path.
-//
-// markdown-it renders synchronously and Shiki tokenizes asynchronously, so the
-// highlight can't happen inside the rule. `renderMarkdown` parses once,
-// highlights every fence in that token stream, hangs the HTML on the token, and
-// renders those same tokens — no second parse to keep in step, and no
-// module-level scratch state an interleaved render could read.
+// ---- Fenced code blocks. A named grammar gets the same Shiki pass as the code
+// view; unknown/absent stays escaped. ` ```mermaid ` / ` ```mmd ` is the exception
+// (safe SVG). markdown-it is sync and Shiki is async, so highlight after parse
+// and render those same tokens — no second parse, no module-level scratch state.
 
 interface FenceHighlight {
   html: string;

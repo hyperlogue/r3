@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReviewSwitcher } from "./ReviewSwitcher.tsx";
 
-// The always-present "Reviews" breadcrumb; clicking it returns to the home list.
-// The stand-in bar mirrors the real navbar (h-8, no vertical padding) so the
-// full-height, square hover background reads as a tab. A quick-switch popup panel
-// will live here in the future.
+// Navbar "Reviews" breadcrumb. The stand-in bar mirrors the real navbar (h-8).
 const meta = {
   title: "Components/ReviewSwitcher",
   component: ReviewSwitcher,

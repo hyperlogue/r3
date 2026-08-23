@@ -1,13 +1,7 @@
 import { hrefFor, navigate } from "../router.ts";
 
-// The "Reviews" breadcrumb back to the reviews home list — always present in the
-// top navbar (App.Header), whether or not a review is open — the reviews list is
-// a full page (Home) now, not a docked sidebar. A real anchor (it navigates), so
-// middle-click / ⌘-click open the list in a new tab natively while a plain
-// left-click stays in-app (preventDefault + navigate); that also gives it the
-// native link cursor for free. A full-height, square (un-rounded) navbar cell;
-// hover just brightens the text (no background) so it reads as a plain nav link.
-// A quick-switch popup panel (jump to another review) will live here in the future.
+// Navbar "Reviews" breadcrumb. A real anchor so middle-click / ⌘-click open a
+// new tab; left-click stays in-app.
 export function ReviewSwitcher() {
   return (
     <a

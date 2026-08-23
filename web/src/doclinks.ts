@@ -1,9 +1,4 @@
-// In-review doc links: the relative `[…](other.md)` links a reviewed `.md`
-// carries. The server resolves each one against the file that contains it and
-// emits an `a.r3-doclink` carrying the resolved repo-relative path (plus the
-// slug of any `#fragment`) — see the link rule in server/highlight.ts. Here we
-// read that off a click and mark the ones with nowhere to go, so a review of a
-// doc set reads the way it does on GitHub: click a sibling doc, land on it.
+// In-review doc links: click an `a.r3-doclink` to jump to that file's card.
 
 // A doc link parsed off a clicked anchor. `hash` is a heading slug matching the
 // `data-r3-heading` the server tags headings with; null when the link named none.

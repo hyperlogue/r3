@@ -1,15 +1,6 @@
 #!/usr/bin/env node
-// r3 launcher — the npm package's only runtime file. It selects and execs the
-// prebuilt native `r3` binary that ships in a per-platform optional-dependency
-// package (`@hyperlogue/r3-<os>-<arch>`). npm/bun install only the package whose
-// `os`/`cpu` match the host, so the matching binary is already on disk by the
-// time this runs — no download, no network, no checksum dance. This file just
-// resolves it and hands off, forwarding argv, stdio, and the exit code/signal.
-//
-// Deliberately plain, dependency-free Node ESM using only cross-runtime APIs, so
-// the SAME file runs under both `bunx @hyperlogue/r3` (Bun) and `npx @hyperlogue/r3`
-// (Node ≥18). The binary is fully self-contained (it embeds the Bun runtime +
-// SPA), so whichever runtime ran this launcher is irrelevant to how r3 itself runs.
+// npm launcher: resolve + exec the matching `@hyperlogue/r3-<os>-<arch>` binary.
+// Plain Node ESM so the same file runs under bunx and npx.
 
 import { spawn } from "node:child_process";
 import { chmodSync } from "node:fs";

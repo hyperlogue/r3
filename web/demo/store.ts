@@ -1,7 +1,4 @@
-// The demo's persistence: one JSON blob in localStorage, seeded from the
-// build-time fixtures. Every backend mutation calls persist() so edits (feedback,
-// replies, resolves, agent rounds) survive a reload; resetDemo() restores the
-// pristine seed. There is no server — this module is the whole storage layer.
+// Demo persistence: one JSON blob in localStorage, seeded from build-time fixtures.
 
 import { SEED } from "./fixtures.gen.ts";
 import type { DemoState } from "./model.ts";

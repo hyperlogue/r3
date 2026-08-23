@@ -1,7 +1,4 @@
-// Map a DOM text selection to a feedback anchor: { file, side, lineStart,
-// lineEnd, quote }. Code/diff lines carry data-line (+ data-side); Markdown
-// blocks carry data-line-start/end; the file path lives on the nearest
-// [data-file] ancestor (the quote is the anchor of record).
+// Map a DOM text selection to a feedback anchor. Quote is the anchor of record.
 
 import type { DiffSide } from "./types.ts";
 // capQuote (the cap on a stored quote's leading lines, applied in

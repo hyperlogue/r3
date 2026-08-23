@@ -1,8 +1,5 @@
-// Gutter (line-number) selection: click a line number to anchor feedback to
-// that one line; drag down the number column to anchor a multi-line range.
-// Complements the free text-selection path (selection.ts) with a faster,
-// precise way to pick whole lines. Drag is local to one file block — the hook
-// is instantiated per block, so the anchor never crosses files.
+// Gutter line-number pick/drag. Instantiated per file block so the anchor
+// never crosses files.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { capQuote, type DiffSide, MAX_QUOTE_LINES } from "./types.ts";

@@ -1,6 +1,4 @@
-// A minimal pathname router (the app has two views: the reviews list at `/`
-// (Home) and a review — see App.tsx). Avoids pulling in a routing framework + its
-// codegen for an internal tool; deliberately small.
+// Pathname router: `/` reviews list, `/review_<id>` a review.
 
 import { useSyncExternalStore } from "react";
 

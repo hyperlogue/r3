@@ -1,13 +1,5 @@
-// Stored diff rounds. A `kind:'diff'` review's content is an
-// append-only list of immutable unified-diff patches ("rounds") owned by the
-// daemon — where the diff came from (a commit, a range, the working tree, or a
-// pipe) stops mattering the moment it's stored. Rounds are independent: round
-// N's line numbers owe nothing to round N-1's, which is what makes "fix up an
-// old commit" representable at all. Because a round never changes, feedback
-// anchored into it can never orphan — diff reviews need no re-anchoring, no
-// file watching, and no worktree to render (contrast files reviews, which are a
-// live view). Parsing/highlighting reuses the unified-diff machinery in git.ts;
-// storage is the `patches` table (db.ts), cascade-deleted with the review.
+// Stored diff rounds: append-only immutable unified-diff patches. Parsing
+// reuses git.ts; storage is the `patches` table.
 
 import type { DiffFileChange, DiffLine, PatchDiff, PatchInfo } from "../shared/types.ts";
 import { normalizeWs } from "./anchor.ts";

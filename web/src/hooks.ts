@@ -1,5 +1,4 @@
-// Live updates: one shared EventSource to /api/events; React Query invalidations
-// on the server's SSE events keep the UI fresh without polling.
+// SSE + query invalidation.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";

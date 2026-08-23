@@ -1,12 +1,6 @@
-// Precise sub-block highlighting for rendered markdown via the CSS Custom
-// Highlight API (developer.mozilla.org/docs/Web/API/CSS_Custom_Highlight_API).
-//
-// Rendered markdown carries only block-granular data-line-start/end, so a
-// line-range highlight can paint no smaller than a whole <p>/<ul>/<table> —
-// much larger than the text a feedback actually points at. Instead we locate the
-// feedback's `quote` (the anchor of record) inside its block and
-// highlight exactly that text. Ranges highlight without mutating the DOM, so
-// this coexists with the server HTML injected via dangerouslySetInnerHTML.
+// Quote ranges in rendered markdown (CSS Custom Highlight). Quote is the
+// anchor of record; ranges don't mutate the DOM so they coexist with
+// dangerouslySetInnerHTML.
 
 // Registry names paired with the ::highlight() rules in main.css.
 export const HL_FEEDBACK = "r3-feedback";

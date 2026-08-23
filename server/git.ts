@@ -1,9 +1,5 @@
-// Git access + a unified-diff parser (the highest-value port from
-// difit, re-implemented). Everything shells out to `git` via Bun.spawn. The v2
-// daemon is multi-repo, so git ops run in a per-request `Repo`'s
-// worktree (`repo.git()` = `cwd: repo.worktreePath`) and validate paths against
-// it (`repo.safePath`), rather than a module-global ROOT. `runGitIn` is the
-// low-level primitive the Repo factory builds on (server/repo.ts).
+// Git access + unified-diff parser. Ops run in a per-request Repo worktree
+// (`repo.git()`); `runGitIn` is the low-level primitive.
 
 import { readFileSync, statSync } from "node:fs";
 import type {

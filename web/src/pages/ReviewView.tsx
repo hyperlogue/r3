@@ -39,9 +39,7 @@ import {
   useRegionHighlight,
 } from "../highlights.ts";
 import { useKeyBindings } from "../keys.ts";
-// The one sanctioned mobile-module import (see the mobile-tier skill): ReviewView
-// is the single mount point that swaps the desktop side-dock for the phone
-// chrome. Everything else mobile is inert max-md:/pointer-coarse: classes.
+// The one sanctioned mobile-module import: ReviewView is the single mount point.
 import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
@@ -72,18 +70,12 @@ import { usePaneJumps } from "../usePaneJumps.ts";
 import { diffViewedKey, fileViewedKey, useViewedFiles } from "../viewed.ts";
 import { useVirtualPaneController, VirtualPaneProvider } from "../virtual.tsx";
 
-// A files review's derived snapshot-diff is rendered through DiffView as a single
-// synthetic round; this is its [data-round] seq. Feedback in a files review keeps
-// patch_seq null (it isn't scoped to a round), so this only scopes the DOM query
-// for active-line highlighting — it never reaches the server.
+// Synthetic [data-round] seq for a files-review snapshot-diff. Never sent to the
+// server (files-review feedback has patch_seq null).
 const SNAPSHOT_DIFF_SEQ = 0;
 
-// The scroll-spy hands the "current file" marker on to the next block once the
-// one above it is down to this share of the pane's height — i.e. it's nearly
-// scrolled away and you're already reading its successor. Below the crossover the
-// marker moves while the next file's header is still travelling toward the top,
-// which is the point: waiting for it to arrive left the marker a full screen
-// behind. See the spy for why a block that's wholly visible is exempt.
+// Scroll-spy hands "current file" to the next block once the one above is down
+// to this share of pane height. Wholly-visible blocks are exempt.
 const ACTIVE_HANDOFF_SHARE = 0.15;
 
 // Mobile: wraps the pane toolbar so it sticks at the pane top (z-20 paints it
@@ -685,13 +677,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // early-returns "Loading review…" — scopeRef is null there, and a one-shot
   // effect would never attach on a cold load.
   //
-  // ALSO keyed on the rendered file set: a version switch (a round tab, `<`/`>`, a
-  // snapshot pick) swaps the pane's blocks without touching `detail` and without
-  // necessarily firing a scroll event, so the spy would keep reporting a file the
-  // new view doesn't render. That used to be cosmetic; the per-file shortcuts
-  // MUTATE against activePath, so a stale one means `x` writes a viewed mark under
-  // a key no card reads and `a` opens a whole-file note the server rejects as
-  // untouched by the round. Re-measuring on the swap keeps the target honest.
+  // ALSO keyed on the rendered file set: a version switch swaps the pane's blocks
+  // without touching `detail` or firing a scroll. Per-file shortcuts MUTATE against
+  // activePath, so a stale one writes a viewed mark no card reads / opens a
+  // whole-file note the server rejects. Re-measure on the swap.
   const fileListKey = fileList.join("\n");
   // biome-ignore lint/correctness/useExhaustiveDependencies: detail + the rendered file set are the re-attach/re-measure triggers; the listener reads the DOM, not either object
   useEffect(() => {
@@ -877,15 +866,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
   }, [fileQuote]);
 
-  // Anchor a draft to whatever text is selected in the file view. Listen at the
-  // document level, not on the scroll pane: a selection drag can end anywhere —
-  // notably over the feedback panel — where the pane's own mouseup never fires,
-  // which is why re-selecting near the panel edge used to leave the pending
-  // draft stuck on the old region. getSelectionAnchor returns null unless the
-  // selection actually lands on a file line, so clicks and panel-internal
-  // selections are ignored. Coarse pointers never fire a usable mouseup for a
-  // long-press selection — the AddFeedbackPill (mounted below) drives them off
-  // selectionchange instead — so skip this listener there.
+  // Anchor a draft to the file-view selection. Listen at document level: a drag
+  // can end over the feedback panel, where the pane's mouseup never fires.
+  // getSelectionAnchor is null unless the selection lands on a file line. Coarse
+  // pointers never fire a usable mouseup — AddFeedbackPill drives those.
   useEffect(() => {
     if (coarse) return;
     const onMouseUp = () => {
@@ -1161,21 +1145,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             onSelect={selectFile}
           />
         )}
-        {/* Content column: a diff review with more than one round gets a round
-            switcher above the scroll pane so the file panel shows a single round
-            at a time (the pane stays scrollable under it). */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Desktop: the review summary docks at the top of the file-viewer
-              column rather than full-width above the split (its prose is
-              width-capped, so the extra width the full span bought was wasted
-              whitespace on the right), and the toolbar is pinned above the
-              scroll pane. Mobile mounts both inside the pane instead — see the
-              header-stack comment above. */}
           {!isMobile && reviewSummaryEl}
           {!isMobile && paneToolbarEl}
-          {/* shiki-surface paints the pane in the syntax theme's own editor
-              background, so the full-bleed file blocks read as one continuous
-              full-height surface (no card insets, nothing peeking around them). */}
+          {/* shiki-surface: syntax theme's editor background, full-bleed. */}
           <div
             ref={scopeRef}
             className="shiki-surface min-w-0 flex-1 overflow-y-auto"
@@ -1191,9 +1164,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                 registry={progressive.registry}
                 enabled={progressiveFiles}
               >
-                {/* Mobile: the header + summary scroll away with the code, but the
-                  toolbar (switcher · round summary · buttons) sticks at the pane
-                  top — the sticky header stack is toolbar + file header. */}
+                {/* Mobile: header + summary scroll away; toolbar sticks. */}
                 {isMobile && (
                   <>
                     {reviewHeader}
@@ -1203,9 +1174,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     )}
                   </>
                 )}
-                {/* Desktop keeps the round summary at the top of the scrollable
-                  content, above the file blocks (mobile mounts it in the toolbar
-                  instead — the `summary` slot above). */}
                 {!isMobile && roundSummaryEl}
                 {isDiff && diff && (
                   <DiffView
@@ -1233,9 +1201,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   </p>
                 )}
 
-                {/* Files review, diff mode: the derived snapshot→snapshot (or
-                snapshot→live) diff, rendered through DiffView as one synthetic
-                round. Feedback is placed onto it by quote. */}
                 {!isDiff &&
                   diffMode &&
                   (snapDiff ? (
@@ -1256,8 +1221,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     <p className="p-6 text-sm text-neutral-400">Loading diff…</p>
                   ))}
 
-                {/* Files review, plain view: the live files (to=Current) or a chosen
-                snapshot's captured content (to=snapshot N). */}
                 {!isDiff &&
                   !diffMode &&
                   filesSrc &&
@@ -1320,8 +1283,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             className="relative shrink-0 border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
             style={{ width: feedbackWidth }}
           >
-            {/* Drag handle straddling the left border; grabs a 8px strip and
-                widens the panel as you pull it left. Double-click resets the split. */}
             <div
               onPointerDown={onFeedbackResize}
               onDoubleClick={onFeedbackResetSplit}
@@ -1345,8 +1306,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           review-scoped, so on the reviews list the sheet would document keys that
           do nothing. Owns its own open state and the `help` binding. */}
       <ShortcutsOverlay />
-      {/* "Quote in note" bubble for a file-pane selection made while the anchored
-          composer already holds text — fixed-positioned, so it lives at the root. */}
       {fileQuote && <QuoteBubble pos={fileQuote} label="Quote in note" onQuote={quoteIntoNote} />}
       {/* Touch-tier selection anchoring: the pill floats over a code selection and
           routes the tap through the same applyAnchorGesture the mouseup path uses.

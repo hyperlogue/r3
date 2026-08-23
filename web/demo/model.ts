@@ -1,8 +1,5 @@
-// The in-browser store's row shapes. A demo review is fully self-contained: its
-// diff rounds and snapshot diffs are stored ALREADY RENDERED (Shiki HTML baked in
-// at build time — see scripts/gen-demo-fixtures.ts), so the browser never runs a
-// highlighter. Live file text is kept alongside (fileContents) so the pure
-// re-anchor + textdiff logic can run against real content.
+// Demo store row shapes. Diffs/blobs are stored already rendered (no highlighter
+// in the browser); live file text is kept for re-anchor + textdiff.
 
 import type {
   DiffFileChange,

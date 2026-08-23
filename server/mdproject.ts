@@ -1,19 +1,6 @@
-// Rendered-text projection of Markdown source — the anchor search's view of
-// what the browser actually shows. A quote selected in rendered markdown is the
-// DISPLAYED text: markup stripped (`code`, **em**, [link] syntax), entities
-// decoded. Matching that against raw source needs edit-distance slack that
-// dense markup exhausts — a mid-quote URL or a table's pipes cost more edits
-// than the fuzzy budget allows, so the quote never located and the note wore
-// "outdated" with nothing changed. Projecting the parsed TOKEN STREAM to the
-// text markdown-it will render — with a per-character map back to source
-// lines — lets those quotes match exactly, like any code quote.
-//
-// This module owns the ONE markdown-it instance: the parse config decides what
-// the browser shows, so the projection and the renderer must share it —
-// server/highlight.ts decorates this same instance with its render-only rules
-// (images, doclinks, data-line tagging). Kept Shiki-free so the browser demo's
-// backend mirror (web/demo/backend.ts) can import it without dragging the
-// highlighter into the bundle.
+// Rendered-text projection of Markdown — what the browser shows, mapped back to
+// source lines. Owns the ONE markdown-it instance (highlight.ts decorates it);
+// Shiki-free so the demo backend can import it.
 
 import MarkdownIt from "markdown-it";
 import { type ProjectedDoc, projectDoc } from "./anchor.ts";

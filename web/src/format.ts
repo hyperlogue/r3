@@ -1,13 +1,9 @@
-// Display formatting shared across views, kept here so the reviews-list row and
-// the review header can't drift (they used to hand-roll `sourceLabel` separately,
-// with subtly different sha lengths, separators, and file-count wording).
+// Display formatting shared across the reviews list and the review header.
 
 import type { Review } from "./types.ts";
 
-// Reviews-list ranking: live agent activity (blocked on `r3 watch`, or explicitly
-// claiming feedback) floats to the top, then open work, approved, and abandoned.
-// Within a tier, most-recently-updated first. Lives here so the home list (and the
-// future quick-switch popup) can't drift out of order.
+// Reviews-list ranking: watching/working, then open, approved, abandoned;
+// within a tier, most-recently-updated first.
 function reviewRank(r: Review): number {
   if (r.watching || r.working) return 0;
   switch (r.status) {

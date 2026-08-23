@@ -1,18 +1,7 @@
-// Keeping feedback from orphaning. The anchor of record is the
-// *quote*; the line number is only a hint. On render / file-change we search the
-// current file for the quote (whitespace-insensitive, preferring near the old
-// line) and relocate the feedback. If the quote is gone, the feedback is marked
-// `outdated` rather than silently mis-pointing.
-//
-// A quote captured in the browser comes from *rendered* text: selecting inside a
-// Markdown block yields the prose with source markup stripped (`` `code` ``,
-// *em*, `[links]`), so a verbatim substring search against the raw file misses
-// even when the text is plainly there. Markdown files therefore search TWO
-// projections of the same content (findQuoteAcross): the rendered-text
-// projection (mdproject.ts — what the browser shows, where such quotes match
-// exactly) and the raw source (agent CLI quotes, the raw view). The
-// edit-distance fallback (`fuzzyFind`) still catches minor edits in any
-// projection.
+// Quote is the anchor of record; the line number is only a hint. Relocate on
+// render / file-change; mark `outdated` rather than silently mis-pointing.
+// Markdown searches two projections (rendered text + raw source) — a browser
+// selection is markup-stripped, so raw-only search would miss.
 
 export interface AnchorMatch {
   lineStart: number; // 1-based

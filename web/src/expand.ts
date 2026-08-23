@@ -1,22 +1,6 @@
-// Expand-context: turning a diff's collapsed gaps into revealed rows.
-//
-// The server renders a diff at 3 lines of context but may HOLD more (a round
-// captured wide, or a snapshot diff where it owns both full contents). It says so
-// on each hunk row via `expandable`: `up` is the gap above that hunk, `down` the
-// gap below it — the latter set on the last hunk of each contiguous run, since
-// within a run every other downward gap is the next hunk's `up`. Anything the
-// server doesn't hold is reported as 0, so a round with nothing spare — one
-// stored before wide capture, or piped at `-U3` or narrower — has no gaps at all
-// and shows the plain `@@` separator it always did. A round piped wider expands
-// exactly as far as its own body reaches; the client never learns which is which.
-//
-// Revealed rows are merged back into ONE row list here, and DiffView derives
-// everything from that merged list — the per-side text maps, the row-index maps,
-// the split pairing, the virtualizer's count. That matters for correctness, not
-// just tidiness: the gutter's quote assembly skips lines it can't find text for
-// (gutter.ts), so a drag across rows that were revealed but not merged would
-// silently produce a quote with lines missing — the exact mis-anchor this feature
-// is supposed to make impossible.
+// Expand-context: collapsed gaps → revealed rows, merged back into ONE row list.
+// Deriving maps from the unmerged payload would let a gutter drag build a quote
+// with lines silently missing.
 
 import { type DiffLine, MAX_CONTEXT_ROWS } from "./types.ts";
 

@@ -174,8 +174,7 @@ function usePlaceholder(base: string, hints: string): string {
 }
 
 const shortLabel = (s: string) => (s.length > 14 ? `${s.slice(0, 12)}…` : s);
-// A review admits one watch at a time (server/watchers.ts), so this names the
-// holder rather than counting a crowd; an empty list hides the indicator entirely.
+// One watcher (or empty). Names the holder rather than counting a crowd.
 function watchersLabel(watchers: WatcherInfo[]): string {
   return shortLabel(watchers[0]?.session ?? "agent");
 }
@@ -379,13 +378,10 @@ function ComposerBlock({
 // KEYMAP binds only letters and punctuation, precisely so a focused control keeps
 // its own Space/Enter.
 //
-// It stands down for a KEYBOARD-focused target (isKeyboardFocused), not for every
-// interactive one. That guard is the fix for both halves of the old bug: focus
-// stranded on a clicked pane button has no visible ring and would otherwise eat the
-// Space by re-firing that button (the "default browser action"), while a control
-// you actually tabbed to keeps Space and Tab — so the focus ring stays usable,
-// which is what retired the first version of this. Nothing is swallowed when the
-// key can't act (no textarea, or it sits in the phone tier's closed `inert` sheet).
+// Stands down for a KEYBOARD-focused target (`isKeyboardFocused`), not every
+// interactive one: click-stranded focus has no ring and would eat Space by
+// re-firing that button; a tabbed-to control keeps Space/Tab. Nothing is swallowed
+// when the key can't act (no textarea, or the phone tier's closed `inert` sheet).
 function useComposerKeys(
   textareaRef: RefObject<HTMLTextAreaElement | null>,
   onCancel: () => void,
@@ -603,8 +599,6 @@ function ReplyBlock({
           onJumpRef={onJumpRef}
         />
       )}
-      {/* Anchored reply: where the change addressing this feedback landed
-          — jump to the pinned round/file/line. */}
       {rp.patch_seq != null && !editing && (
         <button
           type="button"
@@ -1071,13 +1065,8 @@ function FeedbackCard({
       ref={cardRef}
       data-fb-card={fb.id}
       className={cn(
-        // Not a floating card — an embedded block flush to the panel. No rounded
-        // corners, no box border, no separate fill (it shares the panel's
-        // bg-neutral-50/900, which is what used to set the white card apart). Its
-        // own p-3 keeps the content off the panel edge; a full-bleed bottom rule
-        // (border-b-2) is the only thing between one feedback and the next, so the
-        // list reads as one surface rather than a stack of cards. The last block
-        // drops the rule so no divider dangles at the end.
+        // Embedded block flush to the panel. p-3 keeps content off the edge; a
+        // full-bleed bottom rule is the divider (last:border-b-0).
         "relative border-b-2 border-b-neutral-300 border-l-2 border-l-transparent p-3 transition-colors last:border-b-0 dark:border-b-neutral-700",
         // Active feedback: just the amber left rail — no fill (a full-card wash
         // was too loud). The border-l-2 above is always reserved, so activating
@@ -1096,10 +1085,6 @@ function FeedbackCard({
           className="pointer-events-none absolute inset-0 z-10 bg-neutral-50/45 dark:bg-neutral-950/45"
         />
       )}
-      {/* Header: the file:line/general/summary jump (with a stale-anchor ⚠
-          prefixing the name) sits at the left for every anchor kind; an optional
-          decision word floats to the right. One flex row that truncates, never
-          wraps. */}
       <div className="mb-1.5 flex items-center gap-1.5">
         {/* A span (not a button) so the file:line label is selectable to copy;
             the click still jumps, but a click that concluded a drag-selection is
@@ -1132,9 +1117,6 @@ function FeedbackCard({
           )}
           <span className="truncate">{locLabel(fb)}</span>
         </span>
-        {/* Agent-authored feedback wears a quiet chip in the agent's voice color
-            (the same primary tint as its reply bubbles): this item is the agent
-            guiding you, not your own note coming back. */}
         {fb.author === "agent" && (
           <span
             title="Opened by the agent"
@@ -1152,8 +1134,6 @@ function FeedbackCard({
             {shortLabel(fb.claim.session)} working
           </span>
         )}
-        {/* "Your turn" dot — an unread-style marker pinned to the header's right
-            edge (top-right of the card) when the agent replied last. */}
         {awaitingYou && (
           <span
             title="The agent replied — your turn."
@@ -1251,12 +1231,8 @@ function FeedbackCard({
         </div>
       )}
 
-      {/* Reply composer — collapsed until the human clicks "Reply", then it slides
-          open (Collapse). The action row below stays put either way so the card
-          layout never shifts. The -mx-3 rides on the Collapse (not the textarea):
-          its inner overflow-hidden would clip a margin on the textarea, so the
-          wrapper carries the full-bleed and the textarea just fills it. Hidden
-          while an edit is in progress so only the editor shows (draft is kept). */}
+      {/* -mx-3 on Collapse, not the textarea: its overflow-hidden would clip a
+          margin on the textarea. Hidden while editing so only the editor shows. */}
       <Collapse open={replyOpen && !isEditing} className="-mx-3">
         <MessageEditor
           textareaRef={replyRef}
@@ -1275,12 +1251,6 @@ function FeedbackCard({
           className="mt-3 w-full"
         />
       </Collapse>
-      {/* Action row — always present. While editing the body or a reply it becomes
-          the editor's Save/Cancel (right-aligned, replacing Reply); otherwise it's
-          Resolve then its ⋯ menu on the left, Reply on the right (nearest the
-          composer's end). With the composer closed, Reply reveals it; open, Reply
-          (or ⌘/Ctrl+Enter) sends. mt-3 both gives the open reply band its 12px
-          bottom margin and spaces the row from the thread when closed. */}
       <div className="mt-3 flex items-center gap-1 text-[0.6875rem] [&_button]:cursor-default">
         {isEditing ? (
           <div className="ml-auto flex items-center gap-1.5">
@@ -1996,11 +1966,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
           pane's bars across the split (equal heights there read as one bar). */}
         <div className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
           <div className="flex items-center justify-between gap-2">
-            {/* Title + the unsaved-draft pill. The pill rides right of the title (not
-              down in the pills row) so it reads as a status on "Feedback" itself and
-              stays visible even with no feedback/tabs yet. It counts every unsaved
-              surface — the anchored draft, the general note, and any in-progress
-              reply — since none has reached the server. */}
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0 text-base font-semibold">Feedback</span>
               {unsavedDraft && (
@@ -2013,11 +1978,8 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              {/* Add a review-level note not tied to any line. The composer opens at
-                the bottom of the list; a compact icon here replaces the old dashed
-                "+ General feedback" button that used to sit in the list. Opening it
-                discards a pending anchored draft (one composer at a time) and jumps
-                to the active tab, where composing happens. */}
+              {/* One composer at a time: opening general discards a pending
+                  anchored draft. */}
               <button
                 type="button"
                 aria-label="Add general feedback"
@@ -2077,9 +2039,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
             // simply pins the row and its contents just center within it. (The
             // unsaved-draft chip now lives up in the title row, not here.)
             <div className="flex min-h-5 items-center justify-between gap-2">
-              {/* Left: the Active/Resolved filter pills — only when there's feedback.
-              When there isn't, this bar still draws so the watching indicator on
-              the right has a home. */}
               {detail.feedback.length > 0 ? (
                 <div className="relative flex gap-1">
                   {/* The bright fill lives on this one element and slides between the
@@ -2126,9 +2085,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               ) : (
                 <span />
               )}
-              {/* Right: live working + watching indicators. They live on this bar
-              rather than a standing header row; watching also survives the
-              zero-feedback setup state (`r3 watch` starts before feedback exists). */}
               {(watching || working) && (
                 <div className="flex min-w-0 items-center gap-3 text-[0.6875rem]">
                   {working && (
@@ -2145,7 +2101,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                       className="flex min-w-0 items-center gap-1.5 text-primary-700 dark:text-primary-400"
                       title={watchersTitle(watchers)}
                     >
-                      {/* A steady dot, not a pulsing one — the blink was distracting. */}
                       <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
                       <span className="truncate">{watchersLabel(watchers)} watching</span>
                     </span>

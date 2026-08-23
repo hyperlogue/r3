@@ -4,11 +4,7 @@ import { api } from "../api.ts";
 import { copyText } from "../clipboard.ts";
 import { Button, TrashIcon, useCopyFlash } from "../ui.tsx";
 
-// Manage login tokens from the browser (the settings popup) instead of dropping to
-// `r3 auth …`. A token minted here is shown ONCE in a reveal box (it's hashed at
-// rest); the list shows the live ones with a revoke button. These tokens gate the
-// web UI only when r3 is exposed beyond loopback — you can create one here ahead of
-// exposing it.
+// Login-token panel. A minted token is shown ONCE (hashed at rest).
 export function TokenManager() {
   const qc = useQueryClient();
   const { data: tokens } = useQuery({ queryKey: ["auth-tokens"], queryFn: () => api.authTokens() });

@@ -1,12 +1,5 @@
-// Files-review content snapshots. A snapshot freezes the full text of
-// every file currently in a `kind:'files'` review; the daemon can then derive an
-// accurate diff between any two snapshots — or a snapshot and the live working
-// content — on demand (textdiff.ts), with no git and no temp files (so it works
-// for scratch reviews too). Contrast diff reviews' stored *rounds*, which hold
-// unified-diff text: snapshots hold whole files, which is what lets the from/to
-// picker diff any pair. Feedback is never scoped to a snapshot — it stays anchored
-// to the live file (quote-first) and is located by quote in whatever view shows;
-// these functions are therefore feedback-agnostic.
+// Files-review content snapshots. Feedback stays on the live file; these
+// functions are feedback-agnostic.
 
 import { statSync } from "node:fs";
 import type {

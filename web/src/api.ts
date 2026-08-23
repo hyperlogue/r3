@@ -1,9 +1,5 @@
-// Typed client for the r3 HTTP API. The per-user token is fetched once from the
-// guarded `GET /api/boot` endpoint before first render (see loadBoot); the token
-// is sent on every request — the server token-gates GET reads too, not just
-// mutations. The token is deliberately NOT baked into the served
-// HTML — that keeps the SPA shell a cacheable, embeddable static asset and the
-// token same-origin-only.
+// Typed HTTP client. Token comes from GET /api/boot, not the served HTML (the
+// SPA shell stays a cacheable static asset).
 
 import type {
   AddReplyBody,

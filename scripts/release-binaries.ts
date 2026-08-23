@@ -1,18 +1,6 @@
-// Build the per-platform native `r3` binaries into `dist/`, ready to upload to a
-// GitHub release. Cross-compiles with one `Bun.build({ compile: { target } })`
-// per platform (build plugins can't be passed to the `bun build --compile` CLI,
-// so we use the API), embedding the SPA — with its pre-lowered stylesheet
-// (scripts/spa-css.ts) — the same way `scripts/compile.ts` does for the local
-// build.
-//
-// These assets feed both release channels: uploaded as-is to the GitHub
-// Release, and repackaged by scripts/stage-npm-packages.ts into the
-// per-platform npm packages the launcher (npm/launch.mjs) resolves. Usage:
-// `bun scripts/release-binaries.ts` (then upload dist/* to the matching release).
-//
-// Deliberately no SHA256SUMS manifest: GitHub computes and publishes a sha256
-// digest per release asset, so shipping our own alongside would only duplicate
-// it — and a second copy is a second thing that can disagree.
+// Per-platform `r3` binaries into `dist/` (`Bun.build` API — plugins can't be
+// passed to `bun build --compile`). CSS is pre-lowered (scripts/spa-css.ts).
+// No SHA256SUMS: GitHub already publishes a sha256 per asset.
 
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";

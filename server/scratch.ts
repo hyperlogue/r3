@@ -1,14 +1,5 @@
-// Scratch reviews: adhoc file sets that live outside any git repo.
-// `r3 create --scratch` makes a review with an empty file list and a per-review
-// directory under the daemon's scratch root (`$XDG_STATE_HOME/r3/scratch/<id>/`);
-// the CLI prints that path so the agent never guesses it. The agent drops files
-// in there and the daemon watches the directory (watcher.ts), so the review's
-// file list + content stay live — no upload step. A scratch review is a
-// `kind:'files'` review with `source.ref = 'SCRATCH'`; its files are
-// scratch-relative ("<id>/<name>") and resolve through scratchSafePath, the
-// *second* allowed path root besides the worktree (so the strict guard still
-// holds). Content reads route through git.readContentAt (ref 'SCRATCH'), reusing
-// the files render / anchor / watch machinery.
+// Scratch reviews: adhoc files outside any git repo. scratchSafePath is the
+// second allowed path root besides the worktree.
 
 import {
   existsSync,

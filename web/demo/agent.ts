@@ -1,12 +1,5 @@
-// The scripted "agent" that closes the loop in the demo. It stands in for a real
-// `r3 watch` client: the demo seeds it as a live watcher on every review (see
-// watchers.ts), so the feedback panel's hand-off button opens as "Submit". When the
-// human hits Submit (the real hand-off path, markPrompt), this claims those items,
-// then reacts a beat later the way a live agent would — it replies by id with a
-// cheerful acknowledgement, and on a diff review's first hand-off it appends a
-// follow-up round and pins a reply to where the fix landed ("↳ addressed in diff
-// N"). Then it "loops back to `r3 watch`" by re-registering as a watcher, so the
-// panel flips back to Submit for the next round. A canned stand-in, not a model.
+// Scripted demo agent: on Submit, claim + reply (and on a diff review's first
+// hand-off, append a round and pin). Then re-register as a watcher.
 
 import { addReply, appendRound, claimFeedback, getFeedback, getReview } from "./backend.ts";
 import { getState } from "./store.ts";

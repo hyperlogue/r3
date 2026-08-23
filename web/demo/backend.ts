@@ -1,14 +1,6 @@
-// The in-browser "backend". It reimplements the daemon's domain rules against the
-// localStorage store, reusing the server's genuinely PURE modules verbatim — the
-// quote relocation (anchor.ts) and its rendered-markdown projection
-// (mdproject.ts — markdown-it only, no highlighter), the line differ
-// (textdiff.ts), the agent-prompt builder (prompt.ts), and the unsent predicate
-// (shared/types.ts). Everything git-
-// or sqlite-bound is replaced by the store; every rendered payload is pre-baked at
-// build time, so no highlighter ships to the browser (see model.ts / fixtures).
-//
-// The rules here mirror server/reviews.ts closely (derive-quote, delivery/sent_at
-// bookkeeping, re-anchoring, the SSE events fired) so the UI behaves identically.
+// In-browser backend: daemon domain rules against the localStorage store.
+// Reuses pure server modules (anchor, mdproject, textdiff, prompt); git/sqlite
+// is the store. Rendered payloads are pre-baked — no highlighter in the browser.
 
 import { findQuoteAcross, normalizeWs, type ProjectedDoc } from "../../server/anchor.ts";
 import { projectionsFor } from "../../server/mdproject.ts";

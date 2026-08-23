@@ -1,7 +1,4 @@
-// Rendered message prose (feedback bodies + replies) and the floating "quote this"
-// bubble shared by the two selection-to-quote flows. Messages render as safe
-// Markdown (markdown.ts); an `@path:Lx-y` ref inside one becomes a clickable jump
-// anchor whose click is delegated here to onJumpRef.
+// MessageProse + the shared QuoteBubble (selection-to-quote).
 
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type MessageRef, refFromEvent, renderMessageHtml } from "../markdown.ts";

@@ -1,17 +1,5 @@
-// Build the frontend-only demo: a static SPA whose "backend" is the in-browser
-// store in web/demo/. One Bun.build over the same web/index.html the daemon
-// serves, with two twists:
-//   1. bun-plugin-tailwind bundles the SPA stylesheet (browser target lowers
-//      Tailwind's nesting fine — unlike the compile build, see scripts/spa-css.ts).
-//   2. an alias plugin redirects the SPA's web/src/api.ts to web/demo/api.ts, so
-//      every fetch/SSE call routes to the browser backend instead of a daemon.
-// Output is a self-contained dist/demo/ you can host anywhere static (GitHub
-// Pages, Netlify, `bunx serve`), with no r3 daemon and no git.
-//
-// Sub-path hosting: GitHub Pages serves a project site under /<repo>/, so assets
-// AND the router must know that prefix. R3_DEMO_BASE (default "/" for a root
-// `bunx serve`) sets it — the Pages workflow passes the base_path configure-pages
-// reports. It feeds Bun's publicPath (asset URLs) and __R3_BASE__ (the router).
+// Frontend-only demo build. Aliases web/src/api.ts → web/demo/api.ts. R3_DEMO_BASE
+// is the mount prefix (GitHub Pages project sites serve under /<repo>/).
 
 import { rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";

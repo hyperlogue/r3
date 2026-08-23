@@ -1,7 +1,4 @@
-// Domain rules over the storage layer: building a review's full detail with
-// live re-anchoring, posting feedback/replies, and explicit agent
-// re-anchoring. Storage stays in db.ts;
-// this module owns the rules and the SSE side effects.
+// Domain rules over storage: review detail, feedback/replies, re-anchoring.
 
 import type {
   AddReplyBody,
@@ -861,16 +858,9 @@ export async function reanchorFeedback(
     const bad = await validateFeedbackFile(review, file, fb.patch_seq);
     if (bad) return bad;
   }
-  // A re-anchor moves the HINT; the quote is the anchor of record and survives
-  // verbatim. Re-deriving it from the new range (what this used to do) means any
-  // range that isn't exactly where that text landed silently rewrites the note to
-  // be about code the human never marked — and "I fixed this at line 100, so I
-  // re-anchored it to 100" is the mistake agents actually make, which that path
-  // turned into a rewritten quote instead of a wrong line number. A wrong range is
-  // self-correcting: the next automatic pass searches for the original quote and
-  // either relocates the note or flags it `outdated`. Visibly stale beats
-  // confidently wrong — so a quote whose text is genuinely gone stays gone, and the
-  // reply is where the agent explains what happened to it.
+  // A re-anchor moves the HINT; the quote is the anchor of record and is never
+  // rewritten here. A wrong range is self-correcting (next automatic pass);
+  // visibly stale beats confidently wrong.
   if (fb.quote && body.quote != null && normalizeWs(body.quote) !== normalizeWs(fb.quote))
     return {
       error:

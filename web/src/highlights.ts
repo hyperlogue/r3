@@ -1,13 +1,6 @@
-// Imperative feedback-highlight machinery for the review's content pane.
-// Code/diff rows are React-owned (r3-feedback-region is painted on the row);
-// rendered markdown is server HTML, so the remaining hooks toggle classes /
-// CSS Custom Highlights and re-apply them as the DOM changes. Three cooperating
-// hooks: the transient active ring + navigation scroll (useActiveLineHighlight),
-// its summary-prose sibling (useActiveSummaryHighlight — the two split ownership
-// of the shared HL_ACTIVE registry, see the comments at each), and the persistent
-// unresolved-feedback region wash for markdown (useRegionHighlight) — plus the
-// Region shape they share and the click refinement that resolves a markdown
-// block's click to the feedback whose quote is actually under the cursor.
+// Imperative feedback-highlight hooks for the content pane (active ring, summary
+// quote, markdown region wash). Code/diff rows are React-owned; markdown is
+// server HTML so we toggle classes / CSS Custom Highlights.
 
 import { useEffect, useRef } from "react";
 import {

@@ -1,17 +1,6 @@
-// Client-side Markdown for feedback bodies + replies. Messages are stored as
-// plain text (the HTTP contract carries raw text, edited inline and created
-// optimistically in the browser), so we render them to safe HTML here rather
-// than shipping HTML from the server the way file `.md` rendering does — a
-// server round-trip per keystroke-edit / optimistic card would be far clumsier.
-//
-// `html:false` means raw HTML in a message is escaped, not injected, so the
-// output is XSS-safe to hand to dangerouslySetInnerHTML. Two extras:
-//   - external links get target=_blank + rel=noopener (a bare in-SPA nav would
-//     blow away the app);
-//   - an `@path:Lx-y` token (the agent's code-reference syntax) becomes a
-//     clickable `.r3-ref` jump anchor carrying the file + line range in data-*
-//     attributes. Resolution against a version (a diff round / snapshot) is the
-//     React click handler's job — this stays version-agnostic.
+// Client-side Markdown for messages. `html:false` so raw HTML is escaped.
+// External links get target=_blank + rel=noopener; `@path:Lx-y` becomes a
+// clickable `.r3-ref` (version resolution is the click handler's job).
 
 import MarkdownIt from "markdown-it";
 

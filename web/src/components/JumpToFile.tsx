@@ -4,19 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useKeyBindings } from "../keys.ts";
 import { cn, useEscape } from "../ui.tsx";
 
-// "Jump to file" picker: a toolbar button opening the review's files as a flat,
-// filterable list — the fast alternative to the sidebar tree (desktop) and the
-// file navigation (mobile, where the sidebar is hidden). The filter input is
-// pinned to the bottom, *outside* the scrollable list, so it sits by the thumb —
-// and above the keyboard — on a phone. Type to filter, ↑/↓ (or Ctrl-p/Ctrl-n) to
-// move the cursor, Enter to open it — so the whole picker is one gesture without
-// leaving the keyboard, and Enter still lands on the top match if you never touch
-// the arrows. Rows rank unviewed-first (viewed files sink — they're what you're
-// done with) and truncate from the *front* (the tail — the basename — is what
-// identifies a file), with the basename itself a shade brighter. Desktop anchors the panel
-// as a popover under the button; below md the same panel becomes a bottom
-// sheet — a pure class fork, so this stays one component with no mobile-module
-// import.
+// Jump-to-file picker. Filter input is pinned to the bottom, outside the
+// scrollable list (thumb + keyboard on a phone). Desktop: popover; below md:
+// bottom sheet (class fork, no mobile-module import).
 
 function matchFilter(path: string, filter: string): boolean {
   return path.toLowerCase().includes(filter.toLowerCase().trim());

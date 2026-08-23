@@ -1,8 +1,4 @@
-// A tiny persisted external store: one value mirrored to localStorage and read
-// via useSyncExternalStore, so settings state stays in sync across the
-// components that read it without context or prop-drilling. Factored out of
-// settings.ts, whose syntax-theme and font-size stores each hand-rolled the
-// same listeners/getter/setter/subscribe boilerplate.
+// Persisted external store: one value mirrored to localStorage via useSyncExternalStore.
 
 import { useSyncExternalStore } from "react";
 

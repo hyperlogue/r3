@@ -1,8 +1,5 @@
-// bun:sqlite persistence. One global DB for all the
-// user's repos at `$XDG_STATE_HOME/r3/r3.sqlite`, keyed by a `repos` registry.
-// This module is pure storage: schema + typed row<->object mapping + CRUD.
-// Domain rules (status transitions, anchor drift) live in reviews.ts; repo
-// identity + worktree resolution live in repo.ts.
+// bun:sqlite persistence. Pure storage: schema + CRUD. Domain rules live in
+// reviews.ts; repo identity in repo.ts.
 
 import { Database } from "bun:sqlite";
 import { chmodSync, mkdirSync } from "node:fs";
@@ -198,10 +195,8 @@ CREATE INDEX IF NOT EXISTS sessions_by_token ON auth_sessions(token_id);
 // at load. Keep every reviews index in that post-migration block so the ordering
 // invariant is obvious; don't reintroduce a copy here.
 
-// Defensive forward-migration: add the v2 columns to a reviews table that
-// predates them (a global DB created by an earlier v2 build). New global DBs get
-// them from the CREATE above; ADD COLUMN is nullable since existing rows have no
-// value.
+// Defensive forward-migration: add columns a reviews table created before them
+// is missing. New DBs get them from CREATE; ADD COLUMN is nullable.
 function hasColumn(table: string, col: string): boolean {
   const cols = db.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
   return cols.some((c) => c.name === col);

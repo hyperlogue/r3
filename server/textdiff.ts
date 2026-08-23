@@ -1,9 +1,5 @@
-// In-process line diff (files-review snapshots). Myers shortest-edit-script
-// (git's default) plus prefix/suffix trim, producing a `DiffFileChange` — the
-// same shape `parseUnifiedDiff` emits from `git diff`, so `DiffView` renders it
-// unchanged. The daemon owns both full contents, so it can diff them itself
-// (scratch reviews have no git). Per-line `html` is left empty; snapshots.ts
-// fills it from each side's full text.
+// In-process line differ (Myers SES + prefix/suffix trim) → DiffFileChange.
+// Per-line `html` is left empty; snapshots.ts fills it.
 
 import type { DiffFileChange, DiffLine } from "../shared/types.ts";
 

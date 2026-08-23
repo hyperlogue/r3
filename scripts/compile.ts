@@ -1,11 +1,5 @@
-// Produce the single-file `r3` executable. One `Bun.build` compiles
-// the CLI entry — which imports the daemon, which imports `web/index.html` — with
-// the pre-lowered SPA stylesheet (see scripts/spa-css.ts for why the CSS is
-// Tailwind-compiled in a browser-target pass first), so Bun bundles the SPA
-// (HTML/JS/CSS) and embeds it in the binary alongside the server + runtime. No
-// generated entry/embed modules: the CLI is the binary, and the SPA rides along
-// as `Bun.embeddedFiles`. The one binary is both the CLI and the daemon (the
-// hidden `__daemon` subcommand re-execs it to serve).
+// Single-file `r3` executable (`Bun.build --compile`). CSS is pre-lowered
+// (scripts/spa-css.ts) because bun-target keeps native nesting.
 
 import { join } from "node:path";
 import { browserLoweredCssPlugin } from "./spa-css.ts";

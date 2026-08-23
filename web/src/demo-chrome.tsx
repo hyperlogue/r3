@@ -1,7 +1,4 @@
-// No-op placeholder for the demo's nav-bar chrome (the "Demo" badge + the
-// first-run intro dialog). The daemon build ships this stub — production never
-// bundles any demo UI. The frontend-only demo build aliases this module to
-// web/demo/demo-chrome.tsx (see scripts/build-demo.ts), swapping in the real one.
+// No-op stub; the demo build aliases this to web/demo/demo-chrome.tsx.
 export function DemoChrome() {
   return null;
 }

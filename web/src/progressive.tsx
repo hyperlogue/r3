@@ -1,11 +1,5 @@
-// Review-level progressive rendering for large plain-file reviews.
-//
-// Row virtualization (virtual.tsx) bounds the rows mounted *inside one file*, but
-// a large review can still mount dozens of per-file virtualizers against the same
-// scroll pane and eagerly fetch every blob. This layer bounds the other axis: one
-// shared IntersectionObserver activates only file bodies near the pane, while an
-// inactive file keeps its measured block height so the one continuous scroll
-// surface, sticky headers, scroll-spy, and file jumps keep their geometry.
+// Large files-review body hydration: one observer, measured offscreen shells.
+// Inactive files keep measured height so scroll-spy and jumps keep geometry.
 
 import {
   type CSSProperties,

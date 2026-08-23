@@ -1,8 +1,4 @@
-// Path-safety helpers. The v2 daemon is multi-repo and repo-agnostic: a
-// per-request `Repo` (server/repo.ts) carries the worktree root and validates
-// paths against it, resolved fresh per request from the review id, the CLI's
-// x-r3-repo header, or a ?repo selector. This module keeps only the *pure*
-// helpers — the repo-relative path guard and its symlink-escape check.
+// Pure path guards: repo-relative path + symlink-escape check.
 
 import { realpathSync } from "node:fs";
 import { isAbsolute, resolve, sep } from "node:path";

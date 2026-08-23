@@ -1,8 +1,4 @@
-// An in-process stand-in for the daemon's SSE stream. The real SPA opens
-// `new EventSource("/api/events?…")` in hooks.ts; here we install a global
-// EventSource shim so that code runs UNCHANGED — every backend write calls
-// broadcast(), which dispatches the same ServerEvent shapes to every live
-// subscriber, and TanStack Query invalidates exactly as it does over the wire.
+// In-process EventSource shim so hooks.ts runs unchanged.
 
 import type { ServerEvent } from "../../shared/types.ts";
 

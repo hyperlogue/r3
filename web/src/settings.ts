@@ -1,8 +1,4 @@
-// Client display settings (font size + syntax theme) as tiny external stores so
-// the settings popup and the views that consume them (FileView/DiffView query
-// keys) stay in sync without prop-drilling or context. Built on the shared
-// persistedStore factory (store.ts). Dark mode lives in hooks.ts (useTheme)
-// since it predates this.
+// Client display settings (font size + syntax theme). Dark mode lives in hooks.ts.
 
 import { persistedStore } from "./store.ts";
 

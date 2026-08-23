@@ -1,11 +1,5 @@
-// Per-reviewer "viewed" (read-progress) state, server-backed.
-//
-// The viewed *key* encodes content identity, so a mark means "I read *this
-// content*," not merely "this path": diff rounds are immutable, so a round's file
-// is keyed by (round seq, path); live files change under the review, so a file is
-// keyed by (path, content sha) — when the file changes its new sha yields a new
-// key, the old mark stops matching, and the card auto-unfolds (the "clear on
-// update" behavior) with no explicit clearing.
+// Per-reviewer "viewed" state. Key is content identity (`d:<seq>:<path>`,
+// `f:<path>@<sha>`), so a changed file auto-unfolds.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";

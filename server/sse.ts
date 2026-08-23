@@ -1,7 +1,4 @@
-// A tiny in-process pub/sub the HTTP layer turns into SSE streams. Domain writes
-// (feedback, replies, status) and the file watcher broadcast here; subscribed
-// browser tabs get live `review-updated` / `feedback-updated` / `file-changed`
-// pushes.
+// In-process pub/sub the HTTP layer turns into SSE streams.
 
 import type { ServerEvent } from "../shared/types.ts";
 

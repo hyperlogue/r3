@@ -9,13 +9,8 @@ import {
 } from "../keys.ts";
 import { cn, useEscape } from "../ui.tsx";
 
-// The `?` cheat sheet. Rendered entirely from KEYMAP, so it cannot drift from the
-// dispatcher — adding a binding there adds a row here, and a binding nobody
-// registered simply shows greyed-out rather than silently going undocumented.
-//
-// Owns the `help` binding itself (toggle), and suspends every OTHER binding while
-// it's open: without that, `j` would quietly walk the feedback list behind the
-// sheet and you'd close it somewhere else entirely.
+// `?` cheat sheet, rendered from KEYMAP. Owns `help`; suspends every other
+// binding while open so `j` doesn't walk the list behind the sheet.
 
 const GROUPS = ["Review", "Feedback", "Files", "View"] as const;
 

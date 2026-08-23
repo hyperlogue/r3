@@ -1,8 +1,5 @@
-// Copy text to the clipboard, working outside secure contexts too. The daemon
-// can bind to a remote host, where the page is served over plain
-// HTTP and `navigator.clipboard` is undefined — so fall back to a hidden
-// <textarea> + execCommand("copy"). Never throws; resolves to whether the copy
-// actually landed, so callers can show a failure state.
+// Copy text; fall back to execCommand when navigator.clipboard is undefined
+// (plain HTTP remote bind). Never throws.
 export async function copyText(text: string): Promise<boolean> {
   if (navigator.clipboard?.writeText) {
     try {

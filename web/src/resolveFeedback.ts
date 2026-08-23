@@ -1,11 +1,5 @@
-// Placing feedback in a snapshot-diff view by quote. A files review's
-// feedback stays anchored to the *live* file (its stored line number tracks live
-// content), so it can't be positioned in a snapshot→snapshot diff by line number —
-// the diff renumbers lines and shows two sides. Instead we locate the feedback's
-// quote in the diff rows: unchanged/added text lands on the new side, deleted text
-// on the old side (prefer new, like the diff renderer). The client already has the
-// diff rows' text (DiffLine.text), so this needs no extra fetch and keeps the diff
-// endpoint feedback-agnostic + cacheable.
+// Place a files-review feedback into a snapshot/round diff by quote (line
+// numbers don't agree). Unchanged/added lands on the new side, deleted on the old.
 
 import type { DiffFileChange, DiffSide, Feedback } from "./types.ts";
 

@@ -1,24 +1,5 @@
-// The keyboard layer: one flat keymap, one window listener.
-//
-// Two rules shape this, both deliberate:
-//
-//   1. Every binding fires a control that already exists on screen. Nothing here
-//      invents a capability, a mode, or review state — a shortcut is a keystroke
-//      for a button you could have clicked. That is what keeps the map short
-//      enough to hold in your head and what keeps this file free of behaviour.
-//   2. Selection stays MOUSE-ONLY. There is no cursor, no visual mode, no
-//      operator grammar, so there is nothing to parse: a chord maps to an id,
-//      an id maps to a handler. If you find yourself adding modal state here,
-//      that is the signal the scope grew.
-//
-// KEYMAP is the single source for BOTH the dispatcher and the `?` overlay
-// (ShortcutsOverlay renders straight off it), so the help can't drift from the
-// behaviour — the same one-source shape as `hasUnsentContent` in shared/types.ts.
-//
-// Handlers register per-component: whoever owns the state owns the binding
-// (FeedbackPanel takes the feedback group, ReviewView the file/view group,
-// JumpToFile its own opener). That avoids lifting state or drilling props purely
-// to serve a keystroke.
+// One flat KEYMAP + one window listener. KEYMAP is the source for both the
+// dispatcher and the `?` overlay. Handlers register per-component.
 
 import { useEffect, useRef } from "react";
 

@@ -1,8 +1,4 @@
-// Small shared helpers for the review's scrolling content pane (the scoped
-// scroll container ReviewView owns): the scroll-landing ratio, the retrying
-// row jump behind the pin/ref locates, the composer focus reach-around, and
-// the version-switch crossfade. Extracted from ReviewView.tsx so the page
-// file stays the page.
+// Content-pane helpers: retrying row jump, composer focus, crossfade.
 
 import { type RefObject, useEffect, useRef } from "react";
 import { getFontSize } from "./settings.ts";

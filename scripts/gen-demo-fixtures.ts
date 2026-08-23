@@ -1,12 +1,6 @@
-// Build-time generator for the demo's seed fixtures. It runs under Bun (so it has
-// the real Shiki/markdown-it pipeline) and BAKES every rendered payload — diff
-// rounds, file blobs, snapshot diffs — into web/demo/fixtures.gen.ts as plain
-// data. The demo then serves that verbatim, so no highlighter ever ships to the
-// browser. Re-run with `bun run gen:demo` after editing the canned content below.
-//
-// The demo reviews r3's OWN code — it dogfoods the tool on the very repo it ships
-// from. Content is authored here as before/after file text; the diffs and anchors
-// are derived programmatically so quotes always match (findQuote can relocate them).
+// Bake demo seed fixtures (Shiki/markdown-it at build time) into
+// web/demo/fixtures.gen.ts. Re-run with `bun run gen:demo` after editing canned
+// content. Diffs/anchors are derived so quotes match.
 
 import { join } from "node:path";
 import { blobSha } from "../server/git.ts";

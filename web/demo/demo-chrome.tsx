@@ -1,8 +1,4 @@
-// The demo's nav-bar chrome: a small "Demo" badge that sits beside the settings
-// gear, plus a first-run intro dialog that explains this is a browser-only demo.
-// The daemon never sees this — web/src/demo-chrome.tsx is a no-op stub that the
-// demo build aliases to this module (scripts/build-demo.ts). Clicking the badge
-// re-opens the intro; the intro carries the Reset action (restore the seeded state).
+// Demo nav-bar chrome: "Demo" badge + first-run intro (Reset lives here).
 
 import { useCallback, useEffect, useState } from "react";
 import { hrefFor } from "../src/router.ts";
