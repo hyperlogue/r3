@@ -5,7 +5,7 @@
 // it (`repo.safePath`), rather than a module-global ROOT. `runGitIn` is the
 // low-level primitive the Repo factory builds on (server/repo.ts).
 
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import type {
   DiffFileChange,
   DiffResult,
@@ -72,10 +72,43 @@ export async function blobSha(content: string): Promise<string> {
   return hasher.digest("hex");
 }
 
+// Per-file cap on live WORKING/SCRATCH (and git-show) reads — same 4 MiB snapshot
+// capture uses. Stat-skip before materializing; a post-read check covers git-show
+// (no cheap size) and a stat→read race.
+export const MAX_FILE_BYTES = 4 * 1024 * 1024;
+
+export type ReadContent =
+  | { ok: true; content: string }
+  | { ok: false; reason: "oversize" | "binary" }
+  | null;
+
+function inspectContent(content: string): Exclude<ReadContent, null> {
+  if (content.includes("\0")) return { ok: false, reason: "binary" };
+  if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) return { ok: false, reason: "oversize" };
+  return { ok: true, content };
+}
+
+function readDiskFile(safe: string): ReadContent {
+  try {
+    if (statSync(safe).size > MAX_FILE_BYTES) return { ok: false, reason: "oversize" };
+  } catch {
+    return null;
+  }
+  try {
+    return inspectContent(readFileSync(safe, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 // Read a file's content at a given ref, within a repo's worktree. WORKING reads
 // disk, STAGED reads the index, anything else is `git show <ref>:<path>`. Returns
-// null if absent.
-export async function readContentAt(repo: Repo, path: string, ref: GitRef): Promise<string | null> {
+// null if absent; `{ ok: false }` if present but oversize or binary.
+export async function readContentDetailed(
+  repo: Repo,
+  path: string,
+  ref: GitRef,
+): Promise<ReadContent> {
   if (!isSafeRef(ref)) return null;
   // SCRATCH content lives in the daemon's scratch dir, not the worktree — resolve
   // against that root (still strict: no absolute, no `..`) and read from disk.
@@ -86,11 +119,7 @@ export async function readContentAt(repo: Repo, path: string, ref: GitRef): Prom
     // dir pointing outside it would pass — resolve links and confirm the real
     // target is still within the scratch root before reading (see paths.ts).
     if (!realpathWithin(scratchDir(), safe)) return null;
-    try {
-      return readFileSync(safe, "utf8");
-    } catch {
-      return null;
-    }
+    return readDiskFile(safe);
   }
   const safe = repo.safePath(path);
   if (!safe) return null;
@@ -100,15 +129,16 @@ export async function readContentAt(repo: Repo, path: string, ref: GitRef): Prom
     // ref/STAGED read below goes through `git show`, which resolves blobs from
     // the object store (no filesystem symlink to follow), so it needs no guard.
     if (!realpathWithin(repo.worktreePath, safe)) return null;
-    try {
-      return readFileSync(safe, "utf8");
-    } catch {
-      return null;
-    }
+    return readDiskFile(safe);
   }
   const spec = ref === "STAGED" ? `:${path}` : `${ref}:${path}`;
   const { stdout, code } = await repo.git(["show", spec]);
-  return code === 0 ? stdout : null;
+  return code === 0 ? inspectContent(stdout) : null;
+}
+
+export async function readContentAt(repo: Repo, path: string, ref: GitRef): Promise<string | null> {
+  const got = await readContentDetailed(repo, path, ref);
+  return got?.ok ? got.content : null;
 }
 
 // ---- status ----
@@ -333,11 +363,13 @@ export async function snapshotDiff(repo: Repo, base: GitRef, head: GitRef): Prom
   let raw = await repo.gitText(diffArgs(base, head, { context: WIDE_CONTEXT }));
   if (head === "WORKING") {
     const { stdout } = await repo.git(["ls-files", "--others", "--exclude-standard", "-z"]);
+    const parts = [raw];
     for (const path of stdout.split("\0").filter(Boolean)) {
       const content = await readContentAt(repo, path, "WORKING");
-      if (content == null || content.includes("\0")) continue; // unreadable/binary
-      raw += syntheticAddPatch(path, content);
+      if (content == null) continue; // unreadable / oversize / binary
+      parts.push(syntheticAddPatch(path, content));
     }
+    raw = parts.join("");
   }
   // Per-file trim so one tiny edit to a lockfile doesn't store the lockfile. The
   // synthetic adds above are all-additions, so there's no context in them to

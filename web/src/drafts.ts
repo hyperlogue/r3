@@ -103,20 +103,49 @@ try {
   // localStorage unavailable (private mode / quota) — degrade to in-memory.
 }
 
-// Persist drafts with content only; a content-less record (a bare anchor) lives in
-// memory (so its composer shows) but never hits localStorage, and clears the badge.
-// A fully blank record is dropped entirely.
+const PERSIST_MS = 400;
+const persistTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// Persist only a content-bearing draft; a bare anchor lives in memory only (so its
+// composer shows) and a blank record not at all — either way the stored key clears.
+function writeDraft(reviewId: string): void {
+  const d = cache.get(reviewId);
+  try {
+    if (d && hasContent(d)) localStorage.setItem(lsKey(reviewId), JSON.stringify(d));
+    else localStorage.removeItem(lsKey(reviewId));
+  } catch {}
+}
+
+function schedulePersist(reviewId: string): void {
+  const prev = persistTimers.get(reviewId);
+  if (prev != null) clearTimeout(prev);
+  persistTimers.set(
+    reviewId,
+    setTimeout(() => {
+      persistTimers.delete(reviewId);
+      writeDraft(reviewId);
+    }, PERSIST_MS),
+  );
+}
+
+// Tab hide/close: write now so a reload after a fast close doesn't lose the last
+// ~400ms of typing. Must be synchronous setItem — no extra delay on unload.
+function flushPending(): void {
+  for (const [id, t] of [...persistTimers]) {
+    clearTimeout(t);
+    persistTimers.delete(id);
+    writeDraft(id);
+  }
+}
+
+// Cache + emit stay synchronous so the input doesn't lag; localStorage is
+// trailing-debounced per reviewId (latest cache entry wins).
 function commit(reviewId: string, draft: Draft | null): void {
   const norm = draft ? normalize(draft) : null;
   if (!norm || isBlank(norm)) cache.delete(reviewId);
   else cache.set(reviewId, norm);
-  // Persist only a content-bearing draft; a bare anchor lives in memory only (so its
-  // composer shows) and a blank record not at all — either way the stored key clears.
-  try {
-    if (norm && hasContent(norm)) localStorage.setItem(lsKey(reviewId), JSON.stringify(norm));
-    else localStorage.removeItem(lsKey(reviewId));
-  } catch {}
   emit();
+  schedulePersist(reviewId);
 }
 
 // The current record to modify, or an empty one to build on.
@@ -229,4 +258,8 @@ if (typeof window !== "undefined") {
     } catch {}
     emit();
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPending();
+  });
+  window.addEventListener("pagehide", flushPending);
 }

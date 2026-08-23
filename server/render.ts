@@ -3,7 +3,7 @@
 // Shiki-highlighted per-line rows.
 
 import type { RenderedFile, RenderedFileLine } from "../shared/types.ts";
-import { blobSha, readContentAt } from "./git.ts";
+import { blobSha, readContentDetailed } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath, renderMarkdown } from "./highlight.ts";
 import { isMarkdown } from "./mdproject.ts";
 import type { Repo } from "./repo.ts";
@@ -14,9 +14,22 @@ export async function renderFile(
   ref: string,
   theme?: string,
 ): Promise<RenderedFile | null> {
-  const content = await readContentAt(repo, path, ref);
-  if (content == null) return null;
-  return renderContent(path, content, ref, theme);
+  const got = await readContentDetailed(repo, path, ref);
+  if (got == null) return null;
+  if (!got.ok) {
+    const text =
+      got.reason === "oversize" ? "File too large to render (over 4 MiB)" : "Binary file";
+    return {
+      path,
+      ref,
+      kind: "code",
+      lang: null,
+      sha: await blobSha(text),
+      lines: [{ lineNo: 1, html: escapeHtml(text), text }],
+      markdownHtml: null,
+    };
+  }
+  return renderContent(path, got.content, ref, theme);
 }
 
 // Render already-in-hand content (a snapshot's stored file text) with
