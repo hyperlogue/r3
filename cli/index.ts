@@ -126,19 +126,26 @@ function daemonArgv(): string[] {
   return isCompiled() ? [process.execPath, "__daemon"] : [process.execPath, Bun.main, "__daemon"];
 }
 
-// Is `pid` still one of our daemons, or a pid the OS recycled to something
-// unrelated? Signalling by pid alone needs proof of identity: every daemon —
-// compiled or from source — is launched with the hidden `__daemon` subcommand,
-// and daemon.json separately records the serving process's own binary, so either
-// mark in the live command line is proof. No proof (including no `ps`) ⇒ we leave
-// the process alone, which is exactly the old behaviour.
-function isDaemonProcess(pid: number, exec?: string): boolean {
+// Recycled pids are common after a crash: only `__daemon` in the live command, a
+// distinctive argv, or a unique (non bun/node) exec is proof this pid is ours.
+function isDaemonProcess(pid: number, info?: { exec?: string; argv?: string[] }): boolean {
   if (!isPidAlive(pid)) return false;
+  const isInterpreter = (t: string) =>
+    t === "bun" || t === "node" || t.endsWith("/bun") || t.endsWith("/node");
   try {
     const cmd = Bun.spawnSync(["ps", "-p", String(pid), "-o", "command="])
       .stdout.toString()
       .trim();
-    return !!cmd && (cmd.includes("__daemon") || (!!exec && cmd.includes(exec)));
+    if (!cmd) return false;
+    if (cmd.includes("__daemon")) return true;
+    const argv = info?.argv;
+    if (argv?.length) {
+      const distinctive = argv.filter((t) => !isInterpreter(t));
+      return distinctive.length > 0 && distinctive.every((t) => cmd.includes(t));
+    }
+    const exec = info?.exec;
+    if (exec && !isInterpreter(exec)) return cmd.includes(exec);
+    return false;
   } catch {
     return false;
   }
@@ -1395,7 +1402,7 @@ async function cmdDaemonStop(): Promise<void> {
   // but so does a daemon whose event loop wedged. Only the second is signallable,
   // so fall back to identifying the process itself.
   const healthy = await probe(info.url);
-  if (!healthy && !isDaemonProcess(info.pid, info.exec)) {
+  if (!healthy && !isDaemonProcess(info.pid, info)) {}
     if (readDaemonJson()?.pid === info.pid) removeDaemonJson();
     if (readDaemonLockOwner() === info.pid) forceReleaseDaemonLock();
     console.log("r3: no live daemon (cleared stale daemon.json)");
