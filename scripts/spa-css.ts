@@ -34,6 +34,10 @@ export async function browserLoweredCssPlugin(): Promise<Bun.BunPlugin> {
     plugins: [tailwind],
     minify: true,
   });
+  if (!cssBuild.success || !cssBuild.outputs[0]) {
+    for (const log of cssBuild.logs) console.error(log);
+    process.exit(1);
+  }
   const loweredCss = await cssBuild.outputs[0].text();
   return {
     name: "pre-lowered main.css",

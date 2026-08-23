@@ -78,10 +78,10 @@ export function useServerEvents(reviewId?: string) {
           qc.invalidateQueries({
             predicate: (q) => q.queryKey[0] === "blob" && changed.has(q.queryKey[2] as string),
           });
-        // A files review's snapshot→live diff (to=Current) is derived from the live
-        // content, so a live edit must refresh it too. Snapshot→snapshot
-        // diffs are immutable, so an unchanged-input refetch just revalidates.
-        invalidate(["snapshot-diff"]);
+        // Live to=WORKING diffs must refresh; pinned snapshot pairs do not.
+        qc.invalidateQueries({
+          predicate: (q) => q.queryKey[0] === "snapshot-diff" && q.queryKey[3] === "WORKING",
+        });
       }
     };
     const types = [
