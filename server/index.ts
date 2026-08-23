@@ -59,7 +59,13 @@ import {
 import * as db from "./db.ts";
 import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDiff } from "./git.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
-import { fitPatchToLimit, patchInfos, renderPatchContext, renderPatches } from "./patches.ts";
+import {
+  fitPatchToLimit,
+  patchInfos,
+  renderPatch,
+  renderPatchContext,
+  renderPatches,
+} from "./patches.ts";
 import { buildPrompt, buildUnsentPrompt } from "./prompt.ts";
 import { renderFile } from "./render.ts";
 import { commonDirOf, type Repo, resolveRepoById, resolveRepoFromHeader } from "./repo.ts";
@@ -628,17 +634,32 @@ app.delete("/api/reviews/:id", (c) =>
 
 // ---- stored diff rounds ----
 
-// A diff review's rendered content: its stored rounds in seq order. A legacy
-// review that never stored patches (unresolvable at migration) renders live from
-// its source refs as a single synthetic round (seq 0). Once any round has been
-// stored, `diff rm` of the last one returns empty rounds — never live git.
+// A diff review's rendered content. `?seq=` returns that one stored round
+// (`{ rounds: [that] }` or `{ rounds: [] }` if missing); omitted returns every
+// round in seq order (compat). A legacy review that never stored patches
+// (unresolvable at migration) renders live from its source refs as a single
+// synthetic round (seq 0) — `?seq=0` and omitted both return it. Once any round
+// has been stored, `diff rm` of the last one returns empty rounds — never live git.
 app.get("/api/reviews/:id/diff", async (c) => {
   const id = c.req.param("id");
   const review = db.getReview(id);
   if (review?.kind !== "diff") return c.text("not found", 404);
   const theme = c.req.query("theme") || undefined;
-  if (db.hasPatches(id)) return jsonCached(c, { rounds: await renderPatches(id, theme) });
+  const seqRaw = c.req.query("seq");
+  const seq = seqRaw == null ? undefined : Number(seqRaw);
+  if (seqRaw != null && !Number.isInteger(seq)) return c.text("bad seq", 400);
+
+  if (db.hasPatches(id)) {
+    if (seq != null) {
+      const round = await renderPatch(id, seq, theme);
+      return jsonCached(c, { rounds: round ? [round] : [] });
+    }
+    return jsonCached(c, { rounds: await renderPatches(id, theme) });
+  }
   if (db.hadStoredRounds(id)) return jsonCached(c, { rounds: [] });
+  // Legacy live: omitted and seq=0 both yield the synthetic round; any other
+  // seq is missing.
+  if (seq != null && seq !== 0) return jsonCached(c, { rounds: [] });
   const src = review.source as { base: string; head: string };
   const repo = await reviews.repoForReview(id);
   if (!repo || repo.stale || !isSafeRef(src.base) || !isSafeRef(src.head))

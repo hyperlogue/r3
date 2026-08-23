@@ -175,16 +175,15 @@ export function listReviews(filter: {
 
 // ---- rendered content (pre-baked, with a plain fallback for edited content) ----
 
-export function reviewDiff(id: string): ReviewDiffResponse {
-  return {
-    rounds: patchesFor(id).map(({ seq, label, summary, created_at, files }) => ({
-      seq,
-      label,
-      summary,
-      created_at,
-      files,
-    })),
-  };
+export function reviewDiff(id: string, seq?: number): ReviewDiffResponse {
+  const rounds = patchesFor(id).map((p) => ({
+    seq: p.seq,
+    label: p.label,
+    summary: p.summary,
+    created_at: p.created_at,
+    files: p.files,
+  }));
+  return { rounds: seq == null ? rounds : rounds.filter((r) => r.seq === seq) };
 }
 
 function plainRenderFile(path: string, content: string, ref: string): RenderedFile {

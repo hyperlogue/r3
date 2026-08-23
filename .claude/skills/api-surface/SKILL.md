@@ -36,12 +36,15 @@ one rendered file.
   piped diff as round 1.
 - `GET /api/reviews/:id` — review + feedback[] (with replies[]) + round and
   snapshot metas.
-- `GET …/diff` — a diff review's rendered rounds. Rounds are stored wide and
-  rendered at 3 context lines; each hunk row carries `expandable {up,down}` saying
-  how many unchanged lines the server still HOLDS: `up` = the gap above that hunk,
-  `down` = the gap below, set on the last hunk of each **contiguous run** (a body
-  has several runs when capture itself had gaps). All-zero/absent = nothing more
-  exists, and the client shows no expander.
+- `GET …/diff[?seq=]` — a diff review's rendered rounds. `?seq=` returns that one
+  round (`{ rounds: [that] }` or `{ rounds: [] }` if missing); omitted returns
+  every stored round (compat). A legacy review with no stored patches renders live
+  as seq 0 (`?seq=0` or omitted). Rounds are stored wide and rendered at 3 context
+  lines; each hunk row carries `expandable {up,down}` saying how many unchanged
+  lines the server still HOLDS: `up` = the gap above that hunk, `down` = the gap
+  below, set on the last hunk of each **contiguous run** (a body has several runs
+  when capture itself had gaps). All-zero/absent = nothing more exists, and the
+  client shows no expander.
 - `GET …/diff-context?file=&start=&end=&(seq= | from=&to=)[&theme=]` →
   `{ file, lines }` — fill one collapsed gap. `[start,end]` are **NEW-side** line
   numbers, capped at 5000 rows. `seq` selects a diff review's stored round;

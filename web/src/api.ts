@@ -136,10 +136,11 @@ export const api = {
       "GET",
       `/api/diff${qs({ base, head, ignoreWhitespace: opts.ignoreWhitespace ? 1 : undefined, contextLines: opts.contextLines, theme: opts.theme, review: opts.review })}`,
     ),
-  // A diff review's rendered content: its stored rounds in seq order (a legacy
-  // review with no stored rounds renders live from its refs as seq 0).
-  reviewDiff: (id: string, theme?: string) =>
-    req<ReviewDiffResponse>("GET", `/api/reviews/${id}/diff${qs({ theme })}`),
+  // A diff review's rendered content. `seq` fetches that one round; omitted
+  // returns every stored round (compat). A legacy review with no stored rounds
+  // renders live from its refs as seq 0.
+  reviewDiff: (id: string, theme?: string, seq?: number) =>
+    req<ReviewDiffResponse>("GET", `/api/reviews/${id}/diff${qs({ theme, seq })}`),
   // Expand-context: the unchanged rows a diff holds but doesn't render, for one
   // collapsed gap. `seq` names a diff review's stored round; `from`/`to` name a
   // files review's snapshot diff. [start,end] are NEW-side line numbers, and a

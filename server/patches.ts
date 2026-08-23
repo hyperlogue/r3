@@ -88,53 +88,83 @@ async function highlightPatchFiles(files: DiffFileChange[], theme?: string): Pro
 // (review, seq) always renders the same bytes. `diff rm` is the one exception
 // (it can free a seq for reuse) and calls forgetRenderedRounds below.
 //
-// Worth it because GET /api/reviews/:id/diff re-renders EVERY stored round on
-// every request while the client shows one, and the SPA refetches it on each
-// review-updated (Copy prompt, Submit, diff add/rm, snapshot, files add/rm). Six
-// real rounds measured 1.5 s cold. Budgeted in bytes of source, like the line
-// cache, since a round's render is proportional to its stored body.
+// The SPA fetches one seq; the cache still pays for theme switches, stepping
+// back to a visited round, and the omitted-seq all-rounds compat path. Budgeted
+// in bytes of source, like the line cache, since a round's render is
+// proportional to its stored body.
 const ROUND_CACHE_MAX_BYTES = 8 * 1024 * 1024;
 const roundCache = new Map<string, { cost: number; v: PatchDiff }>();
 let roundCacheBytes = 0;
 
-// All of a review's rounds, rendered (GET /api/reviews/:id/diff for stored
-// reviews). Order is seq ascending — oldest round first, like reading history.
+type PatchRow = {
+  seq: number;
+  label: string | null;
+  summary: string | null;
+  created_at: string;
+  body: string;
+};
+
+function roundKey(reviewId: string, seq: number, theme?: string): string {
+  return `${reviewId}:${seq}:${resolveTheme(theme).name}`;
+}
+
+function takeCached(key: string): PatchDiff | null {
+  const hit = roundCache.get(key);
+  if (!hit) return null;
+  roundCache.delete(key); // LRU: re-insert to move to the newest slot.
+  roundCache.set(key, hit);
+  return hit.v;
+}
+
+async function cachedRound(reviewId: string, p: PatchRow, theme?: string): Promise<PatchDiff> {
+  const key = roundKey(reviewId, p.seq, theme);
+  const hit = takeCached(key);
+  if (hit) return hit;
+  const files = parseUnifiedDiff(p.body);
+  // Collapse the stored (wide) context to the render width BEFORE highlighting:
+  // Shiki then tokenizes the same ~3-context rows it always did, so a body
+  // several times larger costs one linear text parse and nothing on the hot
+  // path. A legacy -U3 round has nothing to drop and passes through untouched.
+  for (const f of files) f.lines = rehunk(f.lines, RENDER_CONTEXT, { markExpandable: true });
+  await highlightPatchFiles(files, theme);
+  const v: PatchDiff = {
+    seq: p.seq,
+    label: p.label,
+    summary: p.summary,
+    created_at: p.created_at,
+    files,
+  };
+  roundCache.set(key, { cost: p.body.length, v });
+  roundCacheBytes += p.body.length;
+  while (roundCacheBytes > ROUND_CACHE_MAX_BYTES && roundCache.size > 1) {
+    const oldest = roundCache.keys().next().value;
+    if (oldest === undefined) break;
+    roundCacheBytes -= roundCache.get(oldest)?.cost ?? 0;
+    roundCache.delete(oldest);
+  }
+  return v;
+}
+
+// One stored round, rendered (GET /api/reviews/:id/diff?seq=). Null if that seq
+// isn't in the patches table — the route turns that into `{ rounds: [] }`.
+export async function renderPatch(
+  reviewId: string,
+  seq: number,
+  theme?: string,
+): Promise<PatchDiff | null> {
+  const hit = takeCached(roundKey(reviewId, seq, theme));
+  if (hit) return hit;
+  const meta = db.listPatchMetas(reviewId).find((p) => p.seq === seq);
+  const patch = db.getPatch(reviewId, seq);
+  if (!meta || !patch) return null;
+  return cachedRound(reviewId, { ...meta, body: patch.body }, theme);
+}
+
+// All of a review's rounds, rendered (GET /api/reviews/:id/diff with seq omitted
+// — compat for curl/old clients). Order is seq ascending — oldest first.
 export async function renderPatches(reviewId: string, theme?: string): Promise<PatchDiff[]> {
   const out: PatchDiff[] = [];
-  const themeName = resolveTheme(theme).name;
-  for (const p of db.listPatches(reviewId)) {
-    const key = `${reviewId}:${p.seq}:${themeName}`;
-    const hit = roundCache.get(key);
-    if (hit) {
-      roundCache.delete(key); // LRU: re-insert to move to the newest slot.
-      roundCache.set(key, hit);
-      out.push(hit.v);
-      continue;
-    }
-    const files = parseUnifiedDiff(p.body);
-    // Collapse the stored (wide) context to the render width BEFORE highlighting:
-    // Shiki then tokenizes the same ~3-context rows it always did, so a body
-    // several times larger costs one linear text parse and nothing on the hot
-    // path. A legacy -U3 round has nothing to drop and passes through untouched.
-    for (const f of files) f.lines = rehunk(f.lines, RENDER_CONTEXT, { markExpandable: true });
-    await highlightPatchFiles(files, theme);
-    const v: PatchDiff = {
-      seq: p.seq,
-      label: p.label,
-      summary: p.summary,
-      created_at: p.created_at,
-      files,
-    };
-    roundCache.set(key, { cost: p.body.length, v });
-    roundCacheBytes += p.body.length;
-    while (roundCacheBytes > ROUND_CACHE_MAX_BYTES && roundCache.size > 1) {
-      const oldest = roundCache.keys().next().value;
-      if (oldest === undefined) break;
-      roundCacheBytes -= roundCache.get(oldest)?.cost ?? 0;
-      roundCache.delete(oldest);
-    }
-    out.push(v);
-  }
+  for (const p of db.listPatches(reviewId)) out.push(await cachedRound(reviewId, p, theme));
   return out;
 }
 

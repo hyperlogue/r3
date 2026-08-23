@@ -71,7 +71,7 @@ export const api = {
   forgetRepo: async () => ({ ok: true }) as const,
   diff: async (base: string, head: string): Promise<DiffResult> => ({ base, head, files: [] }),
 
-  reviewDiff: async (id: string) => backend.reviewDiff(id),
+  reviewDiff: async (id: string, _theme?: string, seq?: number) => backend.reviewDiff(id, seq),
   diffContext: async (
     id: string,
     where: { seq: number } | { from: number; to: SnapshotRef },

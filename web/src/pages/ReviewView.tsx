@@ -262,21 +262,22 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
 
   const syntaxTheme = useSyntaxTheme();
   const isDiff = detail?.kind === "diff";
-  // The review's stored rounds — one query regardless of how many
-  // rounds exist; the server falls back to a live render for legacy reviews.
-  const { data: diff, error: diffError } = useQuery({
-    queryKey: ["review-diff", reviewId, syntaxTheme],
-    queryFn: () => api.reviewDiff(reviewId, syntaxTheme),
-    enabled: isDiff,
-  });
-  const rounds = diff?.rounds ?? [];
-  // The round the tab strip shows: the human's pick if it still exists, else the
-  // latest round (the newest work — what a reviewer coming back wants first). A
-  // new round arriving over SSE never yanks an existing selection.
+  // Round chrome (switcher, latest, prev/next) reads PatchMeta from detail —
+  // already on the review payload, no highlight cost. Seq 0 is the legacy
+  // live-render round when a diff review never stored patches.
+  const patchMetas = detail?.patches ?? [];
   const effectiveRoundSeq =
-    activeRoundSeq != null && rounds.some((r) => r.seq === activeRoundSeq)
+    activeRoundSeq != null && patchMetas.some((r) => r.seq === activeRoundSeq)
       ? activeRoundSeq
-      : (rounds[rounds.length - 1]?.seq ?? null);
+      : (patchMetas[patchMetas.length - 1]?.seq ?? (isDiff ? 0 : null));
+  // One highlighted round — the seq on screen. hooks.ts still prefix-invalidates
+  // ["review-diff", reviewId], which covers every seq.
+  const { data: diff, error: diffError } = useQuery({
+    queryKey: ["review-diff", reviewId, effectiveRoundSeq, syntaxTheme],
+    queryFn: () => api.reviewDiff(reviewId, syntaxTheme, effectiveRoundSeq ?? undefined),
+    enabled: isDiff && effectiveRoundSeq != null,
+  });
+  const fetchedRound = diff?.rounds.find((r) => r.seq === effectiveRoundSeq) ?? null;
 
   // Files-review content snapshots. The from/to picker diffs any two
   // (or one vs. live); with none captured the picker is hidden and the view is the
@@ -402,14 +403,13 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
 
   // The version the content pane currently renders: a diff review's active round,
   // else the files review's snapshot from/to selection (covers plain view, a pinned
-  // snapshot, and a snapshot-diff). A diff review renders null while its rounds load
-  // — skipped so the initial load (and a theme refetch that briefly drops `diff`)
+  // snapshot, and a snapshot-diff). Null until detail exists so the initial load
   // doesn't count as a switch; a files selection always maps to a concrete key.
-  const paneVersionKey = isDiff
-    ? effectiveRoundSeq != null
+  const paneVersionKey = !detail
+    ? null
+    : isDiff
       ? `d:${effectiveRoundSeq}`
-      : null
-    : `s:${fromSnap ?? "none"}:${toSnap}`;
+      : `s:${fromSnap ?? "none"}:${toSnap}`;
   usePaneCrossfade(scopeRef, paneVersionKey);
 
   // Regions any unresolved (non-resolved) feedback anchors to, for a persistent
@@ -564,8 +564,8 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const filesSrc = detail && "files" in detail.source ? detail.source : null;
   // Also the round behind the RoundSummary mounts — ReviewView owns that
   // placement (desktop: top of the scroll pane; mobile: the toolbar's middle
-  // row). Undefined until the rounds load, so the summary appears with the diff.
-  const activeRound = isDiff ? rounds.find((r) => r.seq === effectiveRoundSeq) : null;
+  // row). Meta comes from detail, so the summary doesn't wait on highlight.
+  const activeRound = isDiff ? (patchMetas.find((r) => r.seq === effectiveRoundSeq) ?? null) : null;
   // The files a plain (non-diff) view browses: the live membership at `to=Current`,
   // else the chosen snapshot's captured file set.
   const browseFiles: string[] =
@@ -576,7 +576,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // diff review's active round, the snapshot-diff's changed files, or the plain
   // view's browse set.
   const fileList: string[] = isDiff
-    ? (activeRound?.files.map((f) => f.path) ?? [])
+    ? (fetchedRound?.files.map((f) => f.path) ?? [])
     : diffMode
       ? (snapDiff?.files.map((f) => f.path) ?? [])
       : browseFiles;
@@ -744,9 +744,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const stepVersion = useCallback(
     (dir: 1 | -1) => {
       if (isDiff) {
-        if (rounds.length === 0) return;
-        const at = rounds.findIndex((r) => r.seq === effectiveRoundSeq);
-        const next = rounds[Math.min(rounds.length - 1, Math.max(0, (at < 0 ? 0 : at) + dir))];
+        if (patchMetas.length === 0) return;
+        const at = patchMetas.findIndex((r) => r.seq === effectiveRoundSeq);
+        const next =
+          patchMetas[Math.min(patchMetas.length - 1, Math.max(0, (at < 0 ? 0 : at) + dir))];
         if (next) setActiveRoundSeq(next.seq);
         return;
       }
@@ -765,7 +766,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       }
       setToSnap(order[pos]);
     },
-    [isDiff, rounds, effectiveRoundSeq, snapshots, toSnap, fromSnap],
+    [isDiff, patchMetas, effectiveRoundSeq, snapshots, toSnap, fromSnap],
   );
 
   // Scroll-spy: mark the file you're mostly looking at.
@@ -1222,7 +1223,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // can't be called conditionally, and there is nothing to bind on a dead view
   // anyway — every handler no-ops on an empty fileList.)
   const hasFiles = fileList.length > 0;
-  const canStepVersion = isDiff ? rounds.length > 1 : snapshots.length > 0;
+  const canStepVersion = isDiff ? patchMetas.length > 1 : snapshots.length > 0;
   // Where `x` has something to toggle — the same condition that decides whether a
   // file header shows the Viewed pill at all (toggleViewedPath's two branches). A
   // snapshot-diff / pinned-snapshot browse tracks no viewed state, so leave the
@@ -1319,7 +1320,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // round at a time; an empty round still shows the strip so the switcher stays
   // reachable.
   const paneToolbarEl =
-    fileList.length > 0 || (isDiff && rounds.length > 1) || snapshots.length > 0 ? (
+    fileList.length > 0 || (isDiff && patchMetas.length > 1) || snapshots.length > 0 ? (
       <PaneToolbar
         hasFiles={fileList.length > 0}
         filePicker={
@@ -1338,9 +1339,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         layoutToggle={isDiff || diffMode ? <DiffLayoutToggle /> : undefined}
         summary={isMobile ? roundSummaryEl : undefined}
         right={
-          isDiff && rounds.length > 1 ? (
+          isDiff && patchMetas.length > 1 ? (
             <RoundSelect
-              rounds={rounds}
+              rounds={patchMetas}
               activeSeq={effectiveRoundSeq}
               onSelect={setActiveRoundSeq}
             />
@@ -1454,7 +1455,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                 {!isMobile && roundSummaryEl}
                 {isDiff && diff && (
                   <DiffView
-                    rounds={rounds}
+                    rounds={fetchedRound ? [fetchedRound] : []}
                     activeSeq={effectiveRoundSeq}
                     isViewed={isViewed}
                     currentPath={activePath}
