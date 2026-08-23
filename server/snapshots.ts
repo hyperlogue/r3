@@ -18,11 +18,11 @@ import type {
 } from "../shared/types.ts";
 import * as db from "./db.ts";
 import { blobSha, readContentAt } from "./git.ts";
-import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
+import { escapeHtml, highlightToLines, langForPath, resolveTheme } from "./highlight.ts";
 import { renderContent } from "./render.ts";
 import type { Repo } from "./repo.ts";
 import { isScratchReview, scratchFiles, scratchSafePath } from "./scratch.ts";
-import { diffFile, FULL_CONTEXT } from "./textdiff.ts";
+import { diffFile, FULL_CONTEXT, rehunk } from "./textdiff.ts";
 
 // Per-file cap on captured content — snapshots live as TEXT rows in the global
 // sqlite, so an accidentally-huge file shouldn't bloat it. Files review content is
@@ -98,6 +98,8 @@ export async function captureSnapshot(
 interface FileState {
   content: string | null;
   skipped: boolean;
+  // Stored snapshot sha; WORKING hashes live text at cache-key time.
+  sha?: string;
 }
 async function fileAt(
   reviewId: string,
@@ -120,7 +122,9 @@ async function fileAt(
   }
   const row = db.getSnapshotFile(reviewId, ref, path);
   if (!row) return { content: null, skipped: false };
-  return row.skipped ? { content: null, skipped: true } : { content: row.content, skipped: false };
+  return row.skipped
+    ? { content: null, skipped: true }
+    : { content: row.content, skipped: false, sha: row.sha };
 }
 
 // A DiffFileChange for a file that's present-but-non-diffable (binary/oversize)
@@ -177,6 +181,58 @@ async function highlightDiff(
   }
 }
 
+// Highlighted FULL_CONTEXT snapshot-file diffs, shared by the 3-context payload
+// and expand-context slices. LRU budgeted in line-html bytes (~8 MB, like
+// patches.ts roundCache). A WORKING edit changes sha → miss.
+const SNAP_CACHE_MAX_BYTES = 8 * 1024 * 1024;
+const snapCache = new Map<string, { cost: number; v: DiffFileChange }>();
+let snapCacheBytes = 0;
+
+function snapCacheCost(f: DiffFileChange): number {
+  let n = 0;
+  for (const ln of f.lines) n += ln.html.length + ln.text.length;
+  return n;
+}
+
+async function contentId(side: FileState): Promise<string> {
+  if (side.skipped) return "skipped";
+  if (side.content == null) return "missing";
+  return side.sha || (await blobSha(side.content));
+}
+
+async function cachedFullDiff(
+  reviewId: string,
+  from: number,
+  to: number | "WORKING",
+  path: string,
+  oldSide: FileState,
+  newSide: FileState,
+  theme?: string,
+): Promise<DiffFileChange | null> {
+  const themeName = resolveTheme(theme).name;
+  const [oldId, newId] = await Promise.all([contentId(oldSide), contentId(newSide)]);
+  const key = `${reviewId}:${from}:${to}:${path}:${themeName}:${oldId}:${newId}`;
+  const hit = snapCache.get(key);
+  if (hit) {
+    snapCache.delete(key); // LRU: re-insert to move to the newest slot.
+    snapCache.set(key, hit);
+    return hit.v;
+  }
+  const f = diffFile(path, oldSide.content, newSide.content, FULL_CONTEXT);
+  if (!f) return null;
+  await highlightDiff(f, oldSide.content, newSide.content, theme);
+  const cost = snapCacheCost(f);
+  snapCache.set(key, { cost, v: f });
+  snapCacheBytes += cost;
+  while (snapCacheBytes > SNAP_CACHE_MAX_BYTES && snapCache.size > 1) {
+    const oldest = snapCache.keys().next().value;
+    if (oldest === undefined) break;
+    snapCacheBytes -= snapCache.get(oldest)?.cost ?? 0;
+    snapCache.delete(oldest);
+  }
+  return f;
+}
+
 // A files review's diff between two snapshot refs: `from` is a snapshot seq, `to`
 // a snapshot seq or WORKING (live). Only changed files are returned, path-sorted.
 export async function renderSnapshotDiff(
@@ -203,12 +259,11 @@ export async function renderSnapshotDiff(
       if (placeholder) out.push(placeholder);
       continue;
     }
-    const oldContent = oldSide.content;
-    const newContent = newSide.content;
-    const f = diffFile(path, oldContent, newContent);
+    const f = await cachedFullDiff(reviewId, from, to, path, oldSide, newSide, theme);
     if (!f) continue;
-    await highlightDiff(f, oldContent, newContent, theme);
-    out.push(f);
+    const lines = rehunk(f.lines, 3, { markExpandable: true });
+    // Shallow-clone with the rehunked rows; never mutate the cached object.
+    out.push({ ...f, lines: lines === f.lines ? lines.slice() : lines });
   }
   return out;
 }
@@ -232,10 +287,8 @@ export async function renderSnapshotContext(
   const oldSide = await fileAt(reviewId, from, path, repo, review);
   const newSide = await fileAt(reviewId, to, path, repo, review);
   if (oldSide.skipped || newSide.skipped) return null;
-  // FULL_CONTEXT: a normal render drops exactly the rows being asked for.
-  const f = diffFile(path, oldSide.content, newSide.content, FULL_CONTEXT);
+  const f = await cachedFullDiff(reviewId, from, to, path, oldSide, newSide, theme);
   if (!f) return null;
-  await highlightDiff(f, oldSide.content, newSide.content, theme);
   const rows = f.lines.filter(
     (ln) => ln.type === "context" && ln.newLine != null && ln.newLine >= start && ln.newLine <= end,
   );
