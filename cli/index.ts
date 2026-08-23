@@ -431,7 +431,16 @@ const MULTI = new Set(["meta"]);
 // must come last on the line (after --title/--meta/--ref). This is what makes
 // `--files $(git ls-files)` and `--files 'server/**/*.ts' '*.md'` both work.
 const REST = new Set(["files"]);
-const BOOL = new Set(["working", "staged", "scratch", "stdin-diff", "json", "all", "release"]);
+const BOOL = new Set([
+  "working",
+  "staged",
+  "scratch",
+  "stdin-diff",
+  "json",
+  "all",
+  "release",
+  "help",
+]);
 // Value flags whose argument is numeric/structured (a seq, a `a-b` range, a
 // count of seconds, a `base..head`, a ref/sha, a status enum, a fid list) — none
 // of which can legitimately start with "-". So a following "-…" token is always a
@@ -498,6 +507,8 @@ function parseArgs(argv: string[]): Args {
         out.flags[key] = takeValue(argv, i, key);
         i++;
       }
+    } else if (a === "-h") {
+      out.flags.help = true;
     } else if (a === "-m") {
       out.flags.message = takeValue(argv, i, "-m");
       i++;
@@ -2030,6 +2041,10 @@ async function main() {
   }
 
   const args = parseArgs(rest);
+  if (args.flags.help) {
+    console.log(HELP);
+    return;
+  }
   if (SERVER_COMMANDS.has(cmd)) SERVER = await ensureServer();
 
   switch (cmd) {
