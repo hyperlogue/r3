@@ -1905,11 +1905,14 @@ relocate that summary anchor with
 
 files — a live view of current content: watched, edits appear immediately, feedback
 re-anchors as files change.
-  \`r3 files add|rm <id> <path|glob>...\` — change the file set
+  \`r3 files add <id> <path|glob>...\` — grow the file set
+  \`r3 files rm <id> <path>...\` — shrink it
+  (\`--scratch\` file set is the scratch directory, not \`files add|rm\`)
   \`r3 snapshot <id> --label "..."\` — freeze content so the human can diff
   your changes across turns (snapshot the starting state before handoff, then
   after each round)
-  \`r3 snapshot list|rm <id> [seq]\`
+  \`r3 snapshot list <id>\`
+  \`r3 snapshot rm <id> <seq>\`
   \`r3 reanchor <feedback_id> --file <f> --line <a-b>\` — ONLY when your edit
   moved the quoted text; --line is where that text landed (see below)
 
