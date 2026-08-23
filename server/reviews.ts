@@ -400,12 +400,16 @@ export function deleteReview(id: string): boolean {
 
 // Forget a repo and all its reviews (cascade). The SQL cascade can't reach the
 // scratch files in the data dir, so unlink them first (no-op for non-scratch).
+// Broadcast so other tabs drop the reviews from the sidebar, like deleteReview.
 export function deleteRepo(repoId: string): boolean {
   for (const review of db.listReviews({ repoId })) {
     deleteScratch(review);
     forget(review.id); // drop its dirty-registry entries (see dirty.ts)
+    forgetRenderedRounds(review.id);
   }
-  return db.deleteRepo(repoId);
+  const ok = db.deleteRepo(repoId);
+  if (ok) broadcast({ type: "reviews-changed" });
+  return ok;
 }
 
 // Resolve the Repo a review's content routes (diff/blob) must run against.
