@@ -1006,10 +1006,9 @@ export function markContentSent(reviewId: string, feedbackIds: string[], replyId
 // ---- patches (stored diff rounds) ----
 
 // Append a round. seq is monotonic per review and never reused after a
-// `diff rm` (MAX+1 over live rows can't regress because rounds are append-only
-// and only ever removed from anywhere, not renumbered — but to be safe against
-// "add, rm the max, add" reusing a seq that anchored feedback/pins still
-// reference, take MAX over feedback/replies too).
+// `diff rm`. MAX+1 over live rows plus feedback.patch_seq / replies.patch_seq
+// / replies.ref_version so "add, rm the max, add" cannot reuse a seq that
+// anchored feedback, pins, or reply refs still point at.
 export function addPatch(
   reviewId: string,
   body: string,
@@ -1022,6 +1021,8 @@ export function addPatch(
          SELECT MAX(seq) AS n FROM patches WHERE review_id = $rid
          UNION ALL SELECT MAX(patch_seq) FROM feedback WHERE review_id = $rid
          UNION ALL SELECT MAX(r.patch_seq) FROM replies r
+           JOIN feedback f ON f.id = r.feedback_id WHERE f.review_id = $rid
+         UNION ALL SELECT MAX(r.ref_version) FROM replies r
            JOIN feedback f ON f.id = r.feedback_id WHERE f.review_id = $rid
        )`,
     )
@@ -1092,15 +1093,21 @@ export interface SnapshotFileInput {
 
 // Capture a snapshot: one row in `snapshots` + one `snapshot_files` row per file,
 // in a single transaction. seq is monotonic per review (MAX+1). Snapshots are
-// append-only + immutable, and feedback is never scoped to a snapshot (quote-first
-// display), so seq needn't dodge feedback/reply columns like `addPatch`.
+// append-only + immutable; seq must not reuse a value still stored as
+// `replies.ref_version`.
 export function addSnapshot(
   reviewId: string,
   files: SnapshotFileInput[],
   label: string | null,
 ): SnapshotMeta {
   const row = db
-    .query("SELECT MAX(seq) AS n FROM snapshots WHERE review_id = $rid")
+    .query(
+      `SELECT MAX(n) AS n FROM (
+         SELECT MAX(seq) AS n FROM snapshots WHERE review_id = $rid
+         UNION ALL SELECT MAX(r.ref_version) FROM replies r
+           JOIN feedback f ON f.id = r.feedback_id WHERE f.review_id = $rid
+       )`,
+    )
     .get({ $rid: reviewId }) as { n: number | null };
   const seq = (row.n ?? 0) + 1;
   const ts = nowIso();
