@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.ts";
 import { type DocLink, docLinkFromEvent, markMissingDocLinks } from "../doclinks.ts";
 import {
@@ -9,6 +9,7 @@ import {
   inSelection,
   useGutterDrag,
 } from "../gutter.ts";
+import { type Region, regionAt } from "../highlights.ts";
 import { useSyntaxTheme } from "../settings.ts";
 import type { DiffSide, RenderedFile, RenderedFileLine } from "../types.ts";
 import { cn, useHtml } from "../ui.tsx";
@@ -18,6 +19,7 @@ import { FileCard, type FoldSignal } from "./FileCard.tsx";
 
 // Show a line-count stat / start folded past this many lines.
 const BIG_FILE_LINES = 1000;
+const NO_REGIONS: Region[] = [];
 
 type MdView = "rendered" | "raw";
 
@@ -54,18 +56,20 @@ function MdViewToggle({ value, onChange }: { value: MdView; onChange: (v: MdView
 }
 
 // Memoized on primitive/stable props (the line is stable from the query cache,
-// the handlers are stable from useGutterDrag, `selected` is a boolean), so a
-// gutter drag re-renders only the rows whose selection flips — not every line.
+// the handlers are stable from useGutterDrag, `selected`/`fbId` are primitives),
+// so a gutter drag re-renders only the rows whose selection flips — not every line.
 const LineRow = memo(function LineRow({
   ln,
   selected,
   onDown,
   onEnter,
+  fbId,
 }: {
   ln: RenderedFileLine;
   selected: boolean;
   onDown: GutterHandler;
   onEnter: EnterHandler;
+  fbId?: string;
 }) {
   // Stable `{__html}` wrapper so React 19 doesn't re-set innerHTML (wiping a
   // selection) when the row re-renders on a gutter `selected` flip.
@@ -76,9 +80,13 @@ const LineRow = memo(function LineRow({
       // to 1) to give the code more of a phone's width; a 4-digit line number
       // still fits. The gutter pins at left-0, so there's no derived left offset to
       // follow (unlike DiffView's two-column new-side pin).
-      className="grid min-w-full grid-cols-[3.5rem_1fr] font-mono text-xs max-md:grid-cols-[2.5rem_1fr]"
+      className={cn(
+        "grid min-w-full grid-cols-[3.5rem_1fr] font-mono text-xs max-md:grid-cols-[2.5rem_1fr]",
+        fbId && "r3-feedback-region",
+      )}
       data-line={ln.lineNo}
       data-side="new"
+      data-fb-id={fbId}
     >
       <span
         data-gutter
@@ -104,16 +112,22 @@ function CodeBody({
   data,
   path,
   onPickLines,
+  regions,
 }: {
   data: RenderedFile;
   path: string;
   onPickLines: (side: DiffSide, lineStart: number, lineEnd: number, quote: string) => void;
+  regions: Region[];
 }) {
   const g = useGutterDrag({
     textForLine: (_side, n) => data.lines[n - 1]?.text ?? null,
     onPick: (p) => onPickLines(p.side, p.lineStart, p.lineEnd, p.quote),
   });
   const sel = g.selection;
+  const fileRegions = useMemo(
+    () => (regions.length === 0 ? regions : regions.filter((r) => r.file === path)),
+    [regions, path],
+  );
   return (
     <div className="shiki-surface overflow-x-auto">
       {/* One horizontal scrollbar per file: rows share a max-content wrapper (so it
@@ -134,6 +148,7 @@ function CodeBody({
               selected={inSelection(sel, "new", ln.lineNo)}
               onDown={g.onDown}
               onEnter={g.onEnter}
+              fbId={regionAt(fileRegions, ln.lineNo, "new")?.id}
             />
           );
         }}
@@ -166,6 +181,7 @@ function FileViewImpl({
   ownsFileMarker = true,
   onHydrated,
   onOpenChange,
+  regions = NO_REGIONS,
 }: {
   path: string;
   refName: string;
@@ -211,6 +227,9 @@ function FileViewImpl({
   ownsFileMarker?: boolean;
   onHydrated?: (ready: boolean) => void;
   onOpenChange?: (open: boolean) => void;
+  // Unresolved-feedback spans to wash onto matching code rows. Rendered markdown
+  // still goes through useRegionHighlight.
+  regions?: Region[];
 }) {
   const syntaxTheme = useSyntaxTheme();
   const [mdView, setMdView] = useState<MdView>("rendered");
@@ -320,6 +339,7 @@ function FileViewImpl({
         <CodeBody
           data={data}
           path={path}
+          regions={regions}
           onPickLines={(side, ls, le, q) => onPickLines(path, side, ls, le, q)}
         />
       )}

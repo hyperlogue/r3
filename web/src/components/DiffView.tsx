@@ -15,6 +15,7 @@ import {
   inSelection,
   useGutterDrag,
 } from "../gutter.ts";
+import { type Region, regionAt } from "../highlights.ts";
 import type { MessageRef } from "../markdown.ts";
 import type { PendingAnchor } from "../selection.ts";
 import type { DiffLayout } from "../settings.ts";
@@ -68,6 +69,7 @@ export type FetchContext = (file: string, start: number, end: number) => Promise
 // means every hunk row renders as the plain `@@` separator it always did.
 const NO_GAPS = new Map<DiffLine, { gap: Gap; hidden: number }>();
 const EMPTY_MERGE = (lines: DiffLine[]): MergedLines => ({ lines, gapFor: NO_GAPS });
+const NO_REGIONS: Region[] = [];
 
 // The row grid shared by the hunk row and the normal row. --gutter-w is the
 // single source of the gutter column width: the two grid columns and
@@ -189,8 +191,8 @@ function HunkBar({
 }
 
 // Memoized on primitive/stable props (the line object is stable from the diff
-// payload, the handlers are stable from useGutterDrag, and the selected flags
-// are booleans), so a drag re-renders only the rows whose selection flips.
+// payload, the handlers are stable from useGutterDrag, and selected/`fbId` are
+// primitives), so a drag re-renders only the rows whose selection flips.
 const Row = memo(function Row({
   ln,
   oldSel,
@@ -199,6 +201,7 @@ const Row = memo(function Row({
   onExpand,
   onDown,
   onEnter,
+  fbId,
 }: {
   ln: DiffLine;
   oldSel: boolean;
@@ -207,6 +210,7 @@ const Row = memo(function Row({
   onExpand?: (gap: Gap, edge: "top" | "bottom" | "all") => void;
   onDown: GutterHandler;
   onEnter: EnterHandler;
+  fbId?: string;
 }) {
   // Stable `{__html}` wrapper so React 19 doesn't re-set innerHTML (wiping a
   // selection) when the row re-renders on a gutter `selected` flip.
@@ -227,7 +231,12 @@ const Row = memo(function Row({
   const line = ln.type === "del" ? ln.oldLine : ln.newLine;
   const gutterBg = GUTTER_BG[ln.type];
   return (
-    <div className={cn(ROW_GRID, ROW_BG[ln.type])} data-line={line ?? undefined} data-side={side}>
+    <div
+      className={cn(ROW_GRID, ROW_BG[ln.type], fbId && "r3-feedback-region")}
+      data-line={line ?? undefined}
+      data-side={side}
+      data-fb-id={fbId}
+    >
       <GutterCell
         line={ln.oldLine}
         side="old"
@@ -311,6 +320,7 @@ const SplitHalfRow = memo(function SplitHalfRow({
   onExpand,
   onDown,
   onEnter,
+  fbId,
 }: {
   row: SplitRow;
   side: DiffSide;
@@ -319,6 +329,7 @@ const SplitHalfRow = memo(function SplitHalfRow({
   onExpand?: (gap: Gap, edge: "top" | "bottom" | "all") => void;
   onDown: GutterHandler;
   onEnter: EnterHandler;
+  fbId?: string;
 }) {
   const ln = row.kind === "hunk" ? row.ln : side === "old" ? row.old : row.new;
   // Stable {__html} wrapper, same reason as the unified Row: React 19 must not
@@ -368,9 +379,10 @@ const SplitHalfRow = memo(function SplitHalfRow({
   const line = side === "old" ? ln.oldLine : ln.newLine;
   return (
     <div
-      className={cn(SPLIT_ROW_GRID, ROW_BG[ln.type])}
+      className={cn(SPLIT_ROW_GRID, ROW_BG[ln.type], fbId && "r3-feedback-region")}
       data-line={line ?? undefined}
       data-side={side}
+      data-fb-id={fbId}
     >
       <GutterCell
         line={line}
@@ -403,6 +415,7 @@ const FileBlock = memo(function FileBlock({
   onPickLines,
   onFileFeedback,
   foldSignal,
+  regions,
 }: {
   f: DiffFileChange;
   patchSeq: number;
@@ -429,6 +442,10 @@ const FileBlock = memo(function FileBlock({
   // Open the composer anchored to this whole file within this round (no span).
   onFileFeedback?: (file: string, patchSeq: number) => void;
   foldSignal?: FoldSignal | null;
+  // This file's unresolved-feedback spans; empty when none. A primitive `fbId`
+  // is derived per row so memoized rows don't re-render on unrelated region
+  // changes.
+  regions: Region[];
 }) {
   // Expand-context. `reveal` holds the rows fetched per gap; `merged` splices
   // them back into one row list, which EVERYTHING below derives from — the text
@@ -628,19 +645,17 @@ const FileBlock = memo(function FileBlock({
                 renderRow={(i) => {
                   const row = splitRows[i];
                   const ln = row.kind === "pair" ? (side === "old" ? row.old : row.new) : null;
+                  const lineNo = side === "old" ? ln?.oldLine : ln?.newLine;
                   return (
                     <SplitHalfRow
                       row={row}
                       side={side}
                       gapEntry={row.kind === "hunk" ? gapFor.get(row.ln) : undefined}
                       onExpand={expand}
-                      selected={inSelection(
-                        sel,
-                        side,
-                        (side === "old" ? ln?.oldLine : ln?.newLine) ?? null,
-                      )}
+                      selected={inSelection(sel, side, lineNo ?? null)}
                       onDown={g.onDown}
                       onEnter={g.onEnter}
+                      fbId={lineNo != null ? regionAt(regions, lineNo, side)?.id : undefined}
                     />
                   );
                 }}
@@ -664,6 +679,8 @@ const FileBlock = memo(function FileBlock({
             resolveIndex={resolveIndex}
             renderRow={(i) => {
               const ln = effectiveLines[i];
+              const side: DiffSide = ln.type === "del" ? "old" : "new";
+              const line = ln.type === "del" ? ln.oldLine : ln.newLine;
               return (
                 <Row
                   ln={ln}
@@ -673,6 +690,7 @@ const FileBlock = memo(function FileBlock({
                   onExpand={expand}
                   onDown={g.onDown}
                   onEnter={g.onEnter}
+                  fbId={line != null ? regionAt(regions, line, side)?.id : undefined}
                 />
               );
             }}
@@ -898,6 +916,7 @@ export function DiffView({
   onPickLines,
   onFileFeedback,
   foldSignal,
+  regions = NO_REGIONS,
 }: {
   rounds: PatchDiff[];
   // How to render each file: one interleaved column, or two parallel old/new
@@ -933,7 +952,19 @@ export function DiffView({
   onFileFeedback?: (file: string, patchSeq: number) => void;
   // The pane toolbar's fold/unfold-all broadcast, passed through to every file.
   foldSignal?: FoldSignal | null;
+  // Unresolved-feedback spans to wash onto matching code rows. Markdown files
+  // still go through useRegionHighlight.
+  regions?: Region[];
 }) {
+  const byFile = useMemo(() => {
+    const m = new Map<string, Region[]>();
+    for (const r of regions) {
+      const arr = m.get(r.file);
+      if (arr) arr.push(r);
+      else m.set(r.file, [r]);
+    }
+    return m;
+  }, [regions]);
   if (rounds.length === 0 || rounds.every((r) => r.files.length === 0)) {
     return <p className="p-6 text-sm text-neutral-400">No changes in this review.</p>;
   }
@@ -956,6 +987,7 @@ export function DiffView({
           onPickLines={onPickLines}
           onFileFeedback={onFileFeedback}
           foldSignal={foldSignal}
+          regions={byFile.get(f.path) ?? NO_REGIONS}
         />
       ))}
     </section>

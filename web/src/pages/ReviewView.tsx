@@ -1464,6 +1464,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     onPickLines={onPickLines}
                     onFileFeedback={onFileFeedback}
                     foldSignal={foldSignal}
+                    regions={unresolvedRegions}
                   />
                 )}
                 {isDiff && !diff && (
@@ -1494,6 +1495,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                       onPickLines={onPickLines}
                       onFileFeedback={onFileFeedback}
                       foldSignal={foldSignal}
+                      regions={unresolvedRegions}
                     />
                   ) : (
                     <p className="p-6 text-sm text-neutral-400">Loading diff…</p>
@@ -1548,6 +1550,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                           ownsFileMarker={false}
                           onHydrated={onHydrated}
                           onOpenChange={onOpenChange}
+                          regions={unresolvedRegions}
                         />
                       )}
                     </ProgressiveFile>

@@ -1,14 +1,13 @@
-// Imperative feedback-highlight machinery for the review's content pane. The
-// pane's rows live inside dangerouslySetInnerHTML server HTML, so React can't
-// own these marks — the hooks toggle classes / CSS Custom Highlights directly
-// and re-apply them as the DOM changes. Three cooperating hooks: the transient
-// active ring + navigation scroll (useActiveLineHighlight), its summary-prose
-// sibling (useActiveSummaryHighlight — the two split ownership of the shared
-// HL_ACTIVE registry, see the comments at each), and the persistent
-// unresolved-feedback region wash (useRegionHighlight) — plus the Region shape
-// they share and the click refinement that resolves a markdown block's click to
-// the feedback whose quote is actually under the cursor. Extracted from
-// ReviewView.tsx verbatim.
+// Imperative feedback-highlight machinery for the review's content pane.
+// Code/diff rows are React-owned (r3-feedback-region is painted on the row);
+// rendered markdown is server HTML, so the remaining hooks toggle classes /
+// CSS Custom Highlights and re-apply them as the DOM changes. Three cooperating
+// hooks: the transient active ring + navigation scroll (useActiveLineHighlight),
+// its summary-prose sibling (useActiveSummaryHighlight — the two split ownership
+// of the shared HL_ACTIVE registry, see the comments at each), and the persistent
+// unresolved-feedback region wash for markdown (useRegionHighlight) — plus the
+// Region shape they share and the click refinement that resolves a markdown
+// block's click to the feedback whose quote is actually under the cursor.
 
 import { useEffect, useRef } from "react";
 import {
@@ -364,8 +363,21 @@ export interface Region {
 
 // The narrowest region covering a line, so clicking a line that several feedbacks
 // overlap jumps to the most specific one.
-function tightest(regions: Region[]): Region {
+export function tightest(regions: Region[]): Region {
   return regions.reduce((a, b) => (b.end - b.start < a.end - a.start ? b : a));
+}
+
+// Tightest region covering `line` on `side`. `regions` should already be this
+// file's (a span from another path can share a line number).
+export function regionAt(
+  regions: Region[],
+  line: number,
+  side?: DiffSide | null,
+): Region | undefined {
+  const cover = regions.filter(
+    (r) => line >= r.start && line <= r.end && (r.side == null || r.side === side),
+  );
+  return cover.length === 0 ? undefined : tightest(cover);
 }
 
 // Cross-browser caret hit-test: the (node, offset) directly under a viewport
@@ -440,12 +452,12 @@ export function refineMarkdownClick(
   return unlocated[0] ?? null;
 }
 
-// Persistently mark the lines/blocks that unresolved feedback points at (a steady
-// region highlight, distinct from the transient active-line ring). Imperative,
-// like useActiveLineHighlight — the content is server HTML — but re-applied on any
-// content mutation (async blob load, fold/unfold, live update) via a
-// MutationObserver, so the marks survive re-renders. childList/subtree only, so
-// its own class edits (attribute mutations) don't retrigger it.
+// Persistently mark the rendered-markdown blocks that unresolved feedback points
+// at (a steady region highlight, distinct from the transient active-line ring).
+// Code/diff rows paint the same class in React; this hook must not strip those.
+// Re-applied on content mutation (async blob load, fold/unfold) via a
+// MutationObserver. childList/subtree only, so its own class edits (attribute
+// mutations) don't retrigger it.
 export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, regions: Region[]) {
   useEffect(() => {
     const root = scope.current;
@@ -457,29 +469,18 @@ export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, r
       else byFile.set(r.file, [r]);
     }
     const apply = () => {
-      for (const el of root.querySelectorAll(".r3-feedback-region"))
+      // Markdown-only: never touch [data-line] rows (DiffView/FileView own those).
+      for (const el of root.querySelectorAll("[data-line-start].r3-feedback-region"))
         el.classList.remove("r3-feedback-region");
-      // data-fb-id tags the row/block a click should jump the panel to; re-derived
+      // data-fb-id tags the block a click should jump the panel to; re-derived
       // each pass so it tracks live changes to the feedback set.
-      for (const el of root.querySelectorAll("[data-fb-id]")) el.removeAttribute("data-fb-id");
+      for (const el of root.querySelectorAll("[data-line-start][data-fb-id]"))
+        el.removeAttribute("data-fb-id");
       // Precise text ranges for rendered-markdown feedback (see mdhighlight).
       const ranges: Range[] = [];
       for (const [file, rs] of byFile) {
         const fileEl = root.querySelector(`[data-file="${CSS.escape(file)}"]`);
         if (!fileEl) continue;
-        // Code (and raw markdown) rows carry data-line (+ data-side in a diff). Tag
-        // each with the tightest feedback covering it so a click jumps the panel to
-        // the most specific one; a side-scoped region only marks its own side.
-        for (const el of fileEl.querySelectorAll("[data-line]")) {
-          const n = Number(el.getAttribute("data-line"));
-          const side = el.getAttribute("data-side");
-          const cover = rs.filter(
-            (r) => n >= r.start && n <= r.end && (r.side == null || r.side === side),
-          );
-          if (cover.length === 0) continue;
-          el.classList.add("r3-feedback-region");
-          el.setAttribute("data-fb-id", tightest(cover).id);
-        }
         // Rendered-markdown blocks span data-line-start..data-line-end — still
         // wider than the anchored text. Resolve each region to its block
         // (blocksForRange: the narrowest one containing it), then highlight that
@@ -490,6 +491,7 @@ export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, r
         // bullet on its <li> AND its whole <ul> — washing (and making clickable)
         // the entire list.
         const blocks = blockList(fileEl);
+        if (blocks.length === 0) continue;
         const marks = new Map<Element, Region[]>();
         for (const r of rs) {
           for (const el of blocksForRange(blocks, r.start, r.end)) {

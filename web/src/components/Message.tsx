@@ -3,7 +3,7 @@
 // Markdown (markdown.ts); an `@path:Lx-y` ref inside one becomes a clickable jump
 // anchor whose click is delegated here to onJumpRef.
 
-import { type RefObject, useCallback, useEffect, useMemo, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type MessageRef, refFromEvent, renderMessageHtml } from "../markdown.ts";
 import { cn, scrollParent } from "../ui.tsx";
 
@@ -79,6 +79,54 @@ export function QuoteBubble({
   );
 }
 
+// One document mouseup for every live quote-bubble hook: first subscriber
+// attaches, last detaches. Dispatch walks registered scopes (same per-card
+// checks as before). Cards still call useQuoteBubble; they register here.
+type QuoteSub = {
+  scopeRef: RefObject<HTMLElement | null>;
+  isEligible: (range: Range) => boolean;
+  setPos: (pos: QuotePos | null) => void;
+};
+
+const quoteSubs = new Set<QuoteSub>();
+
+function onQuoteMouseUp() {
+  for (const sub of quoteSubs) {
+    const scope = sub.scopeRef.current;
+    if (!scope) continue; // scope-less consumer never had a bubble; dismissal is the second effect's job
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+      sub.setPos(null);
+      continue;
+    }
+    const text = sel.toString();
+    if (!text.trim()) {
+      sub.setPos(null);
+      continue;
+    }
+    const range = sel.getRangeAt(0);
+    if (!scope.contains(range.startContainer) || !scope.contains(range.endContainer)) {
+      sub.setPos(null);
+      continue;
+    }
+    if (!sub.isEligible(range)) {
+      sub.setPos(null);
+      continue;
+    }
+    const r = range.getBoundingClientRect();
+    sub.setPos({ left: r.left + r.width / 2, top: r.top, text });
+  }
+}
+
+function retainQuoteSub(sub: QuoteSub): () => void {
+  quoteSubs.add(sub);
+  if (quoteSubs.size === 1) document.addEventListener("mouseup", onQuoteMouseUp);
+  return () => {
+    quoteSubs.delete(sub);
+    if (quoteSubs.size === 0) document.removeEventListener("mouseup", onQuoteMouseUp);
+  };
+}
+
 // Watch for a text selection inside `scopeRef` that `isEligible` accepts, and
 // track a bubble position for it. Hides on collapse, on scroll (the fixed
 // position goes stale), and when the caller calls `hide()` (after quoting).
@@ -88,31 +136,11 @@ export function useQuoteBubble(
 ): { pos: QuotePos | null; hide: () => void } {
   const [pos, setPos] = useState<QuotePos | null>(null);
   const hide = useCallback(() => setPos(null), []);
-  useEffect(() => {
-    // Consumers may mount their scope element *after* this hook first runs (e.g.
-    // ReviewSummary renders null until a summary arrives over SSE), so the listener
-    // lives on `document` and reads the live `scopeRef.current` per event rather than
-    // capturing the element at effect time — otherwise a scope that appears later
-    // never gets a listener. mouseup is a discrete event, so N cards each paying a
-    // cheap no-op check per click is fine (unlike selectionchange, which is why the
-    // second effect below still attaches only while a bubble is up).
-    const onMouseUp = () => {
-      const scope = scopeRef.current;
-      if (!scope) return; // scope-less consumer never had a bubble; dismissal is the second effect's job
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPos(null);
-      const text = sel.toString();
-      if (!text.trim()) return setPos(null);
-      const range = sel.getRangeAt(0);
-      if (!scope.contains(range.startContainer) || !scope.contains(range.endContainer))
-        return setPos(null);
-      if (!isEligible(range)) return setPos(null);
-      const r = range.getBoundingClientRect();
-      setPos({ left: r.left + r.width / 2, top: r.top, text });
-    };
-    document.addEventListener("mouseup", onMouseUp);
-    return () => document.removeEventListener("mouseup", onMouseUp);
-  }, [scopeRef, isEligible]);
+  const subRef = useRef<QuoteSub>({ scopeRef, isEligible, setPos });
+  subRef.current.scopeRef = scopeRef;
+  subRef.current.isEligible = isEligible;
+  subRef.current.setPos = setPos;
+  useEffect(() => retainQuoteSub(subRef.current), []);
   // The global dismiss listeners attach only while a bubble is up: every feedback
   // card runs this hook, so idle cards must cost zero document/scroll listeners
   // (N cards would otherwise each re-check the selection on every caret move).

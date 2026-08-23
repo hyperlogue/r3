@@ -50,6 +50,68 @@ export function inSelection(
   return sel != null && sel.side === side && n != null && n >= sel.lo && n <= sel.hi;
 }
 
+// One window mouseup for every live gutter drag: first subscriber attaches, last
+// detaches. Idle files register a handle but don't each own a listener. The
+// handler reads `latest` from the drag that is actually `dragging`.
+interface GutterDrag {
+  dragging: { current: boolean };
+  latest: {
+    current: {
+      anchor: Point | null;
+      head: Point | null;
+      textForLine: (side: DiffSide, line: number) => string | null;
+      onPick: (pick: GutterPick) => void;
+      finish: () => void;
+    };
+  };
+}
+
+const gutterDrags = new Set<GutterDrag>();
+
+function onGutterMouseUp() {
+  for (const d of gutterDrags) {
+    if (!d.dragging.current) continue;
+    d.dragging.current = false;
+    const { anchor: a, head: h, textForLine: tf, onPick: pick, finish } = d.latest.current;
+    if (!a) {
+      finish();
+      continue;
+    }
+    const end = h && h.side === a.side ? h.line : a.line;
+    const lo = Math.min(a.line, end);
+    const hi = Math.max(a.line, end);
+    const parts: string[] = [];
+    // Only collect as far as the cap can consume: a drag down a 2000-line file
+    // would otherwise build the whole file's text just to throw all but four
+    // lines away. The stop condition counts SURVIVING lines, not collected ones,
+    // because capQuote trims trailing blanks before it counts — stopping at four
+    // raw lines would hand it "code\n\n\n" and store the one-line quote "code"
+    // where a text selection over the same span keeps four. Blank lines are free
+    // to carry along, so the early exit still holds.
+    let kept = 0;
+    for (let n = lo; n <= hi && kept < MAX_QUOTE_LINES; n++) {
+      const t = tf(a.side, n);
+      if (t == null) continue;
+      parts.push(t);
+      if (t.trim()) kept = parts.length;
+    }
+    // Same cap as a text selection (selection.ts) and a server-derived quote
+    // (server/reviews.ts) — the gesture that made a quote must not change its
+    // shape. lineStart/lineEnd still carry the full picked span.
+    pick({ side: a.side, lineStart: lo, lineEnd: hi, quote: capQuote(parts.join("\n")) });
+    finish();
+  }
+}
+
+function retainGutterDrag(d: GutterDrag): () => void {
+  gutterDrags.add(d);
+  if (gutterDrags.size === 1) window.addEventListener("mouseup", onGutterMouseUp);
+  return () => {
+    gutterDrags.delete(d);
+    if (gutterDrags.size === 0) window.removeEventListener("mouseup", onGutterMouseUp);
+  };
+}
+
 export function useGutterDrag(opts: {
   // Raw text of the line numbered `line` on `side` (null if no such line).
   textForLine: (side: DiffSide, line: number) => string | null;
@@ -61,43 +123,23 @@ export function useGutterDrag(opts: {
   const dragging = useRef(false);
   // Keep the latest values reachable from the window mouseup listener and from
   // the stable onDown/onEnter callbacks (which read the live anchor here).
-  const latest = useRef({ anchor, head, textForLine, onPick });
-  latest.current = { anchor, head, textForLine, onPick };
-
-  useEffect(() => {
-    const up = () => {
-      if (!dragging.current) return;
-      dragging.current = false;
-      const { anchor: a, head: h, textForLine: tf, onPick: pick } = latest.current;
-      if (!a) return;
-      const end = h && h.side === a.side ? h.line : a.line;
-      const lo = Math.min(a.line, end);
-      const hi = Math.max(a.line, end);
-      const parts: string[] = [];
-      // Only collect as far as the cap can consume: a drag down a 2000-line file
-      // would otherwise build the whole file's text just to throw all but four
-      // lines away. The stop condition counts SURVIVING lines, not collected ones,
-      // because capQuote trims trailing blanks before it counts — stopping at four
-      // raw lines would hand it "code\n\n\n" and store the one-line quote "code"
-      // where a text selection over the same span keeps four. Blank lines are free
-      // to carry along, so the early exit still holds.
-      let kept = 0;
-      for (let n = lo; n <= hi && kept < MAX_QUOTE_LINES; n++) {
-        const t = tf(a.side, n);
-        if (t == null) continue;
-        parts.push(t);
-        if (t.trim()) kept = parts.length;
-      }
-      // Same cap as a text selection (selection.ts) and a server-derived quote
-      // (server/reviews.ts) — the gesture that made a quote must not change its
-      // shape. lineStart/lineEnd still carry the full picked span.
-      pick({ side: a.side, lineStart: lo, lineEnd: hi, quote: capQuote(parts.join("\n")) });
+  const latest = useRef({
+    anchor,
+    head,
+    textForLine,
+    onPick,
+    finish: () => {
       setAnchor(null);
       setHead(null);
-    };
-    window.addEventListener("mouseup", up);
-    return () => window.removeEventListener("mouseup", up);
-  }, []);
+    },
+  });
+  latest.current.anchor = anchor;
+  latest.current.head = head;
+  latest.current.textForLine = textForLine;
+  latest.current.onPick = onPick;
+
+  const drag = useRef<GutterDrag>({ dragging, latest });
+  useEffect(() => retainGutterDrag(drag.current), []);
 
   // Stable handlers: memoized rows keep the same handler identity across a drag,
   // so a re-render only re-reconciles rows whose `selected` flag actually flips.
