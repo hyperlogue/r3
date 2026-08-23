@@ -846,6 +846,21 @@ export async function reanchorFeedback(
   const file = body.file ?? fb.file;
   const lineStart = body.lineStart ?? fb.line_start;
   const lineEnd = body.lineEnd ?? fb.line_end;
+  // Same range guard as addFeedback — a raw API client gets the CLI's 1 ≤ start ≤ end.
+  if (lineStart != null && lineEnd != null) {
+    if (
+      !Number.isInteger(lineStart) ||
+      lineStart < 1 ||
+      !Number.isInteger(lineEnd) ||
+      lineEnd < lineStart
+    )
+      return { error: "bad line range — expects integers 1 ≤ start ≤ end" };
+  }
+  // A stored path nothing can show is a dangling note; @summary is handled above.
+  if (review && file && file !== SUMMARY_FILE) {
+    const bad = await validateFeedbackFile(review, file, fb.patch_seq);
+    if (bad) return bad;
+  }
   // A re-anchor moves the HINT; the quote is the anchor of record and survives
   // verbatim. Re-deriving it from the new range (what this used to do) means any
   // range that isn't exactly where that text landed silently rewrites the note to
@@ -888,6 +903,9 @@ export async function reanchorFeedback(
     code_sha: codeSha,
     anchor: "anchored",
   });
+  // So the next detail build verifies this hint against the stored quote (or
+  // flags outdated) — a wrong range is self-correcting only if that pass runs.
+  markDirty(fb.review_id);
   broadcast({ type: "feedback-updated", reviewId: fb.review_id, feedbackId });
   return next;
 }
