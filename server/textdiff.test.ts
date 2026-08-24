@@ -66,6 +66,11 @@ describe("diffFile", () => {
     }
     expect(gotOld).toEqual(oldLs);
     expect(gotNew).toEqual(newLs);
+    // Reconstruction alone can't see a MINIMAL script: a bisect that misses its
+    // overlap still round-trips, it just reports the span as delete-all/add-all.
+    // Every third line is shared, so an optimal SES keeps exactly those.
+    const shared = oldLs.filter((_, i) => i % 3 === 0).length;
+    expect(f!.lines.filter((row) => row.type === "context").length).toBe(shared);
   });
 
   test("edit script covers both sides in order", () => {

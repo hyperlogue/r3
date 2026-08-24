@@ -110,6 +110,17 @@ function backtrack(a: string[], b: string[], trace: Int32Array[], off: number): 
   return ops;
 }
 
+// Total front/reverse diagonal steps one myersBisect call may spend before it
+// stops searching and reports "no commonality" for whatever span it is on. Myers
+// is O((n+m)·D), so an ADVERSARIAL pair — two large wholly-different files, where
+// D is n+m — is quadratic: 20k lines each measured ~12 s, 100k over 100 s, all of
+// it blocking the daemon's only thread. Real content sits far below the budget (a
+// 20k-line file with 541 scattered edits spends ~0.6M steps; a 5k-line file with
+// half of it rewritten ~6M), and exhausting it degrades to the same coarse
+// delete-all/add-all the old LCS matrix produced past MAX_DP_CELLS — a valid diff,
+// just not a minimal one.
+const MAX_BISECT_STEPS = 50_000_000;
+
 // Linear-space Myers: meet-in-the-middle split, then recurse. Used when the
 // greedy trace would retain too many V snapshots (a high-edit pair).
 function myersBisect(
@@ -121,6 +132,7 @@ function myersBisect(
   be: number,
 ): Op[] {
   const ops: Op[] = [];
+  let budget = MAX_BISECT_STEPS;
   walk(as, ae, bs, be);
   return ops;
 
@@ -159,56 +171,75 @@ function myersBisect(
 
   function findSplit(a0: number, n: number, b0: number, m: number): { x: number; y: number } {
     // Meet-in-the-middle: front and reverse D-paths, overlap is a point on an
-    // optimal path. max_d is ceil((n+m)/2) because the two searches together
+    // optimal path. maxD is ceil((n+m)/2) because the two searches together
     // cover a full SES.
+    //
+    // Sizing + pruning are load-bearing, not defensive: `off + k` must be
+    // addressable for every k in [-maxD, maxD] (hence 2*maxD+1, not 2*maxD —
+    // skipping the extreme diagonal leaves holes in V that later reads take for
+    // real positions), and a diagonal that walks off the grid must stop being
+    // searched (fStart/fEnd/rStart/rEnd) or its overshoot poisons the frontier.
+    // Get either wrong and the overlap is missed, findSplit falls through to the
+    // {n,0} bail-out, and `walk` emits a delete-all/add-all for that span — a
+    // valid but far-from-minimal diff.
     const maxD = Math.ceil((n + m) / 2);
     const off = maxD;
-    const len = 2 * maxD;
+    const len = 2 * maxD + 1;
     const vf = new Int32Array(len).fill(-1);
     const vr = new Int32Array(len).fill(-1);
     vf[off + 1] = 0;
     vr[off + 1] = 0;
     const delta = n - m;
     const front = (delta & 1) !== 0;
+    // How far the searched diagonal band has been trimmed at each end after a
+    // path ran past the grid's right (x > n) or bottom (y > m) edge.
+    let fStart = 0;
+    let fEnd = 0;
+    let rStart = 0;
+    let rEnd = 0;
     for (let d = 0; d < maxD; d++) {
-      for (let k = -d; k <= d; k += 2) {
+      if (budget <= 0) return { x: n, y: 0 };
+      budget -= 2 * d + 2;
+      for (let k = -d + fStart; k <= d - fEnd; k += 2) {
         const ki = off + k;
-        if (ki - 1 < 0 || ki + 1 >= len) continue;
+        // k === d never reads ki+1 and k === -d never reads ki-1 (short-circuit),
+        // so both neighbours are in range and already written.
         let x: number;
         if (k === -d || (k !== d && vf[ki - 1] < vf[ki + 1])) {
           x = vf[ki + 1];
         } else {
           x = vf[ki - 1] + 1;
         }
-        if (x < 0) x = 0;
         let y = x - k;
-        while (x < n && y < m && y >= 0 && a[a0 + x] === b[b0 + y]) {
+        while (x < n && y < m && a[a0 + x] === b[b0 + y]) {
           x++;
           y++;
         }
-        if (ki >= 0 && ki < len) vf[ki] = x;
-        if (front) {
+        vf[ki] = x;
+        if (x > n) fEnd += 2;
+        else if (y > m) fStart += 2;
+        else if (front) {
           const ri = off + delta - k;
           if (ri >= 0 && ri < len && vr[ri] !== -1 && x >= n - vr[ri]) return { x, y };
         }
       }
-      for (let k = -d; k <= d; k += 2) {
+      for (let k = -d + rStart; k <= d - rEnd; k += 2) {
         const ki = off + k;
-        if (ki - 1 < 0 || ki + 1 >= len) continue;
         let x: number;
         if (k === -d || (k !== d && vr[ki - 1] < vr[ki + 1])) {
           x = vr[ki + 1];
         } else {
           x = vr[ki - 1] + 1;
         }
-        if (x < 0) x = 0;
         let y = x - k;
-        while (x < n && y < m && y >= 0 && a[a0 + n - x - 1] === b[b0 + m - y - 1]) {
+        while (x < n && y < m && a[a0 + n - x - 1] === b[b0 + m - y - 1]) {
           x++;
           y++;
         }
-        if (ki >= 0 && ki < len) vr[ki] = x;
-        if (!front) {
+        vr[ki] = x;
+        if (x > n) rEnd += 2;
+        else if (y > m) rStart += 2;
+        else if (!front) {
           const fi = off + delta - k;
           if (fi >= 0 && fi < len && vf[fi] !== -1) {
             const xF = vf[fi];
@@ -218,6 +249,7 @@ function myersBisect(
         }
       }
     }
+    // No overlap within maxD: the two sides share nothing.
     return { x: n, y: 0 };
   }
 }
