@@ -105,6 +105,8 @@ server/          Hono daemon + bun:sqlite global store
   highlight.ts   Shiki (code + a doc's fenced blocks) + markdown render
                  (decorates mdproject's instance with images/doclinks/fence/
                  data-line rules), content-sha cached
+  highlight-worker.ts  Shiki tokenizer isolate — codeToTokens off the daemon's
+                 thread, so a big blob can't stall SSE / a blocked `r3 watch`
   mermaid.ts     mermaid fence → safe SVG (flowchart + sequenceDiagram);
                  anything else falls through to the ordinary code fence
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
