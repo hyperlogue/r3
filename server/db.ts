@@ -1063,13 +1063,14 @@ export function listPatches(reviewId: string): {
   return rows.map(({ review_id: _, ...p }) => p);
 }
 
-export function getPatch(
-  reviewId: string,
-  seq: number,
-): { body: string; label: string | null } | null {
+// The whole row, not just the body: rendering one round needs its meta too, and
+// a second lookup through listPatchMetas would scan every round to find it.
+export function getPatch(reviewId: string, seq: number): (PatchMeta & { body: string }) | null {
   return db
-    .query("SELECT body, label FROM patches WHERE review_id = $rid AND seq = $seq")
-    .get({ $rid: reviewId, $seq: seq }) as { body: string; label: string | null } | null;
+    .query(
+      "SELECT seq, label, summary, created_at, body FROM patches WHERE review_id = $rid AND seq = $seq",
+    )
+    .get({ $rid: reviewId, $seq: seq }) as (PatchMeta & { body: string }) | null;
 }
 
 export function deletePatch(reviewId: string, seq: number): boolean {

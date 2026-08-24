@@ -146,10 +146,8 @@ export async function renderPatch(
 ): Promise<PatchDiff | null> {
   const hit = takeCached(roundKey(reviewId, seq, theme));
   if (hit) return hit;
-  const meta = db.listPatchMetas(reviewId).find((p) => p.seq === seq);
   const patch = db.getPatch(reviewId, seq);
-  if (!meta || !patch) return null;
-  return cachedRound(reviewId, { ...meta, body: patch.body }, theme);
+  return patch ? cachedRound(reviewId, patch, theme) : null;
 }
 
 // All of a review's rounds, rendered (GET /api/reviews/:id/diff with seq omitted
