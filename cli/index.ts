@@ -334,24 +334,34 @@ function fail(msg: string): never {
 // Assigned by ensureServer() in main(), before any command that calls api().
 let SERVER: ServerInfo;
 
-async function api(method: string, path: string, body?: unknown): Promise<any> {
+// The parsed body plus the response itself, for the few callers that need a
+// header (see cmdWatch's drain).
+async function apiRaw(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ data: any; res: Response }> {
   const headers: Record<string, string> = {
     "content-type": "application/json",
     "x-r3-token": SERVER.token,
   };
   if (SERVER.repoHeader) headers["x-r3-repo"] = SERVER.repoHeader;
-  const r = await fetch(SERVER.url + path, {
+  const res = await fetch(SERVER.url + path, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const text = await r.text();
-  if (!r.ok) fail(`${method} ${path} → ${r.status}: ${text}`);
+  const text = await res.text();
+  if (!res.ok) fail(`${method} ${path} → ${res.status}: ${text}`);
   try {
-    return JSON.parse(text);
+    return { data: JSON.parse(text), res };
   } catch {
-    return text;
+    return { data: text, res };
   }
+}
+
+async function api(method: string, path: string, body?: unknown): Promise<any> {
+  return (await apiRaw(method, path, body)).data;
 }
 
 // Shared unsent predicate (hasUnsentContent) so watch can't wake for content
@@ -769,10 +779,21 @@ async function cmdWatch(args: Args) {
   const agentId = (args.flags["agent-id"] as string) ?? undefined;
 
   const emit = async (): Promise<boolean> => {
-    const text = (await api("POST", `/api/reviews/${id}/prompt`, {})) as string;
-    if (text.includes("(no unsent feedback")) return false;
+    // POST {} renders AND stamps in one server-side step, so what came back is
+    // the only record of what was drained: read the count off the response
+    // header. Sniffing the prose for the empty-prompt sentence would let a note
+    // that quotes it read as "nothing to do" — after the POST already marked the
+    // round delivered, so it would never resurface in a later prompt.
+    const { data, res } = await apiRaw("POST", `/api/reviews/${id}/prompt`, {});
+    // A pre-header daemon (version skew) has only the prose to go on.
+    const header = res.headers.get("x-r3-prompt-items");
+    const items = header == null ? Number.NaN : Number(header);
+    const empty = Number.isInteger(items)
+      ? items === 0
+      : String(data).includes("(no unsent feedback");
+    if (empty) return false;
     process.stderr.write("\nr3: feedback from the human.\n\n");
-    console.log(text);
+    console.log(data);
     return true;
   };
 

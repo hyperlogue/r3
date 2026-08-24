@@ -64,7 +64,11 @@ one rendered file.
   **nothing**. Default = full history of open items; `scope=unsent` previews the
   hand-off text, which is how the web copies first and marks only on success.
 - `POST …/prompt { feedback? }` — the unsent-only hand-off, and **the one that
-  stamps `sent_at`**.
+  stamps `sent_at`**. Rendering and stamping are one step, so the response carries
+  `x-r3-prompt-items: <n>` — how many feedback items the body holds. That is the
+  only reliable way to tell an empty drain from a real hand-off: the body is prose
+  the human partly wrote, so matching it against the "(no unsent feedback …)"
+  sentence lets a note quoting that sentence swallow a round already marked sent.
 - `GET …/watchers` + `POST …/submit` — live `watch` clients (0 or 1: a review
   admits one watch at a time) / fire a `submitted` event.
 

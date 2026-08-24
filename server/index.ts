@@ -852,8 +852,13 @@ app.post("/api/reviews/:id/prompt", async (c) => {
   const feedbackIds = Array.isArray(body?.feedback)
     ? body.feedback.map(String).filter(Boolean)
     : undefined;
-  const text = await reviews.buildAndMarkPrompt(c.req.param("id"), feedbackIds);
-  return text != null ? c.text(text) : c.text("not found", 404);
+  const out = await reviews.buildAndMarkPrompt(c.req.param("id"), feedbackIds);
+  if (!out) return c.text("not found", 404);
+  // How many feedback items the body carries. `r3 watch` needs this to tell an
+  // empty drain from a real hand-off, and the body is prose the human partly
+  // wrote — sniffing it for the empty-prompt sentence would let a note quoting
+  // that sentence swallow a round the POST has already marked delivered.
+  return c.text(out.text, 200, { "x-r3-prompt-items": String(out.delivered) });
 });
 
 // Which agents are blocked on `watch <id>` right now (drives the UI's

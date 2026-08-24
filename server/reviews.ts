@@ -182,10 +182,16 @@ export async function buildReviewDetail(id: string): Promise<ReviewDetail | null
 // review's updated_at and pushes `review-updated`, so the open UI recomputes
 // "has unsent" (re-disabling Copy/Submit) and the sidebar refreshes — the same
 // path a feedback write takes. Returns null when the review is unknown.
+//
+// `delivered` is how many feedback items the text carries. The drain is atomic
+// (this POST both renders and stamps), so its caller cannot re-read the review to
+// find out whether it got anything — and it must not go looking for the
+// empty-prompt sentence in the prose either, since a human's own note can contain
+// any sentence we'd pick. The count rides the response instead (x-r3-prompt-items).
 export async function buildAndMarkPrompt(
   id: string,
   feedbackIds?: string[],
-): Promise<string | null> {
+): Promise<{ text: string; delivered: number } | null> {
   const detail = await buildReviewDetail(id);
   if (!detail) return null;
   const { text, included } = buildUnsentPrompt(detail, { feedbackIds });
@@ -193,7 +199,7 @@ export async function buildAndMarkPrompt(
     db.markContentSent(id, included.feedback, included.replies);
     broadcast({ type: "review-updated", reviewId: id });
   }
-  return text;
+  return { text, delivered: included.feedback.length };
 }
 
 // Create an adhoc scratch review: an empty files/SCRATCH review plus a per-review
