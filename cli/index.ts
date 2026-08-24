@@ -199,19 +199,30 @@ async function spawnDaemon(): Promise<DaemonInfo> {
     stderr: "ignore",
   });
   proc.unref();
+  // Once the child is gone `proc.exited` resolves instantly, so the loop must
+  // fall back to a real sleep or it would burn its whole budget in one tick.
+  let exitedAt = -1;
   for (let i = 0; i < 100; i++) {
-    await Promise.race([sleep(50), proc.exited]);
+    if (exitedAt >= 0) await sleep(50);
+    else await Promise.race([sleep(50), proc.exited]);
     const d = readDaemonJson();
     if (d && (await probe(d.url))) return d;
-    if (proc.exitCode != null) {
-      const owner = readDaemonLockOwner();
-      fail(
-        `daemon failed to start (child exited with status ${proc.exitCode})` +
-          (owner && owner !== proc.pid && isDaemonProcess(owner)
-            ? `\nr3: pid ${owner} holds the start lock but isn't responding — \`r3 stop\` clears it`
-            : ""),
-      );
-    }
+    if (proc.exitCode == null) continue;
+    // Our child stopped without serving. That is usually terminal — but it is
+    // ALSO how a concurrent spawn loses the O_EXCL start-lock race: the loser
+    // exits 0 and the winner announces itself a moment later, which is exactly
+    // what this loop is here to wait for. So give the lock holder a short grace
+    // window before calling it a failure, rather than racing two `r3` calls into
+    // a spurious "daemon failed to start".
+    if (exitedAt < 0) exitedAt = i;
+    if (i - exitedAt < 20) continue;
+    const owner = readDaemonLockOwner();
+    fail(
+      `daemon failed to start (child exited with status ${proc.exitCode})` +
+        (owner && owner !== proc.pid && isDaemonProcess(owner)
+          ? `\nr3: pid ${owner} holds the start lock but isn't responding — \`r3 stop\` clears it`
+          : ""),
+    );
   }
   // This can mean an older daemon is alive but no longer serving: it still holds
   // the start lock, so the daemon we just spawned stepped aside and never
