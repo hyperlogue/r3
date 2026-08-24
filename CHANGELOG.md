@@ -4,6 +4,48 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] - 2026-08-23
+
+### Added
+
+- **Mermaid diagrams render in a reviewed `.md`.** A ```` ```mermaid ```` flowchart
+  or sequence diagram now shows as a diagram — the server renders it to SVG —
+  instead of highlighted source. Any other diagram kind falls back to an ordinary
+  code fence.
+
+### Changed
+
+- **A large file no longer stalls the daemon.** Syntax highlighting runs off the
+  daemon's thread, so nothing holds up live updates or an agent blocked on
+  `r3 watch` while a big blob is highlighted. A diff review also loads only the
+  round you are looking at, expand-context reuses the diff it already derived,
+  and marking lines or dragging the gutter stays smooth in long files.
+- **Snapshot and expand-context diffs use Myers**, the algorithm git itself uses.
+  A small edit between two large files now reads as a small edit rather than a
+  full rewrite.
+
+### Fixed
+
+- **A binary or oversize file in a files review is marked as such**, instead of
+  being reported as deleted or quietly dropped from a snapshot.
+- **Feedback handed off to `r3 watch` can't be lost.** The hand-off is drained in
+  one step, so two agents on the same review can't both claim it and a note
+  whose text resembles r3's own output no longer reads as an empty round.
+- **Removing a diff review's last round leaves it empty**, instead of falling
+  back to whatever the working tree holds now.
+- **`r3 reanchor` checks where you point it** — the path and line range are
+  validated on the way in, and the next automatic pass re-verifies the result
+  rather than trusting it.
+- **A round or snapshot never reuses a number an older reply still refers to**,
+  so a `@path:Lx-y` ref keeps pointing at the code it was written against.
+- **`r3 guide` matches what the CLI accepts** for `files rm`, `snapshot rm`, and
+  scratch reviews.
+- **Forgetting a repo clears its reviews from open tabs.**
+- **Editing a note you already handed off marks it undelivered right away.**
+- **Approve says why it is disabled** when you hover it.
+- **Jumping to a file keeps the current-file marker moving** instead of freezing
+  it where it was.
+
 ## [0.10.1] - 2026-08-22
 
 ### Added
@@ -364,6 +406,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.11.0]: https://github.com/hyperlogue/r3/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/hyperlogue/r3/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/hyperlogue/r3/compare/v0.9.3...v0.10.0
 [0.9.3]: https://github.com/hyperlogue/r3/compare/v0.9.2...v0.9.3

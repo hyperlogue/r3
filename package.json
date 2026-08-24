@@ -1,6 +1,6 @@
 {
   "name": "r3",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "description": "r3 — Review. Revise. Resolve. A local-first review tool for AI-generated code and docs.",
