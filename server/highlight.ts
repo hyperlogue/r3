@@ -243,6 +243,13 @@ function cacheSet(key: string, v: string[]): void {
 // watch. Idle-unref so tests and gen-demo-fixtures can exit. Worker missing
 // or failing to load → in-process; timeout / tokenizer error → throw (escaped
 // plain lines, same as today's catch).
+//
+// TOKENIZE_TIMEOUT_MS is how long the worker may go SILENT with work
+// outstanding — one watchdog over the queue, not a deadline per job. The worker
+// tokenizes serially, so a per-job clock started at enqueue is really the clock
+// of everything ahead of it: a handful of large files (each legitimately seconds
+// at ~8-40 ms/KB) would trip the timeout for every job behind the first, drop the
+// whole batch to plain text, and tear down a perfectly healthy worker with it.
 const TOKENIZE_TIMEOUT_MS = 30_000;
 
 type TokenizeResult = { tokens: ThemedToken[][]; bg?: string; fg?: string };
@@ -250,14 +257,26 @@ type HighlightWorker = Worker & { ref(): void; unref(): void };
 type Pending = {
   resolve: (r: TokenizeResult) => void;
   reject: (e: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
 };
 
 let worker: HighlightWorker | null = null;
 let workerDisabled = false;
 let workerEverOk = false;
 let nextTokenizeId = 0;
+let watchdog: ReturnType<typeof setTimeout> | null = null;
 const pending = new Map<number, Pending>();
+
+// Re-armed on every reply (proof of life) and cleared when the queue drains.
+function armWatchdog(): void {
+  if (watchdog) clearTimeout(watchdog);
+  watchdog = null;
+  if (pending.size === 0) return;
+  watchdog = setTimeout(() => {
+    watchdog = null;
+    if (!workerEverOk) workerDisabled = true;
+    dropWorker(new Error("highlight worker timeout"));
+  }, TOKENIZE_TIMEOUT_MS);
+}
 
 function tokenizeLocal(
   code: string,
@@ -278,12 +297,11 @@ function tokenizeLocal(
 function dropWorker(err: Error): void {
   const w = worker;
   worker = null;
+  if (watchdog) clearTimeout(watchdog);
+  watchdog = null;
   const jobs = [...pending.values()];
   pending.clear();
-  for (const p of jobs) {
-    clearTimeout(p.timer);
-    p.reject(err);
-  }
+  for (const p of jobs) p.reject(err);
   if (!w) return;
   try {
     w.terminate();
@@ -304,7 +322,7 @@ function onWorkerMessage(ev: MessageEvent): void {
   const p = pending.get(data.id);
   if (!p) return;
   pending.delete(data.id);
-  clearTimeout(p.timer);
+  armWatchdog();
   if (pending.size === 0) worker?.unref();
   if (data.error != null || data.tokens == null) {
     p.reject(new Error(data.error ?? "highlight worker returned no tokens"));
@@ -358,12 +376,8 @@ function requestTokens(
 ): Promise<TokenizeResult> {
   return new Promise((resolve, reject) => {
     const id = ++nextTokenizeId;
-    const timer = setTimeout(() => {
-      if (!pending.has(id)) return;
-      if (!workerEverOk) workerDisabled = true;
-      dropWorker(new Error("highlight worker timeout"));
-    }, TOKENIZE_TIMEOUT_MS);
-    pending.set(id, { resolve, reject, timer });
+    pending.set(id, { resolve, reject });
+    if (!watchdog) armWatchdog();
     w.ref();
     w.postMessage({ id, code, lang, light, dark });
   });
