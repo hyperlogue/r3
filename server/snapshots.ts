@@ -10,7 +10,7 @@ import type {
   SnapshotMeta,
 } from "../shared/types.ts";
 import * as db from "./db.ts";
-import { blobSha, readContentAt } from "./git.ts";
+import { blobSha, readContentDetailed } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath, resolveTheme } from "./highlight.ts";
 import { renderContent } from "./render.ts";
 import type { Repo } from "./repo.ts";
@@ -49,10 +49,10 @@ export async function captureSnapshot(
   const files: db.SnapshotFileInput[] = [];
   for (const path of currentFiles(review)) {
     // WORKING/SCRATCH live on disk: stat the file and skip an oversize one WITHOUT
-    // reading it — readContentAt would otherwise materialize the whole file before
-    // the cap below could reject it. Resolve the path the same way readContentAt's
-    // fs branch does; a git-ref read has no cheap size check and falls through to
-    // the post-read cap (also a backstop against a stat→read size race here).
+    // reading it — the read below would otherwise materialize the whole file
+    // before the cap could reject it. Resolve the path the same way
+    // readContentDetailed's fs branch does; a git-ref read has no cheap size check
+    // and falls through to the post-read cap (also a stat→read race backstop).
     const fsPath =
       ref === "SCRATCH" ? scratchSafePath(path) : ref === "WORKING" ? repo.safePath(path) : null;
     if (fsPath) {
@@ -61,17 +61,18 @@ export async function captureSnapshot(
           files.push({ path, content: "", sha: "", skipped: true });
           continue;
         }
-      } catch {} // missing/unreadable — let readContentAt below decide (omit)
+      } catch {} // missing/unreadable — let the read below decide (omit)
     }
-    const content = await readContentAt(repo, path, ref);
-    if (content == null) continue; // truly missing — omit (a real absence vs. a prior snapshot)
+    const got = await readContentDetailed(repo, path, ref);
+    if (got == null) continue; // truly missing — omit (a real absence vs. a prior snapshot)
     // Present but non-diffable: record its existence without storing bytes, so
-    // the phantom-deletion misrepresentation can't happen.
-    if (content.includes("\0") || Buffer.byteLength(content, "utf8") > MAX_SNAPSHOT_FILE_BYTES) {
+    // the phantom-deletion misrepresentation can't happen. readContentDetailed
+    // reports binary/oversize itself — `ok:false` must NOT be flattened to "absent".
+    if (!got.ok || Buffer.byteLength(got.content, "utf8") > MAX_SNAPSHOT_FILE_BYTES) {
       files.push({ path, content: "", sha: "", skipped: true });
       continue;
     }
-    files.push({ path, content, sha: await blobSha(content) });
+    files.push({ path, content: got.content, sha: await blobSha(got.content) });
   }
   if (files.length === 0) return null;
   return db.addSnapshot(review.id, files, label);
@@ -105,13 +106,14 @@ async function fileAt(
     if (!repo) return { content: null, skipped: false };
     const srcRef = sourceRef(review);
     if (repo.stale && srcRef !== "SCRATCH") return { content: null, skipped: false };
-    const content = await readContentAt(repo, path, srcRef);
-    if (content == null) return { content: null, skipped: false };
-    // A live binary file has no text to diff — mark it present-but-non-diffable,
-    // same as a stored skipped file. No storage-cap check here: a live view isn't
-    // storage-bound; the cap only governs what captureSnapshot persists.
-    if (content.includes("\0")) return { content: null, skipped: true };
-    return { content, skipped: false };
+    const got = await readContentDetailed(repo, path, srcRef);
+    if (got == null) return { content: null, skipped: false };
+    // A live binary or over-cap file has no text to diff — mark it
+    // present-but-non-diffable, same as a stored skipped file. `readContentAt`
+    // would flatten both into null, i.e. "absent", and the derived diff would
+    // render the other side's readable content as a full deletion.
+    if (!got.ok) return { content: null, skipped: true };
+    return { content: got.content, skipped: false };
   }
   const row = db.getSnapshotFile(reviewId, ref, path);
   if (!row) return { content: null, skipped: false };
