@@ -294,12 +294,19 @@ Messages — feedback, replies, both summaries — render **client-side**
 and stay unhighlighted by design: Shiki's WASM never reaches the browser.
 
 **The feedback dock folds to a rail, and the composer follows the gesture.** On
-desktop the right-docked panel collapses (`p`, the header's `›`, or the rail
-itself) to a ~2.25rem strip, giving the content pane the width back — a persisted
+desktop the right-docked panel collapses (`p`, the header's fold control, or the
+rail itself) to a 2rem strip, giving the content pane the width back — a persisted
 global display preference (`r3-feedback-collapsed`), like the diff layout, never
-review state. The panel stays **mounted**: it owns the create mutation, the
-watcher query and the draft bookkeeping, so collapsing swaps its chrome, it never
-unmounts anything. What survives on the rail is what you would otherwise have to
+review state. It is **FileBrowser's fold, mirrored**: the same `FoldChevrons`
+toggle pointing the way it opens, the same uppercase vertical `<name> · <count>`
+rail label, the same width transition (one box eases its width while
+`overflow-hidden` clips a child already at its target width, so the panel doesn't
+re-wrap frame by frame) — pinned to the far edge, so a right dock is revealed from
+the outside in. Two fold affordances on the two edges of one pane would be two
+things to learn for one idea; the transition stands down mid-drag, where the width
+is a resize handle's live output. The panel stays **mounted**: it owns the create
+mutation, the watcher query and the draft bookkeeping, so collapsing swaps its
+chrome, it never unmounts anything. What survives on the rail is what you would otherwise have to
 expand to learn — the open count, and one glyph for an unsaved draft / undelivered
 content / live agent presence. With no list on screen to dock a composer at the
 bottom of, an anchor gesture floats the *same* composer next to the code it is

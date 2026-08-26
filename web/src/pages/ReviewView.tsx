@@ -166,6 +166,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const splitRef = useRef<HTMLDivElement>(null);
   const {
     width: feedbackWidth,
+    dragging: feedbackDragging,
     onPointerDown: onFeedbackResize,
     onDoubleClick: onFeedbackResetSplit,
   } = useResizableWidth("r3-feedback-width", {
@@ -1335,23 +1336,45 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         </div>
 
         {!isMobile && (
-          // Collapsed, the dock is a fixed-width rail: the drag handle goes with
-          // it (there is nothing to size), and the inline width must go too, or
-          // the last dragged pixel count would survive the collapse and the rail
-          // would still be 400px wide.
+          // The fold animates the way FileBrowser's does — one box whose WIDTH
+          // transitions while `overflow-hidden` clips a fixed-width child — so the
+          // two rails on either side of the pane behave identically. The child
+          // takes its target width immediately and the box slides to meet it, which
+          // is what keeps the panel from re-wrapping its text frame by frame; it's
+          // pinned to the far edge (`justify-end`) so a right dock is revealed from
+          // the outside in, the mirror of the left sidebar.
+          //
+          // The transition stands down mid-drag: this box's width is a resize
+          // handle's live pixel output there, and easing every pointermove would
+          // make the handle feel like it's on a rubber band. Collapsed, the handle
+          // goes away with it (there is nothing to size) and the inline width must
+          // go too, or the last dragged pixel count would survive the collapse and
+          // the rail would still be 400px wide.
           <div
-            className="relative shrink-0 border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
+            className={cn(
+              "relative flex shrink-0 justify-end overflow-hidden border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900",
+              !feedbackDragging && "transition-[width] duration-200",
+            )}
             style={{ width: panelCollapsed ? RAIL_WIDTH : feedbackWidth }}
           >
+            {/* Inside the clip now, so `-left-1` would have been half-eaten by it;
+                `left-0` keeps the whole 2-unit grab strip hittable. */}
             {!panelCollapsed && (
               <div
                 onPointerDown={onFeedbackResize}
                 onDoubleClick={onFeedbackResetSplit}
                 title="Drag to resize · double-click to reset"
-                className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
+                className="absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
               />
             )}
-            {feedbackPanel}
+            {/* flex-col + h-full, like FileBrowser's <aside>: the rail is a
+                `flex-1` button and needs a column to fill. */}
+            <div
+              className="flex h-full shrink-0 flex-col"
+              style={{ width: panelCollapsed ? RAIL_WIDTH : feedbackWidth }}
+            >
+              {feedbackPanel}
+            </div>
           </div>
         )}
       </div>

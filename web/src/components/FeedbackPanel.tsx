@@ -52,6 +52,7 @@ import {
   Collapse,
   CommentPlusIcon,
   cn,
+  FoldChevrons,
   FoldTriangle,
   scrollParent,
   TrashIcon,
@@ -1386,17 +1387,22 @@ function FeedbackCard({
 }
 
 // The width of the collapsed dock, in rem — shared with ReviewView so the rail
-// and the column it sits in can't disagree. A `w-9` class would be the obvious
-// spelling, but ReviewView sets the expanded dock's width from a drag-resize
-// number, and mixing the two spellings on one element is how a stale inline width
-// survives the collapse.
-export const RAIL_WIDTH = "2.25rem";
+// and the column it sits in can't disagree, and matched to FileBrowser's `w-8`
+// so the two rails read as one pair of shutters on the pane. A class would be the
+// obvious spelling, but ReviewView sets the *expanded* dock's width from a
+// drag-resize number, and mixing the two spellings on one element is how a stale
+// inline width survives the collapse.
+export const RAIL_WIDTH = "2rem";
 
-// The collapsed dock. Folding the panel away must not cost you the two things it
-// tells you at a glance — how much is still open, and whether anything is unsaved
-// or in flight — so those ride the rail; everything else waits behind one click.
-// The whole rail IS the expand button (not a strip with a button on it): at this
-// width a hit target smaller than the rail is a miss target.
+// The collapsed dock — the FileBrowser rail mirrored across the pane: the same
+// FoldChevrons toggle (pointing the way it opens), the same uppercase vertical
+// "<name> · <count>" label, the whole rail as the hit target. Symmetry is the
+// point; two different fold affordances on the two edges of one pane would be two
+// things to learn for one idea.
+//
+// It carries one thing FileBrowser has no equivalent for: a status glyph, because
+// folding the panel away must not cost you the "something needs you" signal that
+// is the only reason to expand it in a hurry.
 function CollapsedRail({
   openCount,
   unsaved,
@@ -1419,26 +1425,14 @@ function CollapsedRail({
     <button
       type="button"
       onClick={onExpand}
-      title="Expand the feedback panel (p)"
-      aria-label={`Expand the feedback panel — ${openCount} open`}
-      className="group flex h-full w-full cursor-pointer flex-col items-center gap-2 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      title="Show feedback"
+      aria-label={`Show feedback — ${openCount} open`}
+      className="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center gap-2 py-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
     >
-      <span className="text-xs leading-none text-neutral-400 transition-colors group-hover:text-neutral-700 dark:group-hover:text-neutral-200">
-        ‹
-      </span>
-      <span
-        className={cn(
-          "rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums",
-          openCount > 0
-            ? "bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
-            : "text-neutral-400",
-        )}
-      >
-        {openCount}
-      </span>
-      {/* One status glyph at most, in the order that decides what to do next:
-          an unsaved draft is yours to finish, undelivered content is the hand-off
-          waiting, live presence is just context. */}
+      <FoldChevrons dir="left" />
+      {/* One glyph at most, in the order that decides what to do next: an unsaved
+          draft is yours to finish, undelivered content is the hand-off waiting,
+          live presence is just context. */}
       {unsaved ? (
         <span
           title="Unsaved draft — expand the panel to add or discard it"
@@ -1457,8 +1451,8 @@ function CollapsedRail({
           className="size-1.5 rounded-full bg-primary-500/50"
         />
       ) : null}
-      <span className="text-[0.6875rem] font-medium tracking-wide text-neutral-500 [writing-mode:vertical-rl]">
-        Feedback
+      <span className="text-[0.625rem] font-semibold tracking-wide text-neutral-400 uppercase [writing-mode:vertical-rl]">
+        Feedback · {openCount}
       </span>
     </button>
   );
@@ -2180,17 +2174,19 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              {/* Desktop only (ReviewView withholds the callback below md, where
-                  the bottom sheet's own handle is the equivalent control). */}
+              {/* The FileBrowser header's fold control, mirrored: same glyph, same
+                  bare styling, pointing the way this dock folds. Desktop only —
+                  ReviewView withholds the callback below md, where the bottom
+                  sheet's own handle is the equivalent control. */}
               {onToggleCollapsed && (
                 <button
                   type="button"
-                  aria-label="Collapse the feedback panel"
-                  title="Collapse the feedback panel (p)"
+                  aria-label="Hide feedback"
+                  title="Hide feedback"
                   onClick={onToggleCollapsed}
-                  className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                  className="flex shrink-0 cursor-pointer text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
                 >
-                  ›
+                  <FoldChevrons dir="right" />
                 </button>
               )}
               {/* One composer at a time: opening general discards a pending
