@@ -1068,10 +1068,19 @@ function FeedbackCard({
         // Embedded block flush to the panel. p-3 keeps content off the edge; a
         // full-bleed bottom rule is the divider (last:border-b-0).
         "relative border-b-2 border-b-neutral-300 border-l-2 border-l-transparent p-3 transition-colors last:border-b-0 dark:border-b-neutral-700",
+        // Resolved: a faint success wash + a green left rail, so a resolved card
+        // can never be mistaken for open work at a glance — the one visual the
+        // Resolved tab shares with a resolved card sitting in a mixed list (the
+        // active item the panel switched tabs to reveal). Deliberately the ONE
+        // full-card fill in this list: it says "not your queue", which is exactly
+        // what a wash says better than a badge alone.
+        resolved && "bg-success-50/70 dark:bg-success-950/20",
         // Active feedback: just the amber left rail — no fill (a full-card wash
         // was too loud). The border-l-2 above is always reserved, so activating
         // adds no layout shift. The outdated-anchor state stays on the ⚠ by the
-        // file name, not here.
+        // file name, not here. Amber outranks the resolved green: the rail marks
+        // *focus*, which is transient, while the wash below keeps saying resolved.
+        resolved && !isActive && "border-l-success-400 dark:border-l-success-700",
         isActive && "border-l-warning-400 dark:border-l-warning-500",
       )}
     >
@@ -1117,6 +1126,14 @@ function FeedbackCard({
           )}
           <span className="truncate">{locLabel(fb)}</span>
         </span>
+        {resolved && (
+          <span
+            title="Resolved — done, not in the active queue. Reopen puts it back."
+            className="flex shrink-0 items-center gap-0.5 rounded bg-success-100 px-1 py-px text-[0.625rem] font-medium text-success-800 dark:bg-success-950 dark:text-success-300"
+          >
+            ✓ resolved
+          </span>
+        )}
         {fb.author === "agent" && (
           <span
             title="Opened by the agent"
@@ -2049,7 +2066,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   {tabHi && (
                     <span
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-0 rounded bg-neutral-200 transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none dark:bg-neutral-700"
+                      className={cn(
+                        "pointer-events-none absolute left-0 rounded transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none",
+                        // The highlight carries the tab's meaning, not just its
+                        // position: green while Resolved is showing. Sitting in
+                        // the Resolved tab and reading it as the working set is
+                        // the mistake this whole colour thread exists to prevent.
+                        tab === "resolved"
+                          ? "bg-success-200 dark:bg-success-900"
+                          : "bg-neutral-200 dark:bg-neutral-700",
+                      )}
                       style={{
                         top: tabHi.top,
                         width: tabHi.w,
@@ -2073,9 +2099,11 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                       onClick={() => setTab(id)}
                       className={cn(
                         "relative z-10 rounded px-2 py-0.5 text-xs font-medium transition-colors",
-                        tab === id
-                          ? "text-neutral-900 dark:text-neutral-100"
-                          : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200",
+                        tab !== id
+                          ? "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                          : id === "resolved"
+                            ? "text-success-900 dark:text-success-100"
+                            : "text-neutral-900 dark:text-neutral-100",
                       )}
                     >
                       {label} <span className="font-normal text-neutral-400">· {count}</span>
@@ -2143,12 +2171,35 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 </p>
                 <div ref={listAnim}>{ordered.map(renderCard)}</div>
               </>
-            ) : resolved.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-neutral-400">
-                No resolved feedback yet.
-              </p>
             ) : (
-              <div ref={listAnim}>{resolved.map(renderCard)}</div>
+              <>
+                {/* The Resolved tab announces itself and stays announcing it. A
+                    filter pill scrolls out of reach the moment you start reading,
+                    which is how you end up parked in here treating done work as
+                    the queue — so this rides the top of the scroll pane (sticky)
+                    with the way back on it, and it renders over an empty list too:
+                    "nothing here" is exactly when you most need to be told which
+                    list is empty. */}
+                <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-success-300 bg-success-100/95 px-3 py-1.5 text-[0.6875rem] text-success-900 backdrop-blur-sm dark:border-success-900 dark:bg-success-950/90 dark:text-success-200">
+                  <span className="min-w-0 truncate font-medium">
+                    ✓ Resolved — done, not your queue
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setTab("active")}
+                    className="shrink-0 cursor-pointer rounded px-1.5 py-0.5 font-medium underline-offset-2 hover:bg-success-200/70 hover:underline dark:hover:bg-success-900/60"
+                  >
+                    Active · {active.length} →
+                  </button>
+                </div>
+                {resolved.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-neutral-400">
+                    No resolved feedback yet.
+                  </p>
+                ) : (
+                  <div ref={listAnim}>{resolved.map(renderCard)}</div>
+                )}
+              </>
             )}
           </div>
 

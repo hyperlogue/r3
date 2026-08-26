@@ -29,6 +29,10 @@ const withAnchoredDraft = (text: string): Decorator => {
   };
 };
 
+
+// Everything but the resolved items, for the empty-Resolved-tab story.
+const activeOnly = reviewDetail.feedback.filter((f) => f.status !== "resolved");
+
 const meta = {
   title: "Components/FeedbackPanel",
   component: FeedbackPanel,
@@ -128,9 +132,30 @@ export const AllSent: Story = {
 };
 
 // The Resolved tab, reached by activating a resolved item (the panel switches
-// tabs to reveal it). The active resolved card offers Reopen instead of Resolve.
+// tabs to reveal it). The active resolved card offers Reopen instead of Resolve,
+// and keeps the amber focus rail — focus outranks the resolved green, which the
+// card's wash and its ✓ pill go on saying anyway.
 export const ResolvedTab: Story = {
   args: { activeFeedbackId: "feedback_resolved" },
+};
+
+// The same tab reached the way you actually get lost in it — by clicking the
+// filter pill. Three things say "not your queue" at once: the pill's highlight
+// turns green, a sticky banner rides the top of the scroll pane with the way back
+// on it, and every card wears the success wash + ✓ pill.
+export const ResolvedBrowsing: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Resolved/ }));
+  },
+};
+
+// Nothing resolved yet: the banner still renders over the empty list — "nothing
+// here" is exactly when you most need to be told WHICH list is empty.
+export const ResolvedEmpty: Story = {
+  args: { detail: { ...reviewDetail, feedback: activeOnly } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Resolved/ }));
+  },
 };
 
 // An agent is on `r3 watch` — the action switches to "Submit to agent" and a
