@@ -2164,20 +2164,13 @@ export const FeedbackPanel = memo(function FeedbackPanel({
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0 text-base font-semibold">Feedback</span>
-              {unsavedDraft && (
-                <span
-                  title="Unsaved draft — add/post it to save, or discard it. It isn't sent to the agent until then."
-                  className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
-                >
-                  ✎ {draftCount === 1 ? "unsaved draft" : `${draftCount} unsaved drafts`}
-                </span>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
               {/* The FileBrowser header's fold control, mirrored: same glyph, same
-                  bare styling, pointing the way this dock folds. Desktop only —
-                  ReviewView withholds the callback below md, where the bottom
-                  sheet's own handle is the equivalent control. */}
+                  bare styling, pointing the way this dock folds. It rides the
+                  TITLE rather than the action cluster on the right — the cluster is
+                  things you do to the review (add a note, hand it off), and folding
+                  the panel is a thing you do to the panel. Desktop only: ReviewView
+                  withholds the callback below md, where the bottom sheet's own
+                  handle is the equivalent control. */}
               {onToggleCollapsed && (
                 <button
                   type="button"
@@ -2189,6 +2182,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   <FoldChevrons dir="right" />
                 </button>
               )}
+              {unsavedDraft && (
+                <span
+                  title="Unsaved draft — add/post it to save, or discard it. It isn't sent to the agent until then."
+                  className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
+                >
+                  ✎ {draftCount === 1 ? "unsaved draft" : `${draftCount} unsaved drafts`}
+                </span>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
               {/* One composer at a time: opening general discards a pending
                   anchored draft. */}
               <button
