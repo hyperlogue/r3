@@ -144,8 +144,8 @@ export const AllSent: Story = {
 
 // The Resolved tab, reached by activating a resolved item (the panel switches
 // tabs to reveal it). The active resolved card offers Reopen instead of Resolve,
-// and keeps the amber focus rail — focus outranks the resolved green, which the
-// card's wash and its ✓ pill go on saying anyway.
+// and wears the amber focus rail over its success wash — the rail is only ever
+// about focus, and the wash plus the ✓ pill go on saying resolved underneath it.
 export const ResolvedTab: Story = {
   args: { activeFeedbackId: "feedback_resolved" },
 };

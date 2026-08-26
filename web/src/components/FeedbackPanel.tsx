@@ -1069,19 +1069,18 @@ function FeedbackCard({
         // Embedded block flush to the panel. p-3 keeps content off the edge; a
         // full-bleed bottom rule is the divider (last:border-b-0).
         "relative border-b-2 border-b-neutral-300 border-l-2 border-l-transparent p-3 transition-colors last:border-b-0 dark:border-b-neutral-700",
-        // Resolved: a faint success wash + a green left rail, so a resolved card
-        // can never be mistaken for open work at a glance — the one visual the
-        // Resolved tab shares with a resolved card sitting in a mixed list (the
-        // active item the panel switched tabs to reveal). Deliberately the ONE
-        // full-card fill in this list: it says "not your queue", which is exactly
-        // what a wash says better than a badge alone.
+        // Resolved: a faint success wash, so a resolved card can never be mistaken
+        // for open work at a glance. Deliberately the ONE full-card fill in this
+        // list: it says "not your queue", which is exactly what a wash says better
+        // than a badge alone.
         resolved && "bg-success-50/70 dark:bg-success-950/20",
         // Active feedback: just the amber left rail — no fill (a full-card wash
         // was too loud). The border-l-2 above is always reserved, so activating
         // adds no layout shift. The outdated-anchor state stays on the ⚠ by the
-        // file name, not here. Amber outranks the resolved green: the rail marks
-        // *focus*, which is transient, while the wash below keeps saying resolved.
-        resolved && !isActive && "border-l-success-400 dark:border-l-success-700",
+        // file name, not here. The rail stays single-purpose (focus, nothing
+        // else): resolved cards arrive already grouped under their own tab, so a
+        // second rail colour would be marking a distinction the list has no
+        // mixture to draw.
         isActive && "border-l-warning-400 dark:border-l-warning-500",
       )}
     >
