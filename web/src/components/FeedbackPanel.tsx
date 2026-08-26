@@ -1015,9 +1015,13 @@ function FeedbackCard({
   // with the filled "Reply" — the ⋯ menu beside it stays a bare ghost trigger.
   const resolveOutline = "border border-neutral-300 dark:border-neutral-700";
   const resolveButton = resolved ? (
+    // Fainter than Resolve, on purpose: reopening is the exception, not the next
+    // step. A resolved thread is a decision already made, and this row shouldn't
+    // invite undoing it at the same weight the open card invites finishing it —
+    // so the border and label recede until hover brings it back to full strength.
     <Button
       variant="ghost"
-      className={resolveOutline}
+      className="border border-neutral-200 text-neutral-400 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-500 dark:hover:text-neutral-200"
       disabled={reopen.isPending}
       onClick={() => reopen.mutate()}
     >
@@ -2365,35 +2369,12 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                 </p>
                 <div ref={listAnim}>{ordered.map(renderCard)}</div>
               </>
+            ) : resolved.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-neutral-400">
+                No resolved feedback yet.
+              </p>
             ) : (
-              <>
-                {/* The Resolved tab announces itself and stays announcing it. A
-                    filter pill scrolls out of reach the moment you start reading,
-                    which is how you end up parked in here treating done work as
-                    the queue — so this rides the top of the scroll pane (sticky)
-                    with the way back on it, and it renders over an empty list too:
-                    "nothing here" is exactly when you most need to be told which
-                    list is empty. */}
-                <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-success-300 bg-success-100/95 px-3 py-1.5 text-[0.6875rem] text-success-900 backdrop-blur-sm dark:border-success-900 dark:bg-success-950/90 dark:text-success-200">
-                  <span className="min-w-0 truncate font-medium">
-                    ✓ Resolved — done, not your queue
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setTab("active")}
-                    className="shrink-0 cursor-pointer rounded px-1.5 py-0.5 font-medium underline-offset-2 hover:bg-success-200/70 hover:underline dark:hover:bg-success-900/60"
-                  >
-                    Active · {active.length} →
-                  </button>
-                </div>
-                {resolved.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-xs text-neutral-400">
-                    No resolved feedback yet.
-                  </p>
-                ) : (
-                  <div ref={listAnim}>{resolved.map(renderCard)}</div>
-                )}
-              </>
+              <div ref={listAnim}>{resolved.map(renderCard)}</div>
             )}
           </div>
 

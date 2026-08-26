@@ -214,12 +214,11 @@ representable). Resolving is a **status toggle on the feedback**
     attention, resolved = done; the _why_ (fixed, answered, dismissed) lives in the
     thread, not the enum. The agent references feedback by its **stable `id`**
     (`feedback_<short>`), never a positional index. Resolved is **loud, not merely
-    filtered**: the card takes a success wash and a `✓ resolved` pill, and the
-    Resolved tab tints its own filter pill and carries a **sticky**
-    "done, not your queue" banner with the way back to Active on it. The failure
-    that buys is reading a resolved list as the working set — a filter pill scrolls
-    out of reach the moment you start reading, and then an empty-looking queue and
-    a finished one are the same picture.
+    filtered**: the card takes a success wash and a `✓ resolved` pill, its Reopen
+    fades back (reopening is the exception, not the next step), and the Resolved
+    tab tints its own filter pill. The failure that buys is reading a resolved list
+    as the working set — otherwise an empty-looking queue and a finished one are
+    the same picture.
   - `patch_seq` says which round a diff review's note belongs to; a **line-anchored**
     note naming no round lands in the **latest**, while a whole-file or
     review-summary note stays round-less. `anchor` (`anchored|outdated`) carries

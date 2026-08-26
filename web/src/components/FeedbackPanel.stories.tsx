@@ -41,9 +41,6 @@ const railFrame: Decorator = (Story) => (
   </div>
 );
 
-// Everything but the resolved items, for the empty-Resolved-tab story.
-const activeOnly = reviewDetail.feedback.filter((f) => f.status !== "resolved");
-
 const meta = {
   title: "Components/FeedbackPanel",
   component: FeedbackPanel,
@@ -151,19 +148,10 @@ export const ResolvedTab: Story = {
 };
 
 // The same tab reached the way you actually get lost in it — by clicking the
-// filter pill. Three things say "not your queue" at once: the pill's highlight
-// turns green, a sticky banner rides the top of the scroll pane with the way back
-// on it, and every card wears the success wash + ✓ pill.
+// filter pill. Two things say "not your queue" at once: the pill's highlight turns
+// green, and every card wears the success wash + ✓ pill with its Reopen faded back
+// (reopening is the exception, not the next step).
 export const ResolvedBrowsing: Story = {
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Resolved/ }));
-  },
-};
-
-// Nothing resolved yet: the banner still renders over the empty list — "nothing
-// here" is exactly when you most need to be told WHICH list is empty.
-export const ResolvedEmpty: Story = {
-  args: { detail: { ...reviewDetail, feedback: activeOnly } },
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: /^Resolved/ }));
   },
