@@ -294,6 +294,24 @@ a fence we can't parse, fall through to the ordinary highlighted/plain fence.
 Messages — feedback, replies, both summaries — render **client-side**
 and stay unhighlighted by design: Shiki's WASM never reaches the browser.
 
+**The feedback dock folds to a rail, and the composer follows the gesture.** On
+desktop the right-docked panel collapses (`p`, the header's `›`, or the rail
+itself) to a ~2.25rem strip, giving the content pane the width back — a persisted
+global display preference (`r3-feedback-collapsed`), like the diff layout, never
+review state. The panel stays **mounted**: it owns the create mutation, the
+watcher query and the draft bookkeeping, so collapsing swaps its chrome, it never
+unmounts anything. What survives on the rail is what you would otherwise have to
+expand to learn — the open count, and one glyph for an unsaved draft / undelivered
+content / live agent presence. With no list on screen to dock a composer at the
+bottom of, an anchor gesture floats the *same* composer next to the code it is
+about (portalled to `<body>`, clamped into the viewport, deliberately not
+scroll-tracking — you are typing into it). Clicking a washed feedback region is
+the one gesture that un-collapses the dock: it is asking to *read* that note, and
+the alternative is a click that visibly does nothing. Below `md` none of this
+applies — the bottom sheet's closed state already **is** collapsed, so the
+preference is ignored there without being written (the forced-unified-layout
+shape).
+
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a selection through the same
 `applyAnchorGesture` (`ReviewView`): an **empty composer anchors** a note to the
@@ -625,6 +643,13 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
   fold/unfold restack, and for the feedback-panel drag, which changes the 15%
   denominator). Without it the marker keeps whatever it computed against stubs,
   which is how it once opened a review with no file marked at all.
+- **Collapsing the dock takes its keys with it.** `p` folds the desktop feedback
+  panel to its rail and back — its control (the header's `›`, then the rail
+  itself) is on screen in both states, which is what makes it bindable at all.
+  While it is folded the panel's own Review + Feedback groups unbind, exactly as
+  they do inside the phone's closed sheet: one rule, a second way of being off
+  screen. `p` itself is unbound below `md`, where the sheet is the panel and there
+  is no collapse control to fire.
 - One flat map, no modes, no prefixes, no counts. The layer stands down whenever
   focus is in a text field, and everything but `?` stands down while the overlay
   is up (`suspendKeys`; `keysSuspended()` lets the composer's own `Esc` listener

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { ApiError, api } from "../api.ts";
 import { DiffView, type FetchContext, RoundSelect, RoundSummary } from "../components/DiffView.tsx";
-import { FeedbackPanel } from "../components/FeedbackPanel.tsx";
+import { FeedbackPanel, RAIL_WIDTH } from "../components/FeedbackPanel.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { FileView } from "../components/FileView.tsx";
@@ -53,8 +53,15 @@ import {
 } from "../progressive.tsx";
 import { type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
-import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
-import { setDiffLayout, useDiffLayout, useSyntaxTheme } from "../settings.ts";
+import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
+import {
+  getFeedbackCollapsed,
+  setDiffLayout,
+  setFeedbackCollapsed,
+  useDiffLayout,
+  useFeedbackCollapsed,
+  useSyntaxTheme,
+} from "../settings.ts";
 import type {
   DiffSide,
   FeedbackWithReplies,
@@ -167,6 +174,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     defaultFraction: 0.382,
     containerRef: splitRef,
   });
+  // Desktop: the dock folds to a narrow rail so the content pane gets the width
+  // (a persisted global display preference, like the diff layout). Below md there
+  // is no rail — the bottom sheet's closed state already is "collapsed" — so the
+  // preference is ignored there WITHOUT being written, and a collapse-preferring
+  // user gets the rail back the moment the viewport is wide again.
+  const collapsePref = useFeedbackCollapsed();
   // Phone tier: the side dock and sidebar don't mount; the same FeedbackPanel
   // renders inside the MobileReviewChrome sheet instead (closed / composer-peek
   // / full). All mobile deltas live at this mount-point fork + the sheet-state
@@ -181,6 +194,13 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const coarse = usePointerCoarse();
   const hasAnchoredText = useHasAnchoredText(reviewId);
   const composing = pending != null && hasAnchoredText;
+  const panelCollapsed = !isMobile && collapsePref;
+  // Where the gesture that opened the composer happened, in viewport pixels. Only
+  // the collapsed panel reads it (it floats the composer there instead of docking
+  // it at the bottom of a list that isn't on screen), but it's measured on every
+  // gesture regardless: collapsing mid-compose must not leave the composer with
+  // nowhere to go. Cleared with the anchor.
+  const [composerAt, setComposerAt] = useState<AnchorRect | null>(null);
 
   // The mobile-sheet policies, named once (each is an inert no-op on desktop,
   // where the sheet is already — and stays — "closed"): a jump landing in the
@@ -490,10 +510,16 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // there is nothing to scroll to — only the feedback panel moves (its card
       // scrolls into view off the activeFeedbackId change).
       focusFeedback(fb ?? null);
+      // …which needs a panel to move in. Clicking a washed region is asking to
+      // READ that note, so it un-collapses the dock — the one gesture allowed to,
+      // since the alternative is a click that visibly does nothing. Read
+      // non-reactively so this listener doesn't re-attach on every toggle, and
+      // only when it would actually change (the store writes unconditionally).
+      if (fb && !isMobile && getFeedbackCollapsed()) setFeedbackCollapsed(false);
     };
     root.addEventListener("click", onClick);
     return () => root.removeEventListener("click", onClick);
-  }, [detail, focusFeedback, unresolvedRegions]);
+  }, [detail, focusFeedback, unresolvedRegions, isMobile]);
 
   // The list of files shown in the center, for the file browser + scroll-spy.
   // For a diff review only the active round renders, so the browser lists that
@@ -776,7 +802,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // This kills the old footgun where selecting code to copy silently repointed a
   // half-written note. `rect` positions the bubble.
   const applyAnchorGesture = useCallback(
-    (anchor: PendingAnchor, quoteText: string, rect: { left: number; top: number } | null) => {
+    (anchor: PendingAnchor, quoteText: string, rect: AnchorRect | null) => {
       const d = getDraft(reviewId);
       const composing = d?.anchor != null && (d.text ?? "").trim() !== "";
       if (composing) {
@@ -785,6 +811,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         return; // a note is in progress — leave its anchor alone
       }
       setFileQuote(null);
+      setComposerAt(rect);
       setDraftAnchor(reviewId, anchor);
       peekSheetForCompose();
     },
@@ -809,7 +836,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         root?.querySelector(`${base} [data-line="${lineStart}"][data-side="${side}"]`) ??
         root?.querySelector(`${base} [data-line="${lineStart}"]`);
       const r = rowEl?.getBoundingClientRect();
-      const rect = r ? { left: r.left + Math.min(r.width, 320) / 2, top: r.top } : null;
+      const rect = r
+        ? { left: r.left + Math.min(r.width, 320) / 2, top: r.top, bottom: r.bottom }
+        : null;
       applyAnchorGesture(anchor, quote, rect);
     },
     [applyAnchorGesture],
@@ -821,6 +850,23 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // doesn't name a stored round (files reviews, snapshot-diff view).
   const onFileFeedback = useCallback(
     (file: string, patchSeq?: number) => {
+      // The card's own box, clipped to a header's worth of height: a file card is
+      // most of the pane tall, and a floating composer hung off its BOTTOM would
+      // open a screen away from the button that opened it.
+      const root = scopeRef.current;
+      const scope = patchSeq != null ? `[data-round="${patchSeq}"] ` : "";
+      const r = root
+        ?.querySelector(`${scope}[data-file="${CSS.escape(file)}"]`)
+        ?.getBoundingClientRect();
+      setComposerAt(
+        r
+          ? {
+              left: r.left + Math.min(r.width, 360) / 2,
+              top: r.top,
+              bottom: Math.min(r.top + 32, r.bottom),
+            }
+          : null,
+      );
       setDraftAnchor(reviewId, {
         file,
         side: null,
@@ -879,10 +925,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       if (!a) return;
       const sel = window.getSelection();
       const text = sel?.toString() ?? "";
-      let rect: { left: number; top: number } | null = null;
+      let rect: AnchorRect | null = null;
       if (sel && sel.rangeCount > 0) {
         const r = sel.getRangeAt(0).getBoundingClientRect();
-        rect = { left: r.left + r.width / 2, top: r.top };
+        rect = { left: r.left + r.width / 2, top: r.top, bottom: r.bottom };
       }
       applyAnchorGesture(a, text, rect);
     };
@@ -898,6 +944,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // scroll-spy activePath change.
   const discardPending = useCallback(() => {
     settleSheetAfterCompose();
+    setComposerAt(null);
     dropAnchor(reviewId);
   }, [reviewId, settleSheetAfterCompose]);
 
@@ -991,6 +1038,10 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       (isDiff || diffMode) && !isMobile
         ? () => setDiffLayout(diffLayoutPref === "split" ? "unified" : "split")
         : undefined,
+    // Fires the dock's own collapse/expand button, which is on screen either way
+    // (the header's ›, or the rail itself). Unbound below md: there the bottom
+    // sheet is the panel and it has no such control.
+    panelToggle: isMobile ? undefined : () => setFeedbackCollapsed(!collapsePref),
   });
 
   // Replace the view with an error when there's no data at all (a first-load
@@ -1114,6 +1165,11 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // `inert`) sheet — so its keys must stand down until the sheet is up, or
       // they'd fire controls nobody can see.
       keysActive={!isMobile || sheet !== "closed"}
+      collapsed={panelCollapsed}
+      // Withheld below md: the sheet's own handle is that tier's equivalent
+      // control, so the panel must not render a second one inside it.
+      onToggleCollapsed={isMobile ? undefined : () => setFeedbackCollapsed(!collapsePref)}
+      composerAt={composerAt}
     />
   );
 
@@ -1279,16 +1335,22 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         </div>
 
         {!isMobile && (
+          // Collapsed, the dock is a fixed-width rail: the drag handle goes with
+          // it (there is nothing to size), and the inline width must go too, or
+          // the last dragged pixel count would survive the collapse and the rail
+          // would still be 400px wide.
           <div
             className="relative shrink-0 border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
-            style={{ width: feedbackWidth }}
+            style={{ width: panelCollapsed ? RAIL_WIDTH : feedbackWidth }}
           >
-            <div
-              onPointerDown={onFeedbackResize}
-              onDoubleClick={onFeedbackResetSplit}
-              title="Drag to resize · double-click to reset"
-              className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
-            />
+            {!panelCollapsed && (
+              <div
+                onPointerDown={onFeedbackResize}
+                onDoubleClick={onFeedbackResetSplit}
+                title="Drag to resize · double-click to reset"
+                className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize transition-colors hover:bg-primary-400/40"
+              />
+            )}
             {feedbackPanel}
           </div>
         )}

@@ -22,6 +22,18 @@ export interface PendingAnchor {
   patchSeq?: number | null;
 }
 
+// Where an anchor gesture happened, in viewport coordinates: `left` is the
+// horizontal centre of the selection (or picked row) and `top`/`bottom` its
+// vertical extent. It positions the transient UI a gesture raises — the "Quote in
+// note" bubble above `top`, and, with the feedback panel collapsed to its rail,
+// the floating composer below `bottom`. Never stored: the quote is the anchor of
+// record, this is pixels.
+export interface AnchorRect {
+  left: number;
+  top: number;
+  bottom: number;
+}
+
 function closest(node: Node | null, attr: string): HTMLElement | null {
   let el = node instanceof HTMLElement ? node : (node?.parentElement ?? null);
   while (el && !el.hasAttribute(attr)) el = el.parentElement;

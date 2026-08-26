@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { MessageRef } from "../markdown.ts";
-import { getSummaryAnchor, type PendingAnchor } from "../selection.ts";
+import { type AnchorRect, getSummaryAnchor, type PendingAnchor } from "../selection.ts";
 import { Collapse, cn, FoldTriangle } from "../ui.tsx";
 import { MessageProse } from "./Message.tsx";
 
@@ -42,11 +42,7 @@ export function SummaryBar({
   // A selection in the prose, routed through ReviewView's applyAnchorGesture
   // (anchor when the composer is empty, "Quote in note" when it holds text) —
   // the anchor's quote is the record, the rect positions the bubble.
-  onAnchorSummary?: (
-    anchor: PendingAnchor,
-    quoteText: string,
-    rect: { left: number; top: number } | null,
-  ) => void;
+  onAnchorSummary?: (anchor: PendingAnchor, quoteText: string, rect: AnchorRect | null) => void;
   // An `@path:Lx-y` ref clicked in the prose — the caller binds the version it
   // resolves against (null/live for the review summary, the round for a round).
   onJumpRef?: (ref: MessageRef) => void;
@@ -116,7 +112,7 @@ export function SummaryBar({
             onAnchorSummary?.(
               a,
               a.quote ?? "",
-              r ? { left: r.left + r.width / 2, top: r.top } : null,
+              r ? { left: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null,
             );
           }}
           title={selectTitle}

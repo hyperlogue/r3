@@ -21,7 +21,8 @@ export type KeyId =
   | "fileNote"
   | "versionNext"
   | "versionPrev"
-  | "layoutToggle";
+  | "layoutToggle"
+  | "panelToggle";
 
 export interface Binding {
   id: KeyId;
@@ -83,6 +84,9 @@ export const KEYMAP: readonly Binding[] = [
   { id: "versionNext", keys: [">"], label: "Next diff round / version", group: "View" },
   { id: "versionPrev", keys: ["<"], label: "Previous diff round / version", group: "View" },
   { id: "layoutToggle", keys: ["\\"], label: "Unified / side-by-side", group: "View" },
+  // Desktop only — below md the feedback panel is the bottom sheet, which has no
+  // collapse control for this to fire (ReviewView leaves it unbound there).
+  { id: "panelToggle", keys: ["p"], label: "Collapse / expand feedback panel", group: "View" },
 ];
 
 const CHORDS = new Map<string, KeyId>();

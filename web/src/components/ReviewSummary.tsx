@@ -23,7 +23,7 @@
 // DiffView's RoundSummary); this wrapper just binds the review-summary data.
 
 import type { MessageRef } from "../markdown.ts";
-import type { PendingAnchor } from "../selection.ts";
+import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import { SummaryBar } from "./SummaryBar.tsx";
 
 // One global preference (not per-review): once you collapse summaries, they stay
@@ -40,11 +40,7 @@ export function ReviewSummary({
   // resolving against the live/current view (the summary pins no version).
   onJumpRef?: (ref: MessageRef) => void;
   // The human selected text in the review summary — see SummaryBar.
-  onAnchorSummary?: (
-    anchor: PendingAnchor,
-    quoteText: string,
-    rect: { left: number; top: number } | null,
-  ) => void;
+  onAnchorSummary?: (anchor: PendingAnchor, quoteText: string, rect: AnchorRect | null) => void;
 }) {
   // No summary: nothing to show. Humans can't add one (CLI-only), so stay quiet
   // rather than dangling an affordance that does nothing.

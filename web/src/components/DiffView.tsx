@@ -17,7 +17,7 @@ import {
 } from "../gutter.ts";
 import { type Region, regionAt } from "../highlights.ts";
 import type { MessageRef } from "../markdown.ts";
-import type { PendingAnchor } from "../selection.ts";
+import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import type { DiffLayout } from "../settings.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
 import { cn, Pill, useEscape, useHtml } from "../ui.tsx";
@@ -868,11 +868,7 @@ export function RoundSummary({
   // (anchor when the composer is empty, "Quote in note" when it holds text) —
   // the anchor carries the summary sentinel + this round's seq, the quote is the
   // record, the rect positions the bubble.
-  onAnchorSummary?: (
-    anchor: PendingAnchor,
-    quoteText: string,
-    rect: { left: number; top: number } | null,
-  ) => void;
+  onAnchorSummary?: (anchor: PendingAnchor, quoteText: string, rect: AnchorRect | null) => void;
   // An `@path:Lx-y` ref clicked in the summary — resolved against this round.
   onJumpRef?: (ref: MessageRef, patchSeq: number) => void;
 }) {

@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api.ts";
 import { copyText } from "../clipboard.ts";
 import {
@@ -35,7 +36,7 @@ import {
   useKeyBindings,
 } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import type { PendingAnchor } from "../selection.ts";
+import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import type {
   Author,
   FeedbackClaim,
@@ -1381,6 +1382,149 @@ function FeedbackCard({
   );
 }
 
+// The width of the collapsed dock, in rem — shared with ReviewView so the rail
+// and the column it sits in can't disagree. A `w-9` class would be the obvious
+// spelling, but ReviewView sets the expanded dock's width from a drag-resize
+// number, and mixing the two spellings on one element is how a stale inline width
+// survives the collapse.
+export const RAIL_WIDTH = "2.25rem";
+
+// The collapsed dock. Folding the panel away must not cost you the two things it
+// tells you at a glance — how much is still open, and whether anything is unsaved
+// or in flight — so those ride the rail; everything else waits behind one click.
+// The whole rail IS the expand button (not a strip with a button on it): at this
+// width a hit target smaller than the rail is a miss target.
+function CollapsedRail({
+  openCount,
+  unsaved,
+  unsent,
+  live,
+  onExpand,
+}: {
+  openCount: number;
+  // An unsaved browser draft — it blocks the hand-off, and with the panel folded
+  // away this ✎ is the only thing on screen that says why.
+  unsaved: boolean;
+  // Server-side content the agent hasn't been handed yet (hasUnsentContent).
+  unsent: boolean;
+  // An agent is watching or holds a claim — the same primary dot the expanded
+  // header shows, minus the label there's no room for.
+  live: boolean;
+  onExpand: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      title="Expand the feedback panel (p)"
+      aria-label={`Expand the feedback panel — ${openCount} open`}
+      className="group flex h-full w-full cursor-pointer flex-col items-center gap-2 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+    >
+      <span className="text-xs leading-none text-neutral-400 transition-colors group-hover:text-neutral-700 dark:group-hover:text-neutral-200">
+        ‹
+      </span>
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold tabular-nums",
+          openCount > 0
+            ? "bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
+            : "text-neutral-400",
+        )}
+      >
+        {openCount}
+      </span>
+      {/* One status glyph at most, in the order that decides what to do next:
+          an unsaved draft is yours to finish, undelivered content is the hand-off
+          waiting, live presence is just context. */}
+      {unsaved ? (
+        <span
+          title="Unsaved draft — expand the panel to add or discard it"
+          className="text-[0.625rem] leading-none text-warning-600 dark:text-warning-400"
+        >
+          ✎
+        </span>
+      ) : unsent ? (
+        <span
+          title="Feedback the agent hasn't been handed yet"
+          className="size-1.5 rounded-full bg-primary-500"
+        />
+      ) : live ? (
+        <span
+          title="An agent is watching or working"
+          className="size-1.5 rounded-full bg-primary-500/50"
+        />
+      ) : null}
+      <span className="text-[0.6875rem] font-medium tracking-wide text-neutral-500 [writing-mode:vertical-rl]">
+        Feedback
+      </span>
+    </button>
+  );
+}
+
+// The composer, brought to the gesture. With the panel folded to its rail there
+// is no list to open a composer at the bottom of, so the anchored note floats next
+// to the code it is about (ReviewView measures the selection and hands over
+// `at`) — which is the whole point of collapsing: annotate without giving the
+// width back.
+//
+// Portalled to <body> so the scroll pane's overflow can't clip it, fixed and
+// clamped into the viewport, and deliberately NOT scroll-tracking: you are typing
+// into it, so it stays where it opened rather than chasing the code out from
+// under the caret. It re-clamps as the textarea auto-grows, so a long note can't
+// grow off the bottom of the screen.
+function FloatingComposer({ at, children }: { at: AnchorRect | null; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  // Placed before paint (useLayoutEffect) so it never flashes at the origin. The
+  // observer keeps it placed as the input grows; `at` is the only other input, and
+  // a new anchor replaces the card outright.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `at`'s primitives are the trigger; the element is read live off the ref
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const GAP = 8;
+    const place = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // No measured gesture (a persisted general draft, say) — park it bottom-right,
+      // over the rail it belongs to.
+      const left = at
+        ? Math.min(vw - w - GAP, Math.max(GAP, at.left - w / 2))
+        : Math.max(GAP, vw - w - GAP);
+      // Below the selection; above it when that would run off the bottom; pinned to
+      // the top when the card is taller than the space either way.
+      let top = at ? at.bottom + GAP : vh - h - GAP;
+      if (top + h > vh - GAP) top = at ? at.top - GAP - h : vh - h - GAP;
+      // Top clamp last, so a composer taller than the viewport pins its TOP —
+      // label, quote and input — and lets the buttons overflow below, rather than
+      // showing only its tail (the same call the panel's keep-in-view nudge makes).
+      top = Math.max(GAP, Math.min(top, vh - h - GAP));
+      setPos({ left, top });
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    window.addEventListener("resize", place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [at?.left, at?.top, at?.bottom]);
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="fixed z-50 w-[22rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-neutral-300 dark:bg-neutral-950 dark:ring-neutral-700"
+      style={{ left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? undefined : "hidden" }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 // memo'd (with the stable callbacks ReviewView passes) so a scroll-spy activePath
 // change in the parent doesn't re-render every card and its mutation hooks.
 export const FeedbackPanel = memo(function FeedbackPanel({
@@ -1396,6 +1540,9 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   onJumpRef,
   coarse = false,
   keysActive = true,
+  collapsed = false,
+  onToggleCollapsed,
+  composerAt = null,
 }: {
   detail: ReviewDetail;
   pending: PendingAnchor | null;
@@ -1429,6 +1576,20 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // review to a watching agent, and `e` resolve an item, with nothing on screen
   // to show it happened. An inert prop, not a mobile import (like `coarse`).
   keysActive?: boolean;
+  // Desktop: the dock is folded to its rail (settings.ts `r3-feedback-collapsed`).
+  // The panel stays MOUNTED — it owns the create mutation, the watcher query and
+  // the draft bookkeeping, and a composer opened from the file pane has to land
+  // somewhere — so collapsing swaps its chrome for CollapsedRail and floats the
+  // composer instead of unmounting anything. Never set below md: there the bottom
+  // sheet's closed state already is "collapsed" (see ReviewView).
+  collapsed?: boolean;
+  // Absent -> the rail's expand button and the header's collapse button don't
+  // render, which is what the phone tier and the stories get.
+  onToggleCollapsed?: () => void;
+  // Where the gesture that opened the composer happened, for the collapsed
+  // (floating) composer. Ignored while expanded — the composer docks at the bottom
+  // of the list there — and null when nothing measurable raised it.
+  composerAt?: AnchorRect | null;
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
@@ -1870,10 +2031,13 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     if (!id) return;
     setCardCommand((c) => ({ id, action, nonce: (c?.nonce ?? 0) + 1 }));
   };
-  // An empty map with the panel off screen (`keysActive`): every id falls through
-  // to unbound, which is also what greys its row in the `?` sheet.
+  // An empty map with the panel off screen: every id falls through to unbound,
+  // which is also what greys its row in the `?` sheet. Off screen means either
+  // tier's way of putting it there — the phone's closed sheet (`keysActive`) or
+  // the desktop rail (`collapsed`). Every handler below fires a control in the
+  // panel's own chrome, and none of that chrome is on the rail.
   useKeyBindings(
-    keysActive
+    keysActive && !collapsed
       ? {
           generalNote: () => {
             setCreateError(null);
@@ -1973,6 +2137,24 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     return () => clearTimeout(t);
   }, [composerOpen]);
 
+  // Folded to the rail: the signals stay on screen and the composer comes to the
+  // gesture instead of docking at the bottom of a list nobody can see. One
+  // `composerContent`, two mounts — the same shape as the desktop/mobile fork of
+  // the panel itself, so the two surfaces can't drift apart.
+  if (collapsed)
+    return (
+      <CoarsePointerContext.Provider value={coarse}>
+        <CollapsedRail
+          openCount={active.length}
+          unsaved={unsavedDraft}
+          unsent={hasUnsent}
+          live={watching || working}
+          onExpand={() => onToggleCollapsed?.()}
+        />
+        {composerOpen && <FloatingComposer at={composerAt}>{composerContent}</FloatingComposer>}
+      </CoarsePointerContext.Provider>
+    );
+
   return (
     <CoarsePointerContext.Provider value={coarse}>
       <div className="flex h-full flex-col">
@@ -1995,6 +2177,19 @@ export const FeedbackPanel = memo(function FeedbackPanel({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+              {/* Desktop only (ReviewView withholds the callback below md, where
+                  the bottom sheet's own handle is the equivalent control). */}
+              {onToggleCollapsed && (
+                <button
+                  type="button"
+                  aria-label="Collapse the feedback panel"
+                  title="Collapse the feedback panel (p)"
+                  onClick={onToggleCollapsed}
+                  className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                >
+                  ›
+                </button>
+              )}
               {/* One composer at a time: opening general discards a pending
                   anchored draft. */}
               <button

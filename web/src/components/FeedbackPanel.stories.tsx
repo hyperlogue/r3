@@ -12,7 +12,7 @@ import {
   wholeFilePendingAnchor,
   workingDetail,
 } from "./_fixtures.ts";
-import { FeedbackPanel } from "./FeedbackPanel.tsx";
+import { FeedbackPanel, RAIL_WIDTH } from "./FeedbackPanel.tsx";
 
 const WATCHERS_KEY = ["watchers", reviewDetail.id];
 
@@ -29,6 +29,17 @@ const withAnchoredDraft = (text: string): Decorator => {
   };
 };
 
+// The collapsed dock is a fixed-width rail, so frame it at that width against the
+// right edge — the meta decorator's 440px column would otherwise stretch a 36px
+// control across the whole panel and misrepresent it.
+const railFrame: Decorator = (Story) => (
+  <div
+    style={{ width: RAIL_WIDTH }}
+    className="ml-auto h-full border-l-2 border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
+  >
+    <Story />
+  </div>
+);
 
 // Everything but the resolved items, for the empty-Resolved-tab story.
 const activeOnly = reviewDetail.feedback.filter((f) => f.status !== "resolved");
@@ -256,6 +267,36 @@ export const MarkdownMessages: Story = {
 // No feedback yet → the empty prompt to select text in the diff/files.
 export const Empty: Story = {
   args: { detail: { ...reviewDetail, feedback: [] } },
+};
+
+// The desktop dock folded to its rail (`p`, or the header's ›). The panel stays
+// mounted — it owns the create mutation and the drafts — so what's left on screen
+// is the open count plus one status glyph, and clicking anywhere on the rail
+// expands it. Framed at the rail's real width, right-docked like the live dock.
+export const Collapsed: Story = {
+  args: { collapsed: true, onToggleCollapsed: fn() },
+  decorators: [railFrame],
+};
+
+// Collapsed with an unsaved draft: the ✎ replaces the unsent dot, because an
+// unsaved draft is the thing blocking the hand-off and the rail is the only
+// surface left to say so.
+export const CollapsedUnsavedDraft: Story = {
+  args: { collapsed: true, onToggleCollapsed: fn(), pending: pendingAnchor },
+  decorators: [withAnchoredDraft("Does this survive a restart?"), railFrame],
+};
+
+// Collapsed, mid-gesture: with no list to dock a composer at the bottom of, the
+// anchored note floats next to the code it's about (portalled to <body>, so it
+// escapes the story frame the way it escapes the pane's overflow).
+export const CollapsedComposing: Story = {
+  args: {
+    collapsed: true,
+    onToggleCollapsed: fn(),
+    pending: pendingAnchor,
+    composerAt: { left: 260, top: 180, bottom: 200 },
+  },
+  decorators: [railFrame],
 };
 
 // The phone tier: below md every shared Button in the card action rows and the

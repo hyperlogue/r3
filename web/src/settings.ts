@@ -63,3 +63,25 @@ export const getFontSize = font.get;
 export function setFontSize(px: number): void {
   font.set(clampFont(px));
 }
+
+// ---- feedback panel collapse (desktop) ----
+
+// Whether the right-docked feedback panel is folded to its narrow rail, giving
+// the content pane the width back. A display preference like the three above —
+// it never reaches the server and never bumps `review.updated_at` — and global
+// rather than per-review: how wide you like to read is a habit, not a property of
+// any one review.
+//
+// The phone tier has no rail. Below md the panel already lives in the bottom
+// sheet, whose closed state IS "collapsed", so ReviewView ignores this there
+// WITHOUT writing to it — same shape as the forced-unified diff layout, so a
+// collapse-preferring user gets the rail back the moment the viewport is wide again.
+const feedbackCollapsed = persistedStore<boolean>("r3-feedback-collapsed", {
+  load: (raw) => raw === "1",
+  // Absent = expanded (the default), so the key is removed rather than written
+  // "0" — nothing to migrate if this preference ever goes away.
+  save: (v) => (v ? "1" : null),
+});
+export const getFeedbackCollapsed = feedbackCollapsed.get;
+export const setFeedbackCollapsed = feedbackCollapsed.set;
+export const useFeedbackCollapsed = feedbackCollapsed.use;
