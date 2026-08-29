@@ -812,7 +812,7 @@ Before committing, run:
 
 ```sh
 bun run typecheck           # tsc --noEmit across server + cli + web + shared + scripts
-bun test                    # the targeted server tests (bun:test, `*.test.ts`)
+bun test                    # the targeted tests (bun:test, `*.test.ts`)
 biome check .               # lint + format (biome is in the nix shell, not a devDep)
 biome check --write .       # apply fixes
 ```
@@ -825,10 +825,13 @@ expensive to get wrong at runtime, and invisible to `tsc`. The claim lease is th
 worked example (`server/claims.test.ts`) — who may renew, what a reply releases,
 when expiry stops counting; the watch slot is the other
 (`server/watchers.test.ts`) — who is refused, who may take the slot back, whose
-late cleanup must not free it. A test **must** point `R3_DB` at its own temp store
-and `await import()` the modules under test, because `server/db.ts` opens its
-singleton at import time; a static import would open the real
-`$XDG_STATE_HOME/r3/r3.sqlite` before the env var lands.
+late cleanup must not free it. A pure client helper can earn one on the same
+terms: `web/src/resolveFeedback.test.ts` pins where a quote lands in a derived
+diff (which side, which lines, across a hunk gap) — a placement nothing
+type-checks and nothing fails loudly on. A server test **must** point `R3_DB` at
+its own temp store and `await import()` the modules under test, because
+`server/db.ts` opens its singleton at import time; a static import would open
+the real `$XDG_STATE_HOME/r3/r3.sqlite` before the env var lands.
 
 Components have **Storybook stories** (`*.stories.tsx`) as the visual test surface —
 add/update a story when you change a component. Config lives in `biome.jsonc`

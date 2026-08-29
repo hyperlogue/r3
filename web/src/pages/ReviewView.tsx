@@ -51,7 +51,7 @@ import {
   ProgressiveFileProvider,
   useProgressiveFileController,
 } from "../progressive.tsx";
-import { type Placement, placeInDiff } from "../resolveFeedback.ts";
+import { indexDiff, type Placement, placeInDiff } from "../resolveFeedback.ts";
 import { navigate } from "../router.ts";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 import {
@@ -381,16 +381,35 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // Locate each files-review feedback in the current snapshot-diff by quote:
   // the canonical anchor is the live file, so per-side renumbered diff
   // rows can't be matched by line number — we find the quote among the diff rows.
+  //
+  // Split in two along what actually changes. The row extraction depends only on
+  // the diff, so it's indexed once per version on screen; the search then reruns
+  // only when an ANCHOR changes. Keyed on the whole `detail` (as it was), every
+  // live echo — a reply, a resolve, a claim, a delivery stamp — re-ran a quote
+  // search per note over every row of the diff.
+  const snapIndex = useMemo(() => (snapDiff ? indexDiff(snapDiff.files) : null), [snapDiff]);
+  // The anchor fields placeInDiff reads, digested (the regionsKey pattern).
+  const anchorsKey = useMemo(
+    () =>
+      (detail?.feedback ?? [])
+        .map(
+          (fb) =>
+            `${fb.id}\t${fb.file}\t${fb.line_start ?? ""}\t${fb.patch_seq ?? ""}\t${fb.quote ?? ""}`,
+        )
+        .join("\n"),
+    [detail],
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: anchorsKey is a structural digest of the anchors this reads — re-place only when one of them changes, not on every new detail
   const diffPlacements = useMemo(() => {
     const m = new Map<string, Placement>();
-    if (!diffMode || !snapDiff || !detail) return m;
+    if (!diffMode || !snapIndex || !detail) return m;
     for (const fb of detail.feedback) {
       if (fb.file === SUMMARY_FILE || !fb.file || !fb.quote) continue;
-      const p = placeInDiff(snapDiff.files, fb);
+      const p = placeInDiff(snapIndex, fb);
       if (p) m.set(fb.id, p);
     }
     return m;
-  }, [diffMode, snapDiff, detail]);
+  }, [diffMode, snapIndex, anchorsKey]);
 
   // The selected theme's editor background + default foreground, painted onto the
   // code surfaces (DiffView/FileView) via CSS vars so a theme looks like it does

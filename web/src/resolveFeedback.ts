@@ -14,7 +14,42 @@ const norm = (s: string) => s.replace(/\s+/g, " ").trim();
 
 interface Row {
   line: number;
+  // Normalized once here rather than per search: `locate` compares this against
+  // every quote it places, so re-normalizing made a pass over a review's
+  // feedback cost one regex per line PER note.
   text: string;
+}
+
+interface FileRows {
+  newRows: Row[];
+  oldRows: Row[];
+}
+
+// A diff's rows, split by side and normalized, under every path a feedback
+// might name the file by. Built once per diff and reused for every placement:
+// the diff changes when the version on screen does, while the feedback list
+// churns on every reply, resolve and live echo.
+export interface DiffIndex {
+  files: Map<string, FileRows>;
+}
+
+export function indexDiff(files: DiffFileChange[]): DiffIndex {
+  const byPath = new Map<string, FileRows>();
+  for (const f of files) {
+    const rows: FileRows = { newRows: [], oldRows: [] };
+    for (const ln of f.lines) {
+      if (ln.type === "hunk") continue;
+      const text = norm(ln.text);
+      if (ln.newLine != null) rows.newRows.push({ line: ln.newLine, text });
+      if (ln.oldLine != null) rows.oldRows.push({ line: ln.oldLine, text });
+    }
+    // First file to claim a name keeps it, which is the file-order scan this
+    // replaced: a rename's old path can't be stolen by a later file's new one.
+    for (const p of [f.path, f.oldPath, f.newPath]) {
+      if (p && !byPath.has(p)) byPath.set(p, rows);
+    }
+  }
+  return { files: byPath };
 }
 
 // Find the quote's first line (whitespace-insensitively) among `rows` and return
@@ -27,7 +62,7 @@ function locate(rows: Row[], quote: string, hint: number | null): [number, numbe
   const first = norm(quote.split("\n", 1)[0]);
   if (!first) return null;
   const hits: number[] = [];
-  for (let i = 0; i < rows.length; i++) if (norm(rows[i].text).includes(first)) hits.push(i);
+  for (let i = 0; i < rows.length; i++) if (rows[i].text.includes(first)) hits.push(i);
   if (hits.length === 0) return null;
   let idx = hits[0];
   if (hint != null) {
@@ -51,27 +86,20 @@ function locate(rows: Row[], quote: string, hint: number | null): [number, numbe
   return [start, end];
 }
 
-// Locate one feedback in a derived diff. Returns null when the feedback names no
+// Locate one feedback in an indexed diff. Returns null when the feedback names no
 // file in the diff or its quote isn't found on either side (it's listed in the
 // panel but not highlighted in this view). The feedback's live `line_start` biases
 // the search toward the right occurrence (exact on the new side when to=Current).
 export function placeInDiff(
-  files: DiffFileChange[],
+  index: DiffIndex,
   fb: Pick<Feedback, "file" | "quote" | "line_start">,
 ): Placement | null {
   if (!fb.quote || !fb.file) return null;
-  const f = files.find((x) => x.path === fb.file || x.oldPath === fb.file || x.newPath === fb.file);
-  if (!f) return null;
-  const newRows: Row[] = [];
-  const oldRows: Row[] = [];
-  for (const ln of f.lines) {
-    if (ln.type === "hunk") continue;
-    if (ln.newLine != null) newRows.push({ line: ln.newLine, text: ln.text });
-    if (ln.oldLine != null) oldRows.push({ line: ln.oldLine, text: ln.text });
-  }
-  const inNew = locate(newRows, fb.quote, fb.line_start);
+  const rows = index.files.get(fb.file);
+  if (!rows) return null;
+  const inNew = locate(rows.newRows, fb.quote, fb.line_start);
   if (inNew) return { file: fb.file, side: "new", lineStart: inNew[0], lineEnd: inNew[1] };
-  const inOld = locate(oldRows, fb.quote, fb.line_start);
+  const inOld = locate(rows.oldRows, fb.quote, fb.line_start);
   if (inOld) return { file: fb.file, side: "old", lineStart: inOld[0], lineEnd: inOld[1] };
   return null;
 }
