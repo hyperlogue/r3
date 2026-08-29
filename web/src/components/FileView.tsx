@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api.ts";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ApiError, api } from "../api.ts";
 import { type DocLink, docLinkFromEvent, markMissingDocLinks } from "../doclinks.ts";
 import {
   type EnterHandler,
@@ -21,7 +21,50 @@ import { FileCard, type FoldSignal } from "./FileCard.tsx";
 const BIG_FILE_LINES = 1000;
 const NO_REGIONS: Region[] = [];
 
+// How long a body survives in the query cache after its last observer goes away —
+// i.e. after the file leaves the preload band and FileBody unmounts.
+const BLOB_GC_MS = 60_000;
+
 type MdView = "rendered" | "raw";
+
+// A file the review lists that the source no longer has. The blob query resolves
+// this instead of throwing, so a 404 is a cached VALUE: an errored query holds no
+// data, and TanStack refetches a data-less enabled query on every re-activation
+// whatever its staleTime — a review whose branch moved on (half its files gone)
+// turned every scroll pass into hundreds of pointless requests. As data it obeys
+// staleTime like any body, and the file-changed SSE invalidation of this exact key
+// is what picks the file up if it comes back.
+interface MissingFile {
+  missing: true;
+}
+type BlobResult = RenderedFile | MissingFile;
+const isMissing = (b: BlobResult): b is MissingFile => "missing" in b;
+
+// What the 404 means depends on where the body was going to come from.
+function missingLabel(refName: string, snapshotSeq?: number): string {
+  if (snapshotSeq != null) return `Not in snapshot ${snapshotSeq}`;
+  if (refName === "WORKING") return "Not in the working tree";
+  if (refName === "SCRATCH") return "Not in the scratch directory";
+  return `Not in ${refName}`;
+}
+
+// What the header needs from a body that may not be mounted: the sha the viewed
+// key is built from, the line count (the stat + autoFold) and whether the
+// rendered/raw toggle applies. Tagged with the ref/snapshot it was read at — a
+// version switch replaces the file's content, so the old numbers stop applying.
+interface FileMeta {
+  version: string;
+  sha: string;
+  lineCount: number;
+  isMarkdown: boolean;
+}
+
+const sameMeta = (a: FileMeta | null, b: FileMeta) =>
+  a != null &&
+  a.version === b.version &&
+  a.sha === b.sha &&
+  a.lineCount === b.lineCount &&
+  a.isMarkdown === b.isMarkdown;
 
 // Tiny segmented toggle shown in a markdown file's header: rendered HTML vs. the
 // raw source (which is still line-anchorable for feedback). Stops click
@@ -157,11 +200,163 @@ function CodeBody({
   );
 }
 
+// The expensive half, and the ONLY holder of the blob query — mounted just while
+// the file is `active` (near the viewport). An always-mounted observer is what
+// used to pin every body ever scrolled past in the cache for the life of the
+// review: the gc clock only starts when the last observer goes away.
+function FileBody({
+  path,
+  refName,
+  reviewId,
+  snapshotSeq,
+  headerReady,
+  mdView,
+  regions,
+  hasFile,
+  onPickLines,
+  onDocLink,
+  onSha,
+  onHydrated,
+  onMeta,
+}: {
+  path: string;
+  refName: string;
+  reviewId: string;
+  snapshotSeq?: number;
+  // Whether the shell has this file's card up yet. Until it does — the very first
+  // body, reported below in a layout effect so the card mounts before paint — the
+  // body renders only the loading/missing/error chrome: mounting the virtualizer
+  // into a wrapper it is about to be moved out of would only measure it twice.
+  headerReady: boolean;
+  mdView: MdView;
+  regions: Region[];
+  hasFile?: (path: string) => boolean;
+  onPickLines: (
+    file: string,
+    side: DiffSide,
+    lineStart: number,
+    lineEnd: number,
+    quote: string,
+  ) => void;
+  onDocLink?: (link: DocLink) => void;
+  onSha?: (path: string, sha: string) => void;
+  onHydrated?: (ready: boolean) => void;
+  onMeta: (meta: Omit<FileMeta, "version">) => void;
+}) {
+  const syntaxTheme = useSyntaxTheme();
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ["blob", reviewId, path, snapshotSeq ?? refName, syntaxTheme],
+    queryFn: async (): Promise<BlobResult> => {
+      try {
+        return snapshotSeq != null
+          ? await api.snapshotBlob(reviewId, path, snapshotSeq, syntaxTheme)
+          : await api.blob(path, refName, syntaxTheme, reviewId);
+      } catch (err) {
+        // A file the review lists but the source no longer has: a value, not an
+        // error (see MissingFile). Anything else is a real failure and still throws.
+        if (err instanceof ApiError && err.status === 404) return { missing: true };
+        throw err;
+      }
+    },
+    // Bounded retention, not permanent. A cached body stays fresh forever — the
+    // file-change SSE invalidates this exact key, so viewport re-entry never
+    // re-runs Shiki + JSON serialization — but it is collected a minute after this
+    // component unmounts with the file's body. Highlighted blobs run to megabytes
+    // and a large review has hundreds of files, so holding every one ever scrolled
+    // past until the review closes grew the heap with the scroll. A re-entry after
+    // that refetches, which /api/blob's content ETag answers with a 304.
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: BLOB_GC_MS,
+  });
+  const file = data != null && !isMissing(data) ? data : null;
+
+  useEffect(() => {
+    onHydrated?.((data != null && !isFetching) || error != null);
+  }, [data, isFetching, error, onHydrated]);
+
+  // Bubble the content sha up once loaded (and whenever it changes) so the tree's
+  // viewed markers stay consistent with this card's.
+  useEffect(() => {
+    if (file?.sha) onSha?.(path, file.sha);
+  }, [file?.sha, path, onSha]);
+
+  // Hand the header what it needs to keep rendering without a body. A LAYOUT
+  // effect: the card has to mount in the same commit the body landed in, or the
+  // first paint of a loaded file is the header-less stub.
+  useLayoutEffect(() => {
+    if (!file) return;
+    onMeta({ sha: file.sha, lineCount: file.lines.length, isMarkdown: file.kind === "markdown" });
+  }, [file, onMeta]);
+
+  // Stable `{__html}` wrapper for the rendered-markdown div — a fresh inline
+  // literal makes React 19 re-set innerHTML on every commit, wiping selections.
+  // Placed with the hooks, before the early returns below, to keep hook order stable.
+  const markdownHtml = useHtml(file?.markdownHtml ?? "");
+
+  // Dim the doc links pointing outside the review, right after React commits the
+  // server HTML — hence the dependency on the `{__html}` identity, which is what
+  // decides whether that HTML was (re)injected — and again if membership changes
+  // under it.
+  const mdRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (hasFile && markdownHtml.__html) markMissingDocLinks(mdRef.current, hasFile);
+  }, [hasFile, markdownHtml]);
+
+  if (!file) {
+    const chrome = (
+      <>
+        {isLoading && <p className="text-xs text-neutral-400">Loading…</p>}
+        {data != null && isMissing(data) && (
+          // The row an error takes, in the muted tone: a file the branch deleted
+          // under a long-lived review is an expected state, not a failure.
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            {missingLabel(refName, snapshotSeq)}
+          </p>
+        )}
+        {error && <p className="text-xs text-danger-500">{(error as Error).message}</p>}
+      </>
+    );
+    // The pre-card stub supplies the padded panel; inside a card (a body refetched
+    // after collection, or a theme switch) this has to supply its own.
+    return headerReady ? <div className="p-3">{chrome}</div> : chrome;
+  }
+  if (!headerReady) return null;
+
+  return file.kind === "markdown" && mdView === "rendered" ? (
+    // The doc-link click is caught here rather than on the pane so it stays
+    // next to the missing-link marking above. It always preventDefaults: the
+    // anchor's `href="#"` exists only to keep it focusable.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: delegated to real <a>s, which fire click on Enter
+    <div
+      ref={mdRef}
+      className="r3-markdown px-5 py-3 text-sm"
+      onClick={(e) => {
+        const link = docLinkFromEvent(e.target);
+        if (!link) return;
+        e.preventDefault();
+        onDocLink?.(link);
+      }}
+      dangerouslySetInnerHTML={markdownHtml}
+    />
+  ) : (
+    <CodeBody
+      data={file}
+      path={path}
+      regions={regions}
+      onPickLines={(side, ls, le, q) => onPickLines(path, side, ls, le, q)}
+    />
+  );
+}
+
 // Memoized so a parent re-render (e.g. activePath changing on scroll) doesn't
 // re-reconcile every file's line rows. `toggle`/`onSha` are stable and `viewed`
 // is a per-file boolean the parent computes — so a viewed toggle only flips the
 // one card's prop, not every card's (an `isViewed` function prop would get a new
 // identity on each toggle and defeat this memo for every file).
+//
+// The shell outlives the body: it stays mounted for the whole review and keeps the
+// card, its fold state, the rendered/raw view and the last body's metadata, while
+// FileBody — which owns the query — is mounted only near the viewport.
 function FileViewImpl({
   path,
   refName,
@@ -231,73 +426,66 @@ function FileViewImpl({
   // still goes through useRegionHighlight.
   regions?: Region[];
 }) {
-  const syntaxTheme = useSyntaxTheme();
   const [mdView, setMdView] = useState<MdView>("rendered");
-  const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ["blob", reviewId, path, snapshotSeq ?? refName, syntaxTheme],
-    queryFn: () =>
-      snapshotSeq != null
-        ? api.snapshotBlob(reviewId, path, snapshotSeq, syntaxTheme)
-        : api.blob(path, refName, syntaxTheme, reviewId),
-    enabled: active,
-    // File-change SSE invalidates the exact blob key. Keeping an otherwise
-    // immutable cached body fresh forever prevents viewport exit/re-entry from
-    // re-running Shiki + JSON serialization after the global 5s stale window.
-    staleTime: Number.POSITIVE_INFINITY,
-  });
+  // The last body's metadata, so the header survives that body's unmount (and a
+  // theme switch's refetch) instead of collapsing back to the bare stub.
+  const [meta, setMeta] = useState<FileMeta | null>(null);
+  const version = String(snapshotSeq ?? refName);
+  const file = meta?.version === version ? meta : null;
+  const onMeta = useCallback(
+    (next: Omit<FileMeta, "version">) =>
+      setMeta((prev) => {
+        const full = { ...next, version };
+        return sameMeta(prev, full) ? prev : full;
+      }),
+    [version],
+  );
 
-  useEffect(() => {
-    if (active) onHydrated?.((data != null && !isFetching) || error != null);
-  }, [active, data, isFetching, error, onHydrated]);
+  const body = active ? (
+    <FileBody
+      path={path}
+      refName={refName}
+      reviewId={reviewId}
+      snapshotSeq={snapshotSeq}
+      headerReady={file != null}
+      mdView={mdView}
+      regions={regions}
+      hasFile={hasFile}
+      onPickLines={onPickLines}
+      onDocLink={onDocLink}
+      onSha={onSha}
+      onHydrated={onHydrated}
+      onMeta={onMeta}
+    />
+  ) : null;
 
-  // Bubble the content sha up once loaded (and whenever it changes) so the tree's
-  // viewed markers stay consistent with this card's. Before the callback exists
-  // as a hook-order-safe effect, `data` may be undefined — guard on `data?.sha`.
-  useEffect(() => {
-    if (data?.sha) onSha?.(path, data.sha);
-  }, [data?.sha, path, onSha]);
-
-  // Stable `{__html}` wrapper for the rendered-markdown div — a fresh inline
-  // literal makes React 19 re-set innerHTML on every commit, wiping selections.
-  // Placed with the hooks, before the early return below, to keep hook order stable.
-  const markdownHtml = useHtml(data?.markdownHtml ?? "");
-
-  // Dim the doc links pointing outside the review, right after React commits the
-  // server HTML — hence the dependency on the `{__html}` identity, which is what
-  // decides whether that HTML was (re)injected — and again if membership changes
-  // under it.
-  const mdRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (active && hasFile && markdownHtml.__html) markMissingDocLinks(mdRef.current, hasFile);
-  }, [active, hasFile, markdownHtml]);
-
-  // Loading/error chrome only. ProgressiveFile owns the [data-file] marker in
-  // large reviews (`ownsFileMarker` false); standalone renders keep it here.
-  if (!data) {
+  // No body has landed yet, so there is nothing to build a header from: the
+  // loading/missing/error chrome, and the small [data-file] stub ProgressiveFile
+  // measures in a large review. FileCard reads its initial fold from autoFold +
+  // viewed, both of which need the loaded file, so mounting it earlier would fold
+  // long files wrong.
+  if (!file) {
     return (
       <div data-file={ownsFileMarker ? path : undefined}>
         <div className="flex h-8 items-center border-b border-neutral-300 bg-neutral-50/95 px-2 font-mono text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/95">
           {path}
         </div>
         <div className="border-b border-neutral-300 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-950">
-          {isLoading && <p className="text-xs text-neutral-400">Loading…</p>}
-          {error && <p className="text-xs text-danger-500">{(error as Error).message}</p>}
+          {body}
         </div>
       </div>
     );
   }
 
-  const lineCount = data.lines.length;
-  const isMarkdown = data.kind === "markdown";
   // A render fn so the rendered/raw toggle only shows while the card is open.
   const stats = (open: boolean) => (
     <>
-      {lineCount > BIG_FILE_LINES && (
+      {file.lineCount > BIG_FILE_LINES && (
         <span className="shrink-0 text-[0.6875rem] font-medium text-neutral-500 dark:text-neutral-400">
-          {lineCount.toLocaleString()} lines
+          {file.lineCount.toLocaleString()} lines
         </span>
       )}
-      {isMarkdown && open && <MdViewToggle value={mdView} onChange={setMdView} />}
+      {file.isMarkdown && open && <MdViewToggle value={mdView} onChange={setMdView} />}
     </>
   );
 
@@ -310,39 +498,16 @@ function FileViewImpl({
       // `toggle` builds that same key here (only this card has
       // the sha); absent ⇒ viewed isn't tracked in this view, so the toggle hides.
       viewed={viewed ?? false}
-      onToggleViewed={toggle ? () => toggle(fileViewedKey(path, data.sha)) : undefined}
+      onToggleViewed={toggle ? () => toggle(fileViewedKey(path, file.sha)) : undefined}
       onFileFeedback={onFileFeedback ? () => onFileFeedback(path) : undefined}
-      autoFold={lineCount > BIG_FILE_LINES}
+      autoFold={file.lineCount > BIG_FILE_LINES}
       current={current}
       foldSignal={foldSignal}
       unscopedFold={unscopedFold}
       ownsFileMarker={ownsFileMarker}
       onOpenChange={onOpenChange}
     >
-      {!active ? null : isMarkdown && mdView === "rendered" ? (
-        // The doc-link click is caught here rather than on the pane so it stays
-        // next to the missing-link marking above. It always preventDefaults: the
-        // anchor's `href="#"` exists only to keep it focusable.
-        // biome-ignore lint/a11y/useKeyWithClickEvents: delegated to real <a>s, which fire click on Enter
-        <div
-          ref={mdRef}
-          className="r3-markdown px-5 py-3 text-sm"
-          onClick={(e) => {
-            const link = docLinkFromEvent(e.target);
-            if (!link) return;
-            e.preventDefault();
-            onDocLink?.(link);
-          }}
-          dangerouslySetInnerHTML={markdownHtml}
-        />
-      ) : (
-        <CodeBody
-          data={data}
-          path={path}
-          regions={regions}
-          onPickLines={(side, ls, le, q) => onPickLines(path, side, ls, le, q)}
-        />
-      )}
+      {body}
     </FileCard>
   );
 }

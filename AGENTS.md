@@ -404,6 +404,21 @@ once, at capture time, never at render).
   minus `.gitignore`d), so `**/*.ts` never pulls in `node_modules/`. It's
   **greedy** — put it last. Membership is editable later: `r3 files add|rm <id> …`.
 
+**A files review outlives the files it lists**, so a member path that has since been
+deleted or renamed is an ordinary state, not a failure: its blob 404 is cached as a
+**value** — the card reads "not in the working tree", and the `file-changed`
+invalidation of that same key picks the file up if it comes back — because an
+errored query holds no data and therefore re-requests on every scroll past, which
+on a review whose branch moved on meant hundreds of round-trips a pass (the client
+also never retries a 4xx at all: the server has answered). Loaded bodies are cached
+the other way round — **fresh forever, retained briefly**: SSE invalidation is what
+expires them, but the query lives only while the file is near the viewport, so a
+few-hundred-file review's highlighted blobs don't accumulate for as long as it
+stays open. That is why `FileView` is a shell plus a body: the shell stays mounted
+with the last body's sha/line-count/kind, keeping the header, the viewed key and
+the fold, while the body — the blob query's only observer — comes and goes with the
+preload band.
+
 ## Anchoring — keeping feedback from orphaning
 
 **Diff reviews can't orphan by construction**: file/round feedback anchors into an

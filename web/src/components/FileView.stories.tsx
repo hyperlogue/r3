@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { type ComponentProps, useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { getSyntaxTheme } from "../settings.ts";
 import { phoneViewport } from "../storyViewport.ts";
@@ -66,6 +67,48 @@ export const Viewed: Story = {
     queryData: [[["blob", REVIEW_ID, renderedCode.path, REF, theme], renderedCode]],
   },
 };
+
+// A file the review still lists that the worktree no longer has. The blob query
+// resolves the missing sentinel instead of throwing, so the 404 is cached data —
+// no retry storm, no refetch on every viewport re-entry — and the card says why
+// rather than showing a raw `GET /api/blob… → 404`.
+const GONE = "server/legacy/ids.ts";
+export const Missing: Story = {
+  args: { path: GONE },
+  parameters: { queryData: [[["blob", REVIEW_ID, GONE, REF, theme], { missing: true }]] },
+};
+
+// Scrolled out of the preload band: the body unmounts (which is what lets its
+// blob be garbage-collected) while the shell keeps the header from the metadata
+// the last body reported — the viewed toggle's sha key, the fold, and (this file
+// being markdown) the rendered/raw toggle. Mounts active for one beat, then
+// deactivates; the button flips it back the way scrolling back would.
+export const Inactive: Story = {
+  args: { path: renderedMarkdown.path },
+  parameters: {
+    queryData: [[["blob", REVIEW_ID, renderedMarkdown.path, REF, theme], renderedMarkdown]],
+  },
+  render: (args) => <ScrolledAway {...args} />,
+};
+
+function ScrolledAway(args: ComponentProps<typeof FileView>) {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    setActive(false);
+  }, []);
+  return (
+    <>
+      <FileView {...args} active={active} />
+      <button
+        type="button"
+        onClick={() => setActive((a) => !a)}
+        className="mt-3 rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+      >
+        {active ? "Leave the preload band" : "Re-enter the preload band"}
+      </button>
+    </>
+  );
+}
 
 // The phone tier: below md the single 3.5rem line-number gutter compresses to
 // 2.5rem (padding tightened) to give the code more of the narrow screen; a

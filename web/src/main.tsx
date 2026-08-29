@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
-import { loadBoot } from "./api.ts";
+import { ApiError, loadBoot } from "./api.ts";
 import { Login } from "./components/Login.tsx";
 import { clampFont } from "./settings.ts";
 import "./main.css";
@@ -47,7 +47,19 @@ async function main() {
   }
 
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: true } },
+    defaultOptions: {
+      queries: {
+        staleTime: 5_000,
+        refetchOnWindowFocus: true,
+        // Never retry a 4xx. The server has answered — asking again three more
+        // times with backoff can only produce the same answer, and a files review
+        // whose branch moved on 404s once per missing file per viewport entry, so
+        // the default `retry: 3` multiplied a scroll pass by four. A 5xx or a
+        // dropped connection still gets the default three attempts.
+        retry: (count, err) =>
+          !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 3,
+      },
+    },
   });
 
   root.render(
