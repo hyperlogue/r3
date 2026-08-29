@@ -157,9 +157,35 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // the file-tree's viewed markers (keyed by path) stay consistent with the cards'
   // sha-keyed marks. Only populated in the live plain view.
   const [shas, setShas] = useState<Map<string, string>>(new Map());
+  // The reports arrive in a burst — a files review hands one up per file as its
+  // blob lands — and setting state per report re-rendered this whole view (and
+  // copied the map) once per file on a cold load. Collect the burst in a ref and
+  // flush it in one frame instead. Map semantics are unchanged: a new identity
+  // only when a sha actually changed, so `viewedPaths` and the tree markers stay
+  // put when a refetch reports the same content back.
+  const shaBatch = useRef<Map<string, string> | null>(null);
+  const shaFlush = useRef(0);
   const onSha = useCallback((path: string, sha: string) => {
-    setShas((prev) => (prev.get(path) === sha ? prev : new Map(prev).set(path, sha)));
+    if (!shaBatch.current) shaBatch.current = new Map();
+    shaBatch.current.set(path, sha);
+    if (shaFlush.current) return;
+    shaFlush.current = requestAnimationFrame(() => {
+      shaFlush.current = 0;
+      const batch = shaBatch.current;
+      shaBatch.current = null;
+      if (!batch) return;
+      setShas((prev) => {
+        let next: Map<string, string> | null = null;
+        for (const [p, s] of batch) {
+          if (prev.get(p) === s) continue;
+          next = (next ?? new Map(prev)).set(p, s);
+        }
+        return next ?? prev;
+      });
+    });
   }, []);
+  // Leaving the review with a flush queued: nothing left to update.
+  useEffect(() => () => cancelAnimationFrame(shaFlush.current), []);
   // Drag-resizable feedback panel (right-docked → drag its left edge to widen).
   // Defaults to a golden split (panel = 0.382 of the row, file view = 0.618);
   // double-click the handle to reset.
