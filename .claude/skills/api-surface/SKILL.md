@@ -22,6 +22,18 @@ markdown-it for `.md` (with per-block source-line mapping for anchoring; a
 tokens to the client cached by content sha, so the WASM/grammar weight never
 reaches the browser.
 
+**Reads that can get big are ETag'd + gzipped** — `jsonCached` in
+`server/index.ts` serves `/api/diff`, `/api/blob`, `GET /api/reviews`,
+`GET /api/reviews/:id`, `…/diff`, `…/diff-context`, `…/snapshot-diff` and
+`…/snapshot-blob` with a content ETag + `Cache-Control: no-cache` (so a refetch
+of unchanged content is a **304**, which is most of what the SPA's SSE-driven
+invalidations ask for) and gzip past a 1KB floor. The deflate moves to libuv's
+thread pool past 256KB (`server/compress.ts`) so a multi-MB body can't stall SSE
+or a blocked `r3 watch`. Every other route answers a plain `c.json` — either
+small (themes, watchers, viewed, repos, round/snapshot metas) or a mutation
+response, which has nothing to revalidate against. Add a route to `jsonCached`
+when its body grows with the review, not by default.
+
 **Browse (read)**
 `GET /api/git/status | /api/git/log | /api/git/tree | /api/diff | /api/blob` —
 status, paged commit history, file tree at a ref, a structured highlighted diff,

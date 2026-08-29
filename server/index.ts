@@ -184,9 +184,12 @@ const clampNum = (v: string | undefined, d: number, min: number, max: number) =>
   return Math.min(max, Math.max(min, Math.floor(n)));
 };
 
-// JSON response for the highlight-heavy endpoints (/api/blob, /api/diff) with a
-// content ETag + gzip. The ETag is a hash of the body, so it's correct even for
-// WORKING/STAGED content: an unchanged review re-viewed (reload, second tab)
+// JSON response for every read that can get big — the highlight-heavy content
+// routes (/api/blob, /api/diff, the rounds and snapshot views) and the two the
+// SPA refetches most, the reviews list and a review's detail. A content ETag +
+// gzip. The ETag is a hash of the body, so it's correct even for WORKING/STAGED
+// content and for a detail that changes on every reply: an unchanged response
+// re-fetched (reload, second tab, an SSE event that touched something else)
 // revalidates to a 304 with no re-download; changed content gets a fresh body.
 // `Cache-Control: no-cache` = always revalidate (cheap on loopback), never serve
 // stale. Compression is done here (not as middleware) to keep it away from the
@@ -421,6 +424,13 @@ app.delete("/api/repos/:id", (c) =>
 );
 
 // ---- reviews ----
+// The list and the detail below are the SPA's hot reads — it invalidates them on
+// review-updated, feedback-updated, file-changed AND reviews-changed — and both
+// grow with the review: the detail carries every feedback item with every reply
+// body (measured 415KB on a 74-note review, 181KB for the list), which used to
+// go out uncompressed on every event, over a tailnet in the remote-access setup.
+// jsonCached gzips them and turns an event that changed something else into a
+// 304 the browser's own fetch cache satisfies.
 app.get("/api/reviews", (c) => {
   const meta: Record<string, string> = {};
   for (const [k, v] of Object.entries(c.req.queries())) {
@@ -433,7 +443,8 @@ app.get("/api/reviews", (c) => {
     meta[key] = Array.isArray(v) ? v[0] : (v as string);
   }
   const working = db.reviewIdsWithFeedbackClaims();
-  return c.json(
+  return jsonCached(
+    c,
     db
       .listReviews({
         session: c.req.query("session") || undefined,
@@ -562,7 +573,7 @@ app.post("/api/reviews", async (c) => {
 
 app.get("/api/reviews/:id", async (c) => {
   const detail = await reviews.buildReviewDetail(c.req.param("id"));
-  return detail ? c.json(detail) : c.text("not found", 404);
+  return detail ? jsonCached(c, detail) : c.text("not found", 404);
 });
 
 app.patch("/api/reviews/:id", async (c) => {
