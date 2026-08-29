@@ -32,6 +32,7 @@ import {
 // or embedded by scripts/compile.ts).
 import index from "../web/index.html";
 import * as auth from "./auth.ts";
+import { gzipBody } from "./compress.ts";
 import {
   acquireDaemonLock,
   BIND,
@@ -190,7 +191,12 @@ const clampNum = (v: string | undefined, d: number, min: number, max: number) =>
 // `Cache-Control: no-cache` = always revalidate (cheap on loopback), never serve
 // stale. Compression is done here (not as middleware) to keep it away from the
 // SSE stream, which must not be buffered/compressed. (design: r3-blob-compress-cache)
-function jsonCached(c: Context, obj: unknown): Response {
+//
+// `JSON.stringify` + the UTF-8 encode below still run on this thread. They cost
+// roughly a tenth of the deflate they feed, and moving them would mean shipping
+// the whole object graph (rows straight out of sqlite) to a worker — more copying
+// than the work saved. The deflate is what `gzipBody` takes off the loop.
+async function jsonCached(c: Context, obj: unknown): Promise<Response> {
   const json = JSON.stringify(obj);
   const etag = `"${Bun.hash(json).toString(16)}"`;
   c.header("ETag", etag);
@@ -201,7 +207,7 @@ function jsonCached(c: Context, obj: unknown): Response {
   // Only worth compressing past a small floor (highlighted blobs are 100s of KB).
   if (json.length > 1024 && (c.req.header("accept-encoding") || "").includes("gzip")) {
     c.header("Content-Encoding", "gzip");
-    return c.body(Bun.gzipSync(Buffer.from(json)));
+    return c.body(await gzipBody(Buffer.from(json)));
   }
   return c.body(json);
 }

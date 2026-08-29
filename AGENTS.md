@@ -108,6 +108,9 @@ server/          Hono daemon + bun:sqlite global store
                  palette classes + one per-theme stylesheet (ThemeStyle.css)
   highlight-worker.ts  Shiki tokenizer isolate — codeToTokens off the daemon's
                  thread, so a big blob can't stall SSE / a blocked `r3 watch`
+  compress.ts    gzip for the JSON reads (jsonCached) — deflate on libuv's pool
+                 past 256KB, for the same reason: a multi-MB body must not
+                 block the loop the SSE frames go out on
   mermaid.ts     mermaid fence → safe SVG (flowchart + sequenceDiagram);
                  anything else falls through to the ordinary code fence
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
