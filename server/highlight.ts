@@ -1,13 +1,22 @@
-// Server-side syntax highlighting. Dual-theme via CSS variables; cached by content sha.
+// Server-side syntax highlighting. Dual-theme via palette classes + one
+// per-theme stylesheet (below); cached by content sha.
 
-import { bundledLanguages, bundledThemesInfo, codeToTokens, type ThemedToken } from "shiki";
+import {
+  bundledLanguages,
+  bundledThemes,
+  bundledThemesInfo,
+  codeToTokens,
+  type ThemedToken,
+  type ThemeRegistrationResolved,
+} from "shiki";
+import { applyColorReplacements, normalizeTheme } from "shiki/core";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
 import { md, REMOTE_URL_RE } from "./mdproject.ts";
 import { renderMermaidSvg } from "./mermaid.ts";
 
-// Curated syntax-theme *families*: each is a light/dark pair mapped onto the
-// `--shiki-light` / `--shiki-dark` CSS variables, so the client's dark-mode
-// toggle picks the readable variant automatically — only the palette changes.
+// Curated syntax-theme *families*: each is a light/dark pair, rendered into the
+// two class slots below, so the client's dark-mode toggle picks the readable
+// variant automatically — only the palette changes.
 const THEME_FAMILIES: Record<string, { light: string; dark: string }> = {
   github: { light: "github-light", dark: "github-dark" },
   vitesse: { light: "vitesse-light", dark: "vitesse-dark" },
@@ -54,39 +63,147 @@ export function listThemes(): ThemeOption[] {
   return [...families, ...all];
 }
 
-// Pull one CSS variable's value out of a Shiki root-style string like
-// "--shiki-light-bg:#2e3440ff;--shiki-dark-bg:#2e3440ff". Keyed on the exact
-// var name + ":" so "--shiki-light" doesn't also match "--shiki-light-bg".
-function pickVar(style: string | undefined, name: string): string {
-  if (!style) return "";
-  const m = style.match(new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`));
-  return m ? m[1].trim() : "";
+// ---- The token palette ---------------------------------------------------
+//
+// Every rendered code line reaches the browser as Shiki HTML, and each token
+// span used to carry both of its colours inline:
+// `<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">`. Measured on a
+// real 208-file review that is ~5 spans and 425 JSON bytes per SOURCE line —
+// 22.7 MB of blob JSON for 1.85 MB of source (12.3x), a single 5.8k-line file
+// at 2.5 MB — and on the browser side every mounted span then owns a style
+// declaration to parse and a unique computed style to keep.
+//
+// A token can only ever wear a colour its theme names, so the whole palette is
+// knowable before anything is tokenized: index the resolved theme's distinct
+// foregrounds once, emit a class per slot (`sl<i>` light, `sd<j>` dark), and
+// ship the colours ONCE as the stylesheet in `ThemeStyle.css`. Same pixels,
+// ~20 bytes a span instead of ~55, one shared rule per colour instead of one
+// declaration per span.
+//
+// Class names are a 2-letter prefix + digits, which is no Tailwind utility's
+// shape, and they appear nowhere in `web/src` — Tailwind generates only what its
+// scanner finds there, so it can never mint one of these out from under us.
+//
+// Font style rides its own classes because it does NOT come from the same
+// theme rule as the colour (textmate resolves the two independently, so the
+// combinations aren't enumerable) — and per slot, because a family's two
+// themes can disagree (one-light doesn't italicise a parameter one-dark-pro
+// does). Both slots are mode-scoped, so no rule leaks across the toggle and
+// none needs a reset. Token *background* colours are not carried: they never
+// rendered before either (nothing read a span's --shiki-*-bg).
+const FONT_RULES = [
+  ["i", "font-style:italic"],
+  ["b", "font-weight:bold"],
+  ["u", "text-decoration:underline"],
+  ["s", "text-decoration:line-through"],
+  ["us", "text-decoration:underline line-through"],
+] as const;
+
+interface Palette {
+  lightBg: string;
+  darkBg: string;
+  lightFg: string;
+  darkFg: string;
+  // lowercase colour -> class index, per slot.
+  light: Map<string, number>;
+  dark: Map<string, number>;
+  css: string;
 }
 
-// The resolved theme's own editor background + default foreground:
-// Shiki hands these back from any highlight pass (rootStyle's --shiki-*-bg /
-// --shiki-*), but the per-line render throws them away. We surface them so the
-// client can paint code surfaces on the theme's real background. Cached per
-// resolved theme (it's content-independent).
-const themeStyleCache = new Map<string, ThemeStyle>();
-export async function themeStyle(theme?: string): Promise<ThemeStyle> {
-  const { name, light, dark } = resolveTheme(theme);
-  const hit = themeStyleCache.get(name);
-  if (hit) return hit;
-  let out: ThemeStyle = { lightBg: "", darkBg: "", lightFg: "", darkFg: "" };
+// A colour we would paste into a stylesheet has to be inert there. Theme JSON
+// is ours (Shiki's bundle), so this is belt-and-braces: anything that could end
+// a declaration or an element is dropped from the palette, and its tokens take
+// the inline fallback instead of writing the rest of the sheet.
+const SAFE_COLOR = /^[#\w().,%\-\s]+$/;
+
+// The distinct foregrounds one resolved theme can hand a token: its default
+// (`fg` / editor.foreground) first, then every tokenColor's foreground, with
+// Shiki's own colorReplacements applied — the same values `codeToTokens` emits.
+async function themeColors(id: string): Promise<{ fg: string; bg: string; colors: string[] }> {
+  const load = bundledThemes[id as keyof typeof bundledThemes];
+  const mod = await load();
+  const t = normalizeTheme(mod.default) as ThemeRegistrationResolved;
+  const rep = t.colorReplacements;
+  const fg = applyColorReplacements(t.fg, rep) || "";
+  const bg = applyColorReplacements(t.bg, rep) || "";
+  const colors: string[] = [];
+  const seen = new Set<string>();
+  const add = (c?: string): void => {
+    const v = c ? applyColorReplacements(c, rep) : "";
+    if (!v || !SAFE_COLOR.test(v)) return;
+    const k = v.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    colors.push(v);
+  };
+  add(fg);
+  add(t.colors?.["editor.foreground"]);
+  for (const s of t.settings ?? []) add(s.settings?.foreground);
+  return { fg, bg, colors };
+}
+
+// One palette per resolved theme name — content-independent, so it's built once
+// and every render/`themeStyle` call after is a map lookup. `null` marks a theme
+// whose data wouldn't load: those renders keep the old inline styles (below),
+// which is the one path that still needs `.sx` in main.css.
+const paletteCache = new Map<string, Promise<Palette | null>>();
+
+async function buildPalette(light: string, dark: string): Promise<Palette | null> {
   try {
-    const r = await tokenize("x", "typescript", light, dark);
-    out = {
-      lightBg: pickVar(r.bg, "--shiki-light-bg"),
-      darkBg: pickVar(r.bg, "--shiki-dark-bg"),
-      lightFg: pickVar(r.fg, "--shiki-light"),
-      darkFg: pickVar(r.fg, "--shiki-dark"),
+    const [l, d] = await Promise.all([themeColors(light), themeColors(dark)]);
+    const rules: string[] = [];
+    const index = (colors: string[], prefix: string, mode: string): Map<string, number> => {
+      const m = new Map<string, number>();
+      colors.forEach((c, i) => {
+        m.set(c.toLowerCase(), i);
+        rules.push(`${mode} .${prefix}${i}{color:${c}}`);
+      });
+      return m;
+    };
+    const lightMap = index(l.colors, "sl", "html:not(.dark)");
+    const darkMap = index(d.colors, "sd", "html.dark");
+    for (const [suffix, decl] of FONT_RULES) {
+      rules.push(`html:not(.dark) .sl${suffix}{${decl}}`);
+      rules.push(`html.dark .sd${suffix}{${decl}}`);
+    }
+    return {
+      lightBg: l.bg,
+      darkBg: d.bg,
+      lightFg: l.fg,
+      darkFg: d.fg,
+      light: lightMap,
+      dark: darkMap,
+      css: rules.join("\n"),
     };
   } catch {
-    // Unknown theme / tokenizer failure → blanks; client keeps its neutral surface.
+    return null;
   }
-  themeStyleCache.set(name, out);
-  return out;
+}
+
+function paletteFor(theme?: string): Promise<Palette | null> {
+  const { name, light, dark } = resolveTheme(theme);
+  const hit = paletteCache.get(name);
+  if (hit) return hit;
+  const p = buildPalette(light, dark);
+  paletteCache.set(name, p);
+  return p;
+}
+
+// The resolved theme's own editor background + default foreground, plus the
+// palette stylesheet its rendered lines are keyed on. The client paints code
+// surfaces with the first two (so a theme looks like it does in an editor) and
+// injects the third once as `<style data-r3-theme-css>`. Blanks ⇒ the client
+// keeps its neutral surface and the lines render in the surface colour.
+export async function themeStyle(theme?: string): Promise<ThemeStyle> {
+  const pal = await paletteFor(theme);
+  if (!pal) return { lightBg: "", darkBg: "", lightFg: "", darkFg: "", css: "" };
+  return {
+    lightBg: pal.lightBg,
+    darkBg: pal.darkBg,
+    lightFg: pal.lightFg,
+    darkFg: pal.darkFg,
+    css: pal.css,
+  };
 }
 
 export function escapeHtml(s: string): string {
@@ -182,12 +299,67 @@ function styleOf(t: ThemedToken): string {
     .join(";");
 }
 
-function tokensToLineHtml(line: ThemedToken[]): string {
+// One slot's classes, or null when the palette can't express this token's colour
+// (never seen in practice — the palette is derived from the same theme data the
+// tokenizer reads — but a miss must lose the colour, not guess one). An empty
+// string means "no class needed": the token wears the theme's default
+// foreground, which `.shiki-surface` already paints, so the span inherits it
+// exactly as it did when the variable said `inherit`.
+function slotClasses(
+  style: Record<string, string>,
+  slot: "light" | "dark",
+  prefix: "sl" | "sd",
+  map: Map<string, number>,
+  fg: string,
+): string | null {
+  const v = `--shiki-${slot}`;
+  const color = style[v] ?? "";
+  let out = "";
+  if (color && color !== "inherit" && color.toLowerCase() !== fg.toLowerCase()) {
+    const i = map.get(color.toLowerCase());
+    if (i === undefined) return null;
+    out = `${prefix}${i}`;
+  }
+  const add = (suffix: string): void => {
+    out = out ? `${out} ${prefix}${suffix}` : `${prefix}${suffix}`;
+  };
+  if (style[`${v}-font-style`] === "italic") add("i");
+  if (style[`${v}-font-weight`] === "bold") add("b");
+  const dec = style[`${v}-text-decoration`];
+  if (dec === "underline") add("u");
+  else if (dec === "line-through") add("s");
+  else if (dec === "underline line-through") add("us");
+  return out;
+}
+
+function classesOf(t: ThemedToken, pal: Palette): string | null {
+  const s = t.htmlStyle;
+  // A string htmlStyle (or none) is the single-theme shape; we always tokenize
+  // with a pair, so this is the fallback's business, not the palette's.
+  if (!s || typeof s === "string") return null;
+  const style = s as Record<string, string>;
+  const light = slotClasses(style, "light", "sl", pal.light, pal.lightFg);
+  if (light === null) return null;
+  const dark = slotClasses(style, "dark", "sd", pal.dark, pal.darkFg);
+  if (dark === null) return null;
+  return light && dark ? `${light} ${dark}` : light || dark;
+}
+
+function tokensToLineHtml(line: ThemedToken[], pal: Palette | null): string {
   if (line.length === 0) return "";
   let out = "";
   for (const tok of line) {
+    const cls = pal ? classesOf(tok, pal) : null;
+    if (cls !== null) {
+      out += `<span${cls ? ` class="${cls}"` : ""}>${escapeHtml(tok.content)}</span>`;
+      continue;
+    }
+    // Fallback: the pre-palette shape — both colours inline as custom
+    // properties, read by main.css's `.sx` rules. Never lose a colour.
     const style = styleOf(tok);
-    out += `<span${style ? ` style="${style}"` : ""}>${escapeHtml(tok.content)}</span>`;
+    out += style
+      ? `<span class="sx" style="${style}">${escapeHtml(tok.content)}</span>`
+      : `<span>${escapeHtml(tok.content)}</span>`;
   }
   return out;
 }
@@ -403,8 +575,10 @@ async function tokenize(
 }
 
 // Highlight `code` into an array of per-line inner HTML (one entry per source
-// line). The spans carry `--shiki-light` / `--shiki-dark` CSS variables; the
-// client's CSS picks the active one. Cached by `cacheKey` (a content sha).
+// line). The spans carry palette classes; their colours arrive once as
+// `ThemeStyle.css`. Cached by `cacheKey` (a content sha) — and by theme, which
+// is what keeps a body highlighted against one palette from ever being served
+// beside another theme's stylesheet.
 export async function highlightToLines(
   code: string,
   lang: string | null,
@@ -422,9 +596,10 @@ export async function highlightToLines(
   if (!lang || code.length > MAX_HIGHLIGHT_BYTES) {
     lines = code.split("\n").map((l) => escapeHtml(l));
   } else {
+    const pal = await paletteFor(themeName);
     try {
       const { tokens } = await tokenize(code, lang, light, dark);
-      lines = tokens.map(tokensToLineHtml);
+      lines = tokens.map((l) => tokensToLineHtml(l, pal));
     } catch {
       // Unknown grammar or tokenizer failure → plain, never crash a render.
       lines = code.split("\n").map((l) => escapeHtml(l));
@@ -549,9 +724,9 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   }
   // The wrapper the default rule would have emitted — the fence's own info word
   // as `language-*`, plus the data-line-* the core rule tagged — with the
-  // highlighted body in place of the escaped text. `shiki-code` is what maps
-  // each token span's --shiki-light/--shiki-dark onto `color` (web/src/main.css),
-  // the same class the code rows carry.
+  // highlighted body in place of the escaped text. `shiki-code` is the same
+  // marker class the code rows carry; the token colours come from the palette
+  // classes on the spans (see ThemeStyle.css above).
   const info = md.utils.unescapeAll(token.info).trim().split(/\s+/)[0];
   token.attrJoin("class", "shiki-code");
   if (info) token.attrJoin("class", options.langPrefix + info);

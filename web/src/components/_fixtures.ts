@@ -284,17 +284,20 @@ export const renderedMarkdown: RenderedFile = {
       ' <a href="#" class="r3-doclink" data-r3-doc-file="CONTRIBUTING.md"' +
       ' title="CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>',
     // A fence naming its grammar comes back Shiki-highlighted, from the same
-    // pass and syntax theme the code view uses (server/highlight.ts): the token
-    // spans carry --shiki-light/--shiki-dark and `.shiki-code` maps whichever
-    // one the active colour scheme wants onto `color`.
+    // pass and syntax theme the code view uses (server/highlight.ts). Against a
+    // daemon those spans carry palette classes (`sl3 sd7`) whose colours arrive
+    // as ThemeStyle.css; a story has no /api/theme-style, so the fixture uses
+    // the server's OTHER shape — the `.sx` inline-custom-property fallback it
+    // falls to for a colour outside the palette, which main.css colours on its
+    // own — and the fence still reads as code here.
     '<pre><code data-line-start="15" data-line-end="17" class="shiki-code language-sh">' +
-      '<span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">r3</span>' +
-      '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
-      '<span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">create</span>' +
-      '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
-      '<span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">--files</span>' +
-      '<span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
-      '<span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">docs/</span>\n' +
+      '<span class="sx" style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">r3</span>' +
+      '<span class="sx" style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
+      '<span class="sx" style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">create</span>' +
+      '<span class="sx" style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
+      '<span class="sx" style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">--files</span>' +
+      '<span class="sx" style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> </span>' +
+      '<span class="sx" style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">docs/</span>\n' +
       "</code></pre>",
     // A ```mermaid flowchart fence renders to a safe SVG (server/mermaid.ts)
     // instead of highlighted source — mermaid.js never loads.

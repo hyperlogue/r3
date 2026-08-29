@@ -144,12 +144,18 @@ body {
   }
 }
 
-/* Shiki dual-theme: each token span carries --shiki-light / --shiki-dark; pick
-   the active one. Spans set the variables, the rule reads them. */
-.shiki-code span {
+/* Shiki dual-theme: a token span carries a class from each slot's palette
+   (`sl3 sd7`) and the colours arrive as ONE stylesheet per theme — served in
+   ThemeStyle.css, injected by ReviewView as <style data-r3-theme-css>. There is
+   deliberately no generic `.shiki-code span` colour rule here any more: it would
+   out-specify every palette class, and the inline custom properties it used to
+   read cost 12x the source size in blob JSON plus a computed style per span.
+   `.sx` is the fallback the server falls to for a colour outside the palette —
+   the old shape, kept so a colour is never lost. */
+html:not(.dark) .sx {
   color: var(--shiki-light);
 }
-html.dark .shiki-code span {
+html.dark .sx {
   color: var(--shiki-dark);
 }
 

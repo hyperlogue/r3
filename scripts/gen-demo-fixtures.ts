@@ -537,12 +537,18 @@ async function main() {
   };
 
   // Bake theme metadata + per-theme surface colours so the settings theme picker
-  // is fully functional offline.
+  // is fully functional offline. The palette stylesheet is the DEFAULT theme's
+  // for every entry, not each theme's own: the rendered payloads above are baked
+  // once, unthemed, so their `sl<i>`/`sd<j>` spans are indexed against that one
+  // palette — shipping another theme's rules for those classes would recolour
+  // the tokens wrongly rather than leaving them, which is what the demo did when
+  // the colours were inline. Picking a theme still repaints the code surface.
   const themes = listThemes();
+  const palette = (await themeStyle()).css;
   const themeStyles: Record<string, ThemeStyle> = {};
   await Promise.all(
     themes.map(async (t) => {
-      themeStyles[t.id] = await themeStyle(t.id);
+      themeStyles[t.id] = { ...(await themeStyle(t.id)), css: palette };
     }),
   );
 

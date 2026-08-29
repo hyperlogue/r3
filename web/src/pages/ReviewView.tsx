@@ -369,6 +369,26 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         "--shiki-dark": themeStyle.darkFg,
       } as CSSProperties)
     : undefined;
+  // ...and the same response's palette stylesheet, which is where every token
+  // span's colour comes from: the server sends `<span class="sl3 sd7">` and the
+  // rules for those classes arrive here, once, instead of two custom properties
+  // on every span (see ThemeStyle.css). Document-level rather than scoped —
+  // the classes appear in diff rows, blobs and rendered-markdown fences alike —
+  // and one element reused across theme changes, so switching repaints in place.
+  // Left in place on unmount: it's inert without the classes, and dropping it
+  // would flash the next review's code uncoloured while the query settles.
+  const themeCss = themeStyle?.css;
+  useEffect(() => {
+    if (!themeCss) return;
+    let el = document.head.querySelector<HTMLStyleElement>("style[data-r3-theme-css]");
+    if (!el) {
+      el = document.createElement("style");
+      el.setAttribute("data-r3-theme-css", "");
+      document.head.appendChild(el);
+    }
+    // textContent, not innerHTML: a stylesheet's text is never re-parsed as markup.
+    if (el.textContent !== themeCss) el.textContent = themeCss;
+  }, [themeCss]);
 
   // Derive the active feedback from the live detail by id, so live updates keep
   // it fresh without a sync effect.

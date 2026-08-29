@@ -88,8 +88,16 @@ immutable, else 400) · `DELETE /api/feedback/:id` ·
 **Repos + themes**
 `GET /api/repos` · `PATCH /api/repos/:id` (rename) · `POST /api/repos/:id/relink` ·
 `DELETE /api/repos/:id` (forget) — the registry behind `r3 repo …` and the browser's
-repo selector. `GET /api/themes` + `GET /api/theme-style` — the highlight themes the
-SPA can pick from.
+repo selector. `GET /api/themes` + `GET /api/theme-style[?theme=]` — the highlight
+themes the SPA can pick from, and the selected one's surface colours **plus `css`,
+its palette stylesheet**. That stylesheet is where every rendered token's colour
+comes from: highlighted HTML carries only palette classes (`<span class="sl3 sd7">`,
+light slot / dark slot), never the two inline custom properties per span it used to
+(measured 12x the source size in blob JSON). Both sides are per-theme and must
+match — a client passes the same `?theme=` to the content routes and to this one,
+and injects `css` once (`<style data-r3-theme-css>`), replacing it on a theme
+change. Blank `css` ⇒ no palette; those lines carry `.sx` inline-style spans that
+the SPA's own CSS colours.
 
 **Live**
 `GET /api/events?review=:id[&session=&agentId=]` — SSE (`review-updated`,

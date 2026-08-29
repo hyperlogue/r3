@@ -41,7 +41,7 @@ export async function loadBoot(): Promise<{ needsAuth: boolean }> {
   return { needsAuth: false };
 }
 
-const NO_STYLE: ThemeStyle = { lightBg: "", darkBg: "", lightFg: "", darkFg: "" };
+const NO_STYLE: ThemeStyle = { lightBg: "", darkBg: "", lightFg: "", darkFg: "", css: "" };
 const READ_ONLY =
   "Creating reviews isn't available in the read-only demo — explore the seeded ones.";
 
@@ -80,6 +80,11 @@ export const api = {
     backend.snapshotBlob(id, path, to),
 
   themes: async () => getState().themes,
+  // Every baked entry carries the DEFAULT theme's palette stylesheet, because
+  // that is the palette the baked spans are indexed against (gen-demo-fixtures
+  // renders them once, unthemed). So picking another theme repaints the code
+  // surface and leaves the token colours — exactly what it did when the colours
+  // were baked into the spans; with a live daemon the payload is re-rendered.
   themeStyle: async (theme?: string) => getState().themeStyles[theme ?? ""] ?? NO_STYLE,
 
   listReviews: async (filter: { session?: string; status?: string; repo?: string } = {}) =>

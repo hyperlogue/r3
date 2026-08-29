@@ -104,7 +104,8 @@ server/          Hono daemon + bun:sqlite global store
   dirty.ts       lazy re-anchor gate: only re-anchor a review whose files changed
   highlight.ts   Shiki (code + a doc's fenced blocks) + markdown render
                  (decorates mdproject's instance with images/doclinks/fence/
-                 data-line rules), content-sha cached
+                 data-line rules), content-sha cached; token colours ship as
+                 palette classes + one per-theme stylesheet (ThemeStyle.css)
   highlight-worker.ts  Shiki tokenizer isolate — codeToTokens off the daemon's
                  thread, so a big blob can't stall SSE / a blocked `r3 watch`
   mermaid.ts     mermaid fence → safe SVG (flowchart + sequenceDiagram);
@@ -294,6 +295,20 @@ guessing. A `` ```mermaid `` (or `` ```mmd ``) fence is the one exception: a
 a fence we can't parse, fall through to the ordinary highlighted/plain fence.
 Messages — feedback, replies, both summaries — render **client-side**
 and stay unhighlighted by design: Shiki's WASM never reaches the browser.
+
+**A token's colour is a class, not an inline style.** Every highlighted span —
+code rows, diff rounds, snapshot diffs, fences — carries one short palette class
+per theme slot (`<span class="sl3 sd7">`), and the colours arrive once as the
+stylesheet in `ThemeStyle.css` (`GET /api/theme-style`, injected as `<style
+data-r3-theme-css>`). Pasting both colours into every span instead
+(`style="--shiki-light:…;--shiki-dark:…"`) measured 425 JSON bytes per source
+line on a 208-file review — 22.7 MB of blob JSON for 1.85 MB of source — and gave
+every mounted span its own declaration to parse and computed style to keep. A
+palette is closed (a token can only wear a colour its theme names) so it is
+derivable up front; font style rides its own classes, per slot, because textmate
+resolves it independently of the colour and a family's two themes can disagree.
+A colour somehow outside the palette keeps the old inline form on a `.sx` span —
+never lose a colour.
 
 **The feedback dock folds to a rail, and the composer follows the gesture.** On
 desktop the right-docked panel collapses (`p`, the header's fold control, or the
