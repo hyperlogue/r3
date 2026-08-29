@@ -226,6 +226,13 @@ export function useHasAnchoredText(reviewId: string): boolean {
 export function useGeneralDraft(reviewId: string): string {
   return useSyncExternalStore(subscribe, () => cache.get(reviewId)?.general ?? "");
 }
+// The general note's empty/non-empty flip, the useHasAnchoredText of that surface:
+// FeedbackPanel only needs to know whether to keep the composer showing, and
+// subscribing it to the text itself would re-render the panel — and every card
+// under it — on each keystroke typed into that composer.
+export function useHasGeneralText(reviewId: string): boolean {
+  return useSyncExternalStore(subscribe, () => (cache.get(reviewId)?.general ?? "").trim() !== "");
+}
 export function useReplyDraft(reviewId: string, feedbackId: string): string {
   return useSyncExternalStore(subscribe, () => cache.get(reviewId)?.replies[feedbackId] ?? "");
 }

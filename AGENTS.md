@@ -313,12 +313,32 @@ expand to learn — the open count, and one glyph for an unsaved draft / undeliv
 content / live agent presence. With no list on screen to dock a composer at the
 bottom of, an anchor gesture floats the *same* composer next to the code it is
 about (portalled to `<body>`, clamped into the viewport, deliberately not
-scroll-tracking — you are typing into it). Clicking a washed feedback region is
+scroll-tracking — you are typing into it, and on its own compositing layer:
+see below). Clicking a washed feedback region is
 the one gesture that un-collapses the dock: it is asking to *read* that note, and
 the alternative is a click that visibly does nothing. Below `md` none of this
 applies — the bottom sheet's closed state already **is** collapsed, so the
 preference is ignored there without being written (the forced-unified-layout
 shape).
+
+**A keystroke costs one box, not the page.** Typing is the panel's hot path, and
+everything conspired against it: a portalled `position:fixed` composer paints into
+the **root** layer, so each keystroke repainted every highlighted code span behind
+it (~9 ms of a measured 22 ms keystroke) — hence `will-change-transform` on the
+floating composer, which is the whole fix; the docked one paints inside the dock
+column and needs none. Above that, three rules keep a keystroke from re-rendering
+the list: **`FeedbackCard` is `memo`'d** and gets only props that survive a render
+— primitives, the row TanStack structurally shares, and per-card callbacks that
+take the card's id/row as an **argument** instead of closing over it, so one
+function serves the whole list (a fresh arrow per card is what defeats `memo`);
+the panel's **derived lists** (active/resolved/`ordered`, plus the membership keys
+its effects watch) come from one `useMemo` on `detail.feedback`, since they feed
+those memo'd props; and **a composer subscribes to its own draft text**, the panel
+reading only the empty/non-empty flip (`useHasGeneralText`, `useHasAnchoredText`).
+`web/src/autogrow.ts` closes the loop: where the browser can size a textarea
+itself (`field-sizing: content`) it does, with the rows × line-height math written
+once as min/max-height; the JS fit — `height:auto` then `scrollHeight`, a forced
+synchronous layout per keystroke — is the fallback, not the default.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a selection through the same

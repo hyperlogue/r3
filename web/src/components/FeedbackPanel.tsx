@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,6 +27,7 @@ import {
   useDraftCount,
   useDraftText,
   useGeneralDraft,
+  useHasGeneralText,
   useReplyDraft,
 } from "../drafts.ts";
 import {
@@ -633,7 +635,17 @@ function ReplyBlock({
 //   replay it. Replaying `e` would silently reopen the item it just resolved.
 export type CardCommand = { id: string; action: "reply" | "resolve"; nonce: number };
 
-function FeedbackCard({
+// memo'd, because everything re-renders the panel: an SSE echo, a resize drag, a
+// tab switch, the parent's own state. Without it each of those re-ran every card's
+// mutation hooks and re-rendered its whole thread.
+//
+// The default shallow compare holds because no prop is built per render: `fb` is a
+// row TanStack structurally shares (a new object only when this feedback actually
+// changed), `reviewId`/`isActive`/`error` are primitives, `command` is null for
+// every card but the addressed one, and every callback is one the panel keeps
+// stable — which is why the five per-card ones take this card's row/id as an
+// ARGUMENT rather than closing over it.
+const FeedbackCard = memo(function FeedbackCard({
   fb,
   reviewId,
   onLocate,
@@ -649,14 +661,14 @@ function FeedbackCard({
 }: {
   fb: FeedbackWithReplies;
   reviewId: string;
-  onLocate: () => void;
+  onLocate: (fb: FeedbackWithReplies) => void;
   // Re-select this card without jumping the content pane (the error-recovery
   // "bring focus back" — the card matters there, not its anchor).
-  onFocus: () => void;
+  onFocus: (fb: FeedbackWithReplies) => void;
   onLocatePin: (patchSeq: number, file: string | null, line: number | null) => void;
-  onResolved: () => void;
+  onResolved: (id: string) => void;
   // Plain reply (no resolve) landed — hand focus to the next open item.
-  onReplied: () => void;
+  onReplied: (id: string) => void;
   // Jump the pane to an `@path:Lx-y` ref clicked inside a rendered message.
   onJumpRef: (ref: MessageRef, patchSeq: number | null) => void;
   isActive: boolean;
@@ -667,10 +679,13 @@ function FeedbackCard({
   // membership-changing action (Resolve/Reopen/Delete) triggers — see the panel's
   // cardErrors store and the "Optimistic mutation plumbing" note below.
   error: string | null;
-  reportError: (msg: string | null) => void;
+  reportError: (id: string, msg: string | null) => void;
 }) {
   const qc = useQueryClient();
   const reviewKey = ["review", reviewId] as const;
+  // The panel's reporter is one function shared by every card (that's what keeps
+  // its identity stable), so bind this card's id to it once here.
+  const report = useCallback((msg: string | null) => reportError(fb.id, msg), [reportError, fb.id]);
   // --- Optimistic mutation plumbing --------------------------------------
   // The card mutations below (resolve/reopen, reply, edit, delete) patch the
   // cached ReviewDetail in onMutate so the card reflects the change the instant
@@ -697,7 +712,7 @@ function FeedbackCard({
   const beginPatch = async () => {
     // Clear any prior error banner as a new action starts (retry or a different
     // action on the same card) — the panel-level store persists it otherwise.
-    reportError(null);
+    report(null);
     return snapshotPatch();
   };
   // Replace this card's feedback row in the cached detail in place (a no-op if the
@@ -831,8 +846,8 @@ function FeedbackCard({
       // down to the bottom of the list. The parent picks which item; fired here
       // off this render's pre-mutation list. Resolving advances-and-removes; a
       // plain reply advances only if there's a genuinely-next card below.
-      if (resolve) onResolved();
-      else if (text) onReplied();
+      if (resolve) onResolved(fb.id);
+      else if (text) onReplied(fb.id);
       return { prev, body, tmpId: pending?.id ?? null };
     },
     mutationFn: async ({ resolve, body }: { resolve: boolean; body: string }) => {
@@ -858,12 +873,12 @@ function FeedbackCard({
     },
     onError: (e, _vars, ctx) => {
       restore(ctx?.prev);
-      reportError(`Couldn't save — ${apiErrorText(e)}`);
+      report(`Couldn't save — ${apiErrorText(e)}`);
       // onMutate advanced focus to the next card; bring it back so the restored
       // draft and the error banner aren't stranded on an unfocused, possibly
       // scrolled-away card. Focus only — the panel scrolls this card into view;
       // the content pane has no reason to move.
-      onFocus();
+      onFocus(fb);
       // The reply never left the browser → put the draft back so it isn't lost. If
       // it did post and only the resolve failed, leave the composer empty: the
       // restore() refetch brings the real reply back and a retry can't dup it.
@@ -882,7 +897,7 @@ function FeedbackCard({
     mutationFn: () => api.editFeedback(fb.id, { status: "open" }),
     onError: (e, _v, ctx) => {
       restore(ctx?.prev);
-      reportError(`Couldn't save — ${apiErrorText(e)}`);
+      report(`Couldn't save — ${apiErrorText(e)}`);
     },
   });
   const remove = useMutation({
@@ -896,7 +911,7 @@ function FeedbackCard({
     mutationFn: () => api.deleteFeedback(fb.id),
     onError: (e, _v, ctx) => {
       restore(ctx?.prev);
-      reportError(`Couldn't delete — ${apiErrorText(e)}`);
+      report(`Couldn't delete — ${apiErrorText(e)}`);
     },
   });
   // Save an inline edit of the last human message — a reply (`replyId` set) or the
@@ -926,7 +941,7 @@ function FeedbackCard({
     },
     onError: (e, _vars, ctx) => {
       restore(ctx?.prev);
-      reportError(`Couldn't save — ${apiErrorText(e)}`);
+      report(`Couldn't save — ${apiErrorText(e)}`);
       // Reopen the editor with the edited text intact so a failed save isn't lost.
       if (ctx?.replyId) setEditingReplyId(ctx.replyId);
       else setEditing(true);
@@ -1107,7 +1122,7 @@ function FeedbackCard({
         <span
           onClick={() => {
             if (clickEndedInSelection()) return;
-            onLocate();
+            onLocate(fb);
           }}
           className={cn(
             // flex + min-w-0 so the label's `truncate` clips while the ⚠ (a larger
@@ -1384,7 +1399,7 @@ function FeedbackCard({
       {quotePos && <QuoteBubble pos={quotePos} label="Quote in reply" onQuote={quoteIntoReply} />}
     </div>
   );
-}
+});
 
 // The width of the collapsed dock, in rem — shared with ReviewView so the rail
 // and the column it sits in can't disagree, and matched to FileBrowser's `w-8`
@@ -1513,7 +1528,14 @@ function FloatingComposer({ at, children }: { at: AnchorRect | null; children: R
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 w-[22rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-neutral-300 dark:bg-neutral-950 dark:ring-neutral-700"
+      // `will-change-transform` buys this box its own compositing layer. Portalled
+      // to <body>, it otherwise paints into the ROOT layer — so every keystroke
+      // repainted the composer AND the whole page behind it, thousands of
+      // highlighted code spans included (~9ms of a 22ms keystroke, measured). On
+      // its own layer the repaint is the card. The DOCKED composer needs no
+      // equivalent: it paints inside the dock column, well away from the pane's
+      // spans, so its invalidation is already its own box.
+      className="fixed z-50 w-[22rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-neutral-300 will-change-transform dark:bg-neutral-950 dark:ring-neutral-700"
       style={{ left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? undefined : "hidden" }}
     >
       {children}
@@ -1590,20 +1612,58 @@ export const FeedbackPanel = memo(function FeedbackPanel({
 }) {
   const qc = useQueryClient();
   const { copied, failed, copy } = useCopyPrompt(detail.id);
-  // The SHARED unsent predicate (shared/types.ts hasUnsentContent — the same one
-  // the server renders prompts by and `r3 watch` wakes on); gates Copy/Submit —
-  // nothing to send once everything's delivered (a fresh reply/feedback/decision
-  // re-enables it live).
-  const hasUnsent = detail.feedback.some(hasUnsentContent);
-  const claims = detail.feedback.flatMap((fb) => (fb.claim ? [fb.claim] : []));
+  // Everything the panel derives from the feedback list, in one pass keyed on the
+  // list itself. The panel re-renders for plenty of reasons the list has nothing to
+  // do with (a resize drag, a tab switch, an SSE echo of an unrelated review) and
+  // these feed both the memo'd cards and three effects' deps — so recomputing them
+  // per render would hand every consumer a new identity for an unchanged list.
+  const { hasUnsent, claims, resolved, active, ordered, feedbackIdsKey, activeIds } =
+    useMemo(() => {
+      const all = detail.feedback;
+      // Resolved feedback lives in its own tab so the working set stays focused. A
+      // just-created feedback's stand-in row is already here (the create mutation's
+      // onMutate patched the cached ReviewDetail), so it sorts in naturally — feedback
+      // is created_at ASC, so it lands last, right above the composer it was typed in.
+      const resolved = all.filter((f) => f.status === "resolved");
+      const active = all.filter((f) => f.status !== "resolved");
+      // Attention-first ordering within the Active tab, with claimed cards ALWAYS at
+      // the bottom: once the agent owns the next move, that work gets out of the
+      // human's queue regardless of who spoke last. Every partition is stable, so
+      // cards retain created_at order within attention/rest/claimed and move only
+      // when their turn or claim state changes; auto-animate then FLIPs the reflow.
+      const claimed = active.filter((f) => f.claim != null);
+      const unclaimed = active.filter((f) => f.claim == null);
+      const ordered = [
+        ...unclaimed.filter(needsAttention),
+        ...unclaimed.filter((f) => !needsAttention(f)),
+        ...claimed,
+      ];
+      return {
+        // The SHARED unsent predicate (shared/types.ts hasUnsentContent — the same one
+        // the server renders prompts by and `r3 watch` wakes on); gates Copy/Submit —
+        // nothing to send once everything's delivered (a fresh reply/feedback/decision
+        // re-enables it live).
+        hasUnsent: all.some(hasUnsentContent),
+        claims: all.flatMap((fb) => (fb.claim ? [fb.claim] : [])),
+        resolved,
+        active,
+        ordered,
+        // The membership keys two effects below read (draft reaping, the active-card
+        // scroll); joined ids so they fire on a membership change, not a row edit.
+        feedbackIdsKey: all.map((f) => f.id).join(","),
+        activeIds: ordered.map((f) => f.id).join(","),
+      };
+    }, [detail.feedback]);
   const working = claims.length > 0;
   // The general note's text lives in the browser draft store (persisted, lights the
   // pill); `generalOpen` is just the local "is the composer showing" bit. It's kept
   // showing while there's text too (below), so it survives being hidden behind an
-  // anchored draft and restores on reload.
+  // anchored draft and restores on reload. Only the empty/non-empty FLIP is read
+  // here — GeneralFeedback owns the text subscription (as NewFeedback does), so
+  // typing in it re-renders that composer, not the panel and every card under it.
   const [generalOpen, setGeneralOpen] = useState(false);
-  const generalText = useGeneralDraft(detail.id);
-  const showGeneral = generalOpen || generalText.trim() !== "";
+  const hasGeneralText = useHasGeneralText(detail.id);
+  const showGeneral = generalOpen || hasGeneralText;
   // A failed create's message: the create mutation lives on the panel (below), so
   // its error can't ride the composer's own hook — surface it back on the restored
   // composer. Cleared when a fresh compose starts (onMutate) or a composer closes.
@@ -1724,8 +1784,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
 
   // Reap reply drafts whose feedback is gone (deleted here or by another client) so
   // an orphan can't keep the pill lit / hand-off blocked with no card to clear it.
-  // Keyed on the id set (a joined string) so it only runs when membership changes.
-  const feedbackIdsKey = detail.feedback.map((f) => f.id).join(",");
+  // Keyed on the id set (feedbackIdsKey) so it only runs when membership changes.
   // biome-ignore lint/correctness/useExhaustiveDependencies: detail.feedback is captured via feedbackIdsKey; re-run only when the id set changes
   useEffect(() => {
     pruneReplyDrafts(
@@ -1733,24 +1792,6 @@ export const FeedbackPanel = memo(function FeedbackPanel({
       detail.feedback.map((f) => f.id),
     );
   }, [detail.id, feedbackIdsKey]);
-
-  // Resolved feedback lives in its own tab so the working set stays focused. A
-  // just-created feedback's stand-in row is already in detail.feedback (the create
-  // mutation's onMutate patched the cached ReviewDetail), so it sorts in naturally
-  // — feedback is created_at ASC, so it lands last, right above the composer it was
-  // typed in.
-  const resolved = detail.feedback.filter((f) => f.status === "resolved");
-  const active = detail.feedback.filter((f) => f.status !== "resolved");
-  // Attention-first ordering within the Active tab, with claimed cards ALWAYS at
-  // the bottom: once the agent owns the next move, that work gets out of the
-  // human's queue regardless of who spoke last. Every partition is stable, so
-  // cards retain created_at order within attention/rest/claimed and move only
-  // when their turn or claim state changes; auto-animate then FLIPs the reflow.
-  const claimed = active.filter((f) => f.claim != null);
-  const unclaimed = active.filter((f) => f.claim == null);
-  const attention = unclaimed.filter(needsAttention);
-  const rest = unclaimed.filter((f) => !needsAttention(f));
-  const ordered = [...attention, ...rest, ...claimed];
 
   // A single highlight pill that slides (translateX + width) to the active filter
   // tab. The two pills are different, count-dependent widths, so measure the
@@ -1769,6 +1810,14 @@ export const FeedbackPanel = memo(function FeedbackPanel({
     }
   }, [tab, active.length, resolved.length]);
 
+  // The displayed order, for the two advance handlers below. Held in a ref so they
+  // can stay identity-stable (a fresh arrow per render would defeat FeedbackCard's
+  // memo); written during render, so a handler fired from a mutation's onMutate
+  // still reads THIS render's pre-mutation list — exactly what the inline closures
+  // it replaces used to capture.
+  const orderedRef = useRef(ordered);
+  orderedRef.current = ordered;
+
   // Resolving a card advances focus to the next still-open item so a top-down
   // pass keeps moving, instead of trailing the resolved item over to the
   // Resolved tab. Take the item that slides into the resolved one's slot; if it
@@ -1778,11 +1827,15 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // Focus, not locate (both advances): the human is working the *list*, so the
   // content pane must not chase each next card's anchor across the review —
   // jumping stays an explicit gesture (the file:line header, `o`).
-  const advanceAfterResolve = (resolvedId: string) => {
-    const idx = ordered.findIndex((f) => f.id === resolvedId);
-    const remaining = ordered.filter((f) => f.id !== resolvedId);
-    onFocusFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
-  };
+  const advanceAfterResolve = useCallback(
+    (resolvedId: string) => {
+      const ordered = orderedRef.current;
+      const idx = ordered.findIndex((f) => f.id === resolvedId);
+      const remaining = ordered.filter((f) => f.id !== resolvedId);
+      onFocusFeedback(remaining.length === 0 ? null : (remaining[idx] ?? remaining.at(-1)!));
+    },
+    [onFocusFeedback],
+  );
 
   // Replying (without resolving) to an attention-group card sinks it out of the
   // group, so — like resolving — advance focus to the next item down instead of
@@ -1792,12 +1845,16 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // resolve, the card stays in the list, so there's no "slides into its slot"
   // fallback: strictly-next or stay (don't jump backward to a card already
   // handled). Computed off this render's pre-reply order.
-  const advanceAfterReply = (repliedId: string) => {
-    const idx = ordered.findIndex((f) => f.id === repliedId);
-    if (idx < 0 || !needsAttention(ordered[idx])) return;
-    const next = ordered[idx + 1];
-    if (next) onFocusFeedback(next);
-  };
+  const advanceAfterReply = useCallback(
+    (repliedId: string) => {
+      const ordered = orderedRef.current;
+      const idx = ordered.findIndex((f) => f.id === repliedId);
+      if (idx < 0 || !needsAttention(ordered[idx])) return;
+      const next = ordered[idx + 1];
+      if (next) onFocusFeedback(next);
+    },
+    [onFocusFeedback],
+  );
 
   // One card renderer for both tabs. The Active tab maps it over `ordered` (the
   // attention-first unclaimed cards followed by claimed cards); the Resolved tab
@@ -1805,21 +1862,27 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // callbacks are inert there: a resolved card shows Reopen (never Resolve), so
   // onResolved never fires, and advanceAfterReply early-returns for an id that
   // isn't in `ordered` (which holds only active items).
+  //
+  // Every prop here is passed BY IDENTITY, never as a fresh arrow: each handler
+  // takes the card's own row/id, so one function serves the whole list and
+  // FeedbackCard's memo actually holds. Building five closures per card here is
+  // what used to re-render every card (and re-run its mutation hooks) on any panel
+  // render at all.
   const renderCard = (fb: FeedbackWithReplies) => (
     <FeedbackCard
       key={keyFor(fb.id)}
       fb={fb}
       reviewId={detail.id}
       isActive={fb.id === activeFeedbackId}
-      onLocate={() => onLocateFeedback(fb)}
-      onFocus={() => onFocusFeedback(fb)}
+      onLocate={onLocateFeedback}
+      onFocus={onFocusFeedback}
       onLocatePin={onLocatePin}
-      onResolved={() => advanceAfterResolve(fb.id)}
-      onReplied={() => advanceAfterReply(fb.id)}
+      onResolved={advanceAfterResolve}
+      onReplied={advanceAfterReply}
       onJumpRef={onJumpRef}
       command={cardCommand?.id === fb.id ? cardCommand : null}
       error={cardErrors.get(fb.id) ?? null}
-      reportError={(msg) => setCardError(fb.id, msg)}
+      reportError={setCardError}
     />
   );
 
@@ -1959,7 +2022,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   // list (its refetch is still in flight), so the card above it later drops out and
   // the target shifts up — a scroll fired now would land stale. Keying on
   // `activeIds` re-scrolls once that reflow lands, so the target ends up aligned.
-  const activeIds = ordered.map((f) => f.id).join(",");
+  // (`activeIds` is the memo'd membership key computed at the top of the panel.)
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run after a tab switch or list reflow (re)renders the card, and on scrollNonce
   useEffect(() => {
     if (!activeFeedbackId) return;

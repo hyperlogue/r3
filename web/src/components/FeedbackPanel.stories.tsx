@@ -1,7 +1,7 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect } from "react";
 import { fn, userEvent, within } from "storybook/test";
-import { clearDraft, setDraftText } from "../drafts.ts";
+import { clearDraft, setDraftText, setGeneralText } from "../drafts.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import {
   allSentDetail,
@@ -23,6 +23,19 @@ const withAnchoredDraft = (text: string): Decorator => {
   return (Story) => {
     useEffect(() => {
       setDraftText(reviewDetail.id, text);
+      return () => clearDraft(reviewDetail.id);
+    }, []);
+    return <Story />;
+  };
+};
+
+// The same, for the general note. GeneralFeedback subscribes to this text itself
+// (the panel reads only the empty/non-empty flip), so seeding the store is the
+// only way to show that composer holding a persisted draft.
+const withGeneralDraft = (text: string): Decorator => {
+  return (Story) => {
+    useEffect(() => {
+      setGeneralText(reviewDetail.id, text);
       return () => clearDraft(reviewDetail.id);
     }, []);
     return <Story />;
@@ -285,6 +298,19 @@ export const CollapsedComposing: Story = {
     composerAt: { left: 260, top: 180, bottom: 200 },
   },
   decorators: [railFrame],
+};
+
+// Collapsed with no gesture to place it: a general note restored from the draft
+// store keeps its composer showing, and with nothing measured the floating card
+// parks bottom-right over the rail it belongs to. Also the one story where the
+// general composer holds text — it owns that subscription, so typing in it
+// re-renders the composer alone, not the panel and its cards.
+export const CollapsedGeneralComposing: Story = {
+  args: { collapsed: true, onToggleCollapsed: fn() },
+  decorators: [
+    withGeneralDraft("The rounds read out of order — 2 before 1 in the picker."),
+    railFrame,
+  ],
 };
 
 // The phone tier: below md every shared Button in the card action rows and the
