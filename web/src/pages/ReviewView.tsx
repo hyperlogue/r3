@@ -300,6 +300,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     queryKey: ["review-diff", reviewId, effectiveRoundSeq, syntaxTheme],
     queryFn: () => api.reviewDiff(reviewId, syntaxTheme, effectiveRoundSeq ?? undefined),
     enabled: isDiff && effectiveRoundSeq != null,
+    // A rendered round is the largest thing this client holds — highlighted
+    // markup for every line of every file in it — and one is cached per round
+    // per theme. The default five-minute retention keeps every round you tabbed
+    // through and every theme you tried; a minute still covers a there-and-back
+    // switch, which is what the cache is for here.
+    gcTime: 60_000,
   });
   const fetchedRound = diff?.rounds.find((r) => r.seq === effectiveRoundSeq) ?? null;
 
@@ -352,6 +358,8 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     queryKey: ["snapshot-diff", reviewId, fromSnap, toSnap, syntaxTheme],
     queryFn: () => api.snapshotDiff(reviewId, fromSnap as number, toSnap, syntaxTheme),
     enabled: diffMode,
+    // Same weight, and one per from/to pair the picker has visited — see above.
+    gcTime: 60_000,
   });
   // The derived diff wrapped as one synthetic round so DiffView renders it (same
   // gutter-drag feedback, folding, side-aware rows) with no round header.
