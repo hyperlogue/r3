@@ -202,6 +202,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // gesture regardless: collapsing mid-compose must not leave the composer with
   // nowhere to go. Cleared with the anchor.
   const [composerAt, setComposerAt] = useState<AnchorRect | null>(null);
+  // Fold/unfold the dock. Reads the preference non-reactively (as the
+  // region-click handler does) so the callback identity survives every render —
+  // an inline `!collapsePref` arrow is a new function on each scroll-spy tick,
+  // which is enough on its own to re-render the memoized panel and every card
+  // in it. Fires from the panel's own control and from `p`.
+  const toggleCollapsed = useCallback(() => setFeedbackCollapsed(!getFeedbackCollapsed()), []);
 
   // The mobile-sheet policies, named once (each is an inert no-op on desktop,
   // where the sheet is already — and stays — "closed"): a jump landing in the
@@ -1143,7 +1149,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     // Fires the dock's own collapse/expand button, which is on screen either way
     // (the header's ›, or the rail itself). Unbound below md: there the bottom
     // sheet is the panel and it has no such control.
-    panelToggle: isMobile ? undefined : () => setFeedbackCollapsed(!collapsePref),
+    panelToggle: isMobile ? undefined : toggleCollapsed,
   });
 
   // Replace the view with an error when there's no data at all (a first-load
@@ -1270,7 +1276,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       collapsed={panelCollapsed}
       // Withheld below md: the sheet's own handle is that tier's equivalent
       // control, so the panel must not render a second one inside it.
-      onToggleCollapsed={isMobile ? undefined : () => setFeedbackCollapsed(!collapsePref)}
+      onToggleCollapsed={isMobile ? undefined : toggleCollapsed}
       composerAt={composerAt}
     />
   );
