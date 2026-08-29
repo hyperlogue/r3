@@ -709,10 +709,6 @@
     url = "https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.101.2.tgz";
     hash = "sha512-seDkr6kzGzX1okaaTtZPtgA688CDPlXUz1C6xSg0ESqn04Vuc8tlrYms1s3de+znBqhPVxFRfpAfUf+6XvfPWg==";
   };
-  "@tanstack/react-virtual@3.14.6" = fetchurl {
-    url = "https://registry.npmjs.org/@tanstack/react-virtual/-/react-virtual-3.14.6.tgz";
-    hash = "sha512-4+Uq8m0/gzO4kMCHUEpTtGX1RnONK0C+g88b2ltwPMWUBiaVarBuWKoPJaz7gj1cKCVRAdyu+U8GcKhwCc2beA==";
-  };
   "@tanstack/virtual-core@3.17.4" = fetchurl {
     url = "https://registry.npmjs.org/@tanstack/virtual-core/-/virtual-core-3.17.4.tgz";
     hash = "sha512-nGm5KteqxasUdThLc2izl6dHUqLv0LQj7Nuyo5gYalTPf/U8a9ermvsl7reT+6ioBW1l8WfpP/mcU338nLXpqw==";

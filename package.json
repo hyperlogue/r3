@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
-    "@tanstack/react-virtual": "^3.14.6",
     "@tanstack/virtual-core": "3.17.4",
     "hono": "^4.12.30",
     "markdown-it": "^14.3.0",
