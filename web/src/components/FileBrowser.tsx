@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Collapse, cn, FoldChevrons, FoldTriangle } from "../ui.tsx";
 
 // Directory-tree file list for the current review.
@@ -98,8 +98,12 @@ function TreeDir({
   onSelect: (p: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const dirNames = [...node.dirs.keys()].sort();
-  const files = [...node.files].sort();
+  // Sorted per node, not per render: the scroll-spy re-renders this tree on
+  // every activePath change while you scroll, and a deep review would re-sort
+  // every directory on the way down each time. The node is rebuilt only when
+  // the file list changes, which is exactly when the order can differ.
+  const dirNames = useMemo(() => [...node.dirs.keys()].sort(), [node]);
+  const files = useMemo(() => [...node.files].sort(), [node]);
   const pad = (d: number) => ({ paddingLeft: `${d * 0.75}rem` });
 
   return (
@@ -159,7 +163,11 @@ function TreeDir({
   );
 }
 
-export function FileBrowser({
+// Memoized: the only prop that moves while you read is `activePath`, and the
+// scroll-spy changes that as often as once a frame. Its callers hand it a
+// memoized file list and viewed set, so an unrelated re-render of the review
+// view — a reply landing, a sha report — costs nothing here.
+export const FileBrowser = memo(function FileBrowser({
   files,
   viewed,
   activePath,
@@ -177,7 +185,7 @@ export function FileBrowser({
     localStorage.setItem("r3-filebrowser-collapsed", v ? "1" : "0");
     setCollapsed(v);
   };
-  const viewedCount = files.filter((f) => viewed.has(f)).length;
+  const viewedCount = useMemo(() => files.filter((f) => viewed.has(f)).length, [files, viewed]);
   // Rebuilding the tree on every render is wasted work — the scroll-spy in the
   // parent re-renders this on every scroll (activePath), but `files` is stable.
   const tree = useMemo(() => buildTree(files), [files]);
@@ -241,4 +249,4 @@ export function FileBrowser({
       )}
     </aside>
   );
-}
+});
