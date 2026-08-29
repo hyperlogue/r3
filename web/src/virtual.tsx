@@ -8,7 +8,14 @@
 // scrollMargin), and a scroll-to-line registry so ReviewView's locate/pin jumps
 // can bring a virtualized-away row on screen before highlighting it.
 
-import { elementScroll, useVirtualizer } from "@tanstack/react-virtual";
+import {
+  elementScroll,
+  observeElementOffset,
+  observeElementRect,
+  type Range,
+  Virtualizer,
+  type VirtualizerOptions,
+} from "@tanstack/virtual-core";
 import {
   createContext,
   Fragment,
@@ -27,11 +34,90 @@ import { useFontSize } from "./settings.ts";
 import type { DiffSide } from "./types.ts";
 
 // Files with fewer rows than this render in full — the mounted window of a
-// virtualized file is already ~viewport + 2·overscan rows, so virtualizing a
-// short file saves nothing and only adds spacer machinery. Comfortably above the
-// window so virtualization only kicks in where it actually pays.
+// virtualized file is already ~viewport + 2·overscan rows (rounded out to whole
+// BLOCKs, below), so virtualizing a short file saves nothing and only adds
+// spacer machinery. Comfortably above the window so virtualization only kicks in
+// where it actually pays.
 const VIRTUALIZE_MIN = 150;
 const OVERSCAN = 24;
+
+// Rows mount in fixed BLOCKS. A virtualizer recomputes its window on every
+// scroll event, so an unquantized window slides by a row or two per frame — and
+// every shift mutates this pane's DOM, which repaints the whole root layer
+// (~9ms measured, the same cost whether the window moved 1 row or 15). Snapping
+// the window to BLOCK boundaries makes the mounted set — and the two spacer
+// heights — change only when the viewport crosses one: once per BLOCK rows per
+// edge (the two edges sit on different phases, so ~BLOCK/2 in practice) instead
+// of once per row scrolled.
+const BLOCK = 48;
+
+// The block-snapped [first, last] row window for a visible range. OVERSCAN is
+// folded INTO the block math rather than added as a spare block on each side:
+// the window then always reaches at least `overscan` rows past the viewport (at
+// most overscan + BLOCK - 1) — the guarantee that matters — while mounting less
+// than a whole extra block on each side would.
+function blockRange(
+  startIndex: number,
+  endIndex: number,
+  overscan: number,
+  count: number,
+): [first: number, last: number] {
+  if (count <= 0) return [0, -1];
+  const first = Math.max(0, Math.floor((startIndex - overscan) / BLOCK) * BLOCK);
+  const last = Math.min(count - 1, Math.ceil((endIndex + overscan + 1) / BLOCK) * BLOCK - 1);
+  return [first, Math.max(first, last)];
+}
+
+// Fed to the virtualizer as its rangeExtractor, so getVirtualItems() returns
+// EXACTLY the quantized set and the spacer math below (which reads the first and
+// last item, never the raw range) stays exact.
+function blockExtractor(range: Range): number[] {
+  const [first, last] = blockRange(range.startIndex, range.endIndex, range.overscan, range.count);
+  const out: number[] = [];
+  for (let i = first; i <= last; i++) out.push(i);
+  return out;
+}
+
+// virtual-core driven directly, because TanStack's React adapter hard-wires
+// `onChange -> flushSync(rerender)`: every scroll event that moves the visible
+// range by ONE row re-renders synchronously and mutates the DOM, which is the
+// repaint above (~20ms of main thread per frame on a 208-file review). This
+// mirrors the adapter's lifecycle — construct once, `_didMount`, `_willUpdate` +
+// `setOptions` per render — but re-renders only when the BLOCK window actually
+// moves, and never on a bare `isScrolling` flip. No flushSync: the window
+// already reaches `overscan` rows past the viewport, so landing a frame later
+// can't expose a gap.
+type BlockVirtualizerOptions = Omit<
+  VirtualizerOptions<HTMLElement, Element>,
+  "observeElementRect" | "observeElementOffset" | "rangeExtractor" | "onChange"
+>;
+
+function useBlockVirtualizer(options: BlockVirtualizerOptions): Virtualizer<HTMLElement, Element> {
+  const [, bump] = useState(0);
+  const windowRef = useRef<[number, number]>([0, -1]);
+  const resolved: VirtualizerOptions<HTMLElement, Element> = {
+    observeElementRect,
+    observeElementOffset,
+    rangeExtractor: blockExtractor,
+    ...options,
+    onChange: (v) => {
+      const r = v.range;
+      const next: [number, number] = r
+        ? blockRange(r.startIndex, r.endIndex, v.options.overscan, v.options.count)
+        : [0, -1];
+      if (next[0] === windowRef.current[0] && next[1] === windowRef.current[1]) return;
+      windowRef.current = next;
+      bump((n) => n + 1);
+    },
+  };
+  const [instance] = useState(() => new Virtualizer(resolved));
+  instance.setOptions(resolved);
+  useLayoutEffect(() => instance._didMount(), [instance]);
+  useLayoutEffect(() => {
+    instance._willUpdate();
+  });
+  return instance;
+}
 
 export interface ScrollToLineOpts {
   align?: "start" | "center" | "end";
@@ -205,12 +291,12 @@ export function VirtualLines({
     setScrollMargin((prev) => (Math.abs(prev - m) > 0.5 ? m : prev));
   }, [enabled, scrollEl, pane?.layoutVersion, fontSize, count]);
 
-  const virtualizer = useVirtualizer({
+  const virtualizer = useBlockVirtualizer({
     // Without this the virtualizer subscribes even for a file we render whole:
     // one ResizeObserver plus scroll/touchstart/touchend listeners on the ONE
-    // shared pane, per file, and a synchronous re-render of every instance on
-    // each isScrolling flip. A 120-file review paid 120 observers, 360
-    // listeners and 240 renders per scroll gesture for nothing.
+    // shared pane, per file, and a range recompute per instance on every scroll
+    // event. A 120-file review paid 120 observers and 360 listeners for
+    // nothing.
     enabled,
     count,
     getScrollElement: () => scrollEl,
@@ -231,6 +317,8 @@ export function VirtualLines({
     // NO measureElement: measuring a row while its file is folded (clipped inside a
     // 0-height Collapse) reports a bogus height and poisons scrollToIndex.
     estimateSize: () => fontSize,
+    // Read back by blockExtractor/onChange (via `options.overscan`) — the block
+    // math is the only consumer; nothing here uses the default extractor.
     overscan: OVERSCAN,
     scrollMargin,
     getItemKey: itemKey,

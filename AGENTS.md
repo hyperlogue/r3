@@ -138,7 +138,9 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/highlights.ts imperative feedback-highlight hooks (active-line ring, summary
                  quote, region wash) + markdown click refinement
   src/pane.ts    content-pane helpers: retrying row jump, composer focus, crossfade
-  src/virtual.tsx per-file row virtualization inside the one scroll pane
+  src/virtual.tsx per-file row virtualization inside the one scroll pane; the
+                 mounted window snaps to 48-row blocks and drives virtual-core
+                 itself (below), so a scroll doesn't mutate the DOM every frame
   src/progressive.tsx large files-review body hydration: one observer, measured
                  offscreen file shells, explicit-jump activation
   src/expand.ts  expand-context: a diff's collapsed gaps -> revealed rows, merged
@@ -481,6 +483,20 @@ the anchors, and every callback shape are identical either way:
 
 Anchoring in an expanded region needs no new server logic: `deriveQuote` and
 `validateReplyPin` parse the full stored body, not the rendered view.
+
+**The mounted row window moves in blocks.** Any DOM mutation inside the content
+pane repaints the whole root layer, and that repaint costs the same whether the
+rendered window shifted by one row or fifteen — so a scroll must not mutate the
+DOM every frame, which is exactly what a per-row virtual window does (~20 ms of
+main thread per frame on a 208-file review, ~70% of it paint). `VirtualLines`
+therefore snaps its rendered range to **48-row blocks** — overscan folded into
+the block math, so the window still reaches at least 24 rows past the viewport —
+and drives `@tanstack/virtual-core` directly rather than TanStack's React
+adapter, whose `onChange` hard-wires `flushSync(rerender)` on every visible-range
+change. It re-renders only when the block window actually moves (a couple of
+dozen rows of scrolling apart, not one), and never on a bare `isScrolling` flip;
+no `flushSync` is needed because the window is already rendered past the
+viewport, so landing a frame later can't expose a gap.
 
 ## The review loop (the agent interface)
 

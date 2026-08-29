@@ -5,19 +5,25 @@ import { useVirtualPaneController, VirtualLines, VirtualPaneProvider } from "./v
 
 // A self-contained harness for the VirtualLines primitive: a fixed-height scroll
 // pane (the role ReviewView's content pane plays) wrapping a long list of mono
-// "code" rows. A live badge reports how many [data-line] rows are actually
-// mounted vs the list length, so the windowing is visible — scroll and the total
-// mounted count stays bounded (~viewport + 2·overscan) no matter the list size.
+// "code" rows. A live badge reports which [data-line] rows are actually mounted
+// vs the list length, so the windowing is visible — scroll and the mounted span
+// stays bounded no matter the list size, and its ENDS only move when the viewport
+// crosses a 48-row block boundary (that quantization is what keeps a scroll from
+// mutating the pane's DOM every frame).
 function VirtualDemo({ count }: { count: number }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { registry } = useVirtualPaneController();
-  const [mounted, setMounted] = useState(0);
+  const [mounted, setMounted] = useState("");
 
-  // Poll the mounted row count each frame so the badge tracks scrolling.
+  // Poll the mounted window each frame so the badge tracks scrolling.
   useEffect(() => {
     let raf = 0;
     const tick = () => {
-      setMounted(scrollRef.current?.querySelectorAll("[data-line]").length ?? 0);
+      const rows = scrollRef.current?.querySelectorAll("[data-line]");
+      const n = rows?.length ?? 0;
+      const first = rows?.[0]?.getAttribute("data-line");
+      const last = rows?.[n - 1]?.getAttribute("data-line");
+      setMounted(n ? `rows ${first}–${last} (${n})` : "0 rows");
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -27,7 +33,7 @@ function VirtualDemo({ count }: { count: number }) {
   return (
     <div className="relative">
       <div className="absolute right-2 top-2 z-10 rounded bg-neutral-900/85 px-2 py-1 font-mono text-[0.6875rem] text-neutral-100">
-        {mounted} rows mounted / {count.toLocaleString()} total
+        {mounted} mounted / {count.toLocaleString()} total
       </div>
       <div
         ref={scrollRef}
@@ -71,17 +77,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// A 5,000-row list: only the on-screen window mounts. Scroll fast — the "rows
-// mounted" badge stays a small constant while the content scrolls the full
-// height. This is what keeps a thousand-line file's DOM (and any DOM-walking
-// browser extension) light.
+// A 5,000-row list: only the on-screen window mounts. Scroll fast — the badge's
+// span stays small while the content scrolls the full height, and it steps in
+// 48-row blocks rather than following the wheel row by row. This is what keeps a
+// thousand-line file's DOM (and any DOM-walking browser extension) light.
 export const Virtualized: Story = {
   args: { count: 5000 },
 };
 
 // Below VIRTUALIZE_MIN (150): the primitive renders every row (no windowing, no
-// spacer machinery) — the mounted count equals the list length. Short files take
-// this path in the app.
+// spacer machinery) — the mounted span is the whole list. Short files take this
+// path in the app.
 export const ShortRendersInFull: Story = {
   args: { count: 40 },
 };
