@@ -584,23 +584,38 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const activeRound = isDiff ? (patchMetas.find((r) => r.seq === effectiveRoundSeq) ?? null) : null;
   // The files a plain (non-diff) view browses: the live membership at `to=Current`,
   // else the chosen snapshot's captured file set.
-  const browseFiles: string[] =
-    toSnap === "WORKING"
-      ? (filesSrc?.files ?? [])
-      : (snapshots.find((s) => s.seq === toSnap)?.files ?? []);
+  const browseFiles: string[] = useMemo(
+    () =>
+      toSnap === "WORKING"
+        ? (filesSrc?.files ?? [])
+        : (snapshots.find((s) => s.seq === toSnap)?.files ?? []),
+    [toSnap, filesSrc, snapshots],
+  );
   // The files shown in the center, for the file browser + scroll-spy, per mode: a
   // diff review's active round, the snapshot-diff's changed files, or the plain
   // view's browse set.
-  const fileList: string[] = isDiff
-    ? (fetchedRound?.files.map((f) => f.path) ?? [])
-    : diffMode
-      ? (snapDiff?.files.map((f) => f.path) ?? [])
-      : browseFiles;
+  //
+  // Memoized because most of this view hangs off its IDENTITY — hasFile (and so
+  // every ref/doclink jump built on it), the viewed set, the spy's re-attach key,
+  // FileBrowser's tree. The two diff branches map a fresh array each render, so
+  // all of those recomputed on every scroll-spy tick.
+  const fileList: string[] = useMemo(
+    () =>
+      isDiff
+        ? (fetchedRound?.files.map((f) => f.path) ?? [])
+        : diffMode
+          ? (snapDiff?.files.map((f) => f.path) ?? [])
+          : browseFiles,
+    [isDiff, fetchedRound, diffMode, snapDiff, browseFiles],
+  );
   // Large plain-file views progressively hydrate bodies. Diff rounds already
   // arrive as one bounded rendered payload and keep their existing path.
   const progressiveFiles = !isDiff && !diffMode && browseFiles.length >= PROGRESSIVE_FILES_MIN;
   const progressiveVersion = `${reviewId}:${toSnap}:${syntaxTheme}`;
-  const hasFile = useCallback((path: string) => fileList.includes(path), [fileList]);
+  // Membership is asked once per rendered file (each card's doc links) and again
+  // per jump, so the linear scan it used to be walked the whole review each time.
+  const fileSet = useMemo(() => new Set(fileList), [fileList]);
+  const hasFile = useCallback((path: string) => fileSet.has(path), [fileSet]);
   const { locateFeedback, locatePin, jumpToRef, openDocLink, selectFile, scrollAnimating } =
     usePaneJumps({
       scopeRef,
