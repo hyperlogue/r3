@@ -710,14 +710,21 @@ target hunk, and with no cursor there isn't one), and no `Enter` binding anywher
   block wins outright (a final file shorter than ~85% of the pane could otherwise
   never win, and `]` would stick on its predecessor) — but only when there **is**
   something to scroll, since a pane whose content fits is at its end from the
-  first frame and nothing has been scrolled past.
+  first frame and nothing has been scrolled past. The test runs over the blocks
+  the pane is **currently showing** and no others: an `IntersectionObserver`
+  rooted on the pane keeps that set, so a frame measures one or two boxes
+  instead of one per file. It narrows the candidates, never the rule — the same
+  rect tests still decide — and what it buys is a 200-file review no longer
+  spending most of a scroll asking files far above the viewport for geometry.
 - **The spy re-measures on resize, not just on scroll.** Most of the pane's
   content arrives after the effect attaches and fires no scroll event — a files
   review paints one small `[data-file]` stub per file until its blob lands — so a
   `ResizeObserver` on the pane and on its content watches for that (and for the
   fold/unfold restack, and for the feedback-panel drag, which changes the 15%
   denominator). Without it the marker keeps whatever it computed against stubs,
-  which is how it once opened a review with no file marked at all.
+  which is how it once opened a review with no file marked at all. That signal is
+  also when the block list is re-scanned and the observer re-pointed — the list is
+  held, not re-queried per frame — so a version switch or a late card joins it.
 - **Collapsing the dock takes its keys with it.** `p` folds the desktop feedback
   panel to its rail and back — its control (the header's `›`, then the rail
   itself) is on screen in both states, which is what makes it bindable at all.

@@ -719,8 +719,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // stepping onto one would immediately report the file after it. A block that is
   // wholly on screen is never handed off, whatever its size.
   //
-  // The listener reads the DOM live, so it stays correct as blocks load/render
-  // without re-subscribing. Keyed on `detail` (not []) because the first commit
+  // The measure reads the DOM live — off a block list re-scanned whenever the
+  // pane's content resizes — so it stays correct as blocks load/render without
+  // re-subscribing. Keyed on `detail` (not []) because the first commit
   // early-returns "Loading review…" — scopeRef is null there, and a one-shot
   // effect would never attach on a cold load.
   //
@@ -728,26 +729,43 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // without touching `detail` or firing a scroll. Per-file shortcuts MUTATE against
   // activePath, so a stale one writes a viewed mark no card reads / opens a
   // whole-file note the server rejects. Re-measure on the swap.
-  const fileListKey = fileList.join("\n");
+  const fileListKey = useMemo(() => fileList.join("\n"), [fileList]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: detail + the rendered file set are the re-attach/re-measure triggers; the listener reads the DOM, not either object
   useEffect(() => {
     const root = scopeRef.current;
     if (!root) return;
     let raf = 0;
+    // The pane's blocks in document order, plus the subset an IntersectionObserver
+    // rooted on the pane currently reports as showing. Measuring every block cost
+    // a forced layout per file per frame — on a 200-file review nearly all of them
+    // for files scrolled far off the top — and re-querying the DOM each frame paid
+    // for the list again. The observer only narrows the candidates; the rect tests
+    // below still decide, so the rule is exactly the one described above.
+    let blocks: HTMLElement[] = [];
+    let index = new Map<Element, number>();
+    const observed = new Set<Element>();
+    const showing = new Set<Element>();
+    let order: number[] = [];
+    let orderStale = true;
+    // An empty showing set reads exactly like "nothing intersects", which hands
+    // the marker to the LAST block — so sit out until the observer has spoken
+    // once rather than answering from a set that isn't populated yet.
+    let delivered = false;
+
     const measure = () => {
       raf = 0;
       // A toolbar jump owns activePath while its animation flies — mid-flight
       // frames must not re-spy it back to a block the ride is passing through.
       if (scrollAnimating.current) return;
+      if (!delivered && blocks.length > 0) return;
       const pane = root.getBoundingClientRect();
       // Measured against the pane's own box, NOT the sticky band: while a file is
       // current the band holds that file's own header, so it isn't lost height.
       const paneH = pane.height;
-      const blocks = root.querySelectorAll("[data-file]");
       const last = blocks[blocks.length - 1] ?? null;
       // At the end of the scroll there is nothing left to scroll toward, so the
       // last block takes the marker outright. Without this a final file shorter
-      // than ~85% of the pane could never win the test above — the file before it
+      // than ~85% of the pane could never win the test below — the file before it
       // still fills the screen — so it would never be current, and `]` (which
       // indexes on activePath) would stick on its predecessor forever.
       //
@@ -758,14 +776,34 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       // (a files review renders one small [data-file] stub per file until its
       // blob lands), so the marker went to the LAST file while the reader was
       // looking at the first. Fall through instead — every block is wholly
-      // visible then, so the loop below marks the first one.
+      // visible then, so the walk below marks the first one.
       const atEnd =
         root.scrollHeight > root.clientHeight + 1 &&
         root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
       let current: string | null = atEnd ? (last?.getAttribute("data-file") ?? null) : null;
-      for (let i = 0; !current && i < blocks.length; i++) {
+      if (orderStale) {
+        order = [];
+        for (const el of showing) {
+          const at = index.get(el);
+          if (at != null) order.push(at);
+        }
+        order.sort((a, b) => a - b);
+        orderStale = false;
+      }
+      // Walk the showing blocks in document order. The observer computes its set
+      // after the previous frame's callbacks, so a fast flick can hand us one
+      // whose members have all just left the top of the pane; stepping on to the
+      // block after the last of those lands on the same answer a full scan would.
+      let k = 0;
+      let i = order.length > 0 ? order[0] : -1;
+      while (!current && i >= 0 && i < blocks.length) {
         const r = blocks[i].getBoundingClientRect();
-        if (r.bottom <= pane.top + 1) continue; // scrolled off the top entirely
+        if (r.bottom <= pane.top + 1) {
+          // scrolled off the top entirely
+          k++;
+          i = k < order.length ? Math.max(order[k], i + 1) : i + 1;
+          continue;
+        }
         if (r.top >= pane.bottom) break; // this one and everything after is below
         // How much of this block the pane is actually showing.
         const shown = Math.min(r.bottom, pane.bottom) - Math.max(r.top, pane.top);
@@ -784,12 +822,48 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     };
     // rAF-throttle: a wheel/trackpad flick fires many scroll events per frame, but
     // the spy only needs to run once per painted frame. Coalesce them so a fast
-    // scroll doesn't repeat the querySelectorAll + getBoundingClientRect sweep
-    // dozens of times between frames.
-    const onScroll = () => {
+    // scroll doesn't repeat the rect reads dozens of times between frames.
+    const schedule = () => {
       if (!raf) raf = requestAnimationFrame(measure);
     };
-    root.addEventListener("scroll", onScroll, { passive: true });
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) showing.add(e.target);
+          else showing.delete(e.target);
+        }
+        delivered = true;
+        orderStale = true;
+        // What just changed is what the next frame measures against.
+        schedule();
+      },
+      { root },
+    );
+    // Re-point the observer whenever the pane's block list actually changes: a
+    // version switch swaps every block, and a large files review paints its stubs
+    // over several commits. The one place the DOM is queried for them.
+    const rescan = () => {
+      const next = [...root.querySelectorAll<HTMLElement>("[data-file]")];
+      if (next.length === blocks.length && next.every((el, at) => el === blocks[at])) return;
+      const live = new Set<Element>(next);
+      for (const el of [...observed]) {
+        if (live.has(el)) continue;
+        io.unobserve(el);
+        observed.delete(el);
+        showing.delete(el);
+      }
+      for (const el of next) {
+        if (observed.has(el)) continue;
+        io.observe(el);
+        observed.add(el);
+      }
+      blocks = next;
+      index = new Map(next.map((el, at) => [el, at]));
+      orderStale = true;
+    };
+
+    root.addEventListener("scroll", schedule, { passive: true });
     // The pane's content mostly arrives AFTER this effect, and none of it fires a
     // scroll event: a files review paints [data-file] stubs until each blob lands,
     // and a fold/unfold restacks everything below it. Without a resize signal the
@@ -798,13 +872,20 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     // its height is the 15% denominator, so a feedback-panel drag or a window
     // resize changes the answer. The pane has exactly one child — the stacked file
     // content (VirtualPaneProvider's wrapper) — so its height is the content height.
-    const ro = new ResizeObserver(onScroll);
+    // A restack can also add or drop blocks, so the rescan rides the same signal.
+    const onContent = () => {
+      rescan();
+      schedule();
+    };
+    const ro = new ResizeObserver(onContent);
     ro.observe(root);
     if (root.firstElementChild) ro.observe(root.firstElementChild);
+    rescan();
     measure();
     return () => {
-      root.removeEventListener("scroll", onScroll);
+      root.removeEventListener("scroll", schedule);
       ro.disconnect();
+      io.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
   }, [detail, fileListKey]);
