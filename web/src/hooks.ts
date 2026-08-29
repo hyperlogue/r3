@@ -22,17 +22,20 @@ export function useServerEvents(reviewId?: string) {
         connected = true;
         return;
       }
-      for (const key of [
-        "review",
-        "review-diff",
-        "reviews",
-        "repos",
-        "watchers",
-        "blob",
-        "snapshot-diff",
-      ]) {
+      for (const key of ["review", "review-diff", "reviews", "repos", "watchers"]) {
         invalidate([key]);
       }
+      // Blobs and derived diffs are the expensive half of that re-sync — every
+      // one is a fresh server-side Shiki render — and a review-scoped stream can
+      // only have missed events for its own review, so a reconnect there has no
+      // business refetching every file of every review this tab has opened. Both
+      // keys carry the review id at index 1. The review-less global stream (the
+      // reviews list) has no such scope and still assumes everything.
+      qc.invalidateQueries({
+        predicate: (q) =>
+          (q.queryKey[0] === "blob" || q.queryKey[0] === "snapshot-diff") &&
+          (!reviewId || q.queryKey[1] === reviewId),
+      });
     };
     const onAny = (raw: MessageEvent) => {
       let ev: ServerEvent;
