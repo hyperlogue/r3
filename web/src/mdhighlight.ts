@@ -24,13 +24,41 @@ export function supportsHighlights(): boolean {
   return registry() !== null;
 }
 
+// What each name currently holds. The region pass re-derives its ranges on every
+// content mutation and almost always lands on the same ones, so remember the set
+// and skip a re-register: building a Highlight and swapping it in invalidates the
+// paint for nothing. The stored Ranges are the very objects the registry holds,
+// so a range that drifted (a live Range moves with the DOM under it) drifted on
+// both sides and still compares equal to a freshly derived one — which is right,
+// the registry is already painting where the new range points.
+const registered = new Map<string, Range[]>();
+
+function sameRanges(a: Range[], b: Range[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].startContainer !== b[i].startContainer ||
+      a[i].startOffset !== b[i].startOffset ||
+      a[i].endContainer !== b[i].endContainer ||
+      a[i].endOffset !== b[i].endOffset
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Register `ranges` under `name`, replacing any previous set; empty unregisters.
 // A no-op where the API is unavailable — callers fall back to a block-level mark.
 export function setHighlightRanges(name: string, ranges: Range[]): void {
   const reg = registry();
   if (!reg) return;
+  const prev = registered.get(name);
+  // No entry = we've never written this name, so never assume it's already empty.
+  if (prev && sameRanges(prev, ranges)) return;
   if (ranges.length === 0) reg.delete(name);
   else reg.set(name, new Highlight(...ranges));
+  registered.set(name, ranges.slice());
 }
 
 // MUST be the same character class the quote side collapses with (/\s+/ in
@@ -81,6 +109,31 @@ function mapText(root: Element): Mapped {
   return { norm, nodes, offsets };
 }
 
+// mapText walks every character of a block, and one block is asked for several
+// quotes (every region resolving to that <ul>/<table>) and re-asked on every
+// render/mutation pass — so keep the last walk per element. `textContent` is the
+// key: a native subtree read that changes iff the mapping would, and cheap next
+// to rebuilding two per-character arrays. The one thing it can't see is the same
+// text in brand-new nodes (React re-setting innerHTML), which would leave the
+// cached Text refs detached and any Range into them painting nothing — so check
+// the endpoints are still in the document before trusting the entry. Weak, so an
+// entry dies with the block it maps.
+const mapCache = new WeakMap<Element, { key: string; mapped: Mapped }>();
+
+function attached(m: Mapped): boolean {
+  const last = m.nodes.length - 1;
+  return last < 0 || (m.nodes[0].isConnected && m.nodes[last].isConnected);
+}
+
+function mappedFor(root: Element): Mapped {
+  const key = root.textContent ?? "";
+  const hit = mapCache.get(root);
+  if (hit && hit.key === key && attached(hit.mapped)) return hit.mapped;
+  const mapped = mapText(root);
+  mapCache.set(root, { key, mapped });
+  return mapped;
+}
+
 // Which copy of a repeated quote to paint: the stored anchor's relative
 // position inside its block (0..1), derived from the block's data-line span.
 // The rendered text carries no source lines, so relative position is the only
@@ -104,7 +157,7 @@ export function quotePos(el: Element, lineStart: number, lineEnd: number): numbe
 export function rangeForQuote(root: Element, quote: string, pos?: number): Range | null {
   const q = quote.replace(/\s+/g, " ").trim();
   if (!q) return null;
-  const { norm, nodes, offsets } = mapText(root);
+  const { norm, nodes, offsets } = mappedFor(root);
   let idx = norm.indexOf(q);
   if (idx < 0) return null;
   if (pos != null) {

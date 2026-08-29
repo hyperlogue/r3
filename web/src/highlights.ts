@@ -367,6 +367,9 @@ export function regionAt(
   line: number,
   side?: DiffSide | null,
 ): Region | undefined {
+  // Called per rendered row, so the common shape — a review with no open
+  // feedback — must not allocate a filtered array per row to find nothing.
+  if (regions.length === 0) return undefined;
   const cover = regions.filter(
     (r) => line >= r.start && line <= r.end && (r.side == null || r.side === side),
   );
@@ -445,10 +448,39 @@ export function refineMarkdownClick(
   return unlocated[0] ?? null;
 }
 
+// THE INVARIANT this hook's mutation filter rests on: everything it paints lives
+// in rendered markdown — it marks only [data-line-start] blocks, and those are
+// emitted only inside a `.r3-markdown` container. Code/diff rows take
+// r3-feedback-region from React props instead (FileView/DiffView), so the
+// virtualizer mounting and unmounting rows — which it does on nearly every scroll
+// frame — cannot change anything a pass here would paint.
+const MD_CONTENT = ".r3-markdown, [data-line-start]";
+
+// Could this batch change rendered-markdown highlighting? An edit *inside* a
+// markdown container can; so can one that inserts or removes a container (a body
+// hydrating, a fold/unfold or version switch remounting one) — the mutation
+// target there is the plain wrapper above it, so the added/removed nodes have to
+// be checked too. Everything else (row churn) is ignored, which is the point:
+// each pass otherwise costs two whole-pane querySelectorAll sweeps.
+function touchesMarkdown(muts: MutationRecord[]): boolean {
+  for (const m of muts) {
+    const t = m.target;
+    const el = t instanceof Element ? t : t.parentElement;
+    if (el?.closest(MD_CONTENT)) return true;
+    for (const n of m.addedNodes) if (holdsMarkdown(n)) return true;
+    for (const n of m.removedNodes) if (holdsMarkdown(n)) return true;
+  }
+  return false;
+}
+
+function holdsMarkdown(n: Node): boolean {
+  return n instanceof Element && (n.matches(MD_CONTENT) || n.querySelector(MD_CONTENT) != null);
+}
+
 // Persistently mark the rendered-markdown blocks that unresolved feedback points
 // at (a steady region highlight, distinct from the transient active-line ring).
 // Code/diff rows paint the same class in React; this hook must not strip those.
-// Re-applied on content mutation (async blob load, fold/unfold) via a
+// Re-applied on markdown content mutation (async blob load, fold/unfold) via a
 // MutationObserver. childList/subtree only, so its own class edits (attribute
 // mutations) don't retrigger it.
 export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, regions: Region[]) {
@@ -461,7 +493,14 @@ export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, r
       if (arr) arr.push(r);
       else byFile.set(r.file, [r]);
     }
+    // With nothing to paint there is still the previous region set's marks to
+    // strip — but only once. After that every scheduled pass falls straight
+    // through instead of sweeping the whole pane to find nothing, which is what
+    // a review with zero open feedback was paying on every mutation.
+    let dirty = true;
     const apply = () => {
+      if (byFile.size === 0 && !dirty) return;
+      dirty = byFile.size > 0;
       // Markdown-only: never touch [data-line] rows (DiffView/FileView own those).
       for (const el of root.querySelectorAll("[data-line-start].r3-feedback-region"))
         el.classList.remove("r3-feedback-region");
@@ -520,7 +559,9 @@ export function useRegionHighlight(scope: React.RefObject<HTMLElement | null>, r
       });
     };
     apply();
-    const obs = new MutationObserver(schedule);
+    const obs = new MutationObserver((muts) => {
+      if (touchesMarkdown(muts)) schedule();
+    });
     obs.observe(root, { childList: true, subtree: true });
     return () => {
       obs.disconnect();
