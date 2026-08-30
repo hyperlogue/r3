@@ -59,9 +59,11 @@ export function usePaneJumps({
       setFoldSignal((s) => ({ mode: "unfold", nonce: (s?.nonce ?? 0) + 1, path }));
       if (progressive.activate(path, onHydrated)) return;
       if (!onHydrated) return;
-      // Diff/small reviews never register shells. A snapshot switch remounts
-      // them on the next commit, so retry a few frames before running the jump
-      // anyway — the old DOM-retry budget cannot wait out a blob fetch.
+      // A review under the size gate registers no shells at all. A round or
+      // snapshot switch remounts them on the next commit, so retry a few frames
+      // before running the jump anyway — the old DOM-retry budget cannot wait
+      // out a blob fetch. (A shell that IS reached and then unmounts under the
+      // switch hands its waiter back rather than dropping it — progressive.tsx.)
       let tries = 0;
       const retry = () => {
         if (progressive.activate(path, onHydrated)) return;

@@ -1,4 +1,4 @@
-// Large files-review body hydration: one observer, measured offscreen shells.
+// Large-review body hydration: one observer, measured offscreen shells.
 // Inactive files keep measured height so scroll-spy and jumps keep geometry.
 
 import {
@@ -19,6 +19,16 @@ import {
 // number of concurrent blob requests / per-file virtualizers becomes the larger
 // cost, so progressively hydrate file bodies instead.
 export const PROGRESSIVE_FILES_MIN = 24;
+
+// A diff round arrives as ONE payload, so file count alone is the wrong gate for
+// it: a round is often a handful of files carrying thousands of rows, and what a
+// scroll pass costs is the compositor's display-list walk over the MOUNTED
+// nodes — it scales with what is rendered, not with the payload or the damage.
+// Past this many rendered rows a round defers its offscreen bodies too. ~2000
+// rows is >20k DOM nodes, several times what the pane can show at once, so most
+// of that walk is for content nobody is looking at; below it the placeholder
+// machinery costs more than it saves.
+export const PROGRESSIVE_ROWS_MIN = 2000;
 
 // An unseen file needs enough provisional height that the initially compact set
 // of shells does not all enter the preload band before the first blobs land. The
@@ -154,13 +164,22 @@ export function ProgressiveFile({
   const active = !enabled || near || forced;
   activeRef.current = active;
 
-  // A ref/theme/snapshot switch invalidates the body behind the same path. Keep
-  // the old measured height as a stable provisional size until the new body lands.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: version is the reset signal; the effect deliberately does not read its value
-  useLayoutEffect(() => {
+  // A round/ref/theme/snapshot switch invalidates the body behind the same path.
+  // Keep the old measured height as a stable provisional size until the new body
+  // lands. Reset during RENDER, not from an effect: a body with nothing to fetch
+  // (a diff file block — its rows arrived with the payload) reports `onHydrated`
+  // from its own layout effect, and a child's effects run BEFORE its parent's, so
+  // an effect here would fire after that report and clear it — leaving the block
+  // permanently "not hydrated", holding a stale provisional height and never
+  // draining a forced jump's callbacks. A render-phase reset lands before any
+  // child of the commit runs, and — unlike an effect — doesn't fire on mount,
+  // where there is no previous body to invalidate.
+  const [lastVersion, setLastVersion] = useState(version);
+  if (lastVersion !== version) {
+    setLastVersion(version);
     hydratedRef.current = false;
     setHydrated(false);
-  }, [version]);
+  }
 
   const force = useCallback((onReady?: OnReady) => {
     if (onReady) {
@@ -204,9 +223,18 @@ export function ProgressiveFile({
     if (!near || !forced || !hydrated) return;
     setForced(false);
   }, [near, forced, hydrated]);
+  // An unmounting shell can never report hydration, so hand its waiters back
+  // instead of dropping them — the caller's own retrying jump should decide the
+  // outcome, and a dropped callback freezes it forever. A diff round switch does
+  // exactly this: the jump activates the outgoing round's block (the path exists
+  // in both rounds) one commit before that block unmounts. One frame's delay so
+  // the replacement tree is committed before the waiter looks for it.
   useEffect(
     () => () => {
+      const callbacks = [...readyCallbacks.current];
       readyCallbacks.current.clear();
+      if (callbacks.length > 0)
+        requestAnimationFrame(() => callbacks.forEach((callback) => void callback()));
     },
     [],
   );

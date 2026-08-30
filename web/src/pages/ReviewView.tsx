@@ -47,6 +47,7 @@ import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
 import { focusComposer, usePaneCrossfade } from "../pane.ts";
 import {
   PROGRESSIVE_FILES_MIN,
+  PROGRESSIVE_ROWS_MIN,
   ProgressiveFile,
   ProgressiveFileProvider,
   useProgressiveFileController,
@@ -635,10 +636,26 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
           : browseFiles,
     [isDiff, fetchedRound, diffMode, snapDiff, browseFiles],
   );
-  // Large plain-file views progressively hydrate bodies. Diff rounds already
-  // arrive as one bounded rendered payload and keep their existing path.
-  const progressiveFiles = !isDiff && !diffMode && browseFiles.length >= PROGRESSIVE_FILES_MIN;
-  const progressiveVersion = `${reviewId}:${toSnap}:${syntaxTheme}`;
+  // Big views hydrate their bodies progressively, whatever the render mode. A
+  // diff round arrives as ONE payload, which is why it used to stay eager — but
+  // the payload was never the cost: a scroll pass pays a display-list walk over
+  // the MOUNTED nodes (a modest 23-file / 4123-row round mounts ~46.5k of them),
+  // and that is the same work whether the rows came in one response or many. So
+  // the gate is rows OR files: file count alone would miss the shape a round
+  // most often takes — a handful of files carrying thousands of lines.
+  const diffFiles = isDiff ? fetchedRound?.files : diffMode ? snapDiff?.files : undefined;
+  const diffRows = useMemo(
+    () => diffFiles?.reduce((n, f) => n + f.lines.length, 0) ?? 0,
+    [diffFiles],
+  );
+  const progressiveBodies = diffFiles
+    ? diffFiles.length >= PROGRESSIVE_FILES_MIN || diffRows >= PROGRESSIVE_ROWS_MIN
+    : !isDiff && !diffMode && browseFiles.length >= PROGRESSIVE_FILES_MIN;
+  // The bodies' reset signal: every version the pane can switch between (a diff
+  // round, a snapshot from/to pair, the plain live view) plus the syntax theme,
+  // which re-highlights every one of them. It's the crossfade's key — the two
+  // ask the same question — with the review and theme folded in.
+  const progressiveVersion = `${reviewId}:${paneVersionKey ?? ""}:${syntaxTheme}`;
   // Membership is asked once per rendered file (each card's doc links) and again
   // per jump, so the linear scan it used to be walked the whole review each time.
   const fileSet = useMemo(() => new Set(fileList), [fileList]);
@@ -1394,7 +1411,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
               <ProgressiveFileProvider
                 scrollRef={scopeRef}
                 registry={progressive.registry}
-                enabled={progressiveFiles}
+                enabled={progressiveBodies}
               >
                 {/* Mobile: header + summary scroll away; toolbar sticks. */}
                 {isMobile && (
@@ -1420,6 +1437,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                     onFileFeedback={onFileFeedback}
                     foldSignal={foldSignal}
                     regions={unresolvedRegions}
+                    progressiveVersion={progressiveVersion}
                   />
                 )}
                 {isDiff && !diff && (
@@ -1448,6 +1466,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                       onFileFeedback={onFileFeedback}
                       foldSignal={foldSignal}
                       regions={unresolvedRegions}
+                      progressiveVersion={progressiveVersion}
                     />
                   ) : (
                     <p className="p-6 text-sm text-neutral-400">Loading diff…</p>

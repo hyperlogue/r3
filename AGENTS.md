@@ -145,8 +145,8 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/virtual.tsx per-file row virtualization inside the one scroll pane; the
                  mounted window snaps to 48-row blocks and drives virtual-core
                  itself (below), so a scroll doesn't mutate the DOM every frame
-  src/progressive.tsx large files-review body hydration: one observer, measured
-                 offscreen file shells, explicit-jump activation
+  src/progressive.tsx large-review body hydration (files AND diff rounds): one
+                 observer, measured offscreen file shells, explicit-jump activation
   src/expand.ts  expand-context: a diff's collapsed gaps -> revealed rows, merged
                  back into ONE row list everything else derives from
   src/gutter.ts  line-number pick/drag anchoring    resolveFeedback.ts  place a
@@ -559,6 +559,24 @@ change. It re-renders only when the block window actually moves (a couple of
 dozen rows of scrolling apart, not one), and never on a bare `isScrolling` flip;
 no `flushSync` is needed because the window is already rendered past the
 viewport, so landing a frame later can't expose a gap.
+
+**A round past a size gate mounts only the blocks you can see.** A diff round
+arrives as one payload, which is why it used to render every `FileBlock` eagerly
+— but the payload was never the cost. A scroll pass pays a display-list walk over
+the **mounted** nodes (a modest 23-file / 4123-row round mounts ~46.5k of them),
+and that is the same work whether the rows arrived in one response or many. So
+past `PROGRESSIVE_FILES_MIN` files **or** `PROGRESSIVE_ROWS_MIN` rendered rows a
+round wraps each block in the same `ProgressiveFile` a large files review uses.
+Rows, not just files: a round's usual shape is a handful of files carrying
+thousands of lines, so file count alone would miss most of what hurts. What
+defers is the **body** — the merged row list, the per-side text/index maps, the
+split pairing, the virtualizers; the card, its header and its fold state stay
+mounted, so the scroll-spy, the fold-all broadcast and the viewed toggle never
+see a hole where a file should be, and a jump wakes its target through the same
+`progressive.activate` registry the files path uses. Revealed expand-context is
+the one thing an offscreen unmount forgets: it re-fetches, and the merge restarts
+from the immutable stored body, so the rows come back consistent rather than
+partial.
 
 ## The review loop (the agent interface)
 

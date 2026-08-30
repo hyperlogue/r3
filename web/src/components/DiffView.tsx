@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   EXPAND_STEP,
   type Gap,
@@ -17,6 +17,7 @@ import {
 } from "../gutter.ts";
 import { type Region, regionAt } from "../highlights.ts";
 import type { MessageRef } from "../markdown.ts";
+import { ProgressiveFile } from "../progressive.tsx";
 import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import type { DiffLayout } from "../settings.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
@@ -401,57 +402,59 @@ const SplitHalfRow = memo(function SplitHalfRow({
   );
 });
 
-// Memoized so a parent re-render (activePath/scroll) doesn't re-reconcile every
-// diff row. Takes the path-binding callbacks straight from the parent (stable
-// refs) and binds f.path itself, so memo isn't defeated by per-row closures.
-const FileBlock = memo(function FileBlock({
+// The per-file callback the gutter drag fires: a picked line range, bound to the
+// round it was picked in. Named once — FileBlock, its body and DiffView's own
+// prop all pass the same function through.
+type PickLines = (
+  file: string,
+  side: DiffSide,
+  lineStart: number,
+  lineEnd: number,
+  quote: string,
+  patchSeq: number,
+) => void;
+
+// Everything a mounted diff file actually costs: the revealed-context state, the
+// merged row list, the per-side text/index maps, the split pairing, the gutter
+// drag and the virtualizer(s). Split out of FileBlock so a progressively deferred
+// block can keep its header, its fold state and its measured height while owning
+// none of it — every memo below simply doesn't exist until the body mounts. That
+// is the point of deferring: a scroll pass costs a display-list walk over the
+// MOUNTED nodes, which scales with what is rendered, not with the payload (which
+// arrived whole either way) or with what changed.
+function DiffFileBody({
   f,
   patchSeq,
-  viewed,
-  current,
   layout,
   fetchContext,
-  toggle,
   onPickLines,
-  onFileFeedback,
-  foldSignal,
   regions,
+  onHydrated,
 }: {
   f: DiffFileChange;
   patchSeq: number;
-  viewed: boolean;
-  // Resolved to a per-file boolean by the parent (not passed down as the current
-  // path) so this stays memo-stable: a scroll-spy move re-renders exactly the two
-  // blocks whose flag flipped, not every file in the round.
-  current: boolean;
   layout: DiffLayout;
-  // Fetch the unchanged rows for one gap. Absent ⇒ no expanders, whatever the
-  // payload claims (the demo, and any caller with no route to ask).
   fetchContext?: FetchContext;
-  // Stable across renders; the per-round key is built here (not by the parent) so
-  // the incoming props stay memo-stable. Absent ⇒ viewed isn't tracked.
-  toggle?: (key: string) => void;
-  onPickLines: (
-    file: string,
-    side: DiffSide,
-    lineStart: number,
-    lineEnd: number,
-    quote: string,
-    patchSeq: number,
-  ) => void;
-  // Open the composer anchored to this whole file within this round (no span).
-  onFileFeedback?: (file: string, patchSeq: number) => void;
-  foldSignal?: FoldSignal | null;
-  // This file's unresolved-feedback spans; empty when none. A primitive `fbId`
-  // is derived per row so memoized rows don't re-render on unrelated region
-  // changes.
+  onPickLines: PickLines;
   regions: Region[];
+  // ProgressiveFile's hydration signal. There is no fetch to wait on here, but it
+  // still has to be reported: it releases a forced activation (a jump waiting for
+  // these rows) and swaps the provisional min-height for the real one. Reported
+  // from HERE, inside the fold, and so never at all by a card that has never been
+  // opened (autoFold, viewed) — which is the right answer twice over: such a card
+  // really is 2rem of header, exactly the placeholder height, and a jump that
+  // needs its rows sends the unfold that mounts this in the same beat, draining
+  // its waiter when the rows exist rather than when the shell says they might.
+  onHydrated?: (ready: boolean) => void;
 }) {
   // Expand-context. `reveal` holds the rows fetched per gap; `merged` splices
   // them back into one row list, which EVERYTHING below derives from — the text
   // maps, the index maps, the split pairing, the virtualizer's count. Deriving
   // any of them from `f.lines` instead would let a gutter drag across revealed
-  // rows build a quote with lines silently missing (see expand.ts).
+  // rows build a quote with lines silently missing (see expand.ts). Scrolling a
+  // deferred block far off screen unmounts this and forgets what was revealed:
+  // the rows are re-fetchable and the merge starts from the stored payload again,
+  // so the list comes back consistent — just collapsed, like a fresh render.
   const [reveal, setReveal] = useState<RevealMap>({});
   const gaps = useMemo(() => (fetchContext ? gapsOf(f.lines) : []), [f.lines, fetchContext]);
   const { lines: effectiveLines, gapFor } = useMemo(
@@ -460,7 +463,7 @@ const FileBlock = memo(function FileBlock({
   );
   // A new payload (a round switch, a snapshot from/to change, a refetch)
   // invalidates what was revealed. `generation` also fences fetches that were
-  // already in flight: FileBlock is keyed `${seq}:${path}`, and a files review's
+  // already in flight: a block is keyed `${seq}:${path}`, and a files review's
   // snapshot diff always carries the SAME synthetic seq, so switching from/to
   // reuses this component — a late reply would otherwise splice the previous
   // pair's rows (old text, old numbers) into the new diff as if they were the file.
@@ -470,6 +473,13 @@ const FileBlock = memo(function FileBlock({
     generation.current++;
     setReveal({});
   }, [f.lines]);
+
+  // Report hydration from a LAYOUT effect (`f.lines` is the same reset signal
+  // ProgressiveFile's `version` carries, so a re-keyed payload re-reports): the
+  // rows are here synchronously, so the provisional height should give way in the
+  // frame they first paint rather than one frame later.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: f.lines identity IS the re-report signal, matching the version reset above it
+  useLayoutEffect(() => onHydrated?.(true), [onHydrated, f.lines]);
 
   // One in-flight fetch per gap: a second click before the first resolves would
   // compute its range against a stale `reveal` and append the same rows twice.
@@ -585,6 +595,143 @@ const FileBlock = memo(function FileBlock({
     window.addEventListener("mouseup", clear);
   }, []);
 
+  if (f.binary) {
+    return <div className="px-3 py-2 text-xs text-neutral-400">Binary file not shown.</div>;
+  }
+  if (layout === "split") {
+    // Two independently-scrolling halves. They stay vertically locked for free:
+    // VirtualLines sizes every row at a FIXED height (no measureElement —
+    // virtual.tsx) and both instances read the same pane as their scroll element
+    // over the same row count, so they mount identical windows. Only the left
+    // registers scrollKey — the paired row index is the same on both sides, so
+    // one registration serves both jumps.
+    return (
+      <div ref={wrapRef} className="shiki-surface flex">
+        {(["old", "new"] as const).map((side) => (
+          <div
+            key={side}
+            data-split-half={side}
+            onMouseDown={() => beginSelect(side)}
+            className={cn(
+              "w-1/2 min-w-0 overflow-x-auto",
+              side === "new" && "border-l border-neutral-300 dark:border-neutral-700",
+            )}
+          >
+            <VirtualLines
+              className="min-w-max"
+              count={splitRows.length}
+              itemKey={(i) => i}
+              scrollKey={side === "old" ? fileScrollKey(patchSeq, f.path) : undefined}
+              resolveIndex={side === "old" ? resolveIndex : undefined}
+              renderRow={(i) => {
+                const row = splitRows[i];
+                const ln = row.kind === "pair" ? (side === "old" ? row.old : row.new) : null;
+                const lineNo = side === "old" ? ln?.oldLine : ln?.newLine;
+                return (
+                  <SplitHalfRow
+                    row={row}
+                    side={side}
+                    gapEntry={row.kind === "hunk" ? gapFor.get(row.ln) : undefined}
+                    onExpand={expand}
+                    selected={inSelection(sel, side, lineNo ?? null)}
+                    onDown={g.onDown}
+                    onEnter={g.onEnter}
+                    fbId={lineNo != null ? regionAt(regions, lineNo, side)?.id : undefined}
+                  />
+                );
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="shiki-surface overflow-x-auto">
+      {/* One horizontal scrollbar per file: rows share a max-content wrapper
+          (so it grows to the widest MOUNTED line) and each row is min-w-full (so
+          short rows + their background span the full scroll width). VirtualLines
+          mounts only the on-screen window; rows are keyed by position (a diff
+          interleaves old/new/hunk rows) and scroll-to-line maps (line,side) →
+          row index via resolveIndex. */}
+      <VirtualLines
+        className="min-w-max"
+        count={effectiveLines.length}
+        itemKey={(i) => i}
+        scrollKey={fileScrollKey(patchSeq, f.path)}
+        resolveIndex={resolveIndex}
+        renderRow={(i) => {
+          const ln = effectiveLines[i];
+          const side: DiffSide = ln.type === "del" ? "old" : "new";
+          const line = ln.type === "del" ? ln.oldLine : ln.newLine;
+          return (
+            <Row
+              ln={ln}
+              oldSel={inSelection(sel, "old", ln.oldLine)}
+              newSel={inSelection(sel, "new", ln.newLine)}
+              gapEntry={gapFor.get(ln)}
+              onExpand={expand}
+              onDown={g.onDown}
+              onEnter={g.onEnter}
+              fbId={line != null ? regionAt(regions, line, side)?.id : undefined}
+            />
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+// Memoized so a parent re-render (activePath/scroll) doesn't re-reconcile every
+// diff row. Takes the path-binding callbacks straight from the parent (stable
+// refs) and binds f.path itself, so memo isn't defeated by per-row closures.
+// The card, its header and its fold state are all this cheap shell owns; the
+// rows live in DiffFileBody, which mounts only while the block is `active`.
+const FileBlock = memo(function FileBlock({
+  f,
+  patchSeq,
+  viewed,
+  current,
+  layout,
+  fetchContext,
+  toggle,
+  onPickLines,
+  onFileFeedback,
+  foldSignal,
+  regions,
+  active = true,
+  onHydrated,
+  onOpenChange,
+}: {
+  f: DiffFileChange;
+  patchSeq: number;
+  viewed: boolean;
+  // Resolved to a per-file boolean by the parent (not passed down as the current
+  // path) so this stays memo-stable: a scroll-spy move re-renders exactly the two
+  // blocks whose flag flipped, not every file in the round.
+  current: boolean;
+  layout: DiffLayout;
+  // Fetch the unchanged rows for one gap. Absent ⇒ no expanders, whatever the
+  // payload claims (the demo, and any caller with no route to ask).
+  fetchContext?: FetchContext;
+  // Stable across renders; the per-round key is built here (not by the parent) so
+  // the incoming props stay memo-stable. Absent ⇒ viewed isn't tracked.
+  toggle?: (key: string) => void;
+  onPickLines: PickLines;
+  // Open the composer anchored to this whole file within this round (no span).
+  onFileFeedback?: (file: string, patchSeq: number) => void;
+  foldSignal?: FoldSignal | null;
+  // This file's unresolved-feedback spans; empty when none. A primitive `fbId`
+  // is derived per row so memoized rows don't re-render on unrelated region
+  // changes.
+  regions: Region[];
+  // A big round leaves every cheap block shell mounted but renders the rows only
+  // near the viewport (ProgressiveFile). Defaulted, so a caller with no provider
+  // — Storybook, the demo — renders exactly as it always did.
+  active?: boolean;
+  onHydrated?: (ready: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const stats = (
     <>
       {/* "modified" is the common case — only badge the notable statuses
@@ -615,88 +762,24 @@ const FileBlock = memo(function FileBlock({
       autoFold={f.lines.length > AUTOFOLD_ROWS}
       current={current}
       foldSignal={foldSignal}
+      // DiffView always wraps a block in a ProgressiveFile, and that wrapper
+      // owns the outer [data-file] box — so the marker must not be repeated
+      // here: the scroll-spy walks [data-file], and a nested pair would measure
+      // one file twice, the inner one moving with the fold.
+      ownsFileMarker={false}
+      onOpenChange={onOpenChange}
     >
-      {f.binary ? (
-        <div className="px-3 py-2 text-xs text-neutral-400">Binary file not shown.</div>
-      ) : layout === "split" ? (
-        // Two independently-scrolling halves. They stay vertically locked for
-        // free: VirtualLines sizes every row at a FIXED height (no
-        // measureElement — virtual.tsx) and both instances read the same pane as
-        // their scroll element over the same row count, so they mount identical
-        // windows. Only the left registers scrollKey — the paired row index is
-        // the same on both sides, so one registration serves both jumps.
-        <div ref={wrapRef} className="shiki-surface flex">
-          {(["old", "new"] as const).map((side) => (
-            <div
-              key={side}
-              data-split-half={side}
-              onMouseDown={() => beginSelect(side)}
-              className={cn(
-                "w-1/2 min-w-0 overflow-x-auto",
-                side === "new" && "border-l border-neutral-300 dark:border-neutral-700",
-              )}
-            >
-              <VirtualLines
-                className="min-w-max"
-                count={splitRows.length}
-                itemKey={(i) => i}
-                scrollKey={side === "old" ? fileScrollKey(patchSeq, f.path) : undefined}
-                resolveIndex={side === "old" ? resolveIndex : undefined}
-                renderRow={(i) => {
-                  const row = splitRows[i];
-                  const ln = row.kind === "pair" ? (side === "old" ? row.old : row.new) : null;
-                  const lineNo = side === "old" ? ln?.oldLine : ln?.newLine;
-                  return (
-                    <SplitHalfRow
-                      row={row}
-                      side={side}
-                      gapEntry={row.kind === "hunk" ? gapFor.get(row.ln) : undefined}
-                      onExpand={expand}
-                      selected={inSelection(sel, side, lineNo ?? null)}
-                      onDown={g.onDown}
-                      onEnter={g.onEnter}
-                      fbId={lineNo != null ? regionAt(regions, lineNo, side)?.id : undefined}
-                    />
-                  );
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="shiki-surface overflow-x-auto">
-          {/* One horizontal scrollbar per file: rows share a max-content wrapper
-              (so it grows to the widest MOUNTED line) and each row is min-w-full (so
-              short rows + their background span the full scroll width). VirtualLines
-              mounts only the on-screen window; rows are keyed by position (a diff
-              interleaves old/new/hunk rows) and scroll-to-line maps (line,side) →
-              row index via resolveIndex. */}
-          <VirtualLines
-            className="min-w-max"
-            count={effectiveLines.length}
-            itemKey={(i) => i}
-            scrollKey={fileScrollKey(patchSeq, f.path)}
-            resolveIndex={resolveIndex}
-            renderRow={(i) => {
-              const ln = effectiveLines[i];
-              const side: DiffSide = ln.type === "del" ? "old" : "new";
-              const line = ln.type === "del" ? ln.oldLine : ln.newLine;
-              return (
-                <Row
-                  ln={ln}
-                  oldSel={inSelection(sel, "old", ln.oldLine)}
-                  newSel={inSelection(sel, "new", ln.newLine)}
-                  gapEntry={gapFor.get(ln)}
-                  onExpand={expand}
-                  onDown={g.onDown}
-                  onEnter={g.onEnter}
-                  fbId={line != null ? regionAt(regions, line, side)?.id : undefined}
-                />
-              );
-            }}
-          />
-        </div>
-      )}
+      {active ? (
+        <DiffFileBody
+          f={f}
+          patchSeq={patchSeq}
+          layout={layout}
+          fetchContext={fetchContext}
+          onPickLines={onPickLines}
+          regions={regions}
+          onHydrated={onHydrated}
+        />
+      ) : null}
     </FileCard>
   );
 });
@@ -913,6 +996,7 @@ export function DiffView({
   onFileFeedback,
   foldSignal,
   regions = NO_REGIONS,
+  progressiveVersion = "",
 }: {
   rounds: PatchDiff[];
   // How to render each file: one interleaved column, or two parallel old/new
@@ -935,14 +1019,7 @@ export function DiffView({
   // Marked on its header; resolved to a boolean per file here so the memoized
   // FileBlocks don't all re-render when it moves.
   currentPath?: string | null;
-  onPickLines: (
-    file: string,
-    side: DiffSide,
-    lineStart: number,
-    lineEnd: number,
-    quote: string,
-    patchSeq: number,
-  ) => void;
+  onPickLines: PickLines;
   // Called from a file header's feedback button to anchor a note to the whole
   // file within the given round (no line span).
   onFileFeedback?: (file: string, patchSeq: number) => void;
@@ -951,6 +1028,11 @@ export function DiffView({
   // Unresolved-feedback spans to wash onto matching code rows. Markdown files
   // still go through useRegionHighlight.
   regions?: Region[];
+  // ProgressiveFile's reset signal for the bodies below: whatever identifies the
+  // version on screen (the caller's round / snapshot pair / syntax theme). Only
+  // read where a provider is mounted AND enabled — without one every block is
+  // active from the first frame and this never matters.
+  progressiveVersion?: string;
 }) {
   const byFile = useMemo(() => {
     const m = new Map<string, Region[]>();
@@ -970,21 +1052,34 @@ export function DiffView({
       {round.files.length === 0 && (
         <p className="px-3 py-2 text-xs text-neutral-400">(empty round)</p>
       )}
+      {/* Every block is wrapped, exactly as ReviewView wraps a files review's
+          cards: the wrapper is what owns the stable [data-file] box and the
+          measured height, and whether it actually defers anything is the
+          provider's call. With no provider — Storybook, a caller that mounts
+          none — `active` is true from the first frame and this is the eager
+          render it always was. Paths are unique within the one round on screen,
+          so they key the activation registry a jump reaches for. */}
       {round.files.map((f) => (
-        <FileBlock
-          key={`${round.seq}:${f.path}`}
-          f={f}
-          patchSeq={round.seq}
-          viewed={isViewed?.(diffViewedKey(round.seq, f.path)) ?? false}
-          current={f.path === currentPath}
-          layout={layout}
-          fetchContext={fetchContext}
-          toggle={toggle}
-          onPickLines={onPickLines}
-          onFileFeedback={onFileFeedback}
-          foldSignal={foldSignal}
-          regions={byFile.get(f.path) ?? NO_REGIONS}
-        />
+        <ProgressiveFile key={`${round.seq}:${f.path}`} path={f.path} version={progressiveVersion}>
+          {({ active, onHydrated, onOpenChange }) => (
+            <FileBlock
+              f={f}
+              patchSeq={round.seq}
+              viewed={isViewed?.(diffViewedKey(round.seq, f.path)) ?? false}
+              current={f.path === currentPath}
+              layout={layout}
+              fetchContext={fetchContext}
+              toggle={toggle}
+              onPickLines={onPickLines}
+              onFileFeedback={onFileFeedback}
+              foldSignal={foldSignal}
+              regions={byFile.get(f.path) ?? NO_REGIONS}
+              active={active}
+              onHydrated={onHydrated}
+              onOpenChange={onOpenChange}
+            />
+          )}
+        </ProgressiveFile>
       ))}
     </section>
   );

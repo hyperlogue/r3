@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 import { fn } from "storybook/test";
+import { ProgressiveFileProvider, useProgressiveFileController } from "../progressive.tsx";
 import { phoneViewport } from "../storyViewport.ts";
+import type { PatchDiff } from "../types.ts";
 import { expandableRound, multiRound, singleRound, wideRound } from "./_fixtures.ts";
 import { DiffView, RoundSelect, RoundSummary } from "./DiffView.tsx";
 
@@ -170,4 +172,66 @@ export const NordSurface: Story = {
       </div>
     ),
   ],
+};
+
+// Past the size gate — PROGRESSIVE_FILES_MIN files OR PROGRESSIVE_ROWS_MIN
+// rendered rows — ReviewView wraps the content pane in a
+// ProgressiveFileProvider and each block hydrates only near the viewport. Every
+// OTHER story here mounts no provider, which is the eager render this component
+// has always done and still does for anything under the gate. Scroll the pane:
+// a block renders its rows as it enters the preload band and keeps the height it
+// measured after it leaves, so nothing under it jumps. What never defers is the
+// shell — header, fold triangle, viewed pill, [data-file] box — so the
+// scroll-spy, fold-all and a jump's activation all still find every file.
+const bigRound: PatchDiff[] = [
+  {
+    seq: 1,
+    label: "26 files · ~4.7k rows",
+    summary: null,
+    created_at: "2026-06-30T12:00:00.000Z",
+    files: Array.from({ length: 26 }, (_, i) => ({
+      oldPath: `web/src/module-${i + 1}.ts`,
+      newPath: `web/src/module-${i + 1}.ts`,
+      path: `web/src/module-${i + 1}.ts`,
+      status: "modified" as const,
+      binary: false,
+      additions: 1,
+      deletions: 1,
+      lines: Array.from({ length: 180 }, (_, n) => {
+        const type = n === 0 ? "hunk" : n === 90 ? "del" : n === 91 ? "add" : "context";
+        const text =
+          type === "hunk" ? `@@ -1,180 +1,180 @@ module ${i + 1}` : `  const line${n} = ${n};`;
+        return {
+          type,
+          oldLine: type === "hunk" || type === "add" ? null : n,
+          newLine: type === "hunk" || type === "del" ? null : n,
+          text,
+          html: text,
+        };
+      }),
+    })),
+  },
+];
+
+export const ProgressiveHydration: Story = {
+  args: { rounds: bigRound },
+  render: (args) => {
+    // The provider observes against the scroll pane, so the story supplies the
+    // one ReviewView would. A fixed height, not `h-full`: the observer's root is
+    // this box, and a box as tall as its content intersects everything at once —
+    // every block would activate and the story would show the eager render.
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const progressive = useProgressiveFileController();
+    return (
+      <div ref={scrollRef} className="h-[70vh] overflow-y-auto">
+        <ProgressiveFileProvider
+          scrollRef={scrollRef}
+          registry={progressive.registry}
+          enabled={true}
+        >
+          <DiffView {...args} progressiveVersion="story:1" />
+        </ProgressiveFileProvider>
+      </div>
+    );
+  },
 };
