@@ -345,22 +345,48 @@ function classesOf(t: ThemedToken, pal: Palette): string | null {
   return light && dark ? `${light} ${dark}` : light || dark;
 }
 
-function tokensToLineHtml(line: ThemedToken[], pal: Palette | null): string {
+// One line's inner HTML — the payload itself, so it emits the fewest elements
+// that still carry the colours. Shiki splits a token per textmate scope, so a
+// line arrives as many neighbours the palette gives the SAME classes (or none):
+// a run of those collapses into ONE span, and a run wearing the theme's default
+// foreground — class string "" — is emitted as bare text with no wrapper at all,
+// since `.shiki-surface` already paints it (that is also the shape the
+// unknown-grammar path has always shipped). Exported for the test.
+//
+// A fallback token (`classesOf` → null) never joins a run: its colour rides an
+// inline style, so it keeps its own span exactly as before.
+export function tokensToLineHtml(line: ThemedToken[], pal: Palette | null): string {
   if (line.length === 0) return "";
   let out = "";
+  // The open run: the class string its tokens share, and their escaped text.
+  // `null` = no run open (nothing yet, or the last token was a fallback).
+  let runCls: string | null = null;
+  let run = "";
+  const flush = (): void => {
+    if (runCls === null) return;
+    out += runCls ? `<span class="${runCls}">${run}</span>` : run;
+    runCls = null;
+    run = "";
+  };
   for (const tok of line) {
+    // A zero-length token contributes nothing but would break a run in two.
+    if (tok.content.length === 0) continue;
     const cls = pal ? classesOf(tok, pal) : null;
-    if (cls !== null) {
-      out += `<span${cls ? ` class="${cls}"` : ""}>${escapeHtml(tok.content)}</span>`;
+    if (cls === null) {
+      flush();
+      // Fallback: the pre-palette shape — both colours inline as custom
+      // properties, read by main.css's `.sx` rules. Never lose a colour.
+      const style = styleOf(tok);
+      out += style
+        ? `<span class="sx" style="${style}">${escapeHtml(tok.content)}</span>`
+        : `<span>${escapeHtml(tok.content)}</span>`;
       continue;
     }
-    // Fallback: the pre-palette shape — both colours inline as custom
-    // properties, read by main.css's `.sx` rules. Never lose a colour.
-    const style = styleOf(tok);
-    out += style
-      ? `<span class="sx" style="${style}">${escapeHtml(tok.content)}</span>`
-      : `<span>${escapeHtml(tok.content)}</span>`;
+    if (cls !== runCls) flush();
+    runCls = cls;
+    run += escapeHtml(tok.content);
   }
+  flush();
   return out;
 }
 

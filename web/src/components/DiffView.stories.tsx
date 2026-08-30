@@ -100,7 +100,8 @@ const revealContext = async (_file: string, start: number, end: number) =>
     type: "context" as const,
     oldLine: start + i,
     newLine: start + i,
-    html: `<span>  // revealed line ${start + i}</span>`,
+    // Default-foreground text ships with no wrapper (server/highlight.ts).
+    html: `  // revealed line ${start + i}`,
     text: `  // revealed line ${start + i}`,
   }));
 

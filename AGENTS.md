@@ -303,7 +303,16 @@ and stay unhighlighted by design: Shiki's WASM never reaches the browser.
 code rows, diff rounds, snapshot diffs, fences — carries one short palette class
 per theme slot (`<span class="sl3 sd7">`), and the colours arrive once as the
 stylesheet in `ThemeStyle.css` (`GET /api/theme-style`, injected as `<style
-data-r3-theme-css>`). Pasting both colours into every span instead
+data-r3-theme-css>`). A span is emitted only where it says something: Shiki
+splits a token per textmate scope, so **adjacent tokens the palette gives the
+same classes coalesce into one span**, and a run wearing the theme's **default
+foreground gets no wrapper at all** — bare escaped text, painted by
+`.shiki-surface`, the shape the unknown-grammar path always shipped. Nothing
+downstream walks token spans (anchors come from the payload's `text`,
+`mdhighlight` works in text offsets, and the row's gutter rail is a `> span` of
+the row, not of `<code>`), so the element structure is free to shrink: a
+repo-wide TS/TSX pass measured 146 → 112 bytes and 5.0 → 2.4 spans per line.
+Pasting both colours into every span instead
 (`style="--shiki-light:…;--shiki-dark:…"`) measured 425 JSON bytes per source
 line on a 208-file review — 22.7 MB of blob JSON for 1.85 MB of source — and gave
 every mounted span its own declaration to parse and computed style to keep. A
@@ -311,7 +320,7 @@ palette is closed (a token can only wear a colour its theme names) so it is
 derivable up front; font style rides its own classes, per slot, because textmate
 resolves it independently of the colour and a family's two themes can disagree.
 A colour somehow outside the palette keeps the old inline form on a `.sx` span —
-never lose a colour.
+one span each, never merged into a neighbouring run: never lose a colour.
 
 **The feedback dock folds to a rail, and the composer follows the gesture.** On
 desktop the right-docked panel collapses (`p`, the header's fold control, or the
