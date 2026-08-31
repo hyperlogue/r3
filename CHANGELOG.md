@@ -4,11 +4,37 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] - 2026-08-31
+
+### Added
+
+- **Fold the feedback dock to a rail.** Collapse the panel to a strip that keeps the
+  open count and a status glyph, and floats the composer next to the code when
+  you anchor a note there.
+- **Resolved feedback is unmistakable.** A resolved card takes a success wash
+  and a `✓ resolved` pill.
+
+### Changed
+
+- **Large reviews got a lot faster.** A 200-file review scrolls smoothly,
+  highlighted code arrives 59% lighter per line, a keystroke in a feedback
+  composer costs one box instead of the whole page, and a multi-megabyte
+  response compresses off the daemon's event loop so live updates and an agent
+  blocked on `r3 watch` keep flowing.
+
+### Fixed
+
+- **A files review whose files have since been deleted stays quiet.** The card
+  reads "not in the working tree" instead of re-requesting the missing file
+  every time you scroll past it.
+- **Returning to a backgrounded tab re-renders the review you are on**, not
+  every review that tab has visited.
+
 ## [0.11.0] - 2026-08-23
 
 ### Added
 
-- **Mermaid diagrams render in a reviewed `.md`.** A ```` ```mermaid ```` flowchart
+- **Mermaid diagrams render in a reviewed `.md`.** A ` ```mermaid ` flowchart
   or sequence diagram now shows as a diagram — the server renders it to SVG —
   instead of highlighted source. Any other diagram kind falls back to an ordinary
   code fence.
@@ -406,6 +432,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.12.0]: https://github.com/hyperlogue/r3/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/hyperlogue/r3/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/hyperlogue/r3/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/hyperlogue/r3/compare/v0.9.3...v0.10.0
