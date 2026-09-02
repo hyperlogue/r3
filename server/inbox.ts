@@ -28,8 +28,10 @@ const PUSH_TIMEOUT_MS = 5000;
 // Admission-time liveness. A local connect either resolves or fails at once.
 const PROBE_TIMEOUT_MS = 1000;
 
-// The private per-user directories the harness is documented to use. Matching on
-// the resolved parent (not the raw string) is what makes a symlinked path fail.
+// The private per-user directories the harness is documented to use. The parent
+// is matched lexically (`dirname`, so `cc-socks/../..` and a nested subdirectory
+// both miss); what the path finally resolves TO is the stat check below, which
+// follows the link chain and demands a real socket owned by us.
 const SOCKET_DIRS = [
   /^\/run\/user\/\d+\/cc-socks$/,
   /^\/tmp\/cc-socks(?:-\d+)?$/,
@@ -67,9 +69,12 @@ export function validateSocketPath(p: string): string | null {
 }
 
 // What the agent actually reads. Two constraints shape it: the harness drops
-// *identical* repeats arriving close together, so the review id in line 1 keeps
-// every nudge distinct without a synthetic nonce; and we send no reply address,
-// so the sender renders as unknown and the text has to say who it is from.
+// *identical* repeats arriving close together, so the review id leads line 1 to
+// keep two reviews' nudges apart without a synthetic nonce (two Submits on the
+// SAME review inside that window can still collide — the second round is picked
+// up by the next `r3 prompt`, which is why the nudge carries no content); and we
+// send no reply address, so the sender renders as unknown and the text has to say
+// who it is from.
 export function nudgeText(
   reviewId: string,
   title: string,
@@ -98,7 +103,16 @@ function openSocket(path: string, timeoutMs: number): Promise<Socket> {
       if (err) {
         sock.destroy();
         reject(err);
-      } else resolve(sock);
+        return;
+      }
+      // `removeAllListeners` took the `error` handler with it, and a socket
+      // without one *throws* on the next EPIPE/ECONNRESET — a session that exits
+      // between our connect and our write would reach the daemon's process-level
+      // uncaught-exception net instead of being handled here. Nothing reads this
+      // socket and `write` reports its own failure through its callback, so
+      // swallowing is the entire handling it needs.
+      sock.on("error", () => {});
+      resolve(sock);
     };
     const timer = setTimeout(() => done(new Error("timed out")), timeoutMs);
     sock.once("connect", () => done(null));
@@ -124,6 +138,7 @@ export async function pushToInbox(target: ListenerTarget, text: string): Promise
   const invalid = validateSocketPath(target.socket);
   if (invalid) throw new Error(invalid);
   const sock = await openSocket(target.socket, PUSH_TIMEOUT_MS);
+  let written = false;
   try {
     // The auth line is optional on macOS/Linux for the connection to be accepted,
     // but it is what identifies us as the session's own tooling rather than an
@@ -140,7 +155,12 @@ export async function pushToInbox(target: ListenerTarget, text: string): Promise
         else resolve();
       });
     });
+    written = true;
   } finally {
-    sock.end();
+    // Only a completed write earns a graceful close. A peer wedged with a full
+    // buffer never reads our FIN, so `end()` on the timeout path would hold the
+    // fd open for as long as it stays wedged — one leaked fd per Submit.
+    if (written) sock.end();
+    else sock.destroy();
   }
 }
