@@ -582,7 +582,8 @@ partial.
 
 The human reviews in the browser, then hands feedback to the agent — either by
 clicking **"Copy prompt"**, or hands-off via **`r3 watch <id>`**, which registers as
-a live watcher and blocks until the human clicks **Submit**. The agent replies by
+a live watcher and blocks until the human clicks **Submit** (or **`r3 listen <id>`**,
+which registers and returns — below). The agent replies by
 feedback id (`r3 reply <fid> -m "…"`), appends a new round or re-anchors as the kind
 requires, and watches again. **`watch`'s exit code is the loop's branch signal** —
 `10` submitted · `0` approved · `3` abandoned · `2` timed out · `4` already watched
@@ -604,6 +605,38 @@ be locked out by its own ghost and nothing else would ever clear it; the displac
 stream is told (a stream-local `superseded` frame) and exits `4` rather than
 reconnecting, which would otherwise have the two trading the slot every second.
 Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
+
+**`r3 listen` is the same slot without the process.** `watch` costs the agent a
+held process per round, which is the whole cost on a harness that can't hand a
+background process's completion back. Where the harness exposes a **session
+inbox** — Claude Code binds a per-session Unix socket and documents it as a place
+for a script to post into a session — `r3 listen <id>` registers that inbox and
+returns; the daemon writes a one-line nudge on Submit, approve and abandon
+(`server/inbox.ts`). The nudge deliberately carries **no feedback content**: the
+delivery stamp stays where it was, on `POST …/prompt`, so a dropped frame costs a
+round-trip instead of eating a round. It leads with the review id because the
+harness drops *identical* repeats arriving close together.
+
+The two kinds share the one slot, and `kind` is **not** part of client identity —
+an agent switching `watch`→`listen` mid-loop is reclaiming its own slot, not
+racing for it. What differs is how a dead holder is noticed: a `watch` holder is
+live by construction (the connection *is* the slot, so a dead one has already
+released), while a `listen` holder is only a record. So admission **probes** a
+listener — and only a listener — or a dead session's registration would refuse
+every `r3 watch` until someone hit Submit.
+
+The wire is **fire-and-forget with no ack**, and r3 sends no reply address (a
+valid one must be a socket in the harness's own namespace, and r3 could only
+supply that by squatting it — which would make the daemon show up as a session in
+the harness's agent list). Measured consequence: r3 cannot be told its message was
+held, so the **connect is the only liveness signal there is**. That is why Submit
+awaits the write and answers `502` on failure, dropping the registration so the UI
+falls back to Copy prompt. Silent non-delivery is the one failure `watch`
+structurally cannot have, and the one worth a round-trip to avoid. The registry is
+in-memory (it holds a live session credential — see the **`security-model`**
+skill), so a daemon restart drops every registration; that matches what `r3
+restart` already does to in-flight watches, and Submit's loud failure is what
+surfaces it.
 
 Delivery is tracked (`sent_at` + `status_unsent`), so a prompt is **unsent-only**
 and even a bare Resolve/Reopen click reaches the agent as "`[resolved]` — no action

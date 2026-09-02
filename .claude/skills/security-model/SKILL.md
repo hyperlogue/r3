@@ -150,6 +150,34 @@ Two supported shapes, both keeping the daemon on loopback:
   (`isSafeRef` in `server/git.ts`) — an option like `--output=<file>` would write a
   file. Paths are guarded by `safePathIn` and reach git only behind a `--`
   separator or as a `ref:path` spec; keep it that way at any new call site.
+- **Agent inbox sockets** (`r3 listen`, `server/inbox.ts`): the request hands the
+  daemon a filesystem path it will later connect to and write to. The API is
+  already token- and same-origin gated, so the caller is trusted — but "the daemon
+  opens an arbitrary path on request" is a primitive worth not having.
+  `validateSocketPath` requires an absolute `.sock`, no null byte, a parent
+  directory matching the harness's documented per-user socket dirs, and — after
+  `statSync` resolves the link chain — a real socket owned by our own uid. Shape
+  is checked before touching the disk, so the interesting rules stay testable.
+
+## The agent's session token (`r3 listen`)
+
+`r3 listen` reads `CLAUDE_CODE_MESSAGING_TOKEN` from its own environment (the
+harness exports it to every child of a session) and POSTs it to the daemon, which
+presents it on the auth line when pushing a nudge. It is what marks the push as
+the session's own tooling rather than an unattributed peer.
+
+**It is a live session credential and never reaches the store.** The listener
+registry is in-memory (`server/watchers.ts`) *because* of this — that is the
+reason a daemon restart drops every registration, not an accident of the design.
+Do not add a `listeners` table, and do not log the token. Its blast radius is
+bounded anyway: it dies with its session, and anyone who can read r3's sqlite can
+already read `$XDG_STATE_HOME/r3/token` and drive the whole daemon.
+
+Measured, not assumed: a non-descendant process sending **no** auth line has its
+message **held for approval** by a `bypassPermissions` session, and — because r3
+supplies no reply address — cannot even be told that it was held. So a session
+whose inbound policy holds our push is indistinguishable to r3 from one that read
+it. Users running unattended agents may need `crossSessionInbound: "accept"`.
 
 ## What this does *not* protect
 
