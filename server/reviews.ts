@@ -47,6 +47,7 @@ import {
 } from "./scratch.ts";
 import { captureSnapshot } from "./snapshots.ts";
 import { broadcast } from "./sse.ts";
+import { dropListener } from "./watchers.ts";
 
 // A domain-level rejection the route layer turns into a 400 (vs null = 404).
 export interface Rejected {
@@ -396,6 +397,9 @@ export function deleteReview(id: string): boolean {
   if (ok) {
     deleteScratch(review);
     forget(id); // drop its dirty-registry entries (see dirty.ts)
+    // A `listen` registration outlives the review that named it otherwise, and it
+    // holds the agent's live session token in memory with nothing left to push to.
+    dropListener(id);
     broadcast({ type: "reviews-changed" });
   }
   return ok;
@@ -409,6 +413,7 @@ export function deleteRepo(repoId: string): boolean {
     deleteScratch(review);
     forget(review.id); // drop its dirty-registry entries (see dirty.ts)
     forgetRenderedRounds(review.id);
+    dropListener(review.id); // as deleteReview: don't strand a session token
   }
   const ok = db.deleteRepo(repoId);
   if (ok) broadcast({ type: "reviews-changed" });
