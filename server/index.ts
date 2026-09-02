@@ -969,7 +969,7 @@ app.patch("/api/replies/:id", async (c) => {
 });
 
 // ---- live (SSE) ----
-app.get("/api/events", (c) => {
+app.get("/api/events", async (c) => {
   const filter = c.req.query("review");
   // A `watch` client passes ?session=<display> (+ optional ?agentId=<id>) so it
   // shows up as a live watcher on its review; browser tabs omit it and are not
@@ -992,7 +992,9 @@ app.get("/api/events", (c) => {
   let watcherId: number | null = null;
   const evicted = new AbortController();
   if (session && filter) {
-    const admission = addWatcher(filter, { session, agentId }, () => evicted.abort());
+    const admission = await addWatcher(filter, { session, agentId, kind: "watch" }, () =>
+      evicted.abort(),
+    );
     if (!admission.ok) {
       const body: WatchRefusedResponse = {
         error: `review ${filter} is already being watched by "${admission.holder.session}"`,

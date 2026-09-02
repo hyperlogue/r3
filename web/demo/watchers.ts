@@ -5,7 +5,7 @@ import { broadcast } from "./bus.ts";
 import { getState } from "./store.ts";
 
 // The one scripted agent that watches every seeded review.
-const AGENT: WatcherInfo = { session: "claude", agentId: "agent_demo" };
+const AGENT: WatcherInfo = { session: "claude", agentId: "agent_demo", kind: "watch" };
 
 const watchers = new Map<string, WatcherInfo[]>();
 

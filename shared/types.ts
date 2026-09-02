@@ -539,10 +539,39 @@ export type ServerEvent =
   // the human hit Submit — any watching agent picks the feedback up now
   | { type: "submitted"; reviewId: string };
 
-// An agent currently blocked on `r3 watch <id>` for a review.
+// How the agent holding a review's one slot is reached. `watch` is a process
+// blocked on an SSE stream — the connection IS the slot, so the holder is live
+// by construction. `listen` is a registered session inbox the daemon pushes to,
+// which is only known-live at the instant it is probed. Presence renders the
+// same either way (one indicator); the kind rides the wire because the two fail
+// differently and `r3 watch`'s refusal should be able to say which it hit.
+export type WatcherKind = "watch" | "listen";
+
+// An agent waiting on a review — blocked in `r3 watch <id>`, or registered via
+// `r3 listen <id>`.
 export interface WatcherInfo {
   session: string; // human-readable display string (a session name)
   agentId?: string; // precise machine id, for other tools to jump to the agent
+  kind: WatcherKind;
+}
+
+// `POST /api/reviews/:id/listen` — register this agent's harness inbox so the
+// daemon can push a nudge on Submit/approve/abandon instead of the agent holding
+// a process open. `socket`/`token` are read by the CLI from its own environment
+// (Claude Code exports them to every child of a session).
+//
+// The token is a LIVE SESSION CREDENTIAL: the daemon keeps it in memory only and
+// never writes it to the store. That is what makes the listener registry
+// in-memory, and therefore what makes a daemon restart drop every listener.
+export interface ListenRequest {
+  session: string;
+  agentId?: string;
+  socket: string;
+  token?: string;
+}
+export interface ListenResponse {
+  ok: true;
+  session: string;
 }
 // 0 or 1 watchers; an array so clients keep the same shape.
 export interface WatchersResponse {

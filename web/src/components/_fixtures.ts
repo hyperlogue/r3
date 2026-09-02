@@ -751,7 +751,7 @@ export const wholeFilePendingAnchor: PendingAnchor = {
 
 export const noWatchers: WatchersResponse = { watchers: [] };
 export const watching: WatchersResponse = {
-  watchers: [{ session: "claude-remote", agentId: "agent_7f3a" }],
+  watchers: [{ session: "claude-remote", agentId: "agent_7f3a", kind: "watch" }],
 };
 
 // ---- themes (SettingsPopup) ----
