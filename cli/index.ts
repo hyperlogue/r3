@@ -742,6 +742,15 @@ async function cmdListen(args: Args) {
   // held in memory there; r3 never writes it down.
   const token = process.env.CLAUDE_CODE_MESSAGING_TOKEN?.trim() || undefined;
   const detail = await api("GET", `/api/reviews/${id}`);
+  // A closed review never pushes again — the daemon drops registrations on a
+  // terminal status — so registering would be a wait for a message that is not
+  // coming. The server refuses it too; checking here keeps the session token from
+  // travelling for a registration that is going to be refused, and says why in
+  // one line instead of echoing an HTTP body.
+  if (detail.status !== "open") {
+    process.stderr.write(`r3: review ${id} is ${detail.status} — nothing to listen for.\n`);
+    process.exit(1);
+  }
   // The same default chain `watch` uses, so an agent switching between the two
   // mid-loop presents one identity and reclaims its own slot instead of racing
   // itself for it.
@@ -1804,7 +1813,8 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   Exit codes: 0 = registered; 4 = someone
                                                  #   else already holds this review (as watch);
                                                  #   5 = no session inbox here — fall back
-                                                 #   to r3 watch.
+                                                 #   to r3 watch. 1 = anything else, e.g. the
+                                                 #   review is already approved/abandoned.
                                                  #   Shares the one-per-review slot with watch,
                                                  #   so run one or the other, not both.
   claim  <feedback_id>... [--session <name>] [--agent-id <id>]
@@ -1963,7 +1973,9 @@ A submitted round arrives as a one-line nudge naming the review — run
 \`r3 prompt <id>\` to collect the feedback itself, then reply as usual and
 \`r3 listen <id>\` again for the next round. Exit 5 means this harness has no
 inbox: fall back to \`r3 watch <id>\`. Exit 4 means the same thing it does for
-watch — someone else holds the review, so stop. \`listen\` and \`watch\` share
+watch — someone else holds the review, so stop. A review that is already approved
+or abandoned fails with the ordinary exit 1 and says so: nothing more will ever be
+pushed on it, so there is nothing to register. \`listen\` and \`watch\` share
 the one-per-review slot: run one or the other, never both. A daemon restart drops
 every registration, so if you restart it mid-loop, re-run \`r3 listen\`.
 Do not put watch in a shell loop: its exit 10 intentionally returns control so you
