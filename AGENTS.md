@@ -614,8 +614,10 @@ for a script to post into a session — `r3 listen <id>` registers that inbox an
 returns; the daemon writes a one-line nudge on Submit, approve and abandon
 (`server/inbox.ts`). The nudge deliberately carries **no feedback content**: the
 delivery stamp stays where it was, on `POST …/prompt`, so a dropped frame costs a
-round-trip instead of eating a round. It leads with the review id because the
-harness drops *identical* repeats arriving close together.
+round-trip instead of eating a round. It carries the review id and a timestamp because the harness drops
+*identical* repeats arriving close together — the id separates two reviews, the
+timestamp separates two Submits on the same one, which is the case that would
+otherwise leave a round unsent with nothing to report it.
 
 The two kinds share the one slot, and `kind` is **not** part of client identity —
 an agent switching `watch`→`listen` mid-loop is reclaiming its own slot, not

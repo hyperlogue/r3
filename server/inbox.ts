@@ -68,17 +68,25 @@ export function validateSocketPath(p: string): string | null {
   return null;
 }
 
-// What the agent actually reads. Two constraints shape it: the harness drops
-// *identical* repeats arriving close together, so the review id leads line 1 to
-// keep two reviews' nudges apart without a synthetic nonce (two Submits on the
-// SAME review inside that window can still collide — the second round is picked
-// up by the next `r3 prompt`, which is why the nudge carries no content); and we
-// send no reply address, so the sender renders as unknown and the text has to say
-// who it is from.
+// What the agent actually reads. Two constraints shape it.
+//
+// The harness drops *identical* repeats arriving close together, so every nudge
+// has to be distinct. The review id separates two reviews; the timestamp
+// separates two Submits on the SAME review, which is the case that actually
+// loses content: the human submits, the agent wakes and runs `r3 prompt`
+// (marking round 1 sent), the human submits again seconds later, and a
+// byte-identical nudge is dropped — leaving round 2 unsent with nothing to
+// report it. That is the silent non-delivery this whole design exists to
+// prevent, so it is not worth saving a dozen characters over. The format
+// mirrors the harness's own injected notices, which timestamp for the same reason.
+//
+// And we send no reply address, so the sender renders as unknown and the text
+// has to say who it is from.
 export function nudgeText(
   reviewId: string,
   title: string,
   event: "submitted" | "approved" | "abandoned",
+  now: Date = new Date(),
 ): string {
   const headline =
     event === "submitted"
@@ -86,7 +94,8 @@ export function nudgeText(
       : event === "approved"
         ? "approved — the loop is done"
         : "abandoned — closed without approval";
-  const lines = [`[r3] ${reviewId} — ${headline}`, `Review: ${title}`];
+  const at = now.toISOString().replace(/\.\d+Z$/, "Z");
+  const lines = [`[r3] ${reviewId} — ${headline} at ${at}`, `Review: ${title}`];
   // Only the submitted case has anything to fetch; the terminal two are the
   // whole message, and telling an agent to run `prompt` on a closed review
   // would send it after content that is not coming.
