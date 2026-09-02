@@ -14,7 +14,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { api } from "../api.ts";
+import { ApiError, api } from "../api.ts";
 import { copyText } from "../clipboard.ts";
 import {
   clearGeneral,
@@ -2049,9 +2049,21 @@ export const FeedbackPanel = memo(function FeedbackPanel({
   const watching = watchers.length > 0;
 
   const { copied: sent, flash: flashSent } = useCopyFlash(1800);
+  // Submit answers 502 when the agent registered via `r3 listen` can no longer be
+  // reached: the daemon drops the registration, so the button falls back to "Copy
+  // prompt" on its own — but a hand-off that reached nobody must not look like one
+  // that landed, which is the whole reason the server waits for that write.
+  const [handOffError, setHandOffError] = useState<string | null>(null);
   const submit = useMutation({
     mutationFn: () => api.submit(detail.id),
+    onError: (err) =>
+      setHandOffError(
+        err instanceof ApiError && err.status === 502
+          ? "The agent waiting on this review is gone — nothing was delivered. Copy the prompt instead."
+          : "Submit failed — nothing was delivered.",
+      ),
     onSuccess: () => {
+      setHandOffError(null);
       // Optimistically drain the watcher list so the button flips to "Copy
       // prompt" the instant we submit. `r3 watch` exits on the `submitted`
       // broadcast, but its refetch lags ~1s. The next watchers-changed
@@ -2395,6 +2407,11 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                   )}
                 </div>
               )}
+            </div>
+          )}
+          {handOffError && (
+            <div className="text-[0.6875rem] text-danger-600 dark:text-danger-400">
+              {handOffError}
             </div>
           )}
         </div>
