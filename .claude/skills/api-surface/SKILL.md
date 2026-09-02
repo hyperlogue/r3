@@ -81,8 +81,23 @@ one rendered file.
   only reliable way to tell an empty drain from a real hand-off: the body is prose
   the human partly wrote, so matching it against the "(no unsent feedback …)"
   sentence lets a note quoting that sentence swallow a round already marked sent.
-- `GET …/watchers` + `POST …/submit` — live `watch` clients (0 or 1: a review
-  admits one watch at a time) / fire a `submitted` event.
+- `GET …/watchers` + `POST …/submit` — who is waiting on the review (0 or 1: one
+  slot, shared by `watch` and `listen`; each `WatcherInfo` carries its `kind`) /
+  fire a `submitted` event. Submit **also pushes** to a `listen` holder's session
+  inbox and *awaits* that write, answering **`502`** and dropping the registration
+  when the inbox can't be reached — the connect is the only delivery signal the
+  wire gives (no ack), so a hand-off that reached nobody must not answer `200`.
+- `POST …/listen { session, agentId?, socket, token? }` (`ListenRequest`) —
+  register this agent's harness session inbox so the daemon pushes a one-line
+  nudge on Submit/approve/abandon, instead of the agent holding a process open.
+  Takes the **same one slot** as `watch` (a second client ⇒ `409
+  WatchRefusedResponse`); `404` unknown review, `400` for a closed one (nothing is
+  ever pushed again) or a `socket` outside the harness namespace
+  (`validateSocketPath`), `502` when draining what is already pending finds the
+  inbox gone. The nudge carries **no feedback content** — `POST …/prompt` remains
+  the only thing that stamps `sent_at`. `token` is a live session credential: held
+  in memory, never stored (**security-model** skill), which is why a daemon
+  restart drops every registration.
 
 **Feedback + replies**
 `POST /api/reviews/:id/feedback` (on a **files** review a supplied `quote` wins over
@@ -117,7 +132,9 @@ the SPA's own CSS colours.
 `reviews-changed`); a connection with `session` registers as a watcher. **The
 connection is the review's one watch slot**: a `session` connect on a review
 another client already holds is refused **`409 WatchRefusedResponse`** (naming the
-holder) *before* the stream opens; the same `session`+`agentId` reconnecting is
+holder — which may be a `listen` registration, probed for liveness first so a
+dead one can't lock the review out) *before* the stream opens; the same
+`session`+`agentId` reconnecting is
 admitted and evicts its own ghost, which gets a stream-local `superseded` frame
 (`SUPERSEDED_EVENT`, not a broadcast) and closes. Browser tabs pass no `session`,
 are never watchers, and are never refused.
@@ -147,6 +164,7 @@ r3 list   [--meta k=v]... [--status open]
 r3 show   <id> [--json]
 r3 prompt <id> [--all] [--feedback <fid,...>]      # --all: re-print all open items, mark nothing
 r3 watch  <id> [--session <name>] [--agent-id <id>] [--auto-fetch-timeout <sec>] [--timeout <sec>]
+r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; needs a session inbox
 r3 diff   add <id> [--label L] [--summary S] | list <id> [--json] | rm <id> <seq>
 r3 files  add <id> <path|glob>... | rm <id> <path>...
 r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <seq>
@@ -201,6 +219,14 @@ Two hand-off paths:
   since a dropped SSE or a restarted agent must not be locked out by its own
   ghost, and the displaced process exits `4` too rather than reconnecting into a
   fight over the slot.
+- **Listen + Submit** (hands-off, no held process) — where the harness exposes a
+  session inbox (Claude Code), `r3 listen <id>` registers that inbox and returns;
+  the daemon writes the nudge itself. Same slot as `watch` — run one or the other,
+  never both — and `kind` is deliberately not part of client identity, so one
+  agent switching `watch`↔`listen` mid-loop reclaims its own slot. The nudge names
+  the review and says `Run: r3 prompt <id>`; it never carries the feedback, so a
+  dropped frame costs a round-trip, not a round. The registry is in-memory, so a
+  daemon restart drops it and the agent must re-register.
 
 The agent then **replies by feedback id** — always a plain reply saying what it
 changed / why it disagrees / a follow-up (`r3 reply <fid> -m "…"`); the human drives
@@ -229,6 +255,12 @@ stdout) · **`3`** = abandoned · **`2`** = timed out · **`4`** = another watch
 this review (refused, or superseded by a newer watch of the same session) — stop,
 don't retry. A naive `while r3 watch; do …` is **wrong** — branch on `$?`. Ending
 the loop is the human's move (`r3 approve` / `r3 abandon`, or the UI buttons).
+
+`r3 listen` exits: **`0`** = registered (the daemon will push) · **`4`** = another
+watch/listen holds this review, as watch's `4` · **`5`** = this harness exposes no
+session inbox, so fall back to `r3 watch` — distinct from `4` so `r3 listen || r3
+watch` can tell "wrong harness" from "someone else has it". Anything else is the
+CLI's ordinary exit `1` (unknown review, a closed one, an unreachable inbox).
 
 `watch` also returns immediately if feedback is already pending. `--timeout <sec>`
 (default 0 = never) bounds the wait; `--auto-fetch-timeout <sec>` opts into
