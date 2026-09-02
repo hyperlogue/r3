@@ -94,19 +94,26 @@ export function watchersOf(reviewId: string): WatcherInfo[] {
   return held ? [held.info] : [];
 }
 
-// Where to push this review's nudge, or null when nobody is listening (an empty
-// slot, or one held by a blocked `r3 watch`, which is woken over SSE instead).
-export function listenerFor(reviewId: string): ListenerTarget | null {
+// Where to push this review's nudge, with the registration id it belongs to, or
+// null when nobody is listening (an empty slot, or one held by a blocked `r3
+// watch`, which is woken over SSE instead). The id travels with the target
+// because a push takes seconds: the caller has to be able to drop the exact
+// registration it failed to reach, not whatever holds the slot by then.
+export function listenerFor(reviewId: string): { id: number; target: ListenerTarget } | null {
   const held = byReview.get(reviewId);
-  return held?.target ?? null;
+  return held?.target ? { id: held.id, target: held.target } : null;
 }
 
 // Drop a listener whose session has gone (a failed probe) or whose review reached
-// a terminal status. Returns whether a listener was actually holding the slot, so
+// a terminal status. `id` scopes it the way `removeWatcher` does — a push that
+// started before the same client re-registered must not evict the registration
+// that replaced it; omit it to drop whoever is listening now (a closed review has
+// no next round for anyone). Returns whether a listener was actually dropped, so
 // the caller only broadcasts a presence change that happened.
-export function dropListener(reviewId: string): boolean {
+export function dropListener(reviewId: string, id?: number): boolean {
   const held = byReview.get(reviewId);
   if (!held?.target) return false;
+  if (id !== undefined && held.id !== id) return false;
   byReview.delete(reviewId);
   held.evict();
   return true;

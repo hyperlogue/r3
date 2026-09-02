@@ -149,7 +149,7 @@ describe("watch and listen share the one slot", () => {
     // kind is not part of identity, so this is a takeover, not a race.
     expect((await listen(id, { session: "claude", agentId: "a1" })).ok).toBe(true);
     expect(watchersOf(id)).toEqual([{ session: "claude", agentId: "a1", kind: "listen" }]);
-    expect(listenerFor(id)).toEqual(target());
+    expect(listenerFor(id)?.target).toEqual(target());
     expect((await admit(id, { session: "claude", agentId: "a1" })).ok).toBe(true);
     expect(listenerFor(id)).toBeNull();
   });
@@ -172,5 +172,21 @@ describe("watch and listen share the one slot", () => {
     expect(dropListener(other)).toBe(true);
     expect(watchersOf(other)).toEqual([]);
     expect(dropListener(other)).toBe(false); // already gone
+  });
+
+  test("a failed push can't drop the registration that replaced it", async () => {
+    const id = review();
+    expect((await listen(id, { session: "claude", agentId: "a1" })).ok).toBe(true);
+    const inFlight = listenerFor(id);
+    expect(inFlight).not.toBeNull();
+    // The same agent re-registers while a nudge to the old record is still in
+    // flight — a push has seconds to run, so this is an ordinary interleaving.
+    expect((await listen(id, { session: "claude", agentId: "a1" })).ok).toBe(true);
+    // The push then fails and drops what it pushed to; the live record stands.
+    expect(dropListener(id, inFlight?.id)).toBe(false);
+    expect(watchersOf(id)).toHaveLength(1);
+    // Unscoped still drops whoever is listening — what a closed review does.
+    expect(dropListener(id)).toBe(true);
+    expect(watchersOf(id)).toEqual([]);
   });
 });

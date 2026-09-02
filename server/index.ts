@@ -903,14 +903,17 @@ async function nudgeListener(
   reviewId: string,
   event: "submitted" | "approved" | "abandoned",
 ): Promise<"none" | "sent" | "gone"> {
-  const target = listenerFor(reviewId);
-  if (!target) return "none";
+  const held = listenerFor(reviewId);
+  if (!held) return "none";
   const title = db.getReview(reviewId)?.title ?? reviewId;
   try {
-    await pushToInbox(target, nudgeText(reviewId, title, event));
+    await pushToInbox(held.target, nudgeText(reviewId, title, event));
     return "sent";
   } catch {
-    if (dropListener(reviewId)) broadcast({ type: "watchers-changed", reviewId });
+    // Scoped to the registration we actually failed to reach: a push can take
+    // seconds, and the same agent re-registering meanwhile would otherwise have
+    // its live registration evicted by its predecessor's failure.
+    if (dropListener(reviewId, held.id)) broadcast({ type: "watchers-changed", reviewId });
     return "gone";
   }
 }
@@ -920,7 +923,14 @@ async function nudgeListener(
 // process open. Takes the review's one slot, exactly as `watch` does.
 app.post("/api/reviews/:id/listen", async (c) => {
   const id = c.req.param("id");
-  if (!db.getReview(id)) return c.text("not found", 404);
+  const review = db.getReview(id);
+  if (!review) return c.text("not found", 404);
+  // Nothing more is ever pushed on a closed review — a terminal status drops the
+  // registration — so admitting one would leave the agent waiting on a message
+  // that is not coming, holding the slot while it waits. `r3 watch` answers the
+  // same case with its terminal exit code; there is no exit code here, so refuse.
+  if (review.status !== "open")
+    return c.text(`review ${id} is ${review.status} — nothing to listen for`, 400);
   const body = (await c.req.json().catch(() => null)) as ListenRequest | null;
   // Capped like `watch`'s: these are rendered in the watcher tooltip and held in
   // a process-global map.
@@ -947,7 +957,10 @@ app.post("/api/reviews/:id/listen", async (c) => {
   // slot; without the same here, an agent registering after the human already hit
   // Submit would sit waiting for a Submit that has been and gone.
   const detail = await reviews.buildReviewDetail(id);
-  if (detail?.feedback.some(hasUnsentContent)) await nudgeListener(id, "submitted");
+  if (detail?.feedback.some(hasUnsentContent) && (await nudgeListener(id, "submitted")) === "gone")
+    // nudgeListener already dropped the registration it could not reach, so
+    // answering ok would leave the agent believing it holds a slot it does not.
+    return c.text("the session inbox could not be reached; nothing is registered", 502);
   const res: ListenResponse = { ok: true, session };
   return c.json(res);
 });
@@ -1104,7 +1117,13 @@ app.get("/api/events", async (c) => {
     watcherId = null;
     if (freed) broadcast({ type: "watchers-changed", reviewId: filter });
   };
-  if (watcherId != null) c.req.raw.signal.addEventListener("abort", release);
+  if (watcherId != null) {
+    c.req.raw.signal.addEventListener("abort", release);
+    // Admission may have awaited a probe of an incumbent listener, so the client
+    // can already have gone — and `addEventListener` on an abort that has fired
+    // never runs. Without this re-check that client holds the review forever.
+    if (c.req.raw.signal.aborted) release();
+  }
   return streamSSE(c, async (stream) => {
     // Serialize every write (event pushes + heartbeats) through one chain so
     // concurrent writeSSE calls can't interleave or race on the stream. Track the
