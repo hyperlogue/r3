@@ -25,6 +25,7 @@ import {
   type AuthTokenInfo,
   DEFAULT_CLAIM_LEASE_SECONDS,
   hasUnsentContent,
+  type ListenRequest,
   MAX_CLAIM_LEASE_SECONDS,
   MIN_CLAIM_LEASE_SECONDS,
   SUMMARY_FILE,
@@ -708,6 +709,72 @@ async function cmdPrompt(args: Args) {
     return;
   }
   console.log(await api("POST", `/api/reviews/${id}/prompt`, feedback ? { feedback } : {}));
+}
+
+// `r3 listen <id>` — register this session's harness inbox with the daemon and
+// return immediately. Where `watch` holds a process open for one round, `listen`
+// leaves a registration behind and the daemon pushes a nudge on Submit, approve
+// and abandon. They share the review's one slot, so they are alternatives, not
+// companions.
+//
+// Exit codes overlap `watch`'s only where the meaning matches:
+//   0 = registered; the daemon will push.
+//   4 = another watch/listen already holds this review (as watch's 4).
+//   5 = this harness exposes no session inbox, so there is nothing to register.
+//       Distinct from 4 on purpose: `r3 listen || r3 watch` has to tell "wrong
+//       harness, fall back" from "someone else has it, stop".
+const LISTEN_EXIT = { registered: 0, busy: 4, unsupported: 5 } as const;
+
+async function cmdListen(args: Args) {
+  const id = args.positional[0] ?? fail("listen <id> [--session <name>] [--agent-id <id>]");
+  // The harness exports these to every child of a session, which is the whole
+  // reason `listen` needs no configuration: this process is already inside the
+  // session it registers.
+  const socket = process.env.CLAUDE_CODE_MESSAGING_SOCKET?.trim();
+  if (!socket) {
+    process.stderr.write(
+      "r3: this agent harness exposes no session inbox, so there is nothing to register.\n" +
+        `    Use \`r3 watch ${id}\` instead.\n`,
+    );
+    process.exit(LISTEN_EXIT.unsupported);
+  }
+  // A live session credential. It travels to our own daemon over loopback and is
+  // held in memory there; r3 never writes it down.
+  const token = process.env.CLAUDE_CODE_MESSAGING_TOKEN?.trim() || undefined;
+  const detail = await api("GET", `/api/reviews/${id}`);
+  // The same default chain `watch` uses, so an agent switching between the two
+  // mid-loop presents one identity and reclaims its own slot instead of racing
+  // itself for it.
+  const session = (args.flags.session as string) ?? detail?.meta?.session ?? "agent";
+  const agentId = (args.flags["agent-id"] as string) ?? undefined;
+  const body: ListenRequest = { session, agentId, socket, token };
+  // Not apiRaw(): it turns any non-2xx into exit 1, and a 409 here has to reach
+  // the caller as the documented exit 4.
+  const res = await fetch(`${SERVER.url}/api/reviews/${id}/listen`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-r3-token": SERVER.token,
+      ...(SERVER.repoHeader ? { "x-r3-repo": SERVER.repoHeader } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (res.status === 409) {
+    let holder: string | undefined;
+    try {
+      holder = (JSON.parse(text) as WatchRefusedResponse).holder?.session;
+    } catch {}
+    process.stderr.write(
+      `r3: ${id} is already being watched${holder ? ` by "${holder}"` : ""} — one at a time.\n`,
+    );
+    process.exit(LISTEN_EXIT.busy);
+  }
+  if (!res.ok) fail(`POST /api/reviews/${id}/listen → ${res.status}: ${text}`);
+  process.stderr.write(
+    `r3: listening on ${id} as "${session}".  No process to keep alive — you will be\n` +
+      `    messaged when the human submits feedback, approves, or abandons.\n`,
+  );
 }
 
 // `r3 watch` exit codes, so a wrapping agent loop can branch on the outcome:
@@ -1727,6 +1794,19 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   after N idle seconds. Use it on long reviews so
                                                  #   the agent starts fixing sooner without a manual
                                                  #   Submit. 0 = off (wait for Submit).
+  listen <id> [--session <name>] [--agent-id <id>]
+                                                 # register this session's inbox and return
+                                                 #   at once — no process to keep alive. The
+                                                 #   daemon messages you when the human hits
+                                                 #   Submit, approves, or abandons.
+                                                 #   Needs a harness that exposes a session
+                                                 #   inbox (Claude Code); otherwise use watch.
+                                                 #   Exit codes: 0 = registered; 4 = someone
+                                                 #   else already holds this review (as watch);
+                                                 #   5 = no session inbox here — fall back
+                                                 #   to r3 watch.
+                                                 #   Shares the one-per-review slot with watch,
+                                                 #   so run one or the other, not both.
   claim  <feedback_id>... [--session <name>] [--agent-id <id>]
               [--lease <minutes>] [--release]
                                                  # show that this agent is actively working on
@@ -1845,7 +1925,10 @@ lazily on your first command — run commands from inside the repo under review.
    files review, also snapshot the starting state now (\`r3 snapshot <id>\`)
    before handing off, so your later edits diff against exactly the content they
    reviewed.
-2. \`r3 watch <id>\` — blocks until the human clicks Submit, then prints the new
+2. \`r3 listen <id>\` (Claude Code and other harnesses with a session inbox) —
+   registers and returns; you get messaged when the human acts. Exit 5 = no
+   inbox here, so use watch instead. Otherwise \`r3 watch <id>\` — blocks until
+   the human clicks Submit, then prints the new
    feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
    0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out,
    4 = already being watched (a review takes one watch at a time — someone else
@@ -1859,7 +1942,7 @@ lazily on your first command — run commands from inside the repo under review.
    messages (the human resolves/reopens items in the UI — you'll see
    "[resolved]" in a later prompt when they do). A successful agent reply clears
    that item's working claim automatically.
-5. Watch again for the next round.
+5. Listen (or watch) again for the next round.
 
 Watch by default: after creating a review, and after each round of replies, run
 \`r3 watch <id>\` unless the human told you not to — that's how you receive feedback
@@ -1872,6 +1955,17 @@ user asks you to set a timeout, run it with no timeout. If your tool harness sen
 background-process completion back to the agent, launch \`r3 watch <id>\` there
 directly, like a development server. A detached process whose output only buffers
 will NOT wake you; use the harness's awaited/monitored process handle instead.
+
+If your harness exposes a session inbox (Claude Code does), prefer
+\`r3 listen <id>\`: it registers and returns at once, with no process to keep
+alive, and the daemon messages you when the human submits, approves or abandons.
+A submitted round arrives as a one-line nudge naming the review — run
+\`r3 prompt <id>\` to collect the feedback itself, then reply as usual and
+\`r3 listen <id>\` again for the next round. Exit 5 means this harness has no
+inbox: fall back to \`r3 watch <id>\`. Exit 4 means the same thing it does for
+watch — someone else holds the review, so stop. \`listen\` and \`watch\` share
+the one-per-review slot: run one or the other, never both. A daemon restart drops
+every registration, so if you restart it mid-loop, re-run \`r3 listen\`.
 Do not put watch in a shell loop: its exit 10 intentionally returns control so you
 can act on the round and reply. Then launch a fresh \`r3 watch <id>\`; repeat until
 it exits 0 (approved) or 3 (abandoned). Keep one watch per review at a time — a
@@ -1991,6 +2085,7 @@ const SERVER_COMMANDS = new Set([
   "show",
   "prompt",
   "watch",
+  "listen",
   "claim",
   "reply",
   "feedback",
@@ -2057,6 +2152,8 @@ async function main() {
       return cmdPrompt(args);
     case "watch":
       return cmdWatch(args);
+    case "listen":
+      return cmdListen(args);
     case "claim":
       return cmdClaim(args);
     case "reply":
