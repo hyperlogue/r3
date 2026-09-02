@@ -15,6 +15,8 @@ import type {
   CreateReviewBody,
   CreateSnapshotBody,
   DiffLine,
+  ListenRequest,
+  ListenResponse,
   LoginBody,
   ReviewFilesBody,
   ReviewStatus,
@@ -23,6 +25,7 @@ import type {
   WatchRefusedResponse,
 } from "../shared/types.ts";
 import {
+  hasUnsentContent,
   isReviewStatus,
   MAX_CONTEXT_ROWS,
   REVIEW_STATUSES,
@@ -52,6 +55,7 @@ import {
 import * as db from "./db.ts";
 import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDiff } from "./git.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
+import { nudgeText, probeInbox, pushToInbox, validateSocketPath } from "./inbox.ts";
 import {
   fitPatchToLimit,
   patchInfos,
@@ -67,7 +71,7 @@ import { migrateLegacyDocFiles, scratchReviewDir } from "./scratch.ts";
 import { renderSnapshotBlob, renderSnapshotContext, renderSnapshotDiff } from "./snapshots.ts";
 import { broadcast, subscribe } from "./sse.ts";
 import { startWatcher } from "./watcher.ts";
-import { addWatcher, removeWatcher, watchersOf } from "./watchers.ts";
+import { addWatcher, dropListener, listenerFor, removeWatcher, watchersOf } from "./watchers.ts";
 
 const TOKEN = getToken();
 // Origin surfaced in agent-printed review URLs + the served page (loopback by
@@ -594,6 +598,13 @@ app.patch("/api/reviews/:id", async (c) => {
   // list too, so pairing it with reviews-changed double-fired the open tab's
   // detail refetch (its handler hits the broad ["review"] key kept for deletes).
   broadcast({ type: "review-updated", reviewId: id });
+  // A terminal status ends the loop. `r3 watch` signals that with an exit code;
+  // a listener has no exit code, so the outcome has to travel as text — and then
+  // the registration goes, because nothing more will arrive on this review.
+  if (body.status === "approved" || body.status === "abandoned") {
+    await nudgeListener(id, body.status);
+    if (dropListener(id)) broadcast({ type: "watchers-changed", reviewId: id });
+  }
   return c.json(updated);
 });
 
@@ -882,9 +893,82 @@ app.post("/api/reviews/:id/prompt", async (c) => {
 // Copy-vs-Submit affordance and the "who's watching" indicator).
 app.get("/api/reviews/:id/watchers", (c) => c.json({ watchers: watchersOf(c.req.param("id")) }));
 
+// Push a nudge to this review's registered listener, if it has one. "none" =
+// nobody is listening (an empty slot, or a blocked `r3 watch`, which is woken
+// over SSE instead); "sent" = the frame was written; "gone" = the session's
+// inbox could not be reached, so the listener is dropped — a session we cannot
+// reach is not waiting on anything, and leaving the record would keep the review
+// locked against the next agent.
+async function nudgeListener(
+  reviewId: string,
+  event: "submitted" | "approved" | "abandoned",
+): Promise<"none" | "sent" | "gone"> {
+  const target = listenerFor(reviewId);
+  if (!target) return "none";
+  const title = db.getReview(reviewId)?.title ?? reviewId;
+  try {
+    await pushToInbox(target, nudgeText(reviewId, title, event));
+    return "sent";
+  } catch {
+    if (dropListener(reviewId)) broadcast({ type: "watchers-changed", reviewId });
+    return "gone";
+  }
+}
+
+// `r3 listen <id>` — register this agent's harness session inbox, so Submit and
+// the terminal statuses push a nudge instead of the agent holding a `watch`
+// process open. Takes the review's one slot, exactly as `watch` does.
+app.post("/api/reviews/:id/listen", async (c) => {
+  const id = c.req.param("id");
+  if (!db.getReview(id)) return c.text("not found", 404);
+  const body = (await c.req.json().catch(() => null)) as ListenRequest | null;
+  // Capped like `watch`'s: these are rendered in the watcher tooltip and held in
+  // a process-global map.
+  const session = body?.session?.slice(0, 200);
+  if (!session) return c.text("missing session", 400);
+  const socket = body?.socket ?? "";
+  const invalid = validateSocketPath(socket);
+  if (invalid) return c.text(`bad socket: ${invalid}`, 400);
+  const agentId = body?.agentId?.slice(0, 200) || undefined;
+  const admission = await addWatcher(id, { session, agentId, kind: "listen" }, () => {}, {
+    // The token stays in this map and never reaches the store — see ListenRequest.
+    target: { socket, token: body?.token?.slice(0, 4096) },
+    probe: probeInbox,
+  });
+  if (!admission.ok) {
+    const refused: WatchRefusedResponse = {
+      error: `review ${id} is already being watched by "${admission.holder.session}"`,
+      holder: admission.holder,
+    };
+    return c.json(refused, 409);
+  }
+  broadcast({ type: "watchers-changed", reviewId: id });
+  // Deliver what is already waiting. `watch` drains at the moment it takes the
+  // slot; without the same here, an agent registering after the human already hit
+  // Submit would sit waiting for a Submit that has been and gone.
+  const detail = await reviews.buildReviewDetail(id);
+  if (detail?.feedback.some(hasUnsentContent)) await nudgeListener(id, "submitted");
+  const res: ListenResponse = { ok: true, session };
+  return c.json(res);
+});
+
 // The human hit "Submit": tell any watching agent to pick up the feedback now.
-app.post("/api/reviews/:id/submit", (c) => {
-  broadcast({ type: "submitted", reviewId: c.req.param("id") });
+// A blocked `r3 watch` hears the broadcast; a `listen` holder is reached by
+// writing to its session inbox, and that write is the ONLY liveness signal r3
+// ever gets (the wire carries no ack). So the click waits for it: a Submit that
+// reached nobody must not look like one that did.
+app.post("/api/reviews/:id/submit", async (c) => {
+  const id = c.req.param("id");
+  const pushed = await nudgeListener(id, "submitted");
+  broadcast({ type: "submitted", reviewId: id });
+  if (pushed === "gone")
+    return c.json(
+      {
+        error:
+          "the agent registered on this review is gone; its registration has been dropped — use Copy prompt instead",
+      },
+      502,
+    );
   return c.json({ ok: true });
 });
 
@@ -992,8 +1076,13 @@ app.get("/api/events", async (c) => {
   let watcherId: number | null = null;
   const evicted = new AbortController();
   if (session && filter) {
-    const admission = await addWatcher(filter, { session, agentId, kind: "watch" }, () =>
-      evicted.abort(),
+    const admission = await addWatcher(
+      filter,
+      { session, agentId, kind: "watch" },
+      () => evicted.abort(),
+      // Probe an incumbent `listen` holder: a dead session's registration would
+      // otherwise refuse every `r3 watch` until someone hit Submit.
+      { probe: probeInbox },
     );
     if (!admission.ok) {
       const body: WatchRefusedResponse = {
