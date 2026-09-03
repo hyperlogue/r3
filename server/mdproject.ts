@@ -99,7 +99,8 @@ export function projectRenderedMarkdown(source: string): ProjectedDoc {
         if (c.type === "image") {
           // Mirror the renderer: a remote image shows as a link carrying its
           // alt text (or its URL); a local <img>'s alt is not selectable text.
-          const src = c.attrGet("src") ?? "";
+          // attrGet is `string | number` (markdown-it sets numeric attrs); this is text.
+          const src = String(c.attrGet("src") ?? "");
           if (REMOTE_URL_RE.test(src)) emitText(inlineAltText(c) || src, line);
           continue;
         }

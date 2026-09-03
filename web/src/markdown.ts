@@ -78,7 +78,9 @@ const defaultImage =
   md.renderer.rules.image ??
   ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
-  const src = tokens[idx].attrGet("src") ?? "";
+  // markdown-it sets numeric attrs of its own (a list's `start`), so attrGet is
+  // typed `string | number`; every attribute this render reads is text.
+  const src = String(tokens[idx].attrGet("src") ?? "");
   if (!REMOTE_URL_RE.test(src)) return defaultImage(tokens, idx, options, env, self);
   const alt = self.renderInlineAsText(tokens[idx].children ?? [], options, env);
   return (
