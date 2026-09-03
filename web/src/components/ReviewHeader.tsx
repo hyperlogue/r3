@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { copyText } from "../clipboard.ts";
 import { shortSha, sourceLabel } from "../format.ts";
 import {
   type FeedbackWithReplies,
@@ -8,60 +7,7 @@ import {
   type ReviewStatus,
   unsentHumanReplies,
 } from "../types.ts";
-import { Button, cn, useEscape } from "../ui.tsx";
-
-// A click-to-copy token in the header's metadata line (project dir, commit
-// range, branch, session). Underlines on hover, copies `value` on click, and
-// flashes a "Copied" bubble. The bubble is `position: fixed` (measured off the
-// button rect) rather than absolute so it escapes the metadata line's `truncate`
-// overflow-hidden clip.
-function CopyMeta({
-  value,
-  hint,
-  children,
-}: {
-  value: string;
-  hint: string;
-  children: React.ReactNode;
-}) {
-  const [tip, setTip] = useState<{ left: number; top: number } | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-  const onClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Measure before awaiting — React nulls currentTarget after the handler.
-    const r = e.currentTarget.getBoundingClientRect();
-    if (!(await copyText(value))) return;
-    setTip({ left: r.left + r.width / 2, top: r.top - 4 });
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setTip(null), 1200);
-  };
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onClick}
-        title={hint}
-        className="cursor-pointer rounded-sm hover:underline focus-visible:underline focus-visible:outline-none"
-      >
-        {children}
-      </button>
-      {tip && (
-        <span
-          role="status"
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded bg-neutral-800 px-1.5 py-0.5 font-sans text-[0.625rem] font-medium text-white shadow dark:bg-neutral-700"
-          style={{ left: tip.left, top: tip.top }}
-        >
-          Copied
-        </span>
-      )}
-    </>
-  );
-}
+import { Button, CopyMeta, cn, useEscape } from "../ui.tsx";
 
 // The review title, editable in place: the text (falling back to the source
 // label when untitled) with a hover pencil; click it or double-click the title

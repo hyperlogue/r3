@@ -38,6 +38,17 @@ export const STATUS_DOT: Record<string, string> = {
 
 export const shortSha = (s: string) => (/^[0-9a-f]{7,40}$/i.test(s) ? s.slice(0, 7) : s);
 
+// A session id as it appears in a live-presence badge (an agent watching, or
+// holding a feedback claim). Claude Code hands us its session UUID, whose first
+// group already identifies a session at a glance — the rest is width the badge
+// doesn't have, and the full value is one click away on the copy token beside it.
+// A `--session` name the agent chose itself has no such structure, so that one is
+// truncated rather than cut at a delimiter it may not have.
+export function shortSession(s: string): string {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s)) return s.slice(0, 8);
+  return s.length > 14 ? `${s.slice(0, 12)}…` : s;
+}
+
 // A terse label for a review's source: the sha range for a `diff`, the file
 // count for `files`, or a word for the sentinel sources (a SCRATCH document, or
 // a git-provenance-less piped diff). Pass `{ ref: true }` for the long form

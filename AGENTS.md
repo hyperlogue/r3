@@ -606,6 +606,19 @@ stream is told (a stream-local `superseded` frame) and exits `4` rather than
 reconnecting, which would otherwise have the two trading the slot every second.
 Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
 
+**A presence badge names the session doing the work now.** `watch`, `listen` and
+`claim` all default their display identity to the harness's own session id
+(`--session` → `$CLAUDE_CODE_SESSION_ID` → the review's `meta.session` →
+`"agent"`), because `meta.session` names whoever *created* the review — on any
+multi-round loop a different agent, so a badge reading off it credited the wrong
+session, and on a review created by hand a label with nothing behind it. One chain
+for all three: `watch`/`listen` reclaim the one slot only while their
+session/agentId pair matches, and a claim badge beside a watch badge should name
+one agent once. In the panel the id is a **click-to-copy token** (the header's
+`CopyMeta`, shared from `ui.tsx`) shortened to a UUID's first group — it is
+the handle you paste into a CLI call or a message to that session, and a
+truncated one you can only re-type is no handle at all.
+
 **`r3 listen` is the same slot without the process.** `watch` costs the agent a
 held process per round, which is the whole cost on a harness that can't hand a
 background process's completion back. Where the harness exposes a **session

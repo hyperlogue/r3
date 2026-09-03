@@ -711,6 +711,25 @@ async function cmdPrompt(args: Args) {
   console.log(await api("POST", `/api/reviews/${id}/prompt`, feedback ? { feedback } : {}));
 }
 
+// The identity a presence registration — `watch`, `listen`, `claim` — shows the
+// human next to the review. It has to name the session doing the work *now*, and
+// the review's `meta.session` doesn't: that names whoever CREATED the review,
+// which on a multi-round loop is routinely a different agent (and on a review
+// created by hand, a label with no session behind it at all). Claude Code exports
+// its session id to every child process, so a registration made from inside a
+// session can name itself exactly; the review's meta stays as the fallback for a
+// harness that exports nothing, and `--session` still wins over both.
+//
+// All three commands share it so one agent presents one identity: `watch` and
+// `listen` reclaim the same slot only while their session/agentId pair matches,
+// and a claim badge sitting next to a watch badge should name the same agent once
+// rather than twice under two names. `undefined` means this process knows nothing
+// better than its caller's own fallback.
+function agentSession(args: Args): string | undefined {
+  if (typeof args.flags.session === "string") return args.flags.session;
+  return process.env.CLAUDE_CODE_SESSION_ID?.trim() || undefined;
+}
+
 // `r3 listen <id>` — register this session's harness inbox with the daemon and
 // return immediately. Where `watch` holds a process open for one round, `listen`
 // leaves a registration behind and the daemon pushes a nudge on Submit, approve
@@ -762,10 +781,9 @@ async function cmdListen(args: Args) {
     process.stderr.write(`r3: review ${id} is ${detail.status} — nothing to listen for.\n`);
     process.exit(1);
   }
-  // The same default chain `watch` uses, so an agent switching between the two
-  // mid-loop presents one identity and reclaims its own slot instead of racing
-  // itself for it.
-  const session = (args.flags.session as string) ?? detail?.meta?.session ?? "agent";
+  // The same chain `watch` uses, so an agent switching between the two mid-loop
+  // presents one identity and reclaims its own slot instead of racing itself for it.
+  const session = agentSession(args) ?? detail.meta?.session ?? "agent";
   const agentId = (args.flags["agent-id"] as string) ?? undefined;
   const body: ListenRequest = { session, agentId, socket, token };
   // Not apiRaw(): it turns any non-2xx into exit 1, and a 409 here has to reach
@@ -862,7 +880,7 @@ async function cmdWatch(args: Args) {
   // Already closed out — nothing to block on. Split approved (0) from abandoned
   // (3) so a wrapping loop knows whether the work was accepted.
   if (detail0.status !== "open") finishClosed(detail0);
-  const session = (args.flags.session as string) ?? detail0.meta?.session ?? "agent";
+  const session = agentSession(args) ?? detail0.meta?.session ?? "agent";
   const agentId = (args.flags["agent-id"] as string) ?? undefined;
 
   const emit = async (): Promise<boolean> => {
@@ -1106,7 +1124,9 @@ async function cmdClaim(args: Args) {
       continue;
     }
     const claim = await api("PUT", `/api/feedback/${id}/claim`, {
-      ...(typeof args.flags.session === "string" ? { session: args.flags.session } : {}),
+      // Sent when we know it, rather than left to the server's meta.session
+      // default — that one names the review's author, not the lease holder.
+      session: agentSession(args),
       ...(typeof args.flags["agent-id"] === "string" ? { agentId: args.flags["agent-id"] } : {}),
       leaseSeconds,
     });
@@ -1807,6 +1827,7 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   review (only one watch at a time), or a
                                                  #   newer watch of the same --session took over.
                                                  #   --session: display name shown in the UI
+                                                 #     (defaults to this harness's session id)
                                                  #   --agent-id: machine handle for other tools
                                                  #   --timeout: give-up deadline in seconds (default 0 = never)
                                                  # --auto-fetch-timeout <sec>: opt-in — instead of

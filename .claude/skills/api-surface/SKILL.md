@@ -273,6 +273,16 @@ auto-send after N idle seconds when no human will click Submit. `--session` is t
 UI display name; `--agent-id` a precise machine handle other tools read from
 `GET /api/reviews/:id/watchers`.
 
+**The display name defaults to the harness's own session id** (`watch`, `listen`
+and `claim` share the chain: `--session` → `$CLAUDE_CODE_SESSION_ID` → the
+review's `meta.session` → `"agent"`). It has to name the session working *now*,
+and `meta.session` names whoever *created* the review — a different agent on any
+multi-round loop, so a badge reading off it credited the wrong session. The
+identity is shared across the three commands on purpose: `watch` and `listen`
+reclaim one slot only while their session/agentId pair matches, and a claim badge
+beside a watch badge should name one agent once. The UI shortens a session UUID to
+its first group and makes it click-to-copy.
+
 ## Delivery tracking
 
 Tracked with `sent_at` + `status_unsent`. Every hand-off marks the feedback + human

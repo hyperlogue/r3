@@ -5,6 +5,7 @@ import { clearDraft, setDraftText, setGeneralText } from "../drafts.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import {
   allSentDetail,
+  listening,
   noWatchers,
   pendingAnchor,
   reviewDetail,
@@ -174,6 +175,15 @@ export const ResolvedBrowsing: Story = {
 // live presence indicator appears.
 export const AgentWatching: Story = {
   parameters: { queryData: [[WATCHERS_KEY, watching]] },
+};
+
+// The same slot, held by `r3 listen` instead — presence reads the same either way
+// (both are "an agent is waiting on you"), but the registration names Claude
+// Code's own session id rather than a name someone typed. The badge shows its
+// first group; clicking it copies the whole id, so it can be pasted back into a
+// CLI call or a message to that session.
+export const AgentListening: Story = {
+  parameters: { queryData: [[WATCHERS_KEY, listening]] },
 };
 
 // The agent left `watch`, explicitly claimed an item, and is now working. The

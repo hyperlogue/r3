@@ -754,6 +754,15 @@ export const watching: WatchersResponse = {
   watchers: [{ session: "claude-remote", agentId: "agent_7f3a", kind: "watch" }],
 };
 
+// The same slot held by `r3 listen`, which defaults its identity to the harness's
+// own session id — a UUID, which the badge shortens to its first group and offers
+// whole on the copy token beside it.
+export const listening: WatchersResponse = {
+  watchers: [
+    { session: "8f14b2c0-5d3e-4a71-9c62-1b0ae7d4f930", agentId: "agent_7f3a", kind: "listen" },
+  ],
+};
+
 // ---- themes (SettingsPopup) ----
 
 export const themeOptions: ThemeOption[] = [

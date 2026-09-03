@@ -30,6 +30,7 @@ import {
   useHasGeneralText,
   useReplyDraft,
 } from "../drafts.ts";
+import { shortSession } from "../format.ts";
 import {
   isInteractiveTarget,
   isKeyboardFocused,
@@ -53,6 +54,7 @@ import {
   Button,
   Collapse,
   CommentPlusIcon,
+  CopyMeta,
   cn,
   FoldChevrons,
   FoldTriangle,
@@ -177,22 +179,44 @@ function usePlaceholder(base: string, hints: string): string {
   return useContext(CoarsePointerContext) ? base : `${base}  (${hints})`;
 }
 
-const shortLabel = (s: string) => (s.length > 14 ? `${s.slice(0, 12)}…` : s);
+// Both presence badges read the same way: the session id that is doing the work,
+// then what it is doing. They return the two halves separately so the id can be
+// its own click-to-copy token — it is the handle you paste into `r3 show`, an
+// agent list, or a message to the session, and a truncated one you can only
+// re-type is no handle at all. `session: null` means there is no single id to
+// copy (several agents hold claims), so that badge stays plain text.
+type PresenceLabel = { session: string | null; suffix: string };
+
 // One watcher (or empty). Names the holder rather than counting a crowd.
-function watchersLabel(watchers: WatcherInfo[]): string {
-  return shortLabel(watchers[0]?.session ?? "agent");
+function watchersLabel(watchers: WatcherInfo[]): PresenceLabel {
+  return { session: watchers[0]?.session ?? null, suffix: "watching" };
 }
 function watchersTitle(watchers: WatcherInfo[]): string {
   return `watching: ${watchers.map((w) => (w.agentId ? `${w.session} (${w.agentId})` : w.session)).join(", ")}`;
 }
 
-function claimsLabel(claims: FeedbackClaim[]): string {
+function claimsLabel(claims: FeedbackClaim[]): PresenceLabel {
   const sessions = [...new Set(claims.map((claim) => claim.session))];
-  if (sessions.length === 1) {
-    const label = shortLabel(sessions[0]);
-    return claims.length === 1 ? `${label} working` : `${label} working on ${claims.length}`;
-  }
-  return `${sessions.length} agents working`;
+  if (sessions.length === 1)
+    return {
+      session: sessions[0],
+      suffix: claims.length === 1 ? "working" : `working on ${claims.length}`,
+    };
+  return { session: null, suffix: `${sessions.length} agents working` };
+}
+
+// The text of one presence badge: a copyable short session id followed by what
+// it's up to, or just the summary when no single session owns it.
+function PresenceText({ label }: { label: PresenceLabel }) {
+  if (!label.session) return <span className="truncate">{label.suffix}</span>;
+  return (
+    <span className="truncate">
+      <CopyMeta value={label.session} hint={`Copy session id: ${label.session}`}>
+        {shortSession(label.session)}
+      </CopyMeta>{" "}
+      {label.suffix}
+    </span>
+  );
 }
 function claimsTitle(claims: FeedbackClaim[]): string {
   return claims
@@ -1168,7 +1192,7 @@ const FeedbackCard = memo(function FeedbackCard({
             className="relative z-20 flex shrink-0 items-center gap-1 rounded-full bg-primary-100 px-1.5 py-px text-[0.625rem] font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-300"
           >
             <span className="size-1.5 rounded-full bg-primary-500" />
-            {shortLabel(fb.claim.session)} working
+            {shortSession(fb.claim.session)} working
           </span>
         )}
         {awaitingYou && (
@@ -2393,7 +2417,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                       title={claimsTitle(claims)}
                     >
                       <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
-                      <span className="truncate">{claimsLabel(claims)}</span>
+                      <PresenceText label={claimsLabel(claims)} />
                     </span>
                   )}
                   {watching && (
@@ -2402,7 +2426,7 @@ export const FeedbackPanel = memo(function FeedbackPanel({
                       title={watchersTitle(watchers)}
                     >
                       <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
-                      <span className="truncate">{watchersLabel(watchers)} watching</span>
+                      <PresenceText label={watchersLabel(watchers)} />
                     </span>
                   )}
                 </div>
