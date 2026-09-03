@@ -563,11 +563,21 @@ export interface WatcherInfo {
 // The token is a LIVE SESSION CREDENTIAL: the daemon keeps it in memory only and
 // never writes it to the store. That is what makes the listener registry
 // in-memory, and therefore what makes a daemon restart drop every listener.
+//
+// It is REQUIRED, because it is the only thing that makes delivery deterministic.
+// Without an auth line the harness falls back to own-child verification, and
+// whether the daemon is a descendant of the session is an accident of which
+// session happened to spawn it — one per-user daemon spans every session but can
+// be the child of at most one. A push from a non-descendant is HELD for approval
+// (measured), and since we send no reply address we never learn that it was. So a
+// tokenless registration is a coin flip resolved silently: it would look
+// registered, answer 200 on Submit, and never fire. Refusing it up front — while
+// the agent can still fall back to `r3 watch` — is the whole point.
 export interface ListenRequest {
   session: string;
   agentId?: string;
   socket: string;
-  token?: string;
+  token: string;
 }
 export interface ListenResponse {
   ok: true;

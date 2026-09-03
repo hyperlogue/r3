@@ -87,13 +87,15 @@ one rendered file.
   inbox and *awaits* that write, answering **`502`** and dropping the registration
   when the inbox can't be reached — the connect is the only delivery signal the
   wire gives (no ack), so a hand-off that reached nobody must not answer `200`.
-- `POST …/listen { session, agentId?, socket, token? }` (`ListenRequest`) —
+- `POST …/listen { session, agentId?, socket, token }` (`ListenRequest`) —
   register this agent's harness session inbox so the daemon pushes a one-line
   nudge on Submit/approve/abandon, instead of the agent holding a process open.
   Takes the **same one slot** as `watch` (a second client ⇒ `409
   WatchRefusedResponse`); `404` unknown review, `400` for a closed one (nothing is
-  ever pushed again) or a `socket` outside the harness namespace
-  (`validateSocketPath`), `502` when draining what is already pending finds the
+  ever pushed again), a missing `token` (an unattributed push is held for approval
+  with no receipt, so it would look registered and never fire) or a `socket`
+  outside the harness namespace (`validateSocketPath`), `502` when draining what
+  is already pending finds the
   inbox gone. The nudge carries **no feedback content** — `POST …/prompt` remains
   the only thing that stamps `sent_at`. `token` is a live session credential: held
   in memory, never stored (**security-model** skill), which is why a daemon
@@ -164,7 +166,7 @@ r3 list   [--meta k=v]... [--status open]
 r3 show   <id> [--json]
 r3 prompt <id> [--all] [--feedback <fid,...>]      # --all: re-print all open items, mark nothing
 r3 watch  <id> [--session <name>] [--agent-id <id>] [--auto-fetch-timeout <sec>] [--timeout <sec>]
-r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; needs a session inbox
+r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; needs a session inbox + token
 r3 diff   add <id> [--label L] [--summary S] | list <id> [--json] | rm <id> <seq>
 r3 files  add <id> <path|glob>... | rm <id> <path>...
 r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <seq>
@@ -257,9 +259,11 @@ don't retry. A naive `while r3 watch; do …` is **wrong** — branch on `$?`. E
 the loop is the human's move (`r3 approve` / `r3 abandon`, or the UI buttons).
 
 `r3 listen` exits: **`0`** = registered (the daemon will push) · **`4`** = another
-watch/listen holds this review, as watch's `4` · **`5`** = this harness exposes no
-session inbox, so fall back to `r3 watch` — distinct from `4` so `r3 listen || r3
-watch` can tell "wrong harness" from "someone else has it". Anything else is the
+watch/listen holds this review, as watch's `4` · **`5`** = this harness cannot be
+messaged (no session inbox, or no `CLAUDE_CODE_MESSAGING_TOKEN` to attribute the
+push with — one answer, so one code), so fall back to `r3 watch` — distinct from
+`4` so `r3 listen || r3 watch` can tell "wrong harness" from "someone else has
+it". Anything else is the
 CLI's ordinary exit `1` (unknown review, a closed one, an unreachable inbox).
 
 `watch` also returns immediately if feedback is already pending. `--timeout <sec>`

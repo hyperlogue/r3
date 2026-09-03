@@ -633,7 +633,18 @@ supply that by squatting it — which would make the daemon show up as a session
 the harness's agent list). Measured consequence: r3 cannot be told its message was
 held, so the **connect is the only liveness signal there is**. That is why Submit
 awaits the write and answers `502` on failure, dropping the registration so the UI
-falls back to Copy prompt. Silent non-delivery is the one failure `watch`
+falls back to Copy prompt.
+
+It is also why the session's messaging **token is required, not best-effort**.
+Without an auth line the harness attributes a push by descent, and whether the
+daemon descends from the session is an accident of which session's first CLI call
+happened to spawn it — one per-user daemon spans every session but can be the
+child of at most one. A push from a non-descendant is **held for approval**
+(measured), and with no reply address r3 never learns that it was: the write
+completes, Submit answers 200, and the agent is never woken. So a tokenless
+registration is a coin flip resolved silently, and `r3 listen` refuses one up
+front with the same **exit 5** it gives a harness that has no inbox at all —
+"can't be messaged, fall back to `r3 watch`" is one answer, not two. Silent non-delivery is the one failure `watch`
 structurally cannot have, and the one worth a round-trip to avoid. The registry is
 in-memory (it holds a live session credential — see the **`security-model`**
 skill), so a daemon restart drops every registration; that matches what `r3

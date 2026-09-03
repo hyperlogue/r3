@@ -13,7 +13,7 @@ import type { WatcherInfo } from "../shared/types.ts";
 // Where to push a `listen` holder's nudge. Memory-only: see the note above.
 export interface ListenerTarget {
   socket: string;
-  token?: string;
+  token: string;
 }
 
 // Is this listener's session still there? Injected so the registry stays a pure

@@ -720,9 +720,10 @@ async function cmdPrompt(args: Args) {
 // Exit codes overlap `watch`'s only where the meaning matches:
 //   0 = registered; the daemon will push.
 //   4 = another watch/listen already holds this review (as watch's 4).
-//   5 = this harness exposes no session inbox, so there is nothing to register.
-//       Distinct from 4 on purpose: `r3 listen || r3 watch` has to tell "wrong
-//       harness, fall back" from "someone else has it, stop".
+//   5 = this harness exposes no session inbox, or no token to attribute a push
+//       with, so a nudge could not be delivered. Distinct from 4 on purpose:
+//       `r3 listen || r3 watch` has to tell "wrong harness, fall back" from
+//       "someone else has it, stop".
 const LISTEN_EXIT = { registered: 0, busy: 4, unsupported: 5 } as const;
 
 async function cmdListen(args: Args) {
@@ -739,8 +740,18 @@ async function cmdListen(args: Args) {
     process.exit(LISTEN_EXIT.unsupported);
   }
   // A live session credential. It travels to our own daemon over loopback and is
-  // held in memory there; r3 never writes it down.
-  const token = process.env.CLAUDE_CODE_MESSAGING_TOKEN?.trim() || undefined;
+  // held in memory there; r3 never writes it down. Required, and refused here
+  // rather than at the daemon: without it the push is unattributed, which means
+  // held-for-approval with no receipt — a registration that looks live and never
+  // fires. Same exit code as no socket at all, because the answer is the same one.
+  const token = process.env.CLAUDE_CODE_MESSAGING_TOKEN?.trim();
+  if (!token) {
+    process.stderr.write(
+      "r3: this session exposes no messaging token, so a nudge could not be delivered.\n" +
+        `    Use \`r3 watch ${id}\` instead.\n`,
+    );
+    process.exit(LISTEN_EXIT.unsupported);
+  }
   const detail = await api("GET", `/api/reviews/${id}`);
   // A closed review never pushes again — the daemon drops registrations on a
   // terminal status — so registering would be a wait for a message that is not
@@ -1809,7 +1820,8 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   daemon messages you when the human hits
                                                  #   Submit, approves, or abandons.
                                                  #   Needs a harness that exposes a session
-                                                 #   inbox (Claude Code); otherwise use watch.
+                                                 #   inbox and token (Claude Code); exit 5 if
+                                                 #   not — use watch instead.
                                                  #   Exit codes: 0 = registered; 4 = someone
                                                  #   else already holds this review (as watch);
                                                  #   5 = no session inbox here — fall back
@@ -1936,8 +1948,8 @@ lazily on your first command — run commands from inside the repo under review.
    before handing off, so your later edits diff against exactly the content they
    reviewed.
 2. \`r3 listen <id>\` (Claude Code and other harnesses with a session inbox) —
-   registers and returns; you get messaged when the human acts. Exit 5 = no
-   inbox here, so use watch instead. Otherwise \`r3 watch <id>\` — blocks until
+   registers and returns; you get messaged when the human acts. Exit 5 = this
+   harness can't be messaged, so use watch instead. Otherwise \`r3 watch <id>\` — blocks until
    the human clicks Submit, then prints the new
    feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
    0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out,
@@ -1971,8 +1983,9 @@ If your harness exposes a session inbox (Claude Code does), prefer
 alive, and the daemon messages you when the human submits, approves or abandons.
 A submitted round arrives as a one-line nudge naming the review — run
 \`r3 prompt <id>\` to collect the feedback itself, then reply as usual and
-\`r3 listen <id>\` again for the next round. Exit 5 means this harness has no
-inbox: fall back to \`r3 watch <id>\`. Exit 4 means the same thing it does for
+\`r3 listen <id>\` again for the next round. Exit 5 means this harness exposes no
+session inbox, or no token to attribute the push with: either way it cannot be
+messaged, so fall back to \`r3 watch <id>\`. Exit 4 means the same thing it does for
 watch — someone else holds the review, so stop. A review that is already approved
 or abandoned fails with the ordinary exit 1 and says so: nothing more will ever be
 pushed on it, so there is nothing to register. \`listen\` and \`watch\` share

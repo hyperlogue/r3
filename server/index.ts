@@ -939,10 +939,15 @@ app.post("/api/reviews/:id/listen", async (c) => {
   const socket = body?.socket ?? "";
   const invalid = validateSocketPath(socket);
   if (invalid) return c.text(`bad socket: ${invalid}`, 400);
+  // Required, not best-effort: an unattributed push is held for approval and we
+  // never learn that it was, so a tokenless registration would be one that looks
+  // live and silently never fires. See ListenRequest.
+  const token = body?.token?.slice(0, 4096);
+  if (!token) return c.text("missing token", 400);
   const agentId = body?.agentId?.slice(0, 200) || undefined;
   const admission = await addWatcher(id, { session, agentId, kind: "listen" }, () => {}, {
     // The token stays in this map and never reaches the store — see ListenRequest.
-    target: { socket, token: body?.token?.slice(0, 4096) },
+    target: { socket, token },
     probe: probeInbox,
   });
   if (!admission.ok) {

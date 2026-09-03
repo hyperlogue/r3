@@ -166,6 +166,13 @@ harness exports it to every child of a session) and POSTs it to the daemon, whic
 presents it on the auth line when pushing a nudge. It is what marks the push as
 the session's own tooling rather than an unattributed peer.
 
+**It is required, and refused twice**: the CLI exits `5` when the env var is
+absent (the same "can't be messaged, use `r3 watch`" answer as a harness with no
+inbox), and `POST …/listen` answers `400 missing token` for a caller that skips
+it. The alternative — pushing unattributed and hoping — is a coin flip on whether
+the daemon happens to descend from that session, resolved silently in the failure
+direction (below).
+
 **It is a live session credential and never reaches the store.** The listener
 registry is in-memory (`server/watchers.ts`) *because* of this — that is the
 reason a daemon restart drops every registration, not an accident of the design.
@@ -177,7 +184,11 @@ Measured, not assumed: a non-descendant process sending **no** auth line has its
 message **held for approval** by a `bypassPermissions` session, and — because r3
 supplies no reply address — cannot even be told that it was held. So a session
 whose inbound policy holds our push is indistinguishable to r3 from one that read
-it. Users running unattended agents may need `crossSessionInbound: "accept"`.
+it. That measurement is the reason the token is mandatory: descent is the only
+other attribution the wire offers, and one per-user daemon spans every session
+while descending from at most one of them. Users running unattended agents may
+still need `crossSessionInbound: "accept"` if an authenticated push is held too —
+untested, and the one thing here that was not measured.
 
 ## What this does *not* protect
 

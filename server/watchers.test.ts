@@ -25,7 +25,10 @@ function admit(id: string, info: Who, evict = noop) {
 
 // A `listen` holder: same slot, but reached through an inbox the daemon pushes
 // to, so admission may have to probe it.
-const target = (socket = "/run/user/0/cc-socks/1.sock"): ListenerTarget => ({ socket });
+const target = (socket = "/run/user/0/cc-socks/1.sock"): ListenerTarget => ({
+  socket,
+  token: "t",
+});
 const alive: Probe = async () => true;
 const dead: Probe = async () => false;
 

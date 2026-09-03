@@ -149,13 +149,15 @@ export async function pushToInbox(target: ListenerTarget, text: string): Promise
   const sock = await openSocket(target.socket, PUSH_TIMEOUT_MS);
   let written = false;
   try {
-    // The auth line is optional on macOS/Linux for the connection to be accepted,
-    // but it is what identifies us as the session's own tooling rather than an
-    // unattributed peer — which is what keeps a bypassPermissions session from
-    // holding the message for manual approval. Send it whenever we have it.
-    const lines: string[] = [];
-    if (target.token) lines.push(JSON.stringify({ type: "auth", token: target.token }));
-    lines.push(JSON.stringify({ type: "user", message: { role: "user", content: text } }));
+    // The auth line is optional on macOS/Linux for the connection to be ACCEPTED,
+    // but acceptance is not delivery: the token is what identifies us as the
+    // session's own tooling rather than an unattributed peer, whose message is held
+    // for manual approval. Registration requires one (see ListenRequest), so it
+    // always goes first — there is no unattributed push to fall back to.
+    const lines = [
+      JSON.stringify({ type: "auth", token: target.token }),
+      JSON.stringify({ type: "user", message: { role: "user", content: text } }),
+    ];
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("timed out")), PUSH_TIMEOUT_MS);
       sock.write(`${lines.join("\n")}\n`, (err) => {
