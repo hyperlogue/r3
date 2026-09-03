@@ -1819,9 +1819,9 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   at once — no process to keep alive. The
                                                  #   daemon messages you when the human hits
                                                  #   Submit, approves, or abandons.
-                                                 #   Needs a harness that exposes a session
-                                                 #   inbox and token (Claude Code); exit 5 if
-                                                 #   not — use watch instead.
+                                                 #   Claude Code only for now (it needs a
+                                                 #   session inbox + token); exit 5 on any
+                                                 #   other harness — use watch instead.
                                                  #   Exit codes: 0 = registered; 4 = someone
                                                  #   else already holds this review (as watch);
                                                  #   5 = no session inbox here — fall back
@@ -1947,15 +1947,8 @@ lazily on your first command — run commands from inside the repo under review.
    files review, also snapshot the starting state now (\`r3 snapshot <id>\`)
    before handing off, so your later edits diff against exactly the content they
    reviewed.
-2. \`r3 listen <id>\` (Claude Code and other harnesses with a session inbox) —
-   registers and returns; you get messaged when the human acts. Exit 5 = this
-   harness can't be messaged, so use watch instead. Otherwise \`r3 watch <id>\` — blocks until
-   the human clicks Submit, then prints the new
-   feedback and the exact reply commands. Exit codes: 10 = feedback to act on,
-   0 = approved (done; prints any "next steps" note), 3 = abandoned, 2 = timed out,
-   4 = already being watched (a review takes one watch at a time — someone else
-   has it, or a newer watch of your own \`--session\` replaced this one). On 4,
-   stop: don't retry, and don't start a second watch alongside it.
+2. Register for the round: \`r3 listen <id>\` on Claude Code, \`r3 watch <id>\`
+   on any other harness. See "Receiving a round" below.
 3. Claim the items before editing so the human sees that you are working:
    \`r3 claim <feedback_id_1> <feedback_id_2>...\` (60-minute lease; repeat to
    renew a long task).
@@ -1964,41 +1957,53 @@ lazily on your first command — run commands from inside the repo under review.
    messages (the human resolves/reopens items in the UI — you'll see
    "[resolved]" in a later prompt when they do). A successful agent reply clears
    that item's working claim automatically.
-5. Listen (or watch) again for the next round.
-
-Watch by default: after creating a review, and after each round of replies, run
-\`r3 watch <id>\` unless the human told you not to — that's how you receive feedback
-and learn when they approve. Each call is one round: it exits 10 when there's
-feedback (act on it, then run \`r3 watch <id>\` again) and 0 when the human approves
-(you're done). Just re-run the command each round — no shell loop needed.
-
-\`r3 watch\` never times out by default (it blocks until the human acts). Unless the
-user asks you to set a timeout, run it with no timeout. If your tool harness sends
-background-process completion back to the agent, launch \`r3 watch <id>\` there
-directly, like a development server. A detached process whose output only buffers
-will NOT wake you; use the harness's awaited/monitored process handle instead.
-
-If your harness exposes a session inbox (Claude Code does), prefer
-\`r3 listen <id>\`: it registers and returns at once, with no process to keep
-alive, and the daemon messages you when the human submits, approves or abandons.
-A submitted round arrives as a one-line nudge naming the review — run
-\`r3 prompt <id>\` to collect the feedback itself, then reply as usual and
-\`r3 listen <id>\` again for the next round. Exit 5 means this harness exposes no
-session inbox, or no token to attribute the push with: either way it cannot be
-messaged, so fall back to \`r3 watch <id>\`. Exit 4 means the same thing it does for
-watch — someone else holds the review, so stop. A review that is already approved
-or abandoned fails with the ordinary exit 1 and says so: nothing more will ever be
-pushed on it, so there is nothing to register. \`listen\` and \`watch\` share
-the one-per-review slot: run one or the other, never both. A daemon restart drops
-every registration, so if you restart it mid-loop, re-run \`r3 listen\`.
-Do not put watch in a shell loop: its exit 10 intentionally returns control so you
-can act on the round and reply. Then launch a fresh \`r3 watch <id>\`; repeat until
-it exits 0 (approved) or 3 (abandoned). Keep one watch per review at a time — a
-second one is refused (exit 4). Watch POSTs an empty body; an empty drain keeps
-waiting rather than exiting 10. Re-running \`r3 watch\` with the same
-\`--session\` is fine: it takes over from your own earlier one, which exits 4.
+5. Register again for the next round.
 
 Some items target a whole file or a summary (no line span) — reply the same way.
+
+## Receiving a round
+
+Do this after creating a review and after every round of replies, unless the
+human told you not to — it is how you receive feedback and learn when they
+approve. One registration is one round.
+
+Which command: \`r3 listen\` needs a harness that exposes a per-session message
+inbox, and today that means CLAUDE CODE ONLY — no other harness is supported
+yet. Everywhere else use \`r3 watch\`. If you are unsure, run \`r3 listen <id>\`
+and let it tell you: exit 5 means this harness cannot be messaged, so fall back
+to \`r3 watch <id>\`. The two share the review's one slot — run one or the
+other, never both.
+
+\`r3 listen <id>\` — registers and returns, with no process to keep alive; the
+daemon messages you when the human submits, approves or abandons. A submitted
+round arrives as a one-line nudge naming the review: run \`r3 prompt <id>\` to
+collect the feedback itself, reply as usual, then \`r3 listen <id>\` again.
+  0 = registered; you will be messaged
+  4 = someone else holds this review — stop
+  5 = this harness cannot be messaged (no session inbox, or no token to
+      attribute the push with) — use \`r3 watch\` instead
+  1 = ordinary failure, including a review already approved or abandoned:
+      nothing more will ever be pushed on it, so there is nothing to register
+A daemon restart drops every registration, so re-run \`r3 listen\` if you
+restart it mid-loop.
+
+\`r3 watch <id>\` — blocks until the human acts, then prints the new feedback
+and the exact reply commands.
+  10 = feedback to act on
+   0 = approved — you're done; prints any "next steps" note
+   3 = abandoned
+   2 = timed out
+   4 = already being watched (someone else has it, or a newer watch of your own
+       \`--session\` replaced this one) — stop; don't retry, and don't start a
+       second watch alongside it
+It never times out by default, which is what you want: unless the human asks for
+a timeout, run it with none. Do not put it in a shell loop — exit 10
+deliberately returns control so you can act on the round and reply, then launch
+a fresh \`r3 watch <id>\`; repeat until it exits 0 or 3. If your harness hands
+background-process completion back to the agent, launch it there, like a
+development server; a detached process whose output only buffers will NOT wake
+you. Watch POSTs an empty body; an empty drain keeps waiting rather than
+exiting 10.
 
 ## Guide the review (agent-authored feedback)
 

@@ -610,8 +610,8 @@ Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
 held process per round, which is the whole cost on a harness that can't hand a
 background process's completion back. Where the harness exposes a **session
 inbox** — Claude Code binds a per-session Unix socket and documents it as a place
-for a script to post into a session — `r3 listen <id>` registers that inbox and
-returns; the daemon writes a one-line nudge on Submit, approve and abandon
+for a script to post into a session, and is **the only harness supported today** —
+`r3 listen <id>` registers that inbox and returns; the daemon writes a one-line nudge on Submit, approve and abandon
 (`server/inbox.ts`). The nudge deliberately carries **no feedback content**: the
 delivery stamp stays where it was, on `POST …/prompt`, so a dropped frame costs a
 round-trip instead of eating a round. It carries the review id and a timestamp because the harness drops

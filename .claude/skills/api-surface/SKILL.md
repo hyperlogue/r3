@@ -166,7 +166,7 @@ r3 list   [--meta k=v]... [--status open]
 r3 show   <id> [--json]
 r3 prompt <id> [--all] [--feedback <fid,...>]      # --all: re-print all open items, mark nothing
 r3 watch  <id> [--session <name>] [--agent-id <id>] [--auto-fetch-timeout <sec>] [--timeout <sec>]
-r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; needs a session inbox + token
+r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; Claude Code only for now
 r3 diff   add <id> [--label L] [--summary S] | list <id> [--json] | rm <id> <seq>
 r3 files  add <id> <path|glob>... | rm <id> <path>...
 r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <seq>
@@ -221,8 +221,9 @@ Two hand-off paths:
   since a dropped SSE or a restarted agent must not be locked out by its own
   ghost, and the displaced process exits `4` too rather than reconnecting into a
   fight over the slot.
-- **Listen + Submit** (hands-off, no held process) — where the harness exposes a
-  session inbox (Claude Code), `r3 listen <id>` registers that inbox and returns;
+- **Listen + Submit** (hands-off, no held process) — **Claude Code only for now**:
+  it is the one harness r3 supports here, since it is the one that exposes a
+  per-session inbox and token. `r3 listen <id>` registers that inbox and returns;
   the daemon writes the nudge itself. Same slot as `watch` — run one or the other,
   never both — and `kind` is deliberately not part of client identity, so one
   agent switching `watch`↔`listen` mid-loop reclaims its own slot. The nudge names
