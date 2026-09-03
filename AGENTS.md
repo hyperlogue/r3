@@ -644,7 +644,12 @@ child of at most one. A push from a non-descendant is **held for approval**
 completes, Submit answers 200, and the agent is never woken. So a tokenless
 registration is a coin flip resolved silently, and `r3 listen` refuses one up
 front with the same **exit 5** it gives a harness that has no inbox at all —
-"can't be messaged, fall back to `r3 watch`" is one answer, not two. Silent non-delivery is the one failure `watch`
+"can't be messaged, fall back to `r3 watch`" is one answer, not two.
+
+The other half is measured as well: the same non-descendant daemon (reparented to
+init) pushing **with** the auth line is delivered under the default inbound
+policy. Attribution is what the harness gates on, not descent — which is what
+makes a mandatory token a complete answer rather than a mitigation. Silent non-delivery is the one failure `watch`
 structurally cannot have, and the one worth a round-trip to avoid. The registry is
 in-memory (it holds a live session credential — see the **`security-model`**
 skill), so a daemon restart drops every registration; that matches what `r3

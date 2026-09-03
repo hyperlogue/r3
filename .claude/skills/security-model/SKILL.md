@@ -186,9 +186,15 @@ supplies no reply address — cannot even be told that it was held. So a session
 whose inbound policy holds our push is indistinguishable to r3 from one that read
 it. That measurement is the reason the token is mandatory: descent is the only
 other attribution the wire offers, and one per-user daemon spans every session
-while descending from at most one of them. Users running unattended agents may
-still need `crossSessionInbound: "accept"` if an authenticated push is held too —
-untested, and the one thing here that was not measured.
+while descending from at most one of them.
+
+**The authenticated case is measured too, and it is delivered.** A live daemon
+reparented to init (ppid 1, so a non-descendant of the session by construction)
+pushed a Submit nudge with the auth line into a session running the *default*
+inbound policy, and it arrived — no approval hold. So attribution, not descent, is
+what the harness gates on, and `crossSessionInbound: "accept"` is **not** a
+requirement for unattended agents as long as the token is presented. Since the
+token is mandatory, that is the only way r3 pushes at all.
 
 ## What this does *not* protect
 
