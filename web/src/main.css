@@ -293,16 +293,48 @@ html.dark .gutter-del {
    bar overlaps the first character, and on a border-collapse <table> it fragments
    into per-row segments. So draw the gutter bar as a pseudo-element sitting in the
    .r3-markdown left padding — one continuous bar spanning the whole block, whatever
-   its internal layout. Region scoped :not(active) so amber wins on a block that
-   carries both (same structural precedence as the base rules above). */
+   its internal layout. The bar's colour rides a custom property set with the wash,
+   so it reaches the pseudo-element wherever it ends up hanging (see the table case
+   below). Region scoped :not(active) so amber wins on a block that carries both
+   (same structural precedence as the base rules above). */
 .r3-markdown .r3-feedback-region,
 .r3-markdown .r3-active-line {
   position: relative;
   box-shadow: none;
   border-radius: 2px;
 }
-.r3-markdown .r3-feedback-region::before,
-.r3-markdown .r3-active-line::before {
+.r3-markdown .r3-feedback-region:not(.r3-active-line) {
+  background-color: color-mix(in srgb, var(--color-primary-500) 13%, transparent);
+  --r3-md-bar: var(--color-primary-500);
+}
+.r3-markdown .r3-active-line {
+  background-color: color-mix(in srgb, var(--color-warning-500) 34%, transparent);
+  --r3-md-bar: var(--color-warning-500);
+}
+
+/* A marked table is the one block that can't host that bar itself — a whole
+   <table>, a row group, or (the common one, since tr_open is tagged) a single row.
+   An absolutely positioned child of a `table-row` box is wrapped in an ANONYMOUS
+   TABLE CELL, which lands as an extra empty leading column on the marked row alone,
+   shunting its real cells one column right and out of line with every other row.
+   The gutter is out of reach there anyway: `.r3-markdown table` is its own
+   `overflow-x` scroll container, so anything painted left of its padding edge is
+   clipped. So hang the bar on the first cell of each marked row instead — a
+   `table-cell` is an ordinary containing block — drawn inside that cell's own left
+   padding rather than out in the markdown gutter. Contiguous rows make one bar. */
+.r3-markdown tr:is(.r3-feedback-region, .r3-active-line) > :is(td, th):first-child,
+.r3-markdown
+  :is(table, thead, tbody, tfoot):is(.r3-feedback-region, .r3-active-line)
+  tr
+  > :is(td, th):first-child {
+  position: relative;
+}
+.r3-markdown :is(.r3-feedback-region, .r3-active-line):not(table, thead, tbody, tfoot, tr)::before,
+.r3-markdown tr:is(.r3-feedback-region, .r3-active-line) > :is(td, th):first-child::before,
+.r3-markdown
+  :is(table, thead, tbody, tfoot):is(.r3-feedback-region, .r3-active-line)
+  tr
+  > :is(td, th):first-child::before {
   content: "";
   position: absolute;
   left: -0.65rem;
@@ -310,18 +342,14 @@ html.dark .gutter-del {
   bottom: 0;
   width: 3px;
   border-radius: 3px;
+  background-color: var(--r3-md-bar);
 }
-.r3-markdown .r3-feedback-region:not(.r3-active-line) {
-  background-color: color-mix(in srgb, var(--color-primary-500) 13%, transparent);
-}
-.r3-markdown .r3-feedback-region:not(.r3-active-line)::before {
-  background-color: var(--color-primary-500);
-}
-.r3-markdown .r3-active-line {
-  background-color: color-mix(in srgb, var(--color-warning-500) 34%, transparent);
-}
-.r3-markdown .r3-active-line::before {
-  background-color: var(--color-warning-500);
+.r3-markdown tr:is(.r3-feedback-region, .r3-active-line) > :is(td, th):first-child::before,
+.r3-markdown
+  :is(table, thead, tbody, tfoot):is(.r3-feedback-region, .r3-active-line)
+  tr
+  > :is(td, th):first-child::before {
+  left: 0;
 }
 
 /* Precise sub-block highlight for rendered markdown: the exact quoted text the

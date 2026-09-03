@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { type ComponentProps, useEffect, useState } from "react";
+import { type ComponentProps, useEffect, useRef, useState } from "react";
 import { fn } from "storybook/test";
 import { getSyntaxTheme } from "../settings.ts";
 import { phoneViewport } from "../storyViewport.ts";
@@ -107,6 +107,52 @@ function ScrolledAway(args: ComponentProps<typeof FileView>) {
         {active ? "Leave the preload band" : "Re-enter the preload band"}
       </button>
     </>
+  );
+}
+
+// The marks a review paints over rendered markdown. useRegionHighlight and
+// useActiveLineHighlight live in ReviewView, so this story stands in for them and
+// tags the blocks by hand — what it covers is the CSS. The two table ROWS are the
+// case to watch: their gutter bar has to hang on the row's first cell, because an
+// absolutely positioned child of a `table-row` box is wrapped in an anonymous
+// table cell — which lands as an extra empty leading column on the marked row
+// alone, shunting its cells out of line with every other row's.
+export const MarkedBlocks: Story = {
+  args: { path: renderedMarkdown.path },
+  parameters: {
+    queryData: [[["blob", REVIEW_ID, renderedMarkdown.path, REF, theme], renderedMarkdown]],
+  },
+  render: (args) => <WithMarks {...args} />,
+};
+
+// data-line-start → the class the hooks would have added: a paragraph, a list
+// item, and the fixture table's two <tbody> rows, one of each treatment.
+const MARKS: [line: number, cls: string][] = [
+  [3, "r3-feedback-region"],
+  [6, "r3-active-line"],
+  [10, "r3-feedback-region"],
+  [11, "r3-active-line"],
+];
+
+function WithMarks(args: ComponentProps<typeof FileView>) {
+  const holder = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // The body mounts a frame or two after the card's header, so keep trying
+    // until every block is there.
+    let raf = requestAnimationFrame(function mark() {
+      const found = MARKS.filter(([line, cls]) => {
+        const el = holder.current?.querySelector(`[data-line-start="${line}"]`);
+        el?.classList.add(cls);
+        return el != null;
+      });
+      if (found.length < MARKS.length) raf = requestAnimationFrame(mark);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div ref={holder}>
+      <FileView {...args} />
+    </div>
   );
 }
 
