@@ -283,6 +283,12 @@ reclaim one slot only while their session/agentId pair matches, and a claim badg
 beside a watch badge should name one agent once. The UI shortens a session UUID to
 its first group and makes it click-to-copy.
 
+`r3 create` follows the same rule for the *provenance* half: it stamps
+`meta.session` from `$CLAUDE_CODE_SESSION_ID` when the caller passes no
+`--meta session=…`, so `r3 list --meta session=$CLAUDE_CODE_SESSION_ID` lists an
+agent's own reviews. Only `create` — the same key on `list` is a **filter**, and
+defaulting a filter would silently narrow every listing to the calling session.
+
 ## Delivery tracking
 
 Tracked with `sent_at` + `status_unsent`. Every hand-off marks the feedback + human

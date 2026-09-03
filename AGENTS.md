@@ -193,7 +193,10 @@ representable). Resolving is a **status toggle on the feedback**
   read-only in the UI, rendered as Markdown with `@path:Lx-y` refs), `kind`
   (`'diff'|'files'` — the render mode), `source` (files: what to fetch; diff:
   provenance only), `meta` (free-form, **queryable** — e.g. `{ session, agent,
-  branch }`), `status` (`open|approved|abandoned`).
+  branch }`; `r3 create` stamps `session` from the harness's own session id unless
+  the caller passes one, so `r3 list --meta session=…` finds an agent's own
+  reviews without the agent having had to remember the flag), `status`
+  (`open|approved|abandoned`).
 - **Patch** — one immutable stored diff round: `review_id`, `seq` (monotonic, never
   reused), `label`, `summary`, `body` (raw unified diff). Appended via `r3 diff
   add`, removed whole via `r3 diff rm` — **never edited, no hunk-level surgery**.
@@ -606,18 +609,22 @@ stream is told (a stream-local `superseded` frame) and exits `4` rather than
 reconnecting, which would otherwise have the two trading the slot every second.
 Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
 
-**A presence badge names the session doing the work now.** `watch`, `listen` and
-`claim` all default their display identity to the harness's own session id
-(`--session` → `$CLAUDE_CODE_SESSION_ID` → the review's `meta.session` →
-`"agent"`), because `meta.session` names whoever *created* the review — on any
-multi-round loop a different agent, so a badge reading off it credited the wrong
-session, and on a review created by hand a label with nothing behind it. One chain
-for all three: `watch`/`listen` reclaim the one slot only while their
-session/agentId pair matches, and a claim badge beside a watch badge should name
-one agent once. In the panel the id is a **click-to-copy token** (the header's
-`CopyMeta`, shared from `ui.tsx`) shortened to a UUID's first group — it is
-the handle you paste into a CLI call or a message to that session, and a
-truncated one you can only re-type is no handle at all.
+**Every session label is the harness's own session id.** One rule, two places it
+lands. `create` stamps `meta.session` (above) — *who made this review*. `watch`,
+`listen` and `claim` default their display identity the same way (`--session` →
+`$CLAUDE_CODE_SESSION_ID` → the review's `meta.session` → `"agent"`) — *who is on
+it right now*. Keeping the two distinct is the point: presence used to fall
+straight through to `meta.session`, which on any multi-round loop names a
+different agent than the one actually working, so the badge credited the wrong
+session (and on a hand-made review, a label with nothing behind it). The three
+presence commands share one chain because `watch`/`listen` reclaim the one slot
+only while their session/agentId pair matches, and a claim badge beside a watch
+badge should name one agent once. Everywhere a session id is *shown* it is a
+**click-to-copy token** (`CopyMeta` in `ui.tsx` — the review header's metadata
+line and the panel's presence badges) displaying a UUID's first group, like a
+short sha: it is the handle you paste into `r3 list --meta session=…`, an agent
+list, or a message to that session, and a truncated one you can only re-type is no
+handle at all.
 
 **`r3 listen` is the same slot without the process.** `watch` costs the agent a
 held process per round, which is the whole cost on a harness that can't hand a

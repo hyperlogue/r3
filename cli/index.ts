@@ -534,6 +534,12 @@ function metaObject(pairs: string[] | undefined): Record<string, string> {
   return m;
 }
 
+// The harness's own session id, when it exports one. Claude Code sets it in every
+// child process of a session, so any r3 command an agent runs can name the session
+// it belongs to without being configured or told.
+const harnessSession = (): string | undefined =>
+  process.env.CLAUDE_CODE_SESSION_ID?.trim() || undefined;
+
 function printReview(r: any) {
   console.log(`${r.id}  ${r.status}  ${r.kind}  ${r.title ?? ""}`);
   if (r.url) console.log(`  ${r.url}`);
@@ -547,6 +553,16 @@ async function cmdCreate(args: Args) {
   // "no repo context"; fail loudly here instead.
   if (!SERVER.repoHeader) fail("`r3 create` must be run inside a git repository");
   const meta = metaObject(args.multi.meta);
+  // Stamp the creating session unless the caller named one. `meta.session` is what
+  // `r3 list --meta session=<id>` filters on and what the review header shows, and
+  // both are only worth anything if the value is a real session id — an agent that
+  // forgets the flag leaves the field empty, and one that invents a label leaves it
+  // unqueryable. The harness already told us who we are, so use that rather than
+  // hoping the agent repeats it; an explicit `--meta session=…` still wins. Only
+  // `create` does this: the same key on `list` is a FILTER, and defaulting a filter
+  // would silently narrow every listing to this session.
+  const creator = harnessSession();
+  if (!meta.session && creator) meta.session = creator;
   const title = (args.flags.title as string) ?? null;
   const summary = (args.flags.summary as string) ?? null;
 
@@ -727,7 +743,7 @@ async function cmdPrompt(args: Args) {
 // better than its caller's own fallback.
 function agentSession(args: Args): string | undefined {
   if (typeof args.flags.session === "string") return args.flags.session;
-  return process.env.CLAUDE_CODE_SESSION_ID?.trim() || undefined;
+  return harnessSession();
 }
 
 // `r3 listen <id>` — register this session's harness inbox with the daemon and
@@ -1807,6 +1823,10 @@ const HELP = `r3 — local human<->agent review CLI
                                                  # review a unified diff piped on stdin, e.g.
                                                  #   git diff main..HEAD | r3 create --stdin-diff
   list   [--meta k=v]... [--status open]         # filter by meta, e.g. --meta session=<id>
+                                                 #   every create form stamps
+                                                 #   session=<this harness's session id>
+                                                 #   unless you pass your own, so that
+                                                 #   filter finds the reviews you made
   show   <id> [--json]                           # full history: every item, thread, and round
   prompt <id> [--all] [--feedback <fid,...>]     # print feedback you haven't seen yet (new
                                                  #   items, human follow-ups, resolutions) and
@@ -2097,7 +2117,8 @@ they show the old. To cite both, split it into two replies.
 ## Other commands
 
   \`r3 show <id> [--json]\`  full history: every item, thread, round
-  \`r3 list --meta session=<id>\`  your reviews
+  \`r3 list --meta session=<id>\`  your reviews — create stamps your
+    session id, so <id> is $CLAUDE_CODE_SESSION_ID
   \`r3 edit <id> --title "..." | --summary "..."\`  (--summary - reads stdin)
   \`r3 approve <id> [--note "..."]\`  ends the loop
   \`r3 abandon <id>\`  close without approving

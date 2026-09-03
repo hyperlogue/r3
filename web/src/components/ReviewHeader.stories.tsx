@@ -39,6 +39,19 @@ type Story = StoryObj<typeof meta>;
 // handed, so Approve is disabled with the "Submit your feedback first" tooltip.
 export const Default: Story = {};
 
+// A review made by an agent: `r3 create` stamps the harness's own session id into
+// meta.session when the caller names none, so the line's last token is a UUID. It
+// renders as its first group — a full one is the first thing this truncating line
+// would clip — and the copy carries the whole id.
+export const StampedSession: Story = {
+  args: {
+    detail: {
+      ...reviewDetail,
+      meta: { ...reviewDetail.meta, session: "8f14b2c0-5d3e-4a71-9c62-1b0ae7d4f930" },
+    },
+  },
+};
+
 // Everything delivered and nothing claimed: Approve enables even though open
 // items remain — an undecided note you chose not to chase doesn't block the
 // terminal action. Click it for the confirm dialog (optional next-steps note).

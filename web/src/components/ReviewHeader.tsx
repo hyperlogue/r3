@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { shortSha, sourceLabel } from "../format.ts";
+import { shortSession, shortSha, sourceLabel } from "../format.ts";
 import {
   type FeedbackWithReplies,
   hasUnsentContent,
@@ -387,11 +387,14 @@ export function ReviewHeader({
               </CopyMeta>
             </>
           )}
+          {/* The creating session, shortened like a sha: it's the last token on a
+              line that truncates, so a full session UUID would be the first thing
+              clipped away — and the whole value is on the copy anyway. */}
           {detail.meta.session && (
             <>
               {" · "}
-              <CopyMeta value={detail.meta.session} hint={`Copy: ${detail.meta.session}`}>
-                {detail.meta.session}
+              <CopyMeta value={detail.meta.session} hint={`Copy session: ${detail.meta.session}`}>
+                {shortSession(detail.meta.session)}
               </CopyMeta>
             </>
           )}

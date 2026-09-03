@@ -181,9 +181,9 @@ function usePlaceholder(base: string, hints: string): string {
 
 // Both presence badges read the same way: the session id that is doing the work,
 // then what it is doing. They return the two halves separately so the id can be
-// its own click-to-copy token — it is the handle you paste into `r3 show`, an
-// agent list, or a message to the session, and a truncated one you can only
-// re-type is no handle at all. `session: null` means there is no single id to
+// its own click-to-copy token — it is the handle you paste into `r3 list --meta
+// session=…`, an agent list, or a message to the session, and a truncated one you
+// can only re-type is no handle at all. `session: null` means there is no single id to
 // copy (several agents hold claims), so that badge stays plain text.
 type PresenceLabel = { session: string | null; suffix: string };
 
@@ -211,7 +211,7 @@ function PresenceText({ label }: { label: PresenceLabel }) {
   if (!label.session) return <span className="truncate">{label.suffix}</span>;
   return (
     <span className="truncate">
-      <CopyMeta value={label.session} hint={`Copy session id: ${label.session}`}>
+      <CopyMeta value={label.session} hint={`Copy session: ${label.session}`}>
         {shortSession(label.session)}
       </CopyMeta>{" "}
       {label.suffix}
