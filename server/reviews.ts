@@ -41,6 +41,7 @@ import {
   deleteScratch,
   isScratchReview,
   removeScratchDir,
+  resolveScratchFile,
   scratchFiles,
   scratchIgnoredDirs,
   scratchReviewDir,
@@ -569,6 +570,9 @@ export async function addFeedback(
 ): Promise<Feedback | Rejected | null> {
   const review = db.getReview(reviewId);
   if (!review) return null;
+  // A scratch review takes a bare filename as well as the stored
+  // `<review_id>/<name>` — see resolveScratchFile.
+  if (body.file) body = { ...body, file: resolveScratchFile(review, body.file) };
   const author = body.author ?? "human";
   const lineAnchored = !!body.file && body.file !== SUMMARY_FILE && body.lineStart != null;
   // Validate the range server-side — the contract is the product, so a raw API
@@ -851,7 +855,7 @@ export async function reanchorFeedback(
       error:
         "diff reviews don't re-anchor (rounds are immutable) — pin an anchored reply instead: r3 reply <fid> --diff <seq> --file <f> --line <a-b>",
     };
-  const file = body.file ?? fb.file;
+  const file = review && body.file ? resolveScratchFile(review, body.file) : (body.file ?? fb.file);
   const lineStart = body.lineStart ?? fb.line_start;
   const lineEnd = body.lineEnd ?? fb.line_end;
   // Same range guard as addFeedback — a raw API client gets the CLI's 1 ≤ start ≤ end.

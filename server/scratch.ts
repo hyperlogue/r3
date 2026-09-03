@@ -44,6 +44,19 @@ export function scratchSafePath(rel: string): string | null {
   return safePathIn(scratchDir(), rel);
 }
 
+// A scratch review's paths are scratch-ROOT-relative (`<review_id>/<name>`), but
+// the directory an agent is handed is the review's own, so the natural thing to
+// pass is the bare filename — which used to 400 with "check the path" and no hint
+// of the shape it wanted. The directory is flat and single-level by design, so a
+// bare name has exactly one possible meaning here; accept it. A name already
+// carrying the prefix, one with a slash, or one naming no member is returned
+// untouched, for the ordinary path validation to answer as before.
+export function resolveScratchFile(review: Review, file: string): string {
+  if (!isScratchReview(review) || !file || file.includes("/")) return file;
+  const qualified = `${review.id}/${file}`;
+  return scratchFiles(review).includes(qualified) ? qualified : file;
+}
+
 // True when a review's content lives in the scratch dir (a files/SCRATCH review).
 // A type guard so callers get `source.files` narrowed.
 export function isScratchReview(
