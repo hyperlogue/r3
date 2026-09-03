@@ -146,7 +146,8 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
                  mounted window snaps to 48-row blocks and drives virtual-core
                  itself (below), so a scroll doesn't mutate the DOM every frame
   src/progressive.tsx large-review body hydration (files AND diff rounds): one
-                 observer, measured offscreen file shells, explicit-jump activation
+                 observer, measured offscreen file shells, explicit-jump activation,
+                 and the ReserveSpec -> px height a not-yet-mounted shell stands in
   src/expand.ts  expand-context: a diff's collapsed gaps -> revealed rows, merged
                  back into ONE row list everything else derives from
   src/gutter.ts  line-number pick/drag anchoring    resolveFeedback.ts  place a
@@ -580,6 +581,37 @@ see a hole where a file should be, and a jump wakes its target through the same
 the one thing an offscreen unmount forgets: it re-fetches, and the merge restarts
 from the immutable stored body, so the rows come back consistent rather than
 partial.
+
+**A deferred block reserves the height it is going to have.** Not mounting a
+body means standing something in for it, and that stand-in *is* the scroll
+pane's height — which is the scrollbar. A flat placeholder (16rem, what this
+started as) makes it a guess wrong in both directions at once: an order of
+magnitude short on a 200-file review, and far too tall for every file big
+enough to auto-fold. Worse, the guess is replaced by the truth as you scroll, so
+the total climbs, the thumb shrinks, and a drag lands nowhere. So a shell takes a
+`ReserveSpec` and resolves it in px (`web/src/progressive.tsx`), and two of the
+three cases are **arithmetic, not estimation**: a card that will mount folded is
+2rem of header, and an open code body is its row count at the same fixed line
+height `VirtualLines` already assumes. Predicting the fold matters most —
+precisely the files whose row count is enormous are the ones that auto-fold, so
+mispredicting one is the largest error available. Rendered **markdown** is the
+one genuine estimate (no row grid, and the wrapping depends on the pane's width):
+it scales with the source line count via a px-per-line ratio the provider
+**learns** from the cards it has measured, line-weighted because what the
+reserve feeds is a total. A measurement always outranks a reserve, but only at
+the font size it was taken at — the layout is rem-scaled, so a font change
+retires the pixels and falls back to the reserve, which is right at any size.
+
+Where the row count comes from differs by kind, and that asymmetry is the whole
+reason this needed a route. A **diff round** already has its rows in the payload,
+so `DiffView` computes its reserves inline (`splitRowCount` for the split layout —
+reserving the unified count there over-reserves every rewritten run by its
+shorter side). A **files review** has only paths, so `GET /api/reviews/:id/files`
+reports each member file's `lines`/`kind`/`sha` — a content read per file, hence
+its own route rather than a field on the detail, which is refetched on every
+feedback write. `sha` is the other half of the viewed key, which is what lets the
+client predict "this card mounts folded because it is already viewed" before the
+blob lands.
 
 ## The review loop (the agent interface)
 

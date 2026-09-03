@@ -17,8 +17,11 @@ import { fileViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
 
-// Show a line-count stat / start folded past this many lines.
-const BIG_FILE_LINES = 1000;
+// Show a line-count stat / start folded past this many lines. Exported because
+// ReviewView predicts the same fold to reserve a deferred card's height — a
+// mispredicted fold is the largest reserve error there is (a 5000-line file is
+// either 2rem of header or 5000 rows).
+export const BIG_FILE_LINES = 1000;
 const NO_REGIONS: Region[] = [];
 
 // How long a body survives in the query cache after its last observer goes away —

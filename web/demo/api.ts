@@ -78,6 +78,7 @@ export const api = {
     backend.snapshotDiff(id, from, to),
   snapshotBlob: async (id: string, path: string, to: SnapshotRef) =>
     backend.snapshotBlob(id, path, to),
+  reviewFiles: async (id: string, to: SnapshotRef) => backend.reviewFiles(id, to),
 
   themes: async () => getState().themes,
   // Every baked entry carries the DEFAULT theme's palette stylesheet, because

@@ -26,6 +26,7 @@ import type {
   Review,
   ReviewDetail,
   ReviewDiffResponse,
+  ReviewFilesResponse,
   SetViewedBody,
   SnapshotDiffResponse,
   SnapshotMeta,
@@ -166,6 +167,12 @@ export const api = {
     req<SnapshotDiffResponse>("GET", `/api/reviews/${id}/snapshot-diff${qs({ from, to, theme })}`),
   snapshotBlob: (id: string, path: string, to: SnapshotRef, theme?: string) =>
     req<RenderedFile>("GET", `/api/reviews/${id}/snapshot-blob${qs({ path, to, theme })}`),
+
+  // Membership + each file's line count / kind / sha at a snapshot ref — what a
+  // deferred card reserves its height with before its blob lands (see
+  // ReviewFileStat). No content, so it stays small however big the review is.
+  reviewFiles: (id: string, to: SnapshotRef) =>
+    req<ReviewFilesResponse>("GET", `/api/reviews/${id}/files${qs({ to })}`),
 
   // Syntax-theme options (curated families + all bundled Shiki themes).
   themes: () => req<ThemeOption[]>("GET", "/api/themes"),

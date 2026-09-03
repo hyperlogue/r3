@@ -68,7 +68,12 @@ import { renderFile } from "./render.ts";
 import { commonDirOf, type Repo, resolveRepoById, resolveRepoFromHeader } from "./repo.ts";
 import * as reviews from "./reviews.ts";
 import { migrateLegacyDocFiles, scratchReviewDir } from "./scratch.ts";
-import { renderSnapshotBlob, renderSnapshotContext, renderSnapshotDiff } from "./snapshots.ts";
+import {
+  renderSnapshotBlob,
+  renderSnapshotContext,
+  renderSnapshotDiff,
+  reviewFileStats,
+} from "./snapshots.ts";
 import { broadcast, subscribe } from "./sse.ts";
 import { startWatcher } from "./watcher.ts";
 import { addWatcher, dropListener, listenerFor, removeWatcher, watchersOf } from "./watchers.ts";
@@ -751,7 +756,9 @@ app.put("/api/reviews/:id/viewed", async (c) => {
   return c.json({ ok: true });
 });
 
-// Edit a files review's membership (`r3 files add/rm`).
+// Edit a files review's membership (`r3 files add/rm`). The GET on this path —
+// membership plus each file's reserve measurements — lives with the other `to=`
+// content routes below, since it reads content at a snapshot ref.
 app.post("/api/reviews/:id/files", async (c) => {
   const body = (await c.req.json().catch(() => null)) as ReviewFilesBody | null;
   if (!body || (!Array.isArray(body.add) && !Array.isArray(body.remove)))
@@ -844,6 +851,23 @@ app.get("/api/reviews/:id/snapshot-blob", async (c) => {
     c.req.query("theme") || undefined,
   );
   return rendered ? jsonCached(c, rendered) : c.text("not found", 404);
+});
+
+// Membership + the per-file measurements a client reserves layout with, at
+// to=<seq|WORKING> (see ReviewFileStat). A large files review mounts only the
+// cards near the viewport, and a shell that has to guess its file's height makes
+// the pane's own height — the scrollbar — a guess that moves under the reader
+// every time a body lands. Costs a content read per member file, so it is its
+// own route rather than a field on the review detail.
+app.get("/api/reviews/:id/files", async (c) => {
+  const id = c.req.param("id");
+  const review = db.getReview(id);
+  if (review?.kind !== "files") return c.text("not found", 404);
+  const to = parseSnapshotTo(id, c.req.query("to"));
+  if (to === null) return c.text("bad to", 400);
+  const repo = await reviews.repoForReview(id);
+  const files = await reviewFileStats(id, to, repo, review);
+  return jsonCached(c, { to, files });
 });
 
 // Read-only prompt preview — marks NOTHING (unlike the POST below, which stamps

@@ -17,7 +17,7 @@ import {
 } from "../gutter.ts";
 import { type Region, regionAt } from "../highlights.ts";
 import type { MessageRef } from "../markdown.ts";
-import { ProgressiveFile } from "../progressive.tsx";
+import { ProgressiveFile, type ReserveSpec } from "../progressive.tsx";
 import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import type { DiffLayout } from "../settings.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
@@ -306,6 +306,33 @@ function pairRows(lines: DiffLine[]): SplitRow[] {
     }
   }
   return out;
+}
+
+// How many rows pairRows() will produce, without building them — the row count a
+// deferred block reserves its height with. Same walk, counting instead of
+// allocating: reserving the UNIFIED count in split layout would over-reserve
+// every rewritten run by the length of its shorter side.
+function splitRowCount(lines: DiffLine[]): number {
+  let rows = 0;
+  for (let i = 0; i < lines.length; ) {
+    if (lines[i].type !== "del" && lines[i].type !== "add") {
+      rows++;
+      i++;
+      continue;
+    }
+    let dels = 0;
+    while (i < lines.length && lines[i].type === "del") {
+      dels++;
+      i++;
+    }
+    let adds = 0;
+    while (i < lines.length && lines[i].type === "add") {
+      adds++;
+      i++;
+    }
+    rows += Math.max(dels, adds);
+  }
+  return rows;
 }
 
 // One side of one split row. Carries `data-line`/`data-side` itself — in split
@@ -1043,10 +1070,37 @@ export function DiffView({
     }
     return m;
   }, [regions]);
+  // Resolved above the empty-round guard below, because the reserve memo is a
+  // hook and can't sit after an early return.
+  const round = rounds.find((r) => r.seq === activeSeq) ?? rounds[rounds.length - 1];
+  // How tall each deferred block will be. A round's rows arrive with the
+  // payload, so this is arithmetic rather than a guess: the same autoFold/viewed
+  // test FileBlock hands FileCard decides whether the block is 2rem of header,
+  // and the layout decides whether the row count is the unified list or its
+  // pairing. Memoized because DiffFilesList re-renders on every scroll-spy move
+  // and the split count walks every row.
+  const reserves = useMemo(() => {
+    const m = new Map<string, ReserveSpec>();
+    for (const f of round?.files ?? []) {
+      const folded =
+        (isViewed?.(diffViewedKey(round.seq, f.path)) ?? false) || f.lines.length > AUTOFOLD_ROWS;
+      m.set(
+        f.path,
+        folded
+          ? { folded: true }
+          : {
+              folded: false,
+              kind: "code",
+              rows: layout === "split" ? splitRowCount(f.lines) : f.lines.length,
+            },
+      );
+    }
+    return m;
+  }, [round, layout, isViewed]);
+
   if (rounds.length === 0 || rounds.every((r) => r.files.length === 0)) {
     return <p className="p-6 text-sm text-neutral-400">No changes in this review.</p>;
   }
-  const round = rounds.find((r) => r.seq === activeSeq) ?? rounds[rounds.length - 1];
   return (
     <section key={round.seq} data-round={round.seq}>
       {round.files.length === 0 && (
@@ -1060,7 +1114,12 @@ export function DiffView({
           render it always was. Paths are unique within the one round on screen,
           so they key the activation registry a jump reaches for. */}
       {round.files.map((f) => (
-        <ProgressiveFile key={`${round.seq}:${f.path}`} path={f.path} version={progressiveVersion}>
+        <ProgressiveFile
+          key={`${round.seq}:${f.path}`}
+          path={f.path}
+          version={progressiveVersion}
+          reserve={reserves.get(f.path) ?? null}
+        >
           {({ active, onHydrated, onOpenChange }) => (
             <FileBlock
               f={f}

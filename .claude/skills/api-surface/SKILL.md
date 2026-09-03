@@ -24,8 +24,8 @@ reaches the browser.
 
 **Reads that can get big are ETag'd + gzipped** — `jsonCached` in
 `server/index.ts` serves `/api/diff`, `/api/blob`, `GET /api/reviews`,
-`GET /api/reviews/:id`, `…/diff`, `…/diff-context`, `…/snapshot-diff` and
-`…/snapshot-blob` with a content ETag + `Cache-Control: no-cache` (so a refetch
+`GET /api/reviews/:id`, `…/diff`, `…/diff-context`, `…/files`, `…/snapshot-diff`
+and `…/snapshot-blob` with a content ETag + `Cache-Control: no-cache` (so a refetch
 of unchanged content is a **304**, which is most of what the SPA's SSE-driven
 invalidations ask for) and gzip past a 1KB floor. The deflate moves to libuv's
 thread pool past 256KB (`server/compress.ts`) so a multi-MB body can't stall SSE
@@ -66,6 +66,14 @@ one rendered file.
   the source can't fully cover is a **404, never a partial fill**.
 - `GET/POST/DELETE …/patches[/:seq]` — list / append / drop a round.
 - `POST …/files` — membership `{ add?, remove? }`.
+- `GET …/files[?to=<seq|WORKING>]` → `{ to, files: ReviewFileStat[] }` — membership
+  plus each file's `lines` / `kind` / `sha`, the **reserve** data a client sizes a
+  deferred file card with before it has the content (`web/src/progressive.tsx`).
+  Files reviews only (a diff round's rows arrive with its payload, so it needs
+  none) — `404` on a diff review, `400` on a `to` the review has no snapshot for.
+  `lines: null` = nothing to render (gone from the source, binary, over the cap).
+  Deliberately **not** a field on the review detail: it costs a content read per
+  member file, and the detail is refetched on every feedback write.
 - `GET/POST/DELETE …/snapshots[/:seq]`, `…/snapshot-diff`, `…/snapshot-blob` —
   content snapshots and their derived diffs.
 - `PATCH /api/reviews/:id` — edit `{ status?, meta?, title?, summary?, note? }`

@@ -33,7 +33,9 @@ export function useServerEvents(reviewId?: string) {
       // reviews list) has no such scope and still assumes everything.
       qc.invalidateQueries({
         predicate: (q) =>
-          (q.queryKey[0] === "blob" || q.queryKey[0] === "snapshot-diff") &&
+          (q.queryKey[0] === "blob" ||
+            q.queryKey[0] === "snapshot-diff" ||
+            q.queryKey[0] === "review-files") &&
           (!reviewId || q.queryKey[1] === reviewId),
       });
     };
@@ -52,7 +54,12 @@ export function useServerEvents(reviewId?: string) {
         // alone and never touches the patches table — skip the rounds refetch on
         // the hottest path (resolve/reply/edit). The onopen re-sync above still
         // blanket-invalidates ["review-diff"] after a reconnect.
-        if (ev.type === "review-updated") invalidate(["review-diff", ev.reviewId]);
+        if (ev.type === "review-updated") {
+          invalidate(["review-diff", ev.reviewId]);
+          // Membership edits (`r3 files add/rm`) ride review-updated, and the
+          // reserve data is per member file.
+          invalidate(["review-files", ev.reviewId]);
+        }
       } else if (ev.type === "watchers-changed") {
         invalidate(["watchers", ev.reviewId]);
         // The list carries a live `watching` flag and ranks watched reviews to
@@ -83,6 +90,13 @@ export function useServerEvents(reviewId?: string) {
         // Live to=WORKING diffs must refresh; pinned snapshot pairs do not.
         qc.invalidateQueries({
           predicate: (q) => q.queryKey[0] === "snapshot-diff" && q.queryKey[3] === "WORKING",
+        });
+        // A changed file has a new line count and a new sha, and the deferred
+        // cards below it reserve their height off both. Not narrowed by path:
+        // this is ONE small response for the whole review, so refetching it is
+        // cheaper than deciding whether to.
+        qc.invalidateQueries({
+          predicate: (q) => q.queryKey[0] === "review-files" && q.queryKey[2] === "WORKING",
         });
       }
     };

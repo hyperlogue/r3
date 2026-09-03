@@ -453,6 +453,41 @@ export interface ReviewDiffResponse {
   rounds: PatchDiff[];
 }
 
+// A files review's per-file measurements (GET /api/reviews/:id/files): what a
+// client needs to RESERVE layout for a file whose content it has not fetched.
+//
+// A large files review mounts only the cards near the viewport
+// (web/src/progressive.tsx), so a shell that doesn't know how tall its file is
+// has to guess — and every guess replaced by a real body changes the scroll
+// pane's height, which is the scrollbar. `lines` + `kind` turn that guess into
+// the same arithmetic the row virtualizer already does; `sha` is the other half
+// of the viewed key (`f:<path>@<sha>`), so a client can tell a card will mount
+// FOLDED — viewed, or past its auto-fold threshold — before the blob lands,
+// which is the difference between reserving 2rem and reserving 5000 rows.
+//
+// Deliberately NOT part of the review detail: detail is refetched on every
+// feedback write, and this costs a read per member file.
+export interface ReviewFileStat {
+  path: string;
+  // Source line count, on RenderedFile.lines.length's convention (a single
+  // trailing newline is the EOF marker, not an empty final line) so a reserve
+  // and the rendered rows agree. Null when there is nothing to render at all:
+  // the file is gone from the source, binary, or over the render cap.
+  lines: number | null;
+  // Which body the card will mount — a rendered `.md` has no row grid, so a
+  // client must estimate its height differently from a code file's rows.
+  kind: "code" | "markdown";
+  sha: string | null;
+}
+
+// GET /api/reviews/:id/files?to=<seq|WORKING> — membership plus the above, at
+// the same snapshot ref the browse view is showing. `to` echoes what was
+// resolved, mirroring SnapshotDiffResponse.
+export interface ReviewFilesResponse {
+  to: SnapshotRef;
+  files: ReviewFileStat[];
+}
+
 // A files review's derived diff between two snapshot refs (GET
 // /api/reviews/:id/snapshot-diff). `from` is a snapshot seq; `to` is a snapshot
 // seq or WORKING (live). Only changed files are included. The feedback that lands

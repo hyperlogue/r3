@@ -7,11 +7,13 @@ import type {
   DiffLine,
   RenderedFile,
   Review,
+  ReviewFileStat,
   SnapshotMeta,
 } from "../shared/types.ts";
 import * as db from "./db.ts";
 import { blobSha, readContentDetailed } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath, resolveTheme } from "./highlight.ts";
+import { isMarkdown } from "./mdproject.ts";
 import { renderContent } from "./render.ts";
 import type { Repo } from "./repo.ts";
 import { isScratchReview, scratchFiles, scratchSafePath } from "./scratch.ts";
@@ -309,4 +311,54 @@ export async function renderSnapshotBlob(
   if (side.content == null) return null;
   const label = to === "WORKING" ? sourceRef(review) : `snapshot:${to}`;
   return renderContent(path, side.content, label, theme);
+}
+
+// Every member file's line count / kind / sha at one snapshot ref — the reserve
+// data a client needs for cards it hasn't fetched (see ReviewFileStat). No
+// highlighting and no markdown parse: this reads the same content the blob route
+// would, counts its lines, and hashes it.
+//
+// A read per member file, which is why this is its own route and not a field on
+// the review detail (refetched on every feedback write). It IS re-read on a
+// file-change invalidation — the counts are the point, and a stale one is a
+// wrong reserve — so the work stays proportional to a save, not to a render.
+export async function reviewFileStats(
+  reviewId: string,
+  to: number | "WORKING",
+  repo: Repo | null,
+  review: Review,
+): Promise<ReviewFileStat[]> {
+  const paths = to === "WORKING" ? currentFiles(review) : db.snapshotFilePaths(reviewId, to);
+  const out: ReviewFileStat[] = [];
+  for (const path of paths) {
+    const kind = isMarkdown(path) ? "markdown" : "code";
+    const side = await fileAt(reviewId, to, path, repo, review);
+    // Absent, binary, or over the cap: there is no body to reserve for. The card
+    // renders its own one-line chrome, which the placeholder's own header height
+    // already covers — so `null` means "don't reserve", not "unknown".
+    if (side.content == null) {
+      out.push({ path, lines: null, kind, sha: null });
+      continue;
+    }
+    out.push({
+      path,
+      lines: countRenderedLines(side.content),
+      kind,
+      // A stored snapshot row carries its sha; WORKING is hashed here, the same
+      // way renderContent does it, so the viewed key a client builds from this
+      // matches the one the loaded card builds.
+      sha: side.sha ?? (await blobSha(side.content)),
+    });
+  }
+  return out;
+}
+
+// renderContent's line count, without materializing the lines: a single trailing
+// newline is the EOF marker rather than an empty final line, and empty content
+// still counts as its one (empty) line. Kept in lockstep with render.ts — a
+// reserve computed off a different convention is off by a row per file.
+function countRenderedLines(content: string): number {
+  let lines = 1;
+  for (let i = content.indexOf("\n"); i !== -1; i = content.indexOf("\n", i + 1)) lines++;
+  return content.length > 0 && content.endsWith("\n") ? lines - 1 : lines;
 }

@@ -13,7 +13,7 @@ import { DiffView, type FetchContext, RoundSelect, RoundSummary } from "../compo
 import { FeedbackPanel, RAIL_WIDTH } from "../components/FeedbackPanel.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
-import { FileView } from "../components/FileView.tsx";
+import { BIG_FILE_LINES, FileView } from "../components/FileView.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos, quoteBlock } from "../components/Message.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
@@ -50,6 +50,7 @@ import {
   PROGRESSIVE_ROWS_MIN,
   ProgressiveFile,
   ProgressiveFileProvider,
+  type ReserveSpec,
   useProgressiveFileController,
 } from "../progressive.tsx";
 import { indexDiff, type Placement, placeInDiff } from "../resolveFeedback.ts";
@@ -698,6 +699,52 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     }
     return s;
   }, [isDiff, effectiveRoundSeq, liveFilesView, fileList, shas, isViewed]);
+
+  // Per-file line counts for the files view's deferred cards, so a shell that
+  // hasn't fetched its file still reserves the right height — which is what
+  // makes the pane's own height, and so the scrollbar, arithmetic instead of a
+  // guess that grows as bodies land. A diff round needs none of this: its rows
+  // came with the payload (DiffView computes its reserves inline).
+  //
+  // Only fetched where bodies actually defer — with everything mounted eagerly
+  // the pane's height is already the real thing. Keyed to the snapshot ref on
+  // screen; the SSE hook refreshes it when content or membership moves.
+  const wantFileStats = progressiveBodies && !isDiff && !diffMode;
+  const { data: fileStats } = useQuery({
+    queryKey: ["review-files", reviewId, toSnap],
+    queryFn: () => api.reviewFiles(reviewId, toSnap),
+    enabled: wantFileStats,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const fileReserves = useMemo(() => {
+    const m = new Map<string, ReserveSpec>();
+    for (const st of fileStats?.files ?? []) {
+      // No body to render (gone from the source, binary, over the cap): the card
+      // is its path row plus a one-line notice.
+      if (st.lines == null) {
+        m.set(st.path, { folded: false, kind: "chrome" });
+        continue;
+      }
+      // Mirror FileCard's initial `open` exactly. This is the biggest single
+      // error available here — the files that auto-fold are precisely the ones
+      // whose row count is enormous, so mispredicting the fold reserves tens of
+      // thousands of pixels for 2rem of header, or the reverse.
+      const viewed = liveFilesView && st.sha != null && isViewed(fileViewedKey(st.path, st.sha));
+      const folded =
+        unscopedFold === "unfold"
+          ? false
+          : unscopedFold === "fold" || viewed || st.lines > BIG_FILE_LINES;
+      m.set(
+        st.path,
+        folded
+          ? { folded: true }
+          : st.kind === "markdown"
+            ? { folded: false, kind: "markdown", lines: st.lines }
+            : { folded: false, kind: "code", rows: st.lines },
+      );
+    }
+    return m;
+  }, [fileStats, liveFilesView, isViewed, unscopedFold]);
 
   // Which way a *directionless* fold-all goes next — the `Z` key, which has one
   // key to the toolbar's two buttons. It lives here, next to foldAll, rather than
@@ -1494,7 +1541,12 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
                   !diffMode &&
                   filesSrc &&
                   browseFiles.map((f) => (
-                    <ProgressiveFile key={f} path={f} version={progressiveVersion}>
+                    <ProgressiveFile
+                      key={f}
+                      path={f}
+                      version={progressiveVersion}
+                      reserve={fileReserves.get(f) ?? null}
+                    >
                       {({ active, onHydrated, onOpenChange }) => (
                         <FileView
                           path={f}

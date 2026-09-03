@@ -25,6 +25,8 @@ import {
   type Review,
   type ReviewDetail,
   type ReviewDiffResponse,
+  type ReviewFileStat,
+  type ReviewFilesResponse,
   type SnapshotDiffResponse,
   type SnapshotMeta,
   type SnapshotRef,
@@ -210,6 +212,35 @@ export function snapshots(id: string): SnapshotMeta[] {
 function contentAt(reviewId: string, to: SnapshotRef, path: string): string | undefined {
   if (to === "WORKING") return getState().fileContents[reviewId]?.[path];
   return s().snapshots.find((sn) => sn.review_id === reviewId && sn.seq === to)?.contents[path];
+}
+
+// Reserve data for the deferred file cards (mirrors server/snapshots.ts's
+// reviewFileStats): line count, body kind and sha per member file, so a shell
+// reserves the right height before its content renders.
+export function reviewFiles(id: string, to: SnapshotRef): ReviewFilesResponse {
+  const rv = require404(
+    s().reviews.find((r) => r.id === id),
+    id,
+  );
+  const paths =
+    to === "WORKING"
+      ? "files" in rv.source
+        ? rv.source.files
+        : []
+      : Object.keys(
+          s().snapshots.find((sn) => sn.review_id === id && sn.seq === to)?.contents ?? {},
+        );
+  const files: ReviewFileStat[] = paths.map((path) => {
+    const content = contentAt(id, to, path);
+    const kind = /\.(md|markdown|mdx)$/i.test(path) ? ("markdown" as const) : ("code" as const);
+    if (content == null) return { path, lines: null, kind, sha: null };
+    // plainRenderFile's line convention: a single trailing newline is the EOF
+    // marker, not an empty final line.
+    const srcLines = content.split("\n");
+    if (content.length > 0 && content.endsWith("\n")) srcLines.pop();
+    return { path, lines: srcLines.length, kind, sha: contentSha(content) };
+  });
+  return { to, files };
 }
 
 export function snapshotDiff(id: string, from: number, to: SnapshotRef): SnapshotDiffResponse {
