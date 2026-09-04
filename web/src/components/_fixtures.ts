@@ -80,8 +80,6 @@ export const diffFixture: DiffResult = {
   ],
 };
 
-export const emptyDiffFixture: DiffResult = { base: "main", head: "main", files: [] };
-
 // ---- stored diff rounds (DiffView) ----
 
 const FIX_ISO = "2026-06-30T12:00:00.000Z";

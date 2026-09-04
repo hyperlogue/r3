@@ -1,6 +1,6 @@
 import { type MouseEvent as ReactMouseEvent, useState } from "react";
 import type { SnapshotMeta, SnapshotRef } from "../types.ts";
-import { cn, useEscape } from "../ui.tsx";
+import { ChevronDown, cn, useEscape } from "../ui.tsx";
 
 // The version picker for a snapshotted files review, docked in the
 // pane toolbar's right slot the way RoundSelect is for a diff review. One dropdown
@@ -23,21 +23,12 @@ const vSub = (v: Version) => (v.kind === "current" ? "live" : v.label);
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <ChevronDown
       className={cn(
         "ml-0.5 size-3.5 shrink-0 text-neutral-400 transition-transform",
         open && "rotate-180",
       )}
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
+    />
   );
 }
 

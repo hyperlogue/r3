@@ -183,6 +183,45 @@ export function useHtml(html: string): { __html: string } {
   return useMemo(() => ({ __html: html }), [html]);
 }
 
+// The stroked-glyph wrapper every Lucide-style icon here shares: a 24 viewBox,
+// currentColor strokes with round caps/joins, and no fill. Only the paths and the
+// sizing/rotation classes differ per icon, so they stay at the call site and this
+// owns the eight attributes that never do.
+export function StrokeIcon({
+  className,
+  strokeWidth = 2,
+  children,
+}: {
+  className?: string;
+  strokeWidth?: number | string;
+  children: ReactNode;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {children}
+    </svg>
+  );
+}
+
+// The disclosure caret every popover trigger wears (round select, snapshot
+// select, the jump-to-file sheet). Callers add their own size/rotation classes.
+export function ChevronDown({ className }: { className?: string }) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </StrokeIcon>
+  );
+}
+
 // --- Fold affordances -------------------------------------------------------
 // One icon language for every fold in the app. A *horizontal* fold (a section
 // collapsing upward: summary, file block, directory subtree, earlier replies)
@@ -222,19 +261,13 @@ export function FoldChevrons({
   className?: string;
 }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
+    <StrokeIcon
       strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       className={cn("shrink-0", dir === "left" && "rotate-180", className)}
     >
       <path d="m6 17 5-5-5-5" />
       <path d="m13 17 5-5-5-5" />
-    </svg>
+    </StrokeIcon>
   );
 }
 
@@ -244,21 +277,12 @@ export function FoldChevrons({
 // only picks up the danger hue on hover.
 export function TrashIcon({ className = "size-4" }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("shrink-0", className)}
-    >
+    <StrokeIcon className={cn("shrink-0", className)}>
       <path d="M3 6h18" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
-    </svg>
+    </StrokeIcon>
   );
 }
 
@@ -267,20 +291,11 @@ export function TrashIcon({ className = "size-4" }: { className?: string }) {
 // feedback" button, so the two read as the same gesture at different scopes.
 export function CommentPlusIcon({ className = "size-4" }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("shrink-0", className)}
-    >
+    <StrokeIcon className={cn("shrink-0", className)}>
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       <path d="M12 7v6" />
       <path d="M9 10h6" />
-    </svg>
+    </StrokeIcon>
   );
 }
 

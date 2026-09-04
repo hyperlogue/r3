@@ -1,25 +1,16 @@
 import type { ReactNode } from "react";
 import { setDiffLayout, useDiffLayout } from "../settings.ts";
-import { cn } from "../ui.tsx";
+import { cn, StrokeIcon } from "../ui.tsx";
 
 // Lucide-style stroked glyphs for the pane toolbar (24 viewBox, like
 // FoldChevrons in ui.tsx). `d` takes several paths for the two-chevron pairs.
 function ToolbarIcon({ d }: { d: string[] }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4"
-    >
+    <StrokeIcon className="size-4">
       {d.map((p) => (
         <path key={p} d={p} />
       ))}
-    </svg>
+    </StrokeIcon>
   );
 }
 

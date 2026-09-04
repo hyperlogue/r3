@@ -2,7 +2,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useKeyBindings } from "../keys.ts";
-import { cn, useEscape } from "../ui.tsx";
+import { ChevronDown, cn, StrokeIcon, useEscape } from "../ui.tsx";
 
 // Jump-to-file picker. Filter input is pinned to the bottom, outside the
 // scrollable list (thumb + keyboard on a phone). Desktop: popover; below md:
@@ -222,18 +222,7 @@ export function JumpToFileList({
             onClick={onShrink}
             className="hidden shrink-0 items-center justify-center self-stretch px-3 text-neutral-400 max-md:flex"
           >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-4"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <ChevronDown className="size-4" />
           </button>
         )}
       </div>
@@ -296,22 +285,13 @@ export function JumpToFile({
         onClick={() => (shown && visible ? closePicker() : openPicker())}
         className={btnClassName}
       >
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="size-4"
-        >
+        <StrokeIcon className="size-4">
           {/* Lucide "file-search": document sheet + a magnifier in its body. */}
           <path d="M14 2v4a2 2 0 0 0 2 2h4" />
           <path d="M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3" />
           <path d="m9 18-1.5-1.5" />
           <circle cx="5" cy="14" r="3" />
-        </svg>
+        </StrokeIcon>
       </button>
       {shown && (
         <>

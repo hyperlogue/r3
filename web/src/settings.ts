@@ -48,7 +48,6 @@ export type DiffLayout = "unified" | "split";
 const diffLayout = persistedStore<DiffLayout>("r3-diff-layout", {
   load: (raw) => (raw === "split" ? "split" : "unified"),
 });
-export const getDiffLayout = diffLayout.get;
 export const setDiffLayout = diffLayout.set;
 export const useDiffLayout = diffLayout.use;
 

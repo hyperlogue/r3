@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../ui.tsx";
+import { cn, StrokeIcon } from "../ui.tsx";
 
 // The phone-tier review chrome (see the mobile-tier skill): a persistent bottom
 // bar summarizing the feedback state, and a bottom sheet hosting the one
@@ -42,21 +42,14 @@ export function MobileReviewChrome({
           className="flex min-h-11 w-full items-center gap-2 px-3 text-sm font-semibold"
         >
           {/* Chevron-up: the affordance that this bar expands upward. */}
-          <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <StrokeIcon
             className={cn(
               "size-4 text-neutral-400 transition-transform duration-200",
               sheet !== "closed" && "rotate-180",
             )}
           >
             <path d="m6 15 6-6 6 6" />
-          </svg>
+          </StrokeIcon>
           Feedback
           <span className="font-normal text-neutral-500">· {openCount} open</span>
         </button>

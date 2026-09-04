@@ -84,14 +84,8 @@ export async function reanchorReview(repo: Repo, review: Review): Promise<boolea
       doc = content == null ? null : projectionsFor(fb.file, content);
       docs.set(fb.file, doc);
     }
-    if (doc == null) {
-      if (fb.anchor !== "outdated") {
-        db.updateFeedback(fb.id, { anchor: "outdated" });
-        changed = true;
-      }
-      continue;
-    }
-    const match = findQuoteAcross(doc, fb.quote, fb.line_start, fb.line_end);
+    // File gone, or the quote no longer findable in it — same outcome either way.
+    const match = doc && findQuoteAcross(doc, fb.quote, fb.line_start, fb.line_end);
     if (!match) {
       if (fb.anchor !== "outdated") {
         db.updateFeedback(fb.id, { anchor: "outdated" });
@@ -300,10 +294,12 @@ export function addPatchToReview(
 // renders them inert ("diff N removed") rather than cascading them away.
 export function removePatch(reviewId: string, seq: number): boolean {
   const ok = db.deletePatch(reviewId, seq);
-  // Removing the highest round can free its seq for reuse with a different body,
-  // which is the only way a memoized round render could go stale.
-  if (ok) forgetRenderedRounds(reviewId);
-  if (ok) broadcast({ type: "review-updated", reviewId });
+  if (ok) {
+    // Removing the highest round can free its seq for reuse with a different body,
+    // which is the only way a memoized round render could go stale.
+    forgetRenderedRounds(reviewId);
+    broadcast({ type: "review-updated", reviewId });
+  }
   return ok;
 }
 

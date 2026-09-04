@@ -21,7 +21,7 @@ import { ProgressiveFile, type ReserveSpec } from "../progressive.tsx";
 import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import type { DiffLayout } from "../settings.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
-import { cn, Pill, useEscape, useHtml } from "../ui.tsx";
+import { ChevronDown, cn, Pill, useEscape, useHtml } from "../ui.tsx";
 import { diffViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
@@ -886,21 +886,12 @@ export function RoundSelect({
         <RoundBadge seq={active.seq} />
         {active.label && <span className="truncate text-neutral-500">{active.label}</span>}
         {active.seq === latestSeq && <LatestBadge />}
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <ChevronDown
           className={cn(
             "ml-0.5 size-3.5 shrink-0 text-neutral-400 transition-transform max-md:ml-auto",
             open && "rotate-180",
           )}
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        />
       </button>
 
       {/* click-catcher: closes the dropdown when clicking elsewhere. Only mounted

@@ -520,6 +520,24 @@ function parseArgs(argv: string[]): Args {
   return out;
 }
 
+// `--line <a>` or `--line <a-b>` -> an integer range with 1 ≤ start ≤ end. The
+// three commands that take a line anchor (`reply --diff`, `feedback add`,
+// `reanchor`) validate it identically; only the name in the error differs, so it
+// is a parameter rather than three copies of the same four-clause guard.
+function parseLineRange(raw: string, cmd: string): { lineStart: number; lineEnd: number } {
+  const [a, b] = raw.split("-");
+  const lineStart = Number(a);
+  const lineEnd = Number(b ?? a);
+  if (
+    !Number.isInteger(lineStart) ||
+    lineStart < 1 ||
+    !Number.isInteger(lineEnd) ||
+    lineEnd < lineStart
+  )
+    fail(`${cmd} --line expects <a-b> with integer line numbers a ≤ b (≥ 1)`);
+  return { lineStart, lineEnd };
+}
+
 function metaObject(pairs: string[] | undefined): Record<string, string> {
   const m: Record<string, string> = {};
   for (const p of pairs ?? []) {
@@ -1092,18 +1110,9 @@ async function cmdReply(args: Args) {
     body.patchSeq = seq;
     if (args.flags.file) body.file = toRepoRelative(args.flags.file as string);
     if (args.flags.line) {
-      const [a, b] = (args.flags.line as string).split("-");
-      const lineStart = Number(a);
-      const lineEnd = Number(b ?? a);
-      if (
-        !Number.isInteger(lineStart) ||
-        lineStart < 1 ||
-        !Number.isInteger(lineEnd) ||
-        lineEnd < lineStart
-      )
-        fail("reply --line expects <a-b> with integer line numbers a ≤ b (≥ 1)");
-      body.lineStart = lineStart;
-      body.lineEnd = lineEnd;
+      const range = parseLineRange(args.flags.line as string, "reply");
+      body.lineStart = range.lineStart;
+      body.lineEnd = range.lineEnd;
     }
     if (args.flags.quote) body.quote = args.flags.quote;
   }
@@ -1195,18 +1204,9 @@ async function cmdFeedback(args: Args) {
   if ("line" in args.flags) {
     if (!args.flags.line) fail("feedback add --line needs a value");
     if (!body.file) fail("feedback add --line needs --file");
-    const [a, b] = (args.flags.line as string).split("-");
-    const lineStart = Number(a);
-    const lineEnd = Number(b ?? a);
-    if (
-      !Number.isInteger(lineStart) ||
-      lineStart < 1 ||
-      !Number.isInteger(lineEnd) ||
-      lineEnd < lineStart
-    )
-      fail("feedback add --line expects <a-b> with integer line numbers a ≤ b (≥ 1)");
-    body.lineStart = lineStart;
-    body.lineEnd = lineEnd;
+    const range = parseLineRange(args.flags.line as string, "feedback add");
+    body.lineStart = range.lineStart;
+    body.lineEnd = range.lineEnd;
   }
   if ("quote" in args.flags) {
     if (!args.flags.quote) fail("feedback add --quote needs a value");
@@ -1370,16 +1370,7 @@ async function cmdReanchor(args: Args) {
   let lineStart: number | null = null;
   let lineEnd: number | null = null;
   if (args.flags.line) {
-    const [a, b] = (args.flags.line as string).split("-");
-    lineStart = Number(a);
-    lineEnd = Number(b ?? a);
-    if (
-      !Number.isInteger(lineStart) ||
-      lineStart < 1 ||
-      !Number.isInteger(lineEnd) ||
-      lineEnd < lineStart
-    )
-      fail("reanchor --line expects <a-b> with integer line numbers a ≤ b (≥ 1)");
+    ({ lineStart, lineEnd } = parseLineRange(args.flags.line as string, "reanchor"));
   } else if (!summaryMode) {
     fail("reanchor needs --line <a-b> (or drop --file to re-anchor a review summary by --quote)");
   }

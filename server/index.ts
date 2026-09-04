@@ -540,7 +540,7 @@ app.post("/api/reviews", async (c) => {
       summary: body.summary ?? null,
       created_by: body.created_by ?? "human",
     });
-    if (reviews.isRejected(review)) return c.text(review.error, 400);
+    if (reviews.isRejected(review)) return c.text(review.error, review.status ?? 400);
     broadcast({ type: "reviews-changed" });
     return c.json({ id: review.id, url: `${ORIGIN}/${review.id}`, review });
   }
@@ -719,7 +719,7 @@ app.post("/api/reviews/:id/patches", async (c) => {
     body.summary ?? null,
   );
   if (!res) return c.text("not found", 404);
-  if (reviews.isRejected(res)) return c.text(res.error, 400);
+  if (reviews.isRejected(res)) return c.text(res.error, res.status ?? 400);
   return c.json(res);
 });
 
@@ -768,7 +768,7 @@ app.post("/api/reviews/:id/files", async (c) => {
     remove: Array.isArray(body.remove) ? body.remove.map(String) : undefined,
   });
   if (!res) return c.text("not found", 404);
-  if (reviews.isRejected(res)) return c.text(res.error, 400);
+  if (reviews.isRejected(res)) return c.text(res.error, res.status ?? 400);
   return c.json(res);
 });
 
@@ -787,7 +787,7 @@ app.post("/api/reviews/:id/snapshots", async (c) => {
   const body = (await c.req.json().catch(() => null)) as CreateSnapshotBody | null;
   const res = await reviews.snapshotReview(c.req.param("id"), body?.label ?? null);
   if (!res) return c.text("not found", 404);
-  if (reviews.isRejected(res)) return c.text(res.error, 400);
+  if (reviews.isRejected(res)) return c.text(res.error, res.status ?? 400);
   return c.json(res);
 });
 
@@ -1029,7 +1029,7 @@ app.post("/api/reviews/:id/feedback", async (c) => {
   if (!body?.body) return c.text("missing body", 400);
   const fb = await reviews.addFeedback(c.req.param("id"), body);
   if (!fb) return c.text("review not found", 404);
-  if (reviews.isRejected(fb)) return c.text(fb.error, 400);
+  if (reviews.isRejected(fb)) return c.text(fb.error, fb.status ?? 400);
   return c.json(fb);
 });
 
@@ -1055,7 +1055,7 @@ app.patch("/api/feedback/:id/anchor", async (c) => {
     quote: body.quote ?? null,
   });
   if (!fb) return c.text("not found", 404);
-  if (reviews.isRejected(fb)) return c.text(fb.error, 400);
+  if (reviews.isRejected(fb)) return c.text(fb.error, fb.status ?? 400);
   return c.json(fb);
 });
 
@@ -1089,7 +1089,7 @@ app.post("/api/feedback/:id/replies", async (c) => {
   if (!body?.body) return c.text("missing body", 400);
   const res = reviews.addReply(c.req.param("id"), body);
   if (!res) return c.text("not found", 404);
-  if (reviews.isRejected(res)) return c.text(res.error, 400);
+  if (reviews.isRejected(res)) return c.text(res.error, res.status ?? 400);
   return c.json(res);
 });
 

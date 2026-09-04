@@ -7,7 +7,7 @@ import {
   type ReviewStatus,
   unsentHumanReplies,
 } from "../types.ts";
-import { Button, CopyMeta, cn, useEscape } from "../ui.tsx";
+import { Button, CopyMeta, cn, StrokeIcon, useEscape } from "../ui.tsx";
 
 // The review title, editable in place: the text (falling back to the source
 // label when untitled) with a hover pencil; click it or double-click the title
@@ -97,19 +97,10 @@ function EditableTitle({
         title="Rename review"
         className="shrink-0 text-neutral-400 opacity-0 transition-opacity hover:text-neutral-600 group-hover:opacity-100 pointer-coarse:opacity-100 dark:hover:text-neutral-300"
       >
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="size-3.5"
-        >
+        <StrokeIcon className="size-3.5">
           <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
           <path d="m15 5 4 4" />
-        </svg>
+        </StrokeIcon>
       </button>
     </div>
   );
