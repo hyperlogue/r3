@@ -235,7 +235,12 @@ export const FileBrowser = memo(function FileBrowser({
               </span>
             )}
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+          {/* contain:paint states what the scroll box already makes true, and makes
+              this tree its own paint unit. It matters because the tree is NOT
+              virtualized: a 208-file review mounts ~1500 nodes here, and without
+              containment every one of them was re-recorded on each keystroke typed
+              into the feedback composer (measured ~4ms of a 10ms keystroke). */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2 [contain:paint]">
             <TreeDir
               node={tree}
               prefix=""

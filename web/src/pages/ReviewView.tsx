@@ -1009,10 +1009,22 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
         <div className="flex min-w-0 flex-1 flex-col">
           {!isMobile && reviewSummaryEl}
           {!isMobile && paneToolbarEl}
-          {/* shiki-surface: syntax theme's editor background, full-bleed. */}
+          {/* shiki-surface: syntax theme's editor background, full-bleed.
+
+              contain:paint states what overflow-y-auto already makes true — nothing
+              in here paints outside this box — and buys the pane its own paint unit,
+              so a keystroke in the composer stops re-recording every mounted file
+              block (measured -29% of the per-keystroke cost on a 208-file review;
+              see the containment note in AGENTS.md). Desktop only: below md the pane
+              also holds the sticky toolbar, whose dropdowns close via a
+              `fixed inset-0` catcher, and paint containment would make this box that
+              catcher's containing block — clipping it to the pane. */}
           <div
             ref={scopeRef}
-            className="shiki-surface min-w-0 flex-1 overflow-y-auto"
+            className={cn(
+              "shiki-surface min-w-0 flex-1 overflow-y-auto",
+              !isMobile && "[contain:paint]",
+            )}
             style={
               stickyToolbarH > 0
                 ? ({ ...surfaceVars, "--pane-sticky-h": `${stickyToolbarH}px` } as CSSProperties)

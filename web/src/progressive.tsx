@@ -397,7 +397,13 @@ export function ProgressiveFile({
 
   let style: CSSProperties | undefined;
   if (enabled && !active) {
-    style = { height: open ? bodyHeight : FOLDED_HEIGHT };
+    // `content` (layout + paint + style), never `strict`: strict adds SIZE
+    // containment, which would make this box size as if it were empty and throw
+    // away the reserve above — the whole point of which is holding the scroll
+    // height still. What the containment buys is that an unmounted-body shell
+    // stops being walked when something elsewhere on the page repaints; a
+    // keystroke in the feedback composer was re-recording all 200 of them.
+    style = { height: open ? bodyHeight : FOLDED_HEIGHT, contain: "content" };
   } else if (enabled && !hydrated) {
     style = { minHeight: open ? bodyHeight : FOLDED_HEIGHT };
   }

@@ -375,9 +375,11 @@ shape).
 everything conspired against it: a portalled `position:fixed` composer paints into
 the **root** layer, so each keystroke repainted every highlighted code span behind
 it (~9 ms of a measured 22 ms keystroke) — hence `will-change-transform` on the
-floating composer, which is the whole fix; the docked one paints inside the dock
-column and needs none. Above that, three rules keep a keystroke from re-rendering
-the list: **`FeedbackCard` is `memo`'d** and gets only props that survive a render
+floating composer, which is what that box needed; the docked one paints inside the
+dock column and gains nothing from promotion (measured: 10.0 vs 10.3 ms with it) —
+what the docked composer pays for is the page-wide re-record below. Above that,
+three rules keep a keystroke from re-rendering the list: **`FeedbackCard` is
+`memo`'d** and gets only props that survive a render
 — primitives, the row TanStack structurally shares, and per-card callbacks that
 take the card's id/row as an **argument** instead of closing over it, so one
 function serves the whole list (a fresh arrow per card is what defeats `memo`);
@@ -389,6 +391,29 @@ reading only the empty/non-empty flip (`useHasGeneralText`, `useHasAnchoredText`
 itself (`field-sizing: content`) it does, with the rows × line-height math written
 once as min/max-height; the JS fit — `height:auto` then `scrollHeight`, a forced
 synchronous layout per keystroke — is the fallback, not the default.
+
+**What a keystroke actually costs is the rest of the page, so the page is
+contained.** r3's own typing path is clean, and measurably: a keystroke produces
+**one DOM mutation** — the textarea's own text node — plus 0.6 ms of JS and no
+`localStorage` write until the 400 ms debounce settles, and React 19 delegates, so
+the textarea carries one listener of its own. The proof it isn't ours is that a
+plain `<textarea>` injected into the same page costs the *same* per keystroke as
+the composer. The cost is Blink's: a damaged frame re-records the display list
+over every mounted box, so it scales with what else is on screen rather than with
+what changed — 9–11 ms/keystroke on a 208-file review against 2.1 ms on a bare
+page, of which script/layout/style are ~1.2 ms and the rest is Paint · PrePaint ·
+Layerize · Commit. The lever is **paint containment**, on the boxes that already
+clip and the shells that already reserve their height: `contain:paint` on the
+content pane and on FileBrowser's scroller, `contain:content` on an inactive
+`ProgressiveFile` shell — `content`, never `strict`, because size containment
+would discard the reserve that holds the scroll height still. Measured 9.75 →
+5.26 ms/keystroke, scrolling unchanged, `scrollHeight` identical. **The file
+browser is the largest single share (~4 ms)** because its tree is *not*
+virtualized: 208 files mount ~1500 nodes that were re-recorded on every
+keystroke — containment is the cheap half of that fix, windowing the tree is the
+other. On the pane the containment is **desktop-only**: below `md` the sticky
+toolbar rides *inside* the pane, and its dropdowns close through a `fixed inset-0`
+catcher that paint containment would re-anchor to the pane and clip.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a selection through the same
