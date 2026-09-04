@@ -8,6 +8,12 @@ import type {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { copyText } from "./clipboard.ts";
 
+// Custom auto-animate plugins BYPASS its built-in reduced-motion guard (index.mjs
+// gates that on `!isPlugin`), so every plugin below checks this and collapses its
+// duration to 0. (CSS-driven motion — Collapse, r3-* keyframes — is guarded in CSS.)
+export const prefersReduced = () =>
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export function cn(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
 }

@@ -123,7 +123,12 @@ server/          Hono daemon + bun:sqlite global store
 cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the binary
 web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx
+                 (the review screen — composes the seams below; owns only what is
+                 left over: the queries, the fold broadcast, the regions, the
+                 review-level mutations and the layout)
   src/components/ DiffView, FileView, FileCard, FileBrowser, FeedbackPanel,
+                 FeedbackCard (one feedback item: its anchor header, thread,
+                 edit/reply mutations and claim badge — the unit the panel lists),
                  ReviewHeader (status pill · editable title · copyable meta ·
                  Approve/⋯ actions), PaneToolbar (the file-nav strip above the
                  pane), ReviewSwitcher (navbar "Reviews" breadcrumb), SettingsPopup,
@@ -142,6 +147,20 @@ web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/highlights.ts imperative feedback-highlight hooks (active-line ring, summary
                  quote, region wash) + markdown click refinement
   src/pane.ts    content-pane helpers: retrying row jump, composer focus, crossfade
+  src/usePaneJumps.ts  one nonce-gated unfold/hydrate + retrying scroll behind every
+                 jump (locate a feedback, a reply pin, an @path ref, a doc link,
+                 a file pick), so a newer jump invalidates every older frame
+  src/reviewVersion.ts + useReviewVersion.ts  which version the pane shows — a diff
+                 review's round, or a files review's snapshot from->to range — and
+                 the `<`/`>` moves between them. Pure rules + the hook that holds
+                 the state; everything downstream (the crossfade key, the file
+                 list, the viewed keys, the context fetchers) derives from it
+  src/anchorGesture.ts + useAnchorGesture.ts  the ONE anchor gesture (selection,
+                 gutter drag, summary selection, touch pill) routed through one
+                 decision that never clobbers a note in progress, plus the
+                 transient UI it raises (floating composer, "Quote in note")
+  src/useScrollSpy.ts  which file block the reader is mostly looking at ->
+                 `activePath`, the cursor every per-file shortcut targets
   src/virtual.tsx per-file row virtualization inside the one scroll pane; the
                  mounted window snaps to 48-row blocks and drives virtual-core
                  itself (below), so a scroll doesn't mutate the DOM every frame
@@ -373,7 +392,8 @@ synchronous layout per keystroke — is the fallback, not the default.
 
 **Select-to-feedback is one gesture everywhere** — the file/diff pane, the round
 summary, and the review summary all route a selection through the same
-`applyAnchorGesture` (`ReviewView`): an **empty composer anchors** a note to the
+`anchorGestureFor` (`web/src/anchorGesture.ts`, wired by `useAnchorGesture`): an
+**empty composer anchors** a note to the
 selection; a **composer already holding text** raises a **"Quote in note"** bubble
 instead (never clobbers). A summary selection anchors a `@summary` note by **quote**
 (rendered markdown has no stable source offsets), located later via
@@ -966,7 +986,12 @@ when expiry stops counting; the watch slot is the other
 late cleanup must not free it. A pure client helper can earn one on the same
 terms: `web/src/resolveFeedback.test.ts` pins where a quote lands in a derived
 diff (which side, which lines, across a hunk gap) — a placement nothing
-type-checks and nothing fails loudly on. A server test **must** point `R3_DB` at
+type-checks and nothing fails loudly on. `web/src/reviewVersion.test.ts` and
+`web/src/anchorGesture.test.ts` are the same bargain, which is why each seam is
+split into pure rules plus a hook that wires them: a from/to selection clamped
+back into a snapshot set that shrank under it, a no-wrap `<`/`>` step that drags
+`from` down when `to` crosses it, and the anchor gesture's three-way branch —
+each one wrong in a way the pane simply renders, without an error. A server test **must** point `R3_DB` at
 its own temp store and `await import()` the modules under test, because
 `server/db.ts` opens its singleton at import time; a static import would open
 the real `$XDG_STATE_HOME/r3/r3.sqlite` before the env var lands.

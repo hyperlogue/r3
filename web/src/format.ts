@@ -1,6 +1,15 @@
-// Display formatting shared across the reviews list and the review header.
+// Display formatting shared across the views: review labels/ordering, session
+// ids, and the message a failed mutation shows.
 
 import type { Review } from "./types.ts";
+
+// A mutation's only failure surface: api.ts throws `${method} ${path} → ${status}: ${text}` —
+// keep just the server's message tail, which is written for humans ("no diff 2 in
+// this review (see r3 diff list)").
+export function apiErrorText(e: unknown): string {
+  const msg = e instanceof Error ? e.message : "";
+  return msg.replace(/^\w+ \S+ → \d+: /, "") || "request failed — is the daemon running?";
+}
 
 // Reviews-list ranking: watching/working, then open, approved, abandoned;
 // within a tier, most-recently-updated first.
