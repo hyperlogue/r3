@@ -15,21 +15,13 @@ import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { BIG_FILE_LINES, FileView } from "../components/FileView.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
-import { QuoteBubble, type QuotePos, quoteBlock } from "../components/Message.tsx";
+import { QuoteBubble } from "../components/Message.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ReviewHeader } from "../components/ReviewHeader.tsx";
 import { ReviewSummary } from "../components/ReviewSummary.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { SnapshotSelect } from "../components/SnapshotSelect.tsx";
-import {
-  clearDraft,
-  dropAnchor,
-  getDraft,
-  setDraftAnchor,
-  setDraftText,
-  useDraftAnchor,
-  useHasAnchoredText,
-} from "../drafts.ts";
+import { clearDraft, useDraftAnchor, useHasAnchoredText } from "../drafts.ts";
 import { sourceLabel } from "../format.ts";
 import {
   type Region,
@@ -44,7 +36,7 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
-import { focusComposer, usePaneCrossfade } from "../pane.ts";
+import { usePaneCrossfade } from "../pane.ts";
 import {
   PROGRESSIVE_FILES_MIN,
   PROGRESSIVE_ROWS_MIN,
@@ -54,8 +46,8 @@ import {
   useProgressiveFileController,
 } from "../progressive.tsx";
 import { indexDiff, type Placement, placeInDiff } from "../resolveFeedback.ts";
+import { SNAPSHOT_DIFF_SEQ } from "../reviewVersion.ts";
 import { navigate } from "../router.ts";
-import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 import {
   getFeedbackCollapsed,
   setDiffLayout,
@@ -64,28 +56,16 @@ import {
   useFeedbackCollapsed,
   useSyntaxTheme,
 } from "../settings.ts";
-import type {
-  DiffSide,
-  FeedbackWithReplies,
-  PatchDiff,
-  ReviewDetail,
-  SnapshotRef,
-  UpdateReviewBody,
-} from "../types.ts";
+import type { FeedbackWithReplies, PatchDiff, ReviewDetail, UpdateReviewBody } from "../types.ts";
 import { SUMMARY_FILE } from "../types.ts";
 import { Button, cn, useResizableWidth } from "../ui.tsx";
+import { useAnchorGesture } from "../useAnchorGesture.ts";
 import { useOptimisticPatch } from "../useOptimistic.ts";
 import { usePaneJumps } from "../usePaneJumps.ts";
+import { useReviewVersion } from "../useReviewVersion.ts";
+import { useScrollSpy } from "../useScrollSpy.ts";
 import { diffViewedKey, fileViewedKey, useViewedFiles } from "../viewed.ts";
 import { useVirtualPaneController, VirtualPaneProvider } from "../virtual.tsx";
-
-// Synthetic [data-round] seq for a files-review snapshot-diff. Never sent to the
-// server (files-review feedback has patch_seq null).
-const SNAPSHOT_DIFF_SEQ = 0;
-
-// Scroll-spy hands "current file" to the next block once the one above is down
-// to this share of pane height. Wholly-visible blocks are exempt.
-const ACTIVE_HANDOFF_SHARE = 0.15;
 
 // Mobile: wraps the pane toolbar so it sticks at the pane top (z-20 paints it
 // over FileCard's z-10 header) and reports its live height up — the toolbar
@@ -145,15 +125,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // already-active feedback still re-scrolls.
   const [scrollNonce, setScrollNonce] = useState(0);
   const [activePath, setActivePath] = useState<string | null>(null);
-  // Which diff round (patch) the tab strip has selected, for a multi-round diff
-  // review — null until the human picks one, then `effectiveRoundSeq` resolves
-  // it (falling back to the latest round). Only one round renders at a time, so
-  // this also scopes the file browser + scroll-spy.
-  const [activeRoundSeq, setActiveRoundSeq] = useState<number | null>(null);
-  // Files-review snapshot picker: `fromSnap` null = None (no diff — a
-  // plain view of `toSnap`); `toSnap` "WORKING" = the live content (the default).
-  const [fromSnap, setFromSnap] = useState<number | null>(null);
-  const [toSnap, setToSnap] = useState<SnapshotRef>("WORKING");
   const { isViewed, toggle: toggleViewed } = useViewedFiles(reviewId);
   // Loaded content shas for the live files view, reported up by each FileView, so
   // the file-tree's viewed markers (keyed by path) stay consistent with the cards'
@@ -224,12 +195,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const hasAnchoredText = useHasAnchoredText(reviewId);
   const composing = pending != null && hasAnchoredText;
   const panelCollapsed = !isMobile && collapsePref;
-  // Where the gesture that opened the composer happened, in viewport pixels. Only
-  // the collapsed panel reads it (it floats the composer there instead of docking
-  // it at the bottom of a list that isn't on screen), but it's measured on every
-  // gesture regardless: collapsing mid-compose must not leave the composer with
-  // nowhere to go. Cleared with the anchor.
-  const [composerAt, setComposerAt] = useState<AnchorRect | null>(null);
   // Fold/unfold the dock. Reads the preference non-reactively (as the
   // region-click handler does) so the callback identity survives every render —
   // an inline `!collapsePref` arrow is a new function on each scroll-spy tick,
@@ -287,15 +252,18 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   const watching = (watchersData?.watchers.length ?? 0) > 0;
 
   const syntaxTheme = useSyntaxTheme();
-  const isDiff = detail?.kind === "diff";
   // Round chrome (switcher, latest, prev/next) reads PatchMeta from detail —
-  // already on the review payload, no highlight cost. Seq 0 is the legacy
-  // live-render round when a diff review never stored patches.
-  const patchMetas = detail?.patches ?? [];
-  const effectiveRoundSeq =
-    activeRoundSeq != null && patchMetas.some((r) => r.seq === activeRoundSeq)
-      ? activeRoundSeq
-      : (patchMetas[patchMetas.length - 1]?.seq ?? (isDiff ? 0 : null));
+  // already on the review payload, no highlight cost.
+  const patchMetas = useMemo(() => detail?.patches ?? [], [detail]);
+  // Files-review content snapshots. The from/to picker diffs any two
+  // (or one vs. live); with none captured the picker is hidden and the view is the
+  // classic live files view.
+  const snapshots = useMemo(() => (detail?.kind === "files" ? detail.snapshots : []), [detail]);
+  // Which version of the review the content pane shows — a diff round, or a
+  // snapshot from→to range — and the moves between them (useReviewVersion.ts).
+  // `diffMode` = a `from` snapshot is picked, so the pane renders a derived diff.
+  const version = useReviewVersion({ kind: detail?.kind, rounds: patchMetas, snapshots });
+  const { isDiff, effectiveRoundSeq, diffMode, liveFilesView, fromSnap, toSnap } = version;
   // One highlighted round — the seq on screen. hooks.ts still prefix-invalidates
   // ["review-diff", reviewId], which covers every seq.
   const { data: diff, error: diffError } = useQuery({
@@ -311,19 +279,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   });
   const fetchedRound = diff?.rounds.find((r) => r.seq === effectiveRoundSeq) ?? null;
 
-  // Files-review content snapshots. The from/to picker diffs any two
-  // (or one vs. live); with none captured the picker is hidden and the view is the
-  // classic live files view. `diffMode` = a `from` snapshot is picked.
-  const snapshots = useMemo(() => (detail?.kind === "files" ? detail.snapshots : []), [detail]);
-  const snapKey = snapshots.map((s) => s.seq).join(",");
-  // Reset a from/to selection that no longer resolves — a snapshot removed, or the
-  // review switched under a persisted component — back to None/live.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: snapKey encodes the snapshot set the selection must stay within
-  useEffect(() => {
-    if (fromSnap != null && !snapshots.some((s) => s.seq === fromSnap)) setFromSnap(null);
-    if (toSnap !== "WORKING" && !snapshots.some((s) => s.seq === toSnap)) setToSnap("WORKING");
-  }, [snapKey]);
-  const diffMode = detail?.kind === "files" && fromSnap != null;
   // The phone tier forces unified — two code columns don't fit a phone pane, and
   // the mobile rule is isolate-don't-interleave. Deliberately overridden here, at
   // the one sanctioned mobile mount point, WITHOUT writing the preference: a
@@ -474,16 +429,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   useActiveLineHighlight(scopeRef, activeFbHighlight, scrollNonce, virt.scrollToLine);
   useActiveSummaryHighlight(activeFb, scrollNonce);
 
-  // The version the content pane currently renders: a diff review's active round,
-  // else the files review's snapshot from/to selection (covers plain view, a pinned
-  // snapshot, and a snapshot-diff). Null until detail exists so the initial load
-  // doesn't count as a switch; a files selection always maps to a concrete key.
-  const paneVersionKey = !detail
-    ? null
-    : isDiff
-      ? `d:${effectiveRoundSeq}`
-      : `s:${fromSnap ?? "none"}:${toSnap}`;
-  usePaneCrossfade(scopeRef, paneVersionKey);
+  usePaneCrossfade(scopeRef, version.paneVersionKey);
 
   // Regions any unresolved (non-resolved) feedback anchors to, for a persistent
   // highlight in the file view. Diff reviews are excluded (side-aware rows).
@@ -656,7 +602,7 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // round, a snapshot from/to pair, the plain live view) plus the syntax theme,
   // which re-highlights every one of them. It's the crossfade's key — the two
   // ask the same question — with the review and theme folded in.
-  const progressiveVersion = `${reviewId}:${paneVersionKey ?? ""}:${syntaxTheme}`;
+  const progressiveVersion = `${reviewId}:${version.paneVersionKey ?? ""}:${syntaxTheme}`;
   // Membership is asked once per rendered file (each card's doc links) and again
   // per jump, so the linear scan it used to be walked the whole review each time.
   const fileSet = useMemo(() => new Set(fileList), [fileList]);
@@ -666,19 +612,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
       scopeRef,
       scrollToLine: virt.scrollToLine,
       progressive,
-      setFoldSignal,
-      closeSheetForJump,
-      setActiveFbId,
-      setScrollNonce,
-      setActiveRoundSeq,
-      setActivePath,
-      isDiff,
-      effectiveRoundSeq,
-      snapshots,
-      fromSnap,
-      toSnap,
-      setFromSnap,
-      setToSnap,
+      version,
+      pane: { setFoldSignal, setActivePath, closeSheet: closeSheetForJump },
+      focus: { setActiveFbId, setScrollNonce },
       hasFile,
     });
 
@@ -686,7 +622,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // keys the cards use: a diff review keys on the active
   // round; the live files view keys on each file's reported sha. Snapshot-diff and
   // pinned-snapshot views don't track viewed, so the tree shows none there either.
-  const liveFilesView = !isDiff && !diffMode && toSnap === "WORKING";
   const viewedPaths = useMemo(() => {
     const s = new Set<string>();
     if (isDiff && effectiveRoundSeq != null) {
@@ -798,404 +733,35 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     [isDiff, effectiveRoundSeq, liveFilesView, shas, toggleViewed],
   );
 
-  // The round a whole-file note opens against, matching what each view passes to
-  // its own header button: the active round in a diff review, the synthetic round
-  // in a snapshot-diff, and nothing in a plain files view.
-  const feedbackPatchSeq = isDiff
-    ? (effectiveRoundSeq ?? undefined)
-    : diffMode
-      ? SNAPSHOT_DIFF_SEQ
-      : undefined;
+  // Which file the reader is mostly looking at — the cursor every per-file
+  // shortcut targets, and what the browser/picker mark (useScrollSpy.ts).
+  useScrollSpy({
+    paneRef: scopeRef,
+    setActivePath,
+    suspended: scrollAnimating,
+    ready: !!detail,
+    fileList,
+  });
 
-  // `<` / `>`: step the version on screen. For a diff review that's the round
-  // strip; for a snapshotted files review it's the `to` bound of the from→to
-  // range, over the same oldest→newest→Current order SnapshotSelect lists (so the
-  // keys walk the dropdown top-to-bottom as drawn). Clamped at both ends — no
-  // wrap: stepping past the newest round should stop, not silently restart at the
-  // oldest. Stepping `to` can invert the range, so `from` snaps down with it,
-  // exactly as picking that row in the dropdown would.
-  const stepVersion = useCallback(
-    (dir: 1 | -1) => {
-      if (isDiff) {
-        if (patchMetas.length === 0) return;
-        const at = patchMetas.findIndex((r) => r.seq === effectiveRoundSeq);
-        const next =
-          patchMetas[Math.min(patchMetas.length - 1, Math.max(0, (at < 0 ? 0 : at) + dir))];
-        if (next) setActiveRoundSeq(next.seq);
-        return;
-      }
-      if (snapshots.length === 0) return;
-      const order: SnapshotRef[] = [
-        ...[...snapshots].sort((a, b) => a.seq - b.seq).map((s) => s.seq),
-        "WORKING",
-      ];
-      const at = order.indexOf(toSnap);
-      const pos = Math.min(order.length - 1, Math.max(0, (at < 0 ? order.length - 1 : at) + dir));
-      if (pos === at) return;
-      const fromPos = fromSnap == null ? -1 : order.indexOf(fromSnap);
-      if (fromPos >= pos) {
-        const below = order[pos - 1];
-        setFromSnap(pos - 1 >= 0 && below !== "WORKING" ? below : null);
-      }
-      setToSnap(order[pos]);
-    },
-    [isDiff, patchMetas, effectiveRoundSeq, snapshots, toSnap, fromSnap],
-  );
-
-  // Scroll-spy: mark the file you're mostly looking at.
-  //
-  // The rule is "the first file block still showing in the pane — unless it's
-  // nearly gone and something follows it." A crossed-scanline test (what this was)
-  // only hands over once the NEXT file reaches the top, so the marker stayed on a
-  // file reduced to a sliver while its successor filled the screen. Handing over
-  // at ACTIVE_HANDOFF_SHARE means the marker moves while you're still scrolling
-  // toward the next file, which is when you've already started reading it.
-  //
-  // The `clipped` half of the test is what keeps small blocks safe: a folded file
-  // is one 2rem header and can NEVER occupy 15% of the pane, so a bare share test
-  // would skip past every folded file — and `]`/`[` index on activePath, so
-  // stepping onto one would immediately report the file after it. A block that is
-  // wholly on screen is never handed off, whatever its size.
-  //
-  // The measure reads the DOM live — off a block list re-scanned whenever the
-  // pane's content resizes — so it stays correct as blocks load/render without
-  // re-subscribing. Keyed on `detail` (not []) because the first commit
-  // early-returns "Loading review…" — scopeRef is null there, and a one-shot
-  // effect would never attach on a cold load.
-  //
-  // ALSO keyed on the rendered file set: a version switch swaps the pane's blocks
-  // without touching `detail` or firing a scroll. Per-file shortcuts MUTATE against
-  // activePath, so a stale one writes a viewed mark no card reads / opens a
-  // whole-file note the server rejects. Re-measure on the swap.
-  const fileListKey = useMemo(() => fileList.join("\n"), [fileList]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: detail + the rendered file set are the re-attach/re-measure triggers; the listener reads the DOM, not either object
-  useEffect(() => {
-    const root = scopeRef.current;
-    if (!root) return;
-    let raf = 0;
-    // The pane's blocks in document order, plus the subset an IntersectionObserver
-    // rooted on the pane currently reports as showing. Measuring every block cost
-    // a forced layout per file per frame — on a 200-file review nearly all of them
-    // for files scrolled far off the top — and re-querying the DOM each frame paid
-    // for the list again. The observer only narrows the candidates; the rect tests
-    // below still decide, so the rule is exactly the one described above.
-    let blocks: HTMLElement[] = [];
-    let index = new Map<Element, number>();
-    const observed = new Set<Element>();
-    const showing = new Set<Element>();
-    let order: number[] = [];
-    let orderStale = true;
-    // An empty showing set reads exactly like "nothing intersects", which hands
-    // the marker to the LAST block — so sit out until the observer has spoken
-    // once rather than answering from a set that isn't populated yet.
-    let delivered = false;
-
-    const measure = () => {
-      raf = 0;
-      // A toolbar jump owns activePath while its animation flies — mid-flight
-      // frames must not re-spy it back to a block the ride is passing through.
-      if (scrollAnimating.current) return;
-      if (!delivered && blocks.length > 0) return;
-      const pane = root.getBoundingClientRect();
-      // Measured against the pane's own box, NOT the sticky band: while a file is
-      // current the band holds that file's own header, so it isn't lost height.
-      const paneH = pane.height;
-      const last = blocks[blocks.length - 1] ?? null;
-      // At the end of the scroll there is nothing left to scroll toward, so the
-      // last block takes the marker outright. Without this a final file shorter
-      // than ~85% of the pane could never win the test below — the file before it
-      // still fills the screen — so it would never be current, and `]` (which
-      // indexes on activePath) would stick on its predecessor forever.
-      //
-      // Only when there IS something to scroll. A pane whose content fits is at
-      // its end from the first frame, and handing the marker to the last file
-      // there is backwards — nothing has been scrolled past. That's also what a
-      // cold load looks like: the first measure runs before the content exists
-      // (a files review renders one small [data-file] stub per file until its
-      // blob lands), so the marker went to the LAST file while the reader was
-      // looking at the first. Fall through instead — every block is wholly
-      // visible then, so the walk below marks the first one.
-      const atEnd =
-        root.scrollHeight > root.clientHeight + 1 &&
-        root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
-      let current: string | null = atEnd ? (last?.getAttribute("data-file") ?? null) : null;
-      if (orderStale) {
-        order = [];
-        for (const el of showing) {
-          const at = index.get(el);
-          if (at != null) order.push(at);
-        }
-        order.sort((a, b) => a - b);
-        orderStale = false;
-      }
-      // Walk the showing blocks in document order. The observer computes its set
-      // after the previous frame's callbacks, so a fast flick can hand us one
-      // whose members have all just left the top of the pane; stepping on to the
-      // block after the last of those lands on the same answer a full scan would.
-      let k = 0;
-      let i = order.length > 0 ? order[0] : -1;
-      while (!current && i >= 0 && i < blocks.length) {
-        const r = blocks[i].getBoundingClientRect();
-        if (r.bottom <= pane.top + 1) {
-          // scrolled off the top entirely
-          k++;
-          i = k < order.length ? Math.max(order[k], i + 1) : i + 1;
-          continue;
-        }
-        if (r.top >= pane.bottom) break; // this one and everything after is below
-        // How much of this block the pane is actually showing.
-        const shown = Math.min(r.bottom, pane.bottom) - Math.max(r.top, pane.top);
-        const clipped = shown < r.height - 1;
-        const next = blocks[i + 1];
-        current =
-          next && clipped && shown < paneH * ACTIVE_HANDOFF_SHARE
-            ? next.getAttribute("data-file")
-            : blocks[i].getAttribute("data-file");
-        break;
-      }
-      // Nothing intersects (trailing padding under the last block, or a pane
-      // shorter than its own chrome) — keep the last file rather than dropping to
-      // null, which would unbind every per-file shortcut mid-scroll.
-      setActivePath(current ?? last?.getAttribute("data-file") ?? null);
-    };
-    // rAF-throttle: a wheel/trackpad flick fires many scroll events per frame, but
-    // the spy only needs to run once per painted frame. Coalesce them so a fast
-    // scroll doesn't repeat the rect reads dozens of times between frames.
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(measure);
-    };
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) showing.add(e.target);
-          else showing.delete(e.target);
-        }
-        delivered = true;
-        orderStale = true;
-        // What just changed is what the next frame measures against.
-        schedule();
-      },
-      { root },
-    );
-    // Re-point the observer whenever the pane's block list actually changes: a
-    // version switch swaps every block, and a large files review paints its stubs
-    // over several commits. The one place the DOM is queried for them.
-    const rescan = () => {
-      const next = [...root.querySelectorAll<HTMLElement>("[data-file]")];
-      if (next.length === blocks.length && next.every((el, at) => el === blocks[at])) return;
-      const live = new Set<Element>(next);
-      for (const el of [...observed]) {
-        if (live.has(el)) continue;
-        io.unobserve(el);
-        observed.delete(el);
-        showing.delete(el);
-      }
-      for (const el of next) {
-        if (observed.has(el)) continue;
-        io.observe(el);
-        observed.add(el);
-      }
-      blocks = next;
-      index = new Map(next.map((el, at) => [el, at]));
-      orderStale = true;
-    };
-
-    root.addEventListener("scroll", schedule, { passive: true });
-    // The pane's content mostly arrives AFTER this effect, and none of it fires a
-    // scroll event: a files review paints [data-file] stubs until each blob lands,
-    // and a fold/unfold restacks everything below it. Without a resize signal the
-    // marker would keep whatever it computed against the stubs — the reported "the
-    // first file isn't marked on open". The pane's OWN box is worth watching too:
-    // its height is the 15% denominator, so a feedback-panel drag or a window
-    // resize changes the answer. The pane has exactly one child — the stacked file
-    // content (VirtualPaneProvider's wrapper) — so its height is the content height.
-    // A restack can also add or drop blocks, so the rescan rides the same signal.
-    const onContent = () => {
-      rescan();
-      schedule();
-    };
-    const ro = new ResizeObserver(onContent);
-    ro.observe(root);
-    if (root.firstElementChild) ro.observe(root.firstElementChild);
-    rescan();
-    measure();
-    return () => {
-      root.removeEventListener("scroll", schedule);
-      ro.disconnect();
-      io.disconnect();
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [detail, fileListKey]);
-
-  // A floating "Quote in note" bubble raised over the file pane when a selection
-  // or line-pick is made while the anchored composer already holds text (see
-  // applyAnchorGesture). Fixed-positioned off the selection / first-row rect.
-  const [fileQuote, setFileQuote] = useState<QuotePos | null>(null);
-
-  // The one anchor gesture — a text selection OR a gutter line-pick, routed the
-  // same way, optimized for the common case:
-  //   • no anchored composer open       → open one on the selection
-  //   • composer open, note still empty → re-anchor it to the selection
-  //   • composer open, note has text    → never clobber the note; raise the
-  //     "Quote in note" bubble so the selected code drops in as a `>` blockquote.
-  // This kills the old footgun where selecting code to copy silently repointed a
-  // half-written note. `rect` positions the bubble.
-  const applyAnchorGesture = useCallback(
-    (anchor: PendingAnchor, quoteText: string, rect: AnchorRect | null) => {
-      const d = getDraft(reviewId);
-      const composing = d?.anchor != null && (d.text ?? "").trim() !== "";
-      if (composing) {
-        if (rect && quoteText.trim())
-          setFileQuote({ left: rect.left, top: rect.top, text: quoteText });
-        return; // a note is in progress — leave its anchor alone
-      }
-      setFileQuote(null);
-      setComposerAt(rect);
-      setDraftAnchor(reviewId, anchor);
-      peekSheetForCompose();
-    },
-    [reviewId, peekSheetForCompose],
-  );
-
-  const onPickLines = useCallback(
-    (
-      file: string,
-      side: DiffSide,
-      lineStart: number,
-      lineEnd: number,
-      quote: string,
-      patchSeq?: number,
-    ) => {
-      const anchor = { file, side, lineStart, lineEnd, quote, patchSeq };
-      // Where a quote bubble would sit: centered over the first picked row.
-      const root = scopeRef.current;
-      const scope = patchSeq != null ? `[data-round="${patchSeq}"] ` : "";
-      const base = `${scope}[data-file="${CSS.escape(file)}"]`;
-      const rowEl =
-        root?.querySelector(`${base} [data-line="${lineStart}"][data-side="${side}"]`) ??
-        root?.querySelector(`${base} [data-line="${lineStart}"]`);
-      const r = rowEl?.getBoundingClientRect();
-      const rect = r
-        ? { left: r.left + Math.min(r.width, 320) / 2, top: r.top, bottom: r.bottom }
-        : null;
-      applyAnchorGesture(anchor, quote, rect);
-    },
-    [applyAnchorGesture],
-  );
-
-  // The file header's feedback button: open the composer anchored to the whole
-  // file (no line span, no quote — the file itself is the anchor). `patchSeq`
-  // names the diff round the button lives in; the server drops it to null when it
-  // doesn't name a stored round (files reviews, snapshot-diff view).
-  const onFileFeedback = useCallback(
-    (file: string, patchSeq?: number) => {
-      // The card's own box, clipped to a header's worth of height: a file card is
-      // most of the pane tall, and a floating composer hung off its BOTTOM would
-      // open a screen away from the button that opened it.
-      const root = scopeRef.current;
-      const scope = patchSeq != null ? `[data-round="${patchSeq}"] ` : "";
-      const r = root
-        ?.querySelector(`${scope}[data-file="${CSS.escape(file)}"]`)
-        ?.getBoundingClientRect();
-      setComposerAt(
-        r
-          ? {
-              left: r.left + Math.min(r.width, 360) / 2,
-              top: r.top,
-              bottom: Math.min(r.top + 32, r.bottom),
-            }
-          : null,
-      );
-      setDraftAnchor(reviewId, {
-        file,
-        side: null,
-        lineStart: null,
-        lineEnd: null,
-        quote: null,
-        patchSeq,
-      });
-      peekSheetForCompose();
-    },
-    [reviewId, peekSheetForCompose],
-  );
-
-  // "Quote in note": drop the file-pane selection into the anchored note as a `>`
-  // blockquote, then focus the composer. It lives in the feedback panel (out of
-  // this subtree), so it's reached by its data attr rather than a ref.
-  const quoteIntoNote = useCallback(
-    (text: string) => {
-      const cur = getDraft(reviewId)?.text ?? "";
-      setDraftText(reviewId, quoteBlock(cur, text).text);
-      setFileQuote(null);
-      window.getSelection()?.removeAllRanges();
-      focusComposer();
-    },
-    [reviewId],
-  );
-
-  // Dismiss the file-pane quote bubble once its fixed position would go stale (the
-  // pane scrolled) or the selection collapsed.
-  useEffect(() => {
-    if (!fileQuote) return;
-    const root = scopeRef.current;
-    const onScroll = () => setFileQuote(null);
-    const onSel = () => {
-      const s = window.getSelection();
-      if (!s || s.isCollapsed) setFileQuote(null);
-    };
-    root?.addEventListener("scroll", onScroll, { passive: true });
-    document.addEventListener("selectionchange", onSel);
-    return () => {
-      root?.removeEventListener("scroll", onScroll);
-      document.removeEventListener("selectionchange", onSel);
-    };
-  }, [fileQuote]);
-
-  // Anchor a draft to the file-view selection. Listen at document level: a drag
-  // can end over the feedback panel, where the pane's mouseup never fires.
-  // getSelectionAnchor is null unless the selection lands on a file line. Coarse
-  // pointers never fire a usable mouseup — AddFeedbackPill drives those.
-  useEffect(() => {
-    if (coarse) return;
-    const onMouseUp = () => {
-      const root = scopeRef.current;
-      if (!root) return;
-      const a = getSelectionAnchor(root);
-      if (!a) return;
-      const sel = window.getSelection();
-      const text = sel?.toString() ?? "";
-      let rect: AnchorRect | null = null;
-      if (sel && sel.rangeCount > 0) {
-        const r = sel.getRangeAt(0).getBoundingClientRect();
-        rect = { left: r.left + r.width / 2, top: r.top, bottom: r.bottom };
-      }
-      applyAnchorGesture(a, text, rect);
-    };
-    document.addEventListener("mouseup", onMouseUp);
-    return () => document.removeEventListener("mouseup", onMouseUp);
-  }, [applyAnchorGesture, coarse]);
-
-  // Drop just the anchored composer (its anchor + note), leaving any general note
-  // or drafted reply on the review untouched. Both the deliberate Cancel/✕ discard
-  // and a committed add settle the mobile sheet and clear the anchor the same way —
-  // Cancel needs no confirm (Esc already preserves a non-empty note by only
-  // blurring). Stable so the memoized FeedbackPanel isn't re-rendered on every
-  // scroll-spy activePath change.
-  const discardPending = useCallback(() => {
-    settleSheetAfterCompose();
-    setComposerAt(null);
-    dropAnchor(reviewId);
-  }, [reviewId, settleSheetAfterCompose]);
-
-  // Leaving the review (remount on switch) drops a text-less anchor so an empty
-  // composer doesn't linger/reopen; a draft with text (of any kind) stays persisted.
-  useEffect(() => {
-    return () => {
-      const d = getDraft(reviewId);
-      if (d && d.text.trim() === "") dropAnchor(reviewId);
-    };
-  }, [reviewId]);
+  // The one anchor gesture — a text selection, a gutter line-pick, a summary
+  // selection, or the touch pill — routed through one decision so a note in
+  // progress is never clobbered, plus the transient UI it raises
+  // (useAnchorGesture.ts).
+  const {
+    composerAt,
+    fileQuote,
+    apply: applyAnchorGesture,
+    onPickLines,
+    onFileFeedback,
+    quoteIntoNote,
+    discard: discardPending,
+  } = useAnchorGesture({
+    reviewId,
+    scopeRef,
+    coarse,
+    onCompose: peekSheetForCompose,
+    onSettle: settleSheetAfterCompose,
+  });
 
   // The review-level edits (approve/abandon/reopen, rename) share the card
   // mutations' snapshot/rollback (`useOptimisticPatch`); there is no onSettled
@@ -1248,7 +814,6 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
   // can't be called conditionally, and there is nothing to bind on a dead view
   // anyway — every handler no-ops on an empty fileList.)
   const hasFiles = fileList.length > 0;
-  const canStepVersion = isDiff ? patchMetas.length > 1 : snapshots.length > 0;
   // Where `x` has something to toggle — the same condition that decides whether a
   // file header shows the Viewed pill at all (toggleViewedPath's two branches). A
   // snapshot-diff / pinned-snapshot browse tracks no viewed state, so leave the
@@ -1269,9 +834,9 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
     // so the buttons and the key can't fall out of step.
     foldAll: hasFiles ? () => foldAll(foldAllDir.current) : undefined,
     fileViewed: activePath && canToggleViewed ? () => toggleViewedPath(activePath) : undefined,
-    fileNote: activePath ? () => onFileFeedback(activePath, feedbackPatchSeq) : undefined,
-    versionNext: canStepVersion ? () => stepVersion(1) : undefined,
-    versionPrev: canStepVersion ? () => stepVersion(-1) : undefined,
+    fileNote: activePath ? () => onFileFeedback(activePath, version.feedbackPatchSeq) : undefined,
+    versionNext: version.canStep ? () => version.step(1) : undefined,
+    versionPrev: version.canStep ? () => version.step(-1) : undefined,
     // Mobile forces unified regardless of the stored preference, so binding the
     // toggle there would write a preference with no visible effect.
     layoutToggle:
@@ -1372,15 +937,15 @@ export function ReviewView({ reviewId }: { reviewId: string }) {
             <RoundSelect
               rounds={patchMetas}
               activeSeq={effectiveRoundSeq}
-              onSelect={setActiveRoundSeq}
+              onSelect={version.setActiveRoundSeq}
             />
           ) : snapshots.length > 0 ? (
             <SnapshotSelect
               snapshots={snapshots}
               from={fromSnap}
               to={toSnap}
-              onFromChange={setFromSnap}
-              onToChange={setToSnap}
+              onFromChange={version.setFromSnap}
+              onToChange={version.setToSnap}
             />
           ) : undefined
         }

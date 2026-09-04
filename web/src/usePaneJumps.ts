@@ -7,47 +7,49 @@ import type { DocLink } from "./doclinks.ts";
 import type { MessageRef } from "./markdown.ts";
 import { retryScrollToRow } from "./pane.ts";
 import type { useProgressiveFileController } from "./progressive.tsx";
-import type { FeedbackWithReplies, SnapshotRef } from "./types.ts";
+import type { FeedbackWithReplies } from "./types.ts";
 import { SUMMARY_FILE } from "./types.ts";
+import type { ReviewVersion } from "./useReviewVersion.ts";
 import { fileScrollKey, type ScrollToLine } from "./virtual.tsx";
+
+/** What a jump does to the content pane once it knows where it is going. */
+export interface PaneControls {
+  /** Unfold the target file (path-scoped, nonce-gated) before scrolling to it. */
+  setFoldSignal: Dispatch<SetStateAction<FoldSignal | null>>;
+  /** The scroll-spy's cursor, which a jump sets directly at its destination. */
+  setActivePath: Dispatch<SetStateAction<string | null>>;
+  /** Mobile: a jump landing in the code pane closes the sheet over it. */
+  closeSheet: () => void;
+}
+
+/** The feedback cursor a locate moves, and the nonce that re-fires its scroll. */
+export interface FeedbackFocus {
+  setActiveFbId: Dispatch<SetStateAction<string | null>>;
+  setScrollNonce: Dispatch<SetStateAction<number>>;
+}
 
 export function usePaneJumps({
   scopeRef,
   scrollToLine,
   progressive,
-  setFoldSignal,
-  closeSheetForJump,
-  setActiveFbId,
-  setScrollNonce,
-  setActiveRoundSeq,
-  setActivePath,
-  isDiff,
-  effectiveRoundSeq,
-  snapshots,
-  fromSnap,
-  toSnap,
-  setFromSnap,
-  setToSnap,
+  version,
+  pane,
+  focus,
   hasFile,
 }: {
   scopeRef: RefObject<HTMLElement | null>;
   scrollToLine: ScrollToLine;
   progressive: ReturnType<typeof useProgressiveFileController>;
-  setFoldSignal: Dispatch<SetStateAction<FoldSignal | null>>;
-  closeSheetForJump: () => void;
-  setActiveFbId: Dispatch<SetStateAction<string | null>>;
-  setScrollNonce: Dispatch<SetStateAction<number>>;
-  setActiveRoundSeq: Dispatch<SetStateAction<number | null>>;
-  setActivePath: Dispatch<SetStateAction<string | null>>;
-  isDiff: boolean;
-  effectiveRoundSeq: number | null;
-  snapshots: readonly { seq: number }[];
-  fromSnap: number | null;
-  toSnap: SnapshotRef;
-  setFromSnap: Dispatch<SetStateAction<number | null>>;
-  setToSnap: Dispatch<SetStateAction<SnapshotRef>>;
+  /** Which round/snapshot is on screen — a jump may have to switch it first. */
+  version: ReviewVersion;
+  pane: PaneControls;
+  focus: FeedbackFocus;
   hasFile: (path: string) => boolean;
 }) {
+  const { isDiff, effectiveRoundSeq, snapshots, fromSnap, toSnap } = version;
+  const { setActiveRoundSeq, setFromSnap, setToSnap } = version;
+  const { setFoldSignal, setActivePath, closeSheet: closeSheetForJump } = pane;
+  const { setActiveFbId, setScrollNonce } = focus;
   const fileSelectNonce = useRef(0);
   const scrollAnim = useRef(0);
   // In-flight toolbar scroll: the spy must not overwrite the activePath a jump
