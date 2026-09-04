@@ -929,9 +929,17 @@ async function nudgeListener(
 ): Promise<"none" | "sent" | "gone"> {
   const held = listenerFor(reviewId);
   if (!held) return "none";
-  const title = db.getReview(reviewId)?.title ?? reviewId;
+  const review = db.getReview(reviewId);
+  const title = review?.title ?? reviewId;
+  // The approval's "next steps" note is content, not a pointer to content — and
+  // this nudge is the last thing this review will ever push (the registration is
+  // dropped right after a terminal status). A blocked `r3 watch` reads the note
+  // off the detail it fetches on wake; a listener has no such round trip, so
+  // carry it in the payload or it never reaches the agent at all. Read after the
+  // caller's `updateReview`, so it is the note just approved with.
+  const note = event === "approved" ? review?.meta?.next_steps : undefined;
   try {
-    await pushToInbox(held.target, nudgeText(reviewId, title, event));
+    await pushToInbox(held.target, nudgeText(reviewId, title, event, { note }));
     return "sent";
   } catch {
     // Scoped to the registration we actually failed to reach: a push can take

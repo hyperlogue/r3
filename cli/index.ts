@@ -668,6 +668,13 @@ async function cmdShow(args: Args) {
   if (detail.summary?.trim()) {
     console.log(`  summary: ${detail.summary.trim().replace(/\n/g, "\n           ")}`);
   }
+  // The approval's "next steps for the agent". It rides the terminal nudge a
+  // `listen` holder gets, but capped — so this is where the full text lives, and
+  // where that nudge points when it had to cut one short.
+  const nextSteps = (detail.meta?.next_steps as string | undefined)?.trim();
+  if (nextSteps) {
+    console.log(`  next steps: ${nextSteps.replace(/\n/g, "\n              ")}`);
+  }
   if (detail.patches?.length > 1) {
     const rounds = detail.patches
       .map((p: any) => `${p.seq}${p.label ? ` (${p.label})` : ""}`)
@@ -2024,7 +2031,9 @@ ONLY today, \`r3 watch\` everywhere else. Unsure? Run listen and read the exit
 code. They share the review's one slot — never both.
 
 \`r3 listen <id>\` registers and returns; nothing to keep alive. The daemon
-messages you when the human submits, approves or abandons. A submit arrives as a
+messages you when the human submits, approves or abandons. An approval's nudge
+carries the human's "next steps" note inline, shortened if it is long — the full
+text is in \`r3 show <id>\`. A submit arrives as a
 one-line nudge naming the review; the feedback itself comes from
 \`r3 prompt <id>\`, which prints what you haven't seen and marks it delivered, so
 a second run shows nothing new (\`--all\` reprints every open item, marking

@@ -666,7 +666,15 @@ for a script to post into a session, and is **the only harness supported today**
 `r3 listen <id>` registers that inbox and returns; the daemon writes a one-line nudge on Submit, approve and abandon
 (`server/inbox.ts`). The nudge deliberately carries **no feedback content**: the
 delivery stamp stays where it was, on `POST …/prompt`, so a dropped frame costs a
-round-trip instead of eating a round. It carries the review id and a timestamp because the harness drops
+round-trip instead of eating a round. An **approval's "next steps" note is the
+exception**, and for the same reason — it is not content waiting behind a fetch,
+it is the whole of what the approval said, and the nudge that carries it is the
+last thing this review will ever push (the registration is dropped right after a
+terminal status). A blocked `r3 watch` reads that note off the detail it fetches
+on wake; a listener has no such round trip, so an uncarried note simply never
+arrives. It rides **capped** (`MAX_NOTE_CHARS`, cut at a word), because a nudge
+is one fire-and-forget message with no paging — and when it had to cut, it says
+so and names `r3 show <id>`, which prints the note in full. It carries the review id and a timestamp because the harness drops
 *identical* repeats arriving close together — the id separates two reviews, the
 timestamp separates two Submits on the same one, which is the case that would
 otherwise leave a round unsent with nothing to report it.

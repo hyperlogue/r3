@@ -105,7 +105,11 @@ one rendered file.
   outside the harness namespace (`validateSocketPath`), `502` when draining what
   is already pending finds the
   inbox gone. The nudge carries **no feedback content** — `POST …/prompt` remains
-  the only thing that stamps `sent_at`. `token` is a live session credential: held
+  the only thing that stamps `sent_at`. The one exception is an **approval's
+  `note`** (`meta.next_steps`), which the approve nudge carries inline, capped at
+  `MAX_NOTE_CHARS` and cut at a word: nothing is pushed on this review again, and
+  a listener has no detail fetch to read it from the way a woken `r3 watch` does.
+  A cut note says so and names `r3 show <id>`. `token` is a live session credential: held
   in memory, never stored (**security-model** skill), which is why a daemon
   restart drops every registration.
 
@@ -236,7 +240,9 @@ Two hand-off paths:
   never both — and `kind` is deliberately not part of client identity, so one
   agent switching `watch`↔`listen` mid-loop reclaims its own slot. The nudge names
   the review and says `Run: r3 prompt <id>`; it never carries the feedback, so a
-  dropped frame costs a round-trip, not a round. The registry is in-memory, so a
+  dropped frame costs a round-trip, not a round. An **approve** nudge does carry
+  the human's "next steps" note (capped), since there is no later fetch to read it
+  from. The registry is in-memory, so a
   daemon restart drops it and the agent must re-register.
 
 The agent then **replies by feedback id** — always a plain reply saying what it
