@@ -4,6 +4,40 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] - 2026-09-04
+
+### Added
+
+- **r3 can actively wake up session to send notifications.** `r3 listen <id>`
+  registers the current Claude Code or Codex session and returns. When the
+  reviewer submits feedback, approves, or abandons the review, r3 sends a
+  notification into that agent session; the agent can then fetch the feedback
+  with `r3 prompt`. Previously, agents must keep an `r3 watch` long running
+  process to receive feedback.
+- **Session ids are recorded automatically.** Reviews and work-in-progress
+  badges identify the agent session involved. The UI shows a short id and lets
+  you copy the full one, making it easier to find or contact the same session.
+
+### Changed
+
+- **Large reviews stay steadier while loading and typing.** Deferred file cards
+  reserve their expected height so the scrollbar does not keep shifting as you
+  move through the review, and desktop paint containment roughly halves the
+  measured composer-keystroke cost on a 200-file review.
+- **The agent guide better explains how to use r3.** It now starts with which
+  kind of review to create and walks through receiving feedback, claiming work,
+  replying, and sending another revision.
+- **Anchoring feedback in scratch reviews is simpler.** Agent commands can refer
+  to a scratch file by its displayed filename, such as `notes.md`.
+
+### Fixed
+
+- **A failed listener hand-off no longer looks successful.** The UI reports when
+  Submit reached nobody, repeated Submits cannot be deduplicated into silence,
+  and stale registrations no longer lock another agent out of the review.
+- **Marking a rendered Markdown table row keeps its columns aligned.** The
+  feedback bar no longer inserts an apparent empty cell ahead of the row.
+
 ## [0.12.0] - 2026-08-31
 
 ### Added
@@ -432,6 +466,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[0.13.0]: https://github.com/hyperlogue/r3/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/hyperlogue/r3/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/hyperlogue/r3/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/hyperlogue/r3/compare/v0.10.0...v0.10.1
