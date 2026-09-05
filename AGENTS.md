@@ -115,12 +115,15 @@ server/          Hono daemon + bun:sqlite global store
                  anything else falls through to the ordinary code fence
   render.ts      raw-file render for kind:'files' (renderFile + renderContent)
   prompt.ts      the agent-prompt text (same as the UI's "Copy prompt")
+  inbox.ts       Claude Code socket transport for listener nudges
+  listener.ts    target parse/probe/push + nudge text; Codex `queue` transport
   sse.ts         pub/sub broadcast    watcher.ts   review-scoped file watching -> SSE
-  watchers.ts    live `watch` presence registry — the one watch slot per review
+  watchers.ts    live `watch`/`listen` presence registry — the one slot per review
   auth.ts        quick-auth: login tokens -> HttpOnly session cookies (only when REQUIRE_LOGIN)
   scratch.ts     adhoc scratch-review storage (ref:'SCRATCH') outside any repo
   paths.ts       pure safePathIn(root, p) path guard    ids.ts  id minting
 cli/index.ts     thin HTTP client + daemon lifecycle — the agent's entry, the binary
+cli/listener.ts  pure harness target + matching session-identity detection
 web/             React 19 + TanStack Query + Tailwind v4 SPA (bundled by Bun)
   src/pages/     Home.tsx (the reviews list — the `/` landing view), ReviewView.tsx
                  (the review screen — composes the seams below; owns only what is
@@ -688,13 +691,16 @@ Claims stay the *feedback*-scoped lease; this is the *review*-scoped one.
 
 **Every session label is the harness's own session id.** One rule, two places it
 lands. `create` stamps `meta.session` (above) — *who made this review*. `watch`,
-`listen` and `claim` default their display identity the same way (`--session` →
-`$CLAUDE_CODE_SESSION_ID` → the review's `meta.session` → `"agent"`) — *who is on
-it right now*. Keeping the two distinct is the point: presence used to fall
+`listen` and `claim` default their display identity from the current harness
+(`--session` still wins, then review meta, then `"agent"`) — *who is on it right
+now*. `listen` selects its delivery target and default identity together, so a
+partial Claude environment cannot put Claude's id on a Codex target. Keeping
+provenance and presence distinct is the point: presence used to fall
 straight through to `meta.session`, which on any multi-round loop names a
 different agent than the one actually working, so the badge credited the wrong
 session (and on a hand-made review, a label with nothing behind it). The three
-presence commands share one chain because `watch`/`listen` reclaim the one slot
+presence commands share one identity rule because `watch`/`listen` reclaim the
+one slot
 only while their session/agentId pair matches, and a claim badge beside a watch
 badge should name one agent once. Everywhere a session id is *shown* it is a
 **click-to-copy token** (`CopyMeta` in `ui.tsx` — the review header's metadata
@@ -705,11 +711,14 @@ handle at all.
 
 **`r3 listen` is the same slot without the process.** `watch` costs the agent a
 held process per round, which is the whole cost on a harness that can't hand a
-background process's completion back. Where the harness exposes a **session
-inbox** — Claude Code binds a per-session Unix socket and documents it as a place
-for a script to post into a session, and is **the only harness supported today** —
-`r3 listen <id>` registers that inbox and returns; the daemon writes a one-line nudge on Submit, approve and abandon
-(`server/inbox.ts`). The nudge deliberately carries **no feedback content**: the
+background process's completion back. Two harness transports expose a **session
+inbox**: Claude Code binds an authenticated per-session Unix socket, while Codex
+CLI **0.149+** provides `codex queue --thread … --message …` for an existing
+local session and wakes it while idle. `r3 listen <id>` discovers the
+current harness, registers its target, and returns; on Submit, approve and abandon
+the daemon writes a one-line nudge through `server/listener.ts` (Claude's socket
+wire stays isolated in `server/inbox.ts`). The nudge deliberately carries **no
+feedback content**: the
 delivery stamp stays where it was, on `POST …/prompt`, so a dropped frame costs a
 round-trip instead of eating a round. An **approval's "next steps" note is the
 exception**, and for the same reason — it is not content waiting behind a fetch,
@@ -719,20 +728,23 @@ terminal status). A blocked `r3 watch` reads that note off the detail it fetches
 on wake; a listener has no such round trip, so an uncarried note simply never
 arrives. It rides **capped** (`MAX_NOTE_CHARS`, cut at a word), because a nudge
 is one fire-and-forget message with no paging — and when it had to cut, it says
-so and names `r3 show <id>`, which prints the note in full. It carries the review id and a timestamp because the harness drops
-*identical* repeats arriving close together — the id separates two reviews, the
-timestamp separates two Submits on the same one, which is the case that would
-otherwise leave a round unsent with nothing to report it.
+so and names `r3 show <id>`, which prints the note in full. It carries the review
+id and a timestamp because Claude drops *identical* repeats arriving close
+together — the id separates two reviews, the timestamp separates two Submits on
+the same one, which is the case that would otherwise leave a round unsent with
+nothing to report it.
 
 The two kinds share the one slot, and `kind` is **not** part of client identity —
 an agent switching `watch`→`listen` mid-loop is reclaiming its own slot, not
 racing for it. What differs is how a dead holder is noticed: a `watch` holder is
 live by construction (the connection *is* the slot, so a dead one has already
-released), while a `listen` holder is only a record. So admission **probes** a
-listener — and only a listener — or a dead session's registration would refuse
-every `r3 watch` until someone hit Submit.
+released), while a `listen` holder is only a record. Claude listeners can be
+**probed** by connecting to their socket. An idle Codex thread is deliberately
+still queueable and has no non-mutating per-thread probe, so its liveness is
+explicitly **unknown**: it retains the slot until a queue delivery fails or the
+daemon restarts. Only a provably dead target is evicted during contention.
 
-The wire is **fire-and-forget with no ack**, and r3 sends no reply address (a
+Claude's wire is **fire-and-forget with no ack**, and r3 sends no reply address (a
 valid one must be a socket in the harness's own namespace, and r3 could only
 supply that by squatting it — which would make the daemon show up as a session in
 the harness's agent list). Measured consequence: r3 cannot be told its message was
@@ -740,7 +752,15 @@ held, so the **connect is the only liveness signal there is**. That is why Submi
 awaits the write and answers `502` on failure, dropping the registration so the UI
 falls back to Copy prompt.
 
-It is also why the session's messaging **token is required, not best-effort**.
+Codex has the stronger hand-off: `codex queue` exits non-zero when it cannot
+enqueue, so Submit awaits that command and treats failure exactly like a failed
+Claude socket write. The daemon invokes a fixed executable with a direct argv
+array — the thread id and nudge are never shell syntax — and caps the command at
+10 seconds. Registration feature-detects `queue` **inside that daemon**, using
+the same bounded command runner that will deliver later; a missing/pre-0.149
+Codex returns `501`, which the CLI maps to exit `5` and `r3 watch` fallback.
+
+It is also why Claude's session messaging **token is required, not best-effort**.
 Without an auth line the harness attributes a push by descent, and whether the
 daemon descends from the session is an accident of which session's first CLI call
 happened to spawn it — one per-user daemon spans every session but can be the

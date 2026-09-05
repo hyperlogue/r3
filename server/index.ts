@@ -27,6 +27,7 @@ import type {
 import {
   hasUnsentContent,
   isReviewStatus,
+  LISTENER_UNSUPPORTED_STATUS,
   MAX_CONTEXT_ROWS,
   REVIEW_STATUSES,
   SUPERSEDED_EVENT,
@@ -55,7 +56,13 @@ import {
 import * as db from "./db.ts";
 import { getDiff, gitLog, gitStatus, gitTree, isSafeRef, resolveRev, snapshotDiff } from "./git.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
-import { nudgeText, probeInbox, pushToInbox, validateSocketPath } from "./inbox.ts";
+import {
+  listenerTransportAvailable,
+  nudgeText,
+  parseListenerTarget,
+  probeListener,
+  pushToListener,
+} from "./listener.ts";
 import {
   fitPatchToLimit,
   patchInfos,
@@ -939,7 +946,7 @@ async function nudgeListener(
   // caller's `updateReview`, so it is the note just approved with.
   const note = event === "approved" ? review?.meta?.next_steps : undefined;
   try {
-    await pushToInbox(held.target, nudgeText(reviewId, title, event, { note }));
+    await pushToListener(held.target, nudgeText(reviewId, title, event, { note }));
     return "sent";
   } catch {
     // Scoped to the registration we actually failed to reach: a push can take
@@ -950,8 +957,8 @@ async function nudgeListener(
   }
 }
 
-// `r3 listen <id>` — register this agent's harness session inbox, so Submit and
-// the terminal statuses push a nudge instead of the agent holding a `watch`
+// `r3 listen <id>` — register this agent's harness delivery target, so Submit
+// and the terminal statuses push a nudge instead of the agent holding a `watch`
 // process open. Takes the review's one slot, exactly as `watch` does.
 app.post("/api/reviews/:id/listen", async (c) => {
   const id = c.req.param("id");
@@ -966,21 +973,22 @@ app.post("/api/reviews/:id/listen", async (c) => {
   const body = (await c.req.json().catch(() => null)) as ListenRequest | null;
   // Capped like `watch`'s: these are rendered in the watcher tooltip and held in
   // a process-global map.
-  const session = body?.session?.slice(0, 200);
+  const session = typeof body?.session === "string" ? body.session.slice(0, 200) : "";
   if (!session) return c.text("missing session", 400);
-  const socket = body?.socket ?? "";
-  const invalid = validateSocketPath(socket);
-  if (invalid) return c.text(`bad socket: ${invalid}`, 400);
-  // Required, not best-effort: an unattributed push is held for approval and we
-  // never learn that it was, so a tokenless registration would be one that looks
-  // live and silently never fires. See ListenRequest.
-  const token = body?.token?.slice(0, 4096);
-  if (!token) return c.text("missing token", 400);
-  const agentId = body?.agentId?.slice(0, 200) || undefined;
+  const parsed = parseListenerTarget(body);
+  if (!parsed.ok) return c.text(parsed.error, 400);
+  if (!(await listenerTransportAvailable(parsed.target)))
+    return c.text(
+      "Codex CLI 0.149+ with queue support is unavailable to the daemon",
+      LISTENER_UNSUPPORTED_STATUS,
+    );
+  const agentId =
+    typeof body?.agentId === "string" ? body.agentId.slice(0, 200) || undefined : undefined;
   const admission = await addWatcher(id, { session, agentId, kind: "listen" }, () => {}, {
-    // The token stays in this map and never reaches the store — see ListenRequest.
-    target: { socket, token },
-    probe: probeInbox,
+    // Claude's token stays in this map and never reaches the store; Codex's
+    // thread target shares the same restart lifecycle. See ListenRequest.
+    target: parsed.target,
+    probe: probeListener,
   });
   if (!admission.ok) {
     const refused: WatchRefusedResponse = {
@@ -997,16 +1005,15 @@ app.post("/api/reviews/:id/listen", async (c) => {
   if (detail?.feedback.some(hasUnsentContent) && (await nudgeListener(id, "submitted")) === "gone")
     // nudgeListener already dropped the registration it could not reach, so
     // answering ok would leave the agent believing it holds a slot it does not.
-    return c.text("the session inbox could not be reached; nothing is registered", 502);
+    return c.text("the agent session could not be reached; nothing is registered", 502);
   const res: ListenResponse = { ok: true, session };
   return c.json(res);
 });
 
 // The human hit "Submit": tell any watching agent to pick up the feedback now.
 // A blocked `r3 watch` hears the broadcast; a `listen` holder is reached by
-// writing to its session inbox, and that write is the ONLY liveness signal r3
-// ever gets (the wire carries no ack). So the click waits for it: a Submit that
-// reached nobody must not look like one that did.
+// writing to its delivery target. The click waits for that transport: a Submit
+// that reached nobody must not look like one that did.
 app.post("/api/reviews/:id/submit", async (c) => {
   const id = c.req.param("id");
   const pushed = await nudgeListener(id, "submitted");
@@ -1132,7 +1139,7 @@ app.get("/api/events", async (c) => {
       () => evicted.abort(),
       // Probe an incumbent `listen` holder: a dead session's registration would
       // otherwise refuse every `r3 watch` until someone hit Submit.
-      { probe: probeInbox },
+      { probe: probeListener },
     );
     if (!admission.ok) {
       const body: WatchRefusedResponse = {

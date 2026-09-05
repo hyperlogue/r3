@@ -3,22 +3,20 @@
 // inbox the daemon pushes to). Same-client reconnects take the slot back — a
 // dropped SSE, or a restarted agent, must not be locked out by its own ghost.
 //
-// The registry is in-memory because a listener holds the session's messaging
-// token, which must never reach the store. A daemon restart therefore drops every
-// listener; that is the same semantics `r3 restart` already carries for in-flight
-// watches, and Submit's liveness probe is what surfaces it.
+// The registry is in-memory because a Claude listener holds the session's
+// messaging token, which must never reach the store. Codex targets share that
+// lifecycle rather than giving two transports different restart semantics. A
+// daemon restart therefore drops every listener, just as it drops in-flight
+// watches, and a failed Submit surfaces the loss.
 
-import type { WatcherInfo } from "../shared/types.ts";
-
-// Where to push a `listen` holder's nudge. Memory-only: see the note above.
-export interface ListenerTarget {
-  socket: string;
-  token: string;
-}
+import type { ListenerTarget, WatcherInfo } from "../shared/types.ts";
 
 // Is this listener's session still there? Injected so the registry stays a pure
-// rule and the tests need no real socket.
-export type Probe = (target: ListenerTarget) => Promise<boolean>;
+// rule and the tests need no real socket. `unknown` is a durable target without
+// a non-mutating liveness check: it keeps its slot until delivery fails or the
+// daemon restarts rather than being guessed alive or dead.
+export type ListenerLiveness = "alive" | "dead" | "unknown";
+export type Probe = (target: ListenerTarget) => Promise<ListenerLiveness>;
 
 interface Entry {
   id: number;
@@ -65,12 +63,12 @@ export async function addWatcher(
     }
     // Held by a different client. A `watch` holder is live by construction — its
     // SSE connection IS the slot, so a dead one has already released. A `listen`
-    // holder is only a record, and a dead session's stale record would otherwise
-    // lock every other agent out until someone hit Submit. So probe that case,
-    // and only that case.
+    // holder is only a record, and a provably dead session's stale record would
+    // otherwise lock every other agent out. Probe that case only; an `unknown`
+    // durable target stays authoritative until delivery resolves it.
     if (held.target === undefined || opts.probe === undefined)
       return { ok: false, holder: held.info };
-    if (await opts.probe(held.target)) return { ok: false, holder: held.info };
+    if ((await opts.probe(held.target)) !== "dead") return { ok: false, holder: held.info };
     // Stale listener: drop it, then decide again against whatever holds the slot
     // now — which may be a client that arrived while we were probing.
     if (byReview.get(reviewId) === held) {
@@ -104,8 +102,8 @@ export function listenerFor(reviewId: string): { id: number; target: ListenerTar
   return held?.target ? { id: held.id, target: held.target } : null;
 }
 
-// Drop a listener whose session has gone (a failed probe) or whose review reached
-// a terminal status. `id` scopes it the way `removeWatcher` does — a push that
+// Drop a listener whose session is provably gone or whose review reached a
+// terminal status. `id` scopes it the way `removeWatcher` does — a push that
 // started before the same client re-registered must not evict the registration
 // that replaced it; omit it to drop whoever is listening now (a closed review has
 // no next round for anyone). Returns whether a listener was actually dropped, so

@@ -25,6 +25,7 @@ import {
   type AuthTokenInfo,
   DEFAULT_CLAIM_LEASE_SECONDS,
   hasUnsentContent,
+  LISTENER_UNSUPPORTED_STATUS,
   type ListenRequest,
   MAX_CLAIM_LEASE_SECONDS,
   MIN_CLAIM_LEASE_SECONDS,
@@ -32,6 +33,7 @@ import {
   SUPERSEDED_EVENT,
   type WatchRefusedResponse,
 } from "../shared/types.ts";
+import { currentHarnessSession, detectListener } from "./listener.ts";
 
 interface ServerInfo {
   url: string;
@@ -552,11 +554,9 @@ function metaObject(pairs: string[] | undefined): Record<string, string> {
   return m;
 }
 
-// The harness's own session id, when it exports one. Claude Code sets it in every
-// child process of a session, so any r3 command an agent runs can name the session
-// it belongs to without being configured or told.
-const harnessSession = (): string | undefined =>
-  process.env.CLAUDE_CODE_SESSION_ID?.trim() || undefined;
+// The harness's own session id, when it exports one, for provenance and presence
+// commands that do not need a delivery target of their own.
+const harnessSession = (): string | undefined => currentHarnessSession();
 
 function printReview(r: any) {
   console.log(`${r.id}  ${r.status}  ${r.kind}  ${r.title ?? ""}`);
@@ -756,16 +756,13 @@ async function cmdPrompt(args: Args) {
 // human next to the review. It has to name the session doing the work *now*, and
 // the review's `meta.session` doesn't: that names whoever CREATED the review,
 // which on a multi-round loop is routinely a different agent (and on a review
-// created by hand, a label with no session behind it at all). Claude Code exports
-// its session id to every child process, so a registration made from inside a
-// session can name itself exactly; the review's meta stays as the fallback for a
-// harness that exports nothing, and `--session` still wins over both.
+// created by hand, a label with no session behind it at all). Harnesses export
+// their session id to child processes, so a registration made from inside a
+// session can name itself exactly; the review's meta stays as the fallback.
 //
-// All three commands share it so one agent presents one identity: `watch` and
-// `listen` reclaim the same slot only while their session/agentId pair matches,
-// and a claim badge sitting next to a watch badge should name the same agent once
-// rather than twice under two names. `undefined` means this process knows nothing
-// better than its caller's own fallback.
+// `watch` and `claim` use this general rule. `listen` gets the same result from
+// detectListener, which selects its transport and matching identity atomically.
+// `undefined` means this process knows nothing better than its caller's fallback.
 function agentSession(args: Args): string | undefined {
   if (typeof args.flags.session === "string") return args.flags.session;
   return harnessSession();
@@ -780,53 +777,46 @@ function agentSession(args: Args): string | undefined {
 // Exit codes overlap `watch`'s only where the meaning matches:
 //   0 = registered; the daemon will push.
 //   4 = another watch/listen already holds this review (as watch's 4).
-//   5 = this harness exposes no session inbox, or no token to attribute a push
-//       with, so a nudge could not be delivered. Distinct from 4 on purpose:
+//   5 = this harness exposes no supported delivery target, so a nudge could not
+//       be delivered. Distinct from 4 on purpose:
 //       `r3 listen || r3 watch` has to tell "wrong harness, fall back" from
 //       "someone else has it, stop".
 const LISTEN_EXIT = { registered: 0, busy: 4, unsupported: 5 } as const;
 
 async function cmdListen(args: Args) {
   const id = args.positional[0] ?? fail("listen <id> [--session <name>] [--agent-id <id>]");
-  // The harness exports these to every child of a session, which is the whole
-  // reason `listen` needs no configuration: this process is already inside the
-  // session it registers.
-  const socket = process.env.CLAUDE_CODE_MESSAGING_SOCKET?.trim();
-  if (!socket) {
+  // Detection returns the target and its identity as one decision: a partial
+  // Claude environment may coexist with Codex, and mixing those two halves
+  // would break same-client slot reclamation.
+  const detected = detectListener();
+  if (!detected.ok) {
+    const reason =
+      detected.reason === "missing-claude-token"
+        ? "this Claude Code session exposes no messaging token"
+        : "this agent harness exposes no supported session inbox";
     process.stderr.write(
-      "r3: this agent harness exposes no session inbox, so there is nothing to register.\n" +
-        `    Use \`r3 watch ${id}\` instead.\n`,
-    );
-    process.exit(LISTEN_EXIT.unsupported);
-  }
-  // A live session credential. It travels to our own daemon over loopback and is
-  // held in memory there; r3 never writes it down. Required, and refused here
-  // rather than at the daemon: without it the push is unattributed, which means
-  // held-for-approval with no receipt — a registration that looks live and never
-  // fires. Same exit code as no socket at all, because the answer is the same one.
-  const token = process.env.CLAUDE_CODE_MESSAGING_TOKEN?.trim();
-  if (!token) {
-    process.stderr.write(
-      "r3: this session exposes no messaging token, so a nudge could not be delivered.\n" +
-        `    Use \`r3 watch ${id}\` instead.\n`,
+      `r3: ${reason}, so there is nothing to register.\n` + `    Use \`r3 watch ${id}\` instead.\n`,
     );
     process.exit(LISTEN_EXIT.unsupported);
   }
   const detail = await api("GET", `/api/reviews/${id}`);
   // A closed review never pushes again — the daemon drops registrations on a
   // terminal status — so registering would be a wait for a message that is not
-  // coming. The server refuses it too; checking here keeps the session token from
-  // travelling for a registration that is going to be refused, and says why in
-  // one line instead of echoing an HTTP body.
+  // coming. The server refuses it too; checking here keeps the delivery target
+  // from travelling for a registration that is going to be refused, and says
+  // why in one line instead of echoing an HTTP body.
   if (detail.status !== "open") {
     process.stderr.write(`r3: review ${id} is ${detail.status} — nothing to listen for.\n`);
     process.exit(1);
   }
   // The same chain `watch` uses, so an agent switching between the two mid-loop
   // presents one identity and reclaims its own slot instead of racing itself for it.
-  const session = agentSession(args) ?? detail.meta?.session ?? "agent";
+  const session =
+    (typeof args.flags.session === "string" ? args.flags.session : detected.sessionId) ??
+    detail.meta?.session ??
+    "agent";
   const agentId = (args.flags["agent-id"] as string) ?? undefined;
-  const body: ListenRequest = { session, agentId, socket, token };
+  const body: ListenRequest = { session, agentId, ...detected.target };
   // Not apiRaw(): it turns any non-2xx into exit 1, and a 409 here has to reach
   // the caller as the documented exit 4.
   const res = await fetch(`${SERVER.url}/api/reviews/${id}/listen`, {
@@ -848,6 +838,13 @@ async function cmdListen(args: Args) {
       `r3: ${id} is already being watched${holder ? ` by "${holder}"` : ""} — one at a time.\n`,
     );
     process.exit(LISTEN_EXIT.busy);
+  }
+  if (res.status === LISTENER_UNSUPPORTED_STATUS) {
+    process.stderr.write(
+      "r3: the daemon cannot run `codex queue` (Codex CLI 0.149+ is required in its environment).\n" +
+        `    Use \`r3 watch ${id}\` instead.\n`,
+    );
+    process.exit(LISTEN_EXIT.unsupported);
   }
   if (!res.ok) fail(`POST /api/reviews/${id}/listen → ${res.status}: ${text}`);
   process.stderr.write(
@@ -1858,12 +1855,12 @@ const HELP = `r3 — local human<->agent review CLI
                                                  #   at once — no process to keep alive. The
                                                  #   daemon messages you when the human hits
                                                  #   Submit, approves, or abandons.
-                                                 #   Claude Code only for now (it needs a
-                                                 #   session inbox + token); exit 5 on any
-                                                 #   other harness — use watch instead.
+                                                 #   Supports Claude Code and Codex CLI
+                                                 #   0.149+ in the daemon environment;
+                                                 #   exit 5 when unavailable — use watch.
                                                  #   Exit codes: 0 = registered; 4 = someone
                                                  #   else already holds this review (as watch);
-                                                 #   5 = no session inbox here — fall back
+                                                 #   5 = no supported transport — fall back
                                                  #   to r3 watch. 1 = anything else, e.g. the
                                                  #   review is already approved/abandoned.
                                                  #   Shares the one-per-review slot with watch,
@@ -1982,7 +1979,8 @@ daemon serves every repo — run commands from inside the repo under review.
    human. Before they read, pin feedback on the spots that matter (see "Guiding
    the review"). On a files review, \`r3 snapshot <id>\` now, so your later edits
    diff against exactly what they read.
-2. Register: \`r3 listen <id>\` on Claude Code, \`r3 watch <id>\` anywhere else.
+2. Register: \`r3 listen <id>\` on Claude Code or Codex CLI 0.149+;
+   \`r3 watch <id>\` anywhere else.
 3. \`r3 claim <feedback_id>...\` before you edit, so the human sees you working
    (60-minute lease; repeat to renew).
 4. \`r3 reply <feedback_id> -m "what you did / why not"\` — one per item, by id.
@@ -2017,9 +2015,10 @@ Every form takes --summary/--title/--meta and prints id + URL.
 ## Receiving feedback
 
 Register after creating a review and after every batch of replies, unless the
-human said not to. \`r3 listen\` needs a per-session message inbox: CLAUDE CODE
-ONLY today, \`r3 watch\` everywhere else. Unsure? Run listen and read the exit
-code. They share the review's one slot — never both.
+human said not to. \`r3 listen\` uses Claude Code's authenticated session socket
+or Codex CLI 0.149+'s session queue; \`r3 watch\` is the fallback everywhere
+else. Unsure? Run listen and read the exit code. They share the review's one slot
+— never both.
 
 \`r3 listen <id>\` registers and returns; nothing to keep alive. The daemon
 messages you when the human submits, approves or abandons. An approval's nudge
@@ -2029,9 +2028,9 @@ one-line nudge naming the review; the feedback itself comes from
 \`r3 prompt <id>\`, which prints what you haven't seen and marks it delivered, so
 a second run shows nothing new (\`--all\` reprints every open item, marking
 nothing).
-  0 registered · 4 someone else holds it, stop · 5 this harness can't be
-  messaged, use watch · 1 ordinary failure, including an approved or abandoned
-  review — nothing will ever be pushed on it
+  0 registered · 4 someone else holds it, stop · 5 this harness/daemon can't
+  message the session, use watch · 1 ordinary failure, including an approved or
+  abandoned review — nothing will ever be pushed on it
 A daemon restart drops registrations; re-register if you restart mid-loop.
 
 \`r3 watch <id>\` blocks until the human acts, then prints the feedback and the
@@ -2118,7 +2117,7 @@ they show the old. To cite both, split it into two replies.
 
   \`r3 show <id> [--json]\`  full history: every item, thread, round
   \`r3 list --meta session=<id>\`  your reviews — create stamps your
-    session id, so <id> is $CLAUDE_CODE_SESSION_ID
+    detected Claude/Codex session id
   \`r3 edit <id> --title "..." | --summary "..."\`  (--summary - reads stdin)
   \`r3 approve <id> [--note "..."]\`  ends the loop
   \`r3 abandon <id>\`  close without approving

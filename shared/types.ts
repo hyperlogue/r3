@@ -577,9 +577,9 @@ export type ServerEvent =
 // How the agent holding a review's one slot is reached. `watch` is a process
 // blocked on an SSE stream — the connection IS the slot, so the holder is live
 // by construction. `listen` is a registered session inbox the daemon pushes to,
-// which is only known-live at the instant it is probed. Presence renders the
-// same either way (one indicator); the kind rides the wire because the two fail
-// differently and `r3 watch`'s refusal should be able to say which it hit.
+// whose liveness may be known (Claude socket) or unknown (idle Codex thread).
+// Presence renders the same either way (one indicator); the kind rides the wire
+// because the two fail differently and `r3 watch`'s refusal should say which it hit.
 export type WatcherKind = "watch" | "listen";
 
 // An agent waiting on a review — blocked in `r3 watch <id>`, or registered via
@@ -590,30 +590,43 @@ export interface WatcherInfo {
   kind: WatcherKind;
 }
 
-// `POST /api/reviews/:id/listen` — register this agent's harness inbox so the
-// daemon can push a nudge on Submit/approve/abandon instead of the agent holding
-// a process open. `socket`/`token` are read by the CLI from its own environment
-// (Claude Code exports them to every child of a session).
+// `POST /api/reviews/:id/listen` — register this agent's harness delivery target
+// so the daemon can push a nudge on Submit/approve/abandon instead of the agent
+// holding a process open. Claude Code exposes a socket + live token; Codex 0.149+
+// exposes `codex queue`, addressed by its thread id.
 //
-// The token is a LIVE SESSION CREDENTIAL: the daemon keeps it in memory only and
-// never writes it to the store. That is what makes the listener registry
-// in-memory, and therefore what makes a daemon restart drop every listener.
-//
-// It is REQUIRED, because it is the only thing that makes delivery deterministic.
-// Without an auth line the harness falls back to own-child verification, and
-// whether the daemon is a descendant of the session is an accident of which
-// session happened to spawn it — one per-user daemon spans every session but can
-// be the child of at most one. A push from a non-descendant is HELD for approval
-// (measured), and since we send no reply address we never learn that it was. So a
-// tokenless registration is a coin flip resolved silently: it would look
-// registered, answer 200 on Submit, and never fire. Refusing it up front — while
-// the agent can still fall back to `r3 watch` — is the whole point.
-export interface ListenRequest {
-  session: string;
-  agentId?: string;
+// Claude's token is a LIVE SESSION CREDENTIAL: the daemon keeps it in memory
+// only and never writes it to the store. It is required on the Claude target,
+// because an unattributed push can be held for approval without a receipt. That
+// makes the listener registry in-memory; Codex targets share its restart
+// lifecycle rather than introducing a second persistence model.
+export interface ClaudeListenerTarget {
+  harness: "claude";
   socket: string;
   token: string;
 }
+
+export interface CodexListenerTarget {
+  harness: "codex";
+  threadId: string;
+}
+
+export type ListenerTarget = ClaudeListenerTarget | CodexListenerTarget;
+
+interface ListenRequestBase {
+  session: string;
+  agentId?: string;
+}
+
+// The untagged Claude arm preserves compatibility with clients from before
+// listener targets were discriminated.
+type LegacyClaudeListenTarget = Omit<ClaudeListenerTarget, "harness"> & {
+  harness?: undefined;
+};
+
+export type ListenRequest = ListenRequestBase & (ListenerTarget | LegacyClaudeListenTarget);
+export const LISTENER_UNSUPPORTED_STATUS = 501;
+
 export interface ListenResponse {
   ok: true;
   session: string;

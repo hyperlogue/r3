@@ -93,25 +93,30 @@ one rendered file.
   slot, shared by `watch` and `listen`; each `WatcherInfo` carries its `kind`) /
   fire a `submitted` event. Submit **also pushes** to a `listen` holder's session
   inbox and *awaits* that write, answering **`502`** and dropping the registration
-  when the inbox can't be reached — the connect is the only delivery signal the
-  wire gives (no ack), so a hand-off that reached nobody must not answer `200`.
-- `POST …/listen { session, agentId?, socket, token }` (`ListenRequest`) —
-  register this agent's harness session inbox so the daemon pushes a one-line
+  when the target can't be reached. Claude supplies only socket-connect/write as
+  a delivery signal (no ack); Codex supplies the `codex queue` process exit. A
+  hand-off that reached nobody must not answer `200`.
+- `POST …/listen` (`ListenRequest`) — register one of two targets:
+  `{ session, agentId?, harness?: "claude", socket, token }` (the untagged form
+  remains accepted for older clients), or `{ session, agentId?, harness:
+  "codex", threadId }`. The daemon pushes a one-line
   nudge on Submit/approve/abandon, instead of the agent holding a process open.
   Takes the **same one slot** as `watch` (a second client ⇒ `409
   WatchRefusedResponse`); `404` unknown review, `400` for a closed one (nothing is
-  ever pushed again), a missing `token` (an unattributed push is held for approval
-  with no receipt, so it would look registered and never fire) or a `socket`
-  outside the harness namespace (`validateSocketPath`), `502` when draining what
-  is already pending finds the
-  inbox gone. The nudge carries **no feedback content** — `POST …/prompt` remains
+  ever pushed again), a missing Claude `token` (an unattributed push is held for
+  approval with no receipt, so it would look registered and never fire), a
+  Claude `socket` outside the harness namespace (`validateSocketPath`), or a
+  missing/invalid Codex thread id; **`501`** when the daemon's own bounded
+  `codex queue --help` capability check fails (the CLI maps it to exit `5`), and
+  `502` when draining what is already pending finds the target gone. The nudge
+  carries **no feedback content** — `POST …/prompt` remains
   the only thing that stamps `sent_at`. The one exception is an **approval's
   `note`** (`meta.next_steps`), which the approve nudge carries inline, capped at
   `MAX_NOTE_CHARS` and cut at a word: nothing is pushed on this review again, and
   a listener has no detail fetch to read it from the way a woken `r3 watch` does.
-  A cut note says so and names `r3 show <id>`. `token` is a live session credential: held
-  in memory, never stored (**security-model** skill), which is why a daemon
-  restart drops every registration.
+  A cut note says so and names `r3 show <id>`. Claude's `token` is a live session
+  credential: held in memory, never stored (**security-model** skill), which is
+  why a daemon restart drops every registration.
 
 **Feedback + replies**
 `POST /api/reviews/:id/feedback` (on a **files** review a supplied `quote` wins over
@@ -146,8 +151,9 @@ the SPA's own CSS colours.
 `reviews-changed`); a connection with `session` registers as a watcher. **The
 connection is the review's one watch slot**: a `session` connect on a review
 another client already holds is refused **`409 WatchRefusedResponse`** (naming the
-holder — which may be a `listen` registration, probed for liveness first so a
-dead one can't lock the review out) *before* the stream opens; the same
+holder — which may be a `listen` registration; a provably dead Claude socket is
+evicted first, while an unprobeable Codex thread remains authoritative) *before*
+the stream opens; the same
 `session`+`agentId` reconnecting is
 admitted and evicts its own ghost, which gets a stream-local `superseded` frame
 (`SUPERSEDED_EVENT`, not a broadcast) and closes. Browser tabs pass no `session`,
@@ -178,7 +184,7 @@ r3 list   [--meta k=v]... [--status open]
 r3 show   <id> [--json]
 r3 prompt <id> [--all] [--feedback <fid,...>]      # --all: re-print all open items, mark nothing
 r3 watch  <id> [--session <name>] [--agent-id <id>] [--auto-fetch-timeout <sec>] [--timeout <sec>]
-r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; Claude Code only for now
+r3 listen <id> [--session <name>] [--agent-id <id>]  # register + return; Claude Code or Codex CLI 0.149+
 r3 diff   add <id> [--label L] [--summary S] | list <id> [--json] | rm <id> <seq>
 r3 files  add <id> <path|glob>... | rm <id> <path>...
 r3 snapshot <id> [--label L] | snapshot list <id> [--json] | snapshot rm <id> <seq>
@@ -216,7 +222,7 @@ in `cli/index.ts`). **External repos defer to `r3 guide`, so it must stay truthf
 — any commit changing a command, flag, output shape, or the protocol must re-check
 `GUIDE` **and** `HELP` in the same commit.
 
-Two hand-off paths:
+Three hand-off modes:
 
 - **Copy prompt** (manual) — the human clicks "Copy prompt" and pastes it.
 - **Watch + Submit** (hands-off) — the agent runs `r3 watch <id>`, which registers
@@ -233,9 +239,9 @@ Two hand-off paths:
   since a dropped SSE or a restarted agent must not be locked out by its own
   ghost, and the displaced process exits `4` too rather than reconnecting into a
   fight over the slot.
-- **Listen + Submit** (hands-off, no held process) — **Claude Code only for now**:
-  it is the one harness r3 supports here, since it is the one that exposes a
-  per-session inbox and token. `r3 listen <id>` registers that inbox and returns;
+- **Listen + Submit** (hands-off, no held process) — Claude Code exposes an
+  authenticated per-session socket; Codex CLI 0.149+ exposes `codex queue` for
+  an existing thread. `r3 listen <id>` registers the detected target and returns;
   the daemon writes the nudge itself. Same slot as `watch` — run one or the other,
   never both — and `kind` is deliberately not part of client identity, so one
   agent switching `watch`↔`listen` mid-loop reclaims its own slot. The nudge names
@@ -275,8 +281,9 @@ the loop is the human's move (`r3 approve` / `r3 abandon`, or the UI buttons).
 
 `r3 listen` exits: **`0`** = registered (the daemon will push) · **`4`** = another
 watch/listen holds this review, as watch's `4` · **`5`** = this harness cannot be
-messaged (no session inbox, or no `CLAUDE_CODE_MESSAGING_TOKEN` to attribute the
-push with — one answer, so one code), so fall back to `r3 watch` — distinct from
+messaged (no supported session target, no Claude messaging token, or no
+queue-capable Codex in the daemon's environment — one answer, so one code), so
+fall back to `r3 watch` — distinct from
 `4` so `r3 listen || r3 watch` can tell "wrong harness" from "someone else has
 it". Anything else is the
 CLI's ordinary exit `1` (unknown review, a closed one, an unreachable inbox).
@@ -287,9 +294,11 @@ auto-send after N idle seconds when no human will click Submit. `--session` is t
 UI display name; `--agent-id` a precise machine handle other tools read from
 `GET /api/reviews/:id/watchers`.
 
-**The display name defaults to the harness's own session id** (`watch`, `listen`
-and `claim` share the chain: `--session` → `$CLAUDE_CODE_SESSION_ID` → the
-review's `meta.session` → `"agent"`). It has to name the session working *now*,
+**The display name defaults to the harness's own session id.** `watch` and
+`claim` use `--session` → `$CLAUDE_CODE_SESSION_ID` or
+`$CODEX_THREAD_ID`/`$CODEX_SESSION_ID` → review meta → `"agent"`; `listen`
+selects its target and default id atomically, then uses the same fallbacks. It has
+to name the session working *now*,
 and `meta.session` names whoever *created* the review — a different agent on any
 multi-round loop, so a badge reading off it credited the wrong session. The
 identity is shared across the three commands on purpose: `watch` and `listen`
@@ -298,9 +307,9 @@ beside a watch badge should name one agent once. The UI shortens a session UUID 
 its first group and makes it click-to-copy.
 
 `r3 create` follows the same rule for the *provenance* half: it stamps
-`meta.session` from `$CLAUDE_CODE_SESSION_ID` when the caller passes no
-`--meta session=…`, so `r3 list --meta session=$CLAUDE_CODE_SESSION_ID` lists an
-agent's own reviews. Only `create` — the same key on `list` is a **filter**, and
+`meta.session` from the detected Claude/Codex session id when the caller passes
+no `--meta session=…`, so filtering by that id lists an agent's own reviews. Only
+`create` — the same key on `list` is a **filter**, and
 defaulting a filter would silently narrow every listing to the calling session.
 
 ## Delivery tracking

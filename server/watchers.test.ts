@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { ListenerTarget } from "../shared/types.ts";
 
 // The watch registry is pure in-memory presence — no db.ts, so no R3_DB dance.
 import {
   addWatcher,
   dropListener,
-  type ListenerTarget,
   listenerFor,
   type Probe,
   removeWatcher,
@@ -26,11 +26,13 @@ function admit(id: string, info: Who, evict = noop) {
 // A `listen` holder: same slot, but reached through an inbox the daemon pushes
 // to, so admission may have to probe it.
 const target = (socket = "/run/user/0/cc-socks/1.sock"): ListenerTarget => ({
+  harness: "claude",
   socket,
   token: "t",
 });
-const alive: Probe = async () => true;
-const dead: Probe = async () => false;
+const alive: Probe = async () => "alive";
+const dead: Probe = async () => "dead";
+const unknown: Probe = async () => "unknown";
 
 function listen(id: string, info: Who, opts: { probe?: Probe; evict?: () => void } = {}) {
   return addWatcher(id, { ...info, kind: "listen" }, opts.evict ?? noop, {
@@ -139,11 +141,21 @@ describe("watch and listen share the one slot", () => {
     const refused = await addWatcher(id, { session: "claude", kind: "watch" }, noop, {
       probe: async () => {
         probed++;
-        return false;
+        return "dead";
       },
     });
     expect(refused.ok).toBe(false);
     expect(probed).toBe(0);
+  });
+
+  test("an unknown listener stays authoritative until delivery resolves it", async () => {
+    const id = review();
+    expect((await listen(id, { session: "codex" })).ok).toBe(true);
+    const refused = await addWatcher(id, { session: "claude", kind: "watch" }, noop, {
+      probe: unknown,
+    });
+    expect(refused.ok).toBe(false);
+    expect(watchersOf(id)).toEqual([{ session: "codex", agentId: undefined, kind: "listen" }]);
   });
 
   test("one client may switch watch -> listen and back, reclaiming its own slot", async () => {

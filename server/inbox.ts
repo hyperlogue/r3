@@ -19,7 +19,7 @@
 import { statSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { dirname } from "node:path";
-import type { ListenerTarget } from "./watchers.ts";
+import type { ClaudeListenerTarget } from "../shared/types.ts";
 
 // A human clicked Submit and is waiting on this: long enough that a busy machine
 // isn't a false negative, short enough that a wedged socket doesn't hold the
@@ -68,72 +68,6 @@ export function validateSocketPath(p: string): string | null {
   return null;
 }
 
-// What the agent actually reads. Two constraints shape it.
-//
-// The harness drops *identical* repeats arriving close together, so every nudge
-// has to be distinct. The review id separates two reviews; the timestamp
-// separates two Submits on the SAME review, which is the case that actually
-// loses content: the human submits, the agent wakes and runs `r3 prompt`
-// (marking round 1 sent), the human submits again seconds later, and a
-// byte-identical nudge is dropped — leaving round 2 unsent with nothing to
-// report it. That is the silent non-delivery this whole design exists to
-// prevent, so it is not worth saving a dozen characters over. The format
-// mirrors the harness's own injected notices, which timestamp for the same reason.
-//
-// And we send no reply address, so the sender renders as unknown and the text
-// has to say who it is from.
-export function nudgeText(
-  reviewId: string,
-  title: string,
-  event: "submitted" | "approved" | "abandoned",
-  opts: { now?: Date; note?: string | null } = {},
-): string {
-  const now = opts.now ?? new Date();
-  const headline =
-    event === "submitted"
-      ? "feedback submitted"
-      : event === "approved"
-        ? "approved — the loop is done"
-        : "abandoned — closed without approval";
-  const at = now.toISOString().replace(/\.\d+Z$/, "Z");
-  const lines = [`[r3] ${reviewId} — ${headline} at ${at}`, `Review: ${title}`];
-  // Only the submitted case has anything to fetch; the terminal two are the
-  // whole message, and telling an agent to run `prompt` on a closed review
-  // would send it after content that is not coming.
-  if (event === "submitted") lines.push(`Run: r3 prompt ${reviewId}`);
-  // An approval's "next steps" note is the one piece of content a terminal
-  // event carries, and this nudge is the last thing that will ever arrive on
-  // this review — the registration is dropped right after it. A `watch` holder
-  // reads the note off the detail it fetches; a listener has no such round
-  // trip, so the note has to ride the message or it is simply lost.
-  const note = capNote(opts.note ?? "");
-  if (note.text) {
-    lines.push("", "Next steps from the human:", note.text);
-    // Say where the rest is rather than leaving a sentence to end mid-word with
-    // no way back to it. Not phrased as `Run:` — that line means "there is a
-    // prompt waiting", which on a closed review there never is.
-    if (note.truncated) lines.push(`(truncated — see \`r3 show ${reviewId}\` for the full note)`);
-  }
-  return lines.join("\n");
-}
-
-// The note is free-form prose typed into the approve dialog, pushed into a
-// session inbox as one fire-and-forget message. Carry enough to act on, and cut
-// at a word so the tail doesn't end mid-token; the full text stays in
-// `meta.next_steps`, which `r3 show` prints.
-export const MAX_NOTE_CHARS = 400;
-
-export function capNote(note: string): { text: string; truncated: boolean } {
-  const t = note.trim();
-  if (t.length <= MAX_NOTE_CHARS) return { text: t, truncated: false };
-  const cut = t.slice(0, MAX_NOTE_CHARS);
-  const sp = cut.search(/\s\S*$/);
-  // Honour a word boundary only when it isn't throwing most of the budget away
-  // (a 400-character run with no whitespace is one token, so cut it mid-token).
-  const kept = sp > MAX_NOTE_CHARS * 0.6 ? cut.slice(0, sp) : cut;
-  return { text: `${kept.trimEnd()}…`, truncated: true };
-}
-
 function openSocket(path: string, timeoutMs: number): Promise<Socket> {
   return new Promise((resolve, reject) => {
     const sock = connect(path);
@@ -162,7 +96,7 @@ function openSocket(path: string, timeoutMs: number): Promise<Socket> {
 
 // Is the session behind this inbox still there? A vanished socket file
 // (ENOENT) or a socket nobody is accepting on (ECONNREFUSED) both mean gone.
-export const probeInbox: (target: ListenerTarget) => Promise<boolean> = async (target) => {
+export const probeInbox: (target: ClaudeListenerTarget) => Promise<boolean> = async (target) => {
   if (validateSocketPath(target.socket) !== null) return false;
   try {
     (await openSocket(target.socket, PROBE_TIMEOUT_MS)).destroy();
@@ -174,7 +108,7 @@ export const probeInbox: (target: ListenerTarget) => Promise<boolean> = async (t
 
 // One nudge. Resolves on a completed write, rejects on anything else — the
 // caller turns a rejection into a failed Submit and drops the listener.
-export async function pushToInbox(target: ListenerTarget, text: string): Promise<void> {
+export async function pushToInbox(target: ClaudeListenerTarget, text: string): Promise<void> {
   const invalid = validateSocketPath(target.socket);
   if (invalid) throw new Error(invalid);
   const sock = await openSocket(target.socket, PUSH_TIMEOUT_MS);

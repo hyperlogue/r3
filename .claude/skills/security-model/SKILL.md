@@ -158,8 +158,18 @@ Two supported shapes, both keeping the daemon on loopback:
   directory matching the harness's documented per-user socket dirs, and — after
   `statSync` resolves the link chain — a real socket owned by our own uid. Shape
   is checked before touching the disk, so the interesting rules stay testable.
+- **Codex queue targets** (`r3 listen`, `server/listener.ts`): the request hands
+  the daemon a thread id and human-authored prose that later reach a child
+  process. Both are passed to a fixed `codex queue` executable as separate argv
+  values, never through a shell; the API accepts no executable path or extra
+  flags. Thread ids are non-empty, null-free and capped at 200 characters. The
+  queue command is killed after 10 seconds, and a non-zero exit is failed
+  delivery, so the listener is dropped rather than left looking live. Before
+  registration, the daemon uses that same bounded command seam to run `codex
+  queue --help`; missing support returns `501` instead of leaving capability to a
+  short-lived CLI process with a potentially different environment.
 
-## The agent's session token (`r3 listen`)
+## Claude Code's session token (`r3 listen`)
 
 `r3 listen` reads `CLAUDE_CODE_MESSAGING_TOKEN` from its own environment (the
 harness exports it to every child of a session) and POSTs it to the daemon, which
@@ -174,8 +184,10 @@ the daemon happens to descend from that session, resolved silently in the failur
 direction (below).
 
 **It is a live session credential and never reaches the store.** The listener
-registry is in-memory (`server/watchers.ts`) *because* of this — that is the
-reason a daemon restart drops every registration, not an accident of the design.
+registry is in-memory (`server/watchers.ts`) *because* of this; Codex targets
+share its lifecycle rather than introducing a second persistence model. That is
+the reason a daemon restart drops every registration, not an accident of the
+design.
 Do not add a `listeners` table, and do not log the token. Its blast radius is
 bounded anyway: it dies with its session, and anyone who can read r3's sqlite can
 already read `$XDG_STATE_HOME/r3/token` and drive the whole daemon.
