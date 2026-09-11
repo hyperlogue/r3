@@ -209,6 +209,37 @@ test("JSON input counts real streamed bytes and rejects malformed text", async (
 
 describe("artifact HTTP collaboration contract", () => {
   const human = { role: "human", sessionId: null };
+  test("manual copy cannot acknowledge feedback edited after the copied snapshot", async () => {
+    const id = await create();
+    const feedback = await (
+      await request(`/api/artifacts/${id}/feedback`, "POST", {
+        actor: human,
+        body: "Original note",
+        target: { kind: "artifact" },
+      })
+    ).json();
+    const preview = await request(`/api/artifacts/${id}/prompt?scope=unsent`);
+    const expectedFingerprint = preview.headers.get("x-r3-prompt-fingerprint");
+    expect(expectedFingerprint).toHaveLength(64);
+    await request(`/api/feedback/${feedback.id}`, "PATCH", {
+      actor: human,
+      body: "Edited after copying",
+    });
+    expect(
+      (await request(`/api/artifacts/${id}/prompt`, "POST", { expectedFingerprint })).status,
+    ).toBe(409);
+    expect(storage.conversations.get(feedback.id).sentAt).toBeNull();
+    const updated = await request(`/api/artifacts/${id}/prompt?scope=unsent`);
+    expect(await updated.text()).toContain("Edited after copying");
+    expect(
+      (
+        await request(`/api/artifacts/${id}/prompt`, "POST", {
+          expectedFingerprint: updated.headers.get("x-r3-prompt-fingerprint"),
+        })
+      ).status,
+    ).toBe(200);
+    expect(storage.conversations.get(feedback.id).sentAt).not.toBeNull();
+  });
   test("native threads, explicit reply context, owner delivery, and claims use the same IDs across HTTP", async () => {
     const id = await create();
     await request(`/api/artifacts/${id}/versions`, "POST", publication());

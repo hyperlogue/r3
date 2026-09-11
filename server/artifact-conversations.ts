@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
   ArtifactActor,
   ArtifactClaim,
@@ -22,6 +22,22 @@ import type { ArtifactStore } from "./artifacts.ts";
 import { nowIso } from "./ids.ts";
 
 type AuthoredRow = { author: "human" | "agent"; agent_session_id: string | null };
+
+export function artifactDeliveryFingerprint(feedback: ArtifactFeedback[]): string {
+  const snapshot = feedback.map((item) => ({
+    id: item.id,
+    body: item.body,
+    status: item.status,
+    sentAt: item.sentAt,
+    statusUnsent: item.statusUnsent,
+    replies: item.replies.map((reply) => ({
+      id: reply.id,
+      body: reply.body,
+      sentAt: reply.sentAt,
+    })),
+  }));
+  return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+}
 type FeedbackRow = TargetColumns &
   AuthoredRow & {
     id: string;
@@ -368,12 +384,17 @@ export class ArtifactConversations {
 
   // Reads never mark delivery. An explicit owner handoff drains a transaction's
   // exact snapshot, so later edits/replies cannot accidentally be stamped sent.
-  deliver(id: string, only?: string[]): ArtifactFeedback[] {
+  deliver(id: string, only?: string[], expectedFingerprint?: string): ArtifactFeedback[] {
     return this.db
       .transaction(() => {
         if (this.artifacts.get(id).state !== "active")
           throw new ArtifactError("Artifact is archived", 409);
         const feedback = this.unsent(id, only);
+        if (
+          expectedFingerprint !== undefined &&
+          expectedFingerprint !== artifactDeliveryFingerprint(feedback)
+        )
+          throw new ArtifactError("Pending feedback changed; copy the updated prompt again", 409);
         const time = this.clock();
         for (const item of feedback) {
           this.db

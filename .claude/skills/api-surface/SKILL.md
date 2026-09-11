@@ -50,6 +50,9 @@ are in `shared/artifacts.ts`, re-exported by `shared/types.ts`.
 - `GET .../:id/prompt[?scope=unsent&feedback=<ids>]` is read-only;
   `POST .../:id/prompt { feedback? }` drains the exact pending snapshot.
   Both return text with `x-r3-prompt-items`; only POST stamps delivery.
+  An unsent preview also returns `x-r3-prompt-fingerprint`. Manual copy sends it
+  back as `expectedFingerprint` after clipboard success; a changed snapshot
+  returns 409 without stamping newly edited content. Direct CLI drains omit it.
 - `POST .../:id/submit` returns `{ notification }` and
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event, replay flag, and notification result. Delivery failure is HTTP 502;

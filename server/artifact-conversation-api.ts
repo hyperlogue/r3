@@ -3,6 +3,7 @@ import { buildArtifactPrompt } from "../shared/artifact-prompt.ts";
 import type { ArtifactDetail } from "../shared/artifacts.ts";
 import { AgentConnections } from "./agent-connections.ts";
 import type { ArtifactCollaboration } from "./artifact-collaboration.ts";
+import { artifactDeliveryFingerprint } from "./artifact-conversations.ts";
 import { ARTIFACT_EVENT_HEADERS, artifactEvents } from "./artifact-events.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
@@ -89,12 +90,18 @@ export function installArtifactConversations(
             only ? only.includes(feedback.id) : feedback.status === "open",
           );
     c.header("x-r3-prompt-items", String(selected.length));
+    if (scope === "unsent")
+      c.header("x-r3-prompt-fingerprint", artifactDeliveryFingerprint(selected));
     return c.text(buildArtifactPrompt(detail, selected, scope === "unsent"));
   });
   app.post("/api/artifacts/:id/prompt", async (c) => {
     const id = c.req.param("id");
     const input = await artifactJson(c.req.raw);
-    const selected = conversations.deliver(id, ids(input.feedback));
+    const expected =
+      input.expectedFingerprint === undefined
+        ? undefined
+        : requireString(input.expectedFingerprint, "Expected prompt fingerprint", 64);
+    const selected = conversations.deliver(id, ids(input.feedback), expected);
     const detail = detailFor(id);
     if (selected.length) collaboration.broadcast({ type: "artifact-updated", artifactId: id });
     c.header("x-r3-prompt-items", String(selected.length));

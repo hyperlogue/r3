@@ -324,3 +324,10 @@ export interface ArtifactNudgeAcknowledgment {
   ok: boolean;
   error?: string;
 }
+
+export interface ArtifactPromptBody {
+  feedback?: string[];
+  // Manual copy acknowledges only the snapshot copied to the clipboard. CLI
+  // consumers can omit this and consume the atomic POST response directly.
+  expectedFingerprint?: string;
+}
