@@ -186,6 +186,24 @@ export interface CreateArtifactBody {
   meta?: Record<string, string>;
 }
 
+export interface EditArtifactBody {
+  title?: string | null;
+  summary?: string | null;
+  meta?: Record<string, string>;
+}
+
+export interface ArtifactSource {
+  artifactId: string;
+  versionSeq: number;
+  path: string;
+  hash: string;
+  byteLength: number;
+  mediaType: string;
+  kind: "text" | "binary" | "oversize";
+  language: string | null;
+  lines: { lineNo: number; text: string; html: string }[];
+}
+
 // Binary-safe transfer. The version owns the complete path membership. Missing
 // members are absent from this version; reads never fall back to its predecessor.
 export interface PublicationFile {
