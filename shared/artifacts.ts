@@ -331,3 +331,16 @@ export interface ArtifactPromptBody {
   // consumers can omit this and consume the atomic POST response directly.
   expectedFingerprint?: string;
 }
+
+// This temporary capability has no application credentials. Its origin names
+// exactly one artifact/version and expires unless the application renews it.
+export interface ArtifactPreviewContext {
+  id: string;
+  artifactId: string;
+  versionSeq: number;
+  origin: string;
+  documentUrl: string;
+  gateUrl: string;
+  utilityUrl: string;
+  expiresAt: string;
+}
