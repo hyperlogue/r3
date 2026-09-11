@@ -65,6 +65,7 @@ describe("artifact publications", () => {
       store.create({ kind: "files", actor: { role: "agent", sessionId: "unregistered" } }),
     ).toThrow("Register");
     expect(() => store.create({ kind: "files" })).toThrow("actor");
+    expect(() => store.create({ kind: "files", actor: human, meta: null })).toThrow("object");
     expect(() => store.registerSession({ id: agent.sessionId, harness: "different" })).toThrow(
       "different metadata",
     );

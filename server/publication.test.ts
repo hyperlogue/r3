@@ -106,7 +106,7 @@ describe("complete publication validation", () => {
       validatePublication(
         publication({
           kind: "files",
-          files: [member("data", "", "text/plain\r\nSet-Cookie: value")],
+          files: [member("data", "", "text/plain\r\nX-Test: injected")],
         }),
       ),
     ).toThrow("media type");
@@ -124,8 +124,25 @@ describe("complete publication validation", () => {
       { expectedSeq: undefined },
       { expectedSeq: -1 },
       { publicationKey: "" },
+      { provenance: null },
+      { provenance: [] },
     ])
       expect(() => validatePublication({ ...body, ...override })).toThrow();
+  });
+
+  test("deep or cyclic metadata fails validation without exhausting the call stack", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.child = cyclic;
+    let deep: unknown = {};
+    for (let i = 0; i < 66; i++) deep = { child: deep };
+    for (const provenance of [cyclic, deep]) {
+      expect(() =>
+        validatePublication({
+          ...publication({ kind: "files", files: [member("a")] }),
+          provenance,
+        }),
+      ).toThrow("nested too deeply");
+    }
   });
 
   test("a sparse diff stays an independent patch payload", () => {

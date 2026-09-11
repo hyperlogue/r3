@@ -81,13 +81,15 @@ export function requireMediaType(value: unknown): string {
 }
 
 // Canonical JSON gives semantically identical metadata the same retry identity.
-export function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+export function canonicalJson(value: unknown, depth = 0): string {
+  if (depth > 64) throw new ArtifactError("Metadata is nested too deeply");
+  if (Array.isArray(value))
+    return `[${value.map((item) => canonicalJson(item, depth + 1)).join(",")}]`;
   if (value !== null && typeof value === "object") {
     const object = requireObject(value, "JSON value");
     return `{${Object.keys(object)
       .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key], depth + 1)}`)
       .join(",")}}`;
   }
   if (

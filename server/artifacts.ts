@@ -174,7 +174,7 @@ export class ArtifactStore {
     ) {
       throw new ArtifactError("Unknown project");
     }
-    const meta = jsonObject(body.meta ?? {}, "meta");
+    const meta = jsonObject(body.meta === undefined ? {} : body.meta, "meta");
     if (Object.values(meta).some((value) => typeof value !== "string")) {
       throw new ArtifactError("Artifact metadata values must be strings");
     }

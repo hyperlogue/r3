@@ -81,7 +81,7 @@ export function validatePublication(value: unknown): ValidatedPublication {
     actor: requireActor(body.actor),
     label: optionalText(body.label, "label", 1000),
     summary: optionalText(body.summary, "summary"),
-    provenance: jsonObject(body.provenance ?? {}, "provenance"),
+    provenance: jsonObject(body.provenance === undefined ? {} : body.provenance, "provenance"),
   };
   if (content.kind === "diff") {
     const patch = requireString(content.patch, "Patch", PUBLICATION_LIMITS.patchBytes);
