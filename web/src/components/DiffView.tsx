@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import {
   EXPAND_STEP,
   type Gap,
+  gapContainingLine,
   gapsOf,
   type MergedLines,
   mergeRevealed,
@@ -65,6 +66,13 @@ const SIGN: Record<string, string> = { add: "+", del: "−", context: " ", hunk:
 // Resolves to null when the source can't cover the range (the caller then leaves
 // the gap as it was), so a failed expand degrades to "nothing happened".
 export type FetchContext = (file: string, start: number, end: number) => Promise<DiffLine[] | null>;
+
+export interface DiffLocate {
+  path: string;
+  line: number;
+  side: DiffSide;
+  nonce: number;
+}
 
 // A file with no expandable gaps: the merge is the identity, and the empty map
 // means every hunk row renders as the plain `@@` separator it always did.
@@ -456,6 +464,7 @@ function DiffFileBody({
   fetchContext,
   onPickLines,
   regions,
+  locate,
   onHydrated,
 }: {
   f: DiffFileChange;
@@ -464,6 +473,7 @@ function DiffFileBody({
   fetchContext?: FetchContext;
   onPickLines: PickLines;
   regions: Region[];
+  locate?: DiffLocate;
   // ProgressiveFile's hydration signal. There is no fetch to wait on here, but it
   // still has to be reported: it releases a forced activation (a jump waiting for
   // these rows) and swaps the provisional min-height for the real one. Reported
@@ -569,6 +579,15 @@ function DiffFileBody({
     });
     return { oldText, newText, oldIdx, newIdx };
   }, [effectiveLines]);
+
+  useEffect(() => {
+    if (!locate || (locate.side === "old" ? oldIdx : newIdx).has(locate.line)) return;
+    const gap = gapContainingLine(f.lines, gaps, locate.line, locate.side);
+    if (gap)
+      void expand(gap, "all").catch(() => {
+        /* The regular gap control remains available to retry. */
+      });
+  }, [locate, oldIdx, newIdx, f.lines, gaps, expand]);
 
   // Split rows + their own per-side line→row-index maps. Both halves render the
   // same paired list, so one index map serves both — and scroll-to-line resolves
@@ -726,6 +745,7 @@ const FileBlock = memo(function FileBlock({
   onFileFeedback,
   foldSignal,
   regions,
+  locate,
   active = true,
   onHydrated,
   onOpenChange,
@@ -752,6 +772,7 @@ const FileBlock = memo(function FileBlock({
   // is derived per row so memoized rows don't re-render on unrelated region
   // changes.
   regions: Region[];
+  locate?: DiffLocate;
   // A big round leaves every cheap block shell mounted but renders the rows only
   // near the viewport (ProgressiveFile). Defaulted, so a caller with no provider
   // — Storybook, the demo — renders exactly as it always did.
@@ -804,6 +825,7 @@ const FileBlock = memo(function FileBlock({
           fetchContext={fetchContext}
           onPickLines={onPickLines}
           regions={regions}
+          locate={locate}
           onHydrated={onHydrated}
         />
       ) : null}
@@ -1014,6 +1036,7 @@ export function DiffView({
   onFileFeedback,
   foldSignal,
   regions = NO_REGIONS,
+  locate,
   progressiveVersion = "",
 }: {
   rounds: PatchDiff[];
@@ -1046,6 +1069,7 @@ export function DiffView({
   // Unresolved-feedback spans to wash onto matching code rows. Markdown files
   // still go through useRegionHighlight.
   regions?: Region[];
+  locate?: DiffLocate;
   // ProgressiveFile's reset signal for the bodies below: whatever identifies the
   // version on screen (the caller's round / snapshot pair / syntax theme). Only
   // read where a provider is mounted AND enabled — without one every block is
@@ -1124,6 +1148,7 @@ export function DiffView({
               onFileFeedback={onFileFeedback}
               foldSignal={foldSignal}
               regions={byFile.get(f.path) ?? NO_REGIONS}
+              locate={locate?.path === f.path ? locate : undefined}
               active={active}
               onHydrated={onHydrated}
               onOpenChange={onOpenChange}

@@ -77,6 +77,31 @@ export function gapsOf(lines: DiffLine[]): Gap[] {
   return out;
 }
 
+// Hidden context has the same old/new displacement as the adjacent context
+// edge of its hunk. A deletion earlier in the patch must not make an old-side
+// Locate open an unrelated new-side line with the same number.
+export function gapContainingLine(
+  lines: DiffLine[],
+  gaps: Gap[],
+  line: number,
+  side: "old" | "new",
+): Gap | undefined {
+  return gaps.find((gap) => {
+    let displacement = 0;
+    if (side === "old") {
+      const context: DiffLine[] = [];
+      for (let i = gap.hunkIndex + 1; i < lines.length && lines[i].type !== "hunk"; i++) {
+        if (lines[i].type === "context" && lines[i].oldLine !== null && lines[i].newLine !== null)
+          context.push(lines[i]);
+      }
+      const edge = gap.edge === "up" ? context[0] : context.at(-1);
+      if (!edge) return false;
+      displacement = edge.oldLine! - edge.newLine!;
+    }
+    return line >= gap.startNew + displacement && line <= gap.endNew + displacement;
+  });
+}
+
 // First / last NEW-side line of the hunk beginning at `from` (its content runs
 // until the next hunk row or the end of the list).
 function firstNewIn(lines: DiffLine[], from: number): number | null {
