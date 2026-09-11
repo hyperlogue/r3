@@ -1,4 +1,9 @@
-import { ArtifactClient, artifactApiPath, feedbackApiPath } from "../../shared/artifact-client.ts";
+import {
+  ArtifactApiError,
+  ArtifactClient,
+  artifactApiPath,
+  feedbackApiPath,
+} from "../../shared/artifact-client.ts";
 import type {
   Artifact,
   ArtifactActor,
@@ -79,11 +84,27 @@ export const artifactApi = {
     }),
   place: (id: string, body: Omit<ArtifactPlacementBody, "actor">) =>
     client().json("PUT", `${feedbackApiPath(id)}/placements`, { ...body, actor: HUMAN_ACTOR }),
-  lifecycle: (id: string, body: Omit<ArtifactLifecycleBody, "actor">) =>
-    client().json<ArtifactLifecycleResponse>("POST", `${artifactApiPath(id)}/lifecycle`, {
-      ...body,
-      actor: HUMAN_ACTOR,
-    }),
+  lifecycle: async (id: string, body: Omit<ArtifactLifecycleBody, "actor">) => {
+    try {
+      return await client().json<ArtifactLifecycleResponse>(
+        "POST",
+        `${artifactApiPath(id)}/lifecycle`,
+        {
+          ...body,
+          actor: HUMAN_ACTOR,
+        },
+      );
+    } catch (error) {
+      // Notification failure follows a committed transition. Keep that outcome
+      // visible instead of inviting another archive with a new operation key.
+      if (error instanceof ArtifactApiError && error.status === 502) {
+        const result = error.result as ArtifactLifecycleResponse | null;
+        if (result?.event?.artifactId === id && result.notification?.state === "failed")
+          return result;
+      }
+      throw error;
+    }
+  },
   watchers: (id: string) =>
     client().json<ArtifactWatcher[]>("GET", `${artifactApiPath(id)}/watchers`),
   submit: (id: string) =>
