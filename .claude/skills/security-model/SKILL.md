@@ -13,6 +13,26 @@ The threat model r3 actually defends: **browser-borne attack** (DNS rebinding,
 cross-origin `fetch`) and **casual remote access**. It explicitly does *not*
 defend against other local UIDs — see "What this does not protect" below.
 
+## Artifact API boundary (pending client cutover)
+
+`server/artifact-auth.ts` is the injected guard for the artifact protocol. The
+legacy routes below remain in use until the daemon and clients switch together.
+The artifact guard compares full application origins, including the port; an
+allowed hostname alone no longer authorizes a browser origin. Explicit configured
+application origins support a proxy that rewrites Host. Preview origins must
+never enter that set. Browser requests carrying cross-origin Fetch Metadata do
+not acquire the no-Origin local CLI exemption.
+
+Every artifact data stream requires token or cookie authentication, including
+SSE. Browser and agent clients use authenticated fetch streams, removing the
+legacy token-free EventSource exception. Health, same-origin boot, and login
+retain their narrow bootstrap roles. Required-login boot exposes no master
+token; login and revocation retain `AuthService`'s existing cookie contract.
+
+Application-origin resource downloads are attachments with a restrictive CSP,
+`nosniff`, and same-origin resource policy (`server/artifact-resources.ts`).
+Executable preview responses require their separate isolated-origin policy.
+
 ## The bind
 
 Binds **`127.0.0.1`** by default. `R3_BIND` overrides it, and that is an explicit
