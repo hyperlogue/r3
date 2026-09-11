@@ -12,7 +12,7 @@ import {
   requireString,
 } from "./artifact-validation.ts";
 import { type BlobStore, hashBytes, type StoredBlob } from "./blobs.ts";
-import { parseUnifiedDiff } from "./git.ts";
+import { validateStoredPatch } from "./patch-content.ts";
 
 export const PUBLICATION_LIMITS = {
   files: 10_000,
@@ -88,13 +88,7 @@ export function validatePublication(value: unknown): ValidatedPublication {
     if (Buffer.byteLength(patch) > PUBLICATION_LIMITS.patchBytes) {
       throw new ArtifactError("Patch exceeds the publication size limit", 413);
     }
-    const files = parseUnifiedDiff(patch);
-    if (!files.length) throw new ArtifactError("Publication must contain a unified diff");
-    for (const file of files) {
-      requireArtifactPath(file.path);
-      if (file.oldPath) requireArtifactPath(file.oldPath);
-      if (file.newPath) requireArtifactPath(file.newPath);
-    }
+    validateStoredPatch(patch);
     return {
       ...metadata,
       kind: "diff",

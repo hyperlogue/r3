@@ -456,7 +456,7 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
       } else if (line.startsWith("rename to ")) {
         cur.newPath = line.slice("rename to ".length);
         cur.path = cur.newPath;
-      } else if (line.startsWith("Binary files")) cur.binary = true;
+      } else if (line.startsWith("Binary files") || line === "GIT binary patch") cur.binary = true;
       else if (line.startsWith("--- ")) {
         const p = line.slice(4);
         if (p !== "/dev/null") cur.oldPath = p.replace(/^a\//, "");

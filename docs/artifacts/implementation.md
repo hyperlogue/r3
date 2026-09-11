@@ -12,7 +12,8 @@ The existing runtime remains in use until migration and the new clients are read
   identity, sequence conflicts, retained rendering storage (`server/publication.ts`,
   `server/artifacts.ts`).
 - [x] Standalone retained Markdown renderer (`server/artifact-document.ts`).
-- [ ] Sparse diff validation/rendering.
+- [x] Sparse diff validation/rendering and captured-context expansion
+  (`server/patch-content.ts`).
 - [ ] Native target validation, conversations, separate placements, reply context,
   human-controlled status, delivery, and session-owned claims.
 - [ ] Archive/restore events, message-dependent listener nudge, terminal watch

@@ -6,6 +6,7 @@ import { normalizeWs } from "./anchor.ts";
 import * as db from "./db.ts";
 import { blobSha, parseUnifiedDiff, trimOversizedFiles } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath, resolveTheme } from "./highlight.ts";
+import { highlightPatchFiles } from "./patch-content.ts";
 import { rehunk } from "./textdiff.ts";
 
 // Generous cap — patches live as TEXT rows in the global sqlite.
@@ -31,48 +32,6 @@ export function fitPatchToLimit(raw: string): string {
 export function parsePatch(raw: string): DiffFileChange[] | null {
   const files = parseUnifiedDiff(raw);
   return files.length > 0 ? files : null;
-}
-
-// Highlight a parsed patch from its own hunk text. The originating refs may not
-// exist anywhere (a piped diff, a rebased-away commit), so unlike the live-diff
-// path there's no full file to read: reconstruct each side's visible text from
-// the rows that carry that side's line numbers and highlight those pseudo-files.
-// Multi-line constructs that span outside a hunk degrade gracefully (Shiki just
-// sees less context). Cached by content sha like every other highlight.
-async function highlightPatchFiles(files: DiffFileChange[], theme?: string): Promise<void> {
-  await Promise.all(
-    files.map(async (f) => {
-      if (f.binary) return;
-      const lang = langForPath(f.path);
-      const oldRows: number[] = [];
-      const newRows: number[] = [];
-      f.lines.forEach((ln, i) => {
-        if (ln.type === "hunk") return;
-        if (ln.oldLine != null) oldRows.push(i);
-        if (ln.newLine != null) newRows.push(i);
-      });
-      const hl = async (rowIdx: number[]) => {
-        if (!rowIdx.length) return null;
-        const content = rowIdx.map((i) => f.lines[i].text).join("\n");
-        return highlightToLines(content, lang, await blobSha(content), theme);
-      };
-      const [oldHl, newHl] = await Promise.all([hl(oldRows), hl(newRows)]);
-      // Map back by row order (the k-th new-side row is the k-th pseudo-file
-      // line), preferring the new side like the live-diff renderer.
-      const bySide = (rowIdx: number[], html: string[] | null) => {
-        if (!html) return;
-        rowIdx.forEach((rowI, k) => {
-          const ln = f.lines[rowI];
-          if (!ln.html) ln.html = html[k] ?? escapeHtml(ln.text);
-        });
-      };
-      bySide(newRows, newHl);
-      bySide(oldRows, oldHl);
-      for (const ln of f.lines) {
-        if (ln.type !== "hunk" && !ln.html) ln.html = escapeHtml(ln.text);
-      }
-    }),
-  );
 }
 
 // Rendered rounds, memoized on (review, seq, theme). A round is IMMUTABLE — the
