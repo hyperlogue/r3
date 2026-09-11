@@ -220,6 +220,23 @@ export interface CreateArtifactReplyBody {
   target?: ArtifactVersionTarget | null;
 }
 
+export interface EditArtifactFeedbackBody {
+  actor: ArtifactActor;
+  body?: string;
+  status?: "open" | "resolved";
+}
+
+export interface EditArtifactReplyBody {
+  actor: ArtifactActor;
+  body: string;
+}
+
+export interface ArtifactPlacementBody {
+  actor: ArtifactActor;
+  target: ArtifactDocumentTarget;
+  state: ArtifactPlacement["state"];
+}
+
 export interface ArtifactLifecycleBody {
   actor: ArtifactActor;
   operationKey: string;

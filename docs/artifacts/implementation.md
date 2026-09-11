@@ -16,8 +16,9 @@ The existing runtime remains in use until migration and the new clients are read
   (`server/patch-content.ts`).
 - [x] Native source/rendered/diff target validation and explicit message context
   (`server/artifact-targets.ts`).
-- [ ] Conversations, separate placements, human-controlled status, delivery,
-  and session-owned claims.
+- [x] Conversations, separate placements and human-controlled status
+  (`server/artifact-conversations.ts`).
+- [ ] Delivery and session-owned claims.
 - [ ] Archive/restore events, message-dependent listener nudge, terminal watch
   behavior, and ordered retries.
 - [ ] Legacy database migration with explicit defaults, preserved IDs/evidence,
