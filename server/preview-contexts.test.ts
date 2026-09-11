@@ -115,3 +115,50 @@ test("preview origins require secure contexts and a separate hostname namespace"
   storage.artifacts.delete(id);
   expect(() => contexts.forRequest(request(kept.documentUrl))).toThrow();
 });
+
+test("preview URLs cannot bypass the browser gate; grants require a same-origin single-use proof", () => {
+  const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
+  const browser = (method = "GET", extra: Record<string, string> = {}) =>
+    new Request(context.gateUrl, {
+      method,
+      headers: { host: new URL(context.origin).host, "user-agent": "Browser A", ...extra },
+    });
+  const proof = contexts.challenge(browser());
+  expect(contexts.authorized(browser())).toBeNull();
+  expect(
+    contexts.verify(
+      browser("POST", { origin: "https://app.example", "content-type": "application/json" }),
+      proof.challenge,
+    ),
+  ).toBeNull();
+  expect(
+    contexts.verify(
+      browser("POST", { origin: context.origin, "content-type": "text/plain" }),
+      proof.challenge,
+    ),
+  ).toBeNull();
+  expect(
+    contexts.verify(
+      browser("POST", {
+        origin: context.origin,
+        "content-type": "application/json",
+        "user-agent": "Browser B",
+      }),
+      proof.challenge,
+    ),
+  ).toBeNull();
+  const post = browser("POST", { origin: context.origin, "content-type": "application/json" });
+  const grant = contexts.verify(post, proof.challenge)!;
+  expect(grant).toContain("; Path=/; Secure; HttpOnly; SameSite=None; Partitioned");
+  expect(contexts.verify(post, proof.challenge)).toBeNull();
+  const cookie = grant.split(";")[0];
+  expect(contexts.authorized(browser("GET", { cookie }))?.versionSeq).toBe(1);
+  expect(contexts.authorized(browser("GET", { cookie, "user-agent": "Browser B" }))).toBeNull();
+  contexts.renew(context.id);
+  expect(contexts.authorized(browser("GET", { cookie }))?.versionSeq).toBe(1);
+  const next = contexts.challenge(browser());
+  time += 120_001;
+  expect(contexts.verify(post, next.challenge)).toBeNull();
+  contexts.revoke(context.id);
+  expect(() => contexts.authorized(browser("GET", { cookie }))).toThrow("unavailable");
+});

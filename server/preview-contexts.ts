@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import type { ArtifactPreviewContext } from "../shared/artifacts.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
@@ -6,6 +6,20 @@ import type { ArtifactStore } from "./artifacts.ts";
 
 const CONTEXT_TTL = 60 * 60 * 1000;
 const MAX_CONTEXTS = 512;
+export const PREVIEW_COOKIE = "__Host-r3-preview";
+const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const browserIdentity = (request: Request) =>
+  digest(
+    ["user-agent", "sec-ch-ua", "sec-ch-ua-platform"]
+      .map((header) => request.headers.get(header) ?? "")
+      .join("\n"),
+  );
+
+interface PreviewState {
+  scope: PreviewScope;
+  challenges: Map<string, { browser: string; expiresAt: number }>;
+  browsers: Map<string, string>;
+}
 
 function secureOrigin(value: string): URL {
   let url: URL;
@@ -52,7 +66,7 @@ export function previewDocumentUrl(scope: Pick<PreviewScope, "origin">, path: st
 // credential is copied to the preview; native resource requests use its unique
 // capability origin. Host/port matching precedes every preview response.
 export class PreviewContexts {
-  private readonly contexts = new Map<string, PreviewScope>();
+  private readonly contexts = new Map<string, PreviewState>();
   private readonly base: URL;
   constructor(
     private readonly artifacts: ArtifactStore,
@@ -101,7 +115,7 @@ export class PreviewContexts {
       applicationOrigin: app.origin,
       expiresAt: this.now() + CONTEXT_TTL,
     });
-    this.contexts.set(id, scope);
+    this.contexts.set(id, { scope, challenges: new Map(), browsers: new Map() });
     return this.describe(scope);
   }
 
@@ -119,23 +133,23 @@ export class PreviewContexts {
   }
 
   private expire(): void {
-    for (const scope of this.contexts.values())
+    for (const { scope } of this.contexts.values())
       if (scope.expiresAt <= this.now()) this.contexts.delete(scope.id);
   }
 
-  private get(id: string): PreviewScope {
-    const scope = this.contexts.get(id);
-    if (!scope || scope.expiresAt <= this.now()) {
+  private get(id: string): PreviewState {
+    const state = this.contexts.get(id);
+    if (!state || state.scope.expiresAt <= this.now()) {
       this.contexts.delete(id);
       throw new ArtifactError("Preview context expired or unavailable", 404);
     }
     try {
-      this.artifacts.version(scope.artifactId, scope.versionSeq);
+      this.artifacts.version(state.scope.artifactId, state.scope.versionSeq);
     } catch (error) {
       this.contexts.delete(id);
       throw error;
     }
-    return scope;
+    return state;
   }
 
   forRequest(request: Request): PreviewScope {
@@ -148,25 +162,75 @@ export class PreviewContexts {
     } catch {
       throw new ArtifactError("Preview context unavailable", 404);
     }
-    const scope = this.get(origin.hostname.split(".")[0]);
+    const { scope } = this.get(origin.hostname.split(".")[0]);
     if (scope.origin !== origin.origin) throw new ArtifactError("Preview context unavailable", 404);
     return scope;
   }
 
   renew(id: string): ArtifactPreviewContext {
-    const scope = Object.freeze({ ...this.get(id), expiresAt: this.now() + CONTEXT_TTL });
-    this.contexts.set(id, scope);
-    return this.describe(scope);
+    const state = this.get(id);
+    state.scope = Object.freeze({ ...state.scope, expiresAt: this.now() + CONTEXT_TTL });
+    return this.describe(state.scope);
   }
   revoke(id: string): void {
     this.contexts.delete(id);
   }
   revokeArtifact(id: string): void {
-    for (const scope of this.contexts.values())
+    for (const { scope } of this.contexts.values())
       if (scope.artifactId === id) this.contexts.delete(scope.id);
   }
   close(): void {
     this.contexts.clear();
+  }
+
+  // Only r3's trusted gate document is served before verification. Its script
+  // checks real fetch and WebRTC enforcement, then POSTs this single-use proof
+  // from the preview origin. A foreign document cannot forge that Origin or
+  // read the challenge through CORS. URL sharing alone grants no executable view.
+  challenge(request: Request): { scope: PreviewScope; challenge: string } {
+    const scope = this.forRequest(request);
+    const { challenges } = this.get(scope.id);
+    for (const [key, value] of challenges)
+      if (value.expiresAt <= this.now()) challenges.delete(key);
+    while (challenges.size >= 8) challenges.delete(challenges.keys().next().value!);
+    const challenge = randomBytes(24).toString("base64url");
+    challenges.set(digest(challenge), {
+      browser: browserIdentity(request),
+      expiresAt: this.now() + 120_000,
+    });
+    return { scope, challenge };
+  }
+
+  verify(request: Request, challenge: string): string | null {
+    const scope = this.forRequest(request);
+    if (
+      request.method !== "POST" ||
+      request.headers.get("origin") !== scope.origin ||
+      request.headers.get("content-type")?.split(";")[0] !== "application/json"
+    )
+      return null;
+    const { challenges, browsers } = this.get(scope.id);
+    const key = digest(challenge);
+    const pending = challenges.get(key);
+    if (!pending || pending.expiresAt <= this.now() || pending.browser !== browserIdentity(request))
+      return null;
+    challenges.delete(key);
+    while (browsers.size >= 8) browsers.delete(browsers.keys().next().value!);
+    const cookie = randomBytes(32).toString("base64url");
+    browsers.set(digest(cookie), pending.browser);
+    return `${PREVIEW_COOKIE}=${cookie}; Path=/; Secure; HttpOnly; SameSite=None; Partitioned`;
+  }
+
+  authorized(request: Request): PreviewScope | null {
+    const scope = this.forRequest(request);
+    const cookie = request.headers
+      .get("cookie")
+      ?.split(";")
+      .map((value) => value.trim())
+      .find((value) => value.startsWith(`${PREVIEW_COOKIE}=`))
+      ?.slice(PREVIEW_COOKIE.length + 1);
+    const browser = cookie ? this.get(scope.id).browsers.get(digest(cookie)) : undefined;
+    return browser !== undefined && browser === browserIdentity(request) ? scope : null;
   }
 }
 
