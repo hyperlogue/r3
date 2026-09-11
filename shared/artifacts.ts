@@ -293,3 +293,16 @@ export interface ArtifactLifecycleResponse {
 export type ArtifactWatchResult =
   | { result: "archived"; event: ArtifactLifecycleEvent | null }
   | { result: "feedback" | "timeout" | "cancelled" | "superseded" | "deleted" };
+
+export type ArtifactAgentStreamEvent =
+  | { type: "ready"; registration: ArtifactWatcher }
+  | { type: "nudge"; nudge: ArtifactNudge }
+  | { type: "closed"; reason: "archived" | "superseded" | "deleted" | "disconnected" }
+  | { type: "heartbeat" };
+
+export interface ArtifactNudgeAcknowledgment {
+  actor: ArtifactActor;
+  nudgeId: string;
+  ok: boolean;
+  error?: string;
+}
