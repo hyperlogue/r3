@@ -6,6 +6,7 @@ import type {
   ArtifactActor,
   ArtifactFile,
   ArtifactKind,
+  ArtifactProject,
   ArtifactState,
   ArtifactVersion,
 } from "../shared/artifacts.ts";
@@ -146,6 +147,67 @@ export class ArtifactStore {
       .query("INSERT INTO agent_sessions(id, harness, label, created_at) VALUES (?, ?, ?, ?)")
       .run(id, harness, label, createdAt);
     return { id, harness, label, createdAt };
+  }
+
+  sessions(): AgentSession[] {
+    return this.db
+      .query<AgentSession, []>(
+        "SELECT id, harness, label, created_at AS createdAt FROM agent_sessions ORDER BY created_at, id",
+      )
+      .all();
+  }
+
+  projects(): ArtifactProject[] {
+    return this.db
+      .query<ArtifactProject, []>(
+        "SELECT id, name, remote_url AS remoteUrl, created_at AS createdAt FROM projects ORDER BY name, id",
+      )
+      .all();
+  }
+
+  createProject(value: unknown): ArtifactProject {
+    const input = requireObject(value, "Project");
+    const id =
+      input.id === undefined
+        ? `project_${randomUUID()}`
+        : requireString(input.id, "Project id", 200);
+    const name = optionalText(input.name, "Project name", 1000);
+    const remoteUrl = optionalText(input.remoteUrl, "Project remote", 4096);
+    if (this.db.query("SELECT 1 FROM projects WHERE id = ?").get(id))
+      throw new ArtifactError("Project id is already registered", 409);
+    const createdAt = this.clock();
+    this.db
+      .query("INSERT INTO projects(id, name, remote_url, created_at) VALUES (?, ?, ?, ?)")
+      .run(id, name, remoteUrl, createdAt);
+    return { id, name, remoteUrl, createdAt };
+  }
+
+  deleteProject(id: string): void {
+    if (!this.db.query("DELETE FROM projects WHERE id = ?").run(id).changes)
+      throw new ArtifactError("Project not found", 404);
+  }
+
+  viewed(id: string): string[] {
+    this.get(id);
+    return this.db
+      .query<{ key: string }, [string]>(
+        "SELECT key FROM viewed_marks WHERE artifact_id = ? ORDER BY key",
+      )
+      .all(id)
+      .map((row) => row.key);
+  }
+
+  setViewed(id: string, value: unknown): void {
+    this.get(id);
+    const input = requireObject(value, "Viewed mark");
+    const key = requireString(input.key, "Viewed key", 8192);
+    if (typeof input.viewed !== "boolean")
+      throw new ArtifactError("Viewed mark requires a boolean viewed value");
+    if (input.viewed)
+      this.db
+        .query("INSERT INTO viewed_marks(artifact_id, key) VALUES (?, ?) ON CONFLICT DO NOTHING")
+        .run(id, key);
+    else this.db.query("DELETE FROM viewed_marks WHERE artifact_id = ? AND key = ?").run(id, key);
   }
 
   validateActor(value: unknown): ArtifactActor {

@@ -55,6 +55,25 @@ function directory(
 }
 
 describe("artifact publications", () => {
+  test("project grouping is optional and deleting a group preserves artifacts and read progress", () => {
+    const project = store.createProject({ name: "Examples" });
+    const grouped = store.create({ kind: "files", actor: human, projectId: project.id });
+    const ungrouped = store.create({ kind: "files", actor: human });
+    store.setViewed(grouped.id, { key: "f:notes.md@retained-content", viewed: true });
+    store.setViewed(grouped.id, { key: "f:notes.md@retained-content", viewed: true });
+    expect(store.viewed(grouped.id)).toEqual(["f:notes.md@retained-content"]);
+    expect(store.list({ projectId: project.id }).map((a) => a.id)).toEqual([grouped.id]);
+    expect(store.projects()).toEqual([project]);
+    expect(() => store.createProject({ id: project.id })).toThrow("already registered");
+    store.deleteProject(project.id);
+    expect(store.get(grouped.id).projectId).toBeNull();
+    expect(store.get(ungrouped.id).projectId).toBeNull();
+    expect(store.viewed(grouped.id)).toHaveLength(1);
+    store.setViewed(grouped.id, { key: "f:notes.md@retained-content", viewed: false });
+    expect(store.viewed(grouped.id)).toEqual([]);
+    expect(store.sessions()).toContainEqual(expect.objectContaining({ id: agent.sessionId }));
+  });
+
   test("artifacts need no repo and require registered agent attribution", () => {
     const artifact = store.create({ kind: "files", actor: agent, meta: { task: "design" } });
     expect(artifact.projectId).toBeNull();
