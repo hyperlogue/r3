@@ -11,7 +11,8 @@ The existing runtime remains in use until migration and the new clients are read
 - [x] Complete publication validation and atomic version publication, retry
   identity, sequence conflicts, retained rendering storage (`server/publication.ts`,
   `server/artifacts.ts`).
-- [ ] Standalone retained Markdown renderer and sparse diff validation/rendering.
+- [x] Standalone retained Markdown renderer (`server/artifact-document.ts`).
+- [ ] Sparse diff validation/rendering.
 - [ ] Native target validation, conversations, separate placements, reply context,
   human-controlled status, delivery, and session-owned claims.
 - [ ] Archive/restore events, message-dependent listener nudge, terminal watch

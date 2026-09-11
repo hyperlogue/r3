@@ -696,6 +696,7 @@ const defaultLinkOpen =
   md.renderer.rules.link_open ??
   ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+  if (env?.standalone) return defaultLinkOpen(tokens, idx, options, env, self);
   const token = tokens[idx];
   const href = String(token.attrGet("href") ?? "");
   if (REMOTE_URL_RE.test(href)) {
@@ -793,6 +794,7 @@ async function highlightFences(tokens: ReturnType<typeof md.parse>, theme?: stri
 // marks only innermost blocks (web/src/highlights.ts), so the ancestors that
 // still carry a range never widen it back.
 md.core.ruler.push("line_numbers", (state) => {
+  if (state.env?.standalone) return true;
   for (const token of state.tokens) {
     // Hidden tokens (a tight list item's implicit paragraph) render no element,
     // and their map duplicates the item's anyway.
@@ -822,7 +824,10 @@ md.core.ruler.push("heading_slugs", (state) => {
     if (!slug) return;
     const n = seen.get(slug) ?? 0;
     seen.set(slug, n + 1);
-    token.attrSet("data-r3-heading", n === 0 ? slug : `${slug}-${n}`);
+    token.attrSet(
+      state.env?.standalone ? "id" : "data-r3-heading",
+      n === 0 ? slug : `${slug}-${n}`,
+    );
   });
   return true;
 });
@@ -842,5 +847,15 @@ export async function renderMarkdown(
   const env = { path };
   const tokens = md.parse(source, env);
   await highlightFences(tokens, theme);
+  return md.renderer.render(tokens, md.options, env);
+}
+
+// Published documents navigate within their own version URL and anchor directly
+// to the rendered DOM. Source-line mappings and SPA file-card links are specific
+// to the legacy review renderer above, not to this retained document surface.
+export async function renderPublishedMarkdown(source: string, path: string): Promise<string> {
+  const env = { path, standalone: true };
+  const tokens = md.parse(source, env);
+  await highlightFences(tokens);
   return md.renderer.render(tokens, md.options, env);
 }
