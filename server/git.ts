@@ -11,6 +11,7 @@ import type {
   GitStatusEntry,
   GitTreeEntry,
 } from "../shared/types.ts";
+import { decodeGitPath, gitHeaderPaths } from "./git-path.ts";
 import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
 import { realpathWithin } from "./paths.ts";
 import type { Repo } from "./repo.ts";
@@ -425,11 +426,11 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
         deletions: 0,
         lines: [],
       };
-      const m = line.match(/^diff --git a\/(.+) b\/(.+)$/);
+      const m = gitHeaderPaths(line);
       if (m) {
-        cur.oldPath = m[1];
-        cur.newPath = m[2];
-        cur.path = m[2];
+        cur.oldPath = m[0];
+        cur.newPath = m[1];
+        cur.path = m[1];
       }
       continue;
     }
@@ -452,17 +453,17 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
       else if (line.startsWith("deleted file mode")) cur.status = "deleted";
       else if (line.startsWith("rename from ")) {
         cur.status = "renamed";
-        cur.oldPath = line.slice("rename from ".length);
+        cur.oldPath = decodeGitPath(line.slice("rename from ".length));
       } else if (line.startsWith("rename to ")) {
-        cur.newPath = line.slice("rename to ".length);
+        cur.newPath = decodeGitPath(line.slice("rename to ".length));
         cur.path = cur.newPath;
       } else if (line.startsWith("Binary files") || line === "GIT binary patch") cur.binary = true;
       else if (line.startsWith("--- ")) {
-        const p = line.slice(4);
+        const p = decodeGitPath(line.slice(4), true);
         if (p !== "/dev/null") cur.oldPath = p.replace(/^a\//, "");
         else cur.status = "added";
       } else if (line.startsWith("+++ ")) {
-        const p = line.slice(4);
+        const p = decodeGitPath(line.slice(4), true);
         if (p !== "/dev/null") {
           cur.newPath = p.replace(/^b\//, "");
           cur.path = cur.newPath;
