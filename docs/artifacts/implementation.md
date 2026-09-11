@@ -14,8 +14,10 @@ The existing runtime remains in use until migration and the new clients are read
 - [x] Standalone retained Markdown renderer (`server/artifact-document.ts`).
 - [x] Sparse diff validation/rendering and captured-context expansion
   (`server/patch-content.ts`).
-- [ ] Native target validation, conversations, separate placements, reply context,
-  human-controlled status, delivery, and session-owned claims.
+- [x] Native source/rendered/diff target validation and explicit message context
+  (`server/artifact-targets.ts`).
+- [ ] Conversations, separate placements, human-controlled status, delivery,
+  and session-owned claims.
 - [ ] Archive/restore events, message-dependent listener nudge, terminal watch
   behavior, and ordered retries.
 - [ ] Legacy database migration with explicit defaults, preserved IDs/evidence,
