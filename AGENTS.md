@@ -1,5 +1,12 @@
 # r3 — Review. Revise. Resolve.
 
+**Artifact migration:** when changing publication, storage migration, native
+targets, archive/restore, previews, or agent transport, follow the
+[approved artifact design](docs/artifacts/design.md) and its
+[implementation checklist](docs/artifacts/implementation.md). They define the
+target product; the review model below describes the runtime being replaced.
+Update this map and the owning deep-reference skill as each runtime seam changes.
+
 A **local-first review tool for AI-generated code and docs**. A long-running
 per-user daemon on localhost owns review + feedback state for all your repos;
 reviews are created from the CLI/agent, and you review the commits, diffs, and raw
