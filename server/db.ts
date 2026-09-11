@@ -7,7 +7,6 @@ import { dirname } from "node:path";
 import type {
   AnchorState,
   Author,
-  AuthTokenInfo,
   Creator,
   Feedback,
   FeedbackClaim,
@@ -22,16 +21,9 @@ import type {
   SnapshotMeta,
   WorktreeDescriptor,
 } from "../shared/types.ts";
+import { AuthService } from "./auth.ts";
 import { stateDbPath } from "./config.ts";
-import {
-  newAuthTokenId,
-  newFeedbackId,
-  newReplyId,
-  newRepoId,
-  newReviewId,
-  newSessionId,
-  nowIso,
-} from "./ids.ts";
+import { newFeedbackId, newReplyId, newRepoId, newReviewId, nowIso } from "./ids.ts";
 
 const DB_PATH = stateDbPath();
 // Owner-only, matching the 0600 the token file next to it already takes. This
@@ -1201,133 +1193,5 @@ export function deleteSnapshot(reviewId: string, seq: number): boolean {
   return r.changes > 0;
 }
 
-// ---- auth: login tokens + session cookies ----
-//
-// Pure storage — hashing, cookie parsing, and TTL policy live in server/auth.ts.
-// This module only stores/queries the already-hashed token/session values.
-
-interface AuthTokenRow {
-  id: string;
-  label: string | null;
-  created_at: string;
-  last_used_at: string | null;
-  revoked_at: string | null;
-}
-function rowToAuthTokenInfo(r: AuthTokenRow): AuthTokenInfo {
-  return {
-    id: r.id,
-    label: r.label,
-    createdAt: r.created_at,
-    lastUsedAt: r.last_used_at,
-  };
-}
-
-// Mint a login token row. `tokenHash` is the sha256 of the plaintext token the
-// caller shows the user once; only the hash is ever stored.
-export function createAuthToken(input: { label: string | null; tokenHash: string }): AuthTokenInfo {
-  const ts = nowIso();
-  const id = insertWithMintedId(newAuthTokenId, (id) => {
-    db.query(
-      `INSERT INTO auth_tokens (id, label, token_hash, created_at) VALUES ($id, $label, $hash, $ts)`,
-    ).run({ $id: id, $label: input.label, $hash: input.tokenHash, $ts: ts });
-    return id;
-  });
-  return rowToAuthTokenInfo(
-    db.query("SELECT * FROM auth_tokens WHERE id = $id").get({ $id: id }) as AuthTokenRow,
-  );
-}
-
-// Look up a live (non-revoked) login token by its hash — the login path. Returns its
-// id, or null on no match / revoked.
-export function authTokenForLogin(tokenHash: string): string | null {
-  const r = db
-    .query("SELECT id FROM auth_tokens WHERE token_hash = $hash AND revoked_at IS NULL")
-    .get({ $hash: tokenHash }) as { id: string } | null;
-  return r?.id ?? null;
-}
-
-export function touchAuthTokenUsed(id: string): void {
-  db.query("UPDATE auth_tokens SET last_used_at = $ts WHERE id = $id").run({
-    $ts: nowIso(),
-    $id: id,
-  });
-}
-
-// Live login tokens, newest first (revoked ones are dropped — they can't be used).
-export function listAuthTokens(): AuthTokenInfo[] {
-  const rows = db
-    .query("SELECT * FROM auth_tokens WHERE revoked_at IS NULL ORDER BY created_at DESC")
-    .all() as AuthTokenRow[];
-  return rows.map(rowToAuthTokenInfo);
-}
-
-// Revoke one token: mark it revoked (audit trail) and delete its live sessions so
-// the revocation takes effect immediately. Returns false if the id is unknown or
-// already revoked.
-export function revokeAuthToken(id: string): boolean {
-  const r = db
-    .query("UPDATE auth_tokens SET revoked_at = $ts WHERE id = $id AND revoked_at IS NULL")
-    .run({ $ts: nowIso(), $id: id });
-  if (r.changes > 0) db.query("DELETE FROM auth_sessions WHERE token_id = $id").run({ $id: id });
-  return r.changes > 0;
-}
-
-// Revoke every live login token (and, via revokeAuthToken, their sessions).
-export function revokeAllAuthTokens(): number {
-  const live = db.query("SELECT id FROM auth_tokens WHERE revoked_at IS NULL").all() as {
-    id: string;
-  }[];
-  for (const { id } of live) revokeAuthToken(id);
-  return live.length;
-}
-
-// Create a session row for a freshly-minted cookie. `sessionHash` is the sha256 of
-// the cookie value; `tokenId` is the login token it was minted from.
-export function createSession(input: {
-  sessionHash: string;
-  tokenId: string;
-  expiresAt: string;
-}): void {
-  insertWithMintedId(newSessionId, (id) => {
-    db.query(
-      `INSERT INTO auth_sessions (id, token_id, session_hash, created_at, expires_at)
-       VALUES ($id, $tid, $hash, $ts, $exp)`,
-    ).run({
-      $id: id,
-      $tid: input.tokenId,
-      $hash: input.sessionHash,
-      $ts: nowIso(),
-      $exp: input.expiresAt,
-    });
-    return id;
-  });
-}
-
-// Does a valid (unexpired) session with this cookie-hash exist? A revoked token's
-// sessions are already gone (revokeAuthToken deletes them), so an existing row is
-// trustworthy. ISO-8601 UTC strings sort lexically, so `> now` is a correct compare.
-export function sessionExists(sessionHash: string): boolean {
-  return !!db
-    .query("SELECT 1 FROM auth_sessions WHERE session_hash = $hash AND expires_at > $now")
-    .get({ $hash: sessionHash, $now: nowIso() });
-}
-
-export function deleteSession(sessionHash: string): void {
-  db.query("DELETE FROM auth_sessions WHERE session_hash = $hash").run({ $hash: sessionHash });
-}
-
-// The login token that minted the (live, unexpired) session with this cookie-hash,
-// or null if none matches. Lets the API refuse revoking the token the caller is
-// currently logged in with (which would delete this very session).
-export function tokenIdForSession(sessionHash: string): string | null {
-  const row = db
-    .query("SELECT token_id FROM auth_sessions WHERE session_hash = $hash AND expires_at > $now")
-    .get({ $hash: sessionHash, $now: nowIso() }) as { token_id: string } | undefined;
-  return row?.token_id ?? null;
-}
-
-// Sweep expired session rows. Cheap housekeeping — an expired row is already rejected
-// by sessionExists, so this only bounds table growth.
-export function deleteExpiredSessions(): void {
-  db.query("DELETE FROM auth_sessions WHERE expires_at <= $now").run({ $now: nowIso() });
-}
+// Authentication shares this legacy connection until artifact bootstrap replaces it.
+export const authentication = new AuthService(db);

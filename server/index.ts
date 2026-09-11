@@ -151,7 +151,7 @@ function resolveAuth(c: Context): boolean {
   const bearer = authz?.startsWith("Bearer ") ? authz.slice(7) : null;
   const header = c.req.header("x-r3-token") ?? null;
   if (tokenEq(bearer) || tokenEq(header)) return true;
-  return auth.sessionValid(getCookie(c, auth.COOKIE_NAME));
+  return db.authentication.sessionValid(getCookie(c, auth.COOKIE_NAME));
 }
 
 const app = new Hono();
@@ -273,7 +273,7 @@ app.get("/api/health", (c) => c.json({ ok: true, version: R3_VERSION }));
 app.get("/api/boot", (c) => {
   if (!sameOrigin(c.req.raw)) return c.text("forbidden (origin)", 403);
   if (!REQUIRE_LOGIN) return c.json({ needsAuth: false, token: TOKEN } satisfies BootResponse);
-  if (auth.sessionValid(getCookie(c, auth.COOKIE_NAME)))
+  if (db.authentication.sessionValid(getCookie(c, auth.COOKIE_NAME)))
     return c.json({ needsAuth: false, token: null } satisfies BootResponse);
   return c.json({ needsAuth: true, token: null } satisfies BootResponse, 401);
 });
@@ -285,16 +285,16 @@ app.get("/api/boot", (c) => {
 app.post("/api/auth/login", async (c) => {
   const body = (await c.req.json().catch(() => null)) as LoginBody | null;
   if (typeof body?.token !== "string") return c.text("missing token", 400);
-  const res = auth.verifyLogin(body.token);
+  const res = db.authentication.verifyLogin(body.token);
   if (!res) return c.text("invalid token", 401);
-  const { cookieValue, maxAgeSeconds } = auth.mintSession(res.tokenId);
+  const { cookieValue, maxAgeSeconds } = db.authentication.mintSession(res.tokenId);
   setCookie(c, auth.COOKIE_NAME, cookieValue, auth.cookieOptions(isHttps(c), maxAgeSeconds));
   return c.json({ ok: true });
 });
 
 // End the current session (drops the row + expires the cookie).
 app.post("/api/auth/logout", (c) => {
-  auth.destroySession(getCookie(c, auth.COOKIE_NAME));
+  db.authentication.destroySession(getCookie(c, auth.COOKIE_NAME));
   deleteCookie(c, auth.COOKIE_NAME, { path: "/" });
   return c.json({ ok: true });
 });
@@ -303,29 +303,31 @@ app.post("/api/auth/logout", (c) => {
 // The list marks the caller's own token (the one behind its session cookie) so the
 // UI can disable its revoke; a master-token caller has no cookie ⇒ nothing marked.
 app.get("/api/auth/tokens", (c) => {
-  const current = auth.sessionTokenId(getCookie(c, auth.COOKIE_NAME));
-  return c.json(db.listAuthTokens().map((t) => (t.id === current ? { ...t, current: true } : t)));
+  const current = db.authentication.sessionTokenId(getCookie(c, auth.COOKIE_NAME));
+  return c.json(
+    db.authentication.listTokens().map((t) => (t.id === current ? { ...t, current: true } : t)),
+  );
 });
 
 app.post("/api/auth/tokens", async (c) => {
   const body = (await c.req.json().catch(() => null)) as CreateAuthTokenBody | null;
   const label = typeof body?.label === "string" && body.label.trim() ? body.label.trim() : null;
-  const { token, info } = auth.createLoginToken(label);
+  const { token, info } = db.authentication.createLoginToken(label);
   return c.json({ token, info } satisfies CreateAuthTokenResponse);
 });
 
 // Revoke all live login tokens (and their sessions). Distinct path from the :id
 // form so it can't be reached by a stray id.
-app.delete("/api/auth/tokens", (c) => c.json({ revoked: db.revokeAllAuthTokens() }));
+app.delete("/api/auth/tokens", (c) => c.json({ revoked: db.authentication.revokeAllTokens() }));
 
 // Refuse revoking the token behind the caller's own session — it would delete this
 // very session and lock the caller out mid-request. (revoke-all above is the explicit
 // "burn it all down" escape hatch and isn't guarded; the web UI never calls it.)
 app.delete("/api/auth/tokens/:id", (c) => {
   const id = c.req.param("id");
-  if (id === auth.sessionTokenId(getCookie(c, auth.COOKIE_NAME)))
+  if (id === db.authentication.sessionTokenId(getCookie(c, auth.COOKIE_NAME)))
     return c.text("can't revoke the token for your current session", 409);
-  return db.revokeAuthToken(id) ? c.json({ ok: true }) : c.text("not found", 404);
+  return db.authentication.revokeToken(id) ? c.json({ ok: true }) : c.text("not found", 404);
 });
 
 // Syntax-theme options for the settings picker (curated families + all bundled
@@ -1295,13 +1297,13 @@ export async function startDaemon(): Promise<void> {
   // sessionExists; this just bounds table growth). Re-sweep periodically too — the
   // daemon runs for months and logins accrue over time. `.unref()` so the timer never
   // keeps the process alive on its own.
-  db.deleteExpiredSessions();
+  db.authentication.expireSessions();
   setInterval(
     () => {
       // A sqlite throw here (disk full, IOERR on a network-mounted state dir) is
       // an uncaught exception six hours after startup with nothing to correlate.
       try {
-        db.deleteExpiredSessions();
+        db.authentication.expireSessions();
       } catch (err) {
         console.error("r3: session sweep failed:", err);
       }

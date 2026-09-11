@@ -1,17 +1,18 @@
 // Login tokens → HttpOnly session cookies (REQUIRE_LOGIN). Tokens are shown once
 // and stored hashed; the per-user API token (config.ts getToken) is separate.
 
-import { createHash, randomBytes } from "node:crypto";
+import type { Database } from "bun:sqlite";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { CookieOptions } from "hono/utils/cookie";
 import type { AuthTokenInfo } from "../shared/types.ts";
-import * as db from "./db.ts";
+import { nowIso } from "./ids.ts";
 
 // The session cookie name. HttpOnly, so JS never reads it (the SPA authenticates by
 // its mere presence, sent automatically on same-origin requests + EventSource).
 export const COOKIE_NAME = "r3_session";
 
 // Session lifetime — 30 days, in zellij's ~4-week ballpark. A revoked login token
-// kills its sessions immediately (db.revokeAuthToken); this only bounds how long an
+// kills its sessions immediately (revokeToken); this only bounds how long an
 // un-revoked one stays logged in.
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -22,52 +23,113 @@ function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
-// Mint a login token: return the plaintext ONCE (the caller shows it and forgets
-// it) and persist only its hash.
-export function createLoginToken(label: string | null): { token: string; info: AuthTokenInfo } {
-  const token = `r3tok_${randomBytes(24).toString("hex")}`;
-  const info = db.createAuthToken({ label, tokenHash: hashSecret(token) });
-  return { token, info };
-}
+// Database injection keeps authentication independent of review/artifact bootstrap.
+// The schema migration preserves these hash-only tables without changing cookies.
+export class AuthService {
+  constructor(
+    private readonly db: Database,
+    private readonly clock: () => string = nowIso,
+  ) {}
 
-// Verify a presented login token against the live (non-revoked) set. On success,
-// stamp last-used and return the token's id; null otherwise.
-export function verifyLogin(token: string): { tokenId: string } | null {
-  if (!token) return null;
-  const id = db.authTokenForLogin(hashSecret(token));
-  if (!id) return null;
-  db.touchAuthTokenUsed(id);
-  return { tokenId: id };
-}
+  createLoginToken(label: string | null): { token: string; info: AuthTokenInfo } {
+    const token = `r3tok_${randomBytes(24).toString("hex")}`;
+    const id = `authtok_${randomUUID().replaceAll("-", "")}`;
+    const createdAt = this.clock();
+    this.db
+      .query("INSERT INTO auth_tokens(id, label, token_hash, created_at) VALUES (?, ?, ?, ?)")
+      .run(id, label, hashSecret(token), createdAt);
+    return { token, info: { id, label, createdAt, lastUsedAt: null } };
+  }
 
-// Create a session row + return the raw cookie value to hand the browser.
-export function mintSession(tokenId: string): { cookieValue: string; maxAgeSeconds: number } {
-  const cookieValue = randomBytes(32).toString("base64url");
-  db.createSession({
-    sessionHash: hashSecret(cookieValue),
-    tokenId,
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
-  });
-  return { cookieValue, maxAgeSeconds: Math.floor(SESSION_TTL_MS / 1000) };
-}
+  verifyLogin(token: string): { tokenId: string } | null {
+    if (!token) return null;
+    return this.db.transaction(() => {
+      const row = this.db
+        .query<{ id: string }, [string]>(
+          "SELECT id FROM auth_tokens WHERE token_hash = ? AND revoked_at IS NULL",
+        )
+        .get(hashSecret(token));
+      if (!row) return null;
+      this.db
+        .query("UPDATE auth_tokens SET last_used_at = ? WHERE id = ?")
+        .run(this.clock(), row.id);
+      return { tokenId: row.id };
+    })();
+  }
 
-// Is this cookie value a valid, unexpired session? (A revoked token's sessions are
-// already deleted, so an existing row is trustworthy.)
-export function sessionValid(cookieValue: string | undefined): boolean {
-  return cookieValue != null && db.sessionExists(hashSecret(cookieValue));
-}
+  mintSession(tokenId: string): { cookieValue: string; maxAgeSeconds: number } {
+    const cookieValue = randomBytes(32).toString("base64url");
+    this.db.transaction(() => {
+      if (
+        !this.db.query("SELECT 1 FROM auth_tokens WHERE id = ? AND revoked_at IS NULL").get(tokenId)
+      ) {
+        throw new Error("Cannot create a session for an invalid or revoked login token");
+      }
+      const createdAt = this.clock();
+      this.db
+        .query(
+          "INSERT INTO auth_sessions(id, token_id, session_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+        )
+        .run(
+          `sess_${randomUUID().replaceAll("-", "")}`,
+          tokenId,
+          hashSecret(cookieValue),
+          createdAt,
+          new Date(Date.parse(createdAt) + SESSION_TTL_MS).toISOString(),
+        );
+    })();
+    return { cookieValue, maxAgeSeconds: Math.floor(SESSION_TTL_MS / 1000) };
+  }
 
-// The login token id backing this cookie's session, or null (no cookie / invalid /
-// expired). Unlike sessionValid, the id matters: the token route uses it to mark the
-// caller's own token and to refuse revoking it (self-lockout). A master-token caller
-// carries no cookie, so this is null and no token is "current".
-export function sessionTokenId(cookieValue: string | undefined): string | null {
-  return cookieValue == null ? null : db.tokenIdForSession(hashSecret(cookieValue));
-}
+  sessionValid(cookieValue: string | undefined): boolean {
+    return this.sessionTokenId(cookieValue) !== null;
+  }
 
-// Log out: drop the session row so its cookie stops authenticating.
-export function destroySession(cookieValue: string | undefined): void {
-  if (cookieValue) db.deleteSession(hashSecret(cookieValue));
+  sessionTokenId(cookieValue: string | undefined): string | null {
+    if (!cookieValue) return null;
+    return (
+      this.db
+        .query<{ id: string }, [string, string]>(`SELECT t.id FROM auth_sessions s
+      JOIN auth_tokens t ON t.id = s.token_id WHERE s.session_hash = ? AND s.expires_at > ? AND t.revoked_at IS NULL`)
+        .get(hashSecret(cookieValue), this.clock())?.id ?? null
+    );
+  }
+
+  destroySession(cookieValue: string | undefined): void {
+    if (cookieValue)
+      this.db
+        .query("DELETE FROM auth_sessions WHERE session_hash = ?")
+        .run(hashSecret(cookieValue));
+  }
+
+  listTokens(): AuthTokenInfo[] {
+    return this.db
+      .query<AuthTokenInfo, []>(`SELECT id, label, created_at AS createdAt,
+      last_used_at AS lastUsedAt FROM auth_tokens WHERE revoked_at IS NULL ORDER BY created_at DESC, rowid DESC`)
+      .all();
+  }
+
+  revokeToken(id: string): boolean {
+    return this.db.transaction(() => {
+      const result = this.db
+        .query("UPDATE auth_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL")
+        .run(this.clock(), id);
+      if (result.changes) this.db.query("DELETE FROM auth_sessions WHERE token_id = ?").run(id);
+      return result.changes > 0;
+    })();
+  }
+
+  revokeAllTokens(): number {
+    return this.db.transaction(() => {
+      const tokens = this.listTokens();
+      for (const token of tokens) this.revokeToken(token.id);
+      return tokens.length;
+    })();
+  }
+
+  expireSessions(): void {
+    this.db.query("DELETE FROM auth_sessions WHERE expires_at <= ?").run(this.clock());
+  }
 }
 
 // Cookie attributes. `secure` is set when the browser<->edge leg is HTTPS (e.g.

@@ -62,6 +62,12 @@ the port still passes — and leans on the Host allowlist + token/cookie instead
 
 ## Layer 3 — quick-auth (login token → session cookie)
 
+`AuthService` in `server/auth.ts` owns token/session persistence and hashing on an
+injected SQLite connection. Importing it opens no database. Legacy and artifact
+bootstrap use the same hash-only auth table shapes, preserving login state during
+the storage migration. Revocation updates the token and removes its sessions in
+one transaction; session minting checks that its token is still active.
+
 An **optional login gate**, pure hardening, on the zellij model (`server/auth.ts`),
 gated by ONE startup policy: **`REQUIRE_LOGIN`** (`config.ts`).
 
