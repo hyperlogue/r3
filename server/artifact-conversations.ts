@@ -304,6 +304,61 @@ export class ArtifactConversations {
       .immediate();
   }
 
+  claim(ids: string[], sessionId: string): ArtifactClaim[] {
+    this.artifacts.validateActor({ role: "agent", sessionId });
+    return this.db
+      .transaction(() => {
+        const time = this.clock();
+        const expiresAt = new Date(Date.parse(time) + 60 * 60 * 1000).toISOString();
+        const claims: ArtifactClaim[] = [];
+        for (const id of new Set(ids)) {
+          const feedback = this.get(id);
+          if (feedback.status !== "open")
+            throw new ArtifactError("Resolved feedback cannot be claimed", 409);
+          if (this.artifacts.get(feedback.artifactId).state !== "active")
+            throw new ArtifactError("Artifact is archived", 409);
+          if (feedback.claim !== null && feedback.claim.sessionId !== sessionId)
+            throw new ArtifactError("Feedback is already claimed by another agent", 409);
+          const claimedAt = feedback.claim?.claimedAt ?? time;
+          this.db
+            .query(`INSERT INTO feedback_claims(feedback_id, agent_session_id, claimed_at, renewed_at, expires_at)
+          VALUES (?, ?, ?, ?, ?) ON CONFLICT(feedback_id) DO UPDATE SET agent_session_id = excluded.agent_session_id,
+          claimed_at = excluded.claimed_at, renewed_at = excluded.renewed_at, expires_at = excluded.expires_at`)
+            .run(id, sessionId, claimedAt, time, expiresAt);
+          claims.push({ feedbackId: id, sessionId, claimedAt, renewedAt: time, expiresAt });
+        }
+        return claims;
+      })
+      .immediate();
+  }
+
+  release(ids: string[], sessionId: string): void {
+    this.artifacts.validateActor({ role: "agent", sessionId });
+    this.db
+      .transaction(() => {
+        for (const id of new Set(ids))
+          this.db
+            .query("DELETE FROM feedback_claims WHERE feedback_id = ? AND agent_session_id = ?")
+            .run(id, sessionId);
+      })
+      .immediate();
+  }
+
+  expireClaims(): string[] {
+    return this.db
+      .transaction(() => {
+        const time = this.clock();
+        const affected = this.db
+          .query<{ id: string }, [string]>(`SELECT DISTINCT f.artifact_id AS id FROM feedback f
+        JOIN feedback_claims c ON c.feedback_id = f.id WHERE c.expires_at <= ?`)
+          .all(time)
+          .map(({ id }) => id);
+        this.db.query("DELETE FROM feedback_claims WHERE expires_at <= ?").run(time);
+        return affected;
+      })
+      .immediate();
+  }
+
   async place(id: string, value: unknown): Promise<ArtifactPlacement> {
     const input = requireObject(value, "Placement");
     this.artifacts.validateActor(input.actor);

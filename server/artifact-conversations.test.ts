@@ -182,3 +182,66 @@ describe("artifact conversations", () => {
     expect(conversations.get(note.id).replies).toHaveLength(1);
   });
 });
+
+describe("agent session claims", () => {
+  const note = () => conversations.add(id, { actor: human, body: "Work", target: original });
+
+  test("agents claim independent items, renew their own lease, and leave activity and delivery unchanged", async () => {
+    const a = await note();
+    const b = await note();
+    const updated = artifacts.get(id).updatedAt;
+    const first = conversations.claim([a.id], agent.sessionId)[0];
+    conversations.claim([b.id], other.sessionId);
+    expect(artifacts.get(id).working).toBe(true);
+    time = "2026-09-01T00:30:00.000Z";
+    const renewed = conversations.claim([a.id], agent.sessionId)[0];
+    expect(renewed.claimedAt).toBe(first.claimedAt);
+    expect(renewed.expiresAt).toBe("2026-09-01T01:30:00.000Z");
+    expect(artifacts.get(id).updatedAt).toBe(updated);
+    expect(conversations.get(a.id).sentAt).toBeNull();
+    expect(() => conversations.claim([a.id], other.sessionId)).toThrow("another agent");
+    conversations.release([a.id], other.sessionId);
+    expect(conversations.get(a.id).claim?.sessionId).toBe(agent.sessionId);
+  });
+
+  test("only a successful reply from the claim owner releases it", async () => {
+    const feedback = await note();
+    conversations.claim([feedback.id], agent.sessionId);
+    await expect(
+      conversations.addReply(feedback.id, { actor: agent, body: "", context }),
+    ).rejects.toThrow();
+    await conversations.addReply(feedback.id, { actor: human, body: "More detail", context });
+    await conversations.addReply(feedback.id, { actor: other, body: "An observation", context });
+    expect(conversations.get(feedback.id).claim?.sessionId).toBe(agent.sessionId);
+    await conversations.addReply(feedback.id, { actor: agent, body: "Handled", context });
+    expect(conversations.get(feedback.id).claim).toBeNull();
+    expect(conversations.get(feedback.id).status).toBe("open");
+  });
+
+  test("batch conflicts roll back all new claims and expiry allows a fresh owner", async () => {
+    const a = await note();
+    const b = await note();
+    conversations.claim([b.id], other.sessionId);
+    expect(() => conversations.claim([a.id, b.id], agent.sessionId)).toThrow("another agent");
+    expect(conversations.get(a.id).claim).toBeNull();
+    time = "2026-09-01T01:00:00.000Z";
+    expect(conversations.get(b.id).claim).toBeNull();
+    expect(artifacts.get(id).working).toBe(false);
+    const fresh = conversations.claim([b.id], agent.sessionId)[0];
+    expect(fresh.claimedAt).toBe(time);
+    time = "2026-09-01T02:00:00.000Z";
+    expect(conversations.expireClaims()).toEqual([id]);
+    expect(conversations.expireClaims()).toEqual([]);
+  });
+
+  test("resolution clears the lease and resolved or archived work cannot be claimed", async () => {
+    const feedback = await note();
+    conversations.claim([feedback.id], agent.sessionId);
+    conversations.edit(feedback.id, { actor: human, status: "resolved" });
+    expect(conversations.get(feedback.id).claim).toBeNull();
+    expect(() => conversations.claim([feedback.id], agent.sessionId)).toThrow("Resolved");
+    conversations.edit(feedback.id, { actor: human, status: "open" });
+    db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
+    expect(() => conversations.claim([feedback.id], agent.sessionId)).toThrow("archived");
+  });
+});

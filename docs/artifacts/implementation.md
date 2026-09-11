@@ -18,7 +18,8 @@ The existing runtime remains in use until migration and the new clients are read
   (`server/artifact-targets.ts`).
 - [x] Conversations, separate placements and human-controlled status
   (`server/artifact-conversations.ts`).
-- [ ] Delivery and session-owned claims.
+- [x] Feedback-scoped renewable claims with distinct agent owners.
+- [ ] Owner handoff and delivery tracking.
 - [ ] Archive/restore events, message-dependent listener nudge, terminal watch
   behavior, and ordered retries.
 - [ ] Legacy database migration with explicit defaults, preserved IDs/evidence,
