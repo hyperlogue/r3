@@ -25,8 +25,10 @@ The existing runtime remains in use until migration and the new clients are read
 - [ ] Message-dependent listener nudge and terminal watch behavior.
 - [x] Legacy database migration with explicit defaults, preserved IDs/evidence,
   reserved gaps, generated notices for empty publications, and restart recovery.
-- [ ] One-time legacy local capture adapter and private artifact-store bootstrap;
-  wire migration into daemon startup when the clients switch protocols.
+- [x] Publisher-side stable directory/git capture and one-time legacy local capture
+  adapter (`cli/capture.ts`, `cli/capture-git.ts`, `server/migration-capture.ts`).
+- [ ] Private artifact-store bootstrap; wire migration into daemon startup when
+  the clients switch protocols.
 - [ ] Artifact HTTP routes, byte resource GET/HEAD/ranges, SSE and remote agent
   connection; remove filesystem dependencies from published-content reads.
 - [ ] Publisher-side stable capture and upload, CLI commands, agent sessions,
