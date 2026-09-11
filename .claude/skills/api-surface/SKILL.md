@@ -15,6 +15,38 @@ three clients (browser, CLI, agent). When you change behavior, change
 
 ## HTTP API
 
+### Artifact API under construction
+
+`server/artifact-api.ts` assembles the replacement API against injected artifact
+storage. It does not start or migrate the running daemon. The legacy runtime
+below remains until the CLI and browser cut over together. Artifact wire types
+are in `shared/artifacts.ts`, re-exported by `shared/types.ts`.
+
+- `GET/POST /api/sessions` lists/registers explicit agent identities;
+  `GET/POST /api/projects` and `DELETE /api/projects/:id` manage optional grouping.
+  Removing a group preserves its artifacts.
+- `GET/POST /api/artifacts`, `GET/PATCH/DELETE /api/artifacts/:id` list, create,
+  inspect, edit metadata, or delete the whole artifact. List filters are `state`,
+  `kind`, `project`, and `meta.<key>`. No repo header or local path is involved.
+- `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
+  complete version with `expectedSeq`, `publicationKey`, and explicit `actor`.
+  There is no per-version delete. `GET .../versions/:seq` reads version metadata.
+- `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
+  membership, highlighted source, original bytes, rendered sparse diff, retained
+  context, or original patch. `source` and `resource` take `?path=`;
+  `diff-context` takes `?path=&start=&end=` in new-side coordinates. Highlighted
+  reads accept `?theme=`. Resource GET/HEAD supports ranges and validators;
+  app-origin HTML is always an attachment. Missing bytes never fall back to a
+  different version or the filesystem. Executable rendering belongs to preview.
+- `GET/PUT /api/artifacts/:id/viewed` persists opaque read-progress keys with
+  `{ key, viewed }`. Theme and login-token endpoints retain their response shapes.
+
+All data and streams require authentication. JSON reads use private validators
+and gzip; body readers count actual streamed bytes after authentication, with a
+200 MiB transfer cap for publications and smaller limits for ordinary commands.
+
+### Legacy runtime until client cutover
+
 Routes are served by `server/index.ts` behind the Host + token guards (see the
 **security-model** skill). **Highlighting runs server-side** — Shiki for code,
 markdown-it for `.md` (with per-block source-line mapping for anchoring; a

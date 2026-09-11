@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { artifactJson } from "./artifact-http.ts";
 import { type AuthService, COOKIE_NAME, cookieOptions } from "./auth.ts";
 
 export interface ArtifactAuthPolicy {
@@ -88,7 +89,7 @@ export function installArtifactAuth(
     return c.json({ needsAuth: !signedIn, token: null }, signedIn ? 200 : 401);
   });
   app.post("/api/auth/login", async (c) => {
-    const input = await c.req.json().catch(() => null);
+    const input = await artifactJson(c.req.raw, 64 * 1024);
     if (typeof input?.token !== "string") return c.json({ error: "Missing login token" }, 400);
     const login = authentication.verifyLogin(input.token);
     if (!login) return c.json({ error: "Invalid login token" }, 401);
@@ -112,7 +113,7 @@ export function installArtifactAuth(
     );
   });
   app.post("/api/auth/tokens", async (c) => {
-    const input = await c.req.json().catch(() => null);
+    const input = await artifactJson(c.req.raw, 64 * 1024);
     const label = typeof input?.label === "string" ? input.label.trim() || null : null;
     if (label && label.length > 1000) return c.json({ error: "Label is too long" }, 400);
     return c.json(authentication.createLoginToken(label));
