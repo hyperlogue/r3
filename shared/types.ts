@@ -1,5 +1,7 @@
 // Domain model + HTTP/JSON contract (server, CLI, SPA).
 
+export * from "./artifacts.ts";
+
 export type ReviewKind = "diff" | "files";
 export type ReviewStatus = "open" | "approved" | "abandoned";
 // Runtime twin of ReviewStatus. A review's status is a state machine `r3 watch`
