@@ -150,7 +150,7 @@ export function ArtifactHeader({
         {title === null ? (
           <button
             type="button"
-            className="min-w-0 flex-1 truncate text-left text-sm font-semibold"
+            className="min-w-0 flex-1 truncate text-left text-sm font-semibold max-md:order-first max-md:basis-full"
             title="Edit title"
             onClick={() => setTitle(detail.title ?? "")}
           >
@@ -158,7 +158,7 @@ export function ArtifactHeader({
           </button>
         ) : (
           <form
-            className="flex min-w-0 flex-1 gap-1"
+            className="flex min-w-0 flex-1 gap-1 max-md:order-first max-md:basis-full"
             onSubmit={(event) => {
               event.preventDefault();
               edit.mutate();
