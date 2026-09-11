@@ -23,8 +23,10 @@ The existing runtime remains in use until migration and the new clients are read
 - [x] Transactional archive/restore events and ordered retry identities
   (`server/artifact-lifecycle.ts`).
 - [ ] Message-dependent listener nudge and terminal watch behavior.
-- [ ] Legacy database migration with explicit defaults, preserved IDs/evidence,
+- [x] Legacy database migration with explicit defaults, preserved IDs/evidence,
   reserved gaps, generated notices for empty publications, and restart recovery.
+- [ ] One-time legacy local capture adapter and private artifact-store bootstrap;
+  wire migration into daemon startup when the clients switch protocols.
 - [ ] Artifact HTTP routes, byte resource GET/HEAD/ranges, SSE and remote agent
   connection; remove filesystem dependencies from published-content reads.
 - [ ] Publisher-side stable capture and upload, CLI commands, agent sessions,
@@ -46,6 +48,12 @@ A loopback HTTP/UDP probe against Chromium 151 found WebRTC STUN packets leaving
 the document despite `connect-src 'none'; webrtc 'block'`. A real-time control
 and restricted run both emitted packets. CSP alone is insufficient in that browser.
 No executable artifact preview is enabled by these foundation commits.
+
+The same loopback probe against Chrome for Testing 153.0.8010.36, with its default
+feature flags, emitted four UDP packets in the control and none with
+`Connection-Allowlist: (response-origin); webrtc=block; redirects=block`. The
+restricted peer connection failed. Navigation, workers, version scoping, and
+device permission still need browser acceptance tests before enabling previews.
 
 Evaluate [Connection Allowlists](https://wicg.github.io/connection-allowlists/)
 alongside CSP and the isolated origin. Chromium's

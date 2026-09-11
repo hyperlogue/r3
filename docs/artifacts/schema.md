@@ -2,7 +2,7 @@
 
 [Executable SQLite DDL](../../server/artifact-schema.ts) · [Approved design](design.md)
 
-This is the approved destination schema for one human owner and multiple agents, including remote publishers. Multi-user accounts and permissions are non-goals. It has been exercised in an isolated in-memory database. It has not been applied to the running r3 database; migration remains implementation work.
+This is the approved destination schema for one human owner and multiple agents, including remote publishers. Multi-user accounts and permissions are non-goals. Destination creation and legacy migration are tested with isolated stores, including recovery after a process interruption. The running daemon still uses the legacy protocol until client cutover.
 
 The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Feedback and Reply keep their existing separate lifecycles.
 
@@ -198,6 +198,23 @@ Do not present migration-generated defaults as recovered historical facts. Requi
 Database migration is required. Old command, route, event, UI, and client compatibility is not; no aliases or dual protocol shapes are needed. Choose the right target model, then migrate surviving data into it.
 
 The migration must record incomplete old publications and generated replacements in provenance and display that limitation. Converted files artifacts begin new work with complete published content. Initialize next_seq above every preserved or historically referenced sequence, including missing old rounds, so migration cannot reuse an old identity. This DDL deliberately is not an ALTER script against the current store.
+
+`server/migration.ts` owns the upgrade transaction. Startup supplies an exclusively
+owned connection, a new backup path in a private directory, the byte store,
+renderer, and optional one-time local capture adapter. It creates a consistent
+0600 SQLite backup, checks for a concurrent writer, renames the legacy tables,
+imports into the constrained destination, checks references and integrity, then
+commits the schema marker. Failure or process interruption rolls back schema and
+data together; a retry takes another backup and reuses immutable byte content.
+Unknown schemas and orphaned content stop the upgrade without discarding rows.
+
+`migration-content.ts` preserves retained file and patch identities and reserves
+missing sequence ranges. `migration-conversations.ts` preserves message IDs,
+delivery state, supported native targets, and uncertain historical evidence.
+Obsolete work leases are retained as evidence and cleared: agents must establish
+their sessions and transport registrations under the new protocol. Authentication
+hash records retain the existing cookie contract. Viewed marks carry forward,
+with SHA-256 keys added when retained bytes establish the old content identity.
 
 ## Required fields and migration defaults
 
