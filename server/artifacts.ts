@@ -342,6 +342,10 @@ export class ArtifactStore {
   }
 
   async publish(id: string, value: unknown): Promise<ArtifactVersion> {
+    return this.blobs.publishing(() => this.publishHeld(id, value));
+  }
+
+  private async publishHeld(id: string, value: unknown): Promise<ArtifactVersion> {
     const publication = validatePublication(value);
     this.validateActor(publication.actor);
     this.get(id);

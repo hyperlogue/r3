@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { link, mkdir, open, unlink } from "node:fs/promises";
+import { link, mkdir, open, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface StoredBlob {
@@ -22,7 +22,76 @@ function isFsError(error: unknown, code: string): boolean {
 // The caller owns the private directory and coordinates any garbage collection
 // with publications. There is deliberately no per-version deletion operation.
 export class BlobStore {
+  private publications = 0;
+  private cleaning: Promise<void> | null = null;
+  private drained: (() => void) | null = null;
   constructor(private readonly root: string) {}
+
+  // Hold this through the SQL commit, not just the byte writes: an installed
+  // blob has no SQL reference yet while its publication is still preparing.
+  async publishing<T>(work: () => Promise<T>): Promise<T> {
+    while (this.cleaning) await this.cleaning;
+    this.publications++;
+    try {
+      return await work();
+    } finally {
+      if (--this.publications === 0) {
+        this.drained?.();
+        this.drained = null;
+      }
+    }
+  }
+
+  async collect(references: () => ReadonlySet<string>): Promise<number> {
+    const previous = this.cleaning;
+    let unlock!: () => void;
+    const current = new Promise<void>((resolve) => {
+      unlock = resolve;
+    });
+    this.cleaning = current;
+    let removed = 0;
+    try {
+      if (previous) await previous;
+      if (this.publications)
+        await new Promise<void>((resolve) => {
+          this.drained = resolve;
+        });
+      // Take the mark set after earlier publications have committed, with new
+      // publications held until cleanup finishes. Whole-artifact deletion may
+      // make this set conservative, which is safe until the next collection.
+      const live = references();
+      const directories = await readdir(this.root, { withFileTypes: true }).catch((error) => {
+        if (isFsError(error, "ENOENT")) return [];
+        throw error;
+      });
+      for (const entry of directories) {
+        if (!entry.isDirectory() || !/^[0-9a-f]{2}$/.test(entry.name)) continue;
+        const directory = join(this.root, entry.name);
+        let changed = false;
+        for (const file of await readdir(directory, { withFileTypes: true })) {
+          if (!file.isFile()) continue;
+          const hash = entry.name + file.name;
+          const temporary = /^\.upload-[0-9a-f-]{36}$/.test(file.name);
+          if (!temporary && (!/^[0-9a-f]{64}$/.test(hash) || live.has(hash))) continue;
+          await unlink(join(directory, file.name));
+          removed++;
+          changed = true;
+        }
+        if (changed) {
+          const handle = await open(directory, constants.O_RDONLY | constants.O_DIRECTORY);
+          try {
+            await handle.sync();
+          } finally {
+            await handle.close();
+          }
+        }
+      }
+      return removed;
+    } finally {
+      if (this.cleaning === current) this.cleaning = null;
+      unlock();
+    }
+  }
 
   private location(hash: string): { directory: string; file: string } {
     if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error("Invalid blob hash");
