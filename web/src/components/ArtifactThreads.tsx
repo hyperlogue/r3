@@ -14,8 +14,9 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { copyText } from "../clipboard.ts";
+import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, cn } from "../ui.tsx";
+import { Button, cn, FoldChevrons } from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse } from "./Message.tsx";
 
@@ -229,6 +230,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       <div className="mt-3 flex flex-wrap items-center gap-1">
         <Button
           variant="ghost"
+          data-feedback-action="reply"
           onClick={() => {
             artifactDrafts.beginReply(feedback.artifactId, feedback.id, context);
             setReplying((value) => !value);
@@ -246,6 +248,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         </Button>
         <Button
           className="ml-auto"
+          data-feedback-action="resolve"
           variant={feedback.status === "open" ? "success" : "ghost"}
           disabled={status.isPending}
           onClick={() => status.mutate()}
@@ -283,6 +286,7 @@ export function ArtifactThreads({
   activeFeedback,
   composer,
   onCollapse,
+  onFocusFeedback,
 }: {
   detail: ArtifactDetail;
   context: ArtifactMessageContext;
@@ -291,7 +295,9 @@ export function ArtifactThreads({
   activeFeedback?: string | null;
   composer?: ReactNode;
   onCollapse?: () => void;
+  onFocusFeedback?: (id: string) => void;
 }) {
+  const panel = useRef<HTMLElement>(null);
   const [filter, setFilter] = useState<"open" | "resolved" | "all">("open");
   useEffect(() => {
     if (activeFeedback) setFilter("all");
@@ -333,8 +339,35 @@ export function ArtifactThreads({
     (target, feedbackId) => onLocate(target, feedbackId),
     [onLocate],
   );
+  const move = (direction: -1 | 1) => {
+    const at = ordered.findIndex((feedback) => feedback.id === activeFeedback);
+    const feedback = ordered[Math.max(0, Math.min(ordered.length - 1, at + direction))];
+    if (feedback) onFocusFeedback?.(feedback.id);
+  };
+  const action = (name: "reply" | "resolve") => {
+    if (!activeFeedback) return;
+    panel.current
+      ?.querySelector<HTMLButtonElement>(
+        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-feedback-action="${name}"]`,
+      )
+      ?.click();
+  };
+  useKeyBindings({
+    handOff: () => {
+      if (detail.state === "active" && pending && !handoff.isPending) handoff.mutate();
+    },
+    fbNext: () => move(1),
+    fbPrev: () => move(-1),
+    fbLocate: () => {
+      const feedback = detail.feedback.find((feedback) => feedback.id === activeFeedback);
+      if (feedback) locate(feedback.target, feedback.id);
+    },
+    fbReply: () => action("reply"),
+    fbResolve: () => action("resolve"),
+  });
   return (
     <section
+      ref={panel}
       className="flex h-full min-h-0 flex-col bg-neutral-50 dark:bg-neutral-900"
       aria-label="Artifact feedback"
     >
@@ -343,7 +376,7 @@ export function ArtifactThreads({
           <span className="text-sm font-semibold">Feedback · {open.length} open</span>
           {onCollapse && (
             <Button variant="ghost" aria-label="Collapse feedback" onClick={onCollapse}>
-              ›
+              <FoldChevrons dir="right" />
             </Button>
           )}
         </div>
