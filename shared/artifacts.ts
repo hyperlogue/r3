@@ -342,5 +342,11 @@ export interface ArtifactPreviewContext {
   documentUrl: string;
   gateUrl: string;
   utilityUrl: string;
+  presentation: "document" | "media";
   expiresAt: string;
+}
+
+export function artifactMediaKind(mediaType: string): "image" | "audio" | "video" | null {
+  const kind = mediaType.split("/")[0];
+  return kind === "image" || kind === "audio" || kind === "video" ? kind : null;
 }

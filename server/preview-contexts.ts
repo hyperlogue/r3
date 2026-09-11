@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
-import type { ArtifactPreviewContext } from "../shared/artifacts.ts";
+import { type ArtifactPreviewContext, artifactMediaKind } from "../shared/artifacts.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 
@@ -54,6 +54,7 @@ export interface PreviewScope {
   readonly origin: string;
   readonly applicationOrigin: string;
   readonly entryPath: string;
+  readonly presentation: "document" | "media";
   readonly expiresAt: number;
 }
 
@@ -97,7 +98,8 @@ export class PreviewContexts {
     if (version.kind === "diff")
       throw new ArtifactError("Diff publications have no rendered preview");
     const file = this.artifacts.file(artifactId, versionSeq, requireArtifactPath(path));
-    if (!file.renderedHash && file.mediaType.split(";")[0] !== "text/html")
+    const media = version.kind === "files" && artifactMediaKind(file.mediaType);
+    if (!media && !file.renderedHash && file.mediaType.split(";")[0] !== "text/html")
       throw new ArtifactError("This publication has no rendered document at that path");
     this.expire();
     if (this.contexts.size >= MAX_CONTEXTS)
@@ -111,6 +113,7 @@ export class PreviewContexts {
       artifactId,
       versionSeq,
       entryPath: path,
+      presentation: media ? "media" : "document",
       origin,
       applicationOrigin: app.origin,
       expiresAt: this.now() + CONTEXT_TTL,
@@ -125,9 +128,13 @@ export class PreviewContexts {
       artifactId: scope.artifactId,
       versionSeq: scope.versionSeq,
       origin: scope.origin,
-      documentUrl: previewDocumentUrl(scope, scope.entryPath),
+      documentUrl:
+        scope.presentation === "media"
+          ? `${scope.origin}/r3/media`
+          : previewDocumentUrl(scope, scope.entryPath),
       gateUrl: `${scope.origin}/r3/gate`,
       utilityUrl: `${scope.origin}/r3/utility.js`,
+      presentation: scope.presentation,
       expiresAt: new Date(scope.expiresAt).toISOString(),
     };
   }

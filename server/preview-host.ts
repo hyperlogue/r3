@@ -1,9 +1,14 @@
-import type { ArtifactPreviewContext } from "../shared/artifacts.ts";
+import { type ArtifactPreviewContext, artifactMediaKind } from "../shared/artifacts.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
-import { PreviewContexts, type PreviewScope, previewPolicy } from "./preview-contexts.ts";
+import {
+  PreviewContexts,
+  type PreviewScope,
+  previewDocumentUrl,
+  previewPolicy,
+} from "./preview-contexts.ts";
 import { previewGateDocument } from "./preview-gate.ts";
 
 export interface PreviewSupport {
@@ -121,6 +126,22 @@ export class PreviewHost {
         200,
         { "content-type": "text/javascript; charset=utf-8" },
       );
+    if (path === "/r3/media" && scope.presentation === "media") {
+      const file = this.artifacts.file(scope.artifactId, scope.versionSeq, scope.entryPath);
+      const kind = artifactMediaKind(file.mediaType);
+      if (!kind) return plain("Media resource not found", 404);
+      const tag = kind === "image" ? "img" : kind;
+      // SVG bytes are an image resource on the isolated origin, never inline
+      // markup or an application-origin blob document.
+      const src = previewDocumentUrl(scope, scope.entryPath)
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;");
+      return plain(
+        `<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Media preview</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#171717}img,video{max-width:100%;max-height:100vh}audio{width:min(90%,40rem)}</style><${tag} src="${src}" ${kind === "image" ? 'alt="Published image"' : 'controls preload="metadata"'}></${tag}><script src="/r3/runtime.js"></script></html>`,
+        200,
+        { "content-type": "text/html; charset=utf-8" },
+      );
+    }
     if (!path.startsWith("/files/")) return plain("Published resource not found", 404);
     let filePath: string;
     try {

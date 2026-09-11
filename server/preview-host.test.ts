@@ -86,6 +86,46 @@ function read(path: string, headers: Record<string, string> = {}, method = "GET"
   return host.fetch(req(path, { method, headers: { cookie, ...headers } }));
 }
 
+test("files media uses an isolated wrapper without inlining executable SVG", async () => {
+  const files = storage.artifacts.create({ kind: "files", actor });
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg"><script>window.publisherScript=true</script></svg>';
+  await storage.artifacts.publish(files.id, {
+    actor,
+    publicationKey: "media",
+    expectedSeq: 0,
+    content: {
+      kind: "files",
+      files: [
+        {
+          path: "images/a & b.svg",
+          mediaType: "image/svg+xml",
+          base64: Buffer.from(svg).toString("base64"),
+        },
+      ],
+    },
+  });
+  context = host.create(files.id, 1, "images/a & b.svg", "https://app.example");
+  expect(context.presentation).toBe("media");
+  const proof = host.contexts.challenge(req("/r3/gate"));
+  cookie = host.contexts
+    .verify(
+      req("/r3/verify", {
+        method: "POST",
+        headers: { origin: context.origin, "content-type": "application/json" },
+      }),
+      proof.challenge,
+    )!
+    .split(";")[0];
+  const response = await read("/r3/media");
+  const wrapper = await response.text();
+  expect(wrapper).toContain('<img src="');
+  expect(wrapper).toContain("/files/images/a%20%26%20b.svg");
+  expect(wrapper).not.toContain("publisherScript");
+  expect(response.headers.get("content-security-policy")).toContain("sandbox");
+  expect(await (await read("/files/images/a%20%26%20b.svg")).text()).toBe(svg);
+});
+
 test("preview gate exposes only trusted support until that browser passes verification", async () => {
   const refused = await host.fetch(
     req("/files/index.html", { headers: { "sec-fetch-dest": "iframe" } }),
