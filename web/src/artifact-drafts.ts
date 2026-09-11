@@ -162,6 +162,8 @@ export const useArtifactDraft = (id: string, replyTo?: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.get(id, replyTo));
 export const useHasArtifactDraft = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.has(id));
+export const useHasArtifactNote = (id: string) =>
+  useSyncExternalStore(artifactDrafts.subscribe, () => !!artifactDrafts.get(id)?.body.trim());
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => artifactDrafts.flush());
   document.addEventListener("visibilitychange", () => {

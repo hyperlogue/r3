@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
@@ -12,10 +13,12 @@ export function ArtifactComposer({
   artifactId,
   replyTo,
   onDone,
+  floating,
 }: {
   artifactId: string;
   replyTo?: string;
   onDone?: () => void;
+  floating?: { left: number; top: number; bottom: number; onClose: () => void };
 }) {
   const draft = useArtifactDraft(artifactId, replyTo);
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -34,9 +37,11 @@ export function ArtifactComposer({
     },
   });
   const context = draft?.context;
-  return (
+  const form = (
     <form
       className="flex flex-col gap-2 rounded-lg border border-neutral-300 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-950"
+      data-artifact-composer={artifactId}
+      data-reply-to={replyTo}
       onSubmit={(event) => {
         event.preventDefault();
         if (draft?.body.trim() && !post.isPending) post.mutate();
@@ -50,6 +55,16 @@ export function ArtifactComposer({
               : "Reply without a published context"
             : artifactTargetLabel(draft?.target ?? { kind: "artifact" })}
         </span>
+        {floating && (
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label="Close composer"
+            onClick={floating.onClose}
+          >
+            ×
+          </Button>
+        )}
         {!replyTo && draft?.target.kind !== "artifact" && draft?.target && (
           <button
             type="button"
@@ -115,5 +130,23 @@ export function ArtifactComposer({
         </Button>
       </div>
     </form>
+  );
+  if (!floating) return form;
+  const width = Math.min(440, window.innerWidth - 32);
+  const above = floating.bottom > window.innerHeight / 2;
+  return createPortal(
+    <div
+      className="fixed z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg shadow-xl will-change-transform"
+      style={{
+        width,
+        left: Math.max(16, Math.min(window.innerWidth - width - 16, floating.left - width / 2)),
+        ...(above
+          ? { bottom: Math.max(16, window.innerHeight - floating.top + 8) }
+          : { top: Math.max(16, floating.bottom + 8) }),
+      }}
+    >
+      {form}
+    </div>,
+    document.body,
   );
 }
