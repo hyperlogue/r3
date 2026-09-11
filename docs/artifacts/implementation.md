@@ -20,8 +20,9 @@ The existing runtime remains in use until migration and the new clients are read
   (`server/artifact-conversations.ts`).
 - [x] Feedback-scoped renewable claims with distinct agent owners.
 - [x] Owner handoff and delivery tracking with atomic message snapshots.
-- [ ] Archive/restore events, message-dependent listener nudge, terminal watch
-  behavior, and ordered retries.
+- [x] Transactional archive/restore events and ordered retry identities
+  (`server/artifact-lifecycle.ts`).
+- [ ] Message-dependent listener nudge and terminal watch behavior.
 - [ ] Legacy database migration with explicit defaults, preserved IDs/evidence,
   reserved gaps, generated notices for empty publications, and restart recovery.
 - [ ] Artifact HTTP routes, byte resource GET/HEAD/ranges, SSE and remote agent
