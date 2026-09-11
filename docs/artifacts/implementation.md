@@ -37,6 +37,9 @@ The existing runtime remains in use until migration and the new clients are read
   daemon/client cutover is still separate.
 - [ ] Publisher-side stable capture and upload, CLI commands, agent sessions,
   local harness wake adapters, remote listen/watch, help and guide.
+  Command runner, help/guide and outward listener are implemented in
+  `cli/artifact-commands.ts`, `cli/artifact-help.ts`, and
+  `cli/artifact-listener.ts`; binary entrypoint/discovery cutover remains.
 - [ ] Files workspace with source/rendered native targets and version switching;
   adapt existing diff presentation without losing sparse old/new targets.
 - [ ] HTML workspace, isolated preview origin, scoped resource access, rendered

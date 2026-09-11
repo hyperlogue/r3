@@ -19,7 +19,7 @@ import type {
 } from "../shared/artifacts.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
-import { currentHarnessSession } from "./listener.ts";
+import { currentHarnessSession, detectListener } from "./listener.ts";
 
 export interface ArtifactCommandContext {
   client: ArtifactClient;
@@ -177,10 +177,14 @@ export async function runArtifactCommand(
     stdinRead = true;
     return ctx.stdin();
   };
-  const session = () =>
-    args.value("session")?.trim() ||
-    ctx.environment.R3_AGENT_SESSION?.trim() ||
-    currentHarnessSession(ctx.environment);
+  const session = () => {
+    const detected = command === "listen" ? detectListener(ctx.environment) : null;
+    return (
+      args.value("session")?.trim() ||
+      ctx.environment.R3_AGENT_SESSION?.trim() ||
+      (detected?.ok ? detected.sessionId : currentHarnessSession(ctx.environment))
+    );
+  };
   const actor = async (): Promise<ArtifactActor> => {
     if (args.has("human")) return { role: "human", sessionId: null };
     const id = session();

@@ -76,6 +76,13 @@ and retry key for recovery. Source/download reads require a version. Native targ
 flags reject cross-representation guesses. `--session` or `R3_AGENT_SESSION`
 supports any harness; no generic shared `agent` identity is invented.
 
+`cli/artifact-listener.ts` owns local wake adapters and the outward connection.
+It acknowledges after a successful socket write or queue exit, never after
+receiving a frame alone. Harness diagnostics stay local; the acknowledgment
+contains a generic failure. The background launcher waits for an IPC readiness
+message before returning, inherits credentials locally, and never writes them to
+argv or a temporary file. A closed connection requires fresh registration.
+
 ### Legacy runtime until client cutover
 
 Routes are served by `server/index.ts` behind the Host + token guards (see the

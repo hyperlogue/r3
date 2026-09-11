@@ -72,6 +72,22 @@ async function create() {
 }
 
 describe("artifact CLI over the HTTP contract", () => {
+  test("listen selects its default identity with the local harness target", async () => {
+    const id = await create();
+    ctx.environment = {
+      CLAUDE_CODE_SESSION_ID: "incomplete-claude",
+      CODEX_THREAD_ID: "codex-target",
+    };
+    let connected: unknown;
+    ctx.listen = async (_id, actor) => {
+      connected = actor;
+      return 0;
+    };
+    await command("listen", [id]);
+    expect(connected).toEqual({ role: "agent", sessionId: "codex-target" });
+    await command("listen", [id, "--session", "logical-subagent"]);
+    expect(connected).toEqual({ role: "agent", sessionId: "logical-subagent" });
+  });
   test("a generic publisher uploads complete versions and reads them after its directory disappears", async () => {
     await ctx.client.checkProtocol();
     const id = await create();
