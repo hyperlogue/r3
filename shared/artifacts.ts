@@ -237,6 +237,14 @@ export interface ArtifactPlacementBody {
   state: ArtifactPlacement["state"];
 }
 
+export function hasUnsentArtifactFeedback(feedback: ArtifactFeedback): boolean {
+  return (
+    (feedback.author.role === "human" && feedback.sentAt === null && feedback.status === "open") ||
+    feedback.statusUnsent ||
+    feedback.replies.some((reply) => reply.author.role === "human" && reply.sentAt === null)
+  );
+}
+
 export interface ArtifactLifecycleBody {
   actor: ArtifactActor;
   operationKey: string;

@@ -245,3 +245,85 @@ describe("agent session claims", () => {
     expect(() => conversations.claim([feedback.id], agent.sessionId)).toThrow("archived");
   });
 });
+
+describe("owner handoff delivery", () => {
+  test("reads preserve pending work and a selected handoff stamps only its captured threads", async () => {
+    const a = await conversations.add(id, { actor: human, body: "First", target: original });
+    const b = await conversations.add(id, { actor: human, body: "Second", target: original });
+    const guidance = await conversations.add(id, {
+      actor: agent,
+      body: "Reading guidance",
+      target: original,
+    });
+    await conversations.addReply(a.id, { actor: human, body: "Details", context });
+    expect(conversations.unsent(id).map((item) => item.id)).toEqual([a.id, b.id]);
+    expect(conversations.get(a.id).sentAt).toBeNull();
+    const delivered = conversations.deliver(id, [a.id]);
+    expect(delivered.map((item) => item.id)).toEqual([a.id]);
+    expect(delivered[0].sentAt).toBeNull(); // snapshot before its delivery stamp
+    expect(conversations.get(a.id).sentAt).toBe(time);
+    expect(conversations.get(a.id).replies[0].sentAt).toBe(time);
+    expect(conversations.unsent(id).map((item) => item.id)).toEqual([b.id]);
+    expect(conversations.get(guidance.id).sentAt).toBe(time);
+    conversations.deliver(id);
+    expect(conversations.deliver(id)).toEqual([]);
+  });
+
+  test("edited human content re-enters delivery while no-op and agent edits retain their stamps", async () => {
+    const note = await conversations.add(id, { actor: human, body: "Original", target: original });
+    const reply = await conversations.addReply(note.id, {
+      actor: human,
+      body: "Initial reply",
+      context,
+    });
+    const agentReply = await conversations.addReply(note.id, {
+      actor: agent,
+      body: "Acknowledged",
+      context,
+    });
+    conversations.deliver(id);
+    time = "2026-09-01T00:10:00.000Z";
+    conversations.edit(note.id, { actor: human, body: "Original" });
+    conversations.editReply(reply.id, { actor: human, body: "Initial reply" });
+    conversations.editReply(agentReply.id, { actor: agent, body: "Acknowledged with a detail" });
+    expect(conversations.unsent(id)).toEqual([]);
+    conversations.edit(note.id, { actor: human, body: "Corrected" });
+    conversations.editReply(reply.id, { actor: human, body: "Corrected reply" });
+    const pending = conversations.unsent(id);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].body).toBe("Corrected");
+    expect(pending[0].replies.find((item) => item.id === reply.id)?.sentAt).toBeNull();
+    conversations.deliver(id);
+    expect(conversations.unsent(id)).toEqual([]);
+  });
+
+  test("status updates and human follow-ups to agent notes are delivered once, even when resolved", async () => {
+    const note = await conversations.add(id, {
+      actor: agent,
+      body: "Question for the owner",
+      target: original,
+    });
+    expect(conversations.unsent(id)).toEqual([]);
+    conversations.edit(note.id, { actor: human, status: "resolved" });
+    await conversations.addReply(note.id, { actor: human, body: "Answer", context });
+    expect(conversations.unsent(id)).toHaveLength(1);
+    const handoff = conversations.deliver(id)[0];
+    expect(handoff.status).toBe("resolved");
+    expect(handoff.statusUnsent).toBe(true);
+    expect(handoff.replies[0].body).toBe("Answer");
+    expect(conversations.unsent(id)).toEqual([]);
+    conversations.edit(note.id, { actor: human, status: "open" });
+    expect(conversations.unsent(id)).toHaveLength(1);
+  });
+
+  test("archive blocks ordinary handoff and preserves pending messages for restore", async () => {
+    const note = await conversations.add(id, { actor: human, body: "Pending", target: original });
+    db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
+    expect(() => conversations.deliver(id)).toThrow("archived");
+    expect(conversations.get(note.id).sentAt).toBeNull();
+    expect(conversations.unsent(id)).toHaveLength(1);
+    db.query("UPDATE artifacts SET state = 'active', archived_at = NULL WHERE id = ?").run(id);
+    expect(conversations.deliver(id)).toHaveLength(1);
+    expect(conversations.unsent(id)).toEqual([]);
+  });
+});

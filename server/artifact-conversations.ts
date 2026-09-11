@@ -10,6 +10,7 @@ import type {
   ArtifactVersionTarget,
   Representation,
 } from "../shared/artifacts.ts";
+import { hasUnsentArtifactFeedback } from "../shared/artifacts.ts";
 import {
   ArtifactTargets,
   type TargetColumns,
@@ -355,6 +356,38 @@ export class ArtifactConversations {
           .map(({ id }) => id);
         this.db.query("DELETE FROM feedback_claims WHERE expires_at <= ?").run(time);
         return affected;
+      })
+      .immediate();
+  }
+
+  unsent(id: string, only?: string[]): ArtifactFeedback[] {
+    return this.list(id).filter(
+      (feedback) => hasUnsentArtifactFeedback(feedback) && (!only || only.includes(feedback.id)),
+    );
+  }
+
+  // Reads never mark delivery. An explicit owner handoff drains a transaction's
+  // exact snapshot, so later edits/replies cannot accidentally be stamped sent.
+  deliver(id: string, only?: string[]): ArtifactFeedback[] {
+    return this.db
+      .transaction(() => {
+        if (this.artifacts.get(id).state !== "active")
+          throw new ArtifactError("Artifact is archived", 409);
+        const feedback = this.unsent(id, only);
+        const time = this.clock();
+        for (const item of feedback) {
+          this.db
+            .query(
+              "UPDATE feedback SET sent_at = COALESCE(sent_at, ?), status_unsent = 0 WHERE id = ?",
+            )
+            .run(time, item.id);
+          for (const reply of item.replies) {
+            if (reply.author.role === "human" && reply.sentAt === null)
+              this.db.query("UPDATE replies SET sent_at = ? WHERE id = ?").run(time, reply.id);
+          }
+        }
+        if (feedback.length) this.touch(id, time);
+        return feedback;
       })
       .immediate();
   }
