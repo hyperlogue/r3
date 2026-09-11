@@ -20,6 +20,8 @@ const config: StorybookConfig = {
   // consumer left. We only need Tailwind v4 wired in here — @storybook/react-vite
   // already provides the React plugin.
   async viteFinal(viteConfig) {
+    // Stories use public fixtures and never need local environment files.
+    viteConfig.envDir = false;
     const { default: tailwindcss } = await import("@tailwindcss/vite");
     viteConfig.plugins ??= [];
     viteConfig.plugins.push(tailwindcss());
