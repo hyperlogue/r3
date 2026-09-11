@@ -22,7 +22,8 @@ The existing runtime remains in use until migration and the new clients are read
 - [x] Owner handoff and delivery tracking with atomic message snapshots.
 - [x] Transactional archive/restore events and ordered retry identities
   (`server/artifact-lifecycle.ts`).
-- [ ] Message-dependent listener nudge and terminal watch behavior.
+- [x] Message-dependent listener nudge and terminal watch behavior
+  (`server/artifact-collaboration.ts`); remote transport wiring remains below.
 - [x] Legacy database migration with explicit defaults, preserved IDs/evidence,
   reserved gaps, generated notices for empty publications, and restart recovery.
 - [x] Publisher-side stable directory/git capture and one-time legacy local capture

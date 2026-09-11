@@ -263,3 +263,33 @@ export type ArtifactStreamEvent =
   | { type: "superseded"; artifactId: string };
 
 export const ARTIFACT_WATCH_EXIT = { archived: 0, feedback: 10, timeout: 2, busy: 4 } as const;
+
+export interface ArtifactWatcher {
+  id: string;
+  kind: "watch" | "listen";
+  actor: ArtifactActor;
+  connectedAt: string;
+}
+
+export interface ArtifactNudge {
+  id: string;
+  artifactId: string;
+  title: string | null;
+  event: "submitted" | "archived";
+  lifecycleEventId: string | null;
+  message: string | null;
+}
+
+export type ArtifactNotification =
+  | { state: "none" | "sent" | "not_repeated" }
+  | { state: "failed"; error: string };
+
+export interface ArtifactLifecycleResponse {
+  event: ArtifactLifecycleEvent;
+  replayed: boolean;
+  notification: ArtifactNotification;
+}
+
+export type ArtifactWatchResult =
+  | { result: "archived"; event: ArtifactLifecycleEvent | null }
+  | { result: "feedback" | "timeout" | "cancelled" | "superseded" | "deleted" };
