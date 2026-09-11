@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { ArtifactDetail, ArtifactKind, ArtifactState } from "../shared/artifacts.ts";
 import { type ArtifactAuthPolicy, installArtifactAuth } from "./artifact-auth.ts";
 import { ArtifactCollaboration } from "./artifact-collaboration.ts";
+import { installArtifactConversations } from "./artifact-conversation-api.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
 import { artifactSource } from "./artifact-source.ts";
@@ -176,5 +177,9 @@ export function createArtifactApi(storage: ArtifactStorage, policy: ArtifactAuth
     artifacts.setViewed(c.req.param("id"), await artifactJson(c.req.raw));
     return c.json({ ok: true });
   });
-  return { app, collaboration };
+  const conversations = installArtifactConversations(app, storage, collaboration, (id) => ({
+    ...artifactDetail(storage, id),
+    watching: collaboration.watching(id),
+  }));
+  return { app, collaboration, close: conversations.close };
 }

@@ -31,8 +31,10 @@ The existing runtime remains in use until migration and the new clients are read
 - [x] Private artifact-store bootstrap and publication-coordinated blob cleanup
   (`server/artifact-storage.ts`, `server/blobs.ts`).
 - [ ] Switch daemon startup to artifact storage alongside the new clients.
-- [ ] Artifact HTTP routes, byte resource GET/HEAD/ranges, SSE and remote agent
-  connection; remove filesystem dependencies from published-content reads.
+- [x] Artifact HTTP routes, byte resource GET/HEAD/ranges, authenticated SSE and
+  outward agent connection against injected storage (`server/artifact-api.ts`,
+  `server/artifact-conversation-api.ts`). No filesystem dependencies in reads;
+  daemon/client cutover is still separate.
 - [ ] Publisher-side stable capture and upload, CLI commands, agent sessions,
   local harness wake adapters, remote listen/watch, help and guide.
 - [ ] Files workspace with source/rendered native targets and version switching;

@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ArtifactVersion } from "../shared/artifacts.ts";
+import { readEventStream } from "../shared/event-stream.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
@@ -29,6 +30,7 @@ beforeEach(async () => {
   await request("/api/sessions", "POST", { id: actor.sessionId, harness: "any-agent" });
 });
 afterEach(async () => {
+  api.close();
   storage.close();
   await rm(root, { recursive: true, force: true });
 });
@@ -202,5 +204,130 @@ test("JSON input counts real streamed bytes and rejects malformed text", async (
   ).rejects.toMatchObject({ status: 413 });
   await expect(artifactJson(request([new Uint8Array([123, 255, 125])]))).rejects.toMatchObject({
     status: 400,
+  });
+});
+
+describe("artifact HTTP collaboration contract", () => {
+  const human = { role: "human", sessionId: null };
+  test("native threads, explicit reply context, owner delivery, and claims use the same IDs across HTTP", async () => {
+    const id = await create();
+    await request(`/api/artifacts/${id}/versions`, "POST", publication());
+    const events = readEventStream((await request(`/api/events?artifact=${id}`)).body!);
+    expect((await events.next()).value?.event).toBe("ready");
+    const feedback = await (
+      await request(`/api/artifacts/${id}/feedback`, "POST", {
+        actor: human,
+        body: "Please change this",
+        target: {
+          kind: "source",
+          versionSeq: 1,
+          path: "page.html",
+          locator: { start: 1, end: 1, quote: "<h1>Original</h1>" },
+        },
+      })
+    ).json();
+    expect((await events.next()).value?.data).toContain(feedback.id);
+    expect(
+      (
+        await request("/api/claims", "POST", {
+          sessionId: actor.sessionId,
+          feedbackIds: [feedback.id],
+        })
+      ).status,
+    ).toBe(200);
+    const preview = await request(`/api/artifacts/${id}/prompt?scope=unsent`);
+    expect(preview.headers.get("x-r3-prompt-items")).toBe("1");
+    expect((await (await request(`/api/feedback/${feedback.id}`)).json()).sentAt).toBeNull();
+    const delivery = await request(`/api/artifacts/${id}/prompt`, "POST", {});
+    expect(delivery.headers.get("x-r3-prompt-items")).toBe("1");
+    expect(await delivery.text()).toContain('"versionSeq":1');
+    expect(
+      (await request(`/api/artifacts/${id}/prompt`, "POST", {})).headers.get("x-r3-prompt-items"),
+    ).toBe("0");
+    const reply = await request(`/api/feedback/${feedback.id}/replies`, "POST", {
+      actor,
+      body: "I inspected the published source",
+      context: { versionSeq: 1, representation: "source" },
+    });
+    expect(reply.status).toBe(201);
+    expect((await reply.json()).context).toEqual({ versionSeq: 1, representation: "source" });
+    const current = await (await request(`/api/feedback/${feedback.id}`)).json();
+    expect(current.claim).toBeNull();
+    expect(current.status).toBe("open");
+    expect(
+      (await request(`/api/feedback/${feedback.id}`, "PATCH", { actor, status: "resolved" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await request(`/api/feedback/${feedback.id}`, "PATCH", { actor: human, status: "resolved" }))
+        .status,
+    ).toBe(200);
+    await events.return(undefined);
+  });
+
+  test("archive commits before listener acknowledgment, reports failed delivery, and retries never notify again", async () => {
+    const id = await create();
+    const listening = await request(`/api/artifacts/${id}/listen`, "POST", { actor });
+    const frames = readEventStream(listening.body!);
+    const ready = JSON.parse((await frames.next()).value!.data);
+    expect(ready.registration.kind).toBe("listen");
+    expect((await (await request(`/api/artifacts/${id}`)).json()).watching).toBe(true);
+    const command = {
+      actor: human,
+      event: "archived",
+      operationKey: "archive-operation",
+      message: "Saved next steps",
+    };
+    const archive = request(`/api/artifacts/${id}/lifecycle`, "POST", command);
+    const nudge = JSON.parse((await frames.next()).value!.data).nudge;
+    expect(nudge.message).toBe("Saved next steps");
+    expect((await (await request(`/api/artifacts/${id}`)).json()).state).toBe("archived");
+    expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
+    const acknowledged = await request(
+      `/api/connections/${ready.registration.id}/acknowledgments`,
+      "POST",
+      { actor, nudgeId: nudge.id, ok: false, error: "Local harness unavailable" },
+    );
+    expect(acknowledged.status).toBe(200);
+    const result = await archive;
+    expect(result.status).toBe(502);
+    expect((await result.json()).event.message).toBe(command.message);
+    expect((await frames.next()).value?.event).toBe("closed");
+    expect((await frames.next()).done).toBe(true);
+    const retry = await request(`/api/artifacts/${id}/lifecycle`, "POST", command);
+    expect((await retry.json()).notification.state).toBe("not_repeated");
+    expect((await request(`/api/artifacts/${id}/submit`, "POST")).status).toBe(409);
+    expect(
+      (await (await request(`/api/artifacts/${id}/watch`, "POST", { actor })).json()).result,
+    ).toBe("archived");
+    await request(`/api/artifacts/${id}/lifecycle`, "POST", {
+      actor: human,
+      event: "restored",
+      operationKey: "restore-operation",
+    });
+    expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
+  });
+
+  test("watch shutdown releases the held slot and archived terminal state precedes pending feedback", async () => {
+    const id = await create();
+    const wait = request(`/api/artifacts/${id}/watch`, "POST", { actor, timeoutMs: 5000 });
+    // Let the JSON request reader register the waiter before shutting down.
+    while (!api.collaboration.watching(id)) await Bun.sleep(1);
+    api.close();
+    expect((await (await wait).json()).result).toBe("cancelled");
+    expect(api.collaboration.watchers(id)).toEqual([]);
+    await request(`/api/artifacts/${id}/feedback`, "POST", {
+      actor: human,
+      body: "Unsent content",
+      target: { kind: "artifact" },
+    });
+    await request(`/api/artifacts/${id}/lifecycle`, "POST", {
+      actor: human,
+      event: "archived",
+      operationKey: "silent-archive",
+    });
+    expect(
+      (await (await request(`/api/artifacts/${id}/watch`, "POST", { actor })).json()).result,
+    ).toBe("archived");
   });
 });

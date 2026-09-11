@@ -40,6 +40,28 @@ are in `shared/artifacts.ts`, re-exported by `shared/types.ts`.
   different version or the filesystem. Executable rendering belongs to preview.
 - `GET/PUT /api/artifacts/:id/viewed` persists opaque read-progress keys with
   `{ key, viewed }`. Theme and login-token endpoints retain their response shapes.
+- `GET/POST /api/artifacts/:id/feedback`, `GET/PATCH/DELETE /api/feedback/:id`,
+  `POST /api/feedback/:id/replies`, `PATCH /api/replies/:id`, and
+  `PUT /api/feedback/:id/placements` use native immutable original targets,
+  explicit reply context, and separate placements. Every message mutation names
+  an `actor`; deletion takes `{ actor }`. Only human actors change feedback status.
+- `POST/DELETE /api/claims { sessionId, feedbackIds }` claims/releases as the
+  named registered agent. Claims change presence, not owner delivery.
+- `GET .../:id/prompt[?scope=unsent&feedback=<ids>]` is read-only;
+  `POST .../:id/prompt { feedback? }` drains the exact pending snapshot.
+  Both return text with `x-r3-prompt-items`; only POST stamps delivery.
+- `POST .../:id/submit` returns `{ notification }` and
+  `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
+  event, replay flag, and notification result. Delivery failure is HTTP 502;
+  the committed archive remains authoritative. Replays do not notify twice.
+- `GET .../:id/watchers`, `POST .../:id/watch { actor, timeoutMs? }`, and
+  `POST .../:id/listen { actor }` share one designated recipient slot. Watch is
+  bounded long polling; listen is an outward SSE connection from the publisher.
+  `POST /api/connections/:id/acknowledgments` acknowledges local harness delivery.
+  The server receives no harness socket, executable path, or harness credential.
+- `GET /api/events[?artifact=<id>]` is an authenticated fetch stream of
+  `ArtifactStreamEvent` invalidations. `ready` means refetch current state;
+  `heartbeat` keeps the connection alive. Neither implies message delivery.
 
 All data and streams require authentication. JSON reads use private validators
 and gzip; body readers count actual streamed bytes after authentication, with a
