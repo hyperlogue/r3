@@ -42,10 +42,16 @@ The existing runtime remains in use until migration and the new clients are read
   `cli/artifact-listener.ts`; binary entrypoint/discovery cutover remains.
 - [ ] Files workspace with source/rendered native targets and version switching;
   adapt existing diff presentation without losing sparse old/new targets.
+  `web/src/pages/ArtifactView.tsx` composes the files/diff workspaces, pinned
+  navigation, large-file Locate, and the rendered-pane interface. Browser stories
+  verify draft retention, new-publication announcements, old-side context targets,
+  and the collapsed composer. Actual rendered preview and router cutover remain.
 - [ ] HTML workspace, isolated preview origin, scoped resource access, rendered
   comments, bridge utility, closed network enforcement and device delegation.
 - [ ] Archive/restore browser controls, conversation/presence updates, mobile
   behavior, retained drafts and read progress, and component stories.
+  These components and their workspace wiring are implemented and browser-tested;
+  the production application still uses the earlier entry point.
 - [ ] Updated demo fixtures/backend, README, AGENTS and deep-reference skills;
   remove obsolete review routes, commands and runtime modules after cutover.
 - [ ] End-to-end local and remote workflows, legacy fixture migration, browser
@@ -63,6 +69,15 @@ feature flags, emitted four UDP packets in the control and none with
 `Connection-Allowlist: (response-origin); webrtc=block; redirects=block`. The
 restricted peer connection failed. Navigation, workers, version scoping, and
 device permission still need browser acceptance tests before enabling previews.
+
+The implemented `PreviewHost` gate now verifies URL blocking and WebRTC rejection
+before granting a browser-bound partitioned cookie. A relay-only WebRTC check
+without ICE servers yielded `new` without the policy and `failed` with it, with
+zero packets in both cases. Partitioned cookie authentication worked in sandboxed
+preview frames under localhost, loopback-IP, and localhost-subdomain application
+origins. Against the real host, Chrome for Testing 153 passed the gate and loaded
+published scripts and JSON; Chromium 151 reported unsupported and requested no
+published files. The browser runtime/utility and broader acceptance matrix remain.
 
 Evaluate [Connection Allowlists](https://wicg.github.io/connection-allowlists/)
 alongside CSP and the isolated origin. Chromium's

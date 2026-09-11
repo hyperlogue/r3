@@ -33,6 +33,42 @@ Application-origin resource downloads are attachments with a restrictive CSP,
 `nosniff`, and same-origin resource policy (`server/artifact-resources.ts`).
 Executable preview responses require their separate isolated-origin policy.
 
+### Preview host (pending runtime integration)
+
+`server/preview-host.ts` serves one published version per temporary random
+subdomain. `PreviewContexts` validates the exact host and port, expires contexts
+after one hour without application renewal, and revokes their browser grants
+together. It never transfers the application's token or cookies. Every published
+resource requires a preview-only Secure, HttpOnly, partitioned cookie.
+
+Before issuing that cookie, an r3-owned gate checks an allowed same-origin fetch,
+the blocking of another working same-origin endpoint, and WebRTC policy rejection
+with no ICE servers and relay-only transport. That WebRTC check emits no probe
+packets. The gate then exchanges a single-use challenge through a same-origin
+JSON POST. A foreign page cannot forge its Origin or read its challenge through
+CORS. Grants bind to the browser's user-agent/client-hint identity, so copying a
+preview URL, or reusing a cookie in a different browser version, does not skip
+verification. User-agent detection alone never enables rendering.
+
+The preview's Connection Allowlist includes only its `/files/*` and `/r3/*`
+namespaces, with WebRTC and redirects blocked. CSP additionally restricts resource
+classes, forms, frames, and navigation through sandboxing. Service-worker script
+requests are refused: a worker must not substitute a document response without
+the server's policy. Ordinary published workers still receive the policy.
+Camera/microphone are delegated through the isolated real origin and retain
+browser consent. Neither permission grants a network exception.
+
+Preview documents are not cached; the response appends the r3 runtime to original
+HTML or retained Markdown HTML without changing stored bytes. Native resource
+GET/HEAD/range responses remain private and immutable, varying by preview cookie,
+browser identity, and fetch destination. Unknown paths never receive a document
+fallback or an upstream proxy response.
+
+The real host/gate loaded published scripts and JSON in Chrome for Testing 153,
+and refused Chromium 151 before any published file request. Navigation, worker,
+redirect, resource-scope, and device browser acceptance are still required before
+the daemon/client cutover enables this host.
+
 ## The bind
 
 Binds **`127.0.0.1`** by default. `R3_BIND` overrides it, and that is an explicit
