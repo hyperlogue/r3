@@ -445,6 +445,24 @@ export class ArtifactStore {
     return this.blobs.read(rendered ? file.renderedHash! : file.hash);
   }
 
+  resource(id: string, seq: number, path: string, rendered = false) {
+    const file = this.file(id, seq, path);
+    if (rendered && !file.renderedHash && file.mediaType.split(";")[0] !== "text/html") {
+      throw new ArtifactError("File has no rendered document representation", 404);
+    }
+    const hash = rendered ? (file.renderedHash ?? file.hash) : file.hash;
+    const length = this.db
+      .query<{ byte_length: number }, [string]>("SELECT byte_length FROM blobs WHERE hash = ?")
+      .get(hash);
+    if (!length) throw new Error("Published resource is missing its blob metadata");
+    return {
+      hash,
+      byteLength: length.byte_length,
+      mediaType: rendered ? "text/html; charset=utf-8" : file.mediaType,
+      read: () => this.blobs.read(hash),
+    };
+  }
+
   patch(id: string, seq: number): string {
     const row = this.versionRow(id, seq);
     if (row.kind !== "diff") throw new ArtifactError("Only diff versions contain patches");
