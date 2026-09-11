@@ -1,0 +1,73 @@
+// Public component/demo fixtures. All identities and publications are synthetic.
+import type { ArtifactDetail, ArtifactFeedback, ArtifactVersion } from "../../shared/artifacts.ts";
+
+const time = "2026-09-11T12:00:00.000Z";
+export const artifactFixtureVersion: ArtifactVersion = {
+  artifactId: "artifact_example",
+  seq: 1,
+  publicationKey: "fixture-publication",
+  contentHash: "fixture-content",
+  label: "Initial publication",
+  summary: "Read the page and leave feedback on the content.",
+  publishedBy: { role: "agent", sessionId: "design-agent" },
+  provenance: {},
+  createdAt: time,
+  publishedAt: time,
+  kind: "files",
+  entrypoint: null,
+  fileCount: 2,
+};
+export const artifactFixtureFeedback: ArtifactFeedback = {
+  id: "feedback_example",
+  artifactId: "artifact_example",
+  author: { role: "human", sessionId: null },
+  body: "Could the comparison explain which option works best for small teams?",
+  status: "open",
+  target: {
+    kind: "rendered",
+    versionSeq: 1,
+    path: "index.md",
+    locator: { selector: "a", quote: "View the comparison" },
+  },
+  legacy: null,
+  createdAt: time,
+  updatedAt: time,
+  sentAt: time,
+  statusUnsent: false,
+  replies: [
+    {
+      id: "reply_example",
+      feedbackId: "feedback_example",
+      artifactId: "artifact_example",
+      author: { role: "agent", sessionId: "design-agent" },
+      body: "I can add a short recommendation beside the comparison.",
+      context: { versionSeq: 1, representation: "rendered" },
+      target: null,
+      legacy: null,
+      createdAt: time,
+      sentAt: time,
+    },
+  ],
+  claim: null,
+};
+export const artifactFixture: ArtifactDetail = {
+  id: "artifact_example",
+  kind: "files",
+  state: "active",
+  projectId: null,
+  title: "Team workspace proposal",
+  summary: "A proposal with **published versions** and shared conversation threads.",
+  meta: {},
+  createdBy: { role: "agent", sessionId: "design-agent" },
+  nextSeq: 2,
+  createdAt: time,
+  updatedAt: time,
+  archivedAt: null,
+  watching: false,
+  working: false,
+  legacy: null,
+  versions: [artifactFixtureVersion],
+  feedback: [artifactFixtureFeedback],
+  placements: [],
+  events: [],
+};
