@@ -27,8 +27,9 @@ The existing runtime remains in use until migration and the new clients are read
   reserved gaps, generated notices for empty publications, and restart recovery.
 - [x] Publisher-side stable directory/git capture and one-time legacy local capture
   adapter (`cli/capture.ts`, `cli/capture-git.ts`, `server/migration-capture.ts`).
-- [ ] Private artifact-store bootstrap; wire migration into daemon startup when
-  the clients switch protocols.
+- [x] Private artifact-store bootstrap and publication-coordinated blob cleanup
+  (`server/artifact-storage.ts`, `server/blobs.ts`).
+- [ ] Switch daemon startup to artifact storage alongside the new clients.
 - [ ] Artifact HTTP routes, byte resource GET/HEAD/ranges, SSE and remote agent
   connection; remove filesystem dependencies from published-content reads.
 - [ ] Publisher-side stable capture and upload, CLI commands, agent sessions,
