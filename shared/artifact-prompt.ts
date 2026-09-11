@@ -23,12 +23,16 @@ function historicalTarget(feedback: ArtifactFeedback): boolean {
   );
 }
 
+export function artifactFeedbackTargetLabel(feedback: ArtifactFeedback): string {
+  return historicalTarget(feedback)
+    ? "Historical target unavailable"
+    : artifactTargetLabel(feedback.target);
+}
+
 function block(feedback: ArtifactFeedback, unsent: boolean): string {
   const fresh = feedback.author.role === "human" && feedback.sentAt === null;
   const followup = unsent && !fresh;
-  const label = historicalTarget(feedback)
-    ? "Historical target unavailable"
-    : artifactTargetLabel(feedback.target);
+  const label = artifactFeedbackTargetLabel(feedback);
   const author =
     feedback.author.role === "agent" ? ` [agent-authored: ${feedback.author.sessionId}]` : "";
   const lines = [

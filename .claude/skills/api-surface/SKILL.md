@@ -67,6 +67,15 @@ All data and streams require authentication. JSON reads use private validators
 and gzip; body readers count actual streamed bytes after authentication, with a
 200 MiB transfer cap for publications and smaller limits for ordinary commands.
 
+The matching command runner is `cli/artifact-commands.ts`; its complete help and
+agent guide are `cli/artifact-help.ts`. These are prepared for the coordinated
+entrypoint cutover, not exposed through the legacy CLI yet. Capture/publication
+is isolated in `cli/artifact-publish.ts`: complete bytes are prepared before a
+create write, and an unconfirmed upload reports the artifact, expected sequence,
+and retry key for recovery. Source/download reads require a version. Native target
+flags reject cross-representation guesses. `--session` or `R3_AGENT_SESSION`
+supports any harness; no generic shared `agent` identity is invented.
+
 ### Legacy runtime until client cutover
 
 Routes are served by `server/index.ts` behind the Host + token guards (see the
