@@ -123,6 +123,7 @@ function GutterCell({
 }) {
   return (
     <span
+      data-gutter
       className={cn(
         // Frozen line-number rail: sticky so only the code scrolls horizontally.
         // The new side pins at exactly one column width — left reads the same
@@ -244,6 +245,8 @@ const Row = memo(function Row({
       className={cn(ROW_GRID, ROW_BG[ln.type], fbId && "r3-feedback-region")}
       data-line={line ?? undefined}
       data-side={side}
+      data-old-line={ln.oldLine ?? undefined}
+      data-new-line={ln.newLine ?? undefined}
       data-fb-id={fbId}
     >
       <GutterCell
@@ -719,7 +722,12 @@ function DiffFileBody({
               onExpand={expand}
               onDown={g.onDown}
               onEnter={g.onEnter}
-              fbId={line != null ? regionAt(regions, line, side)?.id : undefined}
+              fbId={
+                (line != null ? regionAt(regions, line, side)?.id : undefined) ??
+                (ln.type === "context" && ln.oldLine !== null
+                  ? regionAt(regions, ln.oldLine, "old")?.id
+                  : undefined)
+              }
             />
           );
         }}
