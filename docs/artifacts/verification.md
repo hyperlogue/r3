@@ -128,3 +128,9 @@ runs, use the relevant workspace or component story; the compiled app and previe
 scripts cover integration with the real server. The
 [distribution reference](../../.claude/skills/build-and-distribution/SKILL.md) owns
 binary embedding, CSS compilation, demo aliases, and Pages layout.
+
+The reading acceptance also checks that the composer precedes the threads and
+folding the desktop feedback overlay leaves content width unchanged. Selecting a
+source anchor with the panel hidden opens one thread, and dismissing/reopening it
+preserves its reply draft. Workspace and popover stories expose the same states
+for visual review; mobile keeps its sheet.

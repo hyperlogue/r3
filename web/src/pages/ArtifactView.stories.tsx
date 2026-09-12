@@ -250,6 +250,32 @@ export const CollapsedComposer: Story = {
     await expect(artifactDrafts.get(detail.id)?.target.kind).toBe("source");
   },
 };
+export const FloatingPanelAndThread: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const content = canvasElement.querySelector("[data-artifact-content]")!;
+    const width = content.getBoundingClientRect().width;
+    await userEvent.click(canvas.getByRole("button", { name: "Collapse feedback" }));
+    await expect(content.getBoundingClientRect().width).toBe(width);
+    const row = canvasElement.querySelector('[data-fb-id="feedback_source"] code') as HTMLElement;
+    await userEvent.click(row);
+    const thread = canvas.getByRole("dialog", { name: "Feedback thread" });
+    await expect(canvas.getByRole("button", { name: "Expand feedback" })).toBeVisible();
+    await userEvent.click(within(thread).getByRole("button", { name: "Reply" }));
+    await userEvent.type(
+      within(thread).getByRole("textbox", { name: "Reply" }),
+      "Keep this thread draft.",
+    );
+    await userEvent.click(within(thread).getByRole("button", { name: "Close thread" }));
+    await expect(artifactDrafts.get(detail.id, "feedback_source")?.body).toBe(
+      "Keep this thread draft.",
+    );
+    await userEvent.click(row);
+    await userEvent.click(canvas.getByRole("button", { name: "Open all feedback" }));
+    await expect(canvas.queryByRole("dialog", { name: "Feedback thread" })).toBeNull();
+    await expect(content.getBoundingClientRect().width).toBe(width);
+  },
+};
 export const VirtualizedLocate: Story = {
   args: {
     detail: {

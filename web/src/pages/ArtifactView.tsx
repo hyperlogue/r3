@@ -23,6 +23,7 @@ import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
+import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import {
   type ArtifactRefJump,
   type ArtifactTargetJump,
@@ -145,6 +146,7 @@ export function ArtifactWorkspace({
   const [commenting, setCommenting] = useState(false);
   const [notice, setNotice] = useState("");
   const [floating, setFloating] = useState<AnchorRect | null>(null);
+  const [popoverFeedback, setPopoverFeedback] = useState<string | null>(null);
   const [quote, setQuote] = useState<QuotePos | null>(null);
   const [jump, setJump] = useState<ArtifactCodeJump | null>(null);
   const [renderedJump, setRenderedJump] = useState<ArtifactRenderedPaneProps["jump"]>(null);
@@ -203,9 +205,11 @@ export function ArtifactWorkspace({
   useEffect(() => {
     const toolbar = toolbarRef.current;
     if (!toolbar) return;
-    const resize = new ResizeObserver(() =>
-      paneRef.current?.style.setProperty("--pane-sticky-h", `${toolbar.offsetHeight}px`),
-    );
+    const resize = new ResizeObserver(() => {
+      const height = `${toolbar.offsetHeight}px`;
+      paneRef.current?.style.setProperty("--pane-sticky-h", height);
+      splitRef.current?.style.setProperty("--pane-sticky-h", height);
+    });
     resize.observe(toolbar);
     return () => resize.disconnect();
   }, []);
@@ -232,7 +236,10 @@ export function ArtifactWorkspace({
       setView((current) => ({ ...current, versionSeq: version.seq }));
   }, [version, view.versionSeq]);
   useEffect(() => {
-    const restore = () => setView(readArtifactLocation(detail.kind, location.search));
+    const restore = () => {
+      setView(readArtifactLocation(detail.kind, location.search));
+      setPopoverFeedback(null);
+    };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [detail.kind]);
@@ -248,6 +255,7 @@ export function ArtifactWorkspace({
     setRenderedJump(null);
     setSummaryJump(null);
     setNotice("");
+    setPopoverFeedback(null);
   }, []);
   const selectVersion = (versionSeq: number | null) => {
     changeView({ versionSeq, ...(detail.kind === "html" ? { path: null } : {}) });
@@ -267,6 +275,7 @@ export function ArtifactWorkspace({
   );
   const openComposer = useCallback(
     (rect?: AnchorRect) => {
+      setPopoverFeedback(null);
       if (mobile) setSheet("peek");
       else if (collapsed)
         setFloating(
@@ -422,10 +431,17 @@ export function ArtifactWorkspace({
     (feedbackId: string) => {
       setView((current) => ({ ...current, feedbackId }));
       if (mobile) setSheet("full");
-      else setFeedbackCollapsed(false);
+      else if (collapsed) {
+        setFloating(null);
+        setPopoverFeedback(feedbackId);
+      }
     },
-    [mobile],
+    [mobile, collapsed],
   );
+  useEffect(() => {
+    if (mobile || !collapsed) setPopoverFeedback(null);
+  }, [mobile, collapsed]);
+  const visibleThread = detail.feedback.find((feedback) => feedback.id === popoverFeedback);
   const selectFile = useCallback(
     (path: string) => {
       changeView({ path, representation: detail.kind === "diff" ? "diff" : "source" });
@@ -635,7 +651,7 @@ export function ArtifactWorkspace({
             : undefined
         }
       />
-      <main ref={splitRef} className="flex min-h-0 flex-1">
+      <main ref={splitRef} className="relative flex min-h-0 flex-1">
         {!mobile && detail.kind !== "html" && (
           <FileBrowser
             files={paths}
@@ -709,7 +725,10 @@ export function ArtifactWorkspace({
                 targets: renderedTargets,
                 onTarget: anchor,
                 onDocument: (next) => {
-                  if (next !== path) setRenderedJump(null);
+                  if (next !== path) {
+                    setRenderedJump(null);
+                    setPopoverFeedback(null);
+                  }
                   setView((current) =>
                     current.path === next ? current : { ...current, path: next },
                   );
@@ -822,11 +841,14 @@ export function ArtifactWorkspace({
             </VirtualPaneProvider>
           )}
         </div>
+        {/* A fixed launcher gutter keeps edge anchors reachable. It never changes
+            width when the panel opens, folds, or is resized. */}
+        {!mobile && <div aria-hidden="true" className="w-[calc(32px+1rem)] shrink-0" />}
         {!mobile && (
           <aside
             className={cn(
-              "relative shrink-0 overflow-hidden border-l border-neutral-300 dark:border-neutral-700",
-              !resize.dragging && "transition-[width] duration-200",
+              "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950",
+              !resize.dragging && "transition-[width] duration-200 motion-reduce:transition-none",
             )}
             style={{ width: collapsed ? 32 : resize.width }}
           >
@@ -849,7 +871,7 @@ export function ArtifactWorkspace({
                 type="button"
                 aria-label="Expand feedback"
                 onClick={() => setFeedbackCollapsed(false)}
-                className="absolute inset-0 flex w-8 flex-col items-center gap-3 bg-white py-3 text-xs text-neutral-500 dark:bg-neutral-950"
+                className="absolute inset-0 flex w-full flex-col items-center gap-3 bg-white py-3 text-xs text-neutral-500 dark:bg-neutral-950"
               >
                 <FoldChevrons dir="left" />
                 <span className="[writing-mode:vertical-rl]">
@@ -864,6 +886,19 @@ export function ArtifactWorkspace({
               </button>
             )}
           </aside>
+        )}
+        {!mobile && collapsed && visibleThread && (
+          <div className="pointer-events-none absolute right-12 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-30 flex w-[440px] max-w-[calc(100%-4rem)] flex-col items-stretch [&>*]:pointer-events-auto">
+            <ArtifactThreadPopover
+              key={visibleThread.id}
+              feedback={visibleThread}
+              context={context}
+              onLocate={locate}
+              onJumpRef={jumpRef}
+              onExpand={() => setFeedbackCollapsed(false)}
+              onClose={() => setPopoverFeedback(null)}
+            />
+          </div>
         )}
       </main>
       {mobile && (

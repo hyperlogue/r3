@@ -135,6 +135,17 @@ use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 
+On desktop the feedback panel floats over the right side of the content, below
+its toolbar. Opening, folding, and resizing it never changes the content or
+preview width. A fixed narrow launcher gutter keeps right-edge anchors reachable
+when the panel is folded. The panel stays mounted to preserve its UI state.
+
+With the panel folded, selecting an existing source/diff anchor or rendered
+comment marker opens only that conversation in a floating card. Reply and status
+actions reuse the same thread component and draft store. Closing the card keeps
+drafts; **Open all feedback** reveals the full panel. Changing version or view
+closes the card. Mobile continues to use its shared feedback sheet.
+
 Feedback cards retain their original motion: a quick fade with a 250 ms rise on
 insertion, a 200 ms fade/slide to the right on removal, and a 200 ms move between
 positions when reordered. The Active/Resolved fill slides between measured tab

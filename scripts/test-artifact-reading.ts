@@ -59,7 +59,12 @@ const diff = storage.artifacts.create({ kind: "diff", actor, title: "Published d
 const feedback = await storage.conversations.add(files.id, {
   actor,
   body: "Keep the original reading controls.",
-  target: { kind: "source", versionSeq: 1, path: "source.ts", locator: null },
+  target: {
+    kind: "source",
+    versionSeq: 1,
+    path: "source.ts",
+    locator: { start: 1, end: 1, quote: source.split("\n")[0] },
+  },
 });
 storage.artifacts.registerSession({ id: "reading-agent", harness: "acceptance" });
 const discussion = await storage.conversations.add(files.id, {
@@ -215,6 +220,14 @@ try {
         () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
         "general composer",
       );
+      assert(
+        await page.evaluate(`(() => {
+        const composer = document.querySelector('[data-artifact-composer]');
+        const list = document.querySelector('[data-feedback-list]');
+        return !!(composer.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
+      })()`),
+        "composer precedes the thread list",
+      );
       await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
       await page.command("Input.insertText", { text: "A draft blocks handoff" });
       assert(
@@ -228,7 +241,55 @@ try {
       await page.evaluate(
         `document.querySelector('[data-artifact-feedback="${feedback.id}"] button').click()`,
       );
+      const contentWidth = await page.evaluate(
+        "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
+      );
       await page.evaluate("document.querySelector('[aria-label=\"Collapse feedback\"]').click()");
+      assert.equal(
+        await page.evaluate(
+          "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
+        ),
+        contentWidth,
+        "folding never resizes content",
+      );
+      await page.evaluate(`document.querySelector('[data-fb-id="${feedback.id}"] code').click()`);
+      await eventually(
+        () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
+        "anchor opens one floating thread",
+      );
+      assert(
+        await page.evaluate("!!document.querySelector('[aria-label=\"Expand feedback\"]')"),
+        "thread leaves the full panel folded",
+      );
+      await page.evaluate(
+        "document.querySelector('[data-artifact-thread-popover] [data-feedback-action=reply]').click()",
+      );
+      await eventually(
+        () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover] textarea')"),
+        "thread reply composer",
+      );
+      await page.evaluate(
+        "document.querySelector('[data-artifact-thread-popover] textarea').focus()",
+      );
+      await page.command("Input.insertText", { text: "Retain the popover draft" });
+      await page.evaluate("document.querySelector('[aria-label=\"Close thread\"]').click()");
+      await page.evaluate(`document.querySelector('[data-fb-id="${feedback.id}"] code').click()`);
+      await eventually(
+        () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
+        "reopen anchored thread",
+      );
+      await page.evaluate(
+        "document.querySelector('[data-artifact-thread-popover] [data-feedback-action=reply]').click()",
+      );
+      await eventually(
+        () =>
+          page.evaluate(
+            "document.querySelector('[data-artifact-thread-popover] textarea')?.value === 'Retain the popover draft'",
+          ),
+        "popover draft survives dismissal",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Close thread\"]').click()");
+
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await Bun.sleep(200);
