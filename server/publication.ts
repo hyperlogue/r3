@@ -72,7 +72,10 @@ function decodeFile(value: unknown): DecodedFile {
   return { path, mediaType, bytes };
 }
 
-export function validatePublication(value: unknown): ValidatedPublication {
+export function validatePublication(
+  value: unknown,
+  directoryLimits: { files: number; totalBytes: number } = PUBLICATION_LIMITS,
+): ValidatedPublication {
   const body = requireObject(value, "Publication");
   const content = requireObject(body.content, "Publication content");
   const metadata = {
@@ -104,14 +107,14 @@ export function validatePublication(value: unknown): ValidatedPublication {
   if (!Array.isArray(content.files) || !content.files.length) {
     throw new ArtifactError("A directory publication must contain at least one file");
   }
-  if (content.files.length > PUBLICATION_LIMITS.files) {
+  if (content.files.length > directoryLimits.files) {
     throw new ArtifactError("Publication contains too many files", 413);
   }
   let total = 0;
   const files = content.files.map((input) => {
     const file = decodeFile(input);
     total += file.bytes.byteLength;
-    if (total > PUBLICATION_LIMITS.totalBytes) {
+    if (total > directoryLimits.totalBytes) {
       throw new ArtifactError("Publication exceeds the total size limit", 413);
     }
     return file;

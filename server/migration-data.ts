@@ -19,6 +19,9 @@ export type LegacyTable = (typeof LEGACY_TABLES)[number];
 export type LegacyRow = Record<string, SQLQueryBindings>;
 export type LegacyData = Record<LegacyTable, LegacyRow[]>;
 
+export const hasLegacyFileBytes = (row: LegacyRow): boolean =>
+  row.skipped !== 1 && typeof row.content === "string";
+
 export function sqlName(name: string): string {
   return `"${name.replaceAll('"', '""')}"`;
 }

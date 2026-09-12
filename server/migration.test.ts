@@ -9,6 +9,8 @@ import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
 import { BlobStore } from "./blobs.ts";
 import { migrateLegacyStore } from "./migration.ts";
+import { validateHistoricalPublication } from "./migration-content.ts";
+import { validatePublication } from "./publication.ts";
 
 let root: string;
 let db: Database;
@@ -60,6 +62,40 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test("historical membership is not constrained by new directory upload quotas", () => {
+    const publication = {
+      actor: { role: "human", sessionId: null },
+      expectedSeq: 0,
+      publicationKey: "history",
+      content: {
+        kind: "files",
+        files: Array.from({ length: 10_001 }, (_, index) => ({
+          path: `part-${index}.txt`,
+          mediaType: "text/plain",
+          base64: "",
+        })),
+      },
+    };
+    expect(() => validatePublication(publication)).toThrow("too many files");
+    expect(validateHistoricalPublication(publication).files).toHaveLength(10_001);
+    publication.content.files[0].path = "../outside";
+    expect(() => validateHistoricalPublication(publication)).toThrow("canonical relative paths");
+  });
+
+  test("missing historical bytes stay missing while original empty files stay empty", async () => {
+    db.exec(
+      "UPDATE snapshot_files SET content = NULL; INSERT INTO snapshot_files VALUES ('review_retained', 2, 'empty.txt', '', 'empty', NULL)",
+    );
+    await migrateLegacyStore(db, options());
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    expect(store.files("review_retained", 2).map((file) => file.path)).toEqual(["empty.txt"]);
+    expect((await store.readFile("review_retained", 2, "empty.txt")).byteLength).toBe(0);
+    const source = (store.version("review_retained", 2).provenance.migration as any).source;
+    expect(source.missing).toMatchObject([{ path: "index.md", content: null }]);
+    expect((store.get("review_retained").legacy?.migration as any).projectDefaults).toMatchObject([
+      { field: "createdAt", value: time },
+    ]);
+  });
   test("preserves identity, bytes, threads, read progress and login state across reopen", async () => {
     const auth = new AuthService(db, () => time);
     const token = auth.createLoginToken("Migration test");

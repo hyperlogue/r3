@@ -7,6 +7,7 @@ import { nowIso } from "./ids.ts";
 import { importLegacyContent, type LegacyCapture } from "./migration-content.ts";
 import { importLegacyConversations } from "./migration-conversations.ts";
 import {
+  hasLegacyFileBytes,
   LEGACY_TABLES,
   type LegacyData,
   type LegacyTable,
@@ -83,7 +84,11 @@ function importAuxiliary(context: MigrationContext, store: ArtifactStore): void 
       // Only translate a content mark when the old digest identifies surviving
       // bytes. Keep the original opaque key too, including unavailable history.
       for (const file of data.snapshot_files) {
-        if (file.review_id !== id || file.skipped === 1 || key !== `f:${file.path}@${file.sha}`)
+        if (
+          file.review_id !== id ||
+          !hasLegacyFileBytes(file) ||
+          key !== `f:${file.path}@${file.sha}`
+        )
           continue;
         const current = store.file(id, Number(file.seq), String(file.path));
         keys.add(`f:${file.path}@${current.hash}`);

@@ -2,6 +2,7 @@ import type { PublicationFile } from "../shared/artifacts.ts";
 import { canonicalJson, requireArtifactPath } from "./artifact-validation.ts";
 import { type BlobStore, hashBytes } from "./blobs.ts";
 import {
+  hasLegacyFileBytes,
   type LegacyRow,
   legacyId,
   legacyObject,
@@ -25,6 +26,15 @@ export type LegacyCapture = (
   | { kind: "diff"; patch: string }
   | { unavailable: string }
 >;
+
+// Old snapshots had a per-file bound, but no directory count/total bound.
+// Import their retained membership without applying a new upload quota; all
+// path, byte, media-type, and per-file validation remains in force.
+export const validateHistoricalPublication = (value: unknown) =>
+  validatePublication(value, {
+    files: Number.MAX_SAFE_INTEGER,
+    totalBytes: Number.MAX_SAFE_INTEGER,
+  });
 
 function migrationNotice(): PublicationFile {
   return {
@@ -81,6 +91,7 @@ export async function importLegacyContent(
   capture?: LegacyCapture,
 ): Promise<void> {
   const { db, data, time } = context;
+  const projectDefaults = new Map<string, unknown>();
   for (const repo of data.repos) {
     const defaults = context.defaults(`project:${legacyId(repo.id)}`);
     db.query("INSERT INTO projects(id, name, remote_url, created_at) VALUES (?, ?, ?, ?)").run(
@@ -89,6 +100,7 @@ export async function importLegacyContent(
       legacyText(repo.remote),
       defaults.time("createdAt", repo.created_at),
     );
+    projectDefaults.set(legacyId(repo.id), defaults.records);
   }
   for (const review of data.reviews) {
     const id = legacyId(review.id);
@@ -179,14 +191,12 @@ export async function importLegacyContent(
         const members = data.snapshot_files.filter(
           (row) => row.review_id === id && row.seq === seq,
         );
-        const missing = members.filter((row) => row.skipped === 1);
-        const files = members
-          .filter((row) => row.skipped !== 1)
-          .map((row) => ({
-            path: requireArtifactPath(row.path),
-            mediaType: Bun.file(String(row.path)).type || "application/octet-stream",
-            base64: Buffer.from(legacyText(row.content) ?? "").toString("base64"),
-          }));
+        const missing = members.filter((row) => !hasLegacyFileBytes(row));
+        const files = members.filter(hasLegacyFileBytes).map((row) => ({
+          path: requireArtifactPath(row.path),
+          mediaType: Bun.file(String(row.path)).type || "application/octet-stream",
+          base64: Buffer.from(row.content as string).toString("base64"),
+        }));
         evidence.members = members.map(({ content: _, ...row }) => row);
         evidence.missing = missing;
         evidence.completeness =
@@ -202,7 +212,7 @@ export async function importLegacyContent(
         // Historical data is trusted storage, but its path/membership still has
         // to be safe to serve. Never silently reinterpret a skipped marker as
         // an original zero-byte file.
-        publication = validatePublication({
+        publication = validateHistoricalPublication({
           expectedSeq: 0,
           publicationKey: `migration:snapshot:${seq}`,
           actor: publisher,
@@ -267,6 +277,7 @@ export async function importLegacyContent(
           at: time,
           source: review,
           project: repo,
+          projectDefaults: repo ? projectDefaults.get(legacyId(repo.id)) : [],
           defaults: defaults.records,
           missingVersions: missingRanges(
             max,
