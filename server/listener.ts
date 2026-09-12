@@ -7,7 +7,7 @@
 
 import type { CodexListenerTarget, ListenerTarget } from "../shared/types.ts";
 import { probeInbox, pushToInbox, validateSocketPath } from "./inbox.ts";
-import type { ListenerLiveness } from "./watchers.ts";
+export type ListenerLiveness = "alive" | "dead" | "unknown";
 
 const CODEX_QUEUE_TIMEOUT_MS = 10_000;
 const MAX_THREAD_ID_CHARS = 200;
