@@ -1,39 +1,71 @@
 ---
 name: security-model
-description: r3's full security posture — the Host/DNS-rebinding guard, the per-user token, same-origin rules on mutations, the quick-auth login-token→session-cookie gate and how REQUIRE_LOGIN is derived, remote access via ssh/tailscale, path + git-arg injection guards, and the dependency cooldown. Use when touching auth.ts, config.ts, the route guards in server/index.ts, anything about binding/ports/exposure/R3_* env vars or config.json, exposing r3 beyond loopback, reverse proxies, login tokens, or reviewing a change for security impact.
+description: r3's Host/origin/auth guards, isolated artifact preview and closed network policy, local and remote daemon configuration, publisher-side harness credentials, byte/path guards, migration storage, and dependency cooldown. Use when changing authentication, artifact or preview routes, resource serving, exposure settings, remote transport, or reviewing security impact.
 ---
 
 # r3's security model
 
-This file is the **design source of truth** for r3's security posture — update it
-here when the posture changes. `AGENTS.md` carries only the one-line invariants;
-the reasoning lives here.
+This file owns the security design. The daemon defends against browser-borne
+attacks and casual remote access; executable artifacts also run behind a verified
+closed network boundary. The product has one trusted human owner and multiple
+logical agents, not multi-user accounts or per-agent permissions.
 
-The threat model r3 actually defends: **browser-borne attack** (DNS rebinding,
-cross-origin `fetch`) and **casual remote access**. It explicitly does *not*
-defend against other local UIDs — see "What this does not protect" below.
+## Application boundary
 
-## Artifact API boundary (pending client cutover)
+`server/artifact-server.ts` binds the application and preview listeners separately,
+only on loopback. All-interface binds are rejected. The application Host guard
+runs before both API and static assets. Allowed application hosts are exact local,
+explicitly allowlisted, or advertised public hostnames; never wildcards. Preview
+hosts are excluded even if the application allowlist would otherwise match.
 
-`server/artifact-auth.ts` is the injected guard for the artifact protocol. The
-legacy routes below remain in use until the daemon and clients switch together.
-The artifact guard compares full application origins, including the port; an
-allowed hostname alone no longer authorizes a browser origin. Explicit configured
-application origins support a proxy that rewrites Host. Preview origins must
-never enter that set. Browser requests carrying cross-origin Fetch Metadata do
-not acquire the no-Origin local CLI exemption.
+`server/artifact-auth.ts` gates every API request by full origin, including port.
+A configured application origin supports a proxy that rewrites Host. Preview
+origins must never enter that set. No-Origin CLI requests are allowed, but browser
+cross-origin Fetch Metadata does not acquire that exemption. No cross-origin
+access headers are emitted.
 
-Every artifact data stream requires token or cookie authentication, including
-SSE. Browser and agent clients use authenticated fetch streams, removing the
-legacy token-free EventSource exception. Health, same-origin boot, and login
-retain their narrow bootstrap roles. Required-login boot exposes no master
-token; login and revocation retain `AuthService`'s existing cookie contract.
+Every data route, including event streams, requires the master API token or a
+valid browser cookie. Browser and agent streams use authenticated fetch, with no
+token-free SSE exception. GET/HEAD health and same-origin boot, and POST login,
+retain narrow bootstrap roles. Token comparisons are constant-time; reads carry
+private cache policies. JSON bodies are bounded while streaming after auth.
 
-Application-origin resource downloads are attachments with a restrictive CSP,
-`nosniff`, and same-origin resource policy (`server/artifact-resources.ts`).
-Executable preview responses require their separate isolated-origin policy.
+Application resource downloads are attachments with restrictive CSP, `nosniff`,
+no-referrer, and same-origin resource policy. Shell and assets are explicitly
+served by `application-assets.ts`, with frame-ancestors none and X-Frame-Options
+DENY. Missing asset paths return 404; only known artifact page routes get the shell.
+Executable published HTML never runs on the application origin.
 
-### Preview host (pending daemon/client cutover)
+## Browser login and configuration
+
+`AuthService` owns hashed login tokens and sessions on an injected SQLite connection.
+Importing it opens no database. Revocation and session deletion are transactional;
+migration preserves their existing records. A token is shown only when minted.
+
+`REQUIRE_LOGIN` defaults on when publicUrl, allowedHosts, or bind config indicates
+non-loopback access. A setting is policy, not proof of the network topology. On a
+local no-login instance, boot supplies the master token to the same-origin browser.
+With login required, boot exposes no master token: a revocable login token creates
+an HttpOnly, SameSite=Strict cookie, Secure at an HTTPS edge. The proxy must set
+X-Forwarded-Proto correctly. Individual revocation of the caller's current login
+token is refused; revoke-all is the deliberate escape hatch.
+
+A proxy that rewrites Host to loopback can conceal remote exposure. Set
+`requireLogin` explicitly for such a deployment and advertise the application's
+publicUrl. Never rely on the proxy being detectable. Remote publishing uses an
+explicit R3_URL and R3_TOKEN; a different origin/path never inherits local discovery
+credentials. Both clients and probes reject redirects when carrying credentials.
+
+Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults.
+Configuration contains no secret. Supported settings include application bind,
+port, publicUrl, allowedHosts and requireLogin, plus previewPort and previewBaseUrl.
+Changes take effect at restart. The preview port defaults to application port + 1
+and must differ from it. The local preview base is HTTP localhost; remote browser
+rendering requires a separate HTTPS DNS origin and wildcard context subdomains
+forwarded unchanged to the preview listener. Never forward the application API
+through that host, or merge the application and preview listeners/origins.
+
+## Preview host
 
 `server/preview-host.ts` serves one published version per temporary random
 subdomain. `PreviewContexts` validates the exact host and port, expires contexts
@@ -93,214 +125,53 @@ silently send another message or handoff. Published path membership is checked
 before dispatch, reply ids must belong to the same artifact, and the server
 validates each native target. Application authentication stays in the parent.
 
-## The bind
+## Publication and persisted data
 
-Binds **`127.0.0.1`** by default. `R3_BIND` overrides it, and that is an explicit
-opt-in with consequences (it arms the login gate — below). **Never bind `0.0.0.0`.**
+Publication paths are canonical relative paths, validated independently of the
+publisher's operating system. Reject traversal, ambiguous separators, duplicate
+membership, unsafe metadata, and invalid base64. Count decoded bytes as well as
+transport bytes. Source and rendered targets validate version membership and native
+coordinates; arbitrary HTML selectors never become filesystem paths or code.
 
-## Layer 1 — the Host guard (DNS-rebinding defense)
+Publisher directory capture rejects symlinks/special files, checks real paths,
+opens with O_NOFOLLOW, compares file identity and metadata around bounded reads,
+and scans membership again. Git capture uses inert argv, validates references,
+disables external diff/textconv/fsmonitor commands, bounds output/runtime, reads
+immutable object IDs, and detects index or working-tree changes. No shell receives
+untrusted text. Capturing a directory includes hidden files; examples should use a
+prepared publication directory, not an unrelated checkout or home directory.
 
-Every request **that returns data or the token** — i.e. all of `/api/*`, including
-`/api/boot` — must carry a **Host** that is one of:
+Blob storage is private, immutable, content-addressed, fsynced, and hash-verified.
+Publication prepares bytes before the atomic metadata transaction. Garbage
+collection coordinates with active publication leases. Database and content paths
+are runtime configuration, never hardcoded machine paths. Migration obtains the
+daemon lock, writes a new private consistent backup, imports under an exclusive
+transaction, verifies integrity, and retains missing/uncertain historical evidence.
+Do not use the real user store for development checks.
 
-- loopback,
-- an allowlisted name (`R3_ALLOWED_HOSTS`, exact names, **never `*`**), or
-- the **advertised public host**, derived from `R3_PUBLIC_URL` and allowed
-  implicitly (`config.ts`) — since r3 hands that URL out, it must resolve. This is
-  why a single `R3_PUBLIC_URL=https://<name>` is enough for `tailscale serve`, with
-  no separate `R3_ALLOWED_HOSTS` for the common one-host case.
+## Publisher-side wake adapters
 
-The **static SPA shell + hashed JS/CSS/favicon** are served natively by
-`Bun.serve`'s `routes`, *outside* this Hono guard. That's fine: they carry no
-secrets and grant no capability — the app is inert until the Host-gated
-`/api/boot` bootstraps it. **Never let a data/token endpoint out from behind the
-guard.**
+`cli/artifact-listener.ts` discovers and runs local adapters. The current adapter
+implementations in `server/listener.ts` and `server/inbox.ts` are only imported by
+the CLI. Socket paths, Claude messaging tokens, and Codex executable discovery
+stay on that publisher. The remote daemon only gets a logical actor and outward
+connection. A generic failure acknowledgment never includes harness diagnostics.
 
-## Layer 2 — token or session cookie on every data endpoint
+Claude delivery validates a same-owner session socket and requires its authenticated
+messaging token. An unattributed write may be held without a receipt, so absence
+is a capability failure, not a successful registration. Codex capability and queue
+calls share the same bounded local runner with inert argv. The background listener
+inherits credentials through its environment, never argv or temporary files, and
+reports readiness over IPC only after registration. A successful write/queue exit
+acknowledges transport delivery; it does not mark feedback read.
 
-**Every `/api` data endpoint requires the per-user token _or_ a valid session
-cookie** (`resolveAuth`) — reads as well as writes.
+## Limits of the trust model
 
-Always token-free (still Host-gated):
-
-| Route | Extra gate |
-| --- | --- |
-| `/api/health` | — |
-| `/api/boot` | same-origin |
-| `/api/auth/login` | same-origin (you have no session yet) |
-| `/api/events` | **only while `REQUIRE_LOGIN` is off** |
-
-`/api/events` is the subtle one: EventSource can't set headers, so SSE goes
-token-free while login isn't required. Once `REQUIRE_LOGIN` is on, a session
-cookie rides EventSource and it's gated like any read. Note the condition is
-`REQUIRE_LOGIN`, **not** "exposed" — there is no `EXPOSED` predicate, and
-`R3_REQUIRE_LOGIN=0` on an exposed daemon leaves SSE open.
-
-**Mutating routes** (POST/PUT/PATCH/DELETE) additionally require **same-origin**.
-`sameOrigin()` deliberately dropped the port pin — so a forward/proxy that changes
-the port still passes — and leans on the Host allowlist + token/cookie instead.
-
-## Layer 3 — quick-auth (login token → session cookie)
-
-`AuthService` in `server/auth.ts` owns token/session persistence and hashing on an
-injected SQLite connection. Importing it opens no database. Legacy and artifact
-bootstrap use the same hash-only auth table shapes, preserving login state during
-the storage migration. Revocation updates the token and removes its sessions in
-one transaction; session minting checks that its token is still active.
-
-An **optional login gate**, pure hardening, on the zellij model (`server/auth.ts`),
-gated by ONE startup policy: **`REQUIRE_LOGIN`** (`config.ts`).
-
-It is a *login policy*, not a detected fact. r3 **cannot** tell a truly-local
-client from a proxied one (a reverse proxy rewrites `Host`/`Origin`), so it is
-decided once at startup and defaults **on whenever any non-loopback access is
-configured**:
-
-- a non-loopback (or wildcard) bind,
-- a non-loopback `R3_PUBLIC_URL`, or
-- any non-loopback `R3_ALLOWED_HOSTS` name.
-
-Allowing a remote Host *is itself* the signal. `R3_REQUIRE_LOGIN` (1/0) forces it
-either way.
-
-**Login not required** (the default): the daemon binds loopback, every client is
-already local, so `/api/boot` hands the same-origin page the per-user token — no
-login, unchanged.
-
-**Login required**: the web UI wants a **login token** (`r3 auth create-token`,
-hashed at rest, shown once, revocable) for *every* session, including the
-operator's own localhost. `/api/boot` returns `401 { needsAuth }` until
-`/api/auth/login` trades the token for an **HttpOnly, SameSite=Strict** cookie
-(Secure when the edge is HTTPS, read from `X-Forwarded-Proto`). The **master token
-never reaches a browser** when login is required — it's cookie-only. Revoking a
-login token deletes its sessions immediately. The per-user token stays the CLI's
-credential, unaffected.
-
-**Revoking your own token is refused** (`409`): `GET /api/auth/tokens` flags the
-caller's own token (the one behind its session cookie) `current:true` so the UI
-disables its revoke, and `DELETE …/:id` refuses it — revoking would delete the
-caller's live session and lock them out mid-request. A master-token caller carries
-no cookie, so nothing is `current`. Bulk `DELETE …/tokens` (revoke-all) is the
-deliberate escape hatch and isn't guarded.
-
-### The reverse-proxy blind spot
-
-`REQUIRE_LOGIN`'s default is derived from r3's own bind + advertised host, so a
-proxy that forwards `Host: 127.0.0.1` (nginx's default `proxy_pass`) reads as
-loopback-only — and `/api/boot` would hand a remote browser the per-user token. r3
-can't see the real client name, and a naive proxy sends no `X-Forwarded-*` to key
-off either.
-
-**Any roll-your-own reverse-proxy deployment must set `R3_REQUIRE_LOGIN=1`** (or
-point `R3_PUBLIC_URL`/`R3_ALLOWED_HOSTS` at the public name, which arms the gate).
-`tailscale serve` forwards the real Host, so `R3_PUBLIC_URL` alone covers it.
-
-## Persisting the posture
-
-The exposure knobs — `R3_BIND`, `R3_PORT`, `R3_PUBLIC_URL`, `R3_ALLOWED_HOSTS`,
-`R3_REQUIRE_LOGIN` — can be **persisted** in `$XDG_CONFIG_HOME/r3/config.json` via
-`r3 config set`. Each is resolved **`env ?? config.json ?? default`**, so the file
-is a durable fallback that keeps a remote-serving daemon exposed across restarts
-and lazy-spawns; env still wins for a one-off run, and a one-off env value is
-never auto-persisted. The file carries **no secret**.
-
-Because `config.json` values feed the same derivation, persisting
-`publicUrl`/`allowedHosts` **re-arms the `REQUIRE_LOGIN` default on restart** — a
-persisted remote posture never silently drops its login gate.
-
-Always persist it once rather than relying on the env of whatever shell happened
-to spawn the daemon:
-
-```sh
-r3 config set publicUrl https://<magicdns-name>
-r3 config set requireLogin 1
-```
-
-## Remote access
-
-Two supported shapes, both keeping the daemon on loopback:
-
-- **`ssh -L 8791:localhost:8791`** — you browse `localhost`, so the daemon isn't
-  exposed and `REQUIRE_LOGIN` stays off: zero friction, no login.
-- **`tailscale serve`** — preferred over binding the tailnet IP, so TLS terminates
-  at Tailscale and identity headers stay available for future per-user auth. Set
-  `R3_PUBLIC_URL=https://<magicdns-name>` (which auto-allows that Host **and** arms
-  the login gate) and `r3 auth create-token`; browsers log in with that token.
-
-## Input guards
-
-- **Path inputs** are validated against the requesting review's **worktree** root
-  (or the scratch root for `SCRATCH`) — repo-relative, no `..`, no absolute
-  (`server/paths.ts` `safePathIn`, reached through `repo.safePath()`).
-- **Git arg-injection**: reject **refs** beginning with `-` before they reach git
-  (`isSafeRef` in `server/git.ts`) — an option like `--output=<file>` would write a
-  file. Paths are guarded by `safePathIn` and reach git only behind a `--`
-  separator or as a `ref:path` spec; keep it that way at any new call site.
-- **Agent inbox sockets** (`r3 listen`, `server/inbox.ts`): the request hands the
-  daemon a filesystem path it will later connect to and write to. The API is
-  already token- and same-origin gated, so the caller is trusted — but "the daemon
-  opens an arbitrary path on request" is a primitive worth not having.
-  `validateSocketPath` requires an absolute `.sock`, no null byte, a parent
-  directory matching the harness's documented per-user socket dirs, and — after
-  `statSync` resolves the link chain — a real socket owned by our own uid. Shape
-  is checked before touching the disk, so the interesting rules stay testable.
-- **Codex queue targets** (`r3 listen`, `server/listener.ts`): the request hands
-  the daemon a thread id and human-authored prose that later reach a child
-  process. Both are passed to a fixed `codex queue` executable as separate argv
-  values, never through a shell; the API accepts no executable path or extra
-  flags. Thread ids are non-empty, null-free and capped at 200 characters. The
-  queue command is killed after 10 seconds, and a non-zero exit is failed
-  delivery, so the listener is dropped rather than left looking live. Before
-  registration, the daemon uses that same bounded command seam to run `codex
-  queue --help`; missing support returns `501` instead of leaving capability to a
-  short-lived CLI process with a potentially different environment.
-
-## Claude Code's session token (`r3 listen`)
-
-`r3 listen` reads `CLAUDE_CODE_MESSAGING_TOKEN` from its own environment (the
-harness exports it to every child of a session) and POSTs it to the daemon, which
-presents it on the auth line when pushing a nudge. It is what marks the push as
-the session's own tooling rather than an unattributed peer.
-
-**It is required, and refused twice**: the CLI exits `5` when the env var is
-absent (the same "can't be messaged, use `r3 watch`" answer as a harness with no
-inbox), and `POST …/listen` answers `400 missing token` for a caller that skips
-it. The alternative — pushing unattributed and hoping — is a coin flip on whether
-the daemon happens to descend from that session, resolved silently in the failure
-direction (below).
-
-**It is a live session credential and never reaches the store.** The listener
-registry is in-memory (`server/watchers.ts`) *because* of this; Codex targets
-share its lifecycle rather than introducing a second persistence model. That is
-the reason a daemon restart drops every registration, not an accident of the
-design.
-Do not add a `listeners` table, and do not log the token. Its blast radius is
-bounded anyway: it dies with its session, and anyone who can read r3's sqlite can
-already read `$XDG_STATE_HOME/r3/token` and drive the whole daemon.
-
-Measured, not assumed: a non-descendant process sending **no** auth line has its
-message **held for approval** by a `bypassPermissions` session, and — because r3
-supplies no reply address — cannot even be told that it was held. So a session
-whose inbound policy holds our push is indistinguishable to r3 from one that read
-it. That measurement is the reason the token is mandatory: descent is the only
-other attribution the wire offers, and one per-user daemon spans every session
-while descending from at most one of them.
-
-**The authenticated case is measured too, and it is delivered.** A live daemon
-reparented to init (ppid 1, so a non-descendant of the session by construction)
-pushed a Submit nudge with the auth line into a session running the *default*
-inbound policy, and it arrived — no approval hold. So attribution, not descent, is
-what the harness gates on, and `crossSessionInbound: "accept"` is **not** a
-requirement for unattended agents as long as the token is presented. Since the
-token is mandatory, that is the only way r3 pushes at all.
-
-## What this does *not* protect
-
-**Other local UIDs.** `/api/boot`'s same-origin check passes any request with no
-`Origin` header (as `curl` sends none), so while the daemon isn't exposed, any
-local process of any UID can fetch the token. This is the intentional local-trust
-boundary, not an oversight — a real per-UID boundary needs an OS-level
-peer-credential check.
+Other local processes can reach local no-login boot. Protecting against another
+local UID would require a different transport/bootstrap boundary. Logical agent IDs
+are attribution inside the owner's trusted API, not separate authorization principals.
+A scoped preview context grants one version's bytes only; it confers no application
+credential or authority over other artifacts.
 
 ## Dependency cooldown (supply chain)
 
