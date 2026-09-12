@@ -17,6 +17,7 @@ import {
   readArtifactLocation,
 } from "../artifact-navigation.ts";
 import { artifactViewForTarget, stepArtifactVersion } from "../artifact-version.ts";
+import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
 import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
@@ -47,7 +48,6 @@ import {
   ProgressiveFileProvider,
   useProgressiveFileController,
 } from "../progressive.tsx";
-import { navigate } from "../router.ts";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 import {
   setDiffLayout,
@@ -94,11 +94,20 @@ export function ArtifactView({
   }, [artifactId, query.data?.title]);
   if (query.error)
     return (
-      <p role="alert" className="p-6 text-sm text-red-600">
-        {query.error.message}
-      </p>
+      <>
+        <AppHeader />
+        <main role="alert" className="p-6 text-sm text-red-600">
+          {query.error.message}
+        </main>
+      </>
     );
-  if (!query.data) return <p className="p-6 text-sm text-neutral-500">Loading artifact…</p>;
+  if (!query.data)
+    return (
+      <>
+        <AppHeader />
+        <main className="p-6 text-sm text-neutral-500">Loading artifact…</main>
+      </>
+    );
   return (
     <ArtifactWorkspace
       key={artifactId}
@@ -564,17 +573,6 @@ export function ArtifactWorkspace({
           />
         }
       />
-      {(detail.kind === "html" || Object.values(fileViews).includes("rendered")) && (
-        <div className="flex items-center justify-end border-b border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950">
-          <Button
-            variant={commenting ? "primary" : "ghost"}
-            aria-pressed={commenting}
-            onClick={() => setCommenting(!commenting)}
-          >
-            {commenting ? "Exit comment mode" : "Comment mode"}
-          </Button>
-        </div>
-      )}
       {latest && version && latest.seq !== version.seq && (
         <div className="flex justify-end border-b border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950">
           <Button variant="ghost" onClick={() => selectVersion(latest.seq)}>
@@ -628,7 +626,16 @@ export function ArtifactWorkspace({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div ref={splitRef} className="flex min-h-0 flex-1">
+      <ArtifactHeader
+        detail={detail}
+        commenting={commenting}
+        onToggleCommenting={
+          detail.kind === "html" || Object.values(fileViews).includes("rendered")
+            ? () => setCommenting(!commenting)
+            : undefined
+        }
+      />
+      <main ref={splitRef} className="flex min-h-0 flex-1">
         {!mobile && detail.kind !== "html" && (
           <FileBrowser
             files={paths}
@@ -663,7 +670,6 @@ export function ArtifactWorkspace({
             if (row?.dataset.fbId) showFeedback(row.dataset.fbId);
           }}
         >
-          <ArtifactHeader detail={detail} onDeleted={() => navigate("/")} />
           {toolbar}
           {version && (
             <ArtifactSummary
@@ -859,7 +865,7 @@ export function ArtifactWorkspace({
             )}
           </aside>
         )}
-      </div>
+      </main>
       {mobile && (
         <MobileReviewChrome
           openCount={detail.feedback.filter((feedback) => feedback.status === "open").length}

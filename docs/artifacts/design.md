@@ -121,6 +121,13 @@ The browser pins the displayed version. A new publication is announced with an
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
+The top navigation contains the artifact's editable title, archive/restore action,
+and rendered comment-mode icon. The `r3` text links to the artifact list. Active
+status and HTML type have no badge; archived artifacts show **Archived**, and
+files/diff kinds use labeled icons. IDs, metadata, and lifecycle history live in
+the navigation's details popover. There is no separate body header or delete
+button. Version selection stays with the content toolbar.
+
 The feedback dock retains the compact **Active / Resolved** tabs. Active threads
 put agent responses needing attention first and claimed work last. General notes
 open on demand; agent replies use tinted bubbles, and long conversations fold

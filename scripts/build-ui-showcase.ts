@@ -8,6 +8,8 @@ import { browserLoweredCssPlugin } from "./spa-css.ts";
 const root = join(import.meta.dir, "..");
 const out = join(root, "dist/ui-showcase");
 const aliases: Record<string, string> = {
+  [join(root, "web/src/hooks.ts")]: join(root, "web/src/showcase/theme.ts"),
+  [join(root, "web/src/router.ts")]: join(root, "web/src/showcase/navigation.ts"),
   [join(root, "web/src/api.ts")]: join(root, "web/demo/application-api.ts"),
   [join(root, "web/src/artifact-api.ts")]: join(root, "web/demo/artifact-api.ts"),
 };
@@ -17,7 +19,7 @@ const storageConsumers = new Set(
 const showcase: BunPlugin = {
   name: "isolated-ui-showcase",
   setup(build) {
-    build.onResolve({ filter: /api\.ts$/ }, ({ importer, path }) => {
+    build.onResolve({ filter: /(api|hooks|router)\.ts$/ }, ({ importer, path }) => {
       const alias = aliases[resolve(dirname(importer), path)];
       return alias ? { path: alias } : undefined;
     });

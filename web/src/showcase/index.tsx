@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
 import { demo } from "../../demo/artifact-backend.ts";
@@ -17,6 +17,7 @@ import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
 import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
+import { useTheme } from "../hooks.ts";
 import { useDiffLayout } from "../settings.ts";
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
@@ -58,6 +59,7 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
 
 function Feedback({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
+  const [commenting, setCommenting] = useState(false);
   const { data } = useQuery({ queryKey: ["artifact", id], queryFn: () => artifactApi.detail(id) });
   if (!data) return <p>Loading sample…</p>;
   return (
@@ -69,10 +71,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
       <div className="border border-neutral-300 dark:border-neutral-700">
         <ArtifactHeader
           detail={data}
-          onDeleted={() => {
-            resetSamples();
-            void client.invalidateQueries();
-          }}
+          commenting={commenting}
+          onToggleCommenting={() => setCommenting(!commenting)}
         />
         <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[1fr_420px]">
           <div>
@@ -295,12 +295,9 @@ function ProtectionSample({ initial }: { initial: ArtifactPreviewNetwork }) {
 
 function Showcase() {
   useArtifactEvents();
-  const [dark, setDark] = useState(false);
+  const [dark, toggleTheme] = useTheme();
   const [kind, setKind] = useState<"files" | "diff">("files");
   const [notice, setNotice] = useState("");
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
   return (
     <main className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <div className="mx-auto max-w-[1500px] px-4 py-8 md:px-8">
@@ -310,7 +307,7 @@ function Showcase() {
               <Pill>UI review</Pill>
               <h1 className="mt-3 text-2xl font-semibold">r3 component showcase</h1>
             </div>
-            <Button aria-pressed={dark} onClick={() => setDark(!dark)}>
+            <Button aria-pressed={dark} onClick={toggleTheme}>
               {dark ? "Switch to light" : "Switch to dark"}
             </Button>
           </div>
