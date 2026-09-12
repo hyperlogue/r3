@@ -7,6 +7,7 @@ import type {
   ArtifactVersion,
   RenderedLocator,
 } from "../../../shared/artifacts.ts";
+import { artifactMediaKind } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useHasArtifactDraft, useHasArtifactNote } from "../artifact-drafts.ts";
 import {
@@ -18,6 +19,7 @@ import {
 import { artifactViewForTarget, stepArtifactVersion } from "../artifact-version.ts";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
+import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
 import {
   type ArtifactRefJump,
@@ -68,13 +70,14 @@ export interface ArtifactRenderedPaneProps {
   onFeedback: (id: string) => void;
 }
 export type ArtifactRenderer = (props: ArtifactRenderedPaneProps) => ReactNode;
+const renderPublishedPreview: ArtifactRenderer = (props) => <ArtifactPreview {...props} />;
 
 export function ArtifactView({
   artifactId,
-  renderPreview,
+  renderPreview = renderPublishedPreview,
 }: {
   artifactId: string;
-  renderPreview: ArtifactRenderer;
+  renderPreview?: ArtifactRenderer;
 }) {
   const query = useQuery({
     queryKey: ["artifact", artifactId],
@@ -571,7 +574,10 @@ export function ArtifactWorkspace({
     </div>
   );
   const failure =
-    filesQuery.error ?? diffQuery.error ?? sourceQuery.error ?? download.error ?? viewed.error;
+    (detail.kind === "diff" ? diffQuery.error : filesQuery.error) ??
+    (view.representation === "source" ? sourceQuery.error : null) ??
+    download.error ??
+    viewed.error;
   const composer = (
     <ArtifactComposer
       artifactId={detail.id}
@@ -625,7 +631,11 @@ export function ArtifactWorkspace({
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: row highlighting is an extra pointer shortcut; every thread has a keyboard-accessible Locate control. */}
         <div
           ref={paneRef}
-          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto", !mobile && "[contain:paint]")}
+          className={cn(
+            "min-h-0 min-w-0 flex-1 overflow-y-auto",
+            !mobile && "[contain:paint]",
+            view.representation === "rendered" && "flex flex-col [&>*]:shrink-0",
+          )}
           onMouseUp={(event) => {
             if (
               coarse ||
@@ -686,7 +696,12 @@ export function ArtifactWorkspace({
                 jump: renderedJump,
                 targets: renderedTargets,
                 onTarget: anchor,
-                onDocument: (path) => setView((current) => ({ ...current, path })),
+                onDocument: (next) => {
+                  if (next !== path) setRenderedJump(null);
+                  setView((current) =>
+                    current.path === next ? current : { ...current, path: next },
+                  );
+                },
                 onFeedback: showFeedback,
               })
             ) : (
@@ -738,7 +753,19 @@ export function ArtifactWorkspace({
                     onFileFeedback={wholeFile}
                     foldSignal={fold}
                   >
-                    {sourceQuery.isPending ? (
+                    {artifactMediaKind(file.mediaType) ? (
+                      renderPreview({
+                        detail,
+                        version,
+                        path: file.path,
+                        commenting: false,
+                        jump: null,
+                        targets: [],
+                        onTarget: anchor,
+                        onDocument: () => {},
+                        onFeedback: showFeedback,
+                      })
+                    ) : sourceQuery.isPending ? (
                       <p className="p-4 text-sm text-neutral-500">Loading published source…</p>
                     ) : sourceQuery.data?.kind === "text" ? (
                       <SourceCode
