@@ -23,6 +23,7 @@ import { currentHarnessSession, detectListener } from "./listener.ts";
 
 export interface ArtifactCommandContext {
   client: ArtifactClient;
+  publicUrl?: string;
   cwd: string;
   environment: Record<string, string | undefined>;
   stdin: () => Promise<string>;
@@ -203,10 +204,14 @@ export async function runArtifactCommand(
   const detail = (id: string) => client.json<ArtifactDetail>("GET", artifactApiPath(id));
   const printPublication = (artifact: Artifact, version: ArtifactVersion) => {
     if (args.has("json"))
-      print({ artifact, version, url: `${client.url}/${encodeURIComponent(artifact.id)}` });
+      print({
+        artifact,
+        version,
+        url: `${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
+      });
     else
       print(
-        `${artifact.id} · ${artifact.kind} · version ${version.seq}\n${client.url}/${encodeURIComponent(artifact.id)}`,
+        `${artifact.id} · ${artifact.kind} · version ${version.seq}\n${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
       );
   };
   switch (command) {

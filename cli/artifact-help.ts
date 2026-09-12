@@ -43,6 +43,12 @@ Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
   start | stop | status | restart | guide
+
+Preview configuration: previewPort (default application port + 1), previewBaseUrl
+(default http://localhost:<previewPort>). Remote rendering needs an HTTPS DNS
+origin whose context subdomains reach the preview listener. Configuration names:
+bind, port, publicUrl, allowedHosts, requireLogin, previewPort, previewBaseUrl.
+Environment overrides: R3_PREVIEW_PORT and R3_PREVIEW_BASE_URL.
 `;
 
 export const ARTIFACT_GUIDE = `${ARTIFACT_HELP}
