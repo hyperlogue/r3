@@ -146,7 +146,7 @@ body {
 
 /* Shiki dual-theme: a token span carries a class from each slot's palette
    (`sl3 sd7`) and the colours arrive as ONE stylesheet per theme — served in
-   ThemeStyle.css, injected by ReviewView as <style data-r3-theme-css>. There is
+   ThemeStyle.css, installed by useSyntaxPalette as <style data-r3-theme-css>. There is
    deliberately no generic `.shiki-code span` colour rule here any more: it would
    out-specify every palette class, and the inline custom properties it used to
    read cost 12x the source size in blob JSON plus a computed style per span.
@@ -159,7 +159,7 @@ html.dark .sx {
   color: var(--shiki-dark);
 }
 
-/* Code surface = the syntax theme's OWN editor colours. ReviewView sets
+/* Code surface = the syntax theme's OWN editor colours. useSyntaxPalette sets
    --shiki-*-bg / --shiki-* (background + default foreground) on the content pane
    from /api/theme-style; these paint the code area like the theme does in an
    editor, so e.g. Nord isn't pale token colours on r3's near-black card. The

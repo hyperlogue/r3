@@ -70,6 +70,16 @@ const detail: ArtifactDetail = {
   ],
 };
 const queryData: [unknown[], unknown][] = [
+  [
+    ["theme-style", "github"],
+    {
+      lightBg: "#ffffff",
+      darkBg: "#24292e",
+      lightFg: "#24292e",
+      darkFg: "#e1e4e8",
+      css: "html:not(.dark) .sl1{color:#005cc5}html.dark .sd1{color:#79b8ff}",
+    },
+  ],
   [["artifact-viewed", detail.id], []],
   [["artifact-watchers", detail.id], []],
   ...[1, 2].flatMap((seq): [unknown[], unknown][] => [

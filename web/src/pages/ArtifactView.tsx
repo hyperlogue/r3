@@ -55,6 +55,7 @@ import { Button, cn, FoldChevrons, useResizableWidth } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
 import { useArtifactContent } from "../useArtifactContent.ts";
 import { useScrollSpy } from "../useScrollSpy.ts";
+import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import { diffViewedKey, fileViewedKey } from "../viewed.ts";
 import { useVirtualPaneController, VirtualPaneProvider } from "../virtual.tsx";
 
@@ -165,6 +166,7 @@ export function ArtifactWorkspace({
     rounds,
     fetchContext,
   } = useArtifactContent(detail, view, setNotice);
+  const syntaxPalette = useSyntaxPalette(theme);
   const virtual = useVirtualPaneController();
   const progressive = useProgressiveFileController();
   const resize = useResizableWidth("r3-feedback-width", {
@@ -634,6 +636,7 @@ export function ArtifactWorkspace({
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: row highlighting is an extra pointer shortcut; every thread has a keyboard-accessible Locate control. */}
         <div
           ref={paneRef}
+          style={syntaxPalette}
           className={cn(
             "min-h-0 min-w-0 flex-1 overflow-y-auto",
             !mobile && "[contain:paint]",

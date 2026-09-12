@@ -10,6 +10,7 @@ import "../web/src/main.css";
 
 await loadBoot();
 const [artifact] = await artifactApi.list();
+const artifactId = new URLSearchParams(location.search).get("artifact") ?? artifact.id;
 function Fixture() {
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
@@ -22,6 +23,6 @@ function Fixture() {
 }
 function Workspace() {
   useArtifactEvents();
-  return <ArtifactView artifactId={artifact.id} />;
+  return <ArtifactView artifactId={artifactId} />;
 }
 createRoot(document.getElementById("root")!).render(<Fixture />);
