@@ -1,8 +1,9 @@
 # Artifact implementation
 
 The [approved design](design.md) is the target. This checklist tracks delivery;
-the daemon, CLI, browser, and static demo now use the artifact protocol. Cleanup
-and final distribution/end-to-end checks remain below.
+the daemon, CLI, browser, and static demo now use the artifact protocol. The
+implementation and acceptance work below is complete; deployment and release are
+separate operations.
 
 - [x] Public artifact/version/actor/native-target contract (`shared/artifacts.ts`).
 - [x] Constrained destination schema with immutable published membership,
@@ -23,7 +24,7 @@ and final distribution/end-to-end checks remain below.
 - [x] Transactional archive/restore events and ordered retry identities
   (`server/artifact-lifecycle.ts`).
 - [x] Message-dependent listener nudge and terminal watch behavior
-  (`server/artifact-collaboration.ts`); remote transport wiring remains below.
+  (`server/artifact-collaboration.ts`).
 - [x] Legacy database migration with explicit defaults, preserved IDs/evidence,
   reserved gaps, generated notices for empty publications, and restart recovery.
 - [x] Publisher-side stable directory/git capture and one-time legacy local capture
@@ -33,8 +34,7 @@ and final distribution/end-to-end checks remain below.
 - [x] Switch daemon startup to artifact storage alongside the new clients.
 - [x] Artifact HTTP routes, byte resource GET/HEAD/ranges, authenticated SSE and
   outward agent connection against injected storage (`server/artifact-api.ts`,
-  `server/artifact-conversation-api.ts`). No filesystem dependencies in reads;
-  daemon/client cutover is still separate.
+  `server/artifact-conversation-api.ts`). No filesystem dependencies remain in ordinary reads.
 - [x] Publisher-side stable capture and upload, CLI commands, agent sessions,
   local harness wake adapters, remote listen/watch, help and guide.
   Command runner, help/guide and outward listener are implemented in
@@ -53,9 +53,9 @@ and final distribution/end-to-end checks remain below.
 - [x] Archive/restore browser controls, conversation/presence updates, mobile
   behavior, retained drafts and read progress, and component stories.
   These components and their workspace wiring are implemented and browser-tested.
-- [ ] Updated demo fixtures/backend, README, AGENTS and deep-reference skills;
+- [x] Updated demo fixtures/backend, README, AGENTS and deep-reference skills;
   remove obsolete review routes, commands and runtime modules after cutover.
-- [ ] End-to-end local and remote workflows, legacy fixture migration, browser
+- [x] End-to-end local and remote workflows, legacy fixture migration, browser
   network/device tests, typecheck, tests, lint, binary/demo/Storybook builds.
 
 ## Browser isolation gate
@@ -63,13 +63,14 @@ and final distribution/end-to-end checks remain below.
 A loopback HTTP/UDP probe against Chromium 151 found WebRTC STUN packets leaving
 the document despite `connect-src 'none'; webrtc 'block'`. A real-time control
 and restricted run both emitted packets. CSP alone is insufficient in that browser.
-No executable artifact preview is enabled by these foundation commits.
+This finding ruled out CSP-only preview enforcement. Unsupported browsers are
+refused before receiving published executable content.
 
 The same loopback probe against Chrome for Testing 153.0.8010.36, with its default
 feature flags, emitted four UDP packets in the control and none with
 `Connection-Allowlist: (response-origin); webrtc=block; redirects=block`. The
-restricted peer connection failed. Navigation, workers, version scoping, and
-device permission still need browser acceptance tests before enabling previews.
+restricted peer connection failed. The complete navigation, worker, version
+scoping, and device permission acceptance runs below subsequently passed.
 
 The implemented `PreviewHost` gate now verifies URL blocking and WebRTC rejection
 before granting a browser-bound partitioned cookie. A relay-only WebRTC check
@@ -91,8 +92,9 @@ and published-document navigation. Both use fresh browser profiles and stores.
 
 `scripts/test-preview-isolation.ts` passed in the full Chrome for Testing
 153.0.8010.36 build. It checks native modules, CSS, fetch/XHR, images, audio
-seeking, worker requests, and binary ranges; blocks external scripts, styles,
-fonts, images, media, frames, forms, popups, parent/direct navigation, redirects,
+and video seeking (including native media Range requests), worker requests, and
+binary ranges; blocks external scripts, styles, fonts, images, media, frames,
+forms, popups, parent/direct navigation, redirects,
 WebSocket/WebTransport, unrelated application/version requests, and WebRTC UDP;
 and checks inherited restrictions in blob/srcdoc/rewritten documents. Camera and
 microphone deny/grant overrides use the browser's
@@ -108,10 +110,66 @@ covers navigation, worker, and WebRTC enforcement. Verify behavior in a supporte
 browser and fail closed when that enforcement is unavailable. The closed-network
 contract remains required; camera/microphone retain ordinary browser consent.
 
-## Completion criteria
+## End-to-end acceptance and distribution
 
-All checklist items and the acceptance cases in the approved design must pass.
-Old content must remain readable with the publisher offline, including binary
-resources and retained Markdown. Uncertain migrated anchors must retain their
-evidence. No version-removal or live-filesystem fallback may remain in the artifact
-interface. No production database is used by development tests.
+`scripts/test-artifact-app.ts` copies the compiled binary outside the checkout and
+runs it with temporary XDG directories and storage. It creates a legacy database,
+triggers migration through the real lazy-start CLI, opens the retained review URL
+and conversation in Chromium, checks the private backup, and restarts without
+re-importing. The same run verifies embedded application assets, the isolated HTML
+runtime, a human utility-created thread visible to CLI and panel, a second logical
+agent publishing through an explicit remote URL/credential, pinned version 1 after
+version 2 arrives over SSE, and Markdown/binary reads after deleting the publisher
+directory. The normal user daemon/database is never touched.
+
+`scripts/test-artifact-demo.ts` serves staged Pages output under `/r3/demo/` and
+checks home → files → human feedback → Submit → scripted publication/reply, retained
+version selection, and deep-link reload with browser-persisted history. The demo
+uses production API types; tests cover human owner edits, selected delivery,
+claims, presence, archive during in-flight work, and fresh registration rules.
+
+The final core suite passes **230 tests across 52 files**, with typecheck and Biome
+clean. Binary compilation, demo build, Pages staging, and Storybook build pass.
+Real-browser component runs cover desktop/mobile home, draft retention, folded
+composer, source/diff native Locate, and large virtualized files. The browser
+security matrix passes in full Chrome for Testing 153.0.8010.36; Chromium 151
+fails closed as expected. Native iOS touch ergonomics remain a separate device
+validation item in the mobile skill; unsupported executable previews stay disabled.
+
+Reproduce the acceptance runs with a supported test browser executable:
+
+```sh
+bun run typecheck
+bun test
+biome check .
+bun run build
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
+R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" bun scripts/test-preview-isolation.ts
+R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/test-preview-browser.ts
+R3_DEMO_BASE=/r3/demo bun run build:demo
+bun run stage:pages
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-demo.ts
+bun run build-storybook
+```
+
+The app/workspace acceptance scripts were run with the headless Chromium shell;
+the isolation script needs a full Chromium build for real permission overrides.
+All use synthetic documents, fresh browser profiles, temporary stores, and
+controlled local endpoints. Tests do not access physical camera/microphone devices.
+
+## Delivered boundaries
+
+Published bytes and retained Markdown remain readable with the publisher offline.
+Uncertain migrated anchors retain their evidence; missing sequences are reserved.
+All versions remain available until whole-artifact deletion. No old review API,
+individual version removal, or live-filesystem fallback remains in the application.
+Legacy type adapters and renderer fixtures are explicitly separate from the active
+artifact contract.
+
+Rendering is enabled only after the browser enforcement gate succeeds. Remote
+rendering requires a configured HTTPS preview origin and wildcard context routing.
+External network access, automatic builds/dependency installation, backend hosting,
+root-relative rewriting/history fallback, multi-user permissions, and recipient
+fan-out remain outside the approved feature scope.
