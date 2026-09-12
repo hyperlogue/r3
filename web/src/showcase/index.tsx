@@ -27,6 +27,12 @@ import "../main.css";
 // The build aliases all API calls to this same in-memory demo backend.
 function resetSamples() {
   demo.reset();
+  demo.addFeedback("artifact_documents", "Could we make the target label easier to scan?", {
+    kind: "artifact",
+  });
+  demo.addFeedback("artifact_documents", "Keep the spacing comfortable when a reply wraps.", {
+    kind: "artifact",
+  });
   for (const detail of demo.state.artifacts) {
     const next = demo.state.pending[detail.id];
     if (next) {
@@ -90,6 +96,50 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               <Button onClick={() => artifactDrafts.anchor(id, { kind: "artifact" })}>
                 Open sample composer
               </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() =>
+                    demo.addFeedback(
+                      id,
+                      "A new sample thread for reviewing the entrance animation.",
+                      { kind: "artifact" },
+                    )
+                  }
+                >
+                  Insert sample card
+                </Button>
+                <Button
+                  disabled={!data.feedback.length}
+                  onClick={() => {
+                    const last = demo.get(id).feedback.at(-1);
+                    if (last) void artifactApi.deleteFeedback(last.id);
+                  }}
+                >
+                  Remove sample card
+                </Button>
+                <Button
+                  disabled={data.feedback.length < 2}
+                  onClick={() => {
+                    const artifact = demo.get(id);
+                    const note = artifact.feedback[0];
+                    if (!note) return;
+                    const now = new Date().toISOString();
+                    note.claim = note.claim
+                      ? null
+                      : {
+                          feedbackId: note.id,
+                          sessionId: "showcase-agent",
+                          claimedAt: now,
+                          renewedAt: now,
+                          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+                        };
+                    artifact.working = artifact.feedback.some((item) => item.claim !== null);
+                    demo.changed(id);
+                  }}
+                >
+                  Reorder sample cards
+                </Button>
+              </div>
               <p>
                 Use the sample panel to explore spacing and interaction. Real review comments belong
                 to this showcase artifact’s own feedback panel.

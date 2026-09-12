@@ -135,6 +135,12 @@ earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 
+Feedback cards retain their original motion: a quick fade with a 250 ms rise on
+insertion, a 200 ms fade/slide to the right on removal, and a 200 ms move between
+positions when reordered. The Active/Resolved fill slides between measured tab
+boxes in 150 ms. Tab changes fade in their list; composers keep their drafts.
+Reduced-motion preferences disable these animations.
+
 Rendered comment mode intercepts element picks before page handlers and supports
 selecting a parent element. Normal mode preserves page interaction. Source and
 diff selections use their own range gestures. Each creates a native target:

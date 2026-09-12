@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -15,6 +16,7 @@ import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraftCount, useArtifactNoteOpen } from "../artifact-drafts.ts";
 import { activeArtifactFeedback, artifactNeedsAttention } from "../artifact-feedback.ts";
 import { copyText } from "../clipboard.ts";
+import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import { Button, cn, FoldChevrons, FoldTriangle, useEscape } from "../ui.tsx";
@@ -444,6 +446,8 @@ export function ArtifactThreads({
 }) {
   const panel = useRef<HTMLElement>(null);
   const [tab, setTab] = useState<"active" | "resolved">("active");
+  const [listAnimation] = useAutoAnimate<HTMLDivElement>(feedbackAnimation);
+  const indicator = useFeedbackTabIndicator(tab);
   useEffect(() => {
     // Deleted threads have no reply destination. Reap only missing membership;
     // resolved and archived conversations keep their drafts.
@@ -622,20 +626,39 @@ export function ArtifactThreads({
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <div role="tablist" aria-label="Feedback status" className="flex items-center gap-1">
+          <div
+            ref={indicator.ref}
+            role="tablist"
+            aria-label="Feedback status"
+            className="relative flex items-center gap-1"
+          >
+            {indicator.style && (
+              <span
+                aria-hidden="true"
+                data-feedback-tab-indicator
+                style={indicator.style}
+                className={cn(
+                  "pointer-events-none absolute left-0 rounded-full transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none",
+                  tab === "resolved"
+                    ? "bg-success-100 dark:bg-success-950"
+                    : "bg-neutral-200 dark:bg-neutral-800",
+                )}
+              />
+            )}
             {(["active", "resolved"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
                 role="tab"
+                data-feedback-tab={value}
                 aria-selected={tab === value}
                 onClick={() => setTab(value)}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors",
+                  "relative z-10 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors",
                   tab === value
                     ? value === "resolved"
-                      ? "bg-success-100 text-success-800 dark:bg-success-950 dark:text-success-300"
-                      : "bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100"
+                      ? "text-success-800 dark:text-success-300"
+                      : "text-neutral-800 dark:text-neutral-100"
                     : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300",
                 )}
               >
@@ -657,25 +680,33 @@ export function ArtifactThreads({
           </span>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {ordered.length === 0 && (
-          <p className="px-3 py-8 text-center text-sm text-neutral-400">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div key={tab} className="relative r3-fade-slide-in">
+          <p
+            aria-hidden={ordered.length > 0}
+            className={cn(
+              "r3-hint pointer-events-none absolute inset-x-0 top-0 px-3 py-8 text-center text-sm text-neutral-400",
+              ordered.length === 0 && "is-visible",
+            )}
+          >
             {tab === "resolved"
               ? "No resolved feedback."
               : "Select content to leave feedback, or add a general note."}
           </p>
-        )}
-        {ordered.map((feedback) => (
-          <ArtifactThreadCard
-            key={feedback.id}
-            feedback={feedback}
-            context={context}
-            onLocate={locate}
-            onJumpRef={onJumpRef}
-            active={activeFeedback === feedback.id}
-            onResolved={afterResolve}
-          />
-        ))}
+          <div ref={listAnimation} data-feedback-list>
+            {ordered.map((feedback) => (
+              <ArtifactThreadCard
+                key={feedback.id}
+                feedback={feedback}
+                context={context}
+                onLocate={locate}
+                onJumpRef={onJumpRef}
+                active={activeFeedback === feedback.id}
+                onResolved={afterResolve}
+              />
+            ))}
+          </div>
+        </div>
       </div>
       {noteOpen && (
         <div className="max-h-[60%] shrink-0 overflow-y-auto">
