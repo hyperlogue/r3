@@ -208,16 +208,33 @@ Files and HTML use the same isolated rendering module. Ordinary scripts, modules
 styles, canvas/SVG charts, local forms, and published data run inside it. Source
 views display escaped input without executing it.
 
-The network is closed to the selected version's resources and trusted r3 preview
+By default the network is closed to the selected version's resources and trusted r3 preview
 support. External APIs, CDNs, fonts/images/media, sockets, unrelated same-host
 endpoints, redirects, and networked WebRTC are blocked. Pages must publish their
 assets and dependencies. The preview is not an upstream proxy.
 
 The server combines opaque document origins, scoped URL capabilities,
 CSP/sandbox policy, and Connection Allowlists. Before loading executable content, a capability gate
-verifies URL blocking and WebRTC rejection. Unsupported browsers fail closed.
+verifies URL blocking and WebRTC rejection. Unsupported protected rendering fails closed.
 Persistent storage, workers, nested frames, camera, and microphone are unavailable.
 Granting a device permission to the transport origin cannot enable capture.
+
+Only HTML artifacts offer **Allow external connections** in trusted workspace UI.
+Confirmation explains that the publication's files, user input, and all this
+artifact's conversations can be sent elsewhere, including by external scripts.
+The choice lasts only while viewing the current version, is never persisted, and
+has a visible indicator and **Block external connections** action. Changing policy
+reloads the preview under a new context and revokes the old one; reverting cannot
+undo data already sent. File and diff artifacts have no exception, even for an
+individual HTML or Markdown file.
+
+External mode permits direct browser networking and skips only the network-blocking
+gate checks, allowing browsers without Connection Allowlist support after consent.
+CORS still applies. Opaque sandbox isolation, application authentication, scoped
+content and bridge access, and denied workers, nested frames, forms, and devices
+remain enforced. Network mode belongs to the temporary preview context, never to
+artifact metadata or a publication. The preview remains independent of any backend.
+
 The [security reference](../../.claude/skills/security-model/SKILL.md#preview-host)
 owns enforcement details; [verification](verification.md) owns browser evidence.
 

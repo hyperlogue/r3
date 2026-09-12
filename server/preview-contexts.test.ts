@@ -87,6 +87,7 @@ test("each preview grants one publication through an exact, temporary capability
 
 test("preview policies scope resources, forbid forms/redirects/WebRTC, and isolate document origins", () => {
   const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
+  expect(context.network).toBe("blocked");
   const scope = contexts.forRequest(request(context.documentUrl));
   const headers = previewPolicy(scope);
   const allowlist = headers.get("connection-allowlist")!;
@@ -100,6 +101,57 @@ test("preview policies scope resources, forbid forms/redirects/WebRTC, and isola
   // Header assertions prove configuration only; browser acceptance must prove enforcement.
   contexts.revokeArtifact(id);
   expect(() => contexts.forRequest(request(context.documentUrl))).toThrow("unavailable");
+});
+
+test("external connections require an explicit HTML context and never relax an existing grant", async () => {
+  expect(() =>
+    contexts.create(id, 1, "notes/a # b?.md", "https://app.example", "external"),
+  ).toThrow("Only HTML artifacts");
+  const html = storage.artifacts.create({ kind: "html", actor });
+  await storage.artifacts.publish(html.id, {
+    actor,
+    expectedSeq: 0,
+    publicationKey: "html",
+    content: {
+      kind: "html",
+      files: [
+        {
+          path: "index.md",
+          mediaType: "text/markdown",
+          base64: Buffer.from("# Page").toString("base64"),
+        },
+      ],
+    },
+  });
+  for (const invalid of [null, true, "allow", { network: "external" }])
+    expect(() => contexts.create(html.id, 1, "index.md", "https://app.example", invalid)).toThrow(
+      "Preview network",
+    );
+  const closed = contexts.create(html.id, 1, "index.md", "https://app.example");
+  const external = contexts.create(html.id, 1, "index.md", "https://app.example", "external");
+  expect(external.id).not.toBe(closed.id);
+  expect(external.network).toBe("external");
+  const headers = previewPolicy(contexts.forRequest(request(external.documentUrl)));
+  expect(headers.has("connection-allowlist")).toBe(false);
+  const csp = headers.get("content-security-policy")!;
+  expect(csp).toContain("http: https: ws: wss:");
+  for (const directive of [
+    "sandbox allow-scripts",
+    "worker-src 'none'",
+    "frame-src 'none'",
+    "form-action 'none'",
+    "frame-ancestors https://app.example",
+  ])
+    expect(csp).toContain(directive);
+  expect(csp).not.toContain("allow-same-origin");
+  expect(headers.get("permissions-policy")).toBe("camera=(), microphone=()");
+  expect(contexts.renew(external.id).network).toBe("external");
+  expect(contexts.renew(closed.id).network).toBe("blocked");
+  expect(
+    previewPolicy(contexts.forRequest(request(closed.documentUrl))).has("connection-allowlist"),
+  ).toBe(true);
+  contexts.revoke(external.id);
+  expect(() => contexts.forRequest(request(external.documentUrl))).toThrow("unavailable");
 });
 
 test("preview origins require secure contexts and an explicit secure transport origin", () => {

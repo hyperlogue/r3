@@ -34,8 +34,9 @@ export class PreviewHost {
     seq: number,
     path: string,
     applicationOrigin: string,
+    network?: unknown,
   ): ArtifactPreviewContext {
-    return this.contexts.create(artifactId, seq, path, applicationOrigin);
+    return this.contexts.create(artifactId, seq, path, applicationOrigin, network);
   }
   renew(id: string): ArtifactPreviewContext {
     return this.contexts.renew(id);

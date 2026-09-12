@@ -6,8 +6,9 @@ description: r3's Host/origin/auth guards, isolated artifact preview and closed 
 # r3's security model
 
 This file owns the security design. The daemon defends against browser-borne
-attacks and casual remote access; executable artifacts also run behind a verified
-closed network boundary. The product has one trusted human owner and multiple
+attacks and casual remote access; executable artifacts default to a verified
+closed network boundary. Only HTML artifacts can explicitly opt into external
+connections while retaining the opaque sandbox. The product has one trusted human owner and multiple
 logical agents, not multi-user accounts or per-agent permissions.
 
 ## Application boundary
@@ -93,7 +94,9 @@ previews share a transport hostname. The iframe is also credentialless, avoiding
 ambient application cookies in transport requests. Persistent storage, workers,
 nested frames, camera, and microphone are unavailable. Neither publisher scripts
 nor a device grant can restore a real origin. Top-level published-document
-navigation is refused; rendering belongs inside the workspace.
+navigation is refused; rendering belongs inside the workspace. Browsers without
+credentialless iframe support still enforce the opaque sandbox and application
+origin guards; do not claim they omit transport cookies.
 
 Before published bytes become available, a trusted gate verifies its opaque
 origin, an allowed fetch, blocking of a working endpoint outside the allowlist,
@@ -109,8 +112,34 @@ Browser identity alone never enables a context: the actual gate must pass first.
 The Connection Allowlist includes only that context's `files/*` and `r3/*`, with
 WebRTC and redirects blocked. CSP additionally restricts resource classes, forms,
 frames, base URLs, and sandbox privileges. Service-worker script requests are refused;
-CSP disallows ordinary and blob workers too. Unsupported browsers fail closed.
+CSP disallows ordinary and blob workers too. Unsupported browsers fail closed in
+the default network mode; there is no automatic fallback.
 There is no generic upstream proxy or unknown-path document fallback.
+
+Authenticated preview creation accepts `network: "blocked" | "external"`, defaulting
+to `blocked`. The server rejects `external` for every kind except `html`, including
+HTML documents inside a `files` artifact. Policy is immutable within a context;
+renewal only extends expiry. Switching policy requires a new context and revocation
+of the preceding one. No artifact metadata, publication, or publisher script can
+change the browser's choice. The trusted workspace asks for confirmation, keeps
+an external-connections indicator visible, and resets the choice on version change
+or leaving the preview. It does not persist a grant.
+
+External mode omits Connection Allowlist and WebRTC blocking and permits HTTP(S)
+resources and HTTP(S)/WS(S) connections in CSP. Browser CORS and mixed-content rules
+still apply; r3 never proxies requests. Its trusted gate still checks secure context,
+opaque origin, reachability, and the single-use proof, but skips network-blocking
+probes. This supports browsers lacking Connection Allowlist only after explicit
+consent. Both iframe and CSP sandbox, application auth/origin checks, document-bound
+bridge, resource membership, denied workers/frames/forms, and camera/microphone
+denial remain mandatory. Device consent is not a network exception.
+
+This exception permits exfiltration of the selected publication's files, user input,
+and all conversations the same-artifact utility exposes, including other versions'
+threads. External dependencies execute with that same access. Explain this before
+enabling it; re-enabling protection cannot undo data already sent. The sandbox
+continues to deny access to the parent, its credentials/storage, and unrelated
+artifacts. No UI may describe this as disabling all security or safe networking.
 
 Preview documents are not cached. The response inserts the r3 runtime before
 publisher scripts without changing original or retained Markdown bytes. An

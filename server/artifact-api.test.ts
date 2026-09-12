@@ -94,6 +94,56 @@ function publication(expectedSeq = 0, publicationKey = "first") {
 }
 
 describe("artifact HTTP content contract", () => {
+  test("preview network exceptions are authenticated, explicit, and HTML-only", async () => {
+    for (const kind of ["files", "html"]) {
+      const id = await create(kind);
+      const input = publication();
+      input.content.kind = kind;
+      input.content.files[0].path = "index.html";
+      expect((await request(`/api/artifacts/${id}/versions`, "POST", input)).status).toBe(201);
+      const path = `/api/artifacts/${id}/versions/1/previews`;
+      expect((await (await request(path, "POST", { path: "index.html" })).json()).network).toBe(
+        "blocked",
+      );
+      const external = await request(path, "POST", { path: "index.html", network: "external" });
+      expect(external.status).toBe(kind === "html" ? 201 : 400);
+      if (kind === "html") {
+        const context = await external.json();
+        expect(context.network).toBe("external");
+        // Renewal cannot change the immutable policy, even with an unsolicited body.
+        expect(
+          (
+            await (
+              await request(`/api/previews/${context.id}`, "PATCH", { network: "blocked" })
+            ).json()
+          ).network,
+        ).toBe("external");
+      }
+      expect((await request(path, "POST", { path: "index.html", network: null })).status).toBe(400);
+      expect(
+        (
+          await request(
+            path,
+            "POST",
+            { path: "index.html", network: "external" },
+            { origin: "null" },
+          )
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await api.app.request(
+            new Request(`http://localhost${path}`, {
+              method: "POST",
+              headers: { host: "localhost", "content-type": "application/json" },
+              body: JSON.stringify({ path: "index.html", network: "external" }),
+            }),
+          )
+        ).status,
+      ).toBe(401);
+    }
+  });
+
   test("authenticated preview grants bind the application origin and revoke with the artifact", async () => {
     const id = await create();
     await request(`/api/artifacts/${id}/versions`, "POST", publication());

@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
-import { type ArtifactPreviewContext, artifactMediaKind } from "../shared/artifacts.ts";
+import {
+  type ArtifactPreviewContext,
+  type ArtifactPreviewNetwork,
+  artifactMediaKind,
+} from "../shared/artifacts.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 
@@ -56,6 +60,7 @@ export interface PreviewScope {
   readonly applicationOrigin: string;
   readonly entryPath: string;
   readonly presentation: "document" | "media";
+  readonly network: ArtifactPreviewNetwork;
   readonly expiresAt: number;
 }
 
@@ -89,6 +94,7 @@ export class PreviewContexts {
     versionSeq: number,
     path: string,
     applicationOrigin: string,
+    network: unknown = "blocked",
   ): ArtifactPreviewContext {
     const app = secureOrigin(applicationOrigin);
     if (!localOrigin(app) && this.base && this.base.protocol !== "https:")
@@ -97,6 +103,10 @@ export class PreviewContexts {
         503,
       );
     const version = this.artifacts.version(artifactId, versionSeq);
+    if (network !== "blocked" && network !== "external")
+      throw new ArtifactError("Preview network must be blocked or external");
+    if (network === "external" && version.kind !== "html")
+      throw new ArtifactError("Only HTML artifacts can allow external connections");
     if (version.kind === "diff")
       throw new ArtifactError("Diff publications have no rendered preview");
     const file = this.artifacts.file(artifactId, versionSeq, requireArtifactPath(path));
@@ -114,6 +124,7 @@ export class PreviewContexts {
       versionSeq,
       entryPath: path,
       presentation: media ? "media" : "document",
+      network,
       origin,
       applicationOrigin: app.origin,
       expiresAt: this.now() + CONTEXT_TTL,
@@ -136,6 +147,7 @@ export class PreviewContexts {
       gateUrl: `${previewRoot(scope)}/r3/gate`,
       utilityUrl: `${previewRoot(scope)}/r3/utility.js`,
       presentation: scope.presentation,
+      network: scope.network,
       expiresAt: new Date(scope.expiresAt).toISOString(),
     };
   }
@@ -242,18 +254,18 @@ export class PreviewContexts {
 
 export function previewPolicy(scope: PreviewScope): Headers {
   const root = previewRoot(scope);
-  return new Headers({
-    // The working /outside/check endpoint is deliberately outside this list.
-    "Connection-Allowlist": `("${root}/files/*" "${root}/r3/*"); webrtc=block; redirects=block`,
+  const external = scope.network === "external";
+  const resources = external ? `${root}/ http: https:` : `${root}/`;
+  const headers = new Headers({
     "Content-Security-Policy": [
       "default-src 'none'",
-      `script-src ${root}/ 'unsafe-inline' 'unsafe-eval' blob: data:`,
-      `style-src ${root}/ 'unsafe-inline'`,
-      `img-src ${root}/ blob: data:`,
-      `font-src ${root}/ blob: data:`,
-      `media-src ${root}/ blob: data:`,
+      `script-src ${resources} 'unsafe-inline' 'unsafe-eval' blob: data:`,
+      `style-src ${resources} 'unsafe-inline'`,
+      `img-src ${resources} blob: data:`,
+      `font-src ${resources} blob: data:`,
+      `media-src ${resources} blob: data:`,
       // Let the real allowlist, rather than CSP, enforce the gate's denied probe.
-      `connect-src ${scope.origin}`,
+      `connect-src ${scope.origin}${external ? " http: https: ws: wss:" : ""}`,
       "worker-src 'none'",
       "frame-src 'none'",
       "object-src 'none'",
@@ -261,7 +273,7 @@ export function previewPolicy(scope: PreviewScope): Headers {
       "form-action 'none'",
       `frame-ancestors ${scope.applicationOrigin}`,
       "sandbox allow-scripts",
-      "webrtc 'block'",
+      ...(external ? [] : ["webrtc 'block'"]),
     ].join("; "),
     "Permissions-Policy": "camera=(), microphone=()",
     "X-Content-Type-Options": "nosniff",
@@ -269,4 +281,12 @@ export function previewPolicy(scope: PreviewScope): Headers {
     "Cross-Origin-Resource-Policy": "cross-origin",
     "X-DNS-Prefetch-Control": "off",
   });
+  // Never grant an exception by changing an existing context. A new, explicitly
+  // requested HTML context owns its policy for its entire lifetime.
+  if (!external)
+    headers.set(
+      "Connection-Allowlist",
+      `("${root}/files/*" "${root}/r3/*"); webrtc=block; redirects=block`,
+    );
+  return headers;
 }

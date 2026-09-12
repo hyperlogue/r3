@@ -232,9 +232,11 @@ device tests use fake devices and actual browser permission denial/grant.
 - Keep the server authoritative and storage injected. Do not add a second SQLite
   writer, ambient repository context, live-content read, or edit-version path.
 - Keep source, rendered, and diff targets native and immutable; place separately.
-- Never weaken auth, origin guards, or the closed preview network. Never bind
-  all interfaces or move a data endpoint outside its guard. Unsupported rendering
-  must fail closed. Device consent does not permit external networking.
+- Never weaken auth, origin guards, or the opaque preview sandbox. The preview
+  network is closed by default; only an explicit HTML-only external-connections
+  grant may relax it in a new context. Never bind all interfaces or move a data
+  endpoint outside its guard. Unsupported protected rendering must fail closed,
+  without automatic fallback. Device consent does not permit external networking.
 - Mobile containers must not complicate desktop components; use the mobile skill.
 - Keep `HELP` and `GUIDE` in `cli/artifact-help.ts` accurate in the same change as
   any public command, output, flag, or agent-loop behavior.

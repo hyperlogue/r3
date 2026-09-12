@@ -171,6 +171,36 @@ test("published resources retain bytes, native MIME, private validators, and ran
   expect(await (await read("/files/notes.md")).text()).toBe("# Original Markdown");
 });
 
+test("external HTML contexts retain gate verification, sandbox, membership, and revocation", async () => {
+  context = host.create(id, 1, "index.html", "https://app.example", "external");
+  const unverified = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
+  expect(unverified.status).toBe(403);
+  expect(unverified.headers.has("connection-allowlist")).toBe(false);
+  const gate = await read("/r3/gate");
+  expect(gate.headers.has("access-control-allow-origin")).toBe(false);
+  expect(await gate.text()).toContain('"network":"external"');
+  const proof = host.contexts.challenge(req("/r3/gate"));
+  const verified = await host.fetch(
+    req("/r3/verify", {
+      method: "POST",
+      headers: { origin: "null", "content-type": "application/json" },
+      body: JSON.stringify({ challenge: proof.challenge }),
+    }),
+  );
+  expect(verified.status).toBe(200);
+  const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
+  expect(document.status).toBe(200);
+  expect(document.headers.has("connection-allowlist")).toBe(false);
+  expect(document.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+  expect(document.headers.get("permissions-policy")).toBe("camera=(), microphone=()");
+  expect(await document.text()).toContain("Published page");
+  expect((await read("/files/index.html", { "sec-fetch-dest": "document" })).status).toBe(403);
+  expect((await read("/r3/runtime.js", { "service-worker": "script" })).status).toBe(403);
+  expect((await read("/api/artifacts")).status).toBe(404);
+  host.revoke(context.id);
+  expect((await read("/files/index.html")).status).toBe(404);
+});
+
 test("document navigation uses retained Markdown and injects only the r3 runtime", async () => {
   const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
   const body = await document.text();

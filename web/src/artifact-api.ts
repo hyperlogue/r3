@@ -15,6 +15,7 @@ import type {
   ArtifactNotification,
   ArtifactPlacementBody,
   ArtifactPreviewContext,
+  ArtifactPreviewNetwork,
   ArtifactProject,
   ArtifactReply,
   ArtifactSource,
@@ -131,8 +132,16 @@ export const artifactApi = {
     client().json("PUT", `${artifactApiPath(id)}/viewed`, { key, viewed }),
   download: (id: string, seq: number, path: string) =>
     client().request("GET", `${versionPath(id, seq)}/resource${query({ path })}`),
-  createPreview: (id: string, seq: number, path: string) =>
-    client().json<ArtifactPreviewContext>("POST", `${versionPath(id, seq)}/previews`, { path }),
+  createPreview: (
+    id: string,
+    seq: number,
+    path: string,
+    network: ArtifactPreviewNetwork = "blocked",
+  ) =>
+    client().json<ArtifactPreviewContext>("POST", `${versionPath(id, seq)}/previews`, {
+      path,
+      network,
+    }),
   renewPreview: (id: string) =>
     client().json<ArtifactPreviewContext>("PATCH", `/api/previews/${encodeURIComponent(id)}`),
   revokePreview: (id: string) => client().json("DELETE", `/api/previews/${encodeURIComponent(id)}`),

@@ -1,3 +1,4 @@
+import type { ArtifactPreviewNetwork } from "../shared/artifacts.ts";
 import { type PreviewScope, previewRoot } from "./preview-contexts.ts";
 
 // Serialized as r3-owned code, never combined with publisher-provided strings.
@@ -7,11 +8,13 @@ function checkPreviewBrowser({
   contextId,
   challenge,
   root,
+  network,
 }: {
   applicationOrigin: string;
   contextId: string;
   challenge: string;
   root: string;
+  network: ArtifactPreviewNetwork;
 }) {
   const report = (state: "ready" | "unsupported" | "error", message: string) => {
     document.querySelector("p")!.textContent = message;
@@ -61,13 +64,15 @@ function checkPreviewBrowser({
           return error instanceof TypeError;
         }
       };
-      const [connections, rtc] = await Promise.all([blocked(), rtcBlocked()]);
-      if (!connections || !rtc) {
-        report(
-          "unsupported",
-          "This browser cannot enforce r3's preview network policy. Use a browser with Connection Allowlist support.",
-        );
-        return;
+      if (network === "blocked") {
+        const [connections, rtc] = await Promise.all([blocked(), rtcBlocked()]);
+        if (!connections || !rtc) {
+          report(
+            "unsupported",
+            "This browser cannot enforce r3's preview network policy. Use a browser with Connection Allowlist support.",
+          );
+          return;
+        }
       }
       const verified = await fetch(`${root}/r3/verify`, {
         method: "POST",
@@ -93,6 +98,7 @@ export function previewGateDocument(scope: PreviewScope, challenge: string): str
     contextId: scope.id,
     root: previewRoot(scope),
     challenge,
+    network: scope.network,
   }).replaceAll("<", "\\u003c");
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>r3 preview</title><style>body{font:16px system-ui,sans-serif;margin:0;padding:2rem;color:#525252;background:#fafafa}p{max-width:38rem;line-height:1.6}</style><body><p>Checking preview isolation…</p><script>(${checkPreviewBrowser.toString()})(${params})</script></body></html>`;
 }

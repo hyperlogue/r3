@@ -330,6 +330,8 @@ export interface ArtifactPromptBody {
   expectedFingerprint?: string;
 }
 
+export type ArtifactPreviewNetwork = "blocked" | "external";
+
 // This temporary URL capability grants one artifact/version without application
 // credentials. Documents have opaque origins, independent of the transport origin.
 export interface ArtifactPreviewContext {
@@ -342,6 +344,7 @@ export interface ArtifactPreviewContext {
   gateUrl: string;
   utilityUrl: string;
   presentation: "document" | "media";
+  network: ArtifactPreviewNetwork;
   expiresAt: string;
 }
 

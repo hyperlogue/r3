@@ -144,6 +144,7 @@ export function createArtifactApi(
         artifactSequence(c.req.param("seq")),
         requireArtifactPath(input.path),
         origin,
+        input.network,
       ),
       201,
     );
