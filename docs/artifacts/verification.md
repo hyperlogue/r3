@@ -115,6 +115,14 @@ selection, and a deep-link reload with persisted history. Regenerate fixtures wi
 `bun run gen:demo` after changing canned content. The static demo explicitly declines
 executable previews because it has no isolated daemon host.
 
+For a commentable gallery of current components, run
+`bun scripts/build-ui-showcase.ts`, then publish `dist/ui-showcase` as an HTML
+artifact with entrypoint `index.html`. It includes feedback, file/diff stacks,
+protection dialogs, and light/dark controls. Sample API calls use the in-memory
+demo backend; display settings use memory in the opaque preview. The real
+artifact's outer comment mode records UI review feedback. Rebuild and publish a
+new version after component changes; existing publications remain immutable.
+
 Storybook is the component and responsive-layout surface. For targeted interactive
 runs, use the relevant workspace or component story; the compiled app and preview
 scripts cover integration with the real server. The
