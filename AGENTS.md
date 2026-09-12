@@ -78,6 +78,8 @@ An **Artifact** has fixed kind `files`, `html`, or `diff`, optional project,
 metadata, creator attribution, and state `active|archived`. Its **Versions** are
 immutable complete publications. No Bundle entity, live source, approval state,
 individual version removal, or derived files diff belongs to the new model.
+Artifacts have no overview field. Optional summaries belong to published versions;
+retired overview text and original targets remain historical evidence only.
 
 - `files`: a nonempty complete directory, no index requirement or inference.
   Source opens first. HTML/Markdown can switch to rendered; media has a native
@@ -99,8 +101,8 @@ conflict. Blob cleanup coordinates with in-progress publication and whole-artifa
 deletion; no partial version becomes readable.
 
 **Feedback** has an immutable native target, an author, and human-controlled
-`open|resolved` status. Targets distinguish artifact/general, artifact/version
-summary, source line/quote, rendered DOM/text/context/route/viewport, and diff
+`open|resolved` status. New targets distinguish artifact/general, version summary,
+source line/quote, rendered DOM/text/context/route/viewport, and diff
 old/new line/quote. Whole-file targets are explicit. The server validates recorded
 content and version membership. Rendered evidence is never reverse-mapped into
 source lines. Unknown legacy evidence remains explicitly unknown.

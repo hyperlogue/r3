@@ -11,22 +11,19 @@ export function ArtifactSummary({
   onJumpRef,
 }: {
   source: string | null;
-  versionSeq?: number;
+  versionSeq: number;
   onTarget: (target: ArtifactTarget) => void;
   onJumpRef: (reference: MessageRef) => void;
 }) {
   if (!source) return null;
-  const target: ArtifactTarget =
-    versionSeq === undefined
-      ? { kind: "artifact_summary", locator: null }
-      : { kind: "version_summary", versionSeq, locator: null };
+  const target: ArtifactTarget = { kind: "version_summary", versionSeq, locator: null };
   return (
     <section
-      data-artifact-summary={versionSeq ?? "artifact"}
+      data-artifact-summary={versionSeq}
       className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-800"
     >
       <div className="flex items-center justify-between gap-2 text-xs text-neutral-500">
-        <span>{versionSeq === undefined ? "Overview" : `Version ${versionSeq}`}</span>
+        <span>{`Version ${versionSeq}`}</span>
         <Button variant="ghost" onClick={() => onTarget(target)}>
           Comment
         </Button>

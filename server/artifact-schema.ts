@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 
-export const ARTIFACT_SCHEMA_VERSION = 1;
+export const ARTIFACT_SCHEMA_VERSION = 2;
 
 // Applied to fresh stores and to the destination of the legacy migration.
 // This module never opens a database itself.
@@ -33,7 +33,6 @@ CREATE TABLE artifacts (
   state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'archived')),
   project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
   title TEXT,
-  summary TEXT,
   meta_json TEXT NOT NULL DEFAULT '{}'
     CHECK (CASE WHEN json_valid(meta_json) THEN json_type(meta_json) = 'object' ELSE 0 END),
   legacy_json TEXT

@@ -127,12 +127,8 @@ export class ArtifactTargets {
     const target = requireObject(value, "Target");
     const artifact = this.artifacts.get(id);
     if (target.kind === "artifact") return { kind: "artifact" };
-    if (target.kind === "artifact_summary") {
-      return {
-        kind: "artifact_summary",
-        locator: target.locator === null ? null : nativeQuote(target.locator),
-      };
-    }
+    if (target.kind === "artifact_summary")
+      throw new ArtifactError("Artifact overview targets are read-only historical evidence");
     const versionSeq = requireSequence(target.versionSeq);
     this.artifacts.version(id, versionSeq);
     if (target.kind === "version_summary") {

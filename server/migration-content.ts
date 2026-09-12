@@ -131,15 +131,14 @@ export async function importLegacyContent(
     const repo = data.repos.find((row) => row.id === review.repo_id) ?? null;
     if (review.repo_id && !repo)
       defaults.record("projectId", null, "Legacy project record is absent");
-    db.query(`INSERT INTO artifacts(id, kind, state, project_id, title, summary, meta_json,
+    db.query(`INSERT INTO artifacts(id, kind, state, project_id, title, meta_json,
       created_by, creator_session_id, next_seq, created_at, updated_at, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id,
       kind,
       "active",
       repo ? legacyId(repo.id) : null,
       legacyText(review.title),
-      legacyText(review.summary),
       canonicalJson(meta),
       creator.role,
       creator.sessionId,

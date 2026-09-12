@@ -33,6 +33,10 @@ export class ArtifactDemoBackend {
       /* A private or full browser store still supports this tab. */
     }
     for (const detail of this.state.artifacts) {
+      if ("summary" in detail) {
+        detail.legacy = { ...detail.legacy, retiredOverview: detail.summary };
+        delete detail.summary;
+      }
       detail.working = false;
       for (const note of detail.feedback) note.claim = null;
     }
@@ -90,6 +94,8 @@ export class ArtifactDemoBackend {
   }
   target(id: string, target: ArtifactTarget) {
     const detail = this.get(id);
+    if (target.kind === "artifact_summary")
+      fail("Artifact overview targets are read-only historical evidence");
     if (!("versionSeq" in target)) return;
     const content = this.publication(id, target.versionSeq);
     if (target.kind === "version_summary") return;

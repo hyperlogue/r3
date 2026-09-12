@@ -133,10 +133,13 @@ export async function migrateLegacyStore(
       backupPath: null,
     };
   }
+  const artifactUpgrade =
+    schemaVersion === 1 && tables.includes("artifacts") && !tables.includes("reviews");
   if (
-    schemaVersion !== 0 ||
-    !tables.includes("reviews") ||
-    tables.some((name) => !LEGACY_TABLES.includes(name as LegacyTable))
+    !artifactUpgrade &&
+    (schemaVersion !== 0 ||
+      !tables.includes("reviews") ||
+      tables.some((name) => !LEGACY_TABLES.includes(name as LegacyTable)))
   ) {
     throw new Error("Unrecognized store schema; migration did not modify it");
   }
@@ -157,40 +160,45 @@ export async function migrateLegacyStore(
       throw new Error(
         "Legacy store changed while backing up; retry migration after stopping its writer",
       );
-    const data = readLegacyData(db);
-    checkLegacyRelations(data);
-    const context = new MigrationContext(db, data, (options.clock ?? nowIso)());
-    // Remove named legacy indexes/triggers before creating destination objects.
-    // Autoindexes belong to their renamed table and need no manual changes.
-    for (const object of db
-      .query<{ type: string; name: string }, []>(
-        "SELECT type, name FROM sqlite_master WHERE type IN ('index', 'trigger') AND sql IS NOT NULL",
-      )
-      .all())
-      db.exec(`DROP ${object.type === "index" ? "INDEX" : "TRIGGER"} ${sqlName(object.name)}`);
-    for (const table of tables)
-      db.exec(`ALTER TABLE ${sqlName(table)} RENAME TO ${sqlName(`legacy_${table}`)}`);
-    createArtifactTables(db);
-    const store = new ArtifactStore(db, options.blobs, options.render, () => context.time);
-    await importLegacyContent(context, options.blobs, options.render, options.capture);
-    await importLegacyConversations(context, store);
-    importAuxiliary(context, store);
-    // Children first: avoid cascades while removing the old schema, and retain
-    // the destination's independent FK graph throughout the transaction.
-    for (const table of [
-      "auth_sessions",
-      "auth_tokens",
-      "feedback_claims",
-      "replies",
-      "feedback",
-      "snapshot_files",
-      "snapshots",
-      "patches",
-      "viewed_marks",
-      "reviews",
-      "repos",
-    ]) {
-      if (tables.includes(table)) db.exec(`DROP TABLE ${sqlName(`legacy_${table}`)}`);
+    if (artifactUpgrade) {
+      db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
+        ALTER TABLE artifacts DROP COLUMN summary;`);
+    } else {
+      const data = readLegacyData(db);
+      checkLegacyRelations(data);
+      const context = new MigrationContext(db, data, (options.clock ?? nowIso)());
+      // Remove named legacy indexes/triggers before creating destination objects.
+      // Autoindexes belong to their renamed table and need no manual changes.
+      for (const object of db
+        .query<{ type: string; name: string }, []>(
+          "SELECT type, name FROM sqlite_master WHERE type IN ('index', 'trigger') AND sql IS NOT NULL",
+        )
+        .all())
+        db.exec(`DROP ${object.type === "index" ? "INDEX" : "TRIGGER"} ${sqlName(object.name)}`);
+      for (const table of tables)
+        db.exec(`ALTER TABLE ${sqlName(table)} RENAME TO ${sqlName(`legacy_${table}`)}`);
+      createArtifactTables(db);
+      const store = new ArtifactStore(db, options.blobs, options.render, () => context.time);
+      await importLegacyContent(context, options.blobs, options.render, options.capture);
+      await importLegacyConversations(context, store);
+      importAuxiliary(context, store);
+      // Children first: avoid cascades while removing the old schema, and retain
+      // the destination's independent FK graph throughout the transaction.
+      for (const table of [
+        "auth_sessions",
+        "auth_tokens",
+        "feedback_claims",
+        "replies",
+        "feedback",
+        "snapshot_files",
+        "snapshots",
+        "patches",
+        "viewed_marks",
+        "reviews",
+        "repos",
+      ]) {
+        if (tables.includes(table)) db.exec(`DROP TABLE ${sqlName(`legacy_${table}`)}`);
+      }
     }
     if (db.query("PRAGMA foreign_key_check").all().length)
       throw new Error("Migrated references failed the foreign-key check");
@@ -199,7 +207,11 @@ export async function migrateLegacyStore(
       throw new Error("Migrated store failed the integrity check");
     db.exec(`PRAGMA user_version = ${ARTIFACT_SCHEMA_VERSION}`);
     db.exec("COMMIT");
-    return { migrated: true, artifactCount: data.reviews.length, backupPath: options.backupPath };
+    return {
+      migrated: true,
+      artifactCount: db.query<{ n: number }, []>("SELECT count(*) AS n FROM artifacts").get()!.n,
+      backupPath: options.backupPath,
+    };
   } catch (error) {
     if (db.inTransaction) db.exec("ROLLBACK");
     throw error;

@@ -5,7 +5,12 @@ import { ArtifactSummary } from "./ArtifactSummary.tsx";
 const meta = {
   title: "Components/ArtifactSummary",
   component: ArtifactSummary,
-  args: { source: artifactFixture.summary, onTarget: () => {}, onJumpRef: () => {} },
+  args: {
+    versionSeq: 1,
+    source: artifactFixture.versions[0].summary,
+    onTarget: () => {},
+    onJumpRef: () => {},
+  },
 } satisfies Meta<typeof ArtifactSummary>;
 export default meta;
 type Story = StoryObj<typeof meta>;

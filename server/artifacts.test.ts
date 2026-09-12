@@ -55,6 +55,19 @@ function directory(
 }
 
 describe("artifact publications", () => {
+  test("artifact metadata has no overview while publications retain their summaries", async () => {
+    expect(() => store.create({ kind: "files", actor: human, summary: "Removed" })).toThrow(
+      "overview was removed",
+    );
+    const artifact = store.create({ kind: "files", actor: human });
+    expect(artifact).not.toHaveProperty("summary");
+    expect(() => store.edit(artifact.id, { summary: "Removed" })).toThrow("overview was removed");
+    const version = await store.publish(artifact.id, {
+      ...directory("summary", 0, { "notes.txt": "Content" }),
+      summary: "Publication notes",
+    });
+    expect(version.summary).toBe("Publication notes");
+  });
   test("project grouping is optional and deleting a group preserves artifacts and read progress", () => {
     const project = store.createProject({ name: "Examples" });
     const grouped = store.create({ kind: "files", actor: human, projectId: project.id });

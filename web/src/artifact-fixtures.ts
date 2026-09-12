@@ -56,7 +56,6 @@ export const artifactFixture: ArtifactDetail = {
   state: "active",
   projectId: null,
   title: "Team workspace proposal",
-  summary: "A proposal with **published versions** and shared conversation threads.",
   meta: {},
   createdBy: { role: "agent", sessionId: "design-agent" },
   nextSeq: 2,

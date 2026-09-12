@@ -9,7 +9,6 @@ const detail: ArtifactDetail = {
   kind: "files",
   state: "active",
   title: "Published design",
-  summary: null,
   projectId: null,
   meta: {},
   createdBy: human,

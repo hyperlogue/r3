@@ -7,7 +7,7 @@ import type {
 
 export function artifactTargetLabel(target: ArtifactTarget): string {
   if (target.kind === "artifact") return "General artifact feedback";
-  if (target.kind === "artifact_summary") return "Artifact summary";
+  if (target.kind === "artifact_summary") return "Retired artifact overview";
   if (target.kind === "version_summary") return `Version ${target.versionSeq} summary`;
   const range =
     target.locator && "start" in target.locator
@@ -81,7 +81,6 @@ export function buildArtifactPrompt(
     `${feedback.length} feedback item${feedback.length === 1 ? "" : "s"}.`,
     "",
   ];
-  if (detail.summary) lines.push("Artifact summary:", detail.summary, "");
   if (detail.state === "archived") {
     lines.push(
       "This artifact is archived. Publication, new claims, and ordinary handoff are paused. Saved threads and in-flight replies remain available.",

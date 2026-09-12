@@ -118,7 +118,6 @@ export async function publishArtifactCommand(
       kind,
       actor: author,
       title: await ctx.text("title"),
-      summary: publication.summary,
       projectId: args.value("project"),
       meta: {
         ...(author.role === "agent" ? { session: author.sessionId } : {}),

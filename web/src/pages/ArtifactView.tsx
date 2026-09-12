@@ -466,13 +466,17 @@ export function ArtifactWorkspace({
   useEffect(() => {
     if (!summaryJump) return;
     const target = summaryJump.target;
-    if (target.kind !== "artifact_summary" && target.kind !== "version_summary") {
+    if (target.kind === "artifact_summary") {
+      setNotice(
+        "This comment refers to a retired artifact overview. Its original target and quote are preserved.",
+      );
+      return;
+    }
+    if (target.kind !== "version_summary") {
       paneRef.current?.scrollTo({ top: 0 });
       return;
     }
-    const node = paneRef.current?.querySelector(
-      `[data-artifact-summary="${target.kind === "artifact_summary" ? "artifact" : target.versionSeq}"]`,
-    );
+    const node = paneRef.current?.querySelector(`[data-artifact-summary="${target.versionSeq}"]`);
     node?.scrollIntoView({ block: "start" });
     const range = node && target.locator ? rangeForQuote(node, target.locator.quote) : null;
     setHighlightRanges(HL_ACTIVE, range ? [range] : []);
@@ -658,11 +662,6 @@ export function ArtifactWorkspace({
           }}
         >
           <ArtifactHeader detail={detail} onDeleted={() => navigate("/")} />
-          <ArtifactSummary
-            source={detail.summary}
-            onTarget={anchor}
-            onJumpRef={(ref) => jumpRef(ref, context)}
-          />
           {toolbar}
           {version && (
             <ArtifactSummary

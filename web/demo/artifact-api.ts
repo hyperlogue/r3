@@ -40,6 +40,7 @@ export const artifactApi: typeof productionApi = {
     return copy({ path, lines });
   },
   edit: async (id, body) => {
+    if ("summary" in body) fail("Artifact overview was removed; publish a version summary instead");
     Object.assign(demo.get(id), body);
     demo.changed(id);
     return copy(demo.get(id));

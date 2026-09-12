@@ -21,19 +21,13 @@ const project = {
   remoteUrl: null,
   createdAt: time,
 };
-function artifact(
-  id: string,
-  kind: "files" | "diff",
-  title: string,
-  summary: string,
-): ArtifactDetail {
+function artifact(id: string, kind: "files" | "diff", title: string): ArtifactDetail {
   return {
     id,
     kind,
     state: "active",
     projectId: project.id,
     title,
-    summary,
     meta: {},
     createdBy: actor,
     nextSeq: 2,
@@ -136,18 +130,8 @@ async function diff(id: string, seq: number, patch: string): Promise<DemoPublica
     fullDiff,
   };
 }
-const docs = artifact(
-  "artifact_documents",
-  "files",
-  "Design a published workspace",
-  "A complete directory is published as a version. Select source text, leave feedback, and choose **Submit** to see the conversation continue. This static demo stores changes in your browser; executable previews require a daemon.",
-);
-const code = artifact(
-  "artifact_code",
-  "diff",
-  "Keep feedback on its original version",
-  "Independent diff publications retain both old and new line numbers. Select a removed or added line to leave a native diff comment. The scripted agent keeps the thread open after replying.",
-);
+const docs = artifact("artifact_documents", "files", "Design a published workspace");
+const code = artifact("artifact_code", "diff", "Keep feedback on its original version");
 const firstDocs = await files(docs.id, 1, {
   "index.md":
     "# Published workspace\n\nAn artifact is a directory of files.\n\n## Versions\n\nAn agent publishes a complete directory after revising it.\nThe user can switch between published versions.\n\n## Feedback\n\nSelect source text to discuss a specific part of a document.\nReplies stay in the same thread.\n",

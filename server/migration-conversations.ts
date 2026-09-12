@@ -66,6 +66,8 @@ async function originalTarget(
         candidate = { kind: "diff", versionSeq, path: file, locator: { start, end, side, quote } };
     }
   }
+  // Retired overview targets remain immutable evidence, with no new write API.
+  if (candidate?.kind === "artifact_summary") return candidate;
   if (candidate) {
     try {
       return await new ArtifactTargets(store).target(artifactId, candidate);

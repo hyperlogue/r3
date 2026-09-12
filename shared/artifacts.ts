@@ -29,7 +29,6 @@ export interface Artifact {
   state: ArtifactState;
   projectId: string | null;
   title: string | null;
-  summary: string | null;
   meta: Record<string, string>;
   createdBy: ArtifactActor;
   nextSeq: number;
@@ -106,6 +105,7 @@ export type ArtifactVersionTarget =
 
 export type ArtifactTarget =
   | { kind: "artifact" }
+  // Read-only historical target from before artifact overviews were retired.
   | { kind: "artifact_summary"; locator: TextQuote | null }
   | ArtifactVersionTarget;
 
@@ -182,13 +182,11 @@ export interface CreateArtifactBody {
   actor: ArtifactActor;
   projectId?: string | null;
   title?: string | null;
-  summary?: string | null;
   meta?: Record<string, string>;
 }
 
 export interface EditArtifactBody {
   title?: string | null;
-  summary?: string | null;
   meta?: Record<string, string>;
 }
 

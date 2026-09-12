@@ -139,7 +139,7 @@ export async function runArtifactCommand(
     source: ["version", "file"],
     download: ["version", "file"],
     patch: ["version"],
-    edit: ["title", "summary", "meta"],
+    edit: ["title", "meta"],
     delete: [],
     feedback: args.positional[0] === "add" ? ["message", ...targetFlags] : ["message", "status"],
     reply: ["message", "version", "view", "target"],
@@ -252,7 +252,6 @@ export async function runArtifactCommand(
         print(
           `${artifact.id} · ${artifact.kind} · ${artifact.state}\n${artifact.title ?? "Untitled"}`,
         );
-        if (artifact.summary) print(artifact.summary);
         for (const version of artifact.versions)
           print(
             `Version ${version.seq}${version.label ? ` · ${version.label}` : ""} · ${version.publishedAt}`,
@@ -316,7 +315,6 @@ export async function runArtifactCommand(
       print(
         await client.json("PATCH", artifactApiPath(args.id()), {
           title: await text("title"),
-          summary: await text("summary"),
           meta: args.has("meta") ? args.metadata() : undefined,
         }),
       );

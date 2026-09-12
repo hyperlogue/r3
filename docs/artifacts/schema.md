@@ -47,7 +47,7 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | Table | Key | Main columns and responsibility |
 | --- | --- | --- |
 | projects | id | Optional grouping: name, remote_url, created_at. The generated id is identity; a URL or local path is not |
-| artifacts | id | kind, active/archived state, optional project_id, title, summary, meta_json, next_seq, creator role/session, creation/activity/archive times, legacy_json |
+| artifacts | id | kind, active/archived state, optional project_id, title, meta_json, next_seq, creator role/session, creation/activity/archive times, legacy_json |
 | agent_sessions | id | One logical agent run: optional harness/label and created_at; attribution, not a user account or live connection |
 | artifact_events | seq; unique id | Ordered archive/restore history: artifact_id, operation_key, actor/session, optional archive message, created_at |
 | artifact_versions | artifact_id + seq | kind, publication_key, content_hash, label, summary, provenance_json, publisher role/session, entrypoint or patch_body, file_count, created_at, published_at |
@@ -93,7 +93,10 @@ locator_json        NULL for a whole document or unquoted summary;
                     otherwise a native locator/quote object
 ```
 
-Artifact-wide feedback has no path, version, or locator. An artifact-summary note may retain a quote but has no version because that summary remains editable. Neither NULL case means latest. Version-summary notes name their version explicitly.
+Artifact-wide feedback has no path, version, or locator. `artifact_summary` is a
+read-only historical target; new feedback cannot use it. Its original quote and
+scope remain intact after removing the overview. Neither NULL case means latest.
+Version-summary notes name their version explicitly.
 
 Native locator examples, with artifact/version/path carried by the surrounding target:
 
@@ -111,7 +114,7 @@ Native locator examples, with artifact/version/path carried by the surrounding t
 
 These illustrate source, rendered, and diff locators. The targeting module defines their validated shapes, limits, and rendered-text normalization. SQL enforces JSON-object shape and representation compatibility, while the module verifies native ranges, quotes, selectors, and document membership.
 
-Files accepts source and rendered targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. Common artifact and summary scopes work across all three kinds.
+Files accepts source and rendered targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. Common artifact and version-summary scopes work across all three kinds.
 
 Replies have context_version_seq/context_representation for the message being written, independently of the optional target_kind/target_version_seq/target_path/locator_json identifying a fix. For example, a reply can discuss rendered files version 1 and point to a source fix in version 2. A NULL context means no version context was supplied; the server never silently interprets it as latest. An explicit representation requires an explicit version. Inline references use the reply's shared context; use separate replies for different message contexts. The fix target carries its own version independently.
 
@@ -270,3 +273,12 @@ NULL remains where absence is a supported state: no project grouping, no optiona
 concurrent publishers, retained Markdown, archive races, and whole-artifact deletion.
 [Migration tests](../../server/migration.test.ts) cover preservation and recovery.
 See [acceptance checks](verification.md) for browser and distribution verification.
+
+## Retiring artifact overviews
+
+Schema revision 2 removes `artifacts.summary`. Upgrading revision 1 first writes
+an owner-only consistent backup, then retains existing text in
+`legacy_json.retiredOverview` and drops the column in one transaction. Original
+`artifact_summary` feedback targets stay unchanged and readable, but are rejected
+for new comments. The old live-review migration retains its overview in the
+original review provenance. Version summaries are unaffected.

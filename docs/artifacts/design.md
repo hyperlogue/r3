@@ -37,6 +37,10 @@ All kinds share version identity, conversations, claims, owner handoff, and
 active/archived lifecycle. Files and HTML own their members directly; there is no
 additional directory-container entity for a caller to create or manage.
 
+Artifacts have a title and metadata, with no overview field or overview panel.
+Optional summaries belong to immutable versions. Retired overview text and comment
+targets remain historical evidence when an older store is upgraded.
+
 ## Publication and content ownership
 
 The publisher captures local input and sends complete bytes. The daemon owns the

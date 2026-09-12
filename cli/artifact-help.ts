@@ -9,12 +9,13 @@ export const ARTIFACT_HELP = `r3 — published artifacts and human/agent convers
   source <id> --version <seq> --file <path>
   download <id> --version <seq> --file <path>   # original bytes to stdout
   patch <id> --version <seq>                  # original unified diff
-  edit <id> [--title T] [--summary S] [--meta k=v]
+  edit <id> [--title T] [--meta k=v]
   delete <id>                                # whole artifact and history
 
 Capture: --dir <prepared-directory> [--file <relative-path>]...
          --ref <git-ref|STAGED> --file <relative-path>...
          --stdin-diff | --working | --staged | --commit <sha> | --diff <base>..<head>
+Publication summaries belong to versions. Artifacts have no overview field.
 Publication: --entrypoint index.html|index.md --label L --summary S --key K
 Create: --project ID --meta k=v (repeatable); directory capture defaults to files.
 

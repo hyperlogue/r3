@@ -62,6 +62,35 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test("upgrades artifact overviews into retained evidence with a private backup", async () => {
+    await migrateLegacyStore(db, options());
+    db.exec("ALTER TABLE artifacts ADD COLUMN summary TEXT; PRAGMA user_version = 1");
+    db.query("UPDATE artifacts SET summary = ? WHERE id = ?").run(
+      "Retained overview",
+      "review_retained",
+    );
+    const backupPath = join(root, "artifact-v1.sqlite");
+    const result = await migrateLegacyStore(db, { ...options(), backupPath });
+    expect(result.migrated).toBe(true);
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    expect(store.get("review_retained")).not.toHaveProperty("summary");
+    expect(store.get("review_retained").legacy?.retiredOverview).toBe("Retained overview");
+    expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
+    expect(
+      db
+        .query("PRAGMA table_info(artifacts)")
+        .all()
+        .some((column: any) => column.name === "summary"),
+    ).toBe(false);
+    const backup = new Database(backupPath, { readonly: true });
+    expect(
+      backup.query("SELECT summary FROM artifacts WHERE id = 'review_retained'").get(),
+    ).toEqual({ summary: "Retained overview" });
+    backup.close();
+    expect((await stat(backupPath)).mode & 0o777).toBe(0o600);
+    expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect((await migrateLegacyStore(db, options("unused.sqlite"))).migrated).toBe(false);
+  });
   test.each([
     ["oversized", Buffer.alloc(4 * 1024 * 1024 + 1, 97), "rendering size limit"],
     ["invalid UTF-8", Buffer.from([255]), "valid UTF-8"],

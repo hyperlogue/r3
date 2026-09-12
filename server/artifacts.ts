@@ -36,7 +36,6 @@ type ArtifactRow = {
   state: ArtifactState;
   project_id: string | null;
   title: string | null;
-  summary: string | null;
   meta_json: string;
   legacy_json: string | null;
   created_by: "human" | "agent";
@@ -228,7 +227,8 @@ export class ArtifactStore {
     }
     const author = this.validateActor(body.actor);
     const title = optionalText(body.title, "title", 1000);
-    const summary = optionalText(body.summary, "summary");
+    if ("summary" in body)
+      throw new ArtifactError("Artifact overview was removed; publish a version summary instead");
     const projectId = optionalText(body.projectId, "projectId", 200);
     if (
       projectId !== null &&
@@ -244,14 +244,13 @@ export class ArtifactStore {
     const time = this.clock();
     this.db
       .query(`INSERT INTO artifacts
-      (id, kind, project_id, title, summary, meta_json, created_by, creator_session_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      (id, kind, project_id, title, meta_json, created_by, creator_session_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(
         id,
         body.kind,
         projectId,
         title,
-        summary,
         canonicalJson(meta),
         author.role,
         author.sessionId,
@@ -275,7 +274,6 @@ export class ArtifactStore {
       state: row.state,
       projectId: row.project_id,
       title: row.title,
-      summary: row.summary,
       meta: JSON.parse(row.meta_json),
       createdBy: actor(row.created_by, row.creator_session_id),
       nextSeq: row.next_seq,
@@ -318,16 +316,14 @@ export class ArtifactStore {
     const body = requireObject(value, "Artifact edit");
     const title =
       body.title === undefined ? current.title : optionalText(body.title, "title", 1000);
-    const summary =
-      body.summary === undefined ? current.summary : optionalText(body.summary, "summary");
+    if ("summary" in body)
+      throw new ArtifactError("Artifact overview was removed; publish a version summary instead");
     const meta = body.meta === undefined ? current.meta : jsonObject(body.meta, "meta");
     if (Object.values(meta).some((value) => typeof value !== "string"))
       throw new ArtifactError("Artifact metadata values must be strings");
     this.db
-      .query(
-        "UPDATE artifacts SET title = ?, summary = ?, meta_json = ?, updated_at = ? WHERE id = ?",
-      )
-      .run(title, summary, canonicalJson(meta), this.clock(), id);
+      .query("UPDATE artifacts SET title = ?, meta_json = ?, updated_at = ? WHERE id = ?")
+      .run(title, canonicalJson(meta), this.clock(), id);
     return this.get(id);
   }
 
