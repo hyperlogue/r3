@@ -50,6 +50,12 @@ CORS. Grants bind to the browser's user-agent/client-hint identity, so copying a
 preview URL, or reusing a cookie in a different browser version, does not skip
 verification. User-agent detection alone never enables rendering.
 
+Chromium omits client hints on worker scripts and worker fetches. Those resource
+requests may use a verified cookie with the same User-Agent when both hints are
+absent. A document/iframe navigation still requires the complete identity from
+the gate. This permits native workers without turning a copied cookie into an
+unverified executable-document grant.
+
 The preview's Connection Allowlist includes only its `/files/*` and `/r3/*`
 namespaces, with WebRTC and redirects blocked. CSP additionally restricts resource
 classes, forms, frames, and navigation through sandboxing. Service-worker script
@@ -66,9 +72,15 @@ browser identity, and fetch destination. Unknown paths never receive a document
 fallback or an upstream proxy response.
 
 The real host/gate loaded published scripts and JSON in Chrome for Testing 153,
-and refused Chromium 151 before any published file request. Navigation, worker,
-redirect, resource-scope, and device browser acceptance are still required before
-the daemon/client cutover enables this host. The integrated artifact workspace
+and refused Chromium 151 before any published file request. The full Chrome 153
+build passed the network/device matrix in `scripts/test-preview-isolation.ts`:
+native resources and audio seeking, workers and blob workers, denied service
+workers, external resources/connections/WebTransport, redirects, direct and nested
+navigation, document rewriting, same-host application/version isolation, and
+WebRTC with a controlled UDP sink. Browser permission denial rejects media capture;
+grant enables fake audio/video devices without enabling WebRTC packets. Tests
+use a fresh profile and controlled loopback endpoints; no physical device is read.
+The integrated artifact workspace
 has also passed real-browser tests for human utility messages, shared threads,
 version switching, original rendered Locate, and native document navigation.
 

@@ -79,7 +79,7 @@ zero packets in both cases. Partitioned cookie authentication worked in sandboxe
 preview frames under localhost, loopback-IP, and localhost-subdomain application
 origins. Against the real host, Chrome for Testing 153 passed the gate and loaded
 published scripts and JSON; Chromium 151 reported unsupported and requested no
-published files. The broader network/device acceptance matrix remains.
+published files.
 
 `scripts/test-preview-browser.ts` verifies the gate, modules, utility RPC and
 subscriptions, click interception before publisher handlers, native target
@@ -89,6 +89,18 @@ for a browser that must be refused. `scripts/test-preview-workspace.ts` builds
 the real workspace and tests it against temporary artifact/API/preview servers:
 human utility feedback, the shared panel thread, version switching, native Locate,
 and published-document navigation. Both use fresh browser profiles and stores.
+
+`scripts/test-preview-isolation.ts` passed in the full Chrome for Testing
+153.0.8010.36 build. It checks native modules, CSS, fetch/XHR, images, audio
+seeking, worker requests, and binary ranges; blocks external scripts, styles,
+fonts, images, media, frames, forms, popups, parent/direct navigation, redirects,
+WebSocket/WebTransport, unrelated application/version requests, and WebRTC UDP;
+and checks inherited restrictions in blob/srcdoc/rewritten documents. Camera and
+microphone deny/grant overrides use the browser's
+[permission API](https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setPermission)
+with fake devices, followed by another blocked WebRTC attempt. Use a full Chromium
+build for this script: the headless shell's fake media UI bypasses permission
+overrides and cannot verify denial.
 
 Evaluate [Connection Allowlists](https://wicg.github.io/connection-allowlists/)
 alongside CSP and the isolated origin. Chromium's
