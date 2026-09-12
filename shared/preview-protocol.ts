@@ -1,5 +1,17 @@
 import type { ArtifactFeedback, ArtifactNotification, RenderedLocator } from "./artifacts.ts";
 
+export interface PreviewDevicePermissions {
+  camera: boolean;
+  microphone: boolean;
+}
+
+export interface PreviewCaptureState {
+  phase: "idle" | "requesting" | "sharing" | "error";
+  camera: boolean;
+  microphone: boolean;
+  message?: string;
+}
+
 export interface PreviewBootstrap {
   contextId: string;
   applicationOrigin: string;
@@ -8,6 +20,7 @@ export interface PreviewBootstrap {
   entryPath: string;
   resourceRoot: string;
   presentation: "document" | "media";
+  capture?: boolean;
 }
 
 export interface PreviewPageContext {
@@ -28,6 +41,7 @@ export interface PreviewDisplay {
 // These are the entire publisher-page capability surface. There is no generic
 // HTTP, actor, version, path, lifecycle, publication, or host command argument.
 export interface ArtifactUtility {
+  getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;
   getThreads(): Promise<ArtifactFeedback[]>;
   createFeedback(input: {

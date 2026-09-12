@@ -6,6 +6,8 @@ import type { PreviewConnection } from "./preview-channel.ts";
 export function createArtifactUtility(
   config: PreviewBootstrap,
   connection: PreviewConnection,
+  getUserMedia: ArtifactUtility["getUserMedia"] = () =>
+    Promise.reject(new Error("Device capture is unavailable")),
 ): ArtifactUtility {
   const pending = new Map<
     string,
@@ -57,6 +59,7 @@ export function createArtifactUtility(
     pending.clear();
   });
   return Object.freeze({
+    getUserMedia,
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),
     createFeedback: (input) => call("createFeedback", input),

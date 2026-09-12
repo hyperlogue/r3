@@ -169,6 +169,25 @@ user activation. Published membership is checked before dispatch; reply ids must
 belong to the same artifact, and the server validates each native target.
 Application authentication stays in the parent.
 
+`web/src/preview-capture.ts` owns the optional device relay. It requires an explicit
+camera/microphone grant for the currently bound document connection. The trusted
+parent owns physical tracks and permits one native permission request and one
+capture at a time; a pending browser prompt remains guarded even after timeout or
+revocation. Every asynchronous continuation checks that its capture is still
+current, and a late stream is stopped without delivery. Closing or replacing the
+connection stops physical tracks directly. Device consent is independent of a
+remembered browser permission for r3's origin.
+
+The relay sends only requested audio/video. It creates the RTC offer in the parent,
+accepts one bounded receive-only answer, and exposes no ICE configuration,
+renegotiation, data channel, enumeration, device identifiers, screen capture, or
+PTZ. `iceServers: []` avoids configured discovery servers; a peer's answer can
+still select a network destination, so this transport requires external-network
+consent and must never be described as an in-memory-only relay. Direct iframe
+device access remains denied. Returned tracks are RTC receiver tracks; supported
+capture constraints and stop/clone behavior belong to the narrow preview utility,
+not to a claim of full native device API compatibility.
+
 Real-browser checks cover native resources, opaque storage and parent isolation,
 denied workers/devices, scoped navigation, blocked external connections, and
 WebRTC with a controlled UDP sink. The integrated workspace checks utility

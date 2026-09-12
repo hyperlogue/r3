@@ -10,12 +10,15 @@ export interface PreviewConnection {
 // whose document may have changed while an application request was pending.
 export function connectPreview(config: PreviewBootstrap): PreviewConnection {
   const channel = new MessageChannel();
+  const port = channel.port1;
+  const post = port.postMessage.bind(port);
+  const close = port.close.bind(port);
   const path =
     config.presentation === "media"
       ? config.entryPath
       : decodeURIComponent(location.pathname.slice(new URL(config.resourceRoot).pathname.length));
   const listeners = new Set<(message: any) => void>();
-  channel.port1.onmessage = (event) => {
+  port.onmessage = (event) => {
     for (const listener of listeners) listener(event.data);
   };
   parent.postMessage(
@@ -23,9 +26,12 @@ export function connectPreview(config: PreviewBootstrap): PreviewConnection {
     config.applicationOrigin,
     [channel.port2],
   );
-  window.addEventListener("pagehide", () => channel.port1.close());
+  window.addEventListener("pagehide", () => {
+    post({ type: "r3-preview-disconnect", contextId: config.contextId, path });
+    close();
+  });
   return {
-    send: (message) => channel.port1.postMessage({ ...message, contextId: config.contextId, path }),
+    send: (message) => post({ ...message, contextId: config.contextId, path }),
     subscribe: (listener) => {
       listeners.add(listener);
     },
