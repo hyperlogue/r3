@@ -6,7 +6,7 @@ import type {
 } from "../../../shared/preview-protocol.ts";
 import { suspendKeys } from "../keys.ts";
 import type { PreviewVerification } from "../preview-protection.ts";
-import { Button, cn } from "../ui.tsx";
+import { Button } from "../ui.tsx";
 import { ArtifactPreviewProtection } from "./ArtifactPreviewProtection.tsx";
 
 export function ArtifactPreviewNetworkControl({
@@ -37,12 +37,7 @@ export function ArtifactPreviewNetworkControl({
       data-preview-network={network}
       data-preview-camera={devices.camera ? "allowed" : "blocked"}
       data-preview-microphone={devices.microphone ? "allowed" : "blocked"}
-      className={cn(
-        "sticky top-[var(--pane-sticky-h,0px)] z-10 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-3 py-1.5 text-xs",
-        network !== "blocked"
-          ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
-          : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400",
-      )}
+      className="space-y-3 text-xs"
     >
       <ArtifactPreviewProtection
         network={network}
@@ -52,7 +47,7 @@ export function ArtifactPreviewNetworkControl({
         compatibilityAccepted={compatibilityAccepted}
         onForgetCompatibility={onForgetCompatibility}
       />
-      <div className="min-w-0 flex-1 max-md:sr-only">
+      <div className="sr-only">
         <span role="status">
           {verification === "checking"
             ? "Checking preview protection…"

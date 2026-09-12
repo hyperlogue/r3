@@ -4,6 +4,7 @@ import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { Button, CommentPlusIcon, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
+import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { MessageProse } from "./Message.tsx";
 
 export function ArtifactArchiveDialog({
@@ -193,6 +194,7 @@ export function ArtifactHeader({
           </Button>
         </form>
       )}
+      <ArtifactPreviewSecurity />
       {title === null && (
         <>
           {detail.state === "archived" && <Pill>Archived</Pill>}

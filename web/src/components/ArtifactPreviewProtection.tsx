@@ -1,11 +1,9 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
 import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
 import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
 } from "../../../shared/preview-protocol.ts";
-import { suspendKeys } from "../keys.ts";
 import type { PreviewVerification } from "../preview-protection.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 
@@ -24,29 +22,6 @@ export function ArtifactPreviewProtection({
   compatibilityAccepted: boolean;
   onForgetCompatibility: () => void;
 }) {
-  const details = useRef<HTMLDetailsElement>(null);
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const resume = suspendKeys();
-    const dismiss = (event: PointerEvent) => {
-      if (details.current && !details.current.contains(event.target as Node))
-        details.current.open = false;
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !details.current) return;
-      event.stopPropagation();
-      details.current.open = false;
-      details.current.querySelector("summary")?.focus();
-    };
-    document.addEventListener("pointerdown", dismiss);
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", dismiss);
-      document.removeEventListener("keydown", onKeyDown, true);
-      resume();
-    };
-  }, [open]);
   const ready = verification === "ready";
   const inactive =
     verification === "checking" ? "Checking preview protection" : "Preview not running";
@@ -81,7 +56,7 @@ export function ArtifactPreviewProtection({
             : "External connections allowed",
       description:
         network === "blocked"
-          ? "A green lock means this preview passed the browser’s network-blocking checks. It does not certify the artifact’s content."
+          ? "Verified network protection means this preview passed the browser’s network-blocking checks. It does not certify the artifact’s content."
           : network === "compatible"
             ? "This browser cannot guarantee network blocking. Published documents restrict external resources; pages reached through navigation may have no network restrictions. Either may transmit files, conversations, or input."
             : "This page can load external scripts and contact external services. Published files, conversations, input, and shared media can be sent elsewhere.",
@@ -134,54 +109,32 @@ export function ArtifactPreviewProtection({
           ? "text-red-700 dark:text-red-400"
           : "text-neutral-500 dark:text-neutral-400";
   return (
-    <details
-      ref={details}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="relative shrink-0"
-      data-preview-protections
-    >
-      <summary
-        aria-label={`Preview protections: ${items.map((item) => item.label).join("; ")}`}
-        title="Preview protection details"
-        className="flex min-h-9 cursor-pointer list-none items-center gap-3 rounded px-1 focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden"
-      >
+    <div data-preview-protections>
+      <ul className="space-y-3">
         {items.map((item) => (
-          <span
-            key={item.key}
-            role="img"
-            aria-label={item.label}
-            title={item.label}
-            data-preview-protection={item.key}
-            data-state={item.state}
-            className={color(item.state)}
-          >
-            <StrokeIcon className="size-4">{item.icon}</StrokeIcon>
-          </span>
+          <li key={item.key}>
+            <p className={cn("flex items-center gap-2 font-medium", color(item.state))}>
+              <span
+                role="img"
+                aria-label={item.label}
+                data-preview-protection={item.key}
+                data-state={item.state}
+              >
+                <StrokeIcon className="size-4">{item.icon}</StrokeIcon>
+              </span>
+              {item.label}
+            </p>
+            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">
+              {item.description}
+            </p>
+          </li>
         ))}
-      </summary>
-      <div className="absolute left-0 top-full z-20 mt-1 max-h-[70dvh] w-80 max-w-[calc(100vw-2rem)] overflow-auto rounded-lg border border-neutral-200 bg-white p-3 text-sm text-neutral-900 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
-        <ul className="space-y-3">
-          {items.map((item) => (
-            <li key={item.key}>
-              <p className={cn("font-medium", color(item.state))}>{item.label}</p>
-              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">
-                {item.description}
-              </p>
-            </li>
-          ))}
-        </ul>
-        {compatibilityAccepted && (
-          <Button
-            className="mt-3"
-            onClick={() => {
-              if (details.current) details.current.open = false;
-              onForgetCompatibility();
-            }}
-          >
-            Forget browser choice
-          </Button>
-        )}
-      </div>
-    </details>
+      </ul>
+      {compatibilityAccepted && (
+        <Button className="mt-3" onClick={onForgetCompatibility}>
+          Forget browser choice
+        </Button>
+      )}
+    </div>
   );
 }

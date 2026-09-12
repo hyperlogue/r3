@@ -189,6 +189,16 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     `[...${scope}.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)})`;
   const click = async (expression: string) => {
     await eventually(() => page.evaluate(`!!(${expression})`), "workspace control");
+    // Permission actions moved into the single nav security popover.
+    if (
+      await page.evaluate(
+        `!!(${expression}).closest('[aria-label="Preview security details"][hidden]')`,
+      )
+    ) {
+      await page.evaluate(
+        "document.querySelector('[data-preview-security] > button[aria-expanded]').click()",
+      );
+    }
     await eventually(
       () =>
         page.evaluate(

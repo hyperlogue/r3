@@ -1,10 +1,33 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn, userEvent, within } from "storybook/test";
+import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
+import {
+  ArtifactPreviewSecurity,
+  ArtifactPreviewSecurityProvider,
+  ArtifactPreviewSecuritySource,
+} from "./ArtifactPreviewSecurity.tsx";
 
 const meta = {
   title: "Components/ArtifactPreviewPermissions",
   component: ArtifactPreviewNetworkControl,
+  render: (args) => (
+    <ArtifactPreviewSecurityProvider>
+      <AppHeader>
+        <div className="flex-1" />
+        <ArtifactPreviewSecurity />
+      </AppHeader>
+      <ArtifactPreviewSecuritySource
+        path="index.html"
+        network={args.network}
+        verification={args.verification}
+        devices={args.devices}
+        capture={args.capture}
+      >
+        <ArtifactPreviewNetworkControl {...args} />
+      </ArtifactPreviewSecuritySource>
+    </ArtifactPreviewSecurityProvider>
+  ),
   args: {
     network: "external",
     verification: "ready",
@@ -37,7 +60,9 @@ export const Limited: Story = {
 export const LimitedDetails: Story = {
   ...Limited,
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByLabelText(/^Preview protections:/));
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: /^Preview security:/ }),
+    );
   },
 };
 export const RenderedFile: Story = { ...Limited, args: { ...Limited.args, html: false } };

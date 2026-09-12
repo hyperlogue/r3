@@ -6,9 +6,15 @@ import { demo } from "../../demo/artifact-backend.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
+import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "../components/ArtifactPreviewNetworkControl.tsx";
+import {
+  ArtifactPreviewSecurity,
+  ArtifactPreviewSecurityProvider,
+  ArtifactPreviewSecuritySource,
+} from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
@@ -380,25 +386,43 @@ function ProtectionSample({ initial }: { initial: ArtifactPreviewNetwork }) {
             ? "Limited network protection"
             : "External connections allowed"}
       </h3>
-      <ArtifactPreviewNetworkControl
-        network={network}
-        verification="ready"
-        html
-        compatibilityAccepted={network === "compatible"}
-        onForgetCompatibility={() => setNetwork("blocked")}
-        devices={devices}
-        capture={{
-          phase: sharing ? "sharing" : "idle",
-          camera: sharing && devices.camera,
-          microphone: sharing && devices.microphone,
-        }}
-        onStopSharing={() => setSharing(false)}
-        onChange={(next, permissions) => {
-          setNetwork(next);
-          setDevices(permissions);
-          setSharing(false);
-        }}
-      />
+      <ArtifactPreviewSecurityProvider>
+        <AppHeader>
+          <span className="min-w-0 flex-1 truncate text-sm">Sample preview</span>
+          <ArtifactPreviewSecurity />
+        </AppHeader>
+        <ArtifactPreviewSecuritySource
+          path="index.html"
+          network={network}
+          verification="ready"
+          devices={devices}
+          capture={{
+            phase: sharing ? "sharing" : "idle",
+            camera: sharing && devices.camera,
+            microphone: sharing && devices.microphone,
+          }}
+        >
+          <ArtifactPreviewNetworkControl
+            network={network}
+            verification="ready"
+            html
+            compatibilityAccepted={network === "compatible"}
+            onForgetCompatibility={() => setNetwork("blocked")}
+            devices={devices}
+            capture={{
+              phase: sharing ? "sharing" : "idle",
+              camera: sharing && devices.camera,
+              microphone: sharing && devices.microphone,
+            }}
+            onStopSharing={() => setSharing(false)}
+            onChange={(next, permissions) => {
+              setNetwork(next);
+              setDevices(permissions);
+              setSharing(false);
+            }}
+          />
+        </ArtifactPreviewSecuritySource>
+      </ArtifactPreviewSecurityProvider>
       {network === "external" && (
         <Button
           disabled={!devices.camera && !devices.microphone}

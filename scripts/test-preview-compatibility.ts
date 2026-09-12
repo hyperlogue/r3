@@ -192,6 +192,19 @@ try {
         ).length === 3,
     );
     assert.equal(await mediaPage.locator("dialog[open]").count(), 0);
+    assert.equal(
+      await mediaPage.getByRole("button", { name: /^Preview security:/ }).count(),
+      1,
+      "concurrent previews share one nav security indicator",
+    );
+    assert.equal(
+      await mediaPage.locator("[data-preview-security]").getAttribute("data-preview-security"),
+      "limited",
+    );
+    assert.equal(
+      await mediaPage.locator("[data-artifact-content] [data-preview-network]").count(),
+      0,
+    );
     await multiple.close();
   }
   const context = await browser.newContext({ viewport: { width: 1200, height: 850 } });
@@ -297,7 +310,7 @@ try {
       externalRequests > beforeNavigation,
       "external self-navigation is an acknowledged compatibility gap",
     );
-    await page.locator("[data-preview-protections] summary").click();
+    await page.locator("[data-preview-security] > button[aria-expanded]").click();
     await page
       .getByText(/pages reached through navigation may have no network restrictions/)
       .waitFor();
@@ -328,7 +341,7 @@ try {
       .getByRole("heading", { name: "Version 1" })
       .waitFor();
     const old = grants.at(-1)!;
-    await page.locator("[data-preview-protections] summary").click();
+    await page.locator("[data-preview-security] > button[aria-expanded]").click();
     await page.getByRole("button", { name: "Forget browser choice" }).click();
     await page.getByRole("button", { name: "Review browser risk" }).waitFor();
     await second.getByRole("button", { name: "Review browser risk" }).waitFor();
@@ -353,9 +366,9 @@ try {
     if (screenshot) await page.screenshot({ path: screenshot.replace(/\.png$/, "-warning.png") });
     await warning.getByRole("button", { name: "Accept risk and continue" }).click();
     await waitForContent(2);
-    await page.locator("[data-preview-protections] summary").click();
+    await page.locator("[data-preview-security] > button[aria-expanded]").click();
     if (screenshot) await page.screenshot({ path: screenshot.replace(/\.png$/, "-details.png") });
-    await page.locator("[data-preview-protections] summary").click();
+    await page.locator("[data-preview-security] > button[aria-expanded]").click();
   }
 
   // Transport/verification errors never become a consented network fallback.

@@ -9,7 +9,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
   return (
     <header
       data-app-header
-      className="relative z-30 flex min-h-8 shrink-0 items-center gap-2 border-b border-neutral-300 bg-white pl-3 max-md:gap-1 max-md:pl-2 dark:border-neutral-700 dark:bg-neutral-950"
+      className="relative z-40 flex min-h-8 shrink-0 items-center gap-2 border-b border-neutral-300 bg-white pl-3 max-md:gap-1 max-md:pl-2 dark:border-neutral-700 dark:bg-neutral-950"
     >
       <nav aria-label="Main navigation" className="flex shrink-0 items-center gap-1.5 self-stretch">
         <button

@@ -22,6 +22,7 @@ import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
 import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
+import { ArtifactPreviewSecurityProvider } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import {
@@ -121,17 +122,27 @@ export function ArtifactView({
   );
 }
 
-export function ArtifactWorkspace({
-  detail,
-  renderPreview,
-  initialSearch = location.search,
-  onLocationChange,
-}: {
+interface ArtifactWorkspaceProps {
   detail: ArtifactDetail;
   renderPreview: ArtifactRenderer;
   initialSearch?: string;
   onLocationChange?: (view: ArtifactLocation) => void;
-}) {
+}
+
+export function ArtifactWorkspace(props: ArtifactWorkspaceProps) {
+  return (
+    <ArtifactPreviewSecurityProvider>
+      <Workspace {...props} />
+    </ArtifactPreviewSecurityProvider>
+  );
+}
+
+function Workspace({
+  detail,
+  renderPreview,
+  initialSearch = location.search,
+  onLocationChange,
+}: ArtifactWorkspaceProps) {
   const [view, setView] = useState(() => readArtifactLocation(detail.kind, initialSearch));
   const preferredLayout = useDiffLayout();
   const mobile = useIsMobile();

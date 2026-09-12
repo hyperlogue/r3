@@ -153,12 +153,15 @@ application load; each closed preview retains its explicit review-risk action.
 Forgetting the choice stops compatible previews in this tab and other open tabs.
 It does not undo data already transmitted or cancel independently granted external mode.
 
-The toolbar shows isolation, network, camera, and microphone icons, with accessible
-labels and expandable explanations. A green network lock requires a successful
-blocked-mode gate, amber means limited protection or explicit external access,
-and device indicators distinguish blocked, allowed, and actively sharing. Checking
-and failed previews never show verified protection. These indicators describe
-enforced boundaries, not the trustworthiness of publisher content.
+A single shield icon in the trusted top navigation summarizes all mounted previews.
+Green requires successful blocked-mode gates for every preview. Amber means limited
+protection, explicit external access, or device permission; red signals active
+sharing or an error. Checking and failed previews never show verified protection.
+An accessible label and tooltip name the state. Its popover lists each preview's
+isolation, network, camera, and microphone details and retains permission, restore,
+stop-sharing, and forget-compatibility controls. Confirmation remains explicit and
+HTML-only for external access. These indicators describe enforced boundaries, not
+the trustworthiness of publisher content.
 
 External mode omits Connection Allowlist and WebRTC blocking and permits HTTP(S)
 resources and HTTP(S)/WS(S) connections in CSP. Browser CORS and mixed-content rules

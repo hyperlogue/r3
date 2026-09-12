@@ -22,6 +22,7 @@ import {
 import { Button } from "../ui.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
+import { ArtifactPreviewSecuritySource } from "./ArtifactPreviewSecurity.tsx";
 
 const NO_DEVICES: PreviewDevicePermissions = { camera: false, microphone: false };
 
@@ -109,18 +110,26 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
   const media = !!file && !!artifactMediaKind(file.mediaType);
   return (
     <div className="flex min-h-80 flex-1 flex-col" data-artifact-preview>
-      <ArtifactPreviewNetworkControl
-        key={deviceEpoch}
+      <ArtifactPreviewSecuritySource
+        path={props.path}
         network={network}
         verification={verification}
-        html={props.detail.kind === "html"}
-        compatibilityAccepted={compatibilityAccepted}
-        onForgetCompatibility={previewCompatibility.forget}
         devices={devices}
         capture={captureState}
-        onStopSharing={resetDevices}
-        onChange={changeNetwork}
-      />
+      >
+        <ArtifactPreviewNetworkControl
+          key={deviceEpoch}
+          network={network}
+          verification={verification}
+          html={props.detail.kind === "html"}
+          compatibilityAccepted={compatibilityAccepted}
+          onForgetCompatibility={previewCompatibility.forget}
+          devices={devices}
+          capture={captureState}
+          onStopSharing={resetDevices}
+          onChange={changeNetwork}
+        />
+      </ArtifactPreviewSecuritySource>
       {confirmCompatibility && (
         <ArtifactPreviewCompatibilityConsent
           onCancel={closeCompatibilityWarning}

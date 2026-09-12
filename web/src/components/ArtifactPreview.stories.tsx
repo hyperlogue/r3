@@ -3,7 +3,12 @@ import { expect, userEvent, within } from "storybook/test";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureVersion } from "../artifact-fixtures.ts";
+import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreview } from "./ArtifactPreview.tsx";
+import {
+  ArtifactPreviewSecurity,
+  ArtifactPreviewSecurityProvider,
+} from "./ArtifactPreviewSecurity.tsx";
 
 const meta = {
   title: "Components/ArtifactPreview",
@@ -19,6 +24,17 @@ const meta = {
     onDocument: () => {},
     onFeedback: () => {},
   },
+  decorators: [
+    (Story) => (
+      <ArtifactPreviewSecurityProvider>
+        <AppHeader>
+          <div className="flex-1" />
+          <ArtifactPreviewSecurity />
+        </AppHeader>
+        <Story />
+      </ArtifactPreviewSecurityProvider>
+    ),
+  ],
   parameters: {
     queryData: [
       [
@@ -75,6 +91,7 @@ export const HtmlConsent: Story = {
   ...HtmlProtection,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /^Preview security:/ }));
     await userEvent.click(canvas.getByRole("button", { name: "Allow external access" }));
     await expect(canvas.getByRole("dialog")).toBeVisible();
   },
@@ -84,6 +101,7 @@ export const HtmlExternalConnections: Story = {
   ...HtmlProtection,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /^Preview security:/ }));
     await userEvent.click(canvas.getByRole("button", { name: "Allow external access" }));
     await userEvent.click(
       within(canvas.getByRole("dialog")).getByRole("button", {
