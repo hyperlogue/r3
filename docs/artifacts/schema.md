@@ -1,10 +1,13 @@
 # Artifact database schema
 
-[Executable SQLite DDL](../../server/artifact-schema.ts) · [Approved design](design.md)
+[Executable SQLite DDL](../../server/artifact-schema.ts) · [Artifact design](design.md)
 
-This is the approved destination schema for one human owner and multiple agents, including remote publishers. Multi-user accounts and permissions are non-goals. Destination creation and legacy migration are tested with isolated stores, including recovery after a process interruption. The daemon, CLI, browser, and static demo now use the artifact protocol.
+This reference explains the implemented storage constraints for one human owner
+and multiple agents, including remote publishers. The linked DDL is executable;
+this document records the relationships and invariants behind it. The daemon, CLI,
+browser, and static demo use the same artifact protocol.
 
-The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Feedback and Reply keep their existing separate lifecycles.
+The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Feedback owns open/resolved status; Reply is a message with no status.
 
 ## Relationships
 
@@ -86,7 +89,8 @@ target_kind         artifact | artifact_summary | version_summary |
                     source | rendered | diff
 target_version_seq  required for version_summary/source/rendered/diff
 target_path         required for source/rendered/diff
-locator_json        NULL for a whole document/summary; otherwise an object
+locator_json        NULL for a whole document or unquoted summary;
+                    otherwise a native locator/quote object
 ```
 
 Artifact-wide feedback has no path, version, or locator. An artifact-summary note may retain a quote but has no version because that summary remains editable. Neither NULL case means latest. Version-summary notes name their version explicitly.
@@ -109,7 +113,7 @@ These illustrate source, rendered, and diff locators. The targeting module defin
 
 Files accepts source and rendered targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. Common artifact and summary scopes work across all three kinds.
 
-Replies have context_version_seq/context_representation for the message being written, independently of the optional target_kind/target_version_seq/target_path/locator_json identifying a fix. For example, a reply can discuss rendered files version 1 and point to a source fix in version 2. A NULL context means no version context was supplied; the server never silently interprets it as latest. An explicit representation requires an explicit version. References spanning several contexts must carry their own version/representation in the message-reference format.
+Replies have context_version_seq/context_representation for the message being written, independently of the optional target_kind/target_version_seq/target_path/locator_json identifying a fix. For example, a reply can discuss rendered files version 1 and point to a source fix in version 2. A NULL context means no version context was supplied; the server never silently interprets it as latest. An explicit representation requires an explicit version. Inline references use the reply's shared context; use separate replies for different message contexts. The fix target carries its own version independently.
 
 feedback_placements records additional document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
 
@@ -121,7 +125,7 @@ The references are creator_session_id on artifacts, publisher_session_id on vers
 
 SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different feedback items. The server validates new-write attribution and claim ownership at the module interface.
 
-Initial notification routing may retain one designated listener per artifact, while assignment and fan-out are deferred. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live connections and transport credentials remain outside SQLite.
+Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live connections and transport credentials remain outside SQLite.
 
 ## Archive events and optional messages
 
@@ -138,12 +142,13 @@ The module captures and removes the current listener registration during the ord
 published_at is the visibility and finalization marker. A version starts with it NULL inside a transaction; the server serves only rows where it is non-NULL. This is internal assembly state, not a user-facing draft version.
 
 1. Receive and validate the complete publication. Verify original byte hashes, paths, sizes, patch syntax or directory shape, and required Markdown renderings. Atomically install immutable blobs before referencing them from committed SQL rows.
-2. Begin an IMMEDIATE transaction. Look up the artifact's publication_key first: a matching retry returns the original version; reuse with a different canonical publication digest conflicts.
+2. Begin an IMMEDIATE transaction. Look up the artifact's publication_key first: a matching retry returns the original version; reuse with different content, metadata, or publisher attribution conflicts.
 3. For a new publication, check active state and compare the caller's expected sequence with the latest published sequence (zero if none). Advance next_seq and use the allocated sequence for the new row.
 4. Insert the unpublished version, blob metadata, and all version_files. The file_count records the expected complete membership and must be positive for both files and html.
 5. Set published_at. The finalization trigger checks active state, complete file count, and HTML entrypoint membership. Commit; only then broadcast the publication event.
 
-The SQL allocation can be one compare-and-swap statement:
+The expected-sequence check and allocation occur under the same IMMEDIATE
+transaction in `ArtifactStore.publish`. The equivalent SQL condition is:
 
 ```sql
 UPDATE artifacts
@@ -163,7 +168,12 @@ allocation uses the never-reused sequence counter.
 
 A zero-row result is a conflict or an archived/missing artifact, which the server distinguishes. The expected sequence is the latest published sequence, independent of reserved migration gaps. Published versions are never hidden or individually deleted; any gaps inherited from migration stay reserved. The server must never commit an unfinished publication. A crash before commit rolls back its SQL allocation and membership; any unreferenced installed bytes are eligible for later cleanup.
 
-content_hash is the digest of a canonical submitted publication: kind, sorted paths and original byte hashes/media types, entrypoint or patch bytes, and submitted label/summary/provenance. It excludes assigned sequence, server timestamps, and server-generated rendering output. Persisted rendering hashes identify those outputs separately. The publication module owns this canonicalization so retries remain stable across render upgrades.
+`content_hash` identifies canonical content: kind and patch bytes for diff, or
+kind, entrypoint, and sorted paths with original byte hashes/media types for
+directories. The retry check separately compares label, summary, provenance, and
+publisher role/session. Assigned sequence, server timestamps, and generated
+renderings are excluded from the content hash. Rendering hashes identify those
+outputs independently, so retries remain stable across renderer upgrades.
 
 ## Enforcement and retention
 
@@ -186,25 +196,31 @@ Deleting an artifact cascades through versions, files, feedback, replies, placem
 
 All connections must enable foreign keys. STRICT tables constrain storage types, and explicit NULL checks prevent required variant fields from slipping through SQL's nullable CHECK semantics. Times are canonical UTC ISO-8601 strings supplied by the server. [SQLite STRICT tables](https://www.sqlite.org/stricttables.html), [SQLite CHECK constraints](https://www.sqlite.org/lang_createtable.html#check_constraints)
 
-## Migration from the current store
+## Migration from legacy reviews
 
-| Current storage | Destination |
+| Legacy storage | Artifact storage |
 | --- | --- |
 | reviews | artifacts; preserve stored identity, translate lifecycle, retain legacy source/worktree/status provenance |
-| Approval/closure messages | artifact_events with historic provenance; no fresh notification during migration |
-| repos | Optional projects plus publisher-local discovery outside the shared content model |
+| Approved/abandoned state and closure metadata | Synthetic archived event; original outcome and any closure message remain in artifact legacy provenance; no fresh notification |
+| repos | Optional projects; old location/worktree metadata remains migration provenance, never a content lookup key |
 | patches | diff artifact_versions with the original round sequence and stored patch_body |
 | snapshots / snapshot_files | files artifact_versions / version_files / blobs for bytes that were actually retained |
 | feedback.patch_seq and source anchor fields | Verified typed original target, or explicit legacy evidence when version/representation is unknown |
 | replies.ref_version and pin fields | Explicit context and fix target only when the old reference is supported by surviving content |
 | Known agent/session metadata | agent_sessions and required attribution references; missing values receive documented migration defaults |
-| feedback_claims, viewed_marks, auth tables | Preserve their roles under artifact identity; expire obsolete live claims during upgrade |
+| feedback_claims | Preserve evidence and clear old leases; the new protocol requires fresh claims |
+| viewed_marks, auth tables | Preserve read progress and the login token/session contract |
 
 Do not present migration-generated defaults as recovered historical facts. Required fields still receive valid values; provenance records how they were chosen. Do not fabricate missing historical source bytes, patch bodies, or verified rendered/source correspondence. legacy_json, legacy_anchor_json, and legacy_reference_json preserve unresolved historical evidence. A note whose target cannot be established can retain artifact scope plus that evidence, displayed as a historical target unavailable; it must not be presented as an originally general note. A later verified placement remains separate.
 
-Database migration is required. Old command, route, event, UI, and client compatibility is not; no aliases or dual protocol shapes are needed. Choose the right target model, then migrate surviving data into it.
+Startup migrates supported legacy stores before serving artifact requests. The
+old command, route, event, and client protocols are retired; preserved review IDs
+still open as artifact URLs.
 
-The migration must record incomplete old publications and generated replacements in provenance and display that limitation. Converted files artifacts begin new work with complete published content. Initialize next_seq above every preserved or historically referenced sequence, including missing old rounds, so migration cannot reuse an old identity. This DDL deliberately is not an ALTER script against the current store.
+Migration records incomplete publications and generated notices in provenance.
+New publications use the complete-directory contract. `next_seq` starts above every
+preserved or historically referenced sequence, including missing rounds. The DDL
+defines the current schema; `migration.ts` owns the upgrade from old tables.
 
 `server/migration.ts` owns the upgrade transaction. Startup supplies an exclusively
 owned connection, a new backup path in a private directory, the byte store,
@@ -225,7 +241,9 @@ with SHA-256 keys added when retained bytes establish the old content identity.
 
 ## Required fields and migration defaults
 
-The destination schema is designed for the product. Migration must produce rows that satisfy it; missing old fields do not justify nullable columns, extra unknown states, or weaker foreign keys. Defaults are an explicit migration transformation, applied before the normal constraints are checked.
+Migration applies explicit defaults before inserting into the constrained schema.
+Missing historical fields do not weaken the rules for ordinary writes. Each
+fallback records its source entity, field, value, and reason.
 
 created_by, published_by, and artifact_events.actor are NOT NULL. Agent-authored artifacts, versions, events, feedback, and replies must reference an agent session; human-authored rows must have no agent session. Ordinary write requests supply required attribution explicitly. There is no blanket SQL default that would silently convert a malformed new agent request into human authorship.
 
@@ -245,9 +263,10 @@ Store the source evidence and a defaults list identifying entity, field, chosen 
 
 NULL remains where absence is a supported state: no project grouping, no optional archive message, no fix target, no version context for a general message, no agent session for a human, a kind-inapplicable payload column, or a publication being assembled inside its transaction. These are product or transaction semantics, not concessions to legacy data.
 
-## Validation
+## Verification
 
-The executable DDL is exercised by [schema tests](../../server/artifact-schema.test.ts).
+[Schema tests](../../server/artifact-schema.test.ts) exercise the executable DDL.
 [Publication tests](../../server/artifacts.test.ts) cover atomic visibility, retries,
 concurrent publishers, retained Markdown, archive races, and whole-artifact deletion.
-See [implementation progress](implementation.md) for the remaining integration work.
+[Migration tests](../../server/migration.test.ts) cover preservation and recovery.
+See [acceptance checks](implementation.md) for browser and distribution verification.
