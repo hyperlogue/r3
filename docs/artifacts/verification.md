@@ -61,7 +61,16 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |
 | `test-preview-network.ts` | HTML-only network control and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering; `R3_TEST_CAPTURE=1` adds real browser denial/grant, received audio/video, independent physical track and clone shutdown, Stop sharing, stale consent dialog dismissal, navigation/version revocation, and unresponsive-page shutdown/recovery |
+| `test-preview-compatibility.ts` | Actual capability gate and workspace in caller-installed Playwright engines: no publication bytes before consent, one warning for concurrent media previews, decline/reopen, remembered acknowledgment, cross-tab revocation, storage-write failure, verified blocking despite saved acknowledgment, publisher gate-message forgery rejection, restrictive CSP, accurate external-navigation disclosure, app isolation, interaction/feedback, native navigation, versions, rendered files, and recovery that refuses transport errors |
 | `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, two opaque frames on the application address, parent/sibling/storage and cookie isolation, denied workers and frames, blocked external resources/navigation/redirects/sockets/WebRTC, and denied capture even after a transport-origin device grant |
+
+The compatibility suite uses an existing `playwright-core` package without adding
+or downloading dependencies. Set `R3_TEST_PLAYWRIGHT` to its entry module,
+`R3_TEST_ENGINE` to `chromium`, `firefox`, or `webkit`, and `R3_TEST_BROWSER` to the
+matching executable. Use `R3_TEST_UNSUPPORTED=1` for engines expected to require
+the compatibility warning. `R3_TEST_SCREENSHOT` optionally captures desktop,
+phone-sized warning, and protection details. Engine tests and resized viewports
+do not establish actual Safari or iOS support.
 
 The permission test uses synthetic devices and browser permission overrides. It
 needs full Chromium: the headless shell's fake media UI cannot prove denial. No
@@ -77,6 +86,12 @@ Reference runs on 2026-09-12 passed in Chrome for Testing 153.0.8010.36. Chromiu
 151 was refused before requesting published files. Its CSP-only WebRTC probe had
 emitted packets; Connection Allowlist enforcement prevented them in the supported
 browser. Browser identity alone never enables preview: the runtime gate must pass.
+The compatibility suite passed on Linux in Chrome for Testing 153.0.8010.36
+(verified blocking), Chromium 151.0.7922.173, and Playwright's patched Firefox 153.0
+(consented compatibility). The external-access/device regression suite also passed
+in Chrome for Testing 153 with synthetic devices and actual permission decisions.
+These runs do not establish the full six-month release matrix or actual macOS/iOS
+Safari coverage. No Safari platform acceptance has been run for this change.
 See [preview security](../../.claude/skills/security-model/SKILL.md#preview-host)
 for the enforced policy and scoped authorization.
 
