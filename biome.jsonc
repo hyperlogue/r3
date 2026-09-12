@@ -9,7 +9,7 @@
   "files": {
     "ignoreUnknown": true,
     // The demo fixtures are generated (one giant baked-HTML literal) — skip them.
-    "includes": ["**", "!web/demo/fixtures.gen.ts"]
+    "includes": ["**", "!web/demo/fixtures.gen.ts", "!web/demo/artifact-fixtures.gen.ts"]
   },
   "formatter": {
     "enabled": true,
