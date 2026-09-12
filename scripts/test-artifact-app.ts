@@ -1,5 +1,6 @@
+import { Database } from "bun:sqlite";
 import assert from "node:assert/strict";
-import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { eventually, openTestBrowser } from "./browser.ts";
@@ -55,6 +56,20 @@ const command = async (args: string[], override: Record<string, string> = {}) =>
 };
 let browser: Awaited<ReturnType<typeof openTestBrowser>> | undefined;
 try {
+  const legacy = new Database(environment.R3_DB);
+  legacy.exec(`
+    CREATE TABLE reviews(id TEXT PRIMARY KEY, kind TEXT, title TEXT, status TEXT, source TEXT);
+    CREATE TABLE snapshots(review_id TEXT, seq INTEGER, label TEXT);
+    CREATE TABLE snapshot_files(review_id TEXT, seq INTEGER, path TEXT, content TEXT, sha TEXT);
+    CREATE TABLE feedback(id TEXT PRIMARY KEY, review_id TEXT, author TEXT, file TEXT, body TEXT, status TEXT);
+    CREATE TABLE replies(id TEXT PRIMARY KEY, feedback_id TEXT, author TEXT, body TEXT, ref_version INTEGER);
+    INSERT INTO reviews VALUES ('review_imported', 'files', 'Imported publication', 'open', '{}');
+    INSERT INTO snapshots VALUES ('review_imported', 2, 'Retained snapshot');
+    INSERT INTO snapshot_files VALUES ('review_imported', 2, 'index.md', '# Retained legacy content', 'original-digest');
+    INSERT INTO feedback VALUES ('feedback_imported', 'review_imported', 'human', '', 'Retained human note', 'open');
+    INSERT INTO replies VALUES ('reply_imported', 'feedback_imported', 'agent', 'Retained agent reply', 2);
+  `);
+  legacy.close();
   await writeFile(
     join(directory, "index.html"),
     '<!doctype html><html><body><h1 id="title">First published page</h1><button id="send">Discuss this heading</button><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{const note=await r3.createFeedback({body:"Please explain the heading",locator:{selector:"#title",quote:title.textContent}});window.createdNote=note.id;};</script></body></html>',
@@ -101,6 +116,28 @@ try {
       ),
     "compiled artifact home",
   );
+  await page.command("Page.navigate", { url: `${url}/review_imported` });
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.body?.textContent.includes('Retained legacy content') && document.body?.textContent.includes('Retained human note') && document.body?.textContent.includes('Retained agent reply')",
+      ),
+    "preserved review URL and migrated conversation",
+  );
+  const imported = JSON.parse(await command(["show", "review_imported", "--json"]));
+  assert.deepEqual(
+    imported.versions.map((version: { seq: number }) => version.seq),
+    [2],
+  );
+  assert.equal(imported.feedback[0].replies[0].id, "reply_imported");
+  assert.equal(imported.feedback[0].sentAt, null);
+  const backups = await readdir(`${environment.R3_DB}.artifacts/backups`);
+  assert.equal(backups.length, 1);
+  const backup = new Database(join(`${environment.R3_DB}.artifacts/backups`, backups[0]), {
+    readonly: true,
+  });
+  assert.deepEqual(backup.query("SELECT id FROM reviews").all(), [{ id: "review_imported" }]);
+  backup.close();
   await page.command("Page.navigate", { url: `${url}/${html.artifact.id}` });
   const content = await eventually(async () => {
     for (const context of page.contexts.values()) {
@@ -196,8 +233,15 @@ try {
   const screenshot = await page.command("Page.captureScreenshot", { format: "png" });
   if (process.env.R3_TEST_SCREENSHOT)
     await Bun.write(process.env.R3_TEST_SCREENSHOT, Buffer.from(screenshot.data, "base64"));
+  await command(["restart"]);
+  assert(
+    (await command(["source", "review_imported", "--version", "2", "--file", "index.md"])).includes(
+      "Retained legacy content",
+    ),
+  );
+  assert.deepEqual(await readdir(`${environment.R3_DB}.artifacts/backups`), backups);
   console.log(
-    "Compiled app: lazy daemon, embedded assets, isolated preview, human utility thread, remote upload, pinned version, offline Markdown and binary reads passed.",
+    "Compiled app: legacy migration and restart, retained URL and threads, lazy daemon, embedded assets, isolated preview, human utility thread, remote upload, pinned version, offline Markdown and binary reads passed.",
   );
 } finally {
   await browser?.close();
