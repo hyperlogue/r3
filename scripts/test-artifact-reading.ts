@@ -241,16 +241,25 @@ try {
       await page.evaluate(
         `document.querySelector('[data-artifact-feedback="${feedback.id}"] button').click()`,
       );
+      const expandedWidth = await page.evaluate(
+        "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Float feedback\"]').click()");
       const contentWidth = await page.evaluate(
         "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Collapse feedback\"]').click()");
+      assert(Number(contentWidth) > Number(expandedWidth), "expanded reserves content space");
+      assert.equal(
+        await page.evaluate("document.querySelector('[data-feedback-mode]').dataset.feedbackMode"),
+        "floating",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
       assert.equal(
         await page.evaluate(
           "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
         ),
         contentWidth,
-        "folding never resizes content",
+        "floating and hidden preserve the same content width",
       );
       await page.evaluate(`document.querySelector('[data-fb-id="${feedback.id}"] code').click()`);
       await eventually(
@@ -327,6 +336,15 @@ try {
         "desktop dock restored",
       );
       await page.evaluate("document.querySelector('[aria-label=\"Expand feedback\"]').click()");
+      await eventually(
+        async () =>
+          Number(
+            await page.evaluate(
+              "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
+            ),
+          ) === Number(expandedWidth),
+        "expanding reserves the panel width again",
+      );
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await eventually(

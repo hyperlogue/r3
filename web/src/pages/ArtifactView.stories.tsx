@@ -9,7 +9,7 @@ import {
   artifactFixtureVersion,
 } from "../artifact-fixtures.ts";
 import { singleRound } from "../components/_fixtures.ts";
-import { setFeedbackCollapsed } from "../settings.ts";
+import { setFeedbackMode } from "../settings.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import { type ArtifactRenderer, ArtifactWorkspace } from "./ArtifactView.tsx";
 
@@ -129,7 +129,7 @@ const meta = {
   loaders: [
     () => {
       artifactDrafts.clear(detail.id);
-      setFeedbackCollapsed(false);
+      setFeedbackMode("expanded");
       return {};
     },
   ],
@@ -237,7 +237,7 @@ export const Mobile: Story = { parameters: phoneViewport() };
 export const CollapsedComposer: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Collapse feedback" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Hide feedback" }));
     const gutter = canvasElement.querySelector(
       '[data-file="index.md"] [data-line="4"] [data-gutter]',
     ) as HTMLElement;
@@ -254,8 +254,11 @@ export const FloatingPanelAndThread: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const content = canvasElement.querySelector("[data-artifact-content]")!;
+    const expandedWidth = content.getBoundingClientRect().width;
+    await userEvent.click(canvas.getByRole("button", { name: "Float feedback" }));
     const width = content.getBoundingClientRect().width;
-    await userEvent.click(canvas.getByRole("button", { name: "Collapse feedback" }));
+    await expect(width).toBeGreaterThan(expandedWidth);
+    await userEvent.click(canvas.getByRole("button", { name: "Hide feedback" }));
     await expect(content.getBoundingClientRect().width).toBe(width);
     const row = canvasElement.querySelector('[data-fb-id="feedback_source"] code') as HTMLElement;
     await userEvent.click(row);
@@ -273,6 +276,10 @@ export const FloatingPanelAndThread: Story = {
     await userEvent.click(row);
     await userEvent.click(canvas.getByRole("button", { name: "Open all feedback" }));
     await expect(canvas.queryByRole("dialog", { name: "Feedback thread" })).toBeNull();
+    await expect(
+      canvasElement.querySelector<HTMLElement>("[data-feedback-mode]")?.dataset.feedbackMode,
+    ).toBe("expanded");
+    await userEvent.click(canvas.getByRole("button", { name: "Float feedback" }));
     await expect(content.getBoundingClientRect().width).toBe(width);
   },
 };

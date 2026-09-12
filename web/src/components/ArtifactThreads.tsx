@@ -19,7 +19,7 @@ import { copyText } from "../clipboard.ts";
 import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, cn, FoldChevrons, FoldTriangle, useEscape } from "../ui.tsx";
+import { Button, cn, FoldTriangle, useEscape } from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 
@@ -428,7 +428,7 @@ export function ArtifactThreads({
   onJumpRef,
   activeFeedback,
   composer,
-  onCollapse,
+  panelControls,
   onFocusFeedback,
   onNewNote,
   keysActive = true,
@@ -439,7 +439,7 @@ export function ArtifactThreads({
   onJumpRef: ArtifactRefJump;
   activeFeedback?: string | null;
   composer?: ReactNode;
-  onCollapse?: () => void;
+  panelControls?: ReactNode;
   onFocusFeedback?: (id: string) => void;
   onNewNote?: () => void;
   keysActive?: boolean;
@@ -583,20 +583,10 @@ export function ArtifactThreads({
       aria-label="Artifact feedback"
     >
       <div className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="shrink-0 text-base font-semibold">Feedback</span>
-            {onCollapse && (
-              <button
-                type="button"
-                aria-label="Collapse feedback"
-                title="Hide feedback"
-                onClick={onCollapse}
-                className="flex shrink-0 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-              >
-                <FoldChevrons dir="right" />
-              </button>
-            )}
+            {panelControls}
             {!!draftCount && (
               <span
                 title="Add or post drafts before sending feedback"

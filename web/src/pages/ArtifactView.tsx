@@ -31,6 +31,7 @@ import {
 } from "../components/ArtifactThreads.tsx";
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
+import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
@@ -50,14 +51,9 @@ import {
   useProgressiveFileController,
 } from "../progressive.tsx";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
-import {
-  setDiffLayout,
-  setFeedbackCollapsed,
-  useDiffLayout,
-  useFeedbackCollapsed,
-} from "../settings.ts";
+import { setDiffLayout, setFeedbackMode, useDiffLayout, useFeedbackMode } from "../settings.ts";
 import type { DiffSide } from "../types.ts";
-import { Button, cn, FoldChevrons, useResizableWidth } from "../ui.tsx";
+import { Button, cn, useResizableWidth } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
 import { useArtifactContent } from "../useArtifactContent.ts";
 import { useScrollSpy } from "../useScrollSpy.ts";
@@ -141,7 +137,8 @@ export function ArtifactWorkspace({
   const mobile = useIsMobile();
   const coarse = usePointerCoarse();
   const layout = mobile ? "unified" : preferredLayout;
-  const collapsed = useFeedbackCollapsed();
+  const feedbackMode = useFeedbackMode();
+  const collapsed = feedbackMode === "hidden";
   const [sheet, setSheet] = useState<MobileSheetState>("closed");
   const [commenting, setCommenting] = useState(false);
   const [notice, setNotice] = useState("");
@@ -541,7 +538,7 @@ export function ArtifactWorkspace({
       : undefined,
     panelToggle: () => {
       if (mobile) setSheet(sheet === "closed" ? "full" : "closed");
-      else setFeedbackCollapsed(!collapsed);
+      else setFeedbackMode(collapsed ? "expanded" : "hidden");
     },
     ...(version
       ? {
@@ -624,7 +621,10 @@ export function ArtifactWorkspace({
       composer={composer}
       keysActive={mobile ? sheet !== "closed" : !collapsed}
       onNewNote={() => anchor({ kind: "artifact" })}
-      onCollapse={mobile ? undefined : () => setFeedbackCollapsed(true)}
+      panelControls={
+        !mobile &&
+        !collapsed && <FeedbackPanelControls mode={feedbackMode} onChange={setFeedbackMode} />
+      }
     />
   );
   const diffLocate = useMemo(
@@ -841,13 +841,19 @@ export function ArtifactWorkspace({
             </VirtualPaneProvider>
           )}
         </div>
-        {/* A fixed launcher gutter keeps edge anchors reachable. It never changes
-            width when the panel opens, folds, or is resized. */}
-        {!mobile && <div aria-hidden="true" className="w-[calc(32px+1rem)] shrink-0" />}
+        {/* Hidden and floating share a fixed gutter so overlay toggles leave
+            content width unchanged and hidden-panel edge anchors stay reachable. */}
+        {!mobile && feedbackMode !== "expanded" && (
+          <div aria-hidden="true" className="w-[calc(32px+1rem)] shrink-0" />
+        )}
         {!mobile && (
           <aside
+            data-feedback-mode={feedbackMode}
             className={cn(
-              "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950",
+              "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
+              feedbackMode === "expanded"
+                ? "relative shrink-0 border-l"
+                : "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl",
               !resize.dragging && "transition-[width] duration-200 motion-reduce:transition-none",
             )}
             style={{ width: collapsed ? 32 : resize.width }}
@@ -867,23 +873,25 @@ export function ArtifactWorkspace({
               {panel}
             </div>
             {collapsed && (
-              <button
-                type="button"
-                aria-label="Expand feedback"
-                onClick={() => setFeedbackCollapsed(false)}
-                className="absolute inset-0 flex w-full flex-col items-center gap-3 bg-white py-3 text-xs text-neutral-500 dark:bg-neutral-950"
-              >
-                <FoldChevrons dir="left" />
-                <span className="[writing-mode:vertical-rl]">
-                  FEEDBACK ·{" "}
-                  {detail.feedback.filter((feedback) => feedback.status === "open").length}
-                </span>
-                {hasDraft && <span title="Unsaved draft">✎</span>}
-                {detail.feedback.some(hasUnsentArtifactFeedback) && (
-                  <span title="Feedback waiting to be sent">↥</span>
-                )}
-                {detail.watching && <span title="Agent listening">●</span>}
-              </button>
+              <div className="absolute inset-0 flex flex-col items-center gap-3 bg-white py-2 text-xs text-neutral-500 dark:bg-neutral-950">
+                <FeedbackPanelControls mode="hidden" onChange={setFeedbackMode} />
+                <button
+                  type="button"
+                  aria-label="Show feedback"
+                  onClick={() => setFeedbackMode("expanded")}
+                  className="flex w-full flex-1 flex-col items-center gap-3"
+                >
+                  <span className="[writing-mode:vertical-rl]">
+                    FEEDBACK ·{" "}
+                    {detail.feedback.filter((feedback) => feedback.status === "open").length}
+                  </span>
+                  {hasDraft && <span title="Unsaved draft">✎</span>}
+                  {detail.feedback.some(hasUnsentArtifactFeedback) && (
+                    <span title="Feedback waiting to be sent">↥</span>
+                  )}
+                  {detail.watching && <span title="Agent listening">●</span>}
+                </button>
+              </div>
             )}
           </aside>
         )}
@@ -895,7 +903,7 @@ export function ArtifactWorkspace({
               context={context}
               onLocate={locate}
               onJumpRef={jumpRef}
-              onExpand={() => setFeedbackCollapsed(false)}
+              onExpand={() => setFeedbackMode("expanded")}
               onClose={() => setPopoverFeedback(null)}
             />
           </div>

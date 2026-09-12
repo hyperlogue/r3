@@ -63,24 +63,17 @@ export function setFontSize(px: number): void {
   font.set(clampFont(px));
 }
 
-// ---- feedback panel collapse (desktop) ----
+// ---- feedback panel mode (desktop) ----
 
-// Whether the right-docked feedback panel is folded to its narrow rail, giving
-// the content pane the width back. A display preference like the three above —
-// it never reaches the server and never bumps `review.updated_at` — and global
-// rather than per-review: how wide you like to read is a habit, not a property of
-// any one review.
-//
-// The phone tier has no rail. Below md the panel already lives in the bottom
-// sheet, whose closed state IS "collapsed", so ReviewView ignores this there
-// WITHOUT writing to it — same shape as the forced-unified diff layout, so a
-// collapse-preferring user gets the rail back the moment the viewport is wide again.
-const feedbackCollapsed = persistedStore<boolean>("r3-feedback-collapsed", {
-  load: (raw) => raw === "1",
-  // Absent = expanded (the default), so the key is removed rather than written
-  // "0" — nothing to migrate if this preference ever goes away.
-  save: (v) => (v ? "1" : null),
+// Expanded reserves content space; floating overlays it; hidden leaves a rail.
+// Keep the existing storage key to retain old collapsed preferences ("1").
+// Mobile uses its own sheet without changing this global display preference.
+export type FeedbackPanelMode = "hidden" | "expanded" | "floating";
+const feedbackMode = persistedStore<FeedbackPanelMode>("r3-feedback-collapsed", {
+  load: (raw) =>
+    raw === "1" || raw === "hidden" ? "hidden" : raw === "floating" ? "floating" : "expanded",
+  save: (mode) => (mode === "expanded" ? null : mode),
 });
-export const getFeedbackCollapsed = feedbackCollapsed.get;
-export const setFeedbackCollapsed = feedbackCollapsed.set;
-export const useFeedbackCollapsed = feedbackCollapsed.use;
+export const getFeedbackMode = feedbackMode.get;
+export const setFeedbackMode = feedbackMode.set;
+export const useFeedbackMode = feedbackMode.use;

@@ -86,7 +86,7 @@ export const KEYMAP: readonly Binding[] = [
   { id: "layoutToggle", keys: ["\\"], label: "Unified / side-by-side", group: "View" },
   // Desktop only — below md the feedback panel is the bottom sheet, which has no
   // collapse control for this to fire (ReviewView leaves it unbound there).
-  { id: "panelToggle", keys: ["p"], label: "Collapse / expand feedback panel", group: "View" },
+  { id: "panelToggle", keys: ["p"], label: "Hide / expand feedback panel", group: "View" },
 ];
 
 const CHORDS = new Map<string, KeyId>();

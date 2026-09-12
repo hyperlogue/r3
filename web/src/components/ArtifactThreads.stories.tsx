@@ -4,6 +4,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { Button } from "../ui.tsx";
 import { ArtifactThreads } from "./ArtifactThreads.tsx";
+import { FeedbackPanelControls } from "./FeedbackPanelControls.tsx";
 
 const meta = {
   title: "Components/ArtifactThreads",
@@ -13,7 +14,7 @@ const meta = {
     context: { versionSeq: 1, representation: "source" },
     onLocate: fn(),
     onJumpRef: fn(),
-    onCollapse: fn(),
+    panelControls: <FeedbackPanelControls mode="expanded" onChange={fn()} />,
   },
   parameters: { queryData: [[["artifact-watchers", artifactFixture.id], []]] },
   decorators: [
@@ -27,6 +28,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const NarrowPanel: Story = {
+  decorators: [
+    (Story) => (
+      <div className="h-full w-[300px]">
+        <Story />
+      </div>
+    ),
+  ],
+};
 export const FeedbackTabs: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

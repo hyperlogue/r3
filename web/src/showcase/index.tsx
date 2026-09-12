@@ -14,13 +14,15 @@ import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
+import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
 import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
+import type { FeedbackPanelMode } from "../settings.ts";
 import { useDiffLayout } from "../settings.ts";
-import { Button, Pill } from "../ui.tsx";
+import { Button, cn, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import "../main.css";
@@ -67,8 +69,13 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
 function Feedback({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [mode, setMode] = useState<FeedbackPanelMode>("expanded");
+  const collapsed = mode === "hidden";
   const [threadOpen, setThreadOpen] = useState(false);
+  const changeMode = (next: FeedbackPanelMode) => {
+    setMode(next);
+    setThreadOpen(false);
+  };
   const { data } = useQuery({ queryKey: ["artifact", id], queryFn: () => artifactApi.detail(id) });
   if (!data) return <p>Loading sample…</p>;
   return (
@@ -83,8 +90,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
-        <div className="relative min-h-[680px]">
-          <div className="pr-[calc(32px+1rem)]">
+        <div className="relative flex min-h-[680px]">
+          <div className="min-w-0 flex-1">
             <ArtifactSummary
               source={data.versions[0].summary}
               versionSeq={1}
@@ -93,13 +100,13 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
             />
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
-                The panel at the right uses the current feedback UI: Active and Resolved queues,
-                native target labels, agent replies, and a local draft composer.
+                The feedback panel has three states: hidden, expanded beside the content, or
+                floating over it. Use its icon controls to compare them. Hidden anchors open one
+                conversation at a time.
               </p>
               <Button
                 onClick={() => {
-                  setCollapsed(false);
-                  setThreadOpen(false);
+                  changeMode("expanded");
                   artifactDrafts.anchor(id, { kind: "artifact" });
                 }}
               >
@@ -107,7 +114,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </Button>
               <Button
                 onClick={() => {
-                  setCollapsed(true);
+                  changeMode("hidden");
                   setThreadOpen(true);
                 }}
               >
@@ -163,8 +170,15 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </p>
             </div>
           </div>
+          {mode !== "expanded" && <div className="w-[calc(32px+1rem)] shrink-0" />}
           <div
-            className="absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+            data-sample-feedback-mode={mode}
+            className={cn(
+              "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
+              mode === "expanded"
+                ? "relative shrink-0 border-l"
+                : "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl",
+            )}
             style={{ width: collapsed ? 32 : 420 }}
           >
             <div
@@ -180,21 +194,23 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 }
                 onJumpRef={() => announce("Sample file reference selected")}
                 keysActive={false}
-                onCollapse={() => setCollapsed(true)}
+                panelControls={
+                  !collapsed && <FeedbackPanelControls mode={mode} onChange={changeMode} />
+                }
               />
             </div>
             {collapsed && (
-              <Button
-                aria-label="Expand sample feedback"
-                variant="ghost"
-                className="absolute inset-0 w-full justify-center [writing-mode:vertical-rl]"
-                onClick={() => {
-                  setCollapsed(false);
-                  setThreadOpen(false);
-                }}
-              >
-                Feedback · {data.feedback.filter((feedback) => feedback.status === "open").length}
-              </Button>
+              <div className="absolute inset-0 flex flex-col items-center gap-3 py-2">
+                <FeedbackPanelControls mode="hidden" onChange={changeMode} />
+                <Button
+                  aria-label="Expand sample feedback"
+                  variant="ghost"
+                  className="w-full flex-1 justify-start [writing-mode:vertical-rl]"
+                  onClick={() => changeMode("expanded")}
+                >
+                  Feedback · {data.feedback.filter((feedback) => feedback.status === "open").length}
+                </Button>
+              </div>
             )}
           </div>
           {collapsed && threadOpen && data.feedback[0] && (
@@ -204,10 +220,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 context={{ versionSeq: 1, representation: "source" }}
                 onLocate={() => announce("Sample target selected")}
                 onJumpRef={() => announce("Sample file reference selected")}
-                onExpand={() => {
-                  setCollapsed(false);
-                  setThreadOpen(false);
-                }}
+                onExpand={() => changeMode("expanded")}
                 onClose={() => setThreadOpen(false)}
               />
             </div>

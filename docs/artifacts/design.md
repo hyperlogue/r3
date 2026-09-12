@@ -135,12 +135,19 @@ use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 
-On desktop the feedback panel floats over the right side of the content, below
-its toolbar. Opening, folding, and resizing it never changes the content or
-preview width. A fixed narrow launcher gutter keeps right-edge anchors reachable
-when the panel is folded. The panel stays mounted to preserve its UI state.
+The desktop feedback panel has three persisted display states:
 
-With the panel folded, selecting an existing source/diff anchor or rendered
+- **Hidden:** a narrow launcher remains; anchors can open individual threads.
+- **Expanded** (default): the original side panel reserves space beside the content.
+- **Floating:** the panel overlays the right side of the content, below its toolbar.
+
+Hidden and floating share a fixed launcher gutter, so switching between them or
+resizing the floating panel never changes content or preview width. Expanded
+reserves the panel's width and resizes content with it. Icon controls switch states;
+`p` hides a visible panel or expands a hidden one. All states keep the panel mounted
+to preserve UI state and drafts. Existing folded preferences become hidden.
+
+With the panel hidden, selecting an existing source/diff anchor or rendered
 comment marker opens only that conversation in a floating card. Reply and status
 actions reuse the same thread component and draft store. Closing the card keeps
 drafts; **Open all feedback** reveals the full panel. Changing version or view

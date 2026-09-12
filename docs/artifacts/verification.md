@@ -130,7 +130,8 @@ scripts cover integration with the real server. The
 binary embedding, CSS compilation, demo aliases, and Pages layout.
 
 The reading acceptance also checks that the composer precedes the threads and
-folding the desktop feedback overlay leaves content width unchanged. Selecting a
-source anchor with the panel hidden opens one thread, and dismissing/reopening it
+the expanded desktop panel reserves content space. Floating and hidden retain the
+same content width; expanding restores the side panel. Selecting a source anchor
+with the panel hidden opens one thread, and dismissing/reopening it
 preserves its reply draft. Workspace and popover stories expose the same states
 for visual review; mobile keeps its sheet.
