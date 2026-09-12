@@ -5,7 +5,7 @@ replies attached to the artifact. Reviewing is an activity on that work product.
 This document explains the product boundaries and the reasons behind them.
 
 Use [the schema reference](schema.md) for storage constraints and migration,
-[verification](implementation.md) for acceptance checks, and the
+[verification](verification.md) for acceptance checks, and the
 [API reference](../../.claude/skills/api-surface/SKILL.md) for routes and commands.
 The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 
@@ -203,7 +203,7 @@ verifies URL blocking and WebRTC rejection. Unsupported browsers fail closed.
 Camera/microphone retain browser consent through the secure preview's permission
 delegation; permission neither opens networking nor automatically publishes capture.
 The [security reference](../../.claude/skills/security-model/SKILL.md#preview-host)
-owns enforcement details; [verification](implementation.md) owns browser evidence.
+owns enforcement details; [verification](verification.md) owns browser evidence.
 
 Pages may import `/r3/utility.js` to use the narrow
 [ArtifactUtility interface](../../shared/preview-protocol.ts): context, threads,

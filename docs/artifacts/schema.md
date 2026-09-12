@@ -269,4 +269,4 @@ NULL remains where absence is a supported state: no project grouping, no optiona
 [Publication tests](../../server/artifacts.test.ts) cover atomic visibility, retries,
 concurrent publishers, retained Markdown, archive races, and whole-artifact deletion.
 [Migration tests](../../server/migration.test.ts) cover preservation and recovery.
-See [acceptance checks](implementation.md) for browser and distribution verification.
+See [acceptance checks](verification.md) for browser and distribution verification.

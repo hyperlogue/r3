@@ -5,11 +5,11 @@ conversations**. A per-user daemon owns immutable content and persisted feedback
 the browser, CLI, and agents use the same HTTP/JSON contract. The daemon, CLI, and
 SPA ship as one self-contained binary. Read [README.md](README.md) for usage.
 
-This file, the [approved artifact design](docs/artifacts/design.md),
+This file, the [artifact design](docs/artifacts/design.md),
 [schema explanation](docs/artifacts/schema.md), and the deep-reference skills below
 are the design source of truth. Update the document that owns a decision when it
-changes. [Implementation and acceptance](docs/artifacts/implementation.md) records
-what was verified. Earlier live-file reviews have been retired; historical types
+changes. [Verification](docs/artifacts/verification.md) maps behavior to executable
+acceptance checks. Earlier live-file reviews have been retired; historical types
 used by migration or presentation helpers do not define new API behavior.
 
 ## Architecture
@@ -52,7 +52,7 @@ isolated preview host → one version's bytes + trusted r3 runtime
 | --- | --- |
 | Public contracts | `shared/artifacts.ts`, `artifact-client.ts`, `artifact-prompt.ts`, `preview-protocol.ts`, `event-stream.ts`; `shared/types.ts` also retains renderer and legacy migration shapes |
 | Entrypoints | `cli/index.ts` → `artifact-main.ts`; `server/index.ts` → `artifact-daemon.ts`; `web/src/App.tsx` → `ArtifactHome` / `ArtifactView` |
-| Bootstrap and exposure | `server/config.ts`, `artifact-config.ts`, `artifact-daemon.ts`, `artifact-server.ts`, `application-assets.ts`; `cli/daemon-client.ts`, `artifact-config.ts` |
+| Bootstrap and exposure | `server/config.ts`, `artifact-config.ts`, `artifact-daemon.ts`, `artifact-server.ts`, `application-assets.ts`; `cli/daemon-client.ts`, `artifact-settings.ts` |
 | Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration*.ts`; private backup, atomic migration, recovery, coordinated garbage collection |
 | Publication | `server/artifacts.ts`, `publication.ts`, `artifact-validation.ts`; stable upload identity, preparation before atomic publish, immutable membership |
 | Publisher capture | `cli/capture.ts`, `capture-git.ts`, `artifact-publish.ts`; bounded stable bytes, Git process isolation, explicit retry diagnostics |

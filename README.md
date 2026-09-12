@@ -248,5 +248,5 @@ bun run build:demo
 The source daemon bundles the browser on startup. Server changes restart it under
 `bun --watch`; restart after frontend edits to rebuild its guarded assets, or use
 Storybook for component development. See [AGENTS.md](AGENTS.md) for the module map
-and [the implementation record](docs/artifacts/implementation.md) for browser and
+and [the verification guide](docs/artifacts/verification.md) for browser and
 compiled-binary acceptance commands.
