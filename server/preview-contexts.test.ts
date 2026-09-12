@@ -162,3 +162,66 @@ test("preview URLs cannot bypass the browser gate; grants require a same-origin 
   contexts.revoke(context.id);
   expect(() => contexts.authorized(browser("GET", { cookie }))).toThrow("unavailable");
 });
+
+test("worker resources may omit client hints without allowing a navigation to skip browser verification", () => {
+  const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
+  const headers = {
+    host: new URL(context.origin).host,
+    "user-agent": "Verified browser",
+    "sec-ch-ua": '"Fixture";v="153"',
+    "sec-ch-ua-platform": '"Test"',
+  };
+  const proof = contexts.challenge(new Request(context.gateUrl, { headers }));
+  const cookie = contexts
+    .verify(
+      new Request(`${context.origin}/r3/verify`, {
+        method: "POST",
+        headers: { ...headers, origin: context.origin, "content-type": "application/json" },
+      }),
+      proof.challenge,
+    )!
+    .split(";")[0];
+  for (const destination of ["worker", "sharedworker", "script", "empty"]) {
+    const resource = new Request(`${context.origin}/files/data.json`, {
+      headers: {
+        host: headers.host,
+        "user-agent": headers["user-agent"],
+        cookie,
+        "sec-fetch-dest": destination,
+      },
+    });
+    expect(contexts.authorized(resource)?.versionSeq).toBe(1);
+  }
+  for (const destination of ["document", "iframe", "frame", ""])
+    expect(
+      contexts.authorized(
+        new Request(context.documentUrl, {
+          headers: {
+            host: headers.host,
+            "user-agent": headers["user-agent"],
+            cookie,
+            "sec-fetch-dest": destination,
+          },
+        }),
+      ),
+    ).toBeNull();
+  expect(
+    contexts.authorized(
+      new Request(context.documentUrl, {
+        headers: { ...headers, cookie, "sec-fetch-dest": "iframe" },
+      }),
+    )?.versionSeq,
+  ).toBe(1);
+  expect(
+    contexts.authorized(
+      new Request(context.documentUrl, {
+        headers: {
+          host: headers.host,
+          cookie,
+          "user-agent": "Different browser",
+          "sec-fetch-dest": "worker",
+        },
+      }),
+    ),
+  ).toBeNull();
+});

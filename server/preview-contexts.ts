@@ -18,7 +18,7 @@ const browserIdentity = (request: Request) =>
 interface PreviewState {
   scope: PreviewScope;
   challenges: Map<string, { browser: string; expiresAt: number }>;
-  browsers: Map<string, string>;
+  browsers: Map<string, { identity: string; userAgent: string }>;
 }
 
 function secureOrigin(value: string): URL {
@@ -224,7 +224,10 @@ export class PreviewContexts {
     challenges.delete(key);
     while (browsers.size >= 8) browsers.delete(browsers.keys().next().value!);
     const cookie = randomBytes(32).toString("base64url");
-    browsers.set(digest(cookie), pending.browser);
+    browsers.set(digest(cookie), {
+      identity: pending.browser,
+      userAgent: digest(request.headers.get("user-agent") ?? ""),
+    });
     return `${PREVIEW_COOKIE}=${cookie}; Path=/; Secure; HttpOnly; SameSite=None; Partitioned`;
   }
 
@@ -237,7 +240,20 @@ export class PreviewContexts {
       .find((value) => value.startsWith(`${PREVIEW_COOKIE}=`))
       ?.slice(PREVIEW_COOKIE.length + 1);
     const browser = cookie ? this.get(scope.id).browsers.get(digest(cookie)) : undefined;
-    return browser !== undefined && browser === browserIdentity(request) ? scope : null;
+    if (!browser) return null;
+    if (browser.identity === browserIdentity(request)) return scope;
+    // Chromium omits client hints on worker script requests and worker fetches.
+    // They may use the verified cookie with the same User-Agent. Navigations
+    // still require the full browser identity used by the verification gate.
+    const workerResource = ["worker", "sharedworker", "script", "empty"].includes(
+      request.headers.get("sec-fetch-dest") ?? "",
+    );
+    return workerResource &&
+      !request.headers.has("sec-ch-ua") &&
+      !request.headers.has("sec-ch-ua-platform") &&
+      browser.userAgent === digest(request.headers.get("user-agent") ?? "")
+      ? scope
+      : null;
   }
 }
 
