@@ -86,11 +86,14 @@ The first returns the file list as JSON. The second returns original bytes with
 media type, validators, private caching, and byte-range support. Application-origin
 downloads are attachments. Executable content belongs to the separate preview host.
 
-A preview context binds one artifact/version to a temporary isolated origin. Its
-`/files/<path>` resources use that same version's content; `/r3/` serves trusted
-preview support. Native modules, CSS, images, audio/video, fetch, and XHR authenticate
-with a scoped preview cookie. The page receives no application credential.
-Unknown paths return 404, with no other-version, filesystem, or proxy fallback.
+A preview context binds one artifact/version to a temporary random URL prefix on
+one preview endpoint. Its `files/<path>` resources use that version's content;
+`r3/` serves trusted preview support. Documents use `sandbox="allow-scripts"`
+and the same CSP sandbox, producing a fresh opaque origin on every navigation.
+Native modules, CSS, images, audio/video, fetch, and XHR use scoped URLs and
+credential-free resource CORS. No preview cookie or application credential is
+needed. Gate HTML has no CORS headers. Unknown paths return 404, with no
+other-version, filesystem, or proxy fallback.
 
 Author pages with relative URLs, hash routes, and published document paths:
 
@@ -103,7 +106,7 @@ Author pages with relative URLs, hash routes, and published document paths:
 ```
 
 Those requests stay on the displayed version after a newer publication arrives.
-Nested documents use normal directory-relative resolution. The utility exposes a
+Links to published documents use normal directory-relative resolution. The utility exposes a
 `resourceRoot` for constructing URLs from the version root. A leading `/` addresses
 the preview origin root, not that resource root; arbitrary root-relative rewriting
 and SPA history-route fallback are unsupported. A missing asset remains distinct
@@ -208,11 +211,11 @@ support. External APIs, CDNs, fonts/images/media, sockets, unrelated same-host
 endpoints, redirects, and networked WebRTC are blocked. Pages must publish their
 assets and dependencies. The preview is not an upstream proxy.
 
-The server combines a distinct origin, scoped authentication, CSP/sandbox policy,
-and Connection Allowlists. Before loading executable content, a capability gate
+The server combines opaque document origins, scoped URL capabilities,
+CSP/sandbox policy, and Connection Allowlists. Before loading executable content, a capability gate
 verifies URL blocking and WebRTC rejection. Unsupported browsers fail closed.
-Camera/microphone retain browser consent through the secure preview's permission
-delegation; permission neither opens networking nor automatically publishes capture.
+Persistent storage, workers, nested frames, camera, and microphone are unavailable.
+Granting a device permission to the transport origin cannot enable capture.
 The [security reference](../../.claude/skills/security-model/SKILL.md#preview-host)
 owns enforcement details; [verification](verification.md) owns browser evidence.
 
@@ -220,8 +223,9 @@ Pages may import `/r3/utility.js` to use the narrow
 [ArtifactUtility interface](../../shared/preview-protocol.ts): context, threads,
 feedback creation, replies, explicit Submit, and change subscriptions. These use
 the same conversations and handoff as the built-in panel. Human mutations require
-user activation. The bridge validates its source, origin, context, and document
-scope; it exposes no generic API, actor override, publication, lifecycle, or host
+user activation. The bridge validates the exact iframe window, opaque origin,
+context, and document scope before accepting a transferred MessagePort. Replies
+stay on that document's port across navigation; it exposes no generic API, actor override, publication, lifecycle, or host
 execution capability. Pages work without importing it.
 
 ## Upgrade and scope boundaries

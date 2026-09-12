@@ -15,12 +15,11 @@ logical agents, not multi-user accounts or per-agent permissions.
 `server/artifact-server.ts` binds the application and preview listeners separately,
 only on loopback. All-interface binds are rejected. The application Host guard
 runs before both API and static assets. Allowed application hosts are exact local,
-explicitly allowlisted, or advertised public hostnames; never wildcards. Preview
-hosts are excluded even if the application allowlist would otherwise match.
+explicitly allowlisted, or advertised public hostnames; never wildcards. Transport hostnames are not document identities: opaque preview documents
+serialize their Origin as `null`, which the application guard rejects.
 
 `server/artifact-auth.ts` gates every API request by full origin, including port.
-A configured application origin supports a proxy that rewrites Host. Preview
-origins must never enter that set. No-Origin CLI requests are allowed, but browser
+A configured application origin supports a proxy that rewrites Host. Opaque preview origins must never enter that set. No-Origin CLI requests are allowed, but browser
 cross-origin Fetch Metadata does not acquire that exemption. No cross-origin
 access headers are emitted.
 
@@ -61,71 +60,68 @@ Configuration contains no secret. Supported settings include application bind,
 port, publicUrl, allowedHosts and requireLogin, plus previewPort and previewBaseUrl.
 Changes take effect at restart. The preview port defaults to application port + 1
 and must differ from it. The local preview base is HTTP localhost; remote browser
-rendering requires a separate HTTPS DNS origin and wildcard context subdomains
-forwarded unchanged to the preview listener. Never forward the application API
+rendering requires one HTTPS preview origin forwarded unchanged to the preview
+listener. A second port on the same HTTPS hostname works without wildcard DNS. Never forward the application API
 through that host, or merge the application and preview listeners/origins.
 
 ## Preview host
 
-`server/preview-host.ts` serves one published version per temporary random
-subdomain. `PreviewContexts` validates the exact host and port, expires contexts
-after one hour without application renewal, and revokes their browser grants
-together. It never transfers the application's token or cookies. Every published
-resource requires a preview-only Secure, HttpOnly, partitioned cookie.
+`server/preview-host.ts` serves one immutable version per temporary random path
+under `/__r3_preview/<context>/`. Exact host/port and context membership are checked
+before every response. Contexts expire after one hour without application renewal;
+revocation or artifact deletion invalidates the whole context. These unguessable
+URLs grant one version's resources, never application or other-artifact authority.
+They are scoped bearer capabilities and must not be placed in logs or referrers.
 
-Before issuing that cookie, an r3-owned gate checks an allowed same-origin fetch,
-the blocking of another working same-origin endpoint, and WebRTC policy rejection
-with no ICE servers and relay-only transport. That WebRTC check emits no probe
-packets. The gate then exchanges a single-use challenge through a same-origin
-JSON POST. A foreign page cannot forge its Origin or read its challenge through
-CORS. Grants bind to the browser's user-agent/client-hint identity, so copying a
-preview URL, or reusing a cookie in a different browser version, does not skip
-verification. User-agent detection alone never enables rendering.
+Each document has `sandbox allow-scripts` in both the iframe and response CSP.
+The browser assigns a fresh opaque origin on every navigation, even when two
+previews share a transport hostname. The iframe is also credentialless, avoiding
+ambient application cookies in transport requests. Persistent storage, workers,
+nested frames, camera, and microphone are unavailable. Neither publisher scripts
+nor a device grant can restore a real origin. Top-level published-document
+navigation is refused; rendering belongs inside the workspace.
 
-Chromium omits client hints on worker scripts and worker fetches. Those resource
-requests may use a verified cookie with the same User-Agent when both hints are
-absent. A document/iframe navigation still requires the complete identity from
-the gate. This permits native workers without turning a copied cookie into an
-unverified executable-document grant.
+Before published bytes become available, a trusted gate verifies its opaque
+origin, an allowed fetch, blocking of a working endpoint outside the allowlist,
+and WebRTC rejection with no ICE servers and relay-only transport. Both fetch
+probe endpoints permit credential-free CORS, so a CORS failure cannot stand in
+for network enforcement. The gate HTML has no CORS headers: an unrelated opaque
+document cannot read its single-use, two-minute challenge. JSON verification
+accepts `Origin:null` only with that browser-bound challenge. Null is a serialized
+origin, not an authentication principal. Grants use the browser's User-Agent;
+opaque fetches omit client hints. No preview cookie is issued or accepted.
+Browser identity alone never enables a context: the actual gate must pass first.
 
-The preview's Connection Allowlist includes only its `/files/*` and `/r3/*`
-namespaces, with WebRTC and redirects blocked. CSP additionally restricts resource
-classes, forms, frames, and navigation through sandboxing. Service-worker script
-requests are refused: a worker must not substitute a document response without
-the server's policy. Ordinary published workers still receive the policy.
-Camera/microphone are delegated through the isolated real origin and retain
-browser consent. Neither permission grants a network exception.
+The Connection Allowlist includes only that context's `files/*` and `r3/*`, with
+WebRTC and redirects blocked. CSP additionally restricts resource classes, forms,
+frames, base URLs, and sandbox privileges. Service-worker script requests are refused;
+CSP disallows ordinary and blob workers too. Unsupported browsers fail closed.
+There is no generic upstream proxy or unknown-path document fallback.
 
-Preview documents are not cached; the response inserts the r3 runtime before
-publisher scripts in original HTML or retained Markdown HTML without changing
-stored bytes. Native resource
-GET/HEAD/range responses remain private and immutable, varying by preview cookie,
-browser identity, and fetch destination. Unknown paths never receive a document
-fallback or an upstream proxy response.
+Preview documents are not cached. The response inserts the r3 runtime before
+publisher scripts without changing original or retained Markdown bytes. An
+injected import map preserves `/r3/utility.js` as a context-scoped import. Native
+resources retain private caching, validators, and ranges, varying by User-Agent
+and fetch destination. Resource CORS permits opaque module/fetch/XHR/font reads,
+including error responses, without permitting credentials. It does not apply to
+application APIs or gate HTML.
 
-The real host/gate loaded published scripts and JSON in Chrome for Testing 153,
-and refused Chromium 151 before any published file request. The full Chrome 153
-build passed the network/device matrix in `scripts/test-preview-isolation.ts`:
-native resources and audio seeking, workers and blob workers, denied service
-workers, external resources/connections/WebTransport, redirects, direct and nested
-navigation, document rewriting, same-host application/version isolation, and
-WebRTC with a controlled UDP sink. Browser permission denial rejects media capture;
-grant enables fake audio/video devices without enabling WebRTC packets. Tests
-use a fresh profile and controlled loopback endpoints; no physical device is read.
-The integrated artifact workspace
-has also passed real-browser tests for human utility messages, shared threads,
-version switching, original rendered Locate, and native document navigation.
+The parent accepts a bridge connection only from its exact iframe window,
+`Origin:null`, context id, and a published path, after gate readiness. Each document
+transfers a MessagePort to the exact application origin. Replies stay on that
+port, so navigation cannot deliver a pending result to a replacement document.
+The bridge exposes context, same-artifact conversations, human feedback/replies,
+explicit Submit, and change notifications. It has no generic HTTP or host-command
+operation and accepts no actor or version override. Mutations require browser
+user activation. Published membership is checked before dispatch; reply ids must
+belong to the same artifact, and the server validates each native target.
+Application authentication stays in the parent.
 
-The parent accepts a bridge connection only from its exact iframe window, preview
-origin, context id, and a published path. Each document transfers a MessagePort
-to the exact application origin. Replies stay on that port, so navigation cannot
-deliver a pending result to a replacement document. The bridge exposes context, same-artifact conversations,
-human feedback/replies, explicit Submit, and change notifications. It has no
-generic HTTP or host-command operation and accepts no actor or version override.
-Mutations require browser user activation; page load and agent replies cannot
-silently send another message or handoff. Published path membership is checked
-before dispatch, reply ids must belong to the same artifact, and the server
-validates each native target. Application authentication stays in the parent.
+Real-browser checks cover native resources, opaque storage and parent isolation,
+denied workers/devices, scoped navigation, blocked external connections, and
+WebRTC with a controlled UDP sink. The integrated workspace checks utility
+messages, shared threads, version switching, original Locate, and HTML/Markdown
+navigation. See `docs/artifacts/verification.md` for commands and browser evidence.
 
 ## Publication and persisted data
 

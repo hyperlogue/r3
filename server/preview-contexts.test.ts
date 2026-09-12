@@ -3,7 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
-import { PreviewContexts, previewDocumentUrl, previewPolicy } from "./preview-contexts.ts";
+import {
+  PreviewContexts,
+  previewDocumentUrl,
+  previewPolicy,
+  previewRoot,
+} from "./preview-contexts.ts";
 
 let root: string;
 let storage: ArtifactStorage;
@@ -49,16 +54,19 @@ afterEach(async () => {
 });
 const request = (url: string) => new Request(url, { headers: { host: new URL(url).host } });
 
-test("each preview grants one publication through an exact, temporary capability origin", () => {
+test("each preview grants one publication through an exact, temporary capability path", () => {
   const first = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
   const second = contexts.create(id, 2, "notes/a # b?.md", "https://app.example");
-  expect(first.origin).not.toBe(second.origin);
+  expect(first.origin).toBe(second.origin);
+  expect(first.resourceRoot).not.toBe(second.resourceRoot);
   expect(contexts.forRequest(request(first.documentUrl)).versionSeq).toBe(1);
   expect(contexts.forRequest(request(second.documentUrl)).versionSeq).toBe(2);
   expect(first.documentUrl.endsWith("/files/notes/a%20%23%20b%3F.md")).toBe(true);
-  expect(() => contexts.forRequest(request(`${first.origin}:444/files/data.json`))).toThrow(
-    "unavailable",
-  );
+  expect(() =>
+    contexts.forRequest(
+      request(first.documentUrl.replace("preview.example", "preview.example:444")),
+    ),
+  ).toThrow("unavailable");
   expect(() =>
     contexts.forRequest(request(first.documentUrl.replace("preview.example", "other.example"))),
   ).toThrow("unavailable");
@@ -66,7 +74,7 @@ test("each preview grants one publication through an exact, temporary capability
   expect(() => contexts.create(id, 1, "data.json", "https://app.example")).toThrow(
     "rendered document",
   );
-  expect(() => previewDocumentUrl({ origin: first.origin }, "../data.json")).toThrow();
+  expect(() => previewDocumentUrl(first, "../data.json")).toThrow();
   time += 30 * 60 * 1000;
   const renewed = contexts.renew(first.id);
   expect(Date.parse(renewed.expiresAt)).toBe(time + 60 * 60 * 1000);
@@ -77,26 +85,24 @@ test("each preview grants one publication through an exact, temporary capability
   expect(() => contexts.forRequest(request(first.documentUrl))).toThrow("unavailable");
 });
 
-test("preview policies scope resources, forbid forms/redirects/WebRTC, and delegate local capture", () => {
+test("preview policies scope resources, forbid forms/redirects/WebRTC, and isolate document origins", () => {
   const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
   const scope = contexts.forRequest(request(context.documentUrl));
   const headers = previewPolicy(scope);
   const allowlist = headers.get("connection-allowlist")!;
   expect(allowlist).toBe(
-    `("${scope.origin}/files/*" "${scope.origin}/r3/*"); webrtc=block; redirects=block`,
+    `("${previewRoot(scope)}/files/*" "${previewRoot(scope)}/r3/*"); webrtc=block; redirects=block`,
   );
   expect(headers.get("content-security-policy")).toContain("form-action 'none'");
-  expect(headers.get("content-security-policy")).toContain(
-    "sandbox allow-scripts allow-same-origin allow-forms",
-  );
-  expect(headers.get("permissions-policy")).toBe("camera=(self), microphone=(self)");
+  expect(headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+  expect(headers.get("permissions-policy")).toBe("camera=(), microphone=()");
   expect(headers.has("set-cookie")).toBe(false);
   // Header assertions prove configuration only; browser acceptance must prove enforcement.
   contexts.revokeArtifact(id);
   expect(() => contexts.forRequest(request(context.documentUrl))).toThrow("unavailable");
 });
 
-test("preview origins require secure contexts and a separate hostname namespace", () => {
+test("preview origins require secure contexts and an explicit secure transport origin", () => {
   expect(() => new PreviewContexts(storage.artifacts, "http://preview.example")).toThrow("HTTPS");
   expect(() => new PreviewContexts(storage.artifacts, "http://127.preview.example")).toThrow(
     "HTTPS",
@@ -104,7 +110,7 @@ test("preview origins require secure contexts and a separate hostname namespace"
   expect(() => new PreviewContexts(storage.artifacts, "https://preview.example/base")).toThrow(
     "URL path",
   );
-  expect(() => new PreviewContexts(storage.artifacts, "https://127.0.0.1")).toThrow("DNS hostname");
+  expect(() => new PreviewContexts(storage.artifacts, "http://127.0.0.1:8792")).not.toThrow();
   const local = new PreviewContexts(storage.artifacts, "http://localhost:8792");
   expect(() => local.create(id, 1, "notes/a # b?.md", "https://app.example")).toThrow(
     "R3_PREVIEW_BASE_URL",
@@ -119,7 +125,7 @@ test("preview origins require secure contexts and a separate hostname namespace"
   expect(() => contexts.forRequest(request(kept.documentUrl))).toThrow();
 });
 
-test("preview URLs cannot bypass the browser gate; grants require a same-origin single-use proof", () => {
+test("a null origin is not authorization; the gate proof is browser-bound, single-use, and expiring", () => {
   const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
   const browser = (method = "GET", extra: Record<string, string> = {}) =>
     new Request(context.gateUrl, {
@@ -127,104 +133,44 @@ test("preview URLs cannot bypass the browser gate; grants require a same-origin 
       headers: { host: new URL(context.origin).host, "user-agent": "Browser A", ...extra },
     });
   const proof = contexts.challenge(browser());
+  const post = browser("POST", { origin: "null", "content-type": "application/json" });
   expect(contexts.authorized(browser())).toBeNull();
+  expect(contexts.verify(post, "unknown")).toBe(false);
   expect(
     contexts.verify(
-      browser("POST", { origin: "https://app.example", "content-type": "application/json" }),
+      browser("POST", { origin: context.origin, "content-type": "application/json" }),
       proof.challenge,
     ),
-  ).toBeNull();
+  ).toBe(false);
   expect(
     contexts.verify(
-      browser("POST", { origin: context.origin, "content-type": "text/plain" }),
+      browser("POST", { origin: "null", "content-type": "text/plain" }),
       proof.challenge,
     ),
-  ).toBeNull();
+  ).toBe(false);
   expect(
     contexts.verify(
       browser("POST", {
-        origin: context.origin,
+        origin: "null",
         "content-type": "application/json",
         "user-agent": "Browser B",
       }),
       proof.challenge,
     ),
-  ).toBeNull();
-  const post = browser("POST", { origin: context.origin, "content-type": "application/json" });
-  const grant = contexts.verify(post, proof.challenge)!;
-  expect(grant).toContain("; Path=/; Secure; HttpOnly; SameSite=None; Partitioned");
-  expect(contexts.verify(post, proof.challenge)).toBeNull();
-  const cookie = grant.split(";")[0];
-  expect(contexts.authorized(browser("GET", { cookie }))?.versionSeq).toBe(1);
-  expect(contexts.authorized(browser("GET", { cookie, "user-agent": "Browser B" }))).toBeNull();
+  ).toBe(false);
+  expect(contexts.verify(post, proof.challenge)).toBe(true);
+  expect(contexts.verify(post, proof.challenge)).toBe(false);
+  expect(contexts.authorized(browser())?.versionSeq).toBe(1);
+  expect(contexts.authorized(browser("GET", { "user-agent": "Browser B" }))).toBeNull();
+  // Opaque resource requests omit client hints; no shared cookie or storage is needed.
+  expect(
+    contexts.authorized(browser("GET", { "sec-ch-ua": '"Fixture";v="153"' }))?.versionSeq,
+  ).toBe(1);
   contexts.renew(context.id);
-  expect(contexts.authorized(browser("GET", { cookie }))?.versionSeq).toBe(1);
+  expect(contexts.authorized(browser())?.versionSeq).toBe(1);
   const next = contexts.challenge(browser());
   time += 120_001;
-  expect(contexts.verify(post, next.challenge)).toBeNull();
+  expect(contexts.verify(post, next.challenge)).toBe(false);
   contexts.revoke(context.id);
-  expect(() => contexts.authorized(browser("GET", { cookie }))).toThrow("unavailable");
-});
-
-test("worker resources may omit client hints without allowing a navigation to skip browser verification", () => {
-  const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
-  const headers = {
-    host: new URL(context.origin).host,
-    "user-agent": "Verified browser",
-    "sec-ch-ua": '"Fixture";v="153"',
-    "sec-ch-ua-platform": '"Test"',
-  };
-  const proof = contexts.challenge(new Request(context.gateUrl, { headers }));
-  const cookie = contexts
-    .verify(
-      new Request(`${context.origin}/r3/verify`, {
-        method: "POST",
-        headers: { ...headers, origin: context.origin, "content-type": "application/json" },
-      }),
-      proof.challenge,
-    )!
-    .split(";")[0];
-  for (const destination of ["worker", "sharedworker", "script", "empty"]) {
-    const resource = new Request(`${context.origin}/files/data.json`, {
-      headers: {
-        host: headers.host,
-        "user-agent": headers["user-agent"],
-        cookie,
-        "sec-fetch-dest": destination,
-      },
-    });
-    expect(contexts.authorized(resource)?.versionSeq).toBe(1);
-  }
-  for (const destination of ["document", "iframe", "frame", ""])
-    expect(
-      contexts.authorized(
-        new Request(context.documentUrl, {
-          headers: {
-            host: headers.host,
-            "user-agent": headers["user-agent"],
-            cookie,
-            "sec-fetch-dest": destination,
-          },
-        }),
-      ),
-    ).toBeNull();
-  expect(
-    contexts.authorized(
-      new Request(context.documentUrl, {
-        headers: { ...headers, cookie, "sec-fetch-dest": "iframe" },
-      }),
-    )?.versionSeq,
-  ).toBe(1);
-  expect(
-    contexts.authorized(
-      new Request(context.documentUrl, {
-        headers: {
-          host: headers.host,
-          cookie,
-          "user-agent": "Different browser",
-          "sec-fetch-dest": "worker",
-        },
-      }),
-    ),
-  ).toBeNull();
+  expect(() => contexts.authorized(browser())).toThrow("unavailable");
 });

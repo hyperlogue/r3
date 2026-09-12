@@ -97,7 +97,7 @@ try {
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const content = await eventually(async () => {
     const context = [...page.contexts.values()].find(
-      (context) => context.origin.includes(".localhost:") && context.auxData?.isDefault,
+      (context) => context.origin === "://" && context.auxData?.isDefault,
     );
     if (!context) return null;
     const frame = page.inContext(context.id);
@@ -175,7 +175,7 @@ try {
   await click("document.querySelector('[data-version-seq=\"2\"]')");
   const next = await eventually(async () => {
     for (const context of page.contexts.values()) {
-      if (!context.origin.includes(".localhost:") || !context.auxData?.isDefault) continue;
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
       const frame = page.inContext(context.id);
       try {
         if (
@@ -194,7 +194,7 @@ try {
   await click("document.querySelector('[data-artifact-feedback] button')");
   const original = await eventually(async () => {
     for (const context of page.contexts.values()) {
-      if (!context.origin.includes(".localhost:") || !context.auxData?.isDefault) continue;
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
       const frame = page.inContext(context.id);
       try {
         if (
@@ -204,21 +204,23 @@ try {
         )
           return frame;
       } catch {
-        /* Locate replaces the preview origin. */
+        /* Locate replaces the preview document. */
       }
     }
     return null;
   }, "Locate opens and highlights the original published target");
-  const originalOrigin = await original.evaluate<string>("location.origin");
+  const originalRoot = await original.evaluate<string>("r3.getContext().then(c=>c.resourceRoot)");
   await original.evaluate("document.querySelector('a').click()");
   await eventually(async () => {
     for (const context of page.contexts.values()) {
-      if (context.origin !== originalOrigin || !context.auxData?.isDefault) continue;
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
       try {
         if (
           await page
             .inContext(context.id)
-            .evaluate("document.querySelector('h1')?.textContent==='Other published document'")
+            .evaluate(
+              `location.href.startsWith(${JSON.stringify(originalRoot)}) && globalThis.origin === "null" && document.querySelector('h1')?.textContent==='Other published document'`,
+            )
         )
           return true;
       } catch {
@@ -226,7 +228,7 @@ try {
       }
     }
     return false;
-  }, "version-local document navigation retains its preview origin");
+  }, "version-local document navigation retains its version scope");
   await eventually(
     () => page.evaluate("new URL(location.href).searchParams.get('file')==='other.html'"),
     "workspace deep link follows the published document",
@@ -263,7 +265,7 @@ try {
     await click(`document.querySelector('[data-version-seq="${seq}"]')`);
     await eventually(async () => {
       for (const context of page.contexts.values()) {
-        if (!context.origin.includes(".localhost:") || !context.auxData?.isDefault) continue;
+        if (context.origin !== "://" || !context.auxData?.isDefault) continue;
         try {
           if (
             await page

@@ -10,7 +10,7 @@ export interface ArtifactAuthPolicy {
   version: string;
   allowedHost: (hostname: string) => boolean;
   // Explicit application origins cover proxies that rewrite the request Host.
-  // Preview origins must never appear here, even when they share a hostname.
+  // Opaque preview documents send Origin:null, which is never an app origin.
   applicationOrigins?: ReadonlySet<string>;
 }
 

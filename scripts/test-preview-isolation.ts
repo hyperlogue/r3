@@ -69,13 +69,15 @@ const resources = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (context && request.headers.get("host") !== new URL(context.origin).host)
+    if (context && !path.startsWith(new URL(context.resourceRoot).pathname.replace(/files\/$/, "")))
       wrongContextRequests++;
     seen.push(path);
-    if (path === "/files/clip.webm" && request.headers.has("range")) videoRangeRequested = true;
-    if (path === "/r3/test-redirect") {
+    if (path.endsWith("/files/clip.webm") && request.headers.has("range"))
+      videoRangeRequested = true;
+    if (path.endsWith("/r3/test-redirect")) {
       const headers = previewPolicy(preview.contexts.forRequest(request));
-      headers.set("location", "/files/redirect-target.txt");
+      headers.set("location", `${context.resourceRoot}redirect-target.txt`);
+      headers.set("access-control-allow-origin", "*");
       return new Response(null, { status: 302, headers });
     }
     return preview.fetch(request);
@@ -98,7 +100,7 @@ const app = Bun.serve({
     context = preview.create(artifact.id, 1, "index.html", origin);
     sibling = preview.create(artifact.id, 2, "index.html", origin);
     return new Response(
-      `<!doctype html><iframe sandbox="allow-scripts allow-same-origin allow-forms" allow="camera 'src'; microphone 'src'"></iframe><script>const context=${JSON.stringify(context)};const frame=document.querySelector('iframe');window.state='checking';addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!==context.origin)return;if(event.data.type==='r3-preview-gate'){window.state=event.data.state;if(event.data.state==='ready')frame.src=context.documentUrl}});frame.src=context.gateUrl</script>`,
+      `<!doctype html><iframe sandbox="allow-scripts" credentialless></iframe><script>const context=${JSON.stringify(context)};const frame=document.querySelector('iframe');window.state='checking';addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!=="null")return;if(event.data.type==='r3-preview-gate'){window.state=event.data.state;if(event.data.state==='ready')frame.src=context.documentUrl}});frame.src=context.gateUrl</script>`,
       { headers: { "content-type": "text/html" } },
     );
   },
@@ -149,7 +151,7 @@ try {
   );
   const frame = await eventually(async () => {
     for (const item of page.contexts.values()) {
-      if (item.origin !== context.origin || !item.auxData?.isDefault) continue;
+      if (item.origin !== "://" || !item.auxData?.isDefault) continue;
       const content = page.inContext(item.id);
       try {
         if (await content.evaluate("window.moduleValue===42")) return content;
@@ -158,7 +160,7 @@ try {
       }
     }
     const target = (await browser!.send("Target.getTargets")).targetInfos.find(
-      (item: any) => item.type === "iframe" && item.url.startsWith(`${context.origin}/files/`),
+      (item: any) => item.type === "iframe" && item.url.startsWith(context.resourceRoot),
     );
     if (target) {
       const content = await browser!.attach(target.targetId);
@@ -169,7 +171,7 @@ try {
   const base = `http://localhost:${outside.port}`;
   const appOrigin = `http://localhost:${app.port}`;
   await frame.evaluate(
-    `window.testOutside=${JSON.stringify(base)};window.testApplication=${JSON.stringify(appOrigin)};window.testSibling=${JSON.stringify(sibling.origin)};window.testUdp=${udpPort};`,
+    `window.testOutside=${JSON.stringify(base)};window.testApplication=${JSON.stringify(appOrigin)};window.testSibling=${JSON.stringify(sibling.resourceRoot)};window.testUdp=${udpPort};window.testRoot=${JSON.stringify(context.resourceRoot.replace(/files\/$/, ""))};`,
   );
   const supported = await frame.evaluate(
     `(async()=>({module:moduleValue,style:getComputedStyle(document.querySelector('#styled')).color,data:await(await fetch('data.json')).json(),xhr:await new Promise(resolve=>{const x=new XMLHttpRequest();x.onload=()=>resolve(JSON.parse(x.responseText));x.open('GET','data.json');x.send()}),range:await fetch('data.json',{headers:{Range:'bytes=0-3'}}).then(async r=>({status:r.status,body:await r.text()})),canvas:!!document.querySelector('canvas').getContext('2d'),secure:isSecureContext}))()`,
@@ -200,29 +202,37 @@ try {
   await frame.evaluate(
     `window.workerRequest=(worker,url)=>new Promise(resolve=>{worker.onmessage=e=>{worker.terminate();resolve(e.data)};worker.onerror=e=>{worker.terminate();resolve({ok:false,error:e.message})};worker.postMessage(url)})`,
   );
-  const localWorker = await frame.evaluate(
-    "workerRequest(new Worker('worker.js'),location.origin+'/files/data.json')",
-  );
-  assert.deepEqual(localWorker, { ok: true, body: '{"version":1}' });
-  assert.equal(
-    (await frame.evaluate("workerRequest(new Worker('worker.js'),testOutside+'/worker')")).ok,
-    false,
-  );
-  assert.equal(
-    (
-      await frame.evaluate(
-        `workerRequest(new Worker(URL.createObjectURL(new Blob(['onmessage=async e=>{try{await fetch(e.data);postMessage({ok:true})}catch{postMessage({ok:false})}}'],{type:'text/javascript'}))),testOutside+'/blob-worker')`,
-      )
-    ).ok,
-    false,
-  );
-  assert.equal(
-    await frame.evaluate("navigator.serviceWorker.register('worker.js').then(()=>true,()=>false)"),
-    false,
-  );
+  const isolation = await frame.evaluate(`(async()=>{
+    const denies=(read)=>{try{read();return false}catch{return true}};
+    const workerBlocked=async(url)=>{try{return (await workerRequest(new Worker(url),'data.json')).ok===false}catch{return true}};
+    return {
+      origin:globalThis.origin,
+      parent:denies(()=>parent.document.body),
+      cookie:denies(()=>document.cookie),
+      localStorage:denies(()=>localStorage.setItem('fixture','value')),
+      sessionStorage:denies(()=>sessionStorage.setItem('fixture','value')),
+      indexedDB:denies(()=>indexedDB.open('fixture')),
+      worker:await workerBlocked('worker.js'),
+      blobWorker:await workerBlocked(URL.createObjectURL(new Blob(['postMessage({ok:true})'],{type:'text/javascript'}))),
+      serviceWorker:denies(()=>navigator.serviceWorker),
+      sharedWorker:denies(()=>new SharedWorker('worker.js'))
+    };
+  })()`);
+  assert.deepEqual(isolation, {
+    origin: "null",
+    parent: true,
+    cookie: true,
+    localStorage: true,
+    sessionStorage: true,
+    indexedDB: true,
+    worker: true,
+    blobWorker: true,
+    serviceWorker: true,
+    sharedWorker: true,
+  });
   const blocked = await frame.evaluate(`(async()=>{
     const fails=async(url)=>{try{await fetch(url);return false}catch{return true}};
-    const result={fetch:await fails(testOutside+'/fetch'),application:await fails(testApplication+'/api/boot'),sibling:await fails(testSibling+'/files/data.json'),outsideNamespace:await fails('/outside/check'),redirect:await fails('/r3/test-redirect'),missing:await fetch('missing.html').then(r=>r.status),socket:await new Promise(resolve=>{try{const ws=new WebSocket(testOutside.replace('http:','ws:')+'/socket');ws.onerror=()=>resolve(true);ws.onopen=()=>{ws.close();resolve(false)}}catch{resolve(true)}})};
+    const result={fetch:await fails(testOutside+'/fetch'),application:await fails(testApplication+'/api/boot'),sibling:await fails(testSibling+'data.json'),outsideNamespace:await fails(testRoot+'outside/check'),redirect:await fails(testRoot+'r3/test-redirect'),missing:await fetch('missing.html').then(r=>r.status),socket:await new Promise(resolve=>{try{const ws=new WebSocket(testOutside.replace('http:','ws:')+'/socket');ws.onerror=()=>resolve(true);ws.onopen=()=>{ws.close();resolve(false)}}catch{resolve(true)}})};
     result.transport=await(async()=>{try{const transport=new WebTransport('https://127.0.0.1:'+testUdp+'/transport');await transport.ready;transport.close();return false}catch{return true}})();
     result.module=await import(testOutside+'/module.js').then(()=>false,()=>true);
     const img=new Image();img.src=testOutside+'/image';document.body.append(img);
@@ -254,7 +264,10 @@ try {
     popup: true,
     parent: true,
   });
-  assert.equal(seen.includes("/files/redirect-target.txt"), false);
+  assert.equal(
+    seen.some((path) => path.endsWith("/files/redirect-target.txt")),
+    false,
+  );
   await frame.evaluate(
     `window.testRtc=async()=>{const pc=new RTCPeerConnection({iceServers:[{urls:'stun:127.0.0.1:'+testUdp}]});pc.createDataChannel('fixture');await pc.setLocalDescription(await pc.createOffer());await new Promise(r=>setTimeout(r,300));const failed=pc.iceConnectionState==='failed';pc.close();return failed}`,
   );
@@ -272,7 +285,7 @@ try {
     await frame.evaluate(
       "navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(s=>{s.getTracks().forEach(t=>t.stop());return 'granted'},e=>e.name)",
     ),
-    "NotAllowedError",
+    "SecurityError",
   );
   for (const name of ["camera", "microphone"])
     await browser.send("Browser.setPermission", {
@@ -284,7 +297,11 @@ try {
   const devices = await frame.evaluate(
     "navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(s=>{const kinds=s.getTracks().map(t=>t.kind).sort();s.getTracks().forEach(t=>t.stop());return kinds},e=>e.name)",
   );
-  assert.deepEqual(devices, ["audio", "video"]);
+  assert.equal(
+    devices,
+    "SecurityError",
+    "Opaque documents cannot acquire device access even after a transport-origin grant",
+  );
   assert.equal(await frame.evaluate("testRtc()"), true);
   await frame.evaluate("location=testOutside+'/document-navigation'");
   await Bun.sleep(700);
@@ -296,7 +313,7 @@ try {
   );
   assert.equal(packets, 0, "Device permission must not enable WebRTC network traffic");
   console.log(
-    "Preview isolation acceptance: native resources, ranges, modules, workers, navigation, redirects, sockets, WebRTC, and device consent passed",
+    "Preview isolation acceptance: native resources, opaque storage isolation, denied workers/devices, navigation, redirects, sockets, and WebRTC passed",
   );
 } finally {
   await browser?.close();

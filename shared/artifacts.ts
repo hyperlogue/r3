@@ -330,13 +330,14 @@ export interface ArtifactPromptBody {
   expectedFingerprint?: string;
 }
 
-// This temporary capability has no application credentials. Its origin names
-// exactly one artifact/version and expires unless the application renews it.
+// This temporary URL capability grants one artifact/version without application
+// credentials. Documents have opaque origins, independent of the transport origin.
 export interface ArtifactPreviewContext {
   id: string;
   artifactId: string;
   versionSeq: number;
   origin: string;
+  resourceRoot: string;
   documentUrl: string;
   gateUrl: string;
   utilityUrl: string;

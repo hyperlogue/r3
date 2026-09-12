@@ -150,7 +150,7 @@ provides the selected version's resource root. Automatic root-relative URL rewri
 history-route fallback, dependency installation, and backend hosting are outside
 this feature.
 
-Each preview uses an isolated origin scoped to one version. Local resources support
+Each document runs in an opaque-origin sandbox with URL access scoped to one version. Local resources support
 fetch, XHR, modules, and media range requests. External resources, APIs, sockets,
 forms that navigate, and access to unrelated artifacts or application endpoints
 are blocked. Bundle assets locally instead of loading a CDN.
@@ -158,8 +158,8 @@ are blocked. Bundle assets locally instead of loading a CDN.
 Rendering requires a browser that passes r3's Connection Allowlist and WebRTC
 blocking checks. Acceptance tests pass in Chrome for Testing 153.0.8010.36;
 Chromium 151 is refused before loading published content. Unsupported browsers
-still support source, diff, and download workflows. Camera and microphone use
-ordinary browser permission prompts in the isolated secure preview.
+still support source, diff, and download workflows. Persistent storage, workers,
+nested frames, camera, and microphone are unavailable in the opaque sandbox.
 
 Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
 `createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`, and
@@ -175,7 +175,8 @@ reading requires a server-side checkout.
 
 Both daemon listeners bind loopback. Reach them through a tunnel or HTTPS reverse
 proxy. For remote browser rendering, configure separate application and preview
-origins; the preview's wildcard context subdomains must route to its listener.
+origins; one preview endpoint routes to its listener. It can use the same hostname
+on another HTTPS port. Wildcard DNS and certificates are unnecessary.
 Do not proxy the application API through the preview host.
 
 ```sh
@@ -186,9 +187,8 @@ r3 restart
 r3 auth create-token --label browser
 ```
 
-Configure DNS and TLS for `*.preview.example` and forward that host unchanged to
-the preview listener (default port 8792). A remote application requires HTTPS
-preview DNS; an HTTP localhost preview is only suitable for a local browser.
+Forward the configured preview host and port unchanged to the preview listener
+(default port 8792). A remote application requires an HTTPS preview endpoint; an HTTP localhost preview is only suitable for a local browser.
 An SSH setup can instead forward both local ports while browsing the local
 application URL.
 

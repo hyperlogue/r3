@@ -118,7 +118,7 @@ function PreviewSession(
       send({ type: "r3-preview-display", display: value });
     };
     const listener = (event: MessageEvent) => {
-      if (event.source !== iframe.current?.contentWindow || event.origin !== context.origin) return;
+      if (event.source !== iframe.current?.contentWindow || event.origin !== "null") return;
       const message = event.data;
       if (!message || typeof message !== "object" || message.contextId !== context.id) return;
       if (message.type === "r3-preview-gate") {
@@ -213,7 +213,7 @@ function PreviewSession(
               artifactId: id,
               versionSeq: seq,
               path: message.path,
-              resourceRoot: `${context.origin}/files/`,
+              resourceRoot: context.resourceRoot,
               representation: context.presentation === "media" ? "source" : "rendered",
               state: props.detail.state,
             },
@@ -257,7 +257,7 @@ function PreviewSession(
     setSrc(
       context.presentation === "media"
         ? context.documentUrl
-        : `${context.origin}/files/${props.path.split("/").map(encodeURIComponent).join("/")}`,
+        : `${context.resourceRoot}${props.path.split("/").map(encodeURIComponent).join("/")}`,
     );
   }, [context, props.path, ready]);
 
@@ -306,8 +306,9 @@ function PreviewSession(
           ref={iframe}
           src={src}
           title={`${props.detail.title || "Artifact"} preview`}
-          sandbox="allow-scripts allow-same-origin allow-forms"
-          allow="camera 'src'; microphone 'src'"
+          sandbox="allow-scripts"
+          {...{ credentialless: "" }}
+          allow="camera 'none'; microphone 'none'"
           referrerPolicy="no-referrer"
           className="min-h-80 w-full flex-1 border-0 bg-white"
         />

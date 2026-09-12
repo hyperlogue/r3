@@ -84,14 +84,14 @@ export function configCommand(argv: string[]): void {
           );
         if (
           name === "previewBaseUrl" &&
-          (isIP(url.hostname) ||
-            url.hostname.includes(":") ||
-            (url.protocol === "http:" &&
-              url.hostname !== "localhost" &&
-              !url.hostname.endsWith(".localhost")))
+          url.protocol === "http:" &&
+          url.hostname !== "localhost" &&
+          !url.hostname.endsWith(".localhost") &&
+          url.hostname !== "[::1]" &&
+          !(isIP(url.hostname) === 4 && url.hostname.startsWith("127."))
         )
           throw new ArtifactCommandError(
-            "previewBaseUrl requires an HTTPS DNS origin or an HTTP localhost origin with context subdomains",
+            "previewBaseUrl requires an HTTPS origin or an HTTP loopback origin",
           );
         next[name] = url.origin;
         break;

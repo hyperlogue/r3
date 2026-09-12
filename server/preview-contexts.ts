@@ -6,19 +6,16 @@ import type { ArtifactStore } from "./artifacts.ts";
 
 const CONTEXT_TTL = 60 * 60 * 1000;
 const MAX_CONTEXTS = 512;
-export const PREVIEW_COOKIE = "__Host-r3-preview";
+export const PREVIEW_PREFIX = "/__r3_preview/";
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
-const browserIdentity = (request: Request) =>
-  digest(
-    ["user-agent", "sec-ch-ua", "sec-ch-ua-platform"]
-      .map((header) => request.headers.get(header) ?? "")
-      .join("\n"),
-  );
+// Opaque-origin fetches omit client hints. The gate and resource requests still
+// carry the browser version in User-Agent; no cookie is required or accepted.
+const browserIdentity = (request: Request) => digest(request.headers.get("user-agent") ?? "");
 
 interface PreviewState {
   scope: PreviewScope;
   challenges: Map<string, { browser: string; expiresAt: number }>;
-  browsers: Map<string, { identity: string; userAgent: string }>;
+  browsers: Set<string>;
 }
 
 function localOrigin(url: URL): boolean {
@@ -62,14 +59,20 @@ export interface PreviewScope {
   readonly expiresAt: number;
 }
 
-export function previewDocumentUrl(scope: Pick<PreviewScope, "origin">, path: string): string {
+export function previewDocumentUrl(
+  scope: Pick<PreviewScope, "origin" | "id">,
+  path: string,
+): string {
   requireArtifactPath(path);
-  return `${scope.origin}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
+  return `${previewRoot(scope)}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-// Context identities live only in this daemon instance. No cookie or master
-// credential is copied to the preview; native resource requests use its unique
-// capability origin. Host/port matching precedes every preview response.
+export function previewRoot(scope: Pick<PreviewScope, "origin" | "id">): string {
+  return `${scope.origin}${PREVIEW_PREFIX}${scope.id}`;
+}
+
+// Random path capabilities identify a single immutable publication. Browser
+// isolation comes from the opaque sandbox, not URL paths or shared storage.
 export class PreviewContexts {
   private readonly contexts = new Map<string, PreviewState>();
   private readonly base: URL;
@@ -79,16 +82,6 @@ export class PreviewContexts {
     private readonly now: () => number = Date.now,
   ) {
     this.base = secureOrigin(baseUrl);
-    if (
-      this.base.hostname.length > 203 ||
-      !this.base.hostname
-        .split(".")
-        .every((part) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(part)) ||
-      this.base.hostname.split(".").every((part) => /^\d+$/.test(part))
-    )
-      throw new ArtifactError(
-        "Preview hosting needs a DNS hostname that supports context subdomains",
-      );
   }
 
   create(
@@ -100,7 +93,7 @@ export class PreviewContexts {
     const app = secureOrigin(applicationOrigin);
     if (!localOrigin(app) && this.base.protocol !== "https:")
       throw new ArtifactError(
-        "Remote rendered previews require an HTTPS preview origin. Configure R3_PREVIEW_BASE_URL and route its context subdomains to the preview listener.",
+        "Remote rendered previews require an HTTPS preview origin. Configure R3_PREVIEW_BASE_URL and route that endpoint to the preview listener.",
         503,
       );
     const version = this.artifacts.version(artifactId, versionSeq);
@@ -114,8 +107,8 @@ export class PreviewContexts {
     if (this.contexts.size >= MAX_CONTEXTS)
       throw new ArtifactError("Too many open preview contexts", 413);
     const id = `p${randomBytes(24).toString("hex")}`;
-    const origin = `${this.base.protocol}//${id}.${this.base.host}`;
-    if (app.origin === origin || app.hostname.endsWith(`.${this.base.hostname}`))
+    const origin = this.base.origin;
+    if (app.origin === origin)
       throw new ArtifactError("The preview domain cannot host the r3 application");
     const scope: PreviewScope = Object.freeze({
       id,
@@ -127,7 +120,7 @@ export class PreviewContexts {
       applicationOrigin: app.origin,
       expiresAt: this.now() + CONTEXT_TTL,
     });
-    this.contexts.set(id, { scope, challenges: new Map(), browsers: new Map() });
+    this.contexts.set(id, { scope, challenges: new Map(), browsers: new Set() });
     return this.describe(scope);
   }
 
@@ -137,12 +130,13 @@ export class PreviewContexts {
       artifactId: scope.artifactId,
       versionSeq: scope.versionSeq,
       origin: scope.origin,
+      resourceRoot: `${previewRoot(scope)}/files/`,
       documentUrl:
         scope.presentation === "media"
-          ? `${scope.origin}/r3/media`
+          ? `${previewRoot(scope)}/r3/media`
           : previewDocumentUrl(scope, scope.entryPath),
-      gateUrl: `${scope.origin}/r3/gate`,
-      utilityUrl: `${scope.origin}/r3/utility.js`,
+      gateUrl: `${previewRoot(scope)}/r3/gate`,
+      utilityUrl: `${previewRoot(scope)}/r3/utility.js`,
       presentation: scope.presentation,
       expiresAt: new Date(scope.expiresAt).toISOString(),
     };
@@ -178,7 +172,9 @@ export class PreviewContexts {
     } catch {
       throw new ArtifactError("Preview context unavailable", 404);
     }
-    const { scope } = this.get(origin.hostname.split(".")[0]);
+    const id = new URL(request.url).pathname.match(/^\/__r3_preview\/(p[0-9a-f]{48})(?:\/|$)/)?.[1];
+    if (!id) throw new ArtifactError("Preview context unavailable", 404);
+    const { scope } = this.get(id);
     if (scope.origin !== origin.origin) throw new ArtifactError("Preview context unavailable", 404);
     return scope;
   }
@@ -199,10 +195,10 @@ export class PreviewContexts {
     this.contexts.clear();
   }
 
-  // Only r3's trusted gate document is served before verification. Its script
-  // checks real fetch and WebRTC enforcement, then POSTs this single-use proof
-  // from the preview origin. A foreign document cannot forge that Origin or
-  // read the challenge through CORS. URL sharing alone grants no executable view.
+  // Only the trusted gate is served before verification. Its HTML never has
+  // CORS headers, so a foreign opaque document cannot read its challenge. The
+  // JSON exchange permits Origin:null only alongside that single-use proof;
+  // the serialized opaque origin is not an authentication principal.
   challenge(request: Request): { scope: PreviewScope; challenge: string } {
     const scope = this.forRequest(request);
     const { challenges } = this.get(scope.id);
@@ -217,81 +213,58 @@ export class PreviewContexts {
     return { scope, challenge };
   }
 
-  verify(request: Request, challenge: string): string | null {
+  verify(request: Request, challenge: string): boolean {
     const scope = this.forRequest(request);
     if (
       request.method !== "POST" ||
-      request.headers.get("origin") !== scope.origin ||
+      request.headers.get("origin") !== "null" ||
       request.headers.get("content-type")?.split(";")[0] !== "application/json"
     )
-      return null;
+      return false;
     const { challenges, browsers } = this.get(scope.id);
     const key = digest(challenge);
     const pending = challenges.get(key);
     if (!pending || pending.expiresAt <= this.now() || pending.browser !== browserIdentity(request))
-      return null;
+      return false;
     challenges.delete(key);
     while (browsers.size >= 8) browsers.delete(browsers.keys().next().value!);
-    const cookie = randomBytes(32).toString("base64url");
-    browsers.set(digest(cookie), {
-      identity: pending.browser,
-      userAgent: digest(request.headers.get("user-agent") ?? ""),
-    });
-    return `${PREVIEW_COOKIE}=${cookie}; Path=/; Secure; HttpOnly; SameSite=None; Partitioned`;
+    browsers.add(pending.browser);
+    return true;
   }
 
   authorized(request: Request): PreviewScope | null {
     const scope = this.forRequest(request);
-    const cookie = request.headers
-      .get("cookie")
-      ?.split(";")
-      .map((value) => value.trim())
-      .find((value) => value.startsWith(`${PREVIEW_COOKIE}=`))
-      ?.slice(PREVIEW_COOKIE.length + 1);
-    const browser = cookie ? this.get(scope.id).browsers.get(digest(cookie)) : undefined;
-    if (!browser) return null;
-    if (browser.identity === browserIdentity(request)) return scope;
-    // Chromium omits client hints on worker script requests and worker fetches.
-    // They may use the verified cookie with the same User-Agent. Navigations
-    // still require the full browser identity used by the verification gate.
-    const workerResource = ["worker", "sharedworker", "script", "empty"].includes(
-      request.headers.get("sec-fetch-dest") ?? "",
-    );
-    return workerResource &&
-      !request.headers.has("sec-ch-ua") &&
-      !request.headers.has("sec-ch-ua-platform") &&
-      browser.userAgent === digest(request.headers.get("user-agent") ?? "")
-      ? scope
-      : null;
+    return this.get(scope.id).browsers.has(browserIdentity(request)) ? scope : null;
   }
 }
 
 export function previewPolicy(scope: PreviewScope): Headers {
+  const root = previewRoot(scope);
   return new Headers({
-    // URL patterns intentionally exclude every application endpoint and even
-    // the capability-check endpoint outside these two namespaces.
-    "Connection-Allowlist": `("${scope.origin}/files/*" "${scope.origin}/r3/*"); webrtc=block; redirects=block`,
+    // The working /outside/check endpoint is deliberately outside this list.
+    "Connection-Allowlist": `("${root}/files/*" "${root}/r3/*"); webrtc=block; redirects=block`,
     "Content-Security-Policy": [
       "default-src 'none'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data:",
-      "font-src 'self' blob: data:",
-      "media-src 'self' blob: data:",
-      "connect-src 'self'",
-      "worker-src 'self' blob: data:",
-      "frame-src 'self' blob: data:",
+      `script-src ${root}/ 'unsafe-inline' 'unsafe-eval' blob: data:`,
+      `style-src ${root}/ 'unsafe-inline'`,
+      `img-src ${root}/ blob: data:`,
+      `font-src ${root}/ blob: data:`,
+      `media-src ${root}/ blob: data:`,
+      // Let the real allowlist, rather than CSP, enforce the gate's denied probe.
+      `connect-src ${scope.origin}`,
+      "worker-src 'none'",
+      "frame-src 'none'",
       "object-src 'none'",
-      "base-uri 'self'",
+      `base-uri ${root}/files/`,
       "form-action 'none'",
-      `frame-ancestors ${scope.applicationOrigin} ${scope.origin}`,
-      "sandbox allow-scripts allow-same-origin allow-forms",
+      `frame-ancestors ${scope.applicationOrigin}`,
+      "sandbox allow-scripts",
       "webrtc 'block'",
     ].join("; "),
-    "Permissions-Policy": "camera=(self), microphone=(self)",
+    "Permissions-Policy": "camera=(), microphone=()",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
-    "Cross-Origin-Resource-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "cross-origin",
     "X-DNS-Prefetch-Control": "off",
   });
 }

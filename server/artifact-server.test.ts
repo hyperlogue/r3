@@ -60,21 +60,9 @@ test("application and preview listeners enforce distinct hosts, routes, and cred
       ((await (await fetch(`${base}/api/health`)).json()) as { protocol: string }).protocol,
     ).toBe("artifacts-v1");
     const preview = runtime.previews.create(artifact.id, 1, "index.html", base);
-    // Explicitly permissive application policy must still never trust preview hosts.
-    expect(
-      (
-        await fetch(`${base}/api/boot`, {
-          headers: { host: `${new URL(preview.origin).hostname}:${runtime.server.port}` },
-        })
-      ).status,
-    ).toBe(403);
-    expect(
-      (
-        await fetch(`${base}/`, {
-          headers: { host: `${new URL(preview.origin).hostname}:${runtime.server.port}` },
-        })
-      ).status,
-    ).toBe(403);
+    // A shared hostname does not make the opaque document an application client.
+    for (const origin of [preview.origin, "null"])
+      expect((await fetch(`${base}/api/boot`, { headers: { origin } })).status).toBe(403);
     const previewBase = `http://localhost:${runtime.previewServer.port}`;
     expect(
       (
@@ -82,14 +70,14 @@ test("application and preview listeners enforce distinct hosts, routes, and cred
           headers: { host: new URL(preview.origin).host, "x-r3-token": token },
         })
       ).status,
-    ).toBe(403);
+    ).toBe(404);
     expect(
       (
         await fetch(`${previewBase}/files/index.html`, {
           headers: { host: new URL(preview.origin).host, "x-r3-token": token },
         })
       ).status,
-    ).toBe(403);
+    ).toBe(404);
     expect((await fetch(`${previewBase}/`, { headers: { "x-r3-token": token } })).status).toBe(404);
     expect((await fetch(`${base}/files/index.html`)).status).toBe(404);
   } finally {

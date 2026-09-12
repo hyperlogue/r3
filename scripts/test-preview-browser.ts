@@ -52,10 +52,10 @@ const app = Bun.serve({
   fetch(request) {
     const context = preview.create(artifact.id, 1, "index.html", new URL(request.url).origin);
     return new Response(
-      `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-same-origin allow-forms" allow="camera *; microphone *"></iframe><script>
+      `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts" credentialless></iframe><script>
   const context=${JSON.stringify(context)};window.messages=[];const frame=document.querySelector('iframe');
   let port;window.send=(data)=>port.postMessage({contextId:context.id,...data});
-  addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!==context.origin)return;const message=event.data;messages.push(message);
+  addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!=="null")return;const message=event.data;messages.push(message);
     if(message.type==='r3-preview-gate'&&message.state==='ready')frame.src=context.documentUrl;
     if(message.type==='r3-preview-connect'){port?.close();port=event.ports[0];port.onmessage=({data:message})=>{messages.push(message);if(message.type==='r3-preview-call')send({type:'r3-preview-result',id:message.id,value:{method:message.method,path:message.path}})}}
   });frame.src=context.gateUrl;</script>`,
@@ -76,7 +76,7 @@ try {
   if (process.env.R3_TEST_UNSUPPORTED === "1") {
     assert.equal(gate.state, "unsupported");
     assert.equal(
-      requests.some((path) => path.startsWith("/files/")),
+      requests.some((path) => path.includes("/files/")),
       false,
     );
     console.log("Preview acceptance: unsupported browser refused before any published file");
@@ -88,7 +88,7 @@ try {
     );
     const content = await eventually(async () => {
       const context = [...page.contexts.values()].find(
-        (item) => item.origin.includes(".localhost:") && item.auxData?.isDefault,
+        (item) => item.origin === "://" && item.auxData?.isDefault,
       );
       if (context) return page.inContext(context.id);
       const frame = (await browser!.send("Target.getTargets")).targetInfos.find(
@@ -174,7 +174,10 @@ try {
     const before = await content.evaluate<number>("window.activations");
     await content.evaluate("document.querySelector('#action').click()");
     assert.equal(await content.evaluate("window.activations"), before + 1);
-    assert.equal(requests.includes("/outside/check"), false);
+    assert.equal(
+      requests.some((path) => path.endsWith("/outside/check")),
+      false,
+    );
     console.log(
       "Preview acceptance: gate, modules, utility, comment interception, native targets, quote disambiguation, and normal interaction passed",
     );

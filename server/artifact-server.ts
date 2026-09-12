@@ -38,19 +38,9 @@ export function startArtifactServer(options: ArtifactServerOptions) {
       options.previewBaseUrl ?? `http://localhost:${previewServer.port}`,
       previewSupport,
     );
-    const previewHostname = new URL(
-      options.previewBaseUrl ?? `http://localhost:${previewServer.port}`,
-    ).hostname;
-    const policy: ArtifactAuthPolicy = {
-      ...options.authentication,
-      applicationOrigins: new Set(
-        [...(options.authentication.applicationOrigins ?? [])].filter(
-          (origin) => !new URL(origin).hostname.endsWith(`.${previewHostname}`),
-        ),
-      ),
-      allowedHost: (host) =>
-        !host.endsWith(`.${previewHostname}`) && options.authentication.allowedHost(host),
-    };
+    // Opaque preview documents send Origin:null. Keep the application's exact
+    // origin guard; a shared transport hostname is not a preview principal.
+    const policy = options.authentication;
     api = createArtifactApi(options.storage, policy, { previews });
     const application = api;
     const server = Bun.serve({

@@ -141,7 +141,7 @@ try {
   await page.command("Page.navigate", { url: `${url}/${html.artifact.id}` });
   const content = await eventually(async () => {
     for (const context of page.contexts.values()) {
-      if (!context.origin.includes(".localhost:") || !context.auxData?.isDefault) continue;
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
       const frame = page.inContext(context.id);
       try {
         if (await frame.evaluate("!!document.getElementById('send')")) return frame;

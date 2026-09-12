@@ -52,14 +52,14 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage/preview servers: rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |
-| `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, workers, blocked external resources/navigation/redirects/sockets/WebRTC, inherited restrictions in nested/rewritten documents, and camera/microphone denial and grant |
+| `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, opaque parent/storage isolation, denied workers and frames, blocked external resources/navigation/redirects/sockets/WebRTC, and denied capture even after a transport-origin device grant |
 
 The permission test uses synthetic devices and browser permission overrides. It
 needs full Chromium: the headless shell's fake media UI cannot prove denial. No
-physical camera or microphone is read. A successful grant must still leave network
-restrictions in force.
+physical camera or microphone is read. Opaque documents must remain unable to capture even after a transport-origin
+grant, and all network restrictions stay in force.
 
-Reference runs on 2026-09-11 passed in Chrome for Testing 153.0.8010.36. Chromium
+Reference runs on 2026-09-12 passed in Chrome for Testing 153.0.8010.36. Chromium
 151 was refused before requesting published files. Its CSP-only WebRTC probe had
 emitted packets; Connection Allowlist enforcement prevented them in the supported
 browser. Browser identity alone never enables preview: the runtime gate must pass.

@@ -8,6 +8,7 @@ import {
   type PreviewScope,
   previewDocumentUrl,
   previewPolicy,
+  previewRoot,
 } from "./preview-contexts.ts";
 import { previewGateDocument } from "./preview-gate.ts";
 
@@ -65,6 +66,11 @@ export class PreviewHost {
       });
     }
     const policy = previewPolicy(scope);
+    // Resource errors need the same credential-free CORS contract as successful
+    // reads, so a missing published asset stays a visible 404. Gate HTML never
+    // enters this namespace and must remain unreadable to opaque fetches.
+    if (new URL(request.url).pathname.startsWith(`${new URL(previewRoot(scope)).pathname}/files/`))
+      policy.set("access-control-allow-origin", "*");
     try {
       const response = await this.respond(request, scope);
       for (const [name, value] of policy) response.headers.set(name, value);
@@ -80,7 +86,8 @@ export class PreviewHost {
   }
 
   private async respond(request: Request, scope: PreviewScope): Promise<Response> {
-    const path = new URL(request.url).pathname;
+    const root = previewRoot(scope);
+    const path = new URL(request.url).pathname.slice(new URL(root).pathname.length);
     const plain = (body: string | null, status = 200, headers: HeadersInit = {}) =>
       new Response(request.method === "HEAD" ? null : body, {
         status,
@@ -91,19 +98,32 @@ export class PreviewHost {
         },
       });
     if (path === "/r3/verify") {
+      // An opaque Origin is shared by unrelated sandboxes. Authorization comes
+      // from the unreadable gate's single-use challenge, never from CORS.
+      const cors = { "access-control-allow-origin": "null" };
+      if (request.method === "OPTIONS")
+        return request.headers.get("origin") === "null" &&
+          request.headers.get("access-control-request-method") === "POST" &&
+          request.headers.get("access-control-request-headers")?.toLowerCase() === "content-type"
+          ? plain(null, 204, {
+              ...cors,
+              "access-control-allow-methods": "POST",
+              "access-control-allow-headers": "content-type",
+            })
+          : plain(null, 403);
       if (request.method !== "POST") return plain(null, 405, { allow: "POST" });
       const input = await artifactJson(request, 4096);
       if (typeof input.challenge !== "string") return plain("Invalid verification", 400);
-      const cookie = this.contexts.verify(request, input.challenge);
-      return cookie
-        ? plain("Verified", 200, { "set-cookie": cookie })
-        : plain("Invalid verification", 403);
+      return this.contexts.verify(request, input.challenge)
+        ? plain("Verified", 200, cors)
+        : plain("Invalid verification", 403, cors);
     }
     if (request.method !== "GET" && request.method !== "HEAD")
       return plain(null, 405, { allow: "GET, HEAD" });
     // The blocked check really responds. Success means the browser ignored the
     // allowlist; a 404 or an intentionally broken address is not a policy proof.
-    if (path === "/r3/check" || path === "/outside/check") return plain(null, 204);
+    if (path === "/r3/check" || path === "/outside/check")
+      return plain(null, 204, { "access-control-allow-origin": "*" });
     if (path === "/r3/gate") {
       const { challenge } = this.contexts.challenge(request);
       return plain(previewGateDocument(scope, challenge), 200, {
@@ -112,7 +132,10 @@ export class PreviewHost {
     }
     if (!this.contexts.authorized(request))
       return plain("Open this artifact from r3 to verify this browser before rendering.", 403);
-    if (path === "/r3/verified") return plain(null, 204);
+    // Bare navigation must never turn a shared URL into an unverified page in
+    // another browser. Published documents are opened inside the r3 workspace.
+    if (request.headers.get("sec-fetch-dest") === "document")
+      return plain("Open this artifact from r3 to render it.", 403);
     // Service workers could substitute their own document responses and remove
     // the server's policy. No publisher script may register as a service worker.
     if (
@@ -124,7 +147,7 @@ export class PreviewHost {
       return plain(
         path.endsWith("runtime.js") ? this.support.runtime(scope) : this.support.utility(scope),
         200,
-        { "content-type": "text/javascript; charset=utf-8" },
+        { "content-type": "text/javascript; charset=utf-8", "access-control-allow-origin": "*" },
       );
     if (path === "/r3/media" && scope.presentation === "media") {
       const file = this.artifacts.file(scope.artifactId, scope.versionSeq, scope.entryPath);
@@ -137,7 +160,7 @@ export class PreviewHost {
         .replaceAll("&", "&amp;")
         .replaceAll('"', "&quot;");
       return plain(
-        `<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Media preview</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#171717}img,video{max-width:100%;max-height:100vh}audio{width:min(90%,40rem)}</style><${tag} src="${src}" ${kind === "image" ? 'alt="Published image"' : 'controls preload="metadata"'}></${tag}><script src="/r3/runtime.js"></script></html>`,
+        `<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Media preview</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#171717}img,video{max-width:100%;max-height:100vh}audio{width:min(90%,40rem)}</style><${tag} src="${src}" ${kind === "image" ? 'alt="Published image"' : 'controls preload="metadata"'}></${tag}><script src="${root}/r3/runtime.js"></script></html>`,
         200,
         { "content-type": "text/html; charset=utf-8" },
       );
@@ -168,18 +191,20 @@ export class PreviewHost {
       filePath,
       { inline: true, rendered: document && !!file.renderedHash },
     );
-    response.headers.set(
-      "vary",
-      "Cookie, User-Agent, Sec-CH-UA, Sec-CH-UA-Platform, Sec-Fetch-Dest",
-    );
-    if (!html) return response;
+    response.headers.set("vary", "User-Agent, Sec-Fetch-Dest");
+    if (!html) {
+      response.headers.set("access-control-allow-origin", "*");
+      return response;
+    }
     // Keep original and retained Markdown bytes unchanged in storage. The
-    // response adds only the preview runtime, after the publisher's document.
+    // response adds trusted support before publisher scripts.
     response.headers.set("cache-control", "no-store");
     for (const name of ["etag", "content-length", "accept-ranges"]) response.headers.delete(name);
     if (request.method === "HEAD") return response;
     let injected = false;
-    const runtime = '<script src="/r3/runtime.js"></script>';
+    // Retain the established utility import without rewriting publisher assets.
+    const imports = JSON.stringify({ imports: { "/r3/utility.js": `${root}/r3/utility.js` } });
+    const runtime = `<script type="importmap">${imports}</script><script src="${root}/r3/runtime.js"></script>`;
     return new HTMLRewriter()
       .on("*", {
         element(element) {

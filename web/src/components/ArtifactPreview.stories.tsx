@@ -38,6 +38,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Unavailable: Story = {};
+// Presentation only; the real sandbox and browser gate run in acceptance tests.
+export const UnsupportedBrowser: Story = {
+  beforeEach: () => {
+    const original = artifactApi.createPreview;
+    artifactApi.createPreview = async () => {
+      throw new Error(
+        "This browser cannot enforce r3's preview network policy. Use a browser with Connection Allowlist support.",
+      );
+    };
+    return () => {
+      artifactApi.createPreview = original;
+    };
+  },
+};
 export const Opening: Story = {
   beforeEach: () => {
     const original = artifactApi.createPreview;

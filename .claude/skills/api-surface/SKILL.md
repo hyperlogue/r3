@@ -90,7 +90,9 @@ argv or a temporary file. A closed connection requires fresh registration.
 
 - `POST /api/artifacts/:id/versions/:seq/previews { path }` creates a scoped
   preview context. `PATCH /api/previews/:id` renews it; `DELETE` revokes it.
-  The response contains an isolated frame URL, never application credentials.
+  The response contains scoped gate/document/utility URLs and `resourceRoot`,
+  never application credentials. `origin` is the transport origin; rendered
+  documents have opaque origins.
 - `GET /api/health` reports version and `protocol: artifacts-v1`; `GET /api/boot`
   supplies local bootstrap or required-login state. Both remain Host/origin gated.
 - `POST /api/auth/login { token }` mints a browser session; `POST /api/auth/logout`
@@ -99,8 +101,8 @@ argv or a temporary file. A closed connection requires fresh registration.
 - `GET /api/themes` and `GET /api/theme-style?theme=` return available themes and
   the shared source palette stylesheet.
 
-The preview listener has its own gate, resources and runtime under `/files/` and
-`/r3/`. It serves no application API, proxy, or unknown-path SPA fallback. See
+The preview listener has its own gate, resources and runtime under
+`/__r3_preview/:context/files/` and `/__r3_preview/:context/r3/`. It serves no application API, proxy, or unknown-path SPA fallback. See
 [security-model](../security-model/SKILL.md) for its authorization boundary.
 
 ## CLI and agent loop
