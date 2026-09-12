@@ -5,6 +5,10 @@ preview isolation, or distribution. The [design](design.md) owns product behavio
 the [schema reference](schema.md) owns persistence rules. This guide maps those
 boundaries to executable checks.
 
+The [browser support requirement](browser-support.md) defines the rolling
+six-month release window and the evidence needed for Firefox, Chrome, and actual
+Safari on macOS and iOS. The Chromium runs below do not establish that coverage.
+
 ## Repository checks
 
 ```sh

@@ -204,6 +204,11 @@ replies are accepted. Restore allows work again and requires fresh registration.
 
 ## Preview and communication boundary
 
+The [browser support requirement](browser-support.md) covers stable Firefox,
+Chrome, and Safari on macOS and iOS from the preceding six months, including full
+interactive HTML. The current Connection Allowlist gate does not satisfy that
+requirement; Chromium-only acceptance is insufficient for the replacement.
+
 Files and HTML use the same isolated rendering module. Ordinary scripts, modules,
 styles, canvas/SVG charts, local forms, and published data run inside it. Source
 views display escaped input without executing it.
