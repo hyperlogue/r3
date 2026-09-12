@@ -46,8 +46,8 @@ use the same offset. The pane stays the one source/diff scroll container.
 
 Large diff artifacts progressively hydrate file bodies through
 `web/src/progressive.tsx`. Stable measured shells preserve sticky headers, the
-scroll spy, file picking, and Locate geometry. A files artifact shows the selected
-file, with source row virtualization for large text. Scale behavior is shared,
+scroll spy, file picking, and Locate geometry. Files artifacts use the same complete
+stack, with per-file source/rendered controls and source row virtualization. Scale behavior is shared,
 not a mobile fork. Rendered documents scroll in their isolated preview frame.
 
 A persistent bottom bar (`Feedback · N open` — the whole bar is the toggle; watcher

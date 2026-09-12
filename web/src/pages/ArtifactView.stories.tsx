@@ -144,6 +144,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Files: Story = {};
+export const AllFiles: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvasElement.querySelectorAll("[data-file]")).toHaveLength(2);
+    await userEvent.click(canvas.getByTitle("Fold all files"));
+    await waitFor(() =>
+      expect(canvasElement.querySelectorAll('[data-file] button[title="Expand"]')).toHaveLength(2),
+    );
+    await userEvent.click(canvas.getByTitle("Unfold all files"));
+    await waitFor(() =>
+      expect(canvasElement.querySelectorAll('[data-file] button[title="Collapse"]')).toHaveLength(
+        2,
+      ),
+    );
+  },
+};
 export const Rendered: Story = {
   args: { initialSearch: "?version=1&view=rendered&file=index.md" },
 };

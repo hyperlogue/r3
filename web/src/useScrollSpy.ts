@@ -169,12 +169,14 @@ export function useScrollSpy(input: {
       for (const el of [...observed]) {
         if (live.has(el)) continue;
         io.unobserve(el);
+        ro.unobserve(el);
         observed.delete(el);
         showing.delete(el);
       }
       for (const el of next) {
         if (observed.has(el)) continue;
         io.observe(el);
+        ro.observe(el);
         observed.add(el);
       }
       blocks = next;
@@ -189,21 +191,24 @@ export function useScrollSpy(input: {
     // marker would keep whatever it computed against the stubs — the reported "the
     // first file isn't marked on open". The pane's OWN box is worth watching too:
     // its height is the 15% denominator, so a feedback-panel drag or a window
-    // resize changes the answer. The pane has exactly one child — the stacked file
-    // content (VirtualPaneProvider's wrapper) — so its height is the content height.
-    // A restack can also add or drop blocks, so the rescan rides the same signal.
+    // resize changes the answer. Observe the file blocks themselves: the artifact
+    // pane's first child is its header, whose size does not change as source loads.
+    // A restack can also add or drop blocks, so rescan on membership changes.
     const onContent = () => {
       rescan();
       schedule();
     };
     const ro = new ResizeObserver(onContent);
     ro.observe(root);
-    if (root.firstElementChild) ro.observe(root.firstElementChild);
+    for (const child of root.children) ro.observe(child);
+    const mutations = new MutationObserver(onContent);
+    mutations.observe(root, { childList: true, subtree: true });
     rescan();
     measure();
     return () => {
       root.removeEventListener("scroll", schedule);
       ro.disconnect();
+      mutations.disconnect();
       io.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };

@@ -44,12 +44,6 @@ export function useArtifactContent(
   const path = view.path ?? (version?.kind === "html" ? version.entrypoint : paths[0]) ?? null;
   const file = files?.find((file) => file.path === path);
   const canRender = !!file && (!!file.renderedHash || file.mediaType.split(";")[0] === "text/html");
-  const sourceQuery = useQuery({
-    queryKey: ["artifact-source", detail.id, version?.seq, path, theme],
-    queryFn: () => artifactApi.source(detail.id, version!.seq, path!, theme),
-    enabled: !!version && !!file && view.representation === "source",
-    staleTime: Infinity,
-  });
   const context = useMemo<ArtifactMessageContext>(
     () =>
       version
@@ -60,7 +54,11 @@ export function useArtifactContent(
   const regions = useMemo(
     () =>
       version
-        ? artifactRegions(detail, version.seq, view.representation).map((region) => ({
+        ? artifactRegions(
+            detail,
+            version.seq,
+            detail.kind === "files" ? "source" : view.representation,
+          ).map((region) => ({
             ...region,
             file: diffQuery.data?.find((file) => file.oldPath === region.file)?.path ?? region.file,
           }))
@@ -118,7 +116,6 @@ export function useArtifactContent(
     viewed,
     filesQuery,
     diffQuery,
-    sourceQuery,
     paths,
     path,
     file,

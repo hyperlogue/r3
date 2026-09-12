@@ -30,7 +30,10 @@ const css = build.outputs
 const root = await mkdtemp(join(tmpdir(), "r3-reading-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
-const source = 'export const greeting: string = "Hello";\n';
+const source = Array.from(
+  { length: 80 },
+  (_, index) => `export const greeting${index}: string = "Hello";\n`,
+).join("");
 const files = storage.artifacts.create({ kind: "files", actor, title: "Published source" });
 await storage.artifacts.publish(files.id, {
   actor,
@@ -44,6 +47,11 @@ await storage.artifacts.publish(files.id, {
         mediaType: "text/plain",
         base64: Buffer.from(source).toString("base64"),
       },
+      {
+        path: "z-last.ts",
+        mediaType: "text/plain",
+        base64: Buffer.from("export const last = true;\n").toString("base64"),
+      },
     ],
   },
 });
@@ -54,7 +62,13 @@ await storage.artifacts.publish(diff.id, {
   publicationKey: "diff",
   content: {
     kind: "diff",
-    patch: `diff --git a/source.ts b/source.ts\n--- a/source.ts\n+++ b/source.ts\n@@ -1 +1 @@\n-export const greeting: string = "Before";\n+${source}`,
+    patch: `diff --git a/source.ts b/source.ts\n--- a/source.ts\n+++ b/source.ts\n@@ -1 +1,80 @@\n-export const greeting: string = "Before";\n${source
+      .trimEnd()
+      .split("\n")
+      .map((line) => `+${line}`)
+      .join(
+        "\n",
+      )}\ndiff --git a/z-last.ts b/z-last.ts\n--- a/z-last.ts\n+++ b/z-last.ts\n@@ -1 +1 @@\n-export const last = false;\n+export const last = true;\n`,
   },
 });
 const api = createArtifactApi(storage, {
@@ -110,8 +124,81 @@ try {
         `${artifact.kind} ${dark ? "dark" : "light"}: published tokens must have distinct syntax colors; got ${colors.join(", ")}`,
       );
     }
+    assert.equal(
+      await page.evaluate("document.querySelectorAll('[data-file]').length"),
+      2,
+      "all publication files stay in one pane",
+    );
+    await eventually(
+      () => page.evaluate("!!document.querySelector('[data-file=\"z-last.ts\"] [data-line]')"),
+      "all source bodies loaded",
+    );
+    await page.evaluate(
+      "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+    );
+    await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop = 100000");
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.querySelector('button[title=\"z-last.ts\"]')?.className.includes('bg-neutral-200/70')",
+        ),
+      "file-list highlight follows scrolling",
+    );
+    await page.evaluate("document.querySelector('button[title=\"Fold all files\"]').click()");
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.querySelectorAll('[data-file] button[title=\"Expand\"]').length === 2",
+        ),
+      "fold all files",
+    );
+    await page.evaluate("document.querySelector('button[title=\"source.ts\"]').click()");
+    await eventually(
+      () =>
+        page.evaluate(
+          '!!document.querySelector(\'[data-file="source.ts"] button[title="Collapse"]\')',
+        ),
+      "file list unfolds selected file",
+    );
+    assert.equal(
+      await page.evaluate("document.querySelectorAll('[data-file]').length"),
+      2,
+      "file selection preserves the stack",
+    );
   }
-  console.log("Published source and diff syntax colors passed in light and dark modes");
+  await storage.artifacts.publish(files.id, {
+    actor,
+    expectedSeq: 1,
+    publicationKey: "many-files",
+    content: {
+      kind: "files",
+      files: Array.from({ length: 32 }, (_, index) => ({
+        path: `part-${String(index).padStart(2, "0")}.ts`,
+        mediaType: "text/plain",
+        base64: Buffer.from(`export const part = ${index};\n`.repeat(100)).toString("base64"),
+      })),
+    },
+  });
+  await page.command("Page.navigate", {
+    url: `http://localhost:${app.port}/?artifact=${files.id}&version=2`,
+  });
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-file]').length === 32"),
+    "complete progressive file stack",
+  );
+  await page.evaluate("document.querySelector('button[title=\"part-31.ts\"]').click()");
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[data-file=\"part-31.ts\"] [data-line]')"),
+    "distant file hydrates on explicit navigation",
+  );
+  assert.equal(await page.evaluate("document.querySelectorAll('[data-file]').length"), 32);
+  assert(
+    await page.evaluate("document.querySelectorAll('[data-line]').length < 1000"),
+    "offscreen file bodies remain deferred",
+  );
+  console.log(
+    "Published files/diffs: syntax colors, complete stack, folding, file navigation and scroll highlighting passed",
+  );
 } finally {
   await browser?.close();
   app.stop(true);

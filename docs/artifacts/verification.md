@@ -39,6 +39,7 @@ endpoints. Set `TEST_CHROMIUM` to a headless Chromium shell executable,
 ```sh
 bun run build
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
 R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" bun scripts/test-preview-isolation.ts
@@ -47,6 +48,7 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 
 | Script | Acceptance boundary |
 | --- | --- |
+| `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; all files remain in one pane; folding, file picking, and scroll-synchronized file-list highlighting |
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage/preview servers: rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |

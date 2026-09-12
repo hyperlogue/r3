@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArtifactDetail,
@@ -7,7 +7,7 @@ import type {
   ArtifactVersion,
   RenderedLocator,
 } from "../../../shared/artifacts.ts";
-import { artifactMediaKind, hasUnsentArtifactFeedback } from "../../../shared/artifacts.ts";
+import { hasUnsentArtifactFeedback } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useHasArtifactDraft, useHasArtifactNote } from "../artifact-drafts.ts";
 import {
@@ -18,6 +18,7 @@ import {
 } from "../artifact-navigation.ts";
 import { artifactViewForTarget, stepArtifactVersion } from "../artifact-version.ts";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
+import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
@@ -29,11 +30,11 @@ import {
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
-import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
+import type { FoldSignal } from "../components/FileCard.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos } from "../components/Message.tsx";
+import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
-import { SourceCode } from "../components/SourceCode.tsx";
 import { useKeyBindings } from "../keys.ts";
 import { HL_ACTIVE, rangeForQuote, setHighlightRanges } from "../mdhighlight.ts";
 // This page is the artifact workspace's single mobile container mount point.
@@ -41,7 +42,11 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
-import { ProgressiveFileProvider, useProgressiveFileController } from "../progressive.tsx";
+import {
+  ProgressiveFile,
+  ProgressiveFileProvider,
+  useProgressiveFileController,
+} from "../progressive.tsx";
 import { navigate } from "../router.ts";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 import {
@@ -138,6 +143,7 @@ export function ArtifactWorkspace({
     null,
   );
   const [fold, setFold] = useState<FoldSignal | null>(null);
+  const [fileViews, setFileViews] = useState<Record<string, "source" | "rendered">>({});
   const [activePath, setActivePath] = useState<string | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -145,6 +151,7 @@ export function ArtifactWorkspace({
   const suspendedSpy = useRef(false);
   const jumpNonce = useRef(0);
   const initialFeedback = useRef(view.feedbackId);
+  const initialPath = useRef(view.feedbackId ? null : view.path);
   const hasDraft = useHasArtifactDraft(detail.id);
   const hasNote = useHasArtifactNote(detail.id);
   const {
@@ -154,10 +161,8 @@ export function ArtifactWorkspace({
     viewed,
     filesQuery,
     diffQuery,
-    sourceQuery,
     paths,
     path,
-    file,
     canRender,
     context,
     regions,
@@ -167,6 +172,17 @@ export function ArtifactWorkspace({
     fetchContext,
   } = useArtifactContent(detail, view, setNotice);
   const syntaxPalette = useSyntaxPalette(theme);
+  const fileMode = (filePath: string): "source" | "rendered" =>
+    view.path === filePath && view.representation !== "diff"
+      ? view.representation
+      : (fileViews[`${version?.seq}:${filePath}`] ?? "source");
+  useEffect(() => {
+    if (detail.kind === "files" && view.path && version && view.representation !== "diff") {
+      const key = `${version.seq}:${view.path}`;
+      const mode = view.representation;
+      setFileViews((current) => (current[key] === mode ? current : { ...current, [key]: mode }));
+    }
+  }, [detail.kind, version, view.path, view.representation]);
   const virtual = useVirtualPaneController();
   const progressive = useProgressiveFileController();
   const resize = useResizableWidth("r3-feedback-width", {
@@ -217,12 +233,18 @@ export function ArtifactWorkspace({
   }, [view, path, version?.seq, onLocationChange]);
 
   const changeView = useCallback((patch: Partial<ArtifactLocation>) => {
+    initialPath.current = null;
     setView((current) => ({ ...current, ...patch }));
     setJump(null);
     setRenderedJump(null);
     setSummaryJump(null);
     setNotice("");
   }, []);
+  const selectVersion = (versionSeq: number | null) => {
+    changeView({ versionSeq, ...(detail.kind === "html" ? { path: null } : {}) });
+    setActivePath(null);
+    paneRef.current?.scrollTo({ top: 0 });
+  };
   const focusComposer = useCallback(
     () =>
       requestAnimationFrame(() => {
@@ -336,8 +358,13 @@ export function ArtifactWorkspace({
       setSheet("closed");
       const nonce = ++jumpNonce.current;
       if (isArtifactDocumentTarget(target)) {
-        if (target.kind === "rendered") setRenderedJump({ locator: target.locator, nonce });
-        else {
+        if (target.kind === "rendered") {
+          setRenderedJump({ locator: target.locator, nonce });
+          if (detail.kind === "files") {
+            setJump({ path: target.path, side: "new", nonce });
+            setFold({ mode: "unfold", path: target.path, nonce });
+          }
+        } else {
           setJump({
             path: target.path,
             start: target.locator?.start,
@@ -412,10 +439,15 @@ export function ArtifactWorkspace({
         : null,
     [jump, diffQuery.data],
   );
-  const ready =
-    view.representation === "diff"
-      ? !!diffQuery.data
-      : view.representation === "source" && !!sourceQuery.data;
+  const ready = detail.kind === "diff" ? !!diffQuery.data : !!filesQuery.data;
+  useEffect(() => {
+    if (!ready || detail.kind === "html" || !initialPath.current) return;
+    const path = initialPath.current;
+    initialPath.current = null;
+    const nonce = ++jumpNonce.current;
+    setJump({ path, side: "new", nonce });
+    setFold({ mode: "unfold", path, nonce });
+  }, [ready, detail.kind]);
   useArtifactCodeJump({
     scopeRef: paneRef,
     jump: canonicalJump,
@@ -428,7 +460,7 @@ export function ArtifactWorkspace({
     paneRef,
     setActivePath,
     suspended: suspendedSpy,
-    ready: ready && detail.kind === "diff",
+    ready: ready && detail.kind !== "html",
     fileList: paths,
   });
   useEffect(() => {
@@ -447,23 +479,12 @@ export function ArtifactWorkspace({
     return () => setHighlightRanges(HL_ACTIVE, []);
   }, [summaryJump]);
 
-  const download = useMutation({
-    mutationFn: async () => {
-      if (!version || !path) return;
-      const response = await artifactApi.download(detail.id, version.seq, path);
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = path.split("/").at(-1)!;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    },
-  });
-  const currentPath = detail.kind === "diff" ? (activePath ?? paths[0]) : path;
+  const currentPath = detail.kind === "html" ? path : (activePath ?? paths[0]);
+  const currentFile = filesQuery.data?.find((file) => file.path === currentPath);
   const wholeFile = () => {
     if (version && currentPath)
       anchor({
-        kind: view.representation,
+        kind: detail.kind === "diff" ? "diff" : currentPath ? fileMode(currentPath) : "source",
         versionSeq: version.seq,
         path: currentPath,
         locator: null,
@@ -472,12 +493,18 @@ export function ArtifactWorkspace({
   const toggleViewed = () => {
     if (detail.kind === "diff" && version && currentPath)
       viewed.toggle(diffViewedKey(version.seq, currentPath));
-    else if (file) viewed.toggle(fileViewedKey(file.path, file.hash));
+    else if (currentFile) viewed.toggle(fileViewedKey(currentFile.path, currentFile.hash));
   };
   const stepFile = (direction: -1 | 1) => {
     const at = paths.indexOf(currentPath ?? "");
     const next = paths[Math.max(0, Math.min(paths.length - 1, at + direction))];
     if (next) selectFile(next);
+  };
+  const foldAll = (requested?: "fold" | "unfold") => {
+    const mode =
+      requested ??
+      (paneRef.current?.querySelector('[data-file] button[title="Collapse"]') ? "fold" : "unfold");
+    setFold({ mode, nonce: ++jumpNonce.current });
   };
   useKeyBindings({
     generalNote: () => {
@@ -489,10 +516,8 @@ export function ArtifactWorkspace({
     },
     ...(version
       ? {
-          versionNext: () =>
-            changeView({ versionSeq: stepArtifactVersion(detail.versions, version.seq, 1) }),
-          versionPrev: () =>
-            changeView({ versionSeq: stepArtifactVersion(detail.versions, version.seq, -1) }),
+          versionNext: () => selectVersion(stepArtifactVersion(detail.versions, version.seq, 1)),
+          versionPrev: () => selectVersion(stepArtifactVersion(detail.versions, version.seq, -1)),
         }
       : {}),
     ...(detail.kind !== "html"
@@ -503,7 +528,7 @@ export function ArtifactWorkspace({
           fileNote: wholeFile,
           fileFold: () =>
             setFold({ mode: "toggle", path: currentPath ?? undefined, nonce: ++jumpNonce.current }),
-          foldAll: () => setFold({ mode: "toggle", nonce: ++jumpNonce.current }),
+          foldAll: () => foldAll(),
         }
       : {}),
     ...(detail.kind === "diff" && !mobile
@@ -512,77 +537,50 @@ export function ArtifactWorkspace({
   });
 
   const toolbar = (
-    <div
-      ref={toolbarRef}
-      className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-neutral-300 bg-white px-3 py-1 dark:border-neutral-700 dark:bg-neutral-950"
-    >
-      <ArtifactVersionSelect
-        versions={detail.versions}
-        selected={view.versionSeq}
-        onChange={(versionSeq) => changeView({ versionSeq })}
+    <div ref={toolbarRef} className="sticky top-0 z-20">
+      <PaneToolbar
+        hasFiles={detail.kind !== "html" && paths.length > 0}
+        filePicker={
+          <JumpToFile
+            files={paths}
+            viewed={viewedPaths}
+            activePath={currentPath}
+            onSelect={selectFile}
+            btnClassName={TOOLBAR_BTN}
+          />
+        }
+        onJump={stepFile}
+        onFoldAll={foldAll}
+        layoutToggle={detail.kind === "diff" && !mobile ? <DiffLayoutToggle /> : undefined}
+        right={
+          <ArtifactVersionSelect
+            versions={detail.versions}
+            selected={view.versionSeq}
+            onChange={selectVersion}
+          />
+        }
       />
-      {detail.kind !== "html" && (
-        <JumpToFile
-          files={paths}
-          viewed={viewedPaths}
-          activePath={currentPath}
-          onSelect={selectFile}
-          btnClassName="rounded p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-        />
-      )}
-      {detail.kind === "files" && (
-        <div className="flex gap-1">
+      {(detail.kind === "html" || Object.values(fileViews).includes("rendered")) && (
+        <div className="flex items-center justify-end border-b border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950">
           <Button
-            variant={view.representation === "source" ? "default" : "ghost"}
-            aria-pressed={view.representation === "source"}
-            onClick={() => changeView({ representation: "source" })}
+            variant={commenting ? "primary" : "ghost"}
+            aria-pressed={commenting}
+            onClick={() => setCommenting(!commenting)}
           >
-            Source
-          </Button>
-          <Button
-            variant={view.representation === "rendered" ? "default" : "ghost"}
-            aria-pressed={view.representation === "rendered"}
-            disabled={!canRender}
-            onClick={() => changeView({ representation: "rendered" })}
-          >
-            Rendered
+            {commenting ? "Exit comment mode" : "Comment mode"}
           </Button>
         </div>
       )}
-      {detail.kind === "diff" && (
-        <Button
-          className="max-md:hidden"
-          onClick={() => setDiffLayout(layout === "split" ? "unified" : "split")}
-        >
-          {layout === "split" ? "Side by side" : "Unified"}
-        </Button>
-      )}
-      {view.representation === "rendered" && (
-        <Button
-          variant={commenting ? "primary" : "default"}
-          aria-pressed={commenting}
-          onClick={() => setCommenting(!commenting)}
-        >
-          {commenting ? "Exit comment mode" : "Comment mode"}
-        </Button>
-      )}
-      {detail.kind === "files" && file && (
-        <Button disabled={download.isPending} onClick={() => download.mutate()}>
-          Download
-        </Button>
-      )}
       {latest && version && latest.seq !== version.seq && (
-        <Button variant="primary" onClick={() => changeView({ versionSeq: latest.seq })}>
-          Open latest · {latest.seq}
-        </Button>
+        <div className="flex justify-end border-b border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950">
+          <Button variant="ghost" onClick={() => selectVersion(latest.seq)}>
+            Open latest · {latest.seq}
+          </Button>
+        </div>
       )}
     </div>
   );
-  const failure =
-    (detail.kind === "diff" ? diffQuery.error : filesQuery.error) ??
-    (view.representation === "source" ? sourceQuery.error : null) ??
-    download.error ??
-    viewed.error;
+  const failure = (detail.kind === "diff" ? diffQuery.error : filesQuery.error) ?? viewed.error;
   const composer = (
     <ArtifactComposer
       artifactId={detail.id}
@@ -636,11 +634,12 @@ export function ArtifactWorkspace({
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: row highlighting is an extra pointer shortcut; every thread has a keyboard-accessible Locate control. */}
         <div
           ref={paneRef}
+          data-artifact-content
           style={syntaxPalette}
           className={cn(
             "min-h-0 min-w-0 flex-1 overflow-y-auto",
             !mobile && "[contain:paint]",
-            view.representation === "rendered" && "flex flex-col [&>*]:shrink-0",
+            detail.kind === "html" && "flex flex-col [&>*]:shrink-0",
           )}
           onMouseUp={(event) => {
             if (
@@ -692,7 +691,7 @@ export function ArtifactWorkspace({
                 ? "No version has been published yet."
                 : `Version ${view.versionSeq} is unavailable. Choose a retained publication above.`}
             </p>
-          ) : view.representation === "rendered" ? (
+          ) : detail.kind === "html" ? (
             path && canRender ? (
               renderPreview({
                 detail,
@@ -722,7 +721,7 @@ export function ArtifactWorkspace({
               <ProgressiveFileProvider
                 scrollRef={paneRef}
                 registry={progressive.registry}
-                enabled={detail.kind === "diff" && paths.length >= 24}
+                enabled={paths.length >= 24}
               >
                 {detail.kind === "diff" ? (
                   diffQuery.isPending ? (
@@ -750,53 +749,67 @@ export function ArtifactWorkspace({
                       progressiveVersion={`${version.seq}:${theme}`}
                     />
                   )
-                ) : file ? (
-                  <FileCard
-                    key={`${version.seq}:${file.path}`}
-                    path={file.path}
-                    viewed={viewed.isViewed(fileViewedKey(file.path, file.hash))}
-                    onToggleViewed={() => viewed.toggle(fileViewedKey(file.path, file.hash))}
-                    onFileFeedback={wholeFile}
-                    foldSignal={fold}
-                  >
-                    {artifactMediaKind(file.mediaType) ? (
-                      renderPreview({
-                        detail,
-                        version,
-                        path: file.path,
-                        commenting: false,
-                        jump: null,
-                        targets: [],
-                        onTarget: anchor,
-                        onDocument: () => {},
-                        onFeedback: showFeedback,
-                      })
-                    ) : sourceQuery.isPending ? (
-                      <p className="p-4 text-sm text-neutral-500">Loading published source…</p>
-                    ) : sourceQuery.data?.kind === "text" ? (
-                      <SourceCode
-                        data={sourceQuery.data}
-                        path={file.path}
-                        onPickLines={(side, start, end, quote) =>
-                          pickLines(file.path, side, start, end, quote)
-                        }
-                        regions={regions}
-                      />
-                    ) : (
-                      <p className="p-4 text-sm text-neutral-500">
-                        {sourceQuery.data?.kind === "oversize"
-                          ? "This file is too large for source highlighting."
-                          : "This file contains binary content."}{" "}
-                        Download the published file to open it.
-                      </p>
-                    )}
-                  </FileCard>
+                ) : filesQuery.data ? (
+                  filesQuery.data.map((file) => (
+                    <ProgressiveFile
+                      key={`${version.seq}:${file.path}`}
+                      path={file.path}
+                      version={`${version.seq}:${theme}`}
+                    >
+                      {({ active, onHydrated, onOpenChange }) => (
+                        <ArtifactFile
+                          artifactId={detail.id}
+                          versionSeq={version.seq}
+                          file={file}
+                          theme={theme}
+                          active={active}
+                          current={currentPath === file.path}
+                          representation={fileMode(file.path)}
+                          onRepresentation={(representation) =>
+                            changeView({ path: file.path, representation })
+                          }
+                          viewed={viewed.isViewed(fileViewedKey(file.path, file.hash))}
+                          onViewed={() => viewed.toggle(fileViewedKey(file.path, file.hash))}
+                          onFileFeedback={() =>
+                            anchor({
+                              kind: fileMode(file.path),
+                              versionSeq: version.seq,
+                              path: file.path,
+                              locator: null,
+                            })
+                          }
+                          fold={fold}
+                          onHydrated={onHydrated}
+                          onOpenChange={onOpenChange}
+                          regions={regions}
+                          onPickLines={(side, start, end, quote) =>
+                            pickLines(file.path, side, start, end, quote)
+                          }
+                          preview={() =>
+                            renderPreview({
+                              detail,
+                              version,
+                              path: file.path,
+                              commenting,
+                              jump: view.path === file.path ? renderedJump : null,
+                              targets: renderedTargets,
+                              onTarget: anchor,
+                              onDocument: (next) => {
+                                if (next === file.path) return;
+                                changeView({ path: next, representation: "rendered" });
+                                const nonce = ++jumpNonce.current;
+                                setJump({ path: next, side: "new", nonce });
+                                setFold({ mode: "unfold", path: next, nonce });
+                              },
+                              onFeedback: showFeedback,
+                            })
+                          }
+                        />
+                      )}
+                    </ProgressiveFile>
+                  ))
                 ) : (
-                  <p className="p-6 text-sm text-neutral-500">
-                    {filesQuery.isPending
-                      ? "Loading published files…"
-                      : "This path is absent from the selected version."}
-                  </p>
+                  <p className="p-6 text-sm text-neutral-500">Loading published files…</p>
                 )}
               </ProgressiveFileProvider>
             </VirtualPaneProvider>
