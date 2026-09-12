@@ -4,6 +4,18 @@ import { renderStoredPatch, storedPatchContext, validateStoredPatch } from "./pa
 const header = "diff --git a/code.ts b/code.ts\n--- a/code.ts\n+++ b/code.ts\n";
 
 describe("stored patch content", () => {
+  test("ordinary unified patches retain file boundaries and header-like source lines", () => {
+    const patch =
+      "--- before.sql\t2026-09-11\n+++ after.sql\t2026-09-11\n@@ -1 +1 @@\n--- removed comment\n+++ added expression\n--- removed.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-deleted\n\\ No newline at end of file\n";
+    const files = validateStoredPatch(patch);
+    expect(files.map((file) => file.path)).toEqual(["after.sql", "removed.txt"]);
+    expect(files[0].lines.slice(1).map((line) => line.text)).toEqual([
+      "-- removed comment",
+      "++ added expression",
+    ]);
+    expect(files[1].status).toBe("deleted");
+    expect(files[1].lines.at(-1)?.noNewline).toBe(true);
+  });
   test("sparse hunks preserve independent old/new coordinates and reject incomplete or overlapping ranges", () => {
     const patch = `${header}@@ -20,2 +40,2 @@\n context\n-old\n+new\n@@ -90,1 +100,1 @@\n-before\n+after\n`;
     const file = validateStoredPatch(patch)[0];

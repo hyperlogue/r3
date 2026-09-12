@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateStoredPatch } from "../server/patch-content.ts";
@@ -25,6 +25,27 @@ afterEach(async () => {
 });
 
 describe("publisher git capture", () => {
+  test("large captures trim context while preserving executable modes and missing final newlines", async () => {
+    const path = join(root, "long script.sh");
+    const original = `${Array.from({ length: 2200 }, (_, index) => `# retained context ${index} with enough text to exceed the capture threshold`).join("\n")}\necho old`;
+    await writeFile(path, original);
+    await chmod(path, 0o644);
+    await git("add", "--", "long script.sh");
+    const base = await git("write-tree");
+    await writeFile(path, original.replace(/echo old$/, "echo new"));
+    await chmod(path, 0o755);
+    const patch = await captureGitDiff(root, base, "WORKING");
+    expect(patch).toContain("old mode 100644\nnew mode 100755");
+    expect(patch).toContain("index ");
+    expect(patch.match(/\\ No newline at end of file/g)).toHaveLength(2);
+    expect(patch.length).toBeLessThan(10_000);
+    expect(validateStoredPatch(patch)[0].path).toBe("long script.sh");
+    await writeFile(path, original);
+    await chmod(path, 0o644);
+    const captured = join(root, "captured.patch");
+    await writeFile(captured, patch);
+    await git("apply", "--check", "--", captured);
+  });
   test("captures immutable git blobs independently of their working files", async () => {
     await rm(join(root, "data.bin"));
     await writeFile(join(root, "readme.md"), "Changed on disk");

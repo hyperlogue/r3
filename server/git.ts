@@ -26,26 +26,16 @@ export const WIDE_CONTEXT = 2000;
 export const MAX_ROUND_FILE_BYTES = 64 * 1024;
 export const TRIM_CONTEXT = 25;
 
-// Re-emit one parsed file change as unified-diff text. Only used on the trim
-// path, so it must round-trip through parseUnifiedDiff — it does, but it is NOT
-// byte-faithful to git: `index` lines, mode changes and the
-// "\ No newline at end of file" marker are dropped, because parseUnifiedDiff
-// doesn't retain them (git.ts) and nothing downstream reads them. That's why the
-// trim splices per file and leaves untouched files as git's own bytes.
-// Emits a line list (no trailing newline) so it splices back in exactly where a
-// segment came out — splitFileSegments works in lines and the caller re-joins.
-function renderUnifiedDiffFile(f: DiffFileChange): string[] {
-  const a = f.oldPath ?? f.path;
-  const b = f.newPath ?? f.path;
-  const out = [`diff --git a/${a} b/${b}`];
-  if (f.status === "added") out.push("new file mode 100644");
-  else if (f.status === "deleted") out.push("deleted file mode 100644");
-  else if (f.status === "renamed") out.push(`rename from ${a}`, `rename to ${b}`);
-  out.push(f.status === "added" ? "--- /dev/null" : `--- a/${a}`);
-  out.push(f.status === "deleted" ? "+++ /dev/null" : `+++ b/${b}`);
-  for (const ln of f.lines) {
-    if (ln.type === "hunk") out.push(ln.text);
-    else out.push(`${ln.type === "add" ? "+" : ln.type === "del" ? "-" : " "}${ln.text}`);
+// Keep the original file headers (quoted names, object IDs, modes, rename/copy
+// evidence). Trimming changes only hunk context, never file metadata or EOF.
+function renderUnifiedDiffFile(f: DiffFileChange, headers: string[]): string[] {
+  const out = [...headers];
+  for (const line of f.lines) {
+    if (line.type === "hunk") out.push(line.text);
+    else {
+      out.push(`${line.type === "add" ? "+" : line.type === "del" ? "-" : " "}${line.text}`);
+      if (line.noNewline) out.push("\\ No newline at end of file");
+    }
   }
   return out;
 }
@@ -86,8 +76,12 @@ export function trimOversizedFiles(
     if (files.length !== 1) return seg; // not a single clean file segment — leave it
     const trimmed = rehunk(files[0].lines, context);
     if (trimmed === files[0].lines) return seg; // nothing dropped — keep git's bytes
+    const hunkStart = seg.search(/^@@/m);
+    if (hunkStart < 0) return seg;
+    const headers = seg.slice(0, hunkStart).split("\n");
+    if (headers.at(-1) === "") headers.pop();
     changed = true;
-    return renderUnifiedDiffFile({ ...files[0], lines: trimmed }).join("\n");
+    return renderUnifiedDiffFile({ ...files[0], lines: trimmed }, headers).join("\n");
   });
   if (!changed) return raw;
   // A re-emitted final segment drops the patch's trailing newline (the original
@@ -113,25 +107,32 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
   let inHunk = false;
   let oldNo = 0;
   let newNo = 0;
+  let remainingOld = 0;
+  let remainingNew = 0;
+  let sawFileHeaders = false;
+  const fresh = (): DiffFileChange => ({
+    oldPath: null,
+    newPath: null,
+    path: "",
+    status: "modified",
+    binary: false,
+    additions: 0,
+    deletions: 0,
+    lines: [],
+  });
 
   const push = () => {
     if (cur) files.push(cur);
   };
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     if (line.startsWith("diff --git ")) {
       push();
       inHunk = false;
-      cur = {
-        oldPath: null,
-        newPath: null,
-        path: "",
-        status: "modified",
-        binary: false,
-        additions: 0,
-        deletions: 0,
-        lines: [],
-      };
+      sawFileHeaders = false;
+      remainingOld = remainingNew = 0;
+      cur = fresh();
       const m = gitHeaderPaths(line);
       if (m) {
         cur.oldPath = m[0];
@@ -140,13 +141,35 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
       }
       continue;
     }
+    // Ordinary diff -u output has paired ---/+++ headers without diff --git.
+    // Only recognize them outside a declared hunk; SQL/Lua content beginning
+    // with ---/+++ is still a removed/added source line.
+    if (
+      line.startsWith("--- ") &&
+      lines[index + 1]?.startsWith("+++ ") &&
+      (!inHunk || (remainingOld === 0 && remainingNew === 0))
+    ) {
+      if (!cur || inHunk || sawFileHeaders) {
+        push();
+        cur = fresh();
+      }
+      inHunk = false;
+      sawFileHeaders = true;
+    }
     if (!cur) continue;
+    if (line === "\\ No newline at end of file") {
+      const previous = cur.lines.at(-1);
+      if (previous && previous.type !== "hunk") previous.noNewline = true;
+      continue;
+    }
 
     if (line.startsWith("@@")) {
-      const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      const m = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
       if (m) {
         oldNo = Number(m[1]);
-        newNo = Number(m[2]);
+        newNo = Number(m[3]);
+        remainingOld = Number(m[2] ?? "1");
+        remainingNew = Number(m[4] ?? "1");
         inHunk = true;
         cur.lines.push({ type: "hunk", oldLine: null, newLine: null, html: "", text: line });
       }
@@ -166,8 +189,10 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
       } else if (line.startsWith("Binary files") || line === "GIT binary patch") cur.binary = true;
       else if (line.startsWith("--- ")) {
         const p = decodeGitPath(line.slice(4), true);
-        if (p !== "/dev/null") cur.oldPath = p.replace(/^a\//, "");
-        else cur.status = "added";
+        if (p !== "/dev/null") {
+          cur.oldPath = p.replace(/^a\//, "");
+          if (!cur.path) cur.path = cur.oldPath;
+        } else cur.status = "added";
       } else if (line.startsWith("+++ ")) {
         const p = decodeGitPath(line.slice(4), true);
         if (p !== "/dev/null") {
@@ -180,6 +205,7 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
 
     // Hunk-content region: classify by the first character only.
     if (line.startsWith("+")) {
+      remainingNew--;
       cur.additions++;
       cur.lines.push({
         type: "add",
@@ -189,6 +215,7 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
         text: line.slice(1),
       });
     } else if (line.startsWith("-")) {
+      remainingOld--;
       cur.deletions++;
       cur.lines.push({
         type: "del",
@@ -198,6 +225,8 @@ export function parseUnifiedDiff(raw: string): DiffFileChange[] {
         text: line.slice(1),
       });
     } else if (line.startsWith(" ") || line === "") {
+      remainingOld--;
+      remainingNew--;
       // `""` is an empty context line whose marker space was stripped in
       // transit (editors, mail, chat). Skipping it would drop the row AND leave
       // oldNo/newNo un-advanced, shifting every later line in the round. git's

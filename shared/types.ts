@@ -413,6 +413,8 @@ export interface DiffLine {
   // this is the literal @@ header text (not highlighted).
   html: string;
   text: string; // raw text of the line (no leading +/-/space), for quote anchoring
+  // Retained patch evidence: this side's final line had no newline terminator.
+  noNewline?: true;
   // Hunk rows: held context for expand (`down` on the last hunk of each contiguous
   // run). Absent/zero = no expander.
   expandable?: { up: number; down: number };
