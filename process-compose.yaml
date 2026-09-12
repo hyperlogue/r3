@@ -2,9 +2,9 @@ version: "0.5"
 is_strict: true
 
 processes:
-  # The daemon: HTTP/JSON API + serves + bundles the SPA itself (R3_DEV=1, set by
-  # `bun run dev`, turns on Bun's HMR — edit web/src and the browser hot-reloads
-  # with no daemon restart, no separate build step). Pinned to a non-default port
+  # The daemon bundles its guarded SPA at startup. Server edits restart it;
+  # restart after frontend edits or use Storybook for component development.
+  # Application 8891 and preview 8892 use a non-default port pair
   # and an isolated, gitignored data dir so this compose instance never collides
   # with — or writes into — an r3 daemon you run normally (default port 8791,
   # state under ~/.local/state/r3). Pointing all three XDG dirs at workspace/ puts

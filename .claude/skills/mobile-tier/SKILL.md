@@ -8,10 +8,9 @@ description: r3's phone-tier (below Tailwind md/768px) design — the isolate-do
 This file is the **design source of truth** for r3 below Tailwind `md` — update it
 here when the mobile design changes.
 
-Phones are **not first-class**: no productive authoring is expected. But reading
-code, switching rounds/snapshots, reading feedback, resolve/submit, replying, and
-adding feedback all work below `md` (768px). Portrait tablets keep the desktop
-layout.
+The phone tier supports reading, version switching, feedback, replies, resolution,
+and Submit below `md` (768px). Artifact authoring stays with the publisher.
+Portrait tablets keep the desktop layout.
 
 ## The prime rule: isolate, don't interleave
 
@@ -23,41 +22,33 @@ Mobile must not add complexity to desktop code.
   tweaks**. The one exception is `JumpToFile`'s inline
   `matchMedia("(pointer: coarse)")` probe, which suppresses autofocus on touch — it
   can't import `usePointerCoarse` without breaking the isolation rule.
-- The **single mount point** is `ReviewView`, which swaps the side dock for
+- The **single mount point** is `ArtifactView`, which swaps the side dock for
   `MobileReviewChrome`. Panel and domain state never fork, and the same
-  `FeedbackPanel` renders with the same props either way.
+  `ArtifactThreads` renders with the same props either way.
 
 `web/src/mobile/` holds containers **only**: `useIsMobile` + `usePointerCoarse`
 (both over `useMediaQuery`), `MobileReviewChrome` (bottom bar + the 3-state
 feedback sheet), and `AddFeedbackPill` (the touch selection-anchor pill).
 
 **Side-by-side diffs never render below `md`.** Two code columns don't fit a phone
-pane, so `ReviewView` forces `layout="unified"` and `PaneToolbar` hides the toggle
+pane, so `ArtifactView` forces `layout="unified"` and the workspace toolbar hides the toggle
 (`max-md:hidden`, an inert class — desktop components still don't import from
 `mobile/`). The override deliberately does **not** write the persisted preference,
 so a split-preferring reader gets split back on a wide viewport.
 
 ## Layout
 
-The sidebar hides. The pane toolbar wraps into stacked full-width rows —
-round/snapshot selector (full-bleed trigger, chevron far right) · the round
-summary · the buttons.
+The file sidebar hides; HTML artifacts have no sidebar at any width. The shared
+workspace toolbar stacks its version selector and controls below `md`. The artifact
+header and summary scroll away inside the content pane while the toolbar sticks.
+`--pane-sticky-h` records its measured height so file headers and Locate geometry
+use the same offset. The pane stays the one source/diff scroll container.
 
-The whole header stack (review header, review summary, toolbar rows) mounts
-**inside the scroll pane** on mobile. The review header + summary scroll away with
-the code, while the **toolbar sticks** at the pane top and each file header pins
-just below it. The toolbar's live height rides on the pane as **`--pane-sticky-h`**,
-which `FileCard`'s header `top` and the anchor-in-view test both read (unset = 0 on
-desktop). So the sticky stack is toolbar + file header, the code gets the full
-height between the navbar and the bottom bar, and **the pane stays the one scroll
-container**.
-
-Large plain-file reviews progressively hydrate file bodies through the shared
-`web/src/progressive.tsx` layer on both tiers. Every file keeps a stable measured
-block in that same pane (so sticky headers, the scroll spy, file picker, and
-feedback jumps retain one geometry), but only bodies within the preload band are
-mounted; one shared observer replaces a scroll/touch listener set per offscreen
-file. This is shared scale behavior, not a mobile fork.
+Large diff artifacts progressively hydrate file bodies through
+`web/src/progressive.tsx`. Stable measured shells preserve sticky headers, the
+scroll spy, file picking, and Locate geometry. A files artifact shows the selected
+file, with source row virtualization for large text. Scale behavior is shared,
+not a mobile fork. Rendered documents scroll in their isolated preview frame.
 
 A persistent bottom bar (`Feedback · N open` — the whole bar is the toggle; watcher
 presence shows only inside the panel) toggles a bottom **sheet** hosting the panel,
@@ -72,7 +63,7 @@ Locate/ref jumps close the sheet before scrolling the code pane.
 
 ## Navigation
 
-The shared `JumpToFile` picker is a toolbar button on **both** tiers: a flat
+The shared `JumpToFile` picker is a toolbar button for files/diff on **both** tiers: a flat
 filterable list with viewed ticks, filter input pinned at the bottom, Enter jumps
 to the top match. Popover on desktop, sheet below `md`.
 
@@ -82,7 +73,7 @@ Keyed on the **pointer, not the width tier** (`usePointerCoarse` — primary poi
 coarse). A narrow desktop window keeps instant mouseup-anchoring; a portrait tablet
 still gets touch anchoring.
 
-The document-`mouseup` selection path swaps for a debounced `selectionchange`
+The source/diff `mouseup` selection path swaps for a debounced `selectionchange`
 listener raising a floating **"Add feedback" pill** (`AddFeedbackPill`):
 
 - The anchor/quote/rect are captured **at selectionchange time** — iOS collapses the
@@ -95,7 +86,8 @@ listener raising a floating **"Add feedback" pill** (`AddFeedbackPill`):
 
 Line-number taps anchor through the existing gutter path (`touch-manipulation`).
 
-**Deferred**: tap-tap range extension, and summary selection via the pill.
+**Deferred**: tap-tap range extension. Rendered comment mode uses the preview
+runtime and its native DOM/text target, never a parent-page source selection.
 
 ## Ergonomics
 
@@ -109,9 +101,8 @@ Below `md`:
   root size, `main.css --r3-font-size`), so iOS doesn't zoom the page on focus (it
   does for any field under 16px). A user who shrinks the root font below 16px trades
   that back.
-- Composer **placeholders drop their keyboard-shortcut hints** on a coarse pointer
-  (no hardware keyboard) — `ReviewView` feeds the pointer fact to `FeedbackPanel` as
-  a `coarse` prop.
+- Composer placeholders use the same plain action text on both tiers, without
+  keyboard-only hints.
 - A composer taller than its pane reveals **top-aligned** (label + quote first), not
   bottom-aligned.
 - Hover-reveal affordances are forced visible on `pointer-coarse:`.

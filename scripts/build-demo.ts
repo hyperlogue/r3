@@ -1,4 +1,4 @@
-// Frontend-only demo build. Aliases web/src/api.ts → web/demo/api.ts. R3_DEMO_BASE
+// Frontend-only demo build. Aliases application and artifact APIs to web/demo/. R3_DEMO_BASE
 // is the mount prefix (GitHub Pages project sites serve under /<repo>/).
 
 import { rm } from "node:fs/promises";
@@ -9,8 +9,8 @@ import tailwind from "bun-plugin-tailwind";
 const DIR = join(import.meta.dir, "..");
 const OUT = join(DIR, "dist/demo");
 
-// web/src modules the demo build swaps for its own: api.ts routes every fetch/SSE
-// call to the in-browser backend; demo-chrome.tsx replaces the production no-op
+// Exact application and artifact API imports route calls and streams to the
+// in-browser backend; demo-chrome.tsx replaces the production no-op
 // stub with the real "Demo" badge + intro; main.css swaps in a CSS entry that
 // also scans web/demo for Tailwind classes (see web/demo/main.css), so the demo
 // chrome's utilities actually get generated.
@@ -53,7 +53,7 @@ const result = await Bun.build({
   minify: true,
   sourcemap: "none",
   // publicPath prefixes every emitted asset URL so they resolve from a deep
-  // route (e.g. /r3/review_x served via 404.html), not just the index.
+  // route (e.g. /r3/demo/artifact_x served via 404.html), not just the index.
   publicPath: BASE,
   define: {
     "process.env.NODE_ENV": '"production"',
@@ -67,7 +67,7 @@ if (!result.success) {
 }
 
 // SPA deep-link fallback: GitHub Pages serves 404.html for any unmatched path, so
-// a copy of index.html there lets a hard reload of /…/review_x boot the app (which
+// a copy of index.html there lets a hard reload of /…/artifact_x boot the app (which
 // then routes client-side) instead of 404ing.
 await Bun.write(join(OUT, "404.html"), await Bun.file(join(OUT, "index.html")).bytes());
 

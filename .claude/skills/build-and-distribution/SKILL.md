@@ -1,6 +1,6 @@
 ---
 name: build-and-distribution
-description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the frontend-only browser demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, build-demo, stage-pages, gen-demo-fixtures), npm/, web/demo/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/demo build.
+description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the frontend-only browser demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, build-demo, stage-pages, gen-artifact-demo), npm/, web/demo/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/demo build.
 ---
 
 # Building and shipping r3
@@ -15,8 +15,11 @@ bump, tag — is the separate **`release`** skill.)
 the CLI entry — which imports the daemon, which imports the SPA via `import index
 from "../web/index.html"`. That embeds the Bun runtime, all JS deps, `bun:sqlite`,
 and the bundled SPA (as `Bun.embeddedFiles`) into one `./r3` executable that serves
-its own UI. The CLI **is** the binary; the hidden `__daemon` subcommand re-execs it
-to serve.
+its own UI. `application-assets.ts` indexes embedded files and serves them behind
+the application Host guard. A source daemon bundles the same assets once at
+startup; frontend edits need a restart. Native Bun HMR routes are not exposed
+outside the guards. The CLI **is** the binary; the hidden `__daemon` subcommand
+re-execs it to serve.
 
 **The CSS pre-pass is load-bearing.** The SPA stylesheet is Tailwind-compiled first
 in a separate **browser-target** pass (`scripts/spa-css.ts`, shared with
@@ -100,31 +103,36 @@ override if a release marks the peer optional or moves it to `engines`.
 runs the **whole SPA with no daemon** — a third client of the same components, but
 its "backend" is an **in-browser store** (`web/demo/`) over `localStorage`.
 
-It is the *same* `web/index.html` Bun.build, with:
+It uses the same `web/index.html` and application components. One build plugin
+aliases four exact imports:
 
-- one `onResolve` plugin aliasing `web/src/{api.ts,demo-chrome.tsx,main.css}` to
-  their `web/demo/` counterparts — so every fetch/SSE call hits the browser
-  backend, the demo chrome replaces its production stub, and Tailwind also scans
-  `web/demo`;
-- an `EventSource` shim.
+| Application module | Demo replacement |
+| --- | --- |
+| `web/src/api.ts` | `web/demo/application-api.ts` — boot/theme and disabled login management |
+| `web/src/artifact-api.ts` | `web/demo/artifact-api.ts` — typed artifact API and local event stream |
+| `web/src/demo-chrome.tsx` | `web/demo/demo-chrome.tsx` — intro/reset |
+| `web/src/main.css` | `web/demo/main.css` — also scans demo classes |
 
-The demo reuses the server's genuinely **pure** modules verbatim (`anchor.ts`,
-`textdiff.ts`, `prompt.ts`, `shared/types.ts`) and **pre-bakes** all Shiki/markdown
-HTML at build time (`scripts/gen-demo-fixtures.ts` → `web/demo/fixtures.gen.ts`), so
-**no highlighter, sqlite, or git ships to the browser**. Re-bake with `bun run
-gen:demo` only after editing canned content.
+`ArtifactDemoBackend` owns seeded publications, conversations, delivery, claims,
+and lifecycle in browser storage. An async event stream invalidates the same
+queries as production. There is no global EventSource or fetch shim.
 
-The seed dogfoods r3 on its own code; a scripted agent watches each review and
-closes the submit→reply→round loop. Reviews can't be *created* in the demo (no git)
-— it's a read-and-respond tour of the seeded reviews. Daemon-only affordances are
-gated by a build-time flag the aliased `api.ts` exports rather than by a
-demo check inside the component: `CAN_MANAGE_TOKENS` is `false` there, so
-SettingsPopup drops its whole "Access" (login tokens) section — nothing beyond
-this tab is reachable, so remote-access tokens have no meaning and a control that
-could only fail is worse than none.
+`scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes two
+synthetic artifacts, complete source/diff versions, original binary-safe bytes,
+retained Markdown metadata, theme palettes, and scripted follow-up publications.
+Shiki, SQLite, and Git never ship to the browser. Run `bun run gen:demo` after
+editing canned content; generated fixtures are excluded from Biome.
 
-**The demo must never fork the contract**: it implements `shared/types.ts`, it
-doesn't extend it.
+Explicit Submit schedules the scripted agent, claims notes, publishes a new
+version, replies with context, and leaves status for the human. Selection stays on
+the original version. Archive prevents publication and re-registration while
+allowing in-flight replies and retaining pending work. The demo implements the
+public contract directly; its persistence model is separate from wire types.
+
+The static demo cannot provide an isolated executable origin. Rendered preview
+requests explain that limitation; source, diff, history, and conversations work.
+Do not add an insecure same-origin preview fallback. `CAN_MANAGE_TOKENS=false`
+hides access management and sign-out, which have no meaning in this tab.
 
 ### The Pages layout
 
@@ -140,7 +148,7 @@ into the router (`hrefFor`/`__R3_BASE__`) and asset `publicPath`. Then
 - a root→demo redirect,
 - and — because **Pages honors only a single site-root `404.html`** (subdirectory
   ones are ignored) — the SPA copied to the site-root `404.html`, so a deep-link
-  reload of `/r3/demo/review_x` still boots it (its asset URLs are absolute).
+  reload of `/r3/demo/artifact_x` still boots it (its asset URLs are absolute).
 
 Local `build:demo` defaults to a root base, so `bunx serve -s dist/demo` just works.
 
@@ -154,6 +162,6 @@ it in the same commit.
 
 ## Heritage
 
-v1 was one server per repo with a gitignored per-repo `.r3/review.sqlite`; v2
-replaced it with the one per-user daemon + global store. Some code comments still
-cite the old model as history.
+The initial version was one server per repo with a gitignored per-repo `.r3/review.sqlite`; The per-user daemon
+replaced it with the one per-user daemon + global store. Published artifacts now replace live repository reads with immutable stored
+versions; the CLI, daemon, browser, and demo cut over together.
