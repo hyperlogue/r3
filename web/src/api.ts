@@ -1,42 +1,13 @@
-// Typed HTTP client. Token comes from GET /api/boot, not the served HTML (the
-// SPA shell stays a cacheable static asset).
-
+// Application bootstrap, theme settings, and login-token access.
+// Artifact operations use artifact-api.ts and the shared ArtifactClient.
 import type {
-  AddReplyBody,
   AuthTokenInfo,
   BootResponse,
-  ClaimFeedbackBody,
   CreateAuthTokenBody,
   CreateAuthTokenResponse,
-  CreateFeedbackBody,
-  CreateReviewBody,
-  DiffContextResponse,
-  DiffResult,
-  Feedback,
-  FeedbackClaim,
-  FeedbackStatus,
-  GitLogEntry,
-  GitStatus,
-  GitTreeEntry,
   LoginBody,
-  ReanchorBody,
-  RenderedFile,
-  Reply,
-  RepoRecord,
-  Review,
-  ReviewDetail,
-  ReviewDiffResponse,
-  ReviewFilesResponse,
-  SetViewedBody,
-  SnapshotDiffResponse,
-  SnapshotMeta,
-  SnapshotRef,
   ThemeOption,
   ThemeStyle,
-  UpdateReplyBody,
-  UpdateReviewBody,
-  ViewedResponse,
-  WatchersResponse,
 } from "./types.ts";
 
 // Populated by loadBoot() before the app renders (main.tsx awaits it). A
@@ -69,8 +40,7 @@ export async function loadBoot(): Promise<{ needsAuth: boolean }> {
 }
 
 // An HTTP error from `req()`, carrying the response `status` so callers can react
-// to a specific code (e.g. ReviewView treats a 404 as "the review was deleted"
-// and stops preferring its stale cached detail).
+// to a specific code (e.g. authentication controls distinguish an expired session).
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -89,6 +59,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   if (TOKEN) headers["x-r3-token"] = TOKEN;
   const r = await fetch(path, {
     method,
+    redirect: "error",
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -105,126 +76,8 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
 };
 
 export const api = {
-  // git browsing — `repo` selects which registered project to browse;
-  // omitted = the daemon's default repo.
-  status: (repo?: string) => req<GitStatus>("GET", `/api/git/status${qs({ repo })}`),
-  log: (limit = 60, cursor = 0, repo?: string) =>
-    req<GitLogEntry[]>("GET", `/api/git/log${qs({ limit, cursor, repo })}`),
-  tree: (ref = "HEAD", path?: string, repo?: string) =>
-    req<GitTreeEntry[]>("GET", `/api/git/tree${qs({ ref, path, repo })}`),
-
-  // projects registry
-  repos: () => req<RepoRecord[]>("GET", "/api/repos"),
-  relinkRepo: (id: string, path: string) =>
-    req<RepoRecord>("POST", `/api/repos/${id}/relink`, { path }),
-  renameRepo: (id: string, name: string) => req<RepoRecord>("PATCH", `/api/repos/${id}`, { name }),
-  forgetRepo: (id: string) => req<{ ok: true }>("DELETE", `/api/repos/${id}`),
-  diff: (
-    base: string,
-    head: string,
-    opts: {
-      ignoreWhitespace?: boolean;
-      contextLines?: number;
-      theme?: string;
-      review?: string;
-    } = {},
-  ) =>
-    req<DiffResult>(
-      "GET",
-      `/api/diff${qs({ base, head, ignoreWhitespace: opts.ignoreWhitespace ? 1 : undefined, contextLines: opts.contextLines, theme: opts.theme, review: opts.review })}`,
-    ),
-  // A diff review's rendered content. `seq` fetches that one round; omitted
-  // returns every stored round (compat). A legacy review with no stored rounds
-  // renders live from its refs as seq 0.
-  reviewDiff: (id: string, theme?: string, seq?: number) =>
-    req<ReviewDiffResponse>("GET", `/api/reviews/${id}/diff${qs({ theme, seq })}`),
-  // Expand-context: the unchanged rows a diff holds but doesn't render, for one
-  // collapsed gap. `seq` names a diff review's stored round; `from`/`to` name a
-  // files review's snapshot diff. [start,end] are NEW-side line numbers, and a
-  // range the source can't fully cover 404s rather than filling partially.
-  diffContext: (
-    id: string,
-    where: { seq: number } | { from: number; to: SnapshotRef },
-    file: string,
-    start: number,
-    end: number,
-    theme?: string,
-  ) =>
-    req<DiffContextResponse>(
-      "GET",
-      `/api/reviews/${id}/diff-context${qs({ ...where, file, start, end, theme })}`,
-    ),
-  // `review` ties the request to a review's repo/worktree so its content resolves
-  // against the right project — the daemon is multi-repo.
-  blob: (path: string, ref = "WORKING", theme?: string, review?: string) =>
-    req<RenderedFile>("GET", `/api/blob${qs({ path, ref, theme, review })}`),
-
-  // Files-review content snapshots. `snapshotDiff` derives the diff
-  // between two snapshot refs (from a seq; to a seq or "WORKING"=live);
-  // `snapshotBlob` renders one file at a snapshot ref (the from=None browse mode).
-  snapshots: (id: string) => req<SnapshotMeta[]>("GET", `/api/reviews/${id}/snapshots`),
-  snapshotDiff: (id: string, from: number, to: SnapshotRef, theme?: string) =>
-    req<SnapshotDiffResponse>("GET", `/api/reviews/${id}/snapshot-diff${qs({ from, to, theme })}`),
-  snapshotBlob: (id: string, path: string, to: SnapshotRef, theme?: string) =>
-    req<RenderedFile>("GET", `/api/reviews/${id}/snapshot-blob${qs({ path, to, theme })}`),
-
-  // Membership + each file's line count / kind / sha at a snapshot ref — what a
-  // deferred card reserves its height with before its blob lands (see
-  // ReviewFileStat). No content, so it stays small however big the review is.
-  reviewFiles: (id: string, to: SnapshotRef) =>
-    req<ReviewFilesResponse>("GET", `/api/reviews/${id}/files${qs({ to })}`),
-
-  // Syntax-theme options (curated families + all bundled Shiki themes).
   themes: () => req<ThemeOption[]>("GET", "/api/themes"),
-  // The selected theme's editor background + default foreground, painted onto the
-  // code surfaces so a theme (e.g. Nord) looks like it does in an editor.
   themeStyle: (theme?: string) => req<ThemeStyle>("GET", `/api/theme-style${qs({ theme })}`),
-
-  // reviews
-  listReviews: (filter: { session?: string; status?: string; repo?: string } = {}) =>
-    req<Review[]>("GET", `/api/reviews${qs(filter)}`),
-  createReview: (body: CreateReviewBody, repo?: string) =>
-    req<{ id: string; url: string; review: Review }>("POST", `/api/reviews${qs({ repo })}`, body),
-  review: (id: string) => req<ReviewDetail>("GET", `/api/reviews/${id}`),
-  patchReview: (id: string, body: UpdateReviewBody) =>
-    req<Review>("PATCH", `/api/reviews/${id}`, body),
-  deleteReview: (id: string) => req<{ ok: true }>("DELETE", `/api/reviews/${id}`),
-  // The unsent-only prompt, previewed WITHOUT marking it delivered — a GET so it
-  // has no side effects. Used to fetch the text to copy first; only a landed
-  // clipboard write then calls `prompt` (below) to stamp sent_at, so a failed
-  // copy leaves the unsent set intact for a retry (see useCopyPrompt).
-  promptPreview: (id: string) =>
-    req<string>("GET", `/api/reviews/${id}/prompt${qs({ scope: "unsent" })}`),
-  // The unsent-only prompt: builds only what the agent hasn't seen and marks it
-  // delivered, so it's a POST (it mutates sent_at). Full-history
-  // re-prints are CLI-only (`r3 prompt --all`), never surfaced in the browser.
-  prompt: (id: string) => req<string>("POST", `/api/reviews/${id}/prompt`, {}),
-  watchers: (id: string) => req<WatchersResponse>("GET", `/api/reviews/${id}/watchers`),
-  submit: (id: string) => req<{ ok: true }>("POST", `/api/reviews/${id}/submit`),
-
-  // Per-reviewer viewed-state. Server-persisted read-progress;
-  // keys are opaque content-identity tokens (see viewed.ts). GET returns the set;
-  // PUT sets/clears one key. No SSE — a second tab reconciles on refetch.
-  getViewed: (id: string) =>
-    req<ViewedResponse>("GET", `/api/reviews/${id}/viewed`).then((r) => new Set(r.keys)),
-  setViewed: (id: string, key: string, viewed: boolean) =>
-    req<{ ok: true }>("PUT", `/api/reviews/${id}/viewed`, { key, viewed } satisfies SetViewedBody),
-
-  // feedback + replies
-  addFeedback: (reviewId: string, body: CreateFeedbackBody) =>
-    req<Feedback>("POST", `/api/reviews/${reviewId}/feedback`, body),
-  editFeedback: (id: string, body: { body?: string; status?: FeedbackStatus }) =>
-    req<Feedback>("PATCH", `/api/feedback/${id}`, body),
-  reanchor: (id: string, body: ReanchorBody) =>
-    req<Feedback>("PATCH", `/api/feedback/${id}/anchor`, body),
-  deleteFeedback: (id: string) => req<{ ok: true }>("DELETE", `/api/feedback/${id}`),
-  claimFeedback: (id: string, body: ClaimFeedbackBody) =>
-    req<FeedbackClaim>("PUT", `/api/feedback/${id}/claim`, body),
-  releaseFeedbackClaim: (id: string) => req<{ ok: true }>("DELETE", `/api/feedback/${id}/claim`),
-  addReply: (feedbackId: string, body: AddReplyBody) =>
-    req<{ reply: Reply; feedback: Feedback }>("POST", `/api/feedback/${feedbackId}/replies`, body),
-  editReply: (id: string, body: UpdateReplyBody) => req<Reply>("PATCH", `/api/replies/${id}`, body),
-
   // auth (quick-auth: login token -> session cookie). login() is the only call
   // that runs before a session exists; the rest manage login tokens and require auth
   // (the per-user token, or a valid session cookie).
