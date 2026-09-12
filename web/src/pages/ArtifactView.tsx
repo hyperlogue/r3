@@ -7,7 +7,7 @@ import type {
   ArtifactVersion,
   RenderedLocator,
 } from "../../../shared/artifacts.ts";
-import { artifactMediaKind } from "../../../shared/artifacts.ts";
+import { artifactMediaKind, hasUnsentArtifactFeedback } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useHasArtifactDraft, useHasArtifactNote } from "../artifact-drafts.ts";
 import {
@@ -83,6 +83,9 @@ export function ArtifactView({
     queryKey: ["artifact", artifactId],
     queryFn: () => artifactApi.detail(artifactId),
   });
+  useEffect(() => {
+    document.title = `${query.data?.title || artifactId} · r3`;
+  }, [artifactId, query.data?.title]);
   if (query.error)
     return (
       <p role="alert" className="p-6 text-sm text-red-600">
@@ -831,6 +834,9 @@ export function ArtifactWorkspace({
                   {detail.feedback.filter((feedback) => feedback.status === "open").length}
                 </span>
                 {hasDraft && <span title="Unsaved draft">✎</span>}
+                {detail.feedback.some(hasUnsentArtifactFeedback) && (
+                  <span title="Feedback waiting to be sent">↥</span>
+                )}
                 {detail.watching && <span title="Agent listening">●</span>}
               </button>
             )}
