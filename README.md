@@ -13,200 +13,240 @@
   <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
 </p>
 
-Imagine your agent just wrote a 2,000-word design doc and six new files. A handful of
-passages need work. In a chat box you paste each one back, retype what is wrong with
-it, and from then on you are the one remembering which notes got addressed and which
-quietly dropped two turns ago.
+r3 is a workspace for reviewing what agents publish: documents, interactive HTML,
+files, and code changes. Leave a comment on the source or rendered page, discuss it
+in a thread, and inspect the next version when it is ready.
 
-r3 is a local review tool for what your coding agent writes. Your agent opens a review
-of its diff or its doc, you leave notes on the exact lines, and it works through them
-one at a time. This is the loop you already know from code review, running entirely on your
-own machine.
-
-- **Your note sits on the line it's about.** Select a line of code, or a sentence
-  inside a rendered Markdown doc, and type. Nothing gets pasted into a chat window to
-  explain which part you meant.
-- **The agent is waiting to revise.** It blocks on `r3 watch` while you read. Hit
-  Submit and it wakes with your notes; its replies show up in the browser without a
-  refresh.
-- **Every note is tracked to resolution.** Each one carries its own thread and status,
-  so three rounds later you can still see which four are open.
-
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/0c1aefaf-0229-49e7-a4dc-e660dc0214f6" width="760" muted controls></video>
-</div>
+Each publication is immutable. Editing a local file does not change the page you
+are reading. An agent can publish from another machine, and every version remains
+available even after its source directory disappears.
 
 ```sh
-npm install -g @hyperlogue/r3    # or: bun add -g @hyperlogue/r3 · npx @hyperlogue/r3@latest
+npm install -g @hyperlogue/r3
+# Alternatives: bun add -g @hyperlogue/r3 · npx @hyperlogue/r3@latest
 ```
 
-Then tell your agent to put its changes up for review. If you'd rather look before
-installing anything, [**▶&nbsp;try the live demo**](https://hyperlogue.github.io/r3/demo/) —
-the whole UI runs in your browser.
+The [browser demo](https://hyperlogue.github.io/r3/demo/) lets you try source and
+diff feedback with a scripted agent. Executable previews need the daemon's isolated
+preview host and are unavailable in the static demo.
 
-## Workflow
+## Publish an artifact
 
-r3 offers a tight, copy-paste-free review loop between you and an agent.
-
-<p align="center">
-  <img alt="r3_cc" src="https://github.com/user-attachments/assets/ba85f5a2-e244-4a04-b673-22cb88694c2b" width="49.6%">
-  <img alt="r3_web" src="https://github.com/user-attachments/assets/4b99a128-3484-44ce-a727-8d72a3dc532b" width="42.4%">
-</p>
-
-```mermaid
-sequenceDiagram
-    participant A as Agent
-    participant S as r3 server
-    participant U as You (browser)
-
-    A->>S: [1] `r3 create` — opens a review, shares the URL
-    loop until you Approve or Abandon
-        A->>S: [2] `r3 watch` (blocks for feedback)
-        U->>S: [3] leave feedback + Submit
-        S-->>A: `r3 watch` prints your feedback to stdout and exits
-        A->>S: [4] `r3 claim` feedback being worked
-        S-->>U: working indicator appears live
-        A->>S: [5] `r3 reply` by feedback id (releases claim)
-        S-->>U: [6] reply + claim release update live
-    end
-```
-
-1. The agent starts a review with **`r3 create`** and shares the URL.
-2. The agent runs **`r3 watch <id>`**, which registers as a live watcher and
-   waits for feedback.
-3. You leave feedback anchored to the exact lines it's about, then click
-   **Submit**. `watch` prints your feedback to stdout that's captured by the agent.
-4. The agent claims the items it starts (`r3 claim <fid>...`), so the UI shows
-   which session is actively working. Claims are 60-minute leases and can be
-   renewed by repeating the command.
-5. The agent works each item and **replies by feedback id**
-   (`r3 reply <fid> -m "what I changed"`), saying what it changed, or the
-   reasoning for why it didn't. A successful agent reply releases that claim.
-6. Every reply lands on the web UI through live updates. The agent `watch`es again
-   until you **Approve** or **Abandon** the review.
-
-## Quick start
-
-r3 is driven by your coding agent, so the quickest start is to point your agent at
-it. Drop this into your agent's instructions file (`AGENTS.md`, `CLAUDE.md`, or
-your tool's equivalent), or just try it out by pasting it into a new session:
-
-```md
-This project uses r3 for review. Run it with whichever of these you have:
-`r3` (if installed), `npx @hyperlogue/r3@latest`, `bunx @hyperlogue/r3@latest`, or
-`nix run github:hyperlogue/r3 --`. `r3 guide` will show how to use it.
-```
-
-Then just ask: "put your changes up for review." Your agent runs `r3 create …`,
-shares the URL, and waits while you leave feedback in the browser. Nothing needs to
-be installed first — the `npx`/`bunx`/`nix` forms work standalone, and whichever one
-your agent uses lazily starts the web server on localhost and opens the review.
-
-One **web server** spans all your repos on a stable port (default 8791). The first
-call spawns it automatically, so there's nothing to start by hand;
-`r3 start | stop | status | restart` manage it explicitly. Open
-http://127.0.0.1:8791/ to see every project's reviews in one tab.
-
-No config needed: reviews live in one global sqlite at `$XDG_STATE_HOME/r3/r3.sqlite`
-keyed by a **projects registry** (so worktrees of one clone are one project and
-copies stay separate), and the web server announces itself in `$XDG_RUNTIME_DIR/r3/daemon.json`
-so the CLI finds it with zero config. Run the CLI from any git repo, and it tells
-the web server which project/worktree the call targets.
-
-You rarely type the commands yourself — you ask your agent, and it runs the right
-`r3 create`:
-
-```text
-"Put your working changes up for review."
-  → diff review of the working tree
-
-"Open a review of the plan doc so I can comment on it."
-  → files review of that file, watched live as the agent keeps editing
-
-"Let me review the diff between main and this branch."
-  → diff review of the range
-
-"Start a review with a scratch folder and put your draft design doc there."
-  → adhoc scratch review with no git source
-```
-
-## Reviews
-
-Every review is one of two kinds:
-
-- A **files review** is a live view of a set of files as they are right now. r3
-  watches them and re-renders on every change, so it fits work in progress: a
-  design doc your agent is still writing, or a few source files you want to read
-  together.
-- A **diff review** is a frozen record of a change: a commit, a branch range, your
-  working tree, or any diff. It doesn't move once captured, and follow-up work
-  lands as new rounds you can compare against.
-
-Feedback anchors to a **quote**, not a line number: in a files review your notes
-follow the code as it's edited; in a diff review the rounds are immutable, so
-nothing drifts.
-
-## How r3 compares to similar tools
-
-| Tool                                                                                   | How r3 differs                                                                                                                                                                                    |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [difit](https://github.com/yoshiko-pg/difit) / [diffx](https://github.com/wong2/diffx) | r3 makes the review loop live. The agent `watch`es, you Submit, replies land back in the UI, tracking every item to resolution. r3 also supports raw text files like design docs, not just diffs. |
-| GitHub / GitLab PRs                                                                    | r3 drives the local pre-PR loop with your agent: nothing needs a remote, a push, or even a commit.                                                                                                |
-| AI review bots (CodeRabbit, Copilot code review, …)                                    | In r3 _you_ review the AI's work: the agent is the author, addressing your feedback.                                                                                                              |
-
-If you want a one-shot look at a diff with no state left behind, difit and diffx
-are good enough. r3 shines when the review outgrows a single pass — feedback
-spans several rounds, and each item keeps its thread and status until it's
-resolved.
-
-## Remote access
-
-If you work on a remote dev server, r3 listens on loopback there, and you reach
-its web UI from your local device through a tunnel. Set one up however you like: an SSH
-forward (`ssh -L 8791:localhost:8791 devbox`), `tailscale serve`, or a Cloudflare
-tunnel. **Never** bind `0.0.0.0`.
-
-**Exposing r3 beyond loopback turns on an optional login gate.** It's pure security
-hardening — **on by default whenever r3 is exposed** (a non-loopback bind, a
-non-loopback `R3_PUBLIC_URL`, or a non-loopback `R3_ALLOWED_HOSTS`), and **off on a plain
-`localhost:8791`** so the default setup needs
-no login at all. Over an SSH forward you browse `localhost`, so nothing changes. When
-it's on, create a token on the host and paste it into the browser once: the browser
-posts that **login token** to the daemon to mint an HttpOnly session cookie, and from
-then on holds only the cookie. (The login token is a scoped, revocable credential; the
-daemon's own per-user API token — the CLI's credential — is never handed to a browser
-when exposed.) Force it either way with `R3_REQUIRE_LOGIN=1|0`.
-
-> **Behind your own reverse proxy, set `R3_REQUIRE_LOGIN=1`.** r3 decides whether
-> to require a login from its own bind + advertised host — it can't see that
-> through a proxy that rewrites the `Host` header to `127.0.0.1` (nginx's default
-> `proxy_pass`), which reads as loopback-only and hands the browser the per-user
-> token. Setting `R3_PUBLIC_URL` to the public name fixes it too; `tailscale serve`
-> forwards the real host, so it's already covered.
+Run `r3 guide` for the full agent workflow. Give each agent a distinct logical
+identity with `--session`, `R3_AGENT_SESSION`, or its harness-provided session ID.
+No agent owns an artifact: multiple agents can publish and participate.
 
 ```sh
-# on the host:
-r3 config set publicUrl https://myhost.tailnet.ts.net    # allows that Host + requires login
-r3 restart                                                # config.json is read below env
-tailscale serve --bg 8791                                 # -> https://myhost.tailnet.ts.net/
-r3 auth create-token --label laptop                       # prints the token once — paste it in the browser
+# A prepared directory of documents or files; no Git repository is needed.
+r3 create --dir ./proposal --title "Proposed design" --session design-agent
+
+# A full-page HTML or Markdown artifact with supporting assets.
+r3 create --kind html --dir ./prototype --title "Prototype" --session design-agent
+
+# Captured code changes, including untracked files.
+r3 create --working --title "Navigation changes" --session code-agent
+
+# Follow-up publications use the existing artifact's kind.
+r3 publish artifact_example --dir ./proposal --label "Revised design" --session design-agent
 ```
 
-`r3 config set` **persists** these settings to `$XDG_CONFIG_HOME/r3/config.json`, so
-a restart — or a daemon lazily re-spawned by any CLI call from a shell that never
-exported the env vars — keeps serving remotely instead of silently dropping to
-loopback-only. (`export R3_PUBLIC_URL=…` still works for a one-off run; it just
-isn't remembered.) The store is a flat map — names `bind`, `port`, `publicUrl`,
-`allowedHosts` (comma list), `requireLogin`: `r3 config show` dumps the JSON,
-`r3 config get <name>` prints one value, `r3 config unset <name>` reverts one.
+The CLI prints the artifact URL. Its first local call starts the daemon; open
+`http://127.0.0.1:8791/` for the artifact list. `r3 start`, `stop`, `status`, and
+`restart` manage that daemon explicitly.
 
-`r3 auth list-tokens` / `r3 auth revoke-token <id> | --all` manage tokens (revoking
-kills its sessions immediately).
+| Kind | What is published | What the browser shows |
+| --- | --- | --- |
+| `files` | A complete, nonempty directory; individual empty files are allowed | File browser and source viewer, with rendered HTML/Markdown, native media previews, and downloads |
+| `html` | A complete directory with root `index.html` or `index.md` | The rendered entrypoint in a full-page workspace, with comment mode |
+| `diff` | One complete, independent unified patch per version | Captured old/new lines, split or unified layout, and expandable retained context |
 
-Settings: `R3_PORT` (default 8791), `R3_BIND` (default `127.0.0.1`), `R3_ALLOWED_HOSTS`
-(comma-separated exact Host names, never `*`; a non-loopback name here also marks r3
-exposed), `R3_PUBLIC_URL` (a non-loopback host is auto-allowed **and** marks r3
-exposed, so this alone covers the common single-name `tailscale serve` case), `R3_REQUIRE_LOGIN`
-(`1`/`0` to force the login requirement on or off explicitly). Each resolves
-**env → `config.json` (via `r3 config set`) → default**, so env overrides the
-persisted file for a single run.
+Directory capture defaults to `files`, even when it contains an index. For `html`,
+if both indexes exist, choose `--entrypoint index.html` or `--entrypoint index.md`.
+The artifact's kind stays fixed. Files and HTML artifacts have no diff view.
+
+Other capture options are `--staged`, `--commit <sha>`, `--diff <base>..<head>`,
+`--stdin-diff`, and `--ref <git-ref|STAGED> --file <relative-path>` (repeatable).
+A diff version is an independent patch; r3 never applies it to an earlier version
+to invent a complete tree.
+
+Build HTML and bundle dependencies before publishing. Directory capture includes
+all selected regular files, including hidden files; use a prepared output directory
+or explicit `--file` selections. Symlinks and special files are rejected. Current
+limits are 10,000 files, 64 MiB per file, 128 MiB total, 4 MiB per Markdown document,
+and 10 MiB per patch.
+
+## Review and revise
+
+1. Open the artifact and choose a published version. Source selections, diff
+   selections, and rendered comment mode create threads with native targets.
+2. Click **Submit** to notify the registered agent, or copy the prompt for a manual
+   handoff. Drafts retain the version and view where they began.
+3. The agent reads pending feedback, claims the items it is handling, publishes
+   changes, and replies by stable feedback ID.
+4. Inspect the new publication using the version picker. A publication announces
+   itself without replacing the version you are reading. Resolve the thread when
+   you are satisfied; replies and publications leave its status open.
+5. Archive the artifact when work should stop. Restore it to resume later.
+
+```sh
+r3 listen artifact_example --session design-agent
+# Any agent can instead block on watch, or fetch prompt directly.
+r3 watch artifact_example --session design-agent
+r3 prompt artifact_example --session design-agent
+r3 claim feedback_example --session design-agent
+r3 publish artifact_example --dir ./proposal --session design-agent
+r3 reply feedback_example -m "Updated the explanation." --version 2 --view source --session design-agent
+```
+
+`listen` uses a publisher-side Claude Code socket or Codex queue adapter. Its local
+capability check reports when that adapter is unavailable; use `watch` or `prompt`
+with other harnesses. The server receives an outward connection and logical agent
+identity, never the harness socket, executable path, or harness credential.
+
+`watch` exits **10** for pending feedback, **0** for archived, **2** on timeout, and
+**4** for a conflicting or superseded recipient. Only one designated listen/watch
+recipient is active per artifact. Claims are independent, feedback-scoped leases
+lasting 60 minutes; agents can work on different notes concurrently. A reply
+releases only its author's claim.
+
+Original comment targets never move. **Locate** returns to their recorded version
+and representation. Additional placements and reply fix targets are separate from
+the original evidence; an absent or ambiguous element is reported explicitly.
+Reply `--version` and `--view` pin its inline references independently of a fix
+location. Without those flags, a reply has no version context.
+
+Archive preserves versions, threads, unsent feedback, and drafts. An optional
+archive message is retained in history and sent to the current listener. A blank
+message closes quietly; watch always terminates. Archive does not imply approval.
+Restore requires a fresh listener registration. In-flight replies remain accepted
+while archived, but new publications, claims, and ordinary handoffs are blocked.
+
+## Version history and retrieval
+
+```sh
+r3 versions artifact_example
+r3 files artifact_example --version 1
+r3 source artifact_example --version 1 --file index.md
+r3 download artifact_example --version 1 --file image.png > image.png
+r3 patch artifact_example --version 1 > captured.patch
+r3 list --meta session=design-agent
+```
+
+All versions remain available until whole-artifact deletion. To correct content,
+publish again. Concurrent publishers use an optimistic sequence check; `--expected`
+sets it explicitly and `--key` identifies a retry. Retry with the same captured
+bytes, metadata, key, and expected sequence. A conflict requires inspecting the
+newest publication before publishing again.
+
+Projects are optional explicit groups, independent of filesystem paths:
+`r3 project create --title "Product design"`, then `r3 create ... --project <id>`.
+Removing a project preserves its artifacts.
+
+## Interactive HTML
+
+Publish local scripts, ES modules, styles, images, media, and data alongside the
+entrypoint. Use relative URLs, hash routes, or published document paths. The preview
+provides the selected version's resource root. Automatic root-relative URL rewriting,
+history-route fallback, dependency installation, and backend hosting are outside
+this feature.
+
+Each preview uses an isolated origin scoped to one version. Local resources support
+fetch, XHR, modules, and media range requests. External resources, APIs, sockets,
+forms that navigate, and access to unrelated artifacts or application endpoints
+are blocked. Bundle assets locally instead of loading a CDN.
+
+Rendering requires a browser that passes r3's Connection Allowlist and WebRTC
+blocking checks. Acceptance tests pass in Chrome for Testing 153.0.8010.36;
+Chromium 151 is refused before loading published content. Unsupported browsers
+still support source, diff, and download workflows. Camera and microphone use
+ordinary browser permission prompts in the isolated secure preview.
+
+Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
+`createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`, and
+`subscribe(callback)`. These use the same threads and explicit handoff as the panel.
+Human mutations require user activation. The utility exposes no application
+credential, generic API access, publication, lifecycle, or host execution capability.
+
+## Remote publishing and browser access
+
+Point a publisher at an application URL with `R3_URL`; supply its API credential
+through `R3_TOKEN`. Capture still happens on the publisher. Neither publishing nor
+reading requires a server-side checkout.
+
+Both daemon listeners bind loopback. Reach them through a tunnel or HTTPS reverse
+proxy. For remote browser rendering, configure separate application and preview
+origins; the preview's wildcard context subdomains must route to its listener.
+Do not proxy the application API through the preview host.
+
+```sh
+r3 config set publicUrl https://reviews.example
+r3 config set requireLogin 1
+r3 config set previewBaseUrl https://preview.example
+r3 restart
+r3 auth create-token --label browser
+```
+
+Configure DNS and TLS for `*.preview.example` and forward that host unchanged to
+the preview listener (default port 8792). A remote application requires HTTPS
+preview DNS; an HTTP localhost preview is only suitable for a local browser.
+An SSH setup can instead forward both local ports while browsing the local
+application URL.
+
+Remote exposure enables login by default. A revocable login token mints an
+HttpOnly browser session; it is separate from the CLI's API credential. Behind a
+proxy that rewrites Host, set `requireLogin` explicitly and advertise `publicUrl`.
+`r3 auth list-tokens` and `r3 auth revoke-token <id>` manage browser access.
+
+Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults:
+
+| Setting | Environment | Default |
+| --- | --- | --- |
+| `port` | `R3_PORT` | 8791 |
+| `bind` | `R3_BIND` | Loopback |
+| `publicUrl` | `R3_PUBLIC_URL` | Local application URL |
+| `allowedHosts` | `R3_ALLOWED_HOSTS` | Exact local hostnames |
+| `requireLogin` | `R3_REQUIRE_LOGIN` | Enabled for remote exposure |
+| `previewPort` | `R3_PREVIEW_PORT` | Application port + 1 |
+| `previewBaseUrl` | `R3_PREVIEW_BASE_URL` | `http://localhost:<previewPort>` |
+
+Use `r3 config show|get|set|unset` to inspect or persist settings. Wildcard
+application hosts and all-interface binds are rejected.
+
+## Upgrading from live file reviews
+
+The artifact protocol replaces the old review commands and API. Restart with the
+new binary to migrate. Startup first retains a private database backup, then
+imports surviving snapshots, patches, conversations, login state, and read progress
+in one transaction. Review IDs remain valid artifact URLs.
+
+Files and scratch reviews become `files` artifacts. A one-time current capture,
+when available, is explicitly marked as nonhistorical. Missing original bytes,
+removed rounds, uncertain anchors, and inferred metadata stay documented as
+migration evidence. Empty historical publications receive a clearly generated
+notice. Sequence gaps remain reserved. Approved and abandoned reviews become
+archived with their old outcome preserved in provenance.
+
+State lives at `$XDG_STATE_HOME/r3/r3.sqlite`; immutable blobs and migration backups
+live beside it in `r3.sqlite.artifacts/`. Back up both. The daemon announces itself
+at `$XDG_RUNTIME_DIR/r3/daemon.json`. If startup fails, `r3 __daemon` runs in the
+foreground to show the error; failed migration leaves the old database intact.
+
+## Development
+
+```sh
+bun install
+process-compose up          # isolated workspace data; app 8891, preview 8892
+bun run storybook           # component workshop
+bun run typecheck
+bun test
+biome check .
+bun run build               # self-contained ./r3 binary
+bun run gen:demo            # regenerate canned publications
+bun run build:demo
+```
+
+The source daemon bundles the browser on startup. Server changes restart it under
+`bun --watch`; restart after frontend edits to rebuild its guarded assets, or use
+Storybook for component development. See [AGENTS.md](AGENTS.md) for the module map
+and [the implementation record](docs/artifacts/implementation.md) for browser and
+compiled-binary acceptance commands.
