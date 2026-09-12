@@ -191,12 +191,10 @@ can send published files, your input, this artifact's conversations, and any sha
 camera/microphone data elsewhere. Restoring protection cannot undo data already
 sent. The opaque sandbox and r3 authentication remain enforced.
 
-External mode also permits navigation to external pages. These keep the iframe's
-sandbox and device restrictions, but can use workers and nested frames that the
-r3-served document's CSP blocks.
-
-Browsers lacking Connection Allowlist support can render HTML after this explicit
-opt-out if they pass the remaining isolation checks. r3 never falls back automatically.
+External pages reached through navigation keep the iframe's sandbox and device
+restrictions, but do not inherit the published document's CSP. They can use workers
+and nested frames that r3-served documents block. Such navigation is permitted in
+external mode and may also occur through compatibility-mode gaps.
 
 Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
 `createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`,
