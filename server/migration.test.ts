@@ -62,6 +62,31 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test.each([
+    ["oversized", Buffer.alloc(4 * 1024 * 1024 + 1, 97), "rendering size limit"],
+    ["invalid UTF-8", Buffer.from([255]), "valid UTF-8"],
+  ] as const)("%s current Markdown preserves retained history", async (_name, bytes, reason) => {
+    await migrateLegacyStore(db, {
+      ...options(),
+      capture: async () => ({
+        kind: "files",
+        files: [
+          {
+            path: "current.md",
+            mediaType: "text/markdown",
+            base64: bytes.toString("base64"),
+          },
+        ],
+      }),
+    });
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
+    expect(store.versions("review_retained").map((version) => version.seq)).toEqual([2]);
+    expect((store.get("review_retained").legacy?.migration as any).currentCapture).toMatchObject({
+      unavailable: expect.stringContaining(reason),
+    });
+    expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+  });
   test("an invalid current capture does not prevent importing retained history", async () => {
     await migrateLegacyStore(db, {
       ...options(),

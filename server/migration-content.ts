@@ -13,6 +13,7 @@ import {
 import { validateStoredPatch } from "./patch-content.ts";
 import {
   type DocumentRenderer,
+  type PreparedFile,
   prepareFiles,
   type ValidatedPublication,
   validatePublication,
@@ -237,9 +238,9 @@ export async function importLegacyContent(
       captureResult = "unavailable" in result ? result : { captured: true };
       if (!("unavailable" in result)) {
         if (result.kind !== kind) throw new Error("Legacy capture changed artifact kind");
-        let publication: ValidatedPublication | null = null;
+        let captured: { publication: ValidatedPublication; files: PreparedFile[] } | null = null;
         try {
-          publication = validatePublication({
+          const publication = validatePublication({
             expectedSeq: 0,
             publicationKey: "migration:current",
             actor: { role: "human", sessionId: null },
@@ -247,6 +248,7 @@ export async function importLegacyContent(
             content: result,
             provenance: { migration: { at: time, currentCapture: true, historical: false } },
           });
+          captured = { publication, files: await prepareFiles(publication, blobs, render) };
         } catch (error) {
           // Today's files may no longer be publishable. This must not prevent
           // importing retained history; preserve why the optional capture failed.
@@ -254,8 +256,17 @@ export async function importLegacyContent(
             unavailable: error instanceof Error ? error.message : "Current capture is invalid",
           };
         }
-        if (publication) {
-          await insertVersion(context, blobs, render, id, max + 1, publication, time);
+        if (captured) {
+          await insertVersion(
+            context,
+            blobs,
+            render,
+            id,
+            max + 1,
+            captured.publication,
+            time,
+            captured.files,
+          );
           present.push(max + 1);
         }
       }
@@ -321,9 +332,10 @@ async function insertVersion(
   seq: number,
   publication: ValidatedPublication,
   time: string,
+  prepared?: PreparedFile[],
 ): Promise<void> {
   const { db } = context;
-  const files = await prepareFiles(publication, blobs, render);
+  const files = prepared ?? (await prepareFiles(publication, blobs, render));
   db.query("UPDATE artifacts SET next_seq = ? WHERE id = ?").run(seq + 1, id);
   db.query(`INSERT INTO artifact_versions(artifact_id, seq, kind, publication_key, content_hash,
     label, summary, published_by, publisher_session_id, provenance_json, entrypoint, patch_body, file_count, created_at)
