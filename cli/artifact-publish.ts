@@ -12,7 +12,7 @@ import type {
 } from "../shared/artifacts.ts";
 import { type ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { captureFiles } from "./capture.ts";
-import { captureGitDiff, captureGitFiles } from "./capture-git.ts";
+import { captureGitCommit, captureGitDiff, captureGitFiles } from "./capture-git.ts";
 
 export interface PublicationCommandContext {
   client: ArtifactClient;
@@ -40,13 +40,10 @@ async function capture(
       throw new ArtifactCommandError("Diff artifacts accept a complete independent patch");
     let patch: string;
     if (args.has("stdin-diff")) patch = await ctx.stdin();
+    else if (args.has("commit")) patch = await captureGitCommit(ctx.cwd, args.require("commit"));
     else {
       let base = "HEAD";
       let head = args.has("staged") ? "STAGED" : "WORKING";
-      if (args.has("commit")) {
-        head = args.require("commit");
-        base = `${head}^`;
-      }
       if (args.has("diff")) {
         const match = /^(.+?)\.\.([^.].*)$/.exec(args.require("diff"));
         if (!match) throw new ArtifactCommandError("--diff requires base..head");

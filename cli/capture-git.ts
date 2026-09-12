@@ -85,6 +85,47 @@ async function tree(root: string, ref: string): Promise<string> {
     .trim();
 }
 
+async function emptyTree(root: string): Promise<string> {
+  // Let Git choose the object format; mktree reads an empty stdin.
+  return (await git(root, ["mktree"])).toString().trim();
+}
+
+async function baseTree(root: string, ref: string): Promise<string> {
+  try {
+    return await tree(root, ref);
+  } catch (error) {
+    if (ref !== "HEAD") throw error;
+    const branch = await publisherGit(root, ["symbolic-ref", "--quiet", "HEAD"]);
+    if (branch.code !== 0) throw error;
+    const exists = await publisherGit(root, [
+      "show-ref",
+      "--verify",
+      "--quiet",
+      branch.stdout.toString().trim(),
+    ]);
+    if (exists.code !== 1) throw error;
+    return emptyTree(root);
+  }
+}
+
+export async function captureGitCommit(root: string, ref: string): Promise<string> {
+  const commit = (
+    await git(root, [
+      "rev-parse",
+      "--verify",
+      "--end-of-options",
+      `${safePublisherRef(ref)}^{commit}`,
+    ])
+  )
+    .toString()
+    .trim();
+  const [, parent] = (await git(root, ["rev-list", "--parents", "-n", "1", commit]))
+    .toString()
+    .trim()
+    .split(/\s+/);
+  return captureGitDiff(root, parent ?? (await emptyTree(root)), commit);
+}
+
 // Resolve commits once, or verify the complete index listing before/after its
 // immutable blob reads. Git file capture never follows a filesystem symlink.
 export async function captureGitFiles(
@@ -145,7 +186,7 @@ export async function captureGitFiles(
 export async function captureGitDiff(root: string, base: string, head: string): Promise<string> {
   safePublisherRef(base);
   safePublisherRef(head);
-  const baseTree = base === "STAGED" ? null : await tree(root, base);
+  const baseRevision = base === "STAGED" ? null : await baseTree(root, base);
   const headTree = head === "WORKING" || head === "STAGED" ? null : await tree(root, head);
   if (base === "STAGED" && head !== "WORKING")
     throw new CaptureError("A staged base requires a working-tree head");
@@ -159,9 +200,9 @@ export async function captureGitDiff(root: string, base: string, head: string): 
     "--unified=2000",
   ];
   if (head === "WORKING") {
-    if (baseTree) args.push(baseTree);
-  } else if (head === "STAGED") args.push("--cached", baseTree!);
-  else args.push(baseTree!, headTree!);
+    if (baseRevision) args.push(baseRevision);
+  } else if (head === "STAGED") args.push("--cached", baseRevision!);
+  else args.push(baseRevision!, headTree!);
   args.push("--");
   async function capture(): Promise<string> {
     let patch = (await git(root, args)).toString();

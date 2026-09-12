@@ -3,7 +3,7 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateStoredPatch } from "../server/patch-content.ts";
-import { captureGitDiff, captureGitFiles, publisherGit } from "./capture-git.ts";
+import { captureGitCommit, captureGitDiff, captureGitFiles, publisherGit } from "./capture-git.ts";
 
 let root: string;
 let originalTree: string;
@@ -25,6 +25,40 @@ afterEach(async () => {
 });
 
 describe("publisher git capture", () => {
+  test("publishes staged and working additions before the first commit", async () => {
+    await writeFile(join(root, "readme.md"), "# Working before first commit\n");
+    const staged = await captureGitDiff(root, "HEAD", "STAGED");
+    expect(staged).toContain("+# Original");
+    expect(staged).not.toContain("Working before");
+    const working = await captureGitDiff(root, "HEAD", "WORKING");
+    expect(working).toContain("+# Working before first commit");
+    expect(validateStoredPatch(working).every((file) => file.status === "added")).toBe(true);
+    await expect(captureGitDiff(root, "missing-ref", "WORKING")).rejects.toThrow(
+      "Git capture failed",
+    );
+  });
+
+  test("a root commit is captured against the empty tree", async () => {
+    // Synthetic authorship metadata belongs only to this isolated Git fixture.
+    await git(
+      "-c",
+      "user.name=Test Author",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--quiet",
+      "-m",
+      "Initial fixture",
+    );
+    await writeFile(join(root, "readme.md"), "Unpublished later edit\n");
+    const patch = await captureGitCommit(root, "HEAD");
+    expect(patch).toContain("+# Original");
+    expect(patch).not.toContain("Unpublished later");
+    expect(validateStoredPatch(patch).every((file) => file.status === "added")).toBe(true);
+    await expect(captureGitCommit(root, "--help")).rejects.toThrow("Invalid git reference");
+  });
   test("large captures trim context while preserving executable modes and missing final newlines", async () => {
     const path = join(root, "long script.sh");
     const original = `${Array.from({ length: 2200 }, (_, index) => `# retained context ${index} with enough text to exceed the capture threshold`).join("\n")}\necho old`;
