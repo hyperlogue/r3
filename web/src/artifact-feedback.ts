@@ -1,0 +1,20 @@
+import type { ArtifactFeedback } from "../../shared/artifacts.ts";
+
+export function artifactNeedsAttention(feedback: ArtifactFeedback): boolean {
+  return (
+    feedback.status === "open" &&
+    (feedback.replies.at(-1)?.author ?? feedback.author).role === "agent"
+  );
+}
+
+// Stable within each group: the human's next decisions first, then waiting
+// notes, then work already claimed by an agent.
+export function activeArtifactFeedback(feedback: ArtifactFeedback[]): ArtifactFeedback[] {
+  return feedback
+    .filter((note) => note.status === "open")
+    .sort((a, b) => {
+      const rank = (note: ArtifactFeedback) =>
+        note.claim ? 2 : artifactNeedsAttention(note) ? 0 : 1;
+      return rank(a) - rank(b);
+    });
+}

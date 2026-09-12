@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 
@@ -17,6 +18,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const General: Story = { args: { artifactId: "artifact_general_composer" } };
+export const KeepDraftOnEscape: Story = {
+  args: { artifactId: "artifact_persisted_composer" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const textbox = canvas.getByRole("textbox", { name: "Feedback" });
+    await userEvent.type(textbox, "Keep this draft");
+    await userEvent.keyboard("{Escape}");
+    await expect(textbox).toHaveValue("Keep this draft");
+  },
+};
 export const RenderedTarget: Story = {
   loaders: [
     () => {

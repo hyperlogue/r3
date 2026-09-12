@@ -65,3 +65,17 @@ test("legacy draft text survives without inventing a publication target or reapp
   expect(new ArtifactDraftStore(disk).has("review_imported")).toBe(false);
   expect(disk.getItem("r3-draft-review_imported")).not.toBeNull();
 });
+
+test("deleted threads cannot leave an invisible draft blocking handoff", () => {
+  const disk = storage();
+  const store = new ArtifactDraftStore(disk);
+  store.update("artifact_example", { body: "Keep this note" });
+  store.update("artifact_example", { body: "Deleted thread reply" }, "feedback_deleted");
+  store.update("artifact_example", { body: "Resolved thread reply" }, "feedback_resolved");
+  store.pruneReplies("artifact_example", new Set(["feedback_resolved"]));
+  store.flush();
+  const reloaded = new ArtifactDraftStore(disk);
+  expect(reloaded.count("artifact_example")).toBe(2);
+  expect(reloaded.get("artifact_example", "feedback_deleted")).toBeNull();
+  expect(reloaded.get("artifact_example", "feedback_resolved")?.body).toBe("Resolved thread reply");
+});

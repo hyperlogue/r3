@@ -511,9 +511,9 @@ export function ArtifactWorkspace({
     setFold({ mode, nonce: ++jumpNonce.current });
   };
   useKeyBindings({
-    generalNote: () => {
-      anchor({ kind: "artifact" });
-    },
+    generalNote: (mobile ? sheet !== "closed" : !collapsed)
+      ? () => anchor({ kind: "artifact" })
+      : undefined,
     panelToggle: () => {
       if (mobile) setSheet(sheet === "closed" ? "full" : "closed");
       else setFeedbackCollapsed(!collapsed);
@@ -608,6 +608,8 @@ export function ArtifactWorkspace({
       activeFeedback={view.feedbackId}
       onFocusFeedback={showFeedback}
       composer={composer}
+      keysActive={mobile ? sheet !== "closed" : !collapsed}
+      onNewNote={() => anchor({ kind: "artifact" })}
       onCollapse={mobile ? undefined : () => setFeedbackCollapsed(true)}
     />
   );

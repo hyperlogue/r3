@@ -63,9 +63,9 @@ isolated preview host → one version's bytes + trusted r3 runtime
 | Local wake delivery | `cli/artifact-listener.ts`, `cli/listener.ts`; local adapters currently in `server/listener.ts` and `server/inbox.ts` are imported only by the publisher |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped origin/cookie, capability gate, closed network policy |
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation |
-| Workspace | `web/src/pages/ArtifactView.tsx`, `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts` |
-| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `ArtifactSummary`; stable message props and independently subscribed drafts |
-| Source and diff UI | `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`; captured rows, virtualization, progressive diff hydration, retained context |
+| Workspace | `web/src/pages/ArtifactView.tsx`, `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
+| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `ArtifactSummary`, `artifact-feedback.ts`; stable message props, Active/Resolved queues, independently subscribed drafts |
+| Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
 | Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `mdhighlight.ts`, `viewed.ts`, `pane.ts` |
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mdproject.ts`, `mermaid.ts`, `textdiff.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
 | Mobile | `web/src/mobile/` containers only; `ArtifactView` is their single composition point |

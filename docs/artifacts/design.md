@@ -116,6 +116,13 @@ The browser pins the displayed version. A new publication is announced with an
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
+The feedback dock retains the compact **Active / Resolved** tabs. Active threads
+put agent responses needing attention first and claimed work last. General notes
+open on demand; agent replies use tinted bubbles, and long conversations fold
+earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
+for deleted threads are removed; resolving or archiving keeps them. Folding the
+dock or closing the mobile sheet disables its conversation shortcuts.
+
 Rendered comment mode intercepts element picks before page handlers and supports
 selecting a parent element. Normal mode preserves page interaction. Source and
 diff selections use their own range gestures. Each creates a native target:
@@ -126,7 +133,7 @@ diff selections use their own range gestures. Each creates a native target:
 | Rendered | Published document/version, selector, optional text/context, route and viewport | Open that rendered document and locate its element/text |
 | Diff | Patch version, path, old/new side, captured range and quote | Open that patch and native side, hydrating or expanding retained context as needed |
 
-Artifact-wide notes, artifact/version summaries, and whole-document/file targets
+Artifact-wide notes, version summaries, and whole-document/file targets
 are explicit variants. Absence of version context never secretly means latest.
 
 Feedback's original target is immutable. Additional **placements** record a target

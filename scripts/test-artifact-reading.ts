@@ -56,6 +56,29 @@ await storage.artifacts.publish(files.id, {
   },
 });
 const diff = storage.artifacts.create({ kind: "diff", actor, title: "Published diff" });
+const feedback = await storage.conversations.add(files.id, {
+  actor,
+  body: "Keep the original reading controls.",
+  target: { kind: "source", versionSeq: 1, path: "source.ts", locator: null },
+});
+storage.artifacts.registerSession({ id: "reading-agent", harness: "acceptance" });
+const discussion = await storage.conversations.add(files.id, {
+  actor,
+  body: "Keep the file list synchronized with the content pane.",
+  target: { kind: "source", versionSeq: 1, path: "source.ts", locator: null },
+});
+for (const body of [
+  "I checked the original navigation.",
+  "File headers stay foldable.",
+  "Each publication keeps all its files.",
+  "The file list now follows your scroll position. Please check the restored reading controls.",
+]) {
+  await storage.conversations.addReply(discussion.id, {
+    actor: { role: "agent", sessionId: "reading-agent" },
+    body,
+    context: { versionSeq: 1, representation: "source" },
+  });
+}
 await storage.artifacts.publish(diff.id, {
   actor,
   expectedSeq: 0,
@@ -86,7 +109,7 @@ const app = Bun.serve({
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
-      `<!doctype html><html><head><link rel="stylesheet" href="/${css}"><style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${script}"></script></body></html>`,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/${css}"><style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${script}"></script></body></html>`,
       { headers: { "content-type": "text/html" } },
     );
   },
@@ -165,6 +188,92 @@ try {
       2,
       "file selection preserves the stack",
     );
+    if (artifact.id === files.id) {
+      assert.equal(
+        await page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
+        false,
+        "composer opens on demand",
+      );
+      await page.evaluate(
+        "document.querySelector('[aria-label=\"Add general feedback\"]').click()",
+      );
+      await eventually(
+        () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
+        "general composer",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
+      await page.command("Input.insertText", { text: "A draft blocks handoff" });
+      assert(
+        await page.evaluate(
+          "[...document.querySelectorAll('button')].find(b=>b.textContent==='Copy prompt').disabled",
+        ),
+      );
+      await page.evaluate(
+        "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Discard').click()",
+      );
+      await page.evaluate(
+        `document.querySelector('[data-artifact-feedback="${feedback.id}"] button').click()`,
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Collapse feedback\"]').click()");
+      await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
+      await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
+      await Bun.sleep(200);
+      assert.equal(
+        storage.conversations.get(feedback.id).status,
+        "open",
+        "folded feedback has no invisible resolve shortcut",
+      );
+      await page.command("Emulation.setDeviceMetricsOverride", {
+        width: 390,
+        height: 844,
+        deviceScaleFactor: 1,
+        mobile: true,
+      });
+      await eventually(
+        () => page.evaluate("!document.querySelector('[aria-label=\"Expand feedback\"]')"),
+        "mobile closed sheet",
+      );
+      await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
+      await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
+      await Bun.sleep(200);
+      assert.equal(
+        storage.conversations.get(feedback.id).status,
+        "open",
+        "closed mobile sheet has no invisible resolve shortcut",
+      );
+      await page.command("Emulation.setDeviceMetricsOverride", {
+        width: 1400,
+        height: 1000,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+      await eventually(
+        () => page.evaluate("!!document.querySelector('[aria-label=\"Expand feedback\"]')"),
+        "desktop dock restored",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Expand feedback\"]').click()");
+      await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
+      await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
+      await eventually(
+        async () => storage.conversations.get(feedback.id).status === "resolved",
+        "visible resolve shortcut",
+      );
+      await eventually(
+        () =>
+          page.evaluate(
+            `!document.querySelector('[data-artifact-feedback="${feedback.id}"]') && [...document.querySelectorAll('[role=tab]')].some(b=>b.textContent==='Resolved 1')`,
+          ),
+        "active queue advances after resolve",
+      );
+      await page.evaluate(
+        "[...document.querySelectorAll('[role=tab]')].find(b=>b.textContent.startsWith('Resolved')).click()",
+      );
+      await eventually(
+        () =>
+          page.evaluate(`!!document.querySelector('[data-artifact-feedback="${feedback.id}"]')`),
+        "resolved tab retains the thread",
+      );
+    }
   }
   await storage.artifacts.publish(files.id, {
     actor,
@@ -196,6 +305,10 @@ try {
     await page.evaluate("document.querySelectorAll('[data-line]').length < 1000"),
     "offscreen file bodies remain deferred",
   );
+  if (process.env.R3_TEST_SCREENSHOT) {
+    const shot = await page.command("Page.captureScreenshot", { format: "png" });
+    await Bun.write(process.env.R3_TEST_SCREENSHOT, Buffer.from(shot.data, "base64"));
+  }
   console.log(
     "Published files/diffs: syntax colors, complete stack, folding, file navigation and scroll highlighting passed",
   );

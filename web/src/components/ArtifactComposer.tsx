@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { createPortal } from "react-dom";
 import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
 import { useAutoGrow } from "../autogrow.ts";
-import { Button } from "../ui.tsx";
+import { Button, cn } from "../ui.tsx";
 
 // Draft subscription and mutation live with the textarea. Typing does not
 // subscribe the conversation list or the content pane to every character.
@@ -14,11 +14,13 @@ export function ArtifactComposer({
   replyTo,
   onDone,
   floating,
+  leadingActions,
 }: {
   artifactId: string;
   replyTo?: string;
   onDone?: () => void;
   floating?: { left: number; top: number; bottom: number; onClose: () => void };
+  leadingActions?: ReactNode;
 }) {
   const draft = useArtifactDraft(artifactId, replyTo);
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -39,7 +41,11 @@ export function ArtifactComposer({
   const context = draft?.context;
   const form = (
     <form
-      className="flex flex-col gap-2 rounded-lg border border-neutral-300 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-950"
+      className={cn(
+        "relative flex flex-col gap-2 bg-white py-3 dark:bg-neutral-950",
+        !replyTo &&
+          "border-y border-neutral-300 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:border-neutral-700",
+      )}
       data-artifact-composer={artifactId}
       data-reply-to={replyTo}
       onSubmit={(event) => {
@@ -47,7 +53,7 @@ export function ArtifactComposer({
         if (draft?.body.trim() && !post.isPending) post.mutate();
       }}
     >
-      <div className="flex items-start justify-between gap-2 text-xs text-neutral-500">
+      <div className="flex items-start justify-between gap-2 px-3 text-xs text-neutral-500">
         <span>
           {replyTo
             ? context?.versionSeq
@@ -102,30 +108,34 @@ export function ArtifactComposer({
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
+            if (!event.repeat) event.currentTarget.form?.requestSubmit();
+          } else if (event.key === "Escape" && !draft?.body.trim()) {
+            event.stopPropagation();
+            artifactDrafts.clear(artifactId, replyTo);
+            onDone?.();
           }
         }}
-        className="w-full resize-none rounded border border-neutral-300 bg-transparent p-2 text-sm outline-none focus:border-primary-500 max-md:text-base dark:border-neutral-700"
+        className="w-full resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
       {post.error && (
         <p role="alert" className="text-xs text-red-600 dark:text-red-400">
           {post.error.message}
         </p>
       )}
-      <div className="flex justify-end gap-2">
-        {draft?.body && (
-          <Button
-            type="button"
-            disabled={post.isPending}
-            onClick={() => {
-              artifactDrafts.clear(artifactId, replyTo);
-              onDone?.();
-            }}
-          >
-            Discard
-          </Button>
-        )}
-        <Button type="submit" disabled={!draft?.body.trim() || post.isPending}>
+      <div className="flex items-center gap-2 px-3">
+        {leadingActions}
+        <span className="flex-1" />
+        <Button
+          type="button"
+          disabled={post.isPending}
+          onClick={() => {
+            artifactDrafts.clear(artifactId, replyTo);
+            onDone?.();
+          }}
+        >
+          {draft?.body ? "Discard" : "Cancel"}
+        </Button>
+        <Button type="submit" variant="primary" disabled={!draft?.body.trim() || post.isPending}>
           {post.isPending ? "Saving…" : replyTo ? "Reply" : "Add feedback"}
         </Button>
       </div>

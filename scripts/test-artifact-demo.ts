@@ -46,6 +46,7 @@ try {
       page.evaluate("document.querySelector('[aria-label=\"Published version\"]')?.value==='1'"),
     "demo first version",
   );
+  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
   await eventually(
     () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
     "composer",

@@ -87,10 +87,13 @@ export class ArtifactDraftStore {
     return replyTo ? (drafts.replies[replyTo] ?? null) : drafts.note;
   }
   has(id: string): boolean {
+    return this.count(id) > 0;
+  }
+  count(id: string): number {
     const drafts = this.load(id);
     return (
-      !!drafts.note?.body.trim() ||
-      Object.values(drafts.replies).some((draft) => !!draft.body.trim())
+      Number(!!drafts.note?.body.trim()) +
+      Object.values(drafts.replies).filter((draft) => !!draft.body.trim()).length
     );
   }
   update(id: string, patch: Partial<ArtifactDraft>, replyTo?: string): void {
@@ -119,6 +122,13 @@ export class ArtifactDraftStore {
       delete replies[replyTo];
       this.commit(id, { ...drafts, replies });
     } else this.commit(id, { ...drafts, note: null });
+  }
+  pruneReplies(id: string, feedbackIds: ReadonlySet<string>): void {
+    const drafts = this.load(id);
+    const entries = Object.entries(drafts.replies);
+    const retained = entries.filter(([feedbackId]) => feedbackIds.has(feedbackId));
+    if (retained.length !== entries.length)
+      this.commit(id, { ...drafts, replies: Object.fromEntries(retained) });
   }
   private commit(id: string, drafts: Drafts): void {
     this.cache.set(id, drafts);
@@ -164,6 +174,10 @@ export const useHasArtifactDraft = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.has(id));
 export const useHasArtifactNote = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => !!artifactDrafts.get(id)?.body.trim());
+export const useArtifactNoteOpen = (id: string) =>
+  useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.get(id) !== null);
+export const useArtifactDraftCount = (id: string) =>
+  useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.count(id));
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => artifactDrafts.flush());
   document.addEventListener("visibilitychange", () => {

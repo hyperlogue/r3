@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { ArtifactThreads } from "./ArtifactThreads.tsx";
 
@@ -25,6 +25,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const FeedbackTabs: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("tab", { name: /Active/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.click(canvas.getByRole("tab", { name: /Resolved/ }));
+    await expect(canvas.getByText("No resolved feedback.")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible();
+  },
+};
 export const AgentWorking: Story = {
   args: {
     detail: {

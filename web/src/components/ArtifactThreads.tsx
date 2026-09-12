@@ -12,13 +12,14 @@ import {
   hasUnsentArtifactFeedback,
 } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { artifactDrafts } from "../artifact-drafts.ts";
+import { artifactDrafts, useArtifactDraftCount, useArtifactNoteOpen } from "../artifact-drafts.ts";
+import { activeArtifactFeedback, artifactNeedsAttention } from "../artifact-feedback.ts";
 import { copyText } from "../clipboard.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, cn, FoldChevrons } from "../ui.tsx";
+import { Button, cn, FoldChevrons, FoldTriangle, useEscape } from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
-import { MessageProse } from "./Message.tsx";
+import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactMessageContext) => void;
 export type ArtifactTargetJump = (target: ArtifactTarget, feedbackId?: string) => void;
@@ -38,12 +39,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   onLocate,
   onJumpRef,
   active = false,
+  onResolved,
 }: {
   feedback: ArtifactFeedback;
   context: ArtifactMessageContext;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   active?: boolean;
+  onResolved?: (id: string) => void;
 }) {
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
@@ -53,6 +56,24 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const [replying, setReplying] = useState(false);
   const [editing, setEditing] = useState<{ replyId?: string; body: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [earlierOpen, setEarlierOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  useEscape(menuOpen, () => setMenuOpen(false));
+  const lastReply = feedback.replies.at(-1);
+  const canEdit = (lastReply?.author ?? feedback.author).role === "human";
+  const openReply = () => {
+    artifactDrafts.beginReply(feedback.artifactId, feedback.id, context);
+    setReplying(true);
+    requestAnimationFrame(() =>
+      element.current?.querySelector<HTMLTextAreaElement>("[data-reply-to] textarea")?.focus(),
+    );
+  };
+  const bubble = useQuoteBubble(element, (range) => {
+    const node = range.commonAncestorContainer;
+    const element = node instanceof Element ? node : node.parentElement;
+    return !!element?.closest('[data-message-author="agent"]');
+  });
   const refresh = () => qc.invalidateQueries({ queryKey: ["artifact", feedback.artifactId] });
   const edit = useMutation({
     mutationFn: async () => {
@@ -70,7 +91,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       artifactApi.editFeedback(feedback.id, {
         status: feedback.status === "open" ? "resolved" : "open",
       }),
-    onSuccess: refresh,
+    onSuccess: () => {
+      void refresh();
+      if (feedback.status === "open") onResolved?.(feedback.id);
+    },
   });
   const remove = useMutation({
     mutationFn: () => artifactApi.deleteFeedback(feedback.id),
@@ -83,32 +107,106 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       ? feedback.target.locator.quote
       : null;
   const error = edit.error ?? status.error ?? remove.error;
+  const resolveButton = (
+    <Button
+      type="button"
+      data-feedback-action="resolve"
+      variant="ghost"
+      disabled={status.isPending}
+      className={
+        feedback.status === "open"
+          ? "border border-success-600/50 text-success-700 dark:text-success-400"
+          : "text-neutral-400"
+      }
+      onClick={() => status.mutate()}
+    >
+      {feedback.status === "open" ? "✓ Resolve" : "Reopen"}
+    </Button>
+  );
+  const moreMenu = (
+    <div className="relative">
+      <Button
+        type="button"
+        variant="ghost"
+        title="More actions"
+        onClick={() => setMenuOpen((value) => !value)}
+      >
+        ⋯
+      </Button>
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950">
+            <button
+              type="button"
+              disabled={!canEdit}
+              title={canEdit ? undefined : "The agent replied last — post a new reply instead"}
+              className="block w-full px-3 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:text-neutral-400 dark:hover:bg-neutral-800"
+              onClick={() => {
+                setEditing(
+                  lastReply
+                    ? { replyId: lastReply.id, body: lastReply.body }
+                    : { body: feedback.body },
+                );
+                setMenuOpen(false);
+                setReplying(false);
+              }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="block w-full px-3 py-1.5 text-left text-xs text-danger-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => {
+                setDeleting(true);
+                setMenuOpen(false);
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
   return (
     <article
       ref={element}
       data-artifact-feedback={feedback.id}
       className={cn(
-        "relative rounded-lg border p-3 text-sm",
+        "relative border-b border-neutral-200 px-3 py-3 text-sm dark:border-neutral-800",
         feedback.status === "resolved"
-          ? "border-success-500/30 bg-success-500/10"
-          : "border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
+          ? "bg-success-50/60 dark:bg-success-950/20"
+          : "bg-white dark:bg-neutral-950",
         feedback.claim && "bg-neutral-100/70 dark:bg-neutral-900/70",
-        active && "ring-2 ring-primary-500",
+        active &&
+          "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-warning-500",
       )}
     >
       {feedback.claim && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 rounded-lg bg-neutral-500/10"
+          className="pointer-events-none absolute inset-0 z-10 bg-neutral-500/10"
         />
       )}
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
+        {artifactNeedsAttention(feedback) && (
+          <span
+            title="The agent replied — needs your attention"
+            className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
+          />
+        )}
         {unavailable ? (
           <span className="text-amber-700 dark:text-amber-400">Historical target unavailable</span>
         ) : (
           <button
             type="button"
-            className="min-w-0 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+            className="min-w-0 flex-1 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
             onClick={() => onLocate(feedback.target, feedback.id)}
           >
             {artifactFeedbackTargetLabel(feedback)}
@@ -137,9 +235,31 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         )}
       </div>
       {quote && (
-        <blockquote className="mb-2 max-h-28 overflow-auto border-l-2 border-neutral-300 pl-2 text-xs text-neutral-500 whitespace-pre-wrap">
+        // biome-ignore lint/a11y/useKeyWithClickEvents: the explicit quote toggle below is keyboard accessible; clicking the quote is a selection-preserving pointer convenience.
+        <blockquote
+          className={cn(
+            "mb-2 cursor-pointer overflow-hidden border-l-2 border-neutral-300 pl-2 text-xs text-neutral-500 whitespace-pre-wrap",
+            !quoteOpen && "line-clamp-3 max-h-16",
+          )}
+          onClick={() => {
+            if (window.getSelection()?.isCollapsed) setQuoteOpen((value) => !value);
+          }}
+          title={
+            quoteOpen ? "Click to collapse · drag to select" : "Click to expand · drag to select"
+          }
+        >
           {quote}
         </blockquote>
+      )}
+      {quote && (
+        <button
+          type="button"
+          aria-expanded={quoteOpen}
+          className="mb-2 text-[0.625rem] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+          onClick={() => setQuoteOpen((value) => !value)}
+        >
+          {quoteOpen ? "Collapse quote" : "Expand quote"}
+        </button>
       )}
       {unavailable && (
         <details className="mb-2 text-xs text-neutral-500">
@@ -149,11 +269,34 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           </pre>
         </details>
       )}
-      <MessageProse source={feedback.body} onJumpRef={(ref) => onJumpRef(ref, originalContext)} />
-      {feedback.replies.map((reply) => (
+      <div
+        data-message-author={feedback.author.role}
+        className={cn(
+          feedback.author.role === "agent" &&
+            "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
+        )}
+      >
+        <MessageProse source={feedback.body} onJumpRef={(ref) => onJumpRef(ref, originalContext)} />
+      </div>
+      {feedback.replies.length > 3 && (
+        <button
+          type="button"
+          className="mt-2.5 flex items-center gap-1 text-[0.6875rem] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          onClick={() => setEarlierOpen((value) => !value)}
+        >
+          <FoldTriangle open={earlierOpen} className="size-2.5" />
+          {earlierOpen ? "hide earlier replies" : `${feedback.replies.length - 3} earlier replies`}
+        </button>
+      )}
+      {(earlierOpen ? feedback.replies : feedback.replies.slice(-3)).map((reply) => (
         <div
           key={reply.id}
-          className="mt-3 border-l-2 border-neutral-200 pl-3 dark:border-neutral-700"
+          data-message-author={reply.author.role}
+          className={cn(
+            "mt-2.5",
+            reply.author.role === "agent" &&
+              "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
+          )}
         >
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
             <span title={reply.author.sessionId ?? undefined}>
@@ -166,15 +309,6 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 Version {reply.context.versionSeq}
                 {reply.context.representation ? ` · ${reply.context.representation}` : ""}
               </span>
-            )}
-            {reply.author.role === "human" && (
-              <button
-                type="button"
-                className="ml-auto underline"
-                onClick={() => setEditing({ replyId: reply.id, body: reply.body })}
-              >
-                Edit
-              </button>
             )}
           </div>
           <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
@@ -227,35 +361,15 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           {error.message}
         </p>
       )}
-      <div className="mt-3 flex flex-wrap items-center gap-1">
-        <Button
-          variant="ghost"
-          data-feedback-action="reply"
-          onClick={() => {
-            artifactDrafts.beginReply(feedback.artifactId, feedback.id, context);
-            setReplying((value) => !value);
-          }}
-        >
-          Reply
-        </Button>
-        {feedback.author.role === "human" && (
-          <Button variant="ghost" onClick={() => setEditing({ body: feedback.body })}>
-            Edit
+      {!editing && !replying && (
+        <div className="mt-3 flex items-center gap-1 text-[0.6875rem]">
+          {resolveButton}
+          {moreMenu}
+          <Button className="ml-auto" data-feedback-action="reply" onClick={openReply}>
+            Reply
           </Button>
-        )}
-        <Button variant="ghost" onClick={() => setDeleting((value) => !value)}>
-          Delete
-        </Button>
-        <Button
-          className="ml-auto"
-          data-feedback-action="resolve"
-          variant={feedback.status === "open" ? "success" : "ghost"}
-          disabled={status.isPending}
-          onClick={() => status.mutate()}
-        >
-          {feedback.status === "open" ? "Resolve" : "Reopen"}
-        </Button>
-      </div>
+        </div>
+      )}
       {deleting && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span>Delete this thread and its replies?</span>
@@ -266,13 +380,40 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         </div>
       )}
       {replying && (
-        <div className="mt-3">
+        <div className="-mx-3 mt-3">
           <ArtifactComposer
             artifactId={feedback.artifactId}
             replyTo={feedback.id}
+            leadingActions={
+              <>
+                {resolveButton}
+                {moreMenu}
+              </>
+            }
             onDone={() => setReplying(false)}
           />
         </div>
+      )}
+      {bubble.pos && (
+        <QuoteBubble
+          pos={bubble.pos}
+          label="Quote in reply"
+          onQuote={(text) => {
+            openReply();
+            const draft = artifactDrafts.get(feedback.artifactId, feedback.id);
+            artifactDrafts.update(
+              feedback.artifactId,
+              {
+                body: `${draft?.body ?? ""}\n\n${text
+                  .split("\n")
+                  .map((line) => `> ${line}`)
+                  .join("\n")}\n`,
+              },
+              feedback.id,
+            );
+            bubble.hide();
+          }}
+        />
       )}
     </article>
   );
@@ -287,6 +428,8 @@ export function ArtifactThreads({
   composer,
   onCollapse,
   onFocusFeedback,
+  onNewNote,
+  keysActive = true,
 }: {
   detail: ArtifactDetail;
   context: ArtifactMessageContext;
@@ -296,29 +439,51 @@ export function ArtifactThreads({
   composer?: ReactNode;
   onCollapse?: () => void;
   onFocusFeedback?: (id: string) => void;
+  onNewNote?: () => void;
+  keysActive?: boolean;
 }) {
   const panel = useRef<HTMLElement>(null);
-  const [filter, setFilter] = useState<"open" | "resolved" | "all">("open");
+  const [tab, setTab] = useState<"active" | "resolved">("active");
   useEffect(() => {
-    if (activeFeedback) setFilter("all");
-  }, [activeFeedback]);
+    // Deleted threads have no reply destination. Reap only missing membership;
+    // resolved and archived conversations keep their drafts.
+    artifactDrafts.pruneReplies(detail.id, new Set(detail.feedback.map((note) => note.id)));
+  }, [detail.id, detail.feedback]);
+  const selected = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!activeFeedback || selected.current === activeFeedback) return;
+    selected.current = activeFeedback;
+    setTab(
+      detail.feedback.find((note) => note.id === activeFeedback)?.status === "resolved"
+        ? "resolved"
+        : "active",
+    );
+  }, [activeFeedback, detail.feedback]);
+  const draftCount = useArtifactDraftCount(detail.id);
+  const noteOpen = useArtifactNoteOpen(detail.id);
   const [notice, setNotice] = useState("");
   const qc = useQueryClient();
   const { data: watchers = [] } = useQuery({
     queryKey: ["artifact-watchers", detail.id],
     queryFn: () => artifactApi.watchers(detail.id),
   });
-  const { open, resolved, pending, ordered } = useMemo(() => {
-    const open = detail.feedback.filter((feedback) => feedback.status === "open");
-    const resolved = detail.feedback.filter((feedback) => feedback.status === "resolved");
-    const selected = filter === "all" ? detail.feedback : filter === "resolved" ? resolved : open;
-    return {
-      open,
-      resolved,
+  const { active, resolved, pending } = useMemo(
+    () => ({
+      active: activeArtifactFeedback(detail.feedback),
+      resolved: detail.feedback.filter((note) => note.status === "resolved"),
       pending: detail.feedback.filter(hasUnsentArtifactFeedback).length,
-      ordered: [...selected].sort((a, b) => Number(!!a.claim) - Number(!!b.claim)),
-    };
-  }, [detail.feedback, filter]);
+    }),
+    [detail.feedback],
+  );
+  const ordered = tab === "active" ? active : resolved;
+  const disabledReason =
+    detail.state === "archived"
+      ? "Restore the artifact to submit feedback"
+      : draftCount
+        ? "Add, post, or discard your unsaved drafts first"
+        : !pending
+          ? "No new feedback to send"
+          : null;
   const handoff = useMutation({
     mutationFn: async () => {
       setNotice("");
@@ -339,72 +504,165 @@ export function ArtifactThreads({
     (target, feedbackId) => onLocate(target, feedbackId),
     [onLocate],
   );
+  const afterResolve = useCallback(
+    (id: string) => {
+      if (activeFeedback !== id) return;
+      const at = active.findIndex((note) => note.id === id);
+      const next = active[at + 1] ?? active[at - 1];
+      if (next) onFocusFeedback?.(next.id);
+    },
+    [active, activeFeedback, onFocusFeedback],
+  );
   const move = (direction: -1 | 1) => {
-    const at = ordered.findIndex((feedback) => feedback.id === activeFeedback);
-    const feedback = ordered[Math.max(0, Math.min(ordered.length - 1, at + direction))];
-    if (feedback) onFocusFeedback?.(feedback.id);
+    const at = ordered.findIndex((note) => note.id === activeFeedback);
+    const next =
+      at < 0
+        ? direction > 0
+          ? 0
+          : ordered.length - 1
+        : Math.max(0, Math.min(ordered.length - 1, at + direction));
+    if (ordered[next]) onFocusFeedback?.(ordered[next].id);
   };
   const action = (name: "reply" | "resolve") => {
     if (!activeFeedback) return;
+    if (name === "reply") {
+      const editor = panel.current?.querySelector<HTMLTextAreaElement>(
+        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-reply-to] textarea`,
+      );
+      if (editor) {
+        editor.focus();
+        return;
+      }
+    }
     panel.current
       ?.querySelector<HTMLButtonElement>(
         `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-feedback-action="${name}"]`,
       )
       ?.click();
   };
-  useKeyBindings({
-    handOff: () => {
-      if (detail.state === "active" && pending && !handoff.isPending) handoff.mutate();
-    },
-    fbNext: () => move(1),
-    fbPrev: () => move(-1),
-    fbLocate: () => {
-      const feedback = detail.feedback.find((feedback) => feedback.id === activeFeedback);
-      if (feedback) locate(feedback.target, feedback.id);
-    },
-    fbReply: () => action("reply"),
-    fbResolve: () => action("resolve"),
-  });
+  const newNote = () => {
+    setTab("active");
+    if (onNewNote) onNewNote();
+    else {
+      artifactDrafts.anchor(detail.id, { kind: "artifact" });
+      requestAnimationFrame(() =>
+        panel.current
+          ?.querySelector<HTMLTextAreaElement>(
+            "[data-artifact-composer]:not([data-reply-to]) textarea",
+          )
+          ?.focus(),
+      );
+    }
+  };
+  // Mounted hidden panels retain draft state, but own no invisible shortcuts.
+  useKeyBindings(
+    keysActive
+      ? {
+          handOff: () => {
+            if (!disabledReason && !handoff.isPending) handoff.mutate();
+          },
+          fbNext: () => move(1),
+          fbPrev: () => move(-1),
+          fbLocate: () => {
+            const note = detail.feedback.find((note) => note.id === activeFeedback);
+            if (note) locate(note.target, note.id);
+          },
+          fbReply: () => action("reply"),
+          fbResolve: () => action("resolve"),
+        }
+      : {},
+  );
   return (
     <section
       ref={panel}
-      className="flex h-full min-h-0 flex-col bg-neutral-50 dark:bg-neutral-900"
+      className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950"
       aria-label="Artifact feedback"
     >
-      <div className="shrink-0 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold">Feedback · {open.length} open</span>
-          {onCollapse && (
-            <Button variant="ghost" aria-label="Collapse feedback" onClick={onCollapse}>
-              <FoldChevrons dir="right" />
-            </Button>
-          )}
-        </div>
-        <div className="mt-2 flex items-center gap-1">
-          {(["open", "resolved", "all"] as const).map((value) => (
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-base font-semibold">Feedback</span>
+            {onCollapse && (
+              <button
+                type="button"
+                aria-label="Collapse feedback"
+                title="Hide feedback"
+                onClick={onCollapse}
+                className="flex shrink-0 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+              >
+                <FoldChevrons dir="right" />
+              </button>
+            )}
+            {!!draftCount && (
+              <span
+                title="Add or post drafts before sending feedback"
+                className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
+              >
+                ✎ {draftCount} unsaved
+              </span>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
             <Button
-              key={value}
-              variant={filter === value ? "default" : "ghost"}
-              className={
-                value === "resolved" && filter === value
-                  ? "text-success-700 dark:text-success-300"
-                  : ""
-              }
-              onClick={() => setFilter(value)}
+              variant="ghost"
+              aria-label="Add general feedback"
+              title="Add general feedback"
+              onClick={newNote}
             >
-              {value === "open"
-                ? `Open ${open.length}`
-                : value === "resolved"
-                  ? `Resolved ${resolved.length}`
-                  : "All"}
+              +
             </Button>
-          ))}
+            <Button
+              variant="primary"
+              disabled={!!disabledReason || handoff.isPending}
+              title={disabledReason ?? undefined}
+              onClick={() => handoff.mutate()}
+            >
+              {handoff.isPending ? "Sending…" : watchers.length ? "Submit" : "Copy prompt"}
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div role="tablist" aria-label="Feedback status" className="flex items-center gap-1">
+            {(["active", "resolved"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors",
+                  tab === value
+                    ? value === "resolved"
+                      ? "bg-success-100 text-success-800 dark:bg-success-950 dark:text-success-300"
+                      : "bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100"
+                    : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300",
+                )}
+              >
+                {value === "active" ? `Active ${active.length}` : `Resolved ${resolved.length}`}
+              </button>
+            ))}
+          </div>
+          <span
+            className="truncate text-[0.625rem] text-neutral-400"
+            title={watchers[0]?.actor.sessionId ?? undefined}
+          >
+            {detail.working
+              ? "Agent working"
+              : watchers.length
+                ? "Agent listening"
+                : pending
+                  ? `${pending} pending`
+                  : ""}
+          </span>
         </div>
       </div>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {ordered.length === 0 && (
-          <p className="py-6 text-center text-sm text-neutral-500">
-            {filter === "resolved" ? "No resolved feedback." : "No feedback here yet."}
+          <p className="px-3 py-8 text-center text-sm text-neutral-400">
+            {tab === "resolved"
+              ? "No resolved feedback."
+              : "Select content to leave feedback, or add a general note."}
           </p>
         )}
         {ordered.map((feedback) => (
@@ -415,36 +673,26 @@ export function ArtifactThreads({
             onLocate={locate}
             onJumpRef={onJumpRef}
             active={activeFeedback === feedback.id}
+            onResolved={afterResolve}
           />
         ))}
       </div>
-      <div className="shrink-0 space-y-2 border-t border-neutral-300 p-3 dark:border-neutral-700">
-        {composer ?? <ArtifactComposer artifactId={detail.id} />}
-        {notice && (
-          <p role="status" className="text-xs text-neutral-500">
-            {notice}
-          </p>
-        )}
-        {handoff.error && (
-          <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-            {handoff.error.message}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="min-w-0 break-all text-xs text-neutral-500">
-            {watchers.length
-              ? `${watchers[0].actor.sessionId} ${watchers[0].kind === "listen" ? "listening" : "watching"}`
-              : `${pending} unsubmitted`}
-          </span>
-          <Button
-            variant="primary"
-            disabled={detail.state === "archived" || !pending || handoff.isPending}
-            onClick={() => handoff.mutate()}
-          >
-            {handoff.isPending ? "Sending…" : watchers.length ? "Submit" : "Copy prompt"}
-          </Button>
+      {noteOpen && (
+        <div className="max-h-[60%] shrink-0 overflow-y-auto">
+          {composer ?? <ArtifactComposer artifactId={detail.id} />}
         </div>
-      </div>
+      )}
+      {(notice || handoff.error) && (
+        <p
+          role={handoff.error ? "alert" : "status"}
+          className={cn(
+            "shrink-0 border-t border-neutral-300 px-3 py-2 text-xs dark:border-neutral-700",
+            handoff.error ? "text-red-600" : "text-neutral-500",
+          )}
+        >
+          {handoff.error?.message ?? notice}
+        </p>
+      )}
     </section>
   );
 }
