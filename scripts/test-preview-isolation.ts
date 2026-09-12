@@ -44,23 +44,6 @@ wave.writeUInt16LE(1, 32);
 wave.writeUInt16LE(8, 34);
 wave.write("data", 36);
 wave.writeUInt32LE(8000, 40);
-for (const seq of [1, 2])
-  await storage.artifacts.publish(artifact.id, {
-    actor,
-    expectedSeq: seq - 1,
-    publicationKey: `publication-${seq}`,
-    content: {
-      kind: "html",
-      files: [
-        ...Object.entries(files).map(([path, [mediaType, source]]) => ({
-          path,
-          mediaType,
-          base64: Buffer.from(source).toString("base64"),
-        })),
-        { path: "tone.wav", mediaType: "audio/wav", base64: wave.toString("base64") },
-      ],
-    },
-  });
 const denied: string[] = [];
 const outside = Bun.serve({
   hostname: "127.0.0.1",
@@ -79,6 +62,7 @@ udp.on("message", () => packets++);
 const udpPort = (udp.address() as { port: number }).port;
 let preview: PreviewHost;
 const seen: string[] = [];
+let videoRangeRequested = false;
 let wrongContextRequests = 0;
 const resources = Bun.serve({
   hostname: "127.0.0.1",
@@ -88,6 +72,7 @@ const resources = Bun.serve({
     if (context && request.headers.get("host") !== new URL(context.origin).host)
       wrongContextRequests++;
     seen.push(path);
+    if (path === "/files/clip.webm" && request.headers.has("range")) videoRangeRequested = true;
     if (path === "/r3/test-redirect") {
       const headers = previewPolicy(preview.contexts.forRequest(request));
       headers.set("location", "/files/redirect-target.txt");
@@ -123,6 +108,37 @@ try {
   browser = await openTestBrowser(["--use-fake-device-for-media-stream"]);
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  // Generate a tiny synthetic video with the browser's own encoder. This reads
+  // no device and needs no codec download or platform-specific fixture tool.
+  const videoBytes = await page.evaluate(`(async()=>{
+    const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32;
+    const paint=canvas.getContext('2d');const stream=canvas.captureStream(20);
+    const recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp8'});
+    const chunks=[];recorder.ondataavailable=e=>chunks.push(e.data);
+    const stopped=new Promise(resolve=>recorder.onstop=resolve);recorder.start(100);
+    for(let i=0;i<12;i++){paint.fillStyle=i%2?'blue':'red';paint.fillRect(0,0,32,32);await new Promise(resolve=>setTimeout(resolve,50));}
+    recorder.stop();await stopped;stream.getTracks().forEach(track=>track.stop());
+    const bytes=new Uint8Array(await new Blob(chunks).arrayBuffer());
+    return btoa(String.fromCharCode(...bytes));
+  })()`);
+  for (const seq of [1, 2])
+    await storage.artifacts.publish(artifact.id, {
+      actor,
+      expectedSeq: seq - 1,
+      publicationKey: `publication-${seq}`,
+      content: {
+        kind: "html",
+        files: [
+          ...Object.entries(files).map(([path, [mediaType, source]]) => ({
+            path,
+            mediaType,
+            base64: Buffer.from(source).toString("base64"),
+          })),
+          { path: "tone.wav", mediaType: "audio/wav", base64: wave.toString("base64") },
+          { path: "clip.webm", mediaType: "video/webm", base64: videoBytes },
+        ],
+      },
+    });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/` });
   assert.equal(
     await eventually(
@@ -171,6 +187,16 @@ try {
     `(async()=>{const image=new Image();image.src='pixel.svg';await image.decode();const local=new Image();local.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3"/>');await local.decode();const audio=document.createElement('audio');audio.src='tone.wav';audio.preload='metadata';document.body.append(audio);await new Promise((resolve,reject)=>{audio.onloadedmetadata=resolve;audio.onerror=()=>reject(Error('Published audio failed'))});audio.currentTime=0.5;await new Promise((resolve,reject)=>{audio.onseeked=resolve;audio.onerror=()=>reject(Error('Published audio seek failed'))});return {image:image.naturalWidth,inline:local.naturalWidth,duration:audio.duration,position:audio.currentTime}})()`,
   );
   assert.deepEqual(media, { image: 8, inline: 3, duration: 1, position: 0.5 });
+  const video = await frame.evaluate(`(async()=>{
+    const video=document.createElement('video');video.muted=true;video.src='clip.webm';
+    document.body.append(video);
+    await new Promise((resolve,reject)=>{video.onloadeddata=resolve;video.onerror=()=>reject(Error('Published video failed'))});
+    video.currentTime=0.2;
+    await new Promise((resolve,reject)=>{video.onseeked=resolve;video.onerror=()=>reject(Error('Published video seek failed'))});
+    return {width:video.videoWidth,height:video.videoHeight,position:video.currentTime};
+  })()`);
+  assert.deepEqual(video, { width: 32, height: 32, position: 0.2 });
+  assert(videoRangeRequested, "Native published video must use the range resource endpoint");
   await frame.evaluate(
     `window.workerRequest=(worker,url)=>new Promise(resolve=>{worker.onmessage=e=>{worker.terminate();resolve(e.data)};worker.onerror=e=>{worker.terminate();resolve({ok:false,error:e.message})};worker.postMessage(url)})`,
   );
