@@ -146,6 +146,8 @@ export interface PersistedConfig {
   publicUrl?: string;
   allowedHosts?: string[];
   requireLogin?: boolean;
+  previewPort?: number;
+  previewBaseUrl?: string;
 }
 
 // $XDG_CONFIG_HOME/r3 (default ~/.config/r3): the home for config.json. Separate
@@ -174,6 +176,9 @@ function sanitizeConfig(o: Record<string, unknown>): PersistedConfig {
     out.allowedHosts = o.allowedHosts as string[];
   }
   if (typeof o.requireLogin === "boolean") out.requireLogin = o.requireLogin;
+  if (typeof o.previewPort === "number" && Number.isInteger(o.previewPort))
+    out.previewPort = o.previewPort;
+  if (typeof o.previewBaseUrl === "string") out.previewBaseUrl = o.previewBaseUrl;
   return out;
 }
 
@@ -251,6 +256,8 @@ export interface DaemonInfo {
   pid: number;
   token: string;
   version: string;
+  protocol?: "artifacts-v1";
+  previewBaseUrl?: string;
   // How this daemon was launched, recorded by the serving process itself:
   // `exec` is its binary/interpreter (process.execPath — the compiled r3 binary,
   // or the bun that ran the script), `argv` the full command line
