@@ -680,6 +680,11 @@ export function ArtifactThreads({
           </span>
         </div>
       </div>
+      {noteOpen && (
+        <div className="r3-fade-slide-in max-h-[60%] shrink-0 overflow-y-auto">
+          {composer ?? <ArtifactComposer artifactId={detail.id} />}
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div key={tab} className="relative r3-fade-slide-in">
           <p
@@ -708,11 +713,6 @@ export function ArtifactThreads({
           </div>
         </div>
       </div>
-      {noteOpen && (
-        <div className="max-h-[60%] shrink-0 overflow-y-auto">
-          {composer ?? <ArtifactComposer artifactId={detail.id} />}
-        </div>
-      )}
       {(notice || handoff.error) && (
         <p
           role={handoff.error ? "alert" : "status"}

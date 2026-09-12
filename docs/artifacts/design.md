@@ -130,8 +130,8 @@ button. Version selection stays with the content toolbar.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Active threads
 put agent responses needing attention first and claimed work last. General notes
-open on demand; agent replies use tinted bubbles, and long conversations fold
-earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
+open on demand at the top of the panel, below its header and filters. Agent replies
+use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 

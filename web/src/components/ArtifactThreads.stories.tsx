@@ -38,6 +38,12 @@ export const FeedbackTabs: Story = {
     await expect(canvas.getByText("No resolved feedback.")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
     await expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: /Active/ }));
+    const composer = canvasElement.querySelector("[data-artifact-composer]");
+    const list = canvasElement.querySelector("[data-feedback-list]");
+    await expect(
+      composer && list && composer.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   },
 };
 export const AgentWorking: Story = {
