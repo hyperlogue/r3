@@ -329,7 +329,8 @@ export const DraftAndNativeLocate: Story = {
       "Keep this exact source target.",
     );
     await userEvent.click(canvas.getByRole("button", { name: "Rendered" }));
-    await userEvent.selectOptions(canvas.getByLabelText("Published version"), "2");
+    await userEvent.click(canvas.getByLabelText("Published version"));
+    await userEvent.click(canvas.getByRole("option", { name: /Version 2/ }));
     await expect(artifactDrafts.get(detail.id)?.target).toEqual({
       kind: "source",
       versionSeq: 1,

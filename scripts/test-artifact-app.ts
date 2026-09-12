@@ -207,7 +207,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[aria-label=\"Published version\"]')?.options.length===2",
+        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='2'",
       ),
     "remote publication arrives over SSE",
   );

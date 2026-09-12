@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 
@@ -30,6 +30,15 @@ export const PublishedHistory: Story = {
   render: function Interactive(args) {
     const [selected, setSelected] = useState<number | null>(null);
     return <ArtifactVersionSelect {...args} selected={selected} onChange={setSelected} />;
+  },
+};
+export const ChoosePublication: Story = {
+  ...PublishedHistory,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Published version" }));
+    await userEvent.click(canvas.getByRole("option", { name: "Version 1 · Initial" }));
+    await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
   },
 };
 export const MissingImportedVersion: Story = { args: { selected: 2 } };

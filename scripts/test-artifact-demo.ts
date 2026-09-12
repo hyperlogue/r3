@@ -70,7 +70,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[aria-label=\"Published version\"]')?.options.length===2",
+        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='2'",
       ),
     "scripted publication",
   );
@@ -83,7 +83,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[aria-label=\"Published version\"]')?.options.length===2 && document.body?.textContent.includes('scripted demo reply')",
+        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='2' && document.body?.textContent.includes('scripted demo reply')",
       ),
     "Pages deep-link reload and retained storage",
   );

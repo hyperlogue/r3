@@ -171,9 +171,8 @@ try {
     () => page.evaluate("document.body.textContent.includes('Please revise this chart')"),
     "same thread in the feedback panel",
   );
-  await click(
-    "Array.from(document.querySelectorAll('button')).find(b=>b.getAttribute('aria-label')==='Next published version')",
-  );
+  await click("document.querySelector('[aria-label=\"Published version\"]')");
+  await click("document.querySelector('[data-version-seq=\"2\"]')");
   const next = await eventually(async () => {
     for (const context of page.contexts.values()) {
       if (!context.origin.includes(".localhost:") || !context.auxData?.isDefault) continue;
@@ -232,6 +231,53 @@ try {
     () => page.evaluate("new URL(location.href).searchParams.get('file')==='other.html'"),
     "workspace deep link follows the published document",
   );
+  // Explicit version choices use that publication's own entrypoint, including
+  // after native navigation to a companion document in the preceding version.
+  for (const [seq, path, text] of [
+    [3, "index.md", "Markdown entrypoint"],
+    [4, "index.html", "HTML entrypoint"],
+  ] as const) {
+    await storage.artifacts.publish(artifact.id, {
+      actor,
+      expectedSeq: seq - 1,
+      publicationKey: `entrypoint-${seq}`,
+      content: {
+        kind: "html",
+        files: [
+          {
+            path,
+            mediaType: path.endsWith(".md") ? "text/markdown" : "text/html",
+            base64: Buffer.from(
+              path.endsWith(".md") ? `# ${text}\n` : `<!doctype html><h1>${text}</h1>`,
+            ).toString("base64"),
+          },
+        ],
+      },
+    });
+    api.collaboration.broadcast({ type: "version-published", artifactId: artifact.id, seq });
+    await eventually(
+      () => page.evaluate(`!!document.querySelector('[data-version-seq="${seq}"]')`),
+      "new entrypoint version announced",
+    );
+    await click("document.querySelector('[aria-label=\"Published version\"]')");
+    await click(`document.querySelector('[data-version-seq="${seq}"]')`);
+    await eventually(async () => {
+      for (const context of page.contexts.values()) {
+        if (!context.origin.includes(".localhost:") || !context.auxData?.isDefault) continue;
+        try {
+          if (
+            await page
+              .inContext(context.id)
+              .evaluate(`document.querySelector('h1')?.textContent === ${JSON.stringify(text)}`)
+          )
+            return true;
+        } catch {
+          /* Navigation replaces the old execution context. */
+        }
+      }
+      return false;
+    }, "selected version renders its changed entrypoint");
+  }
   const screenshot = process.env.R3_TEST_SCREENSHOT;
   if (screenshot) {
     const image = await page.command("Page.captureScreenshot", { format: "png" });
