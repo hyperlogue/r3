@@ -98,7 +98,7 @@ async function spawnDaemon(): Promise<DaemonInfo> {
     }
   }
   throw new ArtifactCommandError(
-    "Daemon did not become ready. Run r3 start in a terminal with local network access; check the state directory and migration backup if startup failed.",
+    "Daemon did not become ready. Run r3 __daemon in a terminal to see the startup error; check the state directory and migration backup if migration failed.",
   );
 }
 

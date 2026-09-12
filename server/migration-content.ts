@@ -237,16 +237,27 @@ export async function importLegacyContent(
       captureResult = "unavailable" in result ? result : { captured: true };
       if (!("unavailable" in result)) {
         if (result.kind !== kind) throw new Error("Legacy capture changed artifact kind");
-        const publication = validatePublication({
-          expectedSeq: 0,
-          publicationKey: "migration:current",
-          actor: { role: "human", sessionId: null },
-          label: "Captured during migration",
-          content: result,
-          provenance: { migration: { at: time, currentCapture: true, historical: false } },
-        });
-        await insertVersion(context, blobs, render, id, max + 1, publication, time);
-        present.push(max + 1);
+        let publication: ValidatedPublication | null = null;
+        try {
+          publication = validatePublication({
+            expectedSeq: 0,
+            publicationKey: "migration:current",
+            actor: { role: "human", sessionId: null },
+            label: "Captured during migration",
+            content: result,
+            provenance: { migration: { at: time, currentCapture: true, historical: false } },
+          });
+        } catch (error) {
+          // Today's files may no longer be publishable. This must not prevent
+          // importing retained history; preserve why the optional capture failed.
+          captureResult = {
+            unavailable: error instanceof Error ? error.message : "Current capture is invalid",
+          };
+        }
+        if (publication) {
+          await insertVersion(context, blobs, render, id, max + 1, publication, time);
+          present.push(max + 1);
+        }
       }
     }
     if (!present.length && kind === "files") {

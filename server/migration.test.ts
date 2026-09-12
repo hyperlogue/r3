@@ -62,6 +62,18 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test("an invalid current capture does not prevent importing retained history", async () => {
+    await migrateLegacyStore(db, {
+      ...options(),
+      capture: async () => ({ kind: "files", files: [] }),
+    });
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
+    expect((store.get("review_retained").legacy?.migration as any).currentCapture).toMatchObject({
+      unavailable: expect.stringContaining("at least one file"),
+    });
+    expect(store.versions("review_retained").map((version) => version.seq)).toEqual([2]);
+  });
   test("historical membership is not constrained by new directory upload quotas", () => {
     const publication = {
       actor: { role: "human", sessionId: null },
