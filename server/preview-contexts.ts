@@ -21,6 +21,14 @@ interface PreviewState {
   browsers: Map<string, { identity: string; userAgent: string }>;
 }
 
+function localOrigin(url: URL): boolean {
+  return (
+    url.hostname === "localhost" ||
+    url.hostname.endsWith(".localhost") ||
+    url.hostname === "[::1]" ||
+    (isIP(url.hostname) === 4 && url.hostname.startsWith("127."))
+  );
+}
 function secureOrigin(value: string): URL {
   let url: URL;
   try {
@@ -28,11 +36,7 @@ function secureOrigin(value: string): URL {
   } catch {
     throw new ArtifactError("Invalid preview or application origin");
   }
-  const local =
-    url.hostname === "localhost" ||
-    url.hostname.endsWith(".localhost") ||
-    url.hostname === "[::1]" ||
-    (isIP(url.hostname) === 4 && url.hostname.startsWith("127."));
+  const local = localOrigin(url);
   if (
     (url.protocol !== "https:" && !(url.protocol === "http:" && local)) ||
     url.username ||
@@ -94,6 +98,11 @@ export class PreviewContexts {
     applicationOrigin: string,
   ): ArtifactPreviewContext {
     const app = secureOrigin(applicationOrigin);
+    if (!localOrigin(app) && this.base.protocol !== "https:")
+      throw new ArtifactError(
+        "Remote rendered previews require an HTTPS preview origin. Configure R3_PREVIEW_BASE_URL and route its context subdomains to the preview listener.",
+        503,
+      );
     const version = this.artifacts.version(artifactId, versionSeq);
     if (version.kind === "diff")
       throw new ArtifactError("Diff publications have no rendered preview");

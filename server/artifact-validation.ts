@@ -7,7 +7,7 @@ const CONTROL_CHARACTERS = /[\x00-\x1f\x7f]/;
 export class ArtifactError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 404 | 409 | 413 = 400,
+    readonly status: 400 | 404 | 409 | 413 | 503 = 400,
   ) {
     super(message);
     this.name = "ArtifactError";

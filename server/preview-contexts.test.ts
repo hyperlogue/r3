@@ -106,6 +106,9 @@ test("preview origins require secure contexts and a separate hostname namespace"
   );
   expect(() => new PreviewContexts(storage.artifacts, "https://127.0.0.1")).toThrow("DNS hostname");
   const local = new PreviewContexts(storage.artifacts, "http://localhost:8792");
+  expect(() => local.create(id, 1, "notes/a # b?.md", "https://app.example")).toThrow(
+    "R3_PREVIEW_BASE_URL",
+  );
   const context = local.create(id, 1, "notes/a # b?.md", "http://localhost:8791");
   expect(new URL(context.origin).port).toBe("8792");
   expect(() => local.create(id, 1, "notes/a # b?.md", "http://127.0.0.1:8791")).not.toThrow();
