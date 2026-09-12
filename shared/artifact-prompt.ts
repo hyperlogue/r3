@@ -109,11 +109,17 @@ export function artifactNudgeText(nudge: ArtifactNudge): string {
   const lines = [
     `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "feedback submitted"}`,
   ];
-  if (nudge.title) lines.push(`Artifact: ${nudge.title}`);
+  if (nudge.title) lines.push(`Artifact: ${nudge.title.slice(0, 500)}`);
   if (nudge.event === "submitted") lines.push(`Run: r3 prompt ${nudge.artifactId}`);
   else {
     if (nudge.lifecycleEventId) lines.push(`Event: ${nudge.lifecycleEventId}`);
-    if (nudge.message) lines.push("", "Archive message:", nudge.message);
+    if (nudge.message) {
+      // Wake adapters may carry this text as one process argument. The complete
+      // message remains in the lifecycle history; keep the nudge bounded.
+      lines.push("", "Archive message:", nudge.message.slice(0, 8000));
+      if (nudge.message.length > 8000)
+        lines.push(`… Read the complete message: r3 show ${nudge.artifactId}`);
+    }
   }
   return lines.join("\n");
 }

@@ -127,5 +127,15 @@ describe("artifact prompt formatting", () => {
     expect(nudge).toContain("Continue with the implementation");
     expect(nudge).not.toContain("approved");
     expect(nudge).not.toContain("Run: r3 prompt");
+    const large = artifactNudgeText({
+      id: "nudge_large",
+      artifactId: detail.id,
+      title: null,
+      event: "archived",
+      lifecycleEventId: "event_large",
+      message: "More detail. ".repeat(100_000),
+    });
+    expect(large.length).toBeLessThan(9000);
+    expect(large).toContain(`Read the complete message: r3 show ${detail.id}`);
   });
 });
