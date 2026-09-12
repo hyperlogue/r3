@@ -25,7 +25,7 @@ export function useArtifactCodeJump({
   seq: number | null;
   ready: boolean;
   scrollToLine: ScrollToLine;
-  activate: (path: string) => boolean;
+  activate: (path: string, onReady?: () => void) => boolean;
 }) {
   useEffect(() => {
     const root = scopeRef.current;
@@ -69,10 +69,17 @@ export function useArtifactCodeJump({
               root.getBoundingClientRect().top -
               root.clientHeight * 0.3,
           });
-      } else
+      } else {
+        const toolbar =
+          Number.parseFloat(getComputedStyle(root).getPropertyValue("--pane-sticky-h")) || 0;
         root.scrollTo({
-          top: root.scrollTop + file.getBoundingClientRect().top - root.getBoundingClientRect().top,
+          top:
+            root.scrollTop +
+            file.getBoundingClientRect().top -
+            root.getBoundingClientRect().top -
+            toolbar,
         });
+      }
       if (++settleFrames >= 4) settled = true;
       else frame = requestAnimationFrame(paint);
     };
@@ -81,7 +88,15 @@ export function useArtifactCodeJump({
     };
     const observer = new MutationObserver(schedule);
     observer.observe(root, { childList: true, subtree: true });
-    activate(jump.path);
+    activate(jump.path, () => {
+      if (!live) return;
+      // A distant file's placeholder can be shorter than the viewport. The
+      // provisional jump then clamps at the old scroll limit; align again when
+      // its real body arrives, even if the initial paint frames already settled.
+      settled = false;
+      settleFrames = 0;
+      schedule();
+    });
     schedule();
     return () => {
       live = false;

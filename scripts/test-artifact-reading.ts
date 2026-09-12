@@ -100,12 +100,26 @@ const api = createArtifactApi(storage, {
   version: "acceptance",
   allowedHost: (host) => host === "localhost",
 });
+let lastSourceRequested = 0;
+let lastSourceCompleted = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
-  fetch(request) {
-    const path = new URL(request.url).pathname;
-    if (path.startsWith("/api/")) return api.app.fetch(request);
+  async fetch(request) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const lastRequest =
+      path.endsWith("/source") && url.searchParams.get("path") === "part-31.ts"
+        ? ++lastSourceRequested
+        : 0;
+    // A remote publisher's content need not arrive within a few paint frames.
+    if (path.endsWith("/source") && url.searchParams.get("path")?.startsWith("part-"))
+      await Bun.sleep(url.searchParams.get("path") === "part-31.ts" ? 600 : 200);
+    if (path.startsWith("/api/")) {
+      const response = await api.app.fetch(request);
+      if (lastRequest) lastSourceCompleted = lastRequest;
+      return response;
+    }
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
@@ -300,6 +314,17 @@ try {
     () => page.evaluate("!!document.querySelector('[data-file=\"part-31.ts\"] [data-line]')"),
     "distant file hydrates on explicit navigation",
   );
+  await eventually(
+    () =>
+      page.evaluate(`(() => {
+      const pane = document.querySelector('[data-artifact-content]');
+      const file = pane.querySelector('[data-file="part-31.ts"]');
+      const top = file.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+      const first = file.querySelector('[data-line="1"]');
+      return top >= -1 && top < 50 && first && first.getBoundingClientRect().top >= pane.getBoundingClientRect().top + 60;
+    })()`),
+    "distant file aligns after delayed hydration",
+  );
   assert.equal(await page.evaluate("document.querySelectorAll('[data-file]').length"), 32);
   assert(
     await page.evaluate("document.querySelectorAll('[data-line]').length < 1000"),
@@ -309,6 +334,30 @@ try {
     const shot = await page.command("Page.captureScreenshot", { format: "png" });
     await Bun.write(process.env.R3_TEST_SCREENSHOT, Buffer.from(shot.data, "base64"));
   }
+  const previousRequest = lastSourceRequested;
+  await page.command("Page.reload");
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-file]').length === 32"),
+    "fresh source cache for competing jumps",
+  );
+  await page.evaluate("document.querySelector('button[title=\"part-31.ts\"]').click()");
+  await eventually(async () => lastSourceRequested > previousRequest, "delayed jump started");
+  await page.evaluate("document.querySelector('button[title=\"part-00.ts\"]').click()");
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[data-file=\"part-00.ts\"] [data-line]')"),
+    "newer jump hydrates",
+  );
+  await eventually(async () => lastSourceCompleted > previousRequest, "older response completed");
+  await page.evaluate("new Promise(resolve=>setTimeout(resolve,200))");
+  assert(
+    await page.evaluate(`(() => {
+      const pane = document.querySelector('[data-artifact-content]');
+      const file = pane.querySelector('[data-file="part-00.ts"]');
+      const top = file.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+      return top >= -1 && top < 50;
+    })()`),
+    "late hydration cannot steal a newer file selection",
+  );
   console.log(
     "Published files/diffs: syntax colors, complete stack, folding, file navigation and scroll highlighting passed",
   );
