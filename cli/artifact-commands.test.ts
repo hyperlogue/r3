@@ -195,6 +195,9 @@ describe("artifact CLI over the HTTP contract", () => {
     const result = await command("watch", [id]);
     expect(result.code).toBe(0);
     expect(result.text).toContain("Saved archive message");
+    const expired = await command("watch", [id, "--timeout", "0.000001"]);
+    expect(expired.code).toBe(0);
+    expect(expired.text).toContain("Saved archive message");
     await command("restore", [id, "--human", "--key", "restore"]);
     expect(storage.conversations.unsent(id)).toHaveLength(1);
   });

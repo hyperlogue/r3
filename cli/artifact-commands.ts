@@ -10,6 +10,7 @@ import type {
   Artifact,
   ArtifactActor,
   ArtifactDetail,
+  ArtifactLifecycleResponse,
   ArtifactMessageContext,
   ArtifactSource,
   ArtifactTarget,
@@ -412,9 +413,15 @@ export async function runArtifactCommand(
       if (!Number.isFinite(seconds) || seconds < 0)
         throw new ArtifactCommandError("--timeout must be a nonnegative number of seconds");
       const deadline = seconds ? Date.now() + seconds * 1000 : Infinity;
+      const archived = (current: ArtifactDetail) => {
+        if (current.state !== "archived") return false;
+        const event = current.events.findLast((event) => event.event === "archived");
+        if (event?.message) print(event.message);
+        return true;
+      };
       for (;;) {
         const remaining = deadline - Date.now();
-        if (remaining <= 0) return 2;
+        if (remaining <= 0) return archived(await detail(args.id())) ? 0 : 2;
         let result: ArtifactWatchResult;
         try {
           result = await client.json("POST", `${artifactApiPath(args.id())}/watch`, {
@@ -441,9 +448,9 @@ export async function runArtifactCommand(
             if (
               error instanceof ArtifactApiError &&
               error.status === 409 &&
-              (await detail(args.id())).state === "archived"
+              archived(await detail(args.id()))
             )
-              continue;
+              return 0;
             throw error;
           }
           return 10;
@@ -458,14 +465,28 @@ export async function runArtifactCommand(
     }
     case "archive":
     case "restore": {
-      const result = await client.json("POST", `${artifactApiPath(args.id())}/lifecycle`, {
-        actor: await actor(),
-        event: command === "archive" ? "archived" : "restored",
-        operationKey: args.value("key") ?? randomUUID(),
-        message: await text("message"),
-      });
-      print(result);
-      return 0;
+      try {
+        const result = await client.json("POST", `${artifactApiPath(args.id())}/lifecycle`, {
+          actor: await actor(),
+          event: command === "archive" ? "archived" : "restored",
+          operationKey: args.value("key") ?? randomUUID(),
+          message: await text("message"),
+        });
+        print(result);
+        return 0;
+      } catch (error) {
+        if (error instanceof ArtifactApiError && error.status === 502) {
+          const result = error.result as ArtifactLifecycleResponse | null;
+          if (result?.event?.artifactId === args.id() && result.notification?.state === "failed") {
+            print(result);
+            ctx.error(
+              "The lifecycle change was saved, but the listener notification failed. The operation key in the event identifies this committed change.",
+            );
+            return 1;
+          }
+        }
+        throw error;
+      }
     }
     case "project": {
       const operation = args.positional[0];
