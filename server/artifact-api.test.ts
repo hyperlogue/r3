@@ -8,11 +8,14 @@ import { readEventStream } from "../shared/event-stream.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
+import { PreviewHost } from "./preview-host.ts";
+import { previewSupport } from "./preview-support.ts";
 
 let root: string;
 let storage: ArtifactStorage;
 let api: ReturnType<typeof createArtifactApi>;
 let token: string;
+let previews: PreviewHost;
 const actor = { role: "agent", sessionId: "publisher-session" };
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-artifact-api-"));
@@ -21,16 +24,22 @@ beforeEach(async () => {
     render: async () => ({ html: "<h1>Retained document</h1>", revision: "api-test" }),
   });
   token = randomBytes(32).toString("base64url");
-  api = createArtifactApi(storage, {
-    token,
-    version: "test",
-    requireLogin: false,
-    allowedHost: (host) => host === "localhost",
-  });
+  previews = new PreviewHost(storage.artifacts, "https://preview.example", previewSupport);
+  api = createArtifactApi(
+    storage,
+    {
+      token,
+      version: "test",
+      requireLogin: false,
+      allowedHost: (host) => host === "localhost",
+    },
+    { previews },
+  );
   await request("/api/sessions", "POST", { id: actor.sessionId, harness: "any-agent" });
 });
 afterEach(async () => {
   api.close();
+  previews.close();
   storage.close();
   await rm(root, { recursive: true, force: true });
 });
@@ -85,6 +94,48 @@ function publication(expectedSeq = 0, publicationKey = "first") {
 }
 
 describe("artifact HTTP content contract", () => {
+  test("authenticated preview grants bind the application origin and revoke with the artifact", async () => {
+    const id = await create();
+    await request(`/api/artifacts/${id}/versions`, "POST", publication());
+    const path = `/api/artifacts/${id}/versions/1/previews`;
+    expect(
+      (await request(path, "POST", { path: "page.html" }, { origin: "https://other.example" }))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await api.app.request(
+          new Request(`http://localhost${path}`, {
+            method: "POST",
+            headers: { host: "localhost", "content-type": "application/json" },
+            body: JSON.stringify({ path: "page.html" }),
+          }),
+        )
+      ).status,
+    ).toBe(401);
+    const created = await request(
+      path,
+      "POST",
+      { path: "page.html", applicationOrigin: "https://untrusted.example" },
+      { origin: "http://localhost" },
+    );
+    expect(created.status).toBe(201);
+    const context = await created.json();
+    const gate = new Request(context.gateUrl, { headers: { host: new URL(context.origin).host } });
+    expect(previews.contexts.forRequest(gate).applicationOrigin).toBe("http://localhost");
+    expect((await request(`/api/previews/${context.id}`, "PATCH")).status).toBe(200);
+    await request(`/api/previews/${context.id}`, "DELETE");
+    expect((await previews.fetch(gate)).status).toBe(404);
+    const second = await (await request(path, "POST", { path: "page.html" })).json();
+    await request(`/api/artifacts/${id}`, "DELETE");
+    expect(
+      (
+        await previews.fetch(
+          new Request(second.gateUrl, { headers: { host: new URL(second.origin).host } }),
+        )
+      ).status,
+    ).toBe(404);
+  });
   test("publishes complete remote bytes, reads only retained versions, and never executes app-origin HTML", async () => {
     const id = await create();
     const base = `/api/artifacts/${id}/versions`;

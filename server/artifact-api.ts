@@ -10,6 +10,7 @@ import type { ArtifactStorage } from "./artifact-storage.ts";
 import { ArtifactError, requireArtifactPath, requireSequence } from "./artifact-validation.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
 import { renderStoredPatch, storedPatchContext } from "./patch-content.ts";
+import type { PreviewHost } from "./preview-host.ts";
 
 export function artifactDetail(storage: ArtifactStorage, id: string): ArtifactDetail {
   return {
@@ -28,7 +29,11 @@ export function artifactSequence(value: string | undefined): number {
 
 // No import opens a store, resolves a repo, or discovers a daemon. The same API
 // serves a local daemon and a remote publisher against injected storage.
-export function createArtifactApi(storage: ArtifactStorage, policy: ArtifactAuthPolicy) {
+export function createArtifactApi(
+  storage: ArtifactStorage,
+  policy: ArtifactAuthPolicy,
+  options: { previews?: PreviewHost } = {},
+) {
   const app = new Hono();
   const { artifacts } = storage;
   const collaboration = new ArtifactCollaboration(
@@ -100,6 +105,7 @@ export function createArtifactApi(storage: ArtifactStorage, policy: ArtifactAuth
   app.delete("/api/artifacts/:id", async (c) => {
     const id = c.req.param("id");
     artifacts.delete(id);
+    options.previews?.revokeArtifact(id);
     collaboration.deleted(id);
     await storage.collectBlobs();
     return c.json({ ok: true });
@@ -125,6 +131,32 @@ export function createArtifactApi(storage: ArtifactStorage, policy: ArtifactAuth
   app.get("/api/artifacts/:id/versions/:seq/files", (c) =>
     c.json(artifacts.files(c.req.param("id"), artifactSequence(c.req.param("seq")))),
   );
+  app.post("/api/artifacts/:id/versions/:seq/previews", async (c) => {
+    if (!options.previews)
+      return c.json({ error: "Rendered previews are not configured on this server" }, 503);
+    const input = await artifactJson(c.req.raw, 4096);
+    // Authentication has already checked the full Origin, including proxy
+    // allowlisting. Never accept a parent origin from the JSON request body.
+    const origin = c.req.header("origin") ?? new URL(c.req.url).origin;
+    return c.json(
+      options.previews.create(
+        c.req.param("id"),
+        artifactSequence(c.req.param("seq")),
+        requireArtifactPath(input.path),
+        origin,
+      ),
+      201,
+    );
+  });
+  app.patch("/api/previews/:id", (c) => {
+    if (!options.previews)
+      return c.json({ error: "Rendered previews are not configured on this server" }, 503);
+    return c.json(options.previews.renew(c.req.param("id")));
+  });
+  app.delete("/api/previews/:id", (c) => {
+    options.previews?.revoke(c.req.param("id"));
+    return c.json({ ok: true });
+  });
   app.get("/api/artifacts/:id/versions/:seq/source", async (c) =>
     artifactJsonResponse(
       c.req.raw,
