@@ -6,7 +6,10 @@ import { join } from "node:path";
 import { startArtifactServer } from "./artifact-server.ts";
 import { openArtifactStorage } from "./artifact-storage.ts";
 
-test("application and preview listeners enforce distinct hosts, routes, and credentials", async () => {
+test.each([
+  "automatic",
+  "explicit",
+])("%s preview hosting preserves capability and application guards", async (mode) => {
   const root = await mkdtemp(join(tmpdir(), "r3-servers-"));
   const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
   const token = randomBytes(32).toString("base64url");
@@ -20,10 +23,17 @@ test("application and preview listeners enforce distinct hosts, routes, and cred
       },
       files: new Map(),
     },
-    authentication: { token, requireLogin: false, version: "test", allowedHost: () => true },
+    authentication: {
+      token,
+      requireLogin: false,
+      version: "test",
+      allowedHost: (host) => host === "localhost" || host === "reviews.example",
+      applicationOrigins: new Set(["https://reviews.example"]),
+    },
     bind: "127.0.0.1",
     port: 0,
     previewPort: 0,
+    ...(mode === "explicit" ? { previewBaseUrl: "https://preview.example" } : {}),
   });
   const base = `http://localhost:${runtime.server.port}`;
   try {
@@ -60,26 +70,79 @@ test("application and preview listeners enforce distinct hosts, routes, and cred
       ((await (await fetch(`${base}/api/health`)).json()) as { protocol: string }).protocol,
     ).toBe("artifacts-v1");
     const preview = runtime.previews.create(artifact.id, 1, "index.html", base);
-    // A shared hostname does not make the opaque document an application client.
-    for (const origin of [preview.origin, "null"])
-      expect((await fetch(`${base}/api/boot`, { headers: { origin } })).status).toBe(403);
-    const previewBase = `http://localhost:${runtime.previewServer.port}`;
+    expect(preview.origin).toBe(mode === "automatic" ? base : "https://preview.example");
+    expect(!!runtime.previewServer).toBe(mode === "explicit");
+    const endpoint =
+      mode === "automatic" ? base : `http://localhost:${runtime.previewServer!.port}`;
+    const read = (url: string, init: RequestInit = {}) =>
+      fetch(endpoint + new URL(url).pathname, {
+        ...init,
+        headers: {
+          host: new URL(preview.origin).host,
+          "user-agent": "Preview browser",
+          ...init.headers,
+        },
+      });
+    // Application authentication never substitutes for a verified preview grant.
+    expect((await read(preview.documentUrl, { headers: { "x-r3-token": token } })).status).toBe(
+      403,
+    );
+    const gate = await read(preview.gateUrl);
+    expect(gate.status).toBe(200);
+    const challenge = (await gate.text()).match(/"challenge":"([^"]+)"/)![1];
+    const verified = await read(preview.gateUrl.replace(/gate$/, "verify"), {
+      method: "POST",
+      headers: { origin: "null", "content-type": "application/json" },
+      body: JSON.stringify({ challenge }),
+    });
+    expect(verified.status).toBe(200);
+    expect(verified.headers.has("set-cookie")).toBe(false);
+    const content = await read(preview.documentUrl, { headers: { "sec-fetch-dest": "iframe" } });
+    expect(content.status).toBe(200);
+    expect(content.headers.get("content-security-policy")).toContain("sandbox allow-scripts;");
+    expect(content.headers.get("content-security-policy")).not.toContain("allow-same-origin");
+    expect(await content.text()).toContain("Private artifact");
     expect(
-      (
-        await fetch(`${previewBase}/api/boot`, {
-          headers: { host: new URL(preview.origin).host, "x-r3-token": token },
-        })
-      ).status,
-    ).toBe(404);
+      (await fetch(`${base}/api/boot`, { headers: { origin: "null", "x-r3-token": token } }))
+        .status,
+    ).toBe(403);
     expect(
-      (
-        await fetch(`${previewBase}/files/index.html`, {
-          headers: { host: new URL(preview.origin).host, "x-r3-token": token },
-        })
-      ).status,
-    ).toBe(404);
-    expect((await fetch(`${previewBase}/`, { headers: { "x-r3-token": token } })).status).toBe(404);
+      (await fetch(`${base}/api/artifacts`, { headers: { origin: "null", "x-r3-token": token } }))
+        .status,
+    ).toBe(403);
+    expect((await fetch(`${base}/`, { headers: { host: "untrusted.example" } })).status).toBe(403);
+    expect((await read(`${preview.resourceRoot}../../api/boot`)).status).toBe(404);
     expect((await fetch(`${base}/files/index.html`)).status).toBe(404);
+    if (mode === "explicit") {
+      expect(
+        (await fetch(`${endpoint}/api/boot`, { headers: { "x-r3-token": token } })).status,
+      ).toBe(404);
+      expect((await fetch(`${endpoint}/`, { headers: { "x-r3-token": token } })).status).toBe(404);
+    } else {
+      // The authenticated Origin chooses the existing HTTPS edge even when the
+      // reverse proxy rewrites Host to the loopback application listener.
+      const created = await fetch(`${base}/api/artifacts/${artifact.id}/versions/1/previews`, {
+        method: "POST",
+        headers: {
+          "x-r3-token": token,
+          "content-type": "application/json",
+          origin: "https://reviews.example",
+        },
+        body: JSON.stringify({ path: "index.html" }),
+      });
+      expect(created.status).toBe(201);
+      const remote = (await created.json()) as { origin: string; gateUrl: string };
+      expect(remote.origin).toBe("https://reviews.example");
+      const remotePath = new URL(remote.gateUrl).pathname;
+      expect((await fetch(base + remotePath)).status).toBe(200);
+      expect(
+        (
+          await fetch(base + remotePath, {
+            headers: { host: "untrusted.example", "x-forwarded-host": "reviews.example" },
+          })
+        ).status,
+      ).toBe(403);
+    }
   } finally {
     await runtime.stop();
     storage.close();

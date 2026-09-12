@@ -173,24 +173,30 @@ Point a publisher at an application URL with `R3_URL`; supply its API credential
 through `R3_TOKEN`. Capture still happens on the publisher. Neither publishing nor
 reading requires a server-side checkout.
 
-Both daemon listeners bind loopback. Reach them through a tunnel or HTTPS reverse
-proxy. For remote browser rendering, configure separate application and preview
-origins; one preview endpoint routes to its listener. It can use the same hostname
-on another HTTPS port. Wildcard DNS and certificates are unnecessary.
-Do not proxy the application API through the preview host.
+The daemon binds loopback. Reach it through a tunnel or HTTPS reverse proxy.
+Rendered previews automatically use the same address as the r3 browser page,
+including an existing Tailscale Serve HTTPS address. No wildcard DNS, separate
+public port, or preview setting is required. Localhost also works automatically.
 
 ```sh
 r3 config set publicUrl https://reviews.example
 r3 config set requireLogin 1
-r3 config set previewBaseUrl https://preview.example
 r3 restart
 r3 auth create-token --label browser
 ```
 
-Forward the configured preview host and port unchanged to the preview listener
-(default port 8792). A remote application requires an HTTPS preview endpoint; an HTTP localhost preview is only suitable for a local browser.
-An SSH setup can instead forward both local ports while browsing the local
-application URL.
+The proxy forwards the whole application, including `/__r3_preview/`, without
+stripping that prefix. If it rewrites Host, the configured `publicUrl` identifies
+the HTTPS edge; arbitrary forwarded host headers never choose a trusted origin.
+Share artifact workspace links, not temporary preview URLs.
+
+An optional `previewBaseUrl` override uses a separate loopback preview listener
+(`previewPort`, default application port + 1). Forward that single HTTPS origin
+to the preview listener, preserving its Host and URL paths. It can use the same
+hostname on a different HTTPS port. Clear an old override with
+`r3 config unset previewBaseUrl` and restart to return to automatic hosting.
+An SSH setup only needs to forward the application port when using automatic
+hosting and browsing the local application URL.
 
 Remote exposure enables login by default. A revocable login token mints an
 HttpOnly browser session; it is separate from the CLI's API credential. Behind a
@@ -206,8 +212,8 @@ Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults:
 | `publicUrl` | `R3_PUBLIC_URL` | Local application URL |
 | `allowedHosts` | `R3_ALLOWED_HOSTS` | Exact local hostnames |
 | `requireLogin` | `R3_REQUIRE_LOGIN` | Enabled for remote exposure |
-| `previewPort` | `R3_PREVIEW_PORT` | Application port + 1 |
-| `previewBaseUrl` | `R3_PREVIEW_BASE_URL` | `http://localhost:<previewPort>` |
+| `previewPort` | `R3_PREVIEW_PORT` | Application port + 1, only with an explicit preview endpoint |
+| `previewBaseUrl` | `R3_PREVIEW_BASE_URL` | Automatic: the browser's r3 address |
 
 Use `r3 config show|get|set|unset` to inspect or persist settings. Wildcard
 application hosts and all-interface binds are rejected.
@@ -235,7 +241,7 @@ foreground to show the error; failed migration leaves the old database intact.
 
 ```sh
 bun install
-process-compose up          # isolated workspace data; app 8891, preview 8892
+process-compose up          # isolated workspace data; application 8891
 bun run storybook           # component workshop
 bun run typecheck
 bun test

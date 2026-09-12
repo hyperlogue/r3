@@ -12,18 +12,21 @@ logical agents, not multi-user accounts or per-agent permissions.
 
 ## Application boundary
 
-`server/artifact-server.ts` binds the application and preview listeners separately,
-only on loopback. All-interface binds are rejected. The application Host guard
-runs before both API and static assets. Allowed application hosts are exact local,
-explicitly allowlisted, or advertised public hostnames; never wildcards. Transport hostnames are not document identities: opaque preview documents
+`server/artifact-server.ts` binds the application listener on loopback; an explicit
+preview endpoint adds a separate loopback listener. All-interface binds are rejected.
+The application Host guard runs before API, preview dispatch, and static assets.
+Allowed application hosts are exact local, explicitly allowlisted, or advertised
+public hostnames; never wildcards. Transport hostnames are not document identities:
+opaque preview documents
 serialize their Origin as `null`, which the application guard rejects.
 
 `server/artifact-auth.ts` gates every API request by full origin, including port.
-A configured application origin supports a proxy that rewrites Host. Opaque preview origins must never enter that set. No-Origin CLI requests are allowed, but browser
+A configured application origin supports a proxy that rewrites Host. Opaque
+preview origins must never enter that set. No-Origin CLI requests are allowed, but browser
 cross-origin Fetch Metadata does not acquire that exemption. No cross-origin
 access headers are emitted.
 
-Every data route, including event streams, requires the master API token or a
+Every application data route, including event streams, requires the master API token or a
 valid browser cookie. Browser and agent streams use authenticated fetch, with no
 token-free SSE exception. GET/HEAD health and same-origin boot, and POST login,
 retain narrow bootstrap roles. Token comparisons are constant-time; reads carry
@@ -33,7 +36,8 @@ Application resource downloads are attachments with restrictive CSP, `nosniff`,
 no-referrer, and same-origin resource policy. Shell and assets are explicitly
 served by `application-assets.ts`, with frame-ancestors none and X-Frame-Options
 DENY. Missing asset paths return 404; only known artifact page routes get the shell.
-Executable published HTML never runs on the application origin.
+Executable published HTML always runs with an opaque browser origin, even when
+its transport URL uses the application address.
 
 ## Browser login and configuration
 
@@ -58,11 +62,21 @@ credentials. Both clients and probes reject redirects when carrying credentials.
 Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults.
 Configuration contains no secret. Supported settings include application bind,
 port, publicUrl, allowedHosts and requireLogin, plus previewPort and previewBaseUrl.
-Changes take effect at restart. The preview port defaults to application port + 1
-and must differ from it. The local preview base is HTTP localhost; remote browser
-rendering requires one HTTPS preview origin forwarded unchanged to the preview
-listener. A second port on the same HTTPS hostname works without wildcard DNS. Never forward the application API
-through that host, or merge the application and preview listeners/origins.
+Changes take effect at restart. With no preview override, the authenticated
+preview-creation request chooses the browser's application origin and the existing
+listener dispatches `/__r3_preview/` through the preview module after the Host
+guard. No second port, wildcard DNS, or Tailscale Serve change is needed.
+
+An explicit `previewBaseUrl` selects one HTTPS endpoint (or HTTP loopback locally).
+Only then is `previewPort` used, defaulting to application port + 1 and requiring
+a distinct valid port. The extra listener has no application routes or credentials.
+Forward its Host and paths unchanged. Clear the override to use automatic hosting.
+
+For an application proxy that rewrites Host, the preview dispatcher can normalize
+only a context whose transport origin equals its application origin and appears
+in the configured application-origin set. The application Host guard runs first;
+arbitrary forwarded headers never authorize that normalization. The dedicated
+preview listener accepts no such proxy-origin exemption.
 
 ## Preview host
 

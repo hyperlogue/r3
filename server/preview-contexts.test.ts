@@ -119,7 +119,7 @@ test("preview origins require secure contexts and an explicit secure transport o
   expect(new URL(context.origin).port).toBe("8792");
   expect(() => local.create(id, 1, "notes/a # b?.md", "http://127.0.0.1:8791")).not.toThrow();
   expect(() => local.create(id, 1, "notes/a # b?.md", "http://[::1]:8791")).not.toThrow();
-  expect(() => local.create(id, 1, "notes/a # b?.md", context.origin)).toThrow("cannot host");
+  expect(() => local.create(id, 1, "notes/a # b?.md", context.origin)).not.toThrow();
   const kept = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
   storage.artifacts.delete(id);
   expect(() => contexts.forRequest(request(kept.documentUrl))).toThrow();
@@ -173,4 +173,32 @@ test("a null origin is not authorization; the gate proof is browser-bound, singl
   expect(contexts.verify(post, next.challenge)).toBe(false);
   contexts.revoke(context.id);
   expect(() => contexts.authorized(browser())).toThrow("unavailable");
+});
+
+test("automatic contexts use the authenticated application origin, including HTTPS and loopback", () => {
+  const automatic = new PreviewContexts(storage.artifacts, undefined);
+  for (const origin of [
+    "https://reviews.example",
+    "http://localhost:8791",
+    "http://127.0.0.1:8791",
+    "http://[::1]:8791",
+  ]) {
+    const context = automatic.create(id, 1, "notes/a # b?.md", origin);
+    expect(context.origin).toBe(origin);
+    expect(automatic.forRequest(request(context.gateUrl)).origin).toBe(origin);
+    const proxy = new Request(`http://localhost:8791${new URL(context.gateUrl).pathname}`, {
+      headers: { host: "localhost:8791" },
+    });
+    if (origin === "https://reviews.example") {
+      expect(() => automatic.forRequest(proxy)).toThrow("unavailable");
+      expect(automatic.forRequest(proxy, new Set([origin])).origin).toBe(origin);
+      expect(() => automatic.forRequest(proxy, new Set(["https://other.example"]))).toThrow(
+        "unavailable",
+      );
+    }
+  }
+  expect(() => automatic.create(id, 1, "notes/a # b?.md", "http://reviews.example")).toThrow(
+    "HTTPS",
+  );
+  automatic.close();
 });

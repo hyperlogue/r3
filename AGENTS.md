@@ -23,7 +23,7 @@ publisher: capture local files/git → CLI HTTP upload ─┐
 browser: fetch + authenticated event stream ──────────┼→ artifact daemon
 agent: CLI/HTTP publications, feedback, claims ───────┘    SQLite + immutable blobs
 publisher-side listener ← outward stream ← daemon
-isolated preview host → one version's bytes + trusted r3 runtime
+opaque preview document → scoped version bytes + trusted r3 runtime
 ```
 
 - The daemon is the only SQLite writer. Storage and domain services are explicitly
@@ -40,9 +40,11 @@ isolated preview host → one version's bytes + trusted r3 runtime
 - A local daemon starts lazily and announces itself in
   `$XDG_RUNTIME_DIR/r3/daemon.json`. `R3_URL` chooses an explicit remote server;
   that URL never inherits a local token unless the complete normalized URL matches.
-- The application listener and preview listener are separate and loopback-bound.
-  They never share authentication or an origin. App HTML downloads are attachments;
-  executable documents are served only through verified preview contexts.
+- The loopback application listener dispatches scoped preview paths separately
+  from its authenticated API. Previews use the browser's r3 address automatically;
+  an explicit endpoint override adds a separate loopback preview listener. Every
+  rendered document has an opaque browser origin and no application credentials.
+  App HTML downloads are attachments; executable documents require a verified context.
 - SSE carries invalidations after committed writes. Clients refetch state on ready
   or reconnect. No filesystem watcher or live-content fallback remains.
 
@@ -193,7 +195,7 @@ not imply a version bump, tag, publication, or push.
 
 ```sh
 bun install
-process-compose up           # isolated workspace data, application 8891 / preview 8892
+process-compose up           # isolated workspace data, application 8891
 bun run dev                 # source daemon, server watch; restart for frontend edits
 bun cli/index.ts <command>
 bun run storybook            # component workshop on 6007

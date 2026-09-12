@@ -3,6 +3,7 @@ import { applicationAssetResponse } from "./application-assets.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactAuthPolicy, artifactRequestHostname } from "./artifact-auth.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
+import { PREVIEW_PREFIX } from "./preview-contexts.ts";
 import { PreviewHost } from "./preview-host.ts";
 import { previewSupport } from "./preview-support.ts";
 
@@ -12,32 +13,33 @@ export interface ArtifactServerOptions {
   authentication: ArtifactAuthPolicy;
   bind: string;
   port: number;
-  previewPort: number;
+  previewPort?: number;
   previewBaseUrl?: string;
 }
 
-// The runtime owns two listeners and their live connections. Neither listener
+// The runtime owns the application listener and an optional preview listener. Neither
 // reads publisher files; the caller owns storage and closes it after stop().
 export function startArtifactServer(options: ArtifactServerOptions) {
   if (options.bind === "0.0.0.0" || options.bind === "::" || options.bind === "[::]")
     throw new Error("r3 requires a loopback or explicitly selected interface");
-  let previews: PreviewHost;
-  const previewServer = Bun.serve({
-    hostname: "127.0.0.1",
-    port: options.previewPort,
-    reusePort: false,
-    development: false,
-    idleTimeout: 120,
-    maxRequestBodySize: 4096,
-    fetch: (request) => previews.fetch(request),
-  });
+  const previews = new PreviewHost(
+    options.storage.artifacts,
+    options.previewBaseUrl,
+    previewSupport,
+  );
+  let previewServer: Bun.Server<undefined> | undefined;
   let api: ReturnType<typeof createArtifactApi> | undefined;
   try {
-    previews = new PreviewHost(
-      options.storage.artifacts,
-      options.previewBaseUrl ?? `http://localhost:${previewServer.port}`,
-      previewSupport,
-    );
+    if (options.previewBaseUrl)
+      previewServer = Bun.serve({
+        hostname: "127.0.0.1",
+        port: options.previewPort ?? options.port + 1,
+        reusePort: false,
+        development: false,
+        idleTimeout: 120,
+        maxRequestBodySize: 4096,
+        fetch: (request) => previews.fetch(request),
+      });
     // Opaque preview documents send Origin:null. Keep the application's exact
     // origin guard; a shared transport hostname is not a preview principal.
     const policy = options.authentication;
@@ -61,8 +63,10 @@ export function startArtifactServer(options: ArtifactServerOptions) {
               "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
             },
           });
-        if (new URL(request.url).pathname.startsWith("/api/"))
-          return application.app.fetch(request);
+        const path = new URL(request.url).pathname;
+        if (path.startsWith(PREVIEW_PREFIX))
+          return previews.fetch(request, policy.applicationOrigins);
+        if (path.startsWith("/api/")) return application.app.fetch(request);
         return applicationAssetResponse(options.assets, request);
       },
     });
@@ -77,7 +81,8 @@ export function startArtifactServer(options: ArtifactServerOptions) {
         stopped = true;
         application.close();
         previews.close();
-        const draining = Promise.all([server.stop(), previewServer.stop()]);
+        const listeners = previewServer ? [server, previewServer] : [server];
+        const draining = Promise.all(listeners.map((listener) => listener.stop()));
         let timer: ReturnType<typeof setTimeout>;
         await Promise.race([
           draining,
@@ -86,12 +91,13 @@ export function startArtifactServer(options: ArtifactServerOptions) {
           }),
         ]);
         clearTimeout(timer!);
-        await Promise.all([server.stop(true), previewServer.stop(true)]);
+        await Promise.all(listeners.map((listener) => listener.stop(true)));
       },
     };
   } catch (error) {
     api?.close();
-    void previewServer.stop(true);
+    void previewServer?.stop(true);
+    previews.close();
     throw error;
   }
 }

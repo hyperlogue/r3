@@ -101,8 +101,10 @@ argv or a temporary file. A closed connection requires fresh registration.
 - `GET /api/themes` and `GET /api/theme-style?theme=` return available themes and
   the shared source palette stylesheet.
 
-The preview listener has its own gate, resources and runtime under
-`/__r3_preview/:context/files/` and `/__r3_preview/:context/r3/`. It serves no application API, proxy, or unknown-path SPA fallback. See
+The preview dispatcher serves its own gate, resources and runtime under
+`/__r3_preview/:context/files/` and `/__r3_preview/:context/r3/`. Automatic hosting
+uses the Host-guarded application listener; an explicit endpoint adds a separate
+loopback preview listener. It serves no application API, proxy, or unknown-path SPA fallback. See
 [security-model](../security-model/SKILL.md) for its authorization boundary.
 
 ## CLI and agent loop

@@ -69,7 +69,7 @@ export async function startArtifactDaemon(): Promise<void> {
       version: R3_VERSION,
       protocol: "artifacts-v1",
       publicUrl: PUBLIC_URL,
-      previewBaseUrl: settings.baseUrl,
+      previewBaseUrl: settings.baseUrl ?? PUBLIC_URL,
       requireLogin: REQUIRE_LOGIN,
       exec: process.execPath,
       argv: process.argv,

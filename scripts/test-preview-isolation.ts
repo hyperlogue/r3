@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openArtifactStorage } from "../server/artifact-storage.ts";
-import { previewPolicy } from "../server/preview-contexts.ts";
+import { PREVIEW_PREFIX, previewPolicy } from "../server/preview-contexts.ts";
 import { PreviewHost } from "../server/preview-host.ts";
 import { previewSupport } from "../server/preview-support.ts";
 import { eventually, openTestBrowser } from "./browser.ts";
@@ -60,30 +60,30 @@ await new Promise<void>((resolve) => udp.bind(0, "127.0.0.1", resolve));
 let packets = 0;
 udp.on("message", () => packets++);
 const udpPort = (udp.address() as { port: number }).port;
-let preview: PreviewHost;
+const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
 const seen: string[] = [];
 let videoRangeRequested = false;
 let wrongContextRequests = 0;
-const resources = Bun.serve({
-  hostname: "127.0.0.1",
-  port: 0,
-  async fetch(request) {
-    const path = new URL(request.url).pathname;
-    if (context && !path.startsWith(new URL(context.resourceRoot).pathname.replace(/files\/$/, "")))
-      wrongContextRequests++;
-    seen.push(path);
-    if (path.endsWith("/files/clip.webm") && request.headers.has("range"))
-      videoRangeRequested = true;
-    if (path.endsWith("/r3/test-redirect")) {
-      const headers = previewPolicy(preview.contexts.forRequest(request));
-      headers.set("location", `${context.resourceRoot}redirect-target.txt`);
-      headers.set("access-control-allow-origin", "*");
-      return new Response(null, { status: 302, headers });
-    }
-    return preview.fetch(request);
-  },
-});
-preview = new PreviewHost(storage.artifacts, `http://localhost:${resources.port}`, previewSupport);
+let cookieRequests = 0;
+let monitorIsolation = false;
+async function previewRequest(request: Request) {
+  const path = new URL(request.url).pathname;
+  if (
+    monitorIsolation &&
+    !path.startsWith(new URL(context.resourceRoot).pathname.replace(/files\/$/, ""))
+  )
+    wrongContextRequests++;
+  if (request.headers.has("cookie")) cookieRequests++;
+  seen.push(path);
+  if (path.endsWith("/files/clip.webm") && request.headers.has("range")) videoRangeRequested = true;
+  if (path.endsWith("/r3/test-redirect")) {
+    const headers = previewPolicy(preview.contexts.forRequest(request));
+    headers.set("location", `${context.resourceRoot}redirect-target.txt`);
+    headers.set("access-control-allow-origin", "*");
+    return new Response(null, { status: 302, headers });
+  }
+  return preview.fetch(request);
+}
 let context!: ReturnType<PreviewHost["create"]>;
 let sibling!: ReturnType<PreviewHost["create"]>;
 const applicationRequests: string[] = [];
@@ -92,6 +92,8 @@ const app = Bun.serve({
   port: 0,
   fetch(request) {
     const path = new URL(request.url).pathname;
+    if (path.startsWith(PREVIEW_PREFIX)) return previewRequest(request);
+    if (path === "/cookie-check") return Response.json({ cookie: request.headers.has("cookie") });
     if (path !== "/") {
       applicationRequests.push(path);
       return new Response("Application private data");
@@ -100,8 +102,19 @@ const app = Bun.serve({
     context = preview.create(artifact.id, 1, "index.html", origin);
     sibling = preview.create(artifact.id, 2, "index.html", origin);
     return new Response(
-      `<!doctype html><iframe sandbox="allow-scripts" credentialless></iframe><script>const context=${JSON.stringify(context)};const frame=document.querySelector('iframe');window.state='checking';addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!=="null")return;if(event.data.type==='r3-preview-gate'){window.state=event.data.state;if(event.data.state==='ready')frame.src=context.documentUrl}});frame.src=context.gateUrl</script>`,
-      { headers: { "content-type": "text/html" } },
+      `<!doctype html><iframe sandbox="allow-scripts" credentialless></iframe><iframe sandbox="allow-scripts" credentialless></iframe><script>
+      const contexts=${JSON.stringify([context, sibling])};const frames=document.querySelectorAll('iframe');const loaded=new Set();window.state='checking';
+      frames.forEach((frame,i)=>{const context=contexts[i];addEventListener('message',event=>{
+        if(event.source!==frame.contentWindow||event.origin!=="null"||event.data.contextId!==context.id)return;
+        if(event.data.type==='r3-preview-gate'){if(event.data.state==='ready')frame.src=context.documentUrl;else window.state=event.data.state}
+        if(event.data.type==='r3-preview-connect'){const port=event.ports[0];port.onmessage=event=>{if(event.data.type==='r3-preview-document'){loaded.add(context.id);if(loaded.size===2)window.state='ready'}}}
+      });frame.src=context.gateUrl});</script>`,
+      {
+        headers: {
+          "content-type": "text/html",
+          "set-cookie": `r3-test-session=${crypto.randomUUID()}; Path=/; HttpOnly; SameSite=Strict`,
+        },
+      },
     );
   },
 });
@@ -154,7 +167,12 @@ try {
       if (item.origin !== "://" || !item.auxData?.isDefault) continue;
       const content = page.inContext(item.id);
       try {
-        if (await content.evaluate("window.moduleValue===42")) return content;
+        if (
+          await content.evaluate(
+            `window.moduleValue===42 && location.href.startsWith(${JSON.stringify(context.resourceRoot)})`,
+          )
+        )
+          return content;
       } catch {
         /* The gate document is replaced. */
       }
@@ -164,10 +182,22 @@ try {
     );
     if (target) {
       const content = await browser!.attach(target.targetId);
-      if (await content.evaluate("window.moduleValue===42")) return content;
+      if (
+        await content.evaluate(
+          `window.moduleValue===42 && location.href.startsWith(${JSON.stringify(context.resourceRoot)})`,
+        )
+      )
+        return content;
     }
     return null;
   }, "published execution context");
+  assert.equal(
+    await page.evaluate("fetch('/cookie-check').then(r=>r.json()).then(r=>r.cookie)"),
+    true,
+  );
+  monitorIsolation = true;
+  assert.equal(context.origin, sibling.origin);
+  assert.equal(context.origin, `http://localhost:${app.port}`);
   const base = `http://localhost:${outside.port}`;
   const appOrigin = `http://localhost:${app.port}`;
   await frame.evaluate(
@@ -208,6 +238,7 @@ try {
     return {
       origin:globalThis.origin,
       parent:denies(()=>parent.document.body),
+      sibling:denies(()=>parent.frames[1].document.body),
       cookie:denies(()=>document.cookie),
       localStorage:denies(()=>localStorage.setItem('fixture','value')),
       sessionStorage:denies(()=>sessionStorage.setItem('fixture','value')),
@@ -221,6 +252,7 @@ try {
   assert.deepEqual(isolation, {
     origin: "null",
     parent: true,
+    sibling: true,
     cookie: true,
     localStorage: true,
     sessionStorage: true,
@@ -232,7 +264,7 @@ try {
   });
   const blocked = await frame.evaluate(`(async()=>{
     const fails=async(url)=>{try{await fetch(url);return false}catch{return true}};
-    const result={fetch:await fails(testOutside+'/fetch'),application:await fails(testApplication+'/api/boot'),sibling:await fails(testSibling+'data.json'),outsideNamespace:await fails(testRoot+'outside/check'),redirect:await fails(testRoot+'r3/test-redirect'),missing:await fetch('missing.html').then(r=>r.status),socket:await new Promise(resolve=>{try{const ws=new WebSocket(testOutside.replace('http:','ws:')+'/socket');ws.onerror=()=>resolve(true);ws.onopen=()=>{ws.close();resolve(false)}}catch{resolve(true)}})};
+    const result={fetch:await fails(testOutside+'/fetch'),application:await fails(testApplication+'/api/boot'),sibling:await fails(testSibling+'data.json'),gate:await fails(testRoot+'r3/gate'),outsideNamespace:await fails(testRoot+'outside/check'),redirect:await fails(testRoot+'r3/test-redirect'),missing:await fetch('missing.html').then(r=>r.status),socket:await new Promise(resolve=>{try{const ws=new WebSocket(testOutside.replace('http:','ws:')+'/socket');ws.onerror=()=>resolve(true);ws.onopen=()=>{ws.close();resolve(false)}}catch{resolve(true)}})};
     result.transport=await(async()=>{try{const transport=new WebTransport('https://127.0.0.1:'+testUdp+'/transport');await transport.ready;transport.close();return false}catch{return true}})();
     result.module=await import(testOutside+'/module.js').then(()=>false,()=>true);
     const img=new Image();img.src=testOutside+'/image';document.body.append(img);
@@ -255,6 +287,7 @@ try {
     fetch: true,
     application: true,
     sibling: true,
+    gate: true,
     outsideNamespace: true,
     redirect: true,
     missing: 404,
@@ -312,13 +345,13 @@ try {
     false,
   );
   assert.equal(packets, 0, "Device permission must not enable WebRTC network traffic");
+  assert.equal(cookieRequests, 0, "Preview requests never carry the application cookie");
   console.log(
     "Preview isolation acceptance: native resources, opaque storage isolation, denied workers/devices, navigation, redirects, sockets, and WebRTC passed",
   );
 } finally {
   await browser?.close();
   app.stop(true);
-  resources.stop(true);
   outside.stop(true);
   udp.close();
   preview.close();

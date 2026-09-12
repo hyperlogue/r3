@@ -14,7 +14,6 @@ await chmod(binary, 0o700);
 const directory = join(root, "publication");
 await mkdir(directory);
 const appPort = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() });
-const previewPort = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() });
 const url = `http://127.0.0.1:${appPort.port}`;
 const environment = {
   ...process.env,
@@ -23,7 +22,7 @@ const environment = {
   XDG_RUNTIME_DIR: join(root, "runtime"),
   R3_DB: join(root, "store.sqlite"),
   R3_PORT: String(appPort.port),
-  R3_PREVIEW_PORT: String(previewPort.port),
+  R3_PREVIEW_PORT: "",
   R3_BIND: "127.0.0.1",
   R3_PUBLIC_URL: "",
   R3_PREVIEW_BASE_URL: "",
@@ -35,7 +34,6 @@ const environment = {
   R3_DEV: "0",
 };
 await appPort.stop(true);
-await previewPort.stop(true);
 const command = async (args: string[], override: Record<string, string> = {}) => {
   const child = Bun.spawn([binary, ...args], {
     cwd: root,

@@ -23,7 +23,7 @@ export class PreviewHost {
   readonly contexts: PreviewContexts;
   constructor(
     private readonly artifacts: ArtifactStore,
-    baseUrl: string,
+    baseUrl: string | undefined,
     private readonly support: PreviewSupport,
     now?: () => number,
   ) {
@@ -50,10 +50,18 @@ export class PreviewHost {
     this.contexts.close();
   }
 
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, applicationOrigins?: ReadonlySet<string>): Promise<Response> {
     let scope: PreviewScope;
     try {
-      scope = this.contexts.forRequest(request);
+      scope = this.contexts.forRequest(request, applicationOrigins);
+      // Only the Host-guarded application listener supplies configured origins.
+      // Normalize a known reverse proxy's rewritten Host after scope validation;
+      // never derive a trusted origin from arbitrary forwarded request headers.
+      if (request.headers.get("host") !== new URL(scope.origin).host) {
+        const headers = new Headers(request.headers);
+        headers.set("host", new URL(scope.origin).host);
+        request = new Request(request, { headers });
+      }
     } catch {
       return new Response("Preview context expired or unavailable", {
         status: 404,

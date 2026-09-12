@@ -45,9 +45,10 @@ Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential
   config show|get|set|unset ...
   start | stop | status | restart | guide
 
-Preview configuration: previewPort (default application port + 1), previewBaseUrl
-(default http://localhost:<previewPort>). Remote rendering needs one HTTPS
-origin routed to the preview listener; wildcard subdomains are unnecessary. Configuration names:
+Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
+Optional previewBaseUrl selects a separate endpoint; previewPort defaults to the
+application port + 1 only for that override. Wildcard subdomains are unnecessary.
+Configuration names:
 bind, port, publicUrl, allowedHosts, requireLogin, previewPort, previewBaseUrl.
 Environment overrides: R3_PREVIEW_PORT and R3_PREVIEW_BASE_URL.
 `;

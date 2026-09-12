@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createArtifactApi } from "../server/artifact-api.ts";
 import { openArtifactStorage } from "../server/artifact-storage.ts";
+import { PREVIEW_PREFIX } from "../server/preview-contexts.ts";
 import { PreviewHost } from "../server/preview-host.ts";
 import { previewSupport } from "../server/preview-support.ts";
 import { eventually, openTestBrowser } from "./browser.ts";
@@ -58,13 +59,7 @@ for (const seq of [1, 2])
       ],
     },
   });
-let preview: PreviewHost;
-const resources = Bun.serve({
-  hostname: "127.0.0.1",
-  port: 0,
-  fetch: (request) => preview.fetch(request),
-});
-preview = new PreviewHost(storage.artifacts, `http://localhost:${resources.port}`, previewSupport);
+const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
 const api = createArtifactApi(
   storage,
   {
@@ -80,6 +75,7 @@ const app = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
     if (path.startsWith("/api/")) return api.app.fetch(request);
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
@@ -291,7 +287,6 @@ try {
 } finally {
   await browser?.close();
   app.stop(true);
-  resources.stop(true);
   api.close();
   preview.close();
   storage.close();

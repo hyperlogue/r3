@@ -75,13 +75,13 @@ export function previewRoot(scope: Pick<PreviewScope, "origin" | "id">): string 
 // isolation comes from the opaque sandbox, not URL paths or shared storage.
 export class PreviewContexts {
   private readonly contexts = new Map<string, PreviewState>();
-  private readonly base: URL;
+  private readonly base: URL | undefined;
   constructor(
     private readonly artifacts: ArtifactStore,
-    baseUrl: string,
+    baseUrl: string | undefined,
     private readonly now: () => number = Date.now,
   ) {
-    this.base = secureOrigin(baseUrl);
+    this.base = baseUrl ? secureOrigin(baseUrl) : undefined;
   }
 
   create(
@@ -91,7 +91,7 @@ export class PreviewContexts {
     applicationOrigin: string,
   ): ArtifactPreviewContext {
     const app = secureOrigin(applicationOrigin);
-    if (!localOrigin(app) && this.base.protocol !== "https:")
+    if (!localOrigin(app) && this.base && this.base.protocol !== "https:")
       throw new ArtifactError(
         "Remote rendered previews require an HTTPS preview origin. Configure R3_PREVIEW_BASE_URL and route that endpoint to the preview listener.",
         503,
@@ -107,9 +107,7 @@ export class PreviewContexts {
     if (this.contexts.size >= MAX_CONTEXTS)
       throw new ArtifactError("Too many open preview contexts", 413);
     const id = `p${randomBytes(24).toString("hex")}`;
-    const origin = this.base.origin;
-    if (app.origin === origin)
-      throw new ArtifactError("The preview domain cannot host the r3 application");
+    const origin = this.base?.origin ?? app.origin;
     const scope: PreviewScope = Object.freeze({
       id,
       artifactId,
@@ -162,20 +160,24 @@ export class PreviewContexts {
     return state;
   }
 
-  forRequest(request: Request): PreviewScope {
+  forRequest(request: Request, applicationOrigins?: ReadonlySet<string>): PreviewScope {
     const host = request.headers.get("host");
     if (!host || /[\s\\/@?#]/.test(host))
       throw new ArtifactError("Preview context unavailable", 404);
-    let origin: URL;
-    try {
-      origin = new URL(`${this.base.protocol}//${host}`);
-    } catch {
-      throw new ArtifactError("Preview context unavailable", 404);
-    }
     const id = new URL(request.url).pathname.match(/^\/__r3_preview\/(p[0-9a-f]{48})(?:\/|$)/)?.[1];
     if (!id) throw new ArtifactError("Preview context unavailable", 404);
     const { scope } = this.get(id);
-    if (scope.origin !== origin.origin) throw new ArtifactError("Preview context unavailable", 404);
+    let origin: URL;
+    try {
+      origin = new URL(`${new URL(scope.origin).protocol}//${host}`);
+    } catch {
+      throw new ArtifactError("Preview context unavailable", 404);
+    }
+    if (
+      scope.origin !== origin.origin &&
+      !(scope.origin === scope.applicationOrigin && applicationOrigins?.has(scope.origin))
+    )
+      throw new ArtifactError("Preview context unavailable", 404);
     return scope;
   }
 
