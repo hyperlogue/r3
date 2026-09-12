@@ -220,7 +220,7 @@ export function SettingsPopup() {
 
             {/* Sign out — only an exposed (cookie) session can; a non-exposed one
                 holds the token (TOKEN != "") and has nothing to sign out of. */}
-            {TOKEN === "" && (
+            {CAN_MANAGE_TOKENS && TOKEN === "" && (
               <Section label="Session">
                 <Button
                   variant="default"

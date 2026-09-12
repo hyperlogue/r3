@@ -1,8 +1,8 @@
 # Artifact implementation
 
 The [approved design](design.md) is the target. This checklist tracks delivery;
-checked foundations do not imply the daemon, CLI, or browser has switched over.
-The existing runtime remains in use until migration and the new clients are ready.
+the daemon, CLI, browser, and static demo now use the artifact protocol. Cleanup
+and final distribution/end-to-end checks remain below.
 
 - [x] Public artifact/version/actor/native-target contract (`shared/artifacts.ts`).
 - [x] Constrained destination schema with immutable published membership,
@@ -30,30 +30,29 @@ The existing runtime remains in use until migration and the new clients are read
   adapter (`cli/capture.ts`, `cli/capture-git.ts`, `server/migration-capture.ts`).
 - [x] Private artifact-store bootstrap and publication-coordinated blob cleanup
   (`server/artifact-storage.ts`, `server/blobs.ts`).
-- [ ] Switch daemon startup to artifact storage alongside the new clients.
+- [x] Switch daemon startup to artifact storage alongside the new clients.
 - [x] Artifact HTTP routes, byte resource GET/HEAD/ranges, authenticated SSE and
   outward agent connection against injected storage (`server/artifact-api.ts`,
   `server/artifact-conversation-api.ts`). No filesystem dependencies in reads;
   daemon/client cutover is still separate.
-- [ ] Publisher-side stable capture and upload, CLI commands, agent sessions,
+- [x] Publisher-side stable capture and upload, CLI commands, agent sessions,
   local harness wake adapters, remote listen/watch, help and guide.
   Command runner, help/guide and outward listener are implemented in
   `cli/artifact-commands.ts`, `cli/artifact-help.ts`, and
-  `cli/artifact-listener.ts`; binary entrypoint/discovery cutover remains.
-- [ ] Files workspace with source/rendered native targets and version switching;
+  `cli/artifact-listener.ts`; the binary dispatches through `artifact-main.ts`.
+- [x] Files workspace with source/rendered native targets and version switching;
   adapt existing diff presentation without losing sparse old/new targets.
   `web/src/pages/ArtifactView.tsx` composes the files/diff workspaces, pinned
   navigation, large-file Locate, and the rendered-pane interface. Browser stories
   verify draft retention, new-publication announcements, old-side context targets,
   and the collapsed composer. `ArtifactPreview` now connects the isolated host,
   rendered targeting, utility, media previews, and native document navigation.
-  Production router cutover remains.
-- [ ] HTML workspace, isolated preview origin, scoped resource access, rendered
+  The production router opens both new artifact IDs and preserved review IDs.
+- [x] HTML workspace, isolated preview origin, scoped resource access, rendered
   comments, bridge utility, closed network enforcement and device delegation.
-- [ ] Archive/restore browser controls, conversation/presence updates, mobile
+- [x] Archive/restore browser controls, conversation/presence updates, mobile
   behavior, retained drafts and read progress, and component stories.
-  These components and their workspace wiring are implemented and browser-tested;
-  the production application still uses the earlier entry point.
+  These components and their workspace wiring are implemented and browser-tested.
 - [ ] Updated demo fixtures/backend, README, AGENTS and deep-reference skills;
   remove obsolete review routes, commands and runtime modules after cutover.
 - [ ] End-to-end local and remote workflows, legacy fixture migration, browser

@@ -36,10 +36,13 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
   await reservation.stop(true);
   await previewReservation.stop(true);
   const run = async (...args: string[]) => {
-    const child = Bun.spawn(
-      [process.execPath, join(import.meta.dir, "artifact-main.ts"), ...args],
-      { cwd: directory, env: environment, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
-    );
+    const child = Bun.spawn([process.execPath, join(import.meta.dir, "index.ts"), ...args], {
+      cwd: directory,
+      env: environment,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
     const timer = setTimeout(() => child.kill("SIGKILL"), 30_000);
     try {
       const [output, error, code] = await Promise.all([

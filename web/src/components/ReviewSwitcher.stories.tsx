@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReviewSwitcher } from "./ReviewSwitcher.tsx";
 
-// Navbar "Reviews" breadcrumb. The stand-in bar mirrors the real navbar (h-8).
+// Navbar artifact breadcrumb. The stand-in bar mirrors the real navbar (h-8).
 const meta = {
   title: "Components/ReviewSwitcher",
   component: ReviewSwitcher,

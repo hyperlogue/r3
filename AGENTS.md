@@ -1,11 +1,18 @@
 # r3 — Review. Revise. Resolve.
 
-**Artifact migration:** when changing publication, storage migration, native
-targets, archive/restore, previews, or agent transport, follow the
+**Artifact runtime:** publication, storage migration, native
+targets, archive/restore, previews, and agent transport follow the
 [approved artifact design](docs/artifacts/design.md) and its
 [implementation checklist](docs/artifacts/implementation.md). They define the
-target product; the review model below describes the runtime being replaced.
-Update this map and the owning deep-reference skill as each runtime seam changes.
+current product. CLI, daemon, browser, and demo entry points now use this protocol.
+`shared/artifacts.ts` is its contract (re-exported by `shared/types.ts`);
+`cli/artifact-main.ts`, `server/artifact-daemon.ts`, `server/artifact-api.ts`, and
+`web/src/pages/ArtifactView.tsx` are the entry seams. The application uses port
+8791 and isolated previews use a separate listener, default 8792. Reads use
+published bytes, never a live repo. All harness paths remain on the publisher.
+The review model below is historical reference during removal of retired modules;
+it does not override the artifact design. Update the owning reference as cleanup
+replaces these sections.
 
 A **local-first review tool for AI-generated code and docs**. A long-running
 per-user daemon on localhost owns review + feedback state for all your repos;

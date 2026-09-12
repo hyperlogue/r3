@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 
 import { currentHarnessSession, detectListener } from "./listener.ts";
@@ -53,49 +54,48 @@ test("currentHarnessSession retains the general Claude-then-Codex provenance rul
   expect(currentHarnessSession({ CODEX_SESSION_ID: "codex" })).toBe("codex");
 });
 
-test("listen maps daemon-side missing queue support to exit 5", async () => {
-  let registered: unknown;
+test("listen reports a missing publisher wake adapter before remote registration", async () => {
+  let registered = false;
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request) {
       const url = new URL(request.url);
-      if (request.method === "GET" && url.pathname === "/api/reviews/review_test")
-        return Response.json({ status: "open", meta: {} });
-      if (request.method === "POST" && url.pathname === "/api/reviews/review_test/listen") {
-        registered = await request.json();
-        return new Response("Codex queue unavailable", { status: 501 });
-      }
+      if (url.pathname === "/api/health")
+        return Response.json({ ok: true, version: "test", protocol: "artifacts-v1" });
+      if (url.pathname === "/api/sessions") return Response.json(await request.json());
+      if (url.pathname.endsWith("/listen")) registered = true;
       return new Response("not found", { status: 404 });
     },
   });
   const env: Record<string, string | undefined> = {
     ...process.env,
-    R3_URL: server.url.toString().replace(/\/$/, ""),
-    R3_TOKEN: "test-token",
+    PATH: "",
+    R3_URL: server.url.toString(),
+    R3_TOKEN: randomBytes(32).toString("base64url"),
+    R3_AGENT_SESSION: "publisher-test",
     CODEX_THREAD_ID: "codex-thread",
   };
   delete env.CLAUDE_CODE_MESSAGING_SOCKET;
   delete env.CLAUDE_CODE_MESSAGING_TOKEN;
   delete env.CLAUDE_CODE_SESSION_ID;
   try {
-    const proc = Bun.spawn([process.execPath, "cli/index.ts", "listen", "review_test"], {
-      cwd: resolve(import.meta.dir, ".."),
-      env,
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "pipe",
-      timeout: 5_000,
-      killSignal: "SIGKILL",
-    });
-    const [code, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
+    const child = Bun.spawn(
+      [process.execPath, "cli/index.ts", "listen", "artifact_test", "--foreground"],
+      {
+        cwd: resolve(import.meta.dir, ".."),
+        env,
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "pipe",
+        timeout: 5000,
+        killSignal: "SIGKILL",
+      },
+    );
+    const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
     expect(code).toBe(5);
-    expect(stderr).toContain("the daemon cannot run `codex queue`");
-    expect(registered).toMatchObject({
-      harness: "codex",
-      threadId: "codex-thread",
-      session: "codex-thread",
-    });
+    expect(stderr).toContain("publisher cannot run codex queue");
+    expect(registered).toBe(false);
   } finally {
     server.stop(true);
   }

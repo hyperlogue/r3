@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { hrefFor } from "../src/router.ts";
 import { Button, cn } from "../src/ui.tsx";
-import { resetDemo } from "./store.ts";
+import { demo } from "./artifact-backend.ts";
 
 // One-per-browser flag so the intro auto-opens only on the first visit.
 const SEEN_KEY = "r3-demo-intro-seen";
@@ -32,11 +32,11 @@ export function DemoChrome() {
   function reset() {
     if (
       !confirm(
-        "Reset the demo? This clears all feedback, replies, and edits back to the seeded reviews.",
+        "Reset the demo? This clears feedback, replies, and publications back to the original artifacts.",
       )
     )
       return;
-    resetDemo();
+    demo.reset();
     // Back to the demo's own root (e.g. /r3/demo/, not the site root "/"), re-seeded.
     location.href = hrefFor("/");
   }
@@ -95,19 +95,22 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
                 just a demo
               </span>{" "}
-              — the whole thing runs in your browser. There's no server: the reviews and your
+              — the whole thing runs in your browser. There's no server: the artifacts and your
               feedback all live in this tab and save to local storage.
             </p>
             <p>
-              Two reviews of r3's <em>own</em> code are loaded. Open one, leave feedback on a line
-              or the summary, then click{" "}
+              Two artifacts are loaded. Open one, leave feedback on a line or the summary, then
+              click{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
                 Submit to agent
               </span>{" "}
-              — a scripted agent replies (and, on the diff review, pushes a follow-up round) live.
+              — a scripted agent replies and publishes a new version. Your selected version and
+              original comment targets stay available.
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Your changes persist in this browser. Use Reset to restore the original seed.
+              Source and diff views work here. Rendered previews require the daemon’s isolated
+              preview host. Your changes persist in this browser; Reset restores the original
+              artifacts.
             </p>
           </div>
         </div>

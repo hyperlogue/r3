@@ -1,4 +1,5 @@
-// Pathname router: `/` reviews list, `/review_<id>` a review.
+// Pathname router: `/` artifact list, `/<artifact id>` a workspace.
+// Imported artifacts retain review_<id> identities and their existing links.
 
 import { useSyncExternalStore } from "react";
 
@@ -42,8 +43,8 @@ export function navigate(route: string) {
   }
 }
 
-export function useRoute(): { path: string; reviewId: string | null } {
+export function useRoute(): { path: string; artifactId: string | null } {
   const path = useSyncExternalStore(subscribe, currentRoute, () => "/");
-  const m = path.match(/^\/(review_[\w]+)/);
-  return { path, reviewId: m ? m[1] : null };
+  const m = path.match(/^\/((?:artifact|review)_[\w]+)\/?$/);
+  return { path, artifactId: m ? m[1] : null };
 }

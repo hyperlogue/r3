@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
+import { useArtifactEvents } from "./artifact-hooks.ts";
 import { Logo, type LogoHandle } from "./components/Logo.tsx";
 import { ReviewSwitcher } from "./components/ReviewSwitcher.tsx";
 import { SettingsPopup } from "./components/SettingsPopup.tsx";
 import { DemoChrome } from "./demo-chrome.tsx";
-import { useServerEvents } from "./hooks.ts";
-import { Home } from "./pages/Home.tsx";
-import { ReviewView } from "./pages/ReviewView.tsx";
+import { ArtifactHome } from "./pages/ArtifactHome.tsx";
+import { ArtifactView } from "./pages/ArtifactView.tsx";
 import { useRoute } from "./router.ts";
 
 function Header() {
@@ -37,23 +37,18 @@ function Header() {
 }
 
 export function App() {
-  const { reviewId } = useRoute();
-  // One global SSE subscription keeps the reviews list + any open review live.
-  useServerEvents(reviewId ?? undefined);
+  const { artifactId } = useRoute();
+  useArtifactEvents();
 
-  // The document title tracks the open review (ReviewView sets it); reset to the
-  // bare app name whenever no review is selected.
   useEffect(() => {
-    if (!reviewId) document.title = "r3";
-  }, [reviewId]);
+    if (!artifactId) document.title = "r3";
+  }, [artifactId]);
 
   return (
     <div className="flex h-full flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
       <Header />
-      <main className="min-h-0 flex-1 overflow-hidden">
-        {/* Keyed by id so switching reviews remounts: per-review state (draft,
-            viewed set, scroll) initializes fresh. */}
-        {reviewId ? <ReviewView key={reviewId} reviewId={reviewId} /> : <Home />}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {artifactId ? <ArtifactView key={artifactId} artifactId={artifactId} /> : <ArtifactHome />}
       </main>
     </div>
   );

@@ -15,7 +15,8 @@ const OUT = join(DIR, "dist/demo");
 // also scans web/demo for Tailwind classes (see web/demo/main.css), so the demo
 // chrome's utilities actually get generated.
 const ALIASES: Record<string, string> = {
-  [join(DIR, "web/src/api.ts")]: join(DIR, "web/demo/api.ts"),
+  [join(DIR, "web/src/api.ts")]: join(DIR, "web/demo/application-api.ts"),
+  [join(DIR, "web/src/artifact-api.ts")]: join(DIR, "web/demo/artifact-api.ts"),
   [join(DIR, "web/src/demo-chrome.tsx")]: join(DIR, "web/demo/demo-chrome.tsx"),
   [join(DIR, "web/src/main.css")]: join(DIR, "web/demo/main.css"),
 };

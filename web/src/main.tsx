@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ArtifactApiError } from "../../shared/artifact-client.ts";
 import { App } from "./App.tsx";
 import { ApiError, loadBoot } from "./api.ts";
 import { Login } from "./components/Login.tsx";
@@ -57,7 +58,11 @@ async function main() {
         // the default `retry: 3` multiplied a scroll pass by four. A 5xx or a
         // dropped connection still gets the default three attempts.
         retry: (count, err) =>
-          !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 3,
+          !(
+            (err instanceof ApiError || err instanceof ArtifactApiError) &&
+            err.status >= 400 &&
+            err.status < 500
+          ) && count < 3,
       },
     },
   });
