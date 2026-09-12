@@ -75,7 +75,7 @@ export const HtmlConsent: Story = {
   ...HtmlProtection,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Allow external connections" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Allow external access" }));
     await expect(canvas.getByRole("dialog")).toBeVisible();
   },
 };
@@ -84,10 +84,10 @@ export const HtmlExternalConnections: Story = {
   ...HtmlProtection,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Allow external connections" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Allow external access" }));
     await userEvent.click(
       within(canvas.getByRole("dialog")).getByRole("button", {
-        name: "Allow external connections",
+        name: "Allow external access",
       }),
     );
     await expect(canvas.getByText("External connections allowed for this version")).toBeVisible();

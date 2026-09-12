@@ -92,7 +92,7 @@ Each document has `sandbox allow-scripts` in both the iframe and response CSP.
 The browser assigns a fresh opaque origin on every navigation, even when two
 previews share a transport hostname. The iframe is also credentialless, avoiding
 ambient application cookies in transport requests. Persistent storage, workers,
-nested frames, camera, and microphone are unavailable. Neither publisher scripts
+nested frames, and direct native camera/microphone capture are unavailable. Neither publisher scripts
 nor a device grant can restore a real origin. Top-level published-document
 navigation is refused; rendering belongs inside the workspace. Browsers without
 credentialless iframe support still enforce the opaque sandbox and application
@@ -133,7 +133,7 @@ still apply; r3 never proxies requests. Its trusted gate still checks secure con
 opaque origin, reachability, and the single-use proof, but skips network-blocking
 probes. This supports browsers lacking Connection Allowlist only after explicit
 consent. Both iframe and CSP sandbox, application auth/origin checks, document-bound
-bridge, resource membership, and camera/microphone denial remain mandatory.
+bridge, resource membership, and direct native camera/microphone denial remain mandatory.
 The r3-served document still denies workers and nested frames through CSP. External
 self-navigation is permitted in this mode; its replacement keeps the iframe's
 opaque sandbox, denied forms/popups/top navigation, and device policy, but does
@@ -144,8 +144,8 @@ isolation and application API guards protect r3 throughout. Device consent is
 not a network exception.
 
 This exception permits exfiltration of the selected publication's files, user input,
-and all conversations the same-artifact utility exposes, including other versions'
-threads. External dependencies execute with that same access. Explain this before
+all conversations the same-artifact utility exposes, including other versions'
+threads, and explicitly shared camera/microphone data. External dependencies execute with that same access. Explain this before
 enabling it; re-enabling protection cannot undo data already sent. The sandbox
 continues to deny access to the parent, its credentials/storage, and unrelated
 artifacts. No UI may describe this as disabling all security or safe networking.
@@ -176,7 +176,21 @@ capture at a time; a pending browser prompt remains guarded even after timeout o
 revocation. Every asynchronous continuation checks that its capture is still
 current, and a late stream is stopped without delivery. Closing or replacing the
 connection stops physical tracks directly. Device consent is independent of a
-remembered browser permission for r3's origin.
+remembered browser permission for r3's origin. The HTML confirmation offers separate,
+unchecked camera/microphone choices. They require external network mode and never
+persist. Replacing the document also discards an open confirmation dialog. Stop
+sharing clears device consent; a spontaneous physical track `ended` event also
+revokes consent, so browser/OS termination cannot silently restart capture. A
+logical cancellation cannot dismiss a browser-owned permission prompt; any late
+successful result is stopped before delivery.
+
+The early runtime registers a capture-phase `pagehide` disconnect before publisher
+code. After iframe loads, and every two seconds while requesting/sharing, the parent
+sends a fresh nonce to the current iframe window. It must return on the currently
+bound port within one second. Timeout revokes capture and consent; new bindings
+discard stale probes. This also handles a replaced or unresponsive document whose
+load never finishes. The nonce carries no authority or data. Do not replace this
+with counts of load events: redirects may skip a gate or document's load event.
 
 The relay sends only requested audio/video. It creates the RTC offer in the parent,
 accepts one bounded receive-only answer, and exposes no ICE configuration,
@@ -189,7 +203,7 @@ capture constraints and stop/clone behavior belong to the narrow preview utility
 not to a claim of full native device API compatibility.
 
 Real-browser checks cover native resources, opaque storage and parent isolation,
-denied workers/devices, scoped navigation, blocked external connections, and
+denied workers/direct device access, explicit capture consent, scoped navigation, blocked external connections, and
 WebRTC with a controlled UDP sink. The integrated workspace checks utility
 messages, shared threads, version switching, original Locate, and HTML/Markdown
 navigation. See `docs/artifacts/verification.md` for commands and browser evidence.

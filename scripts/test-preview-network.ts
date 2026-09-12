@@ -140,6 +140,22 @@ try {
   browser = await openTestBrowser(["--use-fake-device-for-media-stream"]);
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  if (process.env.R3_TEST_CAPTURE === "1") {
+    await page.command("Page.addScriptToEvaluateOnNewDocument", {
+      source: `
+if(window===top){
+const native=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+window.testPhysicalStreams=[];window.testDeviceRequests=0;
+navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequests++;const stream=await native(constraints);window.testPhysicalStreams.push(stream);return stream};
+}`,
+    });
+    for (const name of ["camera", "microphone"])
+      await browser.send("Browser.setPermission", {
+        origin,
+        permission: { name },
+        setting: "denied",
+      });
+  }
   const testBrowser = browser;
   const embedded = new Map<string, typeof page>();
   const frame = (condition: string) =>
@@ -173,7 +189,15 @@ try {
     `[...${scope}.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)})`;
   const click = async (expression: string) => {
     await eventually(() => page.evaluate(`!!(${expression})`), "workspace control");
+    await eventually(
+      () =>
+        page.evaluate(
+          `(()=>{const node=(${expression});const rect=node.getBoundingClientRect();return rect.width>0&&rect.height>0&&(!node.closest('dialog')||node.closest('dialog').open)})()`,
+        ),
+      "workspace control visible",
+    );
     await page.evaluate(`(${expression}).scrollIntoView({block:'center'})`);
+    await page.evaluate("new Promise(requestAnimationFrame)");
     const position = await page.evaluate(
       `(()=>{const r=(${expression}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
     );
@@ -205,13 +229,20 @@ try {
       );
     }
   };
-  const allow = async () => {
-    await click(button("Allow external connections"));
+  const allow = async (camera = false, microphone = false) => {
+    await click(button("Allow external access"));
     await eventually(
       () => page.evaluate("!!document.querySelector('dialog[open]')"),
       "explicit consent dialog",
     );
-    await click(button("Allow external connections", "document.querySelector('dialog')"));
+    const inputs = "document.querySelector('dialog').querySelectorAll('input')";
+    assert.deepEqual(await page.evaluate(`[...${inputs}].map(input=>input.checked)`), [
+      false,
+      false,
+    ]);
+    if (camera) await click(`${inputs}[0]`);
+    if (microphone) await click(`${inputs}[1]`);
+    await click(button("Allow external access", "document.querySelector('dialog')"));
     const content = await frame(
       "window.networkResult==='external' && window.externalScriptLoaded===true",
     );
@@ -238,7 +269,7 @@ try {
   assert.equal(externalScripts, 0);
   if (unsupported) assert.equal(publicationRequests, 0, "no published bytes before consent");
   const initial = grants.at(-1)!;
-  await click(button("Allow external connections"));
+  await click(button("Allow external access"));
   assert.equal(
     await page.evaluate("document.querySelector('dialog').textContent.includes('conversations')"),
     true,
@@ -328,7 +359,7 @@ try {
   );
 
   const count = received.length;
-  await click(button("Block external connections"));
+  await click(button("Restore protection"));
   await protectedPreview(1);
   await revoked(external);
   assert.equal(received.length, count, "protection blocks subsequent document connections");
@@ -359,7 +390,7 @@ try {
     deviceScaleFactor: 1,
     mobile: true,
   });
-  await click(button("Allow external connections"));
+  await click(button("Allow external access"));
   assert.equal(
     await page.evaluate(
       "(()=>{const r=document.querySelector('dialog[open]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()",
@@ -375,6 +406,226 @@ try {
   );
   await page.command("Emulation.clearDeviceMetricsOverride");
 
+  if (process.env.R3_TEST_CAPTURE === "1") {
+    let choice = 0;
+    const chooseDevices = async (camera: boolean, microphone: boolean) => {
+      choice++;
+      await click(button("Permissions"));
+      await eventually(
+        () => page.evaluate("!!document.querySelector('dialog[open]')"),
+        "device permission dialog opened",
+      );
+      for (const [kind, checked] of [
+        ["Camera", camera],
+        ["Microphone", microphone],
+      ] as const) {
+        const input = `[...document.querySelector('dialog').querySelectorAll('label')].find(label=>label.textContent.trim()===${JSON.stringify(kind)}).querySelector('input')`;
+        if ((await page.evaluate(`${input}.checked`)) !== checked) await click(input);
+        await eventually(
+          async () => (await page.evaluate(`${input}.checked`)) === checked,
+          `device checkbox ${kind} #${choice}`,
+        );
+      }
+      await click(button("Save permissions"));
+      await eventually(
+        () =>
+          page.evaluate(
+            `!!document.querySelector('[data-preview-camera="${camera ? "allowed" : "blocked"}"][data-preview-microphone="${microphone ? "allowed" : "blocked"}"]')`,
+          ),
+        `chosen device permissions #${choice}: camera=${camera}, microphone=${microphone}`,
+      );
+    };
+    const physical = () =>
+      page.evaluate(
+        "window.testPhysicalStreams.at(-1)?.getTracks().map(t=>({kind:t.kind,state:t.readyState}))",
+      );
+    const stopped = () =>
+      eventually(
+        async () =>
+          (await physical())?.every((track: { state: string }) => track.state === "ended"),
+        "physical devices stopped",
+      );
+    let content = await allow();
+    const callsBefore = await page.evaluate<number>("window.testDeviceRequests");
+    assert.equal(
+      await content.evaluate(
+        "navigator.mediaDevices.getUserMedia({video:true}).then(()=>false,e=>e.name)",
+      ),
+      "NotAllowedError",
+    );
+    assert.equal(
+      await page.evaluate("window.testDeviceRequests"),
+      callsBefore,
+      "r3 consent is required before a native request",
+    );
+    await chooseDevices(true, false);
+    assert.equal(
+      await content.evaluate(
+        "navigator.mediaDevices.getUserMedia({audio:true}).then(()=>false,e=>e.name)",
+      ),
+      "NotAllowedError",
+    );
+    assert.equal(
+      await content.evaluate(
+        "navigator.mediaDevices.getUserMedia({video:true}).then(()=>false,e=>e.name)",
+      ),
+      "NotAllowedError",
+      "real browser denial is preserved",
+    );
+    assert.equal(await page.evaluate("window.testDeviceRequests"), callsBefore + 1);
+    await browser.send("Browser.grantPermissions", {
+      origin,
+      permissions: ["videoCapture", "audioCapture"],
+    });
+    assert.equal(
+      await content.evaluate(
+        "MediaDevices.prototype.getUserMedia.call(navigator.mediaDevices,{video:true}).then(()=>false,()=>true)",
+      ),
+      true,
+      "direct iframe capture stays denied even after browser permission",
+    );
+    await chooseDevices(true, true);
+    await content.evaluate(
+      `const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{constructor(...args){super(...args);window.testPeer=this}}`,
+    );
+    assert.deepEqual(
+      await content.evaluate(
+        "navigator.mediaDevices.getUserMedia({audio:true,video:{width:{ideal:320},height:{ideal:240}}}).then(stream=>{window.testMedia=stream;return stream.getTracks().map(t=>t.kind).sort()})",
+      ),
+      ["audio", "video"],
+    );
+    await content.evaluate(
+      "window.testVideo=document.createElement('video');testVideo.muted=true;testVideo.autoplay=true;testVideo.playsInline=true;testVideo.srcObject=testMedia;document.body.append(testVideo);testVideo.play()",
+    );
+    await eventually(
+      () => content.evaluate("testVideo.videoWidth>0 && testVideo.currentTime>0"),
+      "relayed camera frames play",
+    );
+    await eventually(
+      () =>
+        content.evaluate(
+          "testPeer.getStats().then(stats=>[...stats.values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.bytesReceived>0))",
+        ),
+      "microphone samples arrive",
+    );
+    assert.equal(
+      await page.evaluate("!!document.querySelector('[data-preview-capture=sharing]')"),
+      true,
+    );
+    await content.evaluate(
+      "window.testClone=testMedia.clone();testMedia.getTracks().forEach(t=>t.stop())",
+    );
+    assert.equal(
+      (await physical()).every((track: { state: string }) => track.state === "live"),
+      true,
+      "clones keep their capture source alive",
+    );
+    await content.evaluate("testClone.getVideoTracks()[0].stop()");
+    await eventually(
+      async () =>
+        (await physical()).find((track: { kind: string }) => track.kind === "video")?.state ===
+        "ended",
+      "stopping the last video clone stops the physical camera",
+    );
+    assert.equal(
+      (await physical()).find((track: { kind: string }) => track.kind === "audio")?.state,
+      "live",
+    );
+    await click(button("Stop sharing"));
+    await stopped();
+    assert.equal(await content.evaluate("testClone.getAudioTracks()[0].readyState"), "ended");
+    assert.equal(
+      await content.evaluate(
+        "navigator.mediaDevices.getUserMedia({video:true}).then(()=>false,e=>e.name)",
+      ),
+      "NotAllowedError",
+      "Stop sharing clears device consent despite remembered browser permission",
+    );
+    await click(button("Permissions"));
+    await eventually(
+      () => page.evaluate("!!document.querySelector('dialog[open]')"),
+      "device permission dialog opened",
+    );
+    await click("document.querySelector('dialog input')");
+    await content.evaluate("document.querySelector('a').click()");
+    content = await frame(
+      "!!window.r3 && document.querySelector('h1')?.textContent==='Other document'",
+    );
+    await eventually(
+      () => page.evaluate("!document.querySelector('dialog[open]')"),
+      "navigation dismisses stale device consent",
+    );
+    assert.equal(
+      await page.evaluate("!!document.querySelector('[data-preview-camera=blocked]')"),
+      true,
+    );
+    await content.evaluate("location.href='index.html'");
+    content = await frame("!!window.r3 && document.querySelector('h1')?.textContent==='Version 1'");
+    await chooseDevices(true, false);
+    await content.evaluate(
+      "navigator.mediaDevices.getUserMedia({video:true}).then(stream=>{window.testMedia=stream})",
+    );
+    await content.evaluate("document.querySelector('a').click()");
+    content = await frame(
+      "!!window.r3 && document.querySelector('h1')?.textContent==='Other document'",
+    );
+    await stopped();
+    assert.equal(
+      await content.evaluate(
+        "navigator.mediaDevices.getUserMedia({video:true}).then(()=>false,e=>e.name)",
+      ),
+      "NotAllowedError",
+      "native navigation cannot inherit device consent",
+    );
+    await chooseDevices(true, false);
+    await content.evaluate("r3.getUserMedia({video:true}).then(stream=>{window.testMedia=stream})");
+    await content.evaluate(`location.href=${JSON.stringify(`${sink}/document`)}`);
+    await frame("document.querySelector('h1')?.textContent==='External document'");
+    await stopped();
+    assert.equal(
+      await page.evaluate("!!document.querySelector('[data-preview-camera=blocked]')"),
+      true,
+    );
+    await version(2);
+    await protectedPreview(2);
+    content = await allow(true, true);
+    await content.evaluate(
+      "r3.getUserMedia({video:true,audio:true}).then(stream=>{window.testMedia=stream})",
+    );
+    // Live pages answer the watchdog; a stalled opaque renderer cannot keep
+    // physical devices running indefinitely, and Retry must restore the bridge.
+    await Bun.sleep(2500);
+    assert.equal(
+      (await physical()).every((track: { state: string }) => track.state === "live"),
+      true,
+    );
+    const stalled = content
+      .evaluate("{const deadline=Date.now()+5000;while(Date.now()<deadline){}} ")
+      .catch(() => {});
+    await eventually(
+      () => page.evaluate("document.body.textContent.includes('Preview stopped responding')"),
+      "unresponsive capture fails closed with recovery",
+    );
+    await stopped();
+    await stalled;
+    await click(button("Retry preview"));
+    content = await frame("!!window.r3 && document.querySelector('h1')?.textContent==='Version 2'");
+    assert.equal(
+      await content.evaluate("r3.getUserMedia({video:true}).then(()=>false,e=>e.name)"),
+      "NotAllowedError",
+    );
+    await chooseDevices(true, true);
+    await content.evaluate(
+      "r3.getUserMedia({video:true,audio:true}).then(stream=>{window.testMedia=stream})",
+    );
+    await version(1);
+    await protectedPreview(1);
+    await stopped();
+    console.log(
+      "Device capture acceptance: browser denial/grant, live audio/video, clone/track stop, Stop sharing, navigation/version revocation, and unresponsive-page recovery passed",
+    );
+  }
+
   await page.command("Page.navigate", { url: `${origin}/?artifact=${files.id}&version=1` });
   await click(button("Rendered"));
   await eventually(
@@ -382,7 +633,7 @@ try {
     "files HTML preview",
   );
   assert.equal(await page.evaluate("!!document.querySelector('[data-preview-network]')"), false);
-  assert.equal(await page.evaluate(`!!(${button("Allow external connections")})`), false);
+  assert.equal(await page.evaluate(`!!(${button("Allow external access")})`), false);
   const screenshot = process.env.R3_TEST_SCREENSHOT;
   if (screenshot) {
     await page.command("Page.navigate", { url: `${origin}/?artifact=${html.id}&version=1` });

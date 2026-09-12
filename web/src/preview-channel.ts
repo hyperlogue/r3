@@ -21,15 +21,37 @@ export function connectPreview(config: PreviewBootstrap): PreviewConnection {
   port.onmessage = (event) => {
     for (const listener of listeners) listener(event.data);
   };
+  window.addEventListener(
+    "message",
+    (event) => {
+      if (
+        event.source === parent &&
+        event.origin === config.applicationOrigin &&
+        event.data?.type === "r3-preview-document-check"
+      ) {
+        post({
+          type: "r3-preview-document-checked",
+          contextId: config.contextId,
+          path,
+          nonce: event.data.nonce,
+        });
+      }
+    },
+    { capture: true },
+  );
   parent.postMessage(
     { type: "r3-preview-connect", contextId: config.contextId, path },
     config.applicationOrigin,
     [channel.port2],
   );
-  window.addEventListener("pagehide", () => {
-    post({ type: "r3-preview-disconnect", contextId: config.contextId, path });
-    close();
-  });
+  window.addEventListener(
+    "pagehide",
+    () => {
+      post({ type: "r3-preview-disconnect", contextId: config.contextId, path });
+      close();
+    },
+    { capture: true },
+  );
   return {
     send: (message) => post({ ...message, contextId: config.contextId, path }),
     subscribe: (listener) => {

@@ -161,14 +161,23 @@ Chromium 151 is refused before loading published content. Unsupported browsers
 still support source, diff, and download workflows. Protected previews deny persistent
 storage, workers, nested frames, camera, and microphone.
 
-HTML artifacts offer **Allow external connections**, with a confirmation before
-reloading the preview. This lets pages load external dependencies and call APIs
-directly, subject to browser CORS. It also lets them send their published files,
-your input, and this artifact's conversations elsewhere. Enable it only for trusted
-content. An indicator stays visible with **Block external connections**; switching
-versions or leaving the preview resets the choice. Blocking again cannot undo data
-already sent. The sandbox, r3 authentication, and camera/microphone restrictions
-remain enforced. File and diff artifacts have no opt-out.
+HTML artifacts offer **Allow external access**, with a confirmation before
+reloading the preview. It lets pages load external dependencies and call APIs
+subject to browser CORS. The dialog also has optional **Camera** and **Microphone**
+checkboxes, initially off. Enabling them lets this page request those devices;
+the browser still requires its own permission for r3. HTTPS and localhost work.
+File and diff artifacts have no opt-out, even when displaying an HTML file.
+
+An indicator stays visible with **Permissions** and **Restore protection**.
+While a device is active, **Stop sharing** stops capture and clears device consent.
+Device choices reset on page navigation; all choices reset on version changes or
+leaving the preview. These choices are never saved. Browser site permissions may
+remain remembered, but cannot replace r3's consent for the current page.
+
+Only enable external access for trusted content. The page and external scripts
+can send published files, your input, this artifact's conversations, and any shared
+camera/microphone data elsewhere. Restoring protection cannot undo data already
+sent. The opaque sandbox and r3 authentication remain enforced.
 
 External mode also permits navigation to external pages. These keep the iframe's
 sandbox and device restrictions, but can use workers and nested frames that the
@@ -178,10 +187,40 @@ Browsers lacking Connection Allowlist support can render HTML after this explici
 opt-out if they pass the remaining isolation checks. r3 never falls back automatically.
 
 Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
-`createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`, and
-`subscribe(callback)`. These use the same threads and explicit handoff as the panel.
-Human mutations require user activation. The utility exposes no application
-credential, generic API access, publication, lifecycle, or host execution capability.
+`createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`,
+`subscribe(callback)`, and `getUserMedia(constraints)`. Conversations use the same
+threads and explicit handoff as the panel. Human mutations require user activation.
+The utility exposes no application credential, generic API access, publication,
+lifecycle, or host execution capability.
+
+In external mode, the runtime also adapts `navigator.mediaDevices.getUserMedia`
+so existing pages can request camera/microphone without changing the iframe's
+opaque origin:
+
+```js
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: { width: { ideal: 640 }, facingMode: "user" },
+  audio: true,
+});
+video.srcObject = stream;
+// Stop this page's tracks when done; r3 also provides Stop sharing.
+stream.getTracks().forEach((track) => track.stop());
+```
+
+The trusted parent captures devices and relays a real `MediaStream` over WebRTC;
+direct native iframe capture remains blocked. Capture needs external access and
+the selected device permissions. One capture can run at a time. Video supports
+width, height, frame rate, aspect ratio, and facing mode; audio supports echo
+cancellation, noise suppression, automatic gain, sample rate, and channel count.
+Unsupported constraints are rejected. Device enumeration, device IDs, screen
+capture, and camera pan/tilt/zoom are unavailable.
+
+The returned tracks are WebRTC receiver tracks, so their settings and subsequent
+`applyConstraints()` do not control the physical device. Normal media playback and
+recording work. Returned track `stop()`/`clone()` and stream `clone()` keep source
+lifetimes coordinated; bypassing those methods or cloning a separately constructed
+stream is outside this adapter's contract. r3's Stop sharing always stops the
+physical devices, independently of the page's track bookkeeping.
 
 ## Remote publishing and browser access
 

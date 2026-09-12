@@ -110,6 +110,15 @@ uses the Host-guarded application listener; an explicit endpoint adds a separate
 loopback preview listener. It serves no application API, proxy, or unknown-path SPA fallback. See
 [security-model](../security-model/SKILL.md) for its authorization boundary.
 
+The browser-only `ArtifactUtility` in `shared/preview-protocol.ts` also exposes
+`getUserMedia(constraints): Promise<MediaStream>`. The external-mode runtime adapts
+the standard `navigator.mediaDevices.getUserMedia` call to the same device relay.
+Only an HTML page with explicit current-document device consent can request it;
+browser permission is independent. There is no device HTTP endpoint or grant in
+publication/preview metadata. The [security model](../security-model/SKILL.md)
+owns the parent capture lifecycle and narrow RTC protocol; the README documents
+supported constraints and track compatibility.
+
 ## CLI and agent loop
 
 `r3 guide` and `r3 --help` come from `cli/artifact-help.ts`; keep both accurate in

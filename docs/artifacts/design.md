@@ -218,13 +218,13 @@ CSP/sandbox policy, and Connection Allowlists. Before loading executable content
 verifies URL blocking and WebRTC rejection. Unsupported protected rendering fails closed.
 Persistent storage, workers, nested frames, camera, and microphone are unavailable
 in protected previews.
-Granting a device permission to the transport origin cannot enable capture.
+Granting a device permission to the transport origin cannot enable direct iframe capture.
 
-Only HTML artifacts offer **Allow external connections** in trusted workspace UI.
+Only HTML artifacts offer **Allow external access** in trusted workspace UI.
 Confirmation explains that the publication's files, user input, and all this
 artifact's conversations can be sent elsewhere, including by external scripts.
 The choice lasts only while viewing the current version, is never persisted, and
-has a visible indicator and **Block external connections** action. Changing policy
+has a visible indicator and **Restore protection** action. Changing policy
 reloads the preview under a new context and revokes the old one; reverting cannot
 undo data already sent. File and diff artifacts have no exception, even for an
 individual HTML or Markdown file.
@@ -232,19 +232,38 @@ individual HTML or Markdown file.
 External mode permits direct browser networking and skips only the network-blocking
 gate checks, allowing browsers without Connection Allowlist support after consent.
 CORS still applies. Opaque sandbox isolation, application authentication, scoped
-content and bridge access, and denied forms and devices remain enforced. CSP still
+content and bridge access, and denied forms and direct native device access remain enforced. CSP still
 denies workers and nested frames in r3-served documents. External self-navigation
 can load a replacement with workers and nested frames, inheriting the iframe
 sandbox and device policy but not the preceding response's CSP. Network mode
 belongs to the temporary preview context, never to
 artifact metadata or a publication. The preview remains independent of any backend.
 
+The same confirmation offers optional camera/microphone permissions, unchecked by
+default. These grant only the currently connected document permission to request
+capture; a remembered browser permission for r3 cannot replace that choice. Device
+consent is cleared on document replacement, including an open confirmation dialog.
+Network consent lasts for the selected version visit. **Permissions** edits the
+current choices; a visible capture status and **Stop sharing** remain in trusted UI.
+Stopping sharing, browser/OS device termination, restoring protection, navigation,
+and leaving the preview revoke device consent and stop parent-owned physical tracks.
+
+Capture stays in the trusted parent and still requires native browser permission.
+The runtime adapts `navigator.mediaDevices.getUserMedia` and exposes
+`r3.getUserMedia` with a bounded constraint subset. A send-only WebRTC relay supplies
+actual audio/video tracks to the opaque document. External access is required;
+shared media may be sent elsewhere. No device endpoint, persisted grant, enumeration,
+screen capture, or application credential is exposed. Returned tracks support
+media consumers and coordinated stop/clone behavior, not the entire native capture
+API. The [interactive HTML guide](../../README.md#interactive-html) owns usage and
+compatibility limits.
+
 The [security reference](../../.claude/skills/security-model/SKILL.md#preview-host)
 owns enforcement details; [verification](verification.md) owns browser evidence.
 
 Pages may import `/r3/utility.js` to use the narrow
 [ArtifactUtility interface](../../shared/preview-protocol.ts): context, threads,
-feedback creation, replies, explicit Submit, and change subscriptions. These use
+feedback creation, replies, explicit Submit, change subscriptions, and device capture. These use
 the same conversations and handoff as the built-in panel. Human mutations require
 user activation. The bridge validates the exact iframe window, opaque origin,
 context, and document scope before accepting a transferred MessagePort. Replies

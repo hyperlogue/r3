@@ -27,6 +27,7 @@ implementation checklists and historical test counts are kept in Git history.
 | Legacy identity/content/evidence, defaults, backup, failed/interrupted upgrade, reopen | `server/migration*.test.ts`, `server/artifact-storage.test.ts` |
 | Authenticated API/SSE, full-origin checks, resource bytes/ranges, scoped preview access | `server/artifact-api.test.ts`, `server/artifact-auth.test.ts`, `server/artifact-resources.test.ts`, `server/preview-*.test.ts` |
 | Draft retention, version selection, source/diff Locate, folded composer, phone layout | `web/src/artifact-*.test.ts`, `web/src/pages/ArtifactView.stories.tsx`, `ArtifactHome.stories.tsx`, component stories |
+| Device constraints, stale/pending permission results, capture shutdown, bounded RTC answers | `web/src/preview-capture.test.ts` |
 | Demo owner edits, delivery, claims, publication and archive behavior | `web/demo/artifact-api.test.ts`, `web/demo/artifact-backend.test.ts` |
 
 ## Browser and compiled-binary acceptance
@@ -44,6 +45,7 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-network.ts
 R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" bun scripts/test-preview-isolation.ts
+R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" R3_TEST_CAPTURE=1 bun scripts/test-preview-network.ts
 R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/test-preview-network.ts
 ```
@@ -54,13 +56,18 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |
-| `test-preview-network.ts` | HTML-only network control and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering |
+| `test-preview-network.ts` | HTML-only network control and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering; `R3_TEST_CAPTURE=1` adds real browser denial/grant, received audio/video, independent physical track and clone shutdown, Stop sharing, stale consent dialog dismissal, navigation/version revocation, and unresponsive-page shutdown/recovery |
 | `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, two opaque frames on the application address, parent/sibling/storage and cookie isolation, denied workers and frames, blocked external resources/navigation/redirects/sockets/WebRTC, and denied capture even after a transport-origin device grant |
 
 The permission test uses synthetic devices and browser permission overrides. It
 needs full Chromium: the headless shell's fake media UI cannot prove denial. No
-physical camera or microphone is read. Opaque documents must remain unable to capture even after a transport-origin
-grant, and all network restrictions stay in force.
+physical camera or microphone is read. Direct native opaque-document capture must
+stay denied even after a transport-origin grant. Protected previews retain all
+network and device restrictions. HTML external-mode capture requires separate r3
+device consent even when the browser remembers a grant; test its relay with actual
+video frames and received audio bytes, and inspect the parent-owned physical tracks
+for shutdown. Browser acceptance must not substitute a fake resolved stream for
+native permission decisions.
 
 Reference runs on 2026-09-12 passed in Chrome for Testing 153.0.8010.36. Chromium
 151 was refused before requesting published files. Its CSP-only WebRTC probe had

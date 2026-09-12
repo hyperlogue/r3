@@ -1,20 +1,32 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
+import type {
+  PreviewCaptureState,
+  PreviewDevicePermissions,
+} from "../../../shared/preview-protocol.ts";
 import { suspendKeys } from "../keys.ts";
 import { Button, cn } from "../ui.tsx";
 
 export function ArtifactPreviewNetworkControl({
   network,
+  devices,
+  capture,
+  onStopSharing,
   onChange,
 }: {
   network: ArtifactPreviewNetwork;
-  onChange: (network: ArtifactPreviewNetwork) => void;
+  devices: PreviewDevicePermissions;
+  capture: PreviewCaptureState;
+  onStopSharing: () => void;
+  onChange: (network: ArtifactPreviewNetwork, devices: PreviewDevicePermissions) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const external = network === "external";
   return (
     <div
       data-preview-network={network}
+      data-preview-camera={devices.camera ? "allowed" : "blocked"}
+      data-preview-microphone={devices.microphone ? "allowed" : "blocked"}
       className={cn(
         "sticky top-[var(--pane-sticky-h,0px)] z-10 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-3 py-1.5 text-xs",
         external
@@ -22,20 +34,57 @@ export function ArtifactPreviewNetworkControl({
           : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400",
       )}
     >
-      <span role="status">
-        {external
-          ? "External connections allowed for this version"
-          : "External connections blocked"}
-      </span>
-      <Button onClick={() => (external ? onChange("blocked") : setConfirming(true))}>
-        {external ? "Block external connections" : "Allow external connections"}
-      </Button>
+      <div className="min-w-0 flex-1">
+        <span role="status">
+          {external
+            ? "External connections allowed for this version"
+            : "External connections blocked"}
+        </span>
+        {external && (devices.camera || devices.microphone) && (
+          <span className="block text-neutral-600 dark:text-neutral-300">
+            {[devices.camera && "Camera allowed", devices.microphone && "Microphone allowed"]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        <Button onClick={() => setConfirming(true)}>
+          {external ? "Permissions" : "Allow external access"}
+        </Button>
+        {external && (
+          <Button onClick={() => onChange("blocked", { camera: false, microphone: false })}>
+            Restore protection
+          </Button>
+        )}
+      </div>
+      {capture.phase !== "idle" && (
+        <div
+          data-preview-capture={capture.phase}
+          className="flex w-full flex-wrap items-center justify-between gap-2 border-t border-current/15 pt-1.5"
+        >
+          <span role="status">
+            {capture.phase === "error"
+              ? capture.message
+              : capture.phase === "requesting"
+                ? "Waiting for browser device permission…"
+                : `Sharing ${[capture.camera && "camera", capture.microphone && "microphone"].filter(Boolean).join(" and ")}`}
+          </span>
+          {capture.phase !== "error" && (
+            <Button onClick={onStopSharing}>
+              {capture.phase === "requesting" ? "Cancel request" : "Stop sharing"}
+            </Button>
+          )}
+        </div>
+      )}
       {confirming && (
         <NetworkConsent
+          devices={devices}
+          external={external}
           onCancel={() => setConfirming(false)}
-          onAllow={() => {
+          onAllow={(devices) => {
             setConfirming(false);
-            onChange("external");
+            onChange("external", devices);
           }}
         />
       )}
@@ -43,7 +92,18 @@ export function ArtifactPreviewNetworkControl({
   );
 }
 
-function NetworkConsent({ onCancel, onAllow }: { onCancel: () => void; onAllow: () => void }) {
+function NetworkConsent({
+  devices,
+  external,
+  onCancel,
+  onAllow,
+}: {
+  devices: PreviewDevicePermissions;
+  external: boolean;
+  onCancel: () => void;
+  onAllow: (devices: PreviewDevicePermissions) => void;
+}) {
+  const [selected, setSelected] = useState(devices);
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
   const description = useId();
@@ -69,7 +129,7 @@ function NetworkConsent({ onCancel, onAllow }: { onCancel: () => void; onAllow: 
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 shadow-xl backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
       <h2 id={title} className="text-base font-semibold">
-        Allow external connections?
+        {external ? "Artifact permissions" : "Allow external access?"}
       </h2>
       <div
         id={description}
@@ -77,21 +137,44 @@ function NetworkConsent({ onCancel, onAllow }: { onCancel: () => void; onAllow: 
       >
         <p>
           This page and any external scripts it loads can send its published files, your input, and
-          this artifact’s conversations to external services.
+          this artifact’s conversations to external services. Any shared camera or microphone data
+          can also be sent elsewhere.
         </p>
         <p>
-          r3 stays isolated. Camera and microphone remain blocked. Only enable this for content you
-          trust.
+          r3 stays isolated. Only enable this for content you trust. The browser will still ask for
+          device permission when needed.
         </p>
         <p>
-          The preview will reload. This choice resets when you switch versions or leave the preview.
-          Blocking connections again cannot undo data already sent.
+          {external
+            ? "Network access lasts for this version."
+            : "The preview will reload with network access."}{" "}
+          Device choices reset whenever the page navigates. All choices reset when you switch
+          versions or leave the preview. Restoring protection cannot undo data already sent.
         </p>
       </div>
+      <fieldset className="mt-4 border-t border-neutral-200 pt-2 text-sm dark:border-neutral-700">
+        <legend className="font-medium">Also allow this page to request</legend>
+        {(["camera", "microphone"] as const).map((kind) => (
+          <label
+            key={kind}
+            className="flex min-h-11 cursor-pointer items-center gap-2 py-1 md:min-h-9"
+          >
+            <input
+              type="checkbox"
+              checked={selected[kind]}
+              onChange={(event) => {
+                const checked = event.currentTarget.checked;
+                setSelected((value) => ({ ...value, [kind]: checked }));
+              }}
+            />
+            {kind === "camera" ? "Camera" : "Microphone"}
+          </label>
+        ))}
+      </fieldset>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <Button onClick={onCancel}>Keep protection</Button>
-        <Button variant="primary" onClick={onAllow}>
-          Allow external connections
+        <Button onClick={onCancel}>{external ? "Cancel" : "Keep protection"}</Button>
+        <Button variant="primary" onClick={() => onAllow(selected)}>
+          {external ? "Save permissions" : "Allow external access"}
         </Button>
       </div>
     </dialog>
