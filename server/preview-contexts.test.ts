@@ -103,6 +103,27 @@ test("preview policies scope resources, forbid forms/redirects/WebRTC, and isola
   expect(() => contexts.forRequest(request(context.documentUrl))).toThrow("unavailable");
 });
 
+test("compatibility preserves restrictive policy and scoped immutable grants", () => {
+  const blocked = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
+  const compatible = contexts.create(id, 1, "notes/a # b?.md", "https://app.example", "compatible");
+  const blockedScope = contexts.forRequest(request(blocked.documentUrl));
+  const scope = contexts.forRequest(request(compatible.documentUrl));
+  expect(scope.network).toBe("compatible");
+  expect(scope.id).not.toBe(blockedScope.id);
+  // Both modes send the same restrictions; only blocked requires the browser
+  // to prove network enforcement. No external-resource or device grant is added.
+  const normalized = [...previewPolicy(scope)].map(([name, value]) => [
+    name,
+    value.replaceAll(scope.id, blockedScope.id),
+  ]);
+  expect(normalized).toEqual([...previewPolicy(blockedScope)]);
+  expect(contexts.renew(compatible.id).network).toBe("compatible");
+  expect(contexts.renew(blocked.id).network).toBe("blocked");
+  expect(contexts.authorized(request(compatible.documentUrl))).toBeNull();
+  contexts.revoke(compatible.id);
+  expect(() => contexts.forRequest(request(compatible.documentUrl))).toThrow("unavailable");
+});
+
 test("external connections require an explicit HTML context and never relax an existing grant", async () => {
   expect(() =>
     contexts.create(id, 1, "notes/a # b?.md", "https://app.example", "external"),

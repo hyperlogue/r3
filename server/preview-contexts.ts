@@ -103,8 +103,8 @@ export class PreviewContexts {
         503,
       );
     const version = this.artifacts.version(artifactId, versionSeq);
-    if (network !== "blocked" && network !== "external")
-      throw new ArtifactError("Preview network must be blocked or external");
+    if (network !== "blocked" && network !== "compatible" && network !== "external")
+      throw new ArtifactError("Preview network must be blocked, compatible, or external");
     if (network === "external" && version.kind !== "html")
       throw new ArtifactError("Only HTML artifacts can allow external connections");
     if (version.kind === "diff")

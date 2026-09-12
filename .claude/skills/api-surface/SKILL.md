@@ -89,8 +89,10 @@ argv or a temporary file. A closed connection requires fresh registration.
 ## Preview and bootstrap routes
 
 - `POST /api/artifacts/:id/versions/:seq/previews { path, network? }` creates a scoped
-  preview context. `network` defaults to `blocked`; only `html` artifacts accept
-  `external`. Invalid modes and non-HTML exceptions return 400. The response reports
+  preview context. `network` defaults to `blocked`. `compatible` retains restrictive
+  headers while skipping proof of network enforcement; the browser chooses it only
+  after risk consent. Only `html` artifacts accept `external`. Invalid modes and
+  non-HTML external exceptions return 400. The response reports
   the immutable mode. `PATCH /api/previews/:id` renews expiry without changing policy;
   `DELETE` revokes it. Changing policy requires a new context.
   The response contains scoped gate/document/utility URLs and `resourceRoot`,

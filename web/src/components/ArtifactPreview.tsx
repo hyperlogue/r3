@@ -14,20 +14,36 @@ import { artifactApi } from "../artifact-api.ts";
 import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
 import { previewBridgeCall, previewLocator } from "../preview-bridge.ts";
 import { PreviewCapture } from "../preview-capture.ts";
+import {
+  type PreviewVerification,
+  previewCompatibility,
+  useCompatibilityConsent,
+} from "../preview-protection.ts";
 import { Button } from "../ui.tsx";
+import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
 
 const NO_DEVICES: PreviewDevicePermissions = { camera: false, microphone: false };
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
-  // A grant belongs only to this visit to a publication. Returning to an older
-  // version must not restore its previous exception, even for the same path.
+  // External resources and devices belong to this version visit. The separate
+  // browser compatibility acknowledgment is considered only after a failed gate.
   return <VersionPreview key={`${props.detail.id}:${props.version.seq}`} {...props} />;
 }
 
 function VersionPreview(props: ArtifactRenderedPaneProps) {
   const [attempt, retry] = useState(0);
   const [network, setNetwork] = useState<ArtifactPreviewNetwork>("blocked");
+  const [verification, setVerification] = useState<PreviewVerification>("checking");
+  const [compatibilityRequired, setCompatibilityRequired] = useState(false);
+  const [confirmCompatibility, setConfirmCompatibility] = useState(false);
+  const [warningOwner] = useState(() => ({}));
+  const compatibilityAccepted = useCompatibilityConsent();
+  useEffect(() => () => previewCompatibility.closeWarning(warningOwner), [warningOwner]);
+  const closeCompatibilityWarning = () => {
+    previewCompatibility.closeWarning(warningOwner);
+    setConfirmCompatibility(false);
+  };
   const [devices, setDevices] = useState(NO_DEVICES);
   const [deviceEpoch, setDeviceEpoch] = useState(0);
   const [captureState, setCaptureState] = useState<PreviewCaptureState>({
@@ -57,6 +73,33 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
     setDevices(NO_DEVICES);
     setDeviceEpoch((epoch) => epoch + 1);
   };
+  const changeNetwork = (nextNetwork: ArtifactPreviewNetwork, nextDevices = NO_DEVICES) => {
+    capture.revoke();
+    if (network === "external" && nextNetwork === "external") capture.allow(nextDevices);
+    setDevices(nextNetwork === "external" ? nextDevices : NO_DEVICES);
+    if (network !== nextNetwork) setVerification("checking");
+    setCompatibilityRequired(false);
+    closeCompatibilityWarning();
+    setNetwork(nextNetwork);
+  };
+  useEffect(() => {
+    if (network !== "compatible" || compatibilityAccepted) return;
+    // Forgetting consent stops compatible previews in this tab and other tabs.
+    // A failed retry stays closed until the user opens the warning again.
+    previewCompatibility.suppressWarning();
+    setVerification("checking");
+    setNetwork("blocked");
+  }, [network, compatibilityAccepted]);
+  useEffect(() => {
+    if (network !== "blocked" || !compatibilityRequired || !compatibilityAccepted) return;
+    // Another preview may have obtained the site-wide acknowledgment while
+    // this warning was open. Only an already-failed network gate can use it.
+    setConfirmCompatibility(false);
+    previewCompatibility.closeWarning(warningOwner);
+    setCompatibilityRequired(false);
+    setVerification("checking");
+    setNetwork("compatible");
+  }, [network, compatibilityRequired, compatibilityAccepted, warningOwner]);
   const files = useQuery({
     queryKey: ["artifact-files", props.detail.id, props.version.seq],
     queryFn: () => artifactApi.files(props.detail.id, props.version.seq),
@@ -66,18 +109,24 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
   const media = !!file && !!artifactMediaKind(file.mediaType);
   return (
     <div className="flex min-h-80 flex-1 flex-col" data-artifact-preview>
-      {props.detail.kind === "html" && (
-        <ArtifactPreviewNetworkControl
-          key={deviceEpoch}
-          network={network}
-          devices={devices}
-          capture={captureState}
-          onStopSharing={resetDevices}
-          onChange={(nextNetwork, devices) => {
-            capture.revoke();
-            if (network === "external" && nextNetwork === "external") capture.allow(devices);
-            setDevices(nextNetwork === "external" ? devices : NO_DEVICES);
-            setNetwork(nextNetwork);
+      <ArtifactPreviewNetworkControl
+        key={deviceEpoch}
+        network={network}
+        verification={verification}
+        html={props.detail.kind === "html"}
+        compatibilityAccepted={compatibilityAccepted}
+        onForgetCompatibility={previewCompatibility.forget}
+        devices={devices}
+        capture={captureState}
+        onStopSharing={resetDevices}
+        onChange={changeNetwork}
+      />
+      {confirmCompatibility && (
+        <ArtifactPreviewCompatibilityConsent
+          onCancel={closeCompatibilityWarning}
+          onContinue={() => {
+            previewCompatibility.accept();
+            changeNetwork("compatible");
           }}
         />
       )}
@@ -89,8 +138,31 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
         capture={capture}
         capturing={captureState.phase === "requesting" || captureState.phase === "sharing"}
         onDevicesReset={resetDevices}
+        onVerification={setVerification}
+        onNetworkUnsupported={() => {
+          if (previewCompatibility.accepted()) {
+            changeNetwork("compatible");
+          } else {
+            setCompatibilityRequired(true);
+            if (previewCompatibility.requestWarning(warningOwner)) {
+              setConfirmCompatibility(true);
+            }
+          }
+        }}
+        onReviewCompatibility={
+          compatibilityRequired
+            ? () => {
+                if (previewCompatibility.requestWarning(warningOwner, true))
+                  setConfirmCompatibility(true);
+              }
+            : undefined
+        }
         paths={files.data?.map((file) => file.path) ?? []}
-        onRetry={() => retry((value) => value + 1)}
+        onRetry={() => {
+          setVerification("checking");
+          setCompatibilityRequired(false);
+          retry((value) => value + 1);
+        }}
       />
     </div>
   );
@@ -104,6 +176,9 @@ function PreviewSession(
     capture: PreviewCapture;
     capturing: boolean;
     onDevicesReset: () => void;
+    onVerification: (state: PreviewVerification) => void;
+    onNetworkUnsupported: () => void;
+    onReviewCompatibility?: () => void;
     onRetry: () => void;
   },
 ) {
@@ -135,6 +210,7 @@ function PreviewSession(
     setError("");
     setNotice("");
     setReady(false);
+    current.current.onVerification("checking");
     verified.current = false;
     const renew = async () => {
       if (!grant || closed) return;
@@ -144,6 +220,7 @@ function PreviewSession(
         if (!closed) {
           capture.close();
           current.current.onDevicesReset();
+          current.current.onVerification("error");
           setError(error instanceof Error ? error.message : "Preview expired");
           setSrc("");
         }
@@ -164,7 +241,10 @@ function PreviewSession(
         }, 10 * 60_000);
       })
       .catch((error) => {
-        if (!closed) setError(error instanceof Error ? error.message : "Preview unavailable");
+        if (!closed) {
+          current.current.onVerification("error");
+          setError(error instanceof Error ? error.message : "Preview unavailable");
+        }
       });
     const resume = () => {
       if (document.visibilityState === "visible") void renew();
@@ -204,6 +284,7 @@ function PreviewSession(
           if (connection.current !== port) return;
           capture.close();
           current.current.onDevicesReset();
+          current.current.onVerification("error");
           port.close();
           connection.current = null;
           setError("Preview stopped responding. Retry to reconnect.");
@@ -237,18 +318,29 @@ function PreviewSession(
       const message = event.data;
       if (!message || typeof message !== "object" || message.contextId !== context.id) return;
       if (message.type === "r3-preview-gate") {
+        // After the trusted gate finishes, publisher code knows the context id.
+        // It must never forge a failure to downgrade policy or solicit consent.
+        if (verified.current) return;
         if (message.state === "ready" && !verified.current) {
           verified.current = true;
+          current.current.onVerification("ready");
           setReady(false);
           setSrc(context.documentUrl);
         } else if (message.state === "unsupported" || message.state === "error") {
           capture.close();
           current.current.onDevicesReset();
+          current.current.onVerification("error");
           setError(
             typeof message.message === "string"
               ? message.message.slice(0, 2048)
               : "Preview verification failed",
           );
+          if (
+            message.state === "unsupported" &&
+            message.reason === "network" &&
+            network === "blocked"
+          )
+            current.current.onNetworkUnsupported();
         }
         return;
       }
@@ -438,6 +530,11 @@ function PreviewSession(
           <Button className="mt-3" onClick={props.onRetry}>
             Retry preview
           </Button>
+          {props.onReviewCompatibility && (
+            <Button className="ml-2 mt-3" onClick={props.onReviewCompatibility}>
+              Review browser risk
+            </Button>
+          )}
         </div>
       ) : !src ? (
         <p role="status" className="p-6 text-sm text-neutral-500">

@@ -7,7 +7,8 @@ description: r3's Host/origin/auth guards, isolated artifact preview and closed 
 
 This file owns the security design. The daemon defends against browser-borne
 attacks and casual remote access; executable artifacts default to a verified
-closed network boundary. Only HTML artifacts can explicitly opt into external
+closed network boundary. Unsupported browsers can use restrictive compatibility
+mode after risk acknowledgment. Only HTML artifacts can explicitly opt into broader external
 connections while retaining the opaque sandbox. The product has one trusted human owner and multiple
 logical agents, not multi-user accounts or per-agent permissions.
 
@@ -113,19 +114,51 @@ The Connection Allowlist includes only that context's `files/*` and `r3/*`, with
 WebRTC and redirects blocked. CSP additionally restricts resource classes, forms,
 frames, base URLs, and sandbox privileges. Service-worker script requests are refused;
 CSP disallows ordinary and blob workers too. Unsupported browsers fail closed in
-the default network mode; there is no automatic fallback.
+the default network mode. The gate distinguishes a network-policy limitation
+from isolation, transport, and verification failures; only the first permits a
+consented compatibility fallback.
 There is no generic upstream proxy or unknown-path document fallback.
 
-Authenticated preview creation accepts `network: "blocked" | "external"`, defaulting
+Authenticated preview creation accepts `network: "blocked" | "compatible" | "external"`, defaulting
 to `blocked`. The server rejects `external` for every kind except `html`, including
 HTML documents inside a `files` artifact. Policy is immutable within a context;
 renewal only extends expiry. Switching policy requires a new context and revocation
 of the preceding one. No artifact metadata, publication, or publisher script can
-change the browser's choice. The trusted workspace asks for confirmation, keeps
-an external-connections indicator visible, and resets the choice on version change
-or leaving the preview. It does not persist a grant. Reload/tab close starts the
+change the browser's choice. The trusted workspace asks for confirmation before
+external access, keeps an indicator visible, and resets that grant on version change
+or leaving the preview. It does not persist external-resource or device grants. Reload/tab close starts the
 next visit protected, but does not guarantee React cleanup or server revocation;
 an abandoned URL capability can remain valid until expiry.
+
+Compatibility mode retains all blocked-mode response headers, including CSP and
+Connection Allowlist where implemented, but skips proof of network enforcement.
+It still requires secure transport, an opaque origin, resource reachability, and
+the browser-bound single-use challenge before publication access. It is available
+for HTML and rendered files, never diffs. Camera/microphone relay remains disabled.
+This mode cannot promise to prevent exfiltration: navigation, WebRTC, and other
+browser-dependent gaps can transmit data even though ordinary external resource
+loads and fetches remain restricted. Do not label it a closed network.
+
+The trusted workspace first attempts `blocked` for every preview visit. Only the
+trusted gate's network-specific failure can offer compatibility consent; gate
+messages after readiness are ignored so publisher scripts cannot forge a downgrade.
+Before consent no published bytes are requested. Declining leaves the preview
+closed with an action to reopen the warning. Acceptance is remembered under a
+versioned localStorage key for this application origin/browser; unavailable
+storage falls back to memory for the application load. It applies to future
+network-policy failures only, so browser upgrades still gain verified protection.
+One application-level warning owner prevents simultaneous file/media previews
+from stacking dialogs. A decline suppresses further automatic prompts for that
+application load; each closed preview retains its explicit review-risk action.
+Forgetting the choice stops compatible previews in this tab and other open tabs.
+It does not undo data already transmitted or cancel independently granted external mode.
+
+The toolbar shows isolation, network, camera, and microphone icons, with accessible
+labels and expandable explanations. A green network lock requires a successful
+blocked-mode gate, amber means limited protection or explicit external access,
+and device indicators distinguish blocked, allowed, and actively sharing. Checking
+and failed previews never show verified protection. These indicators describe
+enforced boundaries, not the trustworthiness of publisher content.
 
 External mode omits Connection Allowlist and WebRTC blocking and permits HTTP(S)
 resources and HTTP(S)/WS(S) connections in CSP. Browser CORS and mixed-content rules
@@ -135,7 +168,8 @@ probes. This supports browsers lacking Connection Allowlist only after explicit
 consent. Both iframe and CSP sandbox, application auth/origin checks, document-bound
 bridge, resource membership, and direct native camera/microphone denial remain mandatory.
 The r3-served document still denies workers and nested frames through CSP. External
-self-navigation is permitted in this mode; its replacement keeps the iframe's
+self-navigation is permitted in this mode and may escape compatibility restrictions
+in unsupported browsers; its replacement keeps the iframe's
 opaque sandbox, denied forms/popups/top navigation, and device policy, but does
 not inherit the preceding response's worker/frame CSP. An external replacement
 can start blob workers and nested sandboxed frames. Do not describe those CSP

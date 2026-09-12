@@ -5,16 +5,26 @@ import type {
   PreviewDevicePermissions,
 } from "../../../shared/preview-protocol.ts";
 import { suspendKeys } from "../keys.ts";
+import type { PreviewVerification } from "../preview-protection.ts";
 import { Button, cn } from "../ui.tsx";
+import { ArtifactPreviewProtection } from "./ArtifactPreviewProtection.tsx";
 
 export function ArtifactPreviewNetworkControl({
   network,
+  verification,
+  html,
+  compatibilityAccepted,
+  onForgetCompatibility,
   devices,
   capture,
   onStopSharing,
   onChange,
 }: {
   network: ArtifactPreviewNetwork;
+  verification: PreviewVerification;
+  html: boolean;
+  compatibilityAccepted: boolean;
+  onForgetCompatibility: () => void;
   devices: PreviewDevicePermissions;
   capture: PreviewCaptureState;
   onStopSharing: () => void;
@@ -29,16 +39,30 @@ export function ArtifactPreviewNetworkControl({
       data-preview-microphone={devices.microphone ? "allowed" : "blocked"}
       className={cn(
         "sticky top-[var(--pane-sticky-h,0px)] z-10 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-3 py-1.5 text-xs",
-        external
+        network !== "blocked"
           ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
           : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400",
       )}
     >
-      <div className="min-w-0 flex-1">
+      <ArtifactPreviewProtection
+        network={network}
+        verification={verification}
+        devices={devices}
+        capture={capture}
+        compatibilityAccepted={compatibilityAccepted}
+        onForgetCompatibility={onForgetCompatibility}
+      />
+      <div className="min-w-0 flex-1 max-md:sr-only">
         <span role="status">
-          {external
-            ? "External connections allowed for this version"
-            : "External connections blocked"}
+          {verification === "checking"
+            ? "Checking preview protection…"
+            : verification === "error"
+              ? "Preview not running"
+              : external
+                ? "External connections allowed for this version"
+                : network === "compatible"
+                  ? "Limited network protection"
+                  : "External connections blocked"}
         </span>
         {external && (devices.camera || devices.microphone) && (
           <span className="block text-neutral-600 dark:text-neutral-300">
@@ -49,9 +73,11 @@ export function ArtifactPreviewNetworkControl({
         )}
       </div>
       <div className="flex flex-wrap gap-1">
-        <Button onClick={() => setConfirming(true)}>
-          {external ? "Permissions" : "Allow external access"}
-        </Button>
+        {html && (
+          <Button onClick={() => setConfirming(true)}>
+            {external ? "Permissions" : "Allow external access"}
+          </Button>
+        )}
         {external && (
           <Button onClick={() => onChange("blocked", { camera: false, microphone: false })}>
             Restore protection

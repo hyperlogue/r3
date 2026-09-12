@@ -41,12 +41,12 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Unavailable: Story = {};
 // Presentation only; the real sandbox and browser gate run in acceptance tests.
-export const UnsupportedBrowser: Story = {
+export const VerificationFailure: Story = {
   beforeEach: () => {
     const original = artifactApi.createPreview;
     artifactApi.createPreview = async () => {
       throw new Error(
-        "This browser cannot enforce r3's preview network policy. Use a browser with Connection Allowlist support.",
+        "Could not verify preview isolation. Retry when the preview server is reachable.",
       );
     };
     return () => {
@@ -90,6 +90,6 @@ export const HtmlExternalConnections: Story = {
         name: "Allow external access",
       }),
     );
-    await expect(canvas.getByText("External connections allowed for this version")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Restore protection" })).toBeVisible();
   },
 };

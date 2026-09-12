@@ -98,7 +98,9 @@ Restore permits publication again, but requires a fresh listener registration.
 Archive delivery failure does not undo the archived state or its saved message.
 
 HTML uses relative resource URLs, a supplied version-root URL, and hash routes or
-published document paths. External network access is closed. Prepare dependencies
-and assets before publishing; r3 does not build or install them. Preview capability
-and device access follow browser enforcement and normal permission prompts.
+published document paths. Prepare dependencies and assets before publishing;
+r3 does not build or install them. Previews try verified network blocking first.
+Browsers without enforcement need a one-time risk acknowledgment for limited
+protection. Only the human can enable broader external access for HTML or share
+devices through separate r3 consent and browser permission.
 `;

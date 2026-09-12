@@ -16,9 +16,16 @@ function checkPreviewBrowser({
   root: string;
   network: ArtifactPreviewNetwork;
 }) {
-  const report = (state: "ready" | "unsupported" | "error", message: string) => {
+  const report = (
+    state: "ready" | "unsupported" | "error",
+    message: string,
+    reason?: "network",
+  ) => {
     document.querySelector("p")!.textContent = message;
-    parent.postMessage({ type: "r3-preview-gate", contextId, state, message }, applicationOrigin);
+    parent.postMessage(
+      { type: "r3-preview-gate", contextId, state, message, reason },
+      applicationOrigin,
+    );
   };
   const rtcBlocked = async () => {
     if (typeof RTCPeerConnection !== "function") return false;
@@ -69,7 +76,8 @@ function checkPreviewBrowser({
         if (!connections || !rtc) {
           report(
             "unsupported",
-            "This browser cannot enforce r3's preview network policy. Use a browser with Connection Allowlist support.",
+            "This browser cannot enforce complete blocking of external connections.",
+            "network",
           );
           return;
         }

@@ -155,23 +155,35 @@ fetch, XHR, modules, and media range requests. By default external resources, AP
 forms that navigate, and access to unrelated artifacts or application endpoints
 are blocked. Bundle assets locally instead of loading a CDN.
 
-Protected rendering requires a browser that passes r3's Connection Allowlist and WebRTC
-blocking checks. Acceptance tests pass in Chrome for Testing 153.0.8010.36;
-Chromium 151 is refused before loading published content. Unsupported browsers
-still support source, diff, and download workflows. Protected previews deny persistent
-storage, workers, nested frames, camera, and microphone.
+Every preview first checks whether the browser can enforce Connection Allowlists
+and WebRTC blocking. Browsers that cannot show a one-time risk warning before
+loading published content. Accepting enables limited network protection: ordinary
+external resources stay restricted, but malicious scripts could send publication
+data, review conversations, or your input through other browser features.
+The opaque sandbox and r3 authentication remain enforced.
+
+Acceptance is remembered for this r3 site in this browser. New previews always
+try verified protection first, including after browser upgrades. Click the toolbar's
+protection icons to see details or **Forget browser choice**. Forgetting stops
+compatible previews in open tabs. Declining keeps the preview closed. Isolation,
+HTTPS, and server failures never bypass verification through this warning.
 
 HTML artifacts offer **Allow external access**, with a confirmation before
 reloading the preview. It lets pages load external dependencies and call APIs
 subject to browser CORS. The dialog also has optional **Camera** and **Microphone**
 checkboxes, initially off. Enabling them lets this page request those devices;
 the browser still requires its own permission for r3. HTTPS and localhost work.
-File and diff artifacts have no opt-out, even when displaying an HTML file.
+Files can use limited compatibility rendering, but have no broader external-access
+or device opt-out. Diff artifacts have no rendered preview.
 
-An indicator stays visible with **Permissions** and **Restore protection**.
+A row of icons shows r3 isolation, network protection, camera, and microphone.
+The network lock is green only after verified blocking; amber indicates limited
+protection or explicitly allowed external access. Device icons distinguish
+permission from active sharing. HTML retains **Permissions** and **Restore protection**.
 While a device is active, **Stop sharing** stops capture and clears device consent.
-Device choices reset on page navigation; all choices reset on version changes or
-leaving the preview. These choices are never saved. Browser site permissions may
+Device choices reset on page navigation; broader external-access and device grants
+reset on version changes or leaving the preview. These grants are never saved;
+the separate compatibility risk acknowledgment is remembered. Browser site permissions may
 remain remembered, but cannot replace r3's consent for the current page.
 
 Only enable external access for trusted content. The page and external scripts

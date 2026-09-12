@@ -206,8 +206,9 @@ replies are accepted. Restore allows work again and requires fresh registration.
 
 The [browser support requirement](browser-support.md) covers stable Firefox,
 Chrome, and Safari on macOS and iOS from the preceding six months, including full
-interactive HTML. The current Connection Allowlist gate does not satisfy that
-requirement; Chromium-only acceptance is insufficient for the replacement.
+interactive HTML. Browsers that cannot enforce Connection Allowlists use a
+consented compatibility mode; acceptance evidence must still cover each engine
+and actual Safari platforms.
 
 Files and HTML use the same isolated rendering module. Ordinary scripts, modules,
 styles, canvas/SVG charts, local forms, and published data run inside it. Source
@@ -220,7 +221,14 @@ assets and dependencies. The preview is not an upstream proxy.
 
 The server combines opaque document origins, scoped URL capabilities,
 CSP/sandbox policy, and Connection Allowlists. Before loading executable content, a capability gate
-verifies URL blocking and WebRTC rejection. Unsupported protected rendering fails closed.
+verifies URL blocking and WebRTC rejection. Unsupported protected rendering stays
+closed until the human accepts a browser risk warning. Compatibility mode retains
+the restrictive headers and sandbox but cannot guarantee complete network blocking.
+The warning explains the risk of malicious dependencies sending published files,
+review conversations, or later user input. Acceptance is remembered for this r3
+site in this browser; every new preview still attempts verified protection first.
+Transport, isolation, and verification errors never trigger the fallback. Forgetting
+the choice through the toolbar stops open compatible previews, including other tabs.
 Persistent storage, workers, nested frames, camera, and microphone are unavailable
 in protected previews.
 Granting a device permission to the transport origin cannot enable direct iframe capture.
@@ -231,8 +239,13 @@ artifact's conversations can be sent elsewhere, including by external scripts.
 The choice lasts only while viewing the current version, is never persisted, and
 has a visible indicator and **Restore protection** action. Changing policy
 reloads the preview under a new context and revokes the old one; reverting cannot
-undo data already sent. File and diff artifacts have no exception, even for an
-individual HTML or Markdown file.
+undo data already sent. Files can use restrictive compatibility rendering, but
+only HTML artifacts offer broader external access. Diffs have no rendered preview.
+
+The preview toolbar shows isolation, network, camera, and microphone icons.
+Green network protection appears only after verified enforcement; compatibility
+uses an amber indicator. Device icons distinguish permission from active sharing.
+The icons open explanations and the action to forget compatibility acknowledgment.
 
 External mode permits direct browser networking and skips only the network-blocking
 gate checks, allowing browsers without Connection Allowlist support after consent.

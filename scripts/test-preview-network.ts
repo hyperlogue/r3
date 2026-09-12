@@ -223,6 +223,12 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
         await page.evaluate("!!document.querySelector('[data-artifact-preview] iframe')"),
         false,
       );
+      if (
+        await page.evaluate(
+          "!!document.querySelector('[data-preview-compatibility-consent][open]')",
+        )
+      )
+        await click(button("Keep preview closed"));
     } else {
       await frame(
         `window.networkResult==='blocked' && document.querySelector('h1')?.textContent==='Version ${seq}'`,
@@ -632,7 +638,7 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     () => page.evaluate("!!document.querySelector('[data-artifact-preview]')"),
     "files HTML preview",
   );
-  assert.equal(await page.evaluate("!!document.querySelector('[data-preview-network]')"), false);
+  assert.equal(await page.evaluate("!!document.querySelector('[data-preview-protections]')"), true);
   assert.equal(await page.evaluate(`!!(${button("Allow external access")})`), false);
   const screenshot = process.env.R3_TEST_SCREENSHOT;
   if (screenshot) {

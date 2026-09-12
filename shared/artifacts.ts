@@ -330,7 +330,9 @@ export interface ArtifactPromptBody {
   expectedFingerprint?: string;
 }
 
-export type ArtifactPreviewNetwork = "blocked" | "external";
+// Compatible retains restrictive headers without requiring verified network
+// enforcement. The browser must obtain risk consent before choosing this mode.
+export type ArtifactPreviewNetwork = "blocked" | "compatible" | "external";
 
 // This temporary URL capability grants one artifact/version without application
 // credentials. Documents have opaque origins, independent of the transport origin.

@@ -52,16 +52,18 @@ uses synthetic devices while retaining real browser permission decisions. Record
 physical-device and native iOS checks separately; do not replace them with mocked
 success or call an unexecuted case supported.
 
-## Current gap
+## Network protection and acceptance gap
 
-The current protected preview requires Connection Allowlists and refuses browsers
-that cannot enforce its closed network. That does not meet the six-month support
-requirement. The HTML external-access mode avoids that dependency, but its existing
-Chromium acceptance evidence cannot establish Firefox or Safari compatibility.
+Each preview attempts verified Connection Allowlist protection first. A browser
+that fails only network enforcement shows a risk prompt before any publication
+bytes load. Acceptance is remembered for this r3 origin/browser and permits a new
+`compatible` context with restrictive CSP and sandbox headers. It does not claim
+complete outbound blocking. The toolbar uses an amber network indicator; the green
+lock is reserved for verified enforcement. Broader external-resource and device
+consent remain separate and are never remembered across version visits.
 
-Replacing the Chromium-specific dependency must preserve the agreed security
-contract. Merely skipping the gate or relabeling CSP as a complete network block
-does not establish equivalent protection. The preview implementation and its
-network guarantee need an explicit resolution before this requirement can be
-marked satisfied. See the [security model](../../.claude/skills/security-model/SKILL.md)
-and [executable verification guide](verification.md).
+The browser acknowledgment resolves the product tradeoff without pretending CSP
+is a complete network firewall. It does not itself establish browser compatibility:
+the full release/platform matrix above still requires execution. See the
+[security model](../../.claude/skills/security-model/SKILL.md) and
+[executable verification guide](verification.md) for the protocol and evidence.

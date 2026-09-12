@@ -105,6 +105,9 @@ describe("artifact HTTP content contract", () => {
       expect((await (await request(path, "POST", { path: "index.html" })).json()).network).toBe(
         "blocked",
       );
+      const compatible = await request(path, "POST", { path: "index.html", network: "compatible" });
+      expect(compatible.status).toBe(201);
+      expect((await compatible.json()).network).toBe("compatible");
       const external = await request(path, "POST", { path: "index.html", network: "external" });
       expect(external.status).toBe(kind === "html" ? 201 : 400);
       if (kind === "html") {
