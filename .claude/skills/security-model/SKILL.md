@@ -33,7 +33,7 @@ Application-origin resource downloads are attachments with a restrictive CSP,
 `nosniff`, and same-origin resource policy (`server/artifact-resources.ts`).
 Executable preview responses require their separate isolated-origin policy.
 
-### Preview host (pending runtime integration)
+### Preview host (pending daemon/client cutover)
 
 `server/preview-host.ts` serves one published version per temporary random
 subdomain. `PreviewContexts` validates the exact host and port, expires contexts
@@ -58,8 +58,9 @@ the server's policy. Ordinary published workers still receive the policy.
 Camera/microphone are delegated through the isolated real origin and retain
 browser consent. Neither permission grants a network exception.
 
-Preview documents are not cached; the response appends the r3 runtime to original
-HTML or retained Markdown HTML without changing stored bytes. Native resource
+Preview documents are not cached; the response inserts the r3 runtime before
+publisher scripts in original HTML or retained Markdown HTML without changing
+stored bytes. Native resource
 GET/HEAD/range responses remain private and immutable, varying by preview cookie,
 browser identity, and fetch destination. Unknown paths never receive a document
 fallback or an upstream proxy response.
@@ -67,7 +68,18 @@ fallback or an upstream proxy response.
 The real host/gate loaded published scripts and JSON in Chrome for Testing 153,
 and refused Chromium 151 before any published file request. Navigation, worker,
 redirect, resource-scope, and device browser acceptance are still required before
-the daemon/client cutover enables this host.
+the daemon/client cutover enables this host. The integrated artifact workspace
+has also passed real-browser tests for human utility messages, shared threads,
+version switching, original rendered Locate, and native document navigation.
+
+The parent accepts bridge messages only from its exact iframe window, preview
+origin, and context id. The bridge exposes context, same-artifact conversations,
+human feedback/replies, explicit Submit, and change notifications. It has no
+generic HTTP or host-command operation and accepts no actor or version override.
+Mutations require browser user activation; page load and agent replies cannot
+silently send another message or handoff. Published path membership is checked
+before dispatch, reply ids must belong to the same artifact, and the server
+validates each native target. Application authentication stays in the parent.
 
 ## The bind
 

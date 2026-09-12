@@ -45,7 +45,9 @@ The existing runtime remains in use until migration and the new clients are read
   `web/src/pages/ArtifactView.tsx` composes the files/diff workspaces, pinned
   navigation, large-file Locate, and the rendered-pane interface. Browser stories
   verify draft retention, new-publication announcements, old-side context targets,
-  and the collapsed composer. Actual rendered preview and router cutover remain.
+  and the collapsed composer. `ArtifactPreview` now connects the isolated host,
+  rendered targeting, utility, media previews, and native document navigation.
+  Production router cutover remains.
 - [ ] HTML workspace, isolated preview origin, scoped resource access, rendered
   comments, bridge utility, closed network enforcement and device delegation.
 - [ ] Archive/restore browser controls, conversation/presence updates, mobile
@@ -77,7 +79,16 @@ zero packets in both cases. Partitioned cookie authentication worked in sandboxe
 preview frames under localhost, loopback-IP, and localhost-subdomain application
 origins. Against the real host, Chrome for Testing 153 passed the gate and loaded
 published scripts and JSON; Chromium 151 reported unsupported and requested no
-published files. The browser runtime/utility and broader acceptance matrix remain.
+published files. The broader network/device acceptance matrix remains.
+
+`scripts/test-preview-browser.ts` verifies the gate, modules, utility RPC and
+subscriptions, click interception before publisher handlers, native target
+capture, contextual repeated-quote Locate, and normal interaction. Set
+`R3_TEST_BROWSER` to the test Chromium executable; add `R3_TEST_UNSUPPORTED=1`
+for a browser that must be refused. `scripts/test-preview-workspace.ts` builds
+the real workspace and tests it against temporary artifact/API/preview servers:
+human utility feedback, the shared panel thread, version switching, native Locate,
+and published-document navigation. Both use fresh browser profiles and stores.
 
 Evaluate [Connection Allowlists](https://wicg.github.io/connection-allowlists/)
 alongside CSP and the isolated origin. Chromium's
