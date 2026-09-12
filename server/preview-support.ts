@@ -1,4 +1,5 @@
 import { normalizeRenderedText } from "../shared/rendered-text.ts";
+import { connectPreview } from "../web/src/preview-channel.ts";
 import { installPreviewRuntime } from "../web/src/preview-runtime.ts";
 import { createArtifactUtility } from "../web/src/preview-utility.ts";
 import type { PreviewScope } from "./preview-contexts.ts";
@@ -18,7 +19,9 @@ function parameters(scope: PreviewScope): string {
 
 export const previewSupport: PreviewSupport = {
   runtime: (scope) =>
-    `(${installPreviewRuntime.toString()})(${parameters(scope)}, ${normalizeRenderedText.toString()});`,
-  utility: (scope) =>
-    `const r3 = (${createArtifactUtility.toString()})(${parameters(scope)}); export { r3 }; export default r3;`,
+    `(() => { const config = ${parameters(scope)};
+const connection = (${connectPreview.toString()})(config);
+Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection)});
+(${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection); })();`,
+  utility: () => "const r3 = globalThis.__r3ArtifactUtility; export { r3 }; export default r3;",
 };

@@ -1,8 +1,12 @@
 import type { ArtifactUtility, PreviewBootstrap } from "../../shared/preview-protocol.ts";
+import type { PreviewConnection } from "./preview-channel.ts";
 
 // Serialized into the isolated origin as an ES module. Keep runtime dependencies
 // inside this function; the compiled binary needs no source tree or bundler.
-export function createArtifactUtility(config: PreviewBootstrap): ArtifactUtility {
+export function createArtifactUtility(
+  config: PreviewBootstrap,
+  connection: PreviewConnection,
+): ArtifactUtility {
   const pending = new Map<
     string,
     {
@@ -12,13 +16,7 @@ export function createArtifactUtility(config: PreviewBootstrap): ArtifactUtility
     }
   >();
   const subscribers = new Set<() => void>();
-  const path = () =>
-    config.presentation === "media"
-      ? config.entryPath
-      : decodeURIComponent(location.pathname.slice("/files/".length));
-  window.addEventListener("message", (event) => {
-    if (event.source !== parent || event.origin !== config.applicationOrigin) return;
-    const message = event.data;
+  connection.subscribe((message) => {
     if (!message || message.contextId !== config.contextId) return;
     if (message.type === "r3-preview-changed") {
       for (const listener of subscribers) {
@@ -49,10 +47,7 @@ export function createArtifactUtility(config: PreviewBootstrap): ArtifactUtility
         reject(new Error("r3 did not respond; open this page from the artifact workspace"));
       }, 30_000);
       pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
-      parent.postMessage(
-        { type: "r3-preview-call", contextId: config.contextId, id, path: path(), method, input },
-        config.applicationOrigin,
-      );
+      connection.send({ type: "r3-preview-call", id, method, input });
     });
   window.addEventListener("pagehide", () => {
     for (const request of pending.values()) {

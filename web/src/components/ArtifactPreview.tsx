@@ -39,6 +39,7 @@ function PreviewSession(
   const iframe = useRef<HTMLIFrameElement>(null);
   const currentPath = useRef(initialPath);
   const verified = useRef(false);
+  const connection = useRef<MessagePort | null>(null);
   const current = useRef(props);
   current.current = props;
   const id = props.detail.id;
@@ -100,10 +101,7 @@ function PreviewSession(
     let pending = 0;
     const seen = new Set<string>();
     const send = (value: Record<string, unknown>) =>
-      iframe.current?.contentWindow?.postMessage(
-        { contextId: context.id, ...value },
-        context.origin,
-      );
+      connection.current?.postMessage({ contextId: context.id, ...value });
     const display = () => {
       const props = current.current;
       const value: PreviewDisplay = {
@@ -137,100 +135,116 @@ function PreviewSession(
         }
         return;
       }
+      if (message.type !== "r3-preview-connect" || event.ports.length !== 1) return;
       if (
         !verified.current ||
         typeof message.path !== "string" ||
         !current.current.paths.includes(message.path)
       )
         return;
-      if (message.type === "r3-preview-document") {
-        currentPath.current = message.path;
-        current.current.onDocument(message.path);
-        setReady(true);
-        setNotice("");
-        display();
-      } else if (message.type === "r3-preview-target") {
-        if (!current.current.commenting || context.presentation !== "document") return;
-        try {
-          const locator = previewLocator(message.locator);
-          current.current.onTarget({
-            kind: "rendered",
-            versionSeq: seq,
-            path: message.path,
-            locator,
-          });
-        } catch (error) {
-          setNotice(error instanceof Error ? error.message : "Unable to capture this element");
+      connection.current?.close();
+      const port = event.ports[0];
+      connection.current = port;
+      const path = message.path;
+      port.onmessage = (event) => {
+        if (closed || connection.current !== port) return;
+        const message = event.data;
+        if (!message || message.contextId !== context.id || message.path !== path) return;
+        const reply = (value: Record<string, unknown>) =>
+          port.postMessage({ contextId: context.id, ...value });
+        if (message.type === "r3-preview-document") {
+          currentPath.current = message.path;
+          current.current.onDocument(message.path);
+          setReady(true);
+          setNotice("");
+          display();
+        } else if (message.type === "r3-preview-target") {
+          if (!current.current.commenting || context.presentation !== "document") return;
+          try {
+            const locator = previewLocator(message.locator);
+            current.current.onTarget({
+              kind: "rendered",
+              versionSeq: seq,
+              path: message.path,
+              locator,
+            });
+          } catch (error) {
+            setNotice(error instanceof Error ? error.message : "Unable to capture this element");
+          }
+        } else if (message.type === "r3-preview-feedback") {
+          if (
+            current.current.detail.feedback.some((feedback) => feedback.id === message.feedbackId)
+          )
+            current.current.onFeedback(message.feedbackId);
+        } else if (
+          message.type === "r3-preview-located" &&
+          message.nonce === current.current.jump?.nonce
+        ) {
+          setNotice(
+            message.state === "ambiguous"
+              ? "This target matches more than one place in the document."
+              : message.state === "unplaced"
+                ? "This target is unavailable in the current page state."
+                : "",
+          );
+        } else if (
+          message.type === "r3-preview-call" &&
+          typeof message.id === "string" &&
+          message.id.length <= 128 &&
+          typeof message.method === "string"
+        ) {
+          if (seen.has(message.id)) return;
+          if (pending >= 32) {
+            send({
+              type: "r3-preview-result",
+              id: message.id,
+              error: "Too many pending r3 requests",
+            });
+            return;
+          }
+          seen.add(message.id);
+          if (seen.size > 512) seen.delete(seen.values().next().value!);
+          pending++;
+          const props = current.current;
+          void previewBridgeCall(
+            message.method,
+            message.input,
+            {
+              artifactId: id,
+              versionSeq: seq,
+              path: message.path,
+              resourceRoot: `${context.origin}/files/`,
+              representation: context.presentation === "media" ? "source" : "rendered",
+              state: props.detail.state,
+            },
+            props.detail,
+            artifactApi,
+            navigator.userActivation?.isActive === true,
+          )
+            .then((value) => {
+              if (!closed) reply({ type: "r3-preview-result", id: message.id, value });
+              if (["createFeedback", "reply", "submit"].includes(message.method))
+                void qc.invalidateQueries({ queryKey: ["artifact", id] });
+            })
+            .catch((error) => {
+              if (!closed)
+                reply({
+                  type: "r3-preview-result",
+                  id: message.id,
+                  error: error instanceof Error ? error.message : "r3 request failed",
+                });
+            })
+            .finally(() => {
+              pending--;
+            });
         }
-      } else if (message.type === "r3-preview-feedback") {
-        if (current.current.detail.feedback.some((feedback) => feedback.id === message.feedbackId))
-          current.current.onFeedback(message.feedbackId);
-      } else if (
-        message.type === "r3-preview-located" &&
-        message.nonce === current.current.jump?.nonce
-      ) {
-        setNotice(
-          message.state === "ambiguous"
-            ? "This target matches more than one place in the document."
-            : message.state === "unplaced"
-              ? "This target is unavailable in the current page state."
-              : "",
-        );
-      } else if (
-        message.type === "r3-preview-call" &&
-        typeof message.id === "string" &&
-        message.id.length <= 128 &&
-        typeof message.method === "string"
-      ) {
-        if (seen.has(message.id)) return;
-        if (pending >= 32) {
-          send({
-            type: "r3-preview-result",
-            id: message.id,
-            error: "Too many pending r3 requests",
-          });
-          return;
-        }
-        seen.add(message.id);
-        if (seen.size > 512) seen.delete(seen.values().next().value!);
-        pending++;
-        const props = current.current;
-        void previewBridgeCall(
-          message.method,
-          message.input,
-          {
-            artifactId: id,
-            versionSeq: seq,
-            path: message.path,
-            resourceRoot: `${context.origin}/files/`,
-            representation: context.presentation === "media" ? "source" : "rendered",
-            state: props.detail.state,
-          },
-          props.detail,
-          artifactApi,
-          navigator.userActivation?.isActive === true,
-        )
-          .then((value) => {
-            if (!closed) send({ type: "r3-preview-result", id: message.id, value });
-            if (["createFeedback", "reply", "submit"].includes(message.method))
-              void qc.invalidateQueries({ queryKey: ["artifact", id] });
-          })
-          .catch((error) => {
-            if (!closed)
-              send({
-                type: "r3-preview-result",
-                id: message.id,
-                error: error instanceof Error ? error.message : "r3 request failed",
-              });
-          })
-          .finally(() => {
-            pending--;
-          });
-      }
+      };
     };
     window.addEventListener("message", listener);
     return () => {
       closed = true;
+      connection.current?.close();
+      connection.current = null;
       window.removeEventListener("message", listener);
     };
   }, [context, id, seq, qc]);
@@ -251,10 +265,7 @@ function PreviewSession(
   useEffect(() => {
     if (!context || !ready) return;
     const send = (value: Record<string, unknown>) =>
-      iframe.current?.contentWindow?.postMessage(
-        { contextId: context.id, ...value },
-        context.origin,
-      );
+      connection.current?.postMessage({ contextId: context.id, ...value });
     const display: PreviewDisplay = {
       commenting: props.commenting && context.presentation === "document",
       targets: props.targets.flatMap(({ feedbackId, target }) =>

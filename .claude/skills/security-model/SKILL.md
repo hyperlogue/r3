@@ -116,8 +116,10 @@ The integrated artifact workspace
 has also passed real-browser tests for human utility messages, shared threads,
 version switching, original rendered Locate, and native document navigation.
 
-The parent accepts bridge messages only from its exact iframe window, preview
-origin, and context id. The bridge exposes context, same-artifact conversations,
+The parent accepts a bridge connection only from its exact iframe window, preview
+origin, context id, and a published path. Each document transfers a MessagePort
+to the exact application origin. Replies stay on that port, so navigation cannot
+deliver a pending result to a replacement document. The bridge exposes context, same-artifact conversations,
 human feedback/replies, explicit Submit, and change notifications. It has no
 generic HTTP or host-command operation and accepts no actor or version override.
 Mutations require browser user activation; page load and agent replies cannot

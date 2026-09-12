@@ -1,11 +1,13 @@
 import type { RenderedLocator } from "../../shared/artifacts.ts";
 import type { PreviewBootstrap, PreviewDisplay } from "../../shared/preview-protocol.ts";
+import type { PreviewConnection } from "./preview-channel.ts";
 
 // Served before publisher scripts. This function is serialized, so every
 // runtime dependency is an argument, a local, or a browser API.
 export function installPreviewRuntime(
   config: PreviewBootstrap,
   normalize: (text: string) => string,
+  connection: PreviewConnection,
 ): void {
   let display: PreviewDisplay = { commenting: false, targets: [], jump: null };
   let root: HTMLDivElement | null = null;
@@ -24,15 +26,8 @@ export function installPreviewRuntime(
   let restoringRoute = false;
   let frame = 0;
   let observation: MutationObserver | null = null;
-  const path = () =>
-    config.presentation === "media"
-      ? config.entryPath
-      : decodeURIComponent(location.pathname.slice("/files/".length));
   const send = (type: string, values: Record<string, unknown> = {}) =>
-    parent.postMessage(
-      { type, contextId: config.contextId, path: path(), ...values },
-      config.applicationOrigin,
-    );
+    connection.send({ type, ...values });
   const isOwned = (element: Element) => element === root || element.getRootNode() === shadow;
   const visible = (element: Element) => {
     if (isOwned(element) || element.closest("script,style,noscript,template,[hidden]"))
@@ -256,9 +251,7 @@ export function installPreviewRuntime(
     };
     setTimeout(attempt, 0);
   };
-  window.addEventListener("message", (event) => {
-    if (event.source !== parent || event.origin !== config.applicationOrigin) return;
-    const message = event.data;
+  connection.subscribe((message) => {
     if (message?.type !== "r3-preview-display" || message.contextId !== config.contextId) return;
     display = message.display as PreviewDisplay;
     markersDirty = true;

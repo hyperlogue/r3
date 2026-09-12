@@ -54,10 +54,10 @@ const app = Bun.serve({
     return new Response(
       `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-same-origin allow-forms" allow="camera *; microphone *"></iframe><script>
   const context=${JSON.stringify(context)};window.messages=[];const frame=document.querySelector('iframe');
-  window.send=(data)=>frame.contentWindow.postMessage({contextId:context.id,...data},context.origin);
+  let port;window.send=(data)=>port.postMessage({contextId:context.id,...data});
   addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!==context.origin)return;const message=event.data;messages.push(message);
     if(message.type==='r3-preview-gate'&&message.state==='ready')frame.src=context.documentUrl;
-    if(message.type==='r3-preview-call')send({type:'r3-preview-result',id:message.id,value:{method:message.method,path:message.path}});
+    if(message.type==='r3-preview-connect'){port?.close();port=event.ports[0];port.onmessage=({data:message})=>{messages.push(message);if(message.type==='r3-preview-call')send({type:'r3-preview-result',id:message.id,value:{method:message.method,path:message.path}})}}
   });frame.src=context.gateUrl;</script>`,
       { headers: { "content-type": "text/html", "cache-control": "no-store" } },
     );
