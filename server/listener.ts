@@ -2,8 +2,8 @@
 //
 // Claude Code accepts an authenticated write to a per-session Unix socket (see
 // inbox.ts). Codex CLI 0.149+ exposes `codex queue`, which addresses a persisted
-// thread and wakes it when idle. Keep the dispatch here so the review routes and
-// the one-slot presence registry do not need harness-specific branches.
+// thread and wakes it when idle. These adapters run only in the publisher-side
+// listener; the artifact daemon never imports them or receives their credentials.
 
 import type { CodexListenerTarget, ListenerTarget } from "../shared/types.ts";
 import { probeInbox, pushToInbox, validateSocketPath } from "./inbox.ts";
@@ -16,9 +16,8 @@ export type ParsedListenerTarget =
   | { ok: true; target: ListenerTarget }
   | { ok: false; error: string };
 
-// Parse at the HTTP boundary instead of trusting the TypeScript union: older r3
-// clients omit `harness` on their Claude-shaped request, and arbitrary callers
-// can still send malformed JSON.
+// Validate locally detected harness data before using a socket or executable.
+// The remote HTTP contract carries only logical agent/session identity.
 export function parseListenerTarget(
   body: unknown,
   validateSocket: (path: string) => string | null = validateSocketPath,
@@ -59,8 +58,8 @@ const runCodexCommand: CodexCommandRunner = async (argv) => {
   return proc.exited;
 };
 
-// Registration checks capability in the daemon process that will perform the
-// later delivery. It uses the same bounded runner as the queue operation, so a
+// Registration checks capability in the publisher process that will perform
+// the later delivery. It uses the same bounded runner as the queue operation, so a
 // different PATH or a pre-0.149 binary cannot produce a false-successful listen.
 export async function listenerTransportAvailable(
   target: ListenerTarget,
@@ -97,46 +96,4 @@ export async function pushToCodexQueue(
 export async function pushToListener(target: ListenerTarget, text: string): Promise<void> {
   if (target.harness === "claude") return pushToInbox(target, text);
   return pushToCodexQueue(target, text);
-}
-
-// What either harness reads. The id and timestamp keep repeated Claude pushes
-// distinct; both transports use the same compact instruction and terminal note.
-export function nudgeText(
-  reviewId: string,
-  title: string,
-  event: "submitted" | "approved" | "abandoned",
-  opts: { now?: Date; note?: string | null } = {},
-): string {
-  const now = opts.now ?? new Date();
-  const headline =
-    event === "submitted"
-      ? "feedback submitted"
-      : event === "approved"
-        ? "approved — the loop is done"
-        : "abandoned — closed without approval";
-  const at = now.toISOString().replace(/\.\d+Z$/, "Z");
-  const lines = [`[r3] ${reviewId} — ${headline} at ${at}`, `Review: ${title}`];
-  if (event === "submitted") lines.push(`Run: r3 prompt ${reviewId}`);
-
-  // Approval is the final push, so its note must ride the nudge; the full text
-  // remains in meta.next_steps when this compact copy is truncated.
-  const note = capNote(opts.note ?? "");
-  if (note.text) {
-    lines.push("", "Next steps from the human:", note.text);
-    if (note.truncated) lines.push(`(truncated — see \`r3 show ${reviewId}\` for the full note)`);
-  }
-  return lines.join("\n");
-}
-
-export const MAX_NOTE_CHARS = 400;
-
-export function capNote(note: string): { text: string; truncated: boolean } {
-  const t = note.trim();
-  if (t.length <= MAX_NOTE_CHARS) return { text: t, truncated: false };
-  const cut = t.slice(0, MAX_NOTE_CHARS);
-  const sp = cut.search(/\s\S*$/);
-  // Honour a word boundary unless it discards most of the budget (a long run
-  // without whitespace is one token and has no useful boundary).
-  const kept = sp > MAX_NOTE_CHARS * 0.6 ? cut.slice(0, sp) : cut;
-  return { text: `${kept.trimEnd()}…`, truncated: true };
 }
