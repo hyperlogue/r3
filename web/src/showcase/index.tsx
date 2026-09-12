@@ -10,6 +10,7 @@ import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "../components/ArtifactPreviewNetworkControl.tsx";
 import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
+import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
@@ -66,6 +67,8 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
 function Feedback({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [threadOpen, setThreadOpen] = useState(false);
   const { data } = useQuery({ queryKey: ["artifact", id], queryFn: () => artifactApi.detail(id) });
   if (!data) return <p>Loading sample…</p>;
   return (
@@ -80,21 +83,35 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
-        <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[1fr_420px]">
-          <div>
+        <div className="relative min-h-[680px]">
+          <div className="pr-[calc(32px+1rem)]">
             <ArtifactSummary
               source={data.versions[0].summary}
               versionSeq={1}
               onTarget={(target) => artifactDrafts.anchor(id, target)}
               onJumpRef={() => announce("Sample file reference selected")}
             />
-            <div className="space-y-3 p-5 text-sm text-neutral-500">
+            <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
                 The panel at the right uses the current feedback UI: Active and Resolved queues,
                 native target labels, agent replies, and a local draft composer.
               </p>
-              <Button onClick={() => artifactDrafts.anchor(id, { kind: "artifact" })}>
+              <Button
+                onClick={() => {
+                  setCollapsed(false);
+                  setThreadOpen(false);
+                  artifactDrafts.anchor(id, { kind: "artifact" });
+                }}
+              >
                 Open sample composer
+              </Button>
+              <Button
+                onClick={() => {
+                  setCollapsed(true);
+                  setThreadOpen(true);
+                }}
+              >
+                Open sample anchor
               </Button>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -146,17 +163,55 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </p>
             </div>
           </div>
-          <div className="h-[620px] border-l border-neutral-300 dark:border-neutral-700">
-            <ArtifactThreads
-              detail={data}
-              context={{ versionSeq: 1, representation: "source" }}
-              onLocate={() =>
-                announce("Sample target selected — review its label and quote in the thread")
-              }
-              onJumpRef={() => announce("Sample file reference selected")}
-              keysActive={false}
-            />
+          <div
+            className="absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+            style={{ width: collapsed ? 32 : 420 }}
+          >
+            <div
+              inert={collapsed}
+              className="h-full"
+              style={{ width: 420, visibility: collapsed ? "hidden" : undefined }}
+            >
+              <ArtifactThreads
+                detail={data}
+                context={{ versionSeq: 1, representation: "source" }}
+                onLocate={() =>
+                  announce("Sample target selected — review its label and quote in the thread")
+                }
+                onJumpRef={() => announce("Sample file reference selected")}
+                keysActive={false}
+                onCollapse={() => setCollapsed(true)}
+              />
+            </div>
+            {collapsed && (
+              <Button
+                aria-label="Expand sample feedback"
+                variant="ghost"
+                className="absolute inset-0 w-full justify-center [writing-mode:vertical-rl]"
+                onClick={() => {
+                  setCollapsed(false);
+                  setThreadOpen(false);
+                }}
+              >
+                Feedback · {data.feedback.filter((feedback) => feedback.status === "open").length}
+              </Button>
+            )}
           </div>
+          {collapsed && threadOpen && data.feedback[0] && (
+            <div className="pointer-events-none absolute right-12 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-4rem)] flex-col [&>*]:pointer-events-auto">
+              <ArtifactThreadPopover
+                feedback={data.feedback[0]}
+                context={{ versionSeq: 1, representation: "source" }}
+                onLocate={() => announce("Sample target selected")}
+                onJumpRef={() => announce("Sample file reference selected")}
+                onExpand={() => {
+                  setCollapsed(false);
+                  setThreadOpen(false);
+                }}
+                onClose={() => setThreadOpen(false)}
+              />
+            </div>
+          )}
         </div>
       </div>
     </>
