@@ -140,7 +140,7 @@ const docs = artifact(
   "artifact_documents",
   "files",
   "Design a published workspace",
-  "A complete directory is published as a version. Select source text, leave feedback, and choose **Submit to agent** to see the conversation continue. This static demo stores changes in your browser; executable previews require a daemon.",
+  "A complete directory is published as a version. Select source text, leave feedback, and choose **Submit** to see the conversation continue. This static demo stores changes in your browser; executable previews require a daemon.",
 );
 const code = artifact(
   "artifact_code",

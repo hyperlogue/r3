@@ -58,25 +58,27 @@ export const artifactApi: typeof productionApi = {
   addFeedback: async (id, body, target) => demo.addFeedback(id, body, target),
   editFeedback: async (id, body) => {
     const { artifact, note } = demo.note(id);
+    const previousBody = note.body;
+    const previousStatus = note.status;
+    const previousSentAt = note.sentAt;
     if (body.body !== undefined) {
-      if (note.author.role !== "human") fail("Only the author can edit this message");
       if (!body.body.trim()) fail("Feedback requires a message");
       note.body = body.body;
-      note.sentAt = null;
     }
     if (body.status !== undefined && body.status !== note.status) {
       note.status = body.status;
-      note.statusUnsent = true;
       if (note.status === "resolved") note.claim = null;
     }
+    if (note.author.role === "human" && note.status === "open" && note.body !== previousBody)
+      note.sentAt = null;
+    note.statusUnsent ||= note.status !== previousStatus && previousSentAt !== null;
     note.updatedAt = now();
     artifact.working = artifact.feedback.some((item) => item.claim !== null);
     demo.changed(artifact.id);
     return copy(note);
   },
   deleteFeedback: async (id) => {
-    const { artifact, note } = demo.note(id);
-    if (note.author.role !== "human") fail("Only the author can delete this message");
+    const { artifact } = demo.note(id);
     artifact.feedback = artifact.feedback.filter((item) => item.id !== id);
     artifact.placements = artifact.placements.filter((item) => item.feedbackId !== id);
     artifact.working = artifact.feedback.some((item) => item.claim !== null);
@@ -106,10 +108,11 @@ export const artifactApi: typeof productionApi = {
   },
   editReply: async (id, body) => {
     const { artifact, reply } = demo.reply(id);
-    if (reply.author.role !== "human") fail("Only the author can edit this reply");
     if (!body.trim()) fail("A reply requires a message");
-    reply.body = body;
-    reply.sentAt = null;
+    if (reply.body !== body) {
+      reply.body = body;
+      if (reply.author.role === "human") reply.sentAt = null;
+    }
     demo.changed(artifact.id);
     return copy(reply);
   },
@@ -154,13 +157,13 @@ export const artifactApi: typeof productionApi = {
     return { notification: { state: "sent" } };
   },
   prompt: async (id, acknowledge = false, feedback) => {
-    const selected = acknowledge ? demo.pending(id) : demo.get(id).feedback;
+    const selected = demo.pending(id);
     const text = buildArtifactPrompt(
       demo.get(id),
       feedback ? selected.filter((item) => feedback.includes(item.id)) : selected,
-      acknowledge,
+      true,
     );
-    if (acknowledge) demo.handoff(id);
+    if (acknowledge) demo.handoff(id, feedback);
     return text;
   },
   previewPrompt: async (id) => ({ text: demo.prompt(id), fingerprint: demo.fingerprint(id) }),

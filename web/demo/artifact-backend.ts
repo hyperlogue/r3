@@ -83,8 +83,10 @@ export class ArtifactDemoBackend {
   changed(id: string, event?: ArtifactStreamEvent) {
     this.get(id).updatedAt = now();
     this.persist();
-    for (const listener of this.subscribers)
+    for (const listener of this.subscribers) {
       listener(event ?? { type: "artifact-updated", artifactId: id });
+      listener({ type: "presence-changed", artifactId: id });
+    }
   }
   target(id: string, target: ArtifactTarget) {
     const detail = this.get(id);
@@ -158,10 +160,10 @@ export class ArtifactDemoBackend {
   fingerprint(id: string) {
     return JSON.stringify(this.pending(id));
   }
-  handoff(id: string) {
+  handoff(id: string, feedback?: string[]) {
     const artifact = this.get(id);
     if (artifact.state === "archived") fail("Restore the artifact before submitting feedback", 409);
-    const notes = this.pending(id);
+    const notes = this.pending(id).filter((note) => !feedback || feedback.includes(note.id));
     const time = now();
     for (const note of notes) {
       if (note.author.role === "human") note.sentAt = time;
