@@ -14,7 +14,7 @@ export interface ArtifactAuthPolicy {
   applicationOrigins?: ReadonlySet<string>;
 }
 
-function hostOf(request: Request): string | null {
+export function artifactRequestHostname(request: Request): string | null {
   const host = request.headers.get("host");
   if (!host) return null;
   if (/[\s\\/@?#]/.test(host)) return null;
@@ -60,7 +60,7 @@ export function installArtifactAuth(
   policy: ArtifactAuthPolicy,
 ): void {
   app.use("/api/*", async (c, next) => {
-    const host = hostOf(c.req.raw);
+    const host = artifactRequestHostname(c.req.raw);
     if (host === null || !policy.allowedHost(host)) return c.json({ error: "Forbidden host" }, 403);
     if (!artifactSameOrigin(c.req.raw, policy)) return c.json({ error: "Forbidden origin" }, 403);
     c.header("X-Content-Type-Options", "nosniff");
