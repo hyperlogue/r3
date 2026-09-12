@@ -14,6 +14,7 @@ interface Capture {
   stream?: MediaStream;
   peer?: RTCPeerConnection;
   answer: boolean;
+  stoppedKinds: Set<string>;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -110,6 +111,7 @@ export class PreviewCapture {
   constructor(
     private readonly options: {
       onState: (state: PreviewCaptureState) => void;
+      onRevoked?: () => void;
       requestMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
       createPeer?: () => RTCPeerConnection;
       permissionTimeoutMs?: number;
@@ -199,9 +201,10 @@ export class PreviewCapture {
         id,
         grant,
         answer: false,
+        stoppedKinds: new Set(),
         timer: setTimeout(() => {
           if (capture && this.live(capture)) {
-            this.stop();
+            this.stop(false);
             this.error(
               grant,
               id,
@@ -228,7 +231,7 @@ export class PreviewCapture {
       clearTimeout(capture.timer);
       capture.timer = setTimeout(() => {
         if (capture && this.live(capture)) {
-          this.stop();
+          this.stop(false);
           this.error(grant, id, new DOMException("Device connection timed out", "AbortError"));
         }
       }, 15_000);
@@ -240,7 +243,10 @@ export class PreviewCapture {
       for (const track of stream.getTracks()) {
         peer.addTransceiver(track, { direction: "sendonly", streams: [stream] });
         track.addEventListener("ended", () => {
-          if (capture && this.live(capture)) this.stopKind(capture, track.kind);
+          if (capture && this.live(capture)) {
+            this.revoke();
+            this.options.onRevoked?.();
+          }
         });
       }
       peer.onconnectionstatechange = () => {
@@ -257,7 +263,7 @@ export class PreviewCapture {
         this.send(grant, { op: "offer", id, sdp: peer.localDescription!.sdp });
     } catch (error) {
       if (capture && !this.live(capture)) return;
-      if (capture) this.stop();
+      if (capture) this.stop(false);
       this.error(grant, id, error);
     }
   }
@@ -286,12 +292,14 @@ export class PreviewCapture {
       await capture.peer.setRemoteDescription({ type: "answer", sdp });
     } catch (error) {
       if (!this.live(capture)) return;
-      this.stop();
+      this.stop(false);
       this.error(capture.grant, capture.id, error);
     }
   }
 
   private stopKind(capture: Capture, kind: string): void {
+    if (capture.stoppedKinds.has(kind)) return;
+    capture.stoppedKinds.add(kind);
     for (const track of capture.stream?.getTracks() ?? []) if (track.kind === kind) track.stop();
     for (const sender of capture.peer?.getSenders() ?? [])
       if (sender.track?.kind === kind) void sender.replaceTrack(null).catch(() => {});
@@ -299,14 +307,14 @@ export class PreviewCapture {
     if (!capture.stream?.getTracks().some((track) => track.readyState === "live")) this.stop();
     else this.state(capture);
   }
-  private stop(): void {
+  private stop(notify = true): void {
     const capture = this.capture;
     this.capture = null;
     if (capture) {
       clearTimeout(capture.timer);
       for (const track of capture.stream?.getTracks() ?? []) track.stop();
       capture.peer?.close();
-      this.send(capture.grant, { op: "ended", id: capture.id });
+      if (notify) this.send(capture.grant, { op: "ended", id: capture.id });
     }
     this.state();
   }

@@ -159,6 +159,15 @@ test("device consent is checked even when the browser would grant capture", asyn
   receive(request("camera", { video: true }));
   await until(() => messages.some((message) => message.message === "Browser denied"));
   expect(calls).toBe(1);
+  expect(messages.filter((message) => message.id === "camera")).toEqual([
+    {
+      type: "r3-preview-capture",
+      op: "error",
+      id: "camera",
+      name: "NotAllowedError",
+      message: "Browser denied",
+    },
+  ]);
   source.revoke();
   receive(request("revoked", { video: true }));
   expect(calls).toBe(1);
@@ -193,6 +202,9 @@ test("capture only accepts its one receive-only answer and owns independent phys
   expect(camera.readyState).toBe("ended");
   expect(microphone.readyState).toBe("live");
   expect(peer.senders[0].track).toBeNull();
+  const notifications = messages.length;
+  receive({ type: "r3-preview-capture", op: "stop-kind", id: "capture", kind: "video" });
+  expect(messages.length).toBe(notifications);
   source.revoke();
   expect(microphone.readyState).toBe("ended");
   expect(peer.connectionState).toBe("closed");
@@ -215,5 +227,35 @@ test("a data-channel or sending answer tears down capture instead of opening a g
   expect(peer.remote).toBe(0);
   expect(camera.readyState).toBe("ended");
   expect(messages.at(-1)?.op).toBe("error");
+  source.close();
+});
+
+test("browser or OS track termination revokes consent before another request", async () => {
+  const camera = new Track("video");
+  const microphone = new Track("audio");
+  const messages: Record<string, unknown>[] = [];
+  let revoked = 0;
+  let requests = 0;
+  const source = new PreviewCapture({
+    onState: () => {},
+    onRevoked: () => {
+      revoked++;
+    },
+    requestMedia: async () => {
+      requests++;
+      return stream(camera, microphone);
+    },
+    createPeer: () => new Peer() as unknown as RTCPeerConnection,
+  });
+  const receive = source.bind((message) => messages.push(message), both);
+  receive(request("capture"));
+  await until(() => messages.some((message) => message.op === "offer"));
+  camera.readyState = "ended";
+  camera.dispatchEvent(new Event("ended"));
+  expect(microphone.readyState).toBe("ended");
+  expect(revoked).toBe(1);
+  receive(request("restart"));
+  expect(messages.at(-1)?.name).toBe("NotAllowedError");
+  expect(requests).toBe(1);
   source.close();
 });
