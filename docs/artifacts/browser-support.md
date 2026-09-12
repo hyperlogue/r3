@@ -67,3 +67,8 @@ is a complete network firewall. It does not itself establish browser compatibili
 the full release/platform matrix above still requires execution. See the
 [security model](../../.claude/skills/security-model/SKILL.md) and
 [executable verification guide](verification.md) for the protocol and evidence.
+
+As of September 12, 2026, the user reports that the HTTPS deployment check passed.
+The full six-month browser/platform matrix and Firefox/Safari device-capture
+acceptance are explicitly deferred while UI polishing proceeds. They remain open
+acceptance work; the support requirement above is unchanged.
