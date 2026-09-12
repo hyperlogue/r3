@@ -1,13 +1,12 @@
-// Domain model + HTTP/JSON contract (server, CLI, SPA).
+// The current HTTP contract is artifacts.ts, re-exported below. This file also
+// retains shared rendering primitives and legacy review shapes for fixture and
+// migration adapters. Legacy route comments do not describe active endpoints.
 
 export * from "./artifacts.ts";
 
 export type ReviewKind = "diff" | "files";
 export type ReviewStatus = "open" | "approved" | "abandoned";
-// Runtime twin of ReviewStatus. A review's status is a state machine `r3 watch`
-// branches its exit code on, so an unrecognized value doesn't just look wrong —
-// it makes the loop take the "abandoned" branch and stops the watcher tracking
-// the review's files. Validate it at the edge rather than trusting the cast.
+// Legacy status validator. Current lifecycle and watch use active/archived.
 export const REVIEW_STATUSES = ["open", "approved", "abandoned"] as const;
 export const isReviewStatus = (v: unknown): v is ReviewStatus =>
   typeof v === "string" && (REVIEW_STATUSES as readonly string[]).includes(v);

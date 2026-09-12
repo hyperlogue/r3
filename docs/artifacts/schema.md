@@ -2,7 +2,7 @@
 
 [Executable SQLite DDL](../../server/artifact-schema.ts) · [Approved design](design.md)
 
-This is the approved destination schema for one human owner and multiple agents, including remote publishers. Multi-user accounts and permissions are non-goals. Destination creation and legacy migration are tested with isolated stores, including recovery after a process interruption. The running daemon still uses the legacy protocol until client cutover.
+This is the approved destination schema for one human owner and multiple agents, including remote publishers. Multi-user accounts and permissions are non-goals. Destination creation and legacy migration are tested with isolated stores, including recovery after a process interruption. The daemon, CLI, browser, and static demo now use the artifact protocol.
 
 The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Feedback and Reply keep their existing separate lifecycles.
 
@@ -139,7 +139,7 @@ published_at is the visibility and finalization marker. A version starts with it
 
 1. Receive and validate the complete publication. Verify original byte hashes, paths, sizes, patch syntax or directory shape, and required Markdown renderings. Atomically install immutable blobs before referencing them from committed SQL rows.
 2. Begin an IMMEDIATE transaction. Look up the artifact's publication_key first: a matching retry returns the original version; reuse with a different canonical publication digest conflicts.
-3. For a new publication, check active state and compare the caller's expected sequence with next_seq - 1. Advance next_seq and use the allocated sequence for the new row.
+3. For a new publication, check active state and compare the caller's expected sequence with the latest published sequence (zero if none). Advance next_seq and use the allocated sequence for the new row.
 4. Insert the unpublished version, blob metadata, and all version_files. The file_count records the expected complete membership and must be positive for both files and html.
 5. Set published_at. The finalization trigger checks active state, complete file count, and HTML entrypoint membership. Commit; only then broadcast the publication event.
 
@@ -150,11 +150,18 @@ UPDATE artifacts
 SET next_seq = next_seq + 1
 WHERE id = :artifact_id
   AND state = 'active'
-  AND next_seq = :expected_seq + 1
+  AND COALESCE((
+    SELECT MAX(seq) FROM artifact_versions
+    WHERE artifact_id = :artifact_id AND published_at IS NOT NULL
+  ), 0) = :expected_seq
 RETURNING next_seq - 1 AS allocated_seq;
 ```
 
-A zero-row result is a conflict or an archived/missing artifact, which the server distinguishes. The expected sequence is the last allocated publication sequence. Published versions are never hidden or individually deleted; any gaps inherited from migration stay reserved. The server must never commit an unfinished publication. A crash before commit rolls back its SQL allocation and membership; any unreferenced installed bytes are eligible for later cleanup.
+The allocated sequence can exceed `expectedSeq + 1`: migration reserves identities
+from missing historical rounds. The comparison uses visible publication history;
+allocation uses the never-reused sequence counter.
+
+A zero-row result is a conflict or an archived/missing artifact, which the server distinguishes. The expected sequence is the latest published sequence, independent of reserved migration gaps. Published versions are never hidden or individually deleted; any gaps inherited from migration stay reserved. The server must never commit an unfinished publication. A crash before commit rolls back its SQL allocation and membership; any unreferenced installed bytes are eligible for later cleanup.
 
 content_hash is the digest of a canonical submitted publication: kind, sorted paths and original byte hashes/media types, entrypoint or patch bytes, and submitted label/summary/provenance. It excludes assigned sequence, server timestamps, and server-generated rendering output. Persisted rendering hashes identify those outputs separately. The publication module owns this canonicalization so retries remain stable across render upgrades.
 
