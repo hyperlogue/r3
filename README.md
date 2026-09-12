@@ -151,15 +151,31 @@ history-route fallback, dependency installation, and backend hosting are outside
 this feature.
 
 Each document runs in an opaque-origin sandbox with URL access scoped to one version. Local resources support
-fetch, XHR, modules, and media range requests. External resources, APIs, sockets,
+fetch, XHR, modules, and media range requests. By default external resources, APIs, sockets,
 forms that navigate, and access to unrelated artifacts or application endpoints
 are blocked. Bundle assets locally instead of loading a CDN.
 
-Rendering requires a browser that passes r3's Connection Allowlist and WebRTC
+Protected rendering requires a browser that passes r3's Connection Allowlist and WebRTC
 blocking checks. Acceptance tests pass in Chrome for Testing 153.0.8010.36;
 Chromium 151 is refused before loading published content. Unsupported browsers
-still support source, diff, and download workflows. Persistent storage, workers,
-nested frames, camera, and microphone are unavailable in the opaque sandbox.
+still support source, diff, and download workflows. Protected previews deny persistent
+storage, workers, nested frames, camera, and microphone.
+
+HTML artifacts offer **Allow external connections**, with a confirmation before
+reloading the preview. This lets pages load external dependencies and call APIs
+directly, subject to browser CORS. It also lets them send their published files,
+your input, and this artifact's conversations elsewhere. Enable it only for trusted
+content. An indicator stays visible with **Block external connections**; switching
+versions or leaving the preview resets the choice. Blocking again cannot undo data
+already sent. The sandbox, r3 authentication, and camera/microphone restrictions
+remain enforced. File and diff artifacts have no opt-out.
+
+External mode also permits navigation to external pages. These keep the iframe's
+sandbox and device restrictions, but can use workers and nested frames that the
+r3-served document's CSP blocks.
+
+Browsers lacking Connection Allowlist support can render HTML after this explicit
+opt-out if they pass the remaining isolation checks. r3 never falls back automatically.
 
 Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
 `createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`, and

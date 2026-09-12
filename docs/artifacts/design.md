@@ -216,7 +216,8 @@ assets and dependencies. The preview is not an upstream proxy.
 The server combines opaque document origins, scoped URL capabilities,
 CSP/sandbox policy, and Connection Allowlists. Before loading executable content, a capability gate
 verifies URL blocking and WebRTC rejection. Unsupported protected rendering fails closed.
-Persistent storage, workers, nested frames, camera, and microphone are unavailable.
+Persistent storage, workers, nested frames, camera, and microphone are unavailable
+in protected previews.
 Granting a device permission to the transport origin cannot enable capture.
 
 Only HTML artifacts offer **Allow external connections** in trusted workspace UI.
@@ -231,8 +232,11 @@ individual HTML or Markdown file.
 External mode permits direct browser networking and skips only the network-blocking
 gate checks, allowing browsers without Connection Allowlist support after consent.
 CORS still applies. Opaque sandbox isolation, application authentication, scoped
-content and bridge access, and denied workers, nested frames, forms, and devices
-remain enforced. Network mode belongs to the temporary preview context, never to
+content and bridge access, and denied forms and devices remain enforced. CSP still
+denies workers and nested frames in r3-served documents. External self-navigation
+can load a replacement with workers and nested frames, inheriting the iframe
+sandbox and device policy but not the preceding response's CSP. Network mode
+belongs to the temporary preview context, never to
 artifact metadata or a publication. The preview remains independent of any backend.
 
 The [security reference](../../.claude/skills/security-model/SKILL.md#preview-host)

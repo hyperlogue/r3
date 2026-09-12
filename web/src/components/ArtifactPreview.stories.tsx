@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, within } from "storybook/test";
+import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureVersion } from "../artifact-fixtures.ts";
 import { ArtifactPreview } from "./ArtifactPreview.tsx";
@@ -8,7 +10,7 @@ const meta = {
   component: ArtifactPreview,
   args: {
     detail: artifactFixture,
-    version: artifactFixtureVersion,
+    version: artifactFixtureVersion as ArtifactVersion,
     path: "index.md",
     commenting: false,
     jump: null,
@@ -59,5 +61,35 @@ export const Opening: Story = {
     return () => {
       artifactApi.createPreview = original;
     };
+  },
+};
+
+export const HtmlProtection: Story = {
+  args: {
+    detail: { ...artifactFixture, kind: "html" },
+    version: { ...artifactFixtureVersion, kind: "html", entrypoint: "index.md", fileCount: 1 },
+  },
+};
+
+export const HtmlConsent: Story = {
+  ...HtmlProtection,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Allow external connections" }));
+    await expect(canvas.getByRole("dialog")).toBeVisible();
+  },
+};
+
+export const HtmlExternalConnections: Story = {
+  ...HtmlProtection,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Allow external connections" }));
+    await userEvent.click(
+      within(canvas.getByRole("dialog")).getByRole("button", {
+        name: "Allow external connections",
+      }),
+    );
+    await expect(canvas.getByText("External connections allowed for this version")).toBeVisible();
   },
 };

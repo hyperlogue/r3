@@ -1,14 +1,26 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { type ArtifactPreviewContext, artifactMediaKind } from "../../../shared/artifacts.ts";
+import {
+  type ArtifactPreviewContext,
+  type ArtifactPreviewNetwork,
+  artifactMediaKind,
+} from "../../../shared/artifacts.ts";
 import type { PreviewDisplay } from "../../../shared/preview-protocol.ts";
 import { artifactApi } from "../artifact-api.ts";
 import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
 import { previewBridgeCall, previewLocator } from "../preview-bridge.ts";
 import { Button } from "../ui.tsx";
+import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
+  // A grant belongs only to this visit to a publication. Returning to an older
+  // version must not restore its previous exception, even for the same path.
+  return <VersionPreview key={`${props.detail.id}:${props.version.seq}`} {...props} />;
+}
+
+function VersionPreview(props: ArtifactRenderedPaneProps) {
   const [attempt, retry] = useState(0);
+  const [network, setNetwork] = useState<ArtifactPreviewNetwork>("blocked");
   const files = useQuery({
     queryKey: ["artifact-files", props.detail.id, props.version.seq],
     queryFn: () => artifactApi.files(props.detail.id, props.version.seq),
@@ -17,17 +29,27 @@ export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
   const file = files.data?.find((file) => file.path === props.path);
   const media = !!file && !!artifactMediaKind(file.mediaType);
   return (
-    <PreviewSession
-      key={`${props.detail.id}:${props.version.seq}:${media ? props.path : "document"}:${attempt}`}
-      {...props}
-      paths={files.data?.map((file) => file.path) ?? []}
-      onRetry={() => retry((value) => value + 1)}
-    />
+    <div className="flex min-h-80 flex-1 flex-col" data-artifact-preview>
+      {props.detail.kind === "html" && (
+        <ArtifactPreviewNetworkControl network={network} onChange={setNetwork} />
+      )}
+      <PreviewSession
+        key={`${media ? props.path : "document"}:${network}:${attempt}`}
+        {...props}
+        network={network}
+        paths={files.data?.map((file) => file.path) ?? []}
+        onRetry={() => retry((value) => value + 1)}
+      />
+    </div>
   );
 }
 
 function PreviewSession(
-  props: ArtifactRenderedPaneProps & { paths: string[]; onRetry: () => void },
+  props: ArtifactRenderedPaneProps & {
+    paths: string[];
+    network: ArtifactPreviewNetwork;
+    onRetry: () => void;
+  },
 ) {
   const qc = useQueryClient();
   const [initialPath] = useState(props.path);
@@ -44,6 +66,7 @@ function PreviewSession(
   current.current = props;
   const id = props.detail.id;
   const seq = props.version.seq;
+  const network = props.network;
 
   useEffect(() => {
     let closed = false;
@@ -67,7 +90,7 @@ function PreviewSession(
       }
     };
     void artifactApi
-      .createPreview(id, seq, initialPath)
+      .createPreview(id, seq, initialPath, network)
       .then((value) => {
         grant = value;
         if (closed) {
@@ -93,7 +116,7 @@ function PreviewSession(
       document.removeEventListener("visibilitychange", resume);
       if (grant) void artifactApi.revokePreview(grant.id).catch(() => {});
     };
-  }, [id, seq, initialPath]);
+  }, [id, seq, initialPath, network]);
 
   useEffect(() => {
     if (!context) return;
@@ -280,7 +303,7 @@ function PreviewSession(
   }, [context, ready, seq, props.commenting, props.targets, props.jump, props.path, props.detail]);
 
   return (
-    <div className="relative flex min-h-80 flex-1 flex-col bg-white" data-artifact-preview>
+    <div className="relative flex min-h-80 flex-1 flex-col bg-white">
       {error ? (
         <div role="alert" className="p-6 text-sm text-neutral-700">
           <p>{error}</p>

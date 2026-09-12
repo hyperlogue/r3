@@ -98,7 +98,7 @@ navigation is refused; rendering belongs inside the workspace. Browsers without
 credentialless iframe support still enforce the opaque sandbox and application
 origin guards; do not claim they omit transport cookies.
 
-Before published bytes become available, a trusted gate verifies its opaque
+In the default blocked mode, before published bytes become available, a trusted gate verifies its opaque
 origin, an allowed fetch, blocking of a working endpoint outside the allowlist,
 and WebRTC rejection with no ICE servers and relay-only transport. Both fetch
 probe endpoints permit credential-free CORS, so a CORS failure cannot stand in
@@ -123,7 +123,9 @@ renewal only extends expiry. Switching policy requires a new context and revocat
 of the preceding one. No artifact metadata, publication, or publisher script can
 change the browser's choice. The trusted workspace asks for confirmation, keeps
 an external-connections indicator visible, and resets the choice on version change
-or leaving the preview. It does not persist a grant.
+or leaving the preview. It does not persist a grant. Reload/tab close starts the
+next visit protected, but does not guarantee React cleanup or server revocation;
+an abandoned URL capability can remain valid until expiry.
 
 External mode omits Connection Allowlist and WebRTC blocking and permits HTTP(S)
 resources and HTTP(S)/WS(S) connections in CSP. Browser CORS and mixed-content rules
@@ -131,8 +133,15 @@ still apply; r3 never proxies requests. Its trusted gate still checks secure con
 opaque origin, reachability, and the single-use proof, but skips network-blocking
 probes. This supports browsers lacking Connection Allowlist only after explicit
 consent. Both iframe and CSP sandbox, application auth/origin checks, document-bound
-bridge, resource membership, denied workers/frames/forms, and camera/microphone
-denial remain mandatory. Device consent is not a network exception.
+bridge, resource membership, and camera/microphone denial remain mandatory.
+The r3-served document still denies workers and nested frames through CSP. External
+self-navigation is permitted in this mode; its replacement keeps the iframe's
+opaque sandbox, denied forms/popups/top navigation, and device policy, but does
+not inherit the preceding response's worker/frame CSP. An external replacement
+can start blob workers and nested sandboxed frames. Do not describe those CSP
+restrictions as persistent across external navigation. The same parent/storage
+isolation and application API guards protect r3 throughout. Device consent is
+not a network exception.
 
 This exception permits exfiltration of the selected publication's files, user input,
 and all conversations the same-artifact utility exposes, including other versions'

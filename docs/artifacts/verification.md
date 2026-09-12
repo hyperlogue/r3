@@ -42,8 +42,10 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-network.ts
 R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" bun scripts/test-preview-isolation.ts
 R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/test-preview-browser.ts
+R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/test-preview-network.ts
 ```
 
 | Script | Acceptance boundary |
@@ -52,6 +54,7 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |
+| `test-preview-network.ts` | HTML-only network control and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering |
 | `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, two opaque frames on the application address, parent/sibling/storage and cookie isolation, denied workers and frames, blocked external resources/navigation/redirects/sockets/WebRTC, and denied capture even after a transport-origin device grant |
 
 The permission test uses synthetic devices and browser permission overrides. It
