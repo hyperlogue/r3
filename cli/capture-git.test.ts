@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateStoredPatch } from "../server/patch-content.ts";
@@ -25,6 +25,23 @@ afterEach(async () => {
 });
 
 describe("publisher git capture", () => {
+  test("working capture from a subdirectory keeps complete repository paths", async () => {
+    await mkdir(join(root, "sub"));
+    await writeFile(join(root, "sub", "tracked.ts"), "before\n");
+    await git("add", "sub/tracked.ts");
+    await writeFile(join(root, "sub", "tracked.ts"), "after\n");
+    await writeFile(join(root, "readme.md"), "# Modified\n");
+    await writeFile(join(root, "root-new.txt"), "root addition\n");
+    await writeFile(join(root, "sub", "sub-new.txt"), "nested addition\n");
+    await git("config", "diff.relative", "true");
+    const patch = await captureGitDiff(join(root, "sub"), "STAGED", "WORKING");
+    expect(
+      validateStoredPatch(patch)
+        .map((file) => file.path)
+        .sort(),
+    ).toEqual(["readme.md", "root-new.txt", "sub/sub-new.txt", "sub/tracked.ts"]);
+    expect(patch).toBe(await captureGitDiff(root, "STAGED", "WORKING"));
+  });
   test("publishes staged and working additions before the first commit", async () => {
     await writeFile(join(root, "readme.md"), "# Working before first commit\n");
     const staged = await captureGitDiff(root, "HEAD", "STAGED");

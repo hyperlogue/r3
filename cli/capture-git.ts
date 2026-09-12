@@ -186,12 +186,17 @@ export async function captureGitFiles(
 export async function captureGitDiff(root: string, base: string, head: string): Promise<string> {
   safePublisherRef(base);
   safePublisherRef(head);
+  // Both tracked and untracked patches must use the complete worktree and
+  // repository-relative paths, regardless of where the publisher invoked r3.
+  if (head === "WORKING" || head === "STAGED")
+    root = (await git(root, ["rev-parse", "--show-toplevel"])).toString().trimEnd();
   const baseRevision = base === "STAGED" ? null : await baseTree(root, base);
   const headTree = head === "WORKING" || head === "STAGED" ? null : await tree(root, head);
   if (base === "STAGED" && head !== "WORKING")
     throw new CaptureError("A staged base requires a working-tree head");
   const args = [
     "diff",
+    "--no-relative",
     "--no-color",
     "--no-ext-diff",
     "--no-textconv",
