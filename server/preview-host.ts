@@ -178,10 +178,19 @@ export class PreviewHost {
     response.headers.set("cache-control", "no-store");
     for (const name of ["etag", "content-length", "accept-ranges"]) response.headers.delete(name);
     if (request.method === "HEAD") return response;
+    let injected = false;
+    const runtime = '<script src="/r3/runtime.js"></script>';
     return new HTMLRewriter()
+      .on("*", {
+        element(element) {
+          if (injected || element.tagName === "html") return;
+          injected = true;
+          element.before(runtime, { html: true });
+        },
+      })
       .onDocument({
         end(end) {
-          end.append('<script src="/r3/runtime.js"></script>', { html: true });
+          if (!injected) end.append(runtime, { html: true });
         },
       })
       .transform(response);

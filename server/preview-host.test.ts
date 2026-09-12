@@ -173,8 +173,8 @@ test("published resources retain bytes, native MIME, private validators, and ran
 test("document navigation uses retained Markdown and injects only the r3 runtime", async () => {
   const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
   const body = await document.text();
-  expect(body).toContain(html);
-  expect(body).toEndWith('<script src="/r3/runtime.js"></script>');
+  expect(body.replace('<script src="/r3/runtime.js"></script>', "")).toBe(html);
+  expect(body.indexOf("/r3/runtime.js")).toBeLessThan(body.indexOf("<head>"));
   expect(document.headers.get("cache-control")).toBe("no-store");
   expect(document.headers.get("content-security-policy")).toContain(
     "frame-ancestors https://app.example",
