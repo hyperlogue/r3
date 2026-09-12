@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 // Real browser acceptance uses a caller-supplied Chromium executable. No package
 // download, browser installation, user profile, or running daemon is involved.
-export async function openTestBrowser() {
+export async function openTestBrowser(flags: string[] = []) {
   const executable = process.env.R3_TEST_BROWSER;
   if (!executable) throw new Error("Set R3_TEST_BROWSER to a Chromium executable");
   const profile = await mkdtemp(join(tmpdir(), "r3-browser-"));
@@ -18,6 +18,7 @@ export async function openTestBrowser() {
       "--disable-dev-shm-usage",
       "--remote-debugging-port=0",
       `--user-data-dir=${profile}`,
+      ...flags,
       "about:blank",
     ],
     { stdout: "ignore", stderr: "ignore" },
@@ -41,6 +42,8 @@ export async function openTestBrowser() {
     pending.clear();
     socket?.close();
     browser.kill();
+    await Promise.race([browser.exited, Bun.sleep(1000)]);
+    if (browser.exitCode === null) browser.kill("SIGKILL");
     await browser.exited;
     await rm(profile, { recursive: true, force: true });
   };
@@ -123,7 +126,17 @@ export async function openTestBrowser() {
         }),
       };
     };
-    return { send, attach, close };
+    return {
+      send,
+      attach,
+      close,
+      listen: (listener: (event: any) => void) => {
+        events.add(listener);
+        return () => {
+          events.delete(listener);
+        };
+      },
+    };
   } catch (error) {
     await close();
     throw error;
