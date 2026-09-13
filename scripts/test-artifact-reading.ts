@@ -343,7 +343,7 @@ try {
           ),
         "reopening restores floating mode",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Expand feedback\"]').click()");
+      await page.evaluate("document.querySelector('[aria-label=\"Dock feedback\"]').click()");
       await eventually(
         async () =>
           Number(
@@ -446,7 +446,7 @@ try {
     "late hydration cannot steal a newer file selection",
   );
   for (const mode of ["floating", "expanded"] as const) {
-    const control = mode === "floating" ? "Float feedback" : "Expand feedback";
+    const control = mode === "floating" ? "Float feedback" : "Dock feedback";
     await page.evaluate(`document.querySelector('[aria-label="${control}"]')?.click()`);
     await eventually(
       () =>

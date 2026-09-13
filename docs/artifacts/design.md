@@ -171,8 +171,7 @@ The desktop feedback panel has three persisted display states:
 
 Hidden and floating reserve no content space, so switching between them or resizing
 the floating panel never changes content or preview width. Expanded reserves the
-panel's width and resizes content with it. Visible panels have one control to switch
-between expanded and floating. The desktop navbar button or `p` hides the panel or
+panel's width and resizes content with it. Visible panels offer **Float feedback** / **Dock feedback** and **Hide feedback**. The desktop navbar button or `p` hides the panel or
 restores the last visible mode. That choice persists across reloads. All states keep
 the panel mounted to preserve UI state and drafts. Existing folded preferences become
 hidden and reopen expanded if no visible-mode preference was saved.
