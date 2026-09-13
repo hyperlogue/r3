@@ -215,3 +215,8 @@ export const PreviewSecurityMenu: Story = {
     await expect(canvas.getByText("External connections blocked. No device access.")).toBeVisible();
   },
 };
+
+export const PhonePreviewSecurity: Story = {
+  ...PreviewSecurityMenu,
+  parameters: phoneViewport(),
+};

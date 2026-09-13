@@ -192,10 +192,11 @@ try {
         ).length === 3,
     );
     assert.equal(await mediaPage.locator("dialog[open]").count(), 0);
+    await mediaPage.getByRole("button", { name: "Artifact details and actions" }).click();
     assert.equal(
       await mediaPage.getByRole("button", { name: /^Preview security:/ }).count(),
       1,
-      "concurrent previews share one nav security indicator",
+      "concurrent previews share one security row in the artifact menu",
     );
     assert.equal(
       await mediaPage.locator("[data-preview-security]").getAttribute("data-preview-security"),
@@ -310,6 +311,8 @@ try {
       externalRequests > beforeNavigation,
       "external self-navigation is an acknowledged compatibility gap",
     );
+    if (!(await page.getByRole("dialog", { name: "Artifact details", exact: true }).isVisible()))
+      await page.getByRole("button", { name: "Artifact details and actions" }).click();
     await page.locator("[data-preview-security] > button[aria-expanded]").click();
     await page
       .getByText(/pages reached through navigation may have no network restrictions/)
@@ -328,7 +331,7 @@ try {
   assert.equal(await warning.count(), 0, "no repeated warning after acknowledgment");
   assert.equal(grants.at(-1)!.network, unsupported ? "compatible" : "blocked");
   await page.getByRole("button", { name: "Published version" }).click();
-  await page.locator('[data-version-seq="2"]').click();
+  await page.getByRole("option", { name: "Version 2", exact: true }).click();
   await waitForContent(2);
   assert.equal(await warning.count(), 0);
   assert.equal(grants.at(-1)!.network, unsupported ? "compatible" : "blocked");
@@ -341,6 +344,8 @@ try {
       .getByRole("heading", { name: "Version 1" })
       .waitFor();
     const old = grants.at(-1)!;
+    if (!(await page.getByRole("dialog", { name: "Artifact details", exact: true }).isVisible()))
+      await page.getByRole("button", { name: "Artifact details and actions" }).click();
     await page.locator("[data-preview-security] > button[aria-expanded]").click();
     await page.getByRole("button", { name: "Forget browser choice" }).click();
     await page.getByRole("button", { name: "Review browser risk" }).waitFor();
@@ -366,8 +371,12 @@ try {
     if (screenshot) await page.screenshot({ path: screenshot.replace(/\.png$/, "-warning.png") });
     await warning.getByRole("button", { name: "Accept risk and continue" }).click();
     await waitForContent(2);
+    if (!(await page.getByRole("dialog", { name: "Artifact details", exact: true }).isVisible()))
+      await page.getByRole("button", { name: "Artifact details and actions" }).click();
     await page.locator("[data-preview-security] > button[aria-expanded]").click();
     if (screenshot) await page.screenshot({ path: screenshot.replace(/\.png$/, "-details.png") });
+    if (!(await page.getByRole("dialog", { name: "Artifact details", exact: true }).isVisible()))
+      await page.getByRole("button", { name: "Artifact details and actions" }).click();
     await page.locator("[data-preview-security] > button[aria-expanded]").click();
   }
 

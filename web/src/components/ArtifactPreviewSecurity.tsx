@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { type PreviewSecurityState, previewSecuritySummary } from "../preview-security.ts";
-import { Button, cn, StrokeIcon } from "../ui.tsx";
+import { Button, ChevronDown, cn, StrokeIcon } from "../ui.tsx";
 
 type Entry = PreviewSecurityState & { path: string; controls: ReactNode };
 function createRegistry() {
@@ -115,8 +115,13 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
             <path d="M12 8v5m0 3h.01" />
           )}
         </StrokeIcon>
-        <span className="flex-1">Preview security</span>
-        <span>{summary.label}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">Preview security</span>
+          <span className="block">{summary.label}</span>
+        </span>
+        <ChevronDown
+          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")}
+        />
       </button>
       <span role="status" className="sr-only">
         {summary.label}
