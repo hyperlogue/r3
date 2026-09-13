@@ -33,6 +33,8 @@ export interface PreviewPageContext {
 }
 
 export interface PreviewDisplay {
+  // r3 appearance for retained Markdown; authored HTML retains its own styling.
+  theme?: PreviewTheme;
   commenting: boolean;
   targets: { feedbackId: string; locator: RenderedLocator | null }[];
   jump: { locator: RenderedLocator | null; nonce: number } | null;

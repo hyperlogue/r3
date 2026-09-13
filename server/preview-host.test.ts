@@ -245,3 +245,12 @@ test("preview hosting never serves application routes, another version, service 
   host.revoke(context.id);
   expect((await read("/files/index.html")).status).toBe(404);
 });
+
+test("only retained Markdown receives the workspace appearance adapter", async () => {
+  const markdown = await read("/files/notes.md", { "sec-fetch-dest": "iframe" });
+  expect(await markdown!.text()).toContain("<script data-r3-markdown src=");
+  const authored = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
+  expect(await authored!.text()).not.toContain("data-r3-markdown");
+  const source = await read("/files/notes.md");
+  expect(await source!.text()).toBe("# Original Markdown");
+});

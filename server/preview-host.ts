@@ -213,7 +213,7 @@ export class PreviewHost {
     let injected = false;
     // Retain the established utility import without rewriting publisher assets.
     const imports = JSON.stringify({ imports: { "/r3/utility.js": `${root}/r3/utility.js` } });
-    const runtime = `<script type="importmap">${imports}</script><script src="${root}/r3/runtime.js"></script>`;
+    const runtime = `<script type="importmap">${imports}</script><script${file.renderedHash ? " data-r3-markdown" : ""} src="${root}/r3/runtime.js"></script>`;
     return new HTMLRewriter()
       .on("*", {
         element(element) {

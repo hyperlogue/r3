@@ -137,3 +137,7 @@ a reload. Selecting a source anchor
 with the panel hidden opens one thread, and dismissing/reopening it
 preserves its reply draft. Workspace and popover stories expose the same states
 for visual review; mobile keeps its sheet.
+
+Rendered Markdown appearance: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-markdown-theme.ts`
+checks the real workspace and preview boundary in all four system/r3 theme combinations,
+including live theme changes, retained syntax colors, and unchanged authored HTML.

@@ -9,8 +9,10 @@ import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
   PreviewDisplay,
+  PreviewTheme,
 } from "../../../shared/preview-protocol.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { useDarkTheme } from "../hooks.ts";
 import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
 import { previewBridgeCall, previewLocator } from "../preview-bridge.ts";
 import { PreviewCapture } from "../preview-capture.ts";
@@ -194,6 +196,9 @@ function PreviewSession(
   },
 ) {
   const qc = useQueryClient();
+  const dark = useDarkTheme();
+  const theme = useRef<PreviewTheme>(dark ? "dark" : "light");
+  theme.current = dark ? "dark" : "light";
   const [initialPath] = useState(props.path);
   const [context, setContext] = useState<ArtifactPreviewContext | null>(null);
   const [src, setSrc] = useState("");
@@ -312,6 +317,7 @@ function PreviewSession(
     const display = () => {
       const props = current.current;
       const value: PreviewDisplay = {
+        theme: theme.current,
         commenting: props.commenting && context.presentation === "document",
         targets: props.targets.flatMap(({ feedbackId, target }) =>
           target.kind === "rendered" &&
@@ -522,6 +528,7 @@ function PreviewSession(
     const send = (value: Record<string, unknown>) =>
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display: PreviewDisplay = {
+      theme: dark ? "dark" : "light",
       commenting: props.commenting && context.presentation === "document",
       targets: props.targets.flatMap(({ feedbackId, target }) =>
         target.kind === "rendered" && target.versionSeq === seq && target.path === props.path
@@ -532,7 +539,17 @@ function PreviewSession(
     };
     send({ type: "r3-preview-display", display });
     send({ type: "r3-preview-changed" });
-  }, [context, ready, seq, props.commenting, props.targets, props.jump, props.path, props.detail]);
+  }, [
+    context,
+    ready,
+    seq,
+    props.commenting,
+    props.targets,
+    props.jump,
+    props.path,
+    props.detail,
+    dark,
+  ]);
 
   return (
     <div

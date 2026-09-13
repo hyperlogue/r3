@@ -140,6 +140,11 @@ The browser pins the displayed version. A new publication is announced with an
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
+Rendered Markdown follows r3’s selected light/dark appearance, including its syntax
+palette. Trusted preview support applies explicit text/background colors and adapts
+legacy OS-dependent palette rules in memory; retained document bytes stay immutable.
+Authored HTML keeps its own appearance.
+
 Workspace containers follow the layer rules in `AGENTS.md`. Menus and notices use
 compact elevation; floating conversations/composers and dialogs use broader shadows.
 Mobile sheets cast upward and retain their intentional rounded top corners. The
