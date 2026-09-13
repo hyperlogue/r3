@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from "react";
+import { compareFilePaths } from "../file-order.ts";
 import { Collapse, cn, FoldChevrons, FoldTriangle } from "../ui.tsx";
 
 // Directory-tree file list for the current review.
@@ -102,8 +103,8 @@ function TreeDir({
   // every activePath change while you scroll, and a deep review would re-sort
   // every directory on the way down each time. The node is rebuilt only when
   // the file list changes, which is exactly when the order can differ.
-  const dirNames = useMemo(() => [...node.dirs.keys()].sort(), [node]);
-  const files = useMemo(() => [...node.files].sort(), [node]);
+  const dirNames = useMemo(() => [...node.dirs.keys()].sort(compareFilePaths), [node]);
+  const files = useMemo(() => [...node.files].sort(compareFilePaths), [node]);
   const pad = (d: number) => ({ paddingLeft: `${d * 0.75}rem` });
 
   return (

@@ -1,14 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import type { ArtifactDetail, ArtifactMessageContext } from "../../shared/artifacts.ts";
+import type {
+  ArtifactDetail,
+  ArtifactFile,
+  ArtifactMessageContext,
+} from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
 import { useArtifactViewed } from "./artifact-hooks.ts";
 import { artifactRegions, visibleArtifactTargets } from "./artifact-navigation.ts";
 import { type ArtifactViewSelection, selectedArtifactVersion } from "./artifact-version.ts";
 import type { FetchContext } from "./components/DiffView.tsx";
+import { compareFilePaths } from "./file-order.ts";
 import { useSyntaxTheme } from "./settings.ts";
 import type { PatchDiff } from "./types.ts";
 import { diffViewedKey, fileViewedKey } from "./viewed.ts";
+
+const filesInTreeOrder = (files: ArtifactFile[]) =>
+  files.toSorted((left, right) => compareFilePaths(left.path, right.path));
 
 // All content reads are keyed by the publication and representation. Metadata
 // invalidation never replaces immutable source, patch, or retained document bytes.
@@ -25,6 +33,7 @@ export function useArtifactContent(
     queryKey: ["artifact-files", detail.id, version?.seq],
     queryFn: () => artifactApi.files(detail.id, version!.seq),
     enabled: !!version && detail.kind !== "diff",
+    select: detail.kind === "files" ? filesInTreeOrder : undefined,
     staleTime: Infinity,
   });
   const diffQuery = useQuery({

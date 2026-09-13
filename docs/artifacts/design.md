@@ -27,6 +27,10 @@ specializes the workspace: the entrypoint and its linked pages determine how the
 reader encounters supporting files. The CLI/API can still retrieve those files.
 Neither directory kind offers a diff view.
 
+Files artifacts use the file panel's tree order throughout the content stack and
+file navigation: visit folders before files at each level, sorting siblings
+alphabetically. Folding a folder in the panel does not reorder or hide its content.
+
 A diff keeps its sparse patch payload. Removed lines, hunk gaps, rename metadata,
 and binary markers cannot be represented by a fabricated complete directory.
 Publication order does not imply patch application: version 2 need not apply on

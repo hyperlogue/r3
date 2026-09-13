@@ -143,6 +143,50 @@ const meta = {
 } satisfies Meta<typeof ArtifactWorkspace>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+const treePaths = [
+  "README.md",
+  "src/index.ts",
+  "docs/intro.md",
+  "src/lib/z.ts",
+  "src/lib/a.ts",
+  "docs/api.md",
+  "src/A.ts",
+  "LICENSE",
+];
+export const TreeOrderedFiles: Story = {
+  args: {
+    detail: {
+      ...detail,
+      feedback: [],
+      versions: [
+        { ...artifactFixtureVersion, kind: "files", entrypoint: null, fileCount: treePaths.length },
+      ],
+    },
+  },
+  parameters: {
+    queryData: [
+      ...queryData,
+      [
+        ["artifact-files", detail.id, 1],
+        treePaths.map((path) => ({
+          ...files[0],
+          path,
+          mediaType: "text/plain",
+          renderedHash: null,
+        })),
+      ],
+      ...treePaths.map((path) => [
+        ["artifact-source", detail.id, 1, path, "github"],
+        {
+          ...source,
+          path,
+          lines: [{ lineNo: 1, text: path, html: path }],
+        },
+      ]),
+    ],
+  },
+};
 export const Files: Story = {};
 export const AllFiles: Story = {
   play: async ({ canvasElement }) => {
