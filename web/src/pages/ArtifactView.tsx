@@ -33,6 +33,7 @@ import {
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
+import { FeedbackPanelRail } from "../components/FeedbackPanelRail.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
@@ -51,7 +52,13 @@ import {
   useProgressiveFileController,
 } from "../progressive.tsx";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
-import { setDiffLayout, setFeedbackMode, useDiffLayout, useFeedbackMode } from "../settings.ts";
+import {
+  setDiffLayout,
+  setFeedbackMode,
+  showFeedbackPanel,
+  useDiffLayout,
+  useFeedbackMode,
+} from "../settings.ts";
 import type { DiffSide } from "../types.ts";
 import { Button, cn, useResizableWidth } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
@@ -534,7 +541,8 @@ function Workspace({
       : undefined,
     panelToggle: () => {
       if (mobile) setSheet(sheet === "closed" ? "full" : "closed");
-      else setFeedbackMode(collapsed ? "expanded" : "hidden");
+      else if (collapsed) showFeedbackPanel();
+      else setFeedbackMode("hidden");
     },
     ...(version
       ? {
@@ -832,19 +840,21 @@ function Workspace({
             </VirtualPaneProvider>
           )}
         </div>
-        {/* Hidden and floating share a fixed gutter so overlay toggles leave
-            content width unchanged and hidden-panel edge anchors stay reachable. */}
+        {/* Hidden and floating share the flush rail's gutter, so switching their
+            positioning and animating their width never resizes the content. */}
         {!mobile && feedbackMode !== "expanded" && (
-          <div aria-hidden="true" className="w-[calc(32px+1rem)] shrink-0" />
+          <div aria-hidden="true" className="w-[32px] shrink-0" />
         )}
         {!mobile && (
           <aside
             data-feedback-mode={feedbackMode}
             className={cn(
               "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
-              feedbackMode === "expanded"
-                ? "relative shrink-0 border-l"
-                : "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl",
+              feedbackMode === "floating"
+                ? "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl"
+                : collapsed
+                  ? "absolute inset-y-0 right-0 z-20 border-l"
+                  : "relative shrink-0 border-l",
               !resize.dragging && "transition-[width] duration-200 motion-reduce:transition-none",
             )}
             style={{ width: collapsed ? 32 : resize.width }}
@@ -864,25 +874,13 @@ function Workspace({
               {panel}
             </div>
             {collapsed && (
-              <div className="absolute inset-0 flex flex-col items-center gap-3 bg-white py-2 text-xs text-neutral-500 dark:bg-neutral-950">
-                <FeedbackPanelControls mode="hidden" onChange={setFeedbackMode} />
-                <button
-                  type="button"
-                  aria-label="Show feedback"
-                  onClick={() => setFeedbackMode("expanded")}
-                  className="flex w-full flex-1 flex-col items-center gap-3"
-                >
-                  <span className="[writing-mode:vertical-rl]">
-                    FEEDBACK ·{" "}
-                    {detail.feedback.filter((feedback) => feedback.status === "open").length}
-                  </span>
-                  {hasDraft && <span title="Unsaved draft">✎</span>}
-                  {detail.feedback.some(hasUnsentArtifactFeedback) && (
-                    <span title="Feedback waiting to be sent">↥</span>
-                  )}
-                  {detail.watching && <span title="Agent listening">●</span>}
-                </button>
-              </div>
+              <FeedbackPanelRail
+                openCount={detail.feedback.filter((feedback) => feedback.status === "open").length}
+                hasDraft={hasDraft}
+                pending={detail.feedback.some(hasUnsentArtifactFeedback)}
+                watching={detail.watching}
+                onShow={showFeedbackPanel}
+              />
             )}
           </aside>
         )}
@@ -894,7 +892,7 @@ function Workspace({
               context={context}
               onLocate={locate}
               onJumpRef={jumpRef}
-              onExpand={() => setFeedbackMode("expanded")}
+              onExpand={showFeedbackPanel}
               onClose={() => setPopoverFeedback(null)}
             />
           </div>

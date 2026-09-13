@@ -287,7 +287,7 @@ export const CollapsedComposer: Story = {
     ) as HTMLElement;
     await userEvent.click(gutter);
     const body = within(document.body);
-    await expect(canvas.getByRole("button", { name: "Expand feedback" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Show feedback" })).toBeVisible();
     await expect(body.getByRole("button", { name: "Close composer" })).toBeVisible();
     await expect(body.getByRole("textbox", { name: "Feedback" })).toBeVisible();
     await userEvent.type(body.getByRole("textbox", { name: "Feedback" }), "A floating draft.");
@@ -310,7 +310,9 @@ export const FloatingPanelAndThread: Story = {
     const row = canvasElement.querySelector('[data-fb-id="feedback_source"] code') as HTMLElement;
     await userEvent.click(row);
     const thread = canvas.getByRole("dialog", { name: "Feedback thread" });
-    await expect(canvas.getByRole("button", { name: "Expand feedback" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Show feedback" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Expand feedback" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Float feedback" })).toBeNull();
     await userEvent.click(within(thread).getByRole("button", { name: "Reply" }));
     await userEvent.type(
       within(thread).getByRole("textbox", { name: "Reply" }),
@@ -325,9 +327,13 @@ export const FloatingPanelAndThread: Story = {
     await expect(canvas.queryByRole("dialog", { name: "Feedback thread" })).toBeNull();
     await expect(
       canvasElement.querySelector<HTMLElement>("[data-feedback-mode]")?.dataset.feedbackMode,
-    ).toBe("expanded");
-    await userEvent.click(canvas.getByRole("button", { name: "Float feedback" }));
+    ).toBe("floating");
     await expect(content.getBoundingClientRect().width).toBe(width);
+    await userEvent.click(canvas.getByRole("button", { name: "Hide feedback" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Show feedback" }));
+    await expect(
+      canvasElement.querySelector<HTMLElement>("[data-feedback-mode]")?.dataset.feedbackMode,
+    ).toBe("floating");
   },
 };
 export const VirtualizedLocate: Story = {

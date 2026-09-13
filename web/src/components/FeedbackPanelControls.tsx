@@ -1,5 +1,5 @@
 import type { FeedbackPanelMode } from "../settings.ts";
-import { cn, FoldChevrons } from "../ui.tsx";
+import { FoldChevrons } from "../ui.tsx";
 
 const labels: Record<FeedbackPanelMode, string> = {
   hidden: "Hide feedback",
@@ -11,14 +11,11 @@ export function FeedbackPanelControls({
   mode,
   onChange,
 }: {
-  mode: FeedbackPanelMode;
+  mode: Exclude<FeedbackPanelMode, "hidden">;
   onChange: (mode: FeedbackPanelMode) => void;
 }) {
   return (
-    <fieldset
-      aria-label="Feedback panel"
-      className={cn("flex shrink-0 items-center", mode === "hidden" && "flex-col")}
-    >
+    <fieldset aria-label="Feedback panel" className="flex shrink-0 items-center">
       {(["expanded", "floating", "hidden"] as const)
         .filter((next) => next !== mode)
         .map((next) => (

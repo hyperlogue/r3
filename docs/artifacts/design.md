@@ -156,15 +156,19 @@ dock or closing the mobile sheet disables its conversation shortcuts.
 
 The desktop feedback panel has three persisted display states:
 
-- **Hidden:** a narrow launcher remains; anchors can open individual threads.
+- **Hidden:** a full-height rail sits flush with the workspace's right edge;
+  anchors can open individual threads.
 - **Expanded** (default): the original side panel reserves space beside the content.
 - **Floating:** the panel overlays the right side of the content, below its toolbar.
 
-Hidden and floating share a fixed launcher gutter, so switching between them or
+Hidden and floating share a fixed 32 px rail gutter, so switching between them or
 resizing the floating panel never changes content or preview width. Expanded
-reserves the panel's width and resizes content with it. Icon controls switch states;
-`p` hides a visible panel or expands a hidden one. All states keep the panel mounted
-to preserve UI state and drafts. Existing folded preferences become hidden.
+reserves the panel's width and resizes content with it. Visible panels have mode
+controls. The hidden rail is one full-area button with no separate unfold controls;
+clicking it or pressing `p` restores the last visible mode, expanded or floating.
+That choice persists across reloads. `p` hides a visible panel. All states keep the
+panel mounted to preserve UI state and drafts. Existing folded preferences become
+hidden and reopen expanded if no visible-mode preference was saved.
 The default feedback width is 38.2% of the workspace (the golden-ratio split),
 within the 300–700 px resize limits. Double-clicking the divider clears the saved
 width and recalculates this proportion for the current workspace in either visible mode.
@@ -172,7 +176,7 @@ width and recalculates this proportion for the current workspace in either visib
 With the panel hidden, selecting an existing source/diff anchor or rendered
 comment marker opens only that conversation in a floating card. Reply and status
 actions reuse the same thread component and draft store. Closing the card keeps
-drafts; **Open all feedback** reveals the full panel. Changing version or view
+drafts; **Open all feedback** restores the full panel in its last visible mode. Changing version or view
 closes the card. Mobile continues to use its shared feedback sheet.
 
 Feedback cards retain their original motion: a quick fade with a 250 ms rise on

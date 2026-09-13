@@ -267,7 +267,7 @@ try {
         "anchor opens one floating thread",
       );
       assert(
-        await page.evaluate("!!document.querySelector('[aria-label=\"Expand feedback\"]')"),
+        await page.evaluate("!!document.querySelector('[aria-label=\"Show feedback\"]')"),
         "thread leaves the full panel folded",
       );
       await page.evaluate(
@@ -314,7 +314,7 @@ try {
         mobile: true,
       });
       await eventually(
-        () => page.evaluate("!document.querySelector('[aria-label=\"Expand feedback\"]')"),
+        () => page.evaluate("!document.querySelector('[aria-label=\"Show feedback\"]')"),
         "mobile closed sheet",
       );
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
@@ -332,8 +332,16 @@ try {
         mobile: false,
       });
       await eventually(
-        () => page.evaluate("!!document.querySelector('[aria-label=\"Expand feedback\"]')"),
+        () => page.evaluate("!!document.querySelector('[aria-label=\"Show feedback\"]')"),
         "desktop dock restored",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Show feedback\"]').click()");
+      await eventually(
+        () =>
+          page.evaluate(
+            "document.querySelector('[data-feedback-mode]')?.dataset.feedbackMode === 'floating'",
+          ),
+        "reopening restores floating mode",
       );
       await page.evaluate("document.querySelector('[aria-label=\"Expand feedback\"]').click()");
       await eventually(
@@ -437,6 +445,77 @@ try {
     })()`),
     "late hydration cannot steal a newer file selection",
   );
+  for (const mode of ["floating", "expanded"] as const) {
+    const control = mode === "floating" ? "Float feedback" : "Expand feedback";
+    await page.evaluate(`document.querySelector('[aria-label="${control}"]')?.click()`);
+    await eventually(
+      () =>
+        page.evaluate(
+          `document.querySelector('[data-feedback-mode]')?.dataset.feedbackMode === '${mode}'`,
+        ),
+      `select ${mode} feedback`,
+    );
+    await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
+    // Reload through about:blank so no assertion can observe the old document.
+    const url = await page.evaluate<string>("location.href");
+    await page.command("Page.navigate", { url: "about:blank" });
+    await page.command("Page.navigate", { url });
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.querySelector('[data-feedback-mode]')?.dataset.feedbackMode === 'hidden'",
+        ),
+      "hidden mode survives reload",
+    );
+    assert(
+      await page.evaluate(`(() => {
+        const panel = document.querySelector('[data-feedback-mode]');
+        const rail = panel.querySelector('[aria-label="Show feedback"]');
+        const bounds = panel.getBoundingClientRect();
+        const workspace = panel.parentElement.getBoundingClientRect();
+        const style = getComputedStyle(panel);
+        const controls = [...panel.querySelectorAll('button')].filter(button => !button.closest('[inert]'));
+        return bounds.top === workspace.top && bounds.bottom === workspace.bottom && bounds.right === workspace.right &&
+          bounds.width === 32 && style.borderRadius === '0px' && style.boxShadow === 'none' &&
+          controls.length === 1 && controls[0] === rail;
+      })()`),
+      "collapsed feedback is one flush full-height control without floating decoration",
+    );
+    const point = await page.evaluate<{ x: number; y: number }>(`(() => {
+      const bounds = document.querySelector('[aria-label="Show feedback"]').getBoundingClientRect();
+      return { x: bounds.x + bounds.width / 2, y: bounds.bottom - 3 };
+    })()`);
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      ...point,
+      button: "left",
+      clickCount: 1,
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      ...point,
+      button: "left",
+      clickCount: 1,
+    });
+    await eventually(
+      () =>
+        page.evaluate(
+          `document.querySelector('[data-feedback-mode]')?.dataset.feedbackMode === '${mode}'`,
+        ),
+      "clicking the empty bottom of the rail restores the remembered mode",
+    );
+    for (const expected of ["hidden", mode]) {
+      await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "p", code: "KeyP" });
+      await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "p", code: "KeyP" });
+      await eventually(
+        () =>
+          page.evaluate(
+            `document.querySelector('[data-feedback-mode]')?.dataset.feedbackMode === '${expected}'`,
+          ),
+        "keyboard toggle respects the remembered mode",
+      );
+    }
+  }
   console.log(
     "Published files/diffs: syntax colors, complete stack, folding, file navigation and scroll highlighting passed",
   );

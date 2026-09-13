@@ -75,5 +75,20 @@ const feedbackMode = persistedStore<FeedbackPanelMode>("r3-feedback-collapsed", 
   save: (mode) => (mode === "expanded" ? null : mode),
 });
 export const getFeedbackMode = feedbackMode.get;
-export const setFeedbackMode = feedbackMode.set;
 export const useFeedbackMode = feedbackMode.use;
+const feedbackOpenMode = persistedStore<Exclude<FeedbackPanelMode, "hidden">>(
+  "r3-feedback-open-mode",
+  {
+    load: (raw) =>
+      feedbackMode.get() === "floating" || (feedbackMode.get() === "hidden" && raw === "floating")
+        ? "floating"
+        : "expanded",
+  },
+);
+export function setFeedbackMode(mode: FeedbackPanelMode): void {
+  if (mode !== "hidden") feedbackOpenMode.set(mode);
+  feedbackMode.set(mode);
+}
+export function showFeedbackPanel(): void {
+  setFeedbackMode(feedbackOpenMode.get());
+}

@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
+import {
+  type ArtifactPreviewNetwork,
+  hasUnsentArtifactFeedback,
+} from "../../../shared/artifacts.ts";
 import { demo } from "../../demo/artifact-backend.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
@@ -21,6 +24,7 @@ import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
+import { FeedbackPanelRail } from "../components/FeedbackPanelRail.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
 import { MessageProse } from "../components/Message.tsx";
@@ -28,7 +32,7 @@ import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
 import type { FeedbackPanelMode } from "../settings.ts";
-import { useDiffLayout } from "../settings.ts";
+import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } from "../settings.ts";
 import { Button, cn, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
@@ -76,11 +80,15 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
 function Feedback({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
-  const [mode, setMode] = useState<FeedbackPanelMode>("expanded");
+  const mode = useFeedbackMode();
   const collapsed = mode === "hidden";
   const [threadOpen, setThreadOpen] = useState(false);
   const changeMode = (next: FeedbackPanelMode) => {
-    setMode(next);
+    setFeedbackMode(next);
+    setThreadOpen(false);
+  };
+  const reopen = () => {
+    showFeedbackPanel();
     setThreadOpen(false);
   };
   const { data } = useQuery({ queryKey: ["artifact", id], queryFn: () => artifactApi.detail(id) });
@@ -174,14 +182,16 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </p>
             </div>
           </div>
-          {mode !== "expanded" && <div className="w-[calc(32px+1rem)] shrink-0" />}
+          {mode !== "expanded" && <div className="w-[32px] shrink-0" />}
           <div
             data-sample-feedback-mode={mode}
             className={cn(
               "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
-              mode === "expanded"
-                ? "relative shrink-0 border-l"
-                : "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl",
+              mode === "floating"
+                ? "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl"
+                : collapsed
+                  ? "absolute inset-y-0 right-0 border-l"
+                  : "relative shrink-0 border-l",
             )}
             style={{ width: collapsed ? 32 : 420 }}
           >
@@ -204,17 +214,12 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               />
             </div>
             {collapsed && (
-              <div className="absolute inset-0 flex flex-col items-center gap-3 py-2">
-                <FeedbackPanelControls mode="hidden" onChange={changeMode} />
-                <Button
-                  aria-label="Expand sample feedback"
-                  variant="ghost"
-                  className="w-full flex-1 justify-start [writing-mode:vertical-rl]"
-                  onClick={() => changeMode("expanded")}
-                >
-                  Feedback · {data.feedback.filter((feedback) => feedback.status === "open").length}
-                </Button>
-              </div>
+              <FeedbackPanelRail
+                openCount={data.feedback.filter((feedback) => feedback.status === "open").length}
+                pending={data.feedback.some(hasUnsentArtifactFeedback)}
+                watching={data.watching}
+                onShow={reopen}
+              />
             )}
           </div>
           {collapsed && threadOpen && data.feedback[0] && (
@@ -224,7 +229,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 context={{ versionSeq: 1, representation: "source" }}
                 onLocate={() => announce("Sample target selected")}
                 onJumpRef={() => announce("Sample file reference selected")}
-                onExpand={() => changeMode("expanded")}
+                onExpand={reopen}
                 onClose={() => setThreadOpen(false)}
               />
             </div>
