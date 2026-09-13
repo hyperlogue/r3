@@ -114,7 +114,7 @@ Native locator examples, with artifact/version/path carried by the surrounding t
 
 These illustrate source, rendered, and diff locators. The targeting module defines their validated shapes, limits, and rendered-text normalization. SQL enforces JSON-object shape and representation compatibility, while the module verifies native ranges, quotes, selectors, and document membership.
 
-Files accepts source and rendered targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. Common artifact and version-summary scopes work across all three kinds.
+Files accepts source and rendered targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. General artifact feedback works across all three kinds. The schema retains artifact_summary and version_summary targets for historical reads; new feedback, reply fix targets, and placements reject them. Version summaries remain immutable descriptive metadata displayed in the navigation's info popup.
 
 Replies have context_version_seq/context_representation for the message being written, independently of the optional target_kind/target_version_seq/target_path/locator_json identifying a fix. For example, a reply can discuss rendered files version 1 and point to a source fix in version 2. A NULL context means no version context was supplied; the server never silently interprets it as latest. An explicit representation requires an explicit version. Inline references use the reply's shared context; use separate replies for different message contexts. The fix target carries its own version independently.
 

@@ -175,6 +175,14 @@ describe("legacy conversation import", () => {
         body: "Round summary",
       },
       {
+        id: "feedback_missing_summary",
+        review_id: "review_diff",
+        file: "@summary",
+        patch_seq: 2,
+        quote: "Missing description",
+        body: "Description version gone",
+      },
+      {
         id: "feedback_null_round",
         review_id: "review_diff",
         file: "a.txt",
@@ -217,6 +225,10 @@ describe("legacy conversation import", () => {
       kind: "version_summary",
       versionSeq: 3,
       locator: null,
+    });
+    expect(threads.get("feedback_missing_summary").target).toEqual({ kind: "artifact" });
+    expect(threads.get("feedback_missing_summary").legacy).toMatchObject({
+      source: { patch_seq: 2, quote: "Missing description" },
     });
     expect(threads.get("feedback_null_round").target).toEqual({ kind: "artifact" });
     expect(store.get("review_diff").nextSeq).toBe(8);

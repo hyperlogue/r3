@@ -23,7 +23,6 @@ import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactPreviewSecurityProvider } from "../components/ArtifactPreviewSecurity.tsx";
-import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import {
   type ArtifactRefJump,
@@ -40,7 +39,6 @@ import { QuoteBubble, type QuotePos } from "../components/Message.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { useKeyBindings } from "../keys.ts";
-import { HL_ACTIVE, rangeForQuote, setHighlightRanges } from "../mdhighlight.ts";
 // This page is the artifact workspace's single mobile container mount point.
 import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
@@ -158,9 +156,7 @@ function Workspace({
   const [quote, setQuote] = useState<QuotePos | null>(null);
   const [jump, setJump] = useState<ArtifactCodeJump | null>(null);
   const [renderedJump, setRenderedJump] = useState<ArtifactRenderedPaneProps["jump"]>(null);
-  const [summaryJump, setSummaryJump] = useState<{ target: ArtifactTarget; nonce: number } | null>(
-    null,
-  );
+  const [detailsRequest, setDetailsRequest] = useState(0);
   const [fold, setFold] = useState<FoldSignal | null>(null);
   const [fileViews, setFileViews] = useState<Record<string, "source" | "rendered">>({});
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -261,7 +257,6 @@ function Workspace({
     setView((current) => ({ ...current, ...patch }));
     setJump(null);
     setRenderedJump(null);
-    setSummaryJump(null);
     setNotice("");
     setPopoverFeedback(null);
   }, []);
@@ -400,7 +395,13 @@ function Workspace({
           });
           setFold({ mode: "unfold", path: target.path, nonce });
         }
-      } else setSummaryJump({ target, nonce });
+      } else if (target.kind === "version_summary") {
+        setDetailsRequest(nonce);
+      } else if (target.kind === "artifact_summary") {
+        setNotice(
+          "This comment refers to a retired artifact overview. Its original target and quote are preserved.",
+        );
+      } else paneRef.current?.scrollTo({ top: 0 });
     },
     [detail.kind, view, changeView],
   );
@@ -496,25 +497,6 @@ function Workspace({
     ready: ready && detail.kind !== "html",
     fileList: paths,
   });
-  useEffect(() => {
-    if (!summaryJump) return;
-    const target = summaryJump.target;
-    if (target.kind === "artifact_summary") {
-      setNotice(
-        "This comment refers to a retired artifact overview. Its original target and quote are preserved.",
-      );
-      return;
-    }
-    if (target.kind !== "version_summary") {
-      paneRef.current?.scrollTo({ top: 0 });
-      return;
-    }
-    const node = paneRef.current?.querySelector(`[data-artifact-summary="${target.versionSeq}"]`);
-    node?.scrollIntoView({ block: "start" });
-    const range = node && target.locator ? rangeForQuote(node, target.locator.quote) : null;
-    setHighlightRanges(HL_ACTIVE, range ? [range] : []);
-    return () => setHighlightRanges(HL_ACTIVE, []);
-  }, [summaryJump]);
 
   const currentPath = detail.kind === "html" ? path : (activePath ?? paths[0]);
   const currentFile = filesQuery.data?.find((file) => file.path === currentPath);
@@ -655,6 +637,9 @@ function Workspace({
     <div className="flex min-h-0 flex-1 flex-col">
       <ArtifactHeader
         detail={detail}
+        version={version}
+        detailsRequest={detailsRequest}
+        onJumpRef={(ref) => jumpRef(ref, context)}
         commenting={commenting}
         onToggleCommenting={
           detail.kind === "html" || Object.values(fileViews).includes("rendered")
@@ -698,14 +683,6 @@ function Workspace({
           }}
         >
           {toolbar}
-          {version && (
-            <ArtifactSummary
-              source={version.summary}
-              versionSeq={version.seq}
-              onTarget={anchor}
-              onJumpRef={(ref) => jumpRef(ref, context)}
-            />
-          )}
           {notice && (
             <p
               role="status"

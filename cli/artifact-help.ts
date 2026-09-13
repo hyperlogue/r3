@@ -36,6 +36,7 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          [--line <start-end> --quote <text>] [--side old|new]
          rendered: --selector <CSS> [--quote <text>] [--route <query/hash>]
          no target flags means general artifact feedback.
+         Version descriptions are read-only metadata, not feedback targets.
 Identity: --session <logical-agent-id> (or R3_AGENT_SESSION, then harness session).
           --human explicitly acts as the human owner. Distinct agents need distinct IDs.
 Text flags accept - to read stdin. --json prints structured results.

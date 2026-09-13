@@ -23,12 +23,15 @@ export function ArtifactComposer({
   leadingActions?: ReactNode;
 }) {
   const draft = useArtifactDraft(artifactId, replyTo);
+  const retiredTarget =
+    !replyTo &&
+    (draft?.target.kind === "version_summary" || draft?.target.kind === "artifact_summary");
   const textarea = useRef<HTMLTextAreaElement>(null);
   const ref = useAutoGrow(textarea, draft?.body ?? "", 3, 12);
   const qc = useQueryClient();
   const post = useMutation({
     mutationFn: async () => {
-      if (!draft?.body.trim()) return;
+      if (!draft?.body.trim() || retiredTarget) return;
       if (replyTo) await artifactApi.reply(replyTo, { body: draft.body, context: draft.context });
       else await artifactApi.addFeedback(artifactId, draft.body, draft.target);
     },
@@ -50,7 +53,7 @@ export function ArtifactComposer({
       data-reply-to={replyTo}
       onSubmit={(event) => {
         event.preventDefault();
-        if (draft?.body.trim() && !post.isPending) post.mutate();
+        if (draft?.body.trim() && !post.isPending && !retiredTarget) post.mutate();
       }}
     >
       <div className="flex items-start justify-between gap-2 px-3 text-xs text-neutral-500">
@@ -85,6 +88,12 @@ export function ArtifactComposer({
         <p className="text-xs text-amber-700 dark:text-amber-400">
           Imported draft. Its original published context is unknown; the saved text and anchor
           evidence are preserved.
+        </p>
+      )}
+      {retiredTarget && (
+        <p className="px-3 text-xs text-amber-700 dark:text-amber-400">
+          Description anchoring is no longer supported. Clear the target to post this draft as
+          general feedback.
         </p>
       )}
       {draft &&
@@ -135,7 +144,11 @@ export function ArtifactComposer({
         >
           {draft?.body ? "Discard" : "Cancel"}
         </Button>
-        <Button type="submit" variant="primary" disabled={!draft?.body.trim() || post.isPending}>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={!draft?.body.trim() || post.isPending || retiredTarget}
+        >
           {post.isPending ? "Saving…" : replyTo ? "Reply" : "Add feedback"}
         </Button>
       </div>

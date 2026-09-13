@@ -96,9 +96,10 @@ export class ArtifactDemoBackend {
     const detail = this.get(id);
     if (target.kind === "artifact_summary")
       fail("Artifact overview targets are read-only historical evidence");
+    if (target.kind === "version_summary")
+      fail("Version description targets are read-only historical evidence");
     if (!("versionSeq" in target)) return;
     const content = this.publication(id, target.versionSeq);
-    if (target.kind === "version_summary") return;
     if (detail.kind === "diff" ? target.kind !== "diff" : target.kind === "diff")
       fail("Target representation does not belong to this artifact");
     if (target.kind === "diff") {

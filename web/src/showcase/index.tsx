@@ -15,7 +15,6 @@ import {
   ArtifactPreviewSecurityProvider,
   ArtifactPreviewSecuritySource,
 } from "../components/ArtifactPreviewSecurity.tsx";
-import { ArtifactSummary } from "../components/ArtifactSummary.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
@@ -23,6 +22,7 @@ import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
+import { MessageProse } from "../components/Message.tsx";
 import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
@@ -93,17 +93,13 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
       <div className="border border-neutral-300 dark:border-neutral-700">
         <ArtifactHeader
           detail={data}
+          version={data.versions[0]}
+          onJumpRef={() => announce("Sample file reference selected")}
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
         <div className="relative flex min-h-[680px]">
           <div className="min-w-0 flex-1">
-            <ArtifactSummary
-              source={data.versions[0].summary}
-              versionSeq={1}
-              onTarget={(target) => artifactDrafts.anchor(id, target)}
-              onJumpRef={() => announce("Sample file reference selected")}
-            />
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
                 The feedback panel has three states: hidden, expanded beside the content, or
@@ -508,13 +504,11 @@ function Showcase() {
             <Pill>Active</Pill>
             <Pill>html</Pill>
           </div>
-          <div className="max-w-2xl border border-neutral-300 dark:border-neutral-700">
-            <ArtifactSummary
+          <div className="max-w-2xl border border-neutral-300 p-3 dark:border-neutral-700">
+            <MessageProse
               source={
-                "### Published version summary\n\nBody text with **emphasis**, *secondary emphasis*, and `inline code`.\n\n- Keep feedback anchored to its original version.\n- Open the latest publication when you are ready.\n\n> A short quotation from the design discussion.\n\n```ts\nconst version = artifact.versions.at(-1);\n```"
+                "### Markdown typography\n\nBody text with **emphasis**, *secondary emphasis*, and `inline code`.\n\n- Keep feedback anchored to its original version.\n- Open the latest publication when you are ready.\n\n> A short quotation from the design discussion.\n\n```ts\nconst version = artifact.versions.at(-1);\n```"
               }
-              versionSeq={2}
-              onTarget={() => setNotice("Sample summary target selected")}
               onJumpRef={() => setNotice("Sample reference selected")}
             />
           </div>

@@ -101,6 +101,7 @@ export type ArtifactDocumentTarget =
 
 export type ArtifactVersionTarget =
   | ArtifactDocumentTarget
+  // Read-only historical target from before description anchoring was retired.
   | { kind: "version_summary"; versionSeq: number; locator: TextQuote | null };
 
 export type ArtifactTarget =

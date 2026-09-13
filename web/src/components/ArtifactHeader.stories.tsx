@@ -13,6 +13,23 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Active: Story = {};
+export const Description: Story = {
+  args: {
+    version: {
+      ...artifactFixture.versions[0],
+      seq: 1,
+      summary: "The navigation groups **related pages**. Start at @index.md:L3-5.",
+    },
+    onJumpRef: () => {},
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details" }));
+    const popup = within(canvas.getByRole("dialog", { name: "Artifact details" }));
+    await expect(popup.getByText("Description · Version 1")).toBeVisible();
+    await expect(popup.getByText("related pages")).toBeVisible();
+  },
+};
 export const Diff: Story = { args: { detail: { ...artifactFixture, kind: "diff" } } };
 export const Html: Story = {
   args: { detail: { ...artifactFixture, kind: "html" } },

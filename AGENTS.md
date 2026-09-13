@@ -66,7 +66,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
 | Workspace | `web/src/pages/ArtifactView.tsx`, `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
-| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `ArtifactSummary`, `artifact-feedback.ts`; stable message props, Active/Resolved queues, independently subscribed drafts |
+| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-feedback.ts`; stable message props, Active/Resolved queues, independently subscribed drafts |
 | Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
 | Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `mdhighlight.ts`, `viewed.ts`, `pane.ts` |
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mdproject.ts`, `mermaid.ts`, `textdiff.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
@@ -103,11 +103,15 @@ conflict. Blob cleanup coordinates with in-progress publication and whole-artifa
 deletion; no partial version becomes readable.
 
 **Feedback** has an immutable native target, an author, and human-controlled
-`open|resolved` status. New targets distinguish artifact/general, version summary,
+`open|resolved` status. New targets distinguish artifact/general,
 source line/quote, rendered DOM/text/context/route/viewport, and diff
 old/new line/quote. Whole-file targets are explicit. The server validates recorded
 content and version membership. Rendered evidence is never reverse-mapped into
 source lines. Unknown legacy evidence remains explicitly unknown.
+
+The selected version's summary is read-only description in the navigation info
+popup. Retired description targets remain readable; new feedback and reply fix
+targets cannot anchor to descriptions.
 
 **Placements** are separate records keyed by feedback, version, path, and
 representation, with `anchored|ambiguous|unplaced` state. They never rewrite the

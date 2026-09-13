@@ -53,3 +53,26 @@ export const VersionedReply: Story = {
     },
   ],
 };
+export const RetiredDescriptionDraft: Story = {
+  args: { artifactId: "artifact_description_draft" },
+  loaders: [
+    () => {
+      artifactDrafts.anchor("artifact_description_draft", {
+        kind: "version_summary",
+        versionSeq: 1,
+        locator: { quote: "Original description" },
+      });
+      artifactDrafts.update("artifact_description_draft", { body: "Keep this saved feedback" });
+      return {};
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Add feedback" })).toBeDisabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Clear target" }));
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toHaveValue(
+      "Keep this saved feedback",
+    );
+    await expect(canvas.getByRole("button", { name: "Add feedback" })).toBeEnabled();
+  },
+};

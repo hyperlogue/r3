@@ -42,8 +42,13 @@ active/archived lifecycle. Files and HTML own their members directly; there is n
 additional directory-container entity for a caller to create or manage.
 
 Artifacts have a title and metadata, with no overview field or overview panel.
-Optional summaries belong to immutable versions. Retired overview text and comment
-targets remain historical evidence when an older store is upgraded.
+Optional summaries belong to immutable versions and appear as the selected version's
+description in the navigation's info popup. Descriptions have no body section or
+comment anchors. New feedback targets artifacts or documents; reply fix targets
+identify documents. Retired overview and version-description targets remain readable
+historical evidence.
+Locate on an existing description thread opens that version's info popup. Saved
+description drafts retain their text and quote until the user clears or replaces the target.
 
 ## Publication and content ownership
 

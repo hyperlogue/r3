@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { ArtifactDetail } from "../../../shared/artifacts.ts";
+import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { suspendKeys } from "../keys.ts";
+import type { MessageRef } from "../markdown.ts";
 import { Button, CommentPlusIcon, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
@@ -100,16 +102,28 @@ export function ArtifactArchiveDialog({
 
 export function ArtifactHeader({
   detail,
+  version = detail.versions.at(-1) ?? null,
+  detailsRequest,
+  onJumpRef,
   commenting,
   onToggleCommenting,
 }: {
   detail: ArtifactDetail;
+  version?: ArtifactVersion | null;
+  detailsRequest?: number;
+  onJumpRef?: (reference: MessageRef) => void;
   commenting?: boolean;
   onToggleCommenting?: () => void;
 }) {
   const qc = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  useEffect(() => {
+    if (detailsRequest) setDetailsOpen(true);
+  }, [detailsRequest]);
+  useEffect(() => {
+    if (detailsOpen) return suspendKeys();
+  }, [detailsOpen]);
   useEscape(detailsOpen, () => setDetailsOpen(false));
   const [title, setTitle] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -222,6 +236,7 @@ export function ArtifactHeader({
             className="shrink-0 p-1.5 max-md:size-9"
             aria-label="Artifact details"
             title="Artifact details"
+            aria-haspopup="dialog"
             aria-expanded={detailsOpen}
             onClick={() => setDetailsOpen(!detailsOpen)}
           >
@@ -240,7 +255,28 @@ export function ArtifactHeader({
             onClick={() => setDetailsOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
+          <div
+            role="dialog"
+            aria-label="Artifact details"
+            className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+          >
+            {version?.summary && (
+              <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+                <h2 className="mb-2 text-xs font-medium text-neutral-500">
+                  Description · Version {version.seq}
+                </h2>
+                <MessageProse
+                  source={version.summary}
+                  onJumpRef={
+                    onJumpRef &&
+                    ((reference) => {
+                      setDetailsOpen(false);
+                      onJumpRef(reference);
+                    })
+                  }
+                />
+              </section>
+            )}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
               <CopyMeta hint="Copy artifact id" value={detail.id}>
                 {detail.id}

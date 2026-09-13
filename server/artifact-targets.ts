@@ -129,15 +129,10 @@ export class ArtifactTargets {
     if (target.kind === "artifact") return { kind: "artifact" };
     if (target.kind === "artifact_summary")
       throw new ArtifactError("Artifact overview targets are read-only historical evidence");
+    if (target.kind === "version_summary")
+      throw new ArtifactError("Version description targets are read-only historical evidence");
     const versionSeq = requireSequence(target.versionSeq);
     this.artifacts.version(id, versionSeq);
-    if (target.kind === "version_summary") {
-      return {
-        kind: "version_summary",
-        versionSeq,
-        locator: target.locator === null ? null : nativeQuote(target.locator),
-      };
-    }
     const kind = requireRepresentation(artifact.kind, target.kind);
     const path = requireArtifactPath(target.path);
     if (allowMissingDocument && target.locator === null) {

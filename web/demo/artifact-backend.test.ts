@@ -8,6 +8,13 @@ test("demo targets match their published source and diff, and reads retain prior
       for (const note of artifact.feedback) backend.target(artifact.id, note.target);
     const id = backend.state.artifacts[0].id;
     const first = structuredClone(backend.publication(id, 1));
+    expect(() =>
+      backend.addFeedback(id, "Description note", {
+        kind: "version_summary",
+        versionSeq: 1,
+        locator: null,
+      }),
+    ).toThrow("read-only historical evidence");
     const note = backend.addFeedback(id, "Keep the original version available", {
       kind: "artifact",
     });

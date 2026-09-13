@@ -41,8 +41,8 @@ so a split-preferring reader gets split back on a wide viewport.
 The file sidebar hides; HTML artifacts have no sidebar at any width. The shared
 workspace toolbar stacks its version selector and controls below `md`. The artifact
 title and actions occupy the shared top navigation, outside the scrolling pane;
-the summary scrolls away while the content toolbar sticks. The title truncates
-to preserve space for compact controls, with metadata in the details popover.
+the content toolbar sticks. The title truncates to preserve space for compact
+controls, with metadata and the selected version's description in the details popover.
 `--pane-sticky-h` records its measured height so file headers and Locate geometry
 use the same offset. The pane stays the one source/diff scroll container.
 

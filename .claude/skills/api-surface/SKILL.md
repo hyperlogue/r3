@@ -46,6 +46,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `PUT /api/feedback/:id/placements` use native immutable original targets,
   explicit reply context, and separate placements. Every message mutation names
   an `actor`; deletion takes `{ actor }`. Only human actors change feedback status.
+  `artifact_summary` and `version_summary` are historical read-only targets;
+  new feedback, reply fix targets, and placements reject description anchors.
 - `POST/DELETE /api/claims { sessionId, feedbackIds }` claims/releases as the
   named registered agent. Claims change presence, not owner delivery.
 - `GET .../:id/prompt[?scope=unsent&feedback=<ids>]` is read-only;

@@ -67,6 +67,56 @@ afterEach(async () => {
 });
 
 describe("artifact conversations", () => {
+  test("retired description targets reject new writes while old threads remain usable", async () => {
+    const target = {
+      kind: "version_summary",
+      versionSeq: 1,
+      locator: { quote: "Original description" },
+    } as const;
+    await expect(
+      conversations.add(id, { actor: human, body: "New description note", target }),
+    ).rejects.toThrow("read-only historical evidence");
+    expect(conversations.list(id)).toHaveLength(0);
+
+    // An existing database can retain description feedback and fix targets.
+    db.query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, body,
+      target_kind, target_version_seq, locator_json, created_at, updated_at)
+      VALUES ('description-note', ?, 'files', 'human', 'Existing description note',
+      'version_summary', 1, ?, ?, ?)`).run(id, JSON.stringify(target.locator), time, time);
+    db.query(`INSERT INTO replies(id, feedback_id, artifact_id, artifact_kind, author, body,
+      context_version_seq, target_kind, target_version_seq, created_at)
+      VALUES ('description-reply', 'description-note', ?, 'files', 'human', 'Existing fix',
+      1, 'version_summary', 2, ?)`).run(id, time);
+    expect(conversations.get("description-note").target).toEqual(target);
+    expect(conversations.reply("description-reply").target).toEqual({
+      kind: "version_summary",
+      versionSeq: 2,
+      locator: null,
+    });
+
+    await expect(
+      conversations.addReply("description-note", {
+        actor: agent,
+        body: "New fix",
+        context,
+        target,
+      }),
+    ).rejects.toThrow("read-only historical evidence");
+    await expect(
+      conversations.place("description-note", { actor: agent, state: "anchored", target }),
+    ).rejects.toThrow("read-only historical evidence");
+    expect(conversations.get("description-note").replies).toHaveLength(1);
+    await conversations.addReply("description-note", {
+      actor: agent,
+      body: "Still discussing this",
+      context,
+    });
+    const resolved = conversations.edit("description-note", { actor: human, status: "resolved" });
+    expect(resolved.target).toEqual(target);
+    expect(resolved.replies).toHaveLength(2);
+    expect(resolved.status).toBe("resolved");
+  });
+
   test("original feedback, message context and fix target retain their separate versions and representations", async () => {
     const note = await conversations.add(id, {
       actor: human,
