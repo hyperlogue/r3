@@ -139,7 +139,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950">
+          <div className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950">
             <button
               type="button"
               disabled={!canEdit}
@@ -339,7 +339,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         >
           <textarea
             aria-label="Edit message"
-            className="min-h-24 w-full rounded border border-neutral-300 bg-transparent p-2 text-sm max-md:text-base dark:border-neutral-700"
+            className="min-h-24 w-full border border-neutral-300 bg-transparent p-2 text-sm max-md:text-base dark:border-neutral-700"
             value={editing.body}
             onChange={(event) => setEditing({ ...editing, body: event.target.value })}
             disabled={edit.isPending}

@@ -837,7 +837,7 @@ function Workspace({
             className={cn(
               "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
               feedbackMode === "floating"
-                ? "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl"
+                ? "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border r3-floating"
                 : collapsed
                   ? "absolute inset-y-0 right-0 pointer-events-none"
                   : "relative shrink-0 border-l",

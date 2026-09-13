@@ -161,7 +161,7 @@ export function ArtifactHome() {
           <p className="px-1 py-4 text-sm text-neutral-500">Loading artifacts…</p>
         )}
         {artifacts.data?.length === 0 && (
-          <div className="rounded-lg border border-dashed border-neutral-300 px-4 py-12 text-center text-sm text-neutral-500 dark:border-neutral-700">
+          <div className="border border-dashed border-neutral-300 px-4 py-12 text-center text-sm text-neutral-500 dark:border-neutral-700">
             <p className="font-medium">No artifacts yet</p>
             <p className="mt-1">Publish a directory from the CLI or an agent:</p>
             <code className="mt-3 inline-block rounded bg-neutral-100 px-2 py-1 text-xs dark:bg-neutral-800">

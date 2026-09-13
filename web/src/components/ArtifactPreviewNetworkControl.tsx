@@ -147,7 +147,7 @@ function NetworkConsent({
         event.preventDefault();
         onCancel();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 shadow-xl backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 r3-modal backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
       <h2 id={title} className="text-base font-semibold">
         {external ? "Artifact permissions" : "Allow external access?"}

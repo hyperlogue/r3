@@ -345,7 +345,7 @@ export function installPreviewRuntime(
       "all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important";
     shadow = root.attachShadow({ mode: "closed" });
     shadow.innerHTML =
-      '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;gap:4px;padding:4px;border-radius:8px;background:#171717;box-shadow:0 2px 12px #0004;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
+      '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;gap:4px;padding:4px;border-radius:8px;background:#171717;border:1px solid #525252;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
     box = shadow.querySelector(".box")!;
     controls = shadow.querySelector(".controls")!;
     markers = document.createElement("div");

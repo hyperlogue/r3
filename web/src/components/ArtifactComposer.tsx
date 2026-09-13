@@ -47,6 +47,7 @@ export function ArtifactComposer({
       className={cn(
         "relative flex flex-col gap-2 bg-white py-3 dark:bg-neutral-950",
         !replyTo &&
+          !floating &&
           "border-y border-neutral-300 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:border-neutral-700",
       )}
       data-artifact-composer={artifactId}
@@ -159,7 +160,7 @@ export function ArtifactComposer({
   const above = floating.bottom > window.innerHeight / 2;
   return createPortal(
     <div
-      className="fixed z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg shadow-xl will-change-transform"
+      className="fixed z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg border border-neutral-300 bg-white r3-floating will-change-transform dark:border-neutral-700 dark:bg-neutral-950"
       style={{
         width,
         left: Math.max(16, Math.min(window.innerWidth - width - 16, floating.left - width / 2)),

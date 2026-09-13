@@ -49,7 +49,7 @@ export function ArtifactThreadPopover({
           onClose();
         }
       }}
-      className="r3-fade-slide-in flex max-h-full min-h-0 flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl outline-none dark:border-neutral-700 dark:bg-neutral-950"
+      className="r3-fade-slide-in flex max-h-full min-h-0 flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white r3-floating outline-none dark:border-neutral-700 dark:bg-neutral-950"
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
         <span className="flex-1 text-sm font-semibold">Thread</span>

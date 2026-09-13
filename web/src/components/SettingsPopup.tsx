@@ -146,7 +146,7 @@ export function SettingsPopup() {
           {/* Anchor the popup's right edge under the gear icon (right-4 = the
               button's pr-4 gutter) rather than flush to the viewport, and cap the
               width so a narrow window can never push it off the right edge. */}
-          <div className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950">
+          <div className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950">
             <div className="border-b border-neutral-300 px-3 py-2 text-xs font-semibold dark:border-neutral-700">
               Settings
             </div>

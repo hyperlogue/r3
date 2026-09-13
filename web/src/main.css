@@ -119,6 +119,52 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Elevation belongs to detached outer frames. Nested content stays flat. */
+:root {
+  --r3-overlay-rim: rgb(255 255 255 / 0.9);
+  --r3-overlay-contact: rgb(0 0 0 / 0.12);
+  --r3-overlay-cast: rgb(0 0 0 / 0.18);
+  --r3-overlay-border: #cfcfcf;
+}
+html.dark {
+  --r3-overlay-rim: rgb(255 255 255 / 0.1);
+  --r3-overlay-contact: rgb(0 0 0 / 0.4);
+  --r3-overlay-cast: rgb(0 0 0 / 0.5);
+  --r3-overlay-border: #525252;
+}
+.r3-popover,
+.r3-floating,
+.r3-modal,
+.r3-sheet {
+  border-color: var(--r3-overlay-border);
+  border-top-color: color-mix(in srgb, var(--r3-overlay-border), white 20%);
+  box-shadow:
+    inset 0 1px 0 var(--r3-overlay-rim),
+    0 2px 4px var(--r3-overlay-contact),
+    0 8px 24px var(--r3-overlay-cast);
+}
+.r3-floating,
+.r3-modal {
+  box-shadow:
+    inset 0 1px 0 var(--r3-overlay-rim),
+    0 3px 6px var(--r3-overlay-contact),
+    0 16px 48px var(--r3-overlay-cast);
+}
+.r3-sheet {
+  box-shadow:
+    inset 0 1px 0 var(--r3-overlay-rim),
+    0 -2px 4px var(--r3-overlay-contact),
+    0 -12px 36px var(--r3-overlay-cast);
+}
+@media (max-width: 767px) {
+  .r3-file-picker {
+    box-shadow:
+      inset 0 1px 0 var(--r3-overlay-rim),
+      0 -2px 4px var(--r3-overlay-contact),
+      0 -12px 36px var(--r3-overlay-cast);
+  }
+}
+
 /* Keyboard focus, everywhere. The app is largely built from bare <button>s whose
    classes set no focus style at all, so before this a Tab press moved focus
    invisibly — the ring existed in exactly one place (ReviewHeader's title). One

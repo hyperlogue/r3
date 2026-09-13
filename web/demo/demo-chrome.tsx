@@ -83,7 +83,7 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
         role="dialog"
         aria-modal="true"
         aria-labelledby="demo-intro-title"
-        className="relative z-10 w-full max-w-md border border-neutral-300 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-950"
+        className="relative z-10 w-full max-w-md border border-neutral-300 bg-white rounded-xl r3-modal dark:border-neutral-700 dark:bg-neutral-950"
       >
         <div className="px-5 pt-4">
           <h2 id="demo-intro-title" className="text-base font-semibold">

@@ -187,7 +187,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
             className={cn(
               "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
               mode === "floating"
-                ? "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl"
+                ? "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border r3-floating"
                 : collapsed
                   ? "absolute inset-y-0 right-0 pointer-events-none"
                   : "relative shrink-0 border-l",
@@ -360,7 +360,7 @@ function Protection() {
         {(["blocked", "compatible", "external"] as const).map((network) => (
           <ProtectionSample key={network} initial={network} />
         ))}
-        <div className="space-y-3 rounded-lg border border-neutral-300 p-4 dark:border-neutral-700">
+        <div className="space-y-3 border border-neutral-300 p-4 dark:border-neutral-700">
           <h3 className="text-sm font-medium">Browser compatibility warning</h3>
           <Button onClick={() => setWarning(true)}>Show sample risk prompt</Button>
         </div>
@@ -380,7 +380,7 @@ function ProtectionSample({ initial }: { initial: ArtifactPreviewNetwork }) {
   const [devices, setDevices] = useState({ camera: false, microphone: false });
   const [sharing, setSharing] = useState(false);
   return (
-    <div className="space-y-3 rounded-lg border border-neutral-300 p-4 dark:border-neutral-700">
+    <div className="space-y-3 border border-neutral-300 p-4 dark:border-neutral-700">
       <h3 className="text-sm font-medium">
         {initial === "blocked"
           ? "Verified network blocking"
@@ -497,7 +497,7 @@ function Showcase() {
         <Section id="controls">
           <ArtifactLoading
             label="Loading preview…"
-            className="rounded-lg border border-neutral-200 dark:border-neutral-800"
+            className="border border-neutral-200 dark:border-neutral-800"
           />
           <div className="flex flex-wrap items-center gap-3">
             {(["default", "primary", "ghost", "danger", "success", "success-outline"] as const).map(
@@ -528,7 +528,7 @@ function Showcase() {
       {notice && (
         <div
           role="status"
-          className="fixed right-4 bottom-4 z-50 flex max-w-lg items-center gap-3 rounded-lg border border-neutral-300 bg-white p-3 text-xs shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+          className="fixed right-4 bottom-4 z-50 flex max-w-lg items-center gap-3 rounded-lg border border-neutral-300 bg-white p-3 text-xs r3-popover dark:border-neutral-700 dark:bg-neutral-900"
         >
           <span>{notice}</span>
           <Button variant="ghost" onClick={() => setNotice("")}>

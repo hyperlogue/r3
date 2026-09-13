@@ -320,7 +320,7 @@ export function JumpToFile({
               if (!visible) setShown(false);
             }}
             className={cn(
-              "absolute left-0 top-full z-50 mt-2.5 flex h-80 w-[27rem] origin-top-left flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-xl transition-[transform,opacity] duration-150 ease-out max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:mt-0 max-md:h-[24rem] max-md:max-h-[80dvh] max-md:w-auto max-md:origin-bottom max-md:rounded-b-none dark:border-neutral-700 dark:bg-neutral-950",
+              "absolute left-0 top-full z-50 mt-2.5 flex h-80 w-[27rem] origin-top-left flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover r3-file-picker transition-[transform,opacity] duration-150 ease-out max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:mt-0 max-md:h-[24rem] max-md:max-h-[80dvh] max-md:w-auto max-md:origin-bottom max-md:rounded-b-none dark:border-neutral-700 dark:bg-neutral-950",
               visible
                 ? "scale-100 opacity-100 max-md:translate-y-0"
                 : "pointer-events-none scale-95 opacity-0 max-md:translate-y-full max-md:scale-100 max-md:opacity-100",

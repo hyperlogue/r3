@@ -68,7 +68,7 @@ export function MobileReviewChrome({
       <div
         inert={sheet === "closed"}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-xl border-t border-neutral-300 bg-neutral-50 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.15)] transition-[transform,height] duration-200 dark:border-neutral-700 dark:bg-neutral-900",
+          "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-xl border-t border-neutral-300 bg-neutral-50 pb-[env(safe-area-inset-bottom)] r3-sheet transition-[transform,height] duration-200 dark:border-neutral-700 dark:bg-neutral-900",
           sheet === "full" ? "h-[92dvh]" : "h-[45dvh]",
           sheet === "closed" && "translate-y-full",
         )}

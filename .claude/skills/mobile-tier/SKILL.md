@@ -65,6 +65,10 @@ with three discrete tap-only states:
    raised by any anchor gesture
 3. **full**
 
+Both bottom sheets intentionally retain rounded top corners and square bottom
+corners, with an exposed top border and upward shadow. Their inner structural
+containers remain flat.
+
 Locate/ref jumps close the sheet before scrolling the code pane.
 
 ## Navigation

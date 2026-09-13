@@ -53,7 +53,7 @@ export function ArtifactArchiveDialog({
         event.preventDefault();
         if (!archive.isPending) onCancel();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 shadow-xl backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 r3-modal backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
       <form
         onSubmit={(event) => {
@@ -81,7 +81,7 @@ export function ArtifactArchiveDialog({
               event.currentTarget.form?.requestSubmit();
             }
           }}
-          className="mt-4 w-full rounded border border-neutral-300 bg-transparent p-2 text-sm max-md:text-base dark:border-neutral-700"
+          className="mt-4 w-full border border-neutral-300 bg-transparent p-2 text-sm max-md:text-base dark:border-neutral-700"
         />
         {archive.error && (
           <p role="alert" className="mt-2 text-sm text-red-600">
@@ -277,7 +277,7 @@ export function ArtifactHeader({
         role="dialog"
         hidden={!detailsOpen}
         aria-label="Artifact details"
-        className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 r3-popover dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
       >
         <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
           {title === null ? (
@@ -430,7 +430,7 @@ export function ArtifactHeader({
       {(notice || error) && (
         <div
           role={error ? "alert" : "status"}
-          className="absolute right-2 top-full z-30 mt-1 flex max-w-[calc(100vw-1rem)] items-center gap-2 rounded-lg border border-neutral-300 bg-white p-3 text-xs shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
+          className="absolute right-2 top-full z-30 mt-1 flex max-w-[calc(100vw-1rem)] items-center gap-2 rounded-lg border border-neutral-300 bg-white p-3 text-xs r3-popover dark:border-neutral-700 dark:bg-neutral-950"
         >
           <span className={error ? "text-red-600" : "text-neutral-500"}>
             {error?.message ?? notice}

@@ -65,7 +65,7 @@ export function ShortcutsOverlay() {
         onClick={() => setOpen(false)}
         className="absolute inset-0 cursor-default bg-black/30"
       />
-      <div className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-neutral-300 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-neutral-300 bg-white p-4 r3-modal dark:border-neutral-700 dark:bg-neutral-900">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             Keyboard shortcuts

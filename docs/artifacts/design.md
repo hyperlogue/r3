@@ -140,6 +140,11 @@ The browser pins the displayed version. A new publication is announced with an
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
+Workspace containers follow the layer rules in `AGENTS.md`. Menus and notices use
+compact elevation; floating conversations/composers and dialogs use broader shadows.
+Mobile sheets cast upward and retain their intentional rounded top corners. The
+floating composer has one complete neutral outer border and no colored left stripe.
+
 The top navigation contains the artifact's read-only title and rendered comment-mode
 selection-cursor icon. The `r3` text links to the artifact list, with extra spacing
 around the divider separating it from the title. Every artifact kind has a labeled

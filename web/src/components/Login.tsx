@@ -39,7 +39,7 @@ export function Login() {
     <div className="flex h-full items-center justify-center bg-neutral-50 px-6 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-xl border border-neutral-300 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-950"
+        className="w-full max-w-sm border border-neutral-300 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-950"
       >
         <div className="mb-4 flex items-center gap-2">
           <Logo className="size-6" />

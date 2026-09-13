@@ -149,6 +149,14 @@ Use `cli/artifact-help.ts` as the exact command/help/agent-guide text.
 
 ## Browser design
 
+Structural containers use square corners, compact spacing, shared dividers, and no
+elevation in the base layer. This includes feedback cards and multiline editors.
+Detached outer overlays use rounded corners, visible borders, subtle edge lighting,
+and layered shadows; inner content stays flat. Mobile bottom sheets intentionally
+keep rounded top corners and square bottom corners. Buttons, filter bubbles, badges,
+and ordinary single-line controls retain their existing shapes. Use local CSS;
+Ambient CSS is a visual reference, not a dependency.
+
 The selected version stays pinned when a new publication arrives. Announce it and
 offer **Open latest**. Drafts hold their native target/context independently of the
 current pane, survive view switches, and persist after a 400 ms debounce. Legacy

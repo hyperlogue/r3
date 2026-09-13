@@ -82,7 +82,7 @@ export function ArtifactVersionSelect({
           inline
             ? cn("mt-1 w-full", !open && "hidden")
             : cn(
-                "absolute top-full right-0 z-50 shadow-2xl transition-[opacity,transform] duration-150 ease-out",
+                "absolute top-full right-0 z-50 r3-popover transition-[opacity,transform] duration-150 ease-out",
                 open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
               ),
         )}

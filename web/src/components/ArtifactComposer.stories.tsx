@@ -76,3 +76,9 @@ export const RetiredDescriptionDraft: Story = {
     await expect(canvas.getByRole("button", { name: "Add feedback" })).toBeEnabled();
   },
 };
+
+export const Floating: Story = {
+  ...RenderedTarget,
+  args: { floating: { left: 360, top: 140, bottom: 164, onClose: () => {} } },
+};
+export const FloatingDark: Story = { ...Floating, globals: { theme: "dark" } };
