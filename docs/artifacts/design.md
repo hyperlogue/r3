@@ -136,12 +136,13 @@ The browser pins the displayed version. A new publication is announced with an
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
-The top navigation contains the artifact's editable title and rendered comment-mode
+The top navigation contains the artifact's read-only title and rendered comment-mode
 selection-cursor icon. The `r3` text links to the artifact list, with extra spacing
 around the divider separating it from the title. Every artifact kind has a labeled
 icon, including a browser window for HTML. Active status has no badge; archived
 artifacts show **Archived**. A three-dot button opens the details popover containing
 the description, IDs, metadata, lifecycle history, and Archive/Restore action.
+Title editing lives in an explicit **Edit title** form inside that menu.
 There is no separate body header or delete button. Version selection sits in the
 top navigation; below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.

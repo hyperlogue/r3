@@ -17,6 +17,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Active: Story = {};
+export const EditTitle: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("button", { name: /^Edit title:/ })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    const menu = within(canvas.getByRole("dialog", { name: "Artifact details" }));
+    await userEvent.click(menu.getByRole("button", { name: "Edit title" }));
+    await expect(menu.getByRole("textbox", { name: "Artifact title" })).toHaveFocus();
+    await userEvent.type(menu.getByRole("textbox", { name: "Artifact title" }), " revised");
+    await userEvent.keyboard("{Escape}");
+    await expect(menu.queryByRole("textbox", { name: "Artifact title" })).toBeNull();
+    await expect(menu.getByRole("button", { name: "Edit title" })).toHaveFocus();
+  },
+};
 export const FeedbackToggle: Story = {
   render: (args) => {
     const [visible, setVisible] = useState(true);

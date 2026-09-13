@@ -135,6 +135,12 @@ export function ArtifactHeader({
   }, [detailsOpen]);
   useEscape(detailsOpen, () => setDetailsOpen(false));
   const [title, setTitle] = useState<string | null>(null);
+  const titleInput = useRef<HTMLInputElement>(null);
+  const titleButton = useRef<HTMLButtonElement>(null);
+  const editingTitle = title !== null;
+  useEffect(() => {
+    if (detailsOpen) (editingTitle ? titleInput : titleButton).current?.focus();
+  }, [editingTitle, detailsOpen]);
   const [notice, setNotice] = useState("");
   const restoreKey = useRef<string | null>(null);
   const refresh = () => {
@@ -190,40 +196,13 @@ export function ArtifactHeader({
           )}
         </StrokeIcon>
       </span>
-      {title === null ? (
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left text-sm font-semibold"
-          title={detail.title || detail.id}
-          aria-label={`Edit title: ${detail.title || detail.id}`}
-          onClick={() => setTitle(detail.title ?? "")}
-        >
-          {detail.title || detail.id}
-        </button>
-      ) : (
-        <form
-          className="flex min-w-0 flex-1 gap-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            edit.mutate();
-          }}
-        >
-          <input
-            aria-label="Artifact title"
-            className="min-w-0 flex-1 rounded border border-neutral-300 bg-transparent px-2 text-sm max-md:text-base dark:border-neutral-700"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            disabled={edit.isPending}
-          />
-          <Button type="submit" disabled={edit.isPending}>
-            Save
-          </Button>
-          <Button type="button" onClick={() => setTitle(null)}>
-            Cancel
-          </Button>
-        </form>
-      )}
-      {onSelectVersion && title === null && (
+      <span
+        className="min-w-0 flex-1 truncate text-sm font-semibold"
+        title={detail.title || detail.id}
+      >
+        {detail.title || detail.id}
+      </span>
+      {onSelectVersion && (
         <ArtifactOpenLatest
           latest={detail.versions.at(-1)?.seq}
           selected={selectedVersion}
@@ -231,7 +210,7 @@ export function ArtifactHeader({
           className="max-md:hidden"
         />
       )}
-      {onSelectVersion && title === null && (
+      {onSelectVersion && (
         <div className="flex min-w-0 max-w-[35%] self-stretch border-x border-neutral-200 max-md:hidden dark:border-neutral-800">
           <ArtifactVersionSelect
             versions={detail.versions}
@@ -240,56 +219,52 @@ export function ArtifactHeader({
           />
         </div>
       )}
-      {title === null && (
-        <>
-          {detail.state === "archived" && <Pill>Archived</Pill>}
-          {onToggleCommenting && (
-            <Button
-              variant={commenting ? "primary" : "ghost"}
-              className="shrink-0 p-1.5 max-md:size-9"
-              aria-label={commenting ? "Exit comment mode" : "Comment mode"}
-              title={commenting ? "Exit comment mode" : "Comment mode"}
-              aria-pressed={commenting}
-              onClick={onToggleCommenting}
-            >
-              <StrokeIcon className="size-4">
-                <path d="M4 8V4h4M12 4h4v4M4 12v4h4" />
-                <path d="m10 10 4 11 2-5 5-2-11-4Z" />
-              </StrokeIcon>
-            </Button>
-          )}
-          {onToggleFeedback && (
-            <Button
-              variant={feedbackVisible ? "primary" : "ghost"}
-              className="shrink-0 p-1.5 max-md:hidden"
-              aria-label={feedbackVisible ? "Hide feedback" : "Show feedback"}
-              title={`${feedbackVisible ? "Hide" : "Show"} feedback (p)`}
-              aria-pressed={feedbackVisible}
-              onClick={onToggleFeedback}
-            >
-              <StrokeIcon className="size-4">
-                <rect x="3" y="4" width="18" height="16" rx="2" />
-                <path d="M14 4v16M17 8h1M17 12h1" />
-              </StrokeIcon>
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            className="shrink-0 p-1.5 max-md:size-9"
-            aria-label="Artifact details and actions"
-            title="Artifact details and actions"
-            aria-haspopup="dialog"
-            aria-expanded={detailsOpen}
-            onClick={() => setDetailsOpen(!detailsOpen)}
-          >
-            <StrokeIcon className="size-4">
-              <circle cx="5" cy="12" r="1" />
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-            </StrokeIcon>
-          </Button>
-        </>
+      {detail.state === "archived" && <Pill>Archived</Pill>}
+      {onToggleCommenting && (
+        <Button
+          variant={commenting ? "primary" : "ghost"}
+          className="shrink-0 p-1.5 max-md:size-9"
+          aria-label={commenting ? "Exit comment mode" : "Comment mode"}
+          title={commenting ? "Exit comment mode" : "Comment mode"}
+          aria-pressed={commenting}
+          onClick={onToggleCommenting}
+        >
+          <StrokeIcon className="size-4">
+            <path d="M4 8V4h4M12 4h4v4M4 12v4h4" />
+            <path d="m10 10 4 11 2-5 5-2-11-4Z" />
+          </StrokeIcon>
+        </Button>
       )}
+      {onToggleFeedback && (
+        <Button
+          variant={feedbackVisible ? "primary" : "ghost"}
+          className="shrink-0 p-1.5 max-md:hidden"
+          aria-label={feedbackVisible ? "Hide feedback" : "Show feedback"}
+          title={`${feedbackVisible ? "Hide" : "Show"} feedback (p)`}
+          aria-pressed={feedbackVisible}
+          onClick={onToggleFeedback}
+        >
+          <StrokeIcon className="size-4">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M14 4v16M17 8h1M17 12h1" />
+          </StrokeIcon>
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        className="shrink-0 p-1.5 max-md:size-9"
+        aria-label="Artifact details and actions"
+        title="Artifact details and actions"
+        aria-haspopup="dialog"
+        aria-expanded={detailsOpen}
+        onClick={() => setDetailsOpen(!detailsOpen)}
+      >
+        <StrokeIcon className="size-4">
+          <circle cx="5" cy="12" r="1" />
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+        </StrokeIcon>
+      </Button>
       {detailsOpen && (
         <button
           type="button"
@@ -304,6 +279,54 @@ export function ArtifactHeader({
         aria-label="Artifact details"
         className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
       >
+        <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+          {title === null ? (
+            <Button
+              ref={titleButton}
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => {
+                edit.reset();
+                setTitle(detail.title ?? "");
+              }}
+            >
+              Edit title
+            </Button>
+          ) : (
+            <form
+              className="flex flex-col gap-2"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  if (!edit.isPending) {
+                    setTitle(null);
+                  }
+                }
+              }}
+              onSubmit={(event) => {
+                event.preventDefault();
+                edit.mutate();
+              }}
+            >
+              <input
+                ref={titleInput}
+                aria-label="Artifact title"
+                className="min-w-0 flex-1 rounded border border-neutral-300 bg-transparent px-2 text-sm max-md:text-base dark:border-neutral-700"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={edit.isPending}
+              />
+              <div className="flex justify-end gap-1">
+                <Button type="submit" disabled={edit.isPending}>
+                  Save
+                </Button>
+                <Button type="button" disabled={edit.isPending} onClick={() => setTitle(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </section>
         {onSelectVersion && (
           <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
             <div className="mb-2 flex items-center justify-between gap-2">

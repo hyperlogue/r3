@@ -1,5 +1,5 @@
 import type {
-  ButtonHTMLAttributes,
+  ComponentPropsWithRef,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   PointerEvent as ReactPointerEvent,
@@ -342,7 +342,7 @@ export function Button({
   variant = "default",
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ComponentPropsWithRef<"button"> & {
   variant?: "default" | "primary" | "ghost" | "danger" | "success" | "success-outline";
 }) {
   // max-md:min-h-9 gives every shared button a compact ~40px touch target below
