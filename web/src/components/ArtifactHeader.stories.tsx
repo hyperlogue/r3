@@ -13,6 +13,31 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Active: Story = {};
+export const FeedbackToggle: Story = {
+  render: (args) => {
+    const [visible, setVisible] = useState(true);
+    return (
+      <ArtifactHeader
+        {...args}
+        feedbackVisible={visible}
+        onToggleFeedback={() => setVisible(!visible)}
+      />
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Hide feedback" }));
+    await expect(canvas.getByRole("button", { name: "Show feedback" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Show feedback" }));
+    await expect(canvas.getByRole("button", { name: "Hide feedback" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  },
+};
 export const Description: Story = {
   args: {
     version: {

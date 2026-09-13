@@ -470,20 +470,17 @@ try {
     assert(
       await page.evaluate(`(() => {
         const panel = document.querySelector('[data-feedback-mode]');
-        const rail = panel.querySelector('[aria-label="Show feedback"]');
-        const bounds = panel.getBoundingClientRect();
+        const toggle = document.querySelector('[data-app-header] [aria-label="Show feedback"]');
+        const content = document.querySelector('[data-artifact-content-view]').getBoundingClientRect();
         const workspace = panel.parentElement.getBoundingClientRect();
-        const style = getComputedStyle(panel);
-        const controls = [...panel.querySelectorAll('button')].filter(button => !button.closest('[inert]'));
-        return bounds.top === workspace.top && bounds.bottom === workspace.bottom && bounds.right === workspace.right &&
-          bounds.width === 32 && style.borderRadius === '0px' && style.boxShadow === 'none' &&
-          controls.length === 1 && controls[0] === rail;
+        return panel.getBoundingClientRect().width === 0 && content.right === workspace.right &&
+          !!toggle && !panel.querySelector('[aria-label="Show feedback"]');
       })()`),
-      "collapsed feedback is one flush full-height control without floating decoration",
+      "hidden feedback leaves no rail or reserved gutter and is controlled by the navbar",
     );
     const point = await page.evaluate<{ x: number; y: number }>(`(() => {
       const bounds = document.querySelector('[aria-label="Show feedback"]').getBoundingClientRect();
-      return { x: bounds.x + bounds.width / 2, y: bounds.bottom - 3 };
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
     })()`);
     await page.command("Input.dispatchMouseEvent", {
       type: "mousePressed",
@@ -502,7 +499,7 @@ try {
         page.evaluate(
           `document.querySelector('[data-feedback-mode]')?.dataset.feedbackMode === '${mode}'`,
         ),
-      "clicking the empty bottom of the rail restores the remembered mode",
+      "the navbar button restores the remembered mode",
     );
     for (const expected of ["hidden", mode]) {
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "p", code: "KeyP" });

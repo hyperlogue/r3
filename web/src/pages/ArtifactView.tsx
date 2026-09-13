@@ -7,9 +7,8 @@ import type {
   ArtifactVersion,
   RenderedLocator,
 } from "../../../shared/artifacts.ts";
-import { hasUnsentArtifactFeedback } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { artifactDrafts, useHasArtifactDraft, useHasArtifactNote } from "../artifact-drafts.ts";
+import { artifactDrafts, useHasArtifactNote } from "../artifact-drafts.ts";
 import {
   type ArtifactLocation,
   artifactLocationSearch,
@@ -33,7 +32,6 @@ import {
 import { ArtifactOpenLatest } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
-import { FeedbackPanelRail } from "../components/FeedbackPanelRail.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
@@ -177,7 +175,6 @@ function Workspace({
   const jumpNonce = useRef(0);
   const initialFeedback = useRef(view.feedbackId);
   const initialPath = useRef(view.feedbackId ? null : view.path);
-  const hasDraft = useHasArtifactDraft(detail.id);
   const hasNote = useHasArtifactNote(detail.id);
   const {
     version,
@@ -639,6 +636,10 @@ function Workspace({
         version={version}
         selectedVersion={view.versionSeq}
         onSelectVersion={selectVersion}
+        feedbackVisible={!collapsed}
+        onToggleFeedback={
+          !mobile ? () => (collapsed ? showFeedbackPanel() : setFeedbackMode("hidden")) : undefined
+        }
         detailsRequest={detailsRequest}
         onJumpRef={(ref) => jumpRef(ref, context)}
         commenting={commenting}
@@ -837,11 +838,6 @@ function Workspace({
             onOpen={selectVersion}
           />
         </div>
-        {/* Hidden and floating share the flush rail's gutter, so switching their
-            positioning and animating their width never resizes the content. */}
-        {!mobile && feedbackMode !== "expanded" && (
-          <div aria-hidden="true" className="w-[32px] shrink-0" />
-        )}
         {!mobile && (
           <aside
             data-feedback-mode={feedbackMode}
@@ -850,11 +846,11 @@ function Workspace({
               feedbackMode === "floating"
                 ? "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl"
                 : collapsed
-                  ? "absolute inset-y-0 right-0 z-20 border-l"
+                  ? "absolute inset-y-0 right-0 pointer-events-none"
                   : "relative shrink-0 border-l",
               !resize.dragging && "transition-[width] duration-200 motion-reduce:transition-none",
             )}
-            style={{ width: collapsed ? 32 : resize.width }}
+            style={{ width: collapsed ? 0 : resize.width }}
           >
             {!collapsed && (
               <div
@@ -870,19 +866,10 @@ function Workspace({
             >
               {panel}
             </div>
-            {collapsed && (
-              <FeedbackPanelRail
-                openCount={detail.feedback.filter((feedback) => feedback.status === "open").length}
-                hasDraft={hasDraft}
-                pending={detail.feedback.some(hasUnsentArtifactFeedback)}
-                watching={detail.watching}
-                onShow={showFeedbackPanel}
-              />
-            )}
           </aside>
         )}
         {!mobile && collapsed && visibleThread && (
-          <div className="pointer-events-none absolute right-12 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-30 flex w-[440px] max-w-[calc(100%-4rem)] flex-col items-stretch [&>*]:pointer-events-auto">
+          <div className="pointer-events-none absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-30 flex w-[440px] max-w-[calc(100%-1rem)] flex-col items-stretch [&>*]:pointer-events-auto">
             <ArtifactThreadPopover
               key={visibleThread.id}
               feedback={visibleThread}

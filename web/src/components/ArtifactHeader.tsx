@@ -110,6 +110,8 @@ export function ArtifactHeader({
   onJumpRef,
   commenting,
   onToggleCommenting,
+  feedbackVisible,
+  onToggleFeedback,
 }: {
   detail: ArtifactDetail;
   version?: ArtifactVersion | null;
@@ -119,6 +121,8 @@ export function ArtifactHeader({
   onJumpRef?: (reference: MessageRef) => void;
   commenting?: boolean;
   onToggleCommenting?: () => void;
+  feedbackVisible?: boolean;
+  onToggleFeedback?: () => void;
 }) {
   const qc = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -244,6 +248,21 @@ export function ArtifactHeader({
               <StrokeIcon className="size-4">
                 <path d="M4 8V4h4M12 4h4v4M4 12v4h4" />
                 <path d="m10 10 4 11 2-5 5-2-11-4Z" />
+              </StrokeIcon>
+            </Button>
+          )}
+          {onToggleFeedback && (
+            <Button
+              variant={feedbackVisible ? "primary" : "ghost"}
+              className="shrink-0 p-1.5 max-md:hidden"
+              aria-label={feedbackVisible ? "Hide feedback" : "Show feedback"}
+              title={`${feedbackVisible ? "Hide" : "Show"} feedback (p)`}
+              aria-pressed={feedbackVisible}
+              onClick={onToggleFeedback}
+            >
+              <StrokeIcon className="size-4">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M14 4v16M17 8h1M17 12h1" />
               </StrokeIcon>
             </Button>
           )}

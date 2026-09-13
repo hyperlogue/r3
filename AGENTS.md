@@ -154,8 +154,8 @@ offer **Open latest**. Drafts hold their native target/context independently of 
 current pane, survive view switches, and persist after a 400 ms debounce. Legacy
 browser drafts remain evidence rather than being guessed into new targets.
 
-The desktop feedback dock folds to a mounted rail with open count, draft, pending
-handoff, and presence indicators. An anchor gesture with an empty composer starts
+The desktop navbar toggles the feedback dock, restoring its last expanded or floating
+mode. Hidden panels stay mounted without reserving content space. An anchor gesture with an empty composer starts
 a note; a composer holding text gets a quote action instead. A folded dock uses
 the same floating composer. Mobile reuses the conversation state in its sheet.
 

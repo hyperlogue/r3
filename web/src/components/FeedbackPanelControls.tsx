@@ -1,11 +1,5 @@
 import type { FeedbackPanelMode } from "../settings.ts";
-import { FoldChevrons } from "../ui.tsx";
-
-const labels: Record<FeedbackPanelMode, string> = {
-  hidden: "Hide feedback",
-  expanded: "Expand feedback",
-  floating: "Float feedback",
-};
+import { StrokeIcon } from "../ui.tsx";
 
 export function FeedbackPanelControls({
   mode,
@@ -14,45 +8,29 @@ export function FeedbackPanelControls({
   mode: Exclude<FeedbackPanelMode, "hidden">;
   onChange: (mode: FeedbackPanelMode) => void;
 }) {
+  const next = mode === "floating" ? "expanded" : "floating";
+  const label = next === "expanded" ? "Expand feedback" : "Float feedback";
   return (
-    <fieldset aria-label="Feedback panel" className="flex shrink-0 items-center">
-      {(["expanded", "floating", "hidden"] as const)
-        .filter((next) => next !== mode)
-        .map((next) => (
-          <button
-            key={next}
-            type="button"
-            aria-label={labels[next]}
-            title={labels[next]}
-            onClick={() => onChange(next)}
-            className="flex size-[24px] shrink-0 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          >
-            {next === "hidden" ? (
-              <FoldChevrons dir="right" />
-            ) : (
-              <svg
-                aria-hidden="true"
-                className="size-4"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                {next === "expanded" ? (
-                  <>
-                    <rect x="2" y="3" width="16" height="14" rx="2" />
-                    <path d="M12 3v14" />
-                  </>
-                ) : (
-                  <>
-                    <path d="M7 14H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    <rect x="7" y="7" width="11" height="10" rx="2" />
-                  </>
-                )}
-              </svg>
-            )}
-          </button>
-        ))}
-    </fieldset>
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => onChange(next)}
+      className="flex size-[24px] shrink-0 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+    >
+      <StrokeIcon className="size-4">
+        {next === "expanded" ? (
+          <>
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M14 4v16" />
+          </>
+        ) : (
+          <>
+            <path d="M8 17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v2" />
+            <rect x="8" y="8" width="13" height="12" rx="2" />
+          </>
+        )}
+      </StrokeIcon>
+    </button>
   );
 }

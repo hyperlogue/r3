@@ -1,10 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  type ArtifactPreviewNetwork,
-  hasUnsentArtifactFeedback,
-} from "../../../shared/artifacts.ts";
+import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
 import { demo } from "../../demo/artifact-backend.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
@@ -25,7 +22,6 @@ import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { ArtifactOpenLatest } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
-import { FeedbackPanelRail } from "../components/FeedbackPanelRail.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
 import { MessageProse } from "../components/Message.tsx";
@@ -109,6 +105,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           selectedVersion={versionSeq}
           onSelectVersion={setVersionSeq}
           onJumpRef={() => announce("Sample file reference selected")}
+          feedbackVisible={!collapsed}
+          onToggleFeedback={() => (collapsed ? reopen() : changeMode("hidden"))}
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
@@ -122,9 +120,9 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
                 The feedback panel has three states: hidden, expanded beside the content, or
-                floating over it. Use its icon controls to compare them. Hidden anchors open one
-                conversation at a time. Click anywhere on the collapsed bar to restore the last
-                expanded or floating mode.
+                floating over it. Use the navbar button to hide or show it, and its panel control to
+                switch modes. Hidden anchors open one conversation at a time. Showing feedback
+                restores the last expanded or floating mode.
               </p>
               <Button
                 onClick={() => {
@@ -192,7 +190,6 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </p>
             </div>
           </div>
-          {mode !== "expanded" && <div className="w-[32px] shrink-0" />}
           <div
             data-sample-feedback-mode={mode}
             className={cn(
@@ -200,10 +197,10 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               mode === "floating"
                 ? "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border shadow-xl"
                 : collapsed
-                  ? "absolute inset-y-0 right-0 border-l"
+                  ? "absolute inset-y-0 right-0 pointer-events-none"
                   : "relative shrink-0 border-l",
             )}
-            style={{ width: collapsed ? 32 : 420 }}
+            style={{ width: collapsed ? 0 : 420 }}
           >
             <div
               inert={collapsed}
@@ -223,17 +220,9 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 }
               />
             </div>
-            {collapsed && (
-              <FeedbackPanelRail
-                openCount={data.feedback.filter((feedback) => feedback.status === "open").length}
-                pending={data.feedback.some(hasUnsentArtifactFeedback)}
-                watching={data.watching}
-                onShow={reopen}
-              />
-            )}
           </div>
           {collapsed && threadOpen && data.feedback[0] && (
-            <div className="pointer-events-none absolute right-12 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-4rem)] flex-col [&>*]:pointer-events-auto">
+            <div className="pointer-events-none absolute right-2 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-1rem)] flex-col [&>*]:pointer-events-auto">
               <ArtifactThreadPopover
                 feedback={data.feedback[0]}
                 context={{ versionSeq: 1, representation: "source" }}
