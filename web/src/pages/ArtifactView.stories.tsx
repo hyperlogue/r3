@@ -188,6 +188,25 @@ export const TreeOrderedFiles: Story = {
   },
 };
 export const Files: Story = {};
+const fallbackFiles = (["binary", "oversize"] as const).map((kind) => ({
+  ...files[1],
+  path: kind === "binary" ? "archive.bin" : "large.txt",
+  mediaType: kind === "binary" ? "application/octet-stream" : "text/plain",
+  sourceKind: kind,
+}));
+export const DownloadFallback: Story = {
+  parameters: {
+    queryData: [
+      ...queryData,
+      [["artifact-files", detail.id, 1], fallbackFiles],
+      ...fallbackFiles.map((file) => [
+        ["artifact-source", detail.id, 1, file.path, "github"],
+        { ...source, ...file, kind: file.sourceKind, language: null, lines: [] },
+      ]),
+    ],
+  },
+};
+
 export const AllFiles: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

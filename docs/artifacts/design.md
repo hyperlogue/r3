@@ -149,7 +149,9 @@ While an older or unavailable version is selected, **Open latest** appears in th
 top navigation immediately left of the version selector. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and the button disappears on the latest version.
-HTML artifacts have no empty content toolbar.
+HTML artifacts have no empty content toolbar. File-tab headers contain reading and
+feedback controls. Binary and oversized source placeholders offer **Download file**
+in the content body.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses

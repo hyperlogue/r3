@@ -7,7 +7,7 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import type { Region } from "../highlights.ts";
 import type { DiffSide } from "../types.ts";
-import { cn } from "../ui.tsx";
+import { Button, cn } from "../ui.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
 import { SourceCode } from "./SourceCode.tsx";
 
@@ -86,44 +86,32 @@ export const ArtifactFile = memo(function ArtifactFile({
       onFileFeedback={onFileFeedback}
       foldSignal={fold}
       onOpenChange={setOpen}
-      stats={(expanded) => (
-        <div className="flex items-center gap-2">
-          {expanded && canRender && (
-            <div className="flex shrink-0 overflow-hidden rounded text-[0.625rem] ring-1 ring-inset ring-neutral-300 dark:ring-neutral-700">
-              {(["source", "rendered"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={representation === mode}
-                  className={cn(
-                    "px-1.5 py-0.5 font-medium capitalize transition-colors",
-                    representation === mode
-                      ? "bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100"
-                      : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200",
-                  )}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRepresentation(mode);
-                  }}
-                >
-                  {mode === "source" ? "Source" : "Rendered"}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            disabled={download.isPending}
-            className="text-[0.625rem] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-            onClick={(event) => {
-              event.stopPropagation();
-              download.mutate();
-            }}
-          >
-            Download
-          </button>
-        </div>
-      )}
+      stats={(expanded) =>
+        expanded &&
+        canRender && (
+          <div className="flex shrink-0 overflow-hidden rounded text-[0.625rem] ring-1 ring-inset ring-neutral-300 dark:ring-neutral-700">
+            {(["source", "rendered"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={representation === mode}
+                className={cn(
+                  "px-1.5 py-0.5 font-medium capitalize transition-colors",
+                  representation === mode
+                    ? "bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100"
+                    : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200",
+                )}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRepresentation(mode);
+                }}
+              >
+                {mode === "source" ? "Source" : "Rendered"}
+              </button>
+            ))}
+          </div>
+        )
+      }
     >
       {active &&
         open &&
@@ -143,12 +131,17 @@ export const ArtifactFile = memo(function ArtifactFile({
             onPickLines={onPickLines}
           />
         ) : (
-          <p className="p-3 text-xs text-neutral-500">
-            {source.data?.kind === "oversize"
-              ? "This file is too large for source highlighting."
-              : "This file contains binary content."}{" "}
-            Download the published file to open it.
-          </p>
+          <div className="space-y-2 p-3">
+            <p className="text-xs text-neutral-500">
+              {source.data?.kind === "oversize"
+                ? "This file is too large for source highlighting."
+                : "This file contains binary content."}{" "}
+              Download the published file to open it.
+            </p>
+            <Button disabled={download.isPending} onClick={() => download.mutate()}>
+              {download.isPending ? "Downloading…" : "Download file"}
+            </Button>
+          </div>
         ))}
       {download.error && (
         <p role="alert" className="p-3 text-xs text-red-600">
