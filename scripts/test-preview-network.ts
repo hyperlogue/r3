@@ -308,7 +308,7 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
         "!!document.querySelector('[aria-label=\"Preview security details\"]:not([hidden])')",
       )
     )
-      await click("document.querySelector('[aria-label=\"Close preview security\"]')");
+      await click("document.querySelector('[aria-label^=\"Preview security:\"]')");
     if (await page.evaluate("!!document.querySelector('[aria-label=\"Close artifact details\"]')"))
       await click("document.querySelector('[aria-label=\"Close artifact details\"]')");
     await click("document.querySelector('[aria-label=\"Published version\"]')");
@@ -337,6 +337,30 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   assert.equal(await page.evaluate("new URL(location.href).searchParams.get('version')"), "1");
   assert.equal(storage.conversations.list(html.id)[0].status, "open");
   assert.equal(storage.conversations.list(html.id)[0].sentAt, null);
+  for (const type of ["keyDown", "keyUp"])
+    await page.command("Input.dispatchKeyEvent", {
+      type,
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+    });
+  await eventually(
+    () => page.evaluate("!document.querySelector('dialog[open]')"),
+    "Escape dismisses native consent",
+  );
+  assert.equal(
+    await page.evaluate("document.querySelector('[aria-label=\"Artifact details\"]').hidden"),
+    false,
+    "Escape preserves the underlying details menu",
+  );
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[aria-label=\"Preview security details\"]').hidden",
+    ),
+    false,
+  );
+  assert.equal(await page.evaluate("document.activeElement.textContent"), "Allow external access");
+  await click(button("Allow external access"));
   await click(button("Keep protection"));
   assert.equal(grants.length, 1, "cancel must not create an external context");
   const content = await allow();

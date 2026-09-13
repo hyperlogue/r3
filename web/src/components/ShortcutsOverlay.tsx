@@ -1,13 +1,6 @@
-import { useEffect, useState } from "react";
-import {
-  type Binding,
-  formatChord,
-  isBound,
-  KEYMAP,
-  suspendKeys,
-  useKeyBindings,
-} from "../keys.ts";
-import { cn, useEscape } from "../ui.tsx";
+import { useRef, useState } from "react";
+import { type Binding, formatChord, isBound, KEYMAP, useKeyBindings } from "../keys.ts";
+import { cn, useEscape, usePopoverFocus } from "../ui.tsx";
 
 // `?` cheat sheet, rendered from KEYMAP. Owns `help`; suspends every other
 // binding while open so `j` doesn't walk the list behind the sheet.
@@ -46,14 +39,10 @@ function Row({ b, bound }: { b: Binding; bound: boolean }) {
 
 export function ShortcutsOverlay() {
   const [open, setOpen] = useState(false);
+  const content = useRef<HTMLDivElement>(null);
   useKeyBindings({ help: () => setOpen((v) => !v) });
   useEscape(open, () => setOpen(false));
-  // Hold the suspension for exactly as long as the sheet is up; the release is
-  // idempotent, so a StrictMode double-effect can't unbalance the counter.
-  useEffect(() => {
-    if (!open) return;
-    return suspendKeys();
-  }, [open]);
+  usePopoverFocus(open, content);
 
   if (!open) return null;
   return (
@@ -65,7 +54,13 @@ export function ShortcutsOverlay() {
         onClick={() => setOpen(false)}
         className="absolute inset-0 cursor-default bg-black/30"
       />
-      <div className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-neutral-300 bg-white p-4 r3-modal dark:border-neutral-700 dark:bg-neutral-900">
+      <div
+        ref={content}
+        role="dialog"
+        aria-label="Keyboard shortcuts"
+        tabIndex={-1}
+        className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-neutral-300 bg-white p-4 r3-modal dark:border-neutral-700 dark:bg-neutral-900"
+      >
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             Keyboard shortcuts

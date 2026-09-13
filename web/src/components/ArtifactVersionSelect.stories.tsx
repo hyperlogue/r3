@@ -44,6 +44,24 @@ export const ChoosePublication: Story = {
 export const MissingImportedVersion: Story = { args: { selected: 2 } };
 export const Unpublished: Story = { args: { versions: [] } };
 export const InlineMenu: Story = { ...ChoosePublication, args: { inline: true } };
+export const KeyboardNavigation: Story = {
+  ...PublishedHistory,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "Published version" });
+    trigger.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(canvas.getByRole("option", { name: "Version 4" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(canvas.getByRole("option", { name: "Version 3" })).toHaveFocus();
+    await userEvent.keyboard("{End}{Enter}");
+    await expect(trigger).toHaveValue("1");
+    await expect(trigger).toHaveFocus();
+    await userEvent.keyboard("{ArrowUp}{Home}{Escape}");
+    await expect(trigger).toHaveValue("1");
+    await expect(trigger).toHaveFocus();
+  },
+};
 export const OlderVersion: Story = {
   render: (args) => {
     const [selected, setSelected] = useState<number | null>(1);

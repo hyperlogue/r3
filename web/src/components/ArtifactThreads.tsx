@@ -19,7 +19,7 @@ import { copyText } from "../clipboard.ts";
 import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, CommentPlusIcon, cn, FoldTriangle, useEscape } from "../ui.tsx";
+import { Button, CommentPlusIcon, cn, FoldTriangle, useEscape, usePopoverFocus } from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 
@@ -59,6 +59,9 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const [editing, setEditing] = useState<{ replyId?: string; body: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  usePopoverFocus(menuOpen, menu, menuTrigger);
   const [earlierOpen, setEarlierOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   useEscape(menuOpen, () => setMenuOpen(false));
@@ -124,9 +127,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const moreMenu = (
     <div className="relative">
       <Button
+        ref={menuTrigger}
         type="button"
         variant="ghost"
         title="More actions"
+        aria-haspopup="dialog"
+        aria-expanded={menuOpen}
         onClick={() => setMenuOpen((value) => !value)}
       >
         ⋯
@@ -139,7 +145,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950">
+          <div
+            ref={menu}
+            role="dialog"
+            aria-label="Feedback actions"
+            className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
+          >
             <button
               type="button"
               disabled={!canEdit}

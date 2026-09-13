@@ -232,7 +232,7 @@ try {
       await page.command("Input.insertText", { text: "A draft blocks handoff" });
       assert(
         await page.evaluate(
-          "[...document.querySelectorAll('button')].find(b=>b.textContent==='Copy prompt').disabled",
+          "[...document.querySelectorAll('button')].find(b=>b.textContent.startsWith('Copy prompt')).disabled",
         ),
       );
       await page.evaluate(

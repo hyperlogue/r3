@@ -27,6 +27,7 @@ export const Open: Story = {
     await userEvent.keyboard("?");
     const body = within(canvasElement.ownerDocument.body);
     await expect(await body.findByText("Keyboard shortcuts")).toBeInTheDocument();
+    await expect(body.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveFocus();
     // The alias pair reads as "j or Ctrl-n", never as a two-key sequence.
     await expect(body.getByText("Ctrl-n")).toBeInTheDocument();
   },

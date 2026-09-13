@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
 import type {
   PreviewCaptureState,
@@ -128,7 +128,7 @@ function NetworkConsent({
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
   const description = useId();
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = dialog.current;
     const resumeKeys = suspendKeys();
     node?.showModal();

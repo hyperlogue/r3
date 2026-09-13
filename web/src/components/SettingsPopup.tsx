@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, CAN_MANAGE_TOKENS, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
 import {
@@ -12,7 +12,7 @@ import {
   useSyntaxTheme,
 } from "../settings.ts";
 import type { ThemeOption } from "../types.ts";
-import { Button, cn, StrokeIcon, useEscape } from "../ui.tsx";
+import { Button, cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { TokenManager } from "./TokenManager.tsx";
 
 // Group theme options by their `group` field, preserving first-seen order.
@@ -103,6 +103,9 @@ function Segmented<T extends string>({
 
 export function SettingsPopup() {
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  usePopoverFocus(open, popup, trigger);
   const [dark, toggleTheme] = useTheme();
   const fontSize = useFontSize();
   const syntaxTheme = useSyntaxTheme();
@@ -118,9 +121,12 @@ export function SettingsPopup() {
   return (
     <div className="relative self-stretch">
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Settings"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className={cn(
           "flex h-full cursor-pointer items-center justify-center pr-4 transition-colors",
           open
@@ -146,7 +152,12 @@ export function SettingsPopup() {
           {/* Anchor the popup's right edge under the gear icon (right-4 = the
               button's pr-4 gutter) rather than flush to the viewport, and cap the
               width so a narrow window can never push it off the right edge. */}
-          <div className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950">
+          <div
+            ref={popup}
+            role="dialog"
+            aria-label="Settings"
+            className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
+          >
             <div className="border-b border-neutral-300 px-3 py-2 text-xs font-semibold dark:border-neutral-700">
               Settings
             </div>

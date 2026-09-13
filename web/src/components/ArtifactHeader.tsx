@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { suspendKeys } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
+import { Button, CopyMeta, Pill, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
@@ -26,7 +25,7 @@ export function ArtifactArchiveDialog({
   const [operationKey] = useState(() => crypto.randomUUID());
   const request = useRef<{ message: string; operationKey: string } | null>(null);
   const qc = useQueryClient();
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = dialog.current;
     node?.showModal();
     return () => node?.close();
@@ -129,12 +128,12 @@ export function ArtifactHeader({
   const qc = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const details = useRef<HTMLDivElement>(null);
+  const detailsTrigger = useRef<HTMLButtonElement>(null);
+  usePopoverFocus(detailsOpen, details, detailsTrigger);
   useEffect(() => {
     if (detailsRequest) setDetailsOpen(true);
   }, [detailsRequest]);
-  useEffect(() => {
-    if (detailsOpen) return suspendKeys();
-  }, [detailsOpen]);
   useEscape(detailsOpen, () => setDetailsOpen(false));
   const [title, setTitle] = useState<string | null>(null);
   const titleInput = useRef<HTMLInputElement>(null);
@@ -222,6 +221,7 @@ export function ArtifactHeader({
         />
       )}
       <Button
+        ref={detailsTrigger}
         variant="ghost"
         className="shrink-0 p-1.5 max-md:size-9"
         aria-label="Artifact details and actions"
@@ -245,6 +245,7 @@ export function ArtifactHeader({
         />
       )}
       <div
+        ref={details}
         role="dialog"
         hidden={!detailsOpen}
         aria-label="Artifact details"
@@ -298,7 +299,7 @@ export function ArtifactHeader({
             </form>
           )}
         </section>
-        {onSelectVersion && (
+        {detailsOpen && onSelectVersion && (
           <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-xs font-medium text-neutral-500">Version</h2>

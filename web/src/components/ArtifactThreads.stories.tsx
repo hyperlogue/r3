@@ -28,6 +28,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const MenuKeyboardDismiss: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "More actions" });
+    await userEvent.click(trigger);
+    await expect(canvas.getByRole("button", { name: "Delete" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Feedback actions" })).toBeNull();
+    await expect(trigger).toHaveFocus();
+  },
+};
 export const Dark: Story = { globals: { theme: "dark" } };
 export const ResolveHovered: Story = {
   play: async ({ canvasElement }) => {

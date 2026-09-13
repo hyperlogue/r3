@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { type PreviewSecurityState, previewSecuritySummary } from "../preview-security.ts";
-import { Button, ChevronDown, cn, StrokeIcon } from "../ui.tsx";
+import { ChevronDown, cn, StrokeIcon } from "../ui.tsx";
 
 type Entry = PreviewSecurityState & { path: string; controls: ReactNode };
 function createRegistry() {
@@ -131,20 +131,16 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
         hidden={!open}
         aria-label="Preview security details"
         className="mt-2 text-sm"
-      >
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <span className="font-semibold">Preview security</span>
-          <Button
-            variant="ghost"
-            aria-label="Close preview security"
-            onClick={() => {
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !document.querySelector("dialog:modal")) {
+            event.stopPropagation();
+            if (!event.repeat) {
               setOpen(false);
               trigger.current?.focus();
-            }}
-          >
-            ×
-          </Button>
-        </div>
+            }
+          }
+        }}
+      >
         {entries.map((entry) => (
           <section
             key={entry.id}

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
-import { Button, ChevronDown, cn, useEscape } from "../ui.tsx";
+import { Button, ChevronDown, cn, useEscape, usePopoverFocus } from "../ui.tsx";
 
 // The compact navigation picker expands inline when hosted in the details menu.
 export function ArtifactVersionSelect({
@@ -16,7 +16,12 @@ export function ArtifactVersionSelect({
   inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(selected);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const listId = useId();
   useEscape(open, () => setOpen(false));
+  usePopoverFocus(open, list, trigger);
   const version = selectedArtifactVersion(versions, selected);
   const latest = versions.at(-1)?.seq;
   if (!versions.length)
@@ -41,14 +46,22 @@ export function ArtifactVersionSelect({
   return (
     <div className={cn("relative flex min-w-0", inline && "w-full flex-col")}>
       <button
+        ref={trigger}
         type="button"
         aria-label="Published version"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={listId}
         value={version?.seq ?? selected ?? ""}
         data-version-count={versions.length}
         title="Choose a published version"
         onClick={() => setOpen((value) => !value)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
         className={cn(
           "flex min-w-0 items-center gap-1.5 px-2 py-1 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
           inline ? "w-full rounded max-md:min-h-9" : "max-w-[18rem] self-stretch",
@@ -74,9 +87,31 @@ export function ArtifactVersionSelect({
         />
       )}
       <div
+        ref={list}
+        id={listId}
         role="listbox"
         aria-label="Published versions"
         inert={!open}
+        onKeyDown={(event) => {
+          const options = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'),
+          );
+          const current = options.indexOf(document.activeElement as HTMLButtonElement);
+          const next =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? options.length - 1
+                : event.key === "ArrowDown"
+                  ? (current + 1) % options.length
+                  : event.key === "ArrowUp"
+                    ? (current - 1 + options.length) % options.length
+                    : null;
+          if (next !== null) {
+            event.preventDefault();
+            options[next]?.focus();
+          }
+        }}
         className={cn(
           "max-h-80 min-w-full overflow-y-auto rounded border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950",
           inline
@@ -93,6 +128,8 @@ export function ArtifactVersionSelect({
             type="button"
             role="option"
             aria-selected={version?.seq === item.seq}
+            tabIndex={focused === item.seq ? 0 : -1}
+            onFocus={() => setFocused(item.seq)}
             data-version-seq={item.seq}
             aria-label={`Version ${item.seq}${item.label ? ` · ${item.label}` : ""}`}
             onClick={() => {

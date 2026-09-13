@@ -4,10 +4,12 @@ import { expect, userEvent, within } from "storybook/test";
 import { artifactFixture } from "../artifact-fixtures.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import { ArtifactArchiveDialog, ArtifactHeader } from "./ArtifactHeader.tsx";
+import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
 import {
   ArtifactPreviewSecurityProvider,
   ArtifactPreviewSecuritySource,
 } from "./ArtifactPreviewSecurity.tsx";
+import { ShortcutsOverlay } from "./ShortcutsOverlay.tsx";
 
 const meta = {
   title: "Components/ArtifactHeader",
@@ -175,6 +177,33 @@ export const PhoneVersions: Story = {
     await expect(popup.queryByRole("button", { name: "Open latest · 3" })).toBeNull();
   },
 };
+export const NestedKeyboardDismiss: Story = {
+  ...PhoneVersions,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "Artifact details and actions" });
+    await userEvent.click(trigger);
+    const picker = canvas.getByRole("button", { name: "Published version" });
+    await userEvent.click(picker);
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.getByRole("dialog", { name: "Artifact details" })).toBeVisible();
+    await expect(picker).toHaveAttribute("aria-expanded", "false");
+    await expect(picker).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
+    await expect(trigger).toHaveFocus();
+    await userEvent.click(trigger);
+    await userEvent.click(canvas.getByRole("button", { name: "Published version" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Close artifact details" }));
+    await userEvent.click(trigger);
+    await expect(canvas.getByRole("button", { name: "Published version" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
+  },
+};
 export const LongTitle: Story = {
   args: {
     detail: {
@@ -222,6 +251,7 @@ export const PreviewSecurityMenu: Story = {
   render: (args) => (
     <ArtifactPreviewSecurityProvider>
       <ArtifactHeader {...args} />
+      <ShortcutsOverlay />
       <ArtifactPreviewSecuritySource
         path="index.html"
         network="blocked"
@@ -230,6 +260,17 @@ export const PreviewSecurityMenu: Story = {
         capture={{ phase: "idle", camera: false, microphone: false }}
       >
         <p>External connections blocked. No device access.</p>
+        <ArtifactPreviewNetworkControl
+          html
+          network="blocked"
+          verification="ready"
+          devices={{ camera: false, microphone: false }}
+          capture={{ phase: "idle", camera: false, microphone: false }}
+          compatibilityAccepted={false}
+          onForgetCompatibility={() => {}}
+          onStopSharing={() => {}}
+          onChange={() => {}}
+        />
       </ArtifactPreviewSecuritySource>
     </ArtifactPreviewSecurityProvider>
   ),
@@ -245,4 +286,34 @@ export const PreviewSecurityMenu: Story = {
 export const PhonePreviewSecurity: Story = {
   ...PreviewSecurityMenu,
   parameters: phoneViewport(),
+};
+
+export const ConsentKeyboardDismiss: Story = {
+  ...PreviewSecurityMenu,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    const security = canvas.getByRole("button", { name: /Preview security:/ });
+    await userEvent.click(security);
+    await expect(canvas.getAllByText("Preview security", { exact: true })).toHaveLength(1);
+    const allow = canvas.getByRole("button", { name: "Allow external access" });
+    allow.focus();
+    await userEvent.keyboard("?");
+    await expect(canvas.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+    await expect(security).toHaveAttribute("aria-expanded", "true");
+    await expect(allow).toHaveFocus();
+    await userEvent.click(allow);
+    // Browser acceptance covers native Escape; userEvent must dispatch cancel
+    // explicitly because a synthetic key cannot trigger the UA dialog action.
+    await userEvent.keyboard("{Escape}");
+    canvasElement.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await expect(canvas.getByRole("dialog", { name: "Artifact details" })).toBeVisible();
+    await expect(security).toHaveAttribute("aria-expanded", "true");
+    await expect(allow).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(security).toHaveAttribute("aria-expanded", "false");
+    await expect(security).toHaveFocus();
+  },
 };

@@ -37,6 +37,17 @@ export const Open: Story = {
     await expect(canvas.getByText("Appearance")).toBeInTheDocument();
   },
 };
+export const KeyboardDismiss: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByTitle("Settings");
+    await userEvent.click(trigger);
+    await expect(canvas.getByRole("button", { name: "☀ Light" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Settings" })).toBeNull();
+    await expect(trigger).toHaveFocus();
+  },
+};
 
 // Font slider at the extremes: the range must flex within the row (min-w-0) so
 // both the −/+ buttons stay fully inside the popup and neither gets clipped by

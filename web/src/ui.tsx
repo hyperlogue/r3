@@ -8,6 +8,7 @@ import type {
 } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { copyText } from "./clipboard.ts";
+import { suspendKeys } from "./keys.ts";
 
 // Custom auto-animate plugins BYPASS its built-in reduced-motion guard (index.mjs
 // gates that on `!isPlugin`), so every plugin below checks this and collapses its
@@ -192,21 +193,68 @@ export function useCopyFlash(ms = 1500): { copied: boolean; flash: () => void } 
   return { copied, flash };
 }
 
-// Close-on-Escape for popovers / menus / dialogs. While `active`, a window keydown
-// of Escape calls `onEscape`; no listener is installed while inactive. `onEscape`
-// is read through a ref so callers can pass an inline arrow without re-subscribing
-// on every render — the listener is added once, when `active` flips true.
+const escapeHandlers: (() => void)[] = [];
+function closeTopOverlay(event: KeyboardEvent) {
+  if (
+    event.key !== "Escape" ||
+    event.repeat ||
+    event.defaultPrevented ||
+    document.querySelector("dialog:modal")
+  )
+    return;
+  event.preventDefault();
+  escapeHandlers.at(-1)?.();
+}
+
+// Escape closes only the most recently opened layer. Native modal dialogs and
+// widget-local handlers (for example, cancelling title editing) keep priority.
 export function useEscape(active: boolean, onEscape: () => void): void {
   const cb = useRef(onEscape);
   cb.current = onEscape;
   useEffect(() => {
     if (!active) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cb.current();
+    const close = () => cb.current();
+    if (!escapeHandlers.length) window.addEventListener("keydown", closeTopOverlay);
+    escapeHandlers.push(close);
+    return () => {
+      escapeHandlers.splice(escapeHandlers.indexOf(close), 1);
+      if (!escapeHandlers.length) window.removeEventListener("keydown", closeTopOverlay);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, [active]);
+}
+
+// Enter a popover at its selected option or first control. Closing returns focus
+// to its trigger unless an action has already moved focus somewhere else.
+export function usePopoverFocus(
+  active: boolean,
+  content: RefObject<HTMLElement | null>,
+  trigger?: RefObject<HTMLElement | null>,
+): void {
+  useLayoutEffect(() => {
+    if (!active || !content.current) return;
+    const node = content.current;
+    const resume = suspendKeys();
+    const returnTo = trigger?.current ?? (document.activeElement as HTMLElement | null);
+    const controls = Array.from(
+      node.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]',
+      ),
+    ).filter((control) => control.getClientRects().length && !control.closest("[inert], [hidden]"));
+    (
+      controls.find((control) => control.getAttribute("aria-selected") === "true") ??
+      controls[0] ??
+      node
+    )?.focus();
+    return () => {
+      resume();
+      if (
+        returnTo?.isConnected &&
+        returnTo.getClientRects().length &&
+        (node.contains(document.activeElement) || document.activeElement === document.body)
+      )
+        returnTo.focus({ preventScroll: true });
+    };
+  }, [active, content, trigger]);
 }
 
 // A stable `{ __html }` object for dangerouslySetInnerHTML. React 19 re-sets a

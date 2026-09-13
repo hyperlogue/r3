@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import { suspendKeys } from "../keys.ts";
 import { Button } from "../ui.tsx";
 
@@ -12,7 +12,7 @@ export function ArtifactPreviewCompatibilityConsent({
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
   const description = useId();
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = dialog.current;
     const resume = suspendKeys();
     node?.showModal();

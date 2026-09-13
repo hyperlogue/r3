@@ -163,6 +163,10 @@ Title editing lives in an explicit **Edit title** form inside that menu.
 There is no separate body header or delete button. Version selection sits in the
 top navigation; below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
+The picker supports arrow keys, Home/End, and Enter; Escape closes its current
+layer without selecting. Menus focus their selected option or first enabled
+control and return focus to their trigger on dismissal. Escape closes one layer
+at a time, preserving any menu beneath a native permission dialog.
 While an older or unavailable version is selected, **Open latest** appears in the
 top navigation immediately left of the version selector. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
