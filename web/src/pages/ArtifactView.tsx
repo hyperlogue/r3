@@ -849,7 +849,7 @@ function Workspace({
               <div
                 onPointerDown={resize.onPointerDown}
                 onDoubleClick={resize.onDoubleClick}
-                className="absolute inset-y-0 left-0 z-20 w-1 cursor-col-resize"
+                className="absolute inset-y-0 left-0 z-20 w-1 touch-none cursor-col-resize"
               />
             )}
             <div

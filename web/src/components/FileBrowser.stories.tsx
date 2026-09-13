@@ -120,3 +120,18 @@ export const Resizable: Story = {
     await expect(localStorage.getItem("r3-filebrowser-width")).toBeNull();
   },
 };
+
+export const RenderedNeighbor: Story = {
+  beforeEach: Resizable.beforeEach,
+  render: (args) => (
+    <>
+      <FileBrowser {...args} />
+      <iframe
+        title="Rendered neighbor"
+        sandbox=""
+        className="min-w-0 flex-1 border-0"
+        srcDoc="<!doctype html><style>body{font:16px system-ui;padding:2rem;color-scheme:light dark}</style><h1>Rendered preview</h1><p>Drag the Files divider into this frame and release. Its width should persist and the cursor should return to normal.</p>"
+      />
+    </>
+  ),
+};

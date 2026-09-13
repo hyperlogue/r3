@@ -58,7 +58,7 @@ export function useResizableWidth(
 ): {
   width: number | undefined;
   dragging: boolean;
-  onPointerDown: (e: ReactPointerEvent) => void;
+  onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void;
   onDoubleClick: () => void;
   onKeyDown: (e: ReactKeyboardEvent) => void;
 } {
@@ -101,10 +101,17 @@ export function useResizableWidth(
   });
 
   const onPointerDown = useCallback(
-    (e: ReactPointerEvent) => {
+    (e: ReactPointerEvent<HTMLElement>) => {
       if (e.button !== 0 || !e.isPrimary) return;
       cleanupRef.current?.();
       e.preventDefault();
+      const handle = e.currentTarget;
+      // Keep movement and release in this document when crossing preview frames.
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {
+        // Synthetic or already-cancelled input has no live pointer to capture.
+      }
       const startX = e.clientX;
       const startW = ref.current ?? computeDefault() ?? min;
       const dir = grow === "left" ? -1 : 1;
@@ -130,6 +137,8 @@ export function useResizableWidth(
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
+        handle.removeEventListener("lostpointercapture", onUp);
+        if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
         document.body.style.cursor = cursor;
         document.body.style.userSelect = userSelect;
         cleanupRef.current = null;
@@ -139,6 +148,7 @@ export function useResizableWidth(
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
+      handle.addEventListener("lostpointercapture", onUp);
     },
     [key, clamp, grow, computeDefault, min],
   );

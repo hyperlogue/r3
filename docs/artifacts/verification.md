@@ -141,3 +141,5 @@ for visual review; mobile keeps its sheet.
 Rendered Markdown appearance: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-markdown-theme.ts`
 checks the real workspace and preview boundary in all four system/r3 theme combinations,
 including live theme changes, retained syntax colors, and unchanged authored HTML.
+It also drags the file divider over the opaque preview and releases there, checking
+that the width persists and drag styling clears.

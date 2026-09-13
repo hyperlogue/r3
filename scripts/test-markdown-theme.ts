@@ -119,6 +119,45 @@ try {
     markdown.evaluate<{ foreground: string; background: string }>(
       "({foreground:getComputedStyle(document.body).color,background:getComputedStyle(document.body).backgroundColor})",
     );
+  // Release over the opaque preview, where uncaptured parent pointer listeners
+  // would lose both movement and the release event.
+  const splitter = await page.evaluate<{ x: number; y: number; width: number }>(
+    "(()=>{const node=document.querySelector('[aria-label=\"Resize file panel\"]');const r=node.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+120,width:Number(node.getAttribute('aria-valuenow'))}})()",
+  );
+  await page.command("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: splitter.x,
+    y: splitter.y,
+  });
+  await page.command("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    x: splitter.x,
+    y: splitter.y,
+  });
+  await page.command("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    button: "left",
+    buttons: 1,
+    x: splitter.x + 100,
+    y: splitter.y,
+  });
+  await page.command("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    button: "left",
+    clickCount: 1,
+    x: splitter.x + 100,
+    y: splitter.y,
+  });
+  await eventually(
+    () =>
+      page.evaluate(
+        `Number(localStorage.getItem('r3-filebrowser-width')) === ${splitter.width + 100} && document.body.style.userSelect !== 'none' && document.body.style.cursor !== 'col-resize'`,
+      ),
+    "file panel drag persists and releases over a preview iframe",
+  );
   const tokens = new Map<string, string>();
   for (const system of ["dark", "light"]) {
     await page.command("Emulation.setEmulatedMedia", {
