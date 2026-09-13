@@ -88,6 +88,9 @@ Set R3_AGENT_SESSION or --session to a stable distinct ID when your harness does
 not provide one, and always give logical subagents distinct IDs. The same artifact
 can receive publications and replies from any registered agent. No agent owns it.
 
+Artifact JSON includes unhandledCount: open threads whose latest message is from
+an agent. Reading, delivery, and claims do not clear it; a human reply or resolution does.
+
 Open the printed artifact URL for human feedback. Use listen for Claude Code or
 Codex when their local wake adapter is available; it keeps a publisher-side process
 connected outward to r3. Other agents use watch or poll prompt. The daemon never

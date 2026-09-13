@@ -151,6 +151,9 @@ around the divider separating it from the title. Every artifact kind has a label
 icon, including a browser window for HTML. Active status has no badge; archived
 artifacts show **Archived**. A three-dot button opens the details popover containing
 the description, IDs, metadata, lifecycle history, and Archive/Restore action.
+Raw artifact metadata and publisher attribution are collapsed under **Details**.
+The artifact list uses kind icons, relative update times, and unhandled counts;
+only archived state is labeled. Exact timestamps remain available on hover.
 Title editing lives in an explicit **Edit title** form inside that menu.
 There is no separate body header or delete button. Version selection sits in the
 top navigation; below the `md` breakpoint it moves into the three-dot details

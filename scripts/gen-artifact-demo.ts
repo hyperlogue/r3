@@ -8,7 +8,11 @@ import {
   renderStoredPatch,
   validateStoredPatch,
 } from "../server/patch-content.ts";
-import type { ArtifactDetail, ArtifactVersion } from "../shared/artifacts.ts";
+import {
+  type ArtifactDetail,
+  type ArtifactVersion,
+  isUnhandledArtifactFeedback,
+} from "../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../web/demo/artifact-model.ts";
 import { publicationKey } from "../web/demo/artifact-model.ts";
 
@@ -36,6 +40,7 @@ function artifact(id: string, kind: "files" | "diff", title: string): ArtifactDe
     archivedAt: null,
     watching: true,
     working: false,
+    unhandledCount: 0,
     legacy: null,
     versions: [],
     feedback: [],
@@ -197,6 +202,8 @@ for (const [item, content] of [
     },
   ];
 }
+for (const item of [docs, code])
+  item.unhandledCount = item.feedback.filter(isUnhandledArtifactFeedback).length;
 const themes = listThemes();
 const palette = (await themeStyle()).css;
 const themeStyles = Object.fromEntries(

@@ -1,12 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Artifact, ArtifactState } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useHasArtifactDraft } from "../artifact-drafts.ts";
+import { ArtifactKindIcon } from "../components/ArtifactKindIcon.tsx";
 import { hrefFor, navigate } from "../router.ts";
-import { cn } from "../ui.tsx";
 
-function ArtifactRow({ artifact, project }: { artifact: Artifact; project: string | null }) {
+function relativeTime(value: string, now: number): string {
+  const seconds = (Date.parse(value) - now) / 1000;
+  if (Math.abs(seconds) < 60) return "just now";
+  const [scale, unit] =
+    Math.abs(seconds) < 3600
+      ? ([60, "minute"] as const)
+      : Math.abs(seconds) < 86400
+        ? ([3600, "hour"] as const)
+        : Math.abs(seconds) < 604800
+          ? ([86400, "day"] as const)
+          : Math.abs(seconds) < 2592000
+            ? ([604800, "week"] as const)
+            : Math.abs(seconds) < 31536000
+              ? ([2592000, "month"] as const)
+              : ([31536000, "year"] as const);
+  return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+    Math.trunc(seconds / scale),
+    unit,
+  );
+}
+
+function ArtifactRow({
+  artifact,
+  project,
+  now,
+}: {
+  artifact: Artifact;
+  project: string | null;
+  now: number;
+}) {
   const hasDraft = useHasArtifactDraft(artifact.id);
   const presence = artifact.working
     ? "Agent working"
@@ -25,22 +54,12 @@ function ArtifactRow({ artifact, project }: { artifact: Artifact; project: strin
       className="group flex flex-col gap-1 rounded-md px-3 py-2.5 hover:bg-neutral-100 focus-visible:outline-primary-500 dark:hover:bg-neutral-800"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <span
-          title={presence ?? (artifact.state === "active" ? "Active" : "Archived")}
-          className={cn(
-            "size-1.5 shrink-0 rounded-full",
-            presence
-              ? "bg-primary-500"
-              : artifact.state === "active"
-                ? "border border-primary-500"
-                : "bg-neutral-400",
-          )}
-        />
+        <ArtifactKindIcon kind={artifact.kind} />
         <span className="min-w-0 truncate text-sm font-medium">
           {artifact.title || artifact.id}
         </span>
         {hasDraft && (
-          <span className="ml-auto text-xs text-warning-500" title="Unsaved draft">
+          <span className="ml-auto text-xs text-warning-500" title="Draft in this browser">
             ✎
           </span>
         )}
@@ -51,25 +70,19 @@ function ArtifactRow({ artifact, project }: { artifact: Artifact; project: strin
             {project}
           </span>
         )}
-        <span>
-          {artifact.kind === "html" ? "HTML" : artifact.kind === "diff" ? "Diff" : "Files"}
-        </span>
-        <span>{artifact.state === "archived" ? "Archived" : "Active"}</span>
-        {presence && <span className="text-primary-600 dark:text-primary-400">{presence}</span>}
-        {artifact.createdBy.role === "agent" && (
-          <span
-            className="max-w-48 truncate"
-            title={`Published by ${artifact.createdBy.sessionId}`}
-          >
-            {artifact.createdBy.sessionId}
+        {artifact.state === "archived" && <span>Archived</span>}
+        {artifact.unhandledCount > 0 && (
+          <span className="text-primary-600 dark:text-primary-400">
+            {artifact.unhandledCount} unhandled
           </span>
         )}
+        {presence && <span className="text-primary-600 dark:text-primary-400">{presence}</span>}
         <time
           className="ml-auto"
           dateTime={artifact.updatedAt}
           title={new Date(artifact.updatedAt).toLocaleString()}
         >
-          {new Date(artifact.updatedAt).toLocaleDateString()}
+          {relativeTime(artifact.updatedAt, now)}
         </time>
       </div>
     </a>
@@ -77,6 +90,11 @@ function ArtifactRow({ artifact, project }: { artifact: Artifact; project: strin
 }
 
 export function ArtifactHome() {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const artifacts = useQuery({
     queryKey: ["artifacts"],
     queryFn: () => artifactApi.list(),
@@ -177,6 +195,7 @@ export function ArtifactHome() {
             <ArtifactRow
               key={artifact.id}
               artifact={artifact}
+              now={now}
               project={
                 artifact.projectId ? (names.get(artifact.projectId) ?? artifact.projectId) : null
               }

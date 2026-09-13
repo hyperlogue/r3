@@ -37,6 +37,8 @@ export interface Artifact {
   archivedAt: string | null;
   watching: boolean;
   working: boolean;
+  // Open threads whose latest message is from an agent; independent of reading.
+  unhandledCount: number;
   legacy: Record<string, unknown> | null;
 }
 
@@ -252,6 +254,13 @@ export interface ArtifactPlacementBody {
   actor: ArtifactActor;
   target: ArtifactDocumentTarget;
   state: ArtifactPlacement["state"];
+}
+
+export function isUnhandledArtifactFeedback(feedback: ArtifactFeedback): boolean {
+  return (
+    feedback.status === "open" &&
+    (feedback.replies.at(-1)?.author ?? feedback.author).role === "agent"
+  );
 }
 
 export function hasUnsentArtifactFeedback(feedback: ArtifactFeedback): boolean {

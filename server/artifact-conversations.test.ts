@@ -67,6 +67,31 @@ afterEach(async () => {
 });
 
 describe("artifact conversations", () => {
+  test("unhandled counts follow replies and human resolution, independent of delivery and claims", async () => {
+    const note = await conversations.add(id, {
+      actor: human,
+      body: "Check this",
+      target: original,
+    });
+    expect(artifacts.get(id).unhandledCount).toBe(0);
+    await conversations.addReply(note.id, { actor: agent, body: "Please review", context });
+    expect(artifacts.list()[0].unhandledCount).toBe(1);
+    conversations.claim([note.id], agent.sessionId);
+    conversations.deliver(id);
+    expect(artifacts.get(id).unhandledCount).toBe(1);
+    // All messages share a clock value: insertion order breaks the tie.
+    await conversations.addReply(note.id, { actor: human, body: "One more change", context });
+    expect(artifacts.get(id).unhandledCount).toBe(0);
+    await conversations.addReply(note.id, { actor: agent, body: "Updated", context });
+    expect(artifacts.get(id).unhandledCount).toBe(1);
+    conversations.edit(note.id, { actor: human, status: "resolved" });
+    expect(artifacts.get(id).unhandledCount).toBe(0);
+    conversations.edit(note.id, { actor: human, status: "open" });
+    expect(artifacts.get(id).unhandledCount).toBe(1);
+    await conversations.add(id, { actor: agent, body: "Another question", target: original });
+    expect(artifacts.get(id).unhandledCount).toBe(2);
+  });
+
   test("retired description targets reject new writes while old threads remain usable", async () => {
     const target = {
       kind: "version_summary",

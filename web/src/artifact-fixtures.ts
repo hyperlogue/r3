@@ -64,6 +64,7 @@ export const artifactFixture: ArtifactDetail = {
   archivedAt: null,
   watching: false,
   working: false,
+  unhandledCount: 1,
   legacy: null,
   versions: [artifactFixtureVersion],
   feedback: [artifactFixtureFeedback],

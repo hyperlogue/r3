@@ -45,6 +45,7 @@ type ArtifactRow = {
   updated_at: string;
   archived_at: string | null;
   working: number;
+  unhandled_count: number;
 };
 
 type VersionRow = {
@@ -265,7 +266,11 @@ export class ArtifactStore {
       .query<ArtifactRow, [string, string]>(`SELECT a.*, EXISTS (
       SELECT 1 FROM feedback f JOIN feedback_claims c ON c.feedback_id = f.id
       WHERE f.artifact_id = a.id AND c.expires_at > ?
-    ) AS working FROM artifacts a WHERE a.id = ?`)
+    ) AS working, (
+      SELECT count(*) FROM feedback f WHERE f.artifact_id = a.id AND f.status = 'open'
+      AND COALESCE((SELECT r.author FROM replies r WHERE r.feedback_id = f.id
+        ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1), f.author) = 'agent'
+    ) AS unhandled_count FROM artifacts a WHERE a.id = ?`)
       .get(this.clock(), id);
     if (!row) throw new ArtifactError("Artifact not found", 404);
     return {
@@ -282,6 +287,7 @@ export class ArtifactStore {
       archivedAt: row.archived_at,
       watching: this.isWatching(id),
       working: !!row.working,
+      unhandledCount: row.unhandled_count,
       legacy: row.legacy_json === null ? null : JSON.parse(row.legacy_json),
     };
   }

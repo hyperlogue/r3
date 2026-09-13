@@ -102,6 +102,7 @@ export const Html: Story = {
       "true",
     );
     await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    await userEvent.click(canvas.getByText("Details", { exact: true }));
     await expect(canvas.getByText(artifactFixture.id, { exact: true })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Archive artifact" }));
     await expect(

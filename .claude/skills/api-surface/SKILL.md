@@ -27,6 +27,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET/POST /api/artifacts`, `GET/PATCH/DELETE /api/artifacts/:id` list, create,
   inspect, edit metadata, or delete the whole artifact. List filters are `state`,
   `kind`, `project`, and `meta.<key>`. No repo header or local path is involved.
+  Artifact reads include computed `unhandledCount`: open threads whose latest
+  message is from an agent. Reading, delivery, and claims do not clear it.
   Artifact metadata has no overview/summary field. Publication summaries remain
   immutable version metadata; `edit --summary` is unsupported.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a

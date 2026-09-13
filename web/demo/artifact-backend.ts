@@ -7,7 +7,7 @@ import type {
   ArtifactStreamEvent,
   ArtifactTarget,
 } from "../../shared/artifacts.ts";
-import { hasUnsentArtifactFeedback } from "../../shared/artifacts.ts";
+import { hasUnsentArtifactFeedback, isUnhandledArtifactFeedback } from "../../shared/artifacts.ts";
 import { ARTIFACT_DEMO_SEED } from "./artifact-fixtures.gen.ts";
 import { type ArtifactDemoState, publicationKey } from "./artifact-model.ts";
 
@@ -37,6 +37,7 @@ export class ArtifactDemoBackend {
         detail.legacy = { ...detail.legacy, retiredOverview: detail.summary };
         delete detail.summary;
       }
+      detail.unhandledCount = detail.feedback.filter(isUnhandledArtifactFeedback).length;
       detail.working = false;
       for (const note of detail.feedback) note.claim = null;
     }
@@ -85,7 +86,9 @@ export class ArtifactDemoBackend {
     return this.state.publications[publicationKey(id, seq)] ?? fail("Version not found", 404);
   }
   changed(id: string, event?: ArtifactStreamEvent) {
-    this.get(id).updatedAt = now();
+    const artifact = this.get(id);
+    artifact.updatedAt = now();
+    artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
     this.persist();
     for (const listener of this.subscribers) {
       listener(event ?? { type: "artifact-updated", artifactId: id });

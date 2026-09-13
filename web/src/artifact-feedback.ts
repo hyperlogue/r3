@@ -1,11 +1,8 @@
 import type { ArtifactFeedback } from "../../shared/artifacts.ts";
 
-export function artifactNeedsAttention(feedback: ArtifactFeedback): boolean {
-  return (
-    feedback.status === "open" &&
-    (feedback.replies.at(-1)?.author ?? feedback.author).role === "agent"
-  );
-}
+import { isUnhandledArtifactFeedback as artifactNeedsAttention } from "../../shared/artifacts.ts";
+
+export { artifactNeedsAttention };
 
 // Stable within each group: the human's next decisions first, then waiting
 // notes, then work already claimed by an agent.

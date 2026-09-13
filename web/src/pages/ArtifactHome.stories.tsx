@@ -40,7 +40,15 @@ const meta = {
 } satisfies Meta<typeof ArtifactHome>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Default: Story = {};
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText("Active", { selector: "span" })).toBeNull();
+    await expect(canvas.queryByText("design-agent", { exact: true })).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Files artifact" })).toBeVisible();
+    await expect(canvas.getAllByText("1 unhandled")).toHaveLength(3);
+  },
+};
 export const Filter: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

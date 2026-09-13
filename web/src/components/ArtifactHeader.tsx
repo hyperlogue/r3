@@ -7,6 +7,7 @@ import type { MessageRef } from "../markdown.ts";
 import { Button, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
+import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
@@ -170,33 +171,9 @@ export function ArtifactHeader({
     },
   });
   const error = edit.error ?? restore.error;
-  const kindLabel = { html: "HTML artifact", files: "Files artifact", diff: "Diff artifact" }[
-    detail.kind
-  ];
   return (
     <AppHeader>
-      <span
-        role="img"
-        aria-label={kindLabel}
-        title={kindLabel}
-        className="shrink-0 text-neutral-500"
-      >
-        <StrokeIcon className="size-4">
-          {detail.kind === "html" ? (
-            <>
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M3 8h18M7 5.5h.01M10 5.5h.01" />
-            </>
-          ) : detail.kind === "files" ? (
-            <>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <path d="M14 2v6h6M8 12h8M8 16h8" />
-            </>
-          ) : (
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 12h6M11 9v6M8 18h6" />
-          )}
-        </StrokeIcon>
-      </span>
+      <ArtifactKindIcon kind={detail.kind} />
       <span
         className="min-w-0 flex-1 truncate text-sm font-semibold"
         title={detail.title || detail.id}
@@ -363,16 +340,24 @@ export function ArtifactHeader({
             />
           </section>
         )}
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          <CopyMeta hint="Copy artifact id" value={detail.id}>
-            {detail.id}
-          </CopyMeta>
-          {Object.entries(detail.meta).map(([key, value]) => (
-            <CopyMeta key={key} hint={`Copy ${key}`} value={value}>
-              {key}: {value}
+        <details className="mt-1 text-xs text-neutral-500">
+          <summary className="cursor-pointer">Details</summary>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            <CopyMeta hint="Copy artifact id" value={detail.id}>
+              {detail.id}
             </CopyMeta>
-          ))}
-        </div>
+            {detail.createdBy.role === "agent" && (
+              <CopyMeta hint="Copy publisher session" value={detail.createdBy.sessionId}>
+                Publisher: {detail.createdBy.sessionId}
+              </CopyMeta>
+            )}
+            {Object.entries(detail.meta).map(([key, value]) => (
+              <CopyMeta key={key} hint={`Copy ${key}`} value={value}>
+                {key}: {value}
+              </CopyMeta>
+            ))}
+          </div>
+        </details>
         {detail.events.length > 0 && (
           <details className="mt-2 text-xs text-neutral-500">
             <summary className="cursor-pointer">Lifecycle history · {detail.events.length}</summary>
