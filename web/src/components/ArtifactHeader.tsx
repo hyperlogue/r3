@@ -7,7 +7,7 @@ import type { MessageRef } from "../markdown.ts";
 import { Button, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
-import { ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
+import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
 
 export function ArtifactArchiveDialog({
@@ -224,6 +224,14 @@ export function ArtifactHeader({
         </form>
       )}
       {onSelectVersion && title === null && (
+        <ArtifactOpenLatest
+          latest={detail.versions.at(-1)?.seq}
+          selected={selectedVersion}
+          onOpen={onSelectVersion}
+          className="max-md:hidden"
+        />
+      )}
+      {onSelectVersion && title === null && (
         <div className="flex min-w-0 max-w-[35%] self-stretch border-x border-neutral-200 max-md:hidden dark:border-neutral-800">
           <ArtifactVersionSelect
             versions={detail.versions}
@@ -298,7 +306,17 @@ export function ArtifactHeader({
       >
         {onSelectVersion && (
           <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
-            <h2 className="mb-2 text-xs font-medium text-neutral-500">Version</h2>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-medium text-neutral-500">Version</h2>
+              <ArtifactOpenLatest
+                latest={detail.versions.at(-1)?.seq}
+                selected={selectedVersion}
+                onOpen={(seq) => {
+                  onSelectVersion(seq);
+                  setDetailsOpen(false);
+                }}
+              />
+            </div>
             <ArtifactVersionSelect
               versions={detail.versions}
               selected={selectedVersion}

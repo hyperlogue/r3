@@ -145,9 +145,10 @@ the description, IDs, metadata, lifecycle history, and Archive/Restore action.
 There is no separate body header or delete button. Version selection sits in the
 top navigation; below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
-While an older or unavailable version is selected, **Open latest** floats at the
-top right of the content viewport. It stays in place while
-content scrolls, reserves no content space, and disappears on the latest version.
+While an older or unavailable version is selected, **Open latest** appears in the
+top navigation immediately left of the version selector. On narrow screens it
+shares the version section in the three-dot menu. Opening latest closes that menu,
+and the button disappears on the latest version.
 HTML artifacts have no empty content toolbar.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general

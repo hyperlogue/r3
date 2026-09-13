@@ -131,6 +131,9 @@ export const Versions: Story = {
     await userEvent.click(nav.getByRole("button", { name: "Published version" }));
     await userEvent.click(canvas.getByRole("option", { name: "Version 2 · Iteration 2" }));
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("2");
+    await userEvent.click(nav.getByRole("button", { name: "Open latest · 3" }));
+    await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("3");
+    await expect(nav.queryByRole("button", { name: "Open latest · 3" })).toBeNull();
   },
 };
 export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
@@ -147,6 +150,11 @@ export const PhoneVersions: Story = {
     await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
     await expect(canvas.getByText("Description for version 2.")).toBeVisible();
+    await userEvent.click(popup.getByRole("button", { name: "Open latest · 3" }));
+    await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    await expect(canvas.getByText("Description for version 3.")).toBeVisible();
+    await expect(popup.queryByRole("button", { name: "Open latest · 3" })).toBeNull();
   },
 };
 export const LongTitle: Story = {

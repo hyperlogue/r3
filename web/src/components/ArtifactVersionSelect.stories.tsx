@@ -48,9 +48,9 @@ export const OlderVersion: Story = {
   render: (args) => {
     const [selected, setSelected] = useState<number | null>(1);
     return (
-      <div className="relative h-64 border border-neutral-300 dark:border-neutral-700">
-        <ArtifactVersionSelect {...args} selected={selected} onChange={setSelected} />
+      <div className="flex min-h-8 items-center gap-2 border-b border-neutral-300 dark:border-neutral-700">
         <ArtifactOpenLatest latest={4} selected={selected} onOpen={setSelected} />
+        <ArtifactVersionSelect {...args} selected={selected} onChange={setSelected} />
       </div>
     );
   },

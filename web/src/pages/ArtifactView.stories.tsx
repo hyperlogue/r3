@@ -399,13 +399,19 @@ export const NewPublication: Story = {
     const canvas = within(canvasElement);
     const content = canvasElement.querySelector("[data-artifact-content]")!;
     const height = content.getBoundingClientRect().height;
-    await expect(canvas.getByLabelText("Published version")).toHaveValue("1");
+    await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
     await userEvent.click(canvas.getByRole("button", { name: "Simulate publication" }));
-    await expect(canvas.getByLabelText("Published version")).toHaveValue("1");
+    await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
     await expect(canvas.getByRole("button", { name: "Open latest · 2" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Open latest · 2" }).closest("[data-app-header]"),
+    ).not.toBeNull();
+    await expect(
+      within(content as HTMLElement).queryByRole("button", { name: /Open latest/ }),
+    ).toBeNull();
     await expect(content.getBoundingClientRect().height).toBe(height);
     await userEvent.click(canvas.getByRole("button", { name: "Open latest · 2" }));
-    await expect(canvas.getByLabelText("Published version")).toHaveValue("2");
+    await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("2");
     await expect(canvas.queryByRole("button", { name: "Open latest · 2" })).toBeNull();
   },
 };
@@ -421,7 +427,7 @@ export const DraftAndNativeLocate: Story = {
       "Keep this exact source target.",
     );
     await userEvent.click(canvas.getByRole("button", { name: "Rendered" }));
-    await userEvent.click(canvas.getByLabelText("Published version"));
+    await userEvent.click(canvas.getByRole("button", { name: "Published version" }));
     await userEvent.click(canvas.getByRole("option", { name: /Version 2/ }));
     await expect(artifactDrafts.get(detail.id)?.target).toEqual({
       kind: "source",
@@ -432,7 +438,7 @@ export const DraftAndNativeLocate: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Version 1 · source · index.md:4-4" }),
     );
-    await expect(canvas.getByLabelText("Published version")).toHaveValue("1");
+    await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
     await expect(canvas.getByRole("button", { name: "Source" })).toHaveAttribute(
       "aria-pressed",
       "true",

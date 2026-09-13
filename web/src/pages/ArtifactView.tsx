@@ -29,7 +29,6 @@ import {
   type ArtifactTargetJump,
   ArtifactThreads,
 } from "../components/ArtifactThreads.tsx";
-import { ArtifactOpenLatest } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
@@ -178,7 +177,6 @@ function Workspace({
   const hasNote = useHasArtifactNote(detail.id);
   const {
     version,
-    latest,
     theme,
     viewed,
     filesQuery,
@@ -832,11 +830,6 @@ function Workspace({
               </VirtualPaneProvider>
             )}
           </div>
-          <ArtifactOpenLatest
-            latest={latest?.seq}
-            selected={view.versionSeq}
-            onOpen={selectVersion}
-          />
         </div>
         {!mobile && (
           <aside

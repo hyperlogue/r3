@@ -122,21 +122,21 @@ export function ArtifactOpenLatest({
   latest,
   selected,
   onOpen,
+  className,
 }: {
   latest: number | undefined;
   selected: number | null;
   onOpen: (seq: number) => void;
+  className?: string;
 }) {
   if (latest === undefined || selected === null || selected === latest) return null;
   return (
-    <div className="pointer-events-none absolute right-3 top-1.5 z-30 flex">
-      <Button
-        variant="ghost"
-        className="pointer-events-auto border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
-        onClick={() => onOpen(latest)}
-      >
-        Open latest · {latest}
-      </Button>
-    </div>
+    <Button
+      variant="ghost"
+      className={cn("shrink-0 whitespace-nowrap", className)}
+      onClick={() => onOpen(latest)}
+    >
+      Open latest · {latest}
+    </Button>
   );
 }

@@ -17,7 +17,6 @@ import {
 } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
-import { ArtifactOpenLatest } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
@@ -110,11 +109,6 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
         />
         <div className="relative flex min-h-[680px]">
           <div className="relative isolate min-w-0 flex-1">
-            <ArtifactOpenLatest
-              latest={data.versions.at(-1)?.seq}
-              selected={versionSeq}
-              onOpen={setVersionSeq}
-            />
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
                 The feedback panel has three states: hidden, expanded beside the content, or
@@ -347,7 +341,6 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
               />
             )}
           </div>
-          <ArtifactOpenLatest latest={detail.versions.at(-1)?.seq} selected={seq} onOpen={setSeq} />
         </div>
       </div>
     </div>
