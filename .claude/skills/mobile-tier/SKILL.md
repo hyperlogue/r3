@@ -39,7 +39,10 @@ so a split-preferring reader gets split back on a wide viewport.
 ## Layout
 
 The file sidebar hides; HTML artifacts have no sidebar at any width. The shared
-workspace toolbar stacks its version selector and controls below `md`. The artifact
+workspace toolbar retains its file controls below `md`. The version selector moves
+from the top navigation into the three-dot details popover, where its choices
+expand inline and selecting one closes the popover. An older selected version has
+an **Open latest** button floating at the content viewport's top right. The artifact
 title and actions occupy the shared top navigation, outside the scrolling pane;
 the content toolbar sticks. The title truncates to preserve space for compact
 controls, with metadata and the selected version's description in the details popover.

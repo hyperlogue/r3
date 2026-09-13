@@ -30,7 +30,7 @@ import {
   type ArtifactTargetJump,
   ArtifactThreads,
 } from "../components/ArtifactThreads.tsx";
-import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
+import { ArtifactOpenLatest } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FeedbackPanelRail } from "../components/FeedbackPanelRail.tsx";
@@ -60,7 +60,7 @@ import {
   useFeedbackMode,
 } from "../settings.ts";
 import type { DiffSide } from "../types.ts";
-import { Button, cn, useResizableWidth } from "../ui.tsx";
+import { cn, useResizableWidth } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
 import { useArtifactContent } from "../useArtifactContent.ts";
 import { useScrollSpy } from "../useScrollSpy.ts";
@@ -218,12 +218,14 @@ function Workspace({
   });
   useEffect(() => {
     const toolbar = toolbarRef.current;
-    if (!toolbar) return;
-    const resize = new ResizeObserver(() => {
-      const height = `${toolbar.offsetHeight}px`;
+    const update = () => {
+      const height = `${toolbar?.offsetHeight ?? 0}px`;
       paneRef.current?.style.setProperty("--pane-sticky-h", height);
       splitRef.current?.style.setProperty("--pane-sticky-h", height);
-    });
+    };
+    update();
+    if (!toolbar) return;
+    const resize = new ResizeObserver(update);
     resize.observe(toolbar);
     return () => resize.disconnect();
   }, []);
@@ -566,10 +568,10 @@ function Workspace({
       : {}),
   });
 
-  const toolbar = (
+  const toolbar = detail.kind !== "html" && (
     <div ref={toolbarRef} className="sticky top-0 z-20">
       <PaneToolbar
-        hasFiles={detail.kind !== "html" && paths.length > 0}
+        hasFiles={paths.length > 0}
         filePicker={
           <JumpToFile
             files={paths}
@@ -582,21 +584,7 @@ function Workspace({
         onJump={stepFile}
         onFoldAll={foldAll}
         layoutToggle={detail.kind === "diff" && !mobile ? <DiffLayoutToggle /> : undefined}
-        right={
-          <ArtifactVersionSelect
-            versions={detail.versions}
-            selected={view.versionSeq}
-            onChange={selectVersion}
-          />
-        }
       />
-      {latest && version && latest.seq !== version.seq && (
-        <div className="flex justify-end border-b border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950">
-          <Button variant="ghost" onClick={() => selectVersion(latest.seq)}>
-            Open latest · {latest.seq}
-          </Button>
-        </div>
-      )}
     </div>
   );
   const failure = (detail.kind === "diff" ? diffQuery.error : filesQuery.error) ?? viewed.error;
@@ -649,6 +637,8 @@ function Workspace({
       <ArtifactHeader
         detail={detail}
         version={version}
+        selectedVersion={view.versionSeq}
+        onSelectVersion={selectVersion}
         detailsRequest={detailsRequest}
         onJumpRef={(ref) => jumpRef(ref, context)}
         commenting={commenting}
@@ -667,178 +657,185 @@ function Workspace({
             onSelect={selectFile}
           />
         )}
-        {/* biome-ignore lint/a11y/useKeyWithClickEvents: row highlighting is an extra pointer shortcut; every thread has a keyboard-accessible Locate control. */}
-        <div
-          ref={paneRef}
-          data-artifact-content
-          style={syntaxPalette}
-          className={cn(
-            "min-h-0 min-w-0 flex-1 overflow-y-auto",
-            !mobile && "[contain:paint]",
-            detail.kind === "html" && "flex flex-col [&>*]:shrink-0",
-          )}
-          onMouseUp={(event) => {
-            if (
-              coarse ||
-              (event.target instanceof Element && event.target.closest("[data-gutter]"))
-            )
-              return;
-            const selection = paneRef.current && getSelectionAnchor(paneRef.current);
-            if (selection) selectText(selection);
-          }}
-          onClick={(event) => {
-            if (!(event.target instanceof Element) || !window.getSelection()?.isCollapsed) return;
-            if (event.target.closest("[data-gutter], button, a, input, textarea")) return;
-            const row = event.target.closest<HTMLElement>("[data-fb-id]");
-            if (row?.dataset.fbId) showFeedback(row.dataset.fbId);
-          }}
-        >
-          {toolbar}
-          {notice && (
-            <p
-              role="status"
-              className="border-b border-neutral-200 p-3 text-sm text-amber-700 dark:border-neutral-800 dark:text-amber-400"
-            >
-              {notice}
-            </p>
-          )}
-          {failure && (
-            <p role="alert" className="p-4 text-sm text-red-600">
-              {failure.message}
-            </p>
-          )}
-          {!version ? (
-            <p className="p-6 text-sm text-neutral-500">
-              {view.versionSeq === null
-                ? "No version has been published yet."
-                : `Version ${view.versionSeq} is unavailable. Choose a retained publication above.`}
-            </p>
-          ) : detail.kind === "html" ? (
-            path && canRender ? (
-              renderPreview({
-                detail,
-                version,
-                path,
-                commenting,
-                jump: renderedJump,
-                targets: renderedTargets,
-                onTarget: anchor,
-                onDocument: (next) => {
-                  if (next !== path) {
-                    setRenderedJump(null);
-                    setPopoverFeedback(null);
-                  }
-                  setView((current) =>
-                    current.path === next ? current : { ...current, path: next },
-                  );
-                },
-                onFeedback: showFeedback,
-              })
-            ) : filesQuery.isPending ? (
-              <ArtifactLoading label="Loading preview…" />
-            ) : (
-              <p className="p-6 text-sm text-neutral-500">
-                This file has no rendered document in the selected version.
-              </p>
-            )
-          ) : (
-            <VirtualPaneProvider scrollRef={paneRef} registry={virtual.registry}>
-              <ProgressiveFileProvider
-                scrollRef={paneRef}
-                registry={progressive.registry}
-                enabled={paths.length >= 24}
+        <div className="relative isolate flex min-h-0 min-w-0 flex-1" data-artifact-content-view>
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: row highlighting is an extra pointer shortcut; every thread has a keyboard-accessible Locate control. */}
+          <div
+            ref={paneRef}
+            data-artifact-content
+            style={syntaxPalette}
+            className={cn(
+              "min-h-0 min-w-0 flex-1 overflow-y-auto",
+              !mobile && "[contain:paint]",
+              detail.kind === "html" && "flex flex-col [&>*]:shrink-0",
+            )}
+            onMouseUp={(event) => {
+              if (
+                coarse ||
+                (event.target instanceof Element && event.target.closest("[data-gutter]"))
+              )
+                return;
+              const selection = paneRef.current && getSelectionAnchor(paneRef.current);
+              if (selection) selectText(selection);
+            }}
+            onClick={(event) => {
+              if (!(event.target instanceof Element) || !window.getSelection()?.isCollapsed) return;
+              if (event.target.closest("[data-gutter], button, a, input, textarea")) return;
+              const row = event.target.closest<HTMLElement>("[data-fb-id]");
+              if (row?.dataset.fbId) showFeedback(row.dataset.fbId);
+            }}
+          >
+            {toolbar}
+            {notice && (
+              <p
+                role="status"
+                className="border-b border-neutral-200 p-3 text-sm text-amber-700 dark:border-neutral-800 dark:text-amber-400"
               >
-                {detail.kind === "diff" ? (
-                  diffQuery.isPending ? (
-                    <p className="p-6 text-sm text-neutral-500">Loading published patch…</p>
+                {notice}
+              </p>
+            )}
+            {failure && (
+              <p role="alert" className="p-4 text-sm text-red-600">
+                {failure.message}
+              </p>
+            )}
+            {!version ? (
+              <p className="p-6 text-sm text-neutral-500">
+                {view.versionSeq === null
+                  ? "No version has been published yet."
+                  : `Version ${view.versionSeq} is unavailable. Choose a retained publication above.`}
+              </p>
+            ) : detail.kind === "html" ? (
+              path && canRender ? (
+                renderPreview({
+                  detail,
+                  version,
+                  path,
+                  commenting,
+                  jump: renderedJump,
+                  targets: renderedTargets,
+                  onTarget: anchor,
+                  onDocument: (next) => {
+                    if (next !== path) {
+                      setRenderedJump(null);
+                      setPopoverFeedback(null);
+                    }
+                    setView((current) =>
+                      current.path === next ? current : { ...current, path: next },
+                    );
+                  },
+                  onFeedback: showFeedback,
+                })
+              ) : filesQuery.isPending ? (
+                <ArtifactLoading label="Loading preview…" />
+              ) : (
+                <p className="p-6 text-sm text-neutral-500">
+                  This file has no rendered document in the selected version.
+                </p>
+              )
+            ) : (
+              <VirtualPaneProvider scrollRef={paneRef} registry={virtual.registry}>
+                <ProgressiveFileProvider
+                  scrollRef={paneRef}
+                  registry={progressive.registry}
+                  enabled={paths.length >= 24}
+                >
+                  {detail.kind === "diff" ? (
+                    diffQuery.isPending ? (
+                      <p className="p-6 text-sm text-neutral-500">Loading published patch…</p>
+                    ) : (
+                      <DiffView
+                        rounds={rounds}
+                        activeSeq={version.seq}
+                        layout={layout}
+                        fetchContext={fetchContext}
+                        isViewed={viewed.isViewed}
+                        toggle={viewed.toggle}
+                        currentPath={currentPath}
+                        onPickLines={pickLines}
+                        onFileFeedback={(path) =>
+                          anchor({ kind: "diff", versionSeq: version.seq, path, locator: null })
+                        }
+                        foldSignal={
+                          canonicalJump && fold && fold.path === jump?.path
+                            ? { ...fold, path: canonicalJump.path }
+                            : fold
+                        }
+                        regions={regions}
+                        locate={diffLocate}
+                        progressiveVersion={`${version.seq}:${theme}`}
+                      />
+                    )
+                  ) : filesQuery.data ? (
+                    filesQuery.data.map((file) => (
+                      <ProgressiveFile
+                        key={`${version.seq}:${file.path}`}
+                        path={file.path}
+                        version={`${version.seq}:${theme}`}
+                      >
+                        {({ active, onHydrated, onOpenChange }) => (
+                          <ArtifactFile
+                            artifactId={detail.id}
+                            versionSeq={version.seq}
+                            file={file}
+                            theme={theme}
+                            active={active}
+                            current={currentPath === file.path}
+                            representation={fileMode(file.path)}
+                            onRepresentation={(representation) =>
+                              changeView({ path: file.path, representation })
+                            }
+                            viewed={viewed.isViewed(fileViewedKey(file.path, file.hash))}
+                            onViewed={() => viewed.toggle(fileViewedKey(file.path, file.hash))}
+                            onFileFeedback={() =>
+                              anchor({
+                                kind: fileMode(file.path),
+                                versionSeq: version.seq,
+                                path: file.path,
+                                locator: null,
+                              })
+                            }
+                            fold={fold}
+                            onHydrated={onHydrated}
+                            onOpenChange={onOpenChange}
+                            regions={regions}
+                            onPickLines={(side, start, end, quote) =>
+                              pickLines(file.path, side, start, end, quote)
+                            }
+                            preview={() =>
+                              renderPreview({
+                                detail,
+                                version,
+                                path: file.path,
+                                commenting,
+                                jump: view.path === file.path ? renderedJump : null,
+                                targets: renderedTargets,
+                                onTarget: anchor,
+                                onDocument: (next) => {
+                                  if (next === file.path) return;
+                                  changeView({ path: next, representation: "rendered" });
+                                  const nonce = ++jumpNonce.current;
+                                  setJump({ path: next, side: "new", nonce });
+                                  setFold({ mode: "unfold", path: next, nonce });
+                                },
+                                onFeedback: showFeedback,
+                              })
+                            }
+                          />
+                        )}
+                      </ProgressiveFile>
+                    ))
                   ) : (
-                    <DiffView
-                      rounds={rounds}
-                      activeSeq={version.seq}
-                      layout={layout}
-                      fetchContext={fetchContext}
-                      isViewed={viewed.isViewed}
-                      toggle={viewed.toggle}
-                      currentPath={currentPath}
-                      onPickLines={pickLines}
-                      onFileFeedback={(path) =>
-                        anchor({ kind: "diff", versionSeq: version.seq, path, locator: null })
-                      }
-                      foldSignal={
-                        canonicalJump && fold && fold.path === jump?.path
-                          ? { ...fold, path: canonicalJump.path }
-                          : fold
-                      }
-                      regions={regions}
-                      locate={diffLocate}
-                      progressiveVersion={`${version.seq}:${theme}`}
-                    />
-                  )
-                ) : filesQuery.data ? (
-                  filesQuery.data.map((file) => (
-                    <ProgressiveFile
-                      key={`${version.seq}:${file.path}`}
-                      path={file.path}
-                      version={`${version.seq}:${theme}`}
-                    >
-                      {({ active, onHydrated, onOpenChange }) => (
-                        <ArtifactFile
-                          artifactId={detail.id}
-                          versionSeq={version.seq}
-                          file={file}
-                          theme={theme}
-                          active={active}
-                          current={currentPath === file.path}
-                          representation={fileMode(file.path)}
-                          onRepresentation={(representation) =>
-                            changeView({ path: file.path, representation })
-                          }
-                          viewed={viewed.isViewed(fileViewedKey(file.path, file.hash))}
-                          onViewed={() => viewed.toggle(fileViewedKey(file.path, file.hash))}
-                          onFileFeedback={() =>
-                            anchor({
-                              kind: fileMode(file.path),
-                              versionSeq: version.seq,
-                              path: file.path,
-                              locator: null,
-                            })
-                          }
-                          fold={fold}
-                          onHydrated={onHydrated}
-                          onOpenChange={onOpenChange}
-                          regions={regions}
-                          onPickLines={(side, start, end, quote) =>
-                            pickLines(file.path, side, start, end, quote)
-                          }
-                          preview={() =>
-                            renderPreview({
-                              detail,
-                              version,
-                              path: file.path,
-                              commenting,
-                              jump: view.path === file.path ? renderedJump : null,
-                              targets: renderedTargets,
-                              onTarget: anchor,
-                              onDocument: (next) => {
-                                if (next === file.path) return;
-                                changeView({ path: next, representation: "rendered" });
-                                const nonce = ++jumpNonce.current;
-                                setJump({ path: next, side: "new", nonce });
-                                setFold({ mode: "unfold", path: next, nonce });
-                              },
-                              onFeedback: showFeedback,
-                            })
-                          }
-                        />
-                      )}
-                    </ProgressiveFile>
-                  ))
-                ) : (
-                  <p className="p-6 text-sm text-neutral-500">Loading published files…</p>
-                )}
-              </ProgressiveFileProvider>
-            </VirtualPaneProvider>
-          )}
+                    <p className="p-6 text-sm text-neutral-500">Loading published files…</p>
+                  )}
+                </ProgressiveFileProvider>
+              </VirtualPaneProvider>
+            )}
+          </div>
+          <ArtifactOpenLatest
+            latest={latest?.seq}
+            selected={view.versionSeq}
+            onOpen={selectVersion}
+          />
         </div>
         {/* Hidden and floating share the flush rail's gutter, so switching their
             positioning and animating their width never resizes the content. */}

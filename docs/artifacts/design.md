@@ -142,8 +142,13 @@ around the divider separating it from the title. Every artifact kind has a label
 icon, including a browser window for HTML. Active status has no badge; archived
 artifacts show **Archived**. A three-dot button opens the details popover containing
 the description, IDs, metadata, lifecycle history, and Archive/Restore action.
-There is no separate body header or delete button. Version selection stays with
-the content toolbar.
+There is no separate body header or delete button. Version selection sits in the
+top navigation; below the `md` breakpoint it moves into the three-dot details
+popup, where its choices expand inline. Selecting a version closes that popup.
+While an older or unavailable version is selected, **Open latest** floats at the
+top right of the content viewport. It stays in place while
+content scrolls, reserves no content space, and disappears on the latest version.
+HTML artifacts have no empty content toolbar.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses

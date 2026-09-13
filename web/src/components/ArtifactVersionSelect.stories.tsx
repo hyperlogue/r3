@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
-import { ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
+import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 
 const versions: ArtifactVersion[] = [1, 3, 4].map((seq) => ({
   artifactId: "artifact_example",
@@ -43,3 +43,16 @@ export const ChoosePublication: Story = {
 };
 export const MissingImportedVersion: Story = { args: { selected: 2 } };
 export const Unpublished: Story = { args: { versions: [] } };
+export const InlineMenu: Story = { ...ChoosePublication, args: { inline: true } };
+export const OlderVersion: Story = {
+  render: (args) => {
+    const [selected, setSelected] = useState<number | null>(1);
+    return (
+      <div className="relative h-64 border border-neutral-300 dark:border-neutral-700">
+        <ArtifactVersionSelect {...args} selected={selected} onChange={setSelected} />
+        <ArtifactOpenLatest latest={4} selected={selected} onOpen={setSelected} />
+      </div>
+    );
+  },
+};
+export const OlderVersionDark: Story = { ...OlderVersion, globals: { theme: "dark" } };

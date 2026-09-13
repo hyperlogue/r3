@@ -397,10 +397,16 @@ export const NewPublication: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const content = canvasElement.querySelector("[data-artifact-content]")!;
+    const height = content.getBoundingClientRect().height;
     await expect(canvas.getByLabelText("Published version")).toHaveValue("1");
     await userEvent.click(canvas.getByRole("button", { name: "Simulate publication" }));
     await expect(canvas.getByLabelText("Published version")).toHaveValue("1");
     await expect(canvas.getByRole("button", { name: "Open latest · 2" })).toBeVisible();
+    await expect(content.getBoundingClientRect().height).toBe(height);
+    await userEvent.click(canvas.getByRole("button", { name: "Open latest · 2" }));
+    await expect(canvas.getByLabelText("Published version")).toHaveValue("2");
+    await expect(canvas.queryByRole("button", { name: "Open latest · 2" })).toBeNull();
   },
 };
 export const DraftAndNativeLocate: Story = {

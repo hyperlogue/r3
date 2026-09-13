@@ -7,6 +7,7 @@ import type { MessageRef } from "../markdown.ts";
 import { Button, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
+import { ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
 
 export function ArtifactArchiveDialog({
@@ -103,6 +104,8 @@ export function ArtifactArchiveDialog({
 export function ArtifactHeader({
   detail,
   version = detail.versions.at(-1) ?? null,
+  selectedVersion = version?.seq ?? null,
+  onSelectVersion,
   detailsRequest,
   onJumpRef,
   commenting,
@@ -110,6 +113,8 @@ export function ArtifactHeader({
 }: {
   detail: ArtifactDetail;
   version?: ArtifactVersion | null;
+  selectedVersion?: number | null;
+  onSelectVersion?: (seq: number | null) => void;
   detailsRequest?: number;
   onJumpRef?: (reference: MessageRef) => void;
   commenting?: boolean;
@@ -214,6 +219,15 @@ export function ArtifactHeader({
           </Button>
         </form>
       )}
+      {onSelectVersion && title === null && (
+        <div className="flex min-w-0 max-w-[35%] self-stretch max-md:hidden">
+          <ArtifactVersionSelect
+            versions={detail.versions}
+            selected={selectedVersion}
+            onChange={onSelectVersion}
+          />
+        </div>
+      )}
       <ArtifactPreviewSecurity />
       {title === null && (
         <>
@@ -263,6 +277,20 @@ export function ArtifactHeader({
             aria-label="Artifact details"
             className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
           >
+            {onSelectVersion && (
+              <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
+                <h2 className="mb-2 text-xs font-medium text-neutral-500">Version</h2>
+                <ArtifactVersionSelect
+                  versions={detail.versions}
+                  selected={selectedVersion}
+                  inline
+                  onChange={(seq) => {
+                    onSelectVersion(seq);
+                    setDetailsOpen(false);
+                  }}
+                />
+              </section>
+            )}
             {version?.summary && (
               <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
                 <h2 className="mb-2 text-xs font-medium text-neutral-500">

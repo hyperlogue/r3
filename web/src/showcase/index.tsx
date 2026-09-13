@@ -9,6 +9,7 @@ import { demo } from "../../demo/artifact-backend.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
+import { selectedArtifactVersion } from "../artifact-version.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
@@ -21,7 +22,7 @@ import {
 } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
-import { ArtifactVersionSelect } from "../components/ArtifactVersionSelect.tsx";
+import { ArtifactOpenLatest } from "../components/ArtifactVersionSelect.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FeedbackPanelRail } from "../components/FeedbackPanelRail.tsx";
@@ -80,6 +81,7 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
 function Feedback({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
+  const [versionSeq, setVersionSeq] = useState<number | null>(1);
   const mode = useFeedbackMode();
   const collapsed = mode === "hidden";
   const [threadOpen, setThreadOpen] = useState(false);
@@ -96,25 +98,33 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
   return (
     <>
       <p className="text-sm text-neutral-500">
-        Try editing the title, opening the three-dot menu, replying, resolving a thread, and
-        switching queues. Archive and the description are inside the menu. These are sample
+        Try changing versions, editing the title, opening the three-dot menu, replying, and
+        resolving a thread. Archive and the description are inside the menu. These are sample
         conversations; use r3’s outer comment mode for your UI feedback.
       </p>
       <div className="border border-neutral-300 dark:border-neutral-700">
         <ArtifactHeader
           detail={data}
-          version={data.versions[0]}
+          version={selectedArtifactVersion(data.versions, versionSeq)}
+          selectedVersion={versionSeq}
+          onSelectVersion={setVersionSeq}
           onJumpRef={() => announce("Sample file reference selected")}
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
         <div className="relative flex min-h-[680px]">
-          <div className="min-w-0 flex-1">
+          <div className="relative isolate min-w-0 flex-1">
+            <ArtifactOpenLatest
+              latest={data.versions.at(-1)?.seq}
+              selected={versionSeq}
+              onOpen={setVersionSeq}
+            />
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
                 The feedback panel has three states: hidden, expanded beside the content, or
                 floating over it. Use its icon controls to compare them. Hidden anchors open one
-                conversation at a time.
+                conversation at a time. Click anywhere on the collapsed bar to restore the last
+                expanded or floating mode.
               </p>
               <Button
                 onClick={() => {
@@ -281,67 +291,76 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
     setActive(path);
   };
   return (
-    <div style={style} className="flex h-[570px] border border-neutral-300 dark:border-neutral-700">
-      <FileBrowser files={paths} viewed={viewed} activePath={active} onSelect={jump} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PaneToolbar
-          hasFiles
-          onJump={(direction) =>
-            jump(
-              paths[
-                Math.max(0, Math.min(paths.length - 1, paths.indexOf(active ?? "") + direction))
-              ],
-            )
-          }
-          onFoldAll={(mode) => setFold({ mode, nonce: (fold?.nonce ?? 0) + 1 })}
-          layoutToggle={kind === "diff" ? <DiffLayoutToggle /> : undefined}
-          right={
-            <ArtifactVersionSelect versions={detail.versions} selected={seq} onChange={setSeq} />
-          }
-        />
-        <div ref={pane} className="min-h-0 flex-1 overflow-auto">
-          {kind === "files" ? (
-            paths.map((path) => (
-              <FileCard
-                key={path}
-                path={path}
-                current={active === path}
-                viewed={viewed.has(path)}
-                onToggleViewed={() => toggle(path)}
-                onFileFeedback={() => announce(`Sample whole-file target: ${path}`)}
-                foldSignal={fold}
-              >
-                <SourceCode
-                  data={publication.sources[path]}
+    <div
+      style={style}
+      className="flex h-[570px] flex-col border border-neutral-300 dark:border-neutral-700"
+    >
+      <ArtifactHeader
+        detail={detail}
+        version={publication.version}
+        selectedVersion={seq}
+        onSelectVersion={setSeq}
+      />
+      <div className="flex min-h-0 flex-1">
+        <FileBrowser files={paths} viewed={viewed} activePath={active} onSelect={jump} />
+        <div className="relative isolate flex min-w-0 flex-1 flex-col">
+          <PaneToolbar
+            hasFiles
+            onJump={(direction) =>
+              jump(
+                paths[
+                  Math.max(0, Math.min(paths.length - 1, paths.indexOf(active ?? "") + direction))
+                ],
+              )
+            }
+            onFoldAll={(mode) => setFold({ mode, nonce: (fold?.nonce ?? 0) + 1 })}
+            layoutToggle={kind === "diff" ? <DiffLayoutToggle /> : undefined}
+          />
+          <div ref={pane} className="min-h-0 flex-1 overflow-auto">
+            {kind === "files" ? (
+              paths.map((path) => (
+                <FileCard
+                  key={path}
                   path={path}
-                  regions={[]}
-                  onPickLines={(_, start, end) =>
-                    announce(`Sample line target: ${path}:${start}–${end}`)
-                  }
-                />
-              </FileCard>
-            ))
-          ) : (
-            <DiffView
-              rounds={[
-                {
-                  seq: publication.version.seq,
-                  label: publication.version.label,
-                  summary: null,
-                  created_at: publication.version.createdAt,
-                  files: publication.diff,
-                },
-              ]}
-              currentPath={active}
-              layout={layout}
-              foldSignal={fold}
-              isViewed={(path) => viewed.has(path)}
-              toggle={toggle}
-              onPickLines={(path, side, start, end) =>
-                announce(`Sample diff target: ${path}, ${side}, ${start}–${end}`)
-              }
-            />
-          )}
+                  current={active === path}
+                  viewed={viewed.has(path)}
+                  onToggleViewed={() => toggle(path)}
+                  onFileFeedback={() => announce(`Sample whole-file target: ${path}`)}
+                  foldSignal={fold}
+                >
+                  <SourceCode
+                    data={publication.sources[path]}
+                    path={path}
+                    regions={[]}
+                    onPickLines={(_, start, end) =>
+                      announce(`Sample line target: ${path}:${start}–${end}`)
+                    }
+                  />
+                </FileCard>
+              ))
+            ) : (
+              <DiffView
+                rounds={[
+                  {
+                    seq: publication.version.seq,
+                    label: publication.version.label,
+                    summary: null,
+                    created_at: publication.version.createdAt,
+                    files: publication.diff,
+                  },
+                ]}
+                currentPath={active}
+                layout={layout}
+                foldSignal={fold}
+                isViewed={(path) => viewed.has(path)}
+                toggle={toggle}
+                onPickLines={(path, side, start, end) =>
+                  announce(`Sample diff target: ${path}, ${side}, ${start}–${end}`)
+                }
+              />
+            )}
+          </div>
+          <ArtifactOpenLatest latest={detail.versions.at(-1)?.seq} selected={seq} onOpen={setSeq} />
         </div>
       </div>
     </div>

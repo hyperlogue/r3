@@ -73,6 +73,52 @@ export const Html: Story = {
 };
 export const Phone: Story = { ...Html, parameters: phoneViewport() };
 export const Dark: Story = { ...Html, globals: { theme: "dark" } };
+export const Versions: Story = {
+  args: {
+    detail: {
+      ...artifactFixture,
+      versions: [1, 2, 3].map((seq) => ({
+        ...artifactFixture.versions[0],
+        seq,
+        label: `Iteration ${seq}`,
+        summary: `Description for version ${seq}.`,
+      })),
+    },
+  },
+  render: (args) => {
+    const [selected, setSelected] = useState<number | null>(1);
+    return (
+      <ArtifactHeader
+        {...args}
+        version={args.detail.versions.find((version) => version.seq === selected)}
+        selectedVersion={selected}
+        onSelectVersion={setSelected}
+      />
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const nav = within(canvasElement.querySelector<HTMLElement>("[data-app-header]")!);
+    await userEvent.click(nav.getByRole("button", { name: "Published version" }));
+    await userEvent.click(canvas.getByRole("option", { name: "Version 2 · Iteration 2" }));
+    await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("2");
+  },
+};
+export const PhoneVersions: Story = {
+  ...Versions,
+  parameters: phoneViewport(),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("button", { name: "Published version" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    const popup = within(canvas.getByRole("dialog", { name: "Artifact details" }));
+    await userEvent.click(popup.getByRole("button", { name: "Published version" }));
+    await userEvent.click(popup.getByRole("option", { name: "Version 2 · Iteration 2" }));
+    await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    await expect(canvas.getByText("Description for version 2.")).toBeVisible();
+  },
+};
 export const LongTitle: Story = {
   args: {
     detail: {

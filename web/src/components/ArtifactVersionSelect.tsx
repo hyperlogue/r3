@@ -1,18 +1,19 @@
 import { useState } from "react";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
-import { ChevronDown, cn, useEscape } from "../ui.tsx";
+import { Button, ChevronDown, cn, useEscape } from "../ui.tsx";
 
-// Keep the original compact version control at the toolbar's right edge.
-// Every choice now names a complete publication; there is no live-file entry.
+// The compact navigation picker expands inline when hosted in the details menu.
 export function ArtifactVersionSelect({
   versions,
   selected,
   onChange,
+  inline = false,
 }: {
   versions: ArtifactVersion[];
   selected: number | null;
   onChange: (seq: number | null) => void;
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -38,7 +39,7 @@ export function ArtifactVersionSelect({
     </span>
   );
   return (
-    <div className="relative flex min-w-0 max-md:flex-1">
+    <div className={cn("relative flex min-w-0", inline && "w-full flex-col")}>
       <button
         type="button"
         aria-label="Published version"
@@ -49,7 +50,8 @@ export function ArtifactVersionSelect({
         title="Choose a published version"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "flex min-w-0 max-w-[18rem] items-center gap-1.5 border-l border-neutral-300 px-1.5 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:max-w-none max-md:flex-1 max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          "flex min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          inline ? "w-full max-md:min-h-9" : "max-w-[18rem]",
           open && "opacity-60 grayscale",
         )}
       >
@@ -58,12 +60,12 @@ export function ArtifactVersionSelect({
         {version?.seq === latest && latestBadge}
         <ChevronDown
           className={cn(
-            "ml-0.5 size-3.5 shrink-0 text-neutral-400 transition-transform max-md:ml-auto",
+            "ml-auto size-3.5 shrink-0 text-neutral-400 transition-transform",
             open && "rotate-180",
           )}
         />
       </button>
-      {open && (
+      {open && !inline && (
         <button
           type="button"
           aria-label="Close version picker"
@@ -76,8 +78,13 @@ export function ArtifactVersionSelect({
         aria-label="Published versions"
         inert={!open}
         className={cn(
-          "absolute top-full right-0 z-50 max-h-80 min-w-full overflow-y-auto bg-white shadow-2xl transition-[opacity,transform] duration-150 ease-out max-md:left-0 dark:bg-neutral-800",
-          open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+          "max-h-80 min-w-full overflow-y-auto rounded border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950",
+          inline
+            ? cn("mt-1 w-full", !open && "hidden")
+            : cn(
+                "absolute top-full right-0 z-50 shadow-2xl transition-[opacity,transform] duration-150 ease-out",
+                open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+              ),
         )}
       >
         {[...versions].reverse().map((item) => (
@@ -107,6 +114,29 @@ export function ArtifactVersionSelect({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+export function ArtifactOpenLatest({
+  latest,
+  selected,
+  onOpen,
+}: {
+  latest: number | undefined;
+  selected: number | null;
+  onOpen: (seq: number) => void;
+}) {
+  if (latest === undefined || selected === null || selected === latest) return null;
+  return (
+    <div className="pointer-events-none absolute right-3 top-1.5 z-30 flex">
+      <Button
+        variant="ghost"
+        className="pointer-events-auto border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
+        onClick={() => onOpen(latest)}
+      >
+        Open latest · {latest}
+      </Button>
     </div>
   );
 }
