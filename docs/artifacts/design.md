@@ -27,6 +27,10 @@ specializes the workspace: the entrypoint and its linked pages determine how the
 reader encounters supporting files. The CLI/API can still retrieve those files.
 Neither directory kind offers a diff view.
 
+The desktop file panel resizes from its right divider, remembers its width across
+folding and navigation, and resets on double-click. The focused divider also accepts
+arrow keys to resize and Home to reset.
+
 Files artifacts use the file panel's tree order throughout the content stack and
 file navigation: visit folders before files at each level, sorting siblings
 alphabetically. Folding a folder in the panel does not reorder or hide its content.

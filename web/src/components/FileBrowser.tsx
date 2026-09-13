@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { compareFilePaths } from "../file-order.ts";
-import { Collapse, cn, FoldChevrons, FoldTriangle } from "../ui.tsx";
+import { useFontSize } from "../settings.ts";
+import { Collapse, cn, FoldChevrons, FoldTriangle, useResizableWidth } from "../ui.tsx";
 
 // Directory-tree file list for the current review.
 
@@ -179,6 +180,13 @@ export const FileBrowser = memo(function FileBrowser({
   activePath: string | null;
   onSelect: (path: string) => void;
 }) {
+  const fontSize = useFontSize();
+  const resize = useResizableWidth("r3-filebrowser-width", {
+    min: 180,
+    max: 480,
+    initial: 14 * fontSize,
+    grow: "right",
+  });
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("r3-filebrowser-collapsed") === "1",
   );
@@ -196,9 +204,12 @@ export const FileBrowser = memo(function FileBrowser({
   // inside it at fixed widths, clipped while the panel slides.
   return (
     <aside
+      aria-label="Files"
+      style={{ width: collapsed ? undefined : resize.width }}
       className={cn(
-        "flex shrink-0 flex-col overflow-hidden border-r border-neutral-300 bg-white transition-[width] duration-200 dark:border-neutral-700 dark:bg-neutral-950",
-        collapsed ? "w-8" : "w-56",
+        "relative flex shrink-0 flex-col overflow-hidden border-r border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
+        !resize.dragging && "transition-[width] duration-200 motion-reduce:transition-none",
+        collapsed && "w-8",
       )}
     >
       {collapsed ? (
@@ -214,7 +225,7 @@ export const FileBrowser = memo(function FileBrowser({
           </span>
         </button>
       ) : (
-        <div className="flex min-h-0 w-56 flex-1 flex-col">
+        <div className="flex min-h-0 w-full flex-1 flex-col">
           {/* The chevron leads the header at the exact spot it occupies in the
               collapsed rail (pl-2 = the rail's centering offset for a size-4
               icon in w-8, same py) — the toggle stays put under the pointer. */}
@@ -252,6 +263,23 @@ export const FileBrowser = memo(function FileBrowser({
             />
           </div>
         </div>
+      )}
+      {!collapsed && (
+        // biome-ignore lint/a11y/useSemanticElements: a focusable window splitter exposes a changing width, rather than a document separator.
+        <div
+          role="separator"
+          aria-label="Resize file panel"
+          aria-orientation="vertical"
+          aria-valuemin={180}
+          aria-valuemax={480}
+          aria-valuenow={Math.round(resize.width ?? 14 * fontSize)}
+          tabIndex={0}
+          title="Drag to resize files; double-click to reset"
+          onPointerDown={resize.onPointerDown}
+          onDoubleClick={resize.onDoubleClick}
+          onKeyDown={resize.onKeyDown}
+          className="absolute inset-y-0 right-0 z-20 w-1 touch-none cursor-col-resize hover:bg-primary-500/30 focus-visible:bg-primary-500/30"
+        />
       )}
     </aside>
   );

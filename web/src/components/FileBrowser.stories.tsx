@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { FileBrowser } from "./FileBrowser.tsx";
 
 const FILES = [
@@ -91,5 +91,32 @@ export const Collapsed: Story = {
   beforeEach: () => {
     localStorage.setItem("r3-filebrowser-collapsed", "1");
     return () => localStorage.removeItem("r3-filebrowser-collapsed");
+  },
+};
+
+export const Resizable: Story = {
+  beforeEach: () => {
+    localStorage.removeItem("r3-filebrowser-collapsed");
+    localStorage.removeItem("r3-filebrowser-width");
+    return () => {
+      localStorage.removeItem("r3-filebrowser-collapsed");
+      localStorage.removeItem("r3-filebrowser-width");
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const handle = canvas.getByRole("separator", { name: "Resize file panel" });
+    const original = Number(handle.getAttribute("aria-valuenow"));
+    handle.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(Number(handle.getAttribute("aria-valuenow"))).toBe(original + 10);
+    await expect(localStorage.getItem("r3-filebrowser-width")).toBe(String(original + 10));
+    await userEvent.click(canvas.getByTitle("Hide files"));
+    await userEvent.click(canvas.getByTitle("Show files"));
+    const restored = canvas.getByRole("separator", { name: "Resize file panel" });
+    await expect(Number(restored.getAttribute("aria-valuenow"))).toBe(original + 10);
+    await userEvent.dblClick(restored);
+    await expect(Number(restored.getAttribute("aria-valuenow"))).toBe(original);
+    await expect(localStorage.getItem("r3-filebrowser-width")).toBeNull();
   },
 };

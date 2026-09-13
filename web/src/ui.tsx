@@ -1,5 +1,6 @@
 import type {
   ComponentPropsWithRef,
+  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   PointerEvent as ReactPointerEvent,
@@ -58,6 +59,7 @@ export function useResizableWidth(
   dragging: boolean;
   onPointerDown: (e: ReactPointerEvent) => void;
   onDoubleClick: () => void;
+  onKeyDown: (e: ReactKeyboardEvent) => void;
 } {
   const { min, max, grow = "left", initial, defaultFraction, containerRef } = opts;
   const clamp = useCallback((w: number) => Math.min(max, Math.max(min, w)), [min, max]);
@@ -99,13 +101,23 @@ export function useResizableWidth(
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent) => {
+      if (e.button !== 0 || !e.isPrimary) return;
+      cleanupRef.current?.();
       e.preventDefault();
       const startX = e.clientX;
       const startW = ref.current ?? computeDefault() ?? min;
       const dir = grow === "left" ? -1 : 1;
       setDragging(true);
-      const onMove = (ev: PointerEvent) => setWidth(clamp(startW + dir * (ev.clientX - startX)));
-      const onUp = () => {
+      const cursor = document.body.style.cursor;
+      const userSelect = document.body.style.userSelect;
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== e.pointerId) return;
+        const next = clamp(startW + dir * (ev.clientX - startX));
+        ref.current = next;
+        setWidth(next);
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== e.pointerId) return;
         cleanupRef.current?.();
         setDragging(false);
         if (ref.current !== undefined) localStorage.setItem(key, String(ref.current));
@@ -116,14 +128,16 @@ export function useResizableWidth(
       cleanupRef.current = () => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
+        window.removeEventListener("pointercancel", onUp);
+        document.body.style.cursor = cursor;
+        document.body.style.userSelect = userSelect;
         cleanupRef.current = null;
       };
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
     },
     [key, clamp, grow, computeDefault, min],
   );
@@ -139,7 +153,22 @@ export function useResizableWidth(
     if (d !== undefined) setWidth(d);
   }, [key, computeDefault]);
 
-  return { width, dragging, onPointerDown, onDoubleClick };
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "Home") {
+      e.preventDefault();
+      onDoubleClick();
+      return;
+    }
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const delta =
+      (e.key === "ArrowRight" ? 1 : -1) * (grow === "right" ? 1 : -1) * (e.shiftKey ? 50 : 10);
+    const next = clamp((ref.current ?? computeDefault() ?? min) + delta);
+    ref.current = next;
+    setWidth(next);
+    localStorage.setItem(key, String(next));
+  };
+  return { width, dragging, onPointerDown, onDoubleClick, onKeyDown };
 }
 
 // Shared "flash a Copied! confirmation" state for copy-to-clipboard buttons.
