@@ -21,6 +21,7 @@ import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
 import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
+import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactPreviewSecurityProvider } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
@@ -101,7 +102,9 @@ export function ArtifactView({
     return (
       <>
         <AppHeader />
-        <main className="p-6 text-sm text-neutral-500">Loading artifact…</main>
+        <main className="flex min-h-0 flex-1">
+          <ArtifactLoading />
+        </main>
       </>
     );
   return (
@@ -723,11 +726,11 @@ function Workspace({
                 },
                 onFeedback: showFeedback,
               })
+            ) : filesQuery.isPending ? (
+              <ArtifactLoading label="Loading preview…" />
             ) : (
               <p className="p-6 text-sm text-neutral-500">
-                {filesQuery.isPending
-                  ? "Loading published document…"
-                  : "This file has no rendered document in the selected version."}
+                This file has no rendered document in the selected version.
               </p>
             )
           ) : (

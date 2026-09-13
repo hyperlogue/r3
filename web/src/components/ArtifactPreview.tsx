@@ -19,7 +19,8 @@ import {
   previewCompatibility,
   useCompatibilityConsent,
 } from "../preview-protection.ts";
-import { Button } from "../ui.tsx";
+import { Button, cn } from "../ui.tsx";
+import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
 import { ArtifactPreviewSecuritySource } from "./ArtifactPreviewSecurity.tsx";
@@ -532,9 +533,12 @@ function PreviewSession(
   }, [context, ready, seq, props.commenting, props.targets, props.jump, props.path, props.detail]);
 
   return (
-    <div className="relative flex min-h-80 flex-1 flex-col bg-white">
+    <div
+      aria-busy={!ready && !error}
+      className="relative flex min-h-80 flex-1 flex-col bg-white dark:bg-neutral-950"
+    >
       {error ? (
-        <div role="alert" className="p-6 text-sm text-neutral-700">
+        <div role="alert" className="p-6 text-sm text-neutral-700 dark:text-neutral-300">
           <p>{error}</p>
           <Button className="mt-3" onClick={props.onRetry}>
             Retry preview
@@ -545,10 +549,8 @@ function PreviewSession(
             </Button>
           )}
         </div>
-      ) : !src ? (
-        <p role="status" className="p-6 text-sm text-neutral-500">
-          Opening published preview…
-        </p>
+      ) : !ready ? (
+        <ArtifactLoading label="Loading preview…" className="absolute inset-0 z-10" />
       ) : null}
       {notice && (
         <p
@@ -571,10 +573,12 @@ function PreviewSession(
           {...{ credentialless: "" }}
           allow="camera 'none'; microphone 'none'"
           referrerPolicy="no-referrer"
+          aria-hidden={!ready}
+          inert={!ready}
           // Verify the current port after every load. A count of gate/document
           // loads is unreliable when a page redirects before finishing loading.
           onLoad={() => checkDocument.current()}
-          className="min-h-80 w-full flex-1 border-0 bg-white"
+          className={cn("min-h-80 w-full flex-1 border-0 bg-white", !ready && "invisible")}
         />
       )}
     </div>

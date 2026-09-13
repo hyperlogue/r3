@@ -79,6 +79,7 @@ export const Opening: Story = {
     };
   },
 };
+export const OpeningDark: Story = { ...Opening, globals: { theme: "dark" } };
 
 export const HtmlProtection: Story = {
   args: {

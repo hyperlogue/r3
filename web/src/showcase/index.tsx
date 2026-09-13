@@ -8,6 +8,7 @@ import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
+import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "../components/ArtifactPreviewNetworkControl.tsx";
 import {
@@ -490,6 +491,10 @@ function Showcase() {
           <Protection />
         </Section>
         <Section id="controls">
+          <ArtifactLoading
+            label="Loading preview…"
+            className="rounded-lg border border-neutral-200 dark:border-neutral-800"
+          />
           <div className="flex flex-wrap items-center gap-3">
             {(["default", "primary", "ghost", "danger", "success"] as const).map((variant) => (
               <Button

@@ -50,6 +50,12 @@ historical evidence.
 Locate on an existing description thread opens that version's info popup. Saved
 description drafts retain their text and quote until the user clears or replaces the target.
 
+Opening an artifact uses a centered loading spinner in the application's current
+light/dark theme, with a static indicator when reduced motion is requested. A
+rendered preview stays covered and unfocusable through verification until its
+document is ready. Setup frames never add browser history entries; native links
+within a published document keep their ordinary Back/Forward behavior.
+
 ## Publication and content ownership
 
 The publisher captures local input and sends complete bytes. The daemon owns the
