@@ -66,7 +66,7 @@ try {
     "saved feedback",
   );
   await page.evaluate(
-    "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Submit').click()",
+    "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Send to agent')).click()",
   );
   await eventually(
     () =>

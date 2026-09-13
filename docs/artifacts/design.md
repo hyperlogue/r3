@@ -166,7 +166,12 @@ in the content body.
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses
 a transparent green outline button with a stronger green border and tint on hover.
-Active threads put agent responses needing attention first and claimed work last. General notes
+Active threads put unhandled agent responses first and claimed work last. Unhandled
+means an open thread whose latest message is from an agent; a posted human reply or
+resolution clears it. Opening the panel does not. The navbar shows this count and
+a separate draft/unsent indicator. Posting adds feedback to r3; **Send to agent · N**
+or **Copy prompt · N** explicitly hands off the pending batch. Disabled handoff
+reasons are visible, including drafts that still need posting or discarding. General notes
 open on demand at the top of the panel, below its header and filters. Agent replies
 use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the

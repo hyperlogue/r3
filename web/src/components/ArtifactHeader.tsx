@@ -6,6 +6,7 @@ import { suspendKeys } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import { Button, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
+import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
@@ -236,19 +237,12 @@ export function ArtifactHeader({
         </Button>
       )}
       {onToggleFeedback && (
-        <Button
-          variant={feedbackVisible ? "primary" : "ghost"}
-          className="shrink-0 p-1.5 max-md:hidden"
-          aria-label={feedbackVisible ? "Hide feedback" : "Show feedback"}
-          title={`${feedbackVisible ? "Hide" : "Show"} feedback (p)`}
-          aria-pressed={feedbackVisible}
-          onClick={onToggleFeedback}
-        >
-          <StrokeIcon className="size-4">
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M14 4v16M17 8h1M17 12h1" />
-          </StrokeIcon>
-        </Button>
+        <ArtifactFeedbackToggle
+          artifactId={detail.id}
+          feedback={detail.feedback}
+          visible={!!feedbackVisible}
+          onToggle={onToggleFeedback}
+        />
       )}
       <Button
         variant="ghost"

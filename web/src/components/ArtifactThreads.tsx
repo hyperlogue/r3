@@ -195,7 +195,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
         {artifactNeedsAttention(feedback) && (
           <span
-            title="The agent replied — needs your attention"
+            title="Unhandled agent response"
             className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
           />
         )}
@@ -222,7 +222,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             ? "You"
             : `Agent · ${feedback.author.sessionId.slice(0, 20)}`}
         </span>
-        {hasUnsentArtifactFeedback(feedback) && <span>Not submitted</span>}
+        {hasUnsentArtifactFeedback(feedback) && <span>Not sent</span>}
         {feedback.claim && (
           <span
             className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
@@ -478,9 +478,9 @@ export function ArtifactThreads({
   const ordered = tab === "active" ? active : resolved;
   const disabledReason =
     detail.state === "archived"
-      ? "Restore the artifact to submit feedback"
+      ? "Restore the artifact to send feedback"
       : draftCount
-        ? "Add, post, or discard your unsaved drafts first"
+        ? "Post or discard drafts before sending feedback"
         : !pending
           ? "No new feedback to send"
           : null;
@@ -489,11 +489,11 @@ export function ArtifactThreads({
       setNotice("");
       if (watchers.length) {
         await artifactApi.submit(detail.id);
-        setNotice("Submitted to the waiting agent.");
+        setNotice("Sent to the agent.");
       } else {
         const preview = await artifactApi.previewPrompt(detail.id);
         if (!(await copyText(preview.text)))
-          throw new Error("Clipboard access failed. Feedback remains unsubmitted.");
+          throw new Error("Clipboard access failed. Feedback has not been sent.");
         await artifactApi.acknowledgePrompt(detail.id, preview.fingerprint);
         setNotice("Prompt copied. Paste it into your agent conversation.");
       }
@@ -585,10 +585,10 @@ export function ArtifactThreads({
             {panelControls}
             {!!draftCount && (
               <span
-                title="Add or post drafts before sending feedback"
+                title="Drafts stay in this browser until posted"
                 className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
               >
-                ✎ {draftCount} unsaved
+                ✎ {draftCount} {draftCount === 1 ? "draft" : "drafts"}
               </span>
             )}
           </div>
@@ -607,10 +607,15 @@ export function ArtifactThreads({
               title={disabledReason ?? undefined}
               onClick={() => handoff.mutate()}
             >
-              {handoff.isPending ? "Sending…" : watchers.length ? "Submit" : "Copy prompt"}
+              {handoff.isPending
+                ? "Sending…"
+                : `${watchers.length ? "Send to agent" : "Copy prompt"}${pending ? ` · ${pending}` : ""}`}
             </Button>
           </div>
         </div>
+        {disabledReason && (
+          <p className="text-[0.625rem] text-neutral-500 dark:text-neutral-400">{disabledReason}</p>
+        )}
         <div className="flex items-center justify-between gap-2">
           <div
             ref={indicator.ref}

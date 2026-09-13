@@ -150,7 +150,7 @@ export function ArtifactComposer({
           variant="primary"
           disabled={!draft?.body.trim() || post.isPending || retiredTarget}
         >
-          {post.isPending ? "Saving…" : replyTo ? "Reply" : "Add feedback"}
+          {post.isPending ? "Posting…" : replyTo ? "Reply" : "Add feedback"}
         </Button>
       </div>
     </form>

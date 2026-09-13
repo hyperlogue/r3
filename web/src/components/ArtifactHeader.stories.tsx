@@ -44,6 +44,9 @@ export const FeedbackToggle: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Hide feedback" })).toHaveAccessibleDescription(
+      /1 unhandled thread/,
+    );
     await userEvent.click(canvas.getByRole("button", { name: "Hide feedback" }));
     await expect(canvas.getByRole("button", { name: "Show feedback" })).toHaveAttribute(
       "aria-pressed",

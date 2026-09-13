@@ -151,3 +151,26 @@ export const CardMotion: Story = {
     );
   },
 };
+
+export const PendingHandoff: Story = {
+  args: {
+    detail: { ...artifactFixture, feedback: [{ ...artifactFixtureFeedback, sentAt: null }] },
+  },
+  parameters: {
+    queryData: [
+      [
+        ["artifact-watchers", artifactFixture.id],
+        [{ actor: { role: "agent", sessionId: "review-agent" } }],
+      ],
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Not sent", { exact: true })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toBeEnabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await userEvent.type(canvas.getByRole("textbox", { name: "Feedback" }), "Keep this draft");
+    await expect(canvas.getByText("Post or discard drafts before sending feedback")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toBeDisabled();
+  },
+};

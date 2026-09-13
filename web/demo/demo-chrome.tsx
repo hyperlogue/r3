@@ -101,9 +101,11 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
             <p>
               Two artifacts are loaded. Open one, leave feedback on a line or the summary, then
               click{" "}
-              <span className="font-medium text-neutral-800 dark:text-neutral-100">Submit</span> — a
-              scripted agent replies and publishes a new version. Your selected version and original
-              comment targets stay available.
+              <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                Send to agent
+              </span>{" "}
+              — a scripted agent replies and publishes a new version. Your selected version and
+              original comment targets stay available.
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Source and diff views work here. Rendered previews require the daemon’s isolated
