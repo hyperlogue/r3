@@ -104,6 +104,7 @@ export const Versions: Story = {
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("2");
   },
 };
+export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
 export const PhoneVersions: Story = {
   ...Versions,
   parameters: phoneViewport(),

@@ -220,7 +220,7 @@ export function ArtifactHeader({
         </form>
       )}
       {onSelectVersion && title === null && (
-        <div className="flex min-w-0 max-w-[35%] self-stretch max-md:hidden">
+        <div className="flex min-w-0 max-w-[35%] self-stretch border-x border-neutral-200 max-md:hidden dark:border-neutral-800">
           <ArtifactVersionSelect
             versions={detail.versions}
             selected={selectedVersion}

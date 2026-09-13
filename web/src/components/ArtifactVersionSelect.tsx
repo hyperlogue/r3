@@ -50,8 +50,8 @@ export function ArtifactVersionSelect({
         title="Choose a published version"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "flex min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
-          inline ? "w-full max-md:min-h-9" : "max-w-[18rem]",
+          "flex min-w-0 items-center gap-1.5 px-2 py-1 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
+          inline ? "w-full rounded max-md:min-h-9" : "max-w-[18rem] self-stretch",
           open && "opacity-60 grayscale",
         )}
       >
