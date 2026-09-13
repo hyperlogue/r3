@@ -4,7 +4,7 @@ import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.
 import { artifactApi } from "../artifact-api.ts";
 import { suspendKeys } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, CommentPlusIcon, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
+import { Button, CopyMeta, Pill, StrokeIcon, useEscape } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { MessageProse } from "./Message.tsx";
@@ -154,27 +154,33 @@ export function ArtifactHeader({
     },
   });
   const error = edit.error ?? restore.error;
+  const kindLabel = { html: "HTML artifact", files: "Files artifact", diff: "Diff artifact" }[
+    detail.kind
+  ];
   return (
     <AppHeader>
-      {detail.kind !== "html" && (
-        <span
-          role="img"
-          aria-label={detail.kind === "files" ? "Files artifact" : "Diff artifact"}
-          title={detail.kind === "files" ? "Files artifact" : "Diff artifact"}
-          className="shrink-0 text-neutral-500"
-        >
-          <StrokeIcon className="size-4">
-            {detail.kind === "files" ? (
-              <>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6M8 12h8M8 16h8" />
-              </>
-            ) : (
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 12h6M11 9v6M8 18h6" />
-            )}
-          </StrokeIcon>
-        </span>
-      )}
+      <span
+        role="img"
+        aria-label={kindLabel}
+        title={kindLabel}
+        className="shrink-0 text-neutral-500"
+      >
+        <StrokeIcon className="size-4">
+          {detail.kind === "html" ? (
+            <>
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 8h18M7 5.5h.01M10 5.5h.01" />
+            </>
+          ) : detail.kind === "files" ? (
+            <>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6M8 12h8M8 16h8" />
+            </>
+          ) : (
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 12h6M11 9v6M8 18h6" />
+          )}
+        </StrokeIcon>
+      </span>
       {title === null ? (
         <button
           type="button"
@@ -221,28 +227,25 @@ export function ArtifactHeader({
               aria-pressed={commenting}
               onClick={onToggleCommenting}
             >
-              <CommentPlusIcon className="size-4" />
-            </Button>
-          )}
-          {detail.state === "active" ? (
-            <Button onClick={() => setArchiveOpen(true)}>Archive</Button>
-          ) : (
-            <Button onClick={() => restore.mutate()} disabled={restore.isPending}>
-              Restore
+              <StrokeIcon className="size-4">
+                <path d="M4 8V4h4M12 4h4v4M4 12v4h4" />
+                <path d="m10 10 4 11 2-5 5-2-11-4Z" />
+              </StrokeIcon>
             </Button>
           )}
           <Button
             variant="ghost"
             className="shrink-0 p-1.5 max-md:size-9"
-            aria-label="Artifact details"
-            title="Artifact details"
+            aria-label="Artifact details and actions"
+            title="Artifact details and actions"
             aria-haspopup="dialog"
             aria-expanded={detailsOpen}
             onClick={() => setDetailsOpen(!detailsOpen)}
           >
             <StrokeIcon className="size-4">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 11v6M12 7h.01" />
+              <circle cx="5" cy="12" r="1" />
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="19" cy="12" r="1" />
             </StrokeIcon>
           </Button>
         </>
@@ -310,6 +313,32 @@ export function ArtifactHeader({
                 </ol>
               </details>
             )}
+            <div className="mt-3 border-t border-neutral-200 pt-2 dark:border-neutral-800">
+              {detail.state === "active" ? (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setDetailsOpen(false);
+                    setArchiveOpen(true);
+                  }}
+                >
+                  Archive artifact
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={restore.isPending}
+                  onClick={() => {
+                    setDetailsOpen(false);
+                    restore.mutate();
+                  }}
+                >
+                  Restore artifact
+                </Button>
+              )}
+            </div>
           </div>
         </>
       )}

@@ -88,8 +88,9 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
   return (
     <>
       <p className="text-sm text-neutral-500">
-        Try editing the title, opening Archive, replying, resolving a thread, and switching queues.
-        These are sample conversations; use r3’s outer comment mode for your UI feedback.
+        Try editing the title, opening the three-dot menu, replying, resolving a thread, and
+        switching queues. Archive and the description are inside the menu. These are sample
+        conversations; use r3’s outer comment mode for your UI feedback.
       </p>
       <div className="border border-neutral-300 dark:border-neutral-700">
         <ArtifactHeader

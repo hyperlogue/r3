@@ -7,3 +7,10 @@ const meta = { title: "Components/AppHeader", component: AppHeader } satisfies M
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const ArtifactList: Story = {};
+export const WithTitle: Story = {
+  args: {
+    children: (
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold">Published workspace</span>
+    ),
+  },
+};

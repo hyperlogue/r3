@@ -43,11 +43,11 @@ additional directory-container entity for a caller to create or manage.
 
 Artifacts have a title and metadata, with no overview field or overview panel.
 Optional summaries belong to immutable versions and appear as the selected version's
-description in the navigation's info popup. Descriptions have no body section or
+description in the navigation's details popup. Descriptions have no body section or
 comment anchors. New feedback targets artifacts or documents; reply fix targets
 identify documents. Retired overview and version-description targets remain readable
 historical evidence.
-Locate on an existing description thread opens that version's info popup. Saved
+Locate on an existing description thread opens that version's details popup. Saved
 description drafts retain their text and quote until the user clears or replaces the target.
 
 Opening an artifact uses a centered loading spinner in the application's current
@@ -136,12 +136,14 @@ The browser pins the displayed version. A new publication is announced with an
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
-The top navigation contains the artifact's editable title, archive/restore action,
-and rendered comment-mode icon. The `r3` text links to the artifact list. Active
-status and HTML type have no badge; archived artifacts show **Archived**, and
-files/diff kinds use labeled icons. IDs, metadata, and lifecycle history live in
-the navigation's details popover. There is no separate body header or delete
-button. Version selection stays with the content toolbar.
+The top navigation contains the artifact's editable title and rendered comment-mode
+selection-cursor icon. The `r3` text links to the artifact list, with extra spacing
+around the divider separating it from the title. Every artifact kind has a labeled
+icon, including a browser window for HTML. Active status has no badge; archived
+artifacts show **Archived**. A three-dot button opens the details popover containing
+the description, IDs, metadata, lifecycle history, and Archive/Restore action.
+There is no separate body header or delete button. Version selection stays with
+the content toolbar.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Active threads
 put agent responses needing attention first and claimed work last. General notes

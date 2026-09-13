@@ -47,7 +47,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
         <>
           <span
             aria-hidden="true"
-            className="h-4 w-px shrink-0 bg-neutral-200 dark:bg-neutral-800"
+            className="mx-2 h-4 w-px shrink-0 bg-neutral-200 max-md:mx-1 dark:bg-neutral-800"
           />
           {children}
         </>
