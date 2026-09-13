@@ -7,8 +7,9 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import type { Region } from "../highlights.ts";
 import type { DiffSide } from "../types.ts";
-import { Button, cn } from "../ui.tsx";
+import { Button } from "../ui.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
+import { RepresentationToggle } from "./RepresentationToggle.tsx";
 import { SourceCode } from "./SourceCode.tsx";
 
 // A complete publication is a stack of these cards. Each source query belongs
@@ -88,29 +89,7 @@ export const ArtifactFile = memo(function ArtifactFile({
       onOpenChange={setOpen}
       stats={(expanded) =>
         expanded &&
-        canRender && (
-          <div className="flex shrink-0 overflow-hidden rounded text-[0.625rem] ring-1 ring-inset ring-neutral-300 dark:ring-neutral-700">
-            {(["source", "rendered"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={representation === mode}
-                className={cn(
-                  "px-1.5 py-0.5 font-medium capitalize transition-colors",
-                  representation === mode
-                    ? "bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100"
-                    : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200",
-                )}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRepresentation(mode);
-                }}
-              >
-                {mode === "source" ? "Source" : "Rendered"}
-              </button>
-            ))}
-          </div>
-        )
+        canRender && <RepresentationToggle value={representation} onChange={onRepresentation} />
       }
     >
       {active &&

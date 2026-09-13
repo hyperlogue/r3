@@ -163,7 +163,9 @@ top navigation immediately left of the version selector. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and the button disappears on the latest version.
 HTML artifacts have no empty content toolbar. File-tab headers contain reading and
-feedback controls. Binary and oversized source placeholders offer **Download file**
+feedback controls. Narrow headers show source/rendered icons and the Viewed checkbox
+with accessible names, preserving space for filenames. Enabled reading controls
+remain legible; touch hit areas grow within the compact header rows. Binary and oversized source placeholders offer **Download file**
 in the content body.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general

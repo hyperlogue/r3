@@ -226,7 +226,7 @@ export function FileCard({
           the sticky pin — both set `position`). */}
       <div
         className={cn(
-          "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95",
+          "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 max-md:gap-1 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95",
           current &&
             "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:before:bg-primary-400",
         )}
@@ -264,12 +264,13 @@ export function FileCard({
           <button
             type="button"
             onClick={onToggleViewed}
+            aria-pressed={viewed}
             title={viewed ? "Marked viewed — click to unmark" : "Mark file viewed"}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors",
+              "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors pointer-coarse:self-stretch pointer-coarse:min-w-7",
               viewed
                 ? "bg-success-100 text-success-700 dark:bg-success-900/50 dark:text-success-300"
-                : "text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200",
+                : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",
             )}
           >
             {/* A square checkbox that stays visible once viewed, so it still reads
@@ -284,7 +285,7 @@ export function FileCard({
             >
               {viewed && <CheckIcon className="size-2.5" />}
             </span>
-            Viewed
+            <span className="max-md:sr-only">Viewed</span>
           </button>
         )}
         {onFileFeedback && (

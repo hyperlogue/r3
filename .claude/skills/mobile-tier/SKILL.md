@@ -47,6 +47,9 @@ selected. The artifact
 title and actions occupy the shared top navigation, outside the scrolling pane;
 the content toolbar sticks. The title truncates to preserve space for compact
 controls, with metadata and the selected version's description in the details popover.
+File headers prioritize filenames: source/rendered uses labeled icons, and Viewed
+keeps its checkbox with a screen-reader label. These controls retain the compact
+header height.
 `--pane-sticky-h` records its measured height so file headers and Locate geometry
 use the same offset. The pane stays the one source/diff scroll container.
 

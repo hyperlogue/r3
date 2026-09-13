@@ -235,7 +235,7 @@ export const FileBrowser = memo(function FileBrowser({
                 type="button"
                 onClick={() => setCollapsedPersist(true)}
                 title="Hide files"
-                className="flex text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="flex text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
               >
                 <FoldChevrons dir="left" />
               </button>

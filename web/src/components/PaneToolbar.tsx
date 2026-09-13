@@ -17,7 +17,7 @@ function ToolbarIcon({ d }: { d: string[] }) {
 // The toolbar's icon-button treatment — exported for widgets composed into its
 // slots (ReviewView's JumpToFile trigger) so they match the native buttons.
 export const TOOLBAR_BTN =
-  "flex rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
+  "flex rounded p-1 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 pointer-coarse:p-1.5 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100";
 
 // The unified/side-by-side switch. Reads and writes the global display
 // preference itself (like the settings popup's controls) rather than taking it
