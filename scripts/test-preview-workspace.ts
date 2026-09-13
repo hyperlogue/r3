@@ -90,6 +90,7 @@ try {
   browser = await openTestBrowser();
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  const initialHistory = await page.evaluate<number>("history.length");
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const content = await eventually(async () => {
     const context = [...page.contexts.values()].find(
@@ -106,6 +107,11 @@ try {
   assert.equal(
     await content.evaluate("document.querySelector('h1').textContent"),
     "Published first version",
+  );
+  assert.equal(
+    await page.evaluate("history.length"),
+    initialHistory + 1,
+    "Opening a preview must not add a history entry for its verification gate",
   );
   assert.equal(
     await page.evaluate("!!document.querySelector('[data-artifact-preview] iframe')"),
@@ -205,6 +211,8 @@ try {
     }
     return null;
   }, "Locate opens and highlights the original published target");
+  const beforeLink = await page.evaluate<number>("history.length");
+  assert.equal(beforeLink, initialHistory + 1, "Version changes and Locate add no setup entries");
   const originalRoot = await original.evaluate<string>("r3.getContext().then(c=>c.resourceRoot)");
   await original.evaluate("document.querySelector('a').click()");
   await eventually(async () => {
@@ -229,6 +237,27 @@ try {
     () => page.evaluate("new URL(location.href).searchParams.get('file')==='other.html'"),
     "workspace deep link follows the published document",
   );
+  assert.equal(
+    await page.evaluate("history.length"),
+    beforeLink + 1,
+    "Native links retain history",
+  );
+  for (const [direction, path] of [
+    ["back", "index.html"],
+    ["forward", "other.html"],
+  ] as const) {
+    await page.evaluate(`history.${direction}()`);
+    await eventually(
+      () =>
+        page.evaluate(`new URL(location.href).searchParams.get('file')===${JSON.stringify(path)}`),
+      `Native ${direction} updates the workspace path`,
+    );
+    assert.equal(
+      await page.evaluate("history.length"),
+      beforeLink + 1,
+      "Traversal adds no entries",
+    );
+  }
   // Explicit version choices use that publication's own entrypoint, including
   // after native navigation to a companion document in the preceding version.
   for (const [seq, path, text] of [

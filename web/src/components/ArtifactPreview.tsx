@@ -560,6 +560,10 @@ function PreviewSession(
       )}
       {src && !error && (
         <iframe
+          // A controlled URL change starts a fresh frame so the verification
+          // gate never becomes an extra Back/Forward entry. Native links keep
+          // their own history within the mounted published document.
+          key={src}
           ref={iframe}
           src={src}
           title={`${props.detail.title || "Artifact"} preview`}
