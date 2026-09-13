@@ -128,7 +128,7 @@ const app = Bun.serve({
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
-      `<!doctype html><html><head>${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
       { headers: { "content-type": "text/html" } },
     );
   },
@@ -202,15 +202,22 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     await eventually(
       () =>
         page.evaluate(
-          `(()=>{const node=(${expression});const rect=node.getBoundingClientRect();return rect.width>0&&rect.height>0&&(!node.closest('dialog')||node.closest('dialog').open)})()`,
+          `(()=>{const node=(${expression});const rect=node.getBoundingClientRect();return rect.width>0&&rect.height>0&&!node.closest('[inert],[hidden]')&&(!node.closest('dialog')||node.closest('dialog').open)})()`,
         ),
       "workspace control visible",
     );
     await page.evaluate(`(${expression}).scrollIntoView({block:'center'})`);
     await page.evaluate("new Promise(requestAnimationFrame)");
-    const position = await page.evaluate(
-      `(()=>{const r=(${expression}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
-    );
+    let previous = "";
+    const position = await eventually(async () => {
+      const position = await page.evaluate(
+        `(()=>{const node=(${expression});const r=node.getBoundingClientRect();const x=r.x+r.width/2,y=r.y+r.height/2;const hit=document.elementFromPoint(x,y);return node.contains(hit)?{x,y}:null})()`,
+      );
+      const key = JSON.stringify(position);
+      const stable = key === previous;
+      previous = key;
+      return stable ? position : null;
+    }, "workspace control is stable and receives pointer input");
     for (const type of ["mousePressed", "mouseReleased"])
       await page.command("Input.dispatchMouseEvent", {
         type,
@@ -242,6 +249,11 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     } else {
       await frame(
         `window.networkResult==='blocked' && document.querySelector('h1')?.textContent==='Version ${seq}'`,
+      );
+      await eventually(
+        () =>
+          page.evaluate("!!document.querySelector('[data-artifact-preview] iframe:not([inert])')"),
+        "preview is ready for interaction",
       );
     }
   };
@@ -275,6 +287,12 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
       return response.status === 404;
     }, "preceding context revoked");
   const version = async (seq: number) => {
+    if (
+      await page.evaluate(
+        "!!document.querySelector('[aria-label=\"Preview security details\"]:not([hidden])')",
+      )
+    )
+      await click("document.querySelector('[aria-label=\"Close preview security\"]')");
     await click("document.querySelector('[aria-label=\"Published version\"]')");
     await click(`document.querySelector('[data-version-seq="${seq}"]')`);
   };
@@ -286,6 +304,10 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   if (unsupported) assert.equal(publicationRequests, 0, "no published bytes before consent");
   const initial = grants.at(-1)!;
   await click(button("Allow external access"));
+  await eventually(
+    () => page.evaluate("!!document.querySelector('dialog[open]')"),
+    "initial external confirmation",
+  );
   assert.equal(
     await page.evaluate("document.querySelector('dialog').textContent.includes('conversations')"),
     true,
@@ -407,6 +429,10 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     mobile: true,
   });
   await click(button("Allow external access"));
+  await eventually(
+    () => page.evaluate("!!document.querySelector('dialog[open]')"),
+    "phone external confirmation",
+  );
   assert.equal(
     await page.evaluate(
       "(()=>{const r=document.querySelector('dialog[open]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()",
