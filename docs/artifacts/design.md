@@ -146,6 +146,9 @@ resizing the floating panel never changes content or preview width. Expanded
 reserves the panel's width and resizes content with it. Icon controls switch states;
 `p` hides a visible panel or expands a hidden one. All states keep the panel mounted
 to preserve UI state and drafts. Existing folded preferences become hidden.
+The default feedback width is 38.2% of the workspace (the golden-ratio split),
+within the 300–700 px resize limits. Double-clicking the divider clears the saved
+width and recalculates this proportion for the current workspace in either visible mode.
 
 With the panel hidden, selecting an existing source/diff anchor or rendered
 comment marker opens only that conversation in a floating card. Reply and status

@@ -207,7 +207,7 @@ function Workspace({
   const resize = useResizableWidth("r3-feedback-width", {
     min: 300,
     max: 700,
-    initial: 400,
+    defaultFraction: 0.382,
     containerRef: splitRef,
   });
   useEffect(() => {

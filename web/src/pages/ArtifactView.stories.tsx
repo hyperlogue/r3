@@ -253,6 +253,9 @@ export const CollapsedComposer: Story = {
 export const FloatingPanelAndThread: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.dblClick(
+      canvasElement.querySelector<HTMLElement>("[data-feedback-mode] .cursor-col-resize")!,
+    );
     const content = canvasElement.querySelector("[data-artifact-content]")!;
     const expandedWidth = content.getBoundingClientRect().width;
     await userEvent.click(canvas.getByRole("button", { name: "Float feedback" }));
