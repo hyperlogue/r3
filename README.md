@@ -150,6 +150,17 @@ provides the selected version's resource root. Automatic root-relative URL rewri
 history-route fallback, dependency installation, and backend hosting are outside
 this feature.
 
+Keep HTML small by saving images as standalone files, such as
+`prototype/assets/hero.webp`, and using native HTML:
+
+```html
+<img src="./assets/hero.webp" alt="Hero illustration">
+```
+
+Extract large embedded base64/data-URL images into files and reuse their paths
+when an image repeats. Publish the complete `prototype` directory on every version
+so `index.html` and all referenced assets are included. See `r3 guide` for commands.
+
 Each document runs in an opaque-origin sandbox with URL access scoped to one version. Local resources support
 fetch, XHR, modules, and media range requests. By default external resources, APIs, sockets,
 forms that navigate, and access to unrelated artifacts or application endpoints

@@ -18,6 +18,7 @@ Capture: --dir <prepared-directory> [--file <relative-path>]...
 Publication summaries belong to versions. Artifacts have no overview field.
 Publication: --entrypoint index.html|index.md --label L --summary S --key K
 Create: --project ID --meta k=v (repeatable); directory capture defaults to files.
+HTML images: publish standalone assets with relative <img src> URLs; see r3 guide.
 
   feedback add <id> -m <message> [target flags]
   feedback edit <feedback-id> [-m <message>] [--status open|resolved --human]
@@ -62,6 +63,21 @@ views. HTML artifacts use a rendered workspace and require index.html or index.m
 at the root. If both exist, name --entrypoint. Diff versions are independent sparse
 patches, not a reconstructed tree. All versions remain until whole-artifact deletion.
 
+For HTML publications, keep index.html small: save image assets as standalone
+files such as assets/hero.webp and load them with native HTML:
+  <img src="./assets/hero.webp" alt="Hero illustration">
+
+Extract large embedded base64/data-URL images into files and reuse the same path
+where an image repeats. Publish the complete prepared directory, including every
+referenced asset, on each version:
+  r3 create --kind html --dir ./prototype
+  r3 publish <id> --dir ./prototype
+An index.html-only capture omits companion files. Relative URLs resolve from the
+document; a leading / addresses the preview origin, not the publication directory.
+The preview also supplies a version-root URL for constructing asset URLs.
+Prepare dependencies and assets before publishing; r3 does not build or install
+them. Use hash routes or published document paths for navigation.
+
 Create publishes version 1 after capturing locally. Publish reads the latest
 published sequence for its optimistic concurrency check; --expected overrides it.
 --key makes a lost-response retry return the original publication. Keep the same
@@ -98,9 +114,8 @@ message is saved and sent to the current listener; a blank message closes quietl
 Restore permits publication again, but requires a fresh listener registration.
 Archive delivery failure does not undo the archived state or its saved message.
 
-HTML uses relative resource URLs, a supplied version-root URL, and hash routes or
-published document paths. Prepare dependencies and assets before publishing;
-r3 does not build or install them. Previews try verified network blocking first.
+Previews try verified network blocking first. Published image files load within
+that protection; they do not need an external network grant.
 Browsers without enforcement need a one-time risk acknowledgment for limited
 protection. Only the human can enable broader external access for HTML or share
 devices through separate r3 consent and browser permission.
