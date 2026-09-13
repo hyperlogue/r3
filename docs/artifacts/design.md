@@ -302,13 +302,13 @@ reloads the preview under a new context and revokes the old one; reverting canno
 undo data already sent. Files can use restrictive compatibility rendering, but
 only HTML artifacts offer broader external access. Diffs have no rendered preview.
 
-A single shield icon in the top navigation shows preview security. Green requires
+A shield row in the top navigation’s three-dot menu shows preview security. Green requires
 verified protection for every mounted preview; amber indicates compatibility,
 external access, or device permission, and red indicates sharing or an error.
-Checking never appears verified. Its popover lists each preview's isolation,
+Checking never appears verified. Expanding the row lists each preview's isolation,
 network, and device details, with external-access confirmation, **Restore
 protection**, **Stop sharing**, and **Forget browser choice** actions. Source-only
-views have no security icon. No security banner occupies the content pane.
+views have no security row. No security banner occupies the content pane.
 
 External mode permits direct browser networking and skips only the network-blocking
 gate checks, allowing browsers without Connection Allowlist support after consent.

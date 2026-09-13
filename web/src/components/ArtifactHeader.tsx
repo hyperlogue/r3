@@ -232,7 +232,6 @@ export function ArtifactHeader({
           />
         </div>
       )}
-      <ArtifactPreviewSecurity />
       {title === null && (
         <>
           {detail.state === "archived" && <Pill>Archived</Pill>}
@@ -284,111 +283,109 @@ export function ArtifactHeader({
         </>
       )}
       {detailsOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close artifact details"
-            onClick={() => setDetailsOpen(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          <div
-            role="dialog"
-            aria-label="Artifact details"
-            className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-          >
-            {onSelectVersion && (
-              <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
-                <h2 className="mb-2 text-xs font-medium text-neutral-500">Version</h2>
-                <ArtifactVersionSelect
-                  versions={detail.versions}
-                  selected={selectedVersion}
-                  inline
-                  onChange={(seq) => {
-                    onSelectVersion(seq);
-                    setDetailsOpen(false);
-                  }}
-                />
-              </section>
-            )}
-            {version?.summary && (
-              <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
-                <h2 className="mb-2 text-xs font-medium text-neutral-500">
-                  Description · Version {version.seq}
-                </h2>
-                <MessageProse
-                  source={version.summary}
-                  onJumpRef={
-                    onJumpRef &&
-                    ((reference) => {
-                      setDetailsOpen(false);
-                      onJumpRef(reference);
-                    })
-                  }
-                />
-              </section>
-            )}
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-              <CopyMeta hint="Copy artifact id" value={detail.id}>
-                {detail.id}
-              </CopyMeta>
-              {Object.entries(detail.meta).map(([key, value]) => (
-                <CopyMeta key={key} hint={`Copy ${key}`} value={value}>
-                  {key}: {value}
-                </CopyMeta>
-              ))}
-            </div>
-            {detail.events.length > 0 && (
-              <details className="mt-2 text-xs text-neutral-500">
-                <summary className="cursor-pointer">
-                  Lifecycle history · {detail.events.length}
-                </summary>
-                <ol className="mt-2 space-y-2">
-                  {detail.events.map((event) => (
-                    <li
-                      key={event.id}
-                      className="border-l-2 border-neutral-200 pl-2 dark:border-neutral-700"
-                    >
-                      <div>
-                        {event.event === "archived" ? "Archived" : "Restored"} ·{" "}
-                        <time dateTime={event.createdAt}>
-                          {new Date(event.createdAt).toLocaleString()}
-                        </time>
-                      </div>
-                      {event.message && <MessageProse source={event.message} />}
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            )}
-            <div className="mt-3 border-t border-neutral-200 pt-2 dark:border-neutral-800">
-              {detail.state === "active" ? (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    setDetailsOpen(false);
-                    setArchiveOpen(true);
-                  }}
-                >
-                  Archive artifact
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start"
-                  disabled={restore.isPending}
-                  onClick={() => {
-                    setDetailsOpen(false);
-                    restore.mutate();
-                  }}
-                >
-                  Restore artifact
-                </Button>
-              )}
-            </div>
-          </div>
-        </>
+        <button
+          type="button"
+          aria-label="Close artifact details"
+          onClick={() => setDetailsOpen(false)}
+          className="fixed inset-0 z-40 cursor-default"
+        />
       )}
+      <div
+        role="dialog"
+        hidden={!detailsOpen}
+        aria-label="Artifact details"
+        className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+      >
+        {onSelectVersion && (
+          <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
+            <h2 className="mb-2 text-xs font-medium text-neutral-500">Version</h2>
+            <ArtifactVersionSelect
+              versions={detail.versions}
+              selected={selectedVersion}
+              inline
+              onChange={(seq) => {
+                onSelectVersion(seq);
+                setDetailsOpen(false);
+              }}
+            />
+          </section>
+        )}
+        <ArtifactPreviewSecurity />
+        {version?.summary && (
+          <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+            <h2 className="mb-2 text-xs font-medium text-neutral-500">
+              Description · Version {version.seq}
+            </h2>
+            <MessageProse
+              source={version.summary}
+              onJumpRef={
+                onJumpRef &&
+                ((reference) => {
+                  setDetailsOpen(false);
+                  onJumpRef(reference);
+                })
+              }
+            />
+          </section>
+        )}
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          <CopyMeta hint="Copy artifact id" value={detail.id}>
+            {detail.id}
+          </CopyMeta>
+          {Object.entries(detail.meta).map(([key, value]) => (
+            <CopyMeta key={key} hint={`Copy ${key}`} value={value}>
+              {key}: {value}
+            </CopyMeta>
+          ))}
+        </div>
+        {detail.events.length > 0 && (
+          <details className="mt-2 text-xs text-neutral-500">
+            <summary className="cursor-pointer">Lifecycle history · {detail.events.length}</summary>
+            <ol className="mt-2 space-y-2">
+              {detail.events.map((event) => (
+                <li
+                  key={event.id}
+                  className="border-l-2 border-neutral-200 pl-2 dark:border-neutral-700"
+                >
+                  <div>
+                    {event.event === "archived" ? "Archived" : "Restored"} ·{" "}
+                    <time dateTime={event.createdAt}>
+                      {new Date(event.createdAt).toLocaleString()}
+                    </time>
+                  </div>
+                  {event.message && <MessageProse source={event.message} />}
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+        <div className="mt-3 border-t border-neutral-200 pt-2 dark:border-neutral-800">
+          {detail.state === "active" ? (
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => {
+                setDetailsOpen(false);
+                setArchiveOpen(true);
+              }}
+            >
+              Archive artifact
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              disabled={restore.isPending}
+              onClick={() => {
+                setDetailsOpen(false);
+                restore.mutate();
+              }}
+            >
+              Restore artifact
+            </Button>
+          )}
+        </div>
+      </div>
       {(notice || error) && (
         <div
           role={error ? "alert" : "status"}

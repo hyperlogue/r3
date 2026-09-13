@@ -9,7 +9,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { suspendKeys } from "../keys.ts";
 import { type PreviewSecurityState, previewSecuritySummary } from "../preview-security.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 
@@ -74,39 +73,17 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
   const entries = useSyncExternalStore(registry.subscribe, registry.get);
   const summary = previewSecuritySummary(entries);
   const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const contentId = useId();
   useEffect(() => {
     if (!entries.length) setOpen(false);
   }, [entries.length]);
-  useEffect(() => {
-    if (!open) return;
-    const resume = suspendKeys();
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      setOpen(false);
-      trigger.current?.focus();
-    };
-    const outside = (event: PointerEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
-    };
-    const iframeFocus = () => {
-      if (document.activeElement instanceof HTMLIFrameElement) setOpen(false);
-    };
-    window.addEventListener("keydown", dismiss);
-    document.addEventListener("pointerdown", outside);
-    window.addEventListener("blur", iframeFocus);
-    return () => {
-      window.removeEventListener("keydown", dismiss);
-      document.removeEventListener("pointerdown", outside);
-      window.removeEventListener("blur", iframeFocus);
-      resume();
-    };
-  }, [open]);
   return (
-    <div hidden={!entries.length} className="shrink-0" data-preview-security={summary.state}>
+    <div
+      hidden={!entries.length}
+      className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800"
+      data-preview-security={summary.state}
+    >
       <button
         ref={trigger}
         type="button"
@@ -116,7 +93,7 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
         title={`Preview security: ${summary.label}`}
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex items-center justify-center rounded-md p-1.5 hover:bg-neutral-100 max-md:size-9 dark:hover:bg-neutral-800",
+          "flex w-full items-center gap-2 rounded-md p-1.5 text-left text-xs hover:bg-neutral-100 max-md:min-h-9 dark:hover:bg-neutral-800",
           summary.state === "verified"
             ? "text-emerald-700 dark:text-emerald-400"
             : summary.state === "limited"
@@ -126,7 +103,7 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
                 : "text-neutral-500 dark:text-neutral-400",
         )}
       >
-        <StrokeIcon className="size-4">
+        <StrokeIcon className="size-4 shrink-0">
           <path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z" />
           {summary.state === "verified" ? (
             <path d="m8 12 3 3 5-6" />
@@ -138,6 +115,8 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
             <path d="M12 8v5m0 3h.01" />
           )}
         </StrokeIcon>
+        <span className="flex-1">Preview security</span>
+        <span>{summary.label}</span>
       </button>
       <span role="status" className="sr-only">
         {summary.label}
@@ -146,7 +125,7 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
         id={contentId}
         hidden={!open}
         aria-label="Preview security details"
-        className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-neutral-300 bg-white p-3 text-sm text-neutral-900 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        className="mt-2 text-sm"
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <span className="font-semibold">Preview security</span>

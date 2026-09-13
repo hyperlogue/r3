@@ -4,6 +4,10 @@ import { expect, userEvent, within } from "storybook/test";
 import { artifactFixture } from "../artifact-fixtures.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import { ArtifactArchiveDialog, ArtifactHeader } from "./ArtifactHeader.tsx";
+import {
+  ArtifactPreviewSecurityProvider,
+  ArtifactPreviewSecuritySource,
+} from "./ArtifactPreviewSecurity.tsx";
 
 const meta = {
   title: "Components/ArtifactHeader",
@@ -186,4 +190,28 @@ export const ArchiveDialog: Story = {
   render: () => (
     <ArtifactArchiveDialog artifactId={artifactFixture.id} onCancel={() => {}} onDone={() => {}} />
   ),
+};
+
+export const PreviewSecurityMenu: Story = {
+  render: (args) => (
+    <ArtifactPreviewSecurityProvider>
+      <ArtifactHeader {...args} />
+      <ArtifactPreviewSecuritySource
+        path="index.html"
+        network="blocked"
+        verification="ready"
+        devices={{ camera: false, microphone: false }}
+        capture={{ phase: "idle", camera: false, microphone: false }}
+      >
+        <p>External connections blocked. No device access.</p>
+      </ArtifactPreviewSecuritySource>
+    </ArtifactPreviewSecurityProvider>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("button", { name: /Preview security:/ })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    await userEvent.click(canvas.getByRole("button", { name: /Preview security:/ }));
+    await expect(canvas.getByText("External connections blocked. No device access.")).toBeVisible();
+  },
 };

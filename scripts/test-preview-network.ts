@@ -189,7 +189,23 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     `[...${scope}.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)})`;
   const click = async (expression: string) => {
     await eventually(() => page.evaluate(`!!(${expression})`), "workspace control");
-    // Permission actions moved into the single nav security popover.
+    // Security controls stay mounted in the navbar's details menu.
+    if (
+      await page.evaluate(
+        `!!document.querySelector('[aria-label="Close artifact details"]') && !(${expression}).closest('[aria-label="Artifact details"]') && (${expression}).getAttribute('aria-label') !== 'Close artifact details'`,
+      )
+    ) {
+      await page.evaluate(
+        "document.querySelector('[aria-label=\"Close artifact details\"]').click()",
+      );
+    }
+    if (
+      await page.evaluate(`!!(${expression}).closest('[aria-label="Artifact details"][hidden]')`)
+    ) {
+      await page.evaluate(
+        "document.querySelector('[aria-label=\"Artifact details and actions\"]').click()",
+      );
+    }
     if (
       await page.evaluate(
         `!!(${expression}).closest('[aria-label="Preview security details"][hidden]')`,
@@ -217,7 +233,7 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
       const stable = key === previous;
       previous = key;
       return stable ? position : null;
-    }, "workspace control is stable and receives pointer input");
+    }, `workspace control is stable and receives pointer input: ${expression}`);
     for (const type of ["mousePressed", "mouseReleased"])
       await page.command("Input.dispatchMouseEvent", {
         type,
@@ -293,6 +309,8 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
       )
     )
       await click("document.querySelector('[aria-label=\"Close preview security\"]')");
+    if (await page.evaluate("!!document.querySelector('[aria-label=\"Close artifact details\"]')"))
+      await click("document.querySelector('[aria-label=\"Close artifact details\"]')");
     await click("document.querySelector('[aria-label=\"Published version\"]')");
     await click(`document.querySelector('[data-version-seq="${seq}"]')`);
   };

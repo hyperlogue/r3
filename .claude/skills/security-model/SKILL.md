@@ -153,11 +153,11 @@ application load; each closed preview retains its explicit review-risk action.
 Forgetting the choice stops compatible previews in this tab and other open tabs.
 It does not undo data already transmitted or cancel independently granted external mode.
 
-A single shield icon in the trusted top navigation summarizes all mounted previews.
+A shield row in the trusted top navigation’s three-dot menu summarizes all mounted previews.
 Green requires successful blocked-mode gates for every preview. Amber means limited
 protection, explicit external access, or device permission; red signals active
 sharing or an error. Checking and failed previews never show verified protection.
-An accessible label and tooltip name the state. Its popover lists each preview's
+An accessible label and visible text name the state. Expanding the row lists each preview's
 isolation, network, camera, and microphone details and retains permission, restore,
 stop-sharing, and forget-compatibility controls. Confirmation remains explicit and
 HTML-only for external access. These indicators describe enforced boundaries, not

@@ -7,13 +7,11 @@ import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
-import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "../components/ArtifactPreviewNetworkControl.tsx";
 import {
-  ArtifactPreviewSecurity,
   ArtifactPreviewSecurityProvider,
   ArtifactPreviewSecuritySource,
 } from "../components/ArtifactPreviewSecurity.tsx";
@@ -398,10 +396,9 @@ function ProtectionSample({ initial }: { initial: ArtifactPreviewNetwork }) {
             : "External connections allowed"}
       </h3>
       <ArtifactPreviewSecurityProvider>
-        <AppHeader>
-          <span className="min-w-0 flex-1 truncate text-sm">Sample preview</span>
-          <ArtifactPreviewSecurity />
-        </AppHeader>
+        <ArtifactHeader
+          detail={{ ...demo.get("artifact_documents"), kind: "html", title: "Sample preview" }}
+        />
         <ArtifactPreviewSecuritySource
           path="index.html"
           network={network}
