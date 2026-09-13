@@ -343,7 +343,7 @@ export function Button({
   className,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "default" | "primary" | "ghost" | "danger" | "success";
+  variant?: "default" | "primary" | "ghost" | "danger" | "success" | "success-outline";
 }) {
   // max-md:min-h-9 gives every shared button a compact ~40px touch target below
   // md (inert on desktop) — real-device feedback found full 44px CTAs
@@ -364,6 +364,8 @@ export function Button({
     // (Submit) uses primary-indigo instead, so the two green-vs-indigo reads stay
     // distinct.
     success: "bg-success-600 hover:bg-success-500 text-white",
+    "success-outline":
+      "border border-success-600/60 bg-transparent text-success-700 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:border-success-500/60 dark:text-success-400 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
   };
   return <button className={cn(base, variants[variant], className)} {...props} />;
 }

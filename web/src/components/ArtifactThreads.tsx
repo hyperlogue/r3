@@ -19,7 +19,7 @@ import { copyText } from "../clipboard.ts";
 import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, cn, FoldTriangle, useEscape } from "../ui.tsx";
+import { Button, CommentPlusIcon, cn, FoldTriangle, useEscape } from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 
@@ -113,13 +113,9 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     <Button
       type="button"
       data-feedback-action="resolve"
-      variant="ghost"
+      variant={feedback.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
-      className={
-        feedback.status === "open"
-          ? "border border-success-600/50 text-success-700 dark:text-success-400"
-          : "text-neutral-400"
-      }
+      className={feedback.status === "resolved" ? "text-neutral-400" : undefined}
       onClick={() => status.mutate()}
     >
       {feedback.status === "open" ? "✓ Resolve" : "Reopen"}
@@ -603,7 +599,7 @@ export function ArtifactThreads({
               title="Add general feedback"
               onClick={newNote}
             >
-              +
+              <CommentPlusIcon className="size-3.5" />
             </Button>
             <Button
               variant="primary"

@@ -28,6 +28,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const Dark: Story = { globals: { theme: "dark" } };
+export const ResolveHovered: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.hover(within(canvasElement).getByRole("button", { name: "✓ Resolve" }));
+  },
+};
+export const ResolveHoveredDark: Story = { ...ResolveHovered, globals: { theme: "dark" } };
 export const NarrowPanel: Story = {
   decorators: [
     (Story) => (

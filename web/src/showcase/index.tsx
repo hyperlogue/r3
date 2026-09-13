@@ -497,15 +497,17 @@ function Showcase() {
             className="rounded-lg border border-neutral-200 dark:border-neutral-800"
           />
           <div className="flex flex-wrap items-center gap-3">
-            {(["default", "primary", "ghost", "danger", "success"] as const).map((variant) => (
-              <Button
-                key={variant}
-                variant={variant}
-                onClick={() => setNotice(`${variant} sample button clicked`)}
-              >
-                {variant}
-              </Button>
-            ))}
+            {(["default", "primary", "ghost", "danger", "success", "success-outline"] as const).map(
+              (variant) => (
+                <Button
+                  key={variant}
+                  variant={variant}
+                  onClick={() => setNotice(`${variant} sample button clicked`)}
+                >
+                  {variant}
+                </Button>
+              ),
+            )}
             <Button disabled>Disabled</Button>
             <Pill>Active</Pill>
             <Pill>html</Pill>

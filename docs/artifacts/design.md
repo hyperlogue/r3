@@ -145,8 +145,10 @@ the description, IDs, metadata, lifecycle history, and Archive/Restore action.
 There is no separate body header or delete button. Version selection stays with
 the content toolbar.
 
-The feedback dock retains the compact **Active / Resolved** tabs. Active threads
-put agent responses needing attention first and claimed work last. General notes
+The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
+feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses
+a transparent green outline button with a stronger green border and tint on hover.
+Active threads put agent responses needing attention first and claimed work last. General notes
 open on demand at the top of the panel, below its header and filters. Agent replies
 use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
