@@ -38,9 +38,14 @@ export interface PreviewDisplay {
   jump: { locator: RenderedLocator | null; nonce: number } | null;
 }
 
+export type PreviewTheme = "light" | "dark";
+
 // These are the entire publisher-page capability surface. There is no generic
 // HTTP, actor, version, path, lifecycle, publication, or host command argument.
+
 export interface ArtifactUtility {
+  getTheme(): Promise<PreviewTheme | null>;
+  setTheme(theme: PreviewTheme): Promise<void>;
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;
   getThreads(): Promise<ArtifactFeedback[]>;

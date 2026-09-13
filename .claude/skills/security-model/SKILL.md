@@ -200,11 +200,15 @@ The parent accepts a bridge connection only from its exact iframe window,
 transfers a MessagePort to the exact application origin. Replies stay on that
 port, so navigation cannot deliver a pending result to a replacement document.
 The bridge exposes context, same-artifact conversations, human feedback/replies,
-explicit Submit, and change notifications. It has no generic HTTP or host-command
+explicit Submit, change notifications, and an artifact-scoped light/dark preference. It has no generic HTTP or host-command
 operation and accepts no actor or version override. Mutations require browser
 user activation. Published membership is checked before dispatch; reply ids must
 belong to the same artifact, and the server validates each native target.
-Application authentication stays in the parent.
+Application authentication stays in the parent. Theme preference reads return only
+`light`, `dark`, or null. Writes require activation and accept only those two themes;
+the parent chooses the storage key from the verified artifact identity. Previews
+cannot enumerate storage, supply keys or other artifact IDs, or alter r3's app theme.
+Theme persistence never persists network or device grants.
 
 `web/src/preview-capture.ts` owns the optional device relay. It requires an explicit
 camera/microphone grant for the currently bound document connection. The trusted

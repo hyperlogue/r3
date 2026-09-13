@@ -60,6 +60,8 @@ export function createArtifactUtility(
   });
   return Object.freeze({
     getUserMedia,
+    getTheme: () => call("getTheme"),
+    setTheme: (theme) => call("setTheme", theme),
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),
     createFeedback: (input) => call("createFeedback", input),

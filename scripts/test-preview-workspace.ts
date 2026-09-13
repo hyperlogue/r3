@@ -33,7 +33,7 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Published workspace" });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{const note=await r3.createFeedback({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastFeedback=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createFeedback({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastFeedback=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -118,6 +118,19 @@ try {
     true,
   );
   assert.equal(await content.evaluate("r3.getContext().then(c=>c.versionSeq)"), 1);
+  assert.equal(await content.evaluate("r3.getTheme()"), null);
+  assert.equal(
+    await content.evaluate("r3.setTheme('dark').then(()=>false,()=>true)"),
+    true,
+    "page load alone cannot persist theme choices",
+  );
+  assert.equal(
+    await content.evaluate(
+      "(()=>{try {localStorage.getItem('r3-theme');return false;}catch{return true;}})()",
+    ),
+    true,
+    "theme persistence retains opaque storage isolation",
+  );
   assert.equal(
     await content.evaluate("r3.createFeedback({body:'Automatic'}).then(()=>false,()=>true)"),
     true,
@@ -159,6 +172,12 @@ try {
     () => content.evaluate("window.lastFeedback"),
     "utility feedback creation",
   );
+  assert.equal(await content.evaluate("r3.getTheme()"), "dark");
+  assert.equal(
+    await page.evaluate("localStorage.getItem('r3-theme')"),
+    null,
+    "the artifact cannot change the application theme",
+  );
   const feedback = storage.conversations
     .list(artifact.id)
     .find((feedback) => feedback.id === feedbackId)!;
@@ -193,6 +212,27 @@ try {
     return null;
   }, "second immutable version");
   assert.equal(await next.evaluate("r3.getContext().then(c=>c.versionSeq)"), 2);
+  assert.equal(await next.evaluate("r3.getTheme()"), "dark", "theme survives version switching");
+  await next.evaluate("window.beforeThemeReload = true");
+  await page.command("Page.reload");
+  await eventually(async () => {
+    for (const context of page.contexts.values()) {
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
+      try {
+        if (
+          await page
+            .inContext(context.id)
+            .evaluate(
+              "(async()=>!window.beforeThemeReload && !!window.r3 && (await r3.getTheme()) === 'dark')()",
+            )
+        )
+          return true;
+      } catch {
+        /* Preview setup can replace the document. */
+      }
+    }
+    return false;
+  }, "theme survives reloading the workspace");
   await click("document.querySelector('[data-artifact-feedback] button')");
   const original = await eventually(async () => {
     for (const context of page.contexts.values()) {

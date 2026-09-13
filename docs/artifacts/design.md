@@ -344,12 +344,19 @@ owns enforcement details; [verification](verification.md) owns browser evidence.
 
 Pages may import `/r3/utility.js` to use the narrow
 [ArtifactUtility interface](../../shared/preview-protocol.ts): context, threads,
-feedback creation, replies, explicit Submit, change subscriptions, and device capture. These use
+feedback creation, replies, explicit Submit, change subscriptions, theme preference, and device capture. These use
 the same conversations and handoff as the built-in panel. Human mutations require
 user activation. The bridge validates the exact iframe window, opaque origin,
 context, and document scope before accepting a transferred MessagePort. Replies
 stay on that document's port across navigation; it exposes no generic API, actor override, publication, lifecycle, or host
 execution capability. Pages work without importing it.
+
+`getTheme()` reads the artifact's browser-local `light`/`dark` preference (or null);
+`setTheme(theme)` saves it after a user gesture. The preference survives reloads and
+publication changes on the same r3 origin. It does not change r3's application theme,
+grant storage access, or accept an arbitrary key or artifact ID. The UI showcase
+uses this preference for its theme button; publishers choose whether to use it.
+
 
 ## Upgrade and scope boundaries
 

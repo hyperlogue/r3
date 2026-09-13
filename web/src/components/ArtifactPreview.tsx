@@ -19,6 +19,7 @@ import {
   previewCompatibility,
   useCompatibilityConsent,
 } from "../preview-protection.ts";
+import { previewThemePreference } from "../preview-theme.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
@@ -461,6 +462,7 @@ function PreviewSession(
             props.detail,
             artifactApi,
             navigator.userActivation?.isActive === true,
+            previewThemePreference(() => localStorage, id),
           )
             .then((value) => {
               if (!closed) reply({ type: "r3-preview-result", id: message.id, value });
