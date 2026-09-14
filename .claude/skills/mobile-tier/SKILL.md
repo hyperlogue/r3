@@ -57,7 +57,9 @@ Large diff artifacts progressively hydrate file bodies through
 `web/src/progressive.tsx`. Stable measured shells preserve sticky headers, the
 scroll spy, file picking, and Locate geometry. Files artifacts use the same complete
 stack, with per-file source/rendered controls and source row virtualization. Scale behavior is shared,
-not a mobile fork. Rendered documents scroll in their isolated preview frame.
+not a mobile fork. Rendered Markdown in files artifacts grows to its natural
+height and scrolls with the outer file stack. HTML, media, and Markdown entrypoints
+in HTML artifacts keep their viewport-sized preview.
 
 A persistent bottom bar (`Feedback · N open` — the whole bar is the toggle; watcher
 presence shows only inside the panel) toggles a bottom **sheet** hosting the panel,
@@ -111,7 +113,7 @@ Below `md`:
 
 - **Compact ~40px touch targets** — the shared `Button` gets `min-h-9`, icon buttons
   `size-9`. Real-device feedback found full 44px CTAs too tall. The **h-8 header
-  stack** — pane toolbar, file headers, summary bars — is deliberately exempt and
+  stack** — pane toolbar and file headers — is deliberately exempt and
   stays `h-8`.
 - **≥16px composer/input fonts** via `max-md:text-base` (1rem = 18px at the default
   root size, `main.css --r3-font-size`), so iOS doesn't zoom the page on focus (it

@@ -7,8 +7,8 @@ description: Cut an r3 release — draft the CHANGELOG entry, bump every version
 
 A release is one version-bump commit plus an annotated tag on it. The whole job
 is: write the changelog, move **every** version string to the new number
-together, commit, tag that commit, and push. The release CI reads
-`CHANGELOG.md` **out of the tagged tree** for the GitHub release notes, so the
+together, commit, and tag that commit. Push remains a separate user action.
+The release CI reads `CHANGELOG.md` **out of the tagged tree** for the GitHub release notes, so the
 changelog entry is the release's public face and the tag carries no notes of its
 own.
 
@@ -63,17 +63,18 @@ if they drift, so keep them in lockstep:
 
 4. **Verify they agree, then run the checks:**
    ```sh
-   grep -rn '"version"\|R3_VERSION\|@hyperlogue/r3-' \
+   rg -n '"version"|R3_VERSION|@hyperlogue/r3-' \
      package.json npm/package.json shared/version.ts   # every hit must read X.Y.Z
    bun run typecheck
+   bun test
    biome check .
    ```
 
-5. **Commit** — Conventional Commit, and keep the `Co-Authored-By: Claude …`
-   trailer (this repo uses it; see `AGENTS.md`):
+5. **Commit** — follow `AGENTS.md` for scope, authorship, and explicit staging.
+   Preserve existing authorship metadata; do not add an unrelated agent trailer.
    ```sh
    git add CHANGELOG.md shared/version.ts package.json npm/package.json
-   git commit -m "chore: release vX.Y.Z"
+   git commit -m "chore(release): release vX.Y.Z"
    ```
 
 6. **Tag** — annotated, on the commit you just made (the `r3 vX.Y.Z` subject is
@@ -92,9 +93,8 @@ if they drift, so keep them in lockstep:
    Eyeball what CI will publish before pushing — that's `$NOTES`, or
    `git show "v$V":CHANGELOG.md | head -40`.
 
-7. **Push** — leave the actual push to the user unless they ask, and note that
-   this environment often has no push credentials (SSH key / `gh` auth may be
-   absent — surface that instead of silently failing):
+7. **Push** — leave the actual push to the user unless they ask. Report any
+   authentication or transport failure; never imply a failed push succeeded:
    ```sh
    git push origin main && git push origin vX.Y.Z
    ```

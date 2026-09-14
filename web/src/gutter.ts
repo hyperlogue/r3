@@ -92,9 +92,8 @@ function onGutterMouseUp() {
       parts.push(t);
       if (t.trim()) kept = parts.length;
     }
-    // Same cap as a text selection (selection.ts) and a server-derived quote
-    // (server/reviews.ts) — the gesture that made a quote must not change its
-    // shape. lineStart/lineEnd still carry the full picked span.
+    // Use the same quote cap as native source/diff text selection.
+    // lineStart/lineEnd still carry the full picked span.
     pick({ side: a.side, lineStart: lo, lineEnd: hi, quote: capQuote(parts.join("\n")) });
     finish();
   }

@@ -123,9 +123,8 @@ export async function storedPatchContext(
 }
 
 // Highlight a parsed patch from its own hunk text. The originating refs may not
-// exist anywhere (a piped diff, a rebased-away commit), so unlike the live-diff
-// path there's no full file to read: reconstruct each side's visible text from
-// the rows that carry that side's line numbers and highlight those pseudo-files.
+// exist anywhere (a piped diff, a rebased-away commit). Reconstruct each side's
+// visible text from rows carrying that side's numbers, then highlight those rows.
 // Multi-line constructs that span outside a hunk degrade gracefully (Shiki just
 // sees less context). Cached by content sha like every other highlight.
 export async function highlightPatchFiles(files: DiffFileChange[], theme?: string): Promise<void> {
@@ -147,7 +146,7 @@ export async function highlightPatchFiles(files: DiffFileChange[], theme?: strin
       };
       const [oldHl, newHl] = await Promise.all([hl(oldRows), hl(newRows)]);
       // Map back by row order (the k-th new-side row is the k-th pseudo-file
-      // line), preferring the new side like the live-diff renderer.
+      // line), preferring the new side for context shared by both sides.
       const bySide = (rowIdx: number[], html: string[] | null) => {
         if (!html) return;
         rowIdx.forEach((rowI, k) => {

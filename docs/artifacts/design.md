@@ -267,8 +267,9 @@ diff selections use their own range gestures. Each creates a native target:
 | Rendered | Published document/version, selector, optional text/context, route and viewport | Open that rendered document and locate its element/text |
 | Diff | Patch version, path, old/new side, captured range and quote | Open that patch and native side, hydrating or expanding retained context as needed |
 
-Artifact-wide notes, version summaries, and whole-document/file targets
-are explicit variants. Absence of version context never secretly means latest.
+Artifact-wide notes and whole-document/file targets are explicit variants.
+Summary targets survive only as historical evidence; new comments and placements
+cannot use them. Absence of version context never secretly means latest.
 
 Feedback's original target is immutable. Additional **placements** record a target
 and `anchored|ambiguous|unplaced` result for a version, path, and representation.
@@ -376,7 +377,8 @@ The warning explains the risk of malicious dependencies sending published files,
 review conversations, or later user input. Acceptance is remembered for this r3
 site in this browser; every new preview still attempts verified protection first.
 Transport, isolation, and verification errors never trigger the fallback. Forgetting
-the choice through the toolbar stops open compatible previews, including other tabs.
+the choice through **Preview security** in the navigation menu stops open
+compatible previews, including other tabs.
 Persistent storage, workers, nested frames, camera, and microphone are unavailable
 in protected previews.
 Granting a device permission to the transport origin cannot enable direct iframe capture.
@@ -444,7 +446,6 @@ execution capability. Pages work without importing it.
 publication changes on the same r3 origin. It does not change r3's application theme,
 grant storage access, or accept an arbitrary key or artifact ID. The UI showcase
 uses this preference for its theme button; publishers choose whether to use it.
-
 
 ## Upgrade and scope boundaries
 

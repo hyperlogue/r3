@@ -87,8 +87,7 @@ export function FileCard({
   // rendered/raw toggle) can hide themselves when the card is folded.
   stats?: ReactNode | ((open: boolean) => ReactNode);
   viewed: boolean;
-  // Absent ⇒ viewed isn't tracked in this view (e.g. a files review's snapshot-diff
-  // or a pinned-snapshot browse); the toggle is hidden entirely.
+  // Omit when this surface does not offer read-progress controls.
   onToggleViewed?: () => void;
   // Open the feedback composer anchored to this whole file (no line span). Absent
   // ⇒ no button (a view where whole-file feedback doesn't apply).
@@ -107,7 +106,7 @@ export function FileCard({
   // unscoped signal (which would clobber autoFold/viewed).
   unscopedFold?: "fold" | "unfold" | null;
   // ProgressiveFile owns the stable outer [data-file] block in large reviews;
-  // direct FileCard/FileView renders keep the historical marker here.
+  // direct FileCard/ArtifactFile renders own the marker here.
   ownsFileMarker?: boolean;
   // Review-level progressive rendering preserves a folded block's offscreen
   // placeholder height without lifting control of the fold itself.
@@ -190,8 +189,7 @@ export function FileCard({
 
   useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
 
-  // Click the path to copy it (mirrors ReviewHeader's CopyMeta); the chevron still
-  // toggles the fold.
+  // Click the path to copy it; the chevron toggles the fold.
   const { copied, flash } = useCopyFlash();
   const copyPath = () => {
     // Route through copyText (not navigator.clipboard directly) for its
@@ -212,9 +210,9 @@ export function FileCard({
           the header. Overshooting by 1px clips a pixel of the header's own
           background instead, which is invisible. (Costs a barely-perceptible 1px
           settle as it pins — the lesser evil vs. the slit.)
-          --pane-sticky-h is the mobile pane toolbar's live height (ReviewView sets
-          it on the scroll pane when the toolbar sticks above these headers); unset
-          — desktop, or no toolbar — it defaults to 0px, i.e. the plain -top-px pin. */}
+          --pane-sticky-h is the workspace toolbar's measured height (ArtifactView sets
+          it on the scroll pane). Without a toolbar it defaults to 0px, the plain
+          -top-px pin. */}
       {/* The current-file marker is a 2px accent rail on the header's leading edge
           and NOTHING else — no fill, no badge, no label. A header tint was tried
           and read as too loud: one of these is on screen at all times, so the

@@ -58,8 +58,8 @@ Each preview attempts verified Connection Allowlist protection first. A browser
 that fails only network enforcement shows a risk prompt before any publication
 bytes load. Acceptance is remembered for this r3 origin/browser and permits a new
 `compatible` context with restrictive CSP and sandbox headers. It does not claim
-complete outbound blocking. The toolbar uses an amber network indicator; the green
-lock is reserved for verified enforcement. Broader external-resource and device
+complete outbound blocking. The **Preview security** row in the navigation menu
+shows limited protection in amber; green is reserved for verified enforcement. Broader external-resource and device
 consent remain separate and are never remembered across version visits.
 
 The browser acknowledgment resolves the product tradeoff without pretending CSP

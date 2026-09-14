@@ -46,7 +46,7 @@ export const BIND = process.env.R3_BIND?.trim() || PERSISTED.bind || "127.0.0.1"
 // to a specific non-loopback interface (still local to the box, so reachable).
 const HEALTH_HOST = BIND === "0.0.0.0" || BIND === "::" ? "127.0.0.1" : BIND;
 export const LOCAL_URL = `http://${HEALTH_HOST}:${PORT}`;
-// The URL surfaced in agent-printed review links + the served page. Defaults to
+// The URL surfaced in agent-printed artifact links + the served page. Defaults to
 // loopback (works through an SSH forward that maps the same port); override with
 // `R3_PUBLIC_URL` for a tailnet/MagicDNS address (e.g. a `tailscale serve` name).
 export const PUBLIC_URL =
@@ -74,7 +74,7 @@ export function isLoopbackHost(hostname: string): boolean {
 // allowed; `R3_ALLOWED_HOSTS` adds exact extra names (e.g. a MagicDNS name — never
 // `*`, which would gut the rebinding defense). A non-loopback bind address is
 // allowed too, so reaching the bound IP works. The **public origin's host is
-// allowed implicitly**: we hand that URL out (in review links + the served page),
+// allowed implicitly**: we hand that URL out (in artifact links + the served page),
 // so it must resolve — which makes a single `R3_PUBLIC_URL=https://<name>` enough
 // for the common `tailscale serve` case, with no separate R3_ALLOWED_HOSTS.
 const PUBLIC_HOST = hostnameOf(PUBLIC_URL);
@@ -232,7 +232,7 @@ export function daemonJsonPath(): string {
   return join(runtimeDir() ?? stateDir(), "daemon.json");
 }
 
-// The global review store. `R3_DB` overrides for tests.
+// The per-user artifact store. `R3_DB` overrides for tests.
 export function stateDbPath(): string {
   return process.env.R3_DB?.trim() || join(stateDir(), "r3.sqlite");
 }
@@ -306,7 +306,7 @@ export function removeDaemonJson(): void {
 // ALIVE but no longer serving (a wedged event loop). Liveness says "held", so
 // every spawn steps aside forever. Nothing here can tell the difference — it's
 // sync and can't probe — so `r3 stop` owns that recovery: it kills the process
-// and clears the lock (see killDaemonProcess in cli/index.ts).
+// and clears the lock (see stopProcess in cli/daemon-client.ts).
 
 // Colocate the lock with daemon.json (same volatile dir) so their lifetimes
 // match: after a reboot $XDG_RUNTIME_DIR is cleared, dropping BOTH. A lock left

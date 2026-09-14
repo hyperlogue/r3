@@ -4,7 +4,7 @@ import { cn } from "./ui.tsx";
 import { useVirtualPaneController, VirtualLines, VirtualPaneProvider } from "./virtual.tsx";
 
 // A self-contained harness for the VirtualLines primitive: a fixed-height scroll
-// pane (the role ReviewView's content pane plays) wrapping a long list of mono
+// pane (the role ArtifactView's content pane plays) wrapping a long list of mono
 // "code" rows. A live badge reports which [data-line] rows are actually mounted
 // vs the list length, so the windowing is visible — scroll and the mounted span
 // stays bounded no matter the list size, and its ENDS only move when the viewport

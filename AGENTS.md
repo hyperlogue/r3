@@ -163,8 +163,9 @@ current pane, survive view switches, and persist after a 400 ms debounce. Legacy
 browser drafts remain evidence rather than being guessed into new targets.
 
 The desktop navbar toggles the feedback dock, restoring its last expanded or floating
-mode. Both visible modes also provide an in-panel Hide control. Hidden panels stay mounted without reserving content space. An anchor gesture with an empty composer starts
-a note; a composer holding text gets a quote action instead. A folded dock uses
+mode. Both visible modes also provide an in-panel Hide control. Hidden panels stay
+mounted without reserving content space. An anchor gesture with an empty composer
+starts a note; a composer holding text gets a quote action instead. A hidden dock uses
 the same floating composer. Mobile reuses the conversation state in its sheet.
 
 Keep typing local: memoized thread cards receive stable props, composer text has

@@ -123,10 +123,10 @@ export const Mobile: Story = {
 };
 
 // The code surface paints on the syntax theme's OWN background: in the app,
-// ReviewView sets --shiki-*-bg / --shiki-* on the content pane from
+// ArtifactView sets --shiki-*-bg / --shiki-* on the content pane from
 // /api/theme-style and DiffView paints against them (add/del are translucent
 // overlays; the frozen gutter blends the theme surface). Here we fake Nord's
-// colours so the themed surface is visible without a running server. (FileView
+// colours so the themed surface is visible without a running server. (ArtifactFile
 // shares the same .shiki-surface mechanism.)
 export const NordSurface: Story = {
   args: { rounds: wideRound },
@@ -149,7 +149,7 @@ export const NordSurface: Story = {
 };
 
 // Past the size gate — PROGRESSIVE_FILES_MIN files OR PROGRESSIVE_ROWS_MIN
-// rendered rows — ReviewView wraps the content pane in a
+// rendered rows — ArtifactView wraps the content pane in a
 // ProgressiveFileProvider and each block hydrates only near the viewport. Every
 // OTHER story here mounts no provider, which is the eager render this component
 // has always done and still does for anything under the gate. Scroll the pane:
@@ -188,7 +188,7 @@ export const ProgressiveHydration: Story = {
   args: { rounds: bigRound },
   render: (args) => {
     // The provider observes against the scroll pane, so the story supplies the
-    // one ReviewView would. A fixed height, not `h-full`: the observer's root is
+    // one ArtifactView would. A fixed height, not `h-full`: the observer's root is
     // this box, and a box as tall as its content intersects everything at once —
     // every block would activate and the story would show the eager render.
     const scrollRef = useRef<HTMLDivElement>(null);

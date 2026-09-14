@@ -45,6 +45,10 @@ endpoints. Set `TEST_CHROMIUM` to a headless Chromium shell executable,
 bun run build
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-selection.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-markdown-theme.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-interactions.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-handoff.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-network.ts
@@ -56,10 +60,13 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 
 | Script | Acceptance boundary |
 | --- | --- |
-| `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand feedback composer, draft handoff guard, and inactive shortcuts in folded desktop/closed mobile panels |
+| `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand feedback composer, draft handoff guard, and inactive shortcuts in hidden desktop/closed mobile panels; expanded/floating/hidden widths, remembered panel mode, and individual thread drafts with the dock hidden |
 | `test-artifact-selection.ts` | Source/diff and rendered HTML/Markdown selection, unfocused composer, Space/Tab across the opaque frame, idle Escape, keyboard debounce, editable exclusions, quote destination and anchor preservation, native posted Markdown target, and touch action with selection collapse during the tap |
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
+| `test-markdown-theme.ts` | All four system/r3 theme combinations, live theme changes, retained syntax colors, unchanged authored HTML and stored bytes; full-height Markdown, width and late-image resizing, outer-pane Locate on mounted/new previews, reachable comment controls, and file-divider dragging over the opaque frame |
+| `test-feedback-interactions.ts` | Held status responses, optimistic Resolve/Reopen, concurrent decisions and SSE replies, rollback of only the failed decision; stable typing and composer/card motion; reopening during an inert exit; floating-panel drag/resize over previews, independent dock width, saved geometry, clamping and keyboard controls; transient refetch recovery and definitive deletion |
+| `test-feedback-handoff.ts` | Held notification responses, Sending/Sent confirmation, duplicate suppression across reloads/tabs, concurrent inputs, out-of-order completions, retry and generic watch wakeups; agent activity does not create a pending batch; unavailable Web Crypto uses memory without persisting raw inputs |
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: preview setup adds no browser history entry; artifact-scoped theme persistence through reload and version changes; rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |
 | `test-preview-network.ts` | HTML-only network control in the nav security popover and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering; `R3_TEST_CAPTURE=1` adds real browser denial/grant, received audio/video, independent physical track and clone shutdown, Stop sharing, stale consent dialog dismissal, navigation/version revocation, and unresponsive-page shutdown/recovery |
 | `test-preview-compatibility.ts` | Actual capability gate and workspace in caller-installed Playwright engines: no publication bytes before consent, one warning and one aggregate nav indicator for concurrent media previews, decline/reopen, remembered acknowledgment, cross-tab revocation, storage-write failure, verified blocking despite saved acknowledgment, publisher gate-message forgery rejection, restrictive CSP, accurate external-navigation disclosure, app isolation, interaction/feedback, native navigation, versions, rendered files, and recovery that refuses transport errors |
@@ -130,46 +137,6 @@ scripts cover integration with the real server. The
 [distribution reference](../../.claude/skills/build-and-distribution/SKILL.md) owns
 binary embedding, CSS compilation, demo aliases, and Pages layout.
 
-The reading acceptance also checks that the composer is the first card in the
-feedback list and the expanded desktop panel reserves content space. Floating and
-hidden retain the same content width. The navbar toggle or `p` restores the last
-visible mode, including after a reload. Selecting a source anchor
-with the panel hidden opens one thread, and dismissing/reopening it
-preserves its reply draft. Workspace and popover stories expose the same states
-for visual review; mobile keeps its sheet.
-
-Rendered Markdown appearance: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-markdown-theme.ts`
-checks the real workspace and preview boundary in all four system/r3 theme combinations,
-including live theme changes, retained syntax colors, and unchanged authored HTML.
-Long Markdown fills the file card without inner scrolling, grows and shrinks as
-panels resize, responds to late images, and scrolls the outer stack to native targets.
-It checks actual feedback Locate on mounted and newly opened previews, and keeps
-comment controls reachable when selecting a large parent and scrolling the outer pane.
-It also drags the file divider over the opaque preview and releases there, checking
-that the width persists and drag styling clears.
-
-Feedback responsiveness: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-feedback-interactions.ts`
-holds actual status responses to check immediate Resolve/Reopen, concurrent decisions,
-incoming replies through SSE, and restoration of only a failed decision. It checks
-that the composer shares the list, typing keeps its position stable, and removing
-the draft animates the neighboring cards.
-
-`scripts/test-feedback-interactions.ts` also drags floating feedback across an opaque
-frame, resizes both dimensions, checks independent dock width and saved geometry
-after hiding/reloading, and verifies viewport clamping and keyboard resizing.
-
-The same feedback regression reopens a composer while its predecessor is still
-an inert animated exit. Focus must reach the live draft. `ReopenDuringExit` covers
-the standalone panel in Storybook.
-
-The feedback acceptance keeps a loaded workspace through a transient detail-refetch
-failure, then deletes its artifact through the server and checks that definitive
-unavailability replaces the cached workspace and its feedback controls.
-
-Handoff confirmation: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-feedback-handoff.ts`
-holds actual notification delivery to check immediate Sending/Sent feedback,
-three-second confirmation, duplicate suppression across reloads and tabs, newer
-inputs during delivery, out-of-order completions, failure retry, and generic watch
-wakeups. It also verifies that agent activity does not create a new pending batch
-and missing/rejected Web Crypto keeps handoff usable without persisting raw inputs.
-`SettingsFromMenu` and `KeyboardDismiss` stories cover settings placement and focus.
+Workspace and component stories expose desktop and mobile states for visual review.
+`ReopenDuringExit` exercises focus while an earlier composer is still leaving;
+`SettingsFromMenu` and `KeyboardDismiss` cover menu placement and focus restoration.

@@ -5,7 +5,7 @@ import { type MessageRef, refFromEvent, renderMessageHtml } from "../markdown.ts
 import { cn, scrollParent } from "../ui.tsx";
 
 // Render `source` as compact Markdown. `.r3-markdown` carries the prose styling
-// (shared with file `.md` rendering); `.r3-msg` trims the outer block margins for
+// for trusted workspace messages; `.r3-msg` trims the outer block margins for
 // the tight card context. A delegated click on an `@ref` anchor jumps the pane.
 export function MessageProse({
   source,
@@ -14,8 +14,7 @@ export function MessageProse({
 }: {
   source: string;
   className?: string;
-  // Bound by the caller with the message's version context before it reaches
-  // ReviewView's jump (a diff review resolves the ref against a round/snapshot).
+  // Bound by the caller to this message's explicit version/view context.
   onJumpRef?: (ref: MessageRef) => void;
 }) {
   const onClick = useCallback(

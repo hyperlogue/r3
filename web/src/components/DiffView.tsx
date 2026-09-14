@@ -494,12 +494,8 @@ function DiffFileBody({
     () => (gaps.length ? mergeRevealed(f.lines, gaps, reveal) : EMPTY_MERGE(f.lines)),
     [f.lines, gaps, reveal],
   );
-  // A new payload (a round switch, a snapshot from/to change, a refetch)
-  // invalidates what was revealed. `generation` also fences fetches that were
-  // already in flight: a block is keyed `${seq}:${path}`, and a files review's
-  // snapshot diff always carries the SAME synthetic seq, so switching from/to
-  // reuses this component — a late reply would otherwise splice the previous
-  // pair's rows (old text, old numbers) into the new diff as if they were the file.
+  // A new publication or theme payload invalidates revealed context. Fence
+  // in-flight requests so an older response cannot splice rows into this render.
   const generation = useRef(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: f.lines identity IS the reset signal
   useEffect(() => {
@@ -930,7 +926,7 @@ export function DiffView({
       {round.files.length === 0 && (
         <p className="px-3 py-2 text-xs text-neutral-400">(empty round)</p>
       )}
-      {/* Every block is wrapped, exactly as ReviewView wraps a files review's
+      {/* Every block is wrapped, as ArtifactView wraps a files artifact's
           cards: the wrapper is what owns the stable [data-file] box and the
           measured height, and whether it actually defers anything is the
           provider's call. With no provider — Storybook, a caller that mounts

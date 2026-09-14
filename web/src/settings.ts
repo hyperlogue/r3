@@ -35,13 +35,12 @@ export const clampFont = (n: number) => Math.min(FONT_MAX, Math.max(FONT_MIN, Ma
 // How DiffView renders a diff: one interleaved column ("unified", the default) or
 // two parallel old/new columns ("split"). A pure render mode — the server ships
 // the same `DiffFileChange.lines` either way, and the pairing happens in the
-// client — so this is a display preference like the two above, NOT review state:
-// it never reaches the server and never bumps `review.updated_at`.
+// client. The preference stays in the browser and never changes artifact state.
 //
-// Global rather than per-review on purpose: which layout you read diffs in is a
-// habit, not a property of any one review. The phone tier forces unified
+// Global rather than per-artifact on purpose: which layout you read diffs in is a
+// habit, not a property of any one artifact. The phone tier forces unified
 // (two code columns don't fit) WITHOUT writing here, so a split-preferring user
-// gets split back the moment the viewport is wide again — see ReviewView.
+// gets split back the moment the viewport is wide again — see ArtifactView.
 export type DiffLayout = "unified" | "split";
 
 const diffLayout = persistedStore<DiffLayout>("r3-diff-layout", {

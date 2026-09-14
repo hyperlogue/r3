@@ -3,14 +3,14 @@ import { cn, StrokeIcon } from "../ui.tsx";
 
 // The phone-tier review chrome (see the mobile-tier skill): a persistent bottom
 // bar summarizing the feedback state, and a bottom sheet hosting the one
-// FeedbackPanel instance. Three discrete states — closed, "peek" (short sheet:
+// ArtifactThreads instance. Three discrete states — closed, "peek" (short sheet:
 // the composer, which the panel auto-scrolls into view, over the code being
 // annotated), "full" (browse/reply/resolve) — every transition a tap, no drag
 // physics. The sheet stays mounted across states (panel-internal state — tab,
 // optimistic cards, scroll — survives), hidden by transform + `inert`.
 //
 // This module owns containers only: the panel, its props, and all domain state
-// live in ReviewView exactly as on desktop (the prime rule — mobile never
+// live in ArtifactView exactly as on desktop (the prime rule — mobile never
 // forks panel/domain state, and desktop components never import from mobile/).
 
 export type MobileSheetState = "closed" | "peek" | "full";
@@ -24,11 +24,11 @@ export function MobileReviewChrome({
   openCount: number;
   sheet: MobileSheetState;
   onSetSheet: (s: MobileSheetState) => void;
-  children: ReactNode; // the FeedbackPanel (fills the sheet: it's h-full flex-col)
+  children: ReactNode; // the ArtifactThreads (fills the sheet: it's h-full flex-col)
 }) {
   return (
     <>
-      {/* The bar is in-flow at the bottom of ReviewView's column (not fixed), so
+      {/* The bar is in-flow at the bottom of ArtifactView's column (not fixed), so
           it never overlaps the last code line; safe-area padding clears the home
           indicator. It wears the feedback surface (panel-header white/near-black)
           behind a 2px rule — the desktop dock's border weight — so it reads as
@@ -74,7 +74,7 @@ export function MobileReviewChrome({
         )}
       >
         {/* Header strip: borderless, on the panel-header surface so it and the
-            FeedbackPanel header right below it read as one unified header. h-11
+            ArtifactThreads header right below it read as one unified header. h-11
             gives the two controls a 44px touch target — the expand/shrink button
             spans the whole strip with the grab-handle glyph truly screen-centered
             (absolute — not flexed against the ✕'s leftover space); the ✕ overlays

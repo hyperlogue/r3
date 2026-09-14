@@ -1,23 +1,23 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 
-// The touch-tier replacement for ReviewView's desktop `mouseup` selection-anchor
+// The touch-tier replacement for ArtifactView's desktop `mouseup` selection-anchor
 // listener (see the mobile-tier skill → Anchoring (touch)). iOS/Android never fire a
 // usable `mouseup` for a long-press selection gesture, so on coarse pointers we watch
 // `selectionchange` instead and float an "Add feedback" pill under the selection
 // (under, not over — iOS's native Copy/Look Up callout owns the space above).
-// ReviewView mounts this whenever the primary pointer is coarse — on BOTH tiers,
+// ArtifactView mounts this whenever the primary pointer is coarse — on BOTH tiers,
 // since it's a fixed overlay — and skips its own mouseup path; desktop components
 // never import from here.
 //
-// The tap routes through the same `applyAnchorGesture` as every other anchor
+// The tap routes through the same ArtifactView gesture handler as every other anchor
 // gesture (via `onAdd`), so semantics never fork: an empty composer anchors a
 // note, a composer already holding text quotes the selection in. The label tracks
 // that split (`composing`) so it tells the truth about which will happen.
 
 interface Capture {
   anchor: PendingAnchor;
-  quote: string; // raw selection text — applyAnchorGesture's quoteText (matches the mouseup path)
+  quote: string; // raw selection text — matches the desktop mouseup quote
   left: number; // selection-rect center, in viewport (fixed) coords
   top: number; // selection-rect top
   bottom: number; // selection-rect bottom — the pill sits below the selection
@@ -33,9 +33,9 @@ export function AddFeedbackPill({
   composing,
   onAdd,
 }: {
-  // The code scroll pane — the same element ReviewView scopes selections to.
+  // The code scroll pane — the same element ArtifactView scopes selections to.
   scopeRef: RefObject<HTMLElement | null>;
-  // True when the anchored composer already holds text: applyAnchorGesture will
+  // True when the anchored composer already holds text: the gesture handler will
   // then drop the selection in as a quote rather than re-anchor, so the pill reads
   // "Quote in note" (the desktop QuoteBubble's wording) instead of "Add feedback".
   composing: boolean;

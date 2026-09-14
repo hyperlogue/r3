@@ -56,7 +56,7 @@ The CLI prints the artifact URL. Its first local call starts the daemon; open
 
 | Kind | What is published | What the browser shows |
 | --- | --- | --- |
-| `files` | A complete, nonempty directory; individual empty files are allowed | File browser and source viewer, with rendered HTML/Markdown, native media previews, and downloads |
+| `files` | A complete, nonempty directory; individual empty files are allowed | Complete foldable file stack with rendered HTML/Markdown, native media previews, and downloads for binary or oversized files |
 | `html` | A complete directory with root `index.html` or `index.md` | The rendered entrypoint in a full-page workspace, with comment mode |
 | `diff` | One complete, independent unified patch per version | Captured old/new lines, split or unified layout, and expandable retained context |
 
@@ -77,8 +77,9 @@ and 10 MiB per patch.
 
 ## Review and revise
 
-1. Open the artifact and choose a published version. Source selections, diff
-   selections, and rendered comment mode create threads with native targets.
+1. Open the artifact and choose a published version. Select text in source, diffs,
+   rendered Markdown, or HTML to start feedback. Rendered comment mode also lets
+   you pick whole page elements. Each thread keeps its native target.
 2. Click **Submit** to notify the registered agent, or copy the prompt for a manual
    handoff. Drafts retain the version and view where they began.
 3. The agent reads pending feedback, claims the items it is handling, publishes
@@ -174,9 +175,9 @@ data, review conversations, or your input through other browser features.
 The opaque sandbox and r3 authentication remain enforced.
 
 Acceptance is remembered for this r3 site in this browser. New previews always
-try verified protection first, including after browser upgrades. Click the toolbar's
-protection icons to see details or **Forget browser choice**. Forgetting stops
-compatible previews in open tabs. Declining keeps the preview closed. Isolation,
+try verified protection first, including after browser upgrades. Open the top
+navigation’s three-dot menu and expand **Preview security** for details or
+**Forget browser choice**. Forgetting stops compatible previews in open tabs. Declining keeps the preview closed. Isolation,
 HTTPS, and server failures never bypass verification through this warning.
 
 HTML artifacts offer **Allow external access**, with a confirmation before
@@ -187,10 +188,12 @@ the browser still requires its own permission for r3. HTTPS and localhost work.
 Files can use limited compatibility rendering, but have no broader external-access
 or device opt-out. Diff artifacts have no rendered preview.
 
-A row of icons shows r3 isolation, network protection, camera, and microphone.
-The network lock is green only after verified blocking; amber indicates limited
-protection or explicitly allowed external access. Device icons distinguish
-permission from active sharing. HTML retains **Permissions** and **Restore protection**.
+The **Preview security** row summarizes all mounted previews with one shield.
+Green means every preview has verified protection; amber indicates limited
+protection, external access, or device consent; red indicates active sharing or an
+error. Expanding it shows each preview’s isolation, network, camera, and microphone
+status. Device icons distinguish permission from active sharing. HTML retains
+**Permissions** and **Restore protection**.
 While a device is active, **Stop sharing** stops capture and clears device consent.
 Device choices reset on page navigation; broader external-access and device grants
 reset on version changes or leaving the preview. These grants are never saved;
@@ -209,10 +212,16 @@ external mode and may also occur through compatibility-mode gaps.
 
 Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
 `createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`,
-`subscribe(callback)`, and `getUserMedia(constraints)`. Conversations use the same
-threads and explicit handoff as the panel. Human mutations require user activation.
+`subscribe(callback)`, `getTheme()`, `setTheme(theme)`, and `getUserMedia(constraints)`.
+Conversations use the same threads and explicit handoff as the panel. Human mutations require user activation.
 The utility exposes no application credential, generic API access, publication,
 lifecycle, or host execution capability.
+
+Pages can use `getTheme()` and `setTheme()` with `"light"` or `"dark"` to remember
+their choice for this artifact and r3 site in the browser. A write requires a user gesture.
+This is optional: authored HTML controls its appearance; r3 does not automatically
+persist arbitrary page state. Rendered Markdown follows r3’s application theme.
+Theme preference never saves external-access or device grants.
 
 In external mode, the runtime also adapts `navigator.mediaDevices.getUserMedia`
 so existing pages can request camera/microphone without changing the iframe's

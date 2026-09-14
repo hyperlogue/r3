@@ -7,7 +7,7 @@ import { useMediaQuery } from "./useMediaQuery.ts";
 // matchMedia then yields the never-matching "not all", so probe once and fall
 // back to the classic form, off by at most 0.02px at the boundary. Everything
 // width-driven should use `max-md:` classes; this hook exists only for the
-// structural fork in ReviewView (which pane container to mount).
+// structural fork in ArtifactView (which pane container to mount).
 const RANGE = "(width < 48rem)";
 const QUERY = window.matchMedia(RANGE).media !== "not all" ? RANGE : "(max-width: 767.98px)";
 

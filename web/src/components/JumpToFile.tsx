@@ -268,7 +268,7 @@ export function JumpToFile({
   useEffect(() => () => clearTimeout(unmountTimer.current ?? undefined), []);
   useEscape(shown, closePicker);
   // `f` opens the picker (and closes it again). Registered here rather than by the
-  // toolbar or ReviewView because open/closed is this component's own state — the
+  // toolbar or ArtifactView because open/closed is this component's own state — the
   // binding is a click on the trigger button right above, nothing more. Guarded by
   // `visible` the same way that click is, so a press mid-open-animation doesn't
   // immediately close what it just opened.

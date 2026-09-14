@@ -2,10 +2,10 @@
 // measured — every row is one line height; a shorter/taller row drifts
 // scroll-to-line and desyncs split columns.
 //
-// The ReviewView content pane wraps its children in <VirtualPaneProvider>, which
+// The ArtifactView content pane wraps its children in <VirtualPaneProvider>, which
 // hands down the scroll element, a `layoutVersion` that bumps when the stacked
 // height changes (a fold/unfold/font change shifts every lower file's
-// scrollMargin), and a scroll-to-line registry so ReviewView's locate/pin jumps
+// scrollMargin), and a scroll-to-line registry so ArtifactView's locate/pin jumps
 // can bring a virtualized-away row on screen before highlighting it.
 
 import {
@@ -171,7 +171,7 @@ interface VirtualPaneValue {
 const VirtualPaneContext = createContext<VirtualPaneValue | null>(null);
 
 // A scroll-to-line registry the PANE OWNER holds (not the provider): the owner
-// (ReviewView) renders the provider as a child, so its own locate/pin jumps run
+// (ArtifactView) renders the provider as a child, so its own locate/pin jumps run
 // above the provider and can't consume its context — instead it owns the
 // registry here and hands it to the provider. `scrollToLine(key, …)` reaches a
 // virtualized file's row that querySelector would otherwise miss (unmounted).
@@ -324,7 +324,7 @@ export function VirtualLines({
     getItemKey: itemKey,
   });
 
-  // Register scroll-to-line so ReviewView can reach a virtualized-away row.
+  // Register scroll-to-line so ArtifactView can reach a virtualized-away row.
   useEffect(() => {
     if (!pane || !scrollKey) return;
     if (!enabled) {
@@ -342,7 +342,7 @@ export function VirtualLines({
       // pane there ourselves. Deliberately NOT virtualizer.scrollToIndex /
       // getOffsetForIndex: those read the virtualizer's internal scrollMargin,
       // which lags during a fold/unfold and sent the jump wildly off. The live
-      // rect is always right, so re-issuing this each frame (see ReviewView)
+      // rect is always right, so re-issuing this each frame (see ArtifactView)
       // converges as an unfolding file settles. Where in the pane the line lands
       // is `align`'s call (leadFor above); unset = ~30% down.
       const rowTop = c.getBoundingClientRect().top - s.getBoundingClientRect().top + s.scrollTop;

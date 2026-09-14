@@ -3,12 +3,12 @@ import { useState } from "react";
 import { fn } from "storybook/test";
 import { MobileReviewChrome, type MobileSheetState } from "./MobileReviewChrome.tsx";
 
-// A stand-in for the FeedbackPanel the sheet hosts in the app (the real panel
+// A stand-in for the ArtifactThreads the sheet hosts in the app (the real panel
 // needs a live review). Fills the sheet like the panel does (h-full flex-col).
 function PanelStandIn() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1 text-sm text-neutral-400">
-      <span className="font-semibold text-neutral-500">FeedbackPanel renders here</span>
+      <span className="font-semibold text-neutral-500">ArtifactThreads renders here</span>
       <span>same instance, same props as the desktop dock</span>
     </div>
   );

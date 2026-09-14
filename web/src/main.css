@@ -165,15 +165,9 @@ html.dark {
   }
 }
 
-/* Keyboard focus, everywhere. The app is largely built from bare <button>s whose
-   classes set no focus style at all, so before this a Tab press moved focus
-   invisibly — the ring existed in exactly one place (ReviewHeader's title). One
-   base rule is the fix: `:focus-visible` fires only for keyboard/AT focus, never
-   a mouse click, so this costs the pointer path nothing.
-
-   `outline` (not a ring shadow) so it follows the element's border-radius, never
-   participates in layout, and can't be clipped by an `overflow-hidden` ancestor —
-   which matters here, since the panes and popovers are full of them.
+/* Shared keyboard/AT focus outline for controls without their own focus style.
+   It follows border-radius without affecting layout. Offsets and pane clipping
+   still matter, so keep focusable controls inside their visible scroll area.
 
    In `@layer base` so any utility beats it: the composers and token fields already
    style their own focus (`outline-none focus:border-primary-400`), and an unlayered
@@ -303,9 +297,8 @@ html.dark .gutter-del {
   box-shadow: inset 3px 0 0 var(--color-primary-500);
 }
 
-/* The lines an actively-focused feedback points at. The wash matches the active
-   feedback card's amber left rail (FeedbackPanel border-l-warning-*); the fill is
-   pitched up enough that warning-500 reads as that clear amber and not a muddy
+/* The source/diff lines an actively-focused feedback points at. The fill is
+   pitched up enough that warning-500 reads as clear amber rather than muddy
    brown against the near-black surface (see ::highlight(r3-active) below). */
 .r3-active-line {
   background-color: color-mix(in srgb, var(--color-warning-500) 30%, transparent);

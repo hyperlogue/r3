@@ -159,9 +159,3 @@ stdenv + the bun2nix hook (which installs the pinned deps from `bun.nix`) — th
 compile step is more than bun2nix's default module→binary path. `bun.nix` is
 generated from `bun.lock` and **committed**: any dependency change must regenerate
 it in the same commit.
-
-## Heritage
-
-The initial version was one server per repo with a gitignored per-repo `.r3/review.sqlite`; The per-user daemon
-replaced it with the one per-user daemon + global store. Published artifacts now replace live repository reads with immutable stored
-versions; the CLI, daemon, browser, and demo cut over together.

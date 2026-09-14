@@ -3,7 +3,7 @@
 // size lives once instead of copy-pasted per story. The max-md: /
 // pointer-coarse: variants key on the real viewport, not a wrapper width, so a
 // Mobile story must set an actual sub-md viewport — pass a wider frame only
-// when a fixed-width story decorator needs the room (FeedbackPanel's 440px
+// when a fixed-width story decorator needs the room (ArtifactThreads's 440px
 // panel frame).
 export function phoneViewport(width = 390, height = 780, name = "Phone") {
   return {

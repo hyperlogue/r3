@@ -84,8 +84,7 @@ export const KEYMAP: readonly Binding[] = [
   { id: "versionNext", keys: [">"], label: "Next diff round / version", group: "View" },
   { id: "versionPrev", keys: ["<"], label: "Previous diff round / version", group: "View" },
   { id: "layoutToggle", keys: ["\\"], label: "Unified / side-by-side", group: "View" },
-  // Desktop only — below md the feedback panel is the bottom sheet, which has no
-  // collapse control for this to fire (ReviewView leaves it unbound there).
+  // ArtifactView toggles the desktop dock or the mobile feedback sheet.
   { id: "panelToggle", keys: ["p"], label: "Hide / expand feedback panel", group: "View" },
 ];
 
@@ -114,8 +113,6 @@ export function isTextEntry(el: Element | null): boolean {
 // field (which receives the character) or an interactive control like a button or
 // link (Space activates it; Esc may dismiss its own popup). A global Space/Esc
 // handler must stand down for these so it doesn't hijack normal interaction.
-// Moved here from FeedbackPanel so the composer's Esc handling and this layer
-// agree on one definition.
 export function isInteractiveTarget(el: Element | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
@@ -151,7 +148,7 @@ export function suspendKeys(): () => void {
 }
 
 // For the OTHER global key listeners this map doesn't own — notably the
-// composer's Esc (FeedbackPanel's useComposerKeys). Esc is deliberately out of
+// composer's Escape action in ArtifactView. Escape is deliberately out of
 // KEYMAP, so without this the shortcuts sheet's own Esc and the composer's would
 // both fire on one press: the sheet closes AND the open composer is discarded.
 export function keysSuspended(): boolean {
