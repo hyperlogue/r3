@@ -17,20 +17,13 @@ import {
   useGutterDrag,
 } from "../gutter.ts";
 import { type Region, regionAt } from "../highlights.ts";
-import type { MessageRef } from "../markdown.ts";
 import { ProgressiveFile, type ReserveSpec } from "../progressive.tsx";
-import type { AnchorRect, PendingAnchor } from "../selection.ts";
 import type { DiffLayout } from "../settings.ts";
-import type { DiffFileChange, DiffLine, DiffSide, PatchDiff, PatchMeta } from "../types.ts";
-import { ChevronDown, cn, Pill, useEscape, useHtml } from "../ui.tsx";
+import type { DiffFileChange, DiffLine, DiffSide, PatchDiff } from "../types.ts";
+import { cn, Pill, useHtml } from "../ui.tsx";
 import { diffViewedKey } from "../viewed.ts";
 import { fileScrollKey, VirtualLines } from "../virtual.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
-import { SummaryBar } from "./SummaryBar.tsx";
-
-// One global preference (like the review summary's own collapse): fold a round
-// summary and it stays folded as you move between rounds and reviews.
-const ROUND_SUMMARY_COLLAPSE_KEY = "r3-round-summary-collapsed";
 
 // A diff whose file has more rendered rows than this starts folded (still
 // expandable). Matches the files-view threshold (BIG_FILE_LINES) so "fold
@@ -841,197 +834,8 @@ const FileBlock = memo(function FileBlock({
   );
 });
 
-// The "diff N" pill — mirrors the round badge. Primary-tinted when it names the
-// active round, muted otherwise (an inactive row in the dropdown list).
-function RoundBadge({ seq, active = true }: { seq: number; active?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[0.6875rem] font-semibold",
-        active
-          ? "bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
-          : "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300",
-      )}
-    >
-      diff {seq}
-    </span>
-  );
-}
-
-// A micro-badge marking the newest round, styled like the "approved" status
-// badge (success green) so "latest" reads as the same class of tag.
-function LatestBadge() {
-  return (
-    <span className="shrink-0 rounded border border-success-500 px-1 py-px text-[0.5625rem] font-semibold uppercase leading-none text-success-700 dark:text-success-300">
-      latest
-    </span>
-  );
-}
-
-// Diff-round switcher for a multi-round review: a compact dropdown that lives at
-// the right end of the pane toolbar (replacing the old full-width tab strip). The
-// trigger shows the active round's "diff N" pill + label; the newest round wears
-// a "latest" badge — in the trigger when it's the one selected, and on its row in
-// the list. Same popover mechanics as SettingsPopup (click-catcher + Escape).
-export function RoundSelect({
-  rounds,
-  activeSeq,
-  onSelect,
-}: {
-  rounds: PatchMeta[];
-  activeSeq: number | null;
-  onSelect: (seq: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const latestSeq = rounds[rounds.length - 1]?.seq;
-  const active = rounds.find((r) => r.seq === activeSeq) ?? rounds[rounds.length - 1];
-
-  useEscape(open, () => setOpen(false));
-
-  if (!active) return null;
-
-  return (
-    // `flex` so the trigger stretches to the toolbar slot's full height (its
-    // wrapper cancels the toolbar's own padding) — that makes the left divider run
-    // the whole top-to-bottom line and the hover fill the top/bottom/right space.
-    // Below md the slot is the toolbar's full-width first row, so the trigger
-    // truly fills it: no width cap, no left divider (there's nothing to divide
-    // from), and the chevron pushed to the far right edge. min-w-0 down the
-    // wrapper→trigger chain lets the label truncate instead of propagating its
-    // full min-content width up and overflowing the row (and the viewport).
-    <div className="relative flex min-w-0 max-md:flex-1">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        title="Switch diff round"
-        // Embedded into the pane toolbar, not a floating pill: a full-height left
-        // divider (no box, no rounding) with only inner padding. While the menu is
-        // open, desaturate + dim the trigger so the eye lands on the menu's rows.
-        className={cn(
-          "flex min-w-0 max-w-[18rem] items-center gap-1.5 border-l border-neutral-300 pl-1.5 pr-1.5 text-xs text-neutral-600 transition duration-150 hover:bg-neutral-100 max-md:flex-1 max-md:max-w-none max-md:border-l-0 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
-          open && "opacity-60 grayscale",
-        )}
-      >
-        <RoundBadge seq={active.seq} />
-        {active.label && <span className="truncate text-neutral-500">{active.label}</span>}
-        {active.seq === latestSeq && <LatestBadge />}
-        <ChevronDown
-          className={cn(
-            "ml-0.5 size-3.5 shrink-0 text-neutral-400 transition-transform max-md:ml-auto",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-
-      {/* click-catcher: closes the dropdown when clicking elsewhere. Only mounted
-          while open, so it never swallows clicks once the menu has animated shut. */}
-      {open && (
-        <button
-          type="button"
-          aria-label="Close round switcher"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 cursor-default"
-        />
-      )}
-      {/* Flush under the trigger and exactly its width (inset-x-0 spans the
-          relative wrapper, the button's width): a squared-off panel — no
-          border/rounding/gap — that reads as the button dropping open, not a
-          floating pill. What lifts it off the code behind it is a raised surface
-          (a step lighter than the neutral-950 chrome in dark) plus a deep shadow,
-          not an outline. Kept mounted (inert + non-interactive while closed) so
-          the toggle animates *both* ways — a fade + a short slide-down. */}
-      <div
-        inert={!open}
-        className={cn(
-          "absolute inset-x-0 top-full z-50 max-h-80 overflow-y-auto bg-white shadow-2xl transition-[opacity,transform] duration-150 ease-out dark:bg-neutral-800",
-          open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
-        )}
-      >
-        {rounds.map((round) => {
-          const isActive = round.seq === active.seq;
-          return (
-            <button
-              key={round.seq}
-              type="button"
-              onClick={() => {
-                onSelect(round.seq);
-                setOpen(false);
-              }}
-              title={round.label ?? `diff ${round.seq}`}
-              className={cn(
-                // Left padding matches the trigger's (pl-1.5) so a row's "diff N"
-                // badge lines up under the trigger's badge.
-                "flex w-full items-center gap-1.5 py-1.5 pl-1.5 pr-2.5 text-left text-xs transition-colors",
-                isActive
-                  ? "bg-neutral-100 dark:bg-neutral-700"
-                  : "hover:bg-neutral-50 dark:hover:bg-neutral-700/60",
-              )}
-            >
-              <RoundBadge seq={round.seq} active={isActive} />
-              <span className="min-w-0 flex-1 truncate text-neutral-600 dark:text-neutral-300">
-                {round.label ?? `diff ${round.seq}`}
-              </span>
-              {round.seq === latestSeq && <LatestBadge />}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// The active round's summary — prose set at append time (immutable, like the
-// round), distinct from the short `label` title. Extracted from DiffView so
-// ReviewView owns the mount point: desktop docks it at the top of the scroll
-// pane above the file blocks; mobile mounts it as the pane toolbar's middle row
-// (between the round switcher and the buttons). It follows the review summary's
-// type treatment (same prose size/color, same fold affordance);
-// `data-round-summary` + `data-summary="round"` are the locate/highlight hooks
-// (document-scoped — the mobile mount lives outside the scroll pane).
-export function RoundSummary({
-  round,
-  onAnchorSummary,
-  onJumpRef,
-}: {
-  round: PatchMeta;
-  // A selection in the summary, routed through ReviewView's applyAnchorGesture
-  // (anchor when the composer is empty, "Quote in note" when it holds text) —
-  // the anchor carries the summary sentinel + this round's seq, the quote is the
-  // record, the rect positions the bubble.
-  onAnchorSummary?: (anchor: PendingAnchor, quoteText: string, rect: AnchorRect | null) => void;
-  // An `@path:Lx-y` ref clicked in the summary — resolved against this round.
-  onJumpRef?: (ref: MessageRef, patchSeq: number) => void;
-}) {
-  if (!round.summary) return null;
-  // The chrome is the shared SummaryBar (one implementation with ReviewSummary,
-  // so the two bars are the same h-8 height in every state and can't drift);
-  // this wrapper binds the round's data: refs resolve against this round, the
-  // anchor names the round's seq, and — the round being immutable — its
-  // summary quote never drifts.
-  return (
-    <SummaryBar
-      label="Diff summary"
-      source={round.summary}
-      collapseKey={ROUND_SUMMARY_COLLAPSE_KEY}
-      roundSeq={round.seq}
-      expandTitle="Expand round summary"
-      collapseTitle="Collapse round summary"
-      selectTitle="Select text to leave feedback on this round's summary"
-      onAnchorSummary={onAnchorSummary}
-      onJumpRef={(ref) => onJumpRef?.(ref, round.seq)}
-    />
-  );
-}
-
-// A diff review's content: its stored rounds are independent,
-// immutable patches — line numbers needn't agree across rounds — so every round
-// gets its own [data-round] scope: feedback anchors and reply pins resolve
-// (round, file, line), never just (file, line). Only the round named by
-// `activeSeq` is rendered; the caller (ReviewView) drives the selection through
-// the RoundSelect switcher (and mounts the round's summary — RoundSummary —
-// itself). With a single round there's no switcher and this looks exactly like
-// a plain single-diff review.
+// Render the selected immutable patch. ArtifactView owns version selection and
+// metadata; the data-round scope keeps source/diff gestures pinned to this patch.
 export function DiffView({
   rounds,
   activeSeq,
@@ -1060,8 +864,7 @@ export function DiffView({
   activeSeq?: number | null;
   // Viewed-state as content-identity predicates. Keyed per
   // round via diffViewedKey, so a mark in round 1 doesn't carry into round 2.
-  // Omit both to render without a viewed toggle (e.g. a files review's derived
-  // snapshot-diff, where viewed isn't tracked).
+  // Omit both to render without viewed controls.
   isViewed?: (key: string) => boolean;
   toggle?: (key: string) => void;
   // The scroll-spy's current file — the one a per-file keyboard shortcut acts on.
@@ -1074,12 +877,11 @@ export function DiffView({
   onFileFeedback?: (file: string, patchSeq: number) => void;
   // The pane toolbar's fold/unfold-all broadcast, passed through to every file.
   foldSignal?: FoldSignal | null;
-  // Unresolved-feedback spans to wash onto matching code rows. Markdown files
-  // still go through useRegionHighlight.
+  // Open feedback spans to wash onto matching source/diff rows.
   regions?: Region[];
   locate?: DiffLocate;
   // ProgressiveFile's reset signal for the bodies below: whatever identifies the
-  // version on screen (the caller's round / snapshot pair / syntax theme). Only
+  // version on screen (the publication and syntax theme). Only
   // read where a provider is mounted AND enabled — without one every block is
   // active from the first frame and this never matters.
   progressiveVersion?: string;

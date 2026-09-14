@@ -68,7 +68,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Workspace | `web/src/pages/ArtifactView.tsx`, `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
 | Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-feedback.ts`; stable message props, Active/Resolved queues, independently subscribed drafts |
 | Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
-| Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `mdhighlight.ts`, `viewed.ts`, `pane.ts` |
+| Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `viewed.ts`, `pane.ts` |
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mdproject.ts`, `mermaid.ts`, `textdiff.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
 | Mobile | `web/src/mobile/` containers only; `ArtifactView` is their single composition point |
 | Static demo | `web/demo/artifact-model.ts`, `artifact-backend.ts`, `artifact-api.ts`, `application-api.ts`, `artifact-fixtures.gen.ts`; same public contract, local scripted workflow |

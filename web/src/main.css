@@ -312,21 +312,11 @@ html.dark .gutter-del {
   box-shadow: inset 2px 0 0 var(--color-warning-500);
 }
 
-/* The summary block (review or diff round) an actively-focused summary-feedback
-   points at. Its own class so it doesn't collide with the per-line .r3-active-line
-   the other highlight effect manages. */
-.r3-summary-active {
-  background-color: color-mix(in srgb, var(--color-warning-500) 30%, transparent);
-  box-shadow: inset 2px 0 0 var(--color-warning-500);
-  border-radius: 2px;
-}
-
 /* Code/diff rows freeze the line-number gutter (sticky + opaque) so only the
    code scrolls horizontally — but that opaque rail sits on top of the row's
    inset left bar and would hide it. Redraw the bar on the first (leftmost)
    gutter cell so it stays visible and pinned to the left. Scoped to [data-line]
-   rows so it never touches rendered-markdown blocks (which draw their bar via
-   ::before below). Region scoped :not(active) so amber wins when both apply. */
+   rows. Region scoped :not(active) so amber wins when both apply. */
 .r3-active-line[data-line] > span:first-child {
   box-shadow: inset 2px 0 0 var(--color-warning-500);
 }
@@ -334,93 +324,14 @@ html.dark .gutter-del {
   box-shadow: inset 3px 0 0 var(--color-primary-500);
 }
 
-/* Rendered-markdown blocks (a whole <p>/<table>/<ul>/heading) carry these classes
-   instead of per-line rows. The `inset` box-shadow above is a wrong fit there: the
-   bar overlaps the first character, and on a border-collapse <table> it fragments
-   into per-row segments. So draw the gutter bar as a pseudo-element sitting in the
-   .r3-markdown left padding — one continuous bar spanning the whole block, whatever
-   its internal layout. The bar's colour rides a custom property set with the wash,
-   so it reaches the pseudo-element wherever it ends up hanging (see the table case
-   below). Region scoped :not(active) so amber wins on a block that carries both
-   (same structural precedence as the base rules above). */
-.r3-markdown .r3-feedback-region,
-.r3-markdown .r3-active-line {
-  position: relative;
-  box-shadow: none;
-  border-radius: 2px;
-}
-.r3-markdown .r3-feedback-region:not(.r3-active-line) {
-  background-color: color-mix(in srgb, var(--color-primary-500) 13%, transparent);
-  --r3-md-bar: var(--color-primary-500);
-}
-.r3-markdown .r3-active-line {
-  background-color: color-mix(in srgb, var(--color-warning-500) 34%, transparent);
-  --r3-md-bar: var(--color-warning-500);
-}
-
-/* A marked table is the one block that can't host that bar itself — a whole
-   <table>, a row group, or (the common one, since tr_open is tagged) a single row.
-   An absolutely positioned child of a `table-row` box is wrapped in an ANONYMOUS
-   TABLE CELL, which lands as an extra empty leading column on the marked row alone,
-   shunting its real cells one column right and out of line with every other row.
-   The gutter is out of reach there anyway: `.r3-markdown table` is its own
-   `overflow-x` scroll container, so anything painted left of its padding edge is
-   clipped. So hang the bar on the first cell of each marked row instead — a
-   `table-cell` is an ordinary containing block — drawn inside that cell's own left
-   padding rather than out in the markdown gutter. Contiguous rows make one bar. */
-.r3-markdown tr:is(.r3-feedback-region, .r3-active-line) > :is(td, th):first-child,
-.r3-markdown
-  :is(table, thead, tbody, tfoot):is(.r3-feedback-region, .r3-active-line)
-  tr
-  > :is(td, th):first-child {
-  position: relative;
-}
-.r3-markdown :is(.r3-feedback-region, .r3-active-line):not(table, thead, tbody, tfoot, tr)::before,
-.r3-markdown tr:is(.r3-feedback-region, .r3-active-line) > :is(td, th):first-child::before,
-.r3-markdown
-  :is(table, thead, tbody, tfoot):is(.r3-feedback-region, .r3-active-line)
-  tr
-  > :is(td, th):first-child::before {
-  content: "";
-  position: absolute;
-  left: -0.65rem;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 3px;
-  background-color: var(--r3-md-bar);
-}
-.r3-markdown tr:is(.r3-feedback-region, .r3-active-line) > :is(td, th):first-child::before,
-.r3-markdown
-  :is(table, thead, tbody, tfoot):is(.r3-feedback-region, .r3-active-line)
-  tr
-  > :is(td, th):first-child::before {
-  left: 0;
-}
-
-/* Precise sub-block highlight for rendered markdown: the exact quoted text the
-   feedback anchors to (CSS Custom Highlight API, driven from mdhighlight.ts),
-   instead of washing the whole enclosing block. The block rules above are the
-   fallback when the quote can't be located or the browser lacks the API. */
-::highlight(r3-feedback) {
-  background-color: color-mix(in srgb, var(--color-primary-500) 24%, transparent);
-}
-::highlight(r3-active) {
-  background-color: color-mix(in srgb, var(--color-warning-500) 50%, transparent);
-}
-
 /* A highlighted feedback region is clickable — a plain click jumps the panel to
-   its feedback (ReviewView's delegated handler tags rows/blocks with data-fb-id).
+   its feedback (source/diff rows carry data-fb-id).
    Pointer + a hover brighten signal it; text selection still works underneath. */
-.shiki-surface [data-fb-id],
-.r3-markdown [data-fb-id] {
+.shiki-surface [data-fb-id] {
   cursor: pointer;
 }
 .r3-feedback-region[data-fb-id]:not(.r3-active-line):hover {
   background-color: color-mix(in srgb, var(--color-primary-500) 18%, transparent);
-}
-.r3-markdown .r3-feedback-region[data-fb-id]:not(.r3-active-line):hover {
-  background-color: color-mix(in srgb, var(--color-primary-500) 20%, transparent);
 }
 /* A focused (active) row is also a feedback region; the blue hovers above exclude
    it (:not, like every region rule), so these keep its hover yellow — just
@@ -428,11 +339,8 @@ html.dark .gutter-del {
 .r3-active-line[data-fb-id]:hover {
   background-color: color-mix(in srgb, var(--color-warning-500) 42%, transparent);
 }
-.r3-markdown .r3-active-line[data-fb-id]:hover {
-  background-color: color-mix(in srgb, var(--color-warning-500) 46%, transparent);
-}
 
-/* Rendered Markdown (kind:'files' .md). Restrained, readable. */
+/* Trusted workspace Markdown: feedback, replies, and version descriptions. */
 .r3-markdown {
   line-height: 1.6;
 }
@@ -524,25 +432,6 @@ html.dark .r3-markdown a {
 .r3-markdown tbody tr:nth-child(even) td {
   background: color-mix(in srgb, currentColor 3%, transparent);
 }
-.r3-markdown [data-line-start] {
-  scroll-margin-top: 4rem;
-}
-/* A relative link in a reviewed `.md` (server/highlight.ts resolves it against
-   the containing file; web/src/doclinks.ts jumps the pane to it). It looks like
-   the ordinary markdown link it is — only the cursor says it never leaves the
-   page. A target that isn't part of the review has nowhere to go: drop the link
-   color and dot the underline so it reads as prose with a note, not a dead
-   link you're expected to click. */
-.r3-markdown a.r3-doclink {
-  cursor: pointer;
-}
-.r3-markdown a.r3-doclink-missing {
-  color: inherit;
-  cursor: default;
-  text-decoration-style: dotted;
-  opacity: 0.75;
-}
-
 /* Mermaid fences (flowchart + sequenceDiagram) render to an inline SVG
    (server/mermaid.ts). Horizontal scroll on a wide LR chart, like tables;
    currentColor so the same strokes/fills follow the light/dark surface. */
