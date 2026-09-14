@@ -1,6 +1,15 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   artifactFeedbackTargetLabel,
   artifactTargetLabel,
@@ -59,6 +68,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   onLocate,
   onJumpRef,
   active = false,
+  visible = true,
   onResolved,
 }: {
   feedback: ArtifactFeedback;
@@ -66,6 +76,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   active?: boolean;
+  visible?: boolean;
   onResolved?: (id: string) => void;
 }) {
   const qc = useQueryClient();
@@ -95,8 +106,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const bubble = useQuoteBubble(element, (range) => {
     const node = range.commonAncestorContainer;
     const element = node instanceof Element ? node : node.parentElement;
-    return !!element?.closest('[data-message-author="agent"]');
+    return visible && !!element?.closest('[data-message-author="agent"]');
   });
+  useEffect(() => {
+    if (!visible) {
+      setMenuOpen(false);
+      bubble.hide();
+    }
+  }, [visible, bubble.hide]);
   const refresh = () => qc.invalidateQueries({ queryKey: ["artifact", feedback.artifactId] });
   const edit = useMutation({
     mutationFn: async () => {
@@ -415,7 +432,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           />
         </div>
       )}
-      {bubble.pos && (
+      {visible && bubble.pos && (
         <QuoteBubble
           pos={bubble.pos}
           label="Quote in reply"
@@ -440,6 +457,54 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   );
 });
 
+export type ArtifactFeedbackTab = "active" | "resolved";
+
+// Each queue owns its scroll position and row animation. Switching tabs changes
+// only the track transform, so cards, reply editors, and the Active draft survive.
+function FeedbackQueue({
+  tab,
+  selected,
+  tabsId,
+  empty,
+  children,
+}: {
+  tab: ArtifactFeedbackTab;
+  selected: boolean;
+  tabsId: string;
+  empty: boolean;
+  children: ReactNode;
+}) {
+  const [listAnimation] = useAutoAnimate<HTMLDivElement>(feedbackAnimation);
+  return (
+    <div
+      role="tabpanel"
+      id={`${tabsId}-${tab}-panel`}
+      aria-labelledby={`${tabsId}-${tab}`}
+      aria-hidden={!selected}
+      inert={!selected}
+      data-feedback-queue={tab}
+      className="h-full min-w-0 w-full shrink-0 overflow-x-hidden overflow-y-auto"
+    >
+      <div className="relative min-h-full">
+        <p
+          aria-hidden={!empty}
+          className={cn(
+            "r3-hint pointer-events-none absolute inset-x-0 top-0 px-3 py-8 text-center text-sm text-neutral-400",
+            empty && "is-visible",
+          )}
+        >
+          {tab === "resolved"
+            ? "No resolved feedback."
+            : "Select content to leave feedback, or add a general note."}
+        </p>
+        <div ref={listAnimation} data-feedback-list>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ArtifactThreads({
   detail,
   context,
@@ -451,6 +516,8 @@ export function ArtifactThreads({
   onFocusFeedback,
   onNewNote,
   keysActive = true,
+  tab: controlledTab,
+  onTabChange,
 }: {
   detail: ArtifactDetail;
   context: ArtifactMessageContext;
@@ -462,16 +529,24 @@ export function ArtifactThreads({
   onFocusFeedback?: (id: string) => void;
   onNewNote?: () => void;
   keysActive?: boolean;
+  tab?: ArtifactFeedbackTab;
+  onTabChange?: (tab: ArtifactFeedbackTab) => void;
 }) {
   detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
-  const [tab, setTab] = useState<"active" | "resolved">("active");
+  const [localTab, setLocalTab] = useState<ArtifactFeedbackTab>("active");
+  const tab = controlledTab ?? localTab;
+  const setTab = onTabChange ?? setLocalTab;
+  const tabsId = useId();
   const [created, setCreated] = useState<ArtifactFeedback | null>(null);
-  const showCreated = useCallback((feedback: ArtifactFeedback) => {
-    setCreated(feedback);
-    setTab("active");
-    return () => setCreated((current) => (current?.id === feedback.id ? null : current));
-  }, []);
+  const showCreated = useCallback(
+    (feedback: ArtifactFeedback) => {
+      setCreated(feedback);
+      setTab("active");
+      return () => setCreated((current) => (current?.id === feedback.id ? null : current));
+    },
+    [setTab],
+  );
   const notes = useMemo(
     () =>
       created?.artifactId === detail.id && !detail.feedback.some((note) => note.id === created.id)
@@ -479,7 +554,6 @@ export function ArtifactThreads({
         : detail.feedback,
     [created, detail.id, detail.feedback],
   );
-  const [listAnimation] = useAutoAnimate<HTMLDivElement>(feedbackAnimation);
   const indicator = useFeedbackTabIndicator(tab);
   useEffect(() => {
     // Deleted threads have no reply destination. Reap only missing membership;
@@ -495,10 +569,15 @@ export function ArtifactThreads({
         ? "resolved"
         : "active",
     );
-  }, [activeFeedback, detail.feedback]);
+  }, [activeFeedback, detail.feedback, setTab]);
   const draftCount = useArtifactDraftCount(detail.id);
   const savingStatus = useFeedbackStatusPending(detail.id);
   const noteOpen = useArtifactNoteOpen(detail.id);
+  const wasNoteOpen = useRef(noteOpen);
+  useEffect(() => {
+    if (noteOpen && !wasNoteOpen.current) setTab("active");
+    wasNoteOpen.current = noteOpen;
+  }, [noteOpen, setTab]);
   const receipt = useFeedbackHandoffReceipt(detail.id, detail.feedback);
   const { copied: sent, flash: showSent } = useCopyFlash(3000);
   const [notice, setNotice] = useState("");
@@ -584,7 +663,7 @@ export function ArtifactThreads({
     if (!activeFeedback) return;
     if (name === "reply") {
       const editor = panel.current?.querySelector<HTMLTextAreaElement>(
-        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-reply-to] textarea`,
+        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-reply-to] textarea:not([inert] *)`,
       );
       if (editor) {
         editor.focus();
@@ -593,7 +672,7 @@ export function ArtifactThreads({
     }
     panel.current
       ?.querySelector<HTMLButtonElement>(
-        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-feedback-action="${name}"]`,
+        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-feedback-action="${name}"]:not([inert] *)`,
       )
       ?.click();
   };
@@ -693,8 +772,24 @@ export function ArtifactThreads({
                 type="button"
                 role="tab"
                 data-feedback-tab={value}
+                id={`${tabsId}-${value}`}
+                aria-controls={`${tabsId}-${value}-panel`}
                 aria-selected={tab === value}
+                tabIndex={tab === value ? 0 : -1}
                 onClick={() => setTab(value)}
+                onKeyDown={(event) => {
+                  const next =
+                    event.key === "ArrowLeft" || event.key === "Home"
+                      ? "active"
+                      : event.key === "ArrowRight" || event.key === "End"
+                        ? "resolved"
+                        : null;
+                  if (!next) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setTab(next);
+                  document.getElementById(`${tabsId}-${next}`)?.focus();
+                }}
                 className={cn(
                   "relative z-10 rounded-md px-2.5 py-1 text-[0.6875rem] font-medium transition-colors",
                   tab === value
@@ -732,38 +827,42 @@ export function ArtifactThreads({
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <div className="relative">
-          <p
-            aria-hidden={ordered.length > 0 || noteOpen}
-            className={cn(
-              "r3-hint pointer-events-none absolute inset-x-0 top-0 px-3 py-8 text-center text-sm text-neutral-400",
-              ordered.length === 0 && !noteOpen && "is-visible",
-            )}
-          >
-            {tab === "resolved"
-              ? "No resolved feedback."
-              : "Select content to leave feedback, or add a general note."}
-          </p>
+      <div className="min-h-0 flex-1 overflow-clip">
+        <div
+          data-feedback-track
+          className="flex h-full transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
+          style={{ transform: tab === "active" ? "translateX(0)" : "translateX(-100%)" }}
+        >
           <FeedbackCreationContext.Provider value={showCreated}>
-            <div ref={listAnimation} data-feedback-list>
-              {noteOpen && (
-                <div key="composer" data-feedback-draft>
-                  {composer ?? <ArtifactComposer artifactId={detail.id} />}
-                </div>
-              )}
-              {ordered.map((feedback) => (
-                <ArtifactThreadCard
-                  key={feedback.id}
-                  feedback={feedback}
-                  context={context}
-                  onLocate={locate}
-                  onJumpRef={onJumpRef}
-                  active={activeFeedback === feedback.id}
-                  onResolved={afterResolve}
-                />
-              ))}
-            </div>
+            {(["active", "resolved"] as const).map((queue) => (
+              <FeedbackQueue
+                key={queue}
+                tab={queue}
+                tabsId={tabsId}
+                selected={tab === queue}
+                empty={
+                  queue === "active" ? active.length === 0 && !noteOpen : resolved.length === 0
+                }
+              >
+                {queue === "active" && noteOpen && (
+                  <div key="composer" data-feedback-draft>
+                    {composer ?? <ArtifactComposer artifactId={detail.id} />}
+                  </div>
+                )}
+                {(queue === "active" ? active : resolved).map((feedback) => (
+                  <ArtifactThreadCard
+                    key={feedback.id}
+                    feedback={feedback}
+                    context={context}
+                    onLocate={locate}
+                    onJumpRef={onJumpRef}
+                    visible={tab === queue}
+                    active={tab === queue && activeFeedback === feedback.id}
+                    onResolved={afterResolve}
+                  />
+                ))}
+              </FeedbackQueue>
+            ))}
           </FeedbackCreationContext.Provider>
         </div>
       </div>

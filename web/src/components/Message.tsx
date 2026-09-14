@@ -1,6 +1,7 @@
 // MessageProse + the shared QuoteBubble (selection-to-quote).
 
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { type MessageRef, refFromEvent, renderMessageHtml } from "../markdown.ts";
 import { cn, scrollParent } from "../ui.tsx";
 
@@ -62,7 +63,9 @@ export function QuoteBubble({
   label: string;
   onQuote: (text: string) => void;
 }) {
-  return (
+  // Selection coordinates are in the viewport. Animated panels and tab tracks
+  // establish containing blocks, so keep this fixed overlay outside them.
+  return createPortal(
     <button
       type="button"
       onMouseDown={(e) => e.preventDefault()}
@@ -71,7 +74,8 @@ export function QuoteBubble({
       style={{ left: pos.left, top: pos.top - 6 }}
     >
       {label}
-    </button>
+    </button>,
+    document.body,
   );
 }
 

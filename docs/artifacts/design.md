@@ -203,6 +203,12 @@ The feedback dock retains the compact **Active / Resolved** tabs. Its Add genera
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve has
 neutral text and no visible outline at rest; hover adds a green border, text, and tint.
 The status tabs and their sliding highlight use the same corner radius as buttons.
+Active and Resolved are persistent adjacent queues. A 220 ms horizontal slide puts
+Resolved to the right of Active; reversing a switch reverses the movement. Each
+queue keeps its scroll position and editors. Inactive content is inert and hidden
+from accessibility APIs. The new-feedback composer belongs to Active and moves
+with it; an anchor gesture or Add general feedback opens Active. Reduced motion
+switches immediately. Row insert/delete/reorder animations stay within each queue.
 Transient background read failures retain the loaded workspace. Definitive missing
 artifact or access errors replace it with an error state.
 Resolve and Reopen update the queue immediately while the server saves. Pending
@@ -269,7 +275,7 @@ closes the card. Mobile continues to use its shared feedback sheet.
 Feedback cards retain their original motion: a quick fade with a 250 ms rise on
 insertion, a 200 ms fade/slide to the right on removal, and a 200 ms move between
 positions when reordered. The Active/Resolved fill slides between measured tab
-boxes in 150 ms. Tab changes fade in their list; composers keep their drafts.
+boxes in 150 ms.
 Reduced-motion preferences disable these animations.
 
 Rendered comment mode intercepts element picks before page handlers and supports

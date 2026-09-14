@@ -92,7 +92,7 @@ try {
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const card = (id: string) =>
-    `document.querySelector('[data-artifact-feedback="${id}"]:not([inert])')`;
+    `document.querySelector('[data-artifact-feedback="${id}"]:not([inert]):not([inert] *)')`;
   await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "feedback cards");
   // Keep the HTTP mutation pending. The user should see resolution immediately,
   // rather than paying for the mutation plus a subsequent artifact refetch.
@@ -162,6 +162,19 @@ try {
     "other resolution persists independently",
   );
   await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
+  const track = "document.querySelector('[data-feedback-track]')";
+  await eventually(() => page.evaluate(`${track}.getAnimations().length > 0`), "queue slide");
+  const slide = await page.evaluate(`(() => {
+    const track = ${track};
+    const animation = track.getAnimations()[0];
+    animation.pause(); animation.currentTime = 110;
+    return {x: new DOMMatrix(getComputedStyle(track).transform).m41, width: track.offsetWidth};
+  })()`);
+  assert(slide.x < 0 && slide.x > -slide.width, "Resolved enters from the right");
+  await page.evaluate("document.querySelector('[data-feedback-tab=active]').click()");
+  await page.evaluate(`Promise.all(${track}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
+  assert.equal(await page.evaluate(`new DOMMatrix(getComputedStyle(${track}).transform).m41`), 0);
+  await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
   await eventually(
     () =>
       page.evaluate(`${card(notes[1].id)}?.textContent.includes('A reply arrived while saving')`),
@@ -215,6 +228,18 @@ try {
   );
   await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
   await page.command("Input.insertText", { text: "A pending card" });
+  await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
+  assert.equal(
+    await page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]').closest('[inert]')"),
+    true,
+    "The new-note draft belongs to the inactive Active queue",
+  );
+  await page.evaluate("document.querySelector('[data-feedback-tab=active]').click()");
+  await page.evaluate(`Promise.all(${track}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
+  assert.equal(
+    await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').value"),
+    "A pending card",
+  );
   await page.evaluate("new Promise(requestAnimationFrame)");
   assert.equal(
     await page.evaluate(

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { MessageProse, QuoteBubble } from "./Message.tsx";
 
 // An agent-reply-shaped body: Markdown blocks, an inline `@path:Lx-y` jump ref,
@@ -62,10 +62,18 @@ export const EscapedHtml: Story = {
 // Fixed-positioned off the live selection rect in real use; pinned here.
 export const Bubble: Story = {
   render: () => (
-    <QuoteBubble
-      pos={{ left: 210, top: 60, text: "the selected passage" }}
-      label="Quote in reply"
-      onQuote={fn()}
-    />
+    <div style={{ transform: "translate(100px, 40px)" }}>
+      <QuoteBubble
+        pos={{ left: 210, top: 60, text: "the selected passage" }}
+        label="Quote in reply"
+        onQuote={fn()}
+      />
+    </div>
   ),
+  play: async () => {
+    const button = within(document.body).getByRole("button", { name: "Quote in reply" });
+    const box = button.getBoundingClientRect();
+    await expect(Math.abs(box.x + box.width / 2 - 210)).toBeLessThan(1);
+    await expect(Math.abs(box.bottom - 54)).toBeLessThan(1);
+  },
 };

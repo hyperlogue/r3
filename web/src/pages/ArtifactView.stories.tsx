@@ -540,3 +540,27 @@ export const DraftAndNativeLocate: Story = {
     await expect(canvasElement.querySelector('[data-line="4"].r3-active-line')).not.toBeNull();
   },
 };
+
+export const AnchorReopensActive: Story = {
+  args: { initialSearch: "?version=1&file=index.md&view=source" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("tab", { name: /Resolved/ }));
+    const gutter = canvasElement.querySelector<HTMLElement>(
+      '[data-file="index.md"] [data-line="4"] [data-gutter]',
+    )!;
+    await userEvent.click(gutter);
+    await expect(canvas.getByRole("tab", { name: /Active/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() => expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible());
+    await userEvent.click(canvas.getByRole("tab", { name: /Resolved/ }));
+    await userEvent.click(gutter);
+    await expect(canvas.getByRole("tab", { name: /Active/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() => expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible());
+  },
+};

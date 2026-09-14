@@ -43,7 +43,7 @@ export function prepareFeedbackMorph(form: HTMLFormElement | null, feedbackId: s
 // Restore the original feedback panel's motion: rise/fade on entry, exit right,
 // and translate between measured positions when the working queue reorders.
 export const feedbackAnimation: AutoAnimationPlugin = (element, action, before, after) => {
-  const reduce = prefersReduced();
+  const reduce = prefersReduced() || !!element.closest("[data-feedback-queue][inert]");
   const id = element instanceof HTMLElement ? element.dataset.artifactFeedback : undefined;
   const morph = id && feedbackMorphs.get(id);
   const destination = action === "add" ? before : after;

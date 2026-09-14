@@ -30,6 +30,7 @@ import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactPreviewSecurityProvider } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import {
+  type ArtifactFeedbackTab,
   type ArtifactRefJump,
   type ArtifactTargetJump,
   ArtifactThreads,
@@ -169,6 +170,7 @@ function Workspace({
   const collapsed = feedbackMode === "hidden";
   const [sheet, setSheet] = useState<MobileSheetState>("closed");
   const [commenting, setCommenting] = useState(false);
+  const [feedbackTab, setFeedbackTab] = useState<ArtifactFeedbackTab>("active");
   const [notice, setNotice] = useState("");
   const [floating, setFloating] = useState<AnchorRect | null>(null);
   const [popoverFeedback, setPopoverFeedback] = useState<string | null>(null);
@@ -307,6 +309,7 @@ function Workspace({
   );
   const openComposer = useCallback(
     (rect?: AnchorRect, focus = true) => {
+      setFeedbackTab("active");
       setPopoverFeedback(null);
       if (mobile) setSheet("peek");
       else if (collapsed)
@@ -367,7 +370,10 @@ function Workspace({
     onSelection: selectRendered,
     onComposerKey: handleComposerKey,
     noteHasText: hasNote,
-    composerVisible: noteOpen && (mobile ? sheet !== "closed" : !collapsed || !!floating),
+    composerVisible:
+      noteOpen &&
+      feedbackTab === "active" &&
+      (mobile ? sheet !== "closed" : !collapsed || !!floating),
   };
   const pickLines = useCallback(
     (file: string, side: DiffSide, start: number, end: number, quote: string) => {
@@ -669,6 +675,8 @@ function Workspace({
     <ArtifactThreads
       detail={detail}
       context={context}
+      tab={feedbackTab}
+      onTabChange={setFeedbackTab}
       onLocate={locate}
       onJumpRef={jumpRef}
       activeFeedback={view.feedbackId}

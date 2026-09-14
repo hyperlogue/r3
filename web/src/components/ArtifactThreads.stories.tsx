@@ -4,6 +4,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { ArtifactFeedback, ArtifactReply } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { artifactDrafts } from "../artifact-drafts.ts";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { Button } from "../ui.tsx";
 import { ArtifactThreads } from "./ArtifactThreads.tsx";
@@ -259,7 +260,7 @@ export const FeedbackTabs: Story = {
     await userEvent.click(canvas.getByRole("tab", { name: /Resolved/ }));
     await waitFor(() => expect(canvas.getByText("No resolved feedback.")).toBeVisible());
     await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
-    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible());
     await userEvent.click(canvas.getByRole("tab", { name: /Active/ }));
     const composer = canvasElement.querySelector("[data-artifact-composer]");
     const list = canvasElement.querySelector("[data-feedback-list]");
@@ -267,6 +268,45 @@ export const FeedbackTabs: Story = {
       composer && list?.querySelector(":scope > :not([inert])")?.contains(composer),
     ).toBeTruthy();
   },
+};
+
+export const QueueDraftAndScroll: Story = {
+  beforeEach: () => artifactDrafts.clear(artifactFixture.id),
+  args: {
+    detail: {
+      ...artifactFixture,
+      feedback: Array.from({ length: 8 }, (_, index) => ({
+        ...artifactFixtureFeedback,
+        id: `feedback_queue_${index}`,
+        status: index < 4 ? "open" : "resolved",
+      })),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    const draft = canvas.getByRole("textbox", { name: "Feedback" });
+    await userEvent.type(draft, "Keep this Active draft.");
+    const active = canvasElement.querySelector<HTMLElement>('[data-feedback-queue="active"]')!;
+    const resolved = canvasElement.querySelector<HTMLElement>('[data-feedback-queue="resolved"]')!;
+    const card = active.querySelector("article");
+    active.scrollTop = 100;
+    await userEvent.click(canvas.getByRole("tab", { name: "Resolved 4" }));
+    await expect(canvas.queryByRole("textbox", { name: "Feedback" })).toBeNull();
+    await expect(canvas.getByRole("tabpanel")).toHaveAccessibleName("Resolved 4");
+    resolved.scrollTop = 70;
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect(canvas.getByRole("tabpanel")).toHaveAccessibleName("Active 4");
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toBe(draft);
+    await expect(draft).toHaveValue("Keep this Active draft.");
+    await expect(active.querySelector("article")).toBe(card);
+    await expect(active.scrollTop).toBe(100);
+    await expect(resolved.scrollTop).toBe(70);
+  },
+};
+export const QueueDraftAndScrollDark: Story = {
+  ...QueueDraftAndScroll,
+  globals: { theme: "dark" },
 };
 export const ComposerAsCard: Story = {
   play: async ({ canvasElement }) => {
@@ -364,6 +404,28 @@ export const CardMotion: Story = {
           <ArtifactThreads {...args} detail={{ ...args.detail, feedback }} keysActive={false} />
         </div>
       </div>
+    );
+  },
+};
+
+export const LocateResolvedWithDraft: Story = {
+  args: { ...QueueDraftAndScroll.args, activeFeedback: "feedback_queue_4" },
+  beforeEach: () => {
+    artifactDrafts.update(artifactFixture.id, { body: "A draft from the previous visit." });
+    return () => artifactDrafts.clear(artifactFixture.id);
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() =>
+      expect(canvas.getByRole("tab", { name: "Resolved 4" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    await expect(canvas.queryByRole("textbox", { name: "Feedback" })).toBeNull();
+    await userEvent.click(canvas.getByRole("tab", { name: "Active 4" }));
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toHaveValue(
+      "A draft from the previous visit.",
     );
   },
 };
