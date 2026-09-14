@@ -1,0 +1,47 @@
+.proposal-primary {
+  background: var(--proposal-fill);
+  color: var(--proposal-ink);
+}
+.proposal-primary:hover {
+  background: var(--proposal-hover);
+}
+.proposal-primary:focus-visible {
+  outline: 2px solid var(--proposal-fill);
+  outline-offset: 3px;
+}
+.proposal-workspace {
+  --proposal-panel-width: clamp(280px, 38.2%, 480px);
+}
+.proposal-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--proposal-panel-width);
+  max-width: 100%;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  transition:
+    top 240ms ease-out,
+    right 240ms ease-out,
+    bottom 240ms ease-out,
+    border-radius 240ms ease-out,
+    box-shadow 240ms ease-out;
+}
+.proposal-workspace[data-floating="true"] .proposal-panel {
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  max-width: calc(100% - 32px);
+  border-width: 1px;
+  border-radius: 8px;
+}
+.proposal-queues {
+  transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .proposal-panel,
+  .proposal-queues {
+    transition: none;
+  }
+}

@@ -30,6 +30,7 @@ import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } fr
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
+import { FeedbackMotionProposal, PrimaryColorProposals } from "./DesignProposals.tsx";
 import "../main.css";
 
 // The build aliases all API calls to this same in-memory demo backend.
@@ -59,6 +60,8 @@ const sections = [
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
   ["controls", "Controls & typography"],
+  ["color-proposals", "Primary color proposals"],
+  ["motion-proposal", "Panel motion proposal"],
 ] as const;
 
 function Section({ id, children }: { id: (typeof sections)[number][0]; children: ReactNode }) {
@@ -503,6 +506,12 @@ function Showcase() {
               onJumpRef={() => setNotice("Sample reference selected")}
             />
           </div>
+        </Section>
+        <Section id="color-proposals">
+          <PrimaryColorProposals />
+        </Section>
+        <Section id="motion-proposal">
+          <FeedbackMotionProposal />
         </Section>
       </div>
       {notice && (
