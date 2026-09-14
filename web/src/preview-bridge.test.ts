@@ -1,8 +1,17 @@
 import { expect, test } from "bun:test";
 import type { ArtifactDetail, ArtifactFeedback, ArtifactReply } from "../../shared/artifacts.ts";
 import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
-import { previewBridgeCall } from "./preview-bridge.ts";
+import { previewBridgeCall, previewLocator } from "./preview-bridge.ts";
 import { previewThemePreference } from "./preview-theme.ts";
+
+test("full-height Markdown retains its native viewport evidence", () => {
+  const locator = { selector: "h2", viewport: { width: 800, height: 200_000 } };
+  expect(previewLocator(locator)).toEqual(locator);
+  for (const height of [Infinity, NaN, -1, 16_000_001])
+    expect(() => previewLocator({ ...locator, viewport: { width: 800, height } })).toThrow(
+      "Invalid rendered viewport",
+    );
+});
 
 test("preview bridge exposes only its artifact's human conversation at the selected version", async () => {
   const context: PreviewPageContext = {

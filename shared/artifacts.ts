@@ -83,6 +83,10 @@ export interface SourceLocator {
   quote: string;
 }
 
+// Full-height Markdown frames can exceed an ordinary browser window. Keep
+// height reports and native viewport evidence within the same layout bound.
+export const MAX_RENDERED_HEIGHT = 16_000_000;
+
 export interface RenderedLocator {
   selector: string;
   quote?: string;

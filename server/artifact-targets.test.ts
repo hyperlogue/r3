@@ -86,7 +86,7 @@ describe("native artifact targets", () => {
         quote: "  Generated\nchart\u00a0label ",
         prefix: " Before  ",
         route: "#chart",
-        viewport: { width: 800, height: 600 },
+        viewport: { width: 800, height: 200_000 },
         start: 99,
         end: 100,
       },
@@ -100,7 +100,7 @@ describe("native artifact targets", () => {
         quote: "Generated chart label",
         prefix: "Before",
         route: "#chart",
-        viewport: { width: 800, height: 600 },
+        viewport: { width: 800, height: 200_000 },
       },
     });
     await expect(

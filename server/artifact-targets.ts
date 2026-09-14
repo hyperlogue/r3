@@ -8,6 +8,7 @@ import type {
   SourceLocator,
   TextQuote,
 } from "../shared/artifacts.ts";
+import { MAX_RENDERED_HEIGHT } from "../shared/artifacts.ts";
 import { normalizeRenderedText } from "../shared/rendered-text.ts";
 import {
   ArtifactError,
@@ -78,7 +79,7 @@ function renderedLocator(value: unknown): RenderedLocator {
       width <= 0 ||
       height <= 0 ||
       width > 100_000 ||
-      height > 100_000
+      height > MAX_RENDERED_HEIGHT
     ) {
       throw new ArtifactError("Invalid rendered viewport");
     }

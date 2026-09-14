@@ -1,4 +1,5 @@
 import type { ArtifactDetail, RenderedLocator } from "../../shared/artifacts.ts";
+import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
 import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
 import { normalizeRenderedText } from "../../shared/rendered-text.ts";
 import type { artifactApi } from "./artifact-api.ts";
@@ -35,7 +36,7 @@ export function previewLocator(value: unknown): RenderedLocator | null {
       width <= 0 ||
       height <= 0 ||
       width > 100_000 ||
-      height > 100_000
+      height > MAX_RENDERED_HEIGHT
     )
       throw new Error("Invalid rendered viewport");
     viewport = { width, height };
