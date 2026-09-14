@@ -163,7 +163,10 @@ only archived state is labeled. Exact timestamps remain available on hover.
 Title editing lives in an explicit **Edit title** form inside that menu.
 A **Settings** row closes the artifact menu and opens the settings popup; dismissing
 it restores focus to the three-dot trigger. The artifact navbar has no separate gear.
-There is no separate body header or delete button. Version selection sits in the
+There is no separate body header or delete button. Navbar action buttons
+highlight only their outline on hover;
+their text, icons, and transparent background stay steady. Desktop actions leave
+vertical breathing room, while mobile retains its larger touch targets. Version selection sits in the
 top navigation; below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
 The picker supports arrow keys, Home/End, and Enter; Escape closes its current

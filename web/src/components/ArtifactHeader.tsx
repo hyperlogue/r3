@@ -188,7 +188,7 @@ export function ArtifactHeader({
           latest={detail.versions.at(-1)?.seq}
           selected={selectedVersion}
           onOpen={onSelectVersion}
-          className="max-md:hidden"
+          className="md:py-[calc(.25rem-1px)] max-md:hidden"
         />
       )}
       {onSelectVersion && (
@@ -203,8 +203,8 @@ export function ArtifactHeader({
       {detail.state === "archived" && <Pill>Archived</Pill>}
       {onToggleCommenting && (
         <Button
-          variant={commenting ? "primary-outline" : "ghost"}
-          className={`shrink-0 p-1.5 max-md:size-9${commenting ? "" : " border border-transparent"}`}
+          variant={commenting ? "primary-outline" : "nav"}
+          className="shrink-0 px-1.5 py-[calc(.375rem-1px)] max-md:size-9"
           aria-label={commenting ? "Exit comment mode" : "Comment mode"}
           title={commenting ? "Exit comment mode" : "Comment mode"}
           aria-pressed={commenting}
@@ -226,8 +226,8 @@ export function ArtifactHeader({
       )}
       <Button
         ref={detailsTrigger}
-        variant="ghost"
-        className="shrink-0 p-1.5 max-md:size-9"
+        variant="nav"
+        className="shrink-0 px-[calc(.375rem-1px)] py-[calc(.375rem-2px)] max-md:size-9"
         aria-label="Artifact details and actions"
         title="Artifact details and actions"
         aria-haspopup="dialog"

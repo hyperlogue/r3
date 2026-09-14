@@ -160,6 +160,26 @@ export const Versions: Story = {
   },
 };
 export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
+export const NavbarActions: Story = {
+  args: { ...Versions.args, detail: { ...Versions.args!.detail!, kind: "html" } },
+  render: (args) => {
+    const [selected, setSelected] = useState<number | null>(1);
+    const [commenting, setCommenting] = useState(false);
+    const [feedbackVisible, setFeedbackVisible] = useState(true);
+    return (
+      <ArtifactHeader
+        {...args}
+        selectedVersion={selected}
+        onSelectVersion={setSelected}
+        commenting={commenting}
+        onToggleCommenting={() => setCommenting(!commenting)}
+        feedbackVisible={feedbackVisible}
+        onToggleFeedback={() => setFeedbackVisible(!feedbackVisible)}
+      />
+    );
+  },
+};
+export const NavbarActionsDark: Story = { ...NavbarActions, globals: { theme: "dark" } };
 export const PhoneVersions: Story = {
   ...Versions,
   parameters: phoneViewport(),
