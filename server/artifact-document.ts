@@ -20,8 +20,8 @@ td,th{padding:8px 12px;border:1px solid #8886;text-align:start}
 hr{border:0;border-top:1px solid #8886;margin-block:32px}
 `;
 
-export const renderArtifactDocument: DocumentRenderer = async (source, path) => {
-  const [body, palette] = await Promise.all([renderPublishedMarkdown(source, path), themeStyle()]);
+export const renderArtifactDocument: DocumentRenderer = async (source) => {
+  const [body, palette] = await Promise.all([renderPublishedMarkdown(source), themeStyle()]);
   const rules = palette.css.split("\n");
   const light = rules
     .filter((rule) => rule.startsWith("html:not(.dark)"))

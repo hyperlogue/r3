@@ -1,6 +1,7 @@
 // Server-side syntax highlighting. Dual-theme via palette classes + one
 // per-theme stylesheet (below); cached by content sha.
 
+import MarkdownIt from "markdown-it";
 import {
   bundledLanguages,
   bundledThemes,
@@ -11,7 +12,6 @@ import {
 } from "shiki";
 import { applyColorReplacements, normalizeTheme } from "shiki/core";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
-import { md, REMOTE_URL_RE } from "./mdproject.ts";
 import { renderMermaidSvg } from "./mermaid.ts";
 
 // Curated syntax-theme *families*: each is a light/dark pair, rendered into the
@@ -638,11 +638,15 @@ export async function highlightToLines(
   return lines;
 }
 
-// ---- Markdown render. The `md` instance lives in mdproject.ts (anchor search
-// projects the same parse — the two must agree); this module adds render-only rules.
+// ---- Retained Markdown documents ----
 
-// Remote images fetch with no click, so they'd beacon on view; render them as
-// links instead (REMOTE_URL_RE, mdproject.ts).
+const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+// Do not promote filenames or bare domains into external links. Explicit links
+// retain native URLs and are constrained by the preview host's resource policy.
+md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
+const REMOTE_URL_RE = /^(?!data:)[a-z][a-z0-9+.-]*:|^\/\//i;
+
+// Remote images become links rather than making a request on document load.
 const defaultImage =
   md.renderer.rules.image ??
   ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
@@ -657,30 +661,6 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
     ` title="Remote image — not loaded automatically">${escapeHtml(alt || src)}</a>`
   );
 };
-// ---- Links. Relative targets resolve against the containing file's directory
-// (not the SPA page URL) and the client jumps to that file's card. A scheme /
-// `//host` keeps new-tab. A link with no target would navigate the SPA away. ----
-
-// Resolve a link target against the directory of the file that contains it.
-// Lexical only, no fs: the result is matched against the review's file list on
-// the client and never read, so a path that climbs out of the repo simply fails
-// to match (and renders dead) rather than needing a guard. A leading `/` is
-// repo-root-relative, as it is on GitHub.
-//
-// It is deliberately NOT safePathIn: it has to be able to *return* `../…` so the
-// client can recognize an out-of-review target. That makes it unsafe as a read
-// path — anything that ever turns one of these into a file read must put it
-// through `repo.safePath()` first.
-function resolveDocPath(from: string, href: string): string {
-  const out = href.startsWith("/") ? [] : from.split("/").slice(0, -1);
-  for (const seg of href.replace(/^\//, "").split("/")) {
-    if (seg === "" || seg === ".") continue;
-    if (seg === ".." && out.length > 0 && out[out.length - 1] !== "..") out.pop();
-    else out.push(seg);
-  }
-  return out.join("/");
-}
-
 // GitHub-style heading slug: lowercased, punctuation dropped, spaces to dashes.
 // Unicode-aware, so a CJK or accented heading keeps its letters instead of
 // slugging to nothing.
@@ -691,42 +671,6 @@ function slugify(text: string): string {
     .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
     .replace(/\s+/g, "-");
 }
-
-const defaultLinkOpen =
-  md.renderer.rules.link_open ??
-  ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
-md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-  if (env?.standalone) return defaultLinkOpen(tokens, idx, options, env, self);
-  const token = tokens[idx];
-  const href = String(token.attrGet("href") ?? "");
-  if (REMOTE_URL_RE.test(href)) {
-    token.attrSet("target", "_blank");
-    token.attrSet("rel", "noopener noreferrer");
-    return defaultLinkOpen(tokens, idx, options, env, self);
-  }
-  // markdown-it percent-encodes the href it stores; the path we hand back is
-  // compared against review file paths, so undo that first (a malformed escape
-  // just stays as written).
-  let raw = href;
-  try {
-    raw = decodeURIComponent(href);
-  } catch {}
-  const hashAt = raw.indexOf("#");
-  const hash = hashAt === -1 ? "" : raw.slice(hashAt + 1);
-  // Drop a query string: it means nothing to a file in a review.
-  const path = (hashAt === -1 ? raw : raw.slice(0, hashAt)).split("?")[0];
-  const from = (env as { path?: string } | undefined)?.path ?? "";
-  // A bare `#fragment` points inside the file being rendered.
-  const file = path === "" ? from : resolveDocPath(from, path);
-  token.attrJoin("class", "r3-doclink");
-  token.attrSet("data-r3-doc-file", file);
-  if (hash) token.attrSet("data-r3-doc-hash", slugify(hash));
-  // `href="#"` keeps the link focusable (so Enter fires the same click) while
-  // making the fallback navigation harmless — the client preventDefaults it.
-  token.attrSet("href", "#");
-  if (token.attrGet("title") == null) token.attrSet("title", hash ? `${file}#${hash}` : file);
-  return defaultLinkOpen(tokens, idx, options, env, self);
-};
 
 // ---- Fenced code blocks. A named grammar gets the same Shiki pass as the code
 // view; unknown/absent stays escaped. ` ```mermaid ` / ` ```mmd ` is the exception
@@ -746,14 +690,12 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const hl = token.meta as FenceHighlight | null;
   if (hl?.html == null) return defaultFence(tokens, idx, options, env, self);
   if (hl.mermaid) {
-    // The data-line-* the core rule tagged ride the wrapper so a note on the
-    // fence still has an innermost range, same as a <pre><code> fence.
     token.attrJoin("class", "r3-mermaid");
     return `<div${self.renderAttrs(token)}>${hl.html}</div>\n`;
   }
   // The wrapper the default rule would have emitted — the fence's own info word
-  // as `language-*`, plus the data-line-* the core rule tagged — with the
-  // highlighted body in place of the escaped text. `shiki-code` is the same
+  // as `language-*`, with the highlighted body in place of escaped text.
+  // `shiki-code` is the same
   // marker class the code rows carry; the token colours come from the palette
   // classes on the spans (see ThemeStyle.css above).
   const info = md.utils.unescapeAll(token.info).trim().split(/\s+/)[0];
@@ -765,7 +707,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
 // Highlight every fence in a parsed token stream (in parallel — each is an
 // independent Shiki pass, cached by content sha like any other blob). The token
 // stream is flat, so a fence nested in a list item or blockquote is covered too.
-async function highlightFences(tokens: ReturnType<typeof md.parse>, theme?: string): Promise<void> {
+async function highlightFences(tokens: ReturnType<typeof md.parse>): Promise<void> {
   await Promise.all(
     tokens.map(async (token) => {
       if (token.type !== "fence") return;
@@ -778,43 +720,14 @@ async function highlightFences(tokens: ReturnType<typeof md.parse>, theme?: stri
       const lang = langForFence(info);
       if (!lang) return;
       const sha = new Bun.CryptoHasher("sha1").update(token.content).digest("hex");
-      const lines = await highlightToLines(token.content, lang, sha, theme);
+      const lines = await highlightToLines(token.content, lang, sha);
       token.meta = { ...(token.meta ?? {}), html: lines.join("\n") } satisfies FenceHighlight;
     }),
   );
 }
 
-// Inject data-line attributes from token.map onto block-level open tokens.
-// NESTED blocks are tagged too, not just top-level ones: markdown has no
-// per-line rows, so whatever we tag is the finest range a browser selection can
-// report, and a top-level-only pass made a note on one bullet come back as its
-// whole <ul> (a table cell as the whole table). markdown-it maps list_item_open
-// and tr_open individually, so tagging them narrows the anchor to the item/row.
-// The client resolves a click/selection to the INNERMOST tagged ancestor and
-// marks only innermost blocks (web/src/highlights.ts), so the ancestors that
-// still carry a range never widen it back.
-md.core.ruler.push("line_numbers", (state) => {
-  if (state.env?.standalone) return true;
-  for (const token of state.tokens) {
-    // Hidden tokens (a tight list item's implicit paragraph) render no element,
-    // and their map duplicates the item's anyway.
-    if (!token.map || token.hidden) continue;
-    // fences and indented code blocks are self-contained (no _open/_close) —
-    // tag them too, or a selection inside one finds no anchor ancestor.
-    if (token.type.endsWith("_open") || token.type === "fence" || token.type === "code_block") {
-      token.attrSet("data-line-start", String(token.map[0] + 1));
-      token.attrSet("data-line-end", String(token.map[1]));
-    }
-  }
-  return true;
-});
-
-// Tag each heading with its slug so a doc link's `#fragment` has something to
-// land on. NOT an `id`: every file in a review renders into one page, so two
-// docs with a "## Cost" section would collide on a global id and native
-// fragment nav would scroll to whichever came first. The client scopes the
-// lookup to the target file's card instead. Duplicates within one file get the
-// `-1`, `-2` suffix GitHub uses.
+// Native fragment destinations, unique within this document. Duplicates use
+// GitHub's -1, -2 suffixes; each preview has its own isolated document scope.
 md.core.ruler.push("heading_slugs", (state) => {
   const seen = new Map<string, number>();
   state.tokens.forEach((token, i) => {
@@ -824,37 +737,15 @@ md.core.ruler.push("heading_slugs", (state) => {
     if (!slug) return;
     const n = seen.get(slug) ?? 0;
     seen.set(slug, n + 1);
-    token.attrSet(
-      state.env?.standalone ? "id" : "data-r3-heading",
-      n === 0 ? slug : `${slug}-${n}`,
-    );
+    token.attrSet("id", n === 0 ? slug : `${slug}-${n}`);
   });
   return true;
 });
 
-// `path` is the reviewed file's repo-relative path — the base every relative
-// link in it resolves against (see the link rule above). `theme` is the
-// reader's syntax theme, applied to the fences (above).
-//
-// Deliberately parse → highlight → render rather than `md.render`: the fence
-// highlights are async and ride the tokens, so the renderer has to see the very
-// tokens that were highlighted.
-export async function renderMarkdown(
-  source: string,
-  path: string,
-  theme?: string,
-): Promise<string> {
-  const env = { path };
-  const tokens = md.parse(source, env);
-  await highlightFences(tokens, theme);
-  return md.renderer.render(tokens, md.options, env);
-}
-
-// Published documents navigate within their own version URL and anchor directly
-// to the rendered DOM. Source-line mappings and SPA file-card links are specific
-// to the legacy review renderer above, not to this retained document surface.
-export async function renderPublishedMarkdown(source: string, path: string): Promise<string> {
-  const env = { path, standalone: true };
+// Parse once, prepare asynchronous fence highlights on those tokens, then
+// render. Relative links stay native; rendered targets never carry source maps.
+export async function renderPublishedMarkdown(source: string): Promise<string> {
+  const env = {};
   const tokens = md.parse(source, env);
   await highlightFences(tokens);
   return md.renderer.render(tokens, md.options, env);

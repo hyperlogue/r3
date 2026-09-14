@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderMarkdown } from "./highlight.ts";
+import { renderPublishedMarkdown } from "./highlight.ts";
 import { isMermaidFence, renderMermaidSvg } from "./mermaid.ts";
 
 const FLOW = `flowchart LR
@@ -126,14 +126,11 @@ describe("renderMermaidSvg", () => {
   });
 });
 
-describe("renderMarkdown mermaid fences", () => {
-  test("wraps a flowchart fence in .r3-mermaid with source-line attrs", async () => {
-    const html = await renderMarkdown(
-      "intro\n\n```mermaid\nflowchart LR\n  A-->B\n```\n",
-      "doc.md",
-    );
+describe("renderPublishedMarkdown mermaid fences", () => {
+  test("wraps a flowchart fence in .r3-mermaid without source-line mappings", async () => {
+    const html = await renderPublishedMarkdown("intro\n\n```mermaid\nflowchart LR\n  A-->B\n```\n");
     expect(html).toContain('class="r3-mermaid"');
-    expect(html).toContain("data-line-start");
+    expect(html).not.toContain("data-line-start");
     expect(html).toContain("<svg");
     expect(html).toContain("A");
     expect(html).toContain("B");
@@ -141,7 +138,7 @@ describe("renderMarkdown mermaid fences", () => {
   });
 
   test("falls through to a highlighted code fence for pie charts", async () => {
-    const html = await renderMarkdown('```mermaid\npie title Pets\n  "dogs" : 10\n```\n', "doc.md");
+    const html = await renderPublishedMarkdown('```mermaid\npie title Pets\n  "dogs" : 10\n```\n');
     expect(html).not.toContain("r3-mermaid");
     expect(html).toContain("language-mermaid");
   });

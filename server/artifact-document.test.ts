@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { DOCUMENT_RENDERER_REVISION, renderArtifactDocument } from "./artifact-document.ts";
-import { renderMarkdown } from "./highlight.ts";
 
 describe("retained Markdown documents", () => {
   test("local links, images and fragments retain ordinary document URL semantics", async () => {
@@ -14,12 +13,6 @@ describe("retained Markdown documents", () => {
     expect(result.html).toContain('id="section-1"');
     expect(result.html).not.toContain("data-line-start");
     expect(result.html).not.toContain("r3-doclink");
-    // Rendering a publication must not alter the existing review renderer's
-    // per-call URL behavior or source mapping while cutover is in progress.
-    const legacy = await renderMarkdown(source, "docs/index.md");
-    expect(legacy).toContain("r3-doclink");
-    expect(legacy).toContain("data-line-start");
-    expect(legacy).not.toContain('id="section"');
   });
 
   test("published prose escapes raw HTML and preserves code highlighting and safe diagrams", async () => {
