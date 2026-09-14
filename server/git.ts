@@ -1,7 +1,7 @@
 // Pure patch parsing and capture trimming. No repository or filesystem reads.
 import type { DiffFileChange } from "../shared/types.ts";
 import { decodeGitPath, gitHeaderPaths } from "./git-path.ts";
-import { rehunk } from "./textdiff.ts";
+import { rehunk } from "./patch-hunks.ts";
 
 export async function blobSha(content: string): Promise<string> {
   const hasher = new Bun.CryptoHasher("sha1");

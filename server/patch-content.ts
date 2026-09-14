@@ -3,7 +3,7 @@ import { type DiffFileChange, type DiffLine, MAX_CONTEXT_ROWS } from "../shared/
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import { blobSha, parseUnifiedDiff } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
-import { rehunk } from "./textdiff.ts";
+import { rehunk } from "./patch-hunks.ts";
 
 export function validateStoredPatch(raw: string): DiffFileChange[] {
   const files = parseUnifiedDiff(raw);

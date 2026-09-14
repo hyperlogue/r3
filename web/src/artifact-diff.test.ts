@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { rehunk } from "../../server/textdiff.ts";
+import { rehunk } from "../../server/patch-hunks.ts";
 import { gapContainingLine, gapsOf } from "./expand.ts";
 import type { DiffLine } from "./types.ts";
 
