@@ -17,7 +17,7 @@ import {
   ArtifactPreviewSecuritySource,
 } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
-import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
+import { type ArtifactFeedbackTab, ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
@@ -30,7 +30,6 @@ import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } fr
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
-import { FeedbackMotionProposal, PrimaryColorSample } from "./DesignProposals.tsx";
 import "../main.css";
 
 // The build aliases all API calls to this same in-memory demo backend.
@@ -60,8 +59,6 @@ const sections = [
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
   ["controls", "Controls & typography"],
-  ["color-proposals", "Primary button color"],
-  ["motion-proposal", "Panel motion proposal"],
 ] as const;
 
 function Section({ id, children }: { id: (typeof sections)[number][0]; children: ReactNode }) {
@@ -79,6 +76,7 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
 function Feedback({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
+  const [feedbackTab, setFeedbackTab] = useState<ArtifactFeedbackTab>("active");
   const [versionSeq, setVersionSeq] = useState<number | null>(1);
   const mode = useFeedbackMode();
   const collapsed = mode === "hidden";
@@ -96,8 +94,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
   return (
     <>
       <p className="text-sm text-neutral-500">
-        Try changing versions, editing the title, opening the three-dot menu, replying, and
-        resolving a thread. Archive and the description are inside the menu. These are sample
+        Try floating and docking the panel, then switch between Active and Resolved. Start a draft
+        in Active to see it slide with that queue and stay intact when you return. These are sample
         conversations; use r3’s outer comment mode for your UI feedback.
       </p>
       <div className="border border-neutral-300 dark:border-neutral-700">
@@ -125,6 +123,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               <Button
                 onClick={() => {
                   changeMode("expanded");
+                  setFeedbackTab("active");
                   artifactDrafts.anchor(id, { kind: "artifact" });
                 }}
               >
@@ -198,6 +197,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 }
                 onJumpRef={() => announce("Sample file reference selected")}
                 keysActive={false}
+                tab={feedbackTab}
+                onTabChange={setFeedbackTab}
                 panelControls={controls}
               />
             )}
@@ -506,12 +507,6 @@ function Showcase() {
               onJumpRef={() => setNotice("Sample reference selected")}
             />
           </div>
-        </Section>
-        <Section id="color-proposals">
-          <PrimaryColorSample />
-        </Section>
-        <Section id="motion-proposal">
-          <FeedbackMotionProposal />
         </Section>
       </div>
       {notice && (
