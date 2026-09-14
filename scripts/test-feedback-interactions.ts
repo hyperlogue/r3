@@ -313,7 +313,7 @@ try {
   );
   await eventually(() => page.evaluate(`${panel}.getAnimations().length > 0`), "float transition");
   await page.evaluate(
-    `(() => { const animation = ${panel}.getAnimations()[0]; animation.pause(); animation.currentTime = 120; })()`,
+    `(() => { const animation = ${panel}.getAnimations()[0]; animation.pause(); animation.currentTime = 180; })()`,
   );
   const halfway = await geometry();
   await page.evaluate("document.querySelector('[aria-label=\"Dock feedback\"]').click()");

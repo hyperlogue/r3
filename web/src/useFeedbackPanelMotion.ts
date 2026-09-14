@@ -106,7 +106,7 @@ export function useFeedbackPanelMotion(
           overflow: "clip",
         },
       ],
-      { duration: 240, easing: "ease-out" },
+      { duration: 360, easing: "ease-out" },
     );
     animation.current = next;
     next.onfinish = next.oncancel = () => {
