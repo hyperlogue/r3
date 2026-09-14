@@ -182,6 +182,8 @@ The feedback dock retains the compact **Active / Resolved** tabs. Its Add genera
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses
 a transparent green outline button with neutral text and icon; hover colors the
 text green and strengthens the border and tint.
+Transient background read failures retain the loaded workspace. Definitive missing
+artifact or access errors replace it with an error state.
 Resolve and Reopen update the queue immediately while the server saves. Pending
 decisions are applied over refreshed server state, so incoming replies remain visible.
 A failed save restores that thread and shows its error without rolling back other

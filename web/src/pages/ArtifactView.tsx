@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import type {
   ArtifactDetail,
   ArtifactDocumentTarget,
@@ -94,7 +95,9 @@ export function ArtifactView({
   useEffect(() => {
     document.title = `${query.data?.title || artifactId} · r3`;
   }, [artifactId, query.data?.title]);
-  if (query.error && !query.data)
+  const unavailable =
+    query.error instanceof ArtifactApiError && [401, 403, 404, 410].includes(query.error.status);
+  if (query.error && (!query.data || unavailable))
     return (
       <>
         <AppHeader />

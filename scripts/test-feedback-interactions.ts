@@ -55,14 +55,21 @@ const api = createArtifactApi(storage, {
   version: "acceptance",
   allowedHost: (host) => host === "localhost",
 });
+let rejectDetail = false;
+let failedDetailReads = 0;
 const pending: { request: Request; respond: (response: Response) => void }[] = [];
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
+  idleTimeout: 60,
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (request.method === "PATCH" && /^\/api\/feedback\/[^/]+$/.test(path))
       return new Promise<Response>((respond) => pending.push({ request, respond }));
+    if (rejectDetail && request.method === "GET" && path === `/api/artifacts/${artifact.id}`) {
+      failedDetailReads++;
+      return Response.json({ error: "Temporary detail read failure" }, { status: 503 });
+    }
     if (path.startsWith("/api/")) return api.app.fetch(request);
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
@@ -393,6 +400,22 @@ try {
   );
   console.log(
     "Floating feedback: drag across an opaque frame, resize, independent docking, hide/show, reload, viewport clamping and keyboard resizing passed.",
+  );
+  rejectDetail = true;
+  api.collaboration.broadcast({ type: "artifact-updated", artifactId: artifact.id });
+  await eventually(async () => failedDetailReads > 0, "failed background detail refresh");
+  await Bun.sleep(100);
+  assert.equal(
+    await page.evaluate(`!!${panel}`),
+    true,
+    "Transient refetch failure retains the workspace",
+  );
+  rejectDetail = false;
+  storage.artifacts.delete(artifact.id);
+  api.collaboration.deleted(artifact.id);
+  await eventually(
+    () => page.evaluate(`!${panel} && !!document.querySelector('main[role=alert]')`),
+    "a definitive deletion replaces cached content with an unavailable state",
   );
   console.log(
     "Feedback decisions update immediately with safe rollback; the composer shares the list, typing stays stable, and Cancel/Discard animate surrounding cards.",

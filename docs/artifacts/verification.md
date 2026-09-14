@@ -156,3 +156,7 @@ after hiding/reloading, and verifies viewport clamping and keyboard resizing.
 The same feedback regression reopens a composer while its predecessor is still
 an inert animated exit. Focus must reach the live draft. `ReopenDuringExit` covers
 the standalone panel in Storybook.
+
+The feedback acceptance keeps a loaded workspace through a transient detail-refetch
+failure, then deletes its artifact through the server and checks that definitive
+unavailability replaces the cached workspace and its feedback controls.
