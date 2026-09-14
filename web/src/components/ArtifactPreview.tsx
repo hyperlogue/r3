@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type ArtifactPreviewContext,
   type ArtifactPreviewNetwork,
   artifactMediaKind,
+  MAX_RENDERED_HEIGHT,
 } from "../../../shared/artifacts.ts";
 import type {
   PreviewCaptureState,
@@ -22,6 +23,7 @@ import {
   useCompatibilityConsent,
 } from "../preview-protection.ts";
 import { previewThemePreference } from "../preview-theme.ts";
+import { observePreviewViewport } from "../preview-viewport.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
@@ -113,7 +115,7 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
   const file = files.data?.find((file) => file.path === props.path);
   const media = !!file && !!artifactMediaKind(file.mediaType);
   return (
-    <div className="flex min-h-80 flex-1 flex-col" data-artifact-preview>
+    <div className="flex flex-1 flex-col" data-artifact-preview>
       <ArtifactPreviewSecuritySource
         path={props.path}
         network={network}
@@ -171,6 +173,9 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
             : undefined
         }
         paths={files.data?.map((file) => file.path) ?? []}
+        markdownPaths={
+          files.data?.filter((file) => file.renderedHash).map((file) => file.path) ?? []
+        }
         onRetry={() => {
           setVerification("checking");
           setCompatibilityRequired(false);
@@ -184,6 +189,7 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
 function PreviewSession(
   props: ArtifactRenderedPaneProps & {
     paths: string[];
+    markdownPaths: string[];
     network: ArtifactPreviewNetwork;
     devices: PreviewDevicePermissions;
     capture: PreviewCapture;
@@ -205,6 +211,10 @@ function PreviewSession(
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [ready, setReady] = useState(false);
+  const [documentHeight, setDocumentHeight] = useState<{ path: string; height: number } | null>(
+    null,
+  );
+  const fittedPath = useRef<string | null>(null);
   const iframe = useRef<HTMLIFrameElement>(null);
   const currentPath = useRef(initialPath);
   const verified = useRef(false);
@@ -226,6 +236,7 @@ function PreviewSession(
     setError("");
     setNotice("");
     setReady(false);
+    setDocumentHeight(null);
     current.current.onVerification("checking");
     verified.current = false;
     const renew = async () => {
@@ -316,8 +327,11 @@ function PreviewSession(
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display = () => {
       const props = current.current;
+      const fitContent =
+        props.detail.kind === "files" && props.markdownPaths.includes(currentPath.current);
       const value: PreviewDisplay = {
         theme: theme.current,
+        fitContent,
         commenting: props.commenting && context.presentation === "document",
         targets: props.targets.flatMap(({ feedbackId, target }) =>
           target.kind === "rendered" &&
@@ -326,7 +340,10 @@ function PreviewSession(
             ? [{ feedbackId, locator: target.locator }]
             : [],
         ),
-        jump: props.path === currentPath.current ? props.jump : null,
+        jump:
+          props.path === currentPath.current && (!fitContent || fittedPath.current === props.path)
+            ? props.jump
+            : null,
       };
       send({ type: "r3-preview-display", display: value });
     };
@@ -372,6 +389,8 @@ function PreviewSession(
       connection.current?.close();
       const port = event.ports[0];
       connection.current = port;
+      fittedPath.current = null;
+      setDocumentHeight(null);
       const path = message.path;
       const initiallyAllowed =
         !connected &&
@@ -406,6 +425,18 @@ function PreviewSession(
           setReady(true);
           setNotice("");
           display();
+        } else if (message.type === "r3-preview-height") {
+          // Only the verified current port and a retained Markdown member may
+          // size a file card. Authored HTML keeps its own viewport.
+          if (
+            current.current.detail.kind === "files" &&
+            current.current.markdownPaths.includes(path) &&
+            typeof message.height === "number" &&
+            Number.isFinite(message.height) &&
+            message.height > 0 &&
+            message.height <= MAX_RENDERED_HEIGHT
+          )
+            setDocumentHeight({ path, height: Math.ceil(message.height) });
         } else if (message.type === "r3-preview-target") {
           if (!current.current.commenting || context.presentation !== "document") return;
           try {
@@ -522,20 +553,26 @@ function PreviewSession(
     return () => clearInterval(timer);
   }, [props.capturing]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed thread or lifecycle snapshot must notify utility subscribers even when the displayed targets stay identical.
+  // Notify utility subscribers on thread/lifecycle changes as well as display changes.
   useEffect(() => {
     if (!context || !ready) return;
     const send = (value: Record<string, unknown>) =>
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display: PreviewDisplay = {
       theme: dark ? "dark" : "light",
+      fitContent: props.detail.kind === "files" && props.markdownPaths.includes(props.path),
       commenting: props.commenting && context.presentation === "document",
       targets: props.targets.flatMap(({ feedbackId, target }) =>
         target.kind === "rendered" && target.versionSeq === seq && target.path === props.path
           ? [{ feedbackId, locator: target.locator }]
           : [],
       ),
-      jump: props.jump,
+      jump:
+        props.detail.kind !== "files" ||
+        !props.markdownPaths.includes(props.path) ||
+        documentHeight?.path === props.path
+          ? props.jump
+          : null,
     };
     send({ type: "r3-preview-display", display });
     send({ type: "r3-preview-changed" });
@@ -548,13 +585,40 @@ function PreviewSession(
     props.jump,
     props.path,
     props.detail,
+    props.markdownPaths,
+    documentHeight,
     dark,
   ]);
+
+  const height =
+    documentHeight?.path === props.path && props.markdownPaths.includes(props.path)
+      ? documentHeight.height
+      : undefined;
+
+  // A cold Markdown Locate must wait until the frame has its measured height;
+  // scrolling its provisional viewport would be lost as that viewport grows.
+  useLayoutEffect(() => {
+    fittedPath.current = height === undefined ? null : (documentHeight?.path ?? null);
+  }, [height, documentHeight]);
+
+  useEffect(() => {
+    if (!context || !ready || height === undefined || !props.commenting || !iframe.current) return;
+    return observePreviewViewport(iframe.current, (viewport) => {
+      connection.current?.postMessage({
+        type: "r3-preview-viewport",
+        contextId: context.id,
+        viewport,
+      });
+    });
+  }, [context, height, ready, props.commenting]);
 
   return (
     <div
       aria-busy={!ready && !error}
-      className="relative flex min-h-80 flex-1 flex-col bg-white dark:bg-neutral-950"
+      className={cn(
+        "relative flex flex-col bg-white dark:bg-neutral-950",
+        height === undefined && "min-h-80 flex-1",
+      )}
     >
       {error ? (
         <div role="alert" className="p-6 text-sm text-neutral-700 dark:text-neutral-300">
@@ -597,7 +661,12 @@ function PreviewSession(
           // Verify the current port after every load. A count of gate/document
           // loads is unreliable when a page redirects before finishing loading.
           onLoad={() => checkDocument.current()}
-          className={cn("min-h-80 w-full flex-1 border-0 bg-white", !ready && "invisible")}
+          style={{ height }}
+          className={cn(
+            "w-full border-0 bg-white",
+            height === undefined ? "min-h-80 flex-1" : "flex-none",
+            !ready && "invisible",
+          )}
         />
       )}
     </div>

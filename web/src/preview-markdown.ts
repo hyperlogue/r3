@@ -46,3 +46,43 @@ export function installMarkdownTheme(
   });
   document.addEventListener("DOMContentLoaded", apply, { once: true });
 }
+
+// Body size is independent of the iframe viewport, so widening a document can
+// shrink its frame again. Measuring document.scrollHeight would retain the old
+// viewport height and leave a growing blank tail. No retained bytes are changed.
+export function installMarkdownLayout(
+  config: PreviewBootstrap,
+  connection: PreviewConnection,
+): void {
+  if (!document.currentScript?.hasAttribute("data-r3-markdown")) return;
+  let enabled = false;
+  let lastHeight = 0;
+  let frame = 0;
+  const measure = () => {
+    frame = 0;
+    if (!enabled || !document.body) return;
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
+    if (height > 0 && height !== lastHeight) {
+      lastHeight = height;
+      connection.send({ type: "r3-preview-height", height });
+    }
+  };
+  const schedule = () => {
+    if (enabled && !frame) frame = requestAnimationFrame(measure);
+  };
+  const observer = new ResizeObserver(schedule);
+  const observe = () => {
+    if (document.body) observer.observe(document.body);
+    schedule();
+  };
+  connection.subscribe((message) => {
+    if (message?.type !== "r3-preview-display" || message.contextId !== config.contextId) return;
+    enabled = message.display?.fitContent === true;
+    schedule();
+  });
+  document.addEventListener("DOMContentLoaded", observe, { once: true });
+  window.addEventListener("pagehide", () => {
+    observer.disconnect();
+    cancelAnimationFrame(frame);
+  });
+}

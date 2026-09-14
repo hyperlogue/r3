@@ -183,6 +183,16 @@ with accessible names, preserving space for filenames. Enabled reading controls
 remain legible; touch hit areas grow within the compact header rows. Binary and oversized source placeholders offer **Download file**
 in the content body.
 
+Rendered Markdown in file artifacts expands to its natural document height within
+the file stack. The main content pane owns vertical scrolling; width changes and
+late-loading images resize the card in both directions. Only retained Markdown
+members can report height through the current verified document port. HTML and
+media keep their viewport layout, including Markdown entrypoints in HTML artifacts.
+This presentation behavior does not rewrite retained document bytes.
+Comment controls stay inside the visible part of a tall frame, clear of sticky
+file headers, and follow the outer scroll position. Rendered Locate waits for file
+hydration, header alignment, and initial Markdown sizing before jumping to its target.
+
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses
 a transparent green outline button with neutral text and icon; hover colors the

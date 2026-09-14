@@ -43,7 +43,12 @@ await storage.artifacts.publish(artifact.id, {
         path: "index.md",
         mediaType: "text/markdown",
         base64: Buffer.from(
-          "# Published Markdown\n\nReadable body text.\n\n```ts\nconst value = 42;\n```",
+          "# Published Markdown\n\nReadable body text.\n\n```ts\nconst value = 42;\n```\n\n" +
+            Array.from(
+              { length: 30 },
+              (_, index) =>
+                `## Section ${index + 1}\n\nA long published document should expand in the file stack. Its paragraphs wrap as the file panel changes width, keeping every section readable in the main content scroll pane.`,
+            ).join("\n\n"),
         ).toString("base64"),
       },
       {
@@ -57,7 +62,38 @@ await storage.artifacts.publish(artifact.id, {
   },
 });
 const retainedHash = storage.artifacts.file(artifact.id, 1, "index.md").renderedHash;
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const lastSection = await storage.conversations.add(artifact.id, {
+  actor,
+  body: "Check the last section",
+  target: {
+    kind: "rendered",
+    versionSeq: 1,
+    path: "index.md",
+    locator: { selector: "h2:nth-of-type(30)", quote: "Section 30" },
+  },
+});
+const preview = new PreviewHost(storage.artifacts, undefined, {
+  ...previewSupport,
+  runtime: (scope) => {
+    // Hold the first height report so cold Locate cannot accidentally pass
+    // merely because sizing beats the target message on a fast machine.
+    const runtime = previewSupport.runtime(scope);
+    assert.ok(runtime.includes("const getUserMedia ="));
+    return runtime.replace(
+      "const getUserMedia =",
+      `
+      const send = connection.send;
+      let delayedHeight = false;
+      connection.send = message => {
+        if (message.type === 'r3-preview-height' && !delayedHeight) {
+          delayedHeight = true;
+          setTimeout(() => send(message), 200);
+        } else send(message);
+      };
+      const getUserMedia =`,
+    );
+  },
+});
 const api = createArtifactApi(
   storage,
   {
@@ -119,6 +155,113 @@ try {
     markdown.evaluate<{ foreground: string; background: string }>(
       "({foreground:getComputedStyle(document.body).color,background:getComputedStyle(document.body).backgroundColor})",
     );
+  const fullHeight = async () => {
+    const size = await markdown.evaluate<{ body: number; content: number; viewport: number }>(
+      "({body:document.body.getBoundingClientRect().height,content:document.scrollingElement.scrollHeight,viewport:document.documentElement.clientHeight})",
+    );
+    return size.content <= size.viewport + 1 && Math.abs(size.body - size.viewport) <= 1;
+  };
+  await eventually(
+    fullHeight,
+    "rendered Markdown expands to its full height without inner scrolling",
+  );
+  const narrowHeight = await markdown.evaluate<number>("innerHeight");
+  await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
+  await eventually(
+    async () =>
+      (await fullHeight()) && (await markdown.evaluate<number>("innerHeight")) < narrowHeight,
+    "widening Markdown shrinks its frame without a blank tail",
+  );
+  const wideHeight = await markdown.evaluate<number>("innerHeight");
+  await page.evaluate("document.querySelector('[aria-label=\"Show feedback\"]').click()");
+  await Bun.sleep(250);
+  await eventually(
+    async () =>
+      (await fullHeight()) && (await markdown.evaluate<number>("innerHeight")) > wideHeight,
+    "narrowing Markdown expands its frame again",
+  );
+  const beforeImageHeight = await markdown.evaluate<number>("innerHeight");
+  await markdown.evaluate(`new Promise(resolve => {
+    const image = document.createElement('img');
+    image.id = 'late-image';
+    image.onload = () => resolve(true);
+    image.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="500"><rect width="200" height="500" fill="gray"/></svg>');
+    document.querySelector('main').append(image);
+  })`);
+  await eventually(
+    async () =>
+      (await fullHeight()) &&
+      (await markdown.evaluate<number>("innerHeight")) > beforeImageHeight + 400,
+    "a late-loading image expands the Markdown card",
+  );
+  const imageHeight = await markdown.evaluate<number>("innerHeight");
+  await markdown.evaluate("document.querySelector('#late-image').remove()");
+  await eventually(
+    async () =>
+      (await fullHeight()) && (await markdown.evaluate<number>("innerHeight")) < imageHeight - 400,
+    "removing late content restores the natural document height",
+  );
+  await markdown.evaluate(
+    "document.querySelector('h2:last-of-type').scrollIntoView({block:'center'})",
+  );
+  await eventually(
+    () => page.evaluate("document.querySelector('[data-artifact-content]').scrollTop > 1000"),
+    "native Markdown targets scroll the outer file stack",
+  );
+  await page.evaluate(
+    "document.querySelector('[data-artifact-content]').scrollTop = 1000; document.querySelector('[aria-label=\"Comment mode\"]').click()",
+  );
+  await Bun.sleep(100);
+  await markdown.evaluate("document.querySelector('main').click()");
+  await markdown.command("DOM.enable");
+  const document = await markdown.command("DOM.getDocument", { depth: -1, pierce: true });
+  const findButton = (node: any, label: string): any =>
+    node.nodeName === "BUTTON" && node.children?.some((child: any) => child.nodeValue === label)
+      ? node
+      : [
+          ...(node.children ?? []),
+          ...(node.shadowRoots ?? []),
+          ...(node.contentDocument ? [node.contentDocument] : []),
+        ]
+          .map((child) => findButton(child, label))
+          .find(Boolean);
+  const button = findButton(document.root, "Comment here");
+  assert.ok(button);
+  const resolved = await markdown.command("DOM.resolveNode", { nodeId: button.nodeId });
+  const visibleControls = async () => {
+    const result = await markdown.command("Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration:
+        "function(){const r=this.parentElement.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}}",
+      returnByValue: true,
+    });
+    const rect = result.result.value;
+    const outer = await page.evaluate(
+      "(()=>{const f=document.querySelector('iframe').getBoundingClientRect();const p=document.querySelector('[data-artifact-content]').getBoundingClientRect();return {frameTop:f.top,top:p.top,bottom:p.bottom}})()",
+    );
+    return (
+      rect.height > 0 &&
+      rect.top + outer.frameTop >= outer.top &&
+      rect.bottom + outer.frameTop <= outer.bottom
+    );
+  };
+  await eventually(
+    visibleControls,
+    "comment controls stay inside the visible part of a full-height document",
+  );
+  await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop += 500");
+  await eventually(visibleControls, "comment controls remain reachable after outer scrolling");
+  await page.evaluate("document.querySelector('[aria-label=\"Exit comment mode\"]').click()");
+  await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop = 0");
+  await page.evaluate(
+    `document.querySelector('[data-artifact-feedback="${lastSection.id}"] button').click()`,
+  );
+  await Bun.sleep(300);
+  assert.ok(
+    await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop > 1000"),
+    "feedback Locate must keep the deep Markdown target visible after header alignment settles",
+  );
+  await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop = 0");
   // Release over the opaque preview, where uncaptured parent pointer listeners
   // would lose both movement and the release event.
   const splitter = await page.evaluate<{ x: number; y: number; width: number }>(
@@ -208,9 +351,43 @@ try {
     await html.evaluate("getComputedStyle(document.body).backgroundColor"),
     "rgb(255, 192, 203)",
   );
+  await page.evaluate(
+    "Array.from(document.querySelector('[data-file=\"index.md\"]').querySelectorAll('button')).find(b=>b.textContent.trim()==='Source').click()",
+  );
+  await Bun.sleep(100);
+  await page.evaluate(
+    `document.querySelector('[data-artifact-feedback="${lastSection.id}"] button').click()`,
+  );
+  const reopened = await eventually(async () => {
+    for (const context of page.contexts.values()) {
+      if (!context.auxData?.isDefault || context.origin !== "://") continue;
+      const frame = page.inContext(context.id);
+      try {
+        if (
+          await frame.evaluate(
+            "document.querySelector('h1')?.textContent === 'Published Markdown' && innerHeight > 1000",
+          )
+        )
+          return frame;
+      } catch {}
+    }
+    return null;
+  }, "Markdown loads and expands for a rendered Locate from Source");
+  await Bun.sleep(300);
+  const heading = await reopened.evaluate<{ top: number; bottom: number }>(
+    "(()=>{const r=document.querySelector('h2:last-of-type').getBoundingClientRect();return {top:r.top,bottom:r.bottom}})()",
+  );
+  const visible = await page.evaluate(
+    "(()=>{const f=document.querySelector('[data-file=\"index.md\"] iframe').getBoundingClientRect();const p=document.querySelector('[data-artifact-content]').getBoundingClientRect();return {frameTop:f.top,top:p.top,bottom:p.bottom}})()",
+  );
+  assert.ok(
+    heading.top + visible.frameTop >= visible.top &&
+      heading.bottom + visible.frameTop <= visible.bottom,
+    "Locate from Source keeps the deep rendered target visible after preview sizing",
+  );
   assert.equal(storage.artifacts.file(artifact.id, 1, "index.md").renderedHash, retainedHash);
   console.log(
-    "Markdown follows r3 in all four system/application theme combinations; retained bytes and publisher HTML are preserved.",
+    "Markdown uses its full height, responds to width and image changes, and scrolls the file stack to native targets. It follows all four system/application theme combinations; retained bytes and publisher HTML are preserved.",
   );
 } finally {
   await browser?.close();

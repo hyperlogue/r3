@@ -7,7 +7,7 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import type { Region } from "../highlights.ts";
 import type { DiffSide } from "../types.ts";
-import { Button } from "../ui.tsx";
+import { Button, cn } from "../ui.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
 import { RepresentationToggle } from "./RepresentationToggle.tsx";
 import { SourceCode } from "./SourceCode.tsx";
@@ -95,7 +95,7 @@ export const ArtifactFile = memo(function ArtifactFile({
       {active &&
         open &&
         (rendered ? (
-          <div className="flex min-h-96 flex-col">{preview()}</div>
+          <div className={cn("flex flex-col", !file.renderedHash && "min-h-96")}>{preview()}</div>
         ) : source.isPending ? (
           <p className="p-3 text-xs text-neutral-500">Loading published source…</p>
         ) : source.error ? (

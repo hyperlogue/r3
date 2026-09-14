@@ -226,6 +226,30 @@ export const AllFiles: Story = {
 export const Rendered: Story = {
   args: { initialSearch: "?version=1&view=rendered&file=index.md" },
 };
+export const LongRenderedMarkdown: Story = {
+  ...Rendered,
+  args: {
+    ...Rendered.args,
+    renderPreview: () => (
+      <article className="space-y-6 bg-white p-8 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <h1 className="text-2xl font-semibold">Full-height Markdown</h1>
+        {Array.from({ length: 12 }, (_, index) => (
+          <section key={index}>
+            <h2 className="mb-3 text-lg font-semibold">Section {index + 1}</h2>
+            <p>
+              The rendered document expands inside this file card. Scroll the content pane to reach
+              later sections and the next file; folding the card collapses the document.
+            </p>
+          </section>
+        ))}
+      </article>
+    ),
+  },
+};
+export const LongRenderedMarkdownDark: Story = {
+  ...LongRenderedMarkdown,
+  globals: { theme: "dark" },
+};
 export const Diff: Story = {
   args: {
     detail: {

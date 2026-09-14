@@ -168,6 +168,7 @@ function Workspace({
   const [quote, setQuote] = useState<QuotePos | null>(null);
   const [jump, setJump] = useState<ArtifactCodeJump | null>(null);
   const [renderedJump, setRenderedJump] = useState<ArtifactRenderedPaneProps["jump"]>(null);
+  const pendingRenderedJump = useRef<ArtifactRenderedPaneProps["jump"]>(null);
   const [detailsRequest, setDetailsRequest] = useState(0);
   const [fold, setFold] = useState<FoldSignal | null>(null);
   const [fileViews, setFileViews] = useState<Record<string, "source" | "rendered">>({});
@@ -386,11 +387,14 @@ function Workspace({
       const nonce = ++jumpNonce.current;
       if (isArtifactDocumentTarget(target)) {
         if (target.kind === "rendered") {
-          setRenderedJump({ locator: target.locator, nonce });
           if (detail.kind === "files") {
+            // Hydrate/unfold and finish aligning the file header before the
+            // rendered target can scroll that same outer content pane.
+            setRenderedJump(null);
+            pendingRenderedJump.current = { locator: target.locator, nonce };
             setJump({ path: target.path, side: "new", nonce });
             setFold({ mode: "unfold", path: target.path, nonce });
-          }
+          } else setRenderedJump({ locator: target.locator, nonce });
         } else {
           setJump({
             path: target.path,
@@ -488,6 +492,11 @@ function Workspace({
     setJump({ path, side: "new", nonce });
     setFold({ mode: "unfold", path, nonce });
   }, [ready, detail.kind]);
+  const finishCodeJump = useCallback((nonce: number) => {
+    if (pendingRenderedJump.current?.nonce !== nonce || jumpNonce.current !== nonce) return;
+    setRenderedJump(pendingRenderedJump.current);
+    pendingRenderedJump.current = null;
+  }, []);
   useArtifactCodeJump({
     scopeRef: paneRef,
     jump: canonicalJump,
@@ -495,6 +504,7 @@ function Workspace({
     ready,
     scrollToLine: virtual.scrollToLine,
     activate: progressive.activate,
+    onSettled: finishCodeJump,
   });
   useScrollSpy({
     paneRef,

@@ -19,6 +19,7 @@ export function useArtifactCodeJump({
   ready,
   scrollToLine,
   activate,
+  onSettled,
 }: {
   scopeRef: RefObject<HTMLElement | null>;
   jump: ArtifactCodeJump | null;
@@ -26,6 +27,7 @@ export function useArtifactCodeJump({
   ready: boolean;
   scrollToLine: ScrollToLine;
   activate: (path: string, onReady?: () => void) => boolean;
+  onSettled?: (nonce: number) => void;
 }) {
   useEffect(() => {
     const root = scopeRef.current;
@@ -34,6 +36,7 @@ export function useArtifactCodeJump({
     let frame = 0;
     let settled = false;
     let settleFrames = 0;
+    let hydrated = false;
     const selector = `[data-file="${CSS.escape(jump.path)}"]`;
     const clear = () => {
       for (const row of root.querySelectorAll(".r3-active-line"))
@@ -80,16 +83,19 @@ export function useArtifactCodeJump({
             toolbar,
         });
       }
-      if (++settleFrames >= 4) settled = true;
-      else frame = requestAnimationFrame(paint);
+      if (++settleFrames >= 4) {
+        settled = true;
+        if (hydrated) onSettled?.(jump.nonce);
+      } else frame = requestAnimationFrame(paint);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(paint);
     };
     const observer = new MutationObserver(schedule);
     observer.observe(root, { childList: true, subtree: true });
-    activate(jump.path, () => {
+    const registered = activate(jump.path, () => {
       if (!live) return;
+      hydrated = true;
       // A distant file's placeholder can be shorter than the viewport. The
       // provisional jump then clamps at the old scroll limit; align again when
       // its real body arrives, even if the initial paint frames already settled.
@@ -97,6 +103,7 @@ export function useArtifactCodeJump({
       settleFrames = 0;
       schedule();
     });
+    if (!registered) hydrated = true;
     schedule();
     return () => {
       live = false;
@@ -104,5 +111,5 @@ export function useArtifactCodeJump({
       observer.disconnect();
       clear();
     };
-  }, [scopeRef, jump, seq, ready, scrollToLine, activate]);
+  }, [scopeRef, jump, seq, ready, scrollToLine, activate, onSettled]);
 }

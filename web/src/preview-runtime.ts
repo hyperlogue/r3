@@ -1,5 +1,9 @@
 import type { RenderedLocator } from "../../shared/artifacts.ts";
-import type { PreviewBootstrap, PreviewDisplay } from "../../shared/preview-protocol.ts";
+import type {
+  PreviewBootstrap,
+  PreviewDisplay,
+  PreviewViewport,
+} from "../../shared/preview-protocol.ts";
 import type { PreviewConnection } from "./preview-channel.ts";
 
 // Served before publisher scripts. This function is serialized, so every
@@ -10,6 +14,7 @@ export function installPreviewRuntime(
   connection: PreviewConnection,
 ): void {
   let display: PreviewDisplay = { commenting: false, targets: [], jump: null };
+  let viewport: PreviewViewport | null = null;
   let root: HTMLDivElement | null = null;
   let shadow: ShadowRoot;
   let box: HTMLDivElement;
@@ -190,7 +195,8 @@ export function installPreviewRuntime(
     }
     const element = picked || (display.commenting ? hover : null) || located;
     box.hidden = !element?.isConnected;
-    controls.hidden = !picked;
+    const bounds = viewport ?? { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
+    controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
     if (!element?.isConnected) return;
     const rect = element.getBoundingClientRect();
     Object.assign(box.style, {
@@ -199,9 +205,10 @@ export function installPreviewRuntime(
       width: `${rect.width}px`,
       height: `${rect.height}px`,
     });
+    controls.style.maxWidth = `${Math.max(0, bounds.right - bounds.left - 16)}px`;
     Object.assign(controls.style, {
-      left: `${Math.max(8, Math.min(rect.left, innerWidth - 300))}px`,
-      top: `${Math.max(8, Math.min(rect.bottom + 8, innerHeight - 48))}px`,
+      left: `${Math.max(bounds.left + 8, Math.min(rect.left, bounds.right - controls.offsetWidth - 8))}px`,
+      top: `${Math.max(bounds.top + 8, Math.min(rect.bottom + 8, bounds.bottom - controls.offsetHeight - 8))}px`,
     });
   };
   const schedule = () => {
@@ -252,6 +259,11 @@ export function installPreviewRuntime(
     setTimeout(attempt, 0);
   };
   connection.subscribe((message) => {
+    if (message?.type === "r3-preview-viewport" && message.contextId === config.contextId) {
+      viewport = message.viewport;
+      schedule();
+      return;
+    }
     if (message?.type !== "r3-preview-display" || message.contextId !== config.contextId) return;
     display = message.display as PreviewDisplay;
     markersDirty = true;
@@ -345,7 +357,7 @@ export function installPreviewRuntime(
       "all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important";
     shadow = root.attachShadow({ mode: "closed" });
     shadow.innerHTML =
-      '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;gap:4px;padding:4px;border-radius:8px;background:#171717;border:1px solid #525252;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
+      '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:8px;background:#171717;border:1px solid #525252;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
     box = shadow.querySelector(".box")!;
     controls = shadow.querySelector(".controls")!;
     markers = document.createElement("div");

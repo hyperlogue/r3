@@ -140,6 +140,10 @@ for visual review; mobile keeps its sheet.
 Rendered Markdown appearance: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-markdown-theme.ts`
 checks the real workspace and preview boundary in all four system/r3 theme combinations,
 including live theme changes, retained syntax colors, and unchanged authored HTML.
+Long Markdown fills the file card without inner scrolling, grows and shrinks as
+panels resize, responds to late images, and scrolls the outer stack to native targets.
+It checks actual feedback Locate on mounted and newly opened previews, and keeps
+comment controls reachable when selecting a large parent and scrolling the outer pane.
 It also drags the file divider over the opaque preview and releases there, checking
 that the width persists and drag styling clears.
 

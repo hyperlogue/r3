@@ -225,6 +225,7 @@ export function FileCard({
           header, so it needs no `relative` to anchor to (adding one would fight
           the sticky pin — both set `position`). */}
       <div
+        data-file-header
         className={cn(
           "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 max-md:gap-1 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95",
           current &&

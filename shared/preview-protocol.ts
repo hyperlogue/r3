@@ -35,9 +35,18 @@ export interface PreviewPageContext {
 export interface PreviewDisplay {
   // r3 appearance for retained Markdown; authored HTML retains its own styling.
   theme?: PreviewTheme;
+  // Retained Markdown in file stacks grows with the document's natural height.
+  fitContent?: boolean;
   commenting: boolean;
   targets: { feedbackId: string; locator: RenderedLocator | null }[];
   jump: { locator: RenderedLocator | null; nonce: number } | null;
+}
+
+export interface PreviewViewport {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
 }
 
 export type PreviewTheme = "light" | "dark";
