@@ -119,10 +119,13 @@ export function ArtifactComposer({
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();
             if (!event.repeat) event.currentTarget.form?.requestSubmit();
-          } else if (event.key === "Escape" && !draft?.body.trim()) {
+          } else if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
             event.stopPropagation();
-            artifactDrafts.clear(artifactId, replyTo);
-            onDone?.();
+            if (!draft?.body.trim()) {
+              artifactDrafts.clear(artifactId, replyTo);
+              onDone?.();
+            } else event.currentTarget.blur();
           }
         }}
         className="w-full resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500"

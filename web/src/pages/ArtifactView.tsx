@@ -9,6 +9,7 @@ import type {
   RenderedLocator,
 } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { artifactComposerField, focusArtifactComposer } from "../artifact-composer-keys.ts";
 import { artifactDrafts, useHasArtifactNote } from "../artifact-drafts.ts";
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
@@ -39,7 +40,7 @@ import { JumpToFile } from "../components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos } from "../components/Message.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
-import { useKeyBindings } from "../keys.ts";
+import { keysSuspended, useKeyBindings } from "../keys.ts";
 // This page is the artifact workspace's single mobile container mount point.
 import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
@@ -51,6 +52,7 @@ import {
   useProgressiveFileController,
 } from "../progressive.tsx";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
+import { composerKeyAction, observeTextSelection } from "../selection-events.ts";
 import {
   setDiffLayout,
   setFeedbackMode,
@@ -224,21 +226,6 @@ function Workspace({
     resize.observe(toolbar);
     return () => resize.disconnect();
   }, []);
-  useEffect(() => {
-    const dismiss = () => setQuote(null);
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        dismiss();
-        setFloating(null);
-      }
-    };
-    document.addEventListener("scroll", dismiss, true);
-    window.addEventListener("keydown", onEscape);
-    return () => {
-      document.removeEventListener("scroll", dismiss, true);
-      window.removeEventListener("keydown", onEscape);
-    };
-  }, []);
 
   // Pin the first actual publication. New versions are announced and remain an
   // explicit reader choice, including while an unanchored reply is being typed.
@@ -273,25 +260,42 @@ function Workspace({
     paneRef.current?.scrollTo({ top: 0 });
   };
   const focusComposer = useCallback(
-    () =>
-      requestAnimationFrame(() => {
-        const textarea = document.querySelector<HTMLTextAreaElement>(
-          `[data-artifact-composer="${CSS.escape(detail.id)}"]:not([data-reply-to]) textarea:not([inert] *)`,
-        );
-        textarea?.focus();
-        if (textarea) textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-      }),
+    () => requestAnimationFrame(() => focusArtifactComposer(detail.id)),
+    [detail.id],
+  );
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (keysSuspended()) return;
+      const action = composerKeyAction(event);
+      if (action === "focus" && artifactComposerField(detail.id)) {
+        event.preventDefault();
+        focusArtifactComposer(detail.id);
+      } else if (action === "escape") {
+        setQuote(null);
+        if (!artifactDrafts.get(detail.id)?.body.trim()) {
+          artifactDrafts.clear(detail.id);
+          setFloating(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detail.id]);
+  useEffect(
+    () => () => {
+      if (!artifactDrafts.get(detail.id)?.body.trim()) artifactDrafts.clear(detail.id);
+    },
     [detail.id],
   );
   const openComposer = useCallback(
-    (rect?: AnchorRect) => {
+    (rect?: AnchorRect, focus = true) => {
       setPopoverFeedback(null);
       if (mobile) setSheet("peek");
       else if (collapsed)
         setFloating(
           rect ?? { left: innerWidth * 0.6, top: innerHeight * 0.4, bottom: innerHeight * 0.4 },
         );
-      focusComposer();
+      if (focus) focusComposer();
     },
     [mobile, collapsed, focusComposer],
   );
@@ -305,17 +309,20 @@ function Workspace({
           .join("\n")}\n`,
       });
       setQuote(null);
+      window.getSelection()?.removeAllRanges();
       openComposer();
     },
     [detail.id, openComposer],
   );
   const anchor = useCallback(
-    (target: ArtifactTarget, quoteNow = false) => {
+    (target: ArtifactTarget, quoteNow = false, position?: AnchorRect, focus = true) => {
       const selection = window.getSelection();
       const rect = selection?.rangeCount ? selection.getRangeAt(0).getBoundingClientRect() : null;
-      const at = rect?.width
-        ? { left: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom }
-        : { left: innerWidth * 0.5, top: innerHeight * 0.4, bottom: innerHeight * 0.4 };
+      const at =
+        position ??
+        (rect?.width
+          ? { left: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom }
+          : { left: innerWidth * 0.5, top: innerHeight * 0.4, bottom: innerHeight * 0.4 });
       if (!artifactDrafts.anchor(detail.id, target)) {
         const text = "locator" in target ? target.locator?.quote : undefined;
         if (text) {
@@ -323,9 +330,9 @@ function Workspace({
           else setQuote({ ...at, text });
         } else {
           setNotice("Finish or discard the current draft before changing its target.");
-          openComposer(at);
+          openComposer(at, focus);
         }
-      } else openComposer(at);
+      } else openComposer(at, focus);
     },
     [detail.id, appendQuote, openComposer],
   );
@@ -341,6 +348,9 @@ function Workspace({
               locator: { start, end, quote, side },
             }
           : { kind: "source", versionSeq: version.seq, path: file, locator: { start, end, quote } },
+        false,
+        undefined,
+        false,
       );
     },
     [version, detail.kind, anchor],
@@ -374,10 +384,26 @@ function Workspace({
               locator: { start: pending.lineStart, end: pending.lineEnd, quote: pending.quote },
             };
       if (rawQuote && artifactDrafts.get(detail.id)?.body.trim()) appendQuote(rawQuote);
-      else anchor(target);
+      else anchor(target, false, undefined, false);
     },
     [version, detail.kind, detail.id, appendQuote, anchor],
   );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: navigation cancels pending selection capture
+  useEffect(() => {
+    if (coarse) return;
+    return observeTextSelection(
+      () => {
+        if (keysSuspended()) return false;
+        const selection = paneRef.current && getSelectionAnchor(paneRef.current);
+        if (!selection) return false;
+        selectText(selection);
+        return true;
+      },
+      () => setQuote(null),
+      () => false,
+    );
+  }, [coarse, selectText, view]);
 
   const locate = useCallback<ArtifactTargetJump>(
     (target, feedbackId) => {
@@ -673,15 +699,6 @@ function Workspace({
               !mobile && "[contain:paint]",
               detail.kind === "html" && "flex flex-col [&>*]:shrink-0",
             )}
-            onMouseUp={(event) => {
-              if (
-                coarse ||
-                (event.target instanceof Element && event.target.closest("[data-gutter]"))
-              )
-                return;
-              const selection = paneRef.current && getSelectionAnchor(paneRef.current);
-              if (selection) selectText(selection);
-            }}
             onClick={(event) => {
               if (!(event.target instanceof Element) || !window.getSelection()?.isCollapsed) return;
               if (event.target.closest("[data-gutter], button, a, input, textarea")) return;
@@ -865,9 +882,7 @@ function Workspace({
           {panel()}
         </MobileReviewChrome>
       )}
-      {coarse && view.representation !== "rendered" && (
-        <AddFeedbackPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
-      )}
+      {coarse && <AddFeedbackPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />}
       {quote && <QuoteBubble pos={quote} label="Quote in note" onQuote={appendQuote} />}
       <ShortcutsOverlay />
     </div>

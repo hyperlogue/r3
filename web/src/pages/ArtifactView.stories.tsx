@@ -337,6 +337,28 @@ export const CollapsedComposer: Story = {
     await expect(artifactDrafts.get(detail.id)?.target.kind).toBe("source");
   },
 };
+// Pointer selection keeps Copy available; keyboard entry is an explicit next step.
+export const SelectionComposer: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = canvasElement.querySelector('[data-file="index.md"] [data-line="3"] code')!;
+    const range = document.createRange();
+    range.selectNodeContents(row);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    row.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    const field = await canvas.findByRole("textbox", { name: "Feedback" });
+    await expect(field).not.toHaveFocus();
+    await expect(window.getSelection()!.toString()).toContain("compare the proposals");
+    await userEvent.keyboard(" ");
+    await expect(field).toHaveFocus();
+    await userEvent.keyboard("A retained note.{Escape}");
+    await expect(field).not.toHaveFocus();
+    await expect(field).toHaveValue("A retained note.");
+    await userEvent.keyboard("{Tab}");
+    await expect(field).toHaveFocus();
+  },
+};
 export const FloatingPanelAndThread: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
