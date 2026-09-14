@@ -10,6 +10,12 @@ import { FeedbackPanelControls } from "./FeedbackPanelControls.tsx";
 const meta = {
   title: "Components/ArtifactThreads",
   component: ArtifactThreads,
+  beforeEach: () => {
+    localStorage.removeItem("r3-feedback-notifications");
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "r3-feedback-notifications", newValue: null }),
+    );
+  },
   args: {
     detail: artifactFixture,
     context: { versionSeq: 1, representation: "source" },
@@ -227,10 +233,15 @@ export const PendingHandoff: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Not sent", { exact: true })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toBeEnabled();
+    await waitFor(() =>
+      expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toBeEnabled(),
+    );
     await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
     await userEvent.type(canvas.getByRole("textbox", { name: "Feedback" }), "Keep this draft");
-    await expect(canvas.getByText("Post or discard drafts before sending feedback")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toHaveAttribute(
+      "title",
+      "Post or discard drafts before sending feedback",
+    );
     await expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toBeDisabled();
   },
 };
@@ -254,5 +265,24 @@ export const ReopenDuringExit: Story = {
         canvasElement.querySelector("[data-artifact-composer] textarea:not([inert] *)"),
       ).toHaveFocus(),
     );
+  },
+};
+
+export const SentHandoff: Story = {
+  args: PendingHandoff.args,
+  parameters: PendingHandoff.parameters,
+  beforeEach: () => {
+    const original = artifactApi.submit;
+    artifactApi.submit = async () => ({ notification: { state: "sent" } });
+    return () => {
+      artifactApi.submit = original;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const send = canvas.getByRole("button", { name: "Send to agent · 1" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+    await expect(await canvas.findByRole("button", { name: "Sent" })).toBeDisabled();
   },
 };

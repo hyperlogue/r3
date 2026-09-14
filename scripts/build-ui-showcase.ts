@@ -14,9 +14,13 @@ const aliases: Record<string, string> = {
   [join(root, "web/src/artifact-api.ts")]: join(root, "web/demo/artifact-api.ts"),
 };
 const storageConsumers = new Set(
-  ["store.ts", "ui.tsx", "useFloatingPanel.ts", "components/FileBrowser.tsx"].map((path) =>
-    join(root, "web/src", path),
-  ),
+  [
+    "store.ts",
+    "ui.tsx",
+    "useFloatingPanel.ts",
+    "artifact-handoff.ts",
+    "components/FileBrowser.tsx",
+  ].map((path) => join(root, "web/src", path)),
 );
 const showcase: BunPlugin = {
   name: "isolated-ui-showcase",

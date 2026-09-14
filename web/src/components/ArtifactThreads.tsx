@@ -20,11 +20,20 @@ import {
   useFeedbackStatusPending,
   useOptimisticArtifact,
 } from "../artifact-feedback-status.ts";
+import { useFeedbackHandoffReceipt } from "../artifact-handoff.ts";
 import { copyText } from "../clipboard.ts";
 import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, CommentPlusIcon, cn, FoldTriangle, useEscape, usePopoverFocus } from "../ui.tsx";
+import {
+  Button,
+  CommentPlusIcon,
+  cn,
+  FoldTriangle,
+  useCopyFlash,
+  useEscape,
+  usePopoverFocus,
+} from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 
@@ -473,6 +482,8 @@ export function ArtifactThreads({
   const draftCount = useArtifactDraftCount(detail.id);
   const savingStatus = useFeedbackStatusPending(detail.id);
   const noteOpen = useArtifactNoteOpen(detail.id);
+  const receipt = useFeedbackHandoffReceipt(detail.id, detail.feedback);
+  const { copied: sent, flash: showSent } = useCopyFlash(3000);
   const [notice, setNotice] = useState("");
   const qc = useQueryClient();
   const { data: watchers = [] } = useQuery({
@@ -497,13 +508,24 @@ export function ArtifactThreads({
           ? "Post or discard drafts before sending feedback"
           : !pending
             ? "No new feedback to send"
-            : null;
+            : receipt.hashes === null
+              ? "Checking pending feedback"
+              : receipt.covered
+                ? "Already sent. Add or update feedback to send again."
+                : null;
   const handoff = useMutation({
     mutationFn: async () => {
       setNotice("");
       if (watchers.length) {
-        await artifactApi.submit(detail.id);
-        setNotice("Sent to the agent.");
+        const snapshot = receipt.begin();
+        if (!snapshot) throw new Error("Pending feedback is still loading. Try again.");
+        const result = await artifactApi.submit(detail.id);
+        if (result.notification.state !== "sent")
+          throw new Error(
+            "The agent notification was not delivered. Try again or copy the prompt.",
+          );
+        receipt.remember(snapshot);
+        showSent();
       } else {
         const preview = await artifactApi.previewPrompt(detail.id);
         if (!(await copyText(preview.text)))
@@ -512,7 +534,11 @@ export function ArtifactThreads({
         setNotice("Prompt copied. Paste it into your agent conversation.");
       }
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["artifact", detail.id] }),
+    onSettled: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["artifact", detail.id] }),
+        qc.invalidateQueries({ queryKey: ["artifact-watchers", detail.id] }),
+      ]),
   });
   const locate = useCallback<ArtifactTargetJump>(
     (target, feedbackId) => onLocate(target, feedbackId),
@@ -616,9 +642,11 @@ export function ArtifactThreads({
               title={disabledReason ?? undefined}
               onClick={() => handoff.mutate()}
             >
-              {handoff.isPending
-                ? "Sending…"
-                : `${watchers.length ? "Send to agent" : "Copy prompt"}${pending ? ` · ${pending}` : ""}`}
+              {sent && (receipt.covered || !pending)
+                ? "Sent"
+                : handoff.isPending
+                  ? "Sending…"
+                  : `${watchers.length ? "Send to agent" : "Copy prompt"}${pending ? ` · ${pending}` : ""}`}
             </Button>
           </div>
         </div>

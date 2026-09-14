@@ -160,3 +160,11 @@ the standalone panel in Storybook.
 The feedback acceptance keeps a loaded workspace through a transient detail-refetch
 failure, then deletes its artifact through the server and checks that definitive
 unavailability replaces the cached workspace and its feedback controls.
+
+Handoff confirmation: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-feedback-handoff.ts`
+holds actual notification delivery to check immediate Sending/Sent feedback,
+three-second confirmation, duplicate suppression across reloads and tabs, newer
+inputs during delivery, out-of-order completions, failure retry, and generic watch
+wakeups. It also verifies that agent activity does not create a new pending batch
+and missing/rejected Web Crypto keeps handoff usable without persisting raw inputs.
+`SettingsFromMenu` and `KeyboardDismiss` stories cover settings placement and focus.

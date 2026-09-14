@@ -194,7 +194,14 @@ Active threads put unhandled agent responses first and claimed work last. Unhand
 means an open thread whose latest message is from an agent; a posted human reply or
 resolution clears it. Opening the panel does not. The navbar shows this count and
 a separate draft/unsent indicator. Posting adds feedback to r3; **Send to agent · N**
-or **Copy prompt · N** explicitly hands off the pending batch. Disabled handoff
+or **Copy prompt · N** explicitly hands off the pending batch. Successful notification
+delivery shows **Sent** for three seconds, then keeps the button disabled until new
+human inputs are pending. A browser receipt covers exactly the inputs present when
+the ping began; concurrent edits remain eligible. Agent replies, claims, and body
+edits do not invalidate that receipt. Receipts synchronize across tabs and retain the latest successful request, so
+older completions cannot overwrite newer input and historical values can be sent again. A bounded cache persists hashes; if Web Crypto is unavailable,
+exact inputs stay in memory for the current visit. This confirmation never stamps
+server feedback as read. Failed or absent delivery remains retryable. Disabled handoff
 reasons remain in the button tooltip. The draft badge shares the filter row, so
 typing does not add a row or shift the composer. General notes open on demand as
 the first pending card in the same scrolling list as feedback. They share its

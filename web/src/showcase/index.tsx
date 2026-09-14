@@ -35,6 +35,7 @@ import "../main.css";
 // The build aliases all API calls to this same in-memory demo backend.
 function resetSamples() {
   demo.reset();
+  demo.get("artifact_documents").watching = true;
   demo.addFeedback("artifact_documents", "Could we make the target label easier to scan?", {
     kind: "artifact",
   });
