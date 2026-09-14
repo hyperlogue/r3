@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { FeedbackMotionProposal, PrimaryColorProposals } from "./DesignProposals.tsx";
+import { FeedbackMotionProposal, PrimaryColorSample } from "./DesignProposals.tsx";
 
 const meta = {
   title: "Showcase/DesignProposals",
@@ -17,6 +17,7 @@ export const Motion: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Float" }));
     await userEvent.click(canvas.getByRole("tab", { name: "Resolved 2" }));
     await expect(canvas.getByRole("tabpanel")).toHaveAccessibleName("Resolved 2");
+    await expect(canvas.queryByRole("textbox", { name: "Sample draft" })).toBeNull();
     await userEvent.keyboard("{ArrowLeft}");
     await expect(canvas.getByRole("tabpanel")).toHaveAccessibleName("Active 2");
     await userEvent.click(canvas.getByRole("button", { name: "Dock" }));
@@ -24,4 +25,4 @@ export const Motion: Story = {
   },
 };
 export const MotionDark: Story = { ...Motion, globals: { theme: "dark" } };
-export const Colors: Story = { render: () => <PrimaryColorProposals /> };
+export const Colors: Story = { render: () => <PrimaryColorSample /> };

@@ -1,14 +1,3 @@
-.proposal-primary {
-  background: var(--proposal-fill);
-  color: var(--proposal-ink);
-}
-.proposal-primary:hover {
-  background: var(--proposal-hover);
-}
-.proposal-primary:focus-visible {
-  outline: 2px solid var(--proposal-fill);
-  outline-offset: 3px;
-}
 .proposal-workspace {
   --proposal-panel-width: clamp(280px, 38.2%, 480px);
 }

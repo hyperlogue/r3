@@ -1,86 +1,36 @@
-import { type CSSProperties, useId, useState } from "react";
+import { useId, useState } from "react";
+import { Logo } from "../components/Logo.tsx";
 import { Button, cn } from "../ui.tsx";
 import "./design-proposals.css";
 
-const palettes = [
-  {
-    name: "Tangerine",
-    fill: "#fb923c",
-    hover: "#fdba74",
-    ink: "#431407",
-    contrast: "6.9:1",
-    description: "Warm and energetic. My pick for the primary action.",
-  },
-  {
-    name: "Sunflower",
-    fill: "#facc15",
-    hover: "#fde047",
-    ink: "#422006",
-    contrast: "9.5:1",
-    description: "Bright and playful. Closest to our existing amber attention color.",
-  },
-  {
-    name: "Coral",
-    fill: "#e65d45",
-    hover: "#ef765f",
-    ink: "#2b110c",
-    contrast: "5.1:1",
-    description: "Lively and warm. Closest to our existing red destructive actions.",
-  },
-] as const;
-
-function paletteStyle(palette: (typeof palettes)[number]): CSSProperties {
-  return {
-    "--proposal-fill": palette.fill,
-    "--proposal-hover": palette.hover,
-    "--proposal-ink": palette.ink,
-  } as CSSProperties;
-}
-
-export function PrimaryColorProposals() {
+export function PrimaryColorSample() {
   return (
     <div className="space-y-4">
-      <p className="max-w-3xl text-sm text-neutral-500">
-        Three button proposals, shown on both surfaces. Hover or Tab to try them. Dark text keeps
-        the bright fills readable. These samples change the action button only; choosing a full
-        primary palette would also affect selections, focus rings, and agent accents.
-      </p>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {palettes.map((palette) => (
-          <article
-            key={palette.name}
-            aria-label={`${palette.name} proposal`}
-            className="border border-neutral-300 dark:border-neutral-700"
-            style={paletteStyle(palette)}
+      <div className="flex items-center gap-3">
+        <Logo className="size-10" />
+        <p className="max-w-3xl text-sm text-neutral-500">
+          Keeping the logo blue. The current primary button uses a darker shade at rest (#4e41f4),
+          then the exact logo blue on hover (#6164ff). Try hovering or using Tab.
+        </p>
+      </div>
+      <div className="grid border border-neutral-300 dark:border-neutral-700 md:grid-cols-2">
+        {(["Light", "Dark"] as const).map((theme) => (
+          <div
+            key={theme}
+            className="space-y-3 p-4"
+            style={{
+              background: theme === "Light" ? "#ffffff" : "#0a0a0a",
+              color: theme === "Light" ? "#525252" : "#a3a3a3",
+            }}
           >
-            <div className="space-y-2 p-4">
-              <h3 className="font-semibold">{palette.name}</h3>
-              <p className="min-h-10 text-xs text-neutral-500">{palette.description}</p>
-              <p className="text-xs text-neutral-500">
-                {palette.fill} · text contrast {palette.contrast}
-              </p>
+            <p className="text-xs">{theme}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="primary">Save feedback</Button>
+              <Button variant="primary" disabled>
+                Disabled
+              </Button>
             </div>
-            {(["Light", "Dark"] as const).map((theme) => (
-              <div
-                key={theme}
-                className="space-y-3 border-t border-neutral-300 p-4 dark:border-neutral-700"
-                style={{
-                  background: theme === "Light" ? "#ffffff" : "#0a0a0a",
-                  color: theme === "Light" ? "#525252" : "#a3a3a3",
-                }}
-              >
-                <p className="text-xs">{theme}</p>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="primary" className="proposal-primary">
-                    Save feedback
-                  </Button>
-                  <Button variant="primary" className="proposal-primary" disabled>
-                    Disabled
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </article>
+          </div>
         ))}
       </div>
     </div>
@@ -99,8 +49,9 @@ export function FeedbackMotionProposal() {
   return (
     <div className="space-y-4">
       <p className="max-w-3xl text-sm text-neutral-500">
-        Interactive sketch: switch Float / Dock, then Active / Resolved. The composer stays in place
-        while the two queues slide. Try reversing direction mid-transition.
+        Interactive sketch: switch Float / Dock, then Active / Resolved. The composer belongs to
+        Active and slides with that queue. Its draft is retained when you visit Resolved. Try
+        reversing direction mid-transition.
       </p>
       <div
         className="proposal-workspace relative isolate h-[540px] overflow-hidden border border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
@@ -166,13 +117,6 @@ export function FeedbackMotionProposal() {
               </Button>
             ))}
           </div>
-          <div className="border-y border-neutral-200 p-3 dark:border-neutral-800">
-            <textarea
-              aria-label="Sample draft"
-              placeholder="A draft stays here while switching queues…"
-              className="block min-h-16 w-full resize-none border border-neutral-300 bg-transparent p-2 text-xs dark:border-neutral-700"
-            />
-          </div>
           <div className="min-h-0 flex-1 overflow-hidden">
             <div
               className="proposal-queues flex h-full"
@@ -188,6 +132,13 @@ export function FeedbackMotionProposal() {
                   inert={tab !== index}
                   className="w-full shrink-0 overflow-y-auto p-3"
                 >
+                  {index === 0 && (
+                    <textarea
+                      aria-label="Sample draft"
+                      placeholder="A draft stays in Active…"
+                      className="mb-3 block min-h-20 w-full resize-none border border-neutral-300 bg-transparent p-2 text-xs dark:border-neutral-700"
+                    />
+                  )}
                   {queue.notes.map((note) => (
                     <article
                       key={note}
@@ -207,8 +158,9 @@ export function FeedbackMotionProposal() {
       <div className="grid gap-4 text-sm md:grid-cols-2">
         <p>
           <strong>Queue switch · 220 ms.</strong> Active lives on the left, Resolved on the right.
-          Each retains its scroll position. The outgoing queue stops accepting interaction as soon
-          as you switch. Keep card insert/delete animations for changes within a queue.
+          The composer moves with Active, retaining its draft. Each queue retains its scroll
+          position. The outgoing queue stops accepting interaction as soon as you switch. Keep card
+          insert/delete animations for changes within a queue.
         </p>
         <p>
           <strong>Float / dock · 240 ms.</strong> A short glide, with the corners and elevation

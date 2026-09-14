@@ -30,7 +30,7 @@ import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } fr
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
-import { FeedbackMotionProposal, PrimaryColorProposals } from "./DesignProposals.tsx";
+import { FeedbackMotionProposal, PrimaryColorSample } from "./DesignProposals.tsx";
 import "../main.css";
 
 // The build aliases all API calls to this same in-memory demo backend.
@@ -60,7 +60,7 @@ const sections = [
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
   ["controls", "Controls & typography"],
-  ["color-proposals", "Primary color proposals"],
+  ["color-proposals", "Primary button color"],
   ["motion-proposal", "Panel motion proposal"],
 ] as const;
 
@@ -508,7 +508,7 @@ function Showcase() {
           </div>
         </Section>
         <Section id="color-proposals">
-          <PrimaryColorProposals />
+          <PrimaryColorSample />
         </Section>
         <Section id="motion-proposal">
           <FeedbackMotionProposal />
