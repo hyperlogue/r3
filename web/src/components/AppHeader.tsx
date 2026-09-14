@@ -4,7 +4,13 @@ import { hrefFor, navigate } from "../router.ts";
 import { Logo, type LogoHandle } from "./Logo.tsx";
 import { SettingsPopup } from "./SettingsPopup.tsx";
 
-export function AppHeader({ children }: { children?: ReactNode }) {
+export function AppHeader({
+  children,
+  showSettings = true,
+}: {
+  children?: ReactNode;
+  showSettings?: boolean;
+}) {
   const logo = useRef<LogoHandle>(null);
   return (
     <header
@@ -56,7 +62,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
       )}
       <div className="flex shrink-0 items-center self-stretch">
         <DemoChrome />
-        <SettingsPopup />
+        {showSettings && <SettingsPopup />}
       </div>
     </header>
   );

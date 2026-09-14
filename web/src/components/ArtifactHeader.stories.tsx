@@ -320,3 +320,19 @@ export const ConsentKeyboardDismiss: Story = {
     await expect(security).toHaveFocus();
   },
 };
+
+export const SettingsFromMenu: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByTitle("Settings")).toBeNull();
+    const menu = canvas.getByRole("button", { name: "Artifact details and actions" });
+    await userEvent.click(menu);
+    await userEvent.click(canvas.getByRole("button", { name: "Settings" }));
+    await expect(canvas.getByRole("dialog", { name: "Settings" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "☀ Light" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Settings" })).toBeNull();
+    await expect(menu).toHaveFocus();
+  },
+};
+export const SettingsFromMenuDark: Story = { ...SettingsFromMenu, globals: { theme: "dark" } };

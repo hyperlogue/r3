@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { type RefObject, useRef, useState } from "react";
 import { api, CAN_MANAGE_TOKENS, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
 import {
@@ -104,19 +104,6 @@ function Segmented<T extends string>({
 export function SettingsPopup() {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const popup = useRef<HTMLDivElement>(null);
-  usePopoverFocus(open, popup, trigger);
-  const [dark, toggleTheme] = useTheme();
-  const fontSize = useFontSize();
-  const syntaxTheme = useSyntaxTheme();
-  const { data: themes } = useQuery({
-    queryKey: ["themes"],
-    queryFn: () => api.themes(),
-    staleTime: Number.POSITIVE_INFINITY, // the theme list is static for a daemon build
-  });
-  const themeGroups = groupThemes(themes ?? FALLBACK_THEMES);
-
-  useEscape(open, () => setOpen(false));
 
   return (
     <div className="relative self-stretch">
@@ -140,111 +127,133 @@ export function SettingsPopup() {
         </StrokeIcon>
       </button>
 
-      {open && (
-        <>
-          {/* click-catcher: closes the popup when clicking elsewhere */}
-          <button
-            type="button"
-            aria-label="Close settings"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          {/* Anchor the popup's right edge under the gear icon (right-4 = the
-              button's pr-4 gutter) rather than flush to the viewport, and cap the
-              width so a narrow window can never push it off the right edge. */}
-          <div
-            ref={popup}
-            role="dialog"
-            aria-label="Settings"
-            className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
-          >
-            <div className="border-b border-neutral-300 px-3 py-2 text-xs font-semibold dark:border-neutral-700">
-              Settings
-            </div>
-
-            <Section label="Appearance">
-              <Segmented
-                options={[
-                  { id: "light", label: "☀ Light" },
-                  { id: "dark", label: "☾ Dark" },
-                ]}
-                value={dark ? "dark" : "light"}
-                onChange={(id) => {
-                  if ((id === "dark") !== dark) toggleTheme();
-                }}
-              />
-            </Section>
-
-            <Section label={`Font size · ${fontSize}px`}>
-              <div className="flex items-center gap-2">
-                <StepButton
-                  onClick={() => setFontSize(fontSize - 1)}
-                  disabled={fontSize <= FONT_MIN}
-                  label="−"
-                />
-                <input
-                  type="range"
-                  min={FONT_MIN}
-                  max={FONT_MAX}
-                  value={fontSize}
-                  onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="h-1 min-w-0 flex-1 accent-primary-600"
-                />
-                <StepButton
-                  onClick={() => setFontSize(fontSize + 1)}
-                  disabled={fontSize >= FONT_MAX}
-                  label="+"
-                />
-              </div>
-            </Section>
-
-            <Section label="Syntax theme">
-              <select
-                value={syntaxTheme}
-                onChange={(e) => setSyntaxTheme(e.target.value)}
-                // max-md:text-base — iOS zooms on focusing a <select> under 16px
-                // too, same as text inputs.
-                className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-700 outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
-              >
-                {themeGroups.map((g) => (
-                  <optgroup key={g.name} label={g.name}>
-                    {g.items.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <p className="mt-1.5 text-[0.625rem] text-neutral-400">
-                “Auto” themes follow light/dark mode; the rest apply as-is.
-              </p>
-            </Section>
-
-            {/* Login tokens for reaching r3 when it's exposed beyond loopback —
-                absent in the browser demo, which has no daemon to expose. */}
-            {CAN_MANAGE_TOKENS && (
-              <Section label="Access">
-                <TokenManager />
-              </Section>
-            )}
-
-            {/* Sign out — only an exposed (cookie) session can; a non-exposed one
-                holds the token (TOKEN != "") and has nothing to sign out of. */}
-            {CAN_MANAGE_TOKENS && TOKEN === "" && (
-              <Section label="Session">
-                <Button
-                  variant="default"
-                  onClick={() => api.logout().finally(() => location.reload())}
-                  className="w-full justify-center"
-                >
-                  Sign out
-                </Button>
-              </Section>
-            )}
-          </div>
-        </>
-      )}
+      {open && <SettingsDialog onClose={() => setOpen(false)} trigger={trigger} />}
     </div>
+  );
+}
+
+export function SettingsDialog({
+  onClose,
+  trigger,
+}: {
+  onClose: () => void;
+  trigger: RefObject<HTMLButtonElement | null>;
+}) {
+  const popup = useRef<HTMLDivElement>(null);
+  usePopoverFocus(true, popup, trigger);
+  const [dark, toggleTheme] = useTheme();
+  const fontSize = useFontSize();
+  const syntaxTheme = useSyntaxTheme();
+  const { data: themes } = useQuery({
+    queryKey: ["themes"],
+    queryFn: () => api.themes(),
+    staleTime: Number.POSITIVE_INFINITY, // the theme list is static for a daemon build
+  });
+  const themeGroups = groupThemes(themes ?? FALLBACK_THEMES);
+
+  useEscape(true, onClose);
+
+  return (
+    <>
+      {/* click-catcher: closes the popup when clicking elsewhere */}
+      <button
+        type="button"
+        aria-label="Close settings"
+        onClick={onClose}
+        className="fixed inset-0 z-40 cursor-default"
+      />
+      {/* Keep the popup within the viewport, outside the artifact menu. */}
+      <div
+        ref={popup}
+        role="dialog"
+        aria-label="Settings"
+        className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
+      >
+        <div className="border-b border-neutral-300 px-3 py-2 text-xs font-semibold dark:border-neutral-700">
+          Settings
+        </div>
+
+        <Section label="Appearance">
+          <Segmented
+            options={[
+              { id: "light", label: "☀ Light" },
+              { id: "dark", label: "☾ Dark" },
+            ]}
+            value={dark ? "dark" : "light"}
+            onChange={(id) => {
+              if ((id === "dark") !== dark) toggleTheme();
+            }}
+          />
+        </Section>
+
+        <Section label={`Font size · ${fontSize}px`}>
+          <div className="flex items-center gap-2">
+            <StepButton
+              onClick={() => setFontSize(fontSize - 1)}
+              disabled={fontSize <= FONT_MIN}
+              label="−"
+            />
+            <input
+              type="range"
+              min={FONT_MIN}
+              max={FONT_MAX}
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="h-1 min-w-0 flex-1 accent-primary-600"
+            />
+            <StepButton
+              onClick={() => setFontSize(fontSize + 1)}
+              disabled={fontSize >= FONT_MAX}
+              label="+"
+            />
+          </div>
+        </Section>
+
+        <Section label="Syntax theme">
+          <select
+            value={syntaxTheme}
+            onChange={(e) => setSyntaxTheme(e.target.value)}
+            // max-md:text-base — iOS zooms on focusing a <select> under 16px
+            // too, same as text inputs.
+            className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-700 outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+          >
+            {themeGroups.map((g) => (
+              <optgroup key={g.name} label={g.name}>
+                {g.items.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[0.625rem] text-neutral-400">
+            “Auto” themes follow light/dark mode; the rest apply as-is.
+          </p>
+        </Section>
+
+        {/* Login tokens for reaching r3 when it's exposed beyond loopback —
+                absent in the browser demo, which has no daemon to expose. */}
+        {CAN_MANAGE_TOKENS && (
+          <Section label="Access">
+            <TokenManager />
+          </Section>
+        )}
+
+        {/* Sign out — only an exposed (cookie) session can; a non-exposed one
+                holds the token (TOKEN != "") and has nothing to sign out of. */}
+        {CAN_MANAGE_TOKENS && TOKEN === "" && (
+          <Section label="Session">
+            <Button
+              variant="default"
+              onClick={() => api.logout().finally(() => location.reload())}
+              className="w-full justify-center"
+            >
+              Sign out
+            </Button>
+          </Section>
+        )}
+      </div>
+    </>
   );
 }

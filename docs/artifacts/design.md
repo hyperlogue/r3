@@ -161,6 +161,8 @@ Raw artifact metadata and publisher attribution are collapsed under **Details**.
 The artifact list uses kind icons, relative update times, and unhandled counts;
 only archived state is labeled. Exact timestamps remain available on hover.
 Title editing lives in an explicit **Edit title** form inside that menu.
+A **Settings** row closes the artifact menu and opens the settings popup; dismissing
+it restores focus to the three-dot trigger. The artifact navbar has no separate gear.
 There is no separate body header or delete button. Version selection sits in the
 top navigation; below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.

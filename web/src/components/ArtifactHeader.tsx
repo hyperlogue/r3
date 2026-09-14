@@ -11,6 +11,7 @@ import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
+import { SettingsDialog } from "./SettingsPopup.tsx";
 
 export function ArtifactArchiveDialog({
   artifactId,
@@ -129,6 +130,7 @@ export function ArtifactHeader({
   detail = useOptimisticArtifact(detail);
   const qc = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const details = useRef<HTMLDivElement>(null);
   const detailsTrigger = useRef<HTMLButtonElement>(null);
@@ -173,7 +175,7 @@ export function ArtifactHeader({
   });
   const error = edit.error ?? restore.error;
   return (
-    <AppHeader>
+    <AppHeader showSettings={false}>
       <ArtifactKindIcon kind={detail.kind} />
       <span
         className="min-w-0 flex-1 truncate text-sm font-semibold"
@@ -325,6 +327,20 @@ export function ArtifactHeader({
             />
           </section>
         )}
+        <Button
+          variant="ghost"
+          className="mb-2 w-full justify-between"
+          aria-haspopup="dialog"
+          onClick={() => {
+            setDetailsOpen(false);
+            setSettingsOpen(true);
+          }}
+        >
+          Settings
+          <StrokeIcon className="size-4">
+            <path d="m9 6 6 6-6 6" />
+          </StrokeIcon>
+        </Button>
         <ArtifactPreviewSecurity />
         {version?.summary && (
           <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
@@ -429,6 +445,9 @@ export function ArtifactHeader({
             ×
           </Button>
         </div>
+      )}
+      {settingsOpen && (
+        <SettingsDialog onClose={() => setSettingsOpen(false)} trigger={detailsTrigger} />
       )}
       {archiveOpen && (
         <ArtifactArchiveDialog
