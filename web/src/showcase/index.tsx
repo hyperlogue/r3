@@ -30,6 +30,7 @@ import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } fr
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
+import { FeedbackCardGallery, seedFeedbackCardGallery } from "./FeedbackCardGallery.tsx";
 import { OverlayContrastPreview } from "./OverlayContrastPreview.tsx";
 import "../main.css";
 
@@ -54,9 +55,11 @@ function resetSamples() {
   }
 }
 resetSamples();
+seedFeedbackCardGallery();
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const sections = [
   ["feedback", "Feedback & artifact header"],
+  ["feedback-cards", "Feedback card gallery"],
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
   ["controls", "Controls & typography"],
@@ -460,6 +463,14 @@ function Showcase() {
         </header>
         <Section id="feedback">
           <Feedback announce={setNotice} />
+        </Section>
+        <Section id="feedback-cards">
+          <p className="max-w-3xl text-sm text-neutral-500">
+            Ten examples of the current feedback card. Try replying, editing, resolving, expanding
+            quotes, and opening earlier replies. Sample actions stay inside this gallery and reset
+            on reload. Use r3’s outer comment mode to leave your design feedback.
+          </p>
+          <FeedbackCardGallery announce={setNotice} />
         </Section>
         <Section id="content">
           <p className="text-sm text-neutral-500">
