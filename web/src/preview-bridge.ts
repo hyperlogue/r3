@@ -1,9 +1,10 @@
 import type { ArtifactDetail, RenderedLocator } from "../../shared/artifacts.ts";
 import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
-import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
+import type { PreviewPageContext, PreviewViewport } from "../../shared/preview-protocol.ts";
 import { normalizeRenderedText } from "../../shared/rendered-text.ts";
 import type { artifactApi } from "./artifact-api.ts";
 import type { previewThemePreference } from "./preview-theme.ts";
+import type { AnchorRect } from "./selection.ts";
 
 export function previewLocator(value: unknown): RenderedLocator | null {
   if (value === null || value === undefined) return null;
@@ -48,6 +49,32 @@ export function previewLocator(value: unknown): RenderedLocator | null {
     ...(suffix === undefined ? {} : { suffix: normalizeRenderedText(suffix) }),
     ...(route === undefined ? {} : { route }),
     ...(viewport ? { viewport } : {}),
+  };
+}
+
+// Geometry is transient UI evidence. Validate it separately from the persisted
+// locator, translate from the frame, and keep the composer in visible content.
+export function previewSelectionPosition(
+  value: unknown,
+  frame: PreviewViewport,
+  visible: PreviewViewport,
+): AnchorRect {
+  if (!value || typeof value !== "object") throw new Error("Invalid selection bounds");
+  const rect = value as PreviewViewport;
+  if (
+    ![rect.top, rect.right, rect.bottom, rect.left].every(
+      (n) => typeof n === "number" && Number.isFinite(n) && Math.abs(n) <= MAX_RENDERED_HEIGHT,
+    ) ||
+    rect.bottom < rect.top ||
+    rect.right < rect.left
+  )
+    throw new Error("Invalid selection bounds");
+  const clamp = (n: number, low: number, high: number) =>
+    Math.max(low, Math.min(n, Math.max(low, high)));
+  return {
+    left: clamp(frame.left + (rect.left + rect.right) / 2, visible.left, visible.right),
+    top: clamp(frame.top + rect.top, visible.top, visible.bottom),
+    bottom: clamp(frame.top + rect.bottom, visible.top, visible.bottom),
   };
 }
 

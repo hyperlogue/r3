@@ -38,6 +38,8 @@ export interface PreviewDisplay {
   // Retained Markdown in file stacks grows with the document's natural height.
   fitContent?: boolean;
   commenting: boolean;
+  noteHasText?: boolean;
+  composerVisible?: boolean;
   targets: { feedbackId: string; locator: RenderedLocator | null }[];
   jump: { locator: RenderedLocator | null; nonce: number } | null;
 }

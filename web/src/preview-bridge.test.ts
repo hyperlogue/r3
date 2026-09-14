@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ArtifactDetail, ArtifactFeedback, ArtifactReply } from "../../shared/artifacts.ts";
 import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
-import { previewBridgeCall, previewLocator } from "./preview-bridge.ts";
+import { previewBridgeCall, previewLocator, previewSelectionPosition } from "./preview-bridge.ts";
 import { previewThemePreference } from "./preview-theme.ts";
 
 test("full-height Markdown retains its native viewport evidence", () => {
@@ -152,4 +152,23 @@ test("preview themes persist only a user-selected light/dark preference for thei
       blocked,
     ),
   ).toEqual(context);
+});
+
+test("selection bounds stay finite and within the visible part of a tall frame", () => {
+  const frame = { left: 200, right: 1000, top: -5000, bottom: 200000 };
+  const visible = { left: 200, right: 1000, top: 80, bottom: 700 };
+  expect(
+    previewSelectionPosition({ left: 20, right: 100, top: 5200, bottom: 5240 }, frame, visible),
+  ).toEqual({ left: 260, top: 200, bottom: 240 });
+  expect(
+    previewSelectionPosition({ left: -500, right: 100, top: 0, bottom: 200000 }, frame, visible),
+  ).toEqual({ left: 200, top: 80, bottom: 700 });
+  for (const rect of [
+    null,
+    {},
+    { left: 0, right: NaN, top: 0, bottom: 20 },
+    { left: 2, right: 1, top: 0, bottom: 20 },
+    { left: 0, right: 20, top: 0, bottom: Infinity },
+  ])
+    expect(() => previewSelectionPosition(rect, frame, visible)).toThrow("selection bounds");
 });
