@@ -32,6 +32,7 @@ import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import { FeedbackCardGallery, seedFeedbackCardGallery } from "./FeedbackCardGallery.tsx";
 import { OverlayContrastPreview } from "./OverlayContrastPreview.tsx";
+import "./forms.ts";
 import "../main.css";
 
 // The build aliases all API calls to this same in-memory demo backend.
