@@ -25,6 +25,12 @@ export function observeTextSelection(
   const capture = () => {
     clearTimeout(timer);
     keyboard = false;
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      (active.matches("input,textarea,select") || active.isContentEditable)
+    )
+      return;
     const selection = getSelection();
     if (!selection?.rangeCount || selection.isCollapsed || !selection.toString().trim()) return;
     const range = selection.getRangeAt(0);
@@ -111,7 +117,7 @@ export function composerKeyAction(event: KeyboardEvent): "focus" | "escape" | nu
   const active = document.activeElement;
   if (active instanceof HTMLElement) {
     if (active.matches("input,textarea,select") || active.isContentEditable) return null;
-    const interactive = active.matches('button,a,[role="button"]');
+    const interactive = active.matches('button,a,summary,audio,video,[role="button"]');
     if (interactive && (event.key === "Escape" || active.matches(":focus-visible"))) return null;
   }
   return event.key === " " || event.key === "Tab"

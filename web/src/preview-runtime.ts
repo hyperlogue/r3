@@ -5,6 +5,7 @@ import type {
   PreviewViewport,
 } from "../../shared/preview-protocol.ts";
 import type { PreviewConnection } from "./preview-channel.ts";
+import type { composerKeyAction, observeTextSelection } from "./selection-events.ts";
 
 // Served before publisher scripts. This function is serialized, so every
 // runtime dependency is an argument, a local, or a browser API.
@@ -12,6 +13,8 @@ export function installPreviewRuntime(
   config: PreviewBootstrap,
   normalize: (text: string) => string,
   connection: PreviewConnection,
+  observeSelection: typeof observeTextSelection,
+  composerKey: typeof composerKeyAction,
 ): void {
   let display: PreviewDisplay = { commenting: false, targets: [], jump: null };
   let viewport: PreviewViewport | null = null;
@@ -20,6 +23,11 @@ export function installPreviewRuntime(
   let box: HTMLDivElement;
   let controls: HTMLDivElement;
   let markers: HTMLDivElement;
+  let selectionAction: HTMLButtonElement;
+  let pendingSelection: { locator: RenderedLocator; rect: PreviewViewport } | null = null;
+  let pressedSelection: { locator: RenderedLocator; rect: PreviewViewport; quote: boolean } | null =
+    null;
+  let stopSelection: (() => void) | undefined;
   let marked: { button: HTMLButtonElement; element: Element }[] = [];
   let markersDirty = true;
   let picked: Element | null = null;
@@ -197,6 +205,17 @@ export function installPreviewRuntime(
     box.hidden = !element?.isConnected;
     const bounds = viewport ?? { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
     controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
+    selectionAction.hidden =
+      !pendingSelection || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
+    selectionAction.textContent = display.noteHasText ? "Quote in note" : "Add feedback";
+    if (pendingSelection) {
+      const rect = pendingSelection.rect;
+      selectionAction.style.maxWidth = `${Math.max(0, bounds.right - bounds.left - 16)}px`;
+      Object.assign(selectionAction.style, {
+        left: `${Math.max(bounds.left + 8, Math.min((rect.left + rect.right - selectionAction.offsetWidth) / 2, bounds.right - selectionAction.offsetWidth - 8))}px`,
+        top: `${Math.max(bounds.top + 8, Math.min(rect.bottom + 8, bounds.bottom - selectionAction.offsetHeight - 8))}px`,
+      });
+    }
     if (!element?.isConnected) return;
     const rect = element.getBoundingClientRect();
     Object.assign(box.style, {
@@ -260,6 +279,8 @@ export function installPreviewRuntime(
   };
   connection.subscribe((message) => {
     if (message?.type === "r3-preview-viewport" && message.contextId === config.contextId) {
+      if (viewport && JSON.stringify(viewport) !== JSON.stringify(message.viewport))
+        pendingSelection = null;
       viewport = message.viewport;
       schedule();
       return;
@@ -271,6 +292,31 @@ export function installPreviewRuntime(
     locate();
     schedule();
   });
+  stopSelection = observeSelection(
+    (range, touch) => {
+      if (!root || config.presentation !== "document") return false;
+      const node = range.commonAncestorContainer;
+      const element = node instanceof Element ? node : node.parentElement;
+      if (!element || !visible(element)) return false;
+      selectedRange = range.cloneRange();
+      selectedQuote = normalize(range.toString()).slice(0, 16_384);
+      const locator = capture(element);
+      const { top, right, bottom, left } = range.getBoundingClientRect();
+      const selection = { locator, rect: { top, right, bottom, left } };
+      cancel();
+      if (touch || display.noteHasText) pendingSelection = selection;
+      else {
+        pendingSelection = null;
+        send("r3-preview-selection", { ...selection, quote: false });
+      }
+      schedule();
+      return true;
+    },
+    () => {
+      if (!pressedSelection) pendingSelection = null;
+      schedule();
+    },
+  );
   // Register before publisher scripts so a pick cannot activate their click or
   // pointer handlers. Text selection remains native; only activation is stopped.
   const intercept = (event: Event) => {
@@ -298,6 +344,8 @@ export function installPreviewRuntime(
         event.preventDefault();
         event.stopImmediatePropagation();
         const selection = getSelection();
+        if (selection?.rangeCount && !selection.isCollapsed && normalize(selection.toString()))
+          return;
         selectedRange =
           selection?.rangeCount && !selection.isCollapsed
             ? selection.getRangeAt(0).cloneRange()
@@ -328,8 +376,26 @@ export function installPreviewRuntime(
   window.addEventListener(
     "keydown",
     (event) => {
-      if (!display.commenting || event.composedPath().includes(root!)) return;
+      if (event.composedPath().includes(root!)) return;
+      const action = composerKey(event);
+      if (
+        config.presentation === "document" &&
+        event.isTrusted &&
+        display.composerVisible &&
+        action
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        send("r3-preview-composer-key", { action });
+        if (action === "escape") {
+          pressedSelection = pendingSelection = null;
+          cancel();
+        }
+        return;
+      }
+      if (!display.commenting) return;
       if (event.key === "Escape") {
+        pressedSelection = pendingSelection = null;
         cancel();
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -341,7 +407,14 @@ export function installPreviewRuntime(
     },
     true,
   );
-  window.addEventListener("scroll", schedule, true);
+  window.addEventListener(
+    "scroll",
+    () => {
+      pressedSelection = pendingSelection = null;
+      schedule();
+    },
+    true,
+  );
   window.addEventListener("resize", schedule);
   window.addEventListener("hashchange", () => {
     send("r3-preview-document");
@@ -360,6 +433,30 @@ export function installPreviewRuntime(
       '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:8px;background:#171717;border:1px solid #525252;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
     box = shadow.querySelector(".box")!;
     controls = shadow.querySelector(".controls")!;
+    selectionAction = document.createElement("button");
+    selectionAction.hidden = true;
+    selectionAction.style.cssText =
+      "position:fixed;pointer-events:auto;border:1px solid #525252;border-radius:6px;background:#262626;color:white;padding:8px 12px;box-shadow:0 4px 12px #0006;font:13px system-ui;white-space:nowrap";
+    selectionAction.onpointerdown = (event) => {
+      if (pendingSelection)
+        pressedSelection = { ...pendingSelection, quote: !!display.noteHasText };
+      event.preventDefault();
+    };
+    selectionAction.onpointercancel = () => {
+      pressedSelection = pendingSelection = null;
+      schedule();
+    };
+    selectionAction.onclick = () => {
+      const selected =
+        pressedSelection ??
+        (pendingSelection && { ...pendingSelection, quote: !!display.noteHasText });
+      if (!selected) return;
+      send("r3-preview-selection", selected);
+      if (selected.quote) getSelection()?.removeAllRanges();
+      pressedSelection = pendingSelection = null;
+      schedule();
+    };
+    shadow.append(selectionAction);
     markers = document.createElement("div");
     shadow.append(markers);
     const markerStyle = document.createElement("style");
@@ -406,6 +503,7 @@ export function installPreviewRuntime(
     document.addEventListener("DOMContentLoaded", ready, { once: true });
   else ready();
   window.addEventListener("pagehide", () => {
+    stopSelection?.();
     observation?.disconnect();
     cancelAnimationFrame(frame);
   });

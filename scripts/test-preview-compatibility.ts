@@ -276,6 +276,30 @@ try {
     await page.locator("[data-preview-camera]").getAttribute("data-preview-camera"),
     "blocked",
   );
+  // A real pointer drag in each engine must preserve Copy and bridge Tab into
+  // the composer without requiring rendered element-picking mode.
+  const heading = await frame
+    .getByRole("heading", { name: "Version 1", exact: true })
+    .boundingBox();
+  await page.mouse.move(heading.x + 1, heading.y + heading.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(heading.x + heading.width - 2, heading.y + heading.height / 2, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  const selectionComposer = page.getByRole("textbox", { name: "Feedback", exact: true });
+  await selectionComposer.waitFor();
+  assert.equal(
+    await selectionComposer.evaluate((node: HTMLElement) => document.activeElement === node),
+    false,
+  );
+  assert.equal(await publishedFrame.evaluate(() => getSelection()?.toString()), "Version 1");
+  await page.keyboard.press("Tab");
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute("aria-label") === "Feedback",
+  );
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await selectionComposer.waitFor({ state: "hidden" });
   const beforeForgery = grants.length;
   await publishedFrame.evaluate(
     (appOrigin: string) =>

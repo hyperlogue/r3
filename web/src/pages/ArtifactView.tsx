@@ -10,7 +10,7 @@ import type {
 } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactComposerField, focusArtifactComposer } from "../artifact-composer-keys.ts";
-import { artifactDrafts, useHasArtifactNote } from "../artifact-drafts.ts";
+import { artifactDrafts, useArtifactNoteOpen, useHasArtifactNote } from "../artifact-drafts.ts";
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
   type ArtifactLocation,
@@ -77,6 +77,10 @@ export interface ArtifactRenderedPaneProps {
   jump: { locator: RenderedLocator | null; nonce: number } | null;
   targets: { feedbackId: string; target: ArtifactDocumentTarget }[];
   onTarget: (target: ArtifactDocumentTarget) => void;
+  onSelection?: (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => void;
+  onComposerKey?: (action: "focus" | "escape") => void;
+  noteHasText?: boolean;
+  composerVisible?: boolean;
   onDocument: (path: string) => void;
   onFeedback: (id: string) => void;
 }
@@ -183,6 +187,7 @@ function Workspace({
   const initialFeedback = useRef(view.feedbackId);
   const initialPath = useRef(view.feedbackId ? null : view.path);
   const hasNote = useHasArtifactNote(detail.id);
+  const noteOpen = useArtifactNoteOpen(detail.id);
   const {
     version,
     theme,
@@ -263,24 +268,28 @@ function Workspace({
     () => requestAnimationFrame(() => focusArtifactComposer(detail.id)),
     [detail.id],
   );
+  const handleComposerKey = useCallback(
+    (action: "focus" | "escape") => {
+      if (keysSuspended()) return false;
+      if (action === "focus") return focusArtifactComposer(detail.id);
+      setQuote(null);
+      if (!artifactDrafts.get(detail.id)?.body.trim()) {
+        artifactDrafts.clear(detail.id);
+        setFloating(null);
+        if (mobile) setSheet("closed");
+      }
+      return true;
+    },
+    [detail.id, mobile],
+  );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (keysSuspended()) return;
       const action = composerKeyAction(event);
-      if (action === "focus" && artifactComposerField(detail.id)) {
-        event.preventDefault();
-        focusArtifactComposer(detail.id);
-      } else if (action === "escape") {
-        setQuote(null);
-        if (!artifactDrafts.get(detail.id)?.body.trim()) {
-          artifactDrafts.clear(detail.id);
-          setFloating(null);
-        }
-      }
+      if (action && handleComposerKey(action)) event.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detail.id]);
+  }, [handleComposerKey]);
   useEffect(
     () => () => {
       if (!artifactDrafts.get(detail.id)?.body.trim()) artifactDrafts.clear(detail.id);
@@ -295,9 +304,12 @@ function Workspace({
         setFloating(
           rect ?? { left: innerWidth * 0.6, top: innerHeight * 0.4, bottom: innerHeight * 0.4 },
         );
+      requestAnimationFrame(() =>
+        artifactComposerField(detail.id)?.closest("form")?.scrollIntoView({ block: "nearest" }),
+      );
       if (focus) focusComposer();
     },
-    [mobile, collapsed, focusComposer],
+    [mobile, collapsed, detail.id, focusComposer],
   );
   const appendQuote = useCallback(
     (text: string) => {
@@ -336,6 +348,18 @@ function Workspace({
     },
     [detail.id, appendQuote, openComposer],
   );
+  const selectRendered = useCallback(
+    (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => {
+      anchor(target, quote, rect, false);
+    },
+    [anchor],
+  );
+  const selectionProps = {
+    onSelection: selectRendered,
+    onComposerKey: handleComposerKey,
+    noteHasText: hasNote,
+    composerVisible: noteOpen && (mobile ? sheet !== "closed" : !collapsed || !!floating),
+  };
   const pickLines = useCallback(
     (file: string, side: DiffSide, start: number, end: number, quote: string) => {
       if (!version) return;
@@ -736,6 +760,7 @@ function Workspace({
                   jump: renderedJump,
                   targets: renderedTargets,
                   onTarget: anchor,
+                  ...selectionProps,
                   onDocument: (next) => {
                     if (next !== path) {
                       setRenderedJump(null);
@@ -832,6 +857,7 @@ function Workspace({
                                 jump: view.path === file.path ? renderedJump : null,
                                 targets: renderedTargets,
                                 onTarget: anchor,
+                                ...selectionProps,
                                 onDocument: (next) => {
                                   if (next === file.path) return;
                                   changeView({ path: next, representation: "rendered" });

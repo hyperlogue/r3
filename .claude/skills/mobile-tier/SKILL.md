@@ -86,7 +86,8 @@ Keyed on the **pointer, not the width tier** (`usePointerCoarse` — primary poi
 coarse). A narrow desktop window keeps instant mouseup-anchoring; a portrait tablet
 still gets touch anchoring.
 
-The source/diff `mouseup` selection path swaps for a debounced `selectionchange`
+In source, diffs, rendered Markdown, and HTML, the `mouseup` selection path swaps
+for a debounced `selectionchange`
 listener raising a floating **"Add feedback" pill** (`AddFeedbackPill`):
 
 - The anchor/quote/rect are captured **at selectionchange time** — iOS collapses the
@@ -99,8 +100,10 @@ listener raising a floating **"Add feedback" pill** (`AddFeedbackPill`):
 
 Line-number taps anchor through the existing gutter path (`touch-manipulation`).
 
-**Deferred**: tap-tap range extension. Rendered comment mode uses the preview
-runtime and its native DOM/text target, never a parent-page source selection.
+**Deferred**: tap-tap range extension. Rendered selection and element comment mode use the preview runtime and native
+DOM/text targets, never a parent-page source selection. The trusted runtime holds
+the touch action inside its frame and preserves a pressed selection through native
+selection collapse; the parent opens the shared composer peek without autofocus.
 
 ## Ergonomics
 

@@ -5,6 +5,7 @@ import { installMarkdownLayout, installMarkdownTheme } from "../web/src/preview-
 import { createPreviewMedia } from "../web/src/preview-media.ts";
 import { installPreviewRuntime } from "../web/src/preview-runtime.ts";
 import { createArtifactUtility } from "../web/src/preview-utility.ts";
+import { composerKeyAction, observeTextSelection } from "../web/src/selection-events.ts";
 import { type PreviewScope, previewRoot } from "./preview-contexts.ts";
 import type { PreviewSupport } from "./preview-host.ts";
 
@@ -29,6 +30,6 @@ const connection = (${connectPreview.toString()})(config);
 (${installMarkdownLayout.toString()})(config, connection);
 const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${previewIceComplete.toString()});
 Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection, getUserMedia)});
-(${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection); })();`,
+(${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); })();`,
   utility: () => "const r3 = globalThis.__r3ArtifactUtility; export { r3 }; export default r3;",
 };

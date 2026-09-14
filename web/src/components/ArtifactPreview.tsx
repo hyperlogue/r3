@@ -14,8 +14,9 @@ import type {
 } from "../../../shared/preview-protocol.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useDarkTheme } from "../hooks.ts";
+import { keysSuspended } from "../keys.ts";
 import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
-import { previewBridgeCall, previewLocator } from "../preview-bridge.ts";
+import { previewBridgeCall, previewLocator, previewSelectionPosition } from "../preview-bridge.ts";
 import { PreviewCapture } from "../preview-capture.ts";
 import {
   type PreviewVerification,
@@ -331,6 +332,8 @@ function PreviewSession(
         props.detail.kind === "files" && props.markdownPaths.includes(currentPath.current);
       const value: PreviewDisplay = {
         theme: theme.current,
+        noteHasText: props.noteHasText,
+        composerVisible: props.composerVisible,
         fitContent,
         commenting: props.commenting && context.presentation === "document",
         targets: props.targets.flatMap(({ feedbackId, target }) =>
@@ -437,6 +440,42 @@ function PreviewSession(
             message.height <= MAX_RENDERED_HEIGHT
           )
             setDocumentHeight({ path, height: Math.ceil(message.height) });
+        } else if (message.type === "r3-preview-composer-key") {
+          if (
+            context.presentation === "document" &&
+            document.activeElement === iframe.current &&
+            !keysSuspended() &&
+            (message.action === "focus" || message.action === "escape")
+          )
+            current.current.onComposerKey?.(message.action);
+        } else if (message.type === "r3-preview-selection") {
+          if (
+            context.presentation !== "document" ||
+            document.activeElement !== iframe.current ||
+            keysSuspended() ||
+            !iframe.current
+          )
+            return;
+          try {
+            const locator = previewLocator(message.locator);
+            if (!locator?.quote?.trim() || typeof message.quote !== "boolean") return;
+            const frame = iframe.current.getBoundingClientRect();
+            const pane =
+              iframe.current.closest("[data-artifact-content]")?.getBoundingClientRect() ?? frame;
+            const rect = previewSelectionPosition(message.rect, frame, {
+              top: Math.max(0, frame.top, pane.top),
+              right: Math.min(innerWidth, frame.right, pane.right),
+              bottom: Math.min(innerHeight, frame.bottom, pane.bottom),
+              left: Math.max(0, frame.left, pane.left),
+            });
+            current.current.onSelection?.(
+              { kind: "rendered", versionSeq: seq, path, locator },
+              rect,
+              message.quote,
+            );
+          } catch (error) {
+            setNotice(error instanceof Error ? error.message : "Unable to capture this selection");
+          }
         } else if (message.type === "r3-preview-target") {
           if (!current.current.commenting || context.presentation !== "document") return;
           try {
@@ -560,6 +599,8 @@ function PreviewSession(
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display: PreviewDisplay = {
       theme: dark ? "dark" : "light",
+      noteHasText: props.noteHasText,
+      composerVisible: props.composerVisible,
       fitContent: props.detail.kind === "files" && props.markdownPaths.includes(props.path),
       commenting: props.commenting && context.presentation === "document",
       targets: props.targets.flatMap(({ feedbackId, target }) =>
@@ -581,6 +622,8 @@ function PreviewSession(
     ready,
     seq,
     props.commenting,
+    props.noteHasText,
+    props.composerVisible,
     props.targets,
     props.jump,
     props.path,
@@ -602,7 +645,7 @@ function PreviewSession(
   }, [height, documentHeight]);
 
   useEffect(() => {
-    if (!context || !ready || height === undefined || !props.commenting || !iframe.current) return;
+    if (!context || !ready || !iframe.current) return;
     return observePreviewViewport(iframe.current, (viewport) => {
       connection.current?.postMessage({
         type: "r3-preview-viewport",
@@ -610,7 +653,7 @@ function PreviewSession(
         viewport,
       });
     });
-  }, [context, height, ready, props.commenting]);
+  }, [context, ready]);
 
   return (
     <div

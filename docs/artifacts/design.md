@@ -280,7 +280,9 @@ on a link label does not need a computed Markdown source range. Its thread appea
 in both views, and Locate returns to the rendered view where it began. Source notes
 work symmetrically. Exact cross-representation matching is not required.
 
-Source/diff text selection and gutter gestures open an unfocused composer, preserving
+Text selection in source, diffs, rendered Markdown, and HTML works outside comment
+mode. Inputs, textareas, selects, and editable regions are excluded. Selection and
+gutter gestures open an unfocused composer, preserving
 native Copy. Space or forward Tab focuses the visible new-note composer at the end;
 Shift+Tab, editable fields, keyboard-focused controls, IME, modifiers, and overlays
 retain their own keys. Keyboard text selection shares native capture with a 275 ms
@@ -289,6 +291,13 @@ Escape cancels an empty note; in a populated editor it blurs without losing text
 Scrolling or collapsing the selection dismisses transient quote actions, not drafts.
 An empty note can retarget; a populated note offers **Quote in note**. Selection in
 an agent message offers **Quote in reply** only for that message's own thread.
+On coarse pointers, selection first offers **Add feedback**, or **Quote in note**
+for a populated note. The action captures its range before tapping can clear the
+native selection. Preview controls use the visible part of their iframe, including
+full-height Markdown; the parent translates bounded geometry for the composer.
+Focus and draft actions travel only on the current document's port while its frame
+has focus. They do not send feedback; publication and conversation mutations retain
+their existing explicit actions and guards.
 
 Rendered selection and Locate share text normalization. A dynamic element may no
 longer exist in the current page state; the thread and captured context remain
