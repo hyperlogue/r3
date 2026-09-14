@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import type { ArtifactFeedback } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { Button } from "../ui.tsx";
@@ -35,6 +37,80 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+
+function mockFeedbackCreation(fail = false) {
+  const original = { detail: artifactApi.detail, addFeedback: artifactApi.addFeedback };
+  let server = structuredClone(artifactFixture);
+  artifactApi.detail = async () => server;
+  artifactApi.addFeedback = async (artifactId, body, target) => {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    if (fail) throw new Error("Could not save feedback. Please try again.");
+    const note: ArtifactFeedback = {
+      ...artifactFixtureFeedback,
+      id: crypto.randomUUID(),
+      artifactId,
+      body,
+      target,
+      replies: [],
+      sentAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    server = { ...server, feedback: [...server.feedback, note] };
+    return note;
+  };
+  return () => Object.assign(artifactApi, original);
+}
+
+export const ComposerToCard: Story = {
+  beforeEach: () => mockFeedbackCreation(),
+  parameters: {
+    queryData: [
+      [["artifact", artifactFixture.id], artifactFixture],
+      [["artifact-watchers", artifactFixture.id], []],
+    ],
+  },
+  render: (args) => {
+    const { data = args.detail } = useQuery({
+      queryKey: ["artifact", args.detail.id],
+      queryFn: () => artifactApi.detail(args.detail.id),
+    });
+    return <ArtifactThreads {...args} detail={data} />;
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "Feedback" }),
+      "Keep this new note at the top.",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add feedback" }));
+    await waitFor(() => {
+      const first = canvasElement.querySelector("[data-feedback-list] > article");
+      expect(first).toHaveTextContent("Keep this new note at the top.");
+      expect(canvas.queryByRole("textbox", { name: "Feedback" })).toBeNull();
+    });
+    await expect(canvasElement.querySelectorAll("[data-feedback-list] > article")).toHaveLength(2);
+  },
+};
+export const ComposerToCardDark: Story = { ...ComposerToCard, globals: { theme: "dark" } };
+export const ComposerSaveFailed: Story = {
+  ...ComposerToCard,
+  beforeEach: () => mockFeedbackCreation(true),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "Feedback" }),
+      "Keep my draft after an error.",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add feedback" }));
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("Could not save feedback");
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toHaveValue(
+      "Keep my draft after an error.",
+    );
+    await expect(canvasElement.querySelectorAll("[data-feedback-list] > article")).toHaveLength(1);
+  },
+};
 export const MenuKeyboardDismiss: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

@@ -48,6 +48,7 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-selection.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-markdown-theme.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-interactions.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-creation.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-handoff.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
@@ -60,6 +61,7 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 
 | Script | Acceptance boundary |
 | --- | --- |
+| `test-feedback-creation.ts` | Newest-first save, composer-to-card height transition, early event-stream reads and concurrent replies before the POST response, no duplicate cards, failed-save draft retention, retry, and reduced motion |
 | `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand feedback composer, draft handoff guard, and inactive shortcuts in hidden desktop/closed mobile panels; expanded/floating/hidden widths, remembered panel mode, and individual thread drafts with the dock hidden |
 | `test-artifact-selection.ts` | Source/diff and rendered HTML/Markdown selection, unfocused composer, Space/Tab across the opaque frame, idle Escape, keyboard debounce, editable exclusions, quote destination and anchor preservation, native posted Markdown target, and touch action with selection collapse during the tap |
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |

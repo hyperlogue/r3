@@ -200,16 +200,17 @@ file headers, and follow the outer scroll position. Rendered Locate waits for fi
 hydration, header alignment, and initial Markdown sizing before jumping to its target.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
-feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses
-a transparent green outline button with neutral text and icon; hover colors the
-text green and strengthens the border and tint.
+feedback button shares the bubble-plus icon with whole-file feedback. Resolve has
+neutral text and no visible outline at rest; hover adds a green border, text, and tint.
+The status tabs and their sliding highlight use the same corner radius as buttons.
 Transient background read failures retain the loaded workspace. Definitive missing
 artifact or access errors replace it with an error state.
 Resolve and Reopen update the queue immediately while the server saves. Pending
 decisions are applied over refreshed server state, so incoming replies remain visible.
 A failed save restores that thread and shows its error without rolling back other
 decisions. Handoff waits for pending status saves; only the server persists status.
-Active threads put unhandled agent responses first and claimed work last. Unhandled
+Active threads sort by creation time, newest first; replies and claims do not
+reorder them. Equal timestamps preserve reverse server insertion order. Unhandled
 means an open thread whose latest message is from an agent; a posted human reply or
 resolution clears it. Opening the panel does not. The navbar feedback button shows
 one primary-color dot when there are unhandled threads, drafts, or unsent feedback.
@@ -224,8 +225,12 @@ exact inputs stay in memory for the current visit. This confirmation never stamp
 server feedback as read. Failed or absent delivery remains retryable. Disabled handoff
 reasons remain in the button tooltip. The draft badge shares the filter row, so
 typing does not add a row or shift the composer. General notes open on demand as
-the first pending card in the same scrolling list as feedback. They share its
-insertion/removal animation; Cancel and Discard animate the neighboring cards.
+the first pending card in the same scrolling list as feedback. After the server
+confirms a new note, its returned record enters the cache immediately and replaces
+the composer at the top. The outgoing composer crossfades into the saved card while
+its height eases to fit; Cancel and Discard keep the ordinary removal animation.
+Reduced motion skips the transition. Failed saves retain the draft. Event-stream
+reads that arrive before the POST response cannot duplicate or overwrite the note.
 Agent replies
 use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the

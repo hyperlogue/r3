@@ -1,10 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useRef } from "react";
-import { createPortal } from "react-dom";
+import { type ReactNode, useContext, useRef } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
+import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
 import { useAutoGrow } from "../autogrow.ts";
+import { FeedbackCreationContext, prepareFeedbackMorph } from "../feedback-motion.ts";
 import { Button, cn } from "../ui.tsx";
 
 // Draft subscription and mutation live with the textarea. Typing does not
@@ -27,23 +29,42 @@ export function ArtifactComposer({
     !replyTo &&
     (draft?.target.kind === "version_summary" || draft?.target.kind === "artifact_summary");
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const formElement = useRef<HTMLFormElement>(null);
   const ref = useAutoGrow(textarea, draft?.body ?? "", 3, 12);
   const qc = useQueryClient();
+  const showCreated = useContext(FeedbackCreationContext);
   const post = useMutation({
     mutationFn: async () => {
       if (!draft?.body.trim() || retiredTarget) return;
       if (replyTo) await artifactApi.reply(replyTo, { body: draft.body, context: draft.context });
-      else await artifactApi.addFeedback(artifactId, draft.body, draft.target);
+      else return artifactApi.addFeedback(artifactId, draft.body, draft.target);
     },
-    onSuccess: () => {
-      artifactDrafts.clear(artifactId, replyTo);
-      void qc.invalidateQueries({ queryKey: ["artifact", artifactId] });
+    onSuccess: async (feedback) => {
+      let release: (() => void) | undefined;
+      if (feedback) {
+        // Do not let an older in-flight read replace the acknowledged note.
+        await qc.cancelQueries({ queryKey: ["artifact", artifactId], exact: true });
+        prepareFeedbackMorph(formElement.current, feedback.id);
+        flushSync(() => {
+          release = showCreated?.(feedback);
+          qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
+            !current || current.feedback.some((note) => note.id === feedback.id)
+              ? current
+              : { ...current, feedback: [...current.feedback, feedback] },
+          );
+          artifactDrafts.clear(artifactId);
+        });
+      } else {
+        artifactDrafts.clear(artifactId, replyTo);
+      }
       onDone?.();
+      void qc.invalidateQueries({ queryKey: ["artifact", artifactId] }).finally(() => release?.());
     },
   });
   const context = draft?.context;
   const form = (
     <form
+      ref={formElement}
       className={cn(
         "relative flex flex-col gap-2 bg-white py-3 dark:bg-neutral-950",
         !replyTo &&

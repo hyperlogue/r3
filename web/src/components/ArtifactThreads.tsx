@@ -22,7 +22,11 @@ import {
 } from "../artifact-feedback-status.ts";
 import { useFeedbackHandoffReceipt } from "../artifact-handoff.ts";
 import { copyText } from "../clipboard.ts";
-import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
+import {
+  FeedbackCreationContext,
+  feedbackAnimation,
+  useFeedbackTabIndicator,
+} from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import {
@@ -462,6 +466,19 @@ export function ArtifactThreads({
   detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
   const [tab, setTab] = useState<"active" | "resolved">("active");
+  const [created, setCreated] = useState<ArtifactFeedback | null>(null);
+  const showCreated = useCallback((feedback: ArtifactFeedback) => {
+    setCreated(feedback);
+    setTab("active");
+    return () => setCreated((current) => (current?.id === feedback.id ? null : current));
+  }, []);
+  const notes = useMemo(
+    () =>
+      created?.artifactId === detail.id && !detail.feedback.some((note) => note.id === created.id)
+        ? [...detail.feedback, created]
+        : detail.feedback,
+    [created, detail.id, detail.feedback],
+  );
   const [listAnimation] = useAutoAnimate<HTMLDivElement>(feedbackAnimation);
   const indicator = useFeedbackTabIndicator(tab);
   useEffect(() => {
@@ -492,11 +509,11 @@ export function ArtifactThreads({
   });
   const { active, resolved, pending } = useMemo(
     () => ({
-      active: activeArtifactFeedback(detail.feedback),
-      resolved: detail.feedback.filter((note) => note.status === "resolved"),
-      pending: detail.feedback.filter(hasUnsentArtifactFeedback).length,
+      active: activeArtifactFeedback(notes),
+      resolved: notes.filter((note) => note.status === "resolved"),
+      pending: notes.filter(hasUnsentArtifactFeedback).length,
     }),
-    [detail.feedback],
+    [notes],
   );
   const ordered = tab === "active" ? active : resolved;
   const disabledReason =
@@ -728,24 +745,26 @@ export function ArtifactThreads({
               ? "No resolved feedback."
               : "Select content to leave feedback, or add a general note."}
           </p>
-          <div ref={listAnimation} data-feedback-list>
-            {noteOpen && (
-              <div key="composer" data-feedback-draft>
-                {composer ?? <ArtifactComposer artifactId={detail.id} />}
-              </div>
-            )}
-            {ordered.map((feedback) => (
-              <ArtifactThreadCard
-                key={feedback.id}
-                feedback={feedback}
-                context={context}
-                onLocate={locate}
-                onJumpRef={onJumpRef}
-                active={activeFeedback === feedback.id}
-                onResolved={afterResolve}
-              />
-            ))}
-          </div>
+          <FeedbackCreationContext.Provider value={showCreated}>
+            <div ref={listAnimation} data-feedback-list>
+              {noteOpen && (
+                <div key="composer" data-feedback-draft>
+                  {composer ?? <ArtifactComposer artifactId={detail.id} />}
+                </div>
+              )}
+              {ordered.map((feedback) => (
+                <ArtifactThreadCard
+                  key={feedback.id}
+                  feedback={feedback}
+                  context={context}
+                  onLocate={locate}
+                  onJumpRef={onJumpRef}
+                  active={activeFeedback === feedback.id}
+                  onResolved={afterResolve}
+                />
+              ))}
+            </div>
+          </FeedbackCreationContext.Provider>
         </div>
       </div>
       {(notice || handoff.error) && (
