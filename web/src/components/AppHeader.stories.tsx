@@ -14,3 +14,4 @@ export const WithTitle: Story = {
     ),
   },
 };
+export const WithTitleDark: Story = { ...WithTitle, globals: { theme: "dark" } };

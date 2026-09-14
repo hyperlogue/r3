@@ -39,7 +39,7 @@ export function FeedbackPanelControls({
         className={control}
       >
         <StrokeIcon className="size-4">
-          <path d="m6 6 12 12M6 18 18 6" />
+          <path d={mode === "expanded" ? "m9 6 6 6-6 6" : "m6 6 12 12M6 18 18 6"} />
         </StrokeIcon>
       </button>
     </div>

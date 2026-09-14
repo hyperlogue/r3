@@ -23,8 +23,8 @@ export function ArtifactFeedbackToggle({
   const description = `${unhandled} unhandled ${unhandled === 1 ? "thread" : "threads"} · ${drafts} ${drafts === 1 ? "draft" : "drafts"} · ${unsent} not sent`;
   return (
     <Button
-      variant={visible ? "primary" : "ghost"}
-      className="relative shrink-0 p-1.5 max-md:hidden"
+      variant={visible ? "primary-outline" : "ghost"}
+      className={`relative shrink-0 p-1.5 max-md:hidden${visible ? "" : " border border-transparent"}`}
       aria-label={visible ? "Hide feedback" : "Show feedback"}
       aria-describedby={descriptionId}
       title={`${visible ? "Hide" : "Show"} feedback (p)\n${description}`}

@@ -169,7 +169,7 @@ export function ArtifactOpenLatest({
   if (latest === undefined || selected === null || selected === latest) return null;
   return (
     <Button
-      variant="ghost"
+      variant="primary-outline"
       className={cn("shrink-0 whitespace-nowrap", className)}
       onClick={() => onOpen(latest)}
     >

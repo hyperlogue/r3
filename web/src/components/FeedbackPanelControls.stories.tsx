@@ -42,3 +42,4 @@ export const Expanded: Story = {
   },
 };
 export const Floating: Story = { args: { mode: "floating" } };
+export const Docked: Story = { args: { mode: "expanded" } };

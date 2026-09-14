@@ -46,6 +46,9 @@ export const Unhandled: Story = {
     await expect(canvas.getByRole("button", { name: "Hide feedback" })).toHaveAccessibleDescription(
       /1 unhandled thread/,
     );
+    await expect(
+      getComputedStyle(canvas.getByRole("button", { name: "Hide feedback" })).backgroundColor,
+    ).toBe("rgba(0, 0, 0, 0)");
     await userEvent.click(canvas.getByRole("button", { name: "Resolve thread" }));
     await expect(canvas.getByRole("button", { name: "Hide feedback" })).toHaveAccessibleDescription(
       /0 unhandled threads/,

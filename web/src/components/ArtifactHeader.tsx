@@ -199,8 +199,8 @@ export function ArtifactHeader({
       {detail.state === "archived" && <Pill>Archived</Pill>}
       {onToggleCommenting && (
         <Button
-          variant={commenting ? "primary" : "ghost"}
-          className="shrink-0 p-1.5 max-md:size-9"
+          variant={commenting ? "primary-outline" : "ghost"}
+          className={`shrink-0 p-1.5 max-md:size-9${commenting ? "" : " border border-transparent"}`}
           aria-label={commenting ? "Exit comment mode" : "Comment mode"}
           title={commenting ? "Exit comment mode" : "Comment mode"}
           aria-pressed={commenting}

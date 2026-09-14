@@ -430,7 +430,14 @@ export function Button({
   className,
   ...props
 }: ComponentPropsWithRef<"button"> & {
-  variant?: "default" | "primary" | "ghost" | "danger" | "success" | "success-outline";
+  variant?:
+    | "default"
+    | "primary"
+    | "primary-outline"
+    | "ghost"
+    | "danger"
+    | "success"
+    | "success-outline";
 }) {
   // max-md:min-h-9 gives every shared button a compact ~40px touch target below
   // md (inert on desktop) — real-device feedback found full 44px CTAs
@@ -444,6 +451,8 @@ export function Button({
     default:
       "bg-neutral-100 hover:bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100",
     primary: "bg-primary-600 hover:bg-primary-500 text-white",
+    "primary-outline":
+      "border border-primary-500/70 bg-transparent text-primary-600 hover:border-primary-600 hover:text-primary-700 dark:border-primary-400/70 dark:text-primary-300 dark:hover:border-primary-300 dark:hover:text-primary-200",
     ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300",
     danger: "bg-danger-600/90 hover:bg-danger-600 text-white",
     // Approval — the terminal "this review is good" action. Success green (the
@@ -452,7 +461,7 @@ export function Button({
     // distinct.
     success: "bg-success-600 hover:bg-success-500 text-white",
     "success-outline":
-      "border border-success-600/60 bg-transparent text-success-700 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:border-success-500/60 dark:text-success-400 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
+      "border border-success-600/60 bg-transparent text-neutral-600 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:border-success-500/60 dark:text-neutral-300 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
   };
   return <button className={cn(base, variants[variant], className)} {...props} />;
 }

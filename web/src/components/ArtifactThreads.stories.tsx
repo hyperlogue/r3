@@ -46,6 +46,8 @@ export const ResolveHovered: Story = {
   },
 };
 export const ResolveHoveredDark: Story = { ...ResolveHovered, globals: { theme: "dark" } };
+export const ResolveIdle: Story = {};
+export const ResolveIdleDark: Story = { globals: { theme: "dark" } };
 export const NarrowPanel: Story = {
   decorators: [
     (Story) => (

@@ -103,6 +103,9 @@ export const Html: Story = {
       "aria-pressed",
       "true",
     );
+    await expect(
+      getComputedStyle(canvas.getByRole("button", { name: "Exit comment mode" })).backgroundColor,
+    ).toBe("rgba(0, 0, 0, 0)");
     await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
     await userEvent.click(canvas.getByText("Details", { exact: true }));
     await expect(canvas.getByText(artifactFixture.id, { exact: true })).toBeVisible();

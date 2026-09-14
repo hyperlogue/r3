@@ -151,7 +151,8 @@ Mobile sheets cast upward and retain their intentional rounded top corners. The
 floating composer has one complete neutral outer border and no colored left stripe.
 
 The top navigation contains the artifact's read-only title and rendered comment-mode
-selection-cursor icon. The `r3` text links to the artifact list, with extra spacing
+selection-cursor icon. Active navbar toggles use colored borders and icons without
+a filled background. The `r3` text links to the artifact list, with compact spacing
 around the divider separating it from the title. Every artifact kind has a labeled
 icon, including a browser window for HTML. Active status has no badge; archived
 artifacts show **Archived**. A three-dot button opens the details popover containing
@@ -168,7 +169,7 @@ layer without selecting. Menus focus their selected option or first enabled
 control and return focus to their trigger on dismissal. Escape closes one layer
 at a time, preserving any menu beneath a native permission dialog.
 While an older or unavailable version is selected, **Open latest** appears in the
-top navigation immediately left of the version selector. On narrow screens it
+top navigation immediately left of the version selector, with a highlighted outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and the button disappears on the latest version.
 HTML artifacts have no empty content toolbar. File-tab headers contain reading and
@@ -179,7 +180,8 @@ in the content body.
 
 The feedback dock retains the compact **Active / Resolved** tabs. Its Add general
 feedback button shares the bubble-plus icon with whole-file feedback. Resolve uses
-a transparent green outline button with a stronger green border and tint on hover.
+a transparent green outline button with neutral text and icon; hover colors the
+text green and strengthens the border and tint.
 Active threads put unhandled agent responses first and claimed work last. Unhandled
 means an open thread whose latest message is from an agent; a posted human reply or
 resolution clears it. Opening the panel does not. The navbar shows this count and
@@ -199,7 +201,7 @@ The desktop feedback panel has three persisted display states:
 
 Hidden and floating reserve no content space, so switching between them or resizing
 the floating panel never changes content or preview width. Expanded reserves the
-panel's width and resizes content with it. Visible panels offer **Float feedback** / **Dock feedback** and **Hide feedback**. The desktop navbar button or `p` hides the panel or
+panel's width and resizes content with it. Visible panels offer **Float feedback** / **Dock feedback** and **Hide feedback**. Hide uses a right chevron when docked and a close icon when floating. The desktop navbar button or `p` hides the panel or
 restores the last visible mode. That choice persists across reloads. All states keep
 the panel mounted to preserve UI state and drafts. Existing folded preferences become
 hidden and reopen expanded if no visible-mode preference was saved.
