@@ -126,7 +126,11 @@ export class ArtifactCollaboration {
     const artifact = this.artifacts.get(id);
     if (artifact.state !== "active") throw new ArtifactError("Artifact is archived", 409);
     const held = this.registrations.get(id);
+    const wakesWatch = held?.info.kind === "watch" && this.conversations.unsent(id).length > 0;
     this.broadcast({ type: "submitted", artifactId: id });
+    // The synchronous broadcast completes a pending generic watch. Like a local
+    // harness acknowledgment, this confirms the wake without draining feedback.
+    if (wakesWatch) return { state: "sent" };
     return this.notify(id, held, {
       id: randomUUID(),
       artifactId: id,

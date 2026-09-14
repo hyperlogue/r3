@@ -150,7 +150,7 @@ describe("artifact collaboration ordering", () => {
       body: "Please revise",
     });
     expect(collaboration.watchers(id)).toHaveLength(1);
-    await collaboration.submit(id);
+    expect(await collaboration.submit(id)).toEqual({ state: "sent" });
     expect(await waiting).toEqual({ result: "feedback" });
     expect(storage.conversations.unsent(id)).toHaveLength(1);
     expect(collaboration.watchers(id)).toEqual([]);

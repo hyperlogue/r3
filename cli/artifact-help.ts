@@ -95,7 +95,8 @@ Open the printed artifact URL for human feedback. Use listen for Claude Code or
 Codex when their local wake adapter is available; it keeps a publisher-side process
 connected outward to r3. Other agents use watch or poll prompt. The daemon never
 needs access to your checkout, executable, harness socket, or harness credential.
-One designated listen/watch connection is supported at a time.
+One designated listen/watch connection is supported at a time. A successful wake
+confirms notification delivery; feedback remains pending until prompt acknowledges it.
 
 Run prompt to fetch and acknowledge pending owner feedback; --all reads open
 history without acknowledging anything. Claim the feedback IDs you will handle.

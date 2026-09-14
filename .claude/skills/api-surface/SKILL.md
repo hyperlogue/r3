@@ -58,7 +58,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   An unsent preview also returns `x-r3-prompt-fingerprint`. Manual copy sends it
   back as `expectedFingerprint` after clipboard success; a changed snapshot
   returns 409 without stamping newly edited content. Direct CLI drains omit it.
-- `POST .../:id/submit` returns `{ notification }` and
+- `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
+  delivery acknowledgment or a generic watch woken for pending feedback. An absent
+  recipient (or a watch with no pending work) returns `none`. Neither drains feedback.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event, replay flag, and notification result. Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
