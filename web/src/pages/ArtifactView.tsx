@@ -9,6 +9,7 @@ import type {
 } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useHasArtifactNote } from "../artifact-drafts.ts";
+import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
   type ArtifactLocation,
   artifactLocationSearch,
@@ -93,7 +94,7 @@ export function ArtifactView({
   useEffect(() => {
     document.title = `${query.data?.title || artifactId} · r3`;
   }, [artifactId, query.data?.title]);
-  if (query.error)
+  if (query.error && !query.data)
     return (
       <>
         <AppHeader />
@@ -135,9 +136,10 @@ interface ArtifactWorkspaceProps {
 }
 
 export function ArtifactWorkspace(props: ArtifactWorkspaceProps) {
+  const detail = useOptimisticArtifact(props.detail);
   return (
     <ArtifactPreviewSecurityProvider>
-      <Workspace {...props} />
+      <Workspace {...props} detail={detail} />
     </ArtifactPreviewSecurityProvider>
   );
 }

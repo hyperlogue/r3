@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import type { MessageRef } from "../markdown.ts";
 import { Button, CopyMeta, Pill, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
@@ -125,6 +126,7 @@ export function ArtifactHeader({
   feedbackVisible?: boolean;
   onToggleFeedback?: () => void;
 }) {
+  detail = useOptimisticArtifact(detail);
   const qc = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);

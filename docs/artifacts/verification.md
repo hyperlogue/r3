@@ -143,3 +143,7 @@ checks the real workspace and preview boundary in all four system/r3 theme combi
 including live theme changes, retained syntax colors, and unchanged authored HTML.
 It also drags the file divider over the opaque preview and releases there, checking
 that the width persists and drag styling clears.
+
+Feedback responsiveness: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-feedback-interactions.ts`
+holds actual status responses to check immediate Resolve/Reopen, concurrent decisions,
+incoming replies through SSE, and restoration of only a failed decision.

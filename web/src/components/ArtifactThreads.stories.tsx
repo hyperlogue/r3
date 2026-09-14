@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { Button } from "../ui.tsx";
 import { ArtifactThreads } from "./ArtifactThreads.tsx";
@@ -48,6 +49,41 @@ export const ResolveHovered: Story = {
 export const ResolveHoveredDark: Story = { ...ResolveHovered, globals: { theme: "dark" } };
 export const ResolveIdle: Story = {};
 export const ResolveIdleDark: Story = { globals: { theme: "dark" } };
+export const ResolvePending: Story = {
+  beforeEach: () => {
+    const original = artifactApi.editFeedback;
+    artifactApi.editFeedback = () => new Promise(() => {});
+    return () => {
+      artifactApi.editFeedback = original;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "✓ Resolve" }));
+    await expect(canvas.getByRole("tab", { name: "Active 0" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Resolved 1" }));
+    await expect(canvas.getByRole("button", { name: "Reopen" })).toBeDisabled();
+  },
+};
+export const ResolveFailed: Story = {
+  beforeEach: () => {
+    const original = artifactApi.editFeedback;
+    artifactApi.editFeedback = async () => {
+      throw new Error("Could not save this decision. Try again.");
+    };
+    return () => {
+      artifactApi.editFeedback = original;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "✓ Resolve" }));
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Could not save this decision",
+    );
+    await expect(canvas.getByRole("tab", { name: "Active 1" })).toBeVisible();
+  },
+};
 export const NarrowPanel: Story = {
   decorators: [
     (Story) => (

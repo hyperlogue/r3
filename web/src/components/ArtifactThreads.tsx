@@ -15,6 +15,11 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraftCount, useArtifactNoteOpen } from "../artifact-drafts.ts";
 import { activeArtifactFeedback, artifactNeedsAttention } from "../artifact-feedback.ts";
+import {
+  useFeedbackStatus,
+  useFeedbackStatusPending,
+  useOptimisticArtifact,
+} from "../artifact-feedback-status.ts";
 import { copyText } from "../clipboard.ts";
 import { feedbackAnimation, useFeedbackTabIndicator } from "../feedback-motion.ts";
 import { useKeyBindings } from "../keys.ts";
@@ -91,16 +96,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       void refresh();
     },
   });
-  const status = useMutation({
-    mutationFn: () =>
-      artifactApi.editFeedback(feedback.id, {
-        status: feedback.status === "open" ? "resolved" : "open",
-      }),
-    onSuccess: () => {
-      void refresh();
-      if (feedback.status === "open") onResolved?.(feedback.id);
-    },
-  });
+  const status = useFeedbackStatus(feedback);
   const remove = useMutation({
     mutationFn: () => artifactApi.deleteFeedback(feedback.id),
     onSuccess: refresh,
@@ -119,7 +115,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       variant={feedback.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
       className={feedback.status === "resolved" ? "text-neutral-400" : undefined}
-      onClick={() => status.mutate()}
+      onClick={() => {
+        status.change(feedback.status === "open" ? "resolved" : "open");
+        if (feedback.status === "open") onResolved?.(feedback.id);
+      }}
     >
       {feedback.status === "open" ? "✓ Resolve" : "Reopen"}
     </Button>
@@ -451,6 +450,7 @@ export function ArtifactThreads({
   onNewNote?: () => void;
   keysActive?: boolean;
 }) {
+  detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
   const [tab, setTab] = useState<"active" | "resolved">("active");
   const [listAnimation] = useAutoAnimate<HTMLDivElement>(feedbackAnimation);
@@ -471,6 +471,7 @@ export function ArtifactThreads({
     );
   }, [activeFeedback, detail.feedback]);
   const draftCount = useArtifactDraftCount(detail.id);
+  const savingStatus = useFeedbackStatusPending(detail.id);
   const noteOpen = useArtifactNoteOpen(detail.id);
   const [notice, setNotice] = useState("");
   const qc = useQueryClient();
@@ -490,11 +491,13 @@ export function ArtifactThreads({
   const disabledReason =
     detail.state === "archived"
       ? "Restore the artifact to send feedback"
-      : draftCount
-        ? "Post or discard drafts before sending feedback"
-        : !pending
-          ? "No new feedback to send"
-          : null;
+      : savingStatus
+        ? "Saving feedback status"
+        : draftCount
+          ? "Post or discard drafts before sending feedback"
+          : !pending
+            ? "No new feedback to send"
+            : null;
   const handoff = useMutation({
     mutationFn: async () => {
       setNotice("");
