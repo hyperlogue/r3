@@ -272,7 +272,7 @@ function Workspace({
     () =>
       requestAnimationFrame(() => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
-          `[data-artifact-composer="${CSS.escape(detail.id)}"]:not([data-reply-to]) textarea`,
+          `[data-artifact-composer="${CSS.escape(detail.id)}"]:not([data-reply-to]) textarea:not([inert] *)`,
         );
         textarea?.focus();
         if (textarea) textarea.setSelectionRange(textarea.value.length, textarea.value.length);

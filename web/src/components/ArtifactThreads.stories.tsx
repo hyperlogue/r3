@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { Button } from "../ui.tsx";
@@ -101,13 +101,15 @@ export const FeedbackTabs: Story = {
       "true",
     );
     await userEvent.click(canvas.getByRole("tab", { name: /Resolved/ }));
-    await expect(canvas.getByText("No resolved feedback.")).toBeVisible();
+    await waitFor(() => expect(canvas.getByText("No resolved feedback.")).toBeVisible());
     await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
     await expect(canvas.getByRole("textbox", { name: "Feedback" })).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: /Active/ }));
     const composer = canvasElement.querySelector("[data-artifact-composer]");
     const list = canvasElement.querySelector("[data-feedback-list]");
-    await expect(composer && list?.firstElementChild?.contains(composer)).toBeTruthy();
+    await expect(
+      composer && list?.querySelector(":scope > :not([inert])")?.contains(composer),
+    ).toBeTruthy();
   },
 };
 export const ComposerAsCard: Story = {
@@ -230,5 +232,27 @@ export const PendingHandoff: Story = {
     await userEvent.type(canvas.getByRole("textbox", { name: "Feedback" }), "Keep this draft");
     await expect(canvas.getByText("Post or discard drafts before sending feedback")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Send to agent · 1" })).toBeDisabled();
+  },
+};
+
+export const ReopenDuringExit: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await Promise.all(
+      canvasElement
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => {})),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(canvasElement.querySelector("[data-feedback-draft][inert]")).not.toBeNull(),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector("[data-artifact-composer] textarea:not([inert] *)"),
+      ).toHaveFocus(),
+    );
   },
 };

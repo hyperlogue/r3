@@ -251,6 +251,22 @@ try {
       ),
     "cancel animates the remaining feedback cards",
   );
+  assert.equal(
+    await page.evaluate("!!document.querySelector('[data-feedback-draft][inert] textarea')"),
+    true,
+    "The exiting composer remains mounted during its animation",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.activeElement?.matches('[data-artifact-composer] textarea') && !document.activeElement.closest('[inert]')",
+      ),
+    "reopening during exit focuses the live composer",
+  );
+  await page.evaluate(
+    "[...document.querySelectorAll('[data-artifact-composer]:not([inert] *) button')].find(button=>button.textContent==='Cancel').click()",
+  );
   const panel = "document.querySelector('[data-feedback-mode]')";
   const geometry = () =>
     page.evaluate<{ x: number; y: number; width: number; height: number }>(

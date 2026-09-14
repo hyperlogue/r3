@@ -562,7 +562,7 @@ export function ArtifactThreads({
       requestAnimationFrame(() =>
         panel.current
           ?.querySelector<HTMLTextAreaElement>(
-            "[data-artifact-composer]:not([data-reply-to]) textarea",
+            "[data-artifact-composer]:not([data-reply-to]) textarea:not([inert] *)",
           )
           ?.focus(),
       );

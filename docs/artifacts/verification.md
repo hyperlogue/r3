@@ -129,11 +129,10 @@ scripts cover integration with the real server. The
 [distribution reference](../../.claude/skills/build-and-distribution/SKILL.md) owns
 binary embedding, CSS compilation, demo aliases, and Pages layout.
 
-The reading acceptance also checks that the composer precedes the threads and
-the expanded desktop panel reserves content space. Floating and hidden retain the
-same content width. The flush collapsed rail has one full-area control; clicking
-its empty bottom or pressing `p` restores the last visible mode, including after
-a reload. Selecting a source anchor
+The reading acceptance also checks that the composer is the first card in the
+feedback list and the expanded desktop panel reserves content space. Floating and
+hidden retain the same content width. The navbar toggle or `p` restores the last
+visible mode, including after a reload. Selecting a source anchor
 with the panel hidden opens one thread, and dismissing/reopening it
 preserves its reply draft. Workspace and popover stories expose the same states
 for visual review; mobile keeps its sheet.
@@ -153,3 +152,7 @@ the draft animates the neighboring cards.
 `scripts/test-feedback-interactions.ts` also drags floating feedback across an opaque
 frame, resizes both dimensions, checks independent dock width and saved geometry
 after hiding/reloading, and verifies viewport clamping and keyboard resizing.
+
+The same feedback regression reopens a composer while its predecessor is still
+an inert animated exit. Focus must reach the live draft. `ReopenDuringExit` covers
+the standalone panel in Storybook.
