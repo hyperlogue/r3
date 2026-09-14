@@ -154,9 +154,9 @@ export const Versions: Story = {
     await userEvent.click(nav.getByRole("button", { name: "Published version" }));
     await userEvent.click(canvas.getByRole("option", { name: "Version 2 · Iteration 2" }));
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("2");
-    await userEvent.click(nav.getByRole("button", { name: "Open latest · 3" }));
+    await userEvent.click(nav.getByRole("button", { name: "Go to the latest version" }));
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("3");
-    await expect(nav.queryByRole("button", { name: "Open latest · 3" })).toBeNull();
+    await expect(nav.queryByRole("button", { name: "Go to the latest version" })).toBeNull();
   },
 };
 export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
@@ -199,6 +199,7 @@ export const UnpublishedStorage: Story = {
   },
 };
 export const NavbarActions: Story = {
+  parameters: { layout: "fullscreen" },
   args: { ...Versions.args, detail: { ...Versions.args!.detail!, kind: "html" } },
   render: (args) => {
     const [selected, setSelected] = useState<number | null>(1);
@@ -216,6 +217,19 @@ export const NavbarActions: Story = {
       />
     );
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const menu = canvas.getByRole("button", { name: "Artifact details and actions" });
+    const commenting = canvas.getByRole("button", { name: "Comment mode" });
+    const feedback = canvas.getByRole("button", { name: "Hide feedback" });
+    for (const button of [commenting, feedback]) {
+      await expect(button.getBoundingClientRect().width).toBe(menu.getBoundingClientRect().width);
+      await expect(button.getBoundingClientRect().height).toBe(menu.getBoundingClientRect().height);
+    }
+    await userEvent.click(commenting);
+    await expect(commenting).toHaveAttribute("aria-pressed", "true");
+    await expect(commenting.getBoundingClientRect().width).toBe(menu.getBoundingClientRect().width);
+  },
 };
 export const NavbarActionsDark: Story = { ...NavbarActions, globals: { theme: "dark" } };
 export const PhoneVersions: Story = {
@@ -231,11 +245,11 @@ export const PhoneVersions: Story = {
     await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
     await expect(canvas.getByText("Description for version 2.")).toBeVisible();
-    await userEvent.click(popup.getByRole("button", { name: "Open latest · 3" }));
+    await userEvent.click(popup.getByRole("button", { name: "Go to the latest version" }));
     await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
     await expect(canvas.getByText("Description for version 3.")).toBeVisible();
-    await expect(popup.queryByRole("button", { name: "Open latest · 3" })).toBeNull();
+    await expect(popup.queryByRole("button", { name: "Go to the latest version" })).toBeNull();
   },
 };
 export const NestedKeyboardDismiss: Story = {

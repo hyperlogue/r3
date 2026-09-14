@@ -158,7 +158,7 @@ and ordinary single-line controls retain their existing shapes. Use local CSS;
 Ambient CSS is a visual reference, not a dependency.
 
 The selected version stays pinned when a new publication arrives. Announce it and
-offer **Open latest**. Drafts hold their native target/context independently of the
+offer **Go to the latest version**. Drafts hold their native target/context independently of the
 current pane, survive view switches, and persist after a 400 ms debounce. Legacy
 browser drafts remain evidence rather than being guessed into new targets.
 

@@ -467,17 +467,17 @@ export const NewPublication: Story = {
     await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
     await userEvent.click(canvas.getByRole("button", { name: "Simulate publication" }));
     await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
-    await expect(canvas.getByRole("button", { name: "Open latest · 2" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Go to the latest version" })).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "Open latest · 2" }).closest("[data-app-header]"),
+      canvas.getByRole("button", { name: "Go to the latest version" }).closest("[data-app-header]"),
     ).not.toBeNull();
     await expect(
-      within(content as HTMLElement).queryByRole("button", { name: /Open latest/ }),
+      within(content as HTMLElement).queryByRole("button", { name: /Go to the latest version/ }),
     ).toBeNull();
     await expect(content.getBoundingClientRect().height).toBe(height);
-    await userEvent.click(canvas.getByRole("button", { name: "Open latest · 2" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Go to the latest version" }));
     await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("2");
-    await expect(canvas.queryByRole("button", { name: "Open latest · 2" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Go to the latest version" })).toBeNull();
   },
 };
 export const DraftAndNativeLocate: Story = {

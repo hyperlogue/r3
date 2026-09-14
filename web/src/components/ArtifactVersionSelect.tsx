@@ -173,7 +173,7 @@ export function ArtifactOpenLatest({
       className={cn("shrink-0 whitespace-nowrap", className)}
       onClick={() => onOpen(latest)}
     >
-      Open latest · {latest}
+      Go to the latest version
     </Button>
   );
 }

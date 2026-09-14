@@ -24,7 +24,7 @@ export function ArtifactFeedbackToggle({
   return (
     <Button
       variant={visible ? "primary-outline" : "nav"}
-      className="relative shrink-0 px-1.5 py-[calc(.375rem-1px)] max-md:hidden"
+      className="relative h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:hidden"
       aria-label={visible ? "Hide feedback" : "Show feedback"}
       aria-describedby={descriptionId}
       title={`${visible ? "Hide" : "Show"} feedback (p)\n${description}`}

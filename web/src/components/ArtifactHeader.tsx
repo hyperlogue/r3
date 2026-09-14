@@ -206,7 +206,7 @@ export function ArtifactHeader({
       {onToggleCommenting && (
         <Button
           variant={commenting ? "primary-outline" : "nav"}
-          className="shrink-0 px-1.5 py-[calc(.375rem-1px)] max-md:size-9"
+          className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
           aria-label={commenting ? "Exit comment mode" : "Comment mode"}
           title={commenting ? "Exit comment mode" : "Comment mode"}
           aria-pressed={commenting}
@@ -229,7 +229,7 @@ export function ArtifactHeader({
       <Button
         ref={detailsTrigger}
         variant="nav"
-        className="shrink-0 px-[calc(.375rem-1px)] py-[calc(.375rem-2px)] max-md:size-9"
+        className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
         aria-label="Artifact details and actions"
         title="Artifact details and actions"
         aria-haspopup="dialog"

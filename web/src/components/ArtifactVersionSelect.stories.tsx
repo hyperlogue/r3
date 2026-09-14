@@ -77,7 +77,7 @@ export const OlderVersionDark: Story = { ...OlderVersion, globals: { theme: "dar
 export const HighlightLatest: Story = {
   ...OlderVersion,
   play: async ({ canvasElement }) => {
-    const button = within(canvasElement).getByRole("button", { name: "Open latest · 4" });
+    const button = within(canvasElement).getByRole("button", { name: "Go to the latest version" });
     await expect(getComputedStyle(button).borderTopStyle).toBe("solid");
     await expect(getComputedStyle(button).backgroundColor).toBe("rgba(0, 0, 0, 0)");
   },

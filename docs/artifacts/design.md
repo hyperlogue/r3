@@ -142,7 +142,7 @@ from a client-side route.
 ## Reading, selecting, and locating
 
 The browser pins the displayed version. A new publication is announced with an
-**Open latest** action; it does not replace the content being read. Version switches
+**Go to the latest version** action; it does not replace the content being read. Version switches
 and representation toggles preserve a draft's original target and message context.
 Artifact links can include `version`, `file`, `view`, and `feedback` query parameters.
 
@@ -179,7 +179,7 @@ The picker supports arrow keys, Home/End, and Enter; Escape closes its current
 layer without selecting. Menus focus their selected option or first enabled
 control and return focus to their trigger on dismissal. Escape closes one layer
 at a time, preserving any menu beneath a native permission dialog.
-While an older or unavailable version is selected, **Open latest** appears in the
+While an older or unavailable version is selected, **Go to the latest version** appears in the
 top navigation immediately left of the version selector, with an amber outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and the button disappears on the latest version.
