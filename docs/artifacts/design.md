@@ -204,7 +204,11 @@ The desktop feedback panel has three persisted display states:
 
 - **Hidden:** the content fills the workspace; anchors can open individual threads.
 - **Expanded** (default): the original side panel reserves space beside the content.
-- **Floating:** the panel overlays the right side of the content, below its toolbar.
+- **Floating:** the panel initially overlays the right side of the content, below its toolbar.
+  Drag its header or grip to move it; drag any edge or corner to resize. Position
+  and size persist separately from the docked width. Restored geometry is clamped
+  inside the available workspace. The grip and bottom-right handle also accept
+  arrow keys (10 px, or 50 px with Shift). Mobile keeps its existing sheet.
 
 Hidden and floating reserve no content space, so switching between them or resizing
 the floating panel never changes content or preview width. Expanded reserves the

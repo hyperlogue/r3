@@ -19,6 +19,7 @@ import {
 import { artifactViewForTarget, stepArtifactVersion } from "../artifact-version.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
+import { ArtifactFeedbackPanel } from "../components/ArtifactFeedbackPanel.tsx";
 import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
@@ -31,7 +32,6 @@ import {
   ArtifactThreads,
 } from "../components/ArtifactThreads.tsx";
 import { DiffView } from "../components/DiffView.tsx";
-import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import type { FoldSignal } from "../components/FileCard.tsx";
 import { JumpToFile } from "../components/JumpToFile.tsx";
@@ -58,7 +58,7 @@ import {
   useFeedbackMode,
 } from "../settings.ts";
 import type { DiffSide } from "../types.ts";
-import { cn, useResizableWidth } from "../ui.tsx";
+import { cn } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
 import { useArtifactContent } from "../useArtifactContent.ts";
 import { useScrollSpy } from "../useScrollSpy.ts";
@@ -207,12 +207,6 @@ function Workspace({
   }, [detail.kind, version, view.path, view.representation]);
   const virtual = useVirtualPaneController();
   const progressive = useProgressiveFileController();
-  const resize = useResizableWidth("r3-feedback-width", {
-    min: 300,
-    max: 700,
-    defaultFraction: 0.382,
-    containerRef: splitRef,
-  });
   useEffect(() => {
     const toolbar = toolbarRef.current;
     const update = () => {
@@ -599,7 +593,7 @@ function Workspace({
       }
     />
   );
-  const panel = (
+  const panel = (controls?: ReactNode) => (
     <ArtifactThreads
       detail={detail}
       context={context}
@@ -610,10 +604,7 @@ function Workspace({
       composer={composer}
       keysActive={mobile ? sheet !== "closed" : !collapsed}
       onNewNote={() => anchor({ kind: "artifact" })}
-      panelControls={
-        !mobile &&
-        !collapsed && <FeedbackPanelControls mode={feedbackMode} onChange={setFeedbackMode} />
-      }
+      panelControls={controls}
     />
   );
   const diffLocate = useMemo(
@@ -834,34 +825,9 @@ function Workspace({
           </div>
         </div>
         {!mobile && (
-          <aside
-            data-feedback-mode={feedbackMode}
-            className={cn(
-              "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
-              feedbackMode === "floating"
-                ? "absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-20 max-w-[calc(100%-1rem)] rounded-lg border r3-floating"
-                : collapsed
-                  ? "absolute inset-y-0 right-0 pointer-events-none"
-                  : "relative shrink-0 border-l",
-              !resize.dragging && "transition-[width] duration-200 motion-reduce:transition-none",
-            )}
-            style={{ width: collapsed ? 0 : resize.width }}
-          >
-            {!collapsed && (
-              <div
-                onPointerDown={resize.onPointerDown}
-                onDoubleClick={resize.onDoubleClick}
-                className="absolute inset-y-0 left-0 z-20 w-1 touch-none cursor-col-resize"
-              />
-            )}
-            <div
-              inert={collapsed}
-              className="h-full"
-              style={{ width: resize.width, visibility: collapsed ? "hidden" : undefined }}
-            >
-              {panel}
-            </div>
-          </aside>
+          <ArtifactFeedbackPanel mode={feedbackMode} onModeChange={setFeedbackMode}>
+            {panel}
+          </ArtifactFeedbackPanel>
         )}
         {!mobile && collapsed && visibleThread && (
           <div className="pointer-events-none absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-30 flex w-[440px] max-w-[calc(100%-1rem)] flex-col items-stretch [&>*]:pointer-events-auto">
@@ -883,7 +849,7 @@ function Workspace({
           sheet={sheet}
           onSetSheet={setSheet}
         >
-          {panel}
+          {panel()}
         </MobileReviewChrome>
       )}
       {coarse && view.representation !== "rendered" && (

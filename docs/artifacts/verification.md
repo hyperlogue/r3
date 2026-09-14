@@ -149,3 +149,7 @@ holds actual status responses to check immediate Resolve/Reopen, concurrent deci
 incoming replies through SSE, and restoration of only a failed decision. It checks
 that the composer shares the list, typing keeps its position stable, and removing
 the draft animates the neighboring cards.
+
+`scripts/test-feedback-interactions.ts` also drags floating feedback across an opaque
+frame, resizes both dimensions, checks independent dock width and saved geometry
+after hiding/reloading, and verifies viewport clamping and keyboard resizing.

@@ -251,6 +251,133 @@ try {
       ),
     "cancel animates the remaining feedback cards",
   );
+  const panel = "document.querySelector('[data-feedback-mode]')";
+  const geometry = () =>
+    page.evaluate<{ x: number; y: number; width: number; height: number }>(
+      `${panel}.getBoundingClientRect().toJSON()`,
+    );
+  const docked = await geometry();
+  await page.evaluate("document.querySelector('[aria-label=\"Float feedback\"]').click()");
+  await eventually(
+    () => page.evaluate(`${panel}.dataset.feedbackMode === 'floating'`),
+    "floating panel",
+  );
+  const initial = await geometry();
+  const contentWidth = await page.evaluate<number>(
+    `${panel}.previousElementSibling.getBoundingClientRect().width`,
+  );
+  // Exercise capture across an opaque document, as in an HTML preview. Release
+  // over the frame must still finish the drag and persist the final geometry.
+  await page.evaluate(
+    `${panel}.previousElementSibling.insertAdjacentHTML('beforeend', '<iframe sandbox="allow-scripts" srcdoc="<p>Preview</p>" style="position:absolute;inset:0;width:45%;height:100%;border:0"></iframe>')`,
+  );
+  const drag = async (selector: string, dx: number, dy: number) => {
+    const point = await page.evaluate<{ x: number; y: number }>(
+      `(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
+    );
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      ...point,
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: point.x + dx,
+      y: point.y + dy,
+      button: "left",
+      buttons: 1,
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: point.x + dx,
+      y: point.y + dy,
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+    });
+    await page.evaluate("new Promise(requestAnimationFrame)");
+  };
+  await drag("[data-feedback-drag]", -600, 0);
+  const moved = await geometry();
+  assert.ok(
+    Math.abs(moved.x - initial.x + 600) < 2,
+    "Floating header moves the panel across a preview iframe",
+  );
+  assert.equal(
+    await page.evaluate("document.body.style.cursor"),
+    "",
+    "Drag release clears body styling",
+  );
+  await drag("[data-feedback-resize=se]", 60, -180);
+  const resized = await geometry();
+  assert.ok(Math.abs(resized.width - moved.width - 60) < 2, "Corner resizing changes width");
+  assert.ok(Math.abs(resized.height - moved.height + 180) < 2, "Corner resizing changes height");
+  await drag("[data-feedback-drag]", 70, 70);
+  const placed = await geometry();
+  assert.ok(Math.abs(placed.y - resized.y - 70) < 2, "A smaller floating panel moves vertically");
+  assert.equal(
+    await page.evaluate(`${panel}.previousElementSibling.getBoundingClientRect().width`),
+    contentWidth,
+    "Floating interactions do not shift content",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
+  await eventually(
+    () => page.evaluate(`${panel}.dataset.feedbackMode === 'hidden'`),
+    "hidden floating panel",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Show feedback\"]').click()");
+  await eventually(
+    () => page.evaluate(`${panel}.dataset.feedbackMode === 'floating'`),
+    "restore floating mode",
+  );
+  assert.deepEqual(await geometry(), placed, "Hide/show restores floating geometry");
+  await page.evaluate("document.querySelector('[aria-label=\"Dock feedback\"]').click()");
+  await page.evaluate(
+    "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
+  );
+  assert.equal(
+    (await geometry()).width,
+    docked.width,
+    "Docking restores the independent dock width",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Float feedback\"]').click()");
+  await page.command("Page.reload");
+  await eventually(
+    () => page.evaluate(`!!${panel} && ${panel}.dataset.feedbackMode === 'floating'`),
+    "floating panel after reload",
+  );
+  assert.deepEqual(await geometry(), placed, "Reload restores the saved position and size");
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 900,
+    height: 600,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await eventually(
+    () =>
+      page.evaluate(
+        `(()=>{const p=${panel}.getBoundingClientRect();const w=${panel}.parentElement.getBoundingClientRect();return p.x>=w.x && p.y>=w.y && p.right<=w.right && p.bottom<=w.bottom})()`,
+      ),
+    "floating controls stay within a smaller workspace",
+  );
+  const beforeKey = await geometry();
+  await page.evaluate("document.querySelector('[data-feedback-resize=se]').focus()");
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "ArrowLeft",
+    code: "ArrowLeft",
+    windowsVirtualKeyCode: 37,
+  });
+  assert.equal(
+    (await geometry()).width,
+    beforeKey.width - 10,
+    "Resize handle supports keyboard input",
+  );
+  console.log(
+    "Floating feedback: drag across an opaque frame, resize, independent docking, hide/show, reload, viewport clamping and keyboard resizing passed.",
+  );
   console.log(
     "Feedback decisions update immediately with safe rollback; the composer shares the list, typing stays stable, and Cancel/Discard animate surrounding cards.",
   );

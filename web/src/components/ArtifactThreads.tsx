@@ -592,7 +592,10 @@ export function ArtifactThreads({
       className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950"
       aria-label="Artifact feedback"
     >
-      <div className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
+      <div
+        data-feedback-header
+        className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="shrink-0 text-base font-semibold">Feedback</span>

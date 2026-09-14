@@ -7,6 +7,7 @@ import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
+import { ArtifactFeedbackPanel } from "../components/ArtifactFeedbackPanel.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
@@ -18,7 +19,6 @@ import {
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import { ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { DiffView } from "../components/DiffView.tsx";
-import { FeedbackPanelControls } from "../components/FeedbackPanelControls.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
 import { MessageProse } from "../components/Message.tsx";
@@ -27,7 +27,7 @@ import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
 import type { FeedbackPanelMode } from "../settings.ts";
 import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } from "../settings.ts";
-import { Button, cn, Pill } from "../ui.tsx";
+import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import "../main.css";
@@ -107,14 +107,15 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
-        <div className="relative flex min-h-[680px]">
+        <div className="relative flex h-[680px]">
           <div className="relative isolate min-w-0 flex-1">
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
                 The feedback panel has three states: hidden, expanded beside the content, or
                 floating over it. Use the navbar button to hide or show it, and its panel control to
                 switch modes. Hidden anchors open one conversation at a time. Showing feedback
-                restores the last expanded or floating mode.
+                restores the last expanded or floating mode. Drag the floating header to move it, or
+                its edges to resize it.
               </p>
               <Button
                 onClick={() => {
@@ -182,23 +183,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </p>
             </div>
           </div>
-          <div
-            data-sample-feedback-mode={mode}
-            className={cn(
-              "overflow-hidden border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
-              mode === "floating"
-                ? "absolute right-2 top-2 bottom-2 max-w-[calc(100%-1rem)] rounded-lg border r3-floating"
-                : collapsed
-                  ? "absolute inset-y-0 right-0 pointer-events-none"
-                  : "relative shrink-0 border-l",
-            )}
-            style={{ width: collapsed ? 0 : 420 }}
-          >
-            <div
-              inert={collapsed}
-              className="h-full"
-              style={{ width: 420, visibility: collapsed ? "hidden" : undefined }}
-            >
+          <ArtifactFeedbackPanel mode={mode} onModeChange={changeMode}>
+            {(controls) => (
               <ArtifactThreads
                 detail={data}
                 context={{ versionSeq: 1, representation: "source" }}
@@ -207,12 +193,10 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 }
                 onJumpRef={() => announce("Sample file reference selected")}
                 keysActive={false}
-                panelControls={
-                  !collapsed && <FeedbackPanelControls mode={mode} onChange={changeMode} />
-                }
+                panelControls={controls}
               />
-            </div>
-          </div>
+            )}
+          </ArtifactFeedbackPanel>
           {collapsed && threadOpen && data.feedback[0] && (
             <div className="pointer-events-none absolute right-2 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-1rem)] flex-col [&>*]:pointer-events-auto">
               <ArtifactThreadPopover
