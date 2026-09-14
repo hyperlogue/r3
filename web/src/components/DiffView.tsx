@@ -915,7 +915,6 @@ export function DiffView({
           ? { folded: true }
           : {
               folded: false,
-              kind: "code",
               rows: layout === "split" ? splitRowCount(f.lines) : f.lines.length,
             },
       );

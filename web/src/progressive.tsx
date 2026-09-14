@@ -40,83 +40,14 @@ const INITIAL_HEIGHT = "16rem";
 const FOLDED_HEIGHT = "2rem"; // FileCard's protected h-8 header.
 const PRELOAD_MARGIN_PX = 1000;
 
-// FileCard's protected h-8 header, and the r3-markdown wrapper's py-3. Both in
-// rem, because the whole layout is rem-scaled off the font-size setting.
+// A deferred diff card reserves its header plus the same fixed row heights used
+// by VirtualLines. Rendered Markdown reports its actual height in ArtifactPreview
+// and does not use this source/diff shell.
 const HEADER_REM = 2;
-const MD_PAD_REM = 1.5;
-// A file with no body to render — gone from the source, binary, over the cap —
-// is its path row plus one line of notice in a p-3 panel. An expected state on a
-// long-lived review whose branch moved on, so it gets a real reserve rather than
-// the fallback's 16rem.
-const CHROME_REM = 2.5;
+export type ReserveSpec = { folded: true } | { folded: false; rows: number };
 
-// Rendered px per source line for a markdown body, before this review has
-// measured one. Rendered markdown is the one body whose height does NOT follow
-// from its source — no row grid, and the wrapping depends on the pane's width —
-// so it is estimated and then corrected: the provider learns the real ratio from
-// the cards it measures (see useMdRatio). The seed only has to survive the first
-// screen.
-const MD_RATIO_SEED = 1.6;
-
-// How tall a deferred file block will be once it mounts.
-//
-// This exists because "how tall is a file I haven't fetched?" decides the scroll
-// pane's own height, and therefore the scrollbar: a shell that guesses makes the
-// pane grow under the reader every time a real body lands, which is what a flat
-// 16rem placeholder did on a 200-file review (an order of magnitude short, and
-// then wrong in the other direction for every file big enough to auto-fold).
-//
-// Two of the three cases are exact, not estimates. A `folded` card is only ever
-// its header — auto-fold, or already viewed — and an open code card is its rows
-// at the same fixed line height VirtualLines assumes. Only rendered markdown is
-// an estimate; `lines` still scales it with the file, which a per-review mean
-// never could.
-export type ReserveSpec =
-  | { folded: true }
-  | { folded: false; kind: "code"; rows: number }
-  | { folded: false; kind: "markdown"; lines: number }
-  | { folded: false; kind: "chrome" };
-
-export function reservePx(spec: ReserveSpec, fontSize: number, mdRatio: number): number {
-  const header = HEADER_REM * fontSize;
-  if (spec.folded) return header;
-  if (spec.kind === "chrome") return header + CHROME_REM * fontSize;
-  if (spec.kind === "code") return header + spec.rows * fontSize;
-  return header + MD_PAD_REM * fontSize + spec.lines * fontSize * mdRatio;
-}
-
-// The px-per-source-line ratio for THIS review's rendered markdown, learned from
-// every markdown card the provider has measured. Weighted by line count rather
-// than averaged per file, because what the reserve is feeding is a total: a
-// 2000-line doc should count for more than a 20-line one.
-//
-// Published only when it moves materially — every change re-renders every shell,
-// and the value converges after a couple of files. Small files are skipped
-// entirely: their height is mostly chrome, so they carry almost no signal about
-// the ratio and plenty of noise.
-const MD_SAMPLE_MIN_LINES = 8;
-const MD_RATIO_EPSILON = 0.1;
-
-function useMdRatio(fontSize: number): {
-  ratio: number;
-  sample: (spec: ReserveSpec, height: number) => void;
-} {
-  const totals = useRef({ px: 0, lines: 0 });
-  const [ratio, setRatio] = useState(MD_RATIO_SEED);
-  const sample = useCallback(
-    (spec: ReserveSpec, height: number) => {
-      if (spec.folded || spec.kind !== "markdown" || spec.lines < MD_SAMPLE_MIN_LINES) return;
-      const body = height - (HEADER_REM + MD_PAD_REM) * fontSize;
-      if (body <= 0) return;
-      const t = totals.current;
-      t.px += body;
-      t.lines += spec.lines;
-      const next = t.px / t.lines / fontSize;
-      setRatio((prev) => (Math.abs(next - prev) / prev > MD_RATIO_EPSILON ? next : prev));
-    },
-    [fontSize],
-  );
-  return { ratio, sample };
+function reservePx(spec: ReserveSpec, fontSize: number): number {
+  return (HEADER_REM + (spec.folded ? 0 : spec.rows)) * fontSize;
 }
 
 type OnReady = () => void;
@@ -148,20 +79,9 @@ interface ProgressiveContextValue {
 
 const ProgressiveContext = createContext<ProgressiveContextValue | null>(null);
 
-// The rem→px scale a ReserveSpec resolves against, plus this review's learned
-// markdown ratio — held by the provider so there is one font-size subscription
-// and one learner for the whole stack, not one per file.
-//
-// Deliberately a SECOND context: the ratio moves as cards are measured, and the
-// observer registration above must not be torn down and re-established every
-// time it does.
-interface ReserveScale {
-  fontSize: number;
-  mdRatio: number;
-  sample: (spec: ReserveSpec, height: number) => void;
-}
-
-const ReserveContext = createContext<ReserveScale | null>(null);
+// Keep font scaling separate so changing it does not recreate the shared
+// observers or their registrations.
+const ReserveContext = createContext<number | null>(null);
 
 // Own the ONE IntersectionObserver + ONE ResizeObserver for every file shell.
 // Per-file observers would recreate the same fan-out this component exists to
@@ -182,7 +102,6 @@ export function ProgressiveFileProvider({
   const intersection = useRef<IntersectionObserver | null>(null);
   const resize = useRef<ResizeObserver | null>(null);
   const fontSize = useFontSize();
-  const { ratio: mdRatio, sample } = useMdRatio(fontSize);
 
   const observe = useCallback((el: HTMLElement, file: ObservedFile) => {
     files.current.set(el, file);
@@ -229,10 +148,9 @@ export function ProgressiveFileProvider({
   }, [enabled, scrollRef]);
 
   const value = useMemo(() => ({ enabled, registry, observe }), [enabled, registry, observe]);
-  const scale = useMemo(() => ({ fontSize, mdRatio, sample }), [fontSize, mdRatio, sample]);
   return (
     <ProgressiveContext.Provider value={value}>
-      <ReserveContext.Provider value={scale}>{children}</ReserveContext.Provider>
+      <ReserveContext.Provider value={fontSize}>{children}</ReserveContext.Provider>
     </ProgressiveContext.Provider>
   );
 }
@@ -261,7 +179,7 @@ export function ProgressiveFile({
   }) => ReactNode;
 }) {
   const progressive = useContext(ProgressiveContext);
-  const scale = useContext(ReserveContext);
+  const fontSize = useContext(ReserveContext);
   const enabled = progressive?.enabled ?? false;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef(!enabled);
@@ -279,21 +197,12 @@ export function ProgressiveFile({
   const active = !enabled || near || forced;
   activeRef.current = active;
 
-  // Read by the (observer-lifetime) resize callback, which must not re-subscribe
-  // every time the learned markdown ratio nudges the reserve.
-  const reserveRef = useRef(reserve);
-  reserveRef.current = reserve;
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
-  const openRef = useRef(open);
-  openRef.current = open;
-  // ONE ratio sample per body. The observer reports every height this block ever
-  // has — including each frame of a fold animation and every re-measure — and the
-  // learner accumulates, so an unguarded sample would let one card be counted
-  // dozens of times at heights that aren't its own.
-  const sampledRef = useRef(false);
+  // Let the long-lived resize callback read the current font scale without
+  // recreating its observer registration.
+  const fontSizeRef = useRef(fontSize);
+  fontSizeRef.current = fontSize;
 
-  // A round/ref/theme/snapshot switch invalidates the body behind the same path.
+  // A publication or syntax-theme switch invalidates the body at this path.
   // Keep the old measured height as a stable provisional size until the new body
   // lands. Reset during RENDER, not from an effect: a body with nothing to fetch
   // (a diff file block — its rows arrived with the payload) reports `onHydrated`
@@ -308,7 +217,6 @@ export function ProgressiveFile({
     setLastVersion(version);
     hydratedRef.current = false;
     setHydrated(false);
-    sampledRef.current = false;
   }
 
   const force = useCallback((onReady?: OnReady) => {
@@ -329,22 +237,7 @@ export function ProgressiveFile({
       onNear: setNear,
       onResize: (height) => {
         if (!activeRef.current || height <= 0) return;
-        // A settled height for a card that has finished mounting is the only
-        // evidence there is about how tall rendered markdown runs — hand it to
-        // the provider's learner so the shells further down reserve better. A
-        // freshly mounted open card doesn't animate, so its first post-hydration
-        // measurement IS the settled one.
-        if (
-          !sampledRef.current &&
-          hydratedRef.current &&
-          openRef.current &&
-          reserveRef.current &&
-          scaleRef.current
-        ) {
-          sampledRef.current = true;
-          scaleRef.current.sample(reserveRef.current, height);
-        }
-        const atFont = scaleRef.current?.fontSize ?? 0;
+        const atFont = fontSizeRef.current ?? 0;
         setMeasured((prev) =>
           prev == null || prev.atFont !== atFont || Math.abs(prev.height - height) > 0.5
             ? { height, atFont }
@@ -388,12 +281,11 @@ export function ProgressiveFile({
   );
 
   // What to stand in for the body: a height already measured at the current font
-  // size (exact), else the caller's ReserveSpec (exact for code and folded
-  // cards, an estimate for rendered markdown), else the flat fallback. `open`
+  // size, else the caller's ReserveSpec, else the flat fallback. `open`
   // outranks all of it — a card the reader folded is its header and nothing more.
   let bodyHeight: number | string = INITIAL_HEIGHT;
-  if (measured && measured.atFont === scale?.fontSize) bodyHeight = measured.height;
-  else if (reserve && scale) bodyHeight = reservePx(reserve, scale.fontSize, scale.mdRatio);
+  if (measured && measured.atFont === fontSize) bodyHeight = measured.height;
+  else if (reserve && fontSize !== null) bodyHeight = reservePx(reserve, fontSize);
 
   let style: CSSProperties | undefined;
   if (enabled && !active) {
@@ -414,7 +306,7 @@ export function ProgressiveFile({
     if (!ready || readyCallbacks.current.size === 0) return;
     const callbacks = [...readyCallbacks.current];
     readyCallbacks.current.clear();
-    // FileView reports from a passive effect. One frame lets any sibling
+    // One frame lets any sibling
     // viewed/fold state commit before a picker jump re-aligns the final block.
     requestAnimationFrame(() => callbacks.forEach((callback) => void callback()));
   }, []);

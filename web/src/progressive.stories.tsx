@@ -98,12 +98,12 @@ function ProgressiveDemo({ count, reserve }: { count: number; reserve: boolean }
         <ProgressiveFileProvider scrollRef={scrollRef} registry={progressive.registry} enabled>
           {Array.from({ length: count }, (_, index) => {
             const path = `src/file-${String(index + 1).padStart(3, "0")}.ts`;
-            const spec: ReserveSpec = { folded: false, kind: "code", rows: rowsFor(index) };
+            const spec: ReserveSpec = { folded: false, rows: rowsFor(index) };
             return (
               <ProgressiveFile
                 key={path}
                 path={path}
-                version="working:github"
+                version="1:github"
                 reserve={reserve ? spec : null}
               >
                 {(state) => <DemoFile index={index} {...state} />}
