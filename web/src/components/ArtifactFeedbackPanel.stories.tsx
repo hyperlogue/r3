@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { artifactFixture } from "../artifact-fixtures.ts";
 import type { FeedbackPanelMode } from "../settings.ts";
 import { ArtifactFeedbackPanel } from "./ArtifactFeedbackPanel.tsx";
@@ -47,6 +47,26 @@ type Story = StoryObj<typeof meta>;
 export const Floating: Story = {};
 export const FloatingDark: Story = { globals: { theme: "dark" } };
 export const Docked: Story = { args: { initialMode: "expanded" } };
+export const ModeTransition: Story = {
+  ...Docked,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    const draft = canvas.getByRole("textbox", { name: "Feedback" });
+    await userEvent.type(draft, "Keep this draft through docking.");
+    const panel = canvasElement.querySelector("aside")!;
+    const dockedWidth = panel.getBoundingClientRect().width;
+    await userEvent.click(canvas.getByRole("button", { name: "Float feedback" }));
+    await waitFor(() => expect(panel.getAnimations().length).toBe(0));
+    await expect(canvasElement.querySelector("aside")).toBe(panel);
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toBe(draft);
+    await userEvent.click(canvas.getByRole("button", { name: "Dock feedback" }));
+    await waitFor(() => expect(panel.getAnimations().length).toBe(0));
+    await expect(panel.getBoundingClientRect().width).toBe(dockedWidth);
+    await expect(draft).toHaveValue("Keep this draft through docking.");
+  },
+};
+export const ModeTransitionDark: Story = { ...ModeTransition, globals: { theme: "dark" } };
 export const KeyboardGeometry: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

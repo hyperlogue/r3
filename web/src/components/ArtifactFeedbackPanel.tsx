@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useRef } from "react";
 import type { FeedbackPanelMode } from "../settings.ts";
 import { cn, StrokeIcon, useResizableWidth } from "../ui.tsx";
+import { useFeedbackPanelMotion } from "../useFeedbackPanelMotion.ts";
 import { type PanelEdge, useFloatingPanel } from "../useFloatingPanel.ts";
 import { FeedbackPanelControls } from "./FeedbackPanelControls.tsx";
 
@@ -26,9 +27,6 @@ export function ArtifactFeedbackPanel({
   children: (controls: ReactNode) => ReactNode;
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
-  const setPanel = useCallback((node: HTMLElement | null) => {
-    containerRef.current = node?.parentElement ?? null;
-  }, []);
   const dock = useResizableWidth("r3-feedback-width", {
     min: 300,
     max: 700,
@@ -38,6 +36,19 @@ export function ArtifactFeedbackPanel({
   const floating = mode === "floating";
   const hidden = mode === "hidden";
   const pane = useFloatingPanel(containerRef, floating, dock.width);
+  const motion = useFeedbackPanelMotion(mode, pane.rect, dock.width);
+  const motionRef = motion.ref;
+  const setPanel = useCallback(
+    (node: HTMLElement | null) => {
+      containerRef.current = node?.parentElement ?? null;
+      motionRef.current = node;
+    },
+    [motionRef],
+  );
+  const changeMode = (next: FeedbackPanelMode) => {
+    motion.capture();
+    onModeChange(next);
+  };
   const controls = hidden ? null : (
     <>
       {floating && (
@@ -45,7 +56,10 @@ export function ArtifactFeedbackPanel({
           type="button"
           aria-label="Move feedback"
           title="Drag to move; arrow keys move, Shift moves faster"
-          onKeyDown={(event) => pane.key(event)}
+          onKeyDown={(event) => {
+            motion.cancel();
+            pane.key(event);
+          }}
           data-feedback-drag
           className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
         >
@@ -58,7 +72,7 @@ export function ArtifactFeedbackPanel({
           </StrokeIcon>
         </button>
       )}
-      <FeedbackPanelControls mode={mode} onChange={onModeChange} />
+      <FeedbackPanelControls mode={mode} onChange={changeMode} />
     </>
   );
   return (
@@ -92,8 +106,10 @@ export function ArtifactFeedbackPanel({
           target.closest("[data-feedback-drag]") ||
           (target.closest("[data-feedback-header]") &&
             !target.closest("button, a, input, textarea, select, [role=tab]"))
-        )
+        ) {
+          motion.cancel();
           pane.start(event);
+        }
       }}
     >
       {mode === "expanded" && (
@@ -106,9 +122,18 @@ export function ArtifactFeedbackPanel({
           aria-valuemax={700}
           aria-valuenow={Math.round(dock.width ?? 300)}
           tabIndex={0}
-          onPointerDown={dock.onPointerDown}
-          onDoubleClick={dock.onDoubleClick}
-          onKeyDown={dock.onKeyDown}
+          onPointerDown={(event) => {
+            motion.cancel();
+            dock.onPointerDown(event);
+          }}
+          onDoubleClick={() => {
+            motion.cancel();
+            dock.onDoubleClick();
+          }}
+          onKeyDown={(event) => {
+            motion.cancel();
+            dock.onKeyDown(event);
+          }}
           className="absolute inset-y-0 left-0 z-20 w-1 touch-none cursor-col-resize"
         />
       )}
@@ -135,9 +160,18 @@ export function ArtifactFeedbackPanel({
                 : "Drag to resize; double-click to reset width"
             }
             data-feedback-resize={edge}
-            onPointerDown={(event) => pane.start(event, edge)}
-            onKeyDown={(event) => pane.key(event, edge)}
-            onDoubleClick={pane.resetWidth}
+            onPointerDown={(event) => {
+              motion.cancel();
+              pane.start(event, edge);
+            }}
+            onKeyDown={(event) => {
+              motion.cancel();
+              pane.key(event, edge);
+            }}
+            onDoubleClick={() => {
+              motion.cancel();
+              pane.resetWidth();
+            }}
             className={cn("absolute z-30 touch-none", placement)}
           >
             {edge === "se" && (

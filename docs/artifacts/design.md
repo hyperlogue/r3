@@ -262,6 +262,11 @@ panel's width and resizes content with it. Visible panels offer **Float feedback
 restores the last visible mode. That choice persists across reloads. All states keep
 the panel mounted to preserve UI state and drafts. Existing folded preferences become
 hidden and reopen expanded if no visible-mode preference was saved.
+Float/dock changes animate the existing panel shell for 240 ms from its current
+visual position and size, including corners and shadow. Content takes its final
+width immediately. A rapid reversal starts from the in-progress position.
+Direct drag/resize, hiding, viewport resize, and reduced motion end the transition;
+saved geometry remains independent of these temporary visual transforms.
 The default feedback width is 38.2% of the workspace (the golden-ratio split),
 within the 300–700 px resize limits. Double-clicking the divider clears the saved
 width and recalculates this proportion for the current workspace in either visible mode.

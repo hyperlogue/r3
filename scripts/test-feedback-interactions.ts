@@ -305,11 +305,34 @@ try {
       `${panel}.getBoundingClientRect().toJSON()`,
     );
   const docked = await geometry();
+  await page.evaluate(`void (window.retainedFeedbackPanel = ${panel})`);
   await page.evaluate("document.querySelector('[aria-label=\"Float feedback\"]').click()");
   await eventually(
     () => page.evaluate(`${panel}.dataset.feedbackMode === 'floating'`),
     "floating panel",
   );
+  await eventually(() => page.evaluate(`${panel}.getAnimations().length > 0`), "float transition");
+  await page.evaluate(
+    `(() => { const animation = ${panel}.getAnimations()[0]; animation.pause(); animation.currentTime = 120; })()`,
+  );
+  const halfway = await geometry();
+  await page.evaluate("document.querySelector('[aria-label=\"Dock feedback\"]').click()");
+  await page.evaluate(
+    `(() => { const animation = ${panel}.getAnimations()[0]; animation.pause(); animation.currentTime = 0; })()`,
+  );
+  const reversed = await geometry();
+  assert(
+    Math.abs(reversed.x - halfway.x) < 1 && Math.abs(reversed.y - halfway.y) < 1,
+    "A reversed mode transition starts at the current visual position",
+  );
+  await page.evaluate(`${panel}.getAnimations().forEach(animation=>animation.finish())`);
+  assert.equal((await geometry()).width, docked.width);
+  assert(
+    await page.evaluate(`${panel} === window.retainedFeedbackPanel`),
+    "Mode changes retain the panel DOM",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Float feedback\"]').click()");
+  await page.evaluate(`Promise.all(${panel}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
   const initial = await geometry();
   const contentWidth = await page.evaluate<number>(
     `${panel}.previousElementSibling.getBoundingClientRect().width`,
@@ -390,7 +413,22 @@ try {
     docked.width,
     "Docking restores the independent dock width",
   );
+  await page.command("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
+  assert.equal(
+    await page.evaluate(`${track}.getAnimations().length`),
+    0,
+    "Reduced motion switches queues immediately",
+  );
   await page.evaluate("document.querySelector('[aria-label=\"Float feedback\"]').click()");
+  assert.equal(
+    await page.evaluate(`${panel}.getAnimations().length`),
+    0,
+    "Reduced motion switches panel modes immediately",
+  );
+  await page.command("Emulation.setEmulatedMedia", { features: [] });
   await page.command("Page.reload");
   await eventually(
     () => page.evaluate(`!!${panel} && ${panel}.dataset.feedbackMode === 'floating'`),
