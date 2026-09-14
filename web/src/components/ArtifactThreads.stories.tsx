@@ -53,8 +53,14 @@ export const ResolveHovered: Story = {
   },
 };
 export const ResolveHoveredDark: Story = { ...ResolveHovered, globals: { theme: "dark" } };
-export const ResolveIdle: Story = {};
-export const ResolveIdleDark: Story = { globals: { theme: "dark" } };
+export const ResolveIdle: Story = {
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole("button", { name: "✓ Resolve" });
+    await expect(getComputedStyle(button).borderTopColor).toBe("rgba(0, 0, 0, 0)");
+    await expect(getComputedStyle(button).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  },
+};
+export const ResolveIdleDark: Story = { ...ResolveIdle, globals: { theme: "dark" } };
 export const ResolvePending: Story = {
   beforeEach: () => {
     const original = artifactApi.editFeedback;
@@ -102,6 +108,14 @@ export const NarrowPanel: Story = {
 export const FeedbackTabs: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const radius = getComputedStyle(canvas.getByRole("button", { name: "✓ Resolve" })).borderRadius;
+    await expect(getComputedStyle(canvas.getByRole("tab", { name: /Active/ })).borderRadius).toBe(
+      radius,
+    );
+    await waitFor(() => {
+      const indicator = canvasElement.querySelector("[data-feedback-tab-indicator]");
+      expect(indicator && getComputedStyle(indicator).borderRadius).toBe(radius);
+    });
     await expect(canvas.getByRole("tab", { name: /Active/ })).toHaveAttribute(
       "aria-selected",
       "true",

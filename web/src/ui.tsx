@@ -460,13 +460,10 @@ export function Button({
     nav: "border border-transparent bg-transparent text-neutral-600 hover:border-neutral-400 dark:text-neutral-300 dark:hover:border-neutral-500",
     ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300",
     danger: "bg-danger-600/90 hover:bg-danger-600 text-white",
-    // Approval — the terminal "this review is good" action. Success green (the
-    // resolution hue) is reserved for it; the live hand-off to a watching agent
-    // (Submit) uses primary-indigo instead, so the two green-vs-indigo reads stay
-    // distinct.
+    // Resolution uses success green; agent handoff uses primary indigo.
     success: "bg-success-600 hover:bg-success-500 text-white",
     "success-outline":
-      "border border-success-600/60 bg-transparent text-neutral-600 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:border-success-500/60 dark:text-neutral-300 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
+      "border border-transparent bg-transparent text-neutral-600 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:text-neutral-300 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
   };
   return <button className={cn(base, variants[variant], className)} {...props} />;
 }

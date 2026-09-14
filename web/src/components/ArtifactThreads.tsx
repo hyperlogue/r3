@@ -663,7 +663,7 @@ export function ArtifactThreads({
                 data-feedback-tab-indicator
                 style={indicator.style}
                 className={cn(
-                  "pointer-events-none absolute left-0 rounded-full transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none",
+                  "pointer-events-none absolute left-0 rounded-md transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none",
                   tab === "resolved"
                     ? "bg-success-100 dark:bg-success-950"
                     : "bg-neutral-200 dark:bg-neutral-800",
@@ -679,7 +679,7 @@ export function ArtifactThreads({
                 aria-selected={tab === value}
                 onClick={() => setTab(value)}
                 className={cn(
-                  "relative z-10 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors",
+                  "relative z-10 rounded-md px-2.5 py-1 text-[0.6875rem] font-medium transition-colors",
                   tab === value
                     ? value === "resolved"
                       ? "text-success-800 dark:text-success-300"
