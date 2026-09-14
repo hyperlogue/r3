@@ -9,8 +9,8 @@ This file, the [artifact design](docs/artifacts/design.md),
 [schema explanation](docs/artifacts/schema.md), and the deep-reference skills below
 are the design source of truth. Update the document that owns a decision when it
 changes. [Verification](docs/artifacts/verification.md) maps behavior to executable
-acceptance checks. Earlier live-file reviews have been retired; historical types
-used by migration or presentation helpers do not define new API behavior.
+acceptance checks. Earlier live-file reviews have been retired; historical storage
+rows are confined to migration and do not define new API behavior.
 
 ## Architecture
 
@@ -52,7 +52,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 
 | Area | Modules and responsibility |
 | --- | --- |
-| Public contracts | `shared/artifacts.ts`, `artifact-client.ts`, `artifact-prompt.ts`, `preview-protocol.ts`, `event-stream.ts`; `shared/types.ts` also retains renderer and legacy migration shapes |
+| Public contracts | `shared/artifacts.ts`, `artifact-client.ts`, `artifact-prompt.ts`, `preview-protocol.ts`, `event-stream.ts`; `shared/types.ts` adds renderer, bootstrap, and publisher wake shapes |
 | Entrypoints | `cli/index.ts` → `artifact-main.ts`; `server/index.ts` → `artifact-daemon.ts`; `web/src/App.tsx` → `ArtifactHome` / `ArtifactView` |
 | Bootstrap and exposure | `server/config.ts`, `artifact-config.ts`, `artifact-daemon.ts`, `artifact-server.ts`, `application-assets.ts`; `cli/daemon-client.ts`, `artifact-settings.ts` |
 | Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration*.ts`; private backup, atomic migration, recovery, coordinated garbage collection |

@@ -96,9 +96,6 @@ export function useArtifactContent(
         ? [
             {
               seq: version.seq,
-              label: version.label,
-              summary: version.summary,
-              created_at: version.createdAt,
               files: diffQuery.data,
             },
           ]

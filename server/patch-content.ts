@@ -1,5 +1,5 @@
 // Stored patch rendering depends only on captured rows, never on git refs or a repo.
-import type { DiffFileChange, DiffLine } from "../shared/types.ts";
+import { type DiffFileChange, type DiffLine, MAX_CONTEXT_ROWS } from "../shared/types.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import { blobSha, parseUnifiedDiff } from "./git.ts";
 import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
@@ -107,7 +107,7 @@ export async function storedPatchContext(
     !Number.isSafeInteger(end) ||
     start < 1 ||
     end < start ||
-    end - start >= 5000
+    end - start >= MAX_CONTEXT_ROWS
   )
     return null;
   const file = parseUnifiedDiff(raw).find((file) => file.path === path || file.oldPath === path);

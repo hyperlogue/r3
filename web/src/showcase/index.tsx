@@ -309,9 +309,6 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
                 rounds={[
                   {
                     seq: publication.version.seq,
-                    label: publication.version.label,
-                    summary: null,
-                    created_at: publication.version.createdAt,
                     files: publication.diff,
                   },
                 ]}

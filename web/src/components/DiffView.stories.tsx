@@ -160,9 +160,6 @@ export const NordSurface: Story = {
 const bigRound: PatchDiff[] = [
   {
     seq: 1,
-    label: "26 files · ~4.7k rows",
-    summary: null,
-    created_at: "2026-06-30T12:00:00.000Z",
     files: Array.from({ length: 26 }, (_, i) => ({
       oldPath: `web/src/module-${i + 1}.ts`,
       newPath: `web/src/module-${i + 1}.ts`,

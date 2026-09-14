@@ -117,7 +117,7 @@ export async function pushToInbox(target: ClaudeListenerTarget, text: string): P
     // The auth line is optional on macOS/Linux for the connection to be ACCEPTED,
     // but acceptance is not delivery: the token is what identifies us as the
     // session's own tooling rather than an unattributed peer, whose message is held
-    // for manual approval. Registration requires one (see ListenRequest), so it
+    // for manual approval. Registration requires one (see ClaudeListenerTarget), so it
     // always goes first — there is no unattributed push to fall back to.
     const lines = [
       JSON.stringify({ type: "auth", token: target.token }),
