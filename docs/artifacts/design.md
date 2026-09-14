@@ -191,8 +191,11 @@ means an open thread whose latest message is from an agent; a posted human reply
 resolution clears it. Opening the panel does not. The navbar shows this count and
 a separate draft/unsent indicator. Posting adds feedback to r3; **Send to agent · N**
 or **Copy prompt · N** explicitly hands off the pending batch. Disabled handoff
-reasons are visible, including drafts that still need posting or discarding. General notes
-open on demand at the top of the panel, below its header and filters. Agent replies
+reasons remain in the button tooltip. The draft badge shares the filter row, so
+typing does not add a row or shift the composer. General notes open on demand as
+the first pending card in the same scrolling list as feedback. They share its
+insertion/removal animation; Cancel and Discard animate the neighboring cards.
+Agent replies
 use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.

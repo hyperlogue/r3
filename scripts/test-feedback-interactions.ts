@@ -84,7 +84,8 @@ try {
     mobile: false,
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
-  const card = (id: string) => `document.querySelector('[data-artifact-feedback="${id}"]')`;
+  const card = (id: string) =>
+    `document.querySelector('[data-artifact-feedback="${id}"]:not([inert])')`;
   await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "feedback cards");
   // Keep the HTTP mutation pending. The user should see resolution immediately,
   // rather than paying for the mutation plus a subsequent artifact refetch.
@@ -183,7 +184,76 @@ try {
     async () => storage.conversations.list(artifact.id)[1].status === "open",
     "reopen persists",
   );
-  console.log("Feedback status changes immediately and failed saves restore the thread.");
+  await page.evaluate("document.querySelector('[data-feedback-tab=active]').click()");
+  await page.evaluate(
+    "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
+    "pending feedback composer",
+  );
+  assert.equal(
+    await page.evaluate(
+      "!!document.querySelector('[data-artifact-composer]').closest('[data-feedback-list]')",
+    ),
+    true,
+    "The composer belongs to the feedback list like a pending card",
+  );
+  await page.evaluate(
+    "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
+  );
+  const composerTop = await page.evaluate<number>(
+    "document.querySelector('[aria-label=\"Feedback\"]').getBoundingClientRect().top",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
+  await page.command("Input.insertText", { text: "A pending card" });
+  await page.evaluate("new Promise(requestAnimationFrame)");
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[aria-label=\"Feedback\"]').getBoundingClientRect().top",
+    ),
+    composerTop,
+    "Typing must not add a header row above the composer",
+  );
+  await page.evaluate(
+    "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Discard').click()",
+  );
+  await eventually(
+    () =>
+      page.evaluate(
+        `${card(notes[0].id)}?.getAnimations().some(animation=>animation.effect.getKeyframes().some(frame=>frame.transform?.includes('translate')))`,
+      ),
+    "discard animates the remaining feedback cards",
+  );
+  await eventually(
+    () => page.evaluate("!document.querySelector('[data-artifact-composer]')"),
+    "discarded composer leaves the list",
+  );
+  await page.evaluate(
+    "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[data-artifact-composer]')"),
+    "empty pending card",
+  );
+  await page.evaluate(
+    "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
+  );
+  await page.evaluate(
+    "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Cancel').click()",
+  );
+  await eventually(
+    () =>
+      page.evaluate(
+        `${card(notes[0].id)}?.getAnimations().some(animation=>animation.effect.getKeyframes().some(frame=>frame.transform?.includes('translate')))`,
+      ),
+    "cancel animates the remaining feedback cards",
+  );
+  console.log(
+    "Feedback decisions update immediately with safe rollback; the composer shares the list, typing stays stable, and Cancel/Discard animate surrounding cards.",
+  );
 } finally {
   for (const request of pending) request.respond(new Response(null, { status: 503 }));
   await browser?.close();

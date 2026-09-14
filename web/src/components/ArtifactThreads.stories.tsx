@@ -107,11 +107,20 @@ export const FeedbackTabs: Story = {
     await userEvent.click(canvas.getByRole("tab", { name: /Active/ }));
     const composer = canvasElement.querySelector("[data-artifact-composer]");
     const list = canvasElement.querySelector("[data-feedback-list]");
-    await expect(
-      composer && list && composer.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    await expect(composer && list?.firstElementChild?.contains(composer)).toBeTruthy();
   },
 };
+export const ComposerAsCard: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    const input = canvas.getByRole("textbox", { name: "Feedback" });
+    await expect(input.closest("[data-feedback-list]")).not.toBeNull();
+    await userEvent.type(input, "This draft is a pending feedback card.");
+    await expect(canvas.queryByText("Post or discard drafts before sending feedback")).toBeNull();
+  },
+};
+export const ComposerAsCardDark: Story = { ...ComposerAsCard, globals: { theme: "dark" } };
 export const AgentWorking: Story = {
   args: {
     detail: {

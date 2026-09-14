@@ -48,7 +48,7 @@ export function ArtifactComposer({
         "relative flex flex-col gap-2 bg-white py-3 dark:bg-neutral-950",
         !replyTo &&
           !floating &&
-          "border-y border-neutral-300 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:border-neutral-700",
+          "border-b border-neutral-200 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:border-neutral-800",
       )}
       data-artifact-composer={artifactId}
       data-reply-to={replyTo}

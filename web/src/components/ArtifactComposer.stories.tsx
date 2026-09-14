@@ -18,6 +18,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const General: Story = { args: { artifactId: "artifact_general_composer" } };
+export const GeneralDark: Story = { ...General, globals: { theme: "dark" } };
 export const KeepDraftOnEscape: Story = {
   args: { artifactId: "artifact_persisted_composer" },
   play: async ({ canvasElement }) => {

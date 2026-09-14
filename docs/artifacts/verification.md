@@ -146,4 +146,6 @@ that the width persists and drag styling clears.
 
 Feedback responsiveness: `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-feedback-interactions.ts`
 holds actual status responses to check immediate Resolve/Reopen, concurrent decisions,
-incoming replies through SSE, and restoration of only a failed decision.
+incoming replies through SSE, and restoration of only a failed decision. It checks
+that the composer shares the list, typing keeps its position stable, and removing
+the draft animates the neighboring cards.

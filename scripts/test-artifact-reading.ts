@@ -224,9 +224,9 @@ try {
         await page.evaluate(`(() => {
         const composer = document.querySelector('[data-artifact-composer]');
         const list = document.querySelector('[data-feedback-list]');
-        return !!(composer.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return list.firstElementChild.contains(composer);
       })()`),
-        "composer precedes the thread list",
+        "composer is the first pending card in the thread list",
       );
       await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
       await page.command("Input.insertText", { text: "A draft blocks handoff" });

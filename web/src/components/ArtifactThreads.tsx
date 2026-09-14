@@ -597,14 +597,6 @@ export function ArtifactThreads({
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="shrink-0 text-base font-semibold">Feedback</span>
             {panelControls}
-            {!!draftCount && (
-              <span
-                title="Drafts stay in this browser until posted"
-                className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
-              >
-                ✎ {draftCount} {draftCount === 1 ? "draft" : "drafts"}
-              </span>
-            )}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
@@ -627,9 +619,6 @@ export function ArtifactThreads({
             </Button>
           </div>
         </div>
-        {disabledReason && (
-          <p className="text-[0.625rem] text-neutral-500 dark:text-neutral-400">{disabledReason}</p>
-        )}
         <div className="flex items-center justify-between gap-2">
           <div
             ref={indicator.ref}
@@ -671,32 +660,37 @@ export function ArtifactThreads({
               </button>
             ))}
           </div>
-          <span
-            className="truncate text-[0.625rem] text-neutral-400"
-            title={watchers[0]?.actor.sessionId ?? undefined}
-          >
-            {detail.working
-              ? "Agent working"
-              : watchers.length
-                ? "Agent listening"
-                : pending
-                  ? `${pending} pending`
-                  : ""}
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            {!!draftCount && (
+              <span
+                title="Drafts stay in this browser until posted"
+                className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
+              >
+                ✎ {draftCount} {draftCount === 1 ? "draft" : "drafts"}
+              </span>
+            )}
+            <span
+              className="truncate text-[0.625rem] text-neutral-400"
+              title={watchers[0]?.actor.sessionId ?? undefined}
+            >
+              {detail.working
+                ? "Agent working"
+                : watchers.length
+                  ? "Agent listening"
+                  : pending
+                    ? `${pending} pending`
+                    : ""}
+            </span>
+          </div>
         </div>
       </div>
-      {noteOpen && (
-        <div className="r3-fade-slide-in max-h-[60%] shrink-0 overflow-y-auto">
-          {composer ?? <ArtifactComposer artifactId={detail.id} />}
-        </div>
-      )}
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <div key={tab} className="relative r3-fade-slide-in">
+        <div className="relative">
           <p
-            aria-hidden={ordered.length > 0}
+            aria-hidden={ordered.length > 0 || noteOpen}
             className={cn(
               "r3-hint pointer-events-none absolute inset-x-0 top-0 px-3 py-8 text-center text-sm text-neutral-400",
-              ordered.length === 0 && "is-visible",
+              ordered.length === 0 && !noteOpen && "is-visible",
             )}
           >
             {tab === "resolved"
@@ -704,6 +698,11 @@ export function ArtifactThreads({
               : "Select content to leave feedback, or add a general note."}
           </p>
           <div ref={listAnimation} data-feedback-list>
+            {noteOpen && (
+              <div key="composer" data-feedback-draft>
+                {composer ?? <ArtifactComposer artifactId={detail.id} />}
+              </div>
+            )}
             {ordered.map((feedback) => (
               <ArtifactThreadCard
                 key={feedback.id}
