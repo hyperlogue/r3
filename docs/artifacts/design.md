@@ -209,8 +209,12 @@ Resolve and Reopen update the queue immediately while the server saves. Pending
 decisions are applied over refreshed server state, so incoming replies remain visible.
 A failed save restores that thread and shows its error without rolling back other
 decisions. Handoff waits for pending status saves; only the server persists status.
-Active threads sort by creation time, newest first; replies and claims do not
-reorder them. Equal timestamps preserve reverse server insertion order. Unhandled
+Active threads prioritize freshly posted human notes (unsent, with no replies or
+claim), then unhandled threads, then waiting threads, then claimed work. Each
+group sorts by creation time, newest first; equal timestamps preserve reverse
+server insertion order. This keeps a new card beside its composer until handoff,
+while replying moves a handled card below threads still needing attention. The
+existing reorder animation shows that move without automatic scrolling. Unhandled
 means an open thread whose latest message is from an agent; a posted human reply or
 resolution clears it. Opening the panel does not. The navbar feedback button shows
 one primary-color dot when there are unhandled threads, drafts, or unsent feedback.

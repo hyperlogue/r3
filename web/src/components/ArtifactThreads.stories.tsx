@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-import type { ArtifactFeedback } from "../../../shared/artifacts.ts";
+import type { ArtifactFeedback, ArtifactReply } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { Button } from "../ui.tsx";
@@ -109,6 +109,66 @@ export const ComposerSaveFailed: Story = {
       "Keep my draft after an error.",
     );
     await expect(canvasElement.querySelectorAll("[data-feedback-list] > article")).toHaveLength(1);
+  },
+};
+
+const attentionQueue = {
+  ...artifactFixture,
+  feedback: [
+    {
+      ...artifactFixtureFeedback,
+      id: "feedback_older",
+      body: "The next decision needs attention.",
+    },
+    {
+      ...artifactFixtureFeedback,
+      id: "feedback_newer",
+      body: "Reply here to advance the attention queue.",
+      createdAt: "2026-09-12T00:00:00.000Z",
+    },
+  ],
+};
+export const ReplyAdvancesAttention: Story = {
+  args: { detail: attentionQueue },
+  beforeEach: () => {
+    const original = { detail: artifactApi.detail, reply: artifactApi.reply };
+    let server = structuredClone(attentionQueue);
+    artifactApi.detail = async () => server;
+    artifactApi.reply = async (feedbackId, input) => {
+      const reply: ArtifactReply = {
+        ...artifactFixtureFeedback.replies[0],
+        id: "reply_human",
+        feedbackId,
+        author: { role: "human", sessionId: null },
+        body: input.body,
+        sentAt: null,
+      };
+      server = {
+        ...server,
+        feedback: server.feedback.map((note) =>
+          note.id === feedbackId ? { ...note, replies: [...note.replies, reply] } : note,
+        ),
+      };
+      return reply;
+    };
+    return () => Object.assign(artifactApi, original);
+  },
+  parameters: {
+    queryData: [
+      [["artifact", artifactFixture.id], attentionQueue],
+      [["artifact-watchers", artifactFixture.id], []],
+    ],
+  },
+  render: ComposerToCard.render,
+  play: async ({ canvasElement }) => {
+    const first = () => canvasElement.querySelector("[data-feedback-list] > article")!;
+    await expect(first()).toHaveTextContent("Reply here to advance");
+    await userEvent.click(within(first() as HTMLElement).getByRole("button", { name: "Reply" }));
+    await userEvent.type(within(canvasElement).getByRole("textbox", { name: "Reply" }), "Agreed.");
+    const form = canvasElement.querySelector<HTMLFormElement>("[data-reply-to]")!;
+    await userEvent.click(within(form).getByRole("button", { name: "Reply" }));
+    await waitFor(() => expect(first()).toHaveTextContent("The next decision needs attention."));
+    await expect(canvasElement.querySelectorAll("[data-feedback-list] > article")).toHaveLength(2);
   },
 };
 export const MenuKeyboardDismiss: Story = {

@@ -39,12 +39,12 @@ await storage.artifacts.publish(artifact.id, {
     ],
   },
 });
+storage.artifacts.registerSession({ id: "feedback-test-agent" });
 await storage.conversations.add(artifact.id, {
-  actor,
+  actor: { role: "agent", sessionId: "feedback-test-agent" },
   body: "Earlier conversation",
   target: { kind: "artifact" },
 });
-storage.artifacts.registerSession({ id: "feedback-test-agent" });
 const token = randomBytes(32).toString("base64url");
 const api = createArtifactApi(storage, {
   token,
@@ -114,10 +114,10 @@ try {
     await page.command("Input.insertText", { text: body });
     await page.evaluate(`${input}.form.requestSubmit()`);
   };
-  const saved = async (body: string, count: number) => {
+  const saved = async (body: string, count: number, cardText = firstText) => {
     await eventually(
-      () => page.evaluate(`!(${input}) && ${firstText}?.includes(${JSON.stringify(body)})`),
-      "saved note stays at top",
+      () => page.evaluate(`!(${input}) && ${cardText}?.includes(${JSON.stringify(body)})`),
+      "saved note occupies its queue position",
     );
     assert.equal(
       await page.evaluate("document.querySelectorAll('[data-feedback-list] > article').length"),
@@ -152,13 +152,17 @@ try {
     }),
   });
   assert.equal(reply.status, 201);
+  // An early agent reply moves this note out of the fresh-unsent group. Check
+  // the stable card identity while the earlier unsent human note stays ahead.
+  const earlyText = `document.querySelector('[data-artifact-feedback="${postedId}"]')?.textContent`;
   await eventually(
-    () => page.evaluate(`${firstText}?.includes('Concurrent agent reply')`),
+    () => page.evaluate(`${earlyText}?.includes('Concurrent agent reply')`),
     "concurrent reply arrives",
   );
   releasePost?.();
-  await saved("Event stream arrives before POST", 3);
-  assert(await page.evaluate(`${firstText}?.includes('Concurrent agent reply')`));
+  await saved("Event stream arrives before POST", 3, earlyText);
+  assert(await page.evaluate(`${earlyText}?.includes('Concurrent agent reply')`));
+  assert(await page.evaluate(`${firstText}?.includes('First saved note')`));
   await eventually(
     () => page.evaluate(`window.feedbackMotions.some(m=>m.id===${JSON.stringify(postedId)})`),
     "early card still morphs",
