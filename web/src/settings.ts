@@ -15,7 +15,6 @@ export const SYNTAX_THEMES = [
 const syntax = persistedStore<string>("r3-syntax-theme", {
   load: (raw) => raw || "github",
 });
-export const getSyntaxTheme = syntax.get;
 export const setSyntaxTheme = syntax.set;
 export const useSyntaxTheme = syntax.use;
 
@@ -65,7 +64,7 @@ export function setFontSize(px: number): void {
 
 // ---- feedback panel mode (desktop) ----
 
-// Expanded reserves content space; floating overlays it; hidden leaves a rail.
+// Expanded reserves content space; floating overlays it; hidden reserves no space.
 // Keep the existing storage key to retain old collapsed preferences ("1").
 // Mobile uses its own sheet without changing this global display preference.
 export type FeedbackPanelMode = "hidden" | "expanded" | "floating";
@@ -74,7 +73,6 @@ const feedbackMode = persistedStore<FeedbackPanelMode>("r3-feedback-collapsed", 
     raw === "1" || raw === "hidden" ? "hidden" : raw === "floating" ? "floating" : "expanded",
   save: (mode) => (mode === "expanded" ? null : mode),
 });
-export const getFeedbackMode = feedbackMode.get;
 export const useFeedbackMode = feedbackMode.use;
 const feedbackOpenMode = persistedStore<Exclude<FeedbackPanelMode, "hidden">>(
   "r3-feedback-open-mode",

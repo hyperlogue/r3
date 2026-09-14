@@ -158,18 +158,3 @@ export function useQuoteBubble(
   }, [pos, scopeRef]);
   return { pos, hide };
 }
-
-// Wrap `text` as a Markdown blockquote for the reply/note composer: each line
-// gets a "> " prefix, separated from any existing text by a blank line, with a
-// trailing blank line so the caret lands *outside* the quote ready to type. The
-// returned caret offset is the end of the produced string.
-export function quoteBlock(existing: string, quoted: string): { text: string; caret: number } {
-  const q = quoted
-    .replace(/\s+$/, "")
-    .split("\n")
-    .map((l) => `> ${l}`)
-    .join("\n");
-  const lead = existing.trim() === "" ? "" : `${existing.replace(/\n+$/, "")}\n\n`;
-  const text = `${lead}${q}\n\n`;
-  return { text, caret: text.length };
-}

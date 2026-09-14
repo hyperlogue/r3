@@ -70,15 +70,6 @@ export function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname);
 }
 
-// Does a URL advertise a loopback host? A URL that can't be parsed is treated as
-// non-loopback (conservative — an odd advertised host reads as "exposed"). Used by
-// `r3 status` to tell an exposed daemon from a loopback one and by `r3 config set`
-// to warn about exposing with login off.
-export function isLoopbackUrl(url: string): boolean {
-  const h = hostnameOf(url);
-  return h != null && isLoopbackHost(h);
-}
-
 // Host allowlist for the DNS-rebinding + CSRF defenses. Loopback names are always
 // allowed; `R3_ALLOWED_HOSTS` adds exact extra names (e.g. a MagicDNS name — never
 // `*`, which would gut the rebinding defense). A non-loopback bind address is

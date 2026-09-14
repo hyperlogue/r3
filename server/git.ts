@@ -9,20 +9,8 @@ export async function blobSha(content: string): Promise<string> {
   return hasher.digest("hex");
 }
 
-// How much context a round is CAPTURED with. Effectively whole-file: git merges
-// hunks whose context overlaps, so a wide -U doesn't duplicate anything and the
-// stored ceiling is the touched files' own size. Rounds are immutable and git is
-// never consulted again at render, so whatever isn't captured here can never be
-// expanded later — this number is the one chance to hold it.
-export const WIDE_CONTEXT = 2000;
-
-// …but "the file's own size" is the wrong price for a one-line edit to a
-// lockfile. A file whose wide entry exceeds MAX_ROUND_FILE_BYTES is re-emitted at
-// TRIM_CONTEXT instead, so the pathological cases stay bounded while ordinary
-// source files keep full expandability. Measured on this repo: capturing wide
-// costs ~5.8× the stored bytes of -U3, and this cap brings it to ~3.0× while
-// only clipping generated files and the largest few components (which still get
-// 25 lines each way — 8× what -U3 gave).
+// Bound large captured patch entries by retaining only TRIM_CONTEXT lines around
+// each change. Ordinary files keep their captured context for later expansion.
 export const MAX_ROUND_FILE_BYTES = 64 * 1024;
 export const TRIM_CONTEXT = 25;
 
