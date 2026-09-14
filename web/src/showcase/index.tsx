@@ -30,6 +30,7 @@ import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } fr
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
+import { OverlayContrastPreview } from "./OverlayContrastPreview.tsx";
 import "../main.css";
 
 // The build aliases all API calls to this same in-memory demo backend.
@@ -445,6 +446,7 @@ function Showcase() {
             Current r3 components, ready for polishing. Turn on r3’s comment mode and select any
             element to leave feedback. Sample interactions reset when the page reloads.
           </p>
+          <OverlayContrastPreview />
           <nav
             aria-label="Showcase sections"
             className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-primary-600 dark:text-primary-400"

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { artifactFixture } from "../artifact-fixtures.ts";
+import { OverlayContrastPreview } from "../showcase/OverlayContrastPreview.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { ArtifactHeader } from "./ArtifactHeader.tsx";
 import { ArtifactThreads } from "./ArtifactThreads.tsx";
@@ -15,6 +16,7 @@ type Story = StoryObj<typeof meta>;
 export const Layers: Story = {
   render: () => (
     <div className="space-y-6">
+      <OverlayContrastPreview />
       <ArtifactHeader detail={artifactFixture} />
       <div className="flex flex-wrap items-start gap-8">
         <div className="h-[480px] w-96 border border-neutral-300 dark:border-neutral-700">
