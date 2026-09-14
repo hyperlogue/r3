@@ -23,6 +23,16 @@ export interface ArtifactProject {
   createdAt: string;
 }
 
+export interface ArtifactStorageUsage {
+  // Distinct original/retained blobs across published versions plus each patch's
+  // UTF-8 bytes. Excludes database/filesystem overhead and unpublished content.
+  // Shared blobs count toward each referencing artifact, not reclaimable space.
+  totalBytes: number;
+  // Full content footprint of the latest publication, not its incremental cost.
+  // Zero before the first publication. Independent of the reader's selection.
+  latestVersionBytes: number;
+}
+
 export interface Artifact {
   id: string;
   kind: ArtifactKind;
@@ -39,6 +49,7 @@ export interface Artifact {
   working: boolean;
   // Open threads whose latest message is from an agent; independent of reading.
   unhandledCount: number;
+  storage: ArtifactStorageUsage;
   legacy: Record<string, unknown> | null;
 }
 

@@ -14,7 +14,7 @@ import {
   isUnhandledArtifactFeedback,
 } from "../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../web/demo/artifact-model.ts";
-import { publicationKey } from "../web/demo/artifact-model.ts";
+import { demoStorageUsage, publicationKey } from "../web/demo/artifact-model.ts";
 
 const time = "2026-09-11T12:00:00.000Z";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
@@ -41,6 +41,7 @@ function artifact(id: string, kind: "files" | "diff", title: string): ArtifactDe
     watching: true,
     working: false,
     unhandledCount: 0,
+    storage: { totalBytes: 0, latestVersionBytes: 0 },
     legacy: null,
     versions: [],
     feedback: [],
@@ -92,6 +93,8 @@ async function files(
     resources: {},
     diff: [],
     fullDiff: [],
+    storageBlobs: {},
+    patchBytes: 0,
   };
   for (const [path, text] of Object.entries(contents)) {
     const digest = hash(text);
@@ -108,6 +111,8 @@ async function files(
       rendererRevision: retained?.revision ?? null,
     };
     result.files.push(metadata);
+    result.storageBlobs[digest] = metadata.byteLength;
+    if (retained) result.storageBlobs[metadata.renderedHash!] = Buffer.byteLength(retained.html);
     result.resources[path] = Buffer.from(text).toString("base64");
     const source = text.split("\n");
     if (text.endsWith("\n")) source.pop();
@@ -133,6 +138,8 @@ async function diff(id: string, seq: number, patch: string): Promise<DemoPublica
     resources: {},
     diff: await renderStoredPatch(patch),
     fullDiff,
+    storageBlobs: {},
+    patchBytes: Buffer.byteLength(patch),
   };
 }
 const docs = artifact("artifact_documents", "files", "Design a published workspace");
@@ -164,6 +171,7 @@ for (const [item, content] of [
   [code, firstDiff],
 ] as const) {
   item.versions = [content.version];
+  item.storage = demoStorageUsage([content]);
   item.feedback = [
     {
       id: `feedback_${item.id}`,

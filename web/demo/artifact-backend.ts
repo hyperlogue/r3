@@ -9,7 +9,7 @@ import type {
 } from "../../shared/artifacts.ts";
 import { hasUnsentArtifactFeedback, isUnhandledArtifactFeedback } from "../../shared/artifacts.ts";
 import { ARTIFACT_DEMO_SEED } from "./artifact-fixtures.gen.ts";
-import { type ArtifactDemoState, publicationKey } from "./artifact-model.ts";
+import { type ArtifactDemoState, demoStorageUsage, publicationKey } from "./artifact-model.ts";
 
 const KEY = "r3-artifact-demo";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
@@ -32,6 +32,23 @@ export class ArtifactDemoBackend {
     } catch {
       /* A private or full browser store still supports this tab. */
     }
+    // Backfill byte metadata for saved demos without discarding their feedback.
+    const seedPublications = new Map(
+      [
+        ...Object.values(ARTIFACT_DEMO_SEED.publications),
+        ...Object.values(ARTIFACT_DEMO_SEED.pending),
+      ].map((item) => [publicationKey(item.version.artifactId, item.version.seq), item]),
+    );
+    for (const item of [
+      ...Object.values(this.state.publications),
+      ...Object.values(this.state.pending),
+    ]) {
+      const seed = seedPublications.get(publicationKey(item.version.artifactId, item.version.seq));
+      if (seed) {
+        item.storageBlobs = seed.storageBlobs;
+        item.patchBytes = seed.patchBytes;
+      }
+    }
     for (const detail of this.state.artifacts) {
       if ("summary" in detail) {
         detail.legacy = { ...detail.legacy, retiredOverview: detail.summary };
@@ -39,6 +56,7 @@ export class ArtifactDemoBackend {
       }
       detail.unhandledCount = detail.feedback.filter(isUnhandledArtifactFeedback).length;
       detail.working = false;
+      detail.storage = this.storageUsage(detail.id);
       for (const note of detail.feedback) note.claim = null;
     }
   }
@@ -85,10 +103,18 @@ export class ArtifactDemoBackend {
     this.get(id);
     return this.state.publications[publicationKey(id, seq)] ?? fail("Version not found", 404);
   }
+  private storageUsage(id: string) {
+    return demoStorageUsage(
+      this.get(id).versions.map(
+        (version) => this.state.publications[publicationKey(id, version.seq)]!,
+      ),
+    );
+  }
   changed(id: string, event?: ArtifactStreamEvent) {
     const artifact = this.get(id);
     artifact.updatedAt = now();
     artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
+    artifact.storage = this.storageUsage(id);
     this.persist();
     for (const listener of this.subscribers) {
       listener(event ?? { type: "artifact-updated", artifactId: id });

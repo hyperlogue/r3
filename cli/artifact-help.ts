@@ -90,6 +90,11 @@ can receive publications and replies from any registered agent. No agent owns it
 
 Artifact JSON includes unhandledCount: open threads whose latest message is from
 an agent. Reading, delivery, and claims do not clear it; a human reply or resolution does.
+storage.totalBytes counts distinct original/retained blobs across published versions
+plus each patch's UTF-8 bytes. storage.latestVersionBytes is the latest publication's
+full footprint (zero before publication), independent of the selected version.
+These exclude database/filesystem overhead. Shared blobs count toward each artifact;
+the total is not the space that deleting an artifact would necessarily reclaim.
 
 Open the printed artifact URL for human feedback. Use listen for Claude Code or
 Codex when their local wake adapter is available; it keeps a publisher-side process

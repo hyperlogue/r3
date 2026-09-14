@@ -48,6 +48,7 @@ function resetSamples() {
       detail.versions.push(structuredClone(next.version));
       demo.state.publications[`${detail.id}/${next.version.seq}`] = structuredClone(next);
       delete demo.state.pending[detail.id];
+      demo.changed(detail.id);
     }
   }
 }

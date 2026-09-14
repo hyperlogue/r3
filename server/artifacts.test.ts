@@ -55,6 +55,88 @@ function directory(
 }
 
 describe("artifact publications", () => {
+  test("storage counts distinct published bytes across paths and versions", async () => {
+    const id = store.create({ kind: "files", actor: human }).id;
+    expect(store.get(id).storage).toEqual({ totalBytes: 0, latestVersionBytes: 0 });
+    const binary = Buffer.from([0, 255, 128]);
+    const first = directory("one", 0, { a: binary, duplicate: binary, b: "old", empty: "" });
+    await store.publish(id, first);
+    expect(store.get(id).storage).toEqual({ totalBytes: 6, latestVersionBytes: 6 });
+    await store.publish(id, directory("two", 1, { renamed: binary, b: "new" }));
+    await store.publish(id, first);
+    expect(store.get(id).storage).toEqual({ totalBytes: 9, latestVersionBytes: 6 });
+
+    // Allocation gaps must not make the latest publication disappear from accounting.
+    db.query("UPDATE artifacts SET next_seq = 8 WHERE id = ?").run(id);
+    expect(store.get(id).storage.latestVersionBytes).toBe(6);
+    await store.publish(id, directory("three", 2, { renamed: binary }));
+    expect(store.get(id).storage).toEqual({ totalBytes: 9, latestVersionBytes: 3 });
+
+    const other = store.create({ kind: "files", actor: human }).id;
+    await store.publish(other, directory("shared", 0, { a: binary }));
+    expect(store.list().find((item) => item.id === other)?.storage).toEqual({
+      totalBytes: 3,
+      latestVersionBytes: 3,
+    });
+    store.delete(other);
+    db.close();
+    db = new Database(join(root, "test.sqlite"));
+    store = new ArtifactStore(db, blobs, renderer, clock);
+    expect(store.get(id).storage).toEqual({ totalBytes: 9, latestVersionBytes: 3 });
+  });
+
+  test("storage includes retained Markdown without double counting a matching original", async () => {
+    const id = store.create({ kind: "html", actor: human }).id;
+    const source = "# café";
+    const retained = `<article>${source}</article>`;
+    const request = directory("markdown", 0, { "index.md": source, "same.html": retained });
+    await store.publish(id, {
+      ...request,
+      content: { ...request.content, kind: "html" },
+    });
+    const originalBytes = Buffer.byteLength(source);
+    const retainedBytes = Buffer.byteLength(retained);
+    expect(store.get(id).storage).toEqual({
+      totalBytes: originalBytes + retainedBytes,
+      latestVersionBytes: originalBytes + retainedBytes,
+    });
+    renderer = async () => ({ html: "<h1>Revised</h1>", revision: "renderer-2" });
+    const next = directory("revised", 1, { "index.md": source });
+    await store.publish(id, { ...next, content: { ...next.content, kind: "html" } });
+    expect(store.get(id).storage).toEqual({
+      totalBytes: originalBytes + retainedBytes + Buffer.byteLength("<h1>Revised</h1>"),
+      latestVersionBytes: originalBytes + Buffer.byteLength("<h1>Revised</h1>"),
+    });
+  });
+
+  test("storage counts UTF-8 patch bytes per publication, including identical patches", async () => {
+    const id = store.create({ kind: "diff", actor: human }).id;
+    const patch = "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+café 🐈\n";
+    for (let seq = 0; seq < 2; seq++) {
+      await store.publish(id, {
+        publicationKey: `patch-${seq}`,
+        expectedSeq: seq,
+        actor: human,
+        content: { kind: "diff", patch },
+      });
+    }
+    expect(store.get(id).storage).toEqual({
+      totalBytes: Buffer.byteLength(patch) * 2,
+      latestVersionBytes: Buffer.byteLength(patch),
+    });
+  });
+
+  test("failed publications and unreferenced blobs do not count as artifact storage", async () => {
+    const id = store.create({ kind: "files", actor: human }).id;
+    await blobs.put("unreferenced bytes");
+    db.exec(`CREATE TRIGGER fail_storage_publication BEFORE UPDATE OF published_at ON artifact_versions
+      BEGIN SELECT RAISE(ABORT, 'publication failed'); END`);
+    await expect(store.publish(id, directory("failed", 0, { a: "prepared" }))).rejects.toThrow(
+      "publication failed",
+    );
+    expect(store.get(id).storage).toEqual({ totalBytes: 0, latestVersionBytes: 0 });
+  });
+
   test("artifact metadata has no overview while publications retain their summaries", async () => {
     expect(() => store.create({ kind: "files", actor: human, summary: "Removed" })).toThrow(
       "overview was removed",

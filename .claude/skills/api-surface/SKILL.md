@@ -29,6 +29,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `kind`, `project`, and `meta.<key>`. No repo header or local path is involved.
   Artifact reads include computed `unhandledCount`: open threads whose latest
   message is from an agent. Reading, delivery, and claims do not clear it.
+  `storage.totalBytes` and `storage.latestVersionBytes` report deduplicated published
+  content and the latest publication's full footprint, excluding database/filesystem
+  overhead. See [storage accounting](../../../docs/artifacts/schema.md#content-storage-accounting).
   Artifact metadata has no overview/summary field. Publication summaries remain
   immutable version metadata; `edit --summary` is unsupported.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a

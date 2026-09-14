@@ -217,6 +217,12 @@ describe("artifact HTTP content contract", () => {
     expect((await request(`${base}/01`)).status).toBe(400);
     expect((await request(`${base}/1/resource?path=..%2Fsecret`)).status).toBe(400);
     expect((await request(`${base}/1/resource?path=missing.html`)).status).toBe(404);
+    const usage = {
+      totalBytes: 17 + 10 + 4 + Buffer.byteLength("<h1>Retained document</h1>"),
+      latestVersionBytes: 0,
+    };
+    expect((await (await request(`/api/artifacts/${id}`)).json()).storage).toEqual(usage);
+    expect((await (await request("/api/artifacts")).json())[0].storage).toEqual(usage);
   });
 
   test("retry identity, concurrent publication, cache validators, and explicit grouping cross the HTTP boundary", async () => {

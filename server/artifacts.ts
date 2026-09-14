@@ -8,6 +8,7 @@ import type {
   ArtifactKind,
   ArtifactProject,
   ArtifactState,
+  ArtifactStorageUsage,
   ArtifactVersion,
 } from "../shared/artifacts.ts";
 import {
@@ -288,8 +289,36 @@ export class ArtifactStore {
       watching: this.isWatching(id),
       working: !!row.working,
       unhandledCount: row.unhandled_count,
+      storage: this.storageUsage(id),
       legacy: row.legacy_json === null ? null : JSON.parse(row.legacy_json),
     };
+  }
+
+  private storageUsage(id: string): ArtifactStorageUsage {
+    // Read committed membership and blob lengths only; never open file bytes.
+    // The last reference identifies hashes present in the latest publication,
+    // even when the same bytes appear under multiple paths or representations.
+    return this.db
+      .query<ArtifactStorageUsage, [string, string]>(`WITH published AS (
+        SELECT seq, patch_body FROM artifact_versions
+        WHERE artifact_id = ? AND published_at IS NOT NULL
+      ), files AS (
+        SELECT f.* FROM version_files f JOIN published p ON p.seq = f.version_seq
+        WHERE f.artifact_id = ?
+      ), references_by_hash AS (
+        SELECT hash, MAX(seq) AS last_seq FROM (
+          SELECT blob_hash AS hash, version_seq AS seq FROM files
+          UNION ALL
+          SELECT rendered_blob_hash, version_seq FROM files WHERE rendered_blob_hash IS NOT NULL
+        ) GROUP BY hash
+      ), sizes AS (
+        SELECT b.byte_length, r.last_seq FROM references_by_hash r JOIN blobs b ON b.hash = r.hash
+        UNION ALL
+        SELECT length(CAST(patch_body AS BLOB)), seq FROM published WHERE patch_body IS NOT NULL
+      ) SELECT COALESCE(SUM(byte_length), 0) AS totalBytes,
+        COALESCE(SUM(CASE WHEN last_seq = (SELECT MAX(seq) FROM published)
+          THEN byte_length ELSE 0 END), 0) AS latestVersionBytes FROM sizes`)
+      .get(id, id)!;
   }
 
   list(filter: ArtifactFilter = {}): Artifact[] {

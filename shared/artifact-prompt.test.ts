@@ -19,6 +19,7 @@ const detail: ArtifactDetail = {
   watching: false,
   working: false,
   unhandledCount: 0,
+  storage: { totalBytes: 0, latestVersionBytes: 0 },
   legacy: null,
   versions: [],
   feedback: [],

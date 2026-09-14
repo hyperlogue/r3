@@ -65,6 +65,7 @@ export const artifactFixture: ArtifactDetail = {
   watching: false,
   working: false,
   unhandledCount: 1,
+  storage: { totalBytes: 24576, latestVersionBytes: 24576 },
   legacy: null,
   versions: [artifactFixtureVersion],
   feedback: [artifactFixtureFeedback],

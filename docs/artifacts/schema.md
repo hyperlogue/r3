@@ -80,6 +80,24 @@ An HTML entrypoint has a composite foreign key to a file in its own version. Tha
 
 For Markdown, rendered_blob_hash names the retained HTML output and renderer_revision identifies the renderer that produced it. The server prepares these before publication. Original HTML is already a rendered input; it normally needs no second stored blob. Dynamic page state and device capture remain outside the published-byte guarantee. Preview network guarantees depend on the selected policy: verified blocking is the default; consented compatibility has browser-dependent gaps, and HTML-only external mode permits broader requests. See the [security model](../../.claude/skills/security-model/SKILL.md#preview-host).
 
+## Content storage accounting
+
+Artifact JSON includes computed `storage.totalBytes` and `storage.latestVersionBytes`.
+The total sums each distinct original or retained-rendering blob referenced by the
+artifact's published versions once, plus the UTF-8 bytes of every published patch.
+The latest-version value applies the same rule within the highest published
+sequence; it is the full footprint, not the bytes added by that publication.
+Both values are zero before the first publication. Unpublished rows, orphaned blobs,
+and sequence reservations do not contribute. Accounting uses committed membership
+and byte metadata without reading blob files or storing a separate mutable counter.
+
+Identical bytes share one SHA-256 blob across paths, versions, and artifacts.
+Changed files are stored whole; there is no file delta compression. Patches live
+in their version rows and are counted separately even when identical. Database
+metadata, conversations, indexes, backups, and filesystem allocation overhead are
+excluded. A blob shared by two artifacts counts toward both totals, so an artifact's
+reported total does not predict disk space reclaimed by its deletion.
+
 ## Original target, message context, and placement
 
 Feedback's original target is stored as queryable fields plus a native locator:
