@@ -42,9 +42,9 @@ The file sidebar hides; HTML artifacts have no sidebar at any width. The shared
 workspace toolbar retains its file controls below `md`. The version selector moves
 from the top navigation into the three-dot details popover, where its choices
 expand inline and selecting one closes the popover. An older selected version has
-an **Go to the latest version** button in that version section; it also closes the popover when
-selected. The artifact
-title and actions occupy the shared top navigation, outside the scrolling pane;
+a **Go to the latest version** button in that version section; it also closes the
+popover when selected. The artifact title and actions occupy the shared top navigation,
+outside the scrolling pane;
 the content toolbar sticks. The title truncates to preserve space for compact
 controls, with metadata and the selected version's description in the details popover.
 File headers prioritize filenames: source/rendered uses labeled icons, and Viewed

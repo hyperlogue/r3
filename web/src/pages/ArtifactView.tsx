@@ -773,7 +773,7 @@ function Workspace({
                   onFeedback: showFeedback,
                 })
               ) : filesQuery.isPending ? (
-                <ArtifactLoading label="Loading preview…" />
+                <ArtifactLoading />
               ) : (
                 <p className="p-6 text-sm text-neutral-500">
                   This file has no rendered document in the selected version.

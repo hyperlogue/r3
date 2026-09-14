@@ -478,10 +478,7 @@ function Showcase() {
           <Protection />
         </Section>
         <Section id="controls">
-          <ArtifactLoading
-            label="Loading preview…"
-            className="border border-neutral-200 dark:border-neutral-800"
-          />
+          <ArtifactLoading className="border border-neutral-200 dark:border-neutral-800" />
           <div className="flex flex-wrap items-center gap-3">
             {(["default", "primary", "ghost", "danger", "success", "success-outline"] as const).map(
               (variant) => (

@@ -676,7 +676,7 @@ function PreviewSession(
           )}
         </div>
       ) : !ready ? (
-        <ArtifactLoading label="Loading preview…" className="absolute inset-0 z-10" />
+        <ArtifactLoading className="absolute inset-0 z-10" />
       ) : null}
       {notice && (
         <p

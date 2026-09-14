@@ -5,7 +5,6 @@ import { ArtifactLoading } from "./ArtifactLoading.tsx";
 const meta = {
   title: "Components/ArtifactLoading",
   component: ArtifactLoading,
-  args: { label: "Loading preview…" },
 } satisfies Meta<typeof ArtifactLoading>;
 export default meta;
 type Story = StoryObj<typeof meta>;
