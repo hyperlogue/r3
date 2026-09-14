@@ -15,6 +15,7 @@ import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
   type ArtifactLocation,
   artifactLocationSearch,
+  defaultFileRepresentation,
   isArtifactDocumentTarget,
   readArtifactLocation,
 } from "../artifact-navigation.ts";
@@ -205,10 +206,13 @@ function Workspace({
     fetchContext,
   } = useArtifactContent(detail, view, setNotice);
   const syntaxPalette = useSyntaxPalette(theme);
-  const fileMode = (filePath: string): "source" | "rendered" =>
-    view.path === filePath && view.representation !== "diff"
-      ? view.representation
-      : (fileViews[`${version?.seq}:${filePath}`] ?? "source");
+  const fileMode = useCallback(
+    (filePath: string): "source" | "rendered" =>
+      view.path === filePath && view.representation !== "diff"
+        ? view.representation
+        : (fileViews[`${version?.seq}:${filePath}`] ?? defaultFileRepresentation(filePath)),
+    [view.path, view.representation, fileViews, version?.seq],
+  );
   useEffect(() => {
     if (detail.kind === "files" && view.path && version && view.representation !== "diff") {
       const key = `${version.seq}:${view.path}`;
@@ -248,8 +252,13 @@ function Workspace({
   }, [detail.kind]);
 
   useEffect(() => {
-    onLocationChange?.({ ...view, path, versionSeq: version?.seq ?? view.versionSeq });
-  }, [view, path, version?.seq, onLocationChange]);
+    onLocationChange?.({
+      ...view,
+      path,
+      representation: detail.kind === "files" && path ? fileMode(path) : view.representation,
+      versionSeq: version?.seq ?? view.versionSeq,
+    });
+  }, [view, path, version?.seq, onLocationChange, detail.kind, fileMode]);
 
   const changeView = useCallback((patch: Partial<ArtifactLocation>) => {
     initialPath.current = null;
@@ -513,14 +522,14 @@ function Workspace({
   const visibleThread = detail.feedback.find((feedback) => feedback.id === popoverFeedback);
   const selectFile = useCallback(
     (path: string) => {
-      changeView({ path, representation: detail.kind === "diff" ? "diff" : "source" });
+      changeView({ path, representation: detail.kind === "diff" ? "diff" : fileMode(path) });
       setActivePath(path);
       setSheet("closed");
       const nonce = ++jumpNonce.current;
       setJump({ path, side: "new", nonce });
       setFold({ mode: "unfold", path, nonce });
     },
-    [changeView, detail.kind],
+    [changeView, detail.kind, fileMode],
   );
 
   const canonicalJump = useMemo(
@@ -698,7 +707,8 @@ function Workspace({
         onJumpRef={(ref) => jumpRef(ref, context)}
         commenting={commenting}
         onToggleCommenting={
-          detail.kind === "html" || Object.values(fileViews).includes("rendered")
+          detail.kind === "html" ||
+          (detail.kind === "files" && paths.some((path) => fileMode(path) === "rendered"))
             ? () => setCommenting(!commenting)
             : undefined
         }

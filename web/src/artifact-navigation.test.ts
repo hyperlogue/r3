@@ -4,9 +4,22 @@ import { artifactFixture, artifactFixtureFeedback } from "./artifact-fixtures.ts
 import {
   artifactLocationSearch,
   artifactRegions,
+  defaultFileRepresentation,
   readArtifactLocation,
   visibleArtifactTargets,
 } from "./artifact-navigation.ts";
+
+test("Markdown defaults to rendered while explicit source links retain their native view", () => {
+  for (const path of ["index.md", "notes/PLAN.MARKDOWN"]) {
+    expect(defaultFileRepresentation(path)).toBe("rendered");
+    expect(readArtifactLocation("files", `?file=${path}`).representation).toBe("rendered");
+    expect(readArtifactLocation("files", `?file=${path}&view=source`).representation).toBe(
+      "source",
+    );
+  }
+  for (const path of ["index.html", "code.ts", "notes.md.txt"])
+    expect(defaultFileRepresentation(path)).toBe("source");
+});
 
 test("artifact links retain native view and unusual path characters, while fixed kinds cannot switch representations", () => {
   const location = { versionSeq: 7, path: "notes/a # b?.md", representation: "rendered" as const };

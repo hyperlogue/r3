@@ -211,6 +211,11 @@ export const AllFiles: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvasElement.querySelectorAll("[data-file]")).toHaveLength(2);
+    await expect(canvas.getByRole("button", { name: "Rendered" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(canvas.getByRole("button", { name: "Comment mode" })).toBeVisible();
     await userEvent.click(canvas.getByTitle("Fold all files"));
     await waitFor(() =>
       expect(canvasElement.querySelectorAll('[data-file] button[title="Expand"]')).toHaveLength(2),
@@ -225,6 +230,23 @@ export const AllFiles: Story = {
 };
 export const Rendered: Story = {
   args: { initialSearch: "?version=1&view=rendered&file=index.md" },
+};
+export const MarkdownDefaultAndSourceChoice: Story = {
+  args: { initialSearch: "?version=1&file=index.md" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Rendered" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Source" }));
+    await userEvent.click(canvas.getByRole("button", { name: "data.csv" }));
+    await userEvent.click(canvas.getByRole("button", { name: "index.md" }));
+    await expect(canvas.getByRole("button", { name: "Source" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  },
 };
 export const LongRenderedMarkdown: Story = {
   ...Rendered,
@@ -322,6 +344,7 @@ export const HistoricalVersionUnavailable: Story = {
 };
 export const Mobile: Story = { parameters: phoneViewport() };
 export const CollapsedComposer: Story = {
+  args: { initialSearch: "?version=1&file=index.md&view=source" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Hide feedback" }));
@@ -339,6 +362,7 @@ export const CollapsedComposer: Story = {
 };
 // Pointer selection keeps Copy available; keyboard entry is an explicit next step.
 export const SelectionComposer: Story = {
+  args: { initialSearch: "?version=1&file=index.md&view=source" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const row = canvasElement.querySelector('[data-file="index.md"] [data-line="3"] code')!;
@@ -360,6 +384,7 @@ export const SelectionComposer: Story = {
   },
 };
 export const FloatingPanelAndThread: Story = {
+  args: { initialSearch: "?version=1&file=index.md&view=source" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.dblClick(
@@ -481,6 +506,7 @@ export const NewPublication: Story = {
   },
 };
 export const DraftAndNativeLocate: Story = {
+  args: { initialSearch: "?version=1&file=index.md&view=source" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const gutter = canvasElement.querySelector(

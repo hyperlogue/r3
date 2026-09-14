@@ -13,7 +13,7 @@ The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 
 | Kind | Published content | Workspace |
 | --- | --- | --- |
-| `files` | A complete directory with at least one file | All files in one scrolling pane with foldable headers and a synchronized file browser; text opens as source, with per-file rendered HTML/Markdown, media previews, and downloads |
+| `files` | A complete directory with at least one file | All files in one scrolling pane with foldable headers and a synchronized file browser; Markdown opens rendered, other text opens as source, with per-file HTML/Markdown view switching, media previews, and downloads |
 | `html` | A complete directory with a root `index.html` or `index.md` | Rendered entrypoint and feedback panel; no file browser or source toggle |
 | `diff` | An independent unified patch | Captured old/new lines, split or unified layout, and expandable retained context |
 

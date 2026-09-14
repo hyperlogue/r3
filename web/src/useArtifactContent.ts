@@ -7,7 +7,11 @@ import type {
 } from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
 import { useArtifactViewed } from "./artifact-hooks.ts";
-import { artifactRegions, visibleArtifactTargets } from "./artifact-navigation.ts";
+import {
+  artifactRegions,
+  defaultFileRepresentation,
+  visibleArtifactTargets,
+} from "./artifact-navigation.ts";
 import { type ArtifactViewSelection, selectedArtifactVersion } from "./artifact-version.ts";
 import type { FetchContext } from "./components/DiffView.tsx";
 import { compareFilePaths } from "./file-order.ts";
@@ -53,12 +57,16 @@ export function useArtifactContent(
   const path = view.path ?? (version?.kind === "html" ? version.entrypoint : paths[0]) ?? null;
   const file = files?.find((file) => file.path === path);
   const canRender = !!file && (!!file.renderedHash || file.mediaType.split(";")[0] === "text/html");
+  const representation =
+    detail.kind === "files" && !view.path
+      ? defaultFileRepresentation(path ?? "")
+      : view.representation;
   const context = useMemo<ArtifactMessageContext>(
     () =>
       version
-        ? { versionSeq: version.seq, representation: view.representation }
+        ? { versionSeq: version.seq, representation }
         : { versionSeq: null, representation: null },
-    [version, view.representation],
+    [version, representation],
   );
   const regions = useMemo(
     () =>

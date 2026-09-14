@@ -84,7 +84,8 @@ Artifacts have no overview field. Optional summaries belong to published version
 retired overview text and original targets remain historical evidence only.
 
 - `files`: a nonempty complete directory, no index requirement or inference.
-  Source opens first. HTML/Markdown can switch to rendered; media has a native
+  Markdown opens rendered; other text opens as source. HTML/Markdown can switch
+  between source and rendered; media has a native
   preview and binary files can be downloaded.
 - `html`: the same directory storage with exactly one selected root `index.html`
   or `index.md`. Infer only when unique. The workspace is rendered, with no file

@@ -8,6 +8,10 @@ import type {
 import type { ArtifactViewSelection } from "./artifact-version.ts";
 import type { Region } from "./highlights.ts";
 
+export function defaultFileRepresentation(path: string): "source" | "rendered" {
+  return /\.(md|markdown)$/i.test(path) ? "rendered" : "source";
+}
+
 export function artifactRepresentation(
   kind: ArtifactKind,
   requested?: string | null,
@@ -28,7 +32,10 @@ export function readArtifactLocation(kind: ArtifactKind, search: string): Artifa
     versionSeq:
       seq && /^[1-9]\d*$/.test(seq) && Number.isSafeInteger(Number(seq)) ? Number(seq) : null,
     path: params.get("file") || null,
-    representation: artifactRepresentation(kind, params.get("view")),
+    representation: artifactRepresentation(
+      kind,
+      params.get("view") ?? defaultFileRepresentation(params.get("file") ?? ""),
+    ),
     feedbackId: params.get("feedback") || null,
   };
 }
