@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
+import { formatBytes } from "../format-bytes.ts";
 import type { MessageRef } from "../markdown.ts";
 import { Button, CopyMeta, Pill, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
@@ -174,6 +175,7 @@ export function ArtifactHeader({
     },
   });
   const error = edit.error ?? restore.error;
+  const latest = detail.versions.at(-1);
   return (
     <AppHeader showSettings={false}>
       <ArtifactKindIcon kind={detail.kind} />
@@ -342,6 +344,36 @@ export function ArtifactHeader({
           </StrokeIcon>
         </Button>
         <ArtifactPreviewSecurity />
+        <section
+          aria-label="Storage used"
+          className="mb-3 border-b border-neutral-200 pb-3 text-xs dark:border-neutral-800"
+        >
+          <h2 className="mb-2 font-medium text-neutral-500">Storage used</h2>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
+            <dt>Total</dt>
+            <dd
+              className="text-right tabular-nums"
+              title={`${detail.storage.totalBytes.toLocaleString()} bytes`}
+            >
+              {formatBytes(detail.storage.totalBytes)}
+            </dd>
+            {latest && (
+              <>
+                <dt>Latest version · {latest.seq}</dt>
+                <dd
+                  className="text-right tabular-nums"
+                  title={`${detail.storage.latestVersionBytes.toLocaleString()} bytes`}
+                >
+                  {formatBytes(detail.storage.latestVersionBytes)}
+                </dd>
+              </>
+            )}
+          </dl>
+          <p className="mt-2 text-neutral-500 dark:text-neutral-400">
+            Published content, including retained renderings. Shared bytes count once in each total.
+            Excludes database overhead.
+          </p>
+        </section>
         {version?.summary && (
           <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
             <h2 className="mb-2 text-xs font-medium text-neutral-500">

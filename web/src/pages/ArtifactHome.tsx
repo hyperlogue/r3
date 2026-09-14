@@ -4,6 +4,7 @@ import type { Artifact, ArtifactState } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useHasArtifactDraft } from "../artifact-drafts.ts";
 import { ArtifactKindIcon } from "../components/ArtifactKindIcon.tsx";
+import { formatBytes } from "../format-bytes.ts";
 import { hrefFor, navigate } from "../router.ts";
 
 function relativeTime(value: string, now: number): string {
@@ -77,6 +78,12 @@ function ArtifactRow({
           </span>
         )}
         {presence && <span className="text-primary-600 dark:text-primary-400">{presence}</span>}
+        <span
+          className="whitespace-nowrap tabular-nums"
+          title={`${artifact.storage.totalBytes.toLocaleString()} bytes of published content, counting shared bytes once within this artifact; excludes database overhead`}
+        >
+          {formatBytes(artifact.storage.totalBytes)} stored
+        </span>
         <time
           className="ml-auto"
           dateTime={artifact.updatedAt}

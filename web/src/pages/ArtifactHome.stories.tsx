@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { artifactFixture } from "../artifact-fixtures.ts";
+import { phoneViewport } from "../storyViewport.ts";
 import { ArtifactHome } from "./ArtifactHome.tsx";
 
 const artifacts = [
@@ -11,7 +12,13 @@ const artifacts = [
     kind: "files",
     watching: true,
   },
-  { ...artifactFixture, id: "artifact_html", title: "Interactive prototype", kind: "html" },
+  {
+    ...artifactFixture,
+    id: "artifact_html",
+    title: "Interactive prototype",
+    kind: "html",
+    storage: { totalBytes: 3_500_000, latestVersionBytes: 1_250_000 },
+  },
   {
     ...artifactFixture,
     id: "artifact_diff",
@@ -47,8 +54,12 @@ export const Default: Story = {
     await expect(canvas.queryByText("design-agent", { exact: true })).toBeNull();
     await expect(canvas.getByRole("img", { name: "Files artifact" })).toBeVisible();
     await expect(canvas.getAllByText("1 unhandled")).toHaveLength(3);
+    await expect(canvas.getAllByText("24.6 KB stored")).toHaveLength(2);
+    await expect(canvas.getByText("3.5 MB stored")).toBeVisible();
   },
 };
+export const Dark: Story = { ...Default, globals: { theme: "dark" } };
+export const Phone: Story = { ...Default, parameters: phoneViewport() };
 export const Filter: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

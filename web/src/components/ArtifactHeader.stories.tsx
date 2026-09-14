@@ -160,6 +160,44 @@ export const Versions: Story = {
   },
 };
 export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
+export const Storage: Story = {
+  ...Versions,
+  args: {
+    ...Versions.args,
+    detail: {
+      ...Versions.args!.detail!,
+      storage: { totalBytes: 3_500_000, latestVersionBytes: 1_250_000 },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    const popup = within(canvas.getByRole("dialog", { name: "Artifact details" }));
+    await expect(popup.getByText("Description · Version 1")).toBeVisible();
+    const storage = within(popup.getByRole("region", { name: "Storage used" }));
+    await expect(storage.getByText("Latest version · 3")).toBeVisible();
+    await expect(storage.getByText("3.5 MB")).toHaveAttribute("title", "3,500,000 bytes");
+    await expect(storage.getByText("1.3 MB")).toHaveAttribute("title", "1,250,000 bytes");
+  },
+};
+export const StorageDark: Story = { ...Storage, globals: { theme: "dark" } };
+export const PhoneStorage: Story = { ...Storage, parameters: phoneViewport() };
+export const UnpublishedStorage: Story = {
+  args: {
+    detail: {
+      ...artifactFixture,
+      versions: [],
+      storage: { totalBytes: 0, latestVersionBytes: 0 },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    const storage = within(canvas.getByRole("region", { name: "Storage used" }));
+    await expect(storage.getByText("0 B")).toBeVisible();
+    await expect(storage.queryByText(/Latest version/)).toBeNull();
+  },
+};
 export const NavbarActions: Story = {
   args: { ...Versions.args, detail: { ...Versions.args!.detail!, kind: "html" } },
   render: (args) => {

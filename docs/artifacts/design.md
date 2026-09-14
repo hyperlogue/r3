@@ -92,6 +92,12 @@ Every published version remains visible until whole-artifact deletion. Correctio
 are new publications. Whole-artifact deletion removes its history and conversations;
 shared bytes are collected only when no publication references them.
 
+The artifact list shows total content storage. The three-dot menu also shows the
+latest publication's full size, regardless of the selected version. Sizes use
+decimal units (1 KB = 1,000 bytes); hovering a value gives the exact byte count.
+Totals count shared content once within the artifact and exclude database overhead;
+see [storage accounting](schema.md#content-storage-accounting) for the precise scope.
+
 ## Resources and page authoring
 
 The application API separates membership from original bytes:
