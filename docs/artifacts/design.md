@@ -171,7 +171,7 @@ layer without selecting. Menus focus their selected option or first enabled
 control and return focus to their trigger on dismissal. Escape closes one layer
 at a time, preserving any menu beneath a native permission dialog.
 While an older or unavailable version is selected, **Open latest** appears in the
-top navigation immediately left of the version selector, with a highlighted outline. On narrow screens it
+top navigation immediately left of the version selector, with an amber outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and the button disappears on the latest version.
 HTML artifacts have no empty content toolbar. File-tab headers contain reading and
@@ -192,8 +192,9 @@ A failed save restores that thread and shows its error without rolling back othe
 decisions. Handoff waits for pending status saves; only the server persists status.
 Active threads put unhandled agent responses first and claimed work last. Unhandled
 means an open thread whose latest message is from an agent; a posted human reply or
-resolution clears it. Opening the panel does not. The navbar shows this count and
-a separate draft/unsent indicator. Posting adds feedback to r3; **Send to agent · N**
+resolution clears it. Opening the panel does not. The navbar feedback button shows
+one primary-color dot when there are unhandled threads, drafts, or unsent feedback.
+Counts stay in its tooltip and accessible description. Posting adds feedback to r3; **Send to agent · N**
 or **Copy prompt · N** explicitly hands off the pending batch. Successful notification
 delivery shows **Sent** for three seconds, then keeps the button disabled until new
 human inputs are pending. A browser receipt covers exactly the inputs present when

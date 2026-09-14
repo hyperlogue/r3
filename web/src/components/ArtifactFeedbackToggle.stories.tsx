@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
+import { artifactDrafts } from "../artifact-drafts.ts";
 import { artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 
@@ -54,4 +55,25 @@ export const Unhandled: Story = {
       /0 unhandled threads/,
     );
   },
+};
+export const UnhandledDark: Story = { ...Unhandled, globals: { theme: "dark" } };
+export const UnhandledAndUnsent: Story = {
+  args: { feedback: [{ ...artifactFixtureFeedback, sentAt: null }] },
+};
+export const UnhandledAndUnsentDark: Story = {
+  ...UnhandledAndUnsent,
+  globals: { theme: "dark" },
+};
+export const UnsentOnly: Story = {
+  args: { feedback: [{ ...artifactFixtureFeedback, replies: [], sentAt: null }] },
+};
+export const DraftOnly: Story = {
+  args: { artifactId: "artifact_toggle_draft_story", feedback: [] },
+  beforeEach: () => {
+    artifactDrafts.update("artifact_toggle_draft_story", { body: "A note in progress" });
+    return () => artifactDrafts.clear("artifact_toggle_draft_story");
+  },
+};
+export const Handled: Story = {
+  args: { feedback: [{ ...artifactFixtureFeedback, replies: [] }] },
 };
