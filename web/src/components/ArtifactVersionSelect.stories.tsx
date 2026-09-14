@@ -82,3 +82,4 @@ export const HighlightLatest: Story = {
     await expect(getComputedStyle(button).backgroundColor).toBe("rgba(0, 0, 0, 0)");
   },
 };
+export const HighlightLatestDark: Story = { ...HighlightLatest, globals: { theme: "dark" } };

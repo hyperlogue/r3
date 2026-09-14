@@ -434,6 +434,7 @@ export function Button({
     | "default"
     | "primary"
     | "primary-outline"
+    | "warning-outline"
     | "ghost"
     | "danger"
     | "success"
@@ -453,6 +454,8 @@ export function Button({
     primary: "bg-primary-600 hover:bg-primary-500 text-white",
     "primary-outline":
       "border border-primary-500/70 bg-transparent text-primary-600 hover:border-primary-600 hover:text-primary-700 dark:border-primary-400/70 dark:text-primary-300 dark:hover:border-primary-300 dark:hover:text-primary-200",
+    "warning-outline":
+      "border border-warning-600/70 bg-transparent text-warning-700 hover:border-warning-700 hover:text-warning-800 dark:border-warning-400/70 dark:text-warning-400 dark:hover:border-warning-300 dark:hover:text-warning-300",
     ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300",
     danger: "bg-danger-600/90 hover:bg-danger-600 text-white",
     // Approval — the terminal "this review is good" action. Success green (the
