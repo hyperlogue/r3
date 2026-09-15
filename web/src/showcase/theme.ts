@@ -46,6 +46,7 @@ function toggle() {
     }
   }
 }
+export const useDarkTheme = () => useSyncExternalStore(subscribe, get);
 export function useTheme(): [boolean, () => void] {
-  return [useSyncExternalStore(subscribe, get), toggle];
+  return [useDarkTheme(), toggle];
 }
