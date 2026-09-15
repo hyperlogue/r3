@@ -82,3 +82,33 @@ test("demo archive retains unsent work and in-flight replies without publishing 
     backend.close();
   }
 });
+
+test("older saved demos gain the HTML sample once without losing notes or undoing deletion", () => {
+  const backend = new ArtifactDemoBackend();
+  const note = backend.addFeedback("artifact_documents", "Keep this note", { kind: "artifact" });
+  backend.state.schema = 1;
+  backend.state.artifacts = backend.state.artifacts.filter(
+    (item) => item.id !== "artifact_weekend",
+  );
+  delete backend.state.publications["artifact_weekend/1"];
+  delete backend.state.pending.artifact_weekend;
+  let snapshot = JSON.stringify(backend.state);
+  const storage = {
+    getItem: () => snapshot,
+    setItem: (_key: string, value: string) => {
+      snapshot = value;
+    },
+  };
+  const upgraded = new ArtifactDemoBackend(storage);
+  expect(upgraded.get("artifact_weekend").kind).toBe("html");
+  expect(upgraded.note(note.id).note.body).toBe("Keep this note");
+  upgraded.state.artifacts = upgraded.state.artifacts.filter(
+    (item) => item.id !== "artifact_weekend",
+  );
+  upgraded.persist();
+  const restored = new ArtifactDemoBackend(storage);
+  expect(() => restored.get("artifact_weekend")).toThrow("Artifact not found");
+  backend.close();
+  upgraded.close();
+  restored.close();
+});

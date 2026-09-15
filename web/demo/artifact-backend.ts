@@ -28,9 +28,25 @@ export class ArtifactDemoBackend {
     this.state = this.seed();
     try {
       const saved = JSON.parse(storage?.getItem(KEY) ?? "null");
-      if (saved?.schema === 1 && Array.isArray(saved.artifacts)) this.state = saved;
+      if ([1, 2].includes(saved?.schema) && Array.isArray(saved.artifacts)) this.state = saved;
     } catch {
       /* A private or full browser store still supports this tab. */
+    }
+    // Add the new HTML sample once; later deletions stay deleted. Existing
+    // publications and conversations survive the demo fixture upgrade.
+    if (this.state.schema === 1) {
+      const id = "artifact_weekend";
+      if (!this.state.artifacts.some((item) => item.id === id)) {
+        this.state.artifacts.push(
+          structuredClone(ARTIFACT_DEMO_SEED.artifacts.find((item) => item.id === id)!),
+        );
+        this.state.publications[publicationKey(id, 1)] = structuredClone(
+          ARTIFACT_DEMO_SEED.publications[publicationKey(id, 1)],
+        );
+        this.state.pending[id] = structuredClone(ARTIFACT_DEMO_SEED.pending[id]);
+      }
+      this.state.schema = 2;
+      this.persist();
     }
     // Backfill byte metadata for saved demos without discarding their feedback.
     const seedPublications = new Map(
@@ -61,7 +77,7 @@ export class ArtifactDemoBackend {
     }
   }
   private seed(): ArtifactDemoState {
-    return { ...structuredClone(ARTIFACT_DEMO_SEED), schema: 1, viewed: {} };
+    return { ...structuredClone(ARTIFACT_DEMO_SEED), schema: 2, viewed: {} };
   }
   reset() {
     this.close();
@@ -257,7 +273,12 @@ export class ArtifactDemoBackend {
               body: `This is a scripted demo reply. I reviewed your note${pending && current.state === "active" ? ` and published version ${latest.seq}` : ""}. You can keep reading the original version, inspect the publication, and resolve the thread when you are satisfied.`,
               context: {
                 versionSeq: latest.seq,
-                representation: current.kind === "diff" ? "diff" : "source",
+                representation:
+                  current.kind === "diff"
+                    ? "diff"
+                    : current.kind === "html" || note.target.kind === "rendered"
+                      ? "rendered"
+                      : "source",
               },
               target: null,
               legacy: null,

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>A little room to wander</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">A small weekend guide · publication DEMO_VERSION</p>
+      <h1>A little room<br>to wander.</h1>
+      <p class="intro">Leave the schedule open. Take the scenic path. Find something worth slowing down for.</p>
+      <img src="./landscape.svg" alt="A winding path through rolling green hills" width="720" height="220">
+      <section id="plan">
+        <h2>Your afternoon, unhurried</h2>
+        <p id="reading-time">DEMO_ESTIMATE min read</p>
+        <p>Start with a walk, stop for a warm drink, and leave a little space for a detour.</p>
+        <button type="button" id="pack">Add a picnic to the plan</button>
+        <p id="packed" role="status"></p>
+        <a href="./details.html#checklist">Open the packing checklist →</a>
+      </section>
+      <footer>Try comment mode on the reading estimate. Send feedback to the practice agent to see the next publication.</footer>
+    </main>
+    <script>
+      document.getElementById("pack").addEventListener("click", () => {
+        document.getElementById("packed").textContent = "Picnic added. Leave room for something sweet.";
+      });
+    </script>
+  </body>
+</html>

@@ -10,11 +10,14 @@ import {
 } from "../server/patch-content.ts";
 import {
   type ArtifactDetail,
+  type ArtifactKind,
   type ArtifactVersion,
   isUnhandledArtifactFeedback,
 } from "../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../web/demo/artifact-model.ts";
 import { demoStorageUsage, publicationKey } from "../web/demo/artifact-model.ts";
+
+const previews: Record<string, { contentHash: string; documents: Record<string, string> }> = {};
 
 const time = "2026-09-11T12:00:00.000Z";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
@@ -25,7 +28,7 @@ const project = {
   remoteUrl: null,
   createdAt: time,
 };
-function artifact(id: string, kind: "files" | "diff", title: string): ArtifactDetail {
+function artifact(id: string, kind: ArtifactKind, title: string): ArtifactDetail {
   return {
     id,
     kind,
@@ -52,7 +55,7 @@ function artifact(id: string, kind: "files" | "diff", title: string): ArtifactDe
 function version(
   id: string,
   seq: number,
-  kind: "files" | "diff",
+  kind: ArtifactKind,
   contentHash: string,
   count: number | null,
 ): ArtifactVersion {
@@ -73,21 +76,18 @@ function version(
   };
   return kind === "diff"
     ? { ...shared, kind, entrypoint: null, fileCount: null }
-    : { ...shared, kind, entrypoint: null, fileCount: count! };
+    : kind === "html"
+      ? { ...shared, kind, entrypoint: "index.html", fileCount: count! }
+      : { ...shared, kind, entrypoint: null, fileCount: count! };
 }
 async function files(
   id: string,
   seq: number,
   contents: Record<string, string>,
+  kind: "files" | "html" = "files",
 ): Promise<DemoPublication> {
   const result: DemoPublication = {
-    version: version(
-      id,
-      seq,
-      "files",
-      hash(JSON.stringify(contents)),
-      Object.keys(contents).length,
-    ),
+    version: version(id, seq, kind, hash(JSON.stringify(contents)), Object.keys(contents).length),
     files: [],
     sources: {},
     resources: {},
@@ -96,6 +96,7 @@ async function files(
     storageBlobs: {},
     patchBytes: 0,
   };
+  const documents: Record<string, string> = {};
   for (const [path, text] of Object.entries(contents)) {
     const digest = hash(text);
     const language = langForPath(path);
@@ -104,12 +105,22 @@ async function files(
     const retained = markdown ? await renderArtifactDocument(text, path) : null;
     const metadata = {
       path,
-      mediaType: markdown ? "text/markdown" : "text/plain",
+      mediaType: markdown
+        ? "text/markdown"
+        : path.endsWith(".html")
+          ? "text/html"
+          : path.endsWith(".css")
+            ? "text/css"
+            : path.endsWith(".svg")
+              ? "image/svg+xml"
+              : "text/plain",
       hash: digest,
       byteLength: Buffer.byteLength(text),
       renderedHash: retained ? hash(retained.html) : null,
       rendererRevision: retained?.revision ?? null,
     };
+    if (retained) documents[path] = retained.html;
+    else if (path.endsWith(".html")) documents[path] = text;
     result.files.push(metadata);
     result.storageBlobs[digest] = metadata.byteLength;
     if (retained) result.storageBlobs[metadata.renderedHash!] = Buffer.byteLength(retained.html);
@@ -125,6 +136,7 @@ async function files(
       lines: source.map((text, index) => ({ lineNo: index + 1, text, html: lines[index] })),
     };
   }
+  previews[publicationKey(id, seq)] = { contentHash: result.version.contentHash, documents };
   return result;
 }
 async function diff(id: string, seq: number, patch: string): Promise<DemoPublication> {
@@ -156,6 +168,23 @@ const nextDocs = await files(docs.id, 2, {
   "decisions.txt":
     "Files remain available when the publisher is offline.\nEach publication retains its own path membership.\nThe human decides when feedback is resolved.\nRendered selections and source selections keep separate native targets.\n",
 });
+const html = artifact("artifact_weekend", "html", "A little room to wander");
+const samplePaths = ["index.html", "details.html", "style.css", "landscape.svg"];
+async function weekend(seq: number) {
+  const contents = Object.fromEntries(
+    await Promise.all(
+      samplePaths.map(async (path) => [
+        path,
+        (await Bun.file(join(import.meta.dir, "../web/demo/samples", path)).text())
+          .replaceAll("DEMO_VERSION", String(seq))
+          .replaceAll("DEMO_ESTIMATE", seq === 1 ? "5" : "10"),
+      ]),
+    ),
+  );
+  return files(html.id, seq, contents, "html");
+}
+const firstHtml = await weekend(1);
+const nextHtml = await weekend(2);
 const firstDiff = await diff(
   code.id,
   1,
@@ -169,6 +198,7 @@ const nextDiff = await diff(
 for (const [item, content] of [
   [docs, firstDocs],
   [code, firstDiff],
+  [html, firstHtml],
 ] as const) {
   item.versions = [content.version];
   item.storage = demoStorageUsage([content]);
@@ -178,28 +208,37 @@ for (const [item, content] of [
       artifactId: item.id,
       author: actor,
       body:
-        item.kind === "files"
-          ? "Start with the version behavior in index.md. Select any line to ask a question or request a change."
-          : "Does choosing the newest publication here preserve the reader’s selected version?",
+        item.kind === "html"
+          ? "Try the picnic button, follow the checklist link, or comment on the reading estimate. Send a note to see a new publication."
+          : item.kind === "files"
+            ? "Start with the version behavior in index.md. Select any line to ask a question or request a change."
+            : "Does choosing the newest publication here preserve the reader’s selected version?",
       status: "open",
       target:
-        item.kind === "files"
+        item.kind === "html"
           ? {
-              kind: "source",
+              kind: "rendered",
               versionSeq: 1,
-              path: "index.md",
-              locator: {
-                start: 8,
-                end: 8,
-                quote: "The user can switch between published versions.",
-              },
+              path: "index.html",
+              locator: { selector: "#reading-time", quote: "5 min read", route: "#" },
             }
-          : {
-              kind: "diff",
-              versionSeq: 1,
-              path: "navigation.ts",
-              locator: { side: "new", start: 4, end: 4, quote: "  return latest;" },
-            },
+          : item.kind === "files"
+            ? {
+                kind: "source",
+                versionSeq: 1,
+                path: "index.md",
+                locator: {
+                  start: 8,
+                  end: 8,
+                  quote: "The user can switch between published versions.",
+                },
+              }
+            : {
+                kind: "diff",
+                versionSeq: 1,
+                path: "navigation.ts",
+                locator: { side: "new", start: 4, end: 4, quote: "  return latest;" },
+              },
       legacy: null,
       createdAt: time,
       updatedAt: time,
@@ -210,7 +249,7 @@ for (const [item, content] of [
     },
   ];
 }
-for (const item of [docs, code])
+for (const item of [docs, code, html])
   item.unhandledCount = item.feedback.filter(isUnhandledArtifactFeedback).length;
 const themes = listThemes();
 const palette = (await themeStyle()).css;
@@ -220,20 +259,19 @@ const themeStyles = Object.fromEntries(
   ),
 );
 const seed: ArtifactDemoSeed = {
-  artifacts: [docs, code],
+  artifacts: [docs, code, html],
   projects: [project],
   publications: {
     [publicationKey(docs.id, 1)]: firstDocs,
     [publicationKey(code.id, 1)]: firstDiff,
+    [publicationKey(html.id, 1)]: firstHtml,
   },
-  pending: { [docs.id]: nextDocs, [code.id]: nextDiff },
+  pending: { [docs.id]: nextDocs, [code.id]: nextDiff, [html.id]: nextHtml },
   themes,
   themeStyles,
 };
 await Bun.write(
   join(import.meta.dir, "../web/demo/artifact-fixtures.gen.ts"),
-  `// GENERATED by scripts/gen-artifact-demo.ts.\nimport type { ArtifactDemoSeed } from "./artifact-model.ts";\nexport const ARTIFACT_DEMO_SEED = ${JSON.stringify(seed)} as ArtifactDemoSeed;\n`,
+  `// GENERATED by scripts/gen-artifact-demo.ts.\nimport type { ArtifactDemoSeed } from "./artifact-model.ts";\nexport const ARTIFACT_DEMO_SEED = ${JSON.stringify(seed)} as ArtifactDemoSeed;\nexport const ARTIFACT_DEMO_PREVIEWS: Record<string, { contentHash: string; documents: Record<string, string> }> = ${JSON.stringify(previews)};\n`,
 );
-console.log(
-  "Generated two artifact demos with retained source/diff versions and scripted follow-ups.",
-);
+console.log("Generated files, HTML, and diff demos with bundled previews and scripted follow-ups.");
