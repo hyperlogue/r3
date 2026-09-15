@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { artifactApi as demoApi } from "../../demo/artifact-api.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { FeedbackCardGallery, seedFeedbackCardGallery } from "./FeedbackCardGallery.tsx";
@@ -45,6 +45,29 @@ export const CardLabels: Story = {
   },
 };
 export const CardLabelsDark: Story = { ...CardLabels, globals: { theme: "dark" } };
+export const QuoteOverflow: Story = {
+  play: async ({ canvasElement }) => {
+    const sample = canvasElement.querySelector('[data-card-example="sent"]')! as HTMLElement;
+    const card = within(sample);
+    sample.style.width = "500px";
+    await waitFor(() => expect(card.queryByRole("button", { name: "Expand quote" })).toBeNull());
+    sample.style.width = "120px";
+    await userEvent.click(await card.findByRole("button", { name: "Expand quote" }));
+    await expect(card.getByRole("button", { name: "Collapse quote" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    sample.style.width = "500px";
+    await waitFor(() => expect(card.queryByRole("button", { name: "Collapse quote" })).toBeNull());
+    sample.style.width = "120px";
+    await userEvent.click(await card.findByRole("button", { name: "Collapse quote" }));
+    await expect(card.getByRole("button", { name: "Expand quote" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    sample.style.width = "";
+  },
+};
 export const ExpandConversation: Story = {
   play: async ({ canvasElement }) => {
     const history = within(

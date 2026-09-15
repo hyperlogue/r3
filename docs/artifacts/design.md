@@ -251,6 +251,8 @@ Agent messages keep their attribution inside tinted bubbles; human messages omit
 the redundant author label. General feedback has no location heading. Card target,
 reply-context, and fix labels omit the version only for the latest publication;
 older versions remain explicit, and stored context and Locate behavior never change.
+Quoted targets offer expansion only when the text exceeds the three-line preview;
+the control rechecks clipping when the panel resizes.
 Long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.

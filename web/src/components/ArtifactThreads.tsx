@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -81,6 +82,58 @@ function cardContextLabel(context: ArtifactMessageContext, latestVersionSeq: num
     .join(" · ");
 }
 
+function FeedbackQuote({ quote }: { quote: string }) {
+  const element = useRef<HTMLQuoteElement>(null);
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  useLayoutEffect(() => {
+    const node = element.current!;
+    const measure = () => {
+      if (!node.clientWidth) return;
+      // line-clamp retains the full scroll height. Compare with its three-line
+      // limit even while expanded, so resizing cannot hide a needed toggle.
+      const limit = parseFloat(getComputedStyle(node).lineHeight) * 3;
+      setHasMore(node.scrollHeight > limit + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the explicit toggle is keyboard accessible; clicking the quote is a selection-preserving pointer convenience. */}
+      <blockquote
+        id={id}
+        ref={element}
+        className={cn(
+          "mb-2 overflow-hidden border-l-2 border-neutral-300 pl-2 text-xs text-neutral-500 whitespace-pre-wrap",
+          !open && "line-clamp-3",
+          hasMore && "cursor-pointer",
+        )}
+        onClick={() => {
+          if (hasMore && window.getSelection()?.isCollapsed) setOpen((value) => !value);
+        }}
+        title={hasMore ? `Click to ${open ? "collapse" : "expand"} · drag to select` : undefined}
+      >
+        {quote}
+      </blockquote>
+      {hasMore && (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          className="mb-2 text-[0.625rem] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? "Collapse quote" : "Expand quote"}
+        </button>
+      )}
+    </>
+  );
+}
+
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   feedback,
   context,
@@ -113,7 +166,6 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const menuTrigger = useRef<HTMLButtonElement>(null);
   usePopoverFocus(menuOpen, menu, menuTrigger);
   const [earlierOpen, setEarlierOpen] = useState(false);
-  const [quoteOpen, setQuoteOpen] = useState(false);
   useEscape(menuOpen, () => setMenuOpen(false));
   const lastReply = feedback.replies.at(-1);
   const canEdit = (lastReply?.author ?? feedback.author).role === "human";
@@ -302,33 +354,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           )}
         </div>
       )}
-      {quote && (
-        // biome-ignore lint/a11y/useKeyWithClickEvents: the explicit quote toggle below is keyboard accessible; clicking the quote is a selection-preserving pointer convenience.
-        <blockquote
-          className={cn(
-            "mb-2 cursor-pointer overflow-hidden border-l-2 border-neutral-300 pl-2 text-xs text-neutral-500 whitespace-pre-wrap",
-            !quoteOpen && "line-clamp-3 max-h-16",
-          )}
-          onClick={() => {
-            if (window.getSelection()?.isCollapsed) setQuoteOpen((value) => !value);
-          }}
-          title={
-            quoteOpen ? "Click to collapse · drag to select" : "Click to expand · drag to select"
-          }
-        >
-          {quote}
-        </blockquote>
-      )}
-      {quote && (
-        <button
-          type="button"
-          aria-expanded={quoteOpen}
-          className="mb-2 text-[0.625rem] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-          onClick={() => setQuoteOpen((value) => !value)}
-        >
-          {quoteOpen ? "Collapse quote" : "Expand quote"}
-        </button>
-      )}
+      {quote && <FeedbackQuote quote={quote} />}
       {unavailable && (
         <details className="mb-2 text-xs text-neutral-500">
           <summary>Imported anchor evidence</summary>
