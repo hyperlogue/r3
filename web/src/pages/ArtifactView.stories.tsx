@@ -231,6 +231,23 @@ export const AllFiles: Story = {
 export const Rendered: Story = {
   args: { initialSearch: "?version=1&view=rendered&file=index.md" },
 };
+export const MarkdownFoldRetainsPreview: Story = {
+  ...Rendered,
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-file="index.md"]')!;
+    const preview = card.querySelector("[data-preview-fixture]")!;
+    await userEvent.click(within(card).getByTitle("Collapse"));
+    await expect(card.querySelector("[data-preview-fixture]")).toBe(preview);
+    await expect(preview.closest("[inert]")).not.toBeNull();
+    await userEvent.click(within(card).getByTitle("Expand"));
+    await expect(card.querySelector("[data-preview-fixture]")).toBe(preview);
+    await expect(preview.closest("[inert]")).toBeNull();
+  },
+};
+export const MarkdownFoldRetainsPreviewDark: Story = {
+  ...MarkdownFoldRetainsPreview,
+  globals: { theme: "dark" },
+};
 export const MarkdownDefaultAndSourceChoice: Story = {
   args: { initialSearch: "?version=1&file=index.md" },
   play: async ({ canvasElement }) => {

@@ -104,12 +104,16 @@ const api = createArtifactApi(
   },
   { previews: preview },
 );
+let markdownDocumentReads = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
+    if (path.startsWith(PREVIEW_PREFIX)) {
+      if (path.endsWith("/files/index.md")) markdownDocumentReads++;
+      return preview.fetch(request);
+    }
     if (path.startsWith("/api/")) return api.app.fetch(request);
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
@@ -138,19 +142,23 @@ try {
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Rendered').click()",
   );
-  const markdown = await eventually(async () => {
-    for (const context of page.contexts.values()) {
-      if (!context.auxData?.isDefault || context.origin !== "://") continue;
-      const frame = page.inContext(context.id);
-      try {
-        if (
-          await frame.evaluate("document.querySelector('h1')?.textContent === 'Published Markdown'")
-        )
-          return frame;
-      } catch {}
-    }
-    return null;
-  }, "rendered Markdown");
+  const findMarkdown = () =>
+    eventually(async () => {
+      for (const context of page.contexts.values()) {
+        if (!context.auxData?.isDefault || context.origin !== "://") continue;
+        const frame = page.inContext(context.id);
+        try {
+          if (
+            await frame.evaluate(
+              "document.querySelector('h1')?.textContent === 'Published Markdown'",
+            )
+          )
+            return frame;
+        } catch {}
+      }
+      return null;
+    }, "rendered Markdown");
+  const markdown = await findMarkdown();
   const colors = () =>
     markdown.evaluate<{ foreground: string; background: string }>(
       "({foreground:getComputedStyle(document.body).color,background:getComputedStyle(document.body).backgroundColor})",
@@ -164,6 +172,47 @@ try {
   await eventually(
     fullHeight,
     "rendered Markdown expands to its full height without inner scrolling",
+  );
+  const readsBeforeFolding = markdownDocumentReads;
+  await page.evaluate(
+    `void (window.retainedMarkdownFrame = document.querySelector('[data-file="index.md"] iframe'))`,
+  );
+  await page.evaluate(
+    `document.querySelector('[data-file="index.md"] button[title="Collapse"]').click()`,
+  );
+  await eventually(
+    () =>
+      page.evaluate(`!!document.querySelector('[data-file="index.md"] button[title="Expand"]')`),
+    "Markdown file folded",
+  );
+  await eventually(
+    () =>
+      page.evaluate(`(() => {
+      const file = document.querySelector('[data-file="index.md"]');
+      return file.getBoundingClientRect().height <= file.querySelector('[data-file-header]').getBoundingClientRect().height + 1;
+    })()`),
+    "folded Markdown occupies only its file header",
+  );
+  assert.equal(
+    await page.evaluate(
+      `document.querySelector('[data-file="index.md"] iframe') === window.retainedMarkdownFrame`,
+    ),
+    true,
+    "Folding Markdown retains its loaded iframe",
+  );
+  assert.equal(
+    await page.evaluate(`!!window.retainedMarkdownFrame.closest('[inert]')`),
+    true,
+    "Folded Markdown stays inert",
+  );
+  await page.evaluate(
+    `document.querySelector('[data-file="index.md"] button[title="Expand"]').click()`,
+  );
+  await findMarkdown();
+  assert.equal(
+    markdownDocumentReads,
+    readsBeforeFolding,
+    "Unfolding Markdown must not reload its document",
   );
   const narrowHeight = await markdown.evaluate<number>("innerHeight");
   await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");

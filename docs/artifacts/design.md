@@ -151,6 +151,12 @@ palette. Trusted preview support applies explicit text/background colors and ada
 legacy OS-dependent palette rules in memory; retained document bytes stay immutable.
 Authored HTML keeps its own appearance.
 
+Folding a rendered Markdown file retains its loaded preview in memory, hidden and
+inert, so unfolding reuses the document and measured height without fetching it
+again. Initially folded files still load only when opened. Switching to source,
+changing versions, leaving the artifact, or offscreen eviction in a large file
+stack releases the preview normally; this is not a persistent document cache.
+
 Workspace containers follow the layer rules in `AGENTS.md`. Menus and notices use
 compact elevation; floating conversations/composers and dialogs use broader shadows.
 Mobile sheets cast upward and retain their intentional rounded top corners. The

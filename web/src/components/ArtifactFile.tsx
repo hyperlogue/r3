@@ -93,7 +93,9 @@ export const ArtifactFile = memo(function ArtifactFile({
       }
     >
       {active &&
-        open &&
+        // Collapse mounts on first open and keeps its children inert while
+        // folded. Preserve loaded Markdown so unfolding reuses its document.
+        (open || (rendered && !!file.renderedHash)) &&
         (rendered ? (
           <div className={cn("flex flex-col", !file.renderedHash && "min-h-96")}>{preview()}</div>
         ) : source.isPending ? (
