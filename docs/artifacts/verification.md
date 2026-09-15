@@ -116,14 +116,30 @@ Native iOS touch ergonomics remain the separate device-validation item tracked i
 R3_DEMO_BASE=/r3/demo bun run build:demo
 bun run stage:pages
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-demo.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-demo-preview.ts
 bun run build-storybook
 ```
 
 The demo acceptance script serves the staged Pages output at `/r3/demo/`. It checks
 home → files → feedback → Submit → scripted publication/reply, retained version
 selection, and a deep-link reload with persisted history. Regenerate fixtures with
-`bun run gen:demo` after changing canned content. The static demo explicitly declines
-executable previews because it has no isolated daemon host.
+`bun run gen:demo` after changing canned content.
+
+`test-demo-preview.ts` serves the built demo directly under the same prefix and
+checks bundled HTML/CSS/images, opaque parent/storage isolation, a CSP-blocked
+request to a controlled endpoint, internal document navigation, native text and
+element feedback, Locate across documents, human resolution, scripted publication
+with version pinning, rejection of executable bytes restored from localStorage,
+full-height Markdown, retained frames after folding, theme changes, narrow layout,
+and deep-link reloads. Demo preview stories are under `Demo/Previews`.
+
+Chromium and Firefox were also exercised with fresh Playwright contexts for HTML
+interaction/navigation, native text selection, feedback/publication/version
+switching, Markdown height, and prefix reload. The locally available WebKit build
+could not launch in the test environment; this is not branded Safari or iOS
+acceptance evidence. Production gates, external access, device capture, and
+arbitrary published content remain covered by the separate preview-server checks;
+the static demo explicitly does not simulate their security guarantees.
 
 For a commentable gallery of current components, run
 `bun scripts/build-ui-showcase.ts`, then publish `dist/ui-showcase` as an HTML

@@ -26,9 +26,9 @@ npm install -g @hyperlogue/r3
 # Alternatives: bun add -g @hyperlogue/r3 · npx @hyperlogue/r3@latest
 ```
 
-The [browser demo](https://hyperlogue.github.io/r3/demo/) lets you try source and
-diff feedback with a scripted agent. Executable previews need the daemon's isolated
-preview host and are unavailable in the static demo.
+The [browser demo](https://hyperlogue.github.io/r3/demo/) lets you try HTML, rendered
+Markdown, source, and diff feedback with a scripted agent. Its sandboxed previews
+use bundled examples; the daemon’s verified network protection is not simulated.
 
 ## Publish an artifact
 

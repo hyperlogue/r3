@@ -104,22 +104,25 @@ runs the **whole SPA with no daemon** — a third client of the same components,
 its "backend" is an **in-browser store** (`web/demo/`) over `localStorage`.
 
 It uses the same `web/index.html` and application components. One build plugin
-aliases four exact imports:
+aliases five exact imports:
 
 | Application module | Demo replacement |
 | --- | --- |
 | `web/src/api.ts` | `web/demo/application-api.ts` — boot/theme and disabled login management |
 | `web/src/artifact-api.ts` | `web/demo/artifact-api.ts` — typed artifact API and local event stream |
 | `web/src/demo-chrome.tsx` | `web/demo/demo-chrome.tsx` — intro/reset |
+| `web/src/artifact-renderer.tsx` | `web/demo/artifact-renderer.tsx` — bundled static previews |
 | `web/src/main.css` | `web/demo/main.css` — also scans demo classes |
 
 `ArtifactDemoBackend` owns seeded publications, conversations, delivery, claims,
 and lifecycle in browser storage. An async event stream invalidates the same
 queries as production. There is no global EventSource or fetch shim.
 
-`scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes two
+`scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes three
 synthetic artifacts, complete source/diff versions, original binary-safe bytes,
-retained Markdown metadata, theme palettes, and scripted follow-up publications.
+retained Markdown HTML and metadata, HTML/CSS/image samples, theme palettes, and
+scripted follow-up publications. Preview documents are a separate generated export;
+they are not restored from browser storage.
 Shiki, SQLite, and Git never ship to the browser. Run `bun run gen:demo` after
 editing canned content; generated fixtures are excluded from Biome.
 
@@ -129,10 +132,26 @@ the original version. Archive prevents publication and re-registration while
 allowing in-flight replies and retaining pending work. The demo implements the
 public contract directly; its persistence model is separate from wire types.
 
-The static demo cannot provide an isolated executable origin. Rendered preview
-requests explain that limitation; source, diff, history, and conversations work.
-Do not add an insecure same-origin preview fallback. `CAN_MANAGE_TOKENS=false`
-hides access management and sign-out, which have no meaning in this tab.
+The build replaces only the default renderer used by `ArtifactView`. The demo
+renders immutable build fixtures in `srcdoc` iframes with `sandbox="allow-scripts"`
+and no same-origin privilege. Artifact/version/hash/path identity must match a
+bundled publication; localStorage cannot provide executable document or asset
+bytes. CSS and images are embedded from the same bundle, and links resolve only
+to that publication's documents and fragments. Query routes, external links,
+arbitrary uploads, and the publisher utility/device API are outside this demo.
+
+The shared selection/Locate runtime and Markdown theme/height adapters run on a
+document-specific port exposing only preview UI events. Fragment evidence is
+retained by a demo navigation adapter because srcdoc has no published URL. A
+native document switch remounts the iframe, closing the previous port without
+adding a preview entry to browser history. Loaded Markdown stays mounted across
+file folding, matching the workspace's existing retained-preview behavior.
+
+CSP restricts resource requests, but the demo has no daemon capability gate or
+verified Connection Allowlist. Every preview explains that distinction. Do not
+present it as production security or add a same-origin execution fallback.
+`CAN_MANAGE_TOKENS=false` hides access management and sign-out, which have no
+meaning in this tab.
 
 ### The Pages layout
 

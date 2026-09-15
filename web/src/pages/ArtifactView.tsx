@@ -19,6 +19,7 @@ import {
   isArtifactDocumentTarget,
   readArtifactLocation,
 } from "../artifact-navigation.ts";
+import { renderPublishedPreview } from "../artifact-renderer.tsx";
 import { artifactViewForTarget, stepArtifactVersion } from "../artifact-version.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
@@ -26,7 +27,6 @@ import { ArtifactFeedbackPanel } from "../components/ArtifactFeedbackPanel.tsx";
 import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
-import { ArtifactPreview } from "../components/ArtifactPreview.tsx";
 import { ArtifactPreviewSecurityProvider } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import {
@@ -87,7 +87,6 @@ export interface ArtifactRenderedPaneProps {
   onFeedback: (id: string) => void;
 }
 export type ArtifactRenderer = (props: ArtifactRenderedPaneProps) => ReactNode;
-const renderPublishedPreview: ArtifactRenderer = (props) => <ArtifactPreview {...props} />;
 
 export function ArtifactView({
   artifactId,

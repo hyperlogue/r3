@@ -18,6 +18,7 @@ const ALIASES: Record<string, string> = {
   [join(DIR, "web/src/api.ts")]: join(DIR, "web/demo/application-api.ts"),
   [join(DIR, "web/src/artifact-api.ts")]: join(DIR, "web/demo/artifact-api.ts"),
   [join(DIR, "web/src/demo-chrome.tsx")]: join(DIR, "web/demo/demo-chrome.tsx"),
+  [join(DIR, "web/src/artifact-renderer.tsx")]: join(DIR, "web/demo/artifact-renderer.tsx"),
   [join(DIR, "web/src/main.css")]: join(DIR, "web/demo/main.css"),
 };
 
@@ -33,12 +34,15 @@ const BASE = slug ? `/${slug}/` : "/";
 const aliasDemo: BunPlugin = {
   name: "r3-demo-alias",
   setup(build) {
-    build.onResolve({ filter: /(api\.ts|demo-chrome\.tsx|main\.css)$/ }, (args) => {
-      if (!args.importer) return undefined;
-      const target = resolve(dirname(args.importer), args.path);
-      const to = ALIASES[target];
-      return to ? { path: to } : undefined;
-    });
+    build.onResolve(
+      { filter: /(api\.ts|artifact-renderer\.tsx|demo-chrome\.tsx|main\.css)$/ },
+      (args) => {
+        if (!args.importer) return undefined;
+        const target = resolve(dirname(args.importer), args.path);
+        const to = ALIASES[target];
+        return to ? { path: to } : undefined;
+      },
+    );
   },
 };
 

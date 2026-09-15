@@ -99,8 +99,8 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
               feedback all live in this tab and save to local storage.
             </p>
             <p>
-              Two artifacts are loaded. Open one, leave feedback on a line or the summary, then
-              click{" "}
+              Three artifacts are loaded. Open an HTML page, rendered Markdown, or a diff. Leave
+              feedback on text or an element, then click{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
                 Send to agent
               </span>{" "}
@@ -108,9 +108,9 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
               original comment targets stay available.
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Source and diff views work here. Rendered previews require the daemon’s isolated
-              preview host. Your changes persist in this browser; Reset restores the original
-              artifacts.
+              Previews use bundled examples in opaque sandboxed frames. The demo does not simulate
+              the daemon’s verified network protection. Your changes persist in this browser; Reset
+              restores the original artifacts.
             </p>
           </div>
         </div>

@@ -198,10 +198,10 @@ export const artifactApi: typeof productionApi = {
   },
   createPreview: async () =>
     fail(
-      "Rendered previews need an r3 daemon with an isolated preview origin. Source, diffs, versions, and conversations are available in this static demo.",
+      "Server preview contexts are unavailable in the static demo. Bundled examples use the demo renderer.",
       503,
     ),
-  renewPreview: async () => fail("No isolated preview host is available in this static demo", 503),
+  renewPreview: async () => fail("Server preview contexts are unavailable in the static demo", 503),
   revokePreview: async () => ({ ok: true }),
 };
 
