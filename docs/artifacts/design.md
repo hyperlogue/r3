@@ -250,7 +250,8 @@ reads that arrive before the POST response cannot duplicate or overwrite the not
 Agent messages keep their attribution inside tinted bubbles; human messages omit
 the redundant author label. General feedback has no location heading. Card target,
 reply-context, and fix labels omit the version only for the latest publication;
-older versions remain explicit, and stored context and Locate behavior never change.
+older versions remain explicit. These labels omit representation words, retaining
+paths, line ranges, and diff sides. Stored context and Locate behavior never change.
 Quoted targets offer expansion only when the text exceeds the three-line preview;
 the control rechecks clipping when the panel resizes.
 Long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts

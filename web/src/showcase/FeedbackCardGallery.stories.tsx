@@ -31,11 +31,9 @@ export const CardLabels: Story = {
     const latest = within(
       canvasElement.querySelector('[data-card-example="attention"]')! as HTMLElement,
     );
-    await expect(latest.getByRole("button", { name: "source · index.md" })).toBeVisible();
+    await expect(latest.getByRole("button", { name: "index.md" })).toBeVisible();
     const older = within(canvasElement.querySelector('[data-card-example="sent"]')! as HTMLElement);
-    await expect(
-      older.getByRole("button", { name: "Version 1 · source · index.md:8-8" }),
-    ).toBeVisible();
+    await expect(older.getByRole("button", { name: "Version 1 · index.md:8-8" })).toBeVisible();
     const resolve = older.getByRole("button", { name: "✓ Resolve" });
     const style = getComputedStyle(resolve);
     await expect(style.borderTopColor).toBe(style.color);

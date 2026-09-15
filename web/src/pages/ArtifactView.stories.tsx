@@ -481,9 +481,7 @@ export const VirtualizedLocate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Version 1 · source · index.md:1800-1800" }),
-    );
+    await userEvent.click(canvas.getByRole("button", { name: "Version 1 · index.md:1800-1800" }));
     await waitFor(() =>
       expect(canvasElement.querySelector('[data-line="1800"].r3-active-line')).not.toBeNull(),
     );
@@ -543,9 +541,7 @@ export const DraftAndNativeLocate: Story = {
       path: "index.md",
       locator: { start: 4, end: 4, quote: source.lines[3].text },
     });
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Version 1 · source · index.md:4-4" }),
-    );
+    await userEvent.click(canvas.getByRole("button", { name: "Version 1 · index.md:4-4" }));
     await expect(canvas.getByRole("button", { name: "Published version" })).toHaveValue("1");
     await expect(canvas.getByRole("button", { name: "Source" })).toHaveAttribute(
       "aria-pressed",

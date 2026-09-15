@@ -59,7 +59,7 @@ export const LatestLabelsFollowPublication: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const compact = canvas.getByRole("button", { name: "rendered · index.md" });
+    const compact = canvas.getByRole("button", { name: "index.md" });
     await userEvent.click(compact);
     await expect(args.onLocate).toHaveBeenCalledWith(
       artifactFixtureFeedback.target,
@@ -67,10 +67,8 @@ export const LatestLabelsFollowPublication: Story = {
     );
     await userEvent.click(canvas.getByRole("button", { name: "Publish next version" }));
     // The reader is still on v1, but labels must compare with the new publication.
-    await expect(
-      canvas.getByRole("button", { name: "Version 1 · rendered · index.md" }),
-    ).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "rendered · index.md" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Version 1 · index.md" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "index.md" })).toBeNull();
   },
 };
 

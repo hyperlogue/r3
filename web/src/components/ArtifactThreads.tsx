@@ -68,18 +68,17 @@ function targetContext(target: ArtifactTarget): ArtifactMessageContext {
 // targets, or Locate actions. Latest means published, not the selected version.
 function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null): string {
   const label = artifactTargetLabel(target);
-  const prefix = `Version ${latestVersionSeq} · `;
-  return label.startsWith(prefix) ? label.slice(prefix.length) : label;
+  if (!("path" in target)) return label;
+  return label.replace(
+    `Version ${target.versionSeq} · ${target.kind} · `,
+    target.versionSeq === latestVersionSeq ? "" : `Version ${target.versionSeq} · `,
+  );
 }
 
 function cardContextLabel(context: ArtifactMessageContext, latestVersionSeq: number | null) {
-  if (context.versionSeq === null) return "";
-  return [
-    context.versionSeq !== latestVersionSeq && `Version ${context.versionSeq}`,
-    context.representation,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  return context.versionSeq !== null && context.versionSeq !== latestVersionSeq
+    ? `Version ${context.versionSeq}`
+    : "";
 }
 
 function FeedbackQuote({ quote }: { quote: string }) {
