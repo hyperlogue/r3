@@ -7,6 +7,7 @@ const meta = {
   title: "Components/ArtifactThreadPopover",
   component: ArtifactThreadPopover,
   args: {
+    latestVersionSeq: 1,
     feedback: artifactFixtureFeedback,
     context: { versionSeq: 1, representation: "rendered" },
     onLocate: fn(),

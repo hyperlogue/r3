@@ -38,6 +38,41 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const LatestLabelsFollowPublication: Story = {
+  render: (args) => {
+    const [detail, setDetail] = useState(args.detail);
+    return (
+      <>
+        <Button
+          onClick={() =>
+            setDetail({
+              ...detail,
+              versions: [...args.detail.versions, { ...args.detail.versions[0], seq: 2 }],
+            })
+          }
+        >
+          Publish next version
+        </Button>
+        <ArtifactThreads {...args} detail={detail} />
+      </>
+    );
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const compact = canvas.getByRole("button", { name: "rendered · index.md" });
+    await userEvent.click(compact);
+    await expect(args.onLocate).toHaveBeenCalledWith(
+      artifactFixtureFeedback.target,
+      artifactFixtureFeedback.id,
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Publish next version" }));
+    // The reader is still on v1, but labels must compare with the new publication.
+    await expect(
+      canvas.getByRole("button", { name: "Version 1 · rendered · index.md" }),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "rendered · index.md" })).toBeNull();
+  },
+};
 
 function mockFeedbackCreation(fail = false) {
   const original = { detail: artifactApi.detail, addFeedback: artifactApi.addFeedback };

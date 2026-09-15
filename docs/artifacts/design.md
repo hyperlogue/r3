@@ -247,8 +247,11 @@ the composer at the top. The outgoing composer crossfades into the saved card wh
 its height eases to fit; Cancel and Discard keep the ordinary removal animation.
 Reduced motion skips the transition. Failed saves retain the draft. Event-stream
 reads that arrive before the POST response cannot duplicate or overwrite the note.
-Agent replies
-use tinted bubbles, and long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
+Agent messages keep their attribution inside tinted bubbles; human messages omit
+the redundant author label. General feedback has no location heading. Card target,
+reply-context, and fix labels omit the version only for the latest publication;
+older versions remain explicit, and stored context and Locate behavior never change.
+Long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 

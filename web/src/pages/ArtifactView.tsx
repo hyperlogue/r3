@@ -909,6 +909,7 @@ function Workspace({
               key={visibleThread.id}
               feedback={visibleThread}
               context={context}
+              latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
               onLocate={locate}
               onJumpRef={jumpRef}
               onExpand={showFeedbackPanel}

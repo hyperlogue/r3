@@ -19,6 +19,32 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Examples: Story = {};
 export const Dark: Story = { globals: { theme: "dark" } };
+export const CardLabels: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText("General artifact feedback", { exact: true })).toBeNull();
+    await expect(canvas.queryByText("You", { exact: true })).toBeNull();
+    const agent = canvasElement.querySelector(
+      '[data-card-example="agent"] [data-message-author="agent"]',
+    )!;
+    await expect(within(agent as HTMLElement).getByText("Agent · sample-agent")).toBeVisible();
+    const latest = within(
+      canvasElement.querySelector('[data-card-example="attention"]')! as HTMLElement,
+    );
+    await expect(latest.getByRole("button", { name: "source · index.md" })).toBeVisible();
+    const older = within(canvasElement.querySelector('[data-card-example="sent"]')! as HTMLElement);
+    await expect(
+      older.getByRole("button", { name: "Version 1 · source · index.md:8-8" }),
+    ).toBeVisible();
+    const resolve = older.getByRole("button", { name: "✓ Resolve" });
+    const style = getComputedStyle(resolve);
+    await expect(style.borderTopColor).toBe(style.color);
+    await expect(style.borderTopWidth).toBe("1px");
+    await userEvent.click(older.getByRole("button", { name: "More actions" }));
+    await expect(older.getByRole("dialog", { name: "Feedback actions" })).toBeVisible();
+  },
+};
+export const CardLabelsDark: Story = { ...CardLabels, globals: { theme: "dark" } };
 export const ExpandConversation: Story = {
   play: async ({ canvasElement }) => {
     const history = within(

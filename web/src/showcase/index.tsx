@@ -212,6 +212,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
             <div className="pointer-events-none absolute right-2 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-1rem)] flex-col [&>*]:pointer-events-auto">
               <ArtifactThreadPopover
                 feedback={data.feedback[0]}
+                latestVersionSeq={data.versions.at(-1)?.seq ?? null}
                 context={{ versionSeq: 1, representation: "source" }}
                 onLocate={() => announce("Sample target selected")}
                 onJumpRef={() => announce("Sample file reference selected")}

@@ -463,7 +463,7 @@ export function Button({
     // Resolution uses success green; agent handoff uses primary indigo.
     success: "bg-success-600 hover:bg-success-500 text-white",
     "success-outline":
-      "border border-transparent bg-transparent text-neutral-600 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:text-neutral-300 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
+      "border border-current bg-transparent text-neutral-600 hover:border-success-600 hover:bg-success-50 hover:text-success-800 dark:text-neutral-300 dark:hover:border-success-400 dark:hover:bg-success-950 dark:hover:text-success-300",
   };
   return <button className={cn(base, variants[variant], className)} {...props} />;
 }

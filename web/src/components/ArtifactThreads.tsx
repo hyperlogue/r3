@@ -43,6 +43,7 @@ import {
   CommentPlusIcon,
   cn,
   FoldTriangle,
+  StrokeIcon,
   useCopyFlash,
   useEscape,
   usePopoverFocus,
@@ -62,9 +63,28 @@ function targetContext(target: ArtifactTarget): ArtifactMessageContext {
     : { versionSeq: null, representation: null };
 }
 
+// Compact browser labels without changing the explicit context kept in prompts,
+// targets, or Locate actions. Latest means published, not the selected version.
+function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null): string {
+  const label = artifactTargetLabel(target);
+  const prefix = `Version ${latestVersionSeq} · `;
+  return label.startsWith(prefix) ? label.slice(prefix.length) : label;
+}
+
+function cardContextLabel(context: ArtifactMessageContext, latestVersionSeq: number | null) {
+  if (context.versionSeq === null) return "";
+  return [
+    context.versionSeq !== latestVersionSeq && `Version ${context.versionSeq}`,
+    context.representation,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   feedback,
   context,
+  latestVersionSeq,
   onLocate,
   onJumpRef,
   active = false,
@@ -73,6 +93,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
 }: {
   feedback: ArtifactFeedback;
   context: ArtifactMessageContext;
+  latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   active?: boolean;
@@ -132,6 +153,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     onSuccess: refresh,
   });
   const unavailable = artifactFeedbackTargetLabel(feedback) === "Historical target unavailable";
+  const hasTarget = unavailable || feedback.target.kind !== "artifact";
   const originalContext = targetContext(feedback.target);
   const quote =
     "locator" in feedback.target && feedback.target.locator && "quote" in feedback.target.locator
@@ -159,12 +181,18 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         ref={menuTrigger}
         type="button"
         variant="ghost"
+        className="justify-center"
         title="More actions"
+        aria-label="More actions"
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((value) => !value)}
       >
-        ⋯
+        <StrokeIcon className="size-4">
+          <circle cx="5" cy="12" r="1" />
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+        </StrokeIcon>
       </Button>
       {menuOpen && (
         <>
@@ -232,46 +260,48 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           className="pointer-events-none absolute inset-0 z-10 bg-neutral-500/10"
         />
       )}
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
-        {artifactNeedsAttention(feedback) && (
-          <span
-            title="Unhandled agent response"
-            className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
-          />
-        )}
-        {unavailable ? (
-          <span className="text-amber-700 dark:text-amber-400">Historical target unavailable</span>
-        ) : (
-          <button
-            type="button"
-            className="min-w-0 flex-1 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
-            onClick={() => onLocate(feedback.target, feedback.id)}
-          >
-            {artifactFeedbackTargetLabel(feedback)}
-          </button>
-        )}
-        {feedback.status === "resolved" && (
-          <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
-            ✓ resolved
-          </span>
-        )}
-      </div>
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-        <span title={feedback.author.sessionId ?? undefined}>
-          {feedback.author.role === "human"
-            ? "You"
-            : `Agent · ${feedback.author.sessionId.slice(0, 20)}`}
-        </span>
-        {hasUnsentArtifactFeedback(feedback) && <span>Not sent</span>}
-        {feedback.claim && (
-          <span
-            className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
-            title={`Working agent: ${feedback.claim.sessionId}`}
-          >
-            Working · {feedback.claim.sessionId.slice(0, 16)}
-          </span>
-        )}
-      </div>
+      {(hasTarget || artifactNeedsAttention(feedback) || feedback.status === "resolved") && (
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
+          {artifactNeedsAttention(feedback) && (
+            <span
+              title="Unhandled agent response"
+              className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
+            />
+          )}
+          {unavailable ? (
+            <span className="text-amber-700 dark:text-amber-400">
+              Historical target unavailable
+            </span>
+          ) : hasTarget ? (
+            <button
+              type="button"
+              className="min-w-0 flex-1 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+              title={artifactFeedbackTargetLabel(feedback)}
+              onClick={() => onLocate(feedback.target, feedback.id)}
+            >
+              {cardTargetLabel(feedback.target, latestVersionSeq)}
+            </button>
+          ) : null}
+          {feedback.status === "resolved" && (
+            <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
+              ✓ resolved
+            </span>
+          )}
+        </div>
+      )}
+      {(hasUnsentArtifactFeedback(feedback) || feedback.claim) && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          {hasUnsentArtifactFeedback(feedback) && <span>Not sent</span>}
+          {feedback.claim && (
+            <span
+              className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
+              title={`Working agent: ${feedback.claim.sessionId}`}
+            >
+              Working · {feedback.claim.sessionId.slice(0, 16)}
+            </span>
+          )}
+        </div>
+      )}
       {quote && (
         // biome-ignore lint/a11y/useKeyWithClickEvents: the explicit quote toggle below is keyboard accessible; clicking the quote is a selection-preserving pointer convenience.
         <blockquote
@@ -314,6 +344,11 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
         )}
       >
+        {feedback.author.role === "agent" && (
+          <div className="mb-1 text-xs text-neutral-500" title={feedback.author.sessionId}>
+            Agent · {feedback.author.sessionId.slice(0, 20)}
+          </div>
+        )}
         <MessageProse source={feedback.body} onJumpRef={(ref) => onJumpRef(ref, originalContext)} />
       </div>
       {feedback.replies.length > 3 && (
@@ -336,27 +371,27 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
           )}
         >
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-            <span title={reply.author.sessionId ?? undefined}>
-              {reply.author.role === "human"
-                ? "You"
-                : `Agent · ${reply.author.sessionId.slice(0, 20)}`}
-            </span>
-            {reply.context.versionSeq !== null && (
-              <span>
-                Version {reply.context.versionSeq}
-                {reply.context.representation ? ` · ${reply.context.representation}` : ""}
-              </span>
-            )}
-          </div>
+          {(reply.author.role === "agent" || cardContextLabel(reply.context, latestVersionSeq)) && (
+            <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+              {reply.author.role === "agent" && (
+                <span title={reply.author.sessionId}>
+                  Agent · {reply.author.sessionId.slice(0, 20)}
+                </span>
+              )}
+              {cardContextLabel(reply.context, latestVersionSeq) && (
+                <span>{cardContextLabel(reply.context, latestVersionSeq)}</span>
+              )}
+            </div>
+          )}
           <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
           {reply.target && (
             <button
               type="button"
               className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
+              title={artifactTargetLabel(reply.target)}
               onClick={() => onLocate(reply.target!, feedback.id)}
             >
-              ↳ Fix: {artifactTargetLabel(reply.target)}
+              ↳ Fix: {cardTargetLabel(reply.target, latestVersionSeq)}
             </button>
           )}
           {reply.legacy && (
@@ -854,6 +889,7 @@ export function ArtifactThreads({
                     key={feedback.id}
                     feedback={feedback}
                     context={context}
+                    latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
                     onLocate={locate}
                     onJumpRef={onJumpRef}
                     visible={tab === queue}

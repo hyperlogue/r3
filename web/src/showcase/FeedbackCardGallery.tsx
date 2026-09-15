@@ -111,13 +111,15 @@ export function seedFeedbackCardGallery() {
   };
   const attention = add("attention", "What happens to comments when we publish an update?", {
     kind: "source",
-    versionSeq: 1,
+    versionSeq: 2,
     path: "index.md",
     locator: null,
   });
   reply(
     attention,
     "The original comment stays attached to the version you reviewed.\n\n- You can return to that exact target.\n- A later fix can point to a different version.\n- Publishing an update leaves the thread open for you to resolve.\n\nDoes this match what you expected?",
+    "agent",
+    2,
   );
   const followup = add("followup", "The selected version needs to be clearer.");
   reply(followup, "I can add a short version badge beside the title.");
@@ -193,6 +195,7 @@ function CardExample({
         {note ? (
           <ArtifactThreadCard
             feedback={note}
+            latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
             context={{ versionSeq: 2, representation: key === "diff" ? "diff" : "source" }}
             onLocate={() =>
               announce("Sample anchor selected. Use outer comment mode to review this card.")

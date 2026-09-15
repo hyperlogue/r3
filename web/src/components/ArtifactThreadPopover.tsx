@@ -13,6 +13,7 @@ import {
 export function ArtifactThreadPopover({
   feedback,
   context,
+  latestVersionSeq,
   onLocate,
   onJumpRef,
   onExpand,
@@ -20,6 +21,7 @@ export function ArtifactThreadPopover({
 }: {
   feedback: ArtifactFeedback;
   context: ArtifactMessageContext;
+  latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   onExpand: () => void;
@@ -64,6 +66,7 @@ export function ArtifactThreadPopover({
         <ArtifactThreadCard
           feedback={feedback}
           context={context}
+          latestVersionSeq={latestVersionSeq}
           onLocate={onLocate}
           onJumpRef={onJumpRef}
         />
