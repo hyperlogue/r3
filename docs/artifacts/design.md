@@ -487,6 +487,23 @@ publication changes on the same r3 origin. It does not change r3's application t
 grant storage access, or accept an arbitrary key or artifact ID. The UI showcase
 uses this preference for its theme button; publishers choose whether to use it.
 
+### Static demo previews
+
+The GitHub Pages demo substitutes a renderer at build time. Only its bundled HTML
+examples and retained Markdown documents can execute; the selected artifact,
+version, content hash, and path must match a bundled publication. Browser storage
+retains conversations and publication state but cannot supply executable preview
+bytes or assets.
+
+Each document uses an opaque `srcdoc` iframe with `sandbox="allow-scripts"`.
+Bundled styles and images are embedded, document links stay within the publication,
+and CSP restricts resource requests. A document-scoped MessagePort reuses native
+rendered targeting, Locate, Markdown theme, and full-height layout. The demo labels
+these previews as bundled examples; it does not claim verified network blocking
+or offer device access. Production preview contexts and their capability gate are
+unchanged. The [distribution reference](../../.claude/skills/build-and-distribution/SKILL.md#the-frontend-only-demo--github-pages)
+owns the build alias and Pages layout.
+
 ## Upgrade and scope boundaries
 
 The artifact protocol replaces the live-review API and commands. Legacy files and
