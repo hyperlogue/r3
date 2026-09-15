@@ -248,10 +248,12 @@ its height eases to fit; Cancel and Discard keep the ordinary removal animation.
 Reduced motion skips the transition. Failed saves retain the draft. Event-stream
 reads that arrive before the POST response cannot duplicate or overwrite the note.
 Agent messages keep their attribution inside tinted bubbles; human messages omit
-the redundant author label. General feedback has no location heading. Card target,
-reply-context, and fix labels omit the version only for the latest publication;
+the redundant author label. General feedback has no location heading. Card target
+and fix labels omit the version only for the latest publication;
 older versions remain explicit. These labels omit representation words, retaining
 paths, line ranges, and diff sides. Stored context and Locate behavior never change.
+Replies omit a separate context label; their saved context still pins inline file
+references, and explicit fix links remain visible.
 Quoted targets offer expansion only when the text exceeds the three-line preview;
 the control rechecks clipping when the panel resizes.
 Long conversations fold earlier replies. Nonempty drafts block handoff until posted or discarded. Drafts

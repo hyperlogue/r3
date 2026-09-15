@@ -75,12 +75,6 @@ function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null
   );
 }
 
-function cardContextLabel(context: ArtifactMessageContext, latestVersionSeq: number | null) {
-  return context.versionSeq !== null && context.versionSeq !== latestVersionSeq
-    ? `Version ${context.versionSeq}`
-    : "";
-}
-
 function FeedbackQuote({ quote }: { quote: string }) {
   const element = useRef<HTMLQuoteElement>(null);
   const id = useId();
@@ -386,16 +380,9 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
           )}
         >
-          {(reply.author.role === "agent" || cardContextLabel(reply.context, latestVersionSeq)) && (
-            <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-              {reply.author.role === "agent" && (
-                <span title={reply.author.sessionId}>
-                  Agent · {reply.author.sessionId.slice(0, 20)}
-                </span>
-              )}
-              {cardContextLabel(reply.context, latestVersionSeq) && (
-                <span>{cardContextLabel(reply.context, latestVersionSeq)}</span>
-              )}
+          {reply.author.role === "agent" && (
+            <div className="mb-1 text-xs text-neutral-500" title={reply.author.sessionId}>
+              Agent · {reply.author.sessionId.slice(0, 20)}
             </div>
           )}
           <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
