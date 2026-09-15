@@ -149,6 +149,21 @@ demo backend; display settings use memory in the opaque preview. The real
 artifact's outer comment mode records UI review feedback. Rebuild and publish a
 new version after component changes; existing publications remain immutable.
 
+Build the interactive tutorial with `bun scripts/build-ui-tutorial.ts` and publish
+`dist/ui-tutorial` as an HTML artifact. It imports the actual `ArtifactWorkspace`,
+artifact list, file/diff viewers, feedback cards, and composer, using the scripted
+demo backend for practice. Only the lesson guidance and sample document content
+are tutorial-specific; it contains no parallel implementation of the review UI.
+The sample document renders inline because an opaque publication cannot create a
+nested preview iframe. Rendered exercise targets stay native to that sample, while
+source and diff gestures use the production components. Practice navigation and
+storage stay inside the tutorial; the outer artifact's comment mode reviews the
+tutorial itself. Guide stories are under `Tutorial/Guide`.
+
+The tutorial's opaque-sandbox browser check covers all six lessons, draft retention
+through float/dock/hide, explicit agent handoff, pinned versions, manual resolution,
+file folding and source display, both themes, narrow layout, and reset.
+
 Storybook is the component and responsive-layout surface. For targeted interactive
 runs, use the relevant workspace or component story; the compiled app and preview
 scripts cover integration with the real server. The
