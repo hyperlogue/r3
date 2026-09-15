@@ -121,16 +121,16 @@ body {
 
 /* Elevation belongs to detached outer frames. Nested content stays flat. */
 :root {
-  --r3-overlay-rim: rgb(255 255 255 / 0.9);
-  --r3-overlay-contact: rgb(0 0 0 / 0.12);
-  --r3-overlay-cast: rgb(0 0 0 / 0.18);
-  --r3-overlay-border: #cfcfcf;
+  --r3-overlay-rim: rgb(255 255 255 / 0.95);
+  --r3-overlay-contact: rgb(0 0 0 / 0.2);
+  --r3-overlay-cast: rgb(0 0 0 / 0.26);
+  --r3-overlay-border: #a3a3a3;
 }
 html.dark {
-  --r3-overlay-rim: rgb(255 255 255 / 0.1);
-  --r3-overlay-contact: rgb(0 0 0 / 0.4);
-  --r3-overlay-cast: rgb(0 0 0 / 0.5);
-  --r3-overlay-border: #525252;
+  --r3-overlay-rim: rgb(255 255 255 / 0.18);
+  --r3-overlay-contact: rgb(0 0 0 / 0.6);
+  --r3-overlay-cast: rgb(0 0 0 / 0.7);
+  --r3-overlay-border: #737373;
 }
 .r3-popover,
 .r3-floating,

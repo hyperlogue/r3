@@ -159,6 +159,7 @@ stack releases the preview normally; this is not a persistent document cache.
 
 Workspace containers follow the layer rules in `AGENTS.md`. Menus and notices use
 compact elevation; floating conversations/composers and dialogs use broader shadows.
+Shared overlay tokens provide strong border contrast and rim lighting in both themes.
 Mobile sheets cast upward and retain their intentional rounded top corners. The
 floating composer has one complete neutral outer border and no colored left stripe.
 
