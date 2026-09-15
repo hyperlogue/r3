@@ -44,7 +44,7 @@ import {
   CommentPlusIcon,
   cn,
   FoldTriangle,
-  StrokeIcon,
+  MoreActionsButton,
   useCopyFlash,
   useEscape,
   usePopoverFocus,
@@ -228,23 +228,13 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   );
   const moreMenu = (
     <div className="relative">
-      <Button
+      <MoreActionsButton
         ref={menuTrigger}
-        type="button"
-        variant="ghost"
-        className="justify-center"
         title="More actions"
         aria-label="More actions"
-        aria-haspopup="dialog"
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((value) => !value)}
-      >
-        <StrokeIcon className="size-4">
-          <circle cx="5" cy="12" r="1" />
-          <circle cx="12" cy="12" r="1" />
-          <circle cx="19" cy="12" r="1" />
-        </StrokeIcon>
-      </Button>
+      />
       {menuOpen && (
         <>
           <button

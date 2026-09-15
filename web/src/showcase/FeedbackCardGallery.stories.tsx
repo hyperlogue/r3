@@ -40,6 +40,8 @@ export const CardLabels: Story = {
     await expect(style.borderTopWidth).toBe("1px");
     await userEvent.click(older.getByRole("button", { name: "More actions" }));
     await expect(older.getByRole("dialog", { name: "Feedback actions" })).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect(older.getByRole("button", { name: "More actions" })).toHaveFocus();
   },
 };
 export const CardLabelsDark: Story = { ...CardLabels, globals: { theme: "dark" } };

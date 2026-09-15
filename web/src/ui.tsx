@@ -481,6 +481,30 @@ export function Pill({ children, className }: { children: ReactNode; className?:
   );
 }
 
+export function MoreActionsButton({
+  className,
+  ...props
+}: Omit<ComponentPropsWithRef<"button">, "children">) {
+  return (
+    <Button
+      type="button"
+      variant="nav"
+      aria-haspopup="dialog"
+      {...props}
+      className={cn(
+        "h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9",
+        className,
+      )}
+    >
+      <StrokeIcon className="size-4">
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+      </StrokeIcon>
+    </Button>
+  );
+}
+
 // A click-to-copy token for an identifier the reader will want to paste
 // somewhere else: the review header's project dir / commit range / branch /
 // session, and the feedback panel's live agent-session badges. Underlines on

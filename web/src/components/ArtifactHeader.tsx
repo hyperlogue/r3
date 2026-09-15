@@ -5,7 +5,15 @@ import { artifactApi } from "../artifact-api.ts";
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import { formatBytes } from "../format-bytes.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Button, CopyMeta, Pill, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
+import {
+  Button,
+  CopyMeta,
+  MoreActionsButton,
+  Pill,
+  StrokeIcon,
+  useEscape,
+  usePopoverFocus,
+} from "../ui.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
@@ -226,22 +234,13 @@ export function ArtifactHeader({
           onToggle={onToggleFeedback}
         />
       )}
-      <Button
+      <MoreActionsButton
         ref={detailsTrigger}
-        variant="nav"
-        className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
         aria-label="Artifact details and actions"
         title="Artifact details and actions"
-        aria-haspopup="dialog"
         aria-expanded={detailsOpen}
         onClick={() => setDetailsOpen(!detailsOpen)}
-      >
-        <StrokeIcon className="size-4">
-          <circle cx="5" cy="12" r="1" />
-          <circle cx="12" cy="12" r="1" />
-          <circle cx="19" cy="12" r="1" />
-        </StrokeIcon>
-      </Button>
+      />
       {detailsOpen && (
         <button
           type="button"
