@@ -133,16 +133,40 @@ try {
   const firstPath = documents.at(-1)!.path;
   assert.equal(documents.at(-1)!.status, 200);
   const card = page.locator('[data-file="index.md"]');
+  const paneAt = (y: number) =>
+    page.waitForFunction(
+      (target: number) =>
+        Math.abs(document.querySelector("[data-artifact-content]")!.scrollTop - target) < 2,
+      y,
+    );
+  const savedAt = (y: number) =>
+    page.waitForFunction(
+      (target: number) =>
+        JSON.parse(sessionStorage.getItem("r3-reading-positions-1") ?? "[]").some(
+          (entry: [string, { y: number }]) => entry[1].y === target,
+        ),
+      y,
+    );
+  await page
+    .locator("[data-artifact-content]")
+    .evaluate((pane: HTMLElement) => pane.scrollTo(0, 1500));
+  await savedAt(1500);
   await card.getByRole("button", { name: "Source", exact: true }).click();
   await page.locator('[data-file="index.md"] [data-line="1"]').waitFor();
   await card.getByRole("button", { name: "Rendered", exact: true }).click();
   await ready();
+  await paneAt(1500);
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
   const beforeRefresh = creations;
   const beforeGate = gates;
   await page.reload();
   await ready();
-  assert.equal(creations, beforeRefresh, "refresh must renew protected context URLs");
+  await paneAt(1500);
+  assert.equal(
+    creations,
+    beforeRefresh + (process.env.R3_TEST_UNSUPPORTED === "1" ? 1 : 0),
+    "refresh renews the document context; unsupported browsers still retry the blocked gate",
+  );
   assert.ok(gates > beforeGate, "refresh must still run the browser gate");
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
   await card.getByRole("button", { name: "Source", exact: true }).click();
@@ -160,7 +184,9 @@ try {
       .waitFor();
   };
   await version(2);
+  await paneAt(0);
   await version(1);
+  await paneAt(1500);
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
   console.log(
     `${engine}: Markdown refresh, source toggles, historical visits reuse validated responses`,
@@ -169,11 +195,16 @@ try {
   await page.goto(`${base}/${html.id}?version=1`);
   await ready();
   const htmlPath = documents.at(-1)!.path;
+  const frame = () => page.frames().find((frame: any) => frame.url().includes("/files/"))!;
+  await frame().evaluate(() => scrollTo(0, 900));
+  await savedAt(900);
   await page.reload();
   await ready();
+  await frame().waitForFunction(() => Math.abs(scrollY - 900) < 2);
   assert.deepEqual(documents.at(-1), { path: htmlPath, status: 304 });
   await version(2);
   await version(1);
+  await frame().waitForFunction(() => Math.abs(scrollY - 900) < 2);
   assert.deepEqual(documents.at(-1), { path: htmlPath, status: 304 });
   assert.equal(
     await page
@@ -190,6 +221,13 @@ try {
   assert.equal(
     await page.evaluate(
       (id: string) => (sessionStorage.getItem("r3-preview-sessions-1") ?? "").includes(id),
+      html.id,
+    ),
+    false,
+  );
+  assert.equal(
+    await page.evaluate(
+      (id: string) => (sessionStorage.getItem("r3-reading-positions-1") ?? "").includes(id),
       html.id,
     ),
     false,

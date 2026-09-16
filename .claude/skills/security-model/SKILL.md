@@ -122,8 +122,8 @@ There is no generic upstream proxy or unknown-path document fallback.
 Authenticated preview creation accepts `network: "blocked" | "compatible" | "external"`, defaulting
 to `blocked`. The server rejects `external` for every kind except `html`, including
 HTML documents inside a `files` artifact. Policy is immutable within a context;
-renewal only extends expiry. Switching policy requires a different context; an
-external context is revoked when released. No artifact metadata, publication, or publisher script can
+renewal only extends expiry. Switching policy revokes the preceding context; an
+external context is always revoked when released. No artifact metadata, publication, or publisher script can
 change the browser's choice. The trusted workspace asks for confirmation before
 external access, keeps an indicator visible, and resets that grant on version change
 or leaving the preview. It does not persist external-resource or device grants. Reload/tab close starts the

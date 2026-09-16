@@ -54,6 +54,7 @@ import {
   ProgressiveFileProvider,
   useProgressiveFileController,
 } from "../progressive.tsx";
+import { readingKey, readingPositions } from "../reading-position.ts";
 import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 import { composerKeyAction, observeTextSelection } from "../selection-events.ts";
 import {
@@ -67,6 +68,7 @@ import type { DiffSide } from "../types.ts";
 import { cn } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
 import { useArtifactContent } from "../useArtifactContent.ts";
+import { useReadingPosition } from "../useReadingPosition.ts";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import { diffViewedKey, fileViewedKey } from "../viewed.ts";
@@ -106,7 +108,10 @@ export function ArtifactView({
   const unavailable =
     query.error instanceof ArtifactApiError && [401, 403, 404, 410].includes(query.error.status);
   useEffect(() => {
-    if (unavailable) previewSessions.forget(artifactId);
+    if (unavailable) {
+      previewSessions.forget(artifactId);
+      readingPositions.forget(artifactId);
+    }
   }, [unavailable, artifactId]);
   if (query.error && (!query.data || unavailable))
     return (
@@ -218,6 +223,16 @@ function Workspace({
         : (fileViews[`${version?.seq}:${filePath}`] ?? defaultFileRepresentation(filePath)),
     [view.path, view.representation, fileViews, version?.seq],
   );
+  const positionKey =
+    version && path && detail.kind !== "html"
+      ? readingKey(detail.id, version.seq, path, detail.kind === "files" ? fileMode(path) : "diff")
+      : null;
+  useReadingPosition(
+    paneRef,
+    positionKey,
+    !!jump || !!renderedJump || !!initialFeedback.current,
+    version?.seq ?? null,
+  );
   useEffect(() => {
     if (detail.kind === "files" && view.path && version && view.representation !== "diff") {
       const key = `${version.seq}:${view.path}`;
@@ -276,7 +291,6 @@ function Workspace({
   const selectVersion = (versionSeq: number | null) => {
     changeView({ versionSeq, ...(detail.kind === "html" ? { path: null } : {}) });
     setActivePath(null);
-    paneRef.current?.scrollTo({ top: 0 });
   };
   const focusComposer = useCallback(
     () => requestAnimationFrame(() => focusArtifactComposer(detail.id)),
@@ -556,10 +570,11 @@ function Workspace({
     if (!ready || detail.kind === "html" || !initialPath.current) return;
     const path = initialPath.current;
     initialPath.current = null;
+    if (positionKey && readingPositions.get(positionKey)) return;
     const nonce = ++jumpNonce.current;
     setJump({ path, side: "new", nonce });
     setFold({ mode: "unfold", path, nonce });
-  }, [ready, detail.kind]);
+  }, [ready, detail.kind, positionKey]);
   const finishCodeJump = useCallback((nonce: number) => {
     if (pendingRenderedJump.current?.nonce !== nonce || jumpNonce.current !== nonce) return;
     setRenderedJump(pendingRenderedJump.current);

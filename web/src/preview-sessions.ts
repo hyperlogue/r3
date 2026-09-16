@@ -124,7 +124,9 @@ export class PreviewSessions {
     return context;
   }
 
-  release(context: ArtifactPreviewContext) {
+  release(context: ArtifactPreviewContext, retain = true) {
+    if (!retain)
+      for (const [key, entry] of this.saved) if (entry.id === context.id) this.saved.delete(key);
     const count = (this.live.get(context.id) ?? 1) - 1;
     if (count > 0) {
       this.live.set(context.id, count);

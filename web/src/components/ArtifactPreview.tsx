@@ -26,6 +26,7 @@ import {
 import { previewSessions } from "../preview-sessions.ts";
 import { previewThemePreference } from "../preview-theme.ts";
 import { observePreviewViewport } from "../preview-viewport.ts";
+import { isReadingPosition, readingKey, readingPositions } from "../reading-position.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
@@ -43,6 +44,8 @@ export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
 function VersionPreview(props: ArtifactRenderedPaneProps) {
   const [attempt, retry] = useState(0);
   const [network, setNetwork] = useState<ArtifactPreviewNetwork>("blocked");
+  const currentNetwork = useRef(network);
+  currentNetwork.current = network;
   const [verification, setVerification] = useState<PreviewVerification>("checking");
   const [compatibilityRequired, setCompatibilityRequired] = useState(false);
   const [confirmCompatibility, setConfirmCompatibility] = useState(false);
@@ -151,6 +154,7 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
         key={`${media ? props.path : "document"}:${network}:${attempt}`}
         {...props}
         network={network}
+        retainContext={() => currentNetwork.current === network}
         devices={devices}
         capture={capture}
         capturing={captureState.phase === "requesting" || captureState.phase === "sharing"}
@@ -199,6 +203,7 @@ function PreviewSession(
     onDevicesReset: () => void;
     onVerification: (state: PreviewVerification) => void;
     onNetworkUnsupported: () => void;
+    retainContext: () => boolean;
     onReviewCompatibility?: () => void;
     onRetry: () => void;
   },
@@ -260,7 +265,7 @@ function PreviewSession(
       .then((value) => {
         grant = value;
         if (closed) {
-          previewSessions.release(value);
+          previewSessions.release(value, current.current.retainContext());
           return;
         }
         setContext(value);
@@ -283,7 +288,7 @@ function PreviewSession(
       closed = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", resume);
-      if (grant) previewSessions.release(grant);
+      if (grant) previewSessions.release(grant, current.current.retainContext());
     };
   }, [id, seq, initialPath, network, capture]);
 
@@ -396,6 +401,14 @@ function PreviewSession(
       fittedPath.current = null;
       setDocumentHeight(null);
       const path = message.path;
+      let documentOpened = false;
+      const independentScroll = () =>
+        context.presentation === "document" &&
+        !(current.current.detail.kind === "files" && current.current.markdownPaths.includes(path));
+      const scrollKey = (route: unknown) =>
+        typeof route === "string" && route.length <= 4096 && /^[?#]/.test(route)
+          ? readingKey(id, seq, path, `rendered:${route}`)
+          : null;
       const initiallyAllowed =
         !connected &&
         network === "external" &&
@@ -429,6 +442,24 @@ function PreviewSession(
           setReady(true);
           setNotice("");
           display();
+          const key = scrollKey(message.route);
+          // Native fragments and Locate take precedence. Subsequent document
+          // announcements on this port are hash navigation, not a reopening.
+          if (
+            !documentOpened &&
+            independentScroll() &&
+            !current.current.jump &&
+            key &&
+            (message.route === "#" || !message.route.includes("#"))
+          ) {
+            const point = readingPositions.get(key);
+            if (point) reply({ type: "r3-preview-restore-scroll", route: message.route, point });
+          }
+          documentOpened = true;
+        } else if (message.type === "r3-preview-scroll") {
+          const key = scrollKey(message.route);
+          if (independentScroll() && key && isReadingPosition(message.point))
+            readingPositions.set(key, message.point);
         } else if (message.type === "r3-preview-height") {
           // Only the verified current port and a retained Markdown member may
           // size a file card. Authored HTML keeps its own viewport.

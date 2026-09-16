@@ -9,6 +9,7 @@ import {
   artifactFixtureVersion,
 } from "../artifact-fixtures.ts";
 import { singleRound } from "../components/_fixtures.ts";
+import { readingKey, readingPositions } from "../reading-position.ts";
 import { setFeedbackMode } from "../settings.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import { type ArtifactRenderer, ArtifactWorkspace } from "./ArtifactView.tsx";
@@ -129,6 +130,7 @@ const meta = {
   loaders: [
     () => {
       artifactDrafts.clear(detail.id);
+      readingPositions.forget(detail.id);
       setFeedbackMode("expanded");
       return {};
     },
@@ -288,6 +290,23 @@ export const LongRenderedMarkdown: Story = {
 export const LongRenderedMarkdownDark: Story = {
   ...LongRenderedMarkdown,
   globals: { theme: "dark" },
+};
+export const RestoreMarkdownScroll: Story = {
+  ...LongRenderedMarkdown,
+  loaders: [
+    () => {
+      readingPositions.set(readingKey(detail.id, 1, "index.md", "rendered"), { x: 0, y: 500 });
+      return {};
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const pane = canvasElement.querySelector<HTMLElement>("[data-artifact-content]")!;
+    await waitFor(() => expect(pane.scrollTop).toBe(500));
+    await userEvent.click(canvas.getByRole("button", { name: "Source" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Rendered" }));
+    await waitFor(() => expect(pane.scrollTop).toBe(500));
+  },
 };
 export const Diff: Story = {
   args: {

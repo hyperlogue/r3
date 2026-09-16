@@ -118,6 +118,17 @@ test("retention is bounded without revoking mounted previews", async () => {
   );
 });
 
+test("changing network policy revokes the preceding protected context", async () => {
+  const f = fixture();
+  const sessions = new PreviewSessions(f.api, () => f.storage);
+  const context = await sessions.acquire("artifact_example", 1, "index.html", "blocked");
+  sessions.release(context, false);
+  expect(f.revoked).toContain(context.id);
+  expect((await sessions.acquire("artifact_example", 1, "index.html", "blocked")).id).not.toBe(
+    context.id,
+  );
+});
+
 test("deletion cancels a pending acquisition even when storage is unavailable", async () => {
   const f = fixture();
   const context = await f.api.createPreview("artifact_example", 1, "index.md");

@@ -4,7 +4,9 @@ import { connectPreview } from "../web/src/preview-channel.ts";
 import { installMarkdownLayout, installMarkdownTheme } from "../web/src/preview-markdown.ts";
 import { createPreviewMedia } from "../web/src/preview-media.ts";
 import { installPreviewRuntime } from "../web/src/preview-runtime.ts";
+import { installPreviewScroll } from "../web/src/preview-scroll.ts";
 import { createArtifactUtility } from "../web/src/preview-utility.ts";
+import { restoreReadingPosition } from "../web/src/restore-reading-position.ts";
 import { composerKeyAction, observeTextSelection } from "../web/src/selection-events.ts";
 import { type PreviewScope, previewRoot } from "./preview-contexts.ts";
 import type { PreviewSupport } from "./preview-host.ts";
@@ -26,6 +28,7 @@ export const previewSupport: PreviewSupport = {
   runtime: (scope) =>
     `(() => { const config = ${parameters(scope)};
 const connection = (${connectPreview.toString()})(config);
+(${installPreviewScroll.toString()})(config, connection, ${restoreReadingPosition.toString()});
 (${installMarkdownTheme.toString()})(config, connection);
 (${installMarkdownLayout.toString()})(config, connection);
 const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${previewIceComplete.toString()});

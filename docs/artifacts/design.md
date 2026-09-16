@@ -175,6 +175,13 @@ external-access and device grants never persist. Deletion clears app content sta
 and context identities when detected, but physical HTTP-cache eviction belongs to
 the browser. See the security reference for expiry and retention bounds.
 
+Reading positions are bounded, debounced session metadata keyed by artifact,
+version, path, and representation. File stacks restore the outer pane; independently
+scrolling previews report root coordinates over their existing document-bound bridge.
+Explicit Locate and native fragment navigation win, and user input cancels a
+pending restoration. HTML application state and nested scrollers are not retained.
+Deletion clears these positions when detected.
+
 Workspace containers follow the layer rules in `AGENTS.md`. Menus and notices use
 compact elevation; floating conversations/composers and dialogs use broader shadows.
 Shared overlay tokens provide strong border contrast and rim lighting in both themes.

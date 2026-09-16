@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { artifactApi, artifactEventStream } from "./artifact-api.ts";
 import { previewSessions } from "./preview-sessions.ts";
+import { readingPositions } from "./reading-position.ts";
 
 export function useArtifactEvents(): boolean {
   const queryClient = useQueryClient();
@@ -34,6 +35,7 @@ export function useArtifactEvents(): boolean {
             } else {
               if (event.type === "artifact-deleted") {
                 previewSessions.forget(event.artifactId);
+                readingPositions.forget(event.artifactId);
                 for (const key of ["artifact-files", "artifact-source", "artifact-diff"])
                   queryClient.removeQueries({ queryKey: [key, event.artifactId] });
               }

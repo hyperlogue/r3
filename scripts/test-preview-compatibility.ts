@@ -139,7 +139,10 @@ const app = Bun.serve({
     }
     if (path.startsWith("/api/")) {
       const response = await api.app.fetch(request);
-      if (path.endsWith("/previews") && request.method === "POST" && response.status === 201)
+      if (
+        (request.method === "POST" && path.endsWith("/previews") && response.status === 201) ||
+        (request.method === "PATCH" && path.startsWith("/api/previews/") && response.status === 200)
+      )
         grants.push((await response.clone().json()) as ArtifactPreviewContext);
       if (request.headers.get("origin") === "null" && response.status === 403) deniedAppRequests++;
       return response;

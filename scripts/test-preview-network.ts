@@ -120,7 +120,10 @@ const app = Bun.serve({
     }
     if (path.startsWith("/api/")) {
       const response = await api.app.fetch(request);
-      if (path.endsWith("/previews") && request.method === "POST" && response.status === 201)
+      if (
+        (request.method === "POST" && path.endsWith("/previews") && response.status === 201) ||
+        (request.method === "PATCH" && path.startsWith("/api/previews/") && response.status === 200)
+      )
         grants.push((await response.clone().json()) as ArtifactPreviewContext);
       if (request.headers.get("origin") === "null" && response.status === 403) deniedAppRequests++;
       return response;
@@ -310,7 +313,8 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     )
       await click("document.querySelector('[aria-label^=\"Preview security:\"]')");
     if (await page.evaluate("!!document.querySelector('[aria-label=\"Close artifact details\"]')"))
-      await click("document.querySelector('[aria-label=\"Close artifact details\"]')");
+      for (const type of ["keyDown", "keyUp"])
+        await page.command("Input.dispatchKeyEvent", { type, key: "Escape", code: "Escape" });
     await click("document.querySelector('[aria-label=\"Published version\"]')");
     await click(`document.querySelector('[data-version-seq="${seq}"]')`);
   };

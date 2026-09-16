@@ -417,7 +417,7 @@ export function installPreviewRuntime(
   );
   window.addEventListener("resize", schedule);
   window.addEventListener("hashchange", () => {
-    send("r3-preview-document");
+    send("r3-preview-document", { route: location.search + location.hash || "#" });
     if (restoringRoute) {
       restoringRoute = false;
       locate();
@@ -496,7 +496,7 @@ export function installPreviewRuntime(
       characterData: true,
       attributes: true,
     });
-    send("r3-preview-document");
+    send("r3-preview-document", { route: location.search + location.hash || "#" });
     locate();
   };
   if (document.readyState === "loading")
