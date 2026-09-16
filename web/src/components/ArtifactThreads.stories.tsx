@@ -246,6 +246,84 @@ export const ReplyAdvancesAttention: Story = {
     await expect(canvasElement.querySelectorAll("[data-feedback-list] > article")).toHaveLength(2);
   },
 };
+export const ReplyBeforeRefresh: Story = {
+  beforeEach: () => {
+    const original = { detail: artifactApi.detail, reply: artifactApi.reply };
+    artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);
+    artifactApi.detail = () => new Promise(() => {});
+    artifactApi.reply = async (feedbackId, input) => ({
+      ...artifactFixtureFeedback.replies[0],
+      id: "reply_saved",
+      feedbackId,
+      author: { role: "human", sessionId: null },
+      body: input.body,
+      context: input.context!,
+      sentAt: null,
+    });
+    return () => {
+      Object.assign(artifactApi, original);
+      artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);
+    };
+  },
+  parameters: ComposerToCard.parameters,
+  render: ComposerToCard.render,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Reply" }));
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "Reply" }),
+      "Show this saved reply without waiting for the refresh.",
+    );
+    const form = canvasElement.querySelector<HTMLFormElement>("[data-reply-to]")!;
+    await userEvent.click(within(form).getByRole("button", { name: "Reply" }));
+    await waitFor(() => {
+      expect(canvas.queryByRole("textbox", { name: "Reply" })).toBeNull();
+      expect(
+        canvas.getByText("Show this saved reply without waiting for the refresh.", {
+          selector: "p",
+        }),
+      ).toBeVisible();
+    });
+  },
+};
+let failPendingReply: () => void;
+const submitReply = fn();
+export const ReplyFailureKeepsDraft: Story = {
+  beforeEach: () => {
+    const original = artifactApi.reply;
+    submitReply.mockClear();
+    artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);
+    artifactApi.reply = () => {
+      submitReply();
+      return new Promise((_resolve, reject) => {
+        failPendingReply = () => reject(new Error("Reply could not be saved. Try again."));
+      });
+    };
+    return () => {
+      artifactApi.reply = original;
+      artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Reply" }));
+    const input = canvas.getByRole("textbox", { name: "Reply" });
+    await expect(input).toBeVisible();
+    await userEvent.type(input, "Keep my reply if the connection fails.");
+    const form = canvasElement.querySelector<HTMLFormElement>("[data-reply-to]")!;
+    await userEvent.click(within(form).getByRole("button", { name: "Reply" }));
+    await expect(within(form).getByRole("button", { name: "Posting…" })).toBeDisabled();
+    await expect(within(form).getByRole("button", { name: "Discard" })).toBeDisabled();
+    await expect(input).toBeDisabled();
+    fireEvent.submit(form);
+    await expect(submitReply).toHaveBeenCalledTimes(1);
+    failPendingReply();
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("Reply could not be saved");
+    await expect(input).toHaveValue("Keep my reply if the connection fails.");
+    await expect(input).toBeEnabled();
+    await expect(within(form).getByRole("button", { name: "Reply" })).toBeEnabled();
+  },
+};
 export const MenuKeyboardDismiss: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

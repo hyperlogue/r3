@@ -1,7 +1,55 @@
 import { expect, test } from "bun:test";
-import type { ArtifactFeedback } from "../../shared/artifacts.ts";
-import { activeArtifactFeedback, artifactNeedsAttention } from "./artifact-feedback.ts";
-import { artifactFixtureFeedback } from "./artifact-fixtures.ts";
+import type { ArtifactFeedback, ArtifactReply } from "../../shared/artifacts.ts";
+import {
+  activeArtifactFeedback,
+  artifactNeedsAttention,
+  withSavedReply,
+} from "./artifact-feedback.ts";
+import { artifactFixture, artifactFixtureFeedback } from "./artifact-fixtures.ts";
+
+test("a saved reply preserves concurrent thread changes and newer replies", () => {
+  const reply: ArtifactReply = {
+    ...artifactFixtureFeedback.replies[0],
+    id: "reply_human",
+    author: { role: "human", sessionId: null },
+    body: "My reply.",
+    createdAt: "2026-09-12T12:00:00.000Z",
+    sentAt: null,
+  };
+  const updated = withSavedReply(artifactFixture, reply);
+  expect(updated.feedback[0].replies.at(-1)).toEqual(reply);
+  expect(updated.unhandledCount).toBe(0);
+  expect(artifactFixture.feedback[0].replies).toHaveLength(1);
+
+  const other = { ...artifactFixtureFeedback, id: "feedback_other" };
+  const newer = {
+    ...artifactFixtureFeedback,
+    body: "A concurrent edit.",
+    replies: [
+      ...artifactFixtureFeedback.replies,
+      {
+        ...artifactFixtureFeedback.replies[0],
+        id: "reply_newer",
+        createdAt: "2026-09-13T00:00:00.000Z",
+      },
+    ],
+  };
+  const concurrent = withSavedReply({ ...artifactFixture, feedback: [newer, other] }, reply);
+  expect(concurrent.feedback[0].body).toBe("A concurrent edit.");
+  expect(concurrent.feedback[0].replies.map((item) => item.id)).toEqual([
+    "reply_example",
+    "reply_human",
+    "reply_newer",
+  ]);
+  expect(concurrent.unhandledCount).toBe(2);
+  expect(concurrent.feedback[1]).toBe(other);
+
+  const delivered = { ...reply, body: "A newer edit.", sentAt: "2026-09-13T00:00:00.000Z" };
+  const refreshed = { ...updated, feedback: [{ ...updated.feedback[0], replies: [delivered] }] };
+  expect(withSavedReply(refreshed, reply)).toBe(refreshed);
+  const deleted = { ...artifactFixture, feedback: [], unhandledCount: 0 };
+  expect(withSavedReply(deleted, reply)).toBe(deleted);
+});
 
 test("new unsent notes lead the attention queue, followed by waiting and claimed work", () => {
   const base: ArtifactFeedback = {

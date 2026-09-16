@@ -5,6 +5,7 @@ import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
+import { withSavedReply } from "../artifact-feedback.ts";
 import { FeedbackCreationContext, prepareFeedbackMorph } from "../feedback-motion.ts";
 import { Button, cn } from "../ui.tsx";
 import { MessageInput } from "./MessageInput.tsx";
@@ -34,21 +35,30 @@ export function ArtifactComposer({
   const post = useMutation({
     mutationFn: async () => {
       if (!draft?.body.trim() || retiredTarget) return;
-      if (replyTo) await artifactApi.reply(replyTo, { body: draft.body, context: draft.context });
+      if (replyTo) return artifactApi.reply(replyTo, { body: draft.body, context: draft.context });
       else return artifactApi.addFeedback(artifactId, draft.body, draft.target);
     },
-    onSuccess: async (feedback) => {
+    onSuccess: async (saved) => {
       let release: (() => void) | undefined;
-      if (feedback) {
+      if (saved) {
         // Do not let an older in-flight read replace the acknowledged note.
         await qc.cancelQueries({ queryKey: ["artifact", artifactId], exact: true });
-        prepareFeedbackMorph(formElement.current, feedback.id);
+      }
+      if (saved && "feedbackId" in saved) {
         flushSync(() => {
-          release = showCreated?.(feedback);
           qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
-            !current || current.feedback.some((note) => note.id === feedback.id)
+            current ? withSavedReply(current, saved) : current,
+          );
+          artifactDrafts.clear(artifactId, replyTo);
+        });
+      } else if (saved) {
+        prepareFeedbackMorph(formElement.current, saved.id);
+        flushSync(() => {
+          release = showCreated?.(saved);
+          qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
+            !current || current.feedback.some((note) => note.id === saved.id)
               ? current
-              : { ...current, feedback: [...current.feedback, feedback] },
+              : { ...current, feedback: [...current.feedback, saved] },
           );
           artifactDrafts.clear(artifactId);
         });
@@ -57,6 +67,7 @@ export function ArtifactComposer({
       }
       onDone?.();
       void qc.invalidateQueries({ queryKey: ["artifact", artifactId] }).finally(() => release?.());
+      void qc.invalidateQueries({ queryKey: ["artifacts"] });
     },
   });
   const context = draft?.context;
