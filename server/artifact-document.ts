@@ -20,20 +20,23 @@ td,th{padding:8px 12px;border:1px solid #8886;text-align:start}
 hr{border:0;border-top:1px solid #8886;margin-block:32px}
 `;
 
-export const renderArtifactDocument: DocumentRenderer = async (source) => {
-  const [body, palette] = await Promise.all([renderPublishedMarkdown(source), themeStyle()]);
-  const rules = palette.css.split("\n");
-  const light = rules
-    .filter((rule) => rule.startsWith("html:not(.dark)"))
-    .join("\n")
-    .replaceAll("html:not(.dark)", "html");
-  const dark = rules
-    .filter((rule) => rule.startsWith("html.dark"))
-    .join("\n")
-    .replaceAll("html.dark", "html");
-  const syntax = `${light}@media(prefers-color-scheme:dark){${dark}}`;
-  return {
-    revision: DOCUMENT_RENDERER_REVISION,
-    html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${DOCUMENT_CSS}${syntax}</style></head><body><main>${body}</main></body></html>`,
-  };
-};
+export const renderArtifactDocument: DocumentRenderer = Object.assign(
+  async (source: string) => {
+    const [body, palette] = await Promise.all([renderPublishedMarkdown(source), themeStyle()]);
+    const rules = palette.css.split("\n");
+    const light = rules
+      .filter((rule) => rule.startsWith("html:not(.dark)"))
+      .join("\n")
+      .replaceAll("html:not(.dark)", "html");
+    const dark = rules
+      .filter((rule) => rule.startsWith("html.dark"))
+      .join("\n")
+      .replaceAll("html.dark", "html");
+    const syntax = `${light}@media(prefers-color-scheme:dark){${dark}}`;
+    return {
+      revision: DOCUMENT_RENDERER_REVISION,
+      html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${DOCUMENT_CSS}${syntax}</style></head><body><main>${body}</main></body></html>`,
+    };
+  },
+  { revision: DOCUMENT_RENDERER_REVISION },
+);

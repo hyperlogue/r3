@@ -48,10 +48,12 @@ export interface PreparedFile extends StoredBlob {
   rendered: (StoredBlob & { revision: string }) | null;
 }
 
-export type DocumentRenderer = (
-  source: string,
-  path: string,
-) => Promise<{ html: string; revision: string }>;
+export type DocumentRenderer = {
+  (source: string, path: string): Promise<{ html: string; revision: string }>;
+  // Declaring a revision promises deterministic output for source + path.
+  // Unversioned adapters still render normally, without reusable results.
+  readonly revision?: string;
+};
 
 function decodeFile(value: unknown): DecodedFile {
   const file = requireObject(value, "File");
@@ -183,6 +185,7 @@ export async function prepareFiles(
   publication: ValidatedPublication,
   blobs: BlobStore,
   renderDocument: DocumentRenderer,
+  retained?: (hash: string, path: string, revision: string) => StoredBlob | null,
 ): Promise<PreparedFile[]> {
   const prepared: PreparedFile[] = [];
   for (const file of publication.files) {
@@ -198,9 +201,20 @@ export async function prepareFiles(
       } catch {
         throw new ArtifactError("Markdown must contain valid UTF-8");
       }
-      const document = await renderDocument(source, file.path);
-      const revision = requireString(document.revision, "Renderer revision", 200);
-      rendered = { ...(await blobs.put(document.html)), revision };
+      const declared = renderDocument.revision;
+      const cached = declared ? retained?.(stored.hash, file.path, declared) : null;
+      if (cached && declared) {
+        // Publication holds the blob collector. Verify retained bytes before
+        // making another immutable version depend on them.
+        await blobs.read(cached.hash);
+        rendered = { ...cached, revision: declared };
+      } else {
+        const document = await renderDocument(source, file.path);
+        const revision = requireString(document.revision, "Renderer revision", 200);
+        if (declared !== undefined && declared !== revision)
+          throw new Error("Document renderer returned a different revision");
+        rendered = { ...(await blobs.put(document.html)), revision };
+      }
     }
     prepared.push({ path: file.path, mediaType: file.mediaType, ...stored, rendered });
   }

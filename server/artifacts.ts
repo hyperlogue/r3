@@ -445,7 +445,20 @@ export class ArtifactStore {
     const previous = this.retry(id, publication);
     if (previous) return previous;
     this.publicationGate(id, publication);
-    const files = await prepareFiles(publication, this.blobs, this.renderDocument);
+    const files = await prepareFiles(
+      publication,
+      this.blobs,
+      this.renderDocument,
+      (hash, path, revision) =>
+        this.db
+          .query<{ hash: string; byteLength: number }, [string, string, string]>(`
+        SELECT b.hash, b.byte_length AS byteLength FROM version_files f
+        JOIN blobs b ON b.hash = f.rendered_blob_hash
+        JOIN artifact_versions v ON v.artifact_id = f.artifact_id AND v.seq = f.version_seq
+        WHERE f.blob_hash = ? AND f.path = ? AND f.renderer_revision = ?
+          AND v.published_at IS NOT NULL LIMIT 1`)
+          .get(hash, path, revision),
+    );
     return this.db
       .transaction(() => {
         // State and expected sequence may have changed during preparation. A retry

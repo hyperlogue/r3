@@ -151,6 +151,12 @@ palette. Trusted preview support applies explicit text/background colors and ada
 legacy OS-dependent palette rules in memory; retained document bytes stay immutable.
 Authored HTML keeps its own appearance.
 
+Publication reuses a retained Markdown rendering when source digest, path, and
+declared renderer revision match an existing publication. The existing version
+membership is the cache index; no second durable rendering store is needed.
+Reused blobs are verified under the publication's garbage-collection hold.
+An upgraded renderer produces new output only for new publications.
+
 Folding a rendered Markdown file retains its loaded preview in memory, hidden and
 inert, so unfolding reuses the document and measured height without fetching it
 again. Initially folded files still load only when opened. Switching to source,

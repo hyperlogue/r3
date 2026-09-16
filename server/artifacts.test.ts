@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ArtifactActor, PublishArtifactBody } from "../shared/artifacts.ts";
@@ -235,6 +235,62 @@ describe("artifact publications", () => {
     expect(store.get(id).nextSeq).toBe(2);
     const next = await store.publish(id, directory("three", 1, { a: "three" }));
     expect(next.seq).toBe(2);
+  });
+
+  test("declared renderings are reused across publications and reopening, but not revisions or paths", async () => {
+    let calls = 0;
+    const render = Object.assign(
+      async (source: string, path: string) => {
+        calls++;
+        return { html: `<article>${path}: ${source}</article>`, revision: "cached-1" };
+      },
+      { revision: "cached-1" },
+    );
+    store = new ArtifactStore(db, blobs, render, clock);
+    const id = store.create({ kind: "files", actor: human }).id;
+    await store.publish(id, directory("one", 0, { "index.md": "# Same" }));
+    const hash = store.file(id, 1, "index.md").renderedHash;
+    await store.publish(id, directory("two", 1, { "index.md": "# Same", "other.txt": "new" }));
+    expect(calls).toBe(1);
+    expect(store.file(id, 2, "index.md").renderedHash).toBe(hash);
+    db.close();
+    db = new Database(join(root, "test.sqlite"));
+    store = new ArtifactStore(db, blobs, render, clock);
+    await store.publish(id, directory("three", 2, { "index.md": "# Same" }));
+    expect(calls).toBe(1);
+    await store.publish(id, directory("four", 3, { "renamed.md": "# Same" }));
+    expect(calls).toBe(2);
+    expect(store.file(id, 4, "renamed.md").renderedHash).not.toBe(hash);
+    store = new ArtifactStore(
+      db,
+      blobs,
+      Object.assign(
+        async () => ({
+          html: "<h1>Upgraded</h1>",
+          revision: "cached-2",
+        }),
+        { revision: "cached-2" },
+      ),
+      clock,
+    );
+    await store.publish(id, directory("five", 4, { "index.md": "# Same" }));
+    expect(store.file(id, 5, "index.md").renderedHash).not.toBe(hash);
+    expect(store.file(id, 1, "index.md").renderedHash).toBe(hash);
+  });
+
+  test("publication verifies a cached rendering before reusing its blob", async () => {
+    const render = Object.assign(async () => ({ html: "<h1>Kept</h1>", revision: "cached-1" }), {
+      revision: "cached-1",
+    });
+    store = new ArtifactStore(db, blobs, render, clock);
+    const id = store.create({ kind: "files", actor: human }).id;
+    await store.publish(id, directory("one", 0, { "index.md": "# Same" }));
+    const hash = store.file(id, 1, "index.md").renderedHash!;
+    await writeFile(join(root, "blobs", hash.slice(0, 2), hash.slice(2)), "corrupt");
+    await expect(
+      store.publish(id, directory("two", 1, { "index.md": "# Same" })),
+    ).rejects.toThrow();
+    expect(store.versions(id)).toHaveLength(1);
   });
 
   test("concurrent retries return one publication", async () => {
