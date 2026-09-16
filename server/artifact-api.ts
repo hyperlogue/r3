@@ -5,7 +5,7 @@ import { ArtifactCollaboration } from "./artifact-collaboration.ts";
 import { installArtifactConversations } from "./artifact-conversation-api.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
-import { artifactSource } from "./artifact-source.ts";
+import { artifactSourceResponse } from "./artifact-source.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
 import { ArtifactError, requireArtifactPath, requireSequence } from "./artifact-validation.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
@@ -159,15 +159,13 @@ export function createArtifactApi(
     return c.json({ ok: true });
   });
   app.get("/api/artifacts/:id/versions/:seq/source", async (c) =>
-    artifactJsonResponse(
+    artifactSourceResponse(
+      artifacts,
       c.req.raw,
-      await artifactSource(
-        artifacts,
-        c.req.param("id"),
-        artifactSequence(c.req.param("seq")),
-        requireArtifactPath(c.req.query("path")),
-        c.req.query("theme"),
-      ),
+      c.req.param("id"),
+      artifactSequence(c.req.param("seq")),
+      requireArtifactPath(c.req.query("path")),
+      c.req.query("theme"),
     ),
   );
   app.get("/api/artifacts/:id/versions/:seq/resource", (c) =>

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { artifactSource } from "./artifact-source.ts";
+import { artifactSource, artifactSourceResponse } from "./artifact-source.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
 
 let root: string;
@@ -51,6 +51,53 @@ afterEach(async () => {
 });
 
 describe("published source rendering", () => {
+  test("conditional source reads skip blob access while checking membership and theme", async () => {
+    const request = new Request("https://app.example/source");
+    const first = await artifactSourceResponse(
+      storage.artifacts,
+      request,
+      id,
+      1,
+      "notes.md",
+      "github-light",
+    );
+    const conditional = new Request(request, {
+      headers: { "if-none-match": first.headers.get("etag")! },
+    });
+    const original = storage.artifacts.readFile.bind(storage.artifacts);
+    let reads = 0;
+    storage.artifacts.readFile = (...args) => {
+      reads++;
+      return original(...args);
+    };
+    const reused = await artifactSourceResponse(
+      storage.artifacts,
+      conditional,
+      id,
+      1,
+      "notes.md",
+      "github-light",
+    );
+    expect(reused.status).toBe(304);
+    expect(reads).toBe(0);
+    expect(
+      (
+        await artifactSourceResponse(
+          storage.artifacts,
+          conditional,
+          id,
+          1,
+          "notes.md",
+          "github-dark",
+        )
+      ).status,
+    ).toBe(200);
+    expect(reads).toBe(1);
+    storage.artifacts.delete(id);
+    expect(() =>
+      artifactSourceResponse(storage.artifacts, conditional, id, 1, "notes.md", "github-light"),
+    ).toThrow();
+  });
   test("HTML is escaped source with original native line coordinates", async () => {
     const source = await artifactSource(storage.artifacts, id, 1, "page.html");
     expect(source.lines.map((line) => line.lineNo)).toEqual([1, 2]);

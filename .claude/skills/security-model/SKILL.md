@@ -187,7 +187,11 @@ enabling it; re-enabling protection cannot undo data already sent. The sandbox
 continues to deny access to the parent, its credentials/storage, and unrelated
 artifacts. No UI may describe this as disabling all security or safe networking.
 
-Preview documents are not cached. The response inserts the r3 runtime before
+Preview documents use private HTTP caching with mandatory revalidation. Their
+validators cover retained bytes, context, trusted runtime, and response policy;
+context membership and browser verification precede every conditional response.
+A matching validator skips blob reads and HTML rewriting, never authorization.
+Gate challenges remain uncached. The response inserts the r3 runtime before
 publisher scripts without changing original or retained Markdown bytes. An
 injected import map preserves `/r3/utility.js` as a context-scoped import. Native
 resources retain private caching, validators, and ranges, varying by User-Agent

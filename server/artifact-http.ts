@@ -36,23 +36,38 @@ export async function artifactJson(request: Request, limit = 2 * 1024 * 1024) {
 
 // Content-derived validators work for both immutable content and mutable detail.
 // Keep compression off the event loop for large highlighted responses.
-export async function artifactJsonResponse(request: Request, value: unknown): Promise<Response> {
-  let body = new TextEncoder().encode(JSON.stringify(value));
-  const etag = `W/"${createHash("sha256").update(body).digest("hex")}"`;
+export function matchesEntityTag(request: Request, etag: string): boolean {
+  return (
+    request.headers
+      .get("if-none-match")
+      ?.split(",")
+      .some((tag) => {
+        const candidate = tag.trim();
+        return candidate === "*" || candidate.replace(/^W\//, "") === etag.replace(/^W\//, "");
+      }) ?? false
+  );
+}
+
+export async function artifactJsonResponse(
+  request: Request,
+  value: unknown,
+  validator?: string,
+): Promise<Response> {
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "private, no-cache",
-    ETag: etag,
     Vary: "Accept-Encoding",
   });
-  const matches = request.headers
-    .get("if-none-match")
-    ?.split(",")
-    .some((tag) => {
-      const candidate = tag.trim();
-      return candidate === "*" || candidate.replace(/^W\//, "") === etag.slice(2);
-    });
-  if (matches) return new Response(null, { status: 304, headers });
+  if (validator) {
+    headers.set("ETag", validator);
+    if (matchesEntityTag(request, validator)) return new Response(null, { status: 304, headers });
+  }
+  let body = new TextEncoder().encode(
+    JSON.stringify(typeof value === "function" ? await value() : value),
+  );
+  const etag = validator ?? `W/"${createHash("sha256").update(body).digest("hex")}"`;
+  headers.set("ETag", etag);
+  if (matchesEntityTag(request, etag)) return new Response(null, { status: 304, headers });
   const gzip = request.headers
     .get("accept-encoding")
     ?.split(",")

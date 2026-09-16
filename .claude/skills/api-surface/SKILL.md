@@ -79,6 +79,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 All data and streams require authentication. JSON reads use private validators
 and gzip; body readers count actual streamed bytes after authentication, with a
 200 MiB transfer cap for publications and smaller limits for ordinary commands.
+Source validators include version membership, theme, and the source renderer
+revision, allowing a conditional read to skip blob access and highlighting.
 
 The matching command runner is `cli/artifact-commands.ts`; its complete help and
 agent guide are `cli/artifact-help.ts`. The binary dispatches through `cli/artifact-main.ts`. Capture/publication

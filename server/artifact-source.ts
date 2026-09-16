@@ -1,8 +1,29 @@
+import { createHash } from "node:crypto";
 import type { ArtifactSource } from "../shared/artifacts.ts";
+import { artifactJsonResponse } from "./artifact-http.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
 
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+
+// Bump when source serialization or highlighting changes. Theme is in the key.
+const SOURCE_REVISION = "r3-source-1";
+
+export function artifactSourceResponse(
+  store: ArtifactStore,
+  request: Request,
+  id: string,
+  seq: number,
+  path: string,
+  theme?: string,
+): Promise<Response> {
+  // Membership (and route authentication) must precede conditional responses.
+  const file = store.file(id, seq, path);
+  const etag = `W/"${createHash("sha256")
+    .update(JSON.stringify([SOURCE_REVISION, id, seq, file, theme ?? null]))
+    .digest("hex")}"`;
+  return artifactJsonResponse(request, () => artifactSource(store, id, seq, path, theme), etag);
+}
 
 // Highlight published input only. Rendered Markdown/HTML lives in the isolated
 // preview and never arrives as executable markup inside this source response.

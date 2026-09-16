@@ -106,6 +106,8 @@ See [preview security](../../.claude/skills/security-model/SKILL.md#preview-host
 for the enforced policy and scoped authorization.
 
 A passing suite establishes the exercised scenarios, not the absence of defects.
+Source and preview unit tests assert that conditional reads skip blob access and
+that cached document validators cannot bypass membership, verification, or revocation.
 Reproduce new failures with isolated fixtures and extend the relevant check.
 Native iOS touch ergonomics remain the separate device-validation item tracked in
 [the mobile reference](../../.claude/skills/mobile-tier/SKILL.md#owed).

@@ -211,7 +211,7 @@ test("document navigation uses retained Markdown and injects only the r3 runtime
     ),
   ).toBe(html);
   expect(body.indexOf("/r3/runtime.js")).toBeLessThan(body.indexOf("<head>"));
-  expect(document.headers.get("cache-control")).toBe("no-store");
+  expect(document.headers.get("cache-control")).toBe("private, no-cache");
   expect(document.headers.get("content-security-policy")).toContain(
     "frame-ancestors https://app.example",
   );
@@ -244,6 +244,42 @@ test("preview hosting never serves application routes, another version, service 
   expect((await host.fetch(reused)).status).toBe(403);
   host.revoke(context.id);
   expect((await read("/files/index.html")).status).toBe(404);
+});
+
+test("cached HTML and Markdown revalidate without reading blobs and never bypass the gate or revocation", async () => {
+  for (const path of ["index.html", "notes.md"]) {
+    const document = await read(`/files/${path}`, { "sec-fetch-dest": "iframe" });
+    const headers = { "sec-fetch-dest": "iframe", "if-none-match": document.headers.get("etag")! };
+    const original = storage.artifacts.resource;
+    storage.artifacts.resource = () => {
+      throw new Error("Unexpected blob access");
+    };
+    try {
+      const reused = await read(`/files/${path}`, headers);
+      expect(reused.status).toBe(304);
+      expect(await reused.text()).toBe("");
+      expect(reused.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+      expect(reused.headers.get("connection-allowlist")).toContain(context.id);
+      expect(
+        (await read(`/files/${path}`, { ...headers, "user-agent": "Unverified browser" })).status,
+      ).toBe(403);
+      expect(
+        (await read(`/files/${path}`, { ...headers, "sec-fetch-dest": "document" })).status,
+      ).toBe(403);
+    } finally {
+      storage.artifacts.resource = original;
+    }
+  }
+  const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
+  host.revoke(context.id);
+  expect(
+    (
+      await read("/files/index.html", {
+        "sec-fetch-dest": "iframe",
+        "if-none-match": document.headers.get("etag")!,
+      })
+    ).status,
+  ).toBe(404);
 });
 
 test("only retained Markdown receives the workspace appearance adapter", async () => {

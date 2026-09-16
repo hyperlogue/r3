@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { type ArtifactPreviewContext, artifactMediaKind } from "../shared/artifacts.ts";
-import { artifactJson } from "./artifact-http.ts";
+import { artifactJson, matchesEntityTag } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
@@ -186,6 +187,32 @@ export class PreviewHost {
     const document =
       destination === "document" || destination === "iframe" || destination === "frame";
     const html = document && (!!file.renderedHash || file.mediaType.split(";")[0] === "text/html");
+    // A retained document is immutable, but its executable response includes
+    // context-scoped support and policy. Revalidate after authorization, before
+    // reading or rewriting any published bytes.
+    const etag = html
+      ? `W/"${createHash("sha256")
+          .update(
+            JSON.stringify([
+              "r3-preview-1",
+              file.renderedHash ?? file.hash,
+              !!file.renderedHash,
+              scope.id,
+              this.support.runtime(scope),
+              this.support.utility(scope),
+              [...previewPolicy(scope)],
+            ]),
+          )
+          .digest("hex")}"`
+      : null;
+    const documentHeaders = {
+      "cache-control": "private, no-cache",
+      "content-type": "text/html; charset=utf-8",
+      vary: "User-Agent, Sec-Fetch-Dest",
+      etag: etag ?? "",
+    };
+    if (etag && matchesEntityTag(request, etag))
+      return new Response(null, { status: 304, headers: documentHeaders });
     let readRequest = request;
     if (html) {
       const headers = new Headers(request.headers);
@@ -207,8 +234,8 @@ export class PreviewHost {
     }
     // Keep original and retained Markdown bytes unchanged in storage. The
     // response adds trusted support before publisher scripts.
-    response.headers.set("cache-control", "no-store");
-    for (const name of ["etag", "content-length", "accept-ranges"]) response.headers.delete(name);
+    for (const [name, value] of Object.entries(documentHeaders)) response.headers.set(name, value);
+    for (const name of ["content-length", "accept-ranges"]) response.headers.delete(name);
     if (request.method === "HEAD") return response;
     let injected = false;
     // Retain the established utility import without rewriting publisher assets.
