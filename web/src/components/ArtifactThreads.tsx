@@ -51,6 +51,7 @@ import {
 } from "../ui.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
+import { MessageInput } from "./MessageInput.tsx";
 
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactMessageContext) => void;
 export type ArtifactTargetJump = (target: ArtifactTarget, feedbackId?: string) => void;
@@ -153,6 +154,11 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   }, [active]);
   const [replying, setReplying] = useState(false);
   const [editing, setEditing] = useState<{ replyId?: string; body: string } | null>(null);
+  const isEditing = editing !== null;
+  useEffect(() => {
+    if (isEditing)
+      element.current?.querySelector<HTMLTextAreaElement>("[data-edit-message] textarea")?.focus();
+  }, [isEditing]);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
@@ -275,6 +281,41 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       )}
     </div>
   );
+  const editForm = editing && (
+    <form
+      data-edit-message
+      className="-mx-3 flex flex-col gap-2 py-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (editing.body.trim() && !edit.isPending) edit.mutate();
+      }}
+    >
+      <MessageInput
+        aria-label="Edit message"
+        value={editing.body}
+        onChange={(event) => setEditing({ ...editing, body: event.target.value })}
+        disabled={edit.isPending}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            if (!event.repeat) event.currentTarget.form?.requestSubmit();
+          } else if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.blur();
+          }
+        }}
+      />
+      <div className="flex justify-end gap-2 px-3">
+        <Button type="button" disabled={edit.isPending} onClick={() => setEditing(null)}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" disabled={!editing.body.trim() || edit.isPending}>
+          {edit.isPending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
   return (
     <article
       ref={element}
@@ -358,7 +399,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             Agent · {feedback.author.sessionId.slice(0, 20)}
           </div>
         )}
-        <MessageProse source={feedback.body} onJumpRef={(ref) => onJumpRef(ref, originalContext)} />
+        {editing && !editing.replyId ? (
+          editForm
+        ) : (
+          <MessageProse
+            source={feedback.body}
+            onJumpRef={(ref) => onJumpRef(ref, originalContext)}
+          />
+        )}
       </div>
       {feedback.replies.length > 3 && (
         <button
@@ -385,7 +433,11 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               Agent · {reply.author.sessionId.slice(0, 20)}
             </div>
           )}
-          <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
+          {editing?.replyId === reply.id ? (
+            editForm
+          ) : (
+            <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
+          )}
           {reply.target && (
             <button
               type="button"
@@ -406,31 +458,6 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           )}
         </div>
       ))}
-      {editing && (
-        <form
-          className="mt-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            edit.mutate();
-          }}
-        >
-          <textarea
-            aria-label="Edit message"
-            className="min-h-24 w-full border border-neutral-300 bg-transparent p-2 text-sm max-md:text-base dark:border-neutral-700"
-            value={editing.body}
-            onChange={(event) => setEditing({ ...editing, body: event.target.value })}
-            disabled={edit.isPending}
-          />
-          <div className="mt-1 flex justify-end gap-2">
-            <Button type="button" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!editing.body.trim() || edit.isPending}>
-              Save
-            </Button>
-          </div>
-        </form>
-      )}
       {error && (
         <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
           {error.message}

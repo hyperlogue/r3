@@ -5,9 +5,9 @@ import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
-import { useAutoGrow } from "../autogrow.ts";
 import { FeedbackCreationContext, prepareFeedbackMorph } from "../feedback-motion.ts";
 import { Button, cn } from "../ui.tsx";
+import { MessageInput } from "./MessageInput.tsx";
 
 // Draft subscription and mutation live with the textarea. Typing does not
 // subscribe the conversation list or the content pane to every character.
@@ -28,9 +28,7 @@ export function ArtifactComposer({
   const retiredTarget =
     !replyTo &&
     (draft?.target.kind === "version_summary" || draft?.target.kind === "artifact_summary");
-  const textarea = useRef<HTMLTextAreaElement>(null);
   const formElement = useRef<HTMLFormElement>(null);
-  const ref = useAutoGrow(textarea, draft?.body ?? "", 3, 12);
   const qc = useQueryClient();
   const showCreated = useContext(FeedbackCreationContext);
   const post = useMutation({
@@ -127,8 +125,7 @@ export function ArtifactComposer({
             {draft.target.locator.quote}
           </blockquote>
         )}
-      <textarea
-        ref={ref}
+      <MessageInput
         aria-label={replyTo ? "Reply" : "Feedback"}
         placeholder={replyTo ? "Write a reply…" : "Write feedback…"}
         disabled={post.isPending}
@@ -149,7 +146,6 @@ export function ArtifactComposer({
             } else event.currentTarget.blur();
           }
         }}
-        className="w-full resize-none border-y border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
       {post.error && (
         <p role="alert" className="text-xs text-red-600 dark:text-red-400">

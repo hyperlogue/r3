@@ -19,6 +19,51 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Examples: Story = {};
 export const Dark: Story = { globals: { theme: "dark" } };
+export const EditReply: Story = {
+  play: async ({ canvasElement }) => {
+    const sample = canvasElement.querySelector('[data-card-example="followup"]')! as HTMLElement;
+    const card = within(sample);
+    const body = "Yes, and keep its label visible when there is enough room.";
+    const updated = "Keep the version label visible on wider screens.";
+    const openEdit = async () => {
+      await userEvent.click(card.getByRole("button", { name: "More actions" }));
+      await userEvent.click(card.getByRole("button", { name: "Edit" }));
+      return card.getByRole("textbox", { name: "Edit message" });
+    };
+    const editor = await openEdit();
+    await expect(editor).toHaveValue(body);
+    await expect(card.queryByText(body, { selector: "p" })).toBeNull();
+    await expect(card.getByText("I can add a short version badge beside the title.")).toBeVisible();
+    await userEvent.clear(editor);
+    await userEvent.type(editor, updated);
+    await userEvent.click(card.getByRole("button", { name: "Cancel" }));
+    await expect(card.getByText(body, { selector: "p" })).toBeVisible();
+    const reopened = await openEdit();
+    await expect(reopened).toHaveValue(body);
+    await userEvent.clear(reopened);
+    await expect(card.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.type(reopened, updated);
+    await userEvent.keyboard("{Control>}{Enter}{/Control}");
+    await waitFor(() => expect(card.queryByRole("textbox")).toBeNull());
+    await expect(card.getByText(updated, { selector: "p" })).toBeVisible();
+    await expect(card.queryByText(body, { selector: "p" })).toBeNull();
+    await expect(sample.querySelectorAll('[data-message-author="human"]')).toHaveLength(2);
+  },
+};
+export const EditReplyDark: Story = { ...EditReply, globals: { theme: "dark" } };
+export const EditOriginalMessage: Story = {
+  play: async ({ canvasElement }) => {
+    const sample = canvasElement.querySelector('[data-card-example="rendered"]')! as HTMLElement;
+    const card = within(sample);
+    const body = card.getByText(/^This explanation repeats/).textContent!;
+    await userEvent.click(card.getByRole("button", { name: "More actions" }));
+    await userEvent.click(card.getByRole("button", { name: "Edit" }));
+    await expect(card.getByRole("textbox", { name: "Edit message" })).toHaveValue(body);
+    await expect(card.queryByText(body, { selector: "p" })).toBeNull();
+    await userEvent.click(card.getByRole("button", { name: "Cancel" }));
+    await expect(card.getByText(body, { selector: "p" })).toBeVisible();
+  },
+};
 export const CardLabels: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
