@@ -48,6 +48,7 @@ import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
 import { useIsMobile } from "../mobile/useIsMobile.ts";
 import { usePointerCoarse } from "../mobile/usePointerCoarse.ts";
+import { previewSessions } from "../preview-sessions.ts";
 import {
   ProgressiveFile,
   ProgressiveFileProvider,
@@ -104,6 +105,9 @@ export function ArtifactView({
   }, [artifactId, query.data?.title]);
   const unavailable =
     query.error instanceof ArtifactApiError && [401, 403, 404, 410].includes(query.error.status);
+  useEffect(() => {
+    if (unavailable) previewSessions.forget(artifactId);
+  }, [unavailable, artifactId]);
   if (query.error && (!query.data || unavailable))
     return (
       <>

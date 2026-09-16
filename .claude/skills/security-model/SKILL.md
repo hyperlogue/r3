@@ -122,13 +122,22 @@ There is no generic upstream proxy or unknown-path document fallback.
 Authenticated preview creation accepts `network: "blocked" | "compatible" | "external"`, defaulting
 to `blocked`. The server rejects `external` for every kind except `html`, including
 HTML documents inside a `files` artifact. Policy is immutable within a context;
-renewal only extends expiry. Switching policy requires a new context and revocation
-of the preceding one. No artifact metadata, publication, or publisher script can
+renewal only extends expiry. Switching policy requires a different context; an
+external context is revoked when released. No artifact metadata, publication, or publisher script can
 change the browser's choice. The trusted workspace asks for confirmation before
 external access, keeps an indicator visible, and resets that grant on version change
 or leaving the preview. It does not persist external-resource or device grants. Reload/tab close starts the
 next visit protected, but does not guarantee React cleanup or server revocation;
 an abandoned URL capability can remain valid until expiry.
+
+The workspace retains up to 16 inactive protected document context identities in
+tab-scoped sessionStorage, excluding external contexts, device grants, and document
+bytes. Mounted contexts are not evicted. Reopening authenticates a renewal and
+runs the iframe gate again before mounting published content; only a missing or
+expired context permits recreation. This preserves URLs for HTTP revalidation
+across view switches and refreshes. Deletion removes saved handles and revokes
+their contexts; an unavailable artifact also clears its handles when revisited.
+Inactive retained capabilities expire normally. Media contexts are released normally.
 
 Compatibility mode retains all blocked-mode response headers, including CSP and
 Connection Allowlist where implemented, but skips proof of network enforcement.

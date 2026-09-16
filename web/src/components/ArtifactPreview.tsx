@@ -23,6 +23,7 @@ import {
   previewCompatibility,
   useCompatibilityConsent,
 } from "../preview-protection.ts";
+import { previewSessions } from "../preview-sessions.ts";
 import { previewThemePreference } from "../preview-theme.ts";
 import { observePreviewViewport } from "../preview-viewport.ts";
 import { Button, cn } from "../ui.tsx";
@@ -254,12 +255,12 @@ function PreviewSession(
         }
       }
     };
-    void artifactApi
-      .createPreview(id, seq, initialPath, network)
+    void previewSessions
+      .acquire(id, seq, initialPath, network)
       .then((value) => {
         grant = value;
         if (closed) {
-          void artifactApi.revokePreview(value.id).catch(() => {});
+          previewSessions.release(value);
           return;
         }
         setContext(value);
@@ -282,7 +283,7 @@ function PreviewSession(
       closed = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", resume);
-      if (grant) void artifactApi.revokePreview(grant.id).catch(() => {});
+      if (grant) previewSessions.release(grant);
     };
   }, [id, seq, initialPath, network, capture]);
 

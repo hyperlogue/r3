@@ -1,0 +1,207 @@
+import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createArtifactApi } from "../server/artifact-api.ts";
+import { openArtifactStorage } from "../server/artifact-storage.ts";
+import { PREVIEW_PREFIX } from "../server/preview-contexts.ts";
+import { PreviewHost } from "../server/preview-host.ts";
+import { previewSupport } from "../server/preview-support.ts";
+import { browserLoweredCssPlugin } from "./spa-css.ts";
+
+// All bytes, browser state, and servers belong to this isolated acceptance run.
+const playwright = await import(process.env.R3_TEST_PLAYWRIGHT!);
+const engine = process.env.R3_TEST_ENGINE ?? "chromium";
+const build = await Bun.build({
+  entrypoints: [join(import.meta.dir, "preview-workspace-fixture.tsx")],
+  target: "browser",
+  minify: true,
+  define: { "process.env.NODE_ENV": '"production"' },
+  plugins: [await browserLoweredCssPlugin()],
+});
+if (!build.success) throw new Error("Cache fixture build failed");
+const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
+const js = [...assets.keys()].find((path) => path.endsWith(".js"))!;
+const css = [...assets.keys()].find((path) => path.endsWith(".css"));
+const root = await mkdtemp(join(tmpdir(), "r3-cache-acceptance-"));
+const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+const actor = { role: "human" as const, sessionId: null };
+const files = storage.artifacts.create({ kind: "files", actor, title: "Cache files" });
+const html = storage.artifacts.create({ kind: "html", actor, title: "Cache HTML" });
+for (let seq = 1; seq <= 2; seq++) {
+  for (const artifact of [files, html]) {
+    const markdown = artifact.kind === "files";
+    await storage.artifacts.publish(artifact.id, {
+      actor,
+      expectedSeq: seq - 1,
+      publicationKey: `version-${seq}`,
+      content: {
+        kind: artifact.kind,
+        files: [
+          {
+            path: markdown ? "index.md" : "index.html",
+            mediaType: markdown ? "text/markdown" : "text/html",
+            base64: Buffer.from(
+              markdown
+                ? `# Cache document ${seq}\n\n${Array.from({ length: 80 }, (_, i) => `## Section ${i + 1}\n\nPublished paragraph ${i + 1}.\n`).join("\n")}`
+                : `<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Cache HTML ${seq}</h1>${"<p>Published paragraph</p>".repeat(120)}<script>window.publisherStarted = true</script></body></html>`,
+            ).toString("base64"),
+          },
+          ...(!markdown
+            ? [
+                {
+                  path: "style.css",
+                  mediaType: "text/css",
+                  base64: Buffer.from("body{font:18px sans-serif}p{margin:40px}").toString(
+                    "base64",
+                  ),
+                },
+              ]
+            : []),
+        ],
+      },
+    });
+  }
+}
+const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const api = createArtifactApi(
+  storage,
+  {
+    token: randomBytes(32).toString("base64url"),
+    requireLogin: false,
+    version: "cache-acceptance",
+    allowedHost: (host) => host === "localhost",
+  },
+  { previews: preview },
+);
+const documents: { path: string; status: number }[] = [];
+const sources: number[] = [];
+let creations = 0;
+let gates = 0;
+const app = Bun.serve({
+  hostname: "127.0.0.1",
+  port: 0,
+  idleTimeout: 0,
+  async fetch(request) {
+    const path = new URL(request.url).pathname;
+    if (path.startsWith(PREVIEW_PREFIX)) {
+      const response = await preview.fetch(request);
+      if (path.endsWith("/r3/gate")) gates++;
+      if (
+        path.includes("/files/") &&
+        ["iframe", "frame"].includes(request.headers.get("sec-fetch-dest") ?? "")
+      )
+        documents.push({ path, status: response.status });
+      return response;
+    }
+    if (path.startsWith("/api/")) {
+      if (path.endsWith("/previews") && request.method === "POST") creations++;
+      const response = await api.app.fetch(request);
+      if (path.endsWith("/source")) sources.push(response.status);
+      return response;
+    }
+    const asset = assets.get(path.slice(1));
+    if (asset) return new Response(asset);
+    return new Response(
+      `<!doctype html><html><head>${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  },
+});
+const browser = await playwright[engine].launch({
+  headless: true,
+  executablePath: process.env.R3_TEST_BROWSER,
+  ...(engine === "chromium" ? { args: ["--no-sandbox", "--disable-dev-shm-usage"] } : {}),
+});
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const base = `http://localhost:${app.port}`;
+  let step = 0;
+  const ready = async () => {
+    step++;
+    try {
+      await page.locator('iframe[aria-hidden="false"]').waitFor({ timeout: 20000 });
+    } catch {
+      throw new Error(`Preview step ${step} failed: ${await page.locator("body").innerText()}`);
+    }
+  };
+  await page.goto(`${base}/${files.id}?version=1&file=index.md&view=rendered`);
+  if (process.env.R3_TEST_UNSUPPORTED === "1")
+    await page.getByRole("button", { name: "Accept risk and continue" }).click();
+  await ready();
+  const firstPath = documents.at(-1)!.path;
+  assert.equal(documents.at(-1)!.status, 200);
+  const card = page.locator('[data-file="index.md"]');
+  await card.getByRole("button", { name: "Source", exact: true }).click();
+  await page.locator('[data-file="index.md"] [data-line="1"]').waitFor();
+  await card.getByRole("button", { name: "Rendered", exact: true }).click();
+  await ready();
+  assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
+  const beforeRefresh = creations;
+  const beforeGate = gates;
+  await page.reload();
+  await ready();
+  assert.equal(creations, beforeRefresh, "refresh must renew protected context URLs");
+  assert.ok(gates > beforeGate, "refresh must still run the browser gate");
+  assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
+  await card.getByRole("button", { name: "Source", exact: true }).click();
+  await page.locator('[data-file="index.md"] [data-line="1"]').waitFor();
+  assert.equal(sources.at(-1), 304, "source link revisits reuse the HTTP response");
+  await card.getByRole("button", { name: "Rendered", exact: true }).click();
+  await ready();
+  const version = async (seq: number) => {
+    await page.getByRole("button", { name: "Published version", exact: true }).click();
+    await page.getByRole("option", { name: `Version ${seq}`, exact: true }).click();
+    await ready();
+    await page
+      .frameLocator('iframe[aria-hidden="false"]')
+      .getByRole("heading", { name: new RegExp(` ${seq}$`), level: 1 })
+      .waitFor();
+  };
+  await version(2);
+  await version(1);
+  assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
+  console.log(
+    `${engine}: Markdown refresh, source toggles, historical visits reuse validated responses`,
+  );
+
+  await page.goto(`${base}/${html.id}?version=1`);
+  await ready();
+  const htmlPath = documents.at(-1)!.path;
+  await page.reload();
+  await ready();
+  assert.deepEqual(documents.at(-1), { path: htmlPath, status: 304 });
+  await version(2);
+  await version(1);
+  assert.deepEqual(documents.at(-1), { path: htmlPath, status: 304 });
+  assert.equal(
+    await page
+      .frameLocator('iframe[aria-hidden="false"]')
+      .locator("body")
+      .evaluate(() => globalThis.origin),
+    "null",
+  );
+  storage.artifacts.delete(html.id);
+  preview.revokeArtifact(html.id);
+  api.collaboration.deleted(html.id);
+  await page.getByRole("alert").waitFor();
+  assert.equal(await page.locator("iframe").count(), 0);
+  assert.equal(
+    await page.evaluate(
+      (id: string) => (sessionStorage.getItem("r3-preview-sessions-1") ?? "").includes(id),
+      html.id,
+    ),
+    false,
+  );
+  console.log(
+    `${engine}: HTML refresh/version cache hits retain opaque isolation; deletion removes preview handles`,
+  );
+} finally {
+  await browser.close();
+  app.stop(true);
+  api.close();
+  preview.close();
+  storage.close();
+  await rm(root, { recursive: true, force: true });
+}

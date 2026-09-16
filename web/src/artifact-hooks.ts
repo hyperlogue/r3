@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { artifactApi, artifactEventStream } from "./artifact-api.ts";
+import { previewSessions } from "./preview-sessions.ts";
 
 export function useArtifactEvents(): boolean {
   const queryClient = useQueryClient();
@@ -31,6 +32,11 @@ export function useArtifactEvents(): boolean {
               for (const key of ["artifacts", "artifact", "artifact-watchers", "artifact-projects"])
                 void queryClient.invalidateQueries({ queryKey: [key] });
             } else {
+              if (event.type === "artifact-deleted") {
+                previewSessions.forget(event.artifactId);
+                for (const key of ["artifact-files", "artifact-source", "artifact-diff"])
+                  queryClient.removeQueries({ queryKey: [key, event.artifactId] });
+              }
               void queryClient.invalidateQueries({ queryKey: ["artifacts"] });
               void queryClient.invalidateQueries({ queryKey: ["artifact", event.artifactId] });
               if (event.type === "presence-changed" || event.type === "lifecycle")

@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureVersion } from "../artifact-fixtures.ts";
+import { previewSessions } from "../preview-sessions.ts";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreview } from "./ArtifactPreview.tsx";
 import {
@@ -44,6 +45,7 @@ const meta = {
     ],
   },
   beforeEach: () => {
+    previewSessions.forget(artifactFixture.id);
     const original = artifactApi.createPreview;
     artifactApi.createPreview = async () => {
       throw new Error("Rendered previews are not configured on this server");
@@ -56,6 +58,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Unavailable: Story = {};
+export const RetryUnavailable: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("Rendered previews are not configured on this server"),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Retry preview" }));
+    await expect(
+      await canvas.findByText("Rendered previews are not configured on this server"),
+    ).toBeVisible();
+  },
+};
 // Presentation only; the real sandbox and browser gate run in acceptance tests.
 export const VerificationFailure: Story = {
   beforeEach: () => {

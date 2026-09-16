@@ -163,6 +163,18 @@ again. Initially folded files still load only when opened. Switching to source,
 changing versions, leaving the artifact, or offscreen eviction in a large file
 stack releases the preview normally; this is not a persistent document cache.
 
+Source responses and rendered documents use private HTTP caching with mandatory
+revalidation. Matching validators skip source highlighting or document rewriting
+and blob reads, after membership and access checks. Immutable companion resources
+keep long-lived private HTTP caching. The browser controls cache size and eviction.
+Only normally requested resources are cached; there is no prefetch or offline reader.
+
+Protected document context identities are retained per tab so reopened previews
+can reuse their URLs. Every reopening authenticates renewal and repeats the gate;
+external-access and device grants never persist. Deletion clears app content state
+and context identities when detected, but physical HTTP-cache eviction belongs to
+the browser. See the security reference for expiry and retention bounds.
+
 Workspace containers follow the layer rules in `AGENTS.md`. Menus and notices use
 compact elevation; floating conversations/composers and dialogs use broader shadows.
 Shared overlay tokens provide strong border contrast and rim lighting in both themes.
