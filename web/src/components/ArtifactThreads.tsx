@@ -171,9 +171,13 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const openReply = () => {
     artifactDrafts.beginReply(feedback.artifactId, feedback.id, context);
     setReplying(true);
-    requestAnimationFrame(() =>
-      element.current?.querySelector<HTMLTextAreaElement>("[data-reply-to] textarea")?.focus(),
-    );
+    requestAnimationFrame(() => {
+      const input = element.current?.querySelector<HTMLTextAreaElement>("[data-reply-to] textarea");
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.scrollTop = input.scrollHeight;
+    });
   };
   const bubble = useQuoteBubble(element, (range) => {
     const node = range.commonAncestorContainer;
@@ -503,13 +507,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           onQuote={(text) => {
             openReply();
             const draft = artifactDrafts.get(feedback.artifactId, feedback.id);
+            const body = draft?.body ?? "";
             artifactDrafts.update(
               feedback.artifactId,
               {
-                body: `${draft?.body ?? ""}\n\n${text
+                body: `${body.trim() ? `${body}\n\n` : ""}${text
                   .split("\n")
                   .map((line) => `> ${line}`)
-                  .join("\n")}\n`,
+                  .join("\n")}\n\n`,
               },
               feedback.id,
             );

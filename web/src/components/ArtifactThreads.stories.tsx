@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import type { ArtifactFeedback, ArtifactReply } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
@@ -38,6 +38,47 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const QuoteInReply: Story = {
+  beforeEach: () => {
+    artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);
+    return () => artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const message = canvasElement.querySelector('[data-message-author="agent"] .r3-msg')!;
+    const quote = async (prefix: string) => {
+      const selection = window.getSelection()!;
+      const range = document.createRange();
+      range.selectNodeContents(message);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const quoted = selection
+        .toString()
+        .split("\n")
+        .map((line) => `> ${line}`)
+        .join("\n");
+      fireEvent.mouseUp(message);
+      await userEvent.click(
+        await within(document.body).findByRole("button", { name: "Quote in reply" }),
+      );
+      const input = canvas.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement;
+      const expected = `${prefix}${quoted}\n\n`;
+      await expect(input).toHaveValue(expected);
+      await waitFor(() => {
+        expect(input).toHaveFocus();
+        expect(input.selectionStart).toBe(expected.length);
+        expect(input.selectionEnd).toBe(expected.length);
+      });
+      return input;
+    };
+    const input = await quote("");
+    const firstQuote = input.value;
+    await userEvent.keyboard("My response.");
+    await expect(input).toHaveValue(`${firstQuote}My response.`);
+    await quote(`${firstQuote}My response.\n\n`);
+  },
+};
+export const QuoteInReplyDark: Story = { ...QuoteInReply, globals: { theme: "dark" } };
 export const LatestLabelsFollowPublication: Story = {
   render: (args) => {
     const [detail, setDetail] = useState(args.detail);
