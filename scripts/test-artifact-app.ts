@@ -124,13 +124,30 @@ try {
     "compiled artifact home",
   );
   await page.command("Page.navigate", { url: `${url}/review_imported` });
-  await eventually(
-    () =>
-      page.evaluate(
-        "document.body?.textContent.includes('Retained legacy content') && document.body?.textContent.includes('Retained human note') && document.body?.textContent.includes('Retained agent reply')",
-      ),
-    "preserved review URL and migrated conversation",
-  );
+  await eventually(async () => {
+    if (
+      !(await page.evaluate(
+        "document.body?.textContent.includes('Retained human note') && document.body?.textContent.includes('Retained agent reply')",
+      ))
+    )
+      return false;
+    // Markdown opens rendered: retained bytes live in the opaque frame, while
+    // the migrated conversation belongs to the parent workspace.
+    for (const context of page.contexts.values()) {
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
+      try {
+        if (
+          await page
+            .inContext(context.id)
+            .evaluate("document.body?.textContent.includes('Retained legacy content')")
+        )
+          return true;
+      } catch {
+        /* The gate can be replaced while its document is opening. */
+      }
+    }
+    return false;
+  }, "preserved review URL, rendered Markdown, and migrated conversation");
   const imported = JSON.parse(await command(["show", "review_imported", "--json"]));
   assert.deepEqual(
     imported.versions.map((version: { seq: number }) => version.seq),
