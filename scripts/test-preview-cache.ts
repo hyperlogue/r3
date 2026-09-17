@@ -48,6 +48,22 @@ for (let seq = 1; seq <= 2; seq++) {
                 : `<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Cache HTML ${seq}</h1>${"<p>Published paragraph</p>".repeat(120)}<script>window.publisherStarted = true</script></body></html>`,
             ).toString("base64"),
           },
+          ...(markdown
+            ? [
+                ...Array.from({ length: 5 }, (_, index) => ({
+                  path: `page-${index + 1}.md`,
+                  mediaType: "text/markdown",
+                  base64: Buffer.from(
+                    `# Additional document ${index + 1}\n\n${"Published paragraph.\n\n".repeat(80)}`,
+                  ).toString("base64"),
+                })),
+                {
+                  path: "r3-guide.txt",
+                  mediaType: "text/plain",
+                  base64: Buffer.from("Published command help\n".repeat(40)).toString("base64"),
+                },
+              ]
+            : []),
           ...(!markdown
             ? [
                 {
@@ -123,7 +139,7 @@ try {
   const ready = async () => {
     step++;
     try {
-      await page.locator('iframe[aria-hidden="false"]').waitFor({ timeout: 20000 });
+      await page.locator('iframe[aria-hidden="false"]').first().waitFor({ timeout: 20000 });
     } catch {
       throw new Error(`Preview step ${step} failed: ${await page.locator("body").innerText()}`);
     }
@@ -132,30 +148,58 @@ try {
   if (process.env.R3_TEST_UNSUPPORTED === "1")
     await page.getByRole("button", { name: "Accept risk and continue" }).click();
   await ready();
+  assert.equal(
+    creations,
+    process.env.R3_TEST_UNSUPPORTED === "1" ? 2 : 1,
+    "opening one document must not initialize offscreen Markdown previews",
+  );
   const firstPath = documents.at(-1)!.path;
   assert.equal(documents.at(-1)!.status, 200);
   assert.equal(runtimes.at(-1), 200);
   const card = page.locator('[data-file="index.md"]');
-  const paneAt = (y: number) =>
-    page.waitForFunction(
-      (target: number) =>
-        Math.abs(document.querySelector("[data-artifact-content]")!.scrollTop - target) < 2,
-      y,
-    );
-  const savedAt = (y: number) =>
-    page.waitForFunction(
-      (target: number) =>
-        JSON.parse(sessionStorage.getItem("r3-reading-positions-1") ?? "[]").some(
-          (entry: [string, { y: number }]) => entry[1].y === target,
-        ),
-      y,
-    );
+  const paneAt = async (y: number) => {
+    try {
+      await page.waitForFunction(
+        (target: number) =>
+          Math.abs((document.querySelector("[data-artifact-content]")?.scrollTop ?? -1) - target) <
+          2,
+        y,
+        { timeout: 10000 },
+      );
+    } catch {
+      const actual = await page
+        .locator("[data-artifact-content]")
+        .evaluate((pane: HTMLElement) => pane.scrollTop);
+      throw new Error(`Reading offset ${y} was not restored (actual ${actual})`);
+    }
+  };
+  const savedAt = async (y: number, path = "index.md", view = "rendered") => {
+    const url = new URL(page.url());
+    const key = JSON.stringify([
+      url.pathname.slice(1),
+      Number(url.searchParams.get("version")),
+      path,
+      view,
+    ]);
+    try {
+      await page.waitForFunction(
+        ({ target, key }: { target: number; key: string }) =>
+          JSON.parse(sessionStorage.getItem("r3-reading-positions-1") ?? "[]").some(
+            (entry: [string, { y: number }]) => entry[0] === key && entry[1].y === target,
+          ),
+        { target: y, key },
+        { timeout: 10000 },
+      );
+    } catch {
+      throw new Error(`Reading offset ${y} was not persisted`);
+    }
+  };
   await page
     .locator("[data-artifact-content]")
     .evaluate((pane: HTMLElement) => pane.scrollTo(0, 1500));
   await savedAt(1500);
   await card.getByRole("button", { name: "Source", exact: true }).click();
-  await page.locator('[data-file="index.md"] [data-line="1"]').waitFor();
+  await card.locator("[data-line]").first().waitFor({ state: "attached" });
   await card.getByRole("button", { name: "Rendered", exact: true }).click();
   await ready();
   await paneAt(1500);
@@ -175,7 +219,7 @@ try {
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
   assert.equal(runtimes.at(-1), 304, "page refresh retains the runtime response");
   await card.getByRole("button", { name: "Source", exact: true }).click();
-  await page.locator('[data-file="index.md"] [data-line="1"]').waitFor();
+  await card.locator("[data-line]").first().waitFor({ state: "attached" });
   assert.equal(sources.at(-1), 304, "source link revisits reuse the HTTP response");
   await card.getByRole("button", { name: "Rendered", exact: true }).click();
   await ready();
@@ -197,12 +241,60 @@ try {
     `${engine}: Markdown refresh, source toggles, historical visits reuse validated responses`,
   );
 
+  const firstFrame = await card.locator("iframe").elementHandle();
+  await page.locator('button[title="page-5.md"]').click();
+  const lastCard = page.locator('[data-file="page-5.md"]');
+  await lastCard.locator('iframe[aria-hidden="false"]').waitFor();
+  assert.equal(await firstFrame!.evaluate((frame: HTMLElement) => frame.isConnected), true);
+  await page.locator('button[title="index.md"]').click();
+  await paneAt(0);
+  await page.locator('button[title="page-5.md"]').click();
+  const beforeFold = documents.length;
+  const lastFrame = await lastCard.locator("iframe").elementHandle();
+  await lastCard.getByTitle("Collapse", { exact: true }).click();
+  await lastCard.getByTitle("Expand", { exact: true }).click();
+  assert.equal(await lastFrame!.evaluate((frame: HTMLElement) => frame.isConnected), true);
+  assert.equal(documents.length, beforeFold, "folding keeps the loaded Markdown frame");
+  await page.locator('button[title="page-1.md"]').click();
+  await page.locator('[data-file="page-1.md"] iframe[aria-hidden="false"]').waitFor();
+  const laterPosition = await page.evaluate(async () => {
+    const pane = document.querySelector<HTMLElement>("[data-artifact-content]")!;
+    const file = document.querySelector('[data-file="page-1.md"]')!;
+    // A retained iframe is already ready while the explicit file jump still
+    // aligns its header. Start reading only after that alignment has settled.
+    const toolbar =
+      Number.parseFloat(getComputedStyle(pane).getPropertyValue("--pane-sticky-h")) || 0;
+    const deadline = performance.now() + 10000;
+    let stable = 0;
+    while (stable < 6) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const aligned =
+        Math.abs(file.getBoundingClientRect().top - pane.getBoundingClientRect().top - toolbar) < 2;
+      stable = aligned ? stable + 1 : 0;
+      if (performance.now() > deadline) throw new Error("Later file jump did not settle");
+    }
+    const top = Math.round(
+      pane.scrollTop + file.getBoundingClientRect().top - pane.getBoundingClientRect().top + 500,
+    );
+    pane.scrollTo(0, top);
+    return top;
+  });
+  await savedAt(laterPosition, "page-1.md");
+  await page.reload();
+  await paneAt(laterPosition);
+  assert.equal(
+    await page.locator('iframe[aria-hidden="false"]').count(),
+    2,
+    "restoring a later offset hydrates only its required document prefix",
+  );
+  console.log(`${engine}: deferred file jumps and folding retain measured Markdown frames`);
+
   await page.goto(`${base}/${html.id}?version=1`);
   await ready();
   const htmlPath = documents.at(-1)!.path;
   const frame = () => page.frames().find((frame: any) => frame.url().includes("/files/"))!;
   await frame().evaluate(() => scrollTo(0, 900));
-  await savedAt(900);
+  await savedAt(900, "index.html", "rendered:#");
   await page.reload();
   await ready();
   await frame().waitForFunction(() => Math.abs(scrollY - 900) < 2);

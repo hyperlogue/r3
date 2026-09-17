@@ -45,7 +45,15 @@ function DemoFile({
   );
 }
 
-function ProgressiveDemo({ count, reserve }: { count: number; reserve: boolean }) {
+function ProgressiveDemo({
+  count,
+  reserve,
+  retain = false,
+}: {
+  count: number;
+  reserve: boolean;
+  retain?: boolean;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const progressive = useProgressiveFileController();
   const [mounted, setMounted] = useState(0);
@@ -95,7 +103,12 @@ function ProgressiveDemo({ count, reserve }: { count: number; reserve: boolean }
         ref={scrollRef}
         className="shiki-surface h-[480px] overflow-y-auto rounded-lg border border-neutral-300 dark:border-neutral-700"
       >
-        <ProgressiveFileProvider scrollRef={scrollRef} registry={progressive.registry} enabled>
+        <ProgressiveFileProvider
+          scrollRef={scrollRef}
+          registry={progressive.registry}
+          enabled
+          preloadMargin={retain ? 0 : undefined}
+        >
           {Array.from({ length: count }, (_, index) => {
             const path = `src/file-${String(index + 1).padStart(3, "0")}.ts`;
             const spec: ReserveSpec = { folded: false, rows: rowsFor(index) };
@@ -105,6 +118,8 @@ function ProgressiveDemo({ count, reserve }: { count: number; reserve: boolean }
                 path={path}
                 version="1:github"
                 reserve={reserve ? spec : null}
+                retain={retain}
+                initialHeight={retain ? "100dvh" : undefined}
               >
                 {(state) => <DemoFile index={index} {...state} />}
               </ProgressiveFile>
@@ -133,6 +148,7 @@ type Story = StoryObj<typeof meta>;
 // Watch `scrollHeight` in the HUD: with a reserve it is the real total from the
 // first frame and holds still while you scroll.
 export const LargeReview: Story = {};
+export const RetainVisitedFiles: Story = { args: { count: 6, reserve: false, retain: true } };
 
 // The same review with no ReserveSpec — the flat INITIAL_HEIGHT fallback. The
 // HUD's scrollHeight starts far off and climbs with every body that lands, which

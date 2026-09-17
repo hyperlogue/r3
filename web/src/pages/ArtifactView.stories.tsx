@@ -237,6 +237,7 @@ export const MarkdownFoldRetainsPreview: Story = {
   ...Rendered,
   play: async ({ canvasElement }) => {
     const card = canvasElement.querySelector<HTMLElement>('[data-file="index.md"]')!;
+    await waitFor(() => expect(card.querySelector("[data-preview-fixture]")).not.toBeNull());
     const preview = card.querySelector("[data-preview-fixture]")!;
     await userEvent.click(within(card).getByTitle("Collapse"));
     await expect(card.querySelector("[data-preview-fixture]")).toBe(preview);
@@ -290,6 +291,45 @@ export const LongRenderedMarkdown: Story = {
 export const LongRenderedMarkdownDark: Story = {
   ...LongRenderedMarkdown,
   globals: { theme: "dark" },
+};
+export const DeferredMarkdownFiles: Story = {
+  args: {
+    initialSearch: "?version=1&file=index.md&view=rendered",
+    renderPreview: ({ path }) => (
+      <article data-deferred-preview className="h-[2400px] bg-white p-8 dark:bg-neutral-950">
+        <h1 className="text-2xl font-semibold">{path}</h1>
+        <p>Only visible files start rendering. Loaded Markdown stays mounted as you read.</p>
+      </article>
+    ),
+  },
+  parameters: {
+    queryData: [
+      ...queryData,
+      [
+        ["artifact-files", detail.id, 1],
+        Array.from({ length: 6 }, (_, index) => ({
+          ...files[0],
+          path: index === 0 ? "index.md" : `page-${index}.md`,
+        })),
+      ],
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() =>
+      expect(canvasElement.querySelectorAll("[data-deferred-preview]")).toHaveLength(1),
+    );
+    const first = canvasElement.querySelector("[data-deferred-preview]")!;
+    await userEvent.click(canvas.getByTitle("page-5.md", { exact: true }));
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector('[data-file="page-5.md"] [data-deferred-preview]'),
+      ).not.toBeNull(),
+    );
+    await expect(first.isConnected).toBe(true);
+    await userEvent.click(canvas.getByTitle("index.md", { exact: true }));
+    await expect(first.isConnected).toBe(true);
+  },
 };
 export const RestoreMarkdownScroll: Story = {
   ...LongRenderedMarkdown,

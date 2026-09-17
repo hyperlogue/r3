@@ -157,11 +157,17 @@ membership is the cache index; no second durable rendering store is needed.
 Reused blobs are verified under the publication's garbage-collection hold.
 An upgraded renderer produces new output only for new publications.
 
+File stacks containing Markdown defer unopened bodies until they enter the viewport
+or an explicit file jump needs them, even in small artifacts. Provisional shells
+reserve space until document sizing arrives; an already measured shell keeps its
+height while a replacement preview loads. Restoring an absolute reading offset
+first hydrates preceding files in order, so it may open more than one document.
+
 Folding a rendered Markdown file retains its loaded preview in memory, hidden and
 inert, so unfolding reuses the document and measured height without fetching it
 again. Initially folded files still load only when opened. Switching to source,
-changing versions, leaving the artifact, or offscreen eviction in a large file
-stack releases the preview normally; this is not a persistent document cache.
+changing versions, or leaving the artifact releases the preview normally. Scrolling
+away keeps loaded Markdown mounted and measured; this is not a persistent document cache.
 
 Source responses, rendered documents, and trusted preview scripts use private HTTP caching with mandatory
 revalidation. Matching validators skip source highlighting or document rewriting

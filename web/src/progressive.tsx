@@ -1,4 +1,4 @@
-// Large-review body hydration: one observer, measured offscreen shells.
+// File body hydration: one observer, measured offscreen shells.
 // Inactive files keep measured height so scroll-spy and jumps keep geometry.
 
 import {
@@ -16,9 +16,10 @@ import {
 } from "react";
 import { useFontSize } from "./settings.ts";
 
-// Small reviews are cheaper and simpler rendered eagerly. Past this point the
+// Small source/diff reviews are cheaper and simpler rendered eagerly. Past this point the
 // number of concurrent blob requests / per-file virtualizers becomes the larger
-// cost, so progressively hydrate file bodies instead.
+// cost, so progressively hydrate file bodies instead. Markdown stacks opt in
+// regardless of count because every rendered document needs its own preview gate.
 export const PROGRESSIVE_FILES_MIN = 24;
 
 // A diff round arrives as ONE payload, so file count alone is the wrong gate for
@@ -41,8 +42,8 @@ const FOLDED_HEIGHT = "2rem"; // FileCard's protected h-8 header.
 const PRELOAD_MARGIN_PX = 1000;
 
 // A deferred diff card reserves its header plus the same fixed row heights used
-// by VirtualLines. Rendered Markdown reports its actual height in ArtifactPreview
-// and does not use this source/diff shell.
+// by VirtualLines. Rendered Markdown starts with a viewport reserve and reports
+// its actual height in ArtifactPreview instead of estimating height from lines.
 const HEADER_REM = 2;
 export type ReserveSpec = { folded: true } | { folded: false; rows: number };
 
@@ -56,6 +57,7 @@ type ActivateFile = (onReady?: OnReady) => void;
 export function useProgressiveFileController(): {
   registry: RefObject<Map<string, ActivateFile>>;
   activate: (path: string, onReady?: OnReady) => boolean;
+  prepareReadingPosition: (pane: HTMLElement, y: number) => boolean;
 } {
   const registry = useRef(new Map<string, ActivateFile>());
   const activate = useCallback((path: string, onReady?: OnReady) => {
@@ -63,7 +65,28 @@ export function useProgressiveFileController(): {
     fn?.(onReady);
     return !!fn;
   }, []);
-  return { registry, activate };
+  const prepareReadingPosition = useCallback(
+    (pane: HTMLElement, y: number) => {
+      const files = pane.querySelectorAll<HTMLElement>("[data-progressive-file]");
+      if (!files.length) return false;
+      const top = pane.getBoundingClientRect().top - pane.scrollTop;
+      // An absolute reading offset depends on preceding file heights. Hydrate
+      // that prefix in order; scrolling into guessed placeholders would open
+      // the wrong documents and finish restoration before Markdown is sized.
+      for (const file of files) {
+        if (file.getBoundingClientRect().top - top > y) break;
+        if (file.dataset.progressiveFile === "inactive") {
+          activate(file.dataset.file!);
+          return false;
+        }
+        if (file.matches('[aria-busy="true"]') || file.querySelector('[aria-busy="true"]'))
+          return false;
+      }
+      return true;
+    },
+    [activate],
+  );
+  return { registry, activate, prepareReadingPosition };
 }
 
 interface ObservedFile {
@@ -91,11 +114,13 @@ export function ProgressiveFileProvider({
   scrollRef,
   registry,
   enabled,
+  preloadMargin = PRELOAD_MARGIN_PX,
   children,
 }: {
   scrollRef: RefObject<HTMLElement | null>;
   registry: RefObject<Map<string, ActivateFile>>;
   enabled: boolean;
+  preloadMargin?: number;
   children: ReactNode;
 }) {
   const files = useRef(new Map<HTMLElement, ObservedFile>());
@@ -124,7 +149,7 @@ export function ProgressiveFileProvider({
           files.current.get(entry.target as HTMLElement)?.onNear(entry.isIntersecting);
         }
       },
-      { root, rootMargin: `${PRELOAD_MARGIN_PX}px 0px` },
+      { root, rootMargin: `${preloadMargin}px 0px` },
     );
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -145,7 +170,7 @@ export function ProgressiveFileProvider({
       intersection.current = null;
       resize.current = null;
     };
-  }, [enabled, scrollRef]);
+  }, [enabled, scrollRef, preloadMargin]);
 
   const value = useMemo(() => ({ enabled, registry, observe }), [enabled, registry, observe]);
   return (
@@ -163,6 +188,8 @@ export function ProgressiveFile({
   path,
   version,
   reserve,
+  initialHeight = INITIAL_HEIGHT,
+  retain = false,
   children,
 }: {
   path: string;
@@ -172,6 +199,9 @@ export function ProgressiveFile({
   // than a guess that moves as bodies land. Omit it and the shell falls back to
   // the flat INITIAL_HEIGHT it always used.
   reserve?: ReserveSpec | null;
+  initialHeight?: string;
+  // Retained Markdown keeps its measured frame when scrolled away or folded.
+  retain?: boolean;
   children: (state: {
     active: boolean;
     onHydrated: (ready: boolean) => void;
@@ -189,13 +219,17 @@ export function ProgressiveFile({
   const [forced, setForced] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(true);
+  const [mounted, setMounted] = useState(false);
   // Tagged with the font size it was taken at: the layout is rem-scaled, so a
   // font-size change makes every measurement of an offscreen card wrong by that
   // ratio. Dropping it falls back to the (rem-derived) reserve, which is right
   // at any size — the old behaviour was to keep the stale pixels.
   const [measured, setMeasured] = useState<{ height: number; atFont: number } | null>(null);
-  const active = !enabled || near || forced;
+  const active = !enabled || near || forced || (retain && mounted);
   activeRef.current = active;
+  useEffect(() => {
+    if (active) setMounted(true);
+  }, [active]);
 
   // Let the long-lived resize callback read the current font scale without
   // recreating its observer registration.
@@ -283,7 +317,7 @@ export function ProgressiveFile({
   // What to stand in for the body: a height already measured at the current font
   // size, else the caller's ReserveSpec, else the flat fallback. `open`
   // outranks all of it — a card the reader folded is its header and nothing more.
-  let bodyHeight: number | string = INITIAL_HEIGHT;
+  let bodyHeight: number | string = initialHeight;
   if (measured && measured.atFont === fontSize) bodyHeight = measured.height;
   else if (reserve && fontSize !== null) bodyHeight = reservePx(reserve, fontSize);
 
@@ -317,7 +351,15 @@ export function ProgressiveFile({
       ref={rootRef}
       data-file={path}
       data-progressive-file={active ? "active" : "inactive"}
-      style={style}
+      aria-busy={active && !hydrated}
+      className="has-[[aria-busy=true]]:min-h-(--r3-file-reserve)"
+      style={
+        {
+          ...style,
+          "--r3-file-reserve":
+            enabled && open ? (typeof bodyHeight === "number" ? `${bodyHeight}px` : bodyHeight) : 0,
+        } as CSSProperties
+      }
     >
       {children({ active, onHydrated, onOpenChange })}
     </div>

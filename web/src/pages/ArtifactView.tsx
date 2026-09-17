@@ -227,12 +227,6 @@ function Workspace({
     version && path && detail.kind !== "html"
       ? readingKey(detail.id, version.seq, path, detail.kind === "files" ? fileMode(path) : "diff")
       : null;
-  useReadingPosition(
-    paneRef,
-    positionKey,
-    !!jump || !!renderedJump || !!initialFeedback.current,
-    version?.seq ?? null,
-  );
   useEffect(() => {
     if (detail.kind === "files" && view.path && version && view.representation !== "diff") {
       const key = `${version.seq}:${view.path}`;
@@ -242,6 +236,19 @@ function Workspace({
   }, [detail.kind, version, view.path, view.representation]);
   const virtual = useVirtualPaneController();
   const progressive = useProgressiveFileController();
+  const prepareReadingPosition = useCallback(
+    (point: { y: number }) =>
+      detail.kind !== "files" ||
+      (!!paneRef.current && progressive.prepareReadingPosition(paneRef.current, point.y)),
+    [detail.kind, progressive.prepareReadingPosition],
+  );
+  useReadingPosition(
+    paneRef,
+    positionKey,
+    !!jump || !!renderedJump || !!initialFeedback.current,
+    version?.seq ?? null,
+    prepareReadingPosition,
+  );
   useEffect(() => {
     const toolbar = toolbarRef.current;
     const update = () => {
@@ -753,7 +760,10 @@ function Workspace({
           <div
             ref={paneRef}
             data-artifact-content
-            style={syntaxPalette}
+            style={{
+              ...syntaxPalette,
+              overflowAnchor: detail.kind === "files" ? "none" : undefined,
+            }}
             className={cn(
               "min-h-0 min-w-0 flex-1 overflow-y-auto",
               !mobile && "[contain:paint]",
@@ -820,7 +830,12 @@ function Workspace({
                 <ProgressiveFileProvider
                   scrollRef={paneRef}
                   registry={progressive.registry}
-                  enabled={paths.length >= 24}
+                  enabled={
+                    paths.length >= 24 ||
+                    (detail.kind === "files" &&
+                      !!filesQuery.data?.some((file) => file.renderedHash))
+                  }
+                  preloadMargin={detail.kind === "files" ? 0 : undefined}
                 >
                   {detail.kind === "diff" ? (
                     diffQuery.isPending ? (
@@ -854,6 +869,8 @@ function Workspace({
                         key={`${version.seq}:${file.path}`}
                         path={file.path}
                         version={`${version.seq}:${theme}`}
+                        initialHeight={file.renderedHash ? "100dvh" : undefined}
+                        retain={!!file.renderedHash && fileMode(file.path) === "rendered"}
                       >
                         {({ active, onHydrated, onOpenChange }) => (
                           <ArtifactFile
@@ -864,9 +881,10 @@ function Workspace({
                             active={active}
                             current={currentPath === file.path}
                             representation={fileMode(file.path)}
-                            onRepresentation={(representation) =>
-                              changeView({ path: file.path, representation })
-                            }
+                            onRepresentation={(representation) => {
+                              progressive.activate(file.path);
+                              changeView({ path: file.path, representation });
+                            }}
                             viewed={viewed.isViewed(fileViewedKey(file.path, file.hash))}
                             onViewed={() => viewed.toggle(fileViewedKey(file.path, file.hash))}
                             onFileFeedback={() =>

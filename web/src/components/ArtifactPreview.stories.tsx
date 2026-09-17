@@ -94,6 +94,10 @@ export const Opening: Story = {
   },
 };
 export const OpeningDark: Story = { ...Opening, globals: { theme: "dark" } };
+export const FileMarkdownOpening: Story = {
+  ...Opening,
+  args: { detail: { ...artifactFixture, kind: "files" } },
+};
 
 export const HtmlProtection: Story = {
   args: {

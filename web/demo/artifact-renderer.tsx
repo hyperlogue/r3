@@ -227,7 +227,10 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
         "relative flex flex-col bg-white dark:bg-neutral-950",
         height === undefined && "min-h-80 flex-1",
       )}
-      aria-busy={!ready && !error}
+      aria-busy={
+        !error &&
+        (!ready || (props.detail.kind === "files" && document?.markdown && height === undefined))
+      }
     >
       <details className="shrink-0 border-b border-neutral-200 px-3 py-1 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         <summary className="cursor-pointer">Demo preview · bundled example</summary>

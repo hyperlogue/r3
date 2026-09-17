@@ -68,7 +68,11 @@ export function installMarkdownLayout(
     }
   };
   const schedule = () => {
-    if (enabled && !frame) frame = requestAnimationFrame(measure);
+    if (!enabled) return;
+    // Browsers can suspend animation frames in offscreen opaque documents.
+    // The first height must arrive before a saved position can scroll here.
+    if (lastHeight === 0) measure();
+    else if (!frame) frame = requestAnimationFrame(measure);
   };
   const observer = new ResizeObserver(schedule);
   const observe = () => {

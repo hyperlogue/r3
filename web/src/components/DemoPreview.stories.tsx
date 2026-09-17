@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
+import { expect, waitFor } from "storybook/test";
 import type { ArtifactDocumentTarget } from "../../../shared/artifacts.ts";
 import { ARTIFACT_DEMO_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { DemoArtifactPreview } from "../../demo/artifact-renderer.tsx";
@@ -44,4 +45,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Html: Story = {};
-export const Markdown: Story = { args: { markdown: true } };
+export const Markdown: Story = {
+  args: { markdown: true },
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(canvasElement.querySelector('iframe[aria-hidden="false"]')).not.toBeNull(),
+    );
+    await waitFor(() => expect(canvasElement.querySelector('[aria-busy="true"]')).toBeNull());
+  },
+};

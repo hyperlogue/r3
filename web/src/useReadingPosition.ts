@@ -1,5 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from "react";
-import { readingPositions } from "./reading-position.ts";
+import { type ReadingPosition, readingPositions } from "./reading-position.ts";
 import { restoreReadingPosition } from "./restore-reading-position.ts";
 
 // Restore after asynchronous file/iframe sizing, but relinquish control as soon
@@ -9,6 +9,7 @@ export function useReadingPosition(
   key: string | null,
   explicit: boolean,
   version: number | null,
+  prepare?: (point: ReadingPosition) => boolean,
 ) {
   const previousVersion = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -20,9 +21,14 @@ export function useReadingPosition(
     let restoring = !!point && !explicit;
     const stop =
       restoring && point
-        ? restoreReadingPosition(pane, point, () => {
-            restoring = false;
-          })
+        ? restoreReadingPosition(
+            pane,
+            point,
+            () => {
+              restoring = false;
+            },
+            () => prepare?.(point) ?? true,
+          )
         : undefined;
     const save = () => {
       if (!restoring) readingPositions.set(key, { x: pane.scrollLeft, y: pane.scrollTop });
@@ -32,5 +38,5 @@ export function useReadingPosition(
       stop?.();
       pane.removeEventListener("scroll", save);
     };
-  }, [root, key, explicit, version]);
+  }, [root, key, explicit, version, prepare]);
 }

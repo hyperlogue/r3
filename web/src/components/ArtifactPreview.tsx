@@ -689,10 +689,20 @@ function PreviewSession(
 
   return (
     <div
-      aria-busy={!ready && !error}
+      aria-busy={
+        !error &&
+        (!ready ||
+          (props.detail.kind === "files" &&
+            props.markdownPaths.includes(props.path) &&
+            height === undefined))
+      }
       className={cn(
         "relative flex flex-col bg-white dark:bg-neutral-950",
-        height === undefined && "min-h-80 flex-1",
+        height === undefined && "flex-1",
+        height === undefined &&
+          (props.detail.kind === "files" && props.markdownPaths.includes(props.path)
+            ? "min-h-dvh"
+            : "min-h-80"),
       )}
     >
       {error ? (
