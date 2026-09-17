@@ -62,6 +62,21 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test("version 2 gains remote identities without changing project or artifact membership", async () => {
+    await migrateLegacyStore(db, options());
+    const before = db.query("SELECT id, project_id FROM artifacts ORDER BY id").all();
+    const projects = db.query("SELECT * FROM projects ORDER BY id").all();
+    db.exec("DROP TABLE project_remotes; PRAGMA user_version = 2");
+    const result = await migrateLegacyStore(db, options("artifact-v2.sqlite"));
+    expect(result.migrated).toBe(true);
+    expect(db.query("SELECT * FROM project_remotes").all()).toEqual([]);
+    expect(db.query("SELECT id, project_id FROM artifacts ORDER BY id").all()).toEqual(before);
+    expect(db.query("SELECT * FROM projects ORDER BY id").all()).toEqual(projects);
+    expect(db.query("PRAGMA user_version").get()).toEqual({
+      user_version: ARTIFACT_SCHEMA_VERSION,
+    });
+  });
+
   test("upgrades artifact overviews into retained evidence with a private backup", async () => {
     await migrateLegacyStore(db, options());
     db.exec("ALTER TABLE artifacts ADD COLUMN summary TEXT; PRAGMA user_version = 1");

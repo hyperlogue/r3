@@ -1,6 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { open } from "node:fs/promises";
-import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema.ts";
+import {
+  ARTIFACT_SCHEMA_VERSION,
+  createArtifactTables,
+  PROJECT_REMOTE_SCHEMA,
+} from "./artifact-schema.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import type { BlobStore } from "./blobs.ts";
 import { nowIso } from "./ids.ts";
@@ -134,7 +138,7 @@ export async function migrateLegacyStore(
     };
   }
   const artifactUpgrade =
-    schemaVersion === 1 && tables.includes("artifacts") && !tables.includes("reviews");
+    [1, 2].includes(schemaVersion) && tables.includes("artifacts") && !tables.includes("reviews");
   if (
     !artifactUpgrade &&
     (schemaVersion !== 0 ||
@@ -161,8 +165,11 @@ export async function migrateLegacyStore(
         "Legacy store changed while backing up; retry migration after stopping its writer",
       );
     if (artifactUpgrade) {
-      db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
-        ALTER TABLE artifacts DROP COLUMN summary;`);
+      if (schemaVersion === 1) {
+        db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
+          ALTER TABLE artifacts DROP COLUMN summary;`);
+      }
+      db.exec(PROJECT_REMOTE_SCHEMA);
     } else {
       const data = readLegacyData(db);
       checkLegacyRelations(data);

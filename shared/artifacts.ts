@@ -23,6 +23,13 @@ export interface ArtifactProject {
   createdAt: string;
 }
 
+export interface EditArtifactProjectBody {
+  name?: string | null;
+  remoteUrl?: string | null;
+  // Compare-and-set for backfill; null means the stored remote must be absent.
+  expectedRemoteUrl?: string | null;
+}
+
 export interface ArtifactStorageUsage {
   // Distinct original/retained blobs across published versions plus each patch's
   // UTF-8 bytes. Excludes database/filesystem overhead and unpublished content.
@@ -199,6 +206,7 @@ export interface CreateArtifactBody {
   kind: ArtifactKind;
   actor: ArtifactActor;
   projectId?: string | null;
+  remoteUrl?: string | null;
   title?: string | null;
   meta?: Record<string, string>;
 }

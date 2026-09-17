@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { ArtifactConversations } from "./artifact-conversations.ts";
 import { renderArtifactDocument } from "./artifact-document.ts";
 import { ArtifactLifecycle } from "./artifact-lifecycle.ts";
+import type { ProjectGroupingOptions } from "./artifact-projects.ts";
 import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
@@ -23,6 +24,7 @@ export interface ArtifactStorageOptions {
   capture?: LegacyCapture;
   clock?: () => string;
   isWatching?: (id: string) => boolean;
+  projectGrouping?: ProjectGroupingOptions;
 }
 
 export interface ArtifactStorage {
@@ -102,7 +104,14 @@ export async function openArtifactStorage(
           }),
       });
     }
-    const artifacts = new ArtifactStore(db, blobs, render, clock, options.isWatching);
+    const artifacts = new ArtifactStore(
+      db,
+      blobs,
+      render,
+      clock,
+      options.isWatching,
+      options.projectGrouping,
+    );
     const conversations = new ArtifactConversations(db, artifacts, clock);
     const authentication = new AuthService(db, clock);
     async function collectBlobs(): Promise<number> {

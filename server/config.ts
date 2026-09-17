@@ -139,6 +139,8 @@ export interface PersistedConfig {
   requireLogin?: boolean;
   previewPort?: number;
   previewBaseUrl?: string;
+  projectGrouping?: "remote" | "manual";
+  projectMappings?: Record<string, string>;
 }
 
 // $XDG_CONFIG_HOME/r3 (default ~/.config/r3): the home for config.json. Separate
@@ -170,6 +172,15 @@ function sanitizeConfig(o: Record<string, unknown>): PersistedConfig {
   if (typeof o.previewPort === "number" && Number.isInteger(o.previewPort))
     out.previewPort = o.previewPort;
   if (typeof o.previewBaseUrl === "string") out.previewBaseUrl = o.previewBaseUrl;
+  if (o.projectGrouping === "remote" || o.projectGrouping === "manual")
+    out.projectGrouping = o.projectGrouping;
+  if (
+    o.projectMappings &&
+    typeof o.projectMappings === "object" &&
+    !Array.isArray(o.projectMappings) &&
+    Object.values(o.projectMappings).every((id) => typeof id === "string")
+  )
+    out.projectMappings = o.projectMappings as Record<string, string>;
   return out;
 }
 

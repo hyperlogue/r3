@@ -1,5 +1,6 @@
 import { buildArtifactPrompt } from "../../shared/artifact-prompt.ts";
 import type { ArtifactStreamEvent } from "../../shared/artifacts.ts";
+import { normalizeGitRemote } from "../../shared/git-remote.ts";
 import type { artifactApi as productionApi } from "../src/artifact-api.ts";
 import { demo, fail, human, mint, now } from "./artifact-backend.ts";
 
@@ -19,6 +20,27 @@ export const artifactApi: typeof productionApi = {
     ),
   detail: async (id) => copy(demo.get(id)),
   projects: async () => copy(demo.state.projects),
+  editProject: async (id, body) => {
+    const project =
+      demo.state.projects.find((item) => item.id === id) ?? fail("Project not found", 404);
+    if ("expectedRemoteUrl" in body && body.expectedRemoteUrl !== project.remoteUrl)
+      fail("Project remote changed; fetch the project before retrying", 409);
+    const remote = body.remoteUrl == null ? null : normalizeGitRemote(body.remoteUrl);
+    if (body.remoteUrl != null && !remote) fail("Project remote must be a network Git URL");
+    if (
+      remote &&
+      demo.state.projects.some(
+        (item) => item.id !== id && normalizeGitRemote(item.remoteUrl)?.key === remote.key,
+      )
+    )
+      fail("Remote already belongs to another project; use an explicit project mapping", 409);
+    if ("name" in body) project.name = body.name?.trim() || null;
+    if ("remoteUrl" in body) project.remoteUrl = remote?.url ?? null;
+    demo.persist();
+    for (const artifact of demo.state.artifacts)
+      if (artifact.projectId === id) demo.changed(artifact.id);
+    return copy(project);
+  },
   versions: async (id) => copy(demo.get(id).versions),
   files: async (id, seq) => copy(demo.publication(id, seq).files),
   source: async (id, seq, path) =>

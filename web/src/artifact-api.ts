@@ -25,6 +25,7 @@ import type {
   ArtifactWatcher,
   CreateArtifactReplyBody,
   EditArtifactFeedbackBody,
+  EditArtifactProjectBody,
 } from "../../shared/artifacts.ts";
 import { readEventStream } from "../../shared/event-stream.ts";
 import { TOKEN } from "./api.ts";
@@ -48,6 +49,8 @@ export const artifactApi = {
     client().json<Artifact[]>("GET", `/api/artifacts${query(filters)}`),
   detail: (id: string) => client().json<ArtifactDetail>("GET", artifactApiPath(id)),
   projects: () => client().json<ArtifactProject[]>("GET", "/api/projects"),
+  editProject: (id: string, body: EditArtifactProjectBody) =>
+    client().json<ArtifactProject>("PATCH", `/api/projects/${encodeURIComponent(id)}`, body),
   versions: (id: string) =>
     client().json<ArtifactVersion[]>("GET", `${artifactApiPath(id)}/versions`),
   files: (id: string, seq: number) =>

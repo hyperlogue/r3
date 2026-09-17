@@ -51,8 +51,11 @@ Rendered previews automatically use the browser's r3 address (HTTPS or localhost
 Optional previewBaseUrl selects a separate endpoint; previewPort defaults to the
 application port + 1 only for that override. Wildcard subdomains are unnecessary.
 Configuration names:
-bind, port, publicUrl, allowedHosts, requireLogin, previewPort, previewBaseUrl.
-Environment overrides: R3_PREVIEW_PORT and R3_PREVIEW_BASE_URL.
+bind, port, publicUrl, allowedHosts, requireLogin, previewPort, previewBaseUrl,
+projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
+Environment overrides: R3_PREVIEW_PORT, R3_PREVIEW_BASE_URL, R3_PROJECT_GROUPING.
+Project settings take effect on the server after restart. An explicit project wins
+over remote inference; project mappings can group aliases under an existing ID.
 `;
 
 export const ARTIFACT_GUIDE = `${ARTIFACT_HELP}

@@ -1,6 +1,13 @@
 import type { Database } from "bun:sqlite";
 
-export const ARTIFACT_SCHEMA_VERSION = 2;
+export const ARTIFACT_SCHEMA_VERSION = 3;
+
+export const PROJECT_REMOTE_SCHEMA = `
+CREATE TABLE IF NOT EXISTS project_remotes (
+  remote_key TEXT PRIMARY KEY NOT NULL,
+  project_id TEXT NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE
+) STRICT;
+`;
 
 // Applied to fresh stores and to the destination of the legacy migration.
 // This module never opens a database itself.
@@ -17,6 +24,8 @@ CREATE TABLE projects (
   remote_url TEXT,
   created_at TEXT NOT NULL
 ) STRICT;
+
+${PROJECT_REMOTE_SCHEMA}
 
 -- Attribution for a logical agent run, not a user account or a credential.
 -- Concurrent agents, including subagents, register distinct session IDs.

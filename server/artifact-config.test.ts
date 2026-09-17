@@ -1,5 +1,18 @@
 import { expect, test } from "bun:test";
-import { artifactPreviewSettings } from "./artifact-config.ts";
+import { artifactPreviewSettings, artifactProjectSettings } from "./artifact-config.ts";
+
+test("project grouping defaults to remote with explicit manual and environment overrides", () => {
+  expect(artifactProjectSettings({}, {})).toMatchObject({ mode: "remote" });
+  expect(artifactProjectSettings({}, { projectGrouping: "manual" })).toMatchObject({
+    mode: "manual",
+  });
+  expect(
+    artifactProjectSettings({ R3_PROJECT_GROUPING: "remote" }, { projectGrouping: "manual" }),
+  ).toMatchObject({ mode: "remote" });
+  expect(() => artifactProjectSettings({ R3_PROJECT_GROUPING: "unknown" }, {})).toThrow(
+    "remote or manual",
+  );
+});
 
 test("automatic previews need no second listener or port, including the last application port", () => {
   expect(artifactPreviewSettings({}, {}, 65535)).toEqual({});

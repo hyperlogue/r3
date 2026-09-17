@@ -94,6 +94,46 @@ function publication(expectedSeq = 0, publicationKey = "first") {
 }
 
 describe("artifact HTTP content contract", () => {
+  test("remote grouping and conditional project backfill share the authenticated contract", async () => {
+    const projectResponse = await request("/api/projects", "POST", { name: "Existing" });
+    const project = await projectResponse.json();
+    const remoteUrl = "https://code.example/team/repo.git";
+    const updated = await request(`/api/projects/${project.id}`, "PATCH", {
+      remoteUrl,
+      expectedRemoteUrl: null,
+    });
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toMatchObject({ id: project.id, remoteUrl });
+    const conflict = await request(`/api/projects/${project.id}`, "PATCH", {
+      remoteUrl: null,
+      expectedRemoteUrl: null,
+    });
+    expect(conflict.status).toBe(409);
+    const created = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        request("/api/artifacts", "POST", {
+          actor,
+          kind: "files",
+          remoteUrl: "git@code.example:team/repo",
+        }),
+      ),
+    );
+    for (const response of created) {
+      expect(response.status).toBe(201);
+      expect((await response.json()).projectId).toBe(project.id);
+    }
+    expect(storage.artifacts.projects()).toHaveLength(1);
+    const denied = await api.app.request(
+      new Request(`http://localhost/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { host: "localhost", "content-type": "application/json" },
+        body: JSON.stringify({ remoteUrl: null }),
+      }),
+    );
+    expect(denied.status).toBe(401);
+    expect(storage.artifacts.projects()[0].remoteUrl).toBe(remoteUrl);
+  });
+
   test("preview network exceptions are authenticated, explicit, and HTML-only", async () => {
     for (const kind of ["files", "html"]) {
       const id = await create(kind);

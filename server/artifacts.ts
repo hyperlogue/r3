@@ -11,6 +11,7 @@ import type {
   ArtifactStorageUsage,
   ArtifactVersion,
 } from "../shared/artifacts.ts";
+import { ArtifactProjects, type ProjectGroupingOptions } from "./artifact-projects.ts";
 import {
   ArtifactError,
   canonicalJson,
@@ -115,13 +116,17 @@ export interface ArtifactFilter {
 // this module never opens a database or resolves a publisher's working tree.
 // The supplied connection has the artifact schema and foreign_keys enabled.
 export class ArtifactStore {
+  private readonly projectStore: ArtifactProjects;
   constructor(
     private readonly db: Database,
     private readonly blobs: BlobStore,
     private readonly renderDocument: DocumentRenderer,
     private readonly clock: () => string = nowIso,
     private readonly isWatching: (id: string) => boolean = () => false,
-  ) {}
+    projectGrouping: ProjectGroupingOptions = {},
+  ) {
+    this.projectStore = new ArtifactProjects(db, clock, projectGrouping);
+  }
 
   registerSession(value: unknown): AgentSession {
     const body = requireObject(value, "Agent session");
@@ -159,33 +164,19 @@ export class ArtifactStore {
   }
 
   projects(): ArtifactProject[] {
-    return this.db
-      .query<ArtifactProject, []>(
-        "SELECT id, name, remote_url AS remoteUrl, created_at AS createdAt FROM projects ORDER BY name, id",
-      )
-      .all();
+    return this.projectStore.list();
   }
 
   createProject(value: unknown): ArtifactProject {
-    const input = requireObject(value, "Project");
-    const id =
-      input.id === undefined
-        ? `project_${randomUUID()}`
-        : requireString(input.id, "Project id", 200);
-    const name = optionalText(input.name, "Project name", 1000);
-    const remoteUrl = optionalText(input.remoteUrl, "Project remote", 4096);
-    if (this.db.query("SELECT 1 FROM projects WHERE id = ?").get(id))
-      throw new ArtifactError("Project id is already registered", 409);
-    const createdAt = this.clock();
-    this.db
-      .query("INSERT INTO projects(id, name, remote_url, created_at) VALUES (?, ?, ?, ?)")
-      .run(id, name, remoteUrl, createdAt);
-    return { id, name, remoteUrl, createdAt };
+    return this.projectStore.create(value);
+  }
+
+  editProject(id: string, value: unknown): ArtifactProject {
+    return this.projectStore.edit(id, value);
   }
 
   deleteProject(id: string): void {
-    if (!this.db.query("DELETE FROM projects WHERE id = ?").run(id).changes)
-      throw new ArtifactError("Project not found", 404);
+    this.projectStore.delete(id);
   }
 
   viewed(id: string): string[] {
@@ -227,39 +218,38 @@ export class ArtifactStore {
     if (body.kind !== "files" && body.kind !== "html" && body.kind !== "diff") {
       throw new ArtifactError("Artifact kind must be files, html, or diff");
     }
+    const kind = body.kind;
     const author = this.validateActor(body.actor);
     const title = optionalText(body.title, "title", 1000);
     if ("summary" in body)
       throw new ArtifactError("Artifact overview was removed; publish a version summary instead");
-    const projectId = optionalText(body.projectId, "projectId", 200);
-    if (
-      projectId !== null &&
-      !this.db.query("SELECT 1 FROM projects WHERE id = ?").get(projectId)
-    ) {
-      throw new ArtifactError("Unknown project");
-    }
     const meta = jsonObject(body.meta === undefined ? {} : body.meta, "meta");
     if (Object.values(meta).some((value) => typeof value !== "string")) {
       throw new ArtifactError("Artifact metadata values must be strings");
     }
     const id = `artifact_${randomUUID().replaceAll("-", "")}`;
     const time = this.clock();
-    this.db
-      .query(`INSERT INTO artifacts
+    return this.db
+      .transaction(() => {
+        const projectId = this.projectStore.resolve(body);
+        this.db
+          .query(`INSERT INTO artifacts
       (id, kind, project_id, title, meta_json, created_by, creator_session_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(
-        id,
-        body.kind,
-        projectId,
-        title,
-        canonicalJson(meta),
-        author.role,
-        author.sessionId,
-        time,
-        time,
-      );
-    return this.get(id);
+          .run(
+            id,
+            kind,
+            projectId,
+            title,
+            canonicalJson(meta),
+            author.role,
+            author.sessionId,
+            time,
+            time,
+          );
+        return this.get(id);
+      })
+      .immediate();
   }
 
   get(id: string): Artifact {

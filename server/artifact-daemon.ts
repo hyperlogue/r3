@@ -1,6 +1,6 @@
 import index from "../web/index.html";
 import { loadApplicationAssets } from "./application-assets.ts";
-import { artifactPreviewSettings } from "./artifact-config.ts";
+import { artifactPreviewSettings, artifactProjectSettings } from "./artifact-config.ts";
 import { startArtifactServer } from "./artifact-server.ts";
 import { openArtifactStorage } from "./artifact-storage.ts";
 import {
@@ -44,7 +44,10 @@ export async function startArtifactDaemon(): Promise<void> {
   try {
     const settings = artifactPreviewSettings(process.env, readConfig(), PORT);
     const assets = await loadApplicationAssets(index);
-    storage = await openArtifactStorage({ databasePath: stateDbPath() });
+    storage = await openArtifactStorage({
+      databasePath: stateDbPath(),
+      projectGrouping: artifactProjectSettings(process.env, readConfig()),
+    });
     const token = getToken();
     runtime = startArtifactServer({
       storage,

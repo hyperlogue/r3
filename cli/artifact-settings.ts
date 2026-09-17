@@ -7,6 +7,7 @@ import {
   writeConfig,
 } from "../server/config.ts";
 import type { ArtifactClient } from "../shared/artifact-client.ts";
+import { normalizeGitRemote } from "../shared/git-remote.ts";
 import type { AuthTokenInfo, CreateAuthTokenResponse } from "../shared/types.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 
@@ -18,6 +19,8 @@ const NAMES = [
   "requireLogin",
   "previewPort",
   "previewBaseUrl",
+  "projectGrouping",
+  "projectMappings",
 ] as const;
 export function configCommand(argv: string[]): void {
   const [command = "show", key, raw] = argv;
@@ -30,7 +33,14 @@ export function configCommand(argv: string[]): void {
   const name = key as (typeof NAMES)[number];
   if (command === "get" && argv.length === 2) {
     const value = readConfig()[name];
-    if (value !== undefined) console.log(Array.isArray(value) ? value.join(",") : String(value));
+    if (value !== undefined)
+      console.log(
+        Array.isArray(value)
+          ? value.join(",")
+          : typeof value === "object"
+            ? JSON.stringify(value)
+            : String(value),
+      );
     return;
   }
   if (command !== "set" && command !== "unset")
@@ -50,6 +60,36 @@ export function configCommand(argv: string[]): void {
     const value = raw?.trim();
     if (!value) throw new ArtifactCommandError(`Use r3 config unset ${name} to clear this setting`);
     switch (name) {
+      case "projectGrouping":
+        if (value !== "remote" && value !== "manual")
+          throw new ArtifactCommandError("projectGrouping expects remote or manual");
+        next.projectGrouping = value;
+        break;
+      case "projectMappings": {
+        let mappings: unknown;
+        try {
+          mappings = JSON.parse(value);
+        } catch {
+          throw new ArtifactCommandError(
+            "projectMappings expects a JSON object of remote URLs to project IDs",
+          );
+        }
+        if (!mappings || typeof mappings !== "object" || Array.isArray(mappings))
+          throw new ArtifactCommandError("projectMappings expects a JSON object");
+        const entries: [string, string][] = [];
+        const ids = new Map<string, string>();
+        for (const [url, id] of Object.entries(mappings)) {
+          const remote = normalizeGitRemote(url);
+          if (!remote || typeof id !== "string" || !id || id.length > 200)
+            throw new ArtifactCommandError("Invalid project remote mapping");
+          if (ids.has(remote.key) && ids.get(remote.key) !== id)
+            throw new ArtifactCommandError("Conflicting project remote mappings");
+          ids.set(remote.key, id);
+          entries.push([remote.url, id]);
+        }
+        next.projectMappings = Object.fromEntries(entries);
+        break;
+      }
       case "port":
       case "previewPort": {
         const port = Number(value);

@@ -22,10 +22,14 @@ three clients (browser, CLI, agent). When you change behavior, change
 The CLI, browser, and demo all use this protocol; legacy routes are removed.
 
 - `GET/POST /api/sessions` lists/registers explicit agent identities;
-  `GET/POST /api/projects` and `DELETE /api/projects/:id` manage optional grouping.
-  Removing a group preserves its artifacts.
+  `GET/POST /api/projects` and `PATCH/DELETE /api/projects/:id` manage optional grouping.
+  PATCH accepts `EditArtifactProjectBody` (name, remoteUrl, optional expectedRemoteUrl).
+  Remote backfill can require the current field to be null; concurrent changes conflict.
+  Removing a group preserves its artifacts and deletes its automatic remote mapping.
 - `GET/POST /api/artifacts`, `GET/PATCH/DELETE /api/artifacts/:id` list, create,
-  inspect, edit metadata, or delete the whole artifact. List filters are `state`,
+  inspect, edit metadata, or delete the whole artifact. Creation accepts a sanitized
+  `remoteUrl` hint for server-configured project inference; explicit `projectId`,
+  including null, wins. List filters are `state`,
   `kind`, `project`, and `meta.<key>`. No repo header or local path is involved.
   Artifact reads include computed `unhandledCount`: open threads whose latest
   message is from an agent. Reading, delivery, and claims do not clear it.

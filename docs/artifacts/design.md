@@ -64,9 +64,23 @@ within a published document keep their ordinary Back/Forward behavior.
 
 The publisher captures local input and sends complete bytes. The daemon owns the
 published content; ordinary reads never resolve a checkout, worktree, or publisher
-path. Projects are optional explicit groups, independent of filesystem location
-and remote URL. A publisher can go offline or delete its directory without making
+path. Projects are optional groups selected explicitly or inferred from a sanitized
+publisher-supplied Git remote. Their opaque IDs remain independent of filesystem
+location and remote URL. A publisher can go offline or delete its directory without making
 stored versions unreadable.
+
+`projectGrouping` defaults to `remote`; `manual` disables inference. Explicit
+`projectId` (including null for ungrouped) wins over configured `projectMappings`
+and the stored remote identity. HTTPS and SSH/scp forms share a repository key;
+path case and non-default ports remain significant. The server never fetches a
+remote. Creation resolves/reuses its project transactionally; later publications
+preserve the artifact's assignment. Mappings point to ordinary existing project IDs.
+
+`PATCH /api/projects/:id` updates a name or primary remote, with optional
+`expectedRemoteUrl` for compare-and-set backfill. Changing the primary remote
+replaces its automatic mapping; configured aliases are separate. A remote already
+owned by another project conflicts. Removing a project preserves its artifacts
+and deletes its automatic mapping; remove any configured aliases separately.
 
 Publication has two distinct consistency boundaries:
 

@@ -47,6 +47,7 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | Table | Key | Main columns and responsibility |
 | --- | --- | --- |
 | projects | id | Optional grouping: name, remote_url, created_at. The generated id is identity; a URL or local path is not |
+| project_remotes | remote_key | Unique normalized repository identity mapped to one project; project_id is also unique and cascades on project deletion |
 | artifacts | id | kind, active/archived state, optional project_id, title, meta_json, next_seq, creator role/session, creation/activity/archive times, legacy_json |
 | agent_sessions | id | One logical agent run: optional harness/label and created_at; attribution, not a user account or live connection |
 | artifact_events | seq; unique id | Ordered archive/restore history: artifact_id, operation_key, actor/session, optional archive message, created_at |

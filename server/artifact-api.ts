@@ -57,6 +57,12 @@ export function createArtifactApi(
   app.post("/api/projects", async (c) =>
     c.json(artifacts.createProject(await artifactJson(c.req.raw)), 201),
   );
+  app.patch("/api/projects/:id", async (c) => {
+    const project = artifacts.editProject(c.req.param("id"), await artifactJson(c.req.raw));
+    for (const artifact of artifacts.list({ projectId: project.id }))
+      collaboration.broadcast({ type: "artifact-updated", artifactId: artifact.id });
+    return c.json(project);
+  });
   app.delete("/api/projects/:id", (c) => {
     artifacts.deleteProject(c.req.param("id"));
     return c.json({ ok: true });

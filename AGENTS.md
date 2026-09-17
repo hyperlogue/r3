@@ -32,8 +32,9 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   publisher path, Git repository, worktree, or live file. Git and directory capture
   run on the publisher; the one-time legacy migration is the only local-read adapter
   the daemon uses.
-- Projects are optional explicit groups. Their IDs do not derive from checkout
-  paths or remote URLs. Removing a project preserves its artifacts.
+- Projects are optional groups, assigned explicitly or inferred from a sanitized
+  publisher-supplied Git remote under server policy. Their IDs do not derive from
+  paths or URLs. Later publications preserve the group; deletion preserves artifacts.
 - One logical agent session identifies one run. Multiple agents, including
   subagents, use distinct IDs. Sessions are attribution, not credentials, accounts,
   artifact ownership, or live presence.
@@ -57,6 +58,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Bootstrap and exposure | `server/config.ts`, `artifact-config.ts`, `artifact-daemon.ts`, `artifact-server.ts`, `application-assets.ts`; `cli/daemon-client.ts`, `artifact-settings.ts` |
 | Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration*.ts`; private backup, atomic migration, recovery, coordinated garbage collection |
 | Publication | `server/artifacts.ts`, `publication.ts`, `artifact-validation.ts`; stable upload identity, preparation before atomic publish, immutable membership |
+| Project grouping | `server/artifact-projects.ts`, `shared/git-remote.ts`; remote identities, explicit overrides, configured aliases, conditional metadata updates; terms in [CONTEXT.md](CONTEXT.md) |
 | Publisher capture | `cli/capture.ts`, `capture-git.ts`, `artifact-publish.ts`; bounded stable bytes, Git process isolation, explicit retry diagnostics |
 | Content and rendering | `server/artifact-source.ts`, `artifact-resources.ts`, `artifact-document.ts`, `patch-content.ts`; `git.ts` is a pure patch parser/trimmer |
 | Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and per-version/view placements |

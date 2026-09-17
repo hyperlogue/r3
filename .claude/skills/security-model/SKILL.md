@@ -271,6 +271,14 @@ navigation. See `docs/artifacts/verification.md` for commands and browser eviden
 
 ## Publication and persisted data
 
+Repository remotes are grouping hints, not authorization or fetch instructions.
+`shared/git-remote.ts` removes URL user information, query strings, and fragments;
+local paths, file URLs, and helper syntax are rejected. The server independently
+normalizes hints and never executes Git or accesses the remote. Explicit project
+selection wins over server aliases and automatic remote mappings. The primary
+remote update supports compare-and-set backfill through the authenticated API;
+no publisher writes SQLite. Existing artifact assignments remain stable.
+
 Publication paths are canonical relative paths, validated independently of the
 publisher's operating system. Reject traversal, ambiguous separators, duplicate
 membership, unsafe metadata, and invalid base64. Count decoded bytes as well as
