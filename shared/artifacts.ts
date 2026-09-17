@@ -245,7 +245,7 @@ export interface PublishArtifactBody {
   provenance?: Record<string, unknown>;
   content:
     | { kind: "files"; files: PublicationFile[] }
-    | { kind: "html"; files: PublicationFile[]; entrypoint?: "index.html" | "index.md" }
+    | { kind: "html"; files: PublicationFile[] }
     | { kind: "diff"; patch: string };
 }
 

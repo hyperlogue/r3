@@ -16,7 +16,7 @@ Capture: --dir <prepared-directory> [--file <relative-path>]...
          --ref <git-ref|STAGED> --file <relative-path>...
          --stdin-diff | --working | --staged | --commit <sha> | --diff <base>..<head>
 Publication summaries belong to versions. Artifacts have no overview field.
-Publication: --entrypoint index.html|index.md --version-label L --summary S --key K
+Publication: --version-label L --summary S --key K
              --label remains a publication-only alias; do not supply both spellings.
 Create: --kind is required; --project ID --meta k=v (repeatable).
 HTML images: publish standalone assets with relative <img src> URLs; see r3 guide.
@@ -68,7 +68,7 @@ An artifact has one fixed kind and immutable published versions. Prepare complet
 directory contents locally and publish them; changing local files does not change
 what the human sees. Files artifacts have a file browser and source/rendered
 views. HTML artifacts use a rendered workspace and require index.html or index.md
-at the root. If both exist, name --entrypoint. Diff versions are independent sparse
+at the root. Exactly one index is required; both or neither is an error. Diff versions are independent sparse
 patches, not a reconstructed tree. All versions remain until whole-artifact deletion.
 
 For HTML publications, keep index.html small: save image assets as standalone

@@ -156,7 +156,8 @@ any change to commands, flags, results, or protocol. The current command familie
 Creation requires `--kind files|html|diff` before capture or artifact creation.
 Publication labels use `--version-label`; `--label` is a compatibility alias, and
 supplying both is an error. Authentication-token labels remain `--label`. `--kind html` requires
-one selected root index; `--entrypoint` disambiguates two. Diff capture flags select
+exactly one root `index.html` or `index.md`; new publications reject both or neither
+and reject entrypoint overrides. Historical versions retain their entrypoints. Diff capture flags select
 working tree, index, commit, range, or stdin patch. Every version is complete and
 independent. `--ref`/`--file` captures retained Git bytes on the publisher.
 

@@ -113,7 +113,6 @@ export async function runArtifactCommand(
     "staged",
     "commit",
     "diff",
-    "entrypoint",
     "label",
     "version-label",
     "summary",

@@ -64,8 +64,9 @@ The CLI prints the artifact URL. Its first local call starts the daemon; open
 | `html` | A complete directory with root `index.html` or `index.md` | The rendered entrypoint in a full-page workspace, with comment mode |
 | `diff` | One complete, independent unified patch per version | Captured old/new lines, split or unified layout, and expandable retained context |
 
-Creation requires an explicit `--kind files|html|diff`, including for directories with an index. For `html`,
-if both indexes exist, choose `--entrypoint index.html` or `--entrypoint index.md`.
+Creation requires an explicit `--kind files|html|diff`, including for directories
+with an index. HTML publications require exactly one root `index.html` or `index.md`;
+both or neither is an error.
 The artifact's kind stays fixed. Files and HTML artifacts have no diff view.
 
 Other capture options are `--staged`, `--commit <sha>`, `--diff <base>..<head>`,

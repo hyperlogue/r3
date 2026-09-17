@@ -37,7 +37,7 @@ async function capture(
       "Choose exactly one capture flag: --dir, --ref, --stdin-diff, --working, --staged, --commit, or --diff",
     );
   if (kind === "diff") {
-    if (args.has("dir") || args.has("ref") || args.has("file") || args.has("entrypoint"))
+    if (args.has("dir") || args.has("ref") || args.has("file"))
       throw new ArtifactCommandError("Diff artifacts accept a complete independent patch");
     let patch: string;
     if (args.has("stdin-diff")) patch = await ctx.stdin();
@@ -62,15 +62,7 @@ async function capture(
         resolve(ctx.cwd, args.require("dir")),
         args.has("file") ? args.values("file") : ["."],
       );
-  if (kind === "files") {
-    if (args.has("entrypoint"))
-      throw new ArtifactCommandError("Only HTML artifacts have an entrypoint");
-    return { kind, files };
-  }
-  const entrypoint = args.value("entrypoint");
-  if (entrypoint !== undefined && entrypoint !== "index.html" && entrypoint !== "index.md")
-    throw new ArtifactCommandError("--entrypoint must be index.html or index.md");
-  return { kind, files, entrypoint };
+  return { kind, files };
 }
 
 export async function publishArtifactCommand(

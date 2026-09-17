@@ -31,23 +31,22 @@ describe("complete publication validation", () => {
     ).toThrow("no entrypoint");
   });
 
-  test("HTML infers a unique root index and requires a choice when both exist", () => {
+  test("HTML requires a unique root index without an entrypoint override", () => {
     const one = publication({ kind: "html", files: [member("index.md")] });
     expect(validatePublication(one).entrypoint).toBe("index.md");
     const two = {
       kind: "html",
       files: [member("index.md"), member("index.html", "<p>hello</p>", "text/html")],
     };
-    expect(() => validatePublication(publication(two))).toThrow("Choose an entrypoint");
-    expect(validatePublication(publication({ ...two, entrypoint: "index.html" })).entrypoint).toBe(
-      "index.html",
-    );
+    for (const entrypoint of [undefined, "index.html", "index.md"])
+      expect(() => validatePublication(publication({ ...two, entrypoint }))).toThrow("exactly one");
     expect(() =>
       validatePublication(publication({ kind: "html", files: [member("nested/index.md")] })),
     ).toThrow("root index");
-    expect(() =>
-      validatePublication(publication({ ...(one.content as object), entrypoint: "index.html" })),
-    ).toThrow("published file");
+    for (const entrypoint of ["index.html", "index.md"])
+      expect(() =>
+        validatePublication(publication({ ...(one.content as object), entrypoint })),
+      ).toThrow("selected automatically");
   });
 
   test("file order and metadata key order do not change a publication's identity", () => {

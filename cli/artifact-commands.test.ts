@@ -272,7 +272,7 @@ describe("artifact CLI over the HTTP contract", () => {
     ).rejects.toThrow("exactly one");
     await expect(
       command("create", ["--kind", "files", "--dir", ".", "--entrypoint", "index.html"]),
-    ).rejects.toThrow("Only HTML");
+    ).rejects.toThrow("Unknown option");
     expect(storage.artifacts.list()).toEqual([]);
     await expect(
       command("reply", ["feedback_missing", "-m", "test", "--file", "index.html"]),
@@ -280,6 +280,20 @@ describe("artifact CLI over the HTTP contract", () => {
     ctx.environment = {};
     await expect(command("create", ["--dir", "."])).rejects.toThrow("stable agent ID");
     expect(storage.artifacts.list()).toEqual([]);
+  });
+
+  test("ambiguous HTML publications fail before creation or a new version becomes visible", async () => {
+    const id = await create();
+    await writeFile(join(ctx.cwd, "index.md"), "# Another index\n");
+    await expect(command("create", ["--kind", "html", "--dir", "."])).rejects.toThrow(
+      "exactly one",
+    );
+    await expect(command("publish", [id, "--dir", "."])).rejects.toThrow("exactly one");
+    expect(storage.artifacts.list()).toHaveLength(1);
+    expect(storage.artifacts.versions(id)).toHaveLength(1);
+    expect((await command("download", [id, "--version", "1", "--file", "index.html"])).text).toBe(
+      "<h1>First</h1>\n",
+    );
   });
 
   test("stdin patches become independent published versions without any git checkout", async () => {

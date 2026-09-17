@@ -139,21 +139,16 @@ export function validatePublication(
       throw new ArtifactError("Files artifacts have no entrypoint");
   } else {
     const candidates = (["index.html", "index.md"] as const).filter((path) => paths.has(path));
-    if (content.entrypoint !== undefined) {
-      if (content.entrypoint !== "index.html" && content.entrypoint !== "index.md") {
-        throw new ArtifactError("HTML entrypoint must be index.html or index.md");
-      }
-      entrypoint = content.entrypoint;
-    } else if (candidates.length === 1) {
-      entrypoint = candidates[0];
-    } else {
+    if (candidates.length !== 1) {
       throw new ArtifactError(
         candidates.length
-          ? "Choose an entrypoint when both index files exist"
+          ? "HTML requires exactly one root index.html or index.md; both were published"
           : "HTML requires a root index.html or index.md",
       );
     }
-    if (!paths.has(entrypoint)) throw new ArtifactError("HTML entrypoint must be a published file");
+    if (content.entrypoint !== undefined)
+      throw new ArtifactError("HTML entrypoint is selected automatically; omit entrypoint");
+    entrypoint = candidates[0];
     const index = files.find((file) => file.path === entrypoint)!;
     if (entrypoint === "index.html" && index.mediaType.split(";")[0] !== "text/html") {
       throw new ArtifactError("index.html must have the text/html media type");

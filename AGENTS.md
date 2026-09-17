@@ -89,8 +89,9 @@ retired overview text and original targets remain historical evidence only.
   Markdown opens rendered; other text opens as source. HTML/Markdown can switch
   between source and rendered; media has a native
   preview and binary files can be downloaded.
-- `html`: the same directory storage with exactly one selected root `index.html`
-  or `index.md`. Infer only when unique. The workspace is rendered, with no file
+- `html`: the same directory storage with exactly one root `index.html` or
+  `index.md`, selected automatically. New publications reject both or neither;
+  historical versions retain their selected entrypoint. The workspace is rendered, with no file
   browser, source toggle, or companion-file viewer.
 - `diff`: an independent immutable sparse patch, retaining old/new sides, binary
   and rename metadata, and captured context. Never apply versions together or

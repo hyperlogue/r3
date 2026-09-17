@@ -26,7 +26,6 @@ const VALUE = new Set([
   "ref",
   "commit",
   "diff",
-  "entrypoint",
   "label",
   "version-label",
   "key",

@@ -30,7 +30,6 @@ beforeEach(async () => {
     expectedSeq: 0,
     content: {
       kind: "html",
-      entrypoint: "index.html",
       files: [
         {
           path: "index.html",

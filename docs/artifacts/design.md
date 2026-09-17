@@ -18,8 +18,10 @@ The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 | `diff` | An independent unified patch | Captured old/new lines, split or unified layout, and expandable retained context |
 
 Kind stays fixed for an artifact. CLI creation requires an explicit `--kind`;
-capture flags and index files never infer it. An HTML version selects its entrypoint:
-a unique supported index is inferred, and two indexes require an explicit choice.
+capture flags and index files never infer it. A new HTML version requires exactly
+one root `index.html` or `index.md`, selected automatically. Both or neither is an
+error; entrypoint overrides are rejected. Historical versions retain their selected
+entrypoints and complete membership unchanged.
 Individual zero-byte files are valid; empty directory publications are rejected.
 
 Files and HTML share file storage, retained rendering, and resource serving. HTML
