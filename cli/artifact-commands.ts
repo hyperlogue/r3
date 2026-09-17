@@ -18,6 +18,7 @@ import type {
   ArtifactWatchResult,
   Representation,
 } from "../shared/artifacts.ts";
+import { normalizeGitRemote } from "../shared/git-remote.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
@@ -160,7 +161,7 @@ export async function runArtifactCommand(
     : command === "feedback"
       ? 2
       : command === "project"
-        ? args.positional[0] === "delete"
+        ? ["delete", "edit"].includes(args.positional[0])
           ? 2
           : 1
         : 1;
@@ -212,7 +213,7 @@ export async function runArtifactCommand(
       });
     else
       print(
-        `${artifact.id} · ${artifact.kind} · version ${version.seq}\n${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
+        `${artifact.id} · ${artifact.kind} · version ${version.seq}${artifact.projectId ? `\nProject: ${artifact.projectId}` : ""}\n${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
       );
   };
   switch (command) {
@@ -488,17 +489,28 @@ export async function runArtifactCommand(
     }
     case "project": {
       const operation = args.positional[0];
+      const inputRemote = await text("remote");
+      const remote = inputRemote === undefined ? undefined : normalizeGitRemote(inputRemote);
+      if (inputRemote !== undefined && !remote)
+        throw new ArtifactCommandError("Project remote must be a network Git URL");
       if (operation === "list") print(await client.json("GET", "/api/projects"));
       else if (operation === "create")
         print(
           await client.json("POST", "/api/projects", {
             name: await text("title"),
-            remoteUrl: args.value("remote"),
+            remoteUrl: remote?.url,
+          }),
+        );
+      else if (operation === "edit")
+        print(
+          await client.json("PATCH", `/api/projects/${encodeURIComponent(args.id(1))}`, {
+            ...(args.has("title") ? { name: await text("title") } : {}),
+            ...(remote ? { remoteUrl: remote.url } : {}),
           }),
         );
       else if (operation === "delete")
         print(await client.json("DELETE", `/api/projects/${encodeURIComponent(args.id(1))}`));
-      else throw new ArtifactCommandError("project list|create|delete <id>");
+      else throw new ArtifactCommandError("project list|create|edit|delete <id>");
       return 0;
     }
     default:

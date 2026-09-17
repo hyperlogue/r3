@@ -32,6 +32,7 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
   listen <id>                                # local wake adapter, outward stream
   archive <id> [-m <archive-message>] [--key K] | restore <id> [--key K]
   project list | project create [--title T] [--remote URL] | project delete <id>
+  project edit <id> [--title T] [--remote URL]
 
 Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered|diff
          [--line <start-end> --quote <text>] [--side old|new]
@@ -56,6 +57,9 @@ projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID 
 Environment overrides: R3_PREVIEW_PORT, R3_PREVIEW_BASE_URL, R3_PROJECT_GROUPING.
 Project settings take effect on the server after restart. An explicit project wins
 over remote inference; project mappings can group aliases under an existing ID.
+The CLI detects origin's fetch URL (then upstream or the sole remote), removes
+credentials, and sends it for project grouping. Ambiguous remotes stay ungrouped.
+Later versions retain their artifact's project; --project overrides creation.
 `;
 
 export const ARTIFACT_GUIDE = `${ARTIFACT_HELP}

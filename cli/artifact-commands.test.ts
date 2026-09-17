@@ -7,6 +7,7 @@ import { createArtifactApi } from "../server/artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "../server/artifact-storage.ts";
 import { ArtifactClient } from "../shared/artifact-client.ts";
 import { type ArtifactCommandContext, runArtifactCommand } from "./artifact-commands.ts";
+import { publisherGit } from "./capture-git.ts";
 
 let root: string;
 let storage: ArtifactStorage;
@@ -72,6 +73,38 @@ async function create() {
 }
 
 describe("artifact CLI over the HTTP contract", () => {
+  test("publisher remotes group new artifacts, backfill existing projects, and never regroup revisions", async () => {
+    for (const args of [
+      ["init", "-b", "main"],
+      ["remote", "add", "origin", "git@code.example:team/repo.git"],
+    ])
+      expect((await publisherGit(ctx.cwd, args)).code).toBe(0);
+    const existing = storage.artifacts.createProject({ name: "Existing" });
+    await command("project", ["edit", existing.id, "--remote", "https://code.example/team/repo"]);
+    const result = JSON.parse(
+      (await command("create", ["--kind", "files", "--dir", ".", "--file", "index.html", "--json"]))
+        .text,
+    );
+    expect(result.artifact.projectId).toBe(existing.id);
+    expect(result.version.provenance.remoteUrl).toBe("ssh://code.example/team/repo.git");
+    expect(
+      (
+        await publisherGit(ctx.cwd, [
+          "remote",
+          "set-url",
+          "origin",
+          "https://code.example/fork/repo",
+        ])
+      ).code,
+    ).toBe(0);
+    await command("publish", [result.artifact.id, "--dir", ".", "--file", "index.html"]);
+    expect(storage.artifacts.get(result.artifact.id).projectId).toBe(existing.id);
+    expect(storage.artifacts.projects()).toHaveLength(1);
+    expect(storage.artifacts.versions(result.artifact.id)[1].provenance.remoteUrl).toBe(
+      "https://code.example/fork/repo",
+    );
+  });
+
   test("listen selects its default identity with the local harness target", async () => {
     const id = await create();
     ctx.environment = {

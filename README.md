@@ -143,9 +143,19 @@ sets it explicitly and `--key` identifies a retry. Retry with the same captured
 bytes, metadata, key, and expected sequence. A conflict requires inspecting the
 newest publication before publishing again.
 
-Projects are optional explicit groups, independent of filesystem paths:
+Projects group artifacts independently of filesystem paths. To select one explicitly:
 `r3 project create --title "Product design"`, then `r3 create ... --project <id>`.
-Removing a project preserves its artifacts.
+Otherwise the CLI detects the Git fetch remote (prefer `origin`, then the configured
+upstream or sole remote). The server groups equivalent repository URLs automatically,
+with credentials removed. Ambiguous or non-network remotes leave an artifact ungrouped.
+Later publications retain its project even when published from a different checkout.
+
+Use `r3 project edit <id> --remote <url>` to attach a remote to an existing project.
+On the server, `r3 config set projectGrouping manual` disables automatic grouping;
+`remote` is the default. `projectMappings` accepts a JSON map of remote URLs to
+existing project IDs for aliases. Configuration changes take effect after restart.
+Removing a project preserves its artifacts and deletes its automatic remote mapping;
+remove configured aliases separately.
 
 ## Interactive HTML
 

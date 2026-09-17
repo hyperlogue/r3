@@ -150,7 +150,7 @@ any change to commands, flags, results, or protocol. The current command familie
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
 | `prompt`, `watch`, `listen` | Owner handoff and one designated outward recipient |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
-| `project list/create/delete` | Optional grouping, independent of Git paths |
+| `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `auth`, `config`, `start/stop/status/restart`, `guide` | Browser login management, local configuration and daemon lifecycle |
 
 Directory capture defaults to files, never inferred HTML. `--kind html` requires

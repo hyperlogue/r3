@@ -59,7 +59,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration*.ts`; private backup, atomic migration, recovery, coordinated garbage collection |
 | Publication | `server/artifacts.ts`, `publication.ts`, `artifact-validation.ts`; stable upload identity, preparation before atomic publish, immutable membership |
 | Project grouping | `server/artifact-projects.ts`, `shared/git-remote.ts`; remote identities, explicit overrides, configured aliases, conditional metadata updates; terms in [CONTEXT.md](CONTEXT.md) |
-| Publisher capture | `cli/capture.ts`, `capture-git.ts`, `artifact-publish.ts`; bounded stable bytes, Git process isolation, explicit retry diagnostics |
+| Publisher capture | `cli/capture.ts`, `capture-git.ts`, `publisher-remote.ts`, `artifact-publish.ts`; bounded stable bytes, sanitized remote hints, Git process isolation, explicit retry diagnostics |
 | Content and rendering | `server/artifact-source.ts`, `artifact-resources.ts`, `artifact-document.ts`, `patch-content.ts`; `git.ts` is a pure patch parser/trimmer |
 | Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and per-version/view placements |
 | Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `agent-connections.ts`, `artifact-events.ts`; events, handoff, claims, designated recipient |

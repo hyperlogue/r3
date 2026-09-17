@@ -244,6 +244,13 @@ New publications use the complete-directory contract. `next_seq` starts above ev
 preserved or historically referenced sequence, including missing rounds. The DDL
 defines the current schema; `migration.ts` owns the upgrade from old tables.
 
+Schema version 3 adds `project_remotes` without changing project IDs, primary
+remote metadata, or artifact membership. Existing primary remotes are matched
+lazily using the same normalization as new requests; duplicate historical matches
+require explicit selection or configuration. Backfilling missing primary remotes
+uses authenticated project updates, optionally requiring `expectedRemoteUrl: null`.
+The schema upgrade never inspects local Git repositories.
+
 `server/migration.ts` owns the upgrade transaction. Startup supplies an exclusively
 owned connection, a new backup path in a private directory, the byte store,
 renderer, and optional one-time local capture adapter. It creates a consistent

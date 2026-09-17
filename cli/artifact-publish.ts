@@ -13,6 +13,7 @@ import type {
 import { type ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { captureFiles } from "./capture.ts";
 import { captureGitCommit, captureGitDiff, captureGitFiles } from "./capture-git.ts";
+import { detectPublisherRemote } from "./publisher-remote.ts";
 
 export interface PublicationCommandContext {
   client: ArtifactClient;
@@ -98,6 +99,8 @@ export async function publishArtifactCommand(
   )
     throw new ArtifactCommandError("Patch and metadata cannot both read stdin");
   const author = ctx.actor;
+  const detected = await detectPublisherRemote(ctx.cwd);
+  if (detected.warning && !current && !args.has("project")) ctx.error(`${detected.warning}\n`);
   const publication: PublishArtifactBody = {
     actor: author,
     expectedSeq: args.has("expected")
@@ -106,6 +109,7 @@ export async function publishArtifactCommand(
     publicationKey: args.value("key") ?? randomUUID(),
     label: await ctx.text("label"),
     summary: await ctx.text("summary"),
+    provenance: detected.remote ? { remoteUrl: detected.remote.url } : undefined,
     content: await capture(args, kind, ctx),
   };
   if (!current && publication.expectedSeq !== 0)
@@ -119,6 +123,7 @@ export async function publishArtifactCommand(
       actor: author,
       title: await ctx.text("title"),
       projectId: args.value("project"),
+      remoteUrl: detected.remote?.url,
       meta: {
         ...(author.role === "agent" ? { session: author.sessionId } : {}),
         ...args.metadata(),
