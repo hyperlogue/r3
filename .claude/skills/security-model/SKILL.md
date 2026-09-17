@@ -200,6 +200,8 @@ Preview documents use private HTTP caching with mandatory revalidation. Their
 validators cover retained bytes, context, trusted runtime, and response policy;
 context membership and browser verification precede every conditional response.
 A matching validator skips blob reads and HTML rewriting, never authorization.
+Runtime and utility scripts also revalidate privately, with validators covering
+their bytes and response policy after the same verification and revocation checks.
 Gate challenges remain uncached. The response inserts the r3 runtime before
 publisher scripts without changing original or retained Markdown bytes. An
 injected import map preserves `/r3/utility.js` as a context-scoped import. Native

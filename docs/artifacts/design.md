@@ -163,7 +163,7 @@ again. Initially folded files still load only when opened. Switching to source,
 changing versions, leaving the artifact, or offscreen eviction in a large file
 stack releases the preview normally; this is not a persistent document cache.
 
-Source responses and rendered documents use private HTTP caching with mandatory
+Source responses, rendered documents, and trusted preview scripts use private HTTP caching with mandatory
 revalidation. Matching validators skip source highlighting or document rewriting
 and blob reads, after membership and access checks. Immutable companion resources
 keep long-lived private HTTP caching. The browser controls cache size and eviction.

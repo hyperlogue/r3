@@ -153,12 +153,22 @@ export class PreviewHost {
       request.headers.get("sec-fetch-dest") === "serviceworker"
     )
       return plain("Service workers are unavailable in artifact previews", 403);
-    if (path === "/r3/runtime.js" || path === "/r3/utility.js")
-      return plain(
-        path.endsWith("runtime.js") ? this.support.runtime(scope) : this.support.utility(scope),
-        200,
-        { "content-type": "text/javascript; charset=utf-8", "access-control-allow-origin": "*" },
-      );
+    if (path === "/r3/runtime.js" || path === "/r3/utility.js") {
+      const script = path.endsWith("runtime.js")
+        ? this.support.runtime(scope)
+        : this.support.utility(scope);
+      const etag = `W/"${createHash("sha256")
+        .update(JSON.stringify([script, [...previewPolicy(scope)]]))
+        .digest("hex")}"`;
+      const reused = matchesEntityTag(request, etag);
+      return plain(reused ? null : script, reused ? 304 : 200, {
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "cache-control": "private, no-cache",
+        vary: "User-Agent, Sec-Fetch-Dest",
+        etag,
+      });
+    }
     if (path === "/r3/media" && scope.presentation === "media") {
       const file = this.artifacts.file(scope.artifactId, scope.versionSeq, scope.entryPath);
       const kind = artifactMediaKind(file.mediaType);

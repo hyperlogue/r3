@@ -77,6 +77,7 @@ const api = createArtifactApi(
 );
 const documents: { path: string; status: number }[] = [];
 const sources: number[] = [];
+const runtimes: number[] = [];
 let creations = 0;
 let gates = 0;
 const app = Bun.serve({
@@ -88,6 +89,7 @@ const app = Bun.serve({
     if (path.startsWith(PREVIEW_PREFIX)) {
       const response = await preview.fetch(request);
       if (path.endsWith("/r3/gate")) gates++;
+      if (path.endsWith("/r3/runtime.js")) runtimes.push(response.status);
       if (
         path.includes("/files/") &&
         ["iframe", "frame"].includes(request.headers.get("sec-fetch-dest") ?? "")
@@ -132,6 +134,7 @@ try {
   await ready();
   const firstPath = documents.at(-1)!.path;
   assert.equal(documents.at(-1)!.status, 200);
+  assert.equal(runtimes.at(-1), 200);
   const card = page.locator('[data-file="index.md"]');
   const paneAt = (y: number) =>
     page.waitForFunction(
@@ -157,6 +160,7 @@ try {
   await ready();
   await paneAt(1500);
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
+  assert.equal(runtimes.at(-1), 304, "the trusted runtime also revalidates its cached bytes");
   const beforeRefresh = creations;
   const beforeGate = gates;
   await page.reload();
@@ -169,6 +173,7 @@ try {
   );
   assert.ok(gates > beforeGate, "refresh must still run the browser gate");
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
+  assert.equal(runtimes.at(-1), 304, "page refresh retains the runtime response");
   await card.getByRole("button", { name: "Source", exact: true }).click();
   await page.locator('[data-file="index.md"] [data-line="1"]').waitFor();
   assert.equal(sources.at(-1), 304, "source link revisits reuse the HTTP response");

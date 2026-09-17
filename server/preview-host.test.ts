@@ -290,3 +290,31 @@ test("only retained Markdown receives the workspace appearance adapter", async (
   const source = await read("/files/notes.md");
   expect(await source!.text()).toBe("# Original Markdown");
 });
+
+test("preview support revalidates its bytes without bypassing browser or context guards", async () => {
+  const validators = new Map<string, string>();
+  for (const path of ["/r3/runtime.js", "/r3/utility.js"]) {
+    const first = await read(path, { "sec-fetch-dest": "script" });
+    expect(first.status).toBe(200);
+    expect(first.headers.get("cache-control")).toBe("private, no-cache");
+    const etag = first.headers.get("etag")!;
+    expect(etag).toBeTruthy();
+    validators.set(path, etag);
+    const headers = { "sec-fetch-dest": "script", "if-none-match": etag };
+    const reused = await read(path, headers);
+    expect(reused.status).toBe(304);
+    expect(await reused.text()).toBe("");
+    expect(reused.headers.get("access-control-allow-origin")).toBe("*");
+    expect(reused.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+    expect((await read(path, { ...headers, "user-agent": "Unverified browser" })).status).toBe(403);
+    expect((await read(path, { ...headers, "sec-fetch-dest": "document" })).status).toBe(403);
+    expect((await read(path, { ...headers, "service-worker": "script" })).status).toBe(403);
+  }
+  expect(validators.get("/r3/runtime.js")).not.toBe(validators.get("/r3/utility.js"));
+  expect(
+    (await read("/r3/runtime.js", { "if-none-match": validators.get("/r3/utility.js")! })).status,
+  ).toBe(200);
+  host.revoke(context.id);
+  for (const [path, etag] of validators)
+    expect((await read(path, { "if-none-match": etag })).status).toBe(404);
+});
