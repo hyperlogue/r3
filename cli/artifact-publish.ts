@@ -83,19 +83,17 @@ export async function publishArtifactCommand(
     command === "publish"
       ? await client.json<ArtifactDetail>("GET", artifactApiPath(args.id()))
       : null;
-  const inferred = ["stdin-diff", "working", "staged", "commit", "diff"].some((flag) =>
-    args.has(flag),
-  )
-    ? "diff"
-    : "files";
-  const kind = current?.kind ?? args.value("kind") ?? inferred;
+  const kind = current?.kind ?? args.require("kind");
   if (kind !== "files" && kind !== "html" && kind !== "diff")
     throw new ArtifactCommandError("--kind must be files, html, or diff");
   if (current && args.has("kind") && args.value("kind") !== current.kind)
     throw new ArtifactCommandError("An artifact's kind cannot change");
+  if (args.has("version-label") && args.has("label"))
+    throw new ArtifactCommandError("Use --version-label or its --label alias, not both");
+  const labelFlag = args.has("version-label") ? "version-label" : "label";
   if (
     args.has("stdin-diff") &&
-    ["summary", "title", "label"].some((name) => args.value(name) === "-")
+    ["summary", "title", labelFlag].some((name) => args.value(name) === "-")
   )
     throw new ArtifactCommandError("Patch and metadata cannot both read stdin");
   const author = ctx.actor;
@@ -107,7 +105,7 @@ export async function publishArtifactCommand(
       ? args.sequence("expected", true)
       : (current?.versions.at(-1)?.seq ?? 0),
     publicationKey: args.value("key") ?? randomUUID(),
-    label: await ctx.text("label"),
+    label: await ctx.text(labelFlag),
     summary: await ctx.text("summary"),
     provenance: detected.remote ? { remoteUrl: detected.remote.url } : undefined,
     content: await capture(args, kind, ctx),

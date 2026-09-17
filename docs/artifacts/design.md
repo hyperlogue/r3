@@ -17,8 +17,8 @@ The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 | `html` | A complete directory with a root `index.html` or `index.md` | Rendered entrypoint and feedback panel; no file browser or source toggle |
 | `diff` | An independent unified patch | Captured old/new lines, split or unified layout, and expandable retained context |
 
-Kind stays fixed for an artifact. Directory capture defaults to `files`; an index
-file does not implicitly change its kind. An HTML version selects its entrypoint:
+Kind stays fixed for an artifact. CLI creation requires an explicit `--kind`;
+capture flags and index files never infer it. An HTML version selects its entrypoint:
 a unique supported index is inferred, and two indexes require an explicit choice.
 Individual zero-byte files are valid; empty directory publications are rejected.
 

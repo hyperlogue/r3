@@ -73,6 +73,37 @@ async function create() {
 }
 
 describe("artifact CLI over the HTTP contract", () => {
+  test("creation requires kind before capture and publication labels accept one spelling", async () => {
+    let stdinReads = 0;
+    ctx.stdin = async () => {
+      stdinReads++;
+      return "Version from stdin";
+    };
+    await expect(command("create", ["--dir", "missing"])).rejects.toThrow("--kind");
+    await expect(command("create", ["--stdin-diff"])).rejects.toThrow("--kind");
+    expect(stdinReads).toBe(0);
+    expect(storage.artifacts.list()).toEqual([]);
+    const created = JSON.parse(
+      (await command("create", ["--kind", "files", "--dir", ".", "--version-label", "-", "--json"]))
+        .text,
+    );
+    expect(created.version.label).toBe("Version from stdin");
+    expect(stdinReads).toBe(1);
+    const id = created.artifact.id;
+    await command("publish", [id, "--dir", ".", "--label", "Legacy spelling"]);
+    expect(storage.artifacts.versions(id)[1].label).toBe("Legacy spelling");
+    await command("publish", [id, "--dir", ".", "--version-label", "Preferred spelling"]);
+    expect(storage.artifacts.versions(id)[2].label).toBe("Preferred spelling");
+    await expect(
+      command("publish", [id, "--dir", "missing", "--label", "a", "--version-label", "b"]),
+    ).rejects.toThrow("not both");
+    await expect(
+      command("create", ["--kind", "diff", "--stdin-diff", "--version-label", "-"]),
+    ).rejects.toThrow("cannot both read stdin");
+    expect(stdinReads).toBe(1);
+    expect(storage.artifacts.versions(id)).toHaveLength(3);
+  });
+
   test("publisher remotes group new artifacts, backfill existing projects, and never regroup revisions", async () => {
     for (const args of [
       ["init", "-b", "main"],
@@ -236,10 +267,12 @@ describe("artifact CLI over the HTTP contract", () => {
   });
 
   test("invalid capture and target flags fail before changing artifact state", async () => {
-    await expect(command("create", ["--dir", ".", "--stdin-diff"])).rejects.toThrow("exactly one");
-    await expect(command("create", ["--dir", ".", "--entrypoint", "index.html"])).rejects.toThrow(
-      "Only HTML",
-    );
+    await expect(
+      command("create", ["--kind", "files", "--dir", ".", "--stdin-diff"]),
+    ).rejects.toThrow("exactly one");
+    await expect(
+      command("create", ["--kind", "files", "--dir", ".", "--entrypoint", "index.html"]),
+    ).rejects.toThrow("Only HTML");
     expect(storage.artifacts.list()).toEqual([]);
     await expect(
       command("reply", ["feedback_missing", "-m", "test", "--file", "index.html"]),
@@ -253,7 +286,9 @@ describe("artifact CLI over the HTTP contract", () => {
     const patch =
       "diff --git a/code.txt b/code.txt\n--- a/code.txt\n+++ b/code.txt\n@@ -1 +1 @@\n-before\n+after\n";
     ctx.stdin = async () => patch;
-    const result = JSON.parse((await command("create", ["--stdin-diff", "--json"])).text);
+    const result = JSON.parse(
+      (await command("create", ["--kind", "diff", "--stdin-diff", "--json"])).text,
+    );
     expect(result.artifact.kind).toBe("diff");
     expect((await command("patch", [result.artifact.id, "--version", "1"])).text).toBe(patch);
     const feedback = JSON.parse(

@@ -115,6 +115,7 @@ export async function runArtifactCommand(
     "diff",
     "entrypoint",
     "label",
+    "version-label",
     "summary",
     "key",
     "expected",

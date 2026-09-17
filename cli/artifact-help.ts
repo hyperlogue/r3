@@ -1,6 +1,6 @@
 export const ARTIFACT_HELP = `r3 — published artifacts and human/agent conversations
 
-  create [--kind files|html|diff] <capture flags> [--title T] [--summary S]
+  create --kind files|html|diff <capture flags> [--title T] [--summary S]
   publish <id> <capture flags> [--expected <seq>] [--key <retry-key>]
   list [--state active|archived] [--kind K] [--project ID] [--meta k=v] [--mine]
   show <id> [--json]
@@ -16,8 +16,9 @@ Capture: --dir <prepared-directory> [--file <relative-path>]...
          --ref <git-ref|STAGED> --file <relative-path>...
          --stdin-diff | --working | --staged | --commit <sha> | --diff <base>..<head>
 Publication summaries belong to versions. Artifacts have no overview field.
-Publication: --entrypoint index.html|index.md --label L --summary S --key K
-Create: --project ID --meta k=v (repeatable); directory capture defaults to files.
+Publication: --entrypoint index.html|index.md --version-label L --summary S --key K
+             --label remains a publication-only alias; do not supply both spellings.
+Create: --kind is required; --project ID --meta k=v (repeatable).
 HTML images: publish standalone assets with relative <img src> URLs; see r3 guide.
 
   feedback add <id> -m <message> [target flags]

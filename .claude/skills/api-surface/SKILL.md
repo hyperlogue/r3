@@ -153,7 +153,9 @@ any change to commands, flags, results, or protocol. The current command familie
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `auth`, `config`, `start/stop/status/restart`, `guide` | Browser login management, local configuration and daemon lifecycle |
 
-Directory capture defaults to files, never inferred HTML. `--kind html` requires
+Creation requires `--kind files|html|diff` before capture or artifact creation.
+Publication labels use `--version-label`; `--label` is a compatibility alias, and
+supplying both is an error. Authentication-token labels remain `--label`. `--kind html` requires
 one selected root index; `--entrypoint` disambiguates two. Diff capture flags select
 working tree, index, commit, range, or stdin patch. Every version is complete and
 independent. `--ref`/`--file` captures retained Git bytes on the publisher.

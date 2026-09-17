@@ -190,7 +190,7 @@ export function ArtifactHome() {
             <p className="font-medium">No artifacts yet</p>
             <p className="mt-1">Publish a directory from the CLI or an agent:</p>
             <code className="mt-3 inline-block rounded bg-neutral-100 px-2 py-1 text-xs dark:bg-neutral-800">
-              r3 create --dir ./artifact
+              r3 create --kind files --dir ./artifact
             </code>
           </div>
         )}

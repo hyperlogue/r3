@@ -42,16 +42,16 @@ No agent owns an artifact: multiple agents can publish and participate.
 
 ```sh
 # A prepared directory of documents or files; no Git repository is needed.
-r3 create --dir ./proposal --title "Proposed design" --session design-agent
+r3 create --kind files --dir ./proposal --title "Proposed design" --session design-agent
 
 # A full-page HTML or Markdown artifact with supporting assets.
 r3 create --kind html --dir ./prototype --title "Prototype" --session design-agent
 
 # Captured code changes, including untracked files.
-r3 create --working --title "Navigation changes" --session code-agent
+r3 create --kind diff --working --title "Navigation changes" --session code-agent
 
 # Follow-up publications use the existing artifact's kind.
-r3 publish artifact_example --dir ./proposal --label "Revised design" --session design-agent
+r3 publish artifact_example --dir ./proposal --version-label "Revised design" --session design-agent
 ```
 
 The CLI prints the artifact URL. Its first local call starts the daemon; open
@@ -64,7 +64,7 @@ The CLI prints the artifact URL. Its first local call starts the daemon; open
 | `html` | A complete directory with root `index.html` or `index.md` | The rendered entrypoint in a full-page workspace, with comment mode |
 | `diff` | One complete, independent unified patch per version | Captured old/new lines, split or unified layout, and expandable retained context |
 
-Directory capture defaults to `files`, even when it contains an index. For `html`,
+Creation requires an explicit `--kind files|html|diff`, including for directories with an index. For `html`,
 if both indexes exist, choose `--entrypoint index.html` or `--entrypoint index.md`.
 The artifact's kind stays fixed. Files and HTML artifacts have no diff view.
 

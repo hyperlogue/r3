@@ -28,6 +28,7 @@ const VALUE = new Set([
   "diff",
   "entrypoint",
   "label",
+  "version-label",
   "key",
   "expected",
   "project",

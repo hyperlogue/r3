@@ -58,7 +58,16 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
   try {
     expect((await run("help")).output).toContain("published artifacts");
     expect(await Bun.file(join(root, "store.sqlite")).exists()).toBe(false);
-    const created = await run("create", "--dir", directory, "--title", "CLI publication", "--json");
+    const created = await run(
+      "create",
+      "--kind",
+      "files",
+      "--dir",
+      directory,
+      "--title",
+      "CLI publication",
+      "--json",
+    );
     expect(created.error).toBe("");
     expect(created.code).toBe(0);
     const first = JSON.parse(created.output);

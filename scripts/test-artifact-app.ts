@@ -78,7 +78,16 @@ try {
   );
   await writeFile(join(directory, "data.bin"), new Uint8Array([0, 128, 255]));
   const files = JSON.parse(
-    await command(["create", "--dir", directory, "--title", "Published files", "--json"]),
+    await command([
+      "create",
+      "--kind",
+      "files",
+      "--dir",
+      directory,
+      "--title",
+      "Published files",
+      "--json",
+    ]),
   );
   const html = JSON.parse(
     await command([
