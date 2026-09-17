@@ -28,7 +28,8 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
         [--target <JSON fix target>]
   place <feedback-id> --target <JSON document target> --state anchored|unplaced|ambiguous
   claim <feedback-id>... | release <feedback-id>...
-  prompt <id> [--all] [--feedback <id,id>]
+  feedback fetch <id> [--all] [--feedback <id,id>]
+  prompt <id> [--all] [--feedback <id,id>]      # compatibility alias for feedback fetch
   watch <id> [--timeout <seconds>]
   listen <id>                                # local wake adapter, outward stream
   archive <id> [-m <archive-message>] [--key K] | restore <id> [--key K]
@@ -106,12 +107,12 @@ the total is not the space that deleting an artifact would necessarily reclaim.
 
 Open the printed artifact URL for human feedback. Use listen for Claude Code or
 Codex when their local wake adapter is available; it keeps a publisher-side process
-connected outward to r3. Other agents use watch or poll prompt. The daemon never
+connected outward to r3. Other agents use watch or poll feedback fetch. The daemon never
 needs access to your checkout, executable, harness socket, or harness credential.
 One designated listen/watch connection is supported at a time. A successful wake
-confirms notification delivery; feedback remains pending until prompt acknowledges it.
+confirms notification delivery; feedback remains pending until feedback fetch acknowledges it.
 
-Run prompt to fetch and acknowledge pending owner feedback; --all reads open
+Run feedback fetch to fetch and acknowledge pending owner feedback; --all reads open
 history without acknowledging anything. Claim the feedback IDs you will handle.
 Read native targets in their recorded version and representation. Rendered
 selectors, text, route, and viewport are page evidence, not source-line mappings.

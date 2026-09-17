@@ -62,7 +62,9 @@ describe("artifact prompt formatting", () => {
     expect(prompt).toContain('"selector":"h1"');
     expect(prompt).toContain('"route":"#overview"');
     expect(prompt).toContain("Please change the title");
-    expect(prompt).toContain("The human controls open/resolved status");
+    expect(prompt).not.toContain("r3 claim");
+    expect(prompt).not.toContain("r3 publish");
+    expect(prompt).not.toContain("r3 reply");
     expect(feedback.sentAt).toBeNull();
   });
 
@@ -102,7 +104,24 @@ describe("artifact prompt formatting", () => {
     expect(prompt).toContain("New owner response");
     expect(prompt).not.toContain("Already delivered answer");
     expect(prompt).toContain("The human marked this resolved");
+    expect(prompt).toContain('Message context: {"versionSeq":2,"representation":"rendered"}');
+    expect(prompt).toContain(`Earlier discussion: r3 show ${detail.id}`);
     expect(buildArtifactPrompt(detail, [feedback])).toContain("Already delivered answer");
+  });
+
+  test("submission nudges use the preferred feedback fetch command", () => {
+    expect(
+      artifactNudgeText({
+        id: "nudge_example",
+        artifactId: detail.id,
+        title: detail.title,
+        event: "submitted",
+        lifecycleEventId: null,
+        message: null,
+      }),
+    ).toBe(
+      `[r3] ${detail.id} — feedback submitted\nArtifact: Published design\nRun: r3 feedback fetch ${detail.id}`,
+    );
   });
 
   test("uncertain imported targets remain historical evidence and archived nudges imply no approval", () => {

@@ -96,16 +96,16 @@ and 10 MiB per patch.
 
 ```sh
 r3 listen artifact_example --session design-agent
-# Any agent can instead block on watch, or fetch prompt directly.
+# Any agent can instead block on watch, or fetch feedback directly.
 r3 watch artifact_example --session design-agent
-r3 prompt artifact_example --session design-agent
+r3 feedback fetch artifact_example --session design-agent
 r3 claim feedback_example --session design-agent
 r3 publish artifact_example --dir ./proposal --session design-agent
 r3 reply feedback_example -m "Updated the explanation." --version 2 --view source --session design-agent
 ```
 
 `listen` uses a publisher-side Claude Code socket or Codex queue adapter. Its local
-capability check reports when that adapter is unavailable; use `watch` or `prompt`
+capability check reports when that adapter is unavailable; use `watch` or `feedback fetch`
 with other harnesses. The server receives an outward connection and logical agent
 identity, never the harness socket, executable path, or harness credential.
 

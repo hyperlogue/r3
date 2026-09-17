@@ -148,7 +148,7 @@ any change to commands, flags, results, or protocol. The current command familie
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, explicit reply context, separate placements; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
-| `prompt`, `watch`, `listen` | Owner handoff and one designated outward recipient |
+| `feedback fetch` (`prompt` alias), `watch`, `listen` | Owner handoff and one designated outward recipient |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `auth`, `config`, `start/stop/status/restart`, `guide` | Browser login management, local configuration and daemon lifecycle |
@@ -190,8 +190,13 @@ reopen it. Human status changes after delivery set `statusUnsent`; resolving a
 never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
-A prompt POST drains selected pending content atomically. `prompt --all` is a
-read-only view of open history. The browser's manual-copy path conditionally
+A prompt POST drains selected pending content atomically. `feedback fetch` uses
+that POST; `--all` reads open history without acknowledgment, and `--all --feedback`
+can read specific resolved threads too. `prompt` remains a compatibility alias.
+Wake notifications use the preferred `r3 feedback fetch` spelling. Fetch, watch,
+and browser copy share a data-only formatter; workflow instructions live in the
+guide. Original targets, claims, reply/fix context, status changes, and history
+pointers remain in the payload. The browser's manual-copy path conditionally
 acknowledges the exact copied snapshot; failed clipboard writes or changed content
 leave it pending. Claims, publication, notifications, and event-stream reads do
 not acknowledge feedback.

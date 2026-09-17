@@ -81,24 +81,6 @@ export function buildArtifactPrompt(
     `${feedback.length} feedback item${feedback.length === 1 ? "" : "s"}.`,
     "",
   ];
-  if (detail.state === "archived") {
-    lines.push(
-      "This artifact is archived. Publication, new claims, and ordinary handoff are paused. Saved threads and in-flight replies remain available.",
-      "",
-    );
-  } else {
-    lines.push(
-      "Use stable feedback IDs. Claim the open items you will handle with r3 claim <feedback_id> [<feedback_id> ...]. Other agents may work on this artifact under their own distinct sessions.",
-      "Inspect each original target in its explicit version and representation. Rendered element evidence is native to the page; do not invent a source-line mapping. Record additional verified placements separately.",
-      detail.kind === "diff"
-        ? `Publish a new independent patch with: git diff <base> <head> | r3 publish ${detail.id} --stdin-diff`
-        : `Publish the complete updated directory with: r3 publish ${detail.id} --dir <prepared-directory>`,
-      "Reply by feedback ID with r3 reply <feedback_id> -m <message>. Supply --version <seq> and --view <source|rendered|diff> when the reply refers to a published representation. A later fix target is separate from this message context.",
-      "Publishing and replying do not resolve feedback. The human controls open/resolved status. A successful agent reply releases only that agent's own claim.",
-      `Use r3 show ${detail.id} for full history and r3 guide for command syntax.`,
-      "",
-    );
-  }
   if (!feedback.length) lines.push(unsent ? "No undelivered feedback." : "No selected feedback.");
   else lines.push(feedback.map((item) => block(item, unsent)).join("\n\n"));
   return `${lines.join("\n")}\n`;
@@ -109,7 +91,7 @@ export function artifactNudgeText(nudge: ArtifactNudge): string {
     `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "feedback submitted"}`,
   ];
   if (nudge.title) lines.push(`Artifact: ${nudge.title.slice(0, 500)}`);
-  if (nudge.event === "submitted") lines.push(`Run: r3 prompt ${nudge.artifactId}`);
+  if (nudge.event === "submitted") lines.push(`Run: r3 feedback fetch ${nudge.artifactId}`);
   else {
     if (nudge.lifecycleEventId) lines.push(`Event: ${nudge.lifecycleEventId}`);
     if (nudge.message) {

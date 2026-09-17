@@ -414,7 +414,7 @@ the version sequence check.
 One designated listen/watch recipient receives owner handoffs. The publisher-side
 listener connects outward and invokes its local harness adapter. The daemon receives
 logical identity and delivery results, not harness sockets, executable paths, or
-credentials. Any harness can use watch or prompt without an automatic wake adapter.
+credentials. Any harness can use `watch` or `feedback fetch` without an automatic wake adapter.
 
 Delivery records the owner's handoff, not a read receipt from every agent. Agent
 messages start delivered; human feedback/replies wait for handoff. Reading or

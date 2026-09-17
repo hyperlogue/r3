@@ -266,6 +266,35 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.conversations.unsent(id)).toHaveLength(1);
   });
 
+  test("feedback fetch and prompt share selective delivery and resolved history semantics", async () => {
+    const id = await create();
+    const first = JSON.parse(
+      (await command("feedback", ["add", id, "--human", "-m", "First note"])).text,
+    );
+    const second = JSON.parse(
+      (await command("feedback", ["add", id, "--human", "-m", "Second note"])).text,
+    );
+    expect((await command("feedback", ["fetch", id, "--all"])).text).toBe(
+      (await command("prompt", [id, "--all"])).text,
+    );
+    expect(storage.conversations.unsent(id)).toHaveLength(2);
+    const selected = await command("feedback", ["fetch", id, "--feedback", first.id]);
+    expect(selected.text).toContain("First note");
+    expect(selected.text).not.toContain("Second note");
+    expect(storage.conversations.get(first.id).sentAt).not.toBeNull();
+    expect(storage.conversations.get(second.id).sentAt).toBeNull();
+    await command("feedback", ["edit", first.id, "--human", "--status", "resolved"]);
+    const history = await command("feedback", ["fetch", id, "--all", "--feedback", first.id]);
+    expect(history.text).toContain("[resolved]");
+    expect(history.text).toContain("First note");
+    expect(storage.conversations.get(first.id).statusUnsent).toBe(true);
+    expect((await command("feedback", ["fetch", id, "--all"])).text).not.toContain("First note");
+    await expect(command("feedback", ["fetch", id, "extra"])).rejects.toThrow("expects 1");
+    expect(storage.conversations.unsent(id)).toHaveLength(2);
+    expect((await command("prompt", [id])).text).toContain("The human marked this resolved");
+    expect(storage.conversations.unsent(id)).toHaveLength(0);
+  });
+
   test("invalid capture and target flags fail before changing artifact state", async () => {
     await expect(
       command("create", ["--kind", "files", "--dir", ".", "--stdin-diff"]),

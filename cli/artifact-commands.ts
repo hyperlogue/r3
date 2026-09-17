@@ -103,6 +103,10 @@ export async function runArtifactCommand(
   ctx: ArtifactCommandContext,
 ): Promise<number> {
   const args = new ArtifactArgs(argv);
+  if (command === "feedback" && args.positional[0] === "fetch") {
+    args.positional.shift();
+    command = "feedback fetch";
+  } else if (command === "prompt") command = "feedback fetch";
   const captureFlags = [
     "kind",
     "dir",
@@ -147,7 +151,7 @@ export async function runArtifactCommand(
     place: [...targetFlags, "state"],
     claim: [],
     release: [],
-    prompt: ["all", "feedback"],
+    "feedback fetch": ["all", "feedback"],
     watch: ["timeout"],
     listen: ["foreground"],
     archive: ["message", "key"],
@@ -346,7 +350,7 @@ export async function runArtifactCommand(
         );
       else if (operation === "delete")
         print(await client.json("DELETE", feedbackApiPath(id), { actor: author }));
-      else throw new ArtifactCommandError("feedback add|edit|delete <id>");
+      else throw new ArtifactCommandError("feedback fetch|add|edit|delete <id>");
       return 0;
     }
     case "reply": {
@@ -394,7 +398,7 @@ export async function runArtifactCommand(
       );
       return 0;
     }
-    case "prompt": {
+    case "feedback fetch": {
       const path = `${artifactApiPath(args.id())}/prompt`;
       const selected = args.value("feedback");
       const response = args.has("all")

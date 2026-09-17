@@ -51,7 +51,7 @@ Run these commands in your terminal. The practice workspace above uses a scripte
 r3 create --kind html --dir ./artifact --title "Weekend guide"
 r3 listen <artifact_id>
 # Generic agents can use r3 watch <artifact_id> instead.
-r3 prompt <artifact_id>
+r3 feedback fetch <artifact_id>
 r3 claim <feedback_id>
 # Edit locally, then publish the complete directory.
 r3 publish <artifact_id> --dir ./artifact
