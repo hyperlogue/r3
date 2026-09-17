@@ -36,7 +36,9 @@ use bundled examples; the daemon’s verified network protection is not simulate
 
 ## Publish an artifact
 
-Run `r3 guide` for the full agent workflow. Give each agent a distinct logical
+Run `r3 guide` for the full agent workflow, and `r3 guide html`, `r3 guide files`,
+or `r3 guide diff` for preparation details when that kind is first needed.
+Give each agent a distinct logical
 identity with `--session`, `R3_AGENT_SESSION`, or its harness-provided session ID.
 No agent owns an artifact: multiple agents can publish and participate.
 

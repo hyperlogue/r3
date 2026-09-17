@@ -1,3 +1,5 @@
+import { ArtifactCommandError } from "./artifact-args.ts";
+
 export const ARTIFACT_HELP = `r3 — published artifacts and human/agent conversations
 
   create --kind files|html|diff <capture flags> [--title T] [--summary S]
@@ -19,7 +21,7 @@ Publication summaries belong to versions. Artifacts have no overview field.
 Publication: --version-label L --summary S --key K
              --label remains a publication-only alias; do not supply both spellings.
 Create: --kind is required; --project ID --meta k=v (repeatable).
-HTML images: publish standalone assets with relative <img src> URLs; see r3 guide.
+HTML images: publish standalone assets with relative <img src> URLs; see r3 guide html.
 
   feedback add <id> -m <message> [target flags]
   feedback edit <feedback-id> [-m <message>] [--status open|resolved --human]
@@ -48,7 +50,8 @@ Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential
 
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
-  start | stop | status | restart | guide
+  start | stop | status | restart
+  guide [html|files|diff]                     # workflow and optional preparation guides
 
 Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
 Optional previewBaseUrl selects a separate endpoint; previewPort defaults to the
@@ -64,90 +67,189 @@ credentials, and sends it for project grouping. Ambiguous remotes stay ungrouped
 Later versions retain their artifact's project; --project overrides creation.
 `;
 
-export const ARTIFACT_GUIDE = `${ARTIFACT_HELP}
-An artifact has one fixed kind and immutable published versions. Prepare complete
-directory contents locally and publish them; changing local files does not change
-what the human sees. Files artifacts have a file browser and source/rendered
-views. HTML artifacts use a rendered workspace and require index.html or index.md
-at the root. Exactly one index is required; both or neither is an error. Diff versions are independent sparse
-patches, not a reconstructed tree. All versions remain until whole-artifact deletion.
+export const ARTIFACT_GUIDE = `# r3 — publish artifacts and respond to feedback
 
-For HTML publications, keep index.html small: save image assets as standalone
-files such as assets/hero.webp and load them with native HTML:
-  <img src="./assets/hero.webp" alt="Hero illustration">
+r3 lets agents publish immutable artifacts for humans to review and optionally leave feedback. Run \`r3\` as a subprocess from your harness.
 
-Extract large embedded base64/data-URL images into files and reuse the same path
-where an image repeats. Publish the complete prepared directory, including every
-referenced asset, on each version:
-  r3 create --kind html --dir ./prototype
-  r3 publish <id> --dir ./prototype
-An index.html-only capture omits companion files. Relative URLs resolve from the
-document; a leading / addresses the preview origin, not the publication directory.
-The preview also supplies a version-root URL for constructing asset URLs.
-Prepare dependencies and assets before publishing; r3 does not build or install
-them. Use hash routes or published document paths for navigation.
+## A typical review
 
-Create publishes version 1 after capturing locally. Publish reads the latest
-published sequence for its optimistic concurrency check; --expected overrides it.
---key makes a lost-response retry return the original publication. Keep the same
-captured content, expected sequence, key, and metadata when retrying. A conflicting
-publisher requires inspecting the latest version and making a new publication.
+Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the feedback IDs from the human's submission; the IDs below are examples.
 
-Set R3_AGENT_SESSION or --session to a stable distinct ID when your harness does
-not provide one, and always give logical subagents distinct IDs. The same artifact
-can receive publications and replies from any registered agent. No agent owns it.
+\`\`\`sh
+r3 create --kind files --dir ./prepared --title 'Design review'
+artifact_id=artifact_example
+# Share the printed URL, then register for notifications.
+r3 listen "$artifact_id"
 
-Artifact JSON includes unhandledCount: open threads whose latest message is from
-an agent. Reading, delivery, and claims do not clear it; a human reply or resolution does.
-storage.totalBytes counts distinct original/retained blobs across published versions
-plus each patch's UTF-8 bytes. storage.latestVersionBytes is the latest publication's
-full footprint (zero before publication), independent of the selected version.
-These exclude database/filesystem overhead. Shared blobs count toward each artifact;
-the total is not the space that deleting an artifact would necessarily reclaim.
+# When a feedback-submitted notification arrives:
+r3 feedback fetch "$artifact_id"
+r3 claim feedback_a feedback_b feedback_c
 
-Open the printed artifact URL for human feedback. Use listen for Claude Code or
-Codex when their local wake adapter is available; it keeps a publisher-side process
-connected outward to r3. Other agents use watch or poll feedback fetch. The daemon never
-needs access to your checkout, executable, harness socket, or harness credential.
-One designated listen/watch connection is supported at a time. A successful wake
-confirms notification delivery; feedback remains pending until feedback fetch acknowledges it.
+# Inspect the recorded targets and revise the prepared files.
+r3 publish "$artifact_id" --dir ./prepared --expected 1
+# Suppose publication returned version 2, discussed in rendered view:
+r3 reply feedback_a --version 2 --view rendered -m 'Clarified ownership.' \\
+  --target '{"kind":"rendered","versionSeq":2,"path":"plan.md","locator":{"selector":"#ownership"}}'
+r3 reply feedback_b --version 2 --view rendered -m 'Added the missing case.'
+r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
+\`\`\`
 
-Run feedback fetch to fetch and acknowledge pending owner feedback; --all reads open
-history without acknowledging anything. Claim the feedback IDs you will handle.
-Read native targets in their recorded version and representation. Rendered
-selectors, text, route, and viewport are page evidence, not source-line mappings.
-Original targets never move. Place records additional verified placements; a fix
-target belongs on a reply, separately from the reply's explicit message context.
+The listener remains registered. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
 
-Publish complete updated contents or an independent patch, then reply by stable
-feedback ID. --version and --view pin the reply's inline references. Omit both for
-a message without version context. Publishing and replying never resolve feedback;
-the human changes open/resolved status. A successful reply releases only its
-author's claim. Claim leases are renewable for 60 minutes.
+## Session and artifact kind
 
-Whenever you can verify where a change addresses the feedback, include --target
-with a JSON fix target on the reply. It identifies the published location the human
-can inspect, independently of --version/--view (the message's reference context).
-Use kind, versionSeq, path, and locator; quote JSON as one shell argument:
-  r3 reply <feedback-id> --version 2 --view rendered -m 'Clarified ownership.' \\
-    --target '{"kind":"rendered","versionSeq":2,"path":"plan.md","locator":{"selector":"#ownership","quote":"Ownership"}}'
-For source, locator is {"start":12,"end":14,"quote":"exact published text"};
-for diff, also include "side":"old" or "new" in that locator. A null locator
-identifies the whole published file. Use the target's own version and native
-representation, verify its selector or line/quote, and omit --target only when
-there is no verifiable published fix location. Never guess source lines from a
-rendered selection or reuse an old target without checking the new version.
+r3 normally infers identity from the harness environment. Optionally override it with \`R3_AGENT_SESSION\` or \`--session <id>\`. Each logical subagent needs a distinct ID.
 
-Watch exits 10 for pending feedback, 0 for archived, 2 on timeout, 4 when another
-recipient holds the slot or this connection was superseded. Branch on the exit
-code. Archive is terminal even when unsent feedback exists. A nonblank archive
-message is saved and sent to the current listener; a blank message closes quietly.
-Restore permits publication again, but requires a fresh listener registration.
-Archive delivery failure does not undo the archived state or its saved message.
+Read this guide once per session. Specify \`--kind html|files|diff\` at creation; load each needed preparation guide once per session, when that kind is first needed:
 
-Previews try verified network blocking first. Published image files load within
-that protection; they do not need an external network grant.
-Browsers without enforcement need a one-time risk acknowledgment for limited
-protection. Only the human can enable broader external access for HTML or share
-devices through separate r3 consent and browser permission.
-`;
+| Kind | Review surface | Guide |
+| --- | --- | --- |
+| \`html\` | A rendered HTML page with optional assets such as images | \`r3 guide html\` |
+| \`files\` | A directory with a file browser | \`r3 guide files\` |
+| \`diff\` | An independent captured patch | \`r3 guide diff\` |
+
+## Publish
+
+\`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
+
+\`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the version you revised; otherwise r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
+
+Optional \`--version-label\` names the published version; \`--summary\` describes it. The CLI detects the Git remote for server-configured project grouping. Explicit \`--project\` overrides inference; details and artifact metadata flags are in \`r3 --help\`.
+
+## Receive feedback
+
+\`r3 listen <id>\` checks and registers a background wake adapter. Supported adapters are Claude Code's messaging socket/token and Codex's thread/session environment plus a working \`codex queue --help\`. Exit 0 confirms registration; exit 5 requires watch or polling. A wake notification tells you to fetch feedback.
+
+\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI with a stable identity. Exit 10 prints and acknowledges feedback; 0 means archived, 2 means timeout, and 4 means an occupied or superseded recipient slot. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
+
+\`r3 feedback fetch <id> [--all] [--feedback <id,id>]\` fetches and acknowledges the pending snapshot. \`--all\` reads open history without acknowledgment; add \`--feedback <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history. Use the existing payload when feedback was pasted or returned by watch.
+
+## Handle feedback
+
+\`r3 claim <feedback-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <feedback-id>...\` when abandoning work. A resolved-status notification needs no action.
+
+Inspect original targets in their recorded version and representation. Rendered selectors, quotes, routes, and viewports describe the published page, not source lines. Reuse matching local source when revising your own publication; retrieve published content only when needed, such as an older version or another agent's work. Inspection/download commands are in \`r3 --help\`.
+
+Publish changed content, then \`r3 reply <feedback-id> -m <message>\`. Reply separately to each thread. Include \`--version <seq> --view source|rendered|diff\` when discussing a publication; omit both for general messages. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. A null locator targets the whole file. The fix target has its own version/view, independent of message context. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified placements.
+
+Successful replies release only your own claims. Publishing and replying never resolve feedback; the human controls status. Complete the requested work, reply, and keep listening when requested. Archive ends the waiting loop and removes its listener; restore requires fresh registration.`;
+
+const HTML_GUIDE = `# HTML artifacts
+
+Read this once per session when HTML preparation is first needed; the main \`r3 guide\` covers publishing, listening, and replying.
+
+An HTML artifact presents a rendered page with optional assets such as images. The publication root must contain exactly one of \`index.html\` or \`index.md\`. Both present, or neither present, is an error. The user enters through that index.
+
+Use a shared navigation bar or tabs so every review page is reachable from every other page, directly or through several steps. Make the index a useful starting page and expose assets through the page's content or controls. The workspace intentionally has no file browser, source toggle, or companion-file viewer. Publishing a file alone does not make it discoverable. Use a files artifact when the human should browse the directory freely.
+
+\`\`\`sh
+r3 create --kind html --dir ./prototype --title 'Prototype'
+r3 publish <id> --dir ./prototype --version-label 'Revised prototype'
+\`\`\`
+
+\`create\` requires \`--kind html\`; the unique root index selects the starting document automatically.
+
+## Prepare the directory
+
+Build dependencies before capture. Publish every referenced local asset on every version. An index-only \`--file\` filter omits companion assets.
+
+Keep large images in standalone files and reference them with native HTML:
+
+\`\`\`html
+<img src="./assets/hero.webp" alt="Hero illustration">
+\`\`\`
+
+Extract large embedded base64/data-URL images into files, and reuse the same path where an image repeats. Relative URLs resolve from the document; a leading slash addresses the preview origin. The preview also supplies a version-root URL for constructed asset URLs. Use hash routes or published document paths for navigation.
+
+## Preview and rendered feedback
+
+Bundle dependencies and assets locally: external requests are blocked by default. If the page requires external services or device access, explain that requirement to the human.
+
+Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered feedback easier to anchor and inspect.
+
+For a new rendered target, \`feedback add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence, later placements, and reply/fix context.`;
+
+const FILES_GUIDE = `# Files artifacts
+
+Read this once per session when files preparation is first needed; the main \`r3 guide\` covers publishing, listening, and replying.
+
+A files artifact is a nonempty complete file set with no index requirement. The browser shows all files as a foldable stack with a matching file panel. Markdown opens rendered; other text opens as source. HTML/Markdown can switch between source and rendered views. Media has native previews; binary files can be downloaded. Files artifacts do not derive diffs between versions.
+
+## Capture
+
+\`\`\`sh
+r3 create --kind files --dir ./prepared --title 'Design documents'
+r3 publish <id> --dir ./prepared
+\`\`\`
+
+Use \`--kind files\` explicitly at creation, including for directories containing an index. To publish a subset, repeat \`--file <relative-path>\`; a selected directory includes its descendants. The resulting selection is the complete version, not an update to the prior version.
+
+For committed Git files, combine a valid \`--ref <git-ref>\` with repeated \`--file\` selections. Without a ref, use directory capture for the current files:
+
+\`\`\`sh
+r3 create --kind files --ref HEAD --file docs/plan.md --file src
+r3 publish <id> --dir . --file docs/plan.md --file src
+\`\`\`
+
+\`--ref\` has no special \`STAGED\` value. Directory capture reads working-tree bytes, including any unstaged changes; it does not promise an exact index snapshot.
+
+Directory capture includes hidden files. Prepare the intended publication directory or select explicit relative paths. Materialize symlinks into ordinary files before capture; symlinks and special files are rejected. Publish stable content: capture fails if files or membership change during the read.
+
+## Source and rendered feedback
+
+For a new source target, \`feedback add\` accepts \`--file <path> --version <seq> --view source --line <start-end> --quote <captured text>\`. Omit line and quote for a whole-file target.
+
+For rendered HTML/Markdown, use \`--view rendered\` with \`--selector <CSS>\` and optional \`--quote <text>\` and \`--route <query/hash>\`, or the recorded JSON target. Keep any companion assets in the publication and use relative document URLs. Rendered previews remain isolated; files artifacts do not receive the HTML-artifact external-access grant.
+
+The main guide covers the feedback loop and native evidence. Use \`r3 --help\` for inspection and placement command details.`;
+
+const DIFF_GUIDE = `# Diff artifacts
+
+Read this once per session when diff preparation is first needed; the main \`r3 guide\` covers publishing, listening, and replying.
+
+Each diff version is an independent immutable sparse patch. It retains old/new sides, rename and binary metadata, and captured context. Versions are not patches to apply successively, and r3 does not reconstruct a full tree or retrieve uncaptured context from the publisher.
+
+## Capture
+
+Choose one capture mode for each publication:
+
+| Flag | Captured changes |
+| --- | --- |
+| \`--working\` | Working tree against HEAD, including untracked files |
+| \`--staged\` | Index against HEAD |
+| \`--commit <sha>\` | One commit against its first parent, or the empty tree for a root commit |
+| \`--diff <base>..<head>\` | The difference between two Git revisions |
+| \`--stdin-diff\` | A supplied unified diff from stdin |
+
+\`\`\`sh
+r3 create --kind diff --working --title 'Navigation changes'
+r3 publish <id> --staged
+git diff main feature | r3 publish <id> --stdin-diff
+\`\`\`
+
+Git capture runs on the publisher. The daemon stores the captured patch and context. A later publication should express the complete intended review against its chosen base. The stdin path carries the supplied patch; context outside that input is unavailable.
+
+## Diff targets
+
+Read the captured patch with \`r3 patch <id> --version <seq>\`. For a new line target, \`feedback add\` accepts \`--file <path> --version <seq> --view diff --side old|new --line <start-end> --quote <captured text>\`.
+
+The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence, additional placements, and replying with explicit version/diff context.`;
+
+export function artifactGuide(args: string[]): string {
+  if (args.length > 1)
+    throw new ArtifactCommandError("guide expects at most one topic: html, files, or diff");
+  switch (args[0]) {
+    case undefined:
+      return ARTIFACT_GUIDE;
+    case "html":
+      return HTML_GUIDE;
+    case "files":
+      return FILES_GUIDE;
+    case "diff":
+      return DIFF_GUIDE;
+    default:
+      throw new ArtifactCommandError(
+        "Unknown guide topic. Choose html, files, or diff, or run r3 guide for the workflow.",
+      );
+  }
+}

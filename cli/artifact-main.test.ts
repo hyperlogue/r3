@@ -57,6 +57,24 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
   };
   try {
     expect((await run("help")).output).toContain("published artifacts");
+    for (const [args, heading] of [
+      [[], "# r3 — publish artifacts and respond to feedback"],
+      [["html"], "# HTML artifacts"],
+      [["files"], "# Files artifacts"],
+      [["diff"], "# Diff artifacts"],
+    ] as const) {
+      const guide = await run("guide", ...args);
+      expect(guide.code).toBe(0);
+      expect(guide.error).toBe("");
+      expect(guide.output.startsWith(heading)).toBe(true);
+      expect(guide.output).not.toContain("auth create-token");
+    }
+    for (const args of [["unknown"], ["constructor"], ["html", "files"]]) {
+      const invalid = await run("guide", ...args);
+      expect(invalid.code).toBe(1);
+      expect(invalid.output).toBe("");
+      expect(invalid.error).toContain("guide");
+    }
     expect(await Bun.file(join(root, "store.sqlite")).exists()).toBe(false);
     const created = await run(
       "create",

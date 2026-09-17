@@ -3,7 +3,7 @@ import type { ArtifactActor } from "../shared/artifacts.ts";
 import { R3_VERSION } from "../shared/version.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { runArtifactCommand } from "./artifact-commands.ts";
-import { ARTIFACT_GUIDE, ARTIFACT_HELP } from "./artifact-help.ts";
+import { ARTIFACT_HELP, artifactGuide } from "./artifact-help.ts";
 import {
   listenArtifactConnection,
   localArtifactDelivery,
@@ -93,7 +93,7 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     return 0;
   }
   if (command === "guide") {
-    console.log(ARTIFACT_GUIDE);
+    console.log(artifactGuide(args));
     return 0;
   }
   if (command === "config") {

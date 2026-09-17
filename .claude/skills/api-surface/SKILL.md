@@ -139,7 +139,12 @@ supported constraints and track compatibility.
 ## CLI and agent loop
 
 `r3 guide` and `r3 --help` come from `cli/artifact-help.ts`; keep both accurate in
-any change to commands, flags, results, or protocol. The current command families:
+any change to commands, flags, results, or protocol. `r3 guide` is the concise
+agent workflow, read once per session. `r3 guide html|files|diff` contains only the
+preparation details for that kind, loaded when first needed. Unknown topics and
+extra arguments fail locally without contacting or starting a daemon. Human
+administration and less frequent inspection/metadata commands stay in HELP.
+The current command families:
 
 | Commands | Contract |
 | --- | --- |
