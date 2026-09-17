@@ -70,7 +70,7 @@ both or neither is an error.
 The artifact's kind stays fixed. Files and HTML artifacts have no diff view.
 
 Other capture options are `--staged`, `--commit <sha>`, `--diff <base>..<head>`,
-`--stdin-diff`, and `--ref <git-ref|STAGED> --file <relative-path>` (repeatable).
+`--stdin-diff`, and `--ref <git-ref> --file <relative-path>` (repeatable).
 A diff version is an independent patch; r3 never applies it to an earlier version
 to invent a complete tree.
 

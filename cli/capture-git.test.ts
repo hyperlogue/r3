@@ -110,12 +110,16 @@ describe("publisher git capture", () => {
     );
   });
 
-  test("staged files and staged patches use index content", async () => {
+  test("file refs resolve real revisions while staged patches use index content", async () => {
     await writeFile(join(root, "readme.md"), "# Staged\n");
     await git("add", "--", "readme.md");
     await writeFile(join(root, "readme.md"), "# Unstaged\n");
+    await expect(captureGitFiles(root, "STAGED", ["readme.md"])).rejects.toThrow(
+      "Git capture failed",
+    );
+    await git("update-ref", "refs/tags/STAGED", originalTree);
     const files = await captureGitFiles(root, "STAGED", ["readme.md"]);
-    expect(Buffer.from(files[0].base64, "base64").toString()).toBe("# Staged\n");
+    expect(Buffer.from(files[0].base64, "base64").toString()).toBe("# Original\n");
     const patch = await captureGitDiff(root, originalTree, "STAGED");
     expect(patch).toContain("+# Staged");
     expect(patch).not.toContain("Unstaged");

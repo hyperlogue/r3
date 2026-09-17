@@ -126,8 +126,8 @@ export async function captureGitCommit(root: string, ref: string): Promise<strin
   return captureGitDiff(root, parent ?? (await emptyTree(root)), commit);
 }
 
-// Resolve commits once, or verify the complete index listing before/after its
-// immutable blob reads. Git file capture never follows a filesystem symlink.
+// Resolve the revision once before immutable blob reads. Git file capture
+// never follows a filesystem symlink or gives branch names special meanings.
 export async function captureGitFiles(
   root: string,
   ref: string,
@@ -135,18 +135,16 @@ export async function captureGitFiles(
 ): Promise<PublicationFile[]> {
   for (const path of paths) requireArtifactPath(path);
   if (!paths.length) throw new CaptureError("Select git files to publish");
-  const staged = ref === "STAGED";
-  const revision = staged ? null : await tree(root, ref);
-  const args = staged ? ["ls-files", "--stage", "-z"] : ["ls-tree", "-r", "-z", revision!];
-  const listing = await git(root, args);
+  const revision = await tree(root, ref);
+  const listing = await git(root, ["ls-tree", "-r", "-z", revision]);
   const entries = listing
     .toString()
     .split("\0")
     .filter(Boolean)
     .map((line) => {
-      const match = /^(\d+) (?:blob |commit )?([0-9a-f]+)(?: (\d))?\t(.*)$/s.exec(line);
+      const match = /^(\d+) (?:blob|commit) ([0-9a-f]+)\t(.*)$/s.exec(line);
       if (!match) throw new CaptureError("Cannot read git file membership");
-      return { mode: match[1], oid: match[2], stage: match[3], path: match[4] };
+      return { mode: match[1], oid: match[2], path: match[3] };
     })
     .filter((entry) =>
       paths.some((path) => entry.path === path || entry.path.startsWith(`${path}/`)),
@@ -158,10 +156,8 @@ export async function captureGitFiles(
   let total = 0;
   for (const entry of entries) {
     requireArtifactPath(entry.path);
-    if (!["100644", "100755"].includes(entry.mode) || (staged && entry.stage !== "0"))
-      throw new CaptureError(
-        "Materialize symlinks/submodules and resolve the index before publishing",
-      );
+    if (!["100644", "100755"].includes(entry.mode))
+      throw new CaptureError("Materialize symlinks/submodules before publishing");
     const size = Number((await git(root, ["cat-file", "-s", entry.oid])).toString());
     total += size;
     if (
@@ -178,8 +174,6 @@ export async function captureGitFiles(
       base64: bytes.toString("base64"),
     });
   }
-  if (staged && !(await git(root, args)).equals(listing))
-    throw new CaptureError("Git index changed during capture; retry with stable input");
   return files;
 }
 

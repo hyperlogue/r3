@@ -159,7 +159,9 @@ supplying both is an error. Authentication-token labels remain `--label`. `--kin
 exactly one root `index.html` or `index.md`; new publications reject both or neither
 and reject entrypoint overrides. Historical versions retain their entrypoints. Diff capture flags select
 working tree, index, commit, range, or stdin patch. Every version is complete and
-independent. `--ref`/`--file` captures retained Git bytes on the publisher.
+independent. `--ref`/`--file` captures a real Git revision on the publisher; there
+is no special file-index sentinel. Use `--dir` for current working-tree files,
+including any unstaged changes. Diff `--staged` capture still reads the index.
 
 Use a distinct `--session` or `R3_AGENT_SESSION` per logical agent; the harness may
 supply it automatically. The client registers that session before writes. No
