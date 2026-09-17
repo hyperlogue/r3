@@ -116,6 +116,19 @@ a message without version context. Publishing and replying never resolve feedbac
 the human changes open/resolved status. A successful reply releases only its
 author's claim. Claim leases are renewable for 60 minutes.
 
+Whenever you can verify where a change addresses the feedback, include --target
+with a JSON fix target on the reply. It identifies the published location the human
+can inspect, independently of --version/--view (the message's reference context).
+Use kind, versionSeq, path, and locator; quote JSON as one shell argument:
+  r3 reply <feedback-id> --version 2 --view rendered -m 'Clarified ownership.' \\
+    --target '{"kind":"rendered","versionSeq":2,"path":"plan.md","locator":{"selector":"#ownership","quote":"Ownership"}}'
+For source, locator is {"start":12,"end":14,"quote":"exact published text"};
+for diff, also include "side":"old" or "new" in that locator. A null locator
+identifies the whole published file. Use the target's own version and native
+representation, verify its selector or line/quote, and omit --target only when
+there is no verifiable published fix location. Never guess source lines from a
+rendered selection or reuse an old target without checking the new version.
+
 Watch exits 10 for pending feedback, 0 for archived, 2 on timeout, 4 when another
 recipient holds the slot or this connection was superseded. Branch on the exit
 code. Archive is terminal even when unsent feedback exists. A nonblank archive
