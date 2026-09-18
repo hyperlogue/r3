@@ -362,7 +362,7 @@ try {
       await eventually(
         () =>
           page.evaluate(
-            `!document.querySelector('[data-artifact-feedback="${feedback.id}"]') && [...document.querySelectorAll('[role=tab]')].some(b=>b.textContent==='Resolved 1')`,
+            `!document.querySelector('[data-feedback-queue="active"] [data-artifact-feedback="${feedback.id}"]') && [...document.querySelectorAll('[role=tab]')].some(b=>b.textContent==='Resolved 1')`,
           ),
         "active queue advances after resolve",
       );
@@ -371,7 +371,9 @@ try {
       );
       await eventually(
         () =>
-          page.evaluate(`!!document.querySelector('[data-artifact-feedback="${feedback.id}"]')`),
+          page.evaluate(
+            `!!document.querySelector('[data-feedback-queue="resolved"]:not([inert]) [data-artifact-feedback="${feedback.id}"]')`,
+          ),
         "resolved tab retains the thread",
       );
     }

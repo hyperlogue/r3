@@ -98,6 +98,8 @@ try {
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const button =
     "[...document.querySelectorAll('[data-feedback-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Copy prompt)/.test(button.textContent))";
+  const navButton =
+    "[...document.querySelectorAll('[data-app-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Copy prompt)/.test(button.textContent))";
   await eventually(
     () =>
       page.evaluate(
@@ -117,17 +119,22 @@ try {
     "second tab ready",
   );
   await page.command("Page.bringToFront");
-  await page.evaluate(`(${button}).click()`);
+  assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), false);
+  await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
+  await page.evaluate(`(${navButton}).click()`);
   await eventually(async () => deliveries.length === 1, "pending notification delivery");
   assert.equal(await page.evaluate(`(${button}).textContent`), "Sending…");
   assert.equal(await page.evaluate(`(${button}).disabled`), true);
+  assert.equal(await page.evaluate(`(${navButton}).disabled`), true);
+  await page.evaluate(`(${button}).click()`);
+  assert.equal(deliveries.length, 1, "navbar and panel share the in-flight handoff guard");
   deliveries.shift()!.accept();
   await eventually(async () => completed === 1, "successful local harness delivery");
   await page.evaluate(
     "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
   );
   assert.equal(
-    await page.evaluate(`(${button}).textContent`),
+    await page.evaluate(`(${navButton}).textContent`),
     "Sent",
     "Successful ping delivery should show Sent on the button immediately",
   );
@@ -142,6 +149,7 @@ try {
     "successful ping disables the unchanged snapshot in another tab",
   );
   await Bun.sleep(3200);
+  assert.equal(await page.evaluate(`!!(${navButton})`), false, "sent batches leave the navbar");
   assert.equal(await page.evaluate(`(${button}).textContent`), "Send to agent · 1");
   assert.equal(
     await page.evaluate(`(${button}).disabled`),
@@ -153,6 +161,8 @@ try {
     () => page.evaluate(`!!${button} && (${button}).title.startsWith('Already sent')`),
     "receipt survives reload before the agent reads feedback",
   );
+  assert.equal(await page.evaluate(`!!(${navButton})`), false);
+  await page.evaluate("document.querySelector('[aria-label=\"Show feedback\"]').click()");
   storage.conversations.claim([notes[0].id], listener.sessionId);
   await storage.conversations.addReply(notes[0].id, {
     actor: listener,
@@ -168,6 +178,7 @@ try {
     () => page.evaluate("document.body.textContent.includes('Agent is checking this')"),
     "agent activity reaches the browser",
   );
+  assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), true);
   assert.equal(
     await page.evaluate(`(${button}).disabled`),
     true,
@@ -196,6 +207,7 @@ try {
     () => page.evaluate("document.body.textContent.includes('More input during delivery')"),
     "concurrent human reply",
   );
+  assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), false);
   deliveries.shift()!.accept();
   await eventually(
     () => page.evaluate(`!(${button}).disabled`),

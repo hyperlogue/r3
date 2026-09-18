@@ -1,5 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   memo,
   type ReactNode,
@@ -23,15 +23,9 @@ import {
   hasUnsentArtifactFeedback,
 } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { artifactDrafts, useArtifactDraftCount, useArtifactNoteOpen } from "../artifact-drafts.ts";
+import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
 import { activeArtifactFeedback, artifactNeedsAttention } from "../artifact-feedback.ts";
-import {
-  useFeedbackStatus,
-  useFeedbackStatusPending,
-  useOptimisticArtifact,
-} from "../artifact-feedback-status.ts";
-import { useFeedbackHandoffReceipt } from "../artifact-handoff.ts";
-import { copyText } from "../clipboard.ts";
+import { useFeedbackStatus, useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
   FeedbackCreationContext,
   feedbackAnimation,
@@ -45,10 +39,10 @@ import {
   cn,
   FoldTriangle,
   MoreActionsButton,
-  useCopyFlash,
   useEscape,
   usePopoverFocus,
 } from "../ui.tsx";
+import { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 import { MessageInput } from "./MessageInput.tsx";
@@ -639,72 +633,22 @@ export function ArtifactThreads({
         : "active",
     );
   }, [activeFeedback, detail.feedback, setTab]);
-  const draftCount = useArtifactDraftCount(detail.id);
-  const savingStatus = useFeedbackStatusPending(detail.id);
+  const handoff = useArtifactHandoff({ ...detail, feedback: notes });
+  const { draftCount, watchers, pending, disabledReason, notice } = handoff;
   const noteOpen = useArtifactNoteOpen(detail.id);
   const wasNoteOpen = useRef(noteOpen);
   useEffect(() => {
     if (noteOpen && !wasNoteOpen.current) setTab("active");
     wasNoteOpen.current = noteOpen;
   }, [noteOpen, setTab]);
-  const receipt = useFeedbackHandoffReceipt(detail.id, detail.feedback);
-  const { copied: sent, flash: showSent } = useCopyFlash(3000);
-  const [notice, setNotice] = useState("");
-  const qc = useQueryClient();
-  const { data: watchers = [] } = useQuery({
-    queryKey: ["artifact-watchers", detail.id],
-    queryFn: () => artifactApi.watchers(detail.id),
-  });
-  const { active, resolved, pending } = useMemo(
+  const { active, resolved } = useMemo(
     () => ({
       active: activeArtifactFeedback(notes),
       resolved: notes.filter((note) => note.status === "resolved"),
-      pending: notes.filter(hasUnsentArtifactFeedback).length,
     }),
     [notes],
   );
   const ordered = tab === "active" ? active : resolved;
-  const disabledReason =
-    detail.state === "archived"
-      ? "Restore the artifact to send feedback"
-      : savingStatus
-        ? "Saving feedback status"
-        : draftCount
-          ? "Post or discard drafts before sending feedback"
-          : !pending
-            ? "No new feedback to send"
-            : receipt.hashes === null
-              ? "Checking pending feedback"
-              : receipt.covered
-                ? "Already sent. Add or update feedback to send again."
-                : null;
-  const handoff = useMutation({
-    mutationFn: async () => {
-      setNotice("");
-      if (watchers.length) {
-        const snapshot = receipt.begin();
-        if (!snapshot) throw new Error("Pending feedback is still loading. Try again.");
-        const result = await artifactApi.submit(detail.id);
-        if (result.notification.state !== "sent")
-          throw new Error(
-            "The agent notification was not delivered. Try again or copy the prompt.",
-          );
-        receipt.remember(snapshot);
-        showSent();
-      } else {
-        const preview = await artifactApi.previewPrompt(detail.id);
-        if (!(await copyText(preview.text)))
-          throw new Error("Clipboard access failed. Feedback has not been sent.");
-        await artifactApi.acknowledgePrompt(detail.id, preview.fingerprint);
-        setNotice("Prompt copied. Paste it into your agent conversation.");
-      }
-    },
-    onSettled: () =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: ["artifact", detail.id] }),
-        qc.invalidateQueries({ queryKey: ["artifact-watchers", detail.id] }),
-      ]),
-  });
   const locate = useCallback<ArtifactTargetJump>(
     (target, feedbackId) => onLocate(target, feedbackId),
     [onLocate],
@@ -763,9 +707,7 @@ export function ArtifactThreads({
   useKeyBindings(
     keysActive
       ? {
-          handOff: () => {
-            if (!disabledReason && !handoff.isPending) handoff.mutate();
-          },
+          handOff: handoff.send,
           fbNext: () => move(1),
           fbPrev: () => move(-1),
           fbLocate: () => {
@@ -805,13 +747,9 @@ export function ArtifactThreads({
               variant="primary"
               disabled={!!disabledReason || handoff.isPending}
               title={disabledReason ?? undefined}
-              onClick={() => handoff.mutate()}
+              onClick={handoff.send}
             >
-              {sent && (receipt.covered || !pending)
-                ? "Sent"
-                : handoff.isPending
-                  ? "Sending…"
-                  : `${watchers.length ? "Send to agent" : "Copy prompt"}${pending ? ` · ${pending}` : ""}`}
+              {handoff.label}
             </Button>
           </div>
         </div>

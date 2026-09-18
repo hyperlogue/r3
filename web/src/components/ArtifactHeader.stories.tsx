@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, userEvent, within } from "storybook/test";
-import { artifactFixture } from "../artifact-fixtures.ts";
+import { expect, userEvent, waitFor, within } from "storybook/test";
+import { artifactApi } from "../artifact-api.ts";
+import { artifactFixture, artifactFixtureFeedback } from "../artifact-fixtures.ts";
 import { phoneViewport } from "../storyViewport.ts";
 import { ArtifactArchiveDialog, ArtifactHeader } from "./ArtifactHeader.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
@@ -15,9 +16,16 @@ const meta = {
   title: "Components/ArtifactHeader",
   component: ArtifactHeader,
   args: { detail: artifactFixture },
+  parameters: { queryData: [[["artifact-watchers", artifactFixture.id], []]] },
 } satisfies Meta<typeof ArtifactHeader>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+function resetHandoffReceipt() {
+  localStorage.removeItem("r3-feedback-notifications");
+  window.dispatchEvent(
+    new StorageEvent("storage", { key: "r3-feedback-notifications", newValue: null }),
+  );
+}
 export const Active: Story = {};
 export const EditTitle: Story = {
   play: async ({ canvasElement }) => {
@@ -245,6 +253,112 @@ export const LatestVersion: Story = {
   args: { ...NavbarActions.args, selectedVersion: 3 },
 };
 export const LatestVersionDark: Story = { ...LatestVersion, globals: { theme: "dark" } };
+export const PendingSend: Story = {
+  ...NavbarActions,
+  args: {
+    ...NavbarActions.args,
+    selectedVersion: 3,
+    detail: {
+      ...NavbarActions.args!.detail!,
+      feedback: [{ ...artifactFixtureFeedback, sentAt: null, replies: [] }],
+    },
+  },
+  parameters: {
+    queryData: [
+      [
+        ["artifact-watchers", artifactFixture.id],
+        [{ actor: { role: "agent", sessionId: "review-agent" } }],
+      ],
+    ],
+  },
+  beforeEach: resetHandoffReceipt,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const send = canvas.getByRole("button", { name: "Send to agent · 1" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await expect(send.getBoundingClientRect().right).toBeLessThan(
+      canvas.getByRole("button", { name: "Hide feedback" }).getBoundingClientRect().left,
+    );
+    await expect(canvasElement.querySelector("[data-feedback-attention]")).toBeNull();
+  },
+};
+export const PendingSendDark: Story = { ...PendingSend, globals: { theme: "dark" } };
+export const UnsentReply: Story = {
+  ...PendingSend,
+  args: {
+    ...PendingSend.args,
+    detail: {
+      ...PendingSend.args!.detail!,
+      feedback: [
+        {
+          ...artifactFixtureFeedback,
+          replies: [
+            ...artifactFixtureFeedback.replies,
+            {
+              ...artifactFixtureFeedback.replies[0],
+              id: "reply_human",
+              author: { role: "human", sessionId: null },
+              body: "Please include the comparison in the next version.",
+              sentAt: null,
+            },
+          ],
+        },
+      ],
+    },
+  },
+};
+export const SendSuccess: Story = {
+  ...PendingSend,
+  beforeEach: () => {
+    resetHandoffReceipt();
+    const original = artifactApi.submit;
+    artifactApi.submit = async () => ({ notification: { state: "sent" } });
+    return () => {
+      artifactApi.submit = original;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const send = canvas.getByRole("button", { name: "Send to agent · 1" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+    await expect(await canvas.findByRole("button", { name: "Sent" })).toBeDisabled();
+  },
+};
+export const SendFailure: Story = {
+  ...SendSuccess,
+  beforeEach: () => {
+    resetHandoffReceipt();
+    const original = artifactApi.submit;
+    artifactApi.submit = async () => {
+      throw new Error("The agent could not be reached. Try again.");
+    };
+    return () => {
+      artifactApi.submit = original;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const send = canvas.getByRole("button", { name: "Send to agent · 1" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "The agent could not be reached",
+    );
+    await expect(send).toBeEnabled();
+  },
+};
+export const LongTitlePendingSend: Story = {
+  ...PendingSend,
+  args: {
+    ...PendingSend.args,
+    selectedVersion: 1,
+    detail: {
+      ...PendingSend.args!.detail!,
+      title: "A long artifact title with a pending batch of feedback for the agent",
+    },
+  },
+};
 export const PhoneVersions: Story = {
   ...Versions,
   parameters: phoneViewport(),

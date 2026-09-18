@@ -317,11 +317,16 @@ while replying moves a handled card below threads still needing attention. The
 existing reorder animation shows that move without automatic scrolling. Unhandled
 means an open thread whose latest message is from an agent; a posted human reply or
 resolution clears it. Opening the panel does not. The navbar feedback button shows
-one primary-color dot when there are unhandled threads, drafts, or unsent feedback.
-Counts stay in its tooltip and accessible description. Posting adds feedback to r3; **Send to agent · N**
+one primary-color dot only when there are unhandled agent messages. Draft and unsent
+counts stay in its tooltip and accessible description without lighting the dot.
+Unsent human input also shows a desktop navbar handoff button immediately before
+the feedback toggle, available while the panel is hidden. The panel retains its
+handoff control, including on mobile; both controls share the in-flight request
+guard and delivery receipts. Navbar handoff errors and clipboard instructions remain
+visible beside that action. Posting adds feedback to r3; **Send to agent · N**
 or **Copy prompt · N** explicitly hands off the pending batch. Successful notification
-delivery shows **Sent** for three seconds, then keeps the button disabled until new
-human inputs are pending. A browser receipt covers exactly the inputs present when
+delivery shows **Sent** for three seconds, then hides the navbar action and keeps
+the panel button disabled until new human inputs are pending. A browser receipt covers exactly the inputs present when
 the ping began; concurrent edits remain eligible. Agent replies, claims, and body
 edits do not invalidate that receipt. Receipts synchronize across tabs and retain the latest successful request, so
 older completions cannot overwrite newer input and historical values can be sent again. A bounded cache persists hashes; if Web Crypto is unavailable,

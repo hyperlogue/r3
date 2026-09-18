@@ -35,7 +35,7 @@ export function ArtifactFeedbackToggle({
         <rect x="3" y="4" width="18" height="16" rx="2" />
         <path d="M14 4v16M17 8h1M17 12h1" />
       </StrokeIcon>
-      {(unhandled > 0 || drafts > 0 || unsent > 0) && (
+      {unhandled > 0 && (
         <span
           aria-hidden="true"
           data-feedback-attention
