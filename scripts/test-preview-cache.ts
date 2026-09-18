@@ -365,6 +365,22 @@ try {
 
   await page.goto(`${base}/${markdownPage.id}?version=1`);
   await ready();
+  const beforeExpiry = markdownReads;
+  preview.close();
+  const expiredRenewal = page.waitForResponse(
+    (response: any) =>
+      response.request().method() === "PATCH" &&
+      new URL(response.url()).pathname.startsWith("/api/previews/"),
+  );
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  assert.equal((await expiredRenewal).status(), 404);
+  await page.getByRole("button", { name: "Retry preview", exact: true }).click();
+  await ready();
+  assert.equal(
+    markdownReads,
+    beforeExpiry,
+    "an expired live context must not purge the artifact's retained Markdown",
+  );
   const markdownFrame = () =>
     page.frames().find((frame: any) => frame.url().includes("/files/index.md"))!;
   await markdownFrame().evaluate(() => scrollTo(0, 700));

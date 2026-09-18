@@ -39,10 +39,11 @@ import { PassiveMarkdown } from "./PassiveMarkdown.tsx";
 
 const NO_DEVICES: PreviewDevicePermissions = { camera: false, microphone: false };
 
-function forgetDeniedMarkdown(error: unknown, artifactId: string) {
+function forgetDeniedMarkdown(error: unknown, artifactId?: string) {
   if (!(error instanceof ArtifactApiError)) return;
   if (error.status === 401 || error.status === 403) void markdownCache.clear();
-  else if (error.status === 404 || error.status === 410) void markdownCache.forget(artifactId);
+  else if (artifactId && (error.status === 404 || error.status === 410))
+    void markdownCache.forget(artifactId);
 }
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
@@ -288,7 +289,8 @@ function PreviewSession(
       try {
         grant = await artifactApi.renewPreview(grant.id);
       } catch (error) {
-        forgetDeniedMarkdown(error, id);
+        // A missing context can mean expiry or restart, not artifact deletion.
+        forgetDeniedMarkdown(error);
         if (!closed) {
           capture.close();
           current.current.onDevicesReset();
