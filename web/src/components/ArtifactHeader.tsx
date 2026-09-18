@@ -229,6 +229,12 @@ export function ArtifactHeader({
         </span>
         {onSelectVersion && (
           <div className="flex shrink-0 self-stretch max-md:hidden">
+            <ArtifactVersionStatus
+              latest={latest?.seq}
+              selected={selectedVersion}
+              onOpen={onSelectVersion}
+              className="self-center"
+            />
             <ArtifactVersionSelect
               versions={detail.versions}
               selected={selectedVersion}
@@ -237,15 +243,6 @@ export function ArtifactHeader({
           </div>
         )}
       </div>
-      {onSelectVersion && (
-        <div className="flex shrink-0 items-center max-md:hidden">
-          <ArtifactVersionStatus
-            latest={latest?.seq}
-            selected={selectedVersion}
-            onOpen={onSelectVersion}
-          />
-        </div>
-      )}
       {detail.state === "archived" && <Pill>Archived</Pill>}
       <div className="min-w-0 flex-1" />
       {onToggleFeedback && <ArtifactSendFeedback detail={detail} />}

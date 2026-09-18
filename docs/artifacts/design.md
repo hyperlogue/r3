@@ -262,9 +262,10 @@ it restores focus to the three-dot trigger. The artifact navbar has no separate 
 There is no separate body header or delete button. Navbar action buttons
 highlight only their outline on hover;
 their text, icons, and transparent background stay steady. Desktop actions leave
-vertical breathing room, while mobile retains its larger touch targets. Version selection sits
-directly beside the title without vertical dividers, before the flexible space in
-the top navigation. Its collapsed control shows only the version badge and disclosure caret; expanded
+vertical breathing room, while mobile retains its larger touch targets. The title,
+version status, and version selector form a group without vertical dividers, before
+the flexible space in the top navigation. The collapsed selector shows only the
+version badge and disclosure caret; expanded
 choices retain their labels in newest-first order without redundant latest badges.
 Below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
@@ -273,7 +274,7 @@ layer without selecting. Menus focus their selected option or first enabled
 control and return focus to their trigger on dismissal. Escape closes one layer
 at a time, preserving any menu beneath a native permission dialog.
 While an older or unavailable version is selected, **Go to the latest version** appears in the
-top navigation immediately right of the version selector, with an amber outline. On narrow screens it
+top navigation between the title and version selector, with an amber outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and a separate **latest** badge replaces the button on the latest version. The desktop
 feedback-panel toggle precedes comment mode and the three-dot menu on the right.

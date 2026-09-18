@@ -254,8 +254,7 @@ export const LatestVersion: Story = {
     ...NavbarActions.parameters,
     docs: {
       description: {
-        story:
-          "The title and borderless version picker form one group, followed by the outlined latest badge.",
+        story: "The outlined latest badge sits between the title and borderless version picker.",
       },
     },
   },
