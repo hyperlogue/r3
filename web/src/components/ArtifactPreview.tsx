@@ -41,7 +41,7 @@ const NO_DEVICES: PreviewDevicePermissions = { camera: false, microphone: false 
 
 function forgetDeniedMarkdown(error: unknown, artifactId?: string) {
   if (!(error instanceof ArtifactApiError)) return;
-  if (error.status === 401 || error.status === 403) void markdownCache.clear();
+  if (error.status === 401 || error.status === 403) void markdownCache.suspend();
   else if (artifactId && (error.status === 404 || error.status === 410))
     void markdownCache.forget(artifactId);
 }

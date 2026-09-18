@@ -163,6 +163,26 @@ try {
       "storage failures preserve normal reading",
     );
     check((await unavailable.read(identity)) === null, "storage failures behave as cache misses");
+    const bootEpoch = await cache.authenticationEpoch();
+    await reopened.suspend();
+    await cache.resume(bootEpoch);
+    await cache.load(identity, fetchDocument);
+    check(
+      (await reopened.read(identity)) === null,
+      "a boot response from before logout cannot resume caching or permit later writes",
+    );
+    const freshTab = new MarkdownCache(name, options);
+    await freshTab.load(identity, fetchDocument);
+    check(
+      (await freshTab.read(identity)) === null,
+      "cache suspension survives new instances without authenticated bootstrap",
+    );
+    await freshTab.resume(await freshTab.authenticationEpoch());
+    await freshTab.load(identity, fetchDocument);
+    check(
+      (await freshTab.read(identity)) === html,
+      "a fresh successful bootstrap resumes persistent caching",
+    );
     return "persistent reuse, identity, deduplication, LRU, expiry, oversized documents, invalidation races, integrity, reconciliation and storage failure";
   });
   assert.ok(result);

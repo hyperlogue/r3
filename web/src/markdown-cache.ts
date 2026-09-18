@@ -141,7 +141,9 @@ export class MarkdownCache {
     const key = this.key(value);
     try {
       return await this.transaction(async (tx) => {
-        const epoch = (await request(tx.objectStore("state").get("epoch"))) ?? 0;
+        const state = tx.objectStore("state");
+        if (await request(state.get("suspended"))) return { epoch: null, html: null };
+        const epoch = (await request(state.get("epoch"))) ?? 0;
         const entries = tx.objectStore("entries");
         const entry: Entry | undefined = await request(entries.get(key));
         if (!entry) return { epoch, html: null };
@@ -232,7 +234,11 @@ export class MarkdownCache {
     return fresh;
   }
 
-  private async purge(remove: (entry: Entry) => boolean, artifactId: string | null) {
+  private async purge(
+    remove: (entry: Entry) => boolean,
+    artifactId: string | null,
+    suspend = false,
+  ) {
     this.notify(artifactId);
     this.connect();
     this.channel?.postMessage(artifactId);
@@ -240,6 +246,7 @@ export class MarkdownCache {
       await this.transaction(async (tx) => {
         const state = tx.objectStore("state");
         state.put(((await request(state.get("epoch"))) ?? 0) + 1, "epoch");
+        if (suspend) state.put(true, "suspended");
         const entries = tx.objectStore("entries");
         for (const entry of await request<Entry[]>(entries.getAll())) {
           if (!remove(entry)) continue;
@@ -257,6 +264,33 @@ export class MarkdownCache {
   }
   clear() {
     return this.purge(() => true, null);
+  }
+
+  // Logout also blocks new loads from persisting bytes through a still-live
+  // preview capability in another tab. Only successful app bootstrap resumes it.
+  suspend() {
+    return this.purge(() => true, null, true);
+  }
+  async authenticationEpoch(): Promise<number | null> {
+    try {
+      return await this.transaction(
+        async (tx) => (await request(tx.objectStore("state").get("epoch"))) ?? 0,
+      );
+    } catch {
+      return null;
+    }
+  }
+  async resume(epoch: number | null) {
+    if (epoch === null) return;
+    try {
+      await this.transaction(async (tx) => {
+        const state = tx.objectStore("state");
+        // A boot response begun before logout must not enable caching afterward.
+        if (((await request(state.get("epoch"))) ?? 0) === epoch) state.delete("suspended");
+      });
+    } catch {
+      /* Unavailable storage does not prevent authentication or normal reading. */
+    }
   }
   async reconcile(listArtifacts: () => Promise<string[]>) {
     try {

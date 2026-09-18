@@ -111,7 +111,7 @@ export function ArtifactView({
   useEffect(() => {
     if (unavailable) {
       if (query.error instanceof ArtifactApiError && [401, 403].includes(query.error.status))
-        void markdownCache.clear();
+        void markdownCache.suspend();
       else void markdownCache.forget(artifactId);
       previewSessions.forget(artifactId);
       readingPositions.forget(artifactId);

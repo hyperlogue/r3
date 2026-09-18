@@ -21,6 +21,12 @@ const build = await Bun.build({
   plugins: [await browserLoweredCssPlugin()],
 });
 if (!build.success) throw new Error("Cache fixture build failed");
+const controllerBuild = await Bun.build({
+  entrypoints: ["web/src/api.ts"],
+  target: "browser",
+  minify: true,
+});
+if (!controllerBuild.success) throw new Error("Cache authentication fixture build failed");
 const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
 const js = [...assets.keys()].find((path) => path.endsWith(".js"))!;
 const css = [...assets.keys()].find((path) => path.endsWith(".css"));
@@ -90,7 +96,7 @@ const api = createArtifactApi(
   storage,
   {
     token: randomBytes(32).toString("base64url"),
-    requireLogin: false,
+    requireLogin: true,
     version: "cache-acceptance",
     allowedHost: (host) => host === "localhost",
   },
@@ -111,6 +117,14 @@ const app = Bun.serve({
   idleTimeout: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    if (path === "/cache-controller.js")
+      return new Response(controllerBuild.outputs[0], {
+        headers: { "content-type": "text/javascript" },
+      });
+    if (path === "/cache-controller")
+      return new Response("<!doctype html><title>Cache authentication acceptance</title>", {
+        headers: { "content-type": "text/html" },
+      });
     if (path.startsWith(PREVIEW_PREFIX)) {
       if (path.endsWith("/r3/gate")) await gateHold;
       const response = await preview.fetch(request);
@@ -151,8 +165,19 @@ const browser = await playwright[engine].launch({
   ...(engine === "chromium" ? { args: ["--no-sandbox", "--disable-dev-shm-usage"] } : {}),
 });
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const browserContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const base = `http://localhost:${app.port}`;
+  const controller = await browserContext.newPage();
+  await controller.goto(`${base}/cache-controller`);
+  const credential = storage.authentication.createLoginToken("cache acceptance").token;
+  const login = () =>
+    controller.evaluate(async (token: string) => {
+      const moduleUrl = "/cache-controller.js";
+      const { api } = await import(moduleUrl);
+      await api.login(token);
+    }, credential);
+  await login();
+  const page = await browserContext.newPage();
   let step = 0;
   const ready = async () => {
     step++;
@@ -477,7 +502,7 @@ try {
   console.log(
     `${engine}: HTML refresh/version cache hits retain opaque isolation; deletion removes preview handles`,
   );
-  const cachedFileCount = () =>
+  const cachedFileCount = (artifactId = files.id) =>
     page.evaluate(async (artifactId: string) => {
       const opening = indexedDB.open("r3-markdown-cache-1:/", 1);
       const database: IDBDatabase = await new Promise((resolve, reject) => {
@@ -491,7 +516,7 @@ try {
       });
       database.close();
       return entries.filter((entry) => entry.artifactId === artifactId).length;
-    }, files.id);
+    }, artifactId);
   assert.ok((await cachedFileCount()) > 0, "opened Markdown remains cached before deletion");
   storage.artifacts.delete(files.id);
   preview.revokeArtifact(files.id);
@@ -500,6 +525,37 @@ try {
   while ((await cachedFileCount()) > 0 && Date.now() < deletionDeadline)
     await page.waitForTimeout(25);
   assert.equal(await cachedFileCount(), 0, "deletion events purge persistent Markdown bytes");
+  await page.goto(`${base}/${markdownPage.id}?version=1`);
+  await ready();
+  assert.ok((await cachedFileCount(markdownPage.id)) > 0);
+  await controller.evaluate(async () => {
+    const moduleUrl = "/cache-controller.js";
+    const { api } = await import(moduleUrl);
+    await api.logout();
+  });
+  assert.equal(await controller.evaluate(async () => (await fetch("/api/boot")).status), 401);
+  assert.equal(await cachedFileCount(markdownPage.id), 0);
+  await markdownFrame().evaluate(() => {
+    location.href = "page-1.md";
+  });
+  await page
+    .frameLocator('iframe[aria-hidden="false"]')
+    .getByRole("heading", { name: "Additional document 1", exact: true })
+    .waitFor();
+  assert.equal(
+    await cachedFileCount(markdownPage.id),
+    0,
+    "a still-live preview in another tab must not repopulate the cache after logout",
+  );
+  await login();
+  await page.goto(`${base}/${markdownPage.id}?version=1`);
+  await ready();
+  assert.equal(
+    await cachedFileCount(markdownPage.id),
+    1,
+    "successful ordinary bootstrap enables document caching again",
+  );
+  console.log(`${engine}: logout suspends persistent caching until authenticated bootstrap`);
   assert.equal(
     verifications,
     0,

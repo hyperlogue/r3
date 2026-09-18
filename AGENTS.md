@@ -198,7 +198,8 @@ authentication precedes a passive cached reading view; preview checks continue
 before enabling resources, navigation, or feedback. The passive iframe strips
 active elements and URLs and permits only its trusted layout/scroll helper.
 Authored HTML retains its existing blocking gate. Cache deletion/logout cleanup
-must prevent late writes across tabs; no permanent content capability is added.
+must prevent late writes across tabs; logout also suspends caching until normal
+authenticated bootstrap. No permanent content capability is added.
 
 Keyboard bindings have a visible control, stand down in text fields and overlays,
 and do not repeat mutations. Widget-local keys stay with the widget. Collapsing

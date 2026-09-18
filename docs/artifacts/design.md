@@ -215,7 +215,10 @@ New or expired preview contexts can therefore reuse immutable document bytes.
 Logout, unauthenticated boot, known deletion, and definitive access failures clear
 relevant entries. Reconnecting reconciles cached artifact IDs against one artifact
 list without downloading documents. Transactional invalidation prevents pending
-downloads in any tab from repopulating deleted entries. Offline deletion is learned
+downloads in any tab from repopulating deleted entries. Logout and authentication
+failure also suspend persistent reads and writes across tabs until a successful
+normal bootstrap; an older in-flight bootstrap response cannot lift that suspension.
+Preview-context expiry alone does not establish artifact deletion. Offline deletion is learned
 on reconnect; this does not provide an offline application or bypass login.
 
 Source responses, rendered documents, and trusted preview scripts use private HTTP caching with mandatory

@@ -220,7 +220,11 @@ verified port. A miss reads `/r3/markdown?path=` inside the existing expiring
 capability; this attachment-only text endpoint is not a permanent content URL.
 No context URL, injected script, or grant is saved with cached document bytes.
 Logout/unauthenticated boot, deletion, and definitive access failures purge
-entries. An IndexedDB generation guards against late writes across tabs; reconnect
+entries. Logout/authentication failure also suspends persistent cache access across
+tabs until normal authenticated bootstrap. Its captured generation prevents a boot
+response begun before logout from resuming writes afterward. Context-renewal 404s
+do not establish artifact deletion and retain cached bytes.
+An IndexedDB generation guards against late writes across tabs; reconnect
 reconciles cached artifacts with the server. Browser-profile storage remains a
 local copy, not encrypted or remotely erasable while offline.
 An injected import map preserves `/r3/utility.js` as a context-scoped import in authored HTML. Native

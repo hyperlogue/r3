@@ -28,20 +28,22 @@ export const CAN_MANAGE_TOKENS = true;
 // per-user token (sent as x-r3-token below); when exposed it needs a login-token
 // session and answers 401 `{ needsAuth:true }`, and the caller shows the login screen.
 export async function loadBoot(): Promise<{ needsAuth: boolean }> {
+  const cacheEpoch = await markdownCache.authenticationEpoch();
   const r = await fetch("/api/boot");
   // 401 = a remote origin with no valid session. Not an error — the signal to log in.
   if (r.status === 401) {
-    await markdownCache.clear();
+    await markdownCache.suspend();
     const b = (await r.json().catch(() => ({}))) as Partial<BootResponse>;
     return { needsAuth: b.needsAuth ?? true };
   }
   if (!r.ok) throw new Error(`GET /api/boot → ${r.status}`);
   const b = (await r.json()) as BootResponse;
   if (b.needsAuth) {
-    await markdownCache.clear();
+    await markdownCache.suspend();
     return { needsAuth: true };
   }
   TOKEN = b.token ?? "";
+  await markdownCache.resume(cacheEpoch);
   return { needsAuth: false };
 }
 
@@ -93,7 +95,7 @@ export const api = {
     try {
       return await req<{ ok: true }>("POST", "/api/auth/logout");
     } finally {
-      await markdownCache.clear();
+      await markdownCache.suspend();
     }
   },
   authTokens: () => req<AuthTokenInfo[]>("GET", "/api/auth/tokens"),
