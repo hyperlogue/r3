@@ -119,7 +119,6 @@ test("compatibility preserves restrictive policy and scoped immutable grants", (
   expect(normalized).toEqual([...previewPolicy(blockedScope)]);
   expect(contexts.renew(compatible.id).network).toBe("compatible");
   expect(contexts.renew(blocked.id).network).toBe("blocked");
-  expect(contexts.authorized(request(compatible.documentUrl))).toBeNull();
   contexts.revoke(compatible.id);
   expect(() => contexts.forRequest(request(compatible.documentUrl))).toThrow("unavailable");
 });
@@ -196,56 +195,6 @@ test("preview origins require secure contexts and an explicit secure transport o
   const kept = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
   storage.artifacts.delete(id);
   expect(() => contexts.forRequest(request(kept.documentUrl))).toThrow();
-});
-
-test("a null origin is not authorization; the gate proof is browser-bound, single-use, and expiring", () => {
-  const context = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
-  const browser = (method = "GET", extra: Record<string, string> = {}) =>
-    new Request(context.gateUrl, {
-      method,
-      headers: { host: new URL(context.origin).host, "user-agent": "Browser A", ...extra },
-    });
-  const proof = contexts.challenge(browser());
-  const post = browser("POST", { origin: "null", "content-type": "application/json" });
-  expect(contexts.authorized(browser())).toBeNull();
-  expect(contexts.verify(post, "unknown")).toBe(false);
-  expect(
-    contexts.verify(
-      browser("POST", { origin: context.origin, "content-type": "application/json" }),
-      proof.challenge,
-    ),
-  ).toBe(false);
-  expect(
-    contexts.verify(
-      browser("POST", { origin: "null", "content-type": "text/plain" }),
-      proof.challenge,
-    ),
-  ).toBe(false);
-  expect(
-    contexts.verify(
-      browser("POST", {
-        origin: "null",
-        "content-type": "application/json",
-        "user-agent": "Browser B",
-      }),
-      proof.challenge,
-    ),
-  ).toBe(false);
-  expect(contexts.verify(post, proof.challenge)).toBe(true);
-  expect(contexts.verify(post, proof.challenge)).toBe(false);
-  expect(contexts.authorized(browser())?.versionSeq).toBe(1);
-  expect(contexts.authorized(browser("GET", { "user-agent": "Browser B" }))).toBeNull();
-  // Opaque resource requests omit client hints; no shared cookie or storage is needed.
-  expect(
-    contexts.authorized(browser("GET", { "sec-ch-ua": '"Fixture";v="153"' }))?.versionSeq,
-  ).toBe(1);
-  contexts.renew(context.id);
-  expect(contexts.authorized(browser())?.versionSeq).toBe(1);
-  const next = contexts.challenge(browser());
-  time += 120_001;
-  expect(contexts.verify(post, next.challenge)).toBe(false);
-  contexts.revoke(context.id);
-  expect(() => contexts.authorized(browser())).toThrow("unavailable");
 });
 
 test("automatic contexts use the authenticated application origin, including HTTPS and loopback", () => {

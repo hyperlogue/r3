@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { type ArtifactPreviewContext, artifactMediaKind } from "../shared/artifacts.ts";
-import { artifactJson, matchesEntityTag } from "./artifact-http.ts";
+import { matchesEntityTag } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
 import { ArtifactError, requireArtifactPath } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
@@ -107,27 +107,6 @@ export class PreviewHost {
           ...headers,
         },
       });
-    if (path === "/r3/verify") {
-      // An opaque Origin is shared by unrelated sandboxes. Authorization comes
-      // from the unreadable gate's single-use challenge, never from CORS.
-      const cors = { "access-control-allow-origin": "null" };
-      if (request.method === "OPTIONS")
-        return request.headers.get("origin") === "null" &&
-          request.headers.get("access-control-request-method") === "POST" &&
-          request.headers.get("access-control-request-headers")?.toLowerCase() === "content-type"
-          ? plain(null, 204, {
-              ...cors,
-              "access-control-allow-methods": "POST",
-              "access-control-allow-headers": "content-type",
-            })
-          : plain(null, 403);
-      if (request.method !== "POST") return plain(null, 405, { allow: "POST" });
-      const input = await artifactJson(request, 4096);
-      if (typeof input.challenge !== "string") return plain("Invalid verification", 400);
-      return this.contexts.verify(request, input.challenge)
-        ? plain("Verified", 200, cors)
-        : plain("Invalid verification", 403, cors);
-    }
     if (request.method !== "GET" && request.method !== "HEAD")
       return plain(null, 405, { allow: "GET, HEAD" });
     // The blocked check really responds. Success means the browser ignored the
@@ -135,15 +114,12 @@ export class PreviewHost {
     if (path === "/r3/check" || path === "/outside/check")
       return plain(null, 204, { "access-control-allow-origin": "*" });
     if (path === "/r3/gate") {
-      const { challenge } = this.contexts.challenge(request);
-      return plain(previewGateDocument(scope, challenge), 200, {
+      return plain(previewGateDocument(scope), 200, {
         "content-type": "text/html; charset=utf-8",
       });
     }
-    if (!this.contexts.authorized(request))
-      return plain("Open this artifact from r3 to verify this browser before rendering.", 403);
-    // Bare navigation must never turn a shared URL into an unverified page in
-    // another browser. Published documents are opened inside the r3 workspace.
+    // The capability authorizes bytes; the trusted workspace gates execution on
+    // browser checks and consent. Bare navigation must not bypass that flow.
     if (request.headers.get("sec-fetch-dest") === "document")
       return plain("Open this artifact from r3 to render it.", 403);
     // Service workers could substitute their own document responses and remove
@@ -165,7 +141,7 @@ export class PreviewHost {
         "content-type": "text/javascript; charset=utf-8",
         "access-control-allow-origin": "*",
         "cache-control": "private, no-cache",
-        vary: "User-Agent, Sec-Fetch-Dest",
+        vary: "Sec-Fetch-Dest",
         etag,
       });
     }
@@ -218,7 +194,7 @@ export class PreviewHost {
     const documentHeaders = {
       "cache-control": "private, no-cache",
       "content-type": "text/html; charset=utf-8",
-      vary: "User-Agent, Sec-Fetch-Dest",
+      vary: "Sec-Fetch-Dest",
       etag: etag ?? "",
     };
     if (etag && matchesEntityTag(request, etag))
@@ -237,7 +213,7 @@ export class PreviewHost {
       filePath,
       { inline: true, rendered: document && !!file.renderedHash },
     );
-    response.headers.set("vary", "User-Agent, Sec-Fetch-Dest");
+    response.headers.set("vary", "Sec-Fetch-Dest");
     if (!html) {
       response.headers.set("access-control-allow-origin", "*");
       return response;

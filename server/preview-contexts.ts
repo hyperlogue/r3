@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import {
   type ArtifactPreviewContext,
@@ -11,16 +11,6 @@ import type { ArtifactStore } from "./artifacts.ts";
 const CONTEXT_TTL = 60 * 60 * 1000;
 const MAX_CONTEXTS = 512;
 export const PREVIEW_PREFIX = "/__r3_preview/";
-const digest = (value: string) => createHash("sha256").update(value).digest("hex");
-// Opaque-origin fetches omit client hints. The gate and resource requests still
-// carry the browser version in User-Agent; no cookie is required or accepted.
-const browserIdentity = (request: Request) => digest(request.headers.get("user-agent") ?? "");
-
-interface PreviewState {
-  scope: PreviewScope;
-  challenges: Map<string, { browser: string; expiresAt: number }>;
-  browsers: Set<string>;
-}
 
 function localOrigin(url: URL): boolean {
   return (
@@ -79,7 +69,7 @@ export function previewRoot(scope: Pick<PreviewScope, "origin" | "id">): string 
 // Random path capabilities identify a single immutable publication. Browser
 // isolation comes from the opaque sandbox, not URL paths or shared storage.
 export class PreviewContexts {
-  private readonly contexts = new Map<string, PreviewState>();
+  private readonly contexts = new Map<string, PreviewScope>();
   private readonly base: URL | undefined;
   constructor(
     private readonly artifacts: ArtifactStore,
@@ -129,7 +119,7 @@ export class PreviewContexts {
       applicationOrigin: app.origin,
       expiresAt: this.now() + CONTEXT_TTL,
     });
-    this.contexts.set(id, { scope, challenges: new Map(), browsers: new Set() });
+    this.contexts.set(id, scope);
     return this.describe(scope);
   }
 
@@ -153,23 +143,23 @@ export class PreviewContexts {
   }
 
   private expire(): void {
-    for (const { scope } of this.contexts.values())
+    for (const scope of this.contexts.values())
       if (scope.expiresAt <= this.now()) this.contexts.delete(scope.id);
   }
 
-  private get(id: string): PreviewState {
-    const state = this.contexts.get(id);
-    if (!state || state.scope.expiresAt <= this.now()) {
+  private get(id: string): PreviewScope {
+    const scope = this.contexts.get(id);
+    if (!scope || scope.expiresAt <= this.now()) {
       this.contexts.delete(id);
       throw new ArtifactError("Preview context expired or unavailable", 404);
     }
     try {
-      this.artifacts.version(state.scope.artifactId, state.scope.versionSeq);
+      this.artifacts.version(scope.artifactId, scope.versionSeq);
     } catch (error) {
       this.contexts.delete(id);
       throw error;
     }
-    return state;
+    return scope;
   }
 
   forRequest(request: Request, applicationOrigins?: ReadonlySet<string>): PreviewScope {
@@ -178,7 +168,7 @@ export class PreviewContexts {
       throw new ArtifactError("Preview context unavailable", 404);
     const id = new URL(request.url).pathname.match(/^\/__r3_preview\/(p[0-9a-f]{48})(?:\/|$)/)?.[1];
     if (!id) throw new ArtifactError("Preview context unavailable", 404);
-    const { scope } = this.get(id);
+    const scope = this.get(id);
     let origin: URL;
     try {
       origin = new URL(`${new URL(scope.origin).protocol}//${host}`);
@@ -194,61 +184,19 @@ export class PreviewContexts {
   }
 
   renew(id: string): ArtifactPreviewContext {
-    const state = this.get(id);
-    state.scope = Object.freeze({ ...state.scope, expiresAt: this.now() + CONTEXT_TTL });
-    return this.describe(state.scope);
+    const scope = Object.freeze({ ...this.get(id), expiresAt: this.now() + CONTEXT_TTL });
+    this.contexts.set(id, scope);
+    return this.describe(scope);
   }
   revoke(id: string): void {
     this.contexts.delete(id);
   }
   revokeArtifact(id: string): void {
-    for (const { scope } of this.contexts.values())
+    for (const scope of this.contexts.values())
       if (scope.artifactId === id) this.contexts.delete(scope.id);
   }
   close(): void {
     this.contexts.clear();
-  }
-
-  // Only the trusted gate is served before verification. Its HTML never has
-  // CORS headers, so a foreign opaque document cannot read its challenge. The
-  // JSON exchange permits Origin:null only alongside that single-use proof;
-  // the serialized opaque origin is not an authentication principal.
-  challenge(request: Request): { scope: PreviewScope; challenge: string } {
-    const scope = this.forRequest(request);
-    const { challenges } = this.get(scope.id);
-    for (const [key, value] of challenges)
-      if (value.expiresAt <= this.now()) challenges.delete(key);
-    while (challenges.size >= 8) challenges.delete(challenges.keys().next().value!);
-    const challenge = randomBytes(24).toString("base64url");
-    challenges.set(digest(challenge), {
-      browser: browserIdentity(request),
-      expiresAt: this.now() + 120_000,
-    });
-    return { scope, challenge };
-  }
-
-  verify(request: Request, challenge: string): boolean {
-    const scope = this.forRequest(request);
-    if (
-      request.method !== "POST" ||
-      request.headers.get("origin") !== "null" ||
-      request.headers.get("content-type")?.split(";")[0] !== "application/json"
-    )
-      return false;
-    const { challenges, browsers } = this.get(scope.id);
-    const key = digest(challenge);
-    const pending = challenges.get(key);
-    if (!pending || pending.expiresAt <= this.now() || pending.browser !== browserIdentity(request))
-      return false;
-    challenges.delete(key);
-    while (browsers.size >= 8) browsers.delete(browsers.keys().next().value!);
-    browsers.add(pending.browser);
-    return true;
-  }
-
-  authorized(request: Request): PreviewScope | null {
-    const scope = this.forRequest(request);
-    return this.get(scope.id).browsers.has(browserIdentity(request)) ? scope : null;
   }
 }
 

@@ -6,13 +6,11 @@ import { type PreviewScope, previewRoot } from "./preview-contexts.ts";
 function checkPreviewBrowser({
   applicationOrigin,
   contextId,
-  challenge,
   root,
   network,
 }: {
   applicationOrigin: string;
   contextId: string;
-  challenge: string;
   root: string;
   network: ArtifactPreviewNetwork;
 }) {
@@ -82,14 +80,6 @@ function checkPreviewBrowser({
           return;
         }
       }
-      const verified = await fetch(`${root}/r3/verify`, {
-        method: "POST",
-        credentials: "omit",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ challenge }),
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!verified.ok) throw new Error("Preview verification failed");
       report("ready", "Preview ready.");
     } catch {
       report(
@@ -100,12 +90,11 @@ function checkPreviewBrowser({
   })();
 }
 
-export function previewGateDocument(scope: PreviewScope, challenge: string): string {
+export function previewGateDocument(scope: PreviewScope): string {
   const params = JSON.stringify({
     applicationOrigin: scope.applicationOrigin,
     contextId: scope.id,
     root: previewRoot(scope),
-    challenge,
     network: scope.network,
   }).replaceAll("<", "\\u003c");
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>r3 preview</title><style>body{font:16px system-ui,sans-serif;margin:0;padding:2rem;color:#525252;background:#fafafa}p{max-width:38rem;line-height:1.6}</style><body><p>Checking preview isolation…</p><script>(${checkPreviewBrowser.toString()})(${params})</script></body></html>`;

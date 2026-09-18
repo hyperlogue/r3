@@ -96,6 +96,7 @@ const sources: number[] = [];
 const runtimes: number[] = [];
 let creations = 0;
 let gates = 0;
+let verifications = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -105,6 +106,7 @@ const app = Bun.serve({
     if (path.startsWith(PREVIEW_PREFIX)) {
       const response = await preview.fetch(request);
       if (path.endsWith("/r3/gate")) gates++;
+      if (path.endsWith("/r3/verify")) verifications++;
       if (path.endsWith("/r3/runtime.js")) runtimes.push(response.status);
       if (
         path.includes("/files/") &&
@@ -331,6 +333,11 @@ try {
   );
   console.log(
     `${engine}: HTML refresh/version cache hits retain opaque isolation; deletion removes preview handles`,
+  );
+  assert.equal(
+    verifications,
+    0,
+    "reopening cached documents requires no server challenge exchange",
   );
 } finally {
   await browser.close();

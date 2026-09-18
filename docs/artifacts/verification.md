@@ -97,7 +97,8 @@ native permission decisions.
 Reference runs on 2026-09-12 passed in Chrome for Testing 153.0.8010.36. Chromium
 151 was refused before requesting published files. Its CSP-only WebRTC probe had
 emitted packets; Connection Allowlist enforcement prevented them in the supported
-browser. Browser identity alone never enables preview: the runtime gate must pass.
+browser. The workspace runs the runtime gate before requesting publisher content;
+the server authorizes bytes using the temporary context capability.
 The compatibility suite passed on Linux in Chrome for Testing 153.0.8010.36
 (verified blocking), Chromium 151.0.7922.173, and Playwright's patched Firefox 153.0
 (consented compatibility). The external-access/device regression suite also passed
@@ -109,7 +110,12 @@ for the enforced policy and scoped authorization.
 
 A passing suite establishes the exercised scenarios, not the absence of defects.
 Source and preview unit tests assert that conditional reads skip blob access and
-that cached document validators cannot bypass membership, verification, or revocation.
+that cached document validators cannot bypass membership, navigation guards, or revocation.
+The compatibility and cache suites also assert that browser checks and reopening
+documents require no server challenge exchange.
+After removing the server challenge, compatibility checks passed in Chrome for
+Testing 153.0.8010.36 and Playwright Firefox 153.0; Chromium cache and native
+isolation checks also passed. These checks used fresh profiles and temporary stores.
 Reproduce new failures with isolated fixtures and extend the relevant check.
 Native iOS touch ergonomics remain the separate device-validation item tracked in
 [the mobile reference](../../.claude/skills/mobile-tier/SKILL.md#owed).

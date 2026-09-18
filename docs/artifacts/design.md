@@ -137,6 +137,10 @@ Native modules, CSS, images, audio/video, fetch, and XHR use scoped URLs and
 credential-free resource CORS. No preview cookie or application credential is
 needed. Gate HTML has no CORS headers. Unknown paths return 404, with no
 other-version, filesystem, or proxy fallback.
+The capability authorizes bytes without a server challenge or browser registration.
+The trusted workspace runs the browser gate and handles risk consent before loading
+publisher content. Response sandboxing, restricted frame ancestors, and rejection
+of top-level document navigation apply independently of this client gate.
 
 Author pages with relative URLs, hash routes, and published document paths:
 

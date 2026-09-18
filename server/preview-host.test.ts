@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -54,14 +55,6 @@ beforeEach(async () => {
     utility: () => "export const fixture = true;",
   });
   context = host.create(id, 1, "index.html", "https://app.example");
-  const proof = host.contexts.challenge(req("/r3/gate"));
-  host.contexts.verify(
-    req("/r3/verify", {
-      method: "POST",
-      headers: { origin: "null", "content-type": "application/json" },
-    }),
-    proof.challenge,
-  );
 });
 afterEach(async () => {
   host.close();
@@ -103,14 +96,6 @@ test("files media uses an isolated wrapper without inlining executable SVG", asy
   });
   context = host.create(files.id, 1, "images/a & b.svg", "https://app.example");
   expect(context.presentation).toBe("media");
-  const proof = host.contexts.challenge(req("/r3/gate"));
-  host.contexts.verify(
-    req("/r3/verify", {
-      method: "POST",
-      headers: { origin: "null", "content-type": "application/json" },
-    }),
-    proof.challenge,
-  );
   const response = await read("/r3/media");
   const wrapper = await response.text();
   expect(wrapper).toContain('<img src="');
@@ -120,15 +105,8 @@ test("files media uses an isolated wrapper without inlining executable SVG", asy
   expect(await (await read("/files/images/a%20%26%20b.svg")).text()).toBe(svg);
 });
 
-test("preview gate exposes only trusted support until that browser passes verification", async () => {
-  const refused = await host.fetch(
-    req("/files/index.html", {
-      headers: { "sec-fetch-dest": "iframe", "user-agent": "Unverified browser" },
-    }),
-  );
-  expect(refused.status).toBe(403);
-  expect(await refused.text()).not.toContain(html);
-  const gate = await host.fetch(req("/r3/gate"));
+test("the workspace gate checks browser capabilities without a server challenge", async () => {
+  const gate = await read("/r3/gate");
   expect(gate.headers.get("cache-control")).toBe("no-store");
   expect(gate.headers.has("access-control-allow-origin")).toBe(false);
   expect(gate.headers.has("set-cookie")).toBe(false);
@@ -136,17 +114,28 @@ test("preview gate exposes only trusted support until that browser passes verifi
   expect(page).toContain("iceTransportPolicy");
   expect(page).toContain("/outside/check");
   expect(page).not.toContain("Published page");
-  expect((await host.fetch(req("/outside/check"))).status).toBe(204);
-  const changedBrowser = await read("/files/index.html", { "user-agent": "Different browser" });
-  expect(changedBrowser.status).toBe(403);
-  const forged = await host.fetch(
-    req("/r3/verify", {
-      method: "POST",
-      headers: { origin: "https://app.example", "content-type": "application/json" },
-      body: JSON.stringify({ challenge: crypto.randomUUID() }),
-    }),
-  );
-  expect(forged.status).toBe(403);
+  expect(page).not.toContain("/r3/verify");
+  expect((await read("/outside/check")).status).toBe(204);
+  expect((await read("/r3/verify")).status).toBe(404);
+  for (const method of ["POST", "OPTIONS"])
+    expect((await read("/r3/verify", { origin: "null" }, method)).status).toBe(405);
+
+  // Possession of the scoped capability authorizes bytes. The workspace, not a
+  // User-Agent registration, decides when to execute publisher content.
+  const document = await read("/files/index.html", {
+    "sec-fetch-dest": "iframe",
+    "user-agent": "Different browser",
+    origin: "null",
+  });
+  expect(document.status).toBe(200);
+  expect(await document.text()).toContain("Published page");
+  expect(document.headers.has("set-cookie")).toBe(false);
+  const unknown = new URL(context.documentUrl);
+  unknown.pathname = unknown.pathname.replace(context.id, `p${randomBytes(24).toString("hex")}`);
+  expect(
+    (await host.fetch(new Request(unknown, { headers: { host: unknown.host, origin: "null" } })))
+      .status,
+  ).toBe(404);
 });
 
 test("published resources retain bytes, native MIME, private validators, and ranges", async () => {
@@ -170,23 +159,11 @@ test("published resources retain bytes, native MIME, private validators, and ran
   expect(await (await read("/files/notes.md")).text()).toBe("# Original Markdown");
 });
 
-test("external HTML contexts retain gate verification, sandbox, membership, and revocation", async () => {
+test("external HTML contexts retain browser checks, sandbox, membership, and revocation", async () => {
   context = host.create(id, 1, "index.html", "https://app.example", "external");
-  const unverified = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
-  expect(unverified.status).toBe(403);
-  expect(unverified.headers.has("connection-allowlist")).toBe(false);
   const gate = await read("/r3/gate");
   expect(gate.headers.has("access-control-allow-origin")).toBe(false);
   expect(await gate.text()).toContain('"network":"external"');
-  const proof = host.contexts.challenge(req("/r3/gate"));
-  const verified = await host.fetch(
-    req("/r3/verify", {
-      method: "POST",
-      headers: { origin: "null", "content-type": "application/json" },
-      body: JSON.stringify({ challenge: proof.challenge }),
-    }),
-  );
-  expect(verified.status).toBe(200);
   const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
   expect(document.status).toBe(200);
   expect(document.headers.has("connection-allowlist")).toBe(false);
@@ -223,10 +200,32 @@ test("document navigation uses retained Markdown and injects only the r3 runtime
 });
 
 test("preview hosting never serves application routes, another version, service workers, or a history fallback", async () => {
+  await storage.artifacts.publish(id, {
+    actor,
+    publicationKey: "later-publication",
+    expectedSeq: 1,
+    content: {
+      kind: "html",
+      files: [
+        {
+          path: "index.html",
+          mediaType: "text/html",
+          base64: Buffer.from("New page").toString("base64"),
+        },
+        {
+          path: "later.txt",
+          mediaType: "text/plain",
+          base64: Buffer.from("New file").toString("base64"),
+        },
+      ],
+    },
+  });
+  expect(await (await read("/files/index.html")).text()).toBe(html);
   for (const path of [
     "/api/boot",
     "/api/artifacts",
     "/files/missing.html",
+    "/files/later.txt",
     "/app-route",
     "/files/http://outside.example/data",
     "/files/%2e%2e%2fapi/boot",
@@ -236,16 +235,11 @@ test("preview hosting never serves application routes, another version, service 
   expect((await read("/files/index.html", { "sec-fetch-dest": "serviceworker" })).status).toBe(403);
   expect((await read("/files/index.html", {}, "POST")).status).toBe(405);
   expect((await read("/files/index.html", { "sec-fetch-dest": "document" })).status).toBe(403);
-  const other = host.create(id, 1, "index.html", "https://app.example");
-  const reused = new Request(other.documentUrl, {
-    headers: { host: new URL(other.origin).host, "user-agent": "Preview fixture browser" },
-  });
-  expect((await host.fetch(reused)).status).toBe(403);
   host.revoke(context.id);
   expect((await read("/files/index.html")).status).toBe(404);
 });
 
-test("cached HTML and Markdown revalidate without reading blobs and never bypass the gate or revocation", async () => {
+test("cached HTML and Markdown revalidate without blob reads and preserve navigation and revocation guards", async () => {
   for (const path of ["index.html", "notes.md"]) {
     const document = await read(`/files/${path}`, { "sec-fetch-dest": "iframe" });
     const headers = { "sec-fetch-dest": "iframe", "if-none-match": document.headers.get("etag")! };
@@ -260,8 +254,9 @@ test("cached HTML and Markdown revalidate without reading blobs and never bypass
       expect(reused.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
       expect(reused.headers.get("connection-allowlist")).toContain(context.id);
       expect(
-        (await read(`/files/${path}`, { ...headers, "user-agent": "Unverified browser" })).status,
-      ).toBe(403);
+        (await read(`/files/${path}`, { ...headers, "user-agent": "Different browser" })).status,
+      ).toBe(304);
+      expect(reused.headers.get("vary")).toBe("Sec-Fetch-Dest");
       expect(
         (await read(`/files/${path}`, { ...headers, "sec-fetch-dest": "document" })).status,
       ).toBe(403);
@@ -290,7 +285,7 @@ test("only retained Markdown receives the workspace appearance adapter", async (
   expect(await source!.text()).toBe("# Original Markdown");
 });
 
-test("preview support revalidates its bytes without bypassing browser or context guards", async () => {
+test("preview support revalidates its bytes without bypassing navigation or context guards", async () => {
   const validators = new Map<string, string>();
   for (const path of ["/r3/runtime.js", "/r3/utility.js"]) {
     const first = await read(path, { "sec-fetch-dest": "script" });
@@ -305,7 +300,8 @@ test("preview support revalidates its bytes without bypassing browser or context
     expect(await reused.text()).toBe("");
     expect(reused.headers.get("access-control-allow-origin")).toBe("*");
     expect(reused.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
-    expect((await read(path, { ...headers, "user-agent": "Unverified browser" })).status).toBe(403);
+    expect((await read(path, { ...headers, "user-agent": "Different browser" })).status).toBe(304);
+    expect(reused.headers.get("vary")).toBe("Sec-Fetch-Dest");
     expect((await read(path, { ...headers, "sec-fetch-dest": "document" })).status).toBe(403);
     expect((await read(path, { ...headers, "service-worker": "script" })).status).toBe(403);
   }

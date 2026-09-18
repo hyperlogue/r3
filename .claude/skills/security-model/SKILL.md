@@ -99,16 +99,18 @@ navigation is refused; rendering belongs inside the workspace. Browsers without
 credentialless iframe support still enforce the opaque sandbox and application
 origin guards; do not claim they omit transport cookies.
 
-In the default blocked mode, before published bytes become available, a trusted gate verifies its opaque
-origin, an allowed fetch, blocking of a working endpoint outside the allowlist,
+In the default blocked mode, before the workspace requests published bytes, a
+trusted gate verifies its opaque origin, an allowed fetch, blocking of a working endpoint outside the allowlist,
 and WebRTC rejection with no ICE servers and relay-only transport. Both fetch
 probe endpoints permit credential-free CORS, so a CORS failure cannot stand in
-for network enforcement. The gate HTML has no CORS headers: an unrelated opaque
-document cannot read its single-use, two-minute challenge. JSON verification
-accepts `Origin:null` only with that browser-bound challenge. Null is a serialized
-origin, not an authentication principal. Grants use the browser's User-Agent;
-opaque fetches omit client hints. No preview cookie is issued or accepted.
-Browser identity alone never enables a context: the actual gate must pass first.
+for network enforcement. The gate reports its result directly to the trusted
+workspace, which controls publisher execution. There is no server challenge,
+verification POST, or User-Agent registration. The temporary context capability
+authorizes bytes independently of the gate; `Origin:null` is not an authentication
+principal. No preview cookie is issued or accepted. Gate HTML has no CORS headers.
+Direct document navigation remains refused and `frame-ancestors` permits only the
+application origin. The workspace must finish browser checks and obtain any required
+network-risk consent before loading publisher content, rather than merely hiding it.
 
 The Connection Allowlist includes only that context's `files/*` and `r3/*`, with
 WebRTC and redirects blocked. CSP additionally restricts resource classes, forms,
@@ -141,8 +143,8 @@ Inactive retained capabilities expire normally. Media contexts are released norm
 
 Compatibility mode retains all blocked-mode response headers, including CSP and
 Connection Allowlist where implemented, but skips proof of network enforcement.
-It still requires secure transport, an opaque origin, resource reachability, and
-the browser-bound single-use challenge before publication access. It is available
+The workspace still checks secure transport, an opaque origin, and resource
+reachability before loading publisher content. It is available
 for HTML and rendered files, never diffs. Camera/microphone relay remains disabled.
 This mode cannot promise to prevent exfiltration: navigation, WebRTC, and other
 browser-dependent gaps can transmit data even though ordinary external resource
@@ -175,7 +177,7 @@ the trustworthiness of publisher content.
 External mode omits Connection Allowlist and WebRTC blocking and permits HTTP(S)
 resources and HTTP(S)/WS(S) connections in CSP. Browser CORS and mixed-content rules
 still apply; r3 never proxies requests. Its trusted gate still checks secure context,
-opaque origin, reachability, and the single-use proof, but skips network-blocking
+opaque origin and reachability, but skips network-blocking
 probes. This supports browsers lacking Connection Allowlist only after explicit
 consent. Both iframe and CSP sandbox, application auth/origin checks, document-bound
 bridge, resource membership, and direct native camera/microphone denial remain mandatory.
@@ -198,15 +200,15 @@ artifacts. No UI may describe this as disabling all security or safe networking.
 
 Preview documents use private HTTP caching with mandatory revalidation. Their
 validators cover retained bytes, context, trusted runtime, and response policy;
-context membership and browser verification precede every conditional response.
+context membership, expiry, and navigation guards precede every conditional response.
 A matching validator skips blob reads and HTML rewriting, never authorization.
 Runtime and utility scripts also revalidate privately, with validators covering
-their bytes and response policy after the same verification and revocation checks.
-Gate challenges remain uncached. The response inserts the r3 runtime before
+their bytes and response policy after the same context and revocation checks.
+Gate responses remain uncached. The response inserts the r3 runtime before
 publisher scripts without changing original or retained Markdown bytes. An
 injected import map preserves `/r3/utility.js` as a context-scoped import. Native
-resources retain private caching, validators, and ranges, varying by User-Agent
-and fetch destination. Resource CORS permits opaque module/fetch/XHR/font reads,
+resources retain private caching, validators, and ranges, varying by fetch
+destination. Resource CORS permits opaque module/fetch/XHR/font reads,
 including error responses, without permitting credentials. It does not apply to
 application APIs or gate HTML.
 

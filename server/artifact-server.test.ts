@@ -83,20 +83,14 @@ test.each([
           ...init.headers,
         },
       });
-    // Application authentication never substitutes for a verified preview grant.
-    expect((await read(preview.documentUrl, { headers: { "x-r3-token": token } })).status).toBe(
-      403,
+    // Application credentials never substitute for a valid preview capability.
+    const unknown = preview.documentUrl.replace(preview.id, `p${randomBytes(24).toString("hex")}`);
+    expect((await read(unknown, { headers: { "x-r3-token": token, origin: "null" } })).status).toBe(
+      404,
     );
     const gate = await read(preview.gateUrl);
     expect(gate.status).toBe(200);
-    const challenge = (await gate.text()).match(/"challenge":"([^"]+)"/)![1];
-    const verified = await read(preview.gateUrl.replace(/gate$/, "verify"), {
-      method: "POST",
-      headers: { origin: "null", "content-type": "application/json" },
-      body: JSON.stringify({ challenge }),
-    });
-    expect(verified.status).toBe(200);
-    expect(verified.headers.has("set-cookie")).toBe(false);
+    expect(gate.headers.has("set-cookie")).toBe(false);
     const content = await read(preview.documentUrl, { headers: { "sec-fetch-dest": "iframe" } });
     expect(content.status).toBe(200);
     expect(content.headers.get("content-security-policy")).toContain("sandbox allow-scripts;");

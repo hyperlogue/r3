@@ -123,6 +123,7 @@ const api = createArtifactApi(
 );
 const grants: ArtifactPreviewContext[] = [];
 let publicationRequests = 0;
+let verificationRequests = 0;
 let failCheck = false;
 let deniedAppRequests = 0;
 const app = Bun.serve({
@@ -133,6 +134,7 @@ const app = Bun.serve({
     const path = new URL(request.url).pathname;
     if (path.startsWith(PREVIEW_PREFIX)) {
       if (path.includes("/files/")) publicationRequests++;
+      if (path.endsWith("/r3/verify")) verificationRequests++;
       if (failCheck && path.endsWith("/r3/check"))
         return new Response("Unavailable", { status: 503 });
       return preview.fetch(request);
@@ -432,6 +434,7 @@ try {
   assert.equal(await warning.count(), 0);
   assert.equal(grants.at(-1)!.network, unsupported ? "compatible" : "blocked");
   await context.close();
+  assert.equal(verificationRequests, 0, "browser checks never require a server challenge exchange");
 
   if (unsupported) {
     // A readable store can still reject writes (quota/private-storage policies).

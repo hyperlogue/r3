@@ -126,6 +126,9 @@ The preview dispatcher serves its own gate, resources and runtime under
 uses the Host-guarded application listener; an explicit endpoint adds a separate
 loopback preview listener. It serves no application API, proxy, or unknown-path SPA fallback. See
 [security-model](../security-model/SKILL.md) for its authorization boundary.
+The context capability authorizes resource reads. The trusted browser gate checks
+capabilities before the workspace loads publisher content; there is no server
+challenge, verification POST, or User-Agent registration.
 
 The browser-only `ArtifactUtility` in `shared/preview-protocol.ts` also exposes
 `getUserMedia(constraints): Promise<MediaStream>`. The external-mode runtime adapts

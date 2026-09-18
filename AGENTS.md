@@ -45,7 +45,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   from its authenticated API. Previews use the browser's r3 address automatically;
   an explicit endpoint override adds a separate loopback preview listener. Every
   rendered document has an opaque browser origin and no application credentials.
-  App HTML downloads are attachments; executable documents require a verified context.
+  App HTML downloads are attachments; the workspace checks browser capabilities
+  and obtains any required consent before loading executable documents.
 - SSE carries invalidations after committed writes. Clients refetch state on ready
   or reconnect. No filesystem watcher or live-content fallback remains.
 
