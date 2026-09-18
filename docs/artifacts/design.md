@@ -197,6 +197,16 @@ browser storage fall back to ordinary reads. Cached bytes are hash-checked befor
 use; injected scripts, capabilities, and permission grants are never cached there.
 This includes Markdown entrypoints in HTML artifacts, but not authored HTML.
 
+After ordinary application authentication, a warm Markdown visit first displays
+a passive local reading view while preview checks run. It preserves formatting,
+theme, and scroll, but strips navigation/resource attributes and active elements.
+An opaque iframe's restrictive CSP permits only a trusted layout/scroll helper;
+publisher scripts, images, network requests, links, and feedback actions are absent.
+The normal interactive document replaces it once the gate and layout are ready.
+There is no additional login check and no display before application bootstrap.
+Cold visits retain the loading indicator. Definitive failures remove the reading
+view; cached bytes never bypass authorization for server access.
+
 The current temporary preview capability supplies retained bytes on a cache miss.
 A server-served empty Markdown shell retains response security headers and the
 native document URL. After the browser gate, the trusted parent sends the selected

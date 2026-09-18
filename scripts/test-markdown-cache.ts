@@ -26,7 +26,8 @@ const browser = await playwright[engine].launch({
   ...(engine === "chromium" ? { args: ["--no-sandbox", "--disable-dev-shm-usage"] } : {}),
 });
 try {
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   await page.goto(`http://localhost:${app.port}`);
   const result = await page.evaluate(async () => {
     const moduleUrl = "/cache.js";
@@ -166,6 +167,71 @@ try {
   });
   assert.ok(result);
   console.log(`${engine}: ${result}`);
+  const sharedName = await page.evaluate(async () => {
+    const moduleUrl = "/cache.js";
+    const { MarkdownCache } = await import(moduleUrl);
+    const name = `cross-tab-${crypto.randomUUID()}`;
+    const html = "<main>Shared cached document</main>";
+    const renderedHash = Array.from(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(html))),
+      (byte) => byte.toString(16).padStart(2, "0"),
+    ).join("");
+    const identity = {
+      artifactId: "artifact_shared",
+      versionSeq: 1,
+      path: "index.md",
+      renderedHash,
+      rendererRevision: "fixture-1",
+    };
+    const cache = new MarkdownCache(name);
+    await cache.load(identity, async () => html);
+    const state: any = { cache, identity, html, invalidations: 0, started: false };
+    cache.subscribe(() => {
+      state.invalidations++;
+    });
+    Object.assign(window, { cacheTest: state });
+    return name;
+  });
+  const other = await page.context().newPage();
+  await other.goto(`http://localhost:${app.port}`);
+  await other.evaluate(async (name: string) => {
+    const moduleUrl = "/cache.js";
+    const { MarkdownCache } = await import(moduleUrl);
+    const cache = new MarkdownCache(name);
+    Object.assign(window, { sharedCache: cache });
+    await cache.clear();
+  }, sharedName);
+  await page.waitForFunction(() => (window as any).cacheTest.invalidations > 0);
+  assert.equal(
+    await page.evaluate(async () => {
+      const state = (window as any).cacheTest;
+      return state.cache.read(state.identity);
+    }),
+    null,
+  );
+  await page.evaluate(() => {
+    const state = (window as any).cacheTest;
+    state.pending = state.cache.load(state.identity, () => {
+      state.started = true;
+      return new Promise((resolve) => {
+        state.release = resolve;
+      });
+    });
+  });
+  await page.waitForFunction(() => (window as any).cacheTest.started);
+  await other.evaluate(() => (window as any).sharedCache.clear());
+  assert.equal(
+    await page.evaluate(async () => {
+      const state = (window as any).cacheTest;
+      state.release(state.html);
+      await state.pending;
+      return state.cache.read(state.identity);
+    }),
+    null,
+    "logout/deletion in another tab prevents a pending download from repopulating the cache",
+  );
+  await other.close();
+  console.log(`${engine}: cross-tab invalidation broadcasts and late-write protection passed`);
 } finally {
   await browser.close();
   app.stop(true);

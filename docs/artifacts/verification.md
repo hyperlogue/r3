@@ -54,6 +54,7 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-cache.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-markdown-cache.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-passive-markdown.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-network.ts
 R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" bun scripts/test-preview-isolation.ts
 R3_TEST_BROWSER="$TEST_FULL_CHROMIUM" R3_TEST_CAPTURE=1 bun scripts/test-preview-network.ts
@@ -74,6 +75,7 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: preview setup adds no browser history entry; artifact-scoped theme persistence through reload and version changes; rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation |
 | `test-preview-cache.ts` | HTTP revalidation for preview shells and trusted runtime scripts; persistent Markdown byte reuse after source switches, refresh, historical visits, and context replacement; visible-only startup, retained frames, scroll restoration, repeated gate checks, opaque origins, and deletion cleanup. Accepts the same caller-installed Playwright engine settings as the compatibility suite |
 | `test-markdown-cache.ts` | Real IndexedDB persistence, hash/identity checks, concurrent opens, LRU/expiry, oversized documents, cross-instance invalidation races, corrupt bytes, reconnect cleanup, and storage failure. Uses the same Playwright engine settings |
+| `test-passive-markdown.ts` | Passive formatting, theme, scroll and opaque isolation; hostile script/HTML/SVG/CSS inputs cannot initiate requests or navigate. Uses the same Playwright engine settings |
 | `test-preview-network.ts` | HTML-only network control in the nav security popover and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering; `R3_TEST_CAPTURE=1` adds real browser denial/grant, received audio/video, independent physical track and clone shutdown, Stop sharing, stale consent dialog dismissal, navigation/version revocation, and unresponsive-page shutdown/recovery |
 | `test-preview-compatibility.ts` | Actual capability gate and workspace in caller-installed Playwright engines: no publication bytes before consent, one warning and one aggregate nav indicator for concurrent media previews, decline/reopen, remembered acknowledgment, cross-tab revocation, storage-write failure, verified blocking despite saved acknowledgment, publisher gate-message forgery rejection, restrictive CSP, accurate external-navigation disclosure, app isolation, interaction/feedback, native navigation, versions, rendered files, and recovery that refuses transport errors |
 | `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, two opaque frames on the application address, parent/sibling/storage and cookie isolation, denied workers and frames, blocked external resources/navigation/redirects/sockets/WebRTC, and denied capture even after a transport-origin device grant |
@@ -118,6 +120,11 @@ documents require no server challenge exchange.
 After removing the server challenge, compatibility checks passed in Chrome for
 Testing 153.0.8010.36 and Playwright Firefox 153.0; Chromium cache and native
 isolation checks also passed. These checks used fresh profiles and temporary stores.
+The managed Markdown cache and passive reading suites passed in Chromium and
+Firefox, including delayed authentication/verification, zero document-byte fetches
+on warm hits across context replacement, native fragments, scroll preservation,
+deletion cleanup, hostile passive markup, and cross-tab invalidation. Light/dark
+cached-reading Storybook examples also rendered in Chromium. Safari remains untested.
 Reproduce new failures with isolated fixtures and extend the relevant check.
 Native iOS touch ergonomics remain the separate device-validation item tracked in
 [the mobile reference](../../.claude/skills/mobile-tier/SKILL.md#owed).

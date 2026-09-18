@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import {
   type ArtifactFile,
   type ArtifactPreviewContext,
@@ -34,8 +35,15 @@ import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
 import { ArtifactPreviewSecuritySource } from "./ArtifactPreviewSecurity.tsx";
+import { PassiveMarkdown } from "./PassiveMarkdown.tsx";
 
 const NO_DEVICES: PreviewDevicePermissions = { camera: false, microphone: false };
+
+function forgetDeniedMarkdown(error: unknown, artifactId: string) {
+  if (!(error instanceof ArtifactApiError)) return;
+  if (error.status === 401 || error.status === 403) void markdownCache.clear();
+  else if (error.status === 404 || error.status === 410) void markdownCache.forget(artifactId);
+}
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
   // External resources and devices belong to this version visit. The separate
@@ -237,6 +245,31 @@ function PreviewSession(
   const seq = props.version.seq;
   const network = props.network;
   const capture = props.capture;
+  const markdown = props.markdownFiles.find((file) => file.path === props.path);
+  const renderedHash = markdown?.renderedHash;
+  const rendererRevision = markdown?.rendererRevision ?? "unknown";
+  const cacheKey = JSON.stringify([id, seq, props.path, renderedHash, rendererRevision]);
+  const [cached, setCached] = useState<{ key: string; html: string; height?: number } | null>(null);
+  const cachedDocument = cached?.key === cacheKey ? cached : null;
+  useEffect(() => {
+    if (!renderedHash) return;
+    let closed = false;
+    const unsubscribe = markdownCache.subscribe((artifactId) => {
+      if (artifactId === null || artifactId === id) {
+        closed = true;
+        setCached(null);
+      }
+    });
+    void markdownCache
+      .read({ artifactId: id, versionSeq: seq, path: props.path, renderedHash, rendererRevision })
+      .then((html) => {
+        if (!closed && html !== null) setCached({ key: cacheKey, html });
+      });
+    return () => {
+      closed = true;
+      unsubscribe();
+    };
+  }, [id, seq, props.path, renderedHash, rendererRevision, cacheKey]);
 
   useEffect(() => {
     let closed = false;
@@ -255,6 +288,7 @@ function PreviewSession(
       try {
         grant = await artifactApi.renewPreview(grant.id);
       } catch (error) {
+        forgetDeniedMarkdown(error, id);
         if (!closed) {
           capture.close();
           current.current.onDevicesReset();
@@ -279,6 +313,7 @@ function PreviewSession(
         }, 10 * 60_000);
       })
       .catch((error) => {
+        forgetDeniedMarkdown(error, id);
         if (!closed) {
           current.current.onVerification("error");
           setError(error instanceof Error ? error.message : "Preview unavailable");
@@ -714,6 +749,9 @@ function PreviewSession(
     documentHeight?.path === props.path && props.markdownPaths.includes(props.path)
       ? documentHeight.height
       : undefined;
+  const fitMarkdown = props.detail.kind === "files" && !!renderedHash;
+  const reading = !error && !!cachedDocument && (!ready || (fitMarkdown && height === undefined));
+  const visibleHeight = height ?? (fitMarkdown ? cachedDocument?.height : undefined);
 
   // A cold Markdown Locate must wait until the frame has its measured height;
   // scrolling its provisional viewport would be lost as that viewport grows.
@@ -736,6 +774,7 @@ function PreviewSession(
     <div
       aria-busy={
         !error &&
+        !(reading && cachedDocument?.height !== undefined) &&
         (!ready ||
           (props.detail.kind === "files" &&
             props.markdownPaths.includes(props.path) &&
@@ -743,8 +782,8 @@ function PreviewSession(
       }
       className={cn(
         "relative flex flex-col bg-white dark:bg-neutral-950",
-        height === undefined && "flex-1",
-        height === undefined &&
+        visibleHeight === undefined && "flex-1",
+        visibleHeight === undefined &&
           (props.detail.kind === "files" && props.markdownPaths.includes(props.path)
             ? "min-h-dvh"
             : "min-h-80"),
@@ -762,9 +801,26 @@ function PreviewSession(
             </Button>
           )}
         </div>
-      ) : !ready ? (
+      ) : !ready && !reading ? (
         <ArtifactLoading className="absolute inset-0 z-10" />
       ) : null}
+      {reading && cachedDocument && (
+        <PassiveMarkdown
+          key={cacheKey}
+          html={cachedDocument.html}
+          theme={dark ? "dark" : "light"}
+          fitContent={fitMarkdown}
+          height={visibleHeight}
+          scrollKey={
+            !fitMarkdown && !props.jump ? readingKey(id, seq, props.path, "rendered:#") : null
+          }
+          onHeight={(height) =>
+            setCached((value) =>
+              value?.key === cacheKey && value.height !== height ? { ...value, height } : value,
+            )
+          }
+        />
+      )}
       {notice && (
         <p
           role="status"
@@ -791,11 +847,12 @@ function PreviewSession(
           // Verify the current port after every load. A count of gate/document
           // loads is unreliable when a page redirects before finishing loading.
           onLoad={() => checkDocument.current()}
-          style={{ height }}
+          style={{ height: visibleHeight }}
           className={cn(
             "w-full border-0 bg-white",
-            height === undefined ? "min-h-80 flex-1" : "flex-none",
-            !ready && "invisible",
+            visibleHeight === undefined ? "min-h-80 flex-1" : "flex-none",
+            (!ready || reading) && "invisible",
+            reading && "absolute inset-0",
           )}
         />
       )}

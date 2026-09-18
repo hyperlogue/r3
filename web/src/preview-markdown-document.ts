@@ -9,13 +9,53 @@ export function installMarkdownDocument(
   install: () => void,
 ): void {
   let mounted = false;
+  let fragmentPending = !!location.hash;
+  let frame = 0;
+  const stop = () => {
+    fragmentPending = false;
+    cancelAnimationFrame(frame);
+  };
+  for (const event of ["wheel", "touchstart", "pointerdown", "keydown", "pagehide"])
+    window.addEventListener(event, stop, { once: true, passive: true });
   connection.subscribe((message) => {
-    if (
-      mounted ||
-      message?.contextId !== config.contextId ||
-      message.type !== "r3-preview-markdown"
-    )
+    if (message?.contextId !== config.contextId) return;
+    if (mounted && fragmentPending && message.type === "r3-preview-display") {
+      // Native parsing finished before the deferred body existed. Restore its
+      // heading fragment once layout is ready; explicit Locate/user input wins.
+      if (message.display?.jump) {
+        stop();
+        return;
+      }
+      let target: HTMLElement | null;
+      try {
+        target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      } catch {
+        stop();
+        return;
+      }
+      if (!target) {
+        stop();
+        return;
+      }
+      const deadline = performance.now() + 2500;
+      const scroll = () => {
+        if (!fragmentPending) return;
+        if (
+          message.display?.fitContent &&
+          innerHeight + 1 < document.body.getBoundingClientRect().height &&
+          performance.now() < deadline
+        ) {
+          frame = requestAnimationFrame(scroll);
+          return;
+        }
+        stop();
+        target.scrollIntoView();
+      };
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(scroll);
       return;
+    }
+    if (mounted || message.type !== "r3-preview-markdown") return;
     if (typeof message.html !== "string") return;
     mounted = true;
     const template = document.createElement("template");

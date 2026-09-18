@@ -68,6 +68,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Local wake delivery | `cli/artifact-listener.ts`, `cli/listener.ts`; local adapters currently in `server/listener.ts` and `server/inbox.ts` are imported only by the publisher |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
+| Markdown reading cache | `web/src/markdown-cache.ts`, `passive-markdown.ts`, `components/PassiveMarkdown.tsx`; bounded immutable bytes, invalidation, and passive reading during preview checks |
 | Workspace | `web/src/pages/ArtifactView.tsx`, `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
 | Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-feedback.ts`; stable message props, Active/Resolved queues, independently subscribed drafts |
 | Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
@@ -190,6 +191,14 @@ Shiki/WASM in the browser. Retained document HTML belongs in preview. Feedback,
 replies, and summaries render safe client Markdown (`html:false`); inline file refs
 resolve against explicit message context. Mermaid's supported diagrams use safe
 SVG; unsupported syntax falls through to source.
+
+Opened Markdown is cached by immutable rendering identity in the trusted app's
+IndexedDB (64 MiB, 30 days unused, least-recently-opened eviction). Normal app
+authentication precedes a passive cached reading view; preview checks continue
+before enabling resources, navigation, or feedback. The passive iframe strips
+active elements and URLs and permits only its trusted layout/scroll helper.
+Authored HTML retains its existing blocking gate. Cache deletion/logout cleanup
+must prevent late writes across tabs; no permanent content capability is added.
 
 Keyboard bindings have a visible control, stand down in text fields and overlays,
 and do not repeat mutations. Widget-local keys stay with the widget. Collapsing

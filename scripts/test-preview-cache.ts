@@ -29,9 +29,14 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const files = storage.artifacts.create({ kind: "files", actor, title: "Cache files" });
 const html = storage.artifacts.create({ kind: "html", actor, title: "Cache HTML" });
+const markdownPage = storage.artifacts.create({
+  kind: "html",
+  actor,
+  title: "Markdown entrypoint",
+});
 for (let seq = 1; seq <= 2; seq++) {
-  for (const artifact of [files, html]) {
-    const markdown = artifact.kind === "files";
+  for (const artifact of [files, html, markdownPage]) {
+    const markdown = artifact.kind === "files" || artifact.id === markdownPage.id;
     await storage.artifacts.publish(artifact.id, {
       actor,
       expectedSeq: seq - 1,
@@ -54,7 +59,7 @@ for (let seq = 1; seq <= 2; seq++) {
                   path: `page-${index + 1}.md`,
                   mediaType: "text/markdown",
                   base64: Buffer.from(
-                    `# Additional document ${index + 1}\n\n${"Published paragraph.\n\n".repeat(80)}`,
+                    `# Additional document ${index + 1}\n\n${"Published paragraph.\n\n".repeat(80)}\n\n## Destination\n\nNative fragment target.`,
                   ).toString("base64"),
                 })),
                 {
@@ -98,6 +103,8 @@ let creations = 0;
 let gates = 0;
 let verifications = 0;
 let markdownReads = 0;
+let gateHold: Promise<void> | null = null;
+let bootHold: Promise<void> | null = null;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -105,6 +112,7 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith(PREVIEW_PREFIX)) {
+      if (path.endsWith("/r3/gate")) await gateHold;
       const response = await preview.fetch(request);
       if (path.endsWith("/r3/gate")) gates++;
       if (path.endsWith("/r3/verify")) verifications++;
@@ -118,6 +126,7 @@ const app = Bun.serve({
       return response;
     }
     if (path.startsWith("/api/")) {
+      if (path === "/api/boot") await bootHold;
       if (path.endsWith("/previews") && request.method === "POST") creations++;
       const response = await api.app.fetch(request);
       if (path.endsWith("/source")) sources.push(response.status);
@@ -127,7 +136,12 @@ const app = Bun.serve({
     if (asset) return new Response(asset);
     return new Response(
       `<!doctype html><html><head>${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
-      { headers: { "content-type": "text/html" } },
+      {
+        headers: {
+          "content-type": "text/html",
+          "content-security-policy": "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+        },
+      },
     );
   },
 });
@@ -212,8 +226,52 @@ try {
   assert.equal(runtimes.at(-1), 304, "the trusted runtime also revalidates its cached bytes");
   const beforeRefresh = creations;
   const beforeGate = gates;
-  await page.reload();
+  let releaseGate!: () => void;
+  let releaseBoot!: () => void;
+  gateHold = new Promise((resolve) => {
+    releaseGate = resolve;
+  });
+  bootHold = new Promise((resolve) => {
+    releaseBoot = resolve;
+  });
+  const bootRequested = page.waitForRequest(
+    (request: any) => new URL(request.url()).pathname === "/api/boot",
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await bootRequested;
+  assert.equal(
+    await page.locator("[data-markdown-reading]").count(),
+    0,
+    "cached reading still waits for ordinary app authentication",
+  );
+  releaseBoot();
+  bootHold = null;
+  await page
+    .frameLocator("[data-markdown-reading]")
+    .getByRole("heading", { name: "Cache document 1", exact: true })
+    .waitFor();
+  await paneAt(1500);
+  assert.equal(
+    markdownReads,
+    1,
+    "early reading uses local bytes while the preview gate is pending",
+  );
+  await page
+    .locator("[data-artifact-content]")
+    .evaluate((pane: HTMLElement) => pane.scrollTo(0, 1600));
+  await paneAt(1600);
+  await page
+    .locator("[data-artifact-content]")
+    .evaluate((pane: HTMLElement) => pane.scrollTo(0, 1500));
+  await savedAt(1500);
+  releaseGate();
+  gateHold = null;
   await ready();
+  assert.equal(
+    await page.locator("[data-markdown-reading]").count(),
+    0,
+    "interactive preview replaces the passive reader after verification",
+  );
   await paneAt(1500);
   assert.equal(
     creations,
@@ -295,12 +353,70 @@ try {
   await savedAt(laterPosition, "page-1.md");
   await page.reload();
   await paneAt(laterPosition);
+  await page.waitForFunction(
+    () => document.querySelectorAll('iframe[aria-hidden="false"]').length === 2,
+  );
   assert.equal(
     await page.locator('iframe[aria-hidden="false"]').count(),
     2,
     "restoring a later offset hydrates only its required document prefix",
   );
   console.log(`${engine}: deferred file jumps and folding retain measured Markdown frames`);
+
+  await page.goto(`${base}/${markdownPage.id}?version=1`);
+  await ready();
+  const markdownFrame = () =>
+    page.frames().find((frame: any) => frame.url().includes("/files/index.md"))!;
+  await markdownFrame().evaluate(() => scrollTo(0, 700));
+  await savedAt(700, "index.md", "rendered:#");
+  gateHold = new Promise((resolve) => {
+    releaseGate = resolve;
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page
+    .frameLocator("[data-markdown-reading]")
+    .getByRole("heading", { name: "Cache document 1", exact: true })
+    .waitFor();
+  const passiveFrame = page.frames().find((frame: any) => frame.url() === "about:srcdoc")!;
+  await passiveFrame.waitForFunction(() => Math.abs(scrollY - 700) < 2);
+  await passiveFrame.evaluate(() => scrollTo(0, 900));
+  await savedAt(900, "index.md", "rendered:#");
+  releaseGate();
+  gateHold = null;
+  await ready();
+  await markdownFrame().waitForFunction(() => Math.abs(scrollY - 900) < 2);
+  await markdownFrame().evaluate(() => {
+    const link = document.createElement("a");
+    link.href = "page-1.md#destination";
+    document.body.prepend(link);
+    link.click();
+  });
+  await page
+    .frameLocator('iframe[aria-hidden="false"]')
+    .getByRole("heading", { name: "Additional document 1", exact: true })
+    .waitFor();
+  const destination = page
+    .frames()
+    .find((frame: any) => frame.url().includes("/files/page-1.md#destination"))!;
+  await destination
+    .waitForFunction(
+      () => {
+        const rect = document.getElementById("destination")?.getBoundingClientRect();
+        return rect && rect.top >= 0 && rect.bottom <= innerHeight;
+      },
+      undefined,
+      { timeout: 10000 },
+    )
+    .catch(async () => {
+      const position = await destination.evaluate(() => ({
+        y: scrollY,
+        top: document.getElementById("destination")?.getBoundingClientRect().top,
+      }));
+      throw new Error(`Native Markdown fragment was not restored: ${JSON.stringify(position)}`);
+    });
+  console.log(
+    `${engine}: Markdown entrypoints keep reading position across passive/interactive replacement`,
+  );
 
   await page.goto(`${base}/${html.id}?version=1`);
   await ready();
@@ -345,6 +461,29 @@ try {
   console.log(
     `${engine}: HTML refresh/version cache hits retain opaque isolation; deletion removes preview handles`,
   );
+  const cachedFileCount = () =>
+    page.evaluate(async (artifactId: string) => {
+      const opening = indexedDB.open("r3-markdown-cache-1:/", 1);
+      const database: IDBDatabase = await new Promise((resolve, reject) => {
+        opening.onsuccess = () => resolve(opening.result);
+        opening.onerror = () => reject(opening.error);
+      });
+      const read = database.transaction("entries").objectStore("entries").getAll();
+      const entries: { artifactId: string }[] = await new Promise((resolve, reject) => {
+        read.onsuccess = () => resolve(read.result);
+        read.onerror = () => reject(read.error);
+      });
+      database.close();
+      return entries.filter((entry) => entry.artifactId === artifactId).length;
+    }, files.id);
+  assert.ok((await cachedFileCount()) > 0, "opened Markdown remains cached before deletion");
+  storage.artifacts.delete(files.id);
+  preview.revokeArtifact(files.id);
+  api.collaboration.deleted(files.id);
+  const deletionDeadline = Date.now() + 5000;
+  while ((await cachedFileCount()) > 0 && Date.now() < deletionDeadline)
+    await page.waitForTimeout(25);
+  assert.equal(await cachedFileCount(), 0, "deletion events purge persistent Markdown bytes");
   assert.equal(
     verifications,
     0,

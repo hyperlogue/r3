@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactFixture, artifactFixtureVersion } from "../artifact-fixtures.ts";
+import { markdownCache } from "../markdown-cache.ts";
 import { previewSessions } from "../preview-sessions.ts";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactPreview } from "./ArtifactPreview.tsx";
@@ -97,6 +98,46 @@ export const OpeningDark: Story = { ...Opening, globals: { theme: "dark" } };
 export const FileMarkdownOpening: Story = {
   ...Opening,
   args: { detail: { ...artifactFixture, kind: "files" } },
+};
+
+const cachedHtml =
+  '<!doctype html><style>body{margin:0;padding:32px;font:16px/1.65 system-ui}main{max-width:900px;margin:auto}a{color:#86b5ff}pre{padding:16px;background:#8882}</style><main><h1>Already opened Markdown</h1><p>This document can be read while the preview checks run.</p><p><a href="page.md">Document links</a> and feedback become available when the checks finish.</p><pre><code>const version = 1;</code></pre></main>';
+const cachedFile = {
+  path: "index.md",
+  mediaType: "text/markdown",
+  renderedHash: "",
+  rendererRevision: "story-1",
+};
+export const CachedMarkdownOpening: Story = {
+  ...FileMarkdownOpening,
+  parameters: {
+    queryData: [[["artifact-files", artifactFixture.id, artifactFixtureVersion.seq], [cachedFile]]],
+  },
+  beforeEach: async () => {
+    cachedFile.renderedHash = Array.from(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(cachedHtml))),
+      (byte) => byte.toString(16).padStart(2, "0"),
+    ).join("");
+    await markdownCache.load(
+      { artifactId: artifactFixture.id, versionSeq: artifactFixtureVersion.seq, ...cachedFile },
+      async () => cachedHtml,
+    );
+    const original = artifactApi.createPreview;
+    artifactApi.createPreview = () => new Promise(() => {});
+    return () => {
+      artifactApi.createPreview = original;
+      void markdownCache.forget(artifactFixture.id);
+    };
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByTitle("Cached Markdown — preview checks in progress"),
+    ).toBeVisible();
+  },
+};
+export const CachedMarkdownOpeningDark: Story = {
+  ...CachedMarkdownOpening,
+  globals: { theme: "dark" },
 };
 
 export const HtmlProtection: Story = {

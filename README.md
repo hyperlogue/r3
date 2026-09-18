@@ -184,12 +184,17 @@ fetch, XHR, modules, and media range requests. By default external resources, AP
 forms that navigate, and access to unrelated artifacts or application endpoints
 are blocked. Bundle assets locally instead of loading a CDN.
 
-Every preview first checks whether the browser can enforce Connection Allowlists
+Interactive previews first check whether the browser can enforce Connection Allowlists
 and WebRTC blocking. Browsers that cannot show a one-time risk warning before
-loading published content. Accepting enables limited network protection: ordinary
+loading interactive published content. Accepting enables limited network protection: ordinary
 external resources stay restricted, but malicious scripts could send publication
 data, review conversations, or your input through other browser features.
 The opaque sandbox and r3 authentication remain enforced.
+
+Opened Markdown is cached locally, up to 64 MiB with 30-day unused-entry expiry.
+After normal r3 authentication, cached text and formatting can appear while preview
+checks run; images, links, and feedback wait for those checks. Logout and known
+artifact deletions clear relevant entries. Authored HTML keeps its blocking gate.
 
 Acceptance is remembered for this r3 site in this browser. New previews always
 try verified protection first, including after browser upgrades. Open the top

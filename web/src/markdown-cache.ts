@@ -69,10 +69,14 @@ export class MarkdownCache {
 
   private connect() {
     if (!this.channel && typeof BroadcastChannel !== "undefined") {
-      this.channel = new BroadcastChannel(this.name);
-      this.channel.onmessage = (event) => {
-        if (event.data === null || typeof event.data === "string") this.notify(event.data);
-      };
+      try {
+        this.channel = new BroadcastChannel(this.name);
+        this.channel.onmessage = (event) => {
+          if (event.data === null || typeof event.data === "string") this.notify(event.data);
+        };
+      } catch {
+        /* Storage/privacy policy may also disable cross-tab messaging. */
+      }
     }
   }
 
@@ -256,9 +260,17 @@ export class MarkdownCache {
   }
   async reconcile(listArtifacts: () => Promise<string[]>) {
     try {
-      const entries = await this.transaction((tx) =>
-        request<Entry[]>(tx.objectStore("entries").getAll()),
-      );
+      const entries = await this.transaction(async (tx) => {
+        const entries = tx.objectStore("entries");
+        const current: Entry[] = [];
+        for (const entry of await request<Entry[]>(entries.getAll())) {
+          if (this.now - entry.usedAt >= this.lifetime) {
+            entries.delete(entry.key);
+            tx.objectStore("bytes").delete(entry.key);
+          } else current.push(entry);
+        }
+        return current;
+      });
       if (!entries.length) return;
       const retained = new Set(await listArtifacts());
       const missing = new Set(

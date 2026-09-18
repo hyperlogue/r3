@@ -150,7 +150,7 @@ try {
         try {
           if (
             await frame.evaluate(
-              "document.querySelector('h1')?.textContent === 'Published Markdown'",
+              "location.pathname.includes('/files/') && document.querySelector('h1')?.textContent === 'Published Markdown'",
             )
           )
             return frame;
@@ -414,7 +414,7 @@ try {
       try {
         if (
           await frame.evaluate(
-            "document.querySelector('h1')?.textContent === 'Published Markdown' && innerHeight > 1000",
+            "location.pathname.includes('/files/') && document.querySelector('h1')?.textContent === 'Published Markdown' && innerHeight > 1000",
           )
         )
           return frame;

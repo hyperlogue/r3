@@ -19,7 +19,7 @@ export function isReadingPosition(value: unknown): value is ReadingPosition {
   );
 }
 
-// Reading metadata only; document bytes belong to the browser's HTTP cache.
+// Reading metadata only; document-byte caching has its own immutable identity.
 export class ReadingPositions {
   private readonly positions = new Map<string, ReadingPosition>();
   private timer: ReturnType<typeof setTimeout> | undefined;

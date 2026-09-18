@@ -110,7 +110,14 @@ authorizes bytes independently of the gate; `Origin:null` is not an authenticati
 principal. No preview cookie is issued or accepted. Gate HTML has no CORS headers.
 Direct document navigation remains refused and `frame-ancestors` permits only the
 application origin. The workspace must finish browser checks and obtain any required
-network-risk consent before loading publisher content, rather than merely hiding it.
+network-risk consent before loading interactive publisher content, rather than merely hiding it.
+Previously opened Markdown has a separate passive reading projection after normal
+application authentication. A template-based allowlist removes resource/navigation
+attributes, scripts, forms, embedded documents, and active SVG. It is displayed only
+in an opaque iframe with a restrictive meta CSP placed before cached markup. The
+only script allowed by its fresh nonce is r3's layout/scroll helper, whose exact
+window/nonce channel carries no preview/API/cache authority. The interactive
+preview retains the real server response policy and all existing gate/consent checks.
 
 The Connection Allowlist includes only that context's `files/*` and `r3/*`, with
 WebRTC and redirects blocked. CSP additionally restricts resource classes, forms,
@@ -216,8 +223,7 @@ Logout/unauthenticated boot, deletion, and definitive access failures purge
 entries. An IndexedDB generation guards against late writes across tabs; reconnect
 reconciles cached artifacts with the server. Browser-profile storage remains a
 local copy, not encrypted or remotely erasable while offline.
-An
-injected import map preserves `/r3/utility.js` as a context-scoped import. Native
+An injected import map preserves `/r3/utility.js` as a context-scoped import in authored HTML. Native
 resources retain private caching, validators, and ranges, varying by fetch
 destination. Resource CORS permits opaque module/fetch/XHR/font reads,
 including error responses, without permitting credentials. It does not apply to
