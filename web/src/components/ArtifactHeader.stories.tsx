@@ -250,6 +250,15 @@ export const NavbarActions: Story = {
 export const NavbarActionsDark: Story = { ...NavbarActions, globals: { theme: "dark" } };
 export const LatestVersion: Story = {
   ...NavbarActions,
+  parameters: {
+    ...NavbarActions.parameters,
+    docs: {
+      description: {
+        story:
+          "The title and borderless version picker form one group, followed by the outlined latest badge.",
+      },
+    },
+  },
   args: { ...NavbarActions.args, selectedVersion: 3 },
 };
 export const LatestVersionDark: Story = { ...LatestVersion, globals: { theme: "dark" } };

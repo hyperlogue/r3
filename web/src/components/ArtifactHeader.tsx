@@ -228,7 +228,7 @@ export function ArtifactHeader({
           {detail.title || detail.id}
         </span>
         {onSelectVersion && (
-          <div className="flex shrink-0 self-stretch border-x border-neutral-200 max-md:hidden dark:border-neutral-800">
+          <div className="flex shrink-0 self-stretch max-md:hidden">
             <ArtifactVersionSelect
               versions={detail.versions}
               selected={selectedVersion}

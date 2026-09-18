@@ -263,8 +263,8 @@ There is no separate body header or delete button. Navbar action buttons
 highlight only their outline on hover;
 their text, icons, and transparent background stay steady. Desktop actions leave
 vertical breathing room, while mobile retains its larger touch targets. Version selection sits
-directly beside the title, before the flexible space in the top navigation. Its
-collapsed control shows only the version badge and disclosure caret; expanded
+directly beside the title without vertical dividers, before the flexible space in
+the top navigation. Its collapsed control shows only the version badge and disclosure caret; expanded
 choices retain their labels in newest-first order without redundant latest badges.
 Below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
