@@ -18,7 +18,7 @@ import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
-import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
+import { ArtifactVersionSelect, ArtifactVersionStatus } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
 import { SettingsDialog } from "./SettingsPopup.tsx";
 
@@ -187,30 +187,42 @@ export function ArtifactHeader({
   return (
     <AppHeader showSettings={false}>
       <ArtifactKindIcon kind={detail.kind} />
-      <span
-        className="min-w-0 flex-1 truncate text-sm font-semibold"
-        title={detail.title || detail.id}
-      >
-        {detail.title || detail.id}
-      </span>
+      <div className="flex min-w-0 items-center self-stretch">
+        <span
+          className="min-w-0 truncate pr-2 text-sm font-semibold"
+          title={detail.title || detail.id}
+        >
+          {detail.title || detail.id}
+        </span>
+        {onSelectVersion && (
+          <div className="flex shrink-0 self-stretch border-x border-neutral-200 max-md:hidden dark:border-neutral-800">
+            <ArtifactVersionSelect
+              versions={detail.versions}
+              selected={selectedVersion}
+              onChange={onSelectVersion}
+            />
+          </div>
+        )}
+      </div>
       {onSelectVersion && (
-        <ArtifactOpenLatest
-          latest={detail.versions.at(-1)?.seq}
-          selected={selectedVersion}
-          onOpen={onSelectVersion}
-          className="md:py-[calc(.25rem-1px)] max-md:hidden"
-        />
-      )}
-      {onSelectVersion && (
-        <div className="flex min-w-0 max-w-[35%] self-stretch border-x border-neutral-200 max-md:hidden dark:border-neutral-800">
-          <ArtifactVersionSelect
-            versions={detail.versions}
+        <div className="flex shrink-0 items-center max-md:hidden">
+          <ArtifactVersionStatus
+            latest={latest?.seq}
             selected={selectedVersion}
-            onChange={onSelectVersion}
+            onOpen={onSelectVersion}
           />
         </div>
       )}
       {detail.state === "archived" && <Pill>Archived</Pill>}
+      <div className="min-w-0 flex-1" />
+      {onToggleFeedback && (
+        <ArtifactFeedbackToggle
+          artifactId={detail.id}
+          feedback={detail.feedback}
+          visible={!!feedbackVisible}
+          onToggle={onToggleFeedback}
+        />
+      )}
       {onToggleCommenting && (
         <Button
           variant={commenting ? "primary-outline" : "nav"}
@@ -225,14 +237,6 @@ export function ArtifactHeader({
             <path d="m10 10 4 11 2-5 5-2-11-4Z" />
           </StrokeIcon>
         </Button>
-      )}
-      {onToggleFeedback && (
-        <ArtifactFeedbackToggle
-          artifactId={detail.id}
-          feedback={detail.feedback}
-          visible={!!feedbackVisible}
-          onToggle={onToggleFeedback}
-        />
       )}
       <MoreActionsButton
         ref={detailsTrigger}
@@ -308,7 +312,7 @@ export function ArtifactHeader({
           <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-xs font-medium text-neutral-500">Version</h2>
-              <ArtifactOpenLatest
+              <ArtifactVersionStatus
                 latest={detail.versions.at(-1)?.seq}
                 selected={selectedVersion}
                 onOpen={(seq) => {

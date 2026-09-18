@@ -262,17 +262,21 @@ it restores focus to the three-dot trigger. The artifact navbar has no separate 
 There is no separate body header or delete button. Navbar action buttons
 highlight only their outline on hover;
 their text, icons, and transparent background stay steady. Desktop actions leave
-vertical breathing room, while mobile retains its larger touch targets. Version selection sits in the
-top navigation; below the `md` breakpoint it moves into the three-dot details
+vertical breathing room, while mobile retains its larger touch targets. Version selection sits
+directly beside the title, before the flexible space in the top navigation. Its
+collapsed control shows only the version badge and disclosure caret; expanded
+choices retain their labels in newest-first order without redundant latest badges.
+Below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
 The picker supports arrow keys, Home/End, and Enter; Escape closes its current
 layer without selecting. Menus focus their selected option or first enabled
 control and return focus to their trigger on dismissal. Escape closes one layer
 at a time, preserving any menu beneath a native permission dialog.
 While an older or unavailable version is selected, **Go to the latest version** appears in the
-top navigation immediately left of the version selector, with an amber outline. On narrow screens it
+top navigation immediately right of the version selector, with an amber outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
-and the button disappears on the latest version.
+and a separate **latest** badge replaces the button on the latest version. The desktop
+feedback-panel toggle precedes comment mode and the three-dot menu on the right.
 HTML artifacts have no empty content toolbar. File-tab headers contain reading and
 feedback controls. Narrow headers show source/rendered icons and the Viewed checkbox
 with accessible names, preserving space for filenames. Enabled reading controls

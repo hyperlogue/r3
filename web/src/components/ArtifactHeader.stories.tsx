@@ -138,7 +138,7 @@ export const Versions: Story = {
     },
   },
   render: (args) => {
-    const [selected, setSelected] = useState<number | null>(1);
+    const [selected, setSelected] = useState<number | null>(args.selectedVersion ?? 1);
     return (
       <ArtifactHeader
         {...args}
@@ -151,12 +151,17 @@ export const Versions: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const nav = within(canvasElement.querySelector<HTMLElement>("[data-app-header]")!);
+    await expect(nav.getByRole("button", { name: "Published version" })).toHaveTextContent(/^v1$/);
     await userEvent.click(nav.getByRole("button", { name: "Published version" }));
+    await expect(canvas.getByRole("listbox", { name: "Published versions" })).not.toHaveTextContent(
+      /latest/i,
+    );
     await userEvent.click(canvas.getByRole("option", { name: "Version 2 · Iteration 2" }));
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("2");
     await userEvent.click(nav.getByRole("button", { name: "Go to the latest version" }));
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("3");
     await expect(nav.queryByRole("button", { name: "Go to the latest version" })).toBeNull();
+    await expect(nav.getByLabelText("Latest version")).toBeVisible();
   },
 };
 export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
@@ -202,7 +207,7 @@ export const NavbarActions: Story = {
   parameters: { layout: "fullscreen" },
   args: { ...Versions.args, detail: { ...Versions.args!.detail!, kind: "html" } },
   render: (args) => {
-    const [selected, setSelected] = useState<number | null>(1);
+    const [selected, setSelected] = useState<number | null>(args.selectedVersion ?? 1);
     const [commenting, setCommenting] = useState(false);
     const [feedbackVisible, setFeedbackVisible] = useState(true);
     return (
@@ -222,6 +227,9 @@ export const NavbarActions: Story = {
     const menu = canvas.getByRole("button", { name: "Artifact details and actions" });
     const commenting = canvas.getByRole("button", { name: "Comment mode" });
     const feedback = canvas.getByRole("button", { name: "Hide feedback" });
+    await expect(feedback.getBoundingClientRect().right).toBeLessThan(
+      commenting.getBoundingClientRect().left,
+    );
     for (const button of [commenting, feedback]) {
       await expect(button.getBoundingClientRect().width).toBe(menu.getBoundingClientRect().width);
       await expect(button.getBoundingClientRect().height).toBe(menu.getBoundingClientRect().height);
@@ -232,6 +240,11 @@ export const NavbarActions: Story = {
   },
 };
 export const NavbarActionsDark: Story = { ...NavbarActions, globals: { theme: "dark" } };
+export const LatestVersion: Story = {
+  ...NavbarActions,
+  args: { ...NavbarActions.args, selectedVersion: 3 },
+};
+export const LatestVersionDark: Story = { ...LatestVersion, globals: { theme: "dark" } };
 export const PhoneVersions: Story = {
   ...Versions,
   parameters: phoneViewport(),
@@ -280,9 +293,11 @@ export const NestedKeyboardDismiss: Story = {
   },
 };
 export const LongTitle: Story = {
+  ...LatestVersion,
   args: {
+    ...LatestVersion.args,
     detail: {
-      ...artifactFixture,
+      ...LatestVersion.args!.detail!,
       title:
         "A long artifact title that should leave room for commenting, archiving, details, and settings",
     },

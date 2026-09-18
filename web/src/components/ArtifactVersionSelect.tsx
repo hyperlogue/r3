@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
 import { Button, ChevronDown, cn, useEscape, usePopoverFocus } from "../ui.tsx";
@@ -20,10 +20,24 @@ export function ArtifactVersionSelect({
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const [position, setPosition] = useState({ left: 0, top: 0 });
   useEscape(open, () => setOpen(false));
   usePopoverFocus(open, list, trigger);
+  useLayoutEffect(() => {
+    if (!open || inline) return;
+    const place = () => {
+      const rect = trigger.current!.getBoundingClientRect();
+      const width = list.current!.getBoundingClientRect().width;
+      setPosition({
+        left: Math.max(8, Math.min(rect.left, innerWidth - width - 8)),
+        top: rect.bottom,
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open, inline]);
   const version = selectedArtifactVersion(versions, selected);
-  const latest = versions.at(-1)?.seq;
   if (!versions.length)
     return <span className="self-center px-3 text-xs text-neutral-500">No published versions</span>;
   const badge = (seq: number, active: boolean) => (
@@ -36,11 +50,6 @@ export function ArtifactVersionSelect({
       )}
     >
       v{seq}
-    </span>
-  );
-  const latestBadge = (
-    <span className="shrink-0 rounded border border-success-500 px-1 py-px text-[0.5625rem] font-semibold uppercase leading-none text-success-700 dark:text-success-300">
-      latest
     </span>
   );
   return (
@@ -69,8 +78,6 @@ export function ArtifactVersionSelect({
         )}
       >
         {version ? badge(version.seq, true) : <span>Version {selected} unavailable</span>}
-        {version?.label && <span className="truncate text-neutral-500">{version.label}</span>}
-        {version?.seq === latest && latestBadge}
         <ChevronDown
           className={cn(
             "ml-auto size-3.5 shrink-0 text-neutral-400 transition-transform",
@@ -92,6 +99,7 @@ export function ArtifactVersionSelect({
         role="listbox"
         aria-label="Published versions"
         inert={!open}
+        style={inline ? undefined : position}
         onKeyDown={(event) => {
           const options = Array.from(
             event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'),
@@ -113,11 +121,11 @@ export function ArtifactVersionSelect({
           }
         }}
         className={cn(
-          "max-h-80 min-w-full overflow-y-auto rounded border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950",
+          "max-h-80 overflow-y-auto rounded border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950",
           inline
             ? cn("mt-1 w-full", !open && "hidden")
             : cn(
-                "absolute top-full right-0 z-50 r3-popover transition-[opacity,transform] duration-150 ease-out",
+                "fixed z-50 w-72 max-w-[calc(100vw-1rem)] r3-popover transition-[opacity,transform] duration-150 ease-out",
                 open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
               ),
         )}
@@ -147,7 +155,6 @@ export function ArtifactVersionSelect({
             <span className="min-w-0 flex-1 truncate whitespace-nowrap text-neutral-600 dark:text-neutral-300">
               {item.label ?? `Version ${item.seq}`}
             </span>
-            {item.seq === latest && latestBadge}
           </button>
         ))}
       </div>
@@ -155,7 +162,7 @@ export function ArtifactVersionSelect({
   );
 }
 
-export function ArtifactOpenLatest({
+export function ArtifactVersionStatus({
   latest,
   selected,
   onOpen,
@@ -166,7 +173,20 @@ export function ArtifactOpenLatest({
   onOpen: (seq: number) => void;
   className?: string;
 }) {
-  if (latest === undefined || selected === null || selected === latest) return null;
+  if (latest === undefined) return null;
+  if (selected === null || selected === latest)
+    return (
+      <span
+        role="status"
+        aria-label="Latest version"
+        className={cn(
+          "shrink-0 rounded border border-success-500 px-1 py-px text-[0.5625rem] font-semibold uppercase leading-none text-success-700 dark:text-success-300",
+          className,
+        )}
+      >
+        latest
+      </span>
+    );
   return (
     <Button
       variant="warning-outline"
