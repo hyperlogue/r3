@@ -177,7 +177,7 @@ test("external HTML contexts retain browser checks, sandbox, membership, and rev
   expect((await read("/files/index.html")).status).toBe(404);
 });
 
-test("document navigation uses retained Markdown and injects only the r3 runtime", async () => {
+test("HTML receives the runtime and Markdown receives an isolated empty shell", async () => {
   const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
   const body = await document.text();
   expect(
@@ -195,7 +195,9 @@ test("document navigation uses retained Markdown and injects only the r3 runtime
   expect(document.headers.get("vary")).toContain("Sec-Fetch-Dest");
   const markdown = await read("/files/notes.md", { "sec-fetch-dest": "iframe" });
   expect(markdown.headers.get("content-type")).toStartWith("text/html");
-  expect(await markdown.text()).toContain("Retained Markdown");
+  const shell = await markdown.text();
+  expect(shell).toContain("data-r3-markdown-shell");
+  expect(shell).not.toContain("Retained Markdown");
   expect(await (await read("/r3/utility.js")).text()).toContain("export const fixture");
 });
 
@@ -278,11 +280,33 @@ test("cached HTML and Markdown revalidate without blob reads and preserve naviga
 
 test("only retained Markdown receives the workspace appearance adapter", async () => {
   const markdown = await read("/files/notes.md", { "sec-fetch-dest": "iframe" });
-  expect(await markdown!.text()).toContain("<script data-r3-markdown src=");
+  expect(await markdown!.text()).toContain("<script data-r3-markdown data-r3-markdown-shell src=");
   const authored = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
   expect(await authored!.text()).not.toContain("data-r3-markdown");
   const source = await read("/files/notes.md");
   expect(await source!.text()).toBe("# Original Markdown");
+});
+
+test("retained Markdown bytes require a live scoped capability and never execute as a document", async () => {
+  const retained = await read("/r3/markdown?path=notes.md", { origin: "null" });
+  expect(retained.status).toBe(200);
+  expect(await retained.text()).toBe("<!doctype html><body><h1>Retained Markdown</h1></body>");
+  expect(retained.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  expect(retained.headers.get("content-disposition")).toBe("attachment");
+  expect(retained.headers.get("cache-control")).toBe("no-store");
+  expect(retained.headers.get("access-control-allow-origin")).toBe("*");
+  expect(retained.headers.has("access-control-allow-credentials")).toBe(false);
+  expect((await read("/r3/markdown?path=notes.md", { "sec-fetch-dest": "document" })).status).toBe(
+    403,
+  );
+  expect(
+    (await read("/r3/markdown?path=notes.md", { "sec-fetch-dest": "serviceworker" })).status,
+  ).toBe(403);
+  expect((await read("/r3/markdown?path=index.html")).status).toBe(404);
+  expect((await read("/r3/markdown?path=missing.md")).status).toBe(404);
+  expect((await read("/r3/markdown?path=..%2Fnotes.md")).status).toBe(400);
+  host.revoke(context.id);
+  expect((await read("/r3/markdown?path=notes.md")).status).toBe(404);
 });
 
 test("preview support revalidates its bytes without bypassing navigation or context guards", async () => {

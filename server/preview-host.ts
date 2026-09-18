@@ -145,6 +145,23 @@ export class PreviewHost {
         etag,
       });
     }
+    if (path === "/r3/markdown") {
+      const filePath = requireArtifactPath(new URL(request.url).searchParams.get("path"));
+      const file = this.artifacts.file(scope.artifactId, scope.versionSeq, filePath);
+      if (!file.renderedHash) return plain("Retained Markdown document not found", 404);
+      const resource = this.artifacts.resource(scope.artifactId, scope.versionSeq, filePath, true);
+      return new Response(
+        request.method === "HEAD" ? null : new Uint8Array(await resource.read()),
+        {
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "no-store",
+            "access-control-allow-origin": "*",
+            "content-disposition": "attachment",
+          },
+        },
+      );
+    }
     if (path === "/r3/media" && scope.presentation === "media") {
       const file = this.artifacts.file(scope.artifactId, scope.versionSeq, scope.entryPath);
       const kind = artifactMediaKind(file.mediaType);
@@ -199,6 +216,15 @@ export class PreviewHost {
     };
     if (etag && matchesEntityTag(request, etag))
       return new Response(null, { status: 304, headers: documentHeaders });
+    if (html && file.renderedHash) {
+      // Markdown bytes arrive from the trusted parent cache after its gate. This
+      // empty shell keeps the native document URL and real response policy.
+      return plain(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><script data-r3-markdown data-r3-markdown-shell src="${root}/r3/runtime.js"></script></body></html>`,
+        200,
+        documentHeaders,
+      );
+    }
     let readRequest = request;
     if (html) {
       const headers = new Headers(request.headers);

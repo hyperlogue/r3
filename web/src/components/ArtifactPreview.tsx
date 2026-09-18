@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  type ArtifactFile,
   type ArtifactPreviewContext,
   type ArtifactPreviewNetwork,
   artifactMediaKind,
@@ -15,6 +16,7 @@ import type {
 import { artifactApi } from "../artifact-api.ts";
 import { useDarkTheme } from "../hooks.ts";
 import { keysSuspended } from "../keys.ts";
+import { markdownCache } from "../markdown-cache.ts";
 import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
 import { previewBridgeCall, previewLocator, previewSelectionPosition } from "../preview-bridge.ts";
 import { PreviewCapture } from "../preview-capture.ts";
@@ -182,6 +184,7 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
         markdownPaths={
           files.data?.filter((file) => file.renderedHash).map((file) => file.path) ?? []
         }
+        markdownFiles={files.data?.filter((file) => file.renderedHash) ?? []}
         onRetry={() => {
           setVerification("checking");
           setCompatibilityRequired(false);
@@ -196,6 +199,7 @@ function PreviewSession(
   props: ArtifactRenderedPaneProps & {
     paths: string[];
     markdownPaths: string[];
+    markdownFiles: ArtifactFile[];
     network: ArtifactPreviewNetwork;
     devices: PreviewDevicePermissions;
     capture: PreviewCapture;
@@ -402,6 +406,7 @@ function PreviewSession(
       setDocumentHeight(null);
       const path = message.path;
       let documentOpened = false;
+      let markdownRequested = false;
       const independentScroll = () =>
         context.presentation === "document" &&
         !(current.current.detail.kind === "files" && current.current.markdownPaths.includes(path));
@@ -426,7 +431,47 @@ function PreviewSession(
         if (!message || message.contextId !== context.id || message.path !== path) return;
         const reply = (value: Record<string, unknown>) =>
           port.postMessage({ contextId: context.id, ...value });
-        if (message.type === "r3-preview-document-checked") {
+        if (message.type === "r3-preview-markdown-needed") {
+          const file = current.current.markdownFiles.find((file) => file.path === path);
+          if (!file?.renderedHash || markdownRequested) return;
+          markdownRequested = true;
+          void markdownCache
+            .load(
+              {
+                artifactId: id,
+                versionSeq: seq,
+                path,
+                renderedHash: file.renderedHash,
+                rendererRevision: file.rendererRevision ?? "unknown",
+              },
+              async () => {
+                const url = new URL("../r3/markdown", context.resourceRoot);
+                url.searchParams.set("path", path);
+                const response = await fetch(url, {
+                  credentials: "omit",
+                  redirect: "error",
+                  referrerPolicy: "no-referrer",
+                  cache: "no-store",
+                });
+                if (!response.ok)
+                  throw new Error("Rendered Markdown is unavailable. Retry to reconnect.");
+                return response.text();
+              },
+            )
+            .then((html) => {
+              if (!closed && connection.current === port)
+                reply({ type: "r3-preview-markdown", html });
+            })
+            .catch((error) => {
+              if (!closed && connection.current === port) {
+                current.current.onVerification("error");
+                setError(
+                  error instanceof Error ? error.message : "Rendered Markdown is unavailable",
+                );
+                setSrc("");
+              }
+            });
+        } else if (message.type === "r3-preview-document-checked") {
           if (message.nonce === check?.nonce) clearCheck();
         } else if (message.type === "r3-preview-capture") {
           receiveCapture(message);

@@ -43,6 +43,7 @@ import { QuoteBubble, type QuotePos } from "../components/Message.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneToolbar.tsx";
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { keysSuspended, useKeyBindings } from "../keys.ts";
+import { markdownCache } from "../markdown-cache.ts";
 // This page is the artifact workspace's single mobile container mount point.
 import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
@@ -109,10 +110,13 @@ export function ArtifactView({
     query.error instanceof ArtifactApiError && [401, 403, 404, 410].includes(query.error.status);
   useEffect(() => {
     if (unavailable) {
+      if (query.error instanceof ArtifactApiError && [401, 403].includes(query.error.status))
+        void markdownCache.clear();
+      else void markdownCache.forget(artifactId);
       previewSessions.forget(artifactId);
       readingPositions.forget(artifactId);
     }
-  }, [unavailable, artifactId]);
+  }, [unavailable, artifactId, query.error]);
   if (query.error && (!query.data || unavailable))
     return (
       <>

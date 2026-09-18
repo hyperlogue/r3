@@ -129,6 +129,10 @@ loopback preview listener. It serves no application API, proxy, or unknown-path 
 The context capability authorizes resource reads. The trusted browser gate checks
 capabilities before the workspace loads publisher content; there is no server
 challenge, verification POST, or User-Agent registration.
+`GET/HEAD /__r3_preview/:context/r3/markdown?path=` reads retained Markdown HTML
+as attachment-only text after the same context, membership, and navigation guards.
+It carries credential-free CORS and `no-store`; the trusted browser owns persistent
+Markdown caching. It never serves authored HTML or accepts an artifact/version override.
 
 The browser-only `ArtifactUtility` in `shared/preview-protocol.ts` also exposes
 `getUserMedia(constraints): Promise<MediaStream>`. The external-mode runtime adapts

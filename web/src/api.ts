@@ -1,5 +1,7 @@
 // Application bootstrap, theme settings, and login-token access.
 // Artifact operations use artifact-api.ts and the shared ArtifactClient.
+
+import { markdownCache } from "./markdown-cache.ts";
 import type {
   AuthTokenInfo,
   BootResponse,
@@ -29,12 +31,16 @@ export async function loadBoot(): Promise<{ needsAuth: boolean }> {
   const r = await fetch("/api/boot");
   // 401 = a remote origin with no valid session. Not an error — the signal to log in.
   if (r.status === 401) {
+    await markdownCache.clear();
     const b = (await r.json().catch(() => ({}))) as Partial<BootResponse>;
     return { needsAuth: b.needsAuth ?? true };
   }
   if (!r.ok) throw new Error(`GET /api/boot → ${r.status}`);
   const b = (await r.json()) as BootResponse;
-  if (b.needsAuth) return { needsAuth: true };
+  if (b.needsAuth) {
+    await markdownCache.clear();
+    return { needsAuth: true };
+  }
   TOKEN = b.token ?? "";
   return { needsAuth: false };
 }
@@ -83,7 +89,13 @@ export const api = {
   // (the per-user token, or a valid session cookie).
   login: (token: string) =>
     req<{ ok: true }>("POST", "/api/auth/login", { token } satisfies LoginBody),
-  logout: () => req<{ ok: true }>("POST", "/api/auth/logout"),
+  logout: async () => {
+    try {
+      return await req<{ ok: true }>("POST", "/api/auth/logout");
+    } finally {
+      await markdownCache.clear();
+    }
+  },
   authTokens: () => req<AuthTokenInfo[]>("GET", "/api/auth/tokens"),
   createAuthToken: (body: CreateAuthTokenBody) =>
     req<CreateAuthTokenResponse>("POST", "/api/auth/tokens", body),

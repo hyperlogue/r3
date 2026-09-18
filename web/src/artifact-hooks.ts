@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { artifactApi, artifactEventStream } from "./artifact-api.ts";
+import { markdownCache } from "./markdown-cache.ts";
 import { previewSessions } from "./preview-sessions.ts";
 import { readingPositions } from "./reading-position.ts";
 
@@ -30,10 +31,16 @@ export function useArtifactEvents(): boolean {
             setConnected(true);
             delay = 500;
             if (event.type === "ready") {
+              // One membership reconciliation also finds deletions missed while
+              // disconnected. Never probe or prefetch each cached document.
+              void markdownCache.reconcile(async () =>
+                (await artifactApi.list()).map((artifact) => artifact.id),
+              );
               for (const key of ["artifacts", "artifact", "artifact-watchers", "artifact-projects"])
                 void queryClient.invalidateQueries({ queryKey: [key] });
             } else {
               if (event.type === "artifact-deleted") {
+                void markdownCache.forget(event.artifactId);
                 previewSessions.forget(event.artifactId);
                 readingPositions.forget(event.artifactId);
                 for (const key of ["artifact-files", "artifact-source", "artifact-diff"])

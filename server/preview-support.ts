@@ -2,6 +2,7 @@ import { normalizeRenderedText } from "../shared/rendered-text.ts";
 import { previewIceComplete } from "../web/src/preview-capture.ts";
 import { connectPreview } from "../web/src/preview-channel.ts";
 import { installMarkdownLayout, installMarkdownTheme } from "../web/src/preview-markdown.ts";
+import { installMarkdownDocument } from "../web/src/preview-markdown-document.ts";
 import { createPreviewMedia } from "../web/src/preview-media.ts";
 import { installPreviewRuntime } from "../web/src/preview-runtime.ts";
 import { installPreviewScroll } from "../web/src/preview-scroll.ts";
@@ -27,12 +28,16 @@ function parameters(scope: PreviewScope): string {
 export const previewSupport: PreviewSupport = {
   runtime: (scope) =>
     `(() => { const config = ${parameters(scope)};
+const markdown = document.currentScript?.hasAttribute("data-r3-markdown") === true;
+const shell = document.currentScript?.hasAttribute("data-r3-markdown-shell") === true;
 const connection = (${connectPreview.toString()})(config);
+const install = () => {
 (${installPreviewScroll.toString()})(config, connection, ${restoreReadingPosition.toString()});
-(${installMarkdownTheme.toString()})(config, connection);
-(${installMarkdownLayout.toString()})(config, connection);
+(${installMarkdownTheme.toString()})(config, connection, markdown);
+(${installMarkdownLayout.toString()})(config, connection, markdown);
 const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${previewIceComplete.toString()});
 Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection, getUserMedia)});
-(${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); })();`,
+(${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); };
+if (shell) (${installMarkdownDocument.toString()})(config, connection, install); else install(); })();`,
   utility: () => "const r3 = globalThis.__r3ArtifactUtility; export { r3 }; export default r3;",
 };

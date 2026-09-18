@@ -97,6 +97,7 @@ const runtimes: number[] = [];
 let creations = 0;
 let gates = 0;
 let verifications = 0;
+let markdownReads = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -107,6 +108,7 @@ const app = Bun.serve({
       const response = await preview.fetch(request);
       if (path.endsWith("/r3/gate")) gates++;
       if (path.endsWith("/r3/verify")) verifications++;
+      if (path.endsWith("/r3/markdown")) markdownReads++;
       if (path.endsWith("/r3/runtime.js")) runtimes.push(response.status);
       if (
         path.includes("/files/") &&
@@ -158,6 +160,7 @@ try {
   const firstPath = documents.at(-1)!.path;
   assert.equal(documents.at(-1)!.status, 200);
   assert.equal(runtimes.at(-1), 200);
+  assert.equal(markdownReads, 1, "only the opened Markdown document is downloaded");
   const card = page.locator('[data-file="index.md"]');
   const paneAt = async (y: number) => {
     try {
@@ -220,6 +223,7 @@ try {
   assert.ok(gates > beforeGate, "refresh must still run the browser gate");
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
   assert.equal(runtimes.at(-1), 304, "page refresh retains the runtime response");
+  assert.equal(markdownReads, 1, "refresh and source switches reuse persistent Markdown bytes");
   await card.getByRole("button", { name: "Source", exact: true }).click();
   await card.locator("[data-line]").first().waitFor({ state: "attached" });
   assert.equal(sources.at(-1), 304, "source link revisits reuse the HTTP response");
@@ -239,6 +243,13 @@ try {
   await version(1);
   await paneAt(1500);
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
+  assert.equal(markdownReads, 2, "each opened version downloads its Markdown only once");
+  preview.close();
+  await page.reload();
+  await ready();
+  await paneAt(1500);
+  assert.notEqual(documents.at(-1)!.path, firstPath, "expired contexts get fresh scoped URLs");
+  assert.equal(markdownReads, 2, "a replacement context still reuses the same immutable bytes");
   console.log(
     `${engine}: Markdown refresh, source toggles, historical visits reuse validated responses`,
   );

@@ -187,7 +187,26 @@ Folding a rendered Markdown file retains its loaded preview in memory, hidden an
 inert, so unfolding reuses the document and measured height without fetching it
 again. Initially folded files still load only when opened. Switching to source,
 changing versions, or leaving the artifact releases the preview normally. Scrolling
-away keeps loaded Markdown mounted and measured; this is not a persistent document cache.
+away keeps loaded Markdown mounted and measured.
+
+Opened Markdown also has a workspace-owned IndexedDB cache, keyed by artifact,
+version, path, retained rendering hash, and renderer revision within the application
+origin/base. It holds at most 64 MiB, evicts least recently opened documents, and
+expires entries after 30 days without use. Oversized documents and unavailable
+browser storage fall back to ordinary reads. Cached bytes are hash-checked before
+use; injected scripts, capabilities, and permission grants are never cached there.
+This includes Markdown entrypoints in HTML artifacts, but not authored HTML.
+
+The current temporary preview capability supplies retained bytes on a cache miss.
+A server-served empty Markdown shell retains response security headers and the
+native document URL. After the browser gate, the trusted parent sends the selected
+document over its exact port; Markdown runtime setup waits for the content mount.
+New or expired preview contexts can therefore reuse immutable document bytes.
+Logout, unauthenticated boot, known deletion, and definitive access failures clear
+relevant entries. Reconnecting reconciles cached artifact IDs against one artifact
+list without downloading documents. Transactional invalidation prevents pending
+downloads in any tab from repopulating deleted entries. Offline deletion is learned
+on reconnect; this does not provide an offline application or bypass login.
 
 Source responses, rendered documents, and trusted preview scripts use private HTTP caching with mandatory
 revalidation. Matching validators skip source highlighting or document rewriting

@@ -6,8 +6,9 @@ import type { PreviewConnection } from "./preview-channel.ts";
 export function installMarkdownTheme(
   config: PreviewBootstrap,
   connection: PreviewConnection,
+  markdown = document.currentScript?.hasAttribute("data-r3-markdown"),
 ): void {
-  if (!document.currentScript?.hasAttribute("data-r3-markdown")) return;
+  if (!markdown) return;
   let theme: PreviewTheme | null = null;
   let applied: PreviewTheme | null = null;
   let darkRules: CSSMediaRule[] | null = null;
@@ -44,7 +45,9 @@ export function installMarkdownTheme(
     theme = message.display.theme;
     apply();
   });
-  document.addEventListener("DOMContentLoaded", apply, { once: true });
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", apply, { once: true });
+  else apply();
 }
 
 // Body size is independent of the iframe viewport, so widening a document can
@@ -53,8 +56,9 @@ export function installMarkdownTheme(
 export function installMarkdownLayout(
   config: PreviewBootstrap,
   connection: PreviewConnection,
+  markdown = document.currentScript?.hasAttribute("data-r3-markdown"),
 ): void {
-  if (!document.currentScript?.hasAttribute("data-r3-markdown")) return;
+  if (!markdown) return;
   let enabled = false;
   let lastHeight = 0;
   let frame = 0;
@@ -84,7 +88,9 @@ export function installMarkdownLayout(
     enabled = message.display?.fitContent === true;
     schedule();
   });
-  document.addEventListener("DOMContentLoaded", observe, { once: true });
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", observe, { once: true });
+  else observe();
   window.addEventListener("pagehide", () => {
     observer.disconnect();
     cancelAnimationFrame(frame);
