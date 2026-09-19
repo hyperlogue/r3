@@ -169,7 +169,11 @@ export const Versions: Story = {
     await userEvent.click(nav.getByRole("button", { name: "Go to the latest version" }));
     await expect(nav.getByRole("button", { name: "Published version" })).toHaveValue("3");
     await expect(nav.queryByRole("button", { name: "Go to the latest version" })).toBeNull();
-    await expect(nav.getByLabelText("Latest version")).toBeVisible();
+    await expect(
+      within(nav.getByRole("button", { name: "Published version" })).getByLabelText(
+        "Latest version",
+      ),
+    ).toBeVisible();
   },
 };
 export const DarkVersions: Story = { ...Versions, globals: { theme: "dark" } };
@@ -254,7 +258,8 @@ export const LatestVersion: Story = {
     ...NavbarActions.parameters,
     docs: {
       description: {
-        story: "The outlined latest badge sits between the title and borderless version picker.",
+        story:
+          "The outlined latest badge sits inside the picker, between the version badge and chevron.",
       },
     },
   },

@@ -19,7 +19,7 @@ import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
-import { ArtifactVersionSelect, ArtifactVersionStatus } from "./ArtifactVersionSelect.tsx";
+import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
 import { SettingsDialog } from "./SettingsPopup.tsx";
 
@@ -229,16 +229,16 @@ export function ArtifactHeader({
         </span>
         {onSelectVersion && (
           <div className="flex shrink-0 self-stretch max-md:hidden">
-            <ArtifactVersionStatus
-              latest={latest?.seq}
-              selected={selectedVersion}
-              onOpen={onSelectVersion}
-              className="self-center"
-            />
             <ArtifactVersionSelect
               versions={detail.versions}
               selected={selectedVersion}
               onChange={onSelectVersion}
+            />
+            <ArtifactOpenLatest
+              latest={latest?.seq}
+              selected={selectedVersion}
+              onOpen={onSelectVersion}
+              className="ml-2 self-center"
             />
           </div>
         )}
@@ -343,7 +343,7 @@ export function ArtifactHeader({
           <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-xs font-medium text-neutral-500">Version</h2>
-              <ArtifactVersionStatus
+              <ArtifactOpenLatest
                 latest={detail.versions.at(-1)?.seq}
                 selected={selectedVersion}
                 onOpen={(seq) => {

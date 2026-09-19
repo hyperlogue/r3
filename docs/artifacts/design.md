@@ -262,11 +262,12 @@ it restores focus to the three-dot trigger. The artifact navbar has no separate 
 There is no separate body header or delete button. Navbar action buttons
 highlight only their outline on hover;
 their text, icons, and transparent background stay steady. Desktop actions leave
-vertical breathing room, while mobile retains its larger touch targets. The title,
-version status, and version selector form a group without vertical dividers, before
-the flexible space in the top navigation. The collapsed selector shows only the
-version badge and disclosure caret; expanded
-choices retain their labels in newest-first order without redundant latest badges.
+vertical breathing room, while mobile retains its larger touch targets. The title
+and version selector form a group without vertical dividers, before the flexible
+space in the top navigation. The selector's trigger shows the version badge and
+disclosure caret, with an outlined **latest** badge between them when the latest
+version is selected. Expanded choices retain their labels in newest-first order
+without redundant latest badges.
 Below the `md` breakpoint it moves into the three-dot details
 popup, where its choices expand inline. Selecting a version closes that popup.
 The picker supports arrow keys, Home/End, and Enter; Escape closes its current
@@ -274,9 +275,9 @@ layer without selecting. Menus focus their selected option or first enabled
 control and return focus to their trigger on dismissal. Escape closes one layer
 at a time, preserving any menu beneath a native permission dialog.
 While an older or unavailable version is selected, **Go to the latest version** appears in the
-top navigation between the title and version selector, with an amber outline. On narrow screens it
+top navigation immediately right of the version selector, with an amber outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
-and a separate **latest** badge replaces the button on the latest version. The desktop
+and the button disappears on the latest version. The desktop
 feedback-panel toggle precedes comment mode and the three-dot menu on the right.
 HTML artifacts have no empty content toolbar. File-tab headers contain reading and
 feedback controls. Narrow headers show source/rendered icons and the Viewed checkbox

@@ -40,6 +40,7 @@ export function ArtifactVersionSelect({
   const version = selectedArtifactVersion(versions, selected);
   if (!versions.length)
     return <span className="self-center px-3 text-xs text-neutral-500">No published versions</span>;
+  const isLatest = version?.seq === versions.at(-1)?.seq;
   const badge = (seq: number, active: boolean) => (
     <span
       className={cn(
@@ -58,6 +59,7 @@ export function ArtifactVersionSelect({
         ref={trigger}
         type="button"
         aria-label="Published version"
+        aria-describedby={isLatest ? `${listId}-latest` : undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
@@ -78,6 +80,16 @@ export function ArtifactVersionSelect({
         )}
       >
         {version ? badge(version.seq, true) : <span>Version {selected} unavailable</span>}
+        {isLatest && (
+          <span
+            id={`${listId}-latest`}
+            role="status"
+            aria-label="Latest version"
+            className="shrink-0 rounded border border-success-500 px-1 py-px text-[0.5625rem] font-semibold uppercase leading-none text-success-700 dark:text-success-300"
+          >
+            latest
+          </span>
+        )}
         <ChevronDown
           className={cn(
             "ml-auto size-3.5 shrink-0 text-neutral-400 transition-transform",
@@ -162,7 +174,7 @@ export function ArtifactVersionSelect({
   );
 }
 
-export function ArtifactVersionStatus({
+export function ArtifactOpenLatest({
   latest,
   selected,
   onOpen,
@@ -173,20 +185,7 @@ export function ArtifactVersionStatus({
   onOpen: (seq: number) => void;
   className?: string;
 }) {
-  if (latest === undefined) return null;
-  if (selected === null || selected === latest)
-    return (
-      <span
-        role="status"
-        aria-label="Latest version"
-        className={cn(
-          "shrink-0 rounded border border-success-500 px-1 py-px text-[0.5625rem] font-semibold uppercase leading-none text-success-700 dark:text-success-300",
-          className,
-        )}
-      >
-        latest
-      </span>
-    );
+  if (latest === undefined || selected === null || selected === latest) return null;
   return (
     <Button
       variant="warning-outline"
