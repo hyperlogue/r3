@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 export type KeyId =
   | "help"
   | "generalNote"
+  | "commentModeToggle"
   | "handOff"
   | "fbNext"
   | "fbPrev"
@@ -43,6 +44,7 @@ export interface Binding {
 export const KEYMAP: readonly Binding[] = [
   { id: "help", keys: ["?"], label: "Keyboard shortcuts", group: "Review" },
   { id: "generalNote", keys: ["n"], label: "New general feedback", group: "Review" },
+  { id: "commentModeToggle", keys: ["c"], label: "Toggle comment mode", group: "Review" },
   // Shifted on purpose: the only binding that sends data out of the app, with no
   // keyboard undo once the agent has it. Everything else in this map is locally
   // reversible, so `S` reads like `Z` (fold *all*) — the bigger, less casual key.

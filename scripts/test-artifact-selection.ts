@@ -183,14 +183,14 @@ try {
       if (!${keyboard}) node.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button:0}));
     })()`);
   };
-  const waitComposer = () => eventually(hasComposer, "selection composer");
+  const waitComposer = (description: string) => eventually(hasComposer, description);
   await open(artifact.id);
   let content = await frame("Published first version");
   // Long selections and idle Escape must not depend on a transient activation timer.
   await page.evaluate("document.querySelector('iframe').focus()");
   await Bun.sleep(5200);
   await select(content, "#heading");
-  await waitComposer();
+  await waitComposer("idle preview selection composer");
   await Bun.sleep(100);
   await key("Escape", "Escape");
   await eventually(
@@ -203,7 +203,7 @@ try {
   assert(await hasComposer(), "hiding the panel preserves its empty preview note");
   await click("Show feedback");
   await select(content, "#selection-text");
-  await waitComposer();
+  await waitComposer("second paragraph composer");
   await select(content, "#heading");
 
   assert.equal(await focused(), false, "selection must preserve native Copy focus");
@@ -222,6 +222,7 @@ try {
   const action = async (label: string) => {
     const { root: document } = await page.command("DOM.getDocument", { depth: -1, pierce: true });
     const visit = (node: any): any => {
+      if (node.attributes?.includes("hidden")) return null;
       if (
         node.nodeName === "BUTTON" &&
         node.children?.some((child: any) => child.nodeValue === label) &&
@@ -290,7 +291,7 @@ try {
   await content.evaluate("document.activeElement.blur()");
   await select(content, "#heading", true);
   assert.equal(await hasComposer(), false, "keyboard capture debounces");
-  await waitComposer();
+  await waitComposer("keyboard preview selection composer");
   await click("Cancel");
   await eventually(async () => !(await hasComposer()), "cancel");
   // The separate old action remains local to the selected agent message.
@@ -317,7 +318,7 @@ try {
     "source rows",
   );
   await select(page, '[data-line="1"] code');
-  await waitComposer();
+  await waitComposer("source selection composer");
   assert.equal(await focused(), false);
   await key("Tab", "Tab");
   await eventually(focused, "explicit composer focus");
@@ -328,13 +329,13 @@ try {
     "diff rows",
   );
   await select(page, '[data-new-line="1"] code');
-  await waitComposer();
+  await waitComposer("diff selection composer");
   assert.equal(await focused(), false);
   await click("Cancel");
   await open(files.id, "&view=rendered&file=index.md");
   content = await frame("Published Markdown");
   await select(content, "h1");
-  await waitComposer();
+  await waitComposer("Markdown selection composer");
   assert.equal(await focused(), false);
   await key("Tab", "Tab");
   await eventually(focused, "Markdown Tab focus");
@@ -369,8 +370,83 @@ try {
   await eventually(() => action("Add feedback"), "touch Add feedback action");
   assert.equal(await hasComposer(), false, "touch selection waits for an explicit action");
   await tapAction("Add feedback", content);
-  await waitComposer();
+  await waitComposer("touch selection composer");
   assert.equal(await focused(), false, "touch Add feedback opens without the keyboard");
+  await click("Cancel");
+  await eventually(async () => !(await hasComposer()), "clear the touch draft before navigation");
+  // Start node-keyboard checks in a fresh desktop document so earlier gestures
+  // and the mobile sheet cannot leave focus or selection state behind.
+  await page.command("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await page.command("Emulation.clearDeviceMetricsOverride");
+  await page.command("Page.navigate", { url: "about:blank" });
+  await open(artifact.id);
+  content = await frame("Published first version");
+  const commentMode = () =>
+    page.evaluate("!!document.querySelector('[aria-label=\"Exit comment mode\"]')");
+  await key("c", "KeyC");
+  await eventually(commentMode, "c enables comment mode from the workspace");
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "c",
+    code: "KeyC",
+    autoRepeat: true,
+  });
+  assert(await commentMode(), "holding c does not toggle comment mode again");
+  await page.evaluate("document.querySelector('iframe').focus()");
+  await content.evaluate("document.querySelector('#input').focus()");
+  await key("c", "KeyC");
+  assert(await commentMode(), "c belongs to the focused preview input");
+  await content.evaluate("document.activeElement.blur()");
+  await key("c", "KeyC");
+  await eventually(async () => !(await commentMode()), "c exits comment mode from the preview");
+  await key("c", "KeyC");
+  await eventually(commentMode, "c enables comment mode from the preview");
+  // Let the new display state reach the isolated document before picking.
+  await page.evaluate(
+    "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+  );
+  // A selected page button must become a native feedback target, not activate.
+  await content.evaluate(
+    "getSelection().removeAllRanges();document.querySelector('#send').focus();document.querySelector('#send').click()",
+  );
+  await eventually(() => action("Comment here"), "picked node actions");
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: " ",
+    code: "Space",
+    autoRepeat: true,
+  });
+  assert.equal(await hasComposer(), false, "held Space does not comment on a node");
+  await key(" ", "Space", 8);
+  assert.equal(await hasComposer(), false, "modified Space does not comment on a node");
+  await key(" ", "Space");
+  await eventually(focused, "Space comments on the picked node and focuses its editor");
+  assert.equal(
+    await content.evaluate("window.lastFeedback"),
+    undefined,
+    "the page button stays inactive",
+  );
+  await page.command("Input.insertText", { text: "A keyboard-picked node." });
+  await click("Add feedback");
+  await eventually(
+    () =>
+      Promise.resolve(
+        storage.conversations
+          .list(artifact.id)
+          .find((note) => note.body === "A keyboard-picked node."),
+      ),
+    "posted node feedback",
+  );
+  const nodeNote = storage.conversations
+    .list(artifact.id)
+    .find((note) => note.body === "A keyboard-picked node.")!;
+  assert.equal(nodeNote.target.kind, "rendered");
+  assert.equal("locator" in nodeNote.target && nodeNote.target.locator?.selector, "#send");
+  assert.equal("locator" in nodeNote.target && nodeNote.target.locator?.quote, "Request revision");
+  await eventually(async () => !(await hasComposer()), "node composer saved");
+  await key("c", "KeyC");
+  await eventually(async () => !(await commentMode()), "return to normal interaction");
+  await content.evaluate("document.activeElement.blur();getSelection().removeAllRanges()");
   console.log(
     "Selection acceptance passed: all native views, debounce, focus, drafts, reply quotes, and touch action.",
   );

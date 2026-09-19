@@ -239,6 +239,11 @@ export function installPreviewRuntime(
     selectedRange = null;
     schedule();
   };
+  const commentHere = () => {
+    if (!picked?.isConnected) return;
+    send("r3-preview-target", { locator: capture(picked) });
+    cancel();
+  };
   const locate = () => {
     const jump = display.jump;
     if (!root || !jump || jump.nonce === lastJump) return;
@@ -377,6 +382,31 @@ export function installPreviewRuntime(
     "keydown",
     (event) => {
       if (event.composedPath().includes(root!)) return;
+      const active = document.activeElement;
+      const shortcut =
+        config.presentation === "document" &&
+        event.isTrusted &&
+        !event.defaultPrevented &&
+        !event.isComposing &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !active?.matches("input,textarea,select") &&
+        !(active instanceof HTMLElement && active.isContentEditable);
+      if (shortcut && event.key === "c") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!event.repeat) send("r3-preview-toggle-commenting");
+        return;
+      }
+      // A picked node owns Space before an existing composer's focus shortcut.
+      if (shortcut && display.commenting && picked && event.key === " ") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!event.repeat) commentHere();
+        return;
+      }
       const action = composerKey(event);
       if (
         config.presentation === "document" &&
@@ -464,12 +494,8 @@ export function installPreviewRuntime(
       ".marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
     shadow.append(markerStyle);
     const buttons = controls.querySelectorAll("button");
-    buttons[0].onclick = () => {
-      if (picked) {
-        send("r3-preview-target", { locator: capture(picked) });
-        cancel();
-      }
-    };
+    buttons[0].title = "Comment here (Space)";
+    buttons[0].onclick = commentHere;
     buttons[1].onclick = () => {
       if (picked?.parentElement) {
         picked = picked.parentElement;

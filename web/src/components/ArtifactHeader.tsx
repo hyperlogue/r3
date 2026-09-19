@@ -259,7 +259,7 @@ export function ArtifactHeader({
           variant={commenting ? "primary-outline" : "nav"}
           className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
           aria-label={commenting ? "Exit comment mode" : "Comment mode"}
-          title={commenting ? "Exit comment mode" : "Comment mode"}
+          title={commenting ? "Exit comment mode (c)" : "Comment mode (c)"}
           aria-pressed={commenting}
           onClick={onToggleCommenting}
         >

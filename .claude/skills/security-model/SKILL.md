@@ -242,9 +242,10 @@ explicit Submit, change notifications, and an artifact-scoped light/dark prefere
 operation and accepts no actor or version override. Mutations require browser
 user activation. Published membership is checked before dispatch; reply ids must
 belong to the same artifact, and the server validates each native target.
-Selection and composer focus messages are UI actions on the current verified
-port, accepted only while that exact iframe has focus and no modal owns the
-keyboard. They can prepare a native draft, never submit it. They do not depend on
+Selection, element picks, comment-mode toggles, and composer focus messages are
+UI actions on the current verified port, accepted only while that exact iframe
+has focus and no modal owns the keyboard. They can prepare a native draft, never
+submit it. They do not depend on
 transient activation: a long mouse drag and idle Escape remain valid. Conversation
 mutations and utility writes retain their activation checks.
 Application authentication stays in the parent. Theme preference reads return only

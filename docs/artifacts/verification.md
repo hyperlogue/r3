@@ -46,6 +46,7 @@ bun run build
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-selection.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-favicon.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-markdown-theme.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-interactions.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-creation.ts
@@ -66,7 +67,8 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | --- | --- |
 | `test-feedback-creation.ts` | Newest-first save, composer-to-card height transition, early event-stream reads and concurrent replies before the POST response, no duplicate cards, failed-save draft retention, retry, and reduced motion |
 | `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand feedback composer, draft handoff guard, and inactive shortcuts in hidden desktop/closed mobile panels; expanded/floating/hidden widths, remembered panel mode, and individual thread drafts with the dock hidden; Escape dismissal, keyboard reopening/general feedback, retained drafts, editor/popup priority, and repeat guards |
-| `test-artifact-selection.ts` | Source/diff and rendered HTML/Markdown selection, unfocused composer, Space/Tab across the opaque frame, idle Escape, keyboard debounce, editable exclusions, quote destination and anchor preservation, native posted Markdown target, and touch action with selection collapse during the tap |
+| `test-artifact-selection.ts` | Source/diff and rendered HTML/Markdown selection, unfocused composer, Space/Tab across the opaque frame, idle Escape, keyboard debounce, editable exclusions, quote destination and anchor preservation, native posted Markdown target, and touch action with selection collapse during the tap; comment-mode shortcuts in the workspace and preview, selected-node Space, native posted node targets, and repeat/modifier guards |
+| `test-artifact-favicon.ts` | Agent feedback invalidations add a rendered blue favicon dot; human replies and resolution clear it; navigation restores the ordinary icon and reopening retains unhandled attention |
 | `test-artifact-app.ts` | Copies the compiled binary outside the checkout; migrates an isolated legacy store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-markdown-theme.ts` | All four system/r3 theme combinations, live theme changes, retained syntax colors, unchanged authored HTML and stored bytes; full-height Markdown, fold/unfold reuse without document reload, width and late-image resizing, outer-pane Locate on mounted/new previews, reachable comment controls, and file-divider dragging over the opaque frame |

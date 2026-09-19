@@ -190,6 +190,26 @@ export const TreeOrderedFiles: Story = {
   },
 };
 export const Files: Story = {};
+export const CommentModeShortcut: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Comment mode" }));
+    await userEvent.keyboard("c");
+    await expect(canvas.getByRole("button", { name: "Comment mode" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await userEvent.keyboard("c");
+    await expect(canvas.getByRole("button", { name: "Exit comment mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add general feedback" }));
+    await userEvent.keyboard("c");
+    await expect(canvas.getByRole("textbox", { name: "Feedback" })).toHaveValue("c");
+    await expect(canvas.getByRole("button", { name: "Exit comment mode" })).toBeVisible();
+  },
+};
 const fallbackFiles = (["binary", "oversize"] as const).map((kind) => ({
   ...files[1],
   path: kind === "binary" ? "archive.bin" : "large.txt",

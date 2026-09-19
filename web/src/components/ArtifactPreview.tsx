@@ -554,6 +554,13 @@ function PreviewSession(
             message.height <= MAX_RENDERED_HEIGHT
           )
             setDocumentHeight({ path, height: Math.ceil(message.height) });
+        } else if (message.type === "r3-preview-toggle-commenting") {
+          if (
+            context.presentation === "document" &&
+            document.activeElement === iframe.current &&
+            !keysSuspended()
+          )
+            current.current.onToggleCommenting?.();
         } else if (message.type === "r3-preview-composer-key") {
           if (
             context.presentation === "document" &&
@@ -591,7 +598,13 @@ function PreviewSession(
             setNotice(error instanceof Error ? error.message : "Unable to capture this selection");
           }
         } else if (message.type === "r3-preview-target") {
-          if (!current.current.commenting || context.presentation !== "document") return;
+          if (
+            !current.current.commenting ||
+            context.presentation !== "document" ||
+            document.activeElement !== iframe.current ||
+            keysSuspended()
+          )
+            return;
           try {
             const locator = previewLocator(message.locator);
             current.current.onTarget({

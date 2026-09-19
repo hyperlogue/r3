@@ -321,6 +321,10 @@ means an open thread whose latest message is from an agent; a posted human reply
 resolution clears it. Opening the panel does not. The navbar feedback button shows
 one primary-color dot only when there are unhandled agent messages. Draft and unsent
 counts stay in its tooltip and accessible description without lighting the dot.
+The browser tab favicon adds a blue dot for the current artifact's same unhandled
+agent feedback. Viewing the tab does not clear it; a human reply or resolution does.
+Leaving the artifact restores the ordinary icon, including if its badge asset is
+still loading.
 Unsent human input also shows a desktop navbar handoff button immediately before
 the feedback toggle, available while the panel is hidden. The panel retains its
 handoff control, including on mobile; both controls share the in-flight request
@@ -403,7 +407,10 @@ boxes in 150 ms.
 Reduced-motion preferences disable these animations.
 
 Rendered comment mode intercepts element picks before page handlers and supports
-selecting a parent element. Normal mode preserves page interaction. Source and
+selecting a parent element. `c` toggles comment mode from the workspace or a focused
+document preview. With a node picked, `Space` invokes **Comment here** and opens the
+feedback editor for that node. Text entry, modifiers, IME, overlays, and held keys
+do not trigger these actions. Normal mode preserves page interaction. Source and
 diff selections use their own range gestures. Each creates a native target:
 
 | Target | Evidence | Locate behavior |

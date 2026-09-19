@@ -69,6 +69,7 @@ import type { DiffSide } from "../types.ts";
 import { cn } from "../ui.tsx";
 import { type ArtifactCodeJump, useArtifactCodeJump } from "../useArtifactCodeJump.ts";
 import { useArtifactContent } from "../useArtifactContent.ts";
+import { useFaviconBadge } from "../useFaviconBadge.ts";
 import { useReadingPosition } from "../useReadingPosition.ts";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
@@ -85,6 +86,7 @@ export interface ArtifactRenderedPaneProps {
   onTarget: (target: ArtifactDocumentTarget) => void;
   onSelection?: (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => void;
   onComposerKey?: (action: "focus" | "escape") => void;
+  onToggleCommenting?: () => void;
   noteHasText?: boolean;
   composerVisible?: boolean;
   onDocument: (path: string) => void;
@@ -108,6 +110,7 @@ export function ArtifactView({
   }, [artifactId, query.data?.title]);
   const unavailable =
     query.error instanceof ArtifactApiError && [401, 403, 404, 410].includes(query.error.status);
+  useFaviconBadge(!unavailable && (query.data?.unhandledCount ?? 0) > 0);
   useEffect(() => {
     if (unavailable) {
       if (query.error instanceof ArtifactApiError && [401, 403].includes(query.error.status))
@@ -398,9 +401,15 @@ function Workspace({
     },
     [anchor],
   );
+  const toggleCommenting =
+    detail.kind === "html" ||
+    (detail.kind === "files" && paths.some((path) => fileMode(path) === "rendered"))
+      ? () => setCommenting((current) => !current)
+      : undefined;
   const selectionProps = {
     onSelection: selectRendered,
     onComposerKey: handleComposerKey,
+    onToggleCommenting: toggleCommenting,
     noteHasText: hasNote,
     composerVisible:
       noteOpen &&
@@ -640,6 +649,7 @@ function Workspace({
     setFold({ mode, nonce: ++jumpNonce.current });
   };
   useKeyBindings({
+    commentModeToggle: toggleCommenting,
     generalNote: (mobile ? sheet !== "closed" : !collapsed)
       ? () => anchor({ kind: "artifact" })
       : undefined,
@@ -748,12 +758,7 @@ function Workspace({
         detailsRequest={detailsRequest}
         onJumpRef={(ref) => jumpRef(ref, context)}
         commenting={commenting}
-        onToggleCommenting={
-          detail.kind === "html" ||
-          (detail.kind === "files" && paths.some((path) => fileMode(path) === "rendered"))
-            ? () => setCommenting(!commenting)
-            : undefined
-        }
+        onToggleCommenting={toggleCommenting}
       />
       <main ref={splitRef} className="relative flex min-h-0 flex-1">
         {!mobile && detail.kind !== "html" && (
