@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useRef } from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import type { FeedbackPanelMode } from "../settings.ts";
 import { cn, StrokeIcon, useResizableWidth } from "../ui.tsx";
 import { useFeedbackPanelMotion } from "../useFeedbackPanelMotion.ts";
@@ -33,9 +33,14 @@ export function ArtifactFeedbackPanel({
     defaultFraction: 0.382,
     containerRef,
   });
-  const floating = mode === "floating";
+  const [lastVisibleMode, setLastVisibleMode] = useState<Exclude<FeedbackPanelMode, "hidden">>(
+    mode === "hidden" ? "expanded" : mode,
+  );
+  if (mode !== "hidden" && mode !== lastVisibleMode) setLastVisibleMode(mode);
+  const presentation = mode === "hidden" ? lastVisibleMode : mode;
+  const floating = presentation === "floating";
   const hidden = mode === "hidden";
-  const pane = useFloatingPanel(containerRef, floating, dock.width);
+  const pane = useFloatingPanel(containerRef, mode === "floating", dock.width);
   const motion = useFeedbackPanelMotion(mode, pane.rect, dock.width);
   const motionRef = motion.ref;
   const setPanel = useCallback(
@@ -49,7 +54,7 @@ export function ArtifactFeedbackPanel({
     motion.capture();
     onModeChange(next);
   };
-  const controls = hidden ? null : (
+  const controls = (
     <>
       {floating && (
         <button
@@ -72,13 +77,14 @@ export function ArtifactFeedbackPanel({
           </StrokeIcon>
         </button>
       )}
-      <FeedbackPanelControls mode={mode} onChange={changeMode} />
+      <FeedbackPanelControls mode={presentation} onChange={changeMode} />
     </>
   );
   return (
     <aside
       ref={setPanel}
       data-feedback-mode={mode}
+      inert={hidden}
       className={cn(
         "border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
         floating
@@ -86,6 +92,7 @@ export function ArtifactFeedbackPanel({
           : hidden
             ? "absolute inset-y-0 right-0 pointer-events-none overflow-hidden"
             : "relative shrink-0 border-l",
+        hidden && floating && "pointer-events-none opacity-0",
         !floating &&
           !dock.dragging &&
           "transition-[width] duration-200 motion-reduce:transition-none",
@@ -138,11 +145,10 @@ export function ArtifactFeedbackPanel({
         />
       )}
       <div
-        inert={hidden}
         className={cn("h-full overflow-hidden", floating && "rounded-[inherit]")}
         style={{
           width: floating ? undefined : dock.width,
-          visibility: hidden ? "hidden" : undefined,
+          visibility: hidden && !floating ? "hidden" : undefined,
         }}
       >
         {children(controls)}

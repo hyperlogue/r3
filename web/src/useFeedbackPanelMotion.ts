@@ -3,7 +3,13 @@ import type { FeedbackPanelMode } from "./settings.ts";
 import { prefersReduced } from "./ui.tsx";
 
 type Box = { x: number; y: number; width: number; height: number };
-type Snapshot = { mode: FeedbackPanelMode; box: Box; radius: string; shadow: string };
+type Snapshot = {
+  mode: FeedbackPanelMode;
+  box: Box;
+  radius: string;
+  shadow: string;
+  opacity: string;
+};
 const snapshot = (node: HTMLElement, mode: FeedbackPanelMode): Snapshot => {
   const style = getComputedStyle(node);
   return {
@@ -11,6 +17,7 @@ const snapshot = (node: HTMLElement, mode: FeedbackPanelMode): Snapshot => {
     box: node.getBoundingClientRect(),
     radius: style.borderRadius,
     shadow: style.boxShadow,
+    opacity: style.opacity,
   };
 };
 
@@ -74,39 +81,51 @@ export function useFeedbackPanelMotion(
         },
         radius: style.borderRadius,
         shadow: style.boxShadow,
+        opacity: style.opacity,
       };
     }
     captured.current = null;
     cancel();
     const switching = from && from.mode !== mode && from.mode !== "hidden" && mode !== "hidden";
-    if (switching) {
+    const fading =
+      from &&
+      ((from.mode === "floating" && mode === "hidden") ||
+        (from.mode === "hidden" && mode === "floating"));
+    if (switching || fading) {
       node.style.transitionProperty = "none";
       clipWorkspace();
     }
     const to = snapshot(node, mode);
     previous.current = { ...to, rect, dockWidth };
-    if (!from || !switching || prefersReduced() || !to.box.width || !to.box.height) {
+    if (!from || !(switching || fading) || prefersReduced() || !to.box.width || !to.box.height) {
       cancel();
       return;
     }
+    // A first reveal may start from a zero-width hidden dock. Floating fades
+    // retain their rectangle; an interrupted mode change retains its visual box.
+    const origin = from.box.width ? from.box : to.box;
+    const transform = `translate(${origin.x - to.box.x}px, ${origin.y - to.box.y}px) scale(${origin.width / to.box.width}, ${origin.height / to.box.height})`;
+    const hiding = mode === "hidden";
     const next = node.animate(
       [
         {
-          transform: `translate(${from.box.x - to.box.x}px, ${from.box.y - to.box.y}px) scale(${from.box.width / to.box.width}, ${from.box.height / to.box.height})`,
+          transform,
+          opacity: from.mode === "hidden" && !from.box.width ? 0 : from.opacity,
           transformOrigin: "top left",
           borderRadius: from.radius,
           boxShadow: from.shadow,
           overflow: "clip",
         },
         {
-          transform: "none",
+          transform: hiding ? transform : "none",
+          opacity: to.opacity,
           transformOrigin: "top left",
-          borderRadius: to.radius,
-          boxShadow: to.shadow,
+          borderRadius: hiding ? from.radius : to.radius,
+          boxShadow: hiding ? from.shadow : to.shadow,
           overflow: "clip",
         },
       ],
-      { duration: 360, easing: "ease-out" },
+      { duration: fading ? 200 : 360, easing: "ease-out" },
     );
     animation.current = next;
     next.onfinish = next.oncancel = () => {

@@ -377,8 +377,11 @@ hidden and reopen expanded if no visible-mode preference was saved.
 Float/dock changes animate the existing panel shell for 360 ms from its current
 visual position and size, including corners and shadow. Content takes its final
 width immediately. A rapid reversal starts from the in-progress position.
-Direct drag/resize, hiding, viewport resize, and reduced motion end the transition;
-saved geometry remains independent of these temporary visual transforms.
+Floating hide/reveal fades the existing shell for 200 ms in its retained rectangle;
+the hidden panel is inert and reserves no space. A floating hide that interrupts a mode
+change fades from its current visual position instead of jumping to the dock. Direct drag/resize,
+viewport resize, and reduced motion end the transition; saved geometry remains
+independent of these temporary visual transforms.
 The default feedback width is 38.2% of the workspace (the golden-ratio split),
 within the 300–700 px resize limits. Double-clicking the divider clears the saved
 width and recalculates this proportion for the current workspace in either visible mode.
