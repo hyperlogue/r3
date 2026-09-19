@@ -287,8 +287,13 @@ export const PendingSend: Story = {
   beforeEach: resetHandoffReceipt,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const send = canvas.getByRole("button", { name: "Send to agent · 1" });
+    const send = canvas.getByRole("button", { name: /^(Send to agent|Copy prompt) · 1$/ });
     await waitFor(() => expect(send).toBeEnabled());
+    const action = send.getBoundingClientRect();
+    const toggle = canvas.getByRole("button", { name: "Hide feedback" }).getBoundingClientRect();
+    await expect(
+      Math.abs(action.top + action.height / 2 - toggle.top - toggle.height / 2),
+    ).toBeLessThan(0.5);
     await expect(send.getBoundingClientRect().right).toBeLessThan(
       canvas.getByRole("button", { name: "Hide feedback" }).getBoundingClientRect().left,
     );
@@ -296,6 +301,11 @@ export const PendingSend: Story = {
   },
 };
 export const PendingSendDark: Story = { ...PendingSend, globals: { theme: "dark" } };
+export const PendingCopy: Story = {
+  ...PendingSend,
+  parameters: { queryData: [[["artifact-watchers", artifactFixture.id], []]] },
+};
+export const PendingCopyDark: Story = { ...PendingCopy, globals: { theme: "dark" } };
 export const UnsentReply: Story = {
   ...PendingSend,
   args: {

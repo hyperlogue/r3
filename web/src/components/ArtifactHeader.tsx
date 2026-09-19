@@ -26,7 +26,7 @@ import { SettingsDialog } from "./SettingsPopup.tsx";
 function ArtifactSendFeedback({ detail }: { detail: ArtifactDetail }) {
   const handoff = useArtifactHandoff(detail);
   return (
-    <div className="relative shrink-0 max-md:hidden">
+    <div className="relative flex shrink-0 items-center max-md:hidden">
       {handoff.showAction && (
         <Button
           variant="primary"
