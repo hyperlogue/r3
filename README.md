@@ -57,21 +57,20 @@ Run `r3 --help` for the complete command reference.
 
 ## Choose an artifact
 
-| Kind | Publish | Review |
+| Artifact | What you can do | Try it for |
 | --- | --- | --- |
-| `html` | A directory with exactly one root `index.html` or `index.md`, plus assets | A full-page rendered workspace with element and text comments |
-| `files` | A complete, nonempty directory; no index required | A file browser and foldable file stack; Markdown opens rendered, other text as source |
-| `diff` | One independent patch per version | Old/new lines, split or unified layout, and expandable captured context |
+| Interactive pages (`html`) | Interact with a page and leave feedback on specific elements or text | Prototypes, dashboards, interactive tutorials |
+| Documents and files (`files`) | Read formatted documents, browse related files, and discuss specific passages or lines | Design proposals, research reports, generated project files |
+| Code changes (`diff`) | See what changed and discuss it beside the affected lines | Bug fixes, refactors, feature reviews |
 
 ```sh
 r3 create --kind files --dir ./proposal --title "Design documents"
 r3 create --kind diff --working --title "Navigation changes"
 ```
 
-An artifact keeps its kind. Files support rendered HTML/Markdown, media previews,
-and downloads for binary or oversized files. HTML intentionally has no file
-browser: link every page and asset from the entrypoint. Diffs contain captured
-changes, not a reconstructed repository.
+HTML presents a page without a file browser. Choose files when you want to browse
+several documents and assets together, or diff when the changes themselves are
+what you want to review.
 
 Read `r3 guide html`, `r3 guide files`, or `r3 guide diff` for preparation details.
 Build dependencies before publishing and include supporting assets. Save large
