@@ -70,7 +70,7 @@ Later versions retain their artifact's project; --project overrides creation.
 
 export const ARTIFACT_GUIDE = `# r3 — publish artifacts and respond to feedback
 
-r3 lets agents publish immutable artifacts for humans to review and optionally leave feedback. Run \`r3\` as a subprocess from your harness.
+r3 lets agents publish immutable versions of artifacts for humans to review and optionally leave feedback. Run \`r3\` as a subprocess from your harness.
 
 ## A typical review
 
@@ -113,7 +113,7 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 
 \`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
 
-\`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the version you revised; otherwise r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
+\`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 
 Optional \`--version-label\` names the published version; \`--summary\` describes it. The CLI detects the Git remote for server-configured project grouping. Explicit \`--project\` overrides inference; details and artifact metadata flags are in \`r3 --help\`.
 

@@ -4,7 +4,8 @@ r3's implemented model is **Artifact → Version → Content**, with feedback an
 replies attached to the artifact. Reviewing is an activity on that work product.
 This document explains the product boundaries and the reasons behind them.
 
-Use [the schema reference](schema.md) for storage constraints and migration,
+Use [the domain glossary](../../CONTEXT.md) for canonical terms,
+[the schema reference](schema.md) for storage constraints and migration,
 [verification](verification.md) for acceptance checks, and the
 [API reference](../../.claude/skills/api-surface/SKILL.md) for routes and commands.
 The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
