@@ -18,6 +18,7 @@ import {
 import {
   type ArtifactDetail,
   type ArtifactFeedback,
+  type ArtifactKind,
   type ArtifactMessageContext,
   type ArtifactTarget,
   hasUnsentArtifactFeedback,
@@ -68,6 +69,17 @@ function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null
     `Version ${target.versionSeq} · ${target.kind} · `,
     target.versionSeq === latestVersionSeq ? "" : `Version ${target.versionSeq} · `,
   );
+}
+
+function fixTargetLabel(
+  target: ArtifactTarget,
+  latestVersionSeq: number | null,
+  artifactKind: ArtifactKind,
+): string {
+  if (artifactKind !== "html" || target.kind !== "rendered")
+    return cardTargetLabel(target, latestVersionSeq);
+  const label = target.locator?.label ?? (target.locator ? "Page element" : "Page");
+  return target.versionSeq === latestVersionSeq ? label : `Version ${target.versionSeq} · ${label}`;
 }
 
 function FeedbackQuote({ quote }: { quote: string }) {
@@ -125,6 +137,7 @@ function FeedbackQuote({ quote }: { quote: string }) {
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   feedback,
   context,
+  artifactKind,
   latestVersionSeq,
   onLocate,
   onJumpRef,
@@ -134,6 +147,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
 }: {
   feedback: ArtifactFeedback;
   context: ArtifactMessageContext;
+  artifactKind: ArtifactKind;
   latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
@@ -440,10 +454,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             <button
               type="button"
               className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
-              title={artifactTargetLabel(reply.target)}
+              title={
+                artifactKind === "html" && reply.target.kind === "rendered"
+                  ? `Version ${reply.target.versionSeq} · ${reply.target.locator?.selector ?? "Page"}`
+                  : artifactTargetLabel(reply.target)
+              }
               onClick={() => onLocate(reply.target!, feedback.id)}
             >
-              ↳ Fix: {cardTargetLabel(reply.target, latestVersionSeq)}
+              ↳ Fix: {fixTargetLabel(reply.target, latestVersionSeq, artifactKind)}
             </button>
           )}
           {reply.legacy && (
@@ -861,6 +879,7 @@ export function ArtifactThreads({
                     key={feedback.id}
                     feedback={feedback}
                     context={context}
+                    artifactKind={detail.kind}
                     latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
                     onLocate={locate}
                     onJumpRef={onJumpRef}

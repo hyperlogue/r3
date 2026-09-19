@@ -1,5 +1,9 @@
 import { useEffect, useRef } from "react";
-import type { ArtifactFeedback, ArtifactMessageContext } from "../../../shared/artifacts.ts";
+import type {
+  ArtifactFeedback,
+  ArtifactKind,
+  ArtifactMessageContext,
+} from "../../../shared/artifacts.ts";
 import { suspendKeys } from "../keys.ts";
 import { Button } from "../ui.tsx";
 import {
@@ -13,6 +17,7 @@ import {
 export function ArtifactThreadPopover({
   feedback,
   context,
+  artifactKind,
   latestVersionSeq,
   onLocate,
   onJumpRef,
@@ -21,6 +26,7 @@ export function ArtifactThreadPopover({
 }: {
   feedback: ArtifactFeedback;
   context: ArtifactMessageContext;
+  artifactKind: ArtifactKind;
   latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
@@ -66,6 +72,7 @@ export function ArtifactThreadPopover({
         <ArtifactThreadCard
           feedback={feedback}
           context={context}
+          artifactKind={artifactKind}
           latestVersionSeq={latestVersionSeq}
           onLocate={onLocate}
           onJumpRef={onJumpRef}

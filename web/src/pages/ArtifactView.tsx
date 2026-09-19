@@ -946,6 +946,7 @@ function Workspace({
         {!mobile && collapsed && visibleThread && (
           <div className="pointer-events-none absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-30 flex w-[440px] max-w-[calc(100%-1rem)] flex-col items-stretch [&>*]:pointer-events-auto">
             <ArtifactThreadPopover
+              artifactKind={detail.kind}
               key={visibleThread.id}
               feedback={visibleThread}
               context={context}

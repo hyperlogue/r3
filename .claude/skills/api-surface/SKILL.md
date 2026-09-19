@@ -55,6 +55,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `PUT /api/feedback/:id/placements` use native immutable original targets,
   explicit reply context, and separate placements. Every message mutation names
   an `actor`; deletion takes `{ actor }`. Only human actors change feedback status.
+  Rendered locators accept an optional plain-text `label` for named HTML fix links;
+  matching still uses the selector and native evidence. See `r3 guide html` for
+  the reply example and the schema document for storage semantics.
   `artifact_summary` and `version_summary` are historical read-only targets;
   new feedback, reply fix targets, and placements reject description anchors.
 - `POST/DELETE /api/claims { sessionId, feedbackIds }` claims/releases as the

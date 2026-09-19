@@ -38,6 +38,105 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+
+const namedFix = {
+  kind: "rendered" as const,
+  versionSeq: 1,
+  path: "index.html",
+  locator: { selector: "#storage-help", label: "Storage help button" },
+};
+export const NamedHtmlFix: Story = {
+  args: {
+    detail: {
+      ...artifactFixture,
+      kind: "html",
+      versions: [
+        { ...artifactFixture.versions[0], kind: "html", entrypoint: "index.html", fileCount: 1 },
+      ],
+      feedback: [
+        {
+          ...artifactFixtureFeedback,
+          target: { kind: "artifact" },
+          replies: [{ ...artifactFixtureFeedback.replies[0], target: namedFix }],
+        },
+      ],
+    },
+    context: { versionSeq: 1, representation: "rendered" },
+  },
+  play: async ({ canvasElement, args }) => {
+    const fix = within(canvasElement).getByRole("button", { name: "↳ Fix: Storage help button" });
+    await expect(fix).toHaveAttribute("title", "Version 1 · #storage-help");
+    await userEvent.click(fix);
+    await expect(args.onLocate).toHaveBeenCalledWith(namedFix, artifactFixtureFeedback.id);
+  },
+};
+export const NamedHtmlFixDark: Story = { ...NamedHtmlFix, globals: { theme: "dark" } };
+export const NamedHtmlFixOldVersion: Story = {
+  args: {
+    ...NamedHtmlFix.args,
+    detail: {
+      ...NamedHtmlFix.args!.detail!,
+      versions: [
+        ...NamedHtmlFix.args!.detail!.versions,
+        { ...NamedHtmlFix.args!.detail!.versions[0], seq: 2 },
+      ],
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const fix = within(canvasElement).getByRole("button", {
+      name: "↳ Fix: Version 1 · Storage help button",
+    });
+    await userEvent.click(fix);
+    await expect(args.onLocate).toHaveBeenCalledWith(namedFix, artifactFixtureFeedback.id);
+  },
+};
+export const LegacyHtmlFix: Story = {
+  args: {
+    ...NamedHtmlFix.args,
+    detail: {
+      ...NamedHtmlFix.args!.detail!,
+      feedback: [
+        {
+          ...artifactFixtureFeedback,
+          target: { kind: "artifact" },
+          replies: [
+            {
+              ...artifactFixtureFeedback.replies[0],
+              target: { ...namedFix, locator: { selector: "#storage-help" } },
+            },
+            {
+              ...artifactFixtureFeedback.replies[0],
+              id: "reply_whole_page",
+              target: { ...namedFix, locator: null },
+            },
+          ],
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "↳ Fix: Page element" }));
+    await expect(args.onLocate).toHaveBeenCalledWith(
+      { ...namedFix, locator: { selector: "#storage-help" } },
+      artifactFixtureFeedback.id,
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "↳ Fix: Page" }));
+    await expect(args.onLocate).toHaveBeenCalledWith(
+      { ...namedFix, locator: null },
+      artifactFixtureFeedback.id,
+    );
+  },
+};
+export const NamedFixInFiles: Story = {
+  args: {
+    detail: { ...NamedHtmlFix.args!.detail!, kind: "files", versions: artifactFixture.versions },
+  },
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "↳ Fix: index.html" }));
+    await expect(args.onLocate).toHaveBeenCalledWith(namedFix, artifactFixtureFeedback.id);
+  },
+};
 export const QuoteInReply: Story = {
   beforeEach: () => {
     artifactDrafts.clear(artifactFixture.id, artifactFixtureFeedback.id);

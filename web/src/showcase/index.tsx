@@ -211,6 +211,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           {collapsed && threadOpen && data.feedback[0] && (
             <div className="pointer-events-none absolute right-2 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-1rem)] flex-col [&>*]:pointer-events-auto">
               <ArtifactThreadPopover
+                artifactKind={data.kind}
                 feedback={data.feedback[0]}
                 latestVersionSeq={data.versions.at(-1)?.seq ?? null}
                 context={{ versionSeq: 1, representation: "source" }}

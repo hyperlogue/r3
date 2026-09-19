@@ -346,7 +346,10 @@ Agent messages keep their attribution inside tinted bubbles; human messages omit
 the redundant author label. General feedback has no location heading. Card target
 and fix labels omit the version only for the latest publication;
 older versions remain explicit. These labels omit representation words, retaining
-paths, line ranges, and diff sides. Stored context and Locate behavior never change.
+paths, line ranges, and diff sides. HTML reply fix links instead show the agent's
+plain-text `locator.label`, with **Page element** (or **Page** for a whole-page
+target) as the legacy fallback. Their tooltip exposes the version and selector;
+the published path stays in the target. Stored context and Locate behavior never change.
 Replies omit a separate context label; their saved context still pins inline file
 references, and explicit fix links remain visible.
 Quoted targets offer expansion only when the text exceeds the three-line preview;

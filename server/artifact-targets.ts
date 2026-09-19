@@ -21,7 +21,13 @@ import {
 import type { ArtifactStore } from "./artifacts.ts";
 import { parseUnifiedDiff } from "./git.ts";
 
-export const TARGET_LIMITS = { quote: 16_384, lines: 100, selector: 4096, context: 512 } as const;
+export const TARGET_LIMITS = {
+  quote: 16_384,
+  lines: 100,
+  selector: 4096,
+  context: 512,
+  label: 200,
+} as const;
 
 function requireRepresentation(kind: ArtifactKind, value: unknown): Representation {
   if (
@@ -61,6 +67,10 @@ function sourceLocator(value: unknown): SourceLocator {
 function renderedLocator(value: unknown): RenderedLocator {
   const locator = requireObject(value, "Rendered locator");
   const selector = requireString(locator.selector, "selector", TARGET_LIMITS.selector);
+  const label =
+    locator.label === undefined
+      ? undefined
+      : normalizeRenderedText(requireString(locator.label, "label", TARGET_LIMITS.label));
   const text = locator.quote === undefined ? {} : nativeQuote(locator);
   const route = optionalText(locator.route, "route", 2048);
   if (route !== null && !/^[?#]/.test(route)) {
@@ -87,6 +97,7 @@ function renderedLocator(value: unknown): RenderedLocator {
   }
   return {
     selector,
+    ...(label === undefined ? {} : { label }),
     ...text,
     ...(route === null ? {} : { route }),
     ...(viewport ? { viewport } : {}),

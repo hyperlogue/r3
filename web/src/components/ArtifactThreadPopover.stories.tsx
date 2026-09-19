@@ -7,6 +7,7 @@ const meta = {
   title: "Components/ArtifactThreadPopover",
   component: ArtifactThreadPopover,
   args: {
+    artifactKind: "files",
     latestVersionSeq: 1,
     feedback: artifactFixtureFeedback,
     context: { versionSeq: 1, representation: "rendered" },

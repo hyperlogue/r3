@@ -194,6 +194,7 @@ function CardExample({
       <div className="border border-neutral-300 dark:border-neutral-700 [&>article]:border-b-0">
         {note ? (
           <ArtifactThreadCard
+            artifactKind={detail.kind}
             feedback={note}
             latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
             context={{ versionSeq: 2, representation: key === "diff" ? "diff" : "source" }}

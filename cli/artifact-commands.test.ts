@@ -221,12 +221,20 @@ describe("artifact CLI over the HTTP contract", () => {
       "rendered",
     ]);
     expect(storage.conversations.get(feedback.id).claim?.sessionId).toBe(agent.sessionId);
+    const fix = {
+      kind: "rendered" as const,
+      versionSeq: 1,
+      path: "index.html",
+      locator: { selector: "h1", label: "Page heading" },
+    };
     const reply = JSON.parse(
       (
         await command("reply", [
           feedback.id,
           "-m",
           "Working on the heading",
+          "--target",
+          JSON.stringify(fix),
           "--version",
           "1",
           "--view",
@@ -235,6 +243,9 @@ describe("artifact CLI over the HTTP contract", () => {
       ).text,
     );
     expect(reply.context).toEqual({ versionSeq: 1, representation: "rendered" });
+    expect(reply.target).toEqual(fix);
+    expect(storage.conversations.get(feedback.id).replies.at(-1)?.target).toEqual(fix);
+    expect((await command("feedback", ["fetch", id, "--all"])).text).toContain(JSON.stringify(fix));
     expect(storage.conversations.get(feedback.id).claim).toBeNull();
     expect(storage.conversations.get(feedback.id).status).toBe("open");
     await expect(

@@ -83,6 +83,7 @@ describe("native artifact targets", () => {
       path: "index.html",
       locator: {
         selector: "#chart > button",
+        label: "  Chart\nsettings  ",
         quote: "  Generated\nchart\u00a0label ",
         prefix: " Before  ",
         route: "#chart",
@@ -97,12 +98,19 @@ describe("native artifact targets", () => {
       path: "index.html",
       locator: {
         selector: "#chart > button",
+        label: "Chart settings",
         quote: "Generated chart label",
         prefix: "Before",
         route: "#chart",
         viewport: { width: 800, height: 200_000 },
       },
     });
+    expect(targetFromColumns(targetColumns(target))).toEqual(target);
+    for (const label of ["", "  ", 42, null, "x".repeat(201)]) {
+      await expect(
+        targets.target(id, { ...target, locator: { selector: "#app", label } }),
+      ).rejects.toThrow("label must be nonempty text");
+    }
     await expect(
       targets.target(id, { kind: "source", versionSeq: 1, path: "index.html", locator: null }),
     ).rejects.toThrow("incompatible");

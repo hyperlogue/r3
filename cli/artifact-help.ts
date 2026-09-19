@@ -41,6 +41,7 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
 Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered|diff
          [--line <start-end> --quote <text>] [--side old|new]
          rendered: --selector <CSS> [--quote <text>] [--route <query/hash>]
+         HTML fix links: set locator.label in --target JSON (see r3 guide html).
          no target flags means general artifact feedback.
          Version descriptions are read-only metadata, not feedback targets.
 Identity: --session <logical-agent-id> (or R3_AGENT_SESSION, then harness session).
@@ -167,7 +168,14 @@ Bundle dependencies and assets locally: external requests are blocked by default
 
 Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered feedback easier to anchor and inspect.
 
-For a new rendered target, \`feedback add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence, later placements, and reply/fix context.`;
+For a new rendered target, \`feedback add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence, later placements, and reply/fix context.
+
+When replying with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
+
+\`\`\`sh
+r3 reply <feedback-id> -m 'Added the storage explanation.' --version 2 --view rendered \\
+  --target '{"kind":"rendered","versionSeq":2,"path":"index.html","locator":{"selector":"#storage-help","label":"Storage help button"}}'
+\`\`\``;
 
 const FILES_GUIDE = `# Files artifacts
 

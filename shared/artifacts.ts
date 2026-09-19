@@ -107,6 +107,8 @@ export const MAX_RENDERED_HEIGHT = 16_000_000;
 
 export interface RenderedLocator {
   selector: string;
+  // Optional human-readable location name; never used to match the element.
+  label?: string;
   quote?: string;
   prefix?: string;
   suffix?: string;
