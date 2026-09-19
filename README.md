@@ -6,9 +6,9 @@
   <img src="web/favicon.svg" alt="r3 logo" width="120" height="120">
 </p>
 
-<h1 align="center">r3: Review. Revise. Resolve.</h1>
+<h1 align="center">r3: A shared workspace for humans and agents</h1>
 
-<p align="center"><b>Chat is a terrible UI for reviewing large amounts of agent-generated code and docs.<br>r3 is where you do it instead.</b></p>
+<p align="center"><b>Bring agent-created pages, documents, and code to life.<br>A Claude Artifacts-style workspace for any coding agent.</b></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
@@ -17,273 +17,152 @@
   <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
 </p>
 
-r3 is a workspace for reviewing what agents publish: documents, interactive HTML,
-files, and code changes. Leave a comment on the source or rendered page, discuss it
-in a thread, and inspect the next version when it is ready.
+r3 gives agent output a place to be read, used, and discussed. Open interactive
+HTML, browse documents and files, or inspect code changes. Select an element or
+passage, leave feedback, and continue the conversation beside the work.
 
-Each publication is immutable. Editing a local file does not change the page you
-are reading. An agent can publish from another machine, and every version remains
-available even after its source directory disappears.
+Agents publish complete, versioned artifacts through a CLI or HTTP API. Every
+version stays available, and you choose when to switch to a revision. r3 runs
+locally or on a remote machine; publishing works with any agent that can run the CLI.
+
+[Try the browser demo](https://hyperlogue.github.io/r3/demo/) to explore HTML,
+Markdown, and diff feedback with a scripted agent. It uses bundled examples;
+production preview protection is not simulated.
+
+## Get started
 
 ```sh
 npm install -g @hyperlogue/r3
 # Alternatives: bun add -g @hyperlogue/r3 · npx @hyperlogue/r3@latest
 ```
 
-The [browser demo](https://hyperlogue.github.io/r3/demo/) lets you try HTML, rendered
-Markdown, source, and diff feedback with a scripted agent. Its sandboxed previews
-use bundled examples; the daemon’s verified network protection is not simulated.
-
-## Publish an artifact
-
-Run `r3 guide` for the full agent workflow, and `r3 guide html`, `r3 guide files`,
-or `r3 guide diff` for preparation details when that kind is first needed.
-Give each agent a distinct logical
-identity with `--session`, `R3_AGENT_SESSION`, or its harness-provided session ID.
-No agent owns an artifact: multiple agents can publish and participate.
+Ask your agent to run `r3 guide`. It explains how to publish, listen for feedback,
+and reply. The first local call starts the daemon automatically. The CLI prints an
+artifact URL; open `http://127.0.0.1:8791/` for the full list.
 
 ```sh
-# A prepared directory of documents or files; no Git repository is needed.
-r3 create --kind files --dir ./proposal --title "Proposed design" --session design-agent
+# Publish a prepared directory as an interactive page.
+r3 create --kind html --dir ./prototype --title "Prototype"
 
-# A full-page HTML or Markdown artifact with supporting assets.
-r3 create --kind html --dir ./prototype --title "Prototype" --session design-agent
-
-# Captured code changes, including untracked files.
-r3 create --kind diff --working --title "Navigation changes" --session code-agent
-
-# Follow-up publications use the existing artifact's kind.
-r3 publish artifact_example --dir ./proposal --version-label "Revised design" --session design-agent
+# Reuse the returned artifact ID for revisions and feedback.
+r3 listen artifact_example
+r3 feedback fetch artifact_example
+r3 claim feedback_example
+r3 publish artifact_example --dir ./prototype --version-label "Revised prototype"
+r3 reply feedback_example -m "Updated the explanation." --version 2 --view rendered
 ```
 
-The CLI prints the artifact URL. Its first local call starts the daemon; open
-`http://127.0.0.1:8791/` for the artifact list. `r3 start`, `stop`, `status`, and
-`restart` manage that daemon explicitly.
+Use `r3 start`, `stop`, `status`, and `restart` to manage the daemon.
+Run `r3 --help` for the complete command reference.
 
-| Kind | What is published | What the browser shows |
+## Choose an artifact
+
+| Kind | Publish | Review |
 | --- | --- | --- |
-| `files` | A complete, nonempty directory; individual empty files are allowed | Complete foldable file stack with rendered HTML/Markdown, native media previews, and downloads for binary or oversized files |
-| `html` | A complete directory with root `index.html` or `index.md` | The rendered entrypoint in a full-page workspace, with comment mode |
-| `diff` | One complete, independent unified patch per version | Captured old/new lines, split or unified layout, and expandable retained context |
-
-Creation requires an explicit `--kind files|html|diff`, including for directories
-with an index. HTML publications require exactly one root `index.html` or `index.md`;
-both or neither is an error.
-The artifact's kind stays fixed. Files and HTML artifacts have no diff view.
-
-Other capture options are `--staged`, `--commit <sha>`, `--diff <base>..<head>`,
-`--stdin-diff`, and `--ref <git-ref> --file <relative-path>` (repeatable).
-A diff version is an independent patch; r3 never applies it to an earlier version
-to invent a complete tree.
-
-Build HTML and bundle dependencies before publishing. Directory capture includes
-all selected regular files, including hidden files; use a prepared output directory
-or explicit `--file` selections. Symlinks and special files are rejected. Current
-limits are 10,000 files, 64 MiB per file, 128 MiB total, 4 MiB per Markdown document,
-and 10 MiB per patch.
-
-## Review and revise
-
-1. Open the artifact and choose a published version. Select text in source, diffs,
-   rendered Markdown, or HTML to start feedback. Rendered comment mode also lets
-   you pick whole page elements. Each thread keeps its native target.
-2. Click **Submit** to notify the registered agent, or copy the prompt for a manual
-   handoff. Drafts retain the version and view where they began.
-3. The agent reads pending feedback, claims the items it is handling, publishes
-   changes, and replies by stable feedback ID.
-4. Inspect the new publication using the version picker. A publication announces
-   itself without replacing the version you are reading. Resolve the thread when
-   you are satisfied; replies and publications leave its status open.
-5. Archive the artifact when work should stop. Restore it to resume later.
+| `html` | A directory with exactly one root `index.html` or `index.md`, plus assets | A full-page rendered workspace with element and text comments |
+| `files` | A complete, nonempty directory; no index required | A file browser and foldable file stack; Markdown opens rendered, other text as source |
+| `diff` | One independent patch per version | Old/new lines, split or unified layout, and expandable captured context |
 
 ```sh
-r3 listen artifact_example --session design-agent
-# Any agent can instead block on watch, or fetch feedback directly.
-r3 watch artifact_example --session design-agent
-r3 feedback fetch artifact_example --session design-agent
-r3 claim feedback_example --session design-agent
-r3 publish artifact_example --dir ./proposal --session design-agent
-r3 reply feedback_example -m "Updated the explanation." --version 2 --view source --session design-agent
+r3 create --kind files --dir ./proposal --title "Design documents"
+r3 create --kind diff --working --title "Navigation changes"
 ```
 
-`listen` uses a publisher-side Claude Code socket or Codex queue adapter. Its local
-capability check reports when that adapter is unavailable; use `watch` or `feedback fetch`
-with other harnesses. The server receives an outward connection and logical agent
-identity, never the harness socket, executable path, or harness credential.
+An artifact keeps its kind. Files support rendered HTML/Markdown, media previews,
+and downloads for binary or oversized files. HTML intentionally has no file
+browser: link every page and asset from the entrypoint. Diffs contain captured
+changes, not a reconstructed repository.
 
-`watch` exits **10** for pending feedback, **0** for archived, **2** on timeout, and
-**4** for a conflicting or superseded recipient. Only one designated listen/watch
-recipient is active per artifact. Claims are independent, feedback-scoped leases
-lasting 60 minutes; agents can work on different notes concurrently. A reply
-releases only its author's claim.
+Read `r3 guide html`, `r3 guide files`, or `r3 guide diff` for preparation details.
+Build dependencies before publishing and include supporting assets. Save large
+images as standalone files with relative URLs instead of embedded base64.
 
-Original comment targets never move. **Locate** returns to their recorded version
-and representation. Additional placements and reply fix targets are separate from
-the original evidence; an absent or ambiguous element is reported explicitly.
-Reply `--version` and `--view` pin its inline references independently of a fix
-location. Without those flags, a reply has no version context.
+## Review together
 
-Archive preserves versions, threads, unsent feedback, and drafts. An optional
-archive message is retained in history and sent to the current listener. A blank
-message closes quietly; watch always terminates. Archive does not imply approval.
-Restore requires a fresh listener registration. In-flight replies remain accepted
-while archived, but new publications, claims, and ordinary handoffs are blocked.
+1. Open a version and select text to add feedback. HTML comment mode also lets
+   you select page elements. Threads retain their original version and location.
+2. Post your feedback, then choose **Send to agent** or **Copy prompt** for manual
+   handoff. Drafts survive view changes; post or discard them before sending.
+3. The agent claims the relevant threads, publishes a revision, and replies.
+   Named fix links can point directly to updated HTML elements.
+4. Use **Go to the latest version** when ready. New publications leave your
+   current view in place. Resolve threads when satisfied; agent replies do not
+   resolve them automatically.
+5. Archive completed work. Versions and conversations remain readable, and
+   restoring an artifact lets work continue.
 
-## Version history and retrieval
+The feedback panel can be docked, floating, or hidden. Comment anchors can open
+individual conversations while the panel is hidden. Mobile uses a feedback sheet.
+
+Each agent has a distinct logical identity, usually inferred from its harness;
+`--session` or `R3_AGENT_SESSION` supplies one explicitly. Multiple agents can
+publish and participate in the same artifact. Claims are renewable 60-minute
+leases on individual feedback items. A reply releases only its author's claim.
+
+`r3 listen` supports Claude Code and Codex wake adapters. Other agents can use
+`r3 watch <id>` or poll `r3 feedback fetch <id>`. Watch prints pending feedback
+and exits 10; archive exits 0, timeout 2, and an occupied recipient slot 4. Only
+one designated listener or watcher receives an artifact's handoff at a time.
+Restoring an archived artifact requires registering a listener again.
+
+## Versions and projects
+
+Publications are immutable snapshots that stay readable even after their source
+directory is gone.
+Publish the complete directory each time. Unchanged blobs are deduplicated across
+versions, and the browser shows storage usage. Deletion removes the whole artifact;
+individual versions cannot be deleted.
 
 ```sh
 r3 versions artifact_example
 r3 files artifact_example --version 1
-r3 source artifact_example --version 1 --file index.md
 r3 download artifact_example --version 1 --file image.png > image.png
-r3 patch artifact_example --version 1 > captured.patch
-r3 list --meta session=design-agent
+r3 list
 ```
 
-All versions remain available until whole-artifact deletion. To correct content,
-publish again. Concurrent publishers use an optimistic sequence check; `--expected`
-sets it explicitly and `--key` identifies a retry. Retry with the same captured
-bytes, metadata, key, and expected sequence. A conflict requires inspecting the
-newest publication before publishing again.
+Concurrent publishers can use `--expected` to check the latest sequence and `--key`
+for retry identity. Source and download commands require an explicit version.
+Additional Git capture options are listed in `r3 --help`.
 
-Projects group artifacts independently of filesystem paths. To select one explicitly:
-`r3 project create --title "Product design"`, then `r3 create ... --project <id>`.
-Otherwise the CLI detects the Git fetch remote (prefer `origin`, then the configured
-upstream or sole remote). The server groups equivalent repository URLs automatically,
-with credentials removed. Ambiguous or non-network remotes leave an artifact ungrouped.
-Later publications retain its project even when published from a different checkout.
+Projects optionally group artifacts. r3 infers a group from a sanitized Git remote;
+use `r3 project create --title "Product design"` and `create --project <id>` to
+choose one explicitly. Later publications preserve the group. Project deletion
+leaves its artifacts intact.
 
-Use `r3 project edit <id> --remote <url>` to attach a remote to an existing project.
-On the server, `r3 config set projectGrouping manual` disables automatic grouping;
-`remote` is the default. `projectMappings` accepts a JSON map of remote URLs to
-existing project IDs for aliases. Configuration changes take effect after restart.
-Removing a project preserves its artifacts and deletes its automatic remote mapping;
-remove configured aliases separately.
+## Interactive previews
 
-## Interactive HTML
+Publish scripts, styles, images, and data alongside your page. Relative URLs,
+hash routes, and links to published pages work. Backend hosting and automatic
+dependency installation are outside r3's scope.
 
-Publish local scripts, ES modules, styles, images, media, and data alongside the
-entrypoint. Use relative URLs, hash routes, or published document paths. The preview
-provides the selected version's resource root. Automatic root-relative URL rewriting,
-history-route fallback, dependency installation, and backend hosting are outside
-this feature.
+Previews run in opaque-origin sandboxes, with access scoped to one published
+version and external connections blocked by default. The **Preview security**
+entry in the three-dot menu explains the current protection. Browsers without
+verified network blocking ask for risk acknowledgment before rendering interactive
+content; compatibility mode retains isolation but can leave outbound channels open.
 
-Keep HTML small by saving images as standalone files, such as
-`prototype/assets/hero.webp`, and using native HTML:
+HTML artifacts can explicitly **Allow external access**, with optional camera and
+microphone access. Browser device permission is also required. Enable this only
+for trusted content: published files, conversations, input, and shared device data
+could be sent externally. **Restore protection** blocks external access; **Stop
+sharing** ends device capture. Version changes and leaving the preview clear
+these grants.
 
-```html
-<img src="./assets/hero.webp" alt="Hero illustration">
-```
+Pages can use `/r3/utility.js` to access this artifact's conversations, create
+feedback, reply, submit, persist a theme choice, or request device capture. It
+exposes no application credentials or general API access. See the
+[HTML authoring guide](docs/artifacts/html-authoring.md)
+and [security model](.claude/skills/security-model/SKILL.md) for details.
 
-Extract large embedded base64/data-URL images into files and reuse their paths
-when an image repeats. Publish the complete `prototype` directory on every version
-so `index.html` and all referenced assets are included. See `r3 guide` for commands.
+Opened Markdown is cached for faster revisits: up to 64 MiB, with unused entries
+expiring after 30 days. Cached text can appear after normal authentication while
+preview checks run. Logout and known artifact deletions clear relevant entries.
 
-Each document runs in an opaque-origin sandbox with URL access scoped to one version. Local resources support
-fetch, XHR, modules, and media range requests. By default external resources, APIs, sockets,
-forms that navigate, and access to unrelated artifacts or application endpoints
-are blocked. Bundle assets locally instead of loading a CDN.
+## Remote access and storage
 
-Interactive previews first check whether the browser can enforce Connection Allowlists
-and WebRTC blocking. Browsers that cannot show a one-time risk warning before
-loading interactive published content. Accepting enables limited network protection: ordinary
-external resources stay restricted, but malicious scripts could send publication
-data, review conversations, or your input through other browser features.
-The opaque sandbox and r3 authentication remain enforced.
-
-Opened Markdown is cached locally, up to 64 MiB with 30-day unused-entry expiry.
-After normal r3 authentication, cached text and formatting can appear while preview
-checks run; images, links, and feedback wait for those checks. Logout and known
-artifact deletions clear relevant entries. Authored HTML keeps its blocking gate.
-
-Acceptance is remembered for this r3 site in this browser. New previews always
-try verified protection first, including after browser upgrades. Open the top
-navigation’s three-dot menu and expand **Preview security** for details or
-**Forget browser choice**. Forgetting stops compatible previews in open tabs. Declining keeps the preview closed. Isolation,
-HTTPS, and server failures never bypass verification through this warning.
-
-HTML artifacts offer **Allow external access**, with a confirmation before
-reloading the preview. It lets pages load external dependencies and call APIs
-subject to browser CORS. The dialog also has optional **Camera** and **Microphone**
-checkboxes, initially off. Enabling them lets this page request those devices;
-the browser still requires its own permission for r3. HTTPS and localhost work.
-Files can use limited compatibility rendering, but have no broader external-access
-or device opt-out. Diff artifacts have no rendered preview.
-
-The **Preview security** row summarizes all mounted previews with one shield.
-Green means every preview has verified protection; amber indicates limited
-protection, external access, or device consent; red indicates active sharing or an
-error. Expanding it shows each preview’s isolation, network, camera, and microphone
-status. Device icons distinguish permission from active sharing. HTML retains
-**Permissions** and **Restore protection**.
-While a device is active, **Stop sharing** stops capture and clears device consent.
-Device choices reset on page navigation; broader external-access and device grants
-reset on version changes or leaving the preview. These grants are never saved;
-the separate compatibility risk acknowledgment is remembered. Browser site permissions may
-remain remembered, but cannot replace r3's consent for the current page.
-
-Only enable external access for trusted content. The page and external scripts
-can send published files, your input, this artifact's conversations, and any shared
-camera/microphone data elsewhere. Restoring protection cannot undo data already
-sent. The opaque sandbox and r3 authentication remain enforced.
-
-External pages reached through navigation keep the iframe's sandbox and device
-restrictions, but do not inherit the published document's CSP. They can use workers
-and nested frames that r3-served documents block. Such navigation is permitted in
-external mode and may also occur through compatibility-mode gaps.
-
-Pages can import `/r3/utility.js` to call `getContext()`, `getThreads()`,
-`createFeedback({ body, locator })`, `reply({ feedbackId, body })`, `submit()`,
-`subscribe(callback)`, `getTheme()`, `setTheme(theme)`, and `getUserMedia(constraints)`.
-Conversations use the same threads and explicit handoff as the panel. Human mutations require user activation.
-The utility exposes no application credential, generic API access, publication,
-lifecycle, or host execution capability.
-
-Pages can use `getTheme()` and `setTheme()` with `"light"` or `"dark"` to remember
-their choice for this artifact and r3 site in the browser. A write requires a user gesture.
-This is optional: authored HTML controls its appearance; r3 does not automatically
-persist arbitrary page state. Rendered Markdown follows r3’s application theme.
-Theme preference never saves external-access or device grants.
-
-In external mode, the runtime also adapts `navigator.mediaDevices.getUserMedia`
-so existing pages can request camera/microphone without changing the iframe's
-opaque origin:
-
-```js
-const stream = await navigator.mediaDevices.getUserMedia({
-  video: { width: { ideal: 640 }, facingMode: "user" },
-  audio: true,
-});
-video.srcObject = stream;
-// Stop this page's tracks when done; r3 also provides Stop sharing.
-stream.getTracks().forEach((track) => track.stop());
-```
-
-The trusted parent captures devices and relays a real `MediaStream` over WebRTC;
-direct native iframe capture remains blocked. Capture needs external access and
-the selected device permissions. One capture can run at a time. Video supports
-width, height, frame rate, aspect ratio, and facing mode; audio supports echo
-cancellation, noise suppression, automatic gain, sample rate, and channel count.
-Unsupported constraints are rejected. Device enumeration, device IDs, screen
-capture, and camera pan/tilt/zoom are unavailable.
-
-The returned tracks are WebRTC receiver tracks, so their settings and subsequent
-`applyConstraints()` do not control the physical device. Normal media playback and
-recording work. Returned track `stop()`/`clone()` and stream `clone()` keep source
-lifetimes coordinated; bypassing those methods or cloning a separately constructed
-stream is outside this adapter's contract. r3's Stop sharing always stops the
-physical devices, independently of the page's track bookkeeping.
-
-## Remote publishing and browser access
-
-Point a publisher at an application URL with `R3_URL`; supply its API credential
-through `R3_TOKEN`. Capture still happens on the publisher. Neither publishing nor
-reading requires a server-side checkout.
-
-The daemon binds loopback. Reach it through a tunnel or HTTPS reverse proxy.
-Rendered previews automatically use the same address as the r3 browser page,
-including an existing Tailscale Serve HTTPS address. No wildcard DNS, separate
-public port, or preview setting is required. Localhost also works automatically.
+r3 binds loopback. Use an HTTPS reverse proxy or tunnel for remote browser access,
+and forward the whole application, including `/__r3_preview/`. Existing Tailscale
+Serve addresses work automatically; no wildcard DNS or separate preview port is needed.
 
 ```sh
 r3 config set publicUrl https://reviews.example
@@ -292,74 +171,28 @@ r3 restart
 r3 auth create-token --label browser
 ```
 
-The proxy forwards the whole application, including `/__r3_preview/`, without
-stripping that prefix. If it rewrites Host, the configured `publicUrl` identifies
-the HTTPS edge; arbitrary forwarded host headers never choose a trusted origin.
-Share artifact workspace links, not temporary preview URLs.
+Publish remotely with `R3_URL` and `R3_TOKEN`. Browser login uses a separate,
+revocable token and session cookie. The server never needs a publisher checkout.
+`r3 config show|get|set|unset` manages configuration; changes apply after restart.
 
-An optional `previewBaseUrl` override uses a separate loopback preview listener
-(`previewPort`, default application port + 1). Forward that single HTTPS origin
-to the preview listener, preserving its Host and URL paths. It can use the same
-hostname on a different HTTPS port. Clear an old override with
-`r3 config unset previewBaseUrl` and restart to return to automatic hosting.
-An SSH setup only needs to forward the application port when using automatic
-hosting and browsing the local application URL.
-
-Remote exposure enables login by default. A revocable login token mints an
-HttpOnly browser session; it is separate from the CLI's API credential. Behind a
-proxy that rewrites Host, set `requireLogin` explicitly and advertise `publicUrl`.
-`r3 auth list-tokens` and `r3 auth revoke-token <id>` manage browser access.
-
-Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults:
-
-| Setting | Environment | Default |
-| --- | --- | --- |
-| `port` | `R3_PORT` | 8791 |
-| `bind` | `R3_BIND` | Loopback |
-| `publicUrl` | `R3_PUBLIC_URL` | Local application URL |
-| `allowedHosts` | `R3_ALLOWED_HOSTS` | Exact local hostnames |
-| `requireLogin` | `R3_REQUIRE_LOGIN` | Enabled for remote exposure |
-| `previewPort` | `R3_PREVIEW_PORT` | Application port + 1, only with an explicit preview endpoint |
-| `previewBaseUrl` | `R3_PREVIEW_BASE_URL` | Automatic: the browser's r3 address |
-
-Use `r3 config show|get|set|unset` to inspect or persist settings. Wildcard
-application hosts and all-interface binds are rejected.
-
-## Upgrading from live file reviews
-
-The artifact protocol replaces the old review commands and API. Restart with the
-new binary to migrate. Startup first retains a private database backup, then
-imports surviving snapshots, patches, conversations, login state, and read progress
-in one transaction. Review IDs remain valid artifact URLs.
-
-Files and scratch reviews become `files` artifacts. A one-time current capture,
-when available, is explicitly marked as nonhistorical. Missing original bytes,
-removed rounds, uncertain anchors, and inferred metadata stay documented as
-migration evidence. Empty historical publications receive a clearly generated
-notice. Sequence gaps remain reserved. Approved and abandoned reviews become
-archived with their old outcome preserved in provenance.
-
-State lives at `$XDG_STATE_HOME/r3/r3.sqlite`; immutable blobs and migration backups
-live beside it in `r3.sqlite.artifacts/`. Back up both. The daemon announces itself
-at `$XDG_RUNTIME_DIR/r3/daemon.json`. If startup fails, `r3 __daemon` runs in the
-foreground to show the error; failed migration leaves the old database intact.
+Back up both `$XDG_STATE_HOME/r3/r3.sqlite` and its neighboring
+`r3.sqlite.artifacts/` directory. Upgrading from live-file reviews creates a
+private database backup and imports retained content and conversations. Historical
+gaps remain explicit; see [storage and migration](docs/artifacts/schema.md).
 
 ## Development
 
 ```sh
 bun install
-process-compose up          # isolated workspace data; application 8891
+process-compose up          # isolated development daemon
 bun run storybook           # component workshop
 bun run typecheck
 bun test
 biome check .
 bun run build               # self-contained ./r3 binary
-bun run gen:demo            # regenerate canned publications
-bun run build:demo
 ```
 
-The source daemon bundles the browser on startup. Server changes restart it under
-`bun --watch`; restart after frontend edits to rebuild its guarded assets, or use
-Storybook for component development. See [AGENTS.md](AGENTS.md) for the module map
-and [the verification guide](docs/artifacts/verification.md) for browser and
-compiled-binary acceptance commands.
+The daemon, CLI, and SPA ship as one binary. Frontend changes require a source-daemon
+restart. The static demo is built with `bun run gen:demo` and `bun run build:demo`.
+See [AGENTS.md](AGENTS.md) for architecture, the [design](docs/artifacts/design.md)
+for behavior, and the [verification guide](docs/artifacts/verification.md) for checks.

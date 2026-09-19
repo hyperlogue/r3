@@ -567,7 +567,7 @@ actual audio/video tracks to the opaque document. External access is required;
 shared media may be sent elsewhere. No device endpoint, persisted grant, enumeration,
 screen capture, or application credential is exposed. Returned tracks support
 media consumers and coordinated stop/clone behavior, not the entire native capture
-API. The [interactive HTML guide](../../README.md#interactive-html) owns usage and
+API. The [HTML authoring guide](html-authoring.md) owns usage and
 compatibility limits.
 
 The [security reference](../../.claude/skills/security-model/SKILL.md#preview-host)
