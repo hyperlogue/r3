@@ -312,6 +312,10 @@ function Workspace({
       if (keysSuspended()) return false;
       if (action === "focus") return focusArtifactComposer(detail.id);
       setQuote(null);
+      if (!mobile && !collapsed) {
+        setFeedbackMode("hidden");
+        return true;
+      }
       if (!artifactDrafts.get(detail.id)?.body.trim()) {
         artifactDrafts.clear(detail.id);
         setFloating(null);
@@ -319,7 +323,7 @@ function Workspace({
       }
       return true;
     },
-    [detail.id, mobile],
+    [detail.id, mobile, collapsed],
   );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -639,6 +643,7 @@ function Workspace({
     generalNote: (mobile ? sheet !== "closed" : !collapsed)
       ? () => anchor({ kind: "artifact" })
       : undefined,
+    panelHide: !mobile && !collapsed ? () => setFeedbackMode("hidden") : undefined,
     panelToggle: () => {
       if (mobile) setSheet(sheet === "closed" ? "full" : "closed");
       else if (collapsed) showFeedbackPanel();

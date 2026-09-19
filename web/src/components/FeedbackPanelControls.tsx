@@ -34,7 +34,7 @@ export function FeedbackPanelControls({
       <button
         type="button"
         aria-label="Hide feedback"
-        title="Hide feedback (p)"
+        title="Hide feedback (Esc / p)"
         onClick={() => onChange("hidden")}
         className={control}
       >

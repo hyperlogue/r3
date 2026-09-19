@@ -194,9 +194,14 @@ try {
   await Bun.sleep(100);
   await key("Escape", "Escape");
   await eventually(
-    async () => !(await hasComposer()),
-    "idle Escape cancels the empty preview note",
+    () =>
+      page.evaluate(
+        "document.querySelector('[data-feedback-mode]').dataset.feedbackMode === 'hidden'",
+      ),
+    "idle Escape in the preview hides the desktop feedback panel",
   );
+  assert(await hasComposer(), "hiding the panel preserves its empty preview note");
+  await click("Show feedback");
   await select(content, "#selection-text");
   await waitComposer();
   await select(content, "#heading");

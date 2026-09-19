@@ -502,6 +502,41 @@ export const FloatingPanelAndThread: Story = {
     ).toBe("floating");
   },
 };
+export const FeedbackKeyboardShortcuts: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const panel = canvasElement.querySelector("[data-feedback-mode]")!;
+    for (const mode of ["expanded", "floating"]) {
+      if (mode === "floating")
+        await userEvent.click(canvas.getByRole("button", { name: "Float feedback" }));
+      await userEvent.keyboard("{Escape}");
+      await expect(panel).toHaveAttribute("data-feedback-mode", "hidden");
+      await userEvent.keyboard("n");
+      await expect(canvas.queryByRole("textbox", { name: "Feedback" })).toBeNull();
+      await userEvent.keyboard("p");
+      await expect(panel).toHaveAttribute("data-feedback-mode", mode);
+      await userEvent.keyboard("n");
+      const field = await canvas.findByRole("textbox", { name: "Feedback" });
+      await waitFor(() => expect(field).toHaveFocus());
+      await expect(artifactDrafts.get(detail.id)?.target.kind).toBe("artifact");
+      await userEvent.keyboard("Keep this draft: pn{Escape}");
+      await expect(field).not.toHaveFocus();
+      await expect(field).toHaveValue("Keep this draft: pn");
+      await expect(panel).toHaveAttribute("data-feedback-mode", mode);
+      await userEvent.keyboard("{Escape}");
+      await expect(panel).toHaveAttribute("data-feedback-mode", "hidden");
+      await userEvent.keyboard("pn");
+      await waitFor(() => expect(field).toHaveFocus());
+      await expect(panel).toHaveAttribute("data-feedback-mode", mode);
+      await expect(field).toHaveValue("Keep this draft: pn");
+      await userEvent.click(canvas.getByRole("button", { name: "Discard" }));
+      await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+      await userEvent.keyboard("{Escape}");
+      await expect(canvas.queryByRole("dialog", { name: "Artifact details" })).toBeNull();
+      await expect(panel).toHaveAttribute("data-feedback-mode", mode);
+    }
+  },
+};
 export const VirtualizedLocate: Story = {
   args: {
     detail: {

@@ -374,6 +374,10 @@ panel's width and resizes content with it. Visible panels offer **Float feedback
 restores the last visible mode. That choice persists across reloads. All states keep
 the panel mounted to preserve UI state and drafts. Existing folded preferences become
 hidden and reopen expanded if no visible-mode preference was saved.
+`Esc` hides either visible desktop mode while preserving drafts. Editors and open
+popups handle Escape first. With the panel open, `n` opens Active and focuses general
+feedback, retaining any populated draft's existing target.
+These shortcuts stand down during text entry, modal overlays, and key repeat.
 Float/dock changes animate the existing panel shell for 360 ms from its current
 visual position and size, including corners and shadow. Content takes its final
 width immediately. A rapid reversal starts from the in-progress position.
@@ -429,7 +433,9 @@ native Copy. Space or forward Tab focuses the visible new-note composer at the e
 Shift+Tab, editable fields, keyboard-focused controls, IME, modifiers, and overlays
 retain their own keys. Keyboard text selection shares native capture with a 275 ms
 debounce. Whole-file/general feedback buttons and explicit quote actions focus.
-Escape cancels an empty note; in a populated editor it blurs without losing text.
+In a focused editor, Escape cancels an empty note or blurs a populated one without
+losing text. Outside the editor, Escape hides a visible desktop feedback panel;
+when the panel is hidden, it cancels an empty standalone note.
 Scrolling or collapsing the selection dismisses transient quote actions, not drafts.
 An empty note can retarget; a populated note offers **Quote in note**. Selection in
 an agent message offers **Quote in reply** only for that message's own thread.

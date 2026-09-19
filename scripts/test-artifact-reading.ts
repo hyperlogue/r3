@@ -138,6 +138,10 @@ try {
   browser = await openTestBrowser();
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  const pressKey = async (key: string, autoRepeat = false) => {
+    await page.command("Input.dispatchKeyEvent", { type: "keyDown", key, autoRepeat });
+    await page.command("Input.dispatchKeyEvent", { type: "keyUp", key });
+  };
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 1400,
     height: 1000,
@@ -514,6 +518,69 @@ try {
         "keyboard toggle respects the remembered mode",
       );
     }
+    await pressKey("Escape", true);
+    assert.equal(
+      await page.evaluate("document.querySelector('[data-feedback-mode]').dataset.feedbackMode"),
+      mode,
+      "held Escape does not hide feedback",
+    );
+    await pressKey("Escape");
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.querySelector('[data-feedback-mode]').dataset.feedbackMode === 'hidden'",
+        ),
+      "Escape hides feedback even with a toolbar button focused",
+    );
+    await pressKey("n");
+    assert.equal(
+      await page.evaluate("!!document.querySelector('textarea[aria-label=Feedback]')"),
+      false,
+      "new general feedback is unavailable while the panel is hidden",
+    );
+    await pressKey("p");
+    await pressKey("n");
+    await eventually(
+      () => page.evaluate("document.activeElement?.matches('textarea[aria-label=Feedback]')"),
+      "general feedback shortcut opens and focuses the composer",
+    );
+    await page.command("Input.insertText", { text: "Keep this keyboard draft" });
+    await pressKey("p");
+    await pressKey("Escape");
+    assert(
+      await page.evaluate(`document.querySelector('[data-feedback-mode]').dataset.feedbackMode === '${mode}' &&
+        !document.activeElement?.matches('textarea[aria-label=Feedback]')`),
+      "typing suspends panel shortcuts and editor Escape only blurs the draft",
+    );
+    await pressKey("Escape");
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.querySelector('[data-feedback-mode]').dataset.feedbackMode === 'hidden'",
+        ),
+      "Escape hides feedback after the editor blurs",
+    );
+    await pressKey("p");
+    await pressKey("n");
+    await eventually(
+      () =>
+        page.evaluate(`document.querySelector('[data-feedback-mode]').dataset.feedbackMode === '${mode}' &&
+          document.activeElement?.matches('textarea[aria-label=Feedback]') &&
+          document.activeElement.value === 'Keep this keyboard draft'`),
+      "reopening restores the mode and retained draft",
+    );
+    await page.evaluate(
+      "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Discard').click()",
+    );
+    await page.evaluate(
+      "document.querySelector('[aria-label=\"Artifact details and actions\"]').click()",
+    );
+    await pressKey("Escape");
+    assert(
+      await page.evaluate(`document.querySelector('[data-feedback-mode]').dataset.feedbackMode === '${mode}' &&
+        document.querySelector('[aria-label="Artifact details"]').hidden`),
+      "Escape dismisses the open popup before the feedback panel",
+    );
   }
   console.log(
     "Published files/diffs: syntax colors, complete stack, folding, file navigation and scroll highlighting passed",

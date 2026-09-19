@@ -22,6 +22,7 @@ export type KeyId =
   | "versionNext"
   | "versionPrev"
   | "layoutToggle"
+  | "panelHide"
   | "panelToggle";
 
 export interface Binding {
@@ -85,24 +86,24 @@ export const KEYMAP: readonly Binding[] = [
   { id: "versionPrev", keys: ["<"], label: "Previous diff round / version", group: "View" },
   { id: "layoutToggle", keys: ["\\"], label: "Unified / side-by-side", group: "View" },
   // ArtifactView toggles the desktop dock or the mobile feedback sheet.
-  { id: "panelToggle", keys: ["p"], label: "Hide / expand feedback panel", group: "View" },
+  { id: "panelToggle", keys: ["p"], label: "Show / hide feedback panel", group: "View" },
+  { id: "panelHide", keys: ["Escape"], label: "Hide feedback panel", group: "View" },
 ];
 
 const CHORDS = new Map<string, KeyId>();
 for (const b of KEYMAP) for (const k of b.keys) CHORDS.set(k, b.id);
 const REPEATABLE = new Set<KeyId>(KEYMAP.filter((b) => b.repeatable).map((b) => b.id));
 
-// Pretty-print a chord for the overlay: "ctrl+n" -> "Ctrl-n", everything else is
-// already the literal character you press.
+// Pretty-print named keys and chords for the overlay; characters stay literal.
 export function formatChord(chord: string): string {
+  if (chord === "Escape") return "Esc";
   return chord.startsWith("ctrl+") ? `Ctrl-${chord.slice(5)}` : chord;
 }
 
 // Focus is in something that takes typed text, so the keystroke belongs to it.
-// Deliberately NARROWER than isInteractiveTarget: this map binds only letters and
-// punctuation — never Space or Enter — so a focused button or link can keep its
-// shortcuts. Standing down for those too would mean a shortcut silently stops
-// working after you click any toolbar button.
+// Deliberately NARROWER than isInteractiveTarget: this map never binds Space or
+// Enter, so a focused button or link can keep its shortcuts. Standing down for
+// those too would mean a shortcut silently stops working after a toolbar click.
 export function isTextEntry(el: Element | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
@@ -119,11 +120,12 @@ export function isInteractiveTarget(el: Element | null): boolean {
   return isTextEntry(el) || tag === "BUTTON" || tag === "A" || el.getAttribute("role") === "button";
 }
 
-// The chord a keydown represents, or null when nothing here could match it. Only
-// single-character keys are bindable (no F-keys, no arrows), and Alt/Meta chords
-// are left entirely to the browser and the OS.
+// The chord a keydown represents, or null when nothing here could match it.
+// Single-character keys and unmodified Escape are bindable; Alt/Meta chords,
+// F-keys, and arrows are left to the browser, OS, and individual widgets.
 function chordOf(e: KeyboardEvent): string | null {
   if (e.metaKey || e.altKey) return null;
+  if (e.key === "Escape") return e.ctrlKey || e.shiftKey ? null : e.key;
   if (e.key.length !== 1) return null;
   // Ctrl chords normalize to lowercase so Ctrl-n and Ctrl-N are the same binding;
   // an unmodified key keeps its case, which is how `S` and `Z` differ from `s`/`z`.
@@ -148,9 +150,9 @@ export function suspendKeys(): () => void {
 }
 
 // For the OTHER global key listeners this map doesn't own — notably the
-// composer's Escape action in ArtifactView. Escape is deliberately out of
-// KEYMAP, so without this the shortcuts sheet's own Esc and the composer's would
-// both fire on one press: the sheet closes AND the open composer is discarded.
+// composer's Escape action in ArtifactView. Without this the shortcuts sheet's
+// own Esc and the composer's would both fire on one press: the sheet closes AND
+// the open composer is discarded.
 export function keysSuspended(): boolean {
   return suspended > 0;
 }

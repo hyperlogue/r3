@@ -756,7 +756,7 @@ export function ArtifactThreads({
             <Button
               variant="ghost"
               aria-label="Add general feedback"
-              title="Add general feedback"
+              title="Add general feedback (n)"
               onClick={newNote}
             >
               <CommentPlusIcon className="size-3.5" />
