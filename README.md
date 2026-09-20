@@ -6,9 +6,9 @@
   <img src="web/favicon.svg" alt="r3 logo" width="120" height="120">
 </p>
 
-<h1 align="center">r3: A shared workspace for humans and agents</h1>
+<h1 align="center">r3: View artifacts. Give precise feedback.</h1>
 
-<p align="center"><b>Bring agent-created pages, documents, and code to life.<br>A Claude Artifacts-style workspace for any coding agent.</b></p>
+<p align="center"><b>Bring agent-created pages, documents, and code to life.<br>A Claude Artifacts-style tool for any coding agent.</b></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
@@ -101,12 +101,12 @@ leases on individual feedback items. A reply releases only its author's claim.
 `r3 listen` supports Claude Code and Codex wake adapters. Other agents can use
 `r3 watch <id>` or poll `r3 feedback fetch <id>`. Watch prints pending feedback
 and exits 10; archive exits 0, timeout 2, and an occupied recipient slot 4. Only
-one designated listener or watcher receives an artifact's handoff at a time.
+one listener receives an artifact's handoff at a time.
 Restoring an archived artifact requires registering a listener again.
 
 ## Versions and projects
 
-Publications are immutable snapshots that stay readable even after their source
+Versions are immutable snapshots that stay readable even after their source
 directory is gone.
 Publish the complete directory each time. Unchanged blobs are deduplicated across
 versions, and the browser shows storage usage. Deletion removes the whole artifact;
