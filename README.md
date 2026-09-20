@@ -31,26 +31,30 @@ production preview protection is not simulated.
 
 ## Get started
 
+Install globally to make the `r3` command available on your PATH:
+
 ```sh
 npm install -g @hyperlogue/r3
-# Alternatives: bun add -g @hyperlogue/r3 · npx @hyperlogue/r3@latest
+# Or: bun add -g @hyperlogue/r3
+```
+
+Or run it without installing `r3` on your PATH:
+
+```sh
+npx @hyperlogue/r3@latest
 ```
 
 Ask your agent to run `r3 guide` and publish an artifact. The guide explains how
-to publish, listen for feedback, and reply. The first local call starts the daemon
-automatically. Open the artifact URL from your agent, or visit
+to publish, listen for feedback, and reply. Open the artifact URL from your agent, or visit
 `http://127.0.0.1:8791/` for the full list.
 
-Local Claude Code and Codex publications automatically register for feedback in
-that same daemon. Registrations survive restarts. `r3 listen <id>` takes priority
-over the latest publisher, and `r3 unlisten <id>` removes your registrations.
-Use `--no-listen` to publish without a fallback. Other agents can use `r3 watch`
-without supplying a session ID. `--session <name>` gives an agent a readable name;
-`R3_AGENT_SESSION` supplies stable identity when the harness does not.
+Local Claude Code and Codex publications set up feedback delivery automatically,
+so you can send feedback from the artifact page. Other agents can work from a
+copied feedback prompt.
 
 ## Artifact types
 
-r3 presents three kinds of artifacts:
+r3 supports three kinds of artifacts:
 
 | Artifact | What you can do | Examples |
 | --- | --- | --- |
@@ -59,13 +63,14 @@ r3 presents three kinds of artifacts:
 | Code changes | See what changed and discuss it beside the affected lines | Bug fixes, refactors, feature reviews |
 
 HTML artifacts open as pages; files artifacts have a file browser; diff artifacts
-show captured code changes. For interactive page authors, see the
-[HTML authoring guide](docs/artifacts/html-authoring.md).
+show captured code changes.
 
 ## Local and remote access
 
-r3 runs locally by default and listens only on loopback. Local browser access
-works without a login unless you enable one.
+r3 runs locally by default. The CLI lazily starts a background daemon when a
+command first needs the server. The daemon serves the browser UI and stores
+artifacts and feedback. It listens only on loopback; local browser access works
+without a login unless you enable one.
 
 For remote access, use an HTTPS reverse proxy or tunnel, such as Tailscale Serve,
 pointing to `http://127.0.0.1:8791/`. Forward the whole application, including
@@ -86,7 +91,7 @@ Use the generated login token to sign in. Browser sessions and login tokens are
 revocable. r3 is a single-owner tool: a valid login grants access to all artifacts
 on that instance, with no per-artifact sharing permissions.
 
-Agents publishing from another machine use `R3_URL` and the `R3_TOKEN` API
-credential. The server receives published content and needs no publisher checkout.
+Your agent can publish from a different machine: it uploads the artifact's files,
+so the machine running r3 does not need a copy of your project.
 See the [security model](.claude/skills/security-model/SKILL.md) for authentication
 and preview isolation details.
