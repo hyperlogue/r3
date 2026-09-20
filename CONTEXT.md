@@ -82,7 +82,7 @@ _Avoid_: Reply, approval.
 **Reply**:
 A message continuing a feedback conversation, optionally carrying message context
 and a fix target.
-_Avoid_: Resolution, placement.
+_Avoid_: Resolution.
 
 **Feedback status**:
 The human's classification of a conversation as open or resolved; resolved means
@@ -94,12 +94,6 @@ The immutable subject of feedback when it was opened: the artifact as a whole, o
 a page, file, or code change as it appeared in a specific version and view.
 _Avoid_: Latest location, fix target.
 
-**Placement**:
-A record connecting existing feedback to another location where it applies,
-without changing what was originally commented on.
-It can also record that no clear match was found.
-_Avoid_: Replacement original target, new conversation, fix target.
-
 **Message context**:
 The published version a reply is talking about and, when needed, the view used
 for its references.
@@ -109,7 +103,7 @@ _Avoid_: Selected version, implicit latest version.
 **Fix target**:
 A published location that a reply points to as its fix, potentially in a different
 version or view from the message context or original target.
-_Avoid_: Placement, resolution.
+_Avoid_: Resolution.
 
 ### Coordination and attention
 
