@@ -135,6 +135,11 @@ export function installArtifactConversations(
     const connection = agents.open(c.req.param("id"), artifacts.validateActor(input.actor));
     return new Response(connection.stream, { headers: ARTIFACT_EVENT_HEADERS });
   });
+  app.delete("/api/artifacts/:id/listen", async (c) => {
+    const input = await artifactJson(c.req.raw);
+    collaboration.unlisten(c.req.param("id"), artifacts.validateActor(input.actor));
+    return c.json({ ok: true });
+  });
   app.post("/api/connections/:id/acknowledgments", async (c) => {
     agents.acknowledge(c.req.param("id"), await artifactJson(c.req.raw));
     return c.json({ ok: true });

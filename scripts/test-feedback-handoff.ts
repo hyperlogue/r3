@@ -49,21 +49,29 @@ const notes = await Promise.all(
     storage.conversations.add(artifact.id, { actor, body, target: { kind: "artifact" } }),
   ),
 );
-const api = createArtifactApi(storage, {
-  token: randomBytes(32).toString("base64url"),
-  requireLogin: false,
-  version: "acceptance",
-  allowedHost: (host) => host === "localhost",
-});
-const listener = { role: "agent" as const, sessionId: "handoff-agent" };
-storage.artifacts.registerSession({ id: listener.sessionId });
-const deliveries: { accept: () => void; reject: (error: Error) => void }[] = [];
-api.collaboration.register(
-  artifact.id,
-  listener,
-  () => {},
-  () => new Promise<void>((accept, reject) => deliveries.push({ accept, reject })),
+const deliveries: {
+  accept: (state?: "sent" | "queued") => void;
+  reject: (error: Error) => void;
+}[] = [];
+const api = createArtifactApi(
+  storage,
+  {
+    token: randomBytes(32).toString("base64url"),
+    requireLogin: false,
+    version: "acceptance",
+    allowedHost: (host) => host === "localhost",
+  },
+  {
+    deliver: () =>
+      new Promise<"sent" | "queued">((resolve, reject) =>
+        deliveries.push({ accept: (state = "sent") => resolve(state), reject }),
+      ),
+  },
 );
+const listener = { role: "agent" as const, sessionId: "handoff-agent" };
+storage.artifacts.registerSession({ id: listener.sessionId, label: "Review assistant" });
+storage.listeners.setTarget(listener.sessionId, { harness: "codex", threadId: "handoff-thread" });
+storage.listeners.register(artifact.id, listener, "fallback");
 let completed = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
@@ -97,9 +105,9 @@ try {
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const button =
-    "[...document.querySelectorAll('[data-feedback-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Copy prompt)/.test(button.textContent))";
+    "[...document.querySelectorAll('[data-feedback-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Queued|Copy prompt)/.test(button.textContent))";
   const navButton =
-    "[...document.querySelectorAll('[data-app-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Copy prompt)/.test(button.textContent))";
+    "[...document.querySelectorAll('[data-app-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Queued|Copy prompt)/.test(button.textContent))";
   await eventually(
     () =>
       page.evaluate(
@@ -128,15 +136,15 @@ try {
   assert.equal(await page.evaluate(`(${navButton}).disabled`), true);
   await page.evaluate(`(${button}).click()`);
   assert.equal(deliveries.length, 1, "navbar and panel share the in-flight handoff guard");
-  deliveries.shift()!.accept();
+  deliveries.shift()!.accept("queued");
   await eventually(async () => completed === 1, "successful local harness delivery");
   await page.evaluate(
     "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
   );
   assert.equal(
     await page.evaluate(`(${navButton}).textContent`),
-    "Sent",
-    "Successful ping delivery should show Sent on the button immediately",
+    "Queued",
+    "Codex queue acceptance should show Queued without claiming a live consumer",
   );
   assert.equal(await page.evaluate(`(${button}).disabled`), true);
   assert.equal(
@@ -178,6 +186,10 @@ try {
     () => page.evaluate("document.body.textContent.includes('Agent is checking this')"),
     "agent activity reaches the browser",
   );
+  await eventually(
+    () => page.evaluate("document.body.textContent.includes('Agent · Review assistant')"),
+    "agent replies display the readable session name",
+  );
   assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), true);
   assert.equal(
     await page.evaluate(`(${button}).disabled`),
@@ -217,15 +229,18 @@ try {
   await eventually(async () => deliveries.length === 1, "failed ping pending");
   deliveries.shift()!.reject(new Error("Simulated delivery failure"));
   await eventually(
-    () => page.evaluate("!!document.querySelector('[role=alert]')"),
+    () =>
+      page.evaluate(
+        "[...document.querySelectorAll('[role=alert]')].some(alert=>alert.textContent.includes('Simulated delivery failure'))",
+      ),
     "delivery failure is visible",
   );
-  api.collaboration.register(
-    artifact.id,
-    listener,
-    () => {},
-    () => new Promise<void>((accept, reject) => deliveries.push({ accept, reject })),
+  assert.equal(
+    api.collaboration.watchers(artifact.id)[0]?.mode,
+    "fallback",
+    "A failed fallback remains registered for retry",
   );
+  api.collaboration.listen(artifact.id, listener);
   await eventually(
     () =>
       page.evaluate(`(${button}).textContent.startsWith('Send to agent') && !(${button}).disabled`),
@@ -307,12 +322,7 @@ try {
   );
   assert.equal(storage.conversations.unsent(artifact.id).length, 1);
 
-  api.collaboration.register(
-    artifact.id,
-    listener,
-    () => {},
-    () => new Promise<void>((accept, reject) => deliveries.push({ accept, reject })),
-  );
+  api.collaboration.listen(artifact.id, listener);
   const agentNote = await storage.conversations.add(artifact.id, {
     actor: listener,
     body: "Agent-authored note",

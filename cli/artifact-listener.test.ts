@@ -122,13 +122,18 @@ describe("publisher-side listener", () => {
       body: "Pending feedback",
       target: { kind: "artifact" },
     });
-    await expect(
-      listenArtifactConnection(client, id, actor, {
-        deliver: async () => {
-          throw new Error("Private adapter diagnostic");
-        },
-      }),
-    ).rejects.toThrow("Local harness delivery failed");
+    const ready = Promise.withResolvers<void>();
+    const listening = listenArtifactConnection(client, id, actor, {
+      ready: () => ready.resolve(),
+      deliver: async () => {
+        throw new Error("Private adapter diagnostic");
+      },
+    });
+    const rejected = listening.catch((error: Error) => error);
+    await ready.promise;
+    expect((await api.collaboration.submit(id)).state).toBe("failed");
+    expect(await rejected).toBeInstanceOf(Error);
+    expect(((await rejected) as Error).message).toContain("Local harness delivery failed");
     expect(storage.conversations.unsent(id)).toHaveLength(1);
     expect(api.collaboration.watching(id)).toBe(false);
     expect(requests[1].body).toMatchObject({ ok: false, error: "Local harness delivery failed" });

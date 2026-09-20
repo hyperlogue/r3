@@ -325,21 +325,32 @@ daemon lock, writes a new private consistent backup, imports under an exclusive
 transaction, verifies integrity, and retains missing/uncertain historical evidence.
 Do not use the real user store for development checks.
 
-## Publisher-side wake adapters
+## Local wake adapters
 
-`cli/artifact-listener.ts` discovers and runs local adapters. The current adapter
-implementations in `server/listener.ts` and `server/inbox.ts` are only imported by
-the CLI. Socket paths, Claude messaging tokens, and Codex executable discovery
-stay on that publisher. The remote daemon only gets a logical actor and outward
-connection. A generic failure acknowledgment never includes harness diagnostics.
+The existing server daemon runs local Claude/Codex delivery through an injected
+adapter. `server/local-agents.ts` accepts harness details only on its private
+Unix socket, in an owned 0700 directory with a 0600 socket. It requires the local
+daemon token, rejects browser Origins, bounds registration bodies, and never
+mounts those routes on the public application listener. The CLI uses this socket
+only for a daemon selected by local discovery or a complete matching local URL.
+No harness target or credential is sent to an arbitrary `R3_URL`.
 
-Claude delivery validates a same-owner session socket and requires its authenticated
-messaging token. An unattributed write may be held without a receipt, so absence
-is a capability failure, not a successful registration. Codex capability and queue
-calls share the same bounded local runner with inert argv. The background listener
-inherits credentials through its environment, never argv or temporary files, and
-reports readiness over IPC only after registration. A successful write/queue exit
-acknowledges transport delivery; it does not mark feedback read.
+`local_agent_targets` and `artifact_listeners` persist local delivery configuration
+in the existing private SQLite store. The database and migration backups contain
+Claude messaging credentials and stay private. Public session/artifact/watcher
+responses expose identity, display label, and listener mode, never target details.
+A stored registration is not a claim that a session is alive.
+
+Claude delivery validates a same-owner session socket and uses its authenticated
+messaging token. Codex uses bounded direct argv with the captured local executable
+and optional Codex home, without a shell. Send failures are mapped to useful fixed
+messages; raw harness diagnostics never enter HTTP responses or logs. Successful
+Codex queue insertion reports `queued`, not proof of a running consumer. Delivery
+never acknowledges feedback content.
+
+Explicit remote listening retains the outward publisher relay in
+`cli/artifact-listener.ts`. That remote server receives only logical identity and
+delivery results. Automatic local registration does not implement a remote proxy.
 
 ## Limits of the trust model
 

@@ -27,6 +27,24 @@ function resetHandoffReceipt() {
   );
 }
 export const Active: Story = {};
+export const NamedPublisher: Story = {
+  parameters: {
+    queryData: [
+      [["artifact-watchers", artifactFixture.id], []],
+      [
+        ["agent-sessions"],
+        [
+          {
+            id: artifactFixture.createdBy.sessionId,
+            label: "Design assistant",
+            harness: "codex",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      ],
+    ],
+  },
+};
 export const EditTitle: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

@@ -11,6 +11,7 @@ import type {
   ArtifactStorageUsage,
   ArtifactVersion,
 } from "../shared/artifacts.ts";
+import type { ArtifactListeners } from "./artifact-listeners.ts";
 import { ArtifactProjects, type ProjectGroupingOptions } from "./artifact-projects.ts";
 import {
   ArtifactError,
@@ -124,6 +125,7 @@ export class ArtifactStore {
     private readonly clock: () => string = nowIso,
     private readonly isWatching: (id: string) => boolean = () => false,
     projectGrouping: ProjectGroupingOptions = {},
+    private readonly listeners?: ArtifactListeners,
   ) {
     this.projectStore = new ArtifactProjects(db, clock, projectGrouping);
   }
@@ -140,11 +142,15 @@ export class ArtifactStore {
       )
       .get(id);
     if (existing) {
-      if (
-        (body.harness !== undefined && existing.harness !== harness) ||
-        (body.label !== undefined && existing.label !== label)
-      ) {
+      if (body.harness !== undefined && existing.harness !== null && existing.harness !== harness) {
         throw new ArtifactError("Agent session is already registered with different metadata", 409);
+      }
+      if (body.label !== undefined || (body.harness !== undefined && existing.harness === null)) {
+        existing.label = body.label === undefined ? existing.label : label;
+        existing.harness ??= harness;
+        this.db
+          .query("UPDATE agent_sessions SET label = ?, harness = ? WHERE id = ?")
+          .run(existing.label, existing.harness, id);
       }
       return existing;
     }
@@ -511,6 +517,7 @@ export class ArtifactStore {
         this.db
           .query("UPDATE artifact_versions SET published_at = ? WHERE artifact_id = ? AND seq = ?")
           .run(time, id, seq);
+        this.listeners?.published(id, publication.actor, publication.listen);
         return this.version(id, seq);
       })
       .immediate();

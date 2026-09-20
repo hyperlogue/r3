@@ -5,6 +5,7 @@ import {
   feedbackApiPath,
 } from "../../shared/artifact-client.ts";
 import type {
+  AgentSession,
   Artifact,
   ArtifactActor,
   ArtifactDetail,
@@ -45,6 +46,7 @@ const query = (values: Record<string, string | number | undefined>) => {
 // Replaced as a whole by the static demo backend at build time. Presentation
 // components use exactly these artifact/version/native-target shapes.
 export const artifactApi = {
+  sessions: () => client().json<AgentSession[]>("GET", "/api/sessions"),
   list: (filters: Record<string, string | undefined> = {}) =>
     client().json<Artifact[]>("GET", `/api/artifacts${query(filters)}`),
   detail: (id: string) => client().json<ArtifactDetail>("GET", artifactApiPath(id)),

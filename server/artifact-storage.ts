@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { ArtifactConversations } from "./artifact-conversations.ts";
 import { renderArtifactDocument } from "./artifact-document.ts";
 import { ArtifactLifecycle } from "./artifact-lifecycle.ts";
+import { ArtifactListeners } from "./artifact-listeners.ts";
 import type { ProjectGroupingOptions } from "./artifact-projects.ts";
 import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema.ts";
 import { ArtifactStore } from "./artifacts.ts";
@@ -28,6 +29,7 @@ export interface ArtifactStorageOptions {
 }
 
 export interface ArtifactStorage {
+  listeners: ArtifactListeners;
   artifacts: ArtifactStore;
   conversations: ArtifactConversations;
   lifecycle: ArtifactLifecycle;
@@ -104,6 +106,7 @@ export async function openArtifactStorage(
           }),
       });
     }
+    const listeners = new ArtifactListeners(db, clock);
     const artifacts = new ArtifactStore(
       db,
       blobs,
@@ -111,6 +114,7 @@ export async function openArtifactStorage(
       clock,
       options.isWatching,
       options.projectGrouping,
+      listeners,
     );
     const conversations = new ArtifactConversations(db, artifacts, clock);
     const authentication = new AuthService(db, clock);
@@ -135,10 +139,11 @@ export async function openArtifactStorage(
     conversations.expireClaims();
     authentication.expireSessions();
     return {
+      listeners,
       artifacts,
       conversations,
       authentication,
-      lifecycle: new ArtifactLifecycle(db, artifacts, clock),
+      lifecycle: new ArtifactLifecycle(db, artifacts, clock, listeners),
       migration,
       collectBlobs,
       close: () => db.close(),

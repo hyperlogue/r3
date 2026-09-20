@@ -41,6 +41,13 @@ to publish, listen for feedback, and reply. The first local call starts the daem
 automatically. Open the artifact URL from your agent, or visit
 `http://127.0.0.1:8791/` for the full list.
 
+Local Claude Code and Codex publications automatically register for feedback in
+that same daemon. Registrations survive restarts. `r3 listen <id>` takes priority
+over the latest publisher, and `r3 unlisten <id>` removes your registrations.
+Use `--no-listen` to publish without a fallback. Other agents can use `r3 watch`
+without supplying a session ID. `--session <name>` gives an agent a readable name;
+`R3_AGENT_SESSION` supplies stable identity when the harness does not.
+
 ## Artifact types
 
 r3 presents three kinds of artifacts:

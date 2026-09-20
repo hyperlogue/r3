@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import type { ArtifactLifecycleEvent } from "../shared/artifacts.ts";
+import type { ArtifactListeners } from "./artifact-listeners.ts";
 import {
   ArtifactError,
   optionalText,
@@ -46,6 +47,7 @@ export class ArtifactLifecycle {
     private readonly db: Database,
     private readonly artifacts: ArtifactStore,
     private readonly clock: () => string = nowIso,
+    private readonly listeners?: ArtifactListeners,
   ) {}
 
   events(id: string): ArtifactLifecycleEvent[] {
@@ -100,6 +102,7 @@ export class ArtifactLifecycle {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
           .run(eventId, id, event, operationKey, actor.role, actor.sessionId, message, time);
         if (state === "archived") {
+          this.listeners?.clear(id);
           this.db
             .query(
               "DELETE FROM feedback_claims WHERE feedback_id IN (SELECT id FROM feedback WHERE artifact_id = ?)",

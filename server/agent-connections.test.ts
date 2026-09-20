@@ -105,7 +105,7 @@ describe("outward agent connections", () => {
     expect(collaboration.watchers(id)).toEqual([]);
   });
 
-  test("pending owner feedback is announced on connection without being marked delivered", async () => {
+  test("registration leaves pending feedback alone until explicit submission", async () => {
     await storage.conversations.add(id, {
       actor: human,
       body: "Please review",
@@ -114,10 +114,19 @@ describe("outward agent connections", () => {
     const { stream, registration } = connections.open(id, actor);
     const reader = stream.getReader();
     await next(reader);
-    const frame = await next(reader);
+    const noNudge = reader.read();
+    expect(
+      await Promise.race([noNudge.then(() => "frame"), Bun.sleep(10).then(() => "quiet")]),
+    ).toBe("quiet");
+    const submitted = collaboration.submit(id);
+    const chunk = await noNudge;
+    const frame = JSON.parse(
+      new TextDecoder().decode(chunk.value).split("data: ")[1]!,
+    ) as ArtifactAgentStreamEvent;
     if (frame.type !== "nudge") throw new Error("Missing pending feedback nudge");
     expect(frame.nudge.event).toBe("submitted");
     connections.acknowledge(registration.id, { actor, nudgeId: frame.nudge.id, ok: true });
+    expect(await submitted).toEqual({ state: "sent" });
     expect(storage.conversations.unsent(id)).toHaveLength(1);
     await reader.cancel();
     expect(collaboration.watchers(id)).toEqual([]);

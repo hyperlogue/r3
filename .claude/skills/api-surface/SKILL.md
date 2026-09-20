@@ -21,7 +21,8 @@ three clients (browser, CLI, agent). When you change behavior, change
 `server/artifact-daemon.ts` opens and migrates storage before accepting requests.
 The CLI, browser, and demo all use this protocol; legacy routes are removed.
 
-- `GET/POST /api/sessions` lists/registers explicit agent identities;
+- `GET/POST /api/sessions` lists/registers explicit agent identities; labels are
+  mutable display names and never identity or delivery addresses;
   `GET/POST /api/projects` and `PATCH/DELETE /api/projects/:id` manage optional grouping.
   PATCH accepts `EditArtifactProjectBody` (name, remoteUrl, optional expectedRemoteUrl).
   Remote backfill can require the current field to be null; concurrent changes conflict.
@@ -39,7 +40,10 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Artifact metadata has no overview/summary field. Publication summaries remain
   immutable version metadata; `edit --summary` is unsupported.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
-  complete version with `expectedSeq`, `publicationKey`, and explicit `actor`.
+  complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
+  optional boolean `listen` (default true). A new commit replaces the fallback
+  using a locally registered target, or clears it when absent/disabled. Replays
+  cannot reclaim the fallback.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
   membership, highlighted source, original bytes, rendered sparse diff, retained
@@ -70,15 +74,18 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   returns 409 without stamping newly edited content. Direct CLI drains omit it.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
   delivery acknowledgment or a generic watch woken for pending feedback. An absent
-  recipient (or a watch with no pending work) returns `none`. Neither drains feedback.
+  recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
+  returns `queued`; failure returns `failed` and HTTP 502. Neither drains feedback.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event, replay flag, and notification result. Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
 - `GET .../:id/watchers`, `POST .../:id/watch { actor, timeoutMs? }`, and
-  `POST .../:id/listen { actor }` share one designated recipient slot. Watch is
+  `POST .../:id/listen { actor }` select one explicit recipient ahead of a persisted
+  local fallback. New explicit registrations supersede previous ones.
+  `DELETE .../:id/listen { actor }` removes that actor’s registrations. Watch is
   bounded long polling; listen is an outward SSE connection from the publisher.
   `POST /api/connections/:id/acknowledgments` acknowledges local harness delivery.
-  The server receives no harness socket, executable path, or harness credential.
+  These HTTP routes receive no harness socket, executable path, or harness credential.
 - `GET /api/events[?artifact=<id>]` is an authenticated fetch stream of
   `ArtifactStreamEvent` invalidations. `ready` means refetch current state;
   `heartbeat` keeps the connection alive. Neither implies message delivery.
@@ -94,15 +101,23 @@ agent guide are `cli/artifact-help.ts`. The binary dispatches through `cli/artif
 is isolated in `cli/artifact-publish.ts`: complete bytes are prepared before a
 create write, and an unconfirmed upload reports the artifact, expected sequence,
 and retry key for recovery. Source/download reads require a version. Native target
-flags reject cross-representation guesses. `--session` or `R3_AGENT_SESSION`
-supports any harness; no generic shared `agent` identity is invented.
+flags reject cross-representation guesses. `--session` supplies a readable name;
+`R3_AGENT_SESSION` supplies stable identity for generic writers/subagents. Generic
+watch assigns its own temporary identity; no shared `agent` identity is invented.
 
-`cli/artifact-listener.ts` owns local wake adapters and the outward connection.
-It acknowledges after a successful socket write or queue exit, never after
-receiving a frame alone. Harness diagnostics stay local; the acknowledgment
-contains a generic failure. The background launcher waits for an IPC readiness
-message before returning, inherits credentials locally, and never writes them to
-argv or a temporary file. A closed connection requires fresh registration.
+The existing local daemon owns wake delivery and persisted registrations. Its
+private Unix socket accepts `POST /api/local/target { actor, target }` and
+`POST /api/local/listen { artifactId, actor }`; neither is an application HTTP route.
+CLI create/publish first registers supported harness details there. Publication
+succeeds with a warning if setup fails. `--no-listen` clears the fallback on a new
+publication. Local `listen` returns after persistence; it starts no child process.
+The existing remote `listen` relay remains in `cli/artifact-listener.ts` and waits
+for IPC readiness. Remote proxying is deferred.
+
+Failed fallback delivery retains its record; failed explicit delivery removes only
+that exact registration. No automatic resend goes to another recipient. Registration,
+fallback activation, and daemon restart never announce unsent content. Archive
+atomically clears durable records; restore requires a new publication/registration.
 
 ## Preview and bootstrap routes
 
@@ -163,7 +178,7 @@ The current command families:
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, explicit reply context, separate placements; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
-| `feedback fetch` (`prompt` alias), `watch`, `listen` | Owner handoff and one designated outward recipient |
+| `feedback fetch` (`prompt` alias), `watch`, `listen`, `unlisten` | Owner handoff and one designated outward recipient |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `auth`, `config`, `start/stop/status/restart`, `guide` | Browser login management, local configuration and daemon lifecycle |
@@ -179,19 +194,24 @@ independent. `--ref`/`--file` captures a real Git revision on the publisher; the
 is no special file-index sentinel. Use `--dir` for current working-tree files,
 including any unstaged changes. Diff `--staged` capture still reads the index.
 
-Use a distinct `--session` or `R3_AGENT_SESSION` per logical agent; the harness may
-supply it automatically. The client registers that session before writes. No
+Use a distinct harness identity or `R3_AGENT_SESSION` per logical writing agent.
+`--session` only sets its display label; generic watch needs no supplied ID. The client
+registers that session before writes. No
 artifact owner or generic shared agent identity is inferred. `R3_URL`/`R3_TOKEN`
 select remote transport. Other local configuration resolves environment, persisted
 config, then defaults.
 
-`listen` uses local adapters and returns after an IPC-ready acknowledgment. A
-Claude socket needs its authenticated messaging token; Codex requires a successful
-local `codex queue --help` probe. Missing support is exit 5 and `watch` remains
-available to any harness. The remote daemon never runs either adapter.
+Local Claude Code/Codex create/publish makes the publisher the fallback in the
+existing daemon. `listen` explicitly takes priority; `unlisten` removes the caller’s
+registrations. Both fallback and explicit local listeners survive daemon restarts.
+A Claude target requires a socket/token; Codex needs its thread and local executable
+context. These are registered privately and used on Send, without proactive liveness
+checks. A successful Codex queue may wait for the session to resume. Unsupported
+agents can watch or poll. Remote `listen` retains its existing capability checks and
+outward relay; automatic publication registration is currently local-only.
 
 Watch exits 10 for pending feedback, 0 for archived, 2 for timeout, and 4 for a
-conflicting or superseded recipient. Archive takes precedence even if feedback is
+superseded recipient. Archive takes precedence even if feedback is
 pending or the timeout has just elapsed. Already archived watch returns immediately.
 A nonblank archive message reaches the captured listener and remains in history;
 blank messages produce no nudge. Restore needs a new registration. Notification

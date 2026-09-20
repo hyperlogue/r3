@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { artifactNudgeText } from "../shared/artifact-prompt.ts";
 import type {
   ArtifactActor,
   ArtifactLifecycleResponse,
@@ -8,17 +9,24 @@ import type {
   ArtifactWatcher,
   ArtifactWatchResult,
 } from "../shared/artifacts.ts";
+import type { ListenerTarget } from "../shared/types.ts";
 import type { ArtifactConversations } from "./artifact-conversations.ts";
 import type { ArtifactLifecycle } from "./artifact-lifecycle.ts";
+import type { ArtifactListeners } from "./artifact-listeners.ts";
 import { ArtifactError } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 import { nowIso } from "./ids.ts";
+
+export type LocalAgentDelivery = (
+  target: ListenerTarget,
+  text: string,
+) => Promise<"sent" | "queued">;
 
 type CloseReason = "archived" | "superseded" | "deleted" | "disconnected";
 interface Registration {
   info: ArtifactWatcher;
   close: (reason: CloseReason) => void;
-  push?: (nudge: ArtifactNudge) => Promise<void>;
+  push?: (nudge: ArtifactNudge) => Promise<void> | Promise<"sent" | "queued">;
 }
 
 // One designated recipient is transport presence, never ownership of the
@@ -31,6 +39,8 @@ export class ArtifactCollaboration {
     private readonly conversations: ArtifactConversations,
     private readonly lifecycle: ArtifactLifecycle,
     private readonly clock: () => string = nowIso,
+    private readonly listeners?: ArtifactListeners,
+    private readonly deliver?: LocalAgentDelivery,
   ) {}
 
   subscribe(listener: (event: ArtifactStreamEvent) => void): () => void {
@@ -51,12 +61,47 @@ export class ArtifactCollaboration {
   }
 
   watching(id: string): boolean {
-    return this.registrations.has(id);
+    return !!this.recipient(id);
   }
   watchers(id: string): ArtifactWatcher[] {
     this.artifacts.get(id);
-    const held = this.registrations.get(id);
+    const held = this.recipient(id);
     return held ? [held.info] : [];
+  }
+
+  private recipient(id: string): Registration | undefined {
+    const live = this.registrations.get(id);
+    if (live) return live;
+    const stored = this.deliver && this.listeners?.selected(id);
+    if (!stored) return undefined;
+    return {
+      info: stored.info,
+      close: () => {},
+      push: (nudge) => this.deliver!(stored.target, artifactNudgeText(nudge)),
+    };
+  }
+
+  listen(id: string, actor: ArtifactActor): ArtifactWatcher {
+    actor = this.artifacts.validateActor(actor);
+    if (this.artifacts.get(id).state !== "active")
+      throw new ArtifactError("Artifact is archived", 409);
+    if (!this.deliver || !this.listeners?.register(id, actor, "explicit"))
+      throw new ArtifactError("No local wake adapter is registered; use r3 watch", 409);
+    const held = this.registrations.get(id);
+    this.registrations.delete(id);
+    if (held) this.close(held, "superseded");
+    this.broadcast({ type: "presence-changed", artifactId: id });
+    return this.listeners.selected(id)!.info;
+  }
+
+  unlisten(id: string, actor: ArtifactActor): void {
+    actor = this.artifacts.validateActor(actor);
+    this.artifacts.get(id);
+    this.listeners?.remove(id, actor);
+    const held = this.registrations.get(id);
+    if (held?.info.actor.role === actor.role && held.info.actor.sessionId === actor.sessionId)
+      this.unregister(id, held.info.id);
+    this.broadcast({ type: "presence-changed", artifactId: id });
   }
 
   private close(held: Registration, reason: CloseReason): void {
@@ -79,11 +124,7 @@ export class ArtifactCollaboration {
     if (this.artifacts.get(id).state !== "active")
       throw new ArtifactError("Artifact is archived", 409);
     const held = this.registrations.get(id);
-    if (
-      held &&
-      (held.info.actor.role !== actor.role || held.info.actor.sessionId !== actor.sessionId)
-    )
-      throw new ArtifactError("Artifact already has a designated watcher", 409);
+    this.listeners?.clearExplicit(id);
     const info: ArtifactWatcher = {
       id: randomUUID(),
       kind: push ? "listen" : "watch",
@@ -111,10 +152,12 @@ export class ArtifactCollaboration {
   ): Promise<ArtifactNotification> {
     if (!held?.push) return { state: "none" };
     try {
-      await held.push(nudge);
-      return { state: "sent" };
+      const state = await held.push(nudge);
+      return { state: state ?? "sent" };
     } catch (error) {
       this.unregister(id, held.info.id);
+      this.listeners?.failed(held.info.id);
+      this.broadcast({ type: "presence-changed", artifactId: id });
       return {
         state: "failed",
         error: error instanceof Error ? error.message : "Agent delivery failed",
@@ -125,7 +168,7 @@ export class ArtifactCollaboration {
   async submit(id: string): Promise<ArtifactNotification> {
     const artifact = this.artifacts.get(id);
     if (artifact.state !== "active") throw new ArtifactError("Artifact is archived", 409);
-    const held = this.registrations.get(id);
+    const held = this.recipient(id);
     const wakesWatch = held?.info.kind === "watch" && this.conversations.unsent(id).length > 0;
     this.broadcast({ type: "submitted", artifactId: id });
     // The synchronous broadcast completes a pending generic watch. Like a local
@@ -141,15 +184,8 @@ export class ArtifactCollaboration {
     });
   }
 
-  async notifyPending(id: string, registrationId: string): Promise<ArtifactNotification> {
-    const held = this.registrations.get(id);
-    if (held?.info.id !== registrationId || !this.conversations.unsent(id).length)
-      return { state: "none" };
-    return this.submit(id);
-  }
-
   async transition(id: string, value: unknown): Promise<ArtifactLifecycleResponse> {
-    const held = this.registrations.get(id);
+    const held = this.recipient(id);
     // No await between the committed state transition and detaching presence.
     // A retry must neither evict a newer registration nor repeat notification.
     const result = this.lifecycle.transition(id, value);

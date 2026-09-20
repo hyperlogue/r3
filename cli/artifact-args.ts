@@ -16,6 +16,7 @@ const BOOLEAN = new Set([
   "working",
   "staged",
   "foreground",
+  "no-listen",
 ]);
 const VALUE = new Set([
   "kind",

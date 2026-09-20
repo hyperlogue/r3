@@ -15,6 +15,7 @@ import {
   usePopoverFocus,
 } from "../ui.tsx";
 import { useArtifactHandoff } from "../useArtifactHandoff.ts";
+import { AgentName } from "./AgentName.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
@@ -85,8 +86,10 @@ export function ArtifactArchiveDialog({
       void qc.invalidateQueries({ queryKey: ["artifacts"] });
       onDone(
         result.notification.state === "failed"
-          ? "Archived. The message was saved, but delivery to the listener failed."
-          : "Archived.",
+          ? `Archived. The message was saved. ${result.notification.error}`
+          : result.notification.state === "queued"
+            ? "Archived. Message queued in Codex."
+            : "Archived.",
       );
     },
   });
@@ -433,7 +436,7 @@ export function ArtifactHeader({
             </CopyMeta>
             {detail.createdBy.role === "agent" && (
               <CopyMeta hint="Copy publisher session" value={detail.createdBy.sessionId}>
-                Publisher: {detail.createdBy.sessionId}
+                Publisher: <AgentName id={detail.createdBy.sessionId} />
               </CopyMeta>
             )}
             {Object.entries(detail.meta).map(([key, value]) => (

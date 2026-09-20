@@ -36,9 +36,16 @@ export function useArtifactEvents(): boolean {
               void markdownCache.reconcile(async () =>
                 (await artifactApi.list()).map((artifact) => artifact.id),
               );
-              for (const key of ["artifacts", "artifact", "artifact-watchers", "artifact-projects"])
+              for (const key of [
+                "artifacts",
+                "artifact",
+                "artifact-watchers",
+                "artifact-projects",
+                "agent-sessions",
+              ])
                 void queryClient.invalidateQueries({ queryKey: [key] });
             } else {
+              void queryClient.invalidateQueries({ queryKey: ["agent-sessions"] });
               if (event.type === "artifact-deleted") {
                 void markdownCache.forget(event.artifactId);
                 previewSessions.forget(event.artifactId);
@@ -48,7 +55,11 @@ export function useArtifactEvents(): boolean {
               }
               void queryClient.invalidateQueries({ queryKey: ["artifacts"] });
               void queryClient.invalidateQueries({ queryKey: ["artifact", event.artifactId] });
-              if (event.type === "presence-changed" || event.type === "lifecycle")
+              if (
+                event.type === "presence-changed" ||
+                event.type === "lifecycle" ||
+                event.type === "version-published"
+              )
                 void queryClient.invalidateQueries({
                   queryKey: ["artifact-watchers", event.artifactId],
                 });

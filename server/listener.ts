@@ -3,8 +3,9 @@
 // Claude Code accepts an authenticated write to a per-session Unix socket (see
 // inbox.ts). Codex CLI 0.149+ exposes `codex queue`, which addresses a persisted
 // thread and wakes it when idle. These adapters run only in the publisher-side
-// listener; the artifact daemon never imports them or receives their credentials.
+// listener for remote transport, or in the existing local artifact daemon.
 
+import { isAbsolute } from "node:path";
 import type { CodexListenerTarget, ListenerTarget } from "../shared/types.ts";
 import { probeInbox, pushToInbox, validateSocketPath } from "./inbox.ts";
 export type ListenerLiveness = "alive" | "dead" | "unknown";
@@ -30,7 +31,23 @@ export function parseListenerTarget(
       return { ok: false, error: "Codex thread id contains a null byte" };
     if (threadId.length > MAX_THREAD_ID_CHARS)
       return { ok: false, error: "Codex thread id is too long" };
-    return { ok: true, target: { harness: "codex", threadId } };
+    for (const key of ["executable", "home"] as const) {
+      const path = request[key];
+      if (
+        path !== undefined &&
+        (typeof path !== "string" || !isAbsolute(path) || path.includes("\0") || path.length > 4096)
+      )
+        return { ok: false, error: `invalid Codex ${key}` };
+    }
+    return {
+      ok: true,
+      target: {
+        harness: "codex",
+        threadId,
+        ...(request.executable === undefined ? {} : { executable: request.executable as string }),
+        ...(request.home === undefined ? {} : { home: request.home as string }),
+      },
+    };
   }
 
   if (request.harness !== undefined && request.harness !== "claude")
@@ -45,15 +62,19 @@ export function parseListenerTarget(
   return { ok: true, target: { harness: "claude", socket, token } };
 }
 
-export type CodexCommandRunner = (argv: string[]) => Promise<number>;
+export type CodexCommandRunner = (
+  argv: string[],
+  environment?: Record<string, string | undefined>,
+) => Promise<number>;
 
-const runCodexCommand: CodexCommandRunner = async (argv) => {
+const runCodexCommand: CodexCommandRunner = async (argv, environment) => {
   const proc = Bun.spawn(argv, {
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",
     timeout: CODEX_QUEUE_TIMEOUT_MS,
     killSignal: "SIGKILL",
+    env: environment,
   });
   return proc.exited;
 };
@@ -89,7 +110,10 @@ export async function pushToCodexQueue(
   // Direct argv, never a shell: both the persisted thread name and human prose
   // are untrusted strings. Separate option/value arguments are consumed by the
   // CLI parser without becoming executable syntax.
-  const code = await run(["codex", "queue", "--thread", target.threadId, "--message", text]);
+  const code = await run(
+    [target.executable ?? "codex", "queue", "--thread", target.threadId, "--message", text],
+    target.home ? { ...process.env, CODEX_HOME: target.home } : undefined,
+  );
   if (code !== 0) throw new Error(`codex queue exited ${code}`);
 }
 

@@ -101,8 +101,8 @@ export interface RenderedFileLine {
 
 // ---- publisher-local wake adapters ----
 
-// Harness addresses and credentials stay on the publisher. The artifact daemon
-// sees the logical agent session and its outward stream, never these targets.
+// Harness addresses and credentials stay on the publisher machine. The existing
+// local daemon persists them through its private socket, never the public API.
 export interface ClaudeListenerTarget {
   harness: "claude";
   socket: string;
@@ -112,6 +112,8 @@ export interface ClaudeListenerTarget {
 export interface CodexListenerTarget {
   harness: "codex";
   threadId: string;
+  executable?: string;
+  home?: string;
 }
 
 export type ListenerTarget = ClaudeListenerTarget | CodexListenerTarget;

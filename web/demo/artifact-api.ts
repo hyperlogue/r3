@@ -9,6 +9,26 @@ export { human as HUMAN_ACTOR };
 const copy = <T>(value: T): T => structuredClone(value);
 
 export const artifactApi: typeof productionApi = {
+  sessions: async () =>
+    [
+      ...new Set(
+        demo.state.artifacts
+          .flatMap((artifact) => [
+            artifact.createdBy.sessionId,
+            ...artifact.versions.map((version) => version.publishedBy.sessionId),
+            ...artifact.feedback.flatMap((feedback) => [
+              feedback.author.sessionId,
+              ...feedback.replies.map((reply) => reply.author.sessionId),
+            ]),
+          ])
+          .filter((id): id is string => id !== null),
+      ),
+    ].map((id) => ({
+      id,
+      harness: "demo",
+      label: "Demo agent",
+      createdAt: now(),
+    })),
   list: async (filters = {}) =>
     copy(
       demo.state.artifacts.filter(

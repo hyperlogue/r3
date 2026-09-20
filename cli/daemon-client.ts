@@ -103,6 +103,7 @@ async function spawnDaemon(): Promise<DaemonInfo> {
 }
 
 export interface ArtifactServerLocation {
+  agentSocket?: string;
   url: string;
   token: string;
   publicUrl: string;
@@ -126,7 +127,12 @@ export function remoteArtifactLocation(
   const base = remote.href.replace(/\/+$/, "");
   // An arbitrary remote URL never inherits this machine's daemon credential.
   const matches = local && new URL(local.url).href.replace(/\/+$/, "") === base;
-  return { url: base, publicUrl: base, token: explicitToken ?? (matches ? local.token : "") };
+  return {
+    url: base,
+    publicUrl: base,
+    token: explicitToken ?? (matches ? local.token : ""),
+    ...(matches && local.agentSocket ? { agentSocket: local.agentSocket } : {}),
+  };
 }
 
 export async function discoverArtifactServer(): Promise<ArtifactServerLocation> {
@@ -146,7 +152,12 @@ export async function discoverArtifactServer(): Promise<ArtifactServerLocation> 
     process.stderr.write(
       `r3: daemon is v${health.version}; this CLI is v${R3_VERSION}. Run r3 restart to use this build.\n`,
     );
-  return { url: info.url, token: info.token, publicUrl: info.publicUrl ?? info.url };
+  return {
+    url: info.url,
+    token: info.token,
+    publicUrl: info.publicUrl ?? info.url,
+    agentSocket: info.agentSocket,
+  };
 }
 
 export async function daemonCommand(

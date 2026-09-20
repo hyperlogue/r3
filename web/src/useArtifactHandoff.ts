@@ -19,6 +19,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const receipt = useFeedbackHandoffReceipt(detail.id, detail.feedback);
   const { copied: sent, flash: showSent } = useCopyFlash(3000);
   const [notice, setNotice] = useState("");
+  const [deliveryLabel, setDeliveryLabel] = useState("Sent");
   const { data: watchers = [] } = useQuery({
     queryKey: ["artifact-watchers", detail.id],
     queryFn: () => artifactApi.watchers(detail.id),
@@ -46,11 +47,18 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
         const snapshot = receipt.begin();
         if (!snapshot) throw new Error("Pending feedback is still loading. Try again.");
         const result = await artifactApi.submit(detail.id);
-        if (result.notification.state !== "sent")
+        if (result.notification.state !== "sent" && result.notification.state !== "queued")
           throw new Error(
-            "The agent notification was not delivered. Try again or copy the prompt.",
+            result.notification.state === "failed"
+              ? result.notification.error
+              : "The agent notification was not delivered. Try again or copy the prompt.",
           );
         receipt.remember(snapshot);
+        setDeliveryLabel(result.notification.state === "queued" ? "Queued" : "Sent");
+        if (result.notification.state === "queued")
+          setNotice(
+            "Notification queued in Codex. It will be processed when the session can accept it.",
+          );
         showSent();
       } else {
         const preview = await artifactApi.previewPrompt(detail.id);
@@ -75,7 +83,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
     showAction: (pending > 0 && !receipt.covered) || isPending || sent,
     label:
       sent && (receipt.covered || !pending)
-        ? "Sent"
+        ? deliveryLabel
         : isPending
           ? "Sending…"
           : `${watchers.length ? "Send to agent" : "Copy prompt"}${pending ? ` · ${pending}` : ""}`,

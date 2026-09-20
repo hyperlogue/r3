@@ -150,7 +150,30 @@ describe("artifact CLI over the HTTP contract", () => {
     await command("listen", [id]);
     expect(connected).toEqual({ role: "agent", sessionId: "codex-target" });
     await command("listen", [id, "--session", "logical-subagent"]);
+    expect(connected).toEqual({ role: "agent", sessionId: "codex-target" });
+    expect(
+      storage.artifacts.sessions().find((session) => session.id === "codex-target")?.label,
+    ).toBe("logical-subagent");
+    ctx.environment.R3_AGENT_SESSION = "logical-subagent";
+    await command("listen", [id]);
     expect(connected).toEqual({ role: "agent", sessionId: "logical-subagent" });
+  });
+  test("watch needs no caller identity and publication survives automatic listener failure", async () => {
+    const id = await create();
+    ctx.environment = {};
+    expect((await command("watch", [id, "--timeout", "0.002"])).code).toBe(2);
+    ctx.environment = { R3_AGENT_SESSION: agent.sessionId };
+    ctx.registerListener = async () => {
+      throw new Error("Adapter unavailable");
+    };
+    expect((await command("publish", [id, "--dir", ".", "--session", "Readable name"])).code).toBe(
+      0,
+    );
+    expect(storage.artifacts.versions(id)).toHaveLength(2);
+    expect(storage.artifacts.sessions().find((item) => item.id === agent.sessionId)?.label).toBe(
+      "Readable name",
+    );
+    expect(errors.join("\n")).toContain("Published, but automatic listening");
   });
   test("a generic publisher uploads complete versions and reads them after its directory disappears", async () => {
     await ctx.client.checkProtocol();
@@ -209,6 +232,7 @@ describe("artifact CLI over the HTTP contract", () => {
     );
     expect(feedback.target.locator).toMatchObject({ selector: "h1", route: "#intro" });
     await command("claim", [feedback.id]);
+    ctx.environment.R3_AGENT_SESSION = "second-agent";
     await command("reply", [
       feedback.id,
       "--session",
@@ -221,6 +245,7 @@ describe("artifact CLI over the HTTP contract", () => {
       "rendered",
     ]);
     expect(storage.conversations.get(feedback.id).claim?.sessionId).toBe(agent.sessionId);
+    ctx.environment.R3_AGENT_SESSION = agent.sessionId;
     const fix = {
       kind: "rendered" as const,
       versionSeq: 1,

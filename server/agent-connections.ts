@@ -109,7 +109,6 @@ export class AgentConnections {
         }
       }, 20_000);
       heartbeat.unref();
-      void this.collaboration.notifyPending(artifactId, registration.id).catch(() => close());
       return { registration, stream };
     } catch (error) {
       close();

@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import index from "../web/index.html";
 import { loadApplicationAssets } from "./application-assets.ts";
 import { artifactPreviewSettings, artifactProjectSettings } from "./artifact-config.ts";
@@ -6,6 +7,7 @@ import { openArtifactStorage } from "./artifact-storage.ts";
 import {
   acquireDaemonLock,
   BIND,
+  daemonJsonPath,
   getToken,
   isAllowedHost,
   LOCAL_URL,
@@ -20,6 +22,7 @@ import {
   stateDbPath,
   writeDaemonJson,
 } from "./config.ts";
+import { startLocalAgents } from "./local-agents.ts";
 
 // Migration occurs only after this process holds the per-user daemon lock.
 // Importing the CLI/server opens no legacy or artifact database.
@@ -41,6 +44,7 @@ export async function startArtifactDaemon(): Promise<void> {
   }
   let storage: Awaited<ReturnType<typeof openArtifactStorage>> | undefined;
   let runtime: ReturnType<typeof startArtifactServer> | undefined;
+  let localAgents: Awaited<ReturnType<typeof startLocalAgents>> | undefined;
   try {
     const settings = artifactPreviewSettings(process.env, readConfig(), PORT);
     const assets = await loadApplicationAssets(index);
@@ -64,7 +68,10 @@ export async function startArtifactDaemon(): Promise<void> {
         applicationOrigins: new Set([new URL(PUBLIC_URL).origin]),
       },
     });
+    const agentSocket = join(dirname(daemonJsonPath()), "agents.sock");
+    localAgents = await startLocalAgents(agentSocket, storage, runtime.api.collaboration, token);
     writeDaemonJson({
+      agentSocket,
       url: LOCAL_URL,
       port: PORT,
       pid: process.pid,
@@ -94,6 +101,7 @@ export async function startArtifactDaemon(): Promise<void> {
       if (closing) return;
       closing = true;
       clearInterval(sweep);
+      await localAgents?.stop();
       await runtime!.stop();
       storage!.close();
       if (readDaemonJson()?.pid === process.pid) removeDaemonJson();
@@ -114,6 +122,7 @@ export async function startArtifactDaemon(): Promise<void> {
         "r3: previous reviews imported; their database backup is retained in artifact storage",
       );
   } catch (error) {
+    await localAgents?.stop();
     await runtime?.stop();
     storage?.close();
     if (readDaemonJson()?.pid === process.pid) removeDaemonJson();

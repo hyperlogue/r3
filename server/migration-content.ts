@@ -175,6 +175,7 @@ export async function importLegacyContent(
           continue;
         }
         publication = {
+          listen: false,
           kind,
           patch,
           files: [],

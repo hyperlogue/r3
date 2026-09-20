@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,6 +9,19 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
   await mkdir(directory);
   await writeFile(join(directory, "page.md"), "# Before\n");
   await writeFile(join(directory, "data.bin"), new Uint8Array([0, 128, 255]));
+  const bin = join(root, "bin");
+  const queueFile = join(root, "queued.json");
+  await mkdir(bin);
+  await writeFile(
+    join(bin, "codex"),
+    `#!/usr/bin/env bun
+if (process.argv[2] !== "queue") process.exit(1);
+await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
+  argv: process.argv.slice(2), home: process.env.CODEX_HOME,
+}));
+`,
+  );
+  await chmod(join(bin, "codex"), 0o700);
   const reservation = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() });
   const previewReservation = Bun.serve({
     hostname: "127.0.0.1",
@@ -32,6 +45,14 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
     R3_TOKEN: "",
     R3_AGENT_SESSION: "cli-runtime-publisher",
     R3_DEV: "0",
+    PATH: `${bin}:${process.env.PATH}`,
+    CODEX_HOME: join(root, "codex-home"),
+    CODEX_THREAD_ID: "publisher-thread",
+    CODEX_SESSION_ID: "",
+    CLAUDE_CODE_SESSION_ID: "",
+    CLAUDE_CODE_MESSAGING_SOCKET: "",
+    CLAUDE_CODE_MESSAGING_TOKEN: "",
+    R3_TEST_QUEUE_FILE: queueFile,
   };
   await reservation.stop(true);
   await previewReservation.stop(true);
@@ -84,6 +105,8 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
       directory,
       "--title",
       "CLI publication",
+      "--session",
+      "Friendly publisher",
       "--json",
     );
     expect(created.error).toBe("");
@@ -91,6 +114,38 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
     const first = JSON.parse(created.output);
     const id = first.artifact.id as string;
     expect(first.version.seq).toBe(1);
+    const daemonInfo = () => Bun.file(join(root, "runtime", "r3", "daemon.json")).json();
+    const request = async (path: string, method = "GET") => {
+      const daemon = await daemonInfo();
+      const result = await fetch(`${daemon.url}/api/${path}`, {
+        method,
+        headers: { "x-r3-token": daemon.token },
+      });
+      expect(result.ok).toBe(true);
+      return result.json();
+    };
+    const watchers = () => request(`artifacts/${id}/watchers`);
+    expect(await watchers()).toMatchObject([
+      {
+        mode: "fallback",
+        label: "Friendly publisher",
+        actor: { role: "agent", sessionId: "cli-runtime-publisher" },
+      },
+    ]);
+    expect(await Bun.file(queueFile).exists()).toBe(false);
+    expect(await request(`artifacts/${id}/submit`, "POST")).toEqual({
+      notification: { state: "queued" },
+    });
+    const queued = await Bun.file(queueFile).json();
+    expect(queued.argv.slice(0, 3)).toEqual(["queue", "--thread", "publisher-thread"]);
+    expect(queued.home).toBe(environment.CODEX_HOME);
+    await rm(queueFile);
+    const daemonPid = (await daemonInfo()).pid;
+    expect((await run("listen", id)).code).toBe(0);
+    expect((await daemonInfo()).pid).toBe(daemonPid);
+    expect(await watchers()).toMatchObject([{ mode: "explicit" }]);
+    expect((await run("unlisten", id)).code).toBe(0);
+    expect(await watchers()).toEqual([]);
     expect((await run("status")).output).toContain("artifacts-v1");
     await writeFile(join(directory, "page.md"), "# After\n");
     expect(
@@ -110,6 +165,9 @@ test("artifact CLI lazily starts an isolated daemon and completes publication an
     );
     expect(published.code).toBe(0);
     expect(JSON.parse(published.output).version.seq).toBe(2);
+    expect((await run("restart")).code).toBe(0);
+    expect(await watchers()).toMatchObject([{ mode: "fallback", label: "Friendly publisher" }]);
+    expect(await Bun.file(queueFile).exists()).toBe(false);
     const note = await run(
       "feedback",
       "add",

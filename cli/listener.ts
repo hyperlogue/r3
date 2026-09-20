@@ -1,9 +1,9 @@
-// Pure harness detection for `r3 listen`.
+// Pure harness detection for publication and `r3 listen`.
 //
-// Select the delivery target and its default display identity together. A
+// Select the delivery target and its default session identity together. A
 // partially inherited Claude environment can coexist with a valid Codex one;
 // keeping this decision atomic prevents a Codex target from wearing Claude's
-// session id and failing same-client slot reclamation.
+// session id. A separate CLI display label never changes the delivery target.
 
 import type { ListenerTarget } from "../shared/types.ts";
 

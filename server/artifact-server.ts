@@ -3,6 +3,7 @@ import { applicationAssetResponse } from "./application-assets.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactAuthPolicy, artifactRequestHostname } from "./artifact-auth.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
+import { deliverLocalAgent } from "./local-agents.ts";
 import { PREVIEW_PREFIX } from "./preview-contexts.ts";
 import { PreviewHost } from "./preview-host.ts";
 import { previewSupport } from "./preview-support.ts";
@@ -43,7 +44,7 @@ export function startArtifactServer(options: ArtifactServerOptions) {
     // Opaque preview documents send Origin:null. Keep the application's exact
     // origin guard; a shared transport hostname is not a preview principal.
     const policy = options.authentication;
-    api = createArtifactApi(options.storage, policy, { previews });
+    api = createArtifactApi(options.storage, policy, { previews, deliver: deliverLocalAgent });
     const application = api;
     const server = Bun.serve({
       hostname: options.bind,

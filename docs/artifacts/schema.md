@@ -157,7 +157,7 @@ The references are creator_session_id on artifacts, publisher_session_id on vers
 
 SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different feedback items. The server validates new-write attribution and claim ownership at the module interface.
 
-Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live connections and transport credentials remain outside SQLite.
+Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch/remote connections remain transient. Local delivery targets and fallback/explicit registrations persist in separate private tables.
 
 ## Archive events and optional messages
 
@@ -277,6 +277,15 @@ Obsolete work leases are retained as evidence and cleared: agents must establish
 their sessions and transport registrations under the new protocol. Authentication
 hash records retain the existing cookie contract. Viewed marks carry forward,
 with SHA-256 keys added when retained bytes establish the old content identity.
+
+Schema version 4 adds `local_agent_targets` (session-to-harness delivery details) and
+`artifact_listeners` (artifact, fallback/explicit mode, registration ID, session, time).
+These rows belong to the local daemon; public reads expose only listener identity,
+name, and mode. Publication and archive update registrations inside their existing
+transactions. Explicit failure deletes by registration ID, so an older failing send
+cannot remove a replacement. Fallback failures retain the saved target. SQLite and
+its backups are private and now contain local harness credentials. Session labels
+are mutable display names; internal IDs and authored attribution remain stable.
 
 ## Required fields and migration defaults
 

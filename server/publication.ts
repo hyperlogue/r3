@@ -29,6 +29,7 @@ interface DecodedFile {
 }
 
 export interface ValidatedPublication {
+  listen: boolean;
   expectedSeq: number;
   publicationKey: string;
   actor: ArtifactActor;
@@ -79,8 +80,11 @@ export function validatePublication(
   directoryLimits: { files: number; totalBytes: number } = PUBLICATION_LIMITS,
 ): ValidatedPublication {
   const body = requireObject(value, "Publication");
+  if (body.listen !== undefined && typeof body.listen !== "boolean")
+    throw new ArtifactError("listen must be a boolean");
   const content = requireObject(body.content, "Publication content");
   const metadata = {
+    listen: body.listen !== false,
     expectedSeq: requireSequence(body.expectedSeq, true),
     publicationKey: requireString(body.publicationKey, "publicationKey", 200),
     actor: requireActor(body.actor),

@@ -44,6 +44,7 @@ import {
   usePopoverFocus,
 } from "../ui.tsx";
 import { useArtifactHandoff } from "../useArtifactHandoff.ts";
+import { AgentName } from "./AgentName.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 import { MessageInput } from "./MessageInput.tsx";
@@ -385,7 +386,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
               title={`Working agent: ${feedback.claim.sessionId}`}
             >
-              Working · {feedback.claim.sessionId.slice(0, 16)}
+              Working · <AgentName id={feedback.claim.sessionId} />
             </span>
           )}
         </div>
@@ -408,7 +409,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       >
         {feedback.author.role === "agent" && (
           <div className="mb-1 text-xs text-neutral-500" title={feedback.author.sessionId}>
-            Agent · {feedback.author.sessionId.slice(0, 20)}
+            Agent · <AgentName id={feedback.author.sessionId} />
           </div>
         )}
         {editing && !editing.replyId ? (
@@ -442,7 +443,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         >
           {reply.author.role === "agent" && (
             <div className="mb-1 text-xs text-neutral-500" title={reply.author.sessionId}>
-              Agent · {reply.author.sessionId.slice(0, 20)}
+              Agent · <AgentName id={reply.author.sessionId} />
             </div>
           )}
           {editing?.replyId === reply.id ? (
@@ -837,12 +838,16 @@ export function ArtifactThreads({
             )}
             <span
               className="truncate text-[0.625rem] text-neutral-400"
-              title={watchers[0]?.actor.sessionId ?? undefined}
+              title={watchers[0]?.label ?? watchers[0]?.actor.sessionId ?? undefined}
             >
               {detail.working
                 ? "Agent working"
                 : watchers.length
-                  ? "Agent listening"
+                  ? watchers[0]?.mode === "fallback"
+                    ? "Fallback registered"
+                    : watchers[0]?.mode === "explicit"
+                      ? "Listener registered"
+                      : "Agent listening"
                   : pending
                     ? `${pending} pending`
                     : ""}

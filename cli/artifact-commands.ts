@@ -24,6 +24,7 @@ import { publishArtifactCommand } from "./artifact-publish.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
 
 export interface ArtifactCommandContext {
+  registerListener?: (actor: ArtifactActor) => Promise<boolean>;
   client: ArtifactClient;
   publicUrl?: string;
   cwd: string;
@@ -122,6 +123,7 @@ export async function runArtifactCommand(
     "summary",
     "key",
     "expected",
+    "no-listen",
   ];
   const targetFlags = [
     "target",
@@ -154,6 +156,7 @@ export async function runArtifactCommand(
     "feedback fetch": ["all", "feedback"],
     watch: ["timeout"],
     listen: ["foreground"],
+    unlisten: [],
     archive: ["message", "key"],
     restore: ["key"],
     project: ["title", "remote"],
@@ -185,21 +188,23 @@ export async function runArtifactCommand(
     return ctx.stdin();
   };
   const session = () => {
-    const detected = command === "listen" ? detectListener(ctx.environment) : null;
+    const detected = detectListener(ctx.environment);
     return (
-      args.value("session")?.trim() ||
       ctx.environment.R3_AGENT_SESSION?.trim() ||
       (detected?.ok ? detected.sessionId : currentHarnessSession(ctx.environment))
     );
   };
   const actor = async (): Promise<ArtifactActor> => {
     if (args.has("human")) return { role: "human", sessionId: null };
-    const id = session();
+    const id = session() ?? (command === "watch" ? `watch_${randomUUID()}` : undefined);
     if (!id)
       throw new ArtifactCommandError(
-        "Set --session or R3_AGENT_SESSION to a stable agent ID, or use --human for the human owner",
+        "Set R3_AGENT_SESSION to a stable agent ID, or use --human for the human owner",
       );
-    await client.json("POST", "/api/sessions", { id });
+    await client.json("POST", "/api/sessions", {
+      id,
+      ...(args.has("session") ? { label: args.require("session") } : {}),
+    });
     return { role: "agent", sessionId: id };
   };
   const message = async () => {
@@ -223,12 +228,26 @@ export async function runArtifactCommand(
   switch (command) {
     case "create":
     case "publish": {
+      const author = await actor();
+      let listen = !args.has("no-listen");
+      let listenerWarning: string | undefined;
+      if (listen && ctx.registerListener) {
+        try {
+          listen = await ctx.registerListener(author);
+        } catch {
+          listen = false;
+          listenerWarning =
+            "Published, but automatic listening could not be configured. Run r3 listen or use r3 watch.";
+        }
+      }
       const { artifact, version } = await publishArtifactCommand(command, args, {
         ...ctx,
-        actor: await actor(),
+        actor: author,
+        listen,
         text,
       });
       printPublication(artifact, version);
+      if (listenerWarning) ctx.error(listenerWarning);
       return 0;
     }
     case "list": {
@@ -465,6 +484,14 @@ export async function runArtifactCommand(
       if (!ctx.listen)
         throw new ArtifactCommandError("This harness has no wake adapter; use r3 watch", 5);
       return ctx.listen(args.id(), await actor(), args.has("foreground"));
+    }
+    case "unlisten": {
+      print(
+        await client.json("DELETE", `${artifactApiPath(args.id())}/listen`, {
+          actor: await actor(),
+        }),
+      );
+      return 0;
     }
     case "archive":
     case "restore": {

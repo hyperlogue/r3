@@ -38,6 +38,40 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const NamedFallback: Story = {
+  parameters: {
+    queryData: [
+      [
+        ["agent-sessions"],
+        [
+          {
+            id: artifactFixtureFeedback.replies[0].author.sessionId,
+            label: "Design assistant",
+            harness: "codex",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      ],
+      [
+        ["artifact-watchers", artifactFixture.id],
+        [
+          {
+            id: "fallback",
+            kind: "listen",
+            mode: "fallback",
+            actor: artifactFixtureFeedback.replies[0].author,
+            connectedAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      ],
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Fallback registered")).toBeVisible();
+    await expect(canvas.getByText(/Design assistant/)).toBeVisible();
+  },
+};
 
 const namedFix = {
   kind: "rendered" as const,

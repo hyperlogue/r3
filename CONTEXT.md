@@ -58,7 +58,8 @@ The person using published artifacts and controlling whether feedback is resolve
 
 **Agent session**:
 The identity of one logical agent run to which publications, messages, and claims
-are attributed, including after that run ends.
+are attributed, including after that run ends. Its readable name can change without changing
+identity. A temporary watcher is identified independently of an authored run.
 
 **Publisher**:
 The agent responsible for a particular publication; later versions may have
@@ -100,7 +101,12 @@ It coordinates responsibility without granting exclusive rights to publish or re
 
 **Listener**:
 The agent currently registered to receive an artifact's feedback notifications
-or wait for pending feedback; an artifact has at most one listener at a time.
+or wait for pending feedback; an artifact has at most one active listener at a time.
+An explicit listener takes priority over the latest publisher’s fallback.
+
+**Fallback listener**:
+The latest publisher selected to receive feedback when no explicit listener is
+present. An unsupported publisher or publication opting out leaves no fallback.
 _Avoid_: Designated recipient.
 
 **Handoff**:

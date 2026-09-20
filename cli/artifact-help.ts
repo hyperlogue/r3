@@ -18,7 +18,7 @@ Capture: --dir <prepared-directory> [--file <relative-path>]...
          --ref <git-ref> --file <relative-path>...
          --stdin-diff | --working | --staged | --commit <sha> | --diff <base>..<head>
 Publication summaries belong to versions. Artifacts have no overview field.
-Publication: --version-label L --summary S --key K
+Publication: --version-label L --summary S --key K --no-listen
              --label remains a publication-only alias; do not supply both spellings.
 Create: --kind is required; --project ID --meta k=v (repeatable).
 HTML images: publish standalone assets with relative <img src> URLs; see r3 guide html.
@@ -33,7 +33,8 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
   feedback fetch <id> [--all] [--feedback <id,id>]
   prompt <id> [--all] [--feedback <id,id>]      # compatibility alias for feedback fetch
   watch <id> [--timeout <seconds>]
-  listen <id>                                # local wake adapter, outward stream
+  listen <id>                                # explicit notification recipient
+  unlisten <id>                              # remove your listener registrations
   archive <id> [-m <archive-message>] [--key K] | restore <id> [--key K]
   project list | project create [--title T] [--remote URL] | project delete <id>
   project edit <id> [--title T] [--remote URL]
@@ -44,8 +45,9 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          HTML fix links: set locator.label in --target JSON (see r3 guide html).
          no target flags means general artifact feedback.
          Version descriptions are read-only metadata, not feedback targets.
-Identity: --session <logical-agent-id> (or R3_AGENT_SESSION, then harness session).
-          --human explicitly acts as the human owner. Distinct agents need distinct IDs.
+Identity: R3_AGENT_SESSION overrides the harness identity for agent writes.
+          --session <name> sets a readable display name; it never changes identity.
+          --human acts as the human owner. watch needs no supplied identity.
 Text flags accept - to read stdin. --json prints structured results.
 Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential.
 
@@ -79,8 +81,7 @@ Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the feedback ID
 \`\`\`sh
 r3 create --kind files --dir ./prepared --title 'Design review'
 artifact_id=artifact_example
-# Share the printed URL, then register for notifications.
-r3 listen "$artifact_id"
+# Share the printed URL. Local Claude Code/Codex publications register automatically.
 
 # When a feedback-submitted notification arrives:
 r3 feedback fetch "$artifact_id"
@@ -95,11 +96,11 @@ r3 reply feedback_b --version 2 --view rendered -m 'Added the missing case.'
 r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
 \`\`\`
 
-The listener remains registered. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
+Local registrations survive daemon restarts. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
 
 ## Session and artifact kind
 
-r3 normally infers identity from the harness environment. Optionally override it with \`R3_AGENT_SESSION\` or \`--session <id>\`. Each logical subagent needs a distinct ID.
+r3 infers identity from the harness environment. Generic writing agents and subagents can supply a distinct, stable \`R3_AGENT_SESSION\`. Use \`--session <name>\` for a readable display name; names do not change identity. A generic \`watch\` needs no supplied ID.
 
 Read this guide once per session. Specify \`--kind html|files|diff\` at creation; load each needed preparation guide once per session, when that kind is first needed:
 
@@ -119,9 +120,13 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 
 ## Receive feedback
 
-\`r3 listen <id>\` checks and registers a background wake adapter. Supported adapters are Claude Code's messaging socket/token and Codex's thread/session environment plus a working \`codex queue --help\`. Exit 0 confirms registration; exit 5 requires watch or polling. A wake notification tells you to fetch feedback.
+Local Claude Code and Codex publications register the publisher as fallback in the existing server daemon. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending feedback.
 
-\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI with a stable identity. Exit 10 prints and acknowledges feedback; 0 means archived, 2 means timeout, and 4 means an occupied or superseded recipient slot. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
+\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. Local listeners are persisted and have no idle timeout. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Send failures remain visible to the human: fallback registrations remain for retry, while failed explicit listeners are removed. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch feedback.
+
+With an explicit remote \`R3_URL\`, publishing remains supported; automatic daemon registration is local-only for now. Explicit remote \`listen\` retains its publisher-side relay, and \`watch\` works everywhere. A local proxy for remote services is deferred.
+
+\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 prints and acknowledges feedback; 0 means archived, 2 means timeout, and 4 means another explicit listener or watcher superseded this request. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
 
 \`r3 feedback fetch <id> [--all] [--feedback <id,id>]\` fetches and acknowledges the pending snapshot. \`--all\` reads open history without acknowledgment; add \`--feedback <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history. Use the existing payload when feedback was pasted or returned by watch.
 
@@ -133,7 +138,7 @@ Inspect original targets in their recorded version and representation. Rendered 
 
 Publish changed content, then \`r3 reply <feedback-id> -m <message>\`. Reply separately to each thread. Include \`--version <seq> --view source|rendered|diff\` when discussing a publication; omit both for general messages. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. A null locator targets the whole file. The fix target has its own version/view, independent of message context. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified placements.
 
-Successful replies release only your own claims. Publishing and replying never resolve feedback; the human controls status. Complete the requested work, reply, and keep listening when requested. Archive ends the waiting loop and removes its listener; restore requires fresh registration.`;
+Successful replies release only your own claims. Publishing and replying never resolve feedback; the human controls status. Complete the requested work, reply, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
 
 const HTML_GUIDE = `# HTML artifacts
 

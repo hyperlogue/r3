@@ -253,6 +253,7 @@ function ensureDir(dir: string): void {
 }
 
 export interface DaemonInfo {
+  agentSocket?: string;
   url: string;
   port: number;
   pid: number;

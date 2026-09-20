@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { open } from "node:fs/promises";
+import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 import {
   ARTIFACT_SCHEMA_VERSION,
   createArtifactTables,
@@ -138,7 +139,9 @@ export async function migrateLegacyStore(
     };
   }
   const artifactUpgrade =
-    [1, 2].includes(schemaVersion) && tables.includes("artifacts") && !tables.includes("reviews");
+    [1, 2, 3].includes(schemaVersion) &&
+    tables.includes("artifacts") &&
+    !tables.includes("reviews");
   if (
     !artifactUpgrade &&
     (schemaVersion !== 0 ||
@@ -170,6 +173,7 @@ export async function migrateLegacyStore(
           ALTER TABLE artifacts DROP COLUMN summary;`);
       }
       db.exec(PROJECT_REMOTE_SCHEMA);
+      db.exec(ARTIFACT_LISTENER_SCHEMA);
     } else {
       const data = readLegacyData(db);
       checkLegacyRelations(data);

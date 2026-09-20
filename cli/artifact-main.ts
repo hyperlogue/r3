@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { ArtifactApiError, ArtifactClient } from "../shared/artifact-client.ts";
 import type { ArtifactActor } from "../shared/artifacts.ts";
 import { R3_VERSION } from "../shared/version.ts";
@@ -11,6 +13,7 @@ import {
 } from "./artifact-listener.ts";
 import { authCommand, configCommand } from "./artifact-settings.ts";
 import { cliProcessArgv, daemonCommand, discoverArtifactServer } from "./daemon-client.ts";
+import { detectListener } from "./listener.ts";
 
 const COMMANDS = new Set([
   "create",
@@ -32,6 +35,7 @@ const COMMANDS = new Set([
   "prompt",
   "watch",
   "listen",
+  "unlisten",
   "archive",
   "restore",
   "project",
@@ -127,11 +131,42 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     await authCommand(client, args);
     return 0;
   }
+  const localAgents = location.agentSocket
+    ? new ArtifactClient({
+        url: "http://localhost",
+        token: location.token,
+        fetch: (request) => fetch(request, { unix: location.agentSocket }),
+      })
+    : undefined;
+  const registerListener = async (actor: ArtifactActor): Promise<boolean> => {
+    if (actor.role !== "agent") return false;
+    const detected = detectListener(process.env);
+    if (!detected.ok) {
+      if (detected.reason === "missing-claude-token")
+        throw new ArtifactCommandError("Claude messaging token is unavailable", 5);
+      return false;
+    }
+    if (!localAgents)
+      throw new ArtifactCommandError("Local daemon registration is unavailable; use r3 watch", 5);
+    const target =
+      detected.target.harness === "codex"
+        ? {
+            ...detected.target,
+            executable: Bun.which("codex") ?? undefined,
+            home: process.env.CODEX_HOME?.trim()
+              ? resolve(process.env.CODEX_HOME.trim())
+              : join(homedir(), ".codex"),
+          }
+        : detected.target;
+    await localAgents.json("POST", "/api/local/target", { actor, target });
+    return true;
+  };
   return runArtifactCommand(command, args, {
     client,
     publicUrl: location.publicUrl,
     cwd: process.cwd(),
     environment: process.env,
+    registerListener,
     stdin: stdinText,
     write: (text) => {
       process.stdout.write(text);
@@ -140,6 +175,13 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
       process.stderr.write(`${text}\n`);
     },
     listen: async (id, actor, foreground) => {
+      if (localAgents) {
+        if (!(await registerListener(actor)))
+          throw new ArtifactCommandError("No local wake adapter is available; use r3 watch", 5);
+        await localAgents.json("POST", "/api/local/listen", { artifactId: id, actor });
+        process.stdout.write(`Listening on ${id}\n`);
+        return 0;
+      }
       if (foreground)
         return runListener(id, actor, () => process.stderr.write(`Listening on ${id}\n`));
       if (actor.role !== "agent")

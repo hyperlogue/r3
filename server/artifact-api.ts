@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { ArtifactDetail, ArtifactKind, ArtifactState } from "../shared/artifacts.ts";
 import { type ArtifactAuthPolicy, installArtifactAuth } from "./artifact-auth.ts";
-import { ArtifactCollaboration } from "./artifact-collaboration.ts";
+import { ArtifactCollaboration, type LocalAgentDelivery } from "./artifact-collaboration.ts";
 import { installArtifactConversations } from "./artifact-conversation-api.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
@@ -32,7 +32,7 @@ export function artifactSequence(value: string | undefined): number {
 export function createArtifactApi(
   storage: ArtifactStorage,
   policy: ArtifactAuthPolicy,
-  options: { previews?: PreviewHost } = {},
+  options: { previews?: PreviewHost; deliver?: LocalAgentDelivery } = {},
 ) {
   const app = new Hono();
   const { artifacts } = storage;
@@ -40,6 +40,9 @@ export function createArtifactApi(
     artifacts,
     storage.conversations,
     storage.lifecycle,
+    undefined,
+    storage.listeners,
+    options.deliver,
   );
   app.onError((error, c) =>
     error instanceof ArtifactError

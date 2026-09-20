@@ -240,6 +240,7 @@ export interface PublicationFile {
 }
 
 export interface PublishArtifactBody {
+  listen?: boolean;
   expectedSeq: number;
   publicationKey: string;
   actor: ArtifactActor;
@@ -321,6 +322,8 @@ export interface ArtifactWatcher {
   kind: "watch" | "listen";
   actor: ArtifactActor;
   connectedAt: string;
+  mode?: "fallback" | "explicit";
+  label?: string | null;
 }
 
 export interface ArtifactNudge {
@@ -333,7 +336,7 @@ export interface ArtifactNudge {
 }
 
 export type ArtifactNotification =
-  | { state: "none" | "sent" | "not_repeated" }
+  | { state: "none" | "sent" | "queued" | "not_repeated" }
   | { state: "failed"; error: string };
 
 export interface ArtifactLifecycleResponse {

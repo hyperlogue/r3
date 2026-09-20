@@ -104,7 +104,7 @@ describe("artifact collaboration ordering", () => {
       first,
       () => {},
       () =>
-        new Promise((_, reject) => {
+        new Promise<void>((_, reject) => {
           rejectPush = reject;
         }),
     );
@@ -141,9 +141,10 @@ describe("artifact collaboration ordering", () => {
     await expect(collaboration.submit(id)).rejects.toMatchObject({ status: 409 });
   });
 
-  test("ordinary watch wakes on explicit handoff without stamping delivery and refuses another owner", async () => {
-    const waiting = collaboration.watch(id, first);
-    await expect(collaboration.watch(id, second)).rejects.toMatchObject({ status: 409 });
+  test("explicit watch takes over and wakes on handoff without stamping delivery", async () => {
+    const previous = collaboration.watch(id, first);
+    const waiting = collaboration.watch(id, second);
+    expect(await previous).toEqual({ result: "superseded" });
     await storage.conversations.add(id, {
       actor: human,
       target: { kind: "artifact" },

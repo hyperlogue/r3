@@ -481,10 +481,28 @@ notes concurrently. A conflicting live owner blocks a claim, and a successful re
 releases only its author's claim. Concurrent publication is protected separately by
 the version sequence check.
 
-One designated listen/watch recipient receives owner handoffs. The publisher-side
-listener connects outward and invokes its local harness adapter. The daemon receives
-logical identity and delivery results, not harness sockets, executable paths, or
-credentials. Any harness can use `watch` or `feedback fetch` without an automatic wake adapter.
+One active listener receives owner handoffs. The existing local server daemon also
+runs Claude Code and Codex delivery adapters; no extra local listener process is
+started. The CLI supplies harness details through the daemon’s private Unix socket.
+Local targets and fallback/explicit registrations persist in SQLite. Public artifact
+and session reads never expose delivery credentials.
+
+Each newly committed publication replaces the fallback with its supported publisher,
+or clears it for an unsupported publisher or `--no-listen`. A replay cannot replace
+a newer fallback. Explicit listen/watch takes priority; a new explicit registration
+supersedes the previous one. Watch remains temporary and needs no caller-supplied
+identity. Registration, restart, and fallback reactivation never submit feedback.
+
+Delivery is attempted without proactive liveness checks. Failure retains a fallback
+for retry but removes an explicit listener; the same attempt is not resent to another
+agent. Codex queue acceptance is reported as queued, not proof of a running session.
+Archive atomically clears both saved registrations, and restore does not revive them.
+`unlisten` removes only the caller’s registrations; a future publication can register again.
+
+Remote publishing retains its existing outward relay for explicit listening. Automatic
+registration is local-only in this change. A future local proxy may route requests to
+a remote artifact service while keeping harness delivery local; browser links would
+open the remote site. This change does not implement that proxy.
 
 Delivery records the owner's handoff, not a read receipt from every agent. Agent
 messages start delivered; human feedback/replies wait for handoff. Reading or

@@ -16,6 +16,7 @@ import { captureGitCommit, captureGitDiff, captureGitFiles } from "./capture-git
 import { detectPublisherRemote } from "./publisher-remote.ts";
 
 export interface PublicationCommandContext {
+  listen?: boolean;
   client: ArtifactClient;
   actor: ArtifactActor;
   cwd: string;
@@ -92,6 +93,7 @@ export async function publishArtifactCommand(
   const detected = await detectPublisherRemote(ctx.cwd);
   if (detected.warning && !current && !args.has("project")) ctx.error(`${detected.warning}\n`);
   const publication: PublishArtifactBody = {
+    listen: ctx.listen ?? !args.has("no-listen"),
     actor: author,
     expectedSeq: args.has("expected")
       ? args.sequence("expected", true)

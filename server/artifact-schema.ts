@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
+import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 3;
+export const ARTIFACT_SCHEMA_VERSION = 4;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -61,7 +62,7 @@ CREATE TABLE artifacts (
 ) STRICT;
 
 -- Archive/restore history is separate from open/resolved feedback.
--- Transport registrations and credentials remain in memory, never here.
+-- Local delivery registrations live in separate private tables.
 CREATE TABLE artifact_events (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
@@ -466,4 +467,5 @@ END;
 
 export function createArtifactTables(db: Database): void {
   db.exec(ARTIFACT_SCHEMA);
+  db.exec(ARTIFACT_LISTENER_SCHEMA);
 }

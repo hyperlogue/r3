@@ -22,7 +22,8 @@ and `web/src/artifact-api.ts`. Keep all three clients aligned.
 publisher: capture local files/git → CLI HTTP upload ─┐
 browser: fetch + authenticated event stream ──────────┼→ artifact daemon
 agent: CLI/HTTP publications, feedback, claims ───────┘    SQLite + immutable blobs
-publisher-side listener ← outward stream ← daemon
+local agent harness ← existing daemon delivery adapter
+remote publisher listener ← outward stream ← remote daemon
 opaque preview document → scoped version bytes + trusted r3 runtime
 ```
 
@@ -65,7 +66,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and per-version/view placements |
 | Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `agent-connections.ts`, `artifact-events.ts`; events, handoff, claims, designated recipient |
 | HTTP and auth | `server/artifact-api.ts`, `artifact-conversation-api.ts`, `artifact-http.ts`, `artifact-auth.ts`, `auth.ts` |
-| Local wake delivery | `cli/artifact-listener.ts`, `cli/listener.ts`; local adapters currently in `server/listener.ts` and `server/inbox.ts` are imported only by the publisher |
+| Local wake delivery | `server/local-agents.ts`, `artifact-listeners.ts`, `listener.ts`, `inbox.ts`; existing daemon, private registration socket, persisted targets; `cli/artifact-listener.ts` retains remote relay transport |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
 | Markdown reading cache | `web/src/markdown-cache.ts`, `passive-markdown.ts`, `components/PassiveMarkdown.tsx`; bounded immutable bytes, invalidation, and passive reading during preview checks |
@@ -147,10 +148,18 @@ A failed push preserves the event and reports failure; retry does not notify aga
 Restore permits work but never revives an old registration. Archive preserves
 feedback state, unsent content, and drafts; in-flight replies remain accepted.
 
-One designated listen/watch recipient exists per artifact. Watch gives archive
+One active listen/watch recipient exists per artifact. Local publication replaces
+the persisted fallback; unsupported publishers and `--no-listen` clear it. Explicit
+listen/watch takes priority. Failed fallback delivery retains the registration; a
+failed explicit listener is removed, without resending that attempt. Registration
+and restart never submit feedback. Archive clears saved registrations atomically.
+The existing server daemon performs local delivery; remote proxying is deferred.
+`--session` is a display name; harness identity or `R3_AGENT_SESSION` identifies
+authored runs. Generic watch needs no supplied identity. Watch gives archive
 priority over pending feedback and timeout, including a watch begun after archive.
 Exit codes: archived `0`, pending `10`, timeout `2`, occupied/superseded `4`.
-Automatic local adapter unavailability is `5`; generic agents can watch or poll.
+Explicit listen adapter unavailability is `5`; automatic setup failure only warns
+after successful publication. Generic agents can watch or poll.
 Use `cli/artifact-help.ts` as the exact command/help/agent-guide text.
 
 ## Browser design
