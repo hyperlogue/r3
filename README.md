@@ -6,7 +6,7 @@
   <img src="web/favicon.svg" alt="r3 logo" width="120" height="120">
 </p>
 
-<h1 align="center">r3: View artifacts. Give precise feedback.</h1>
+<h1 align="center">r3: Render. Review. Refine.</h1>
 
 <p align="center"><b>Bring agent-created pages, documents, and code to life.<br>A Claude Artifacts-style tool for any coding agent.</b></p>
 

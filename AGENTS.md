@@ -1,4 +1,4 @@
-# r3 — Review. Revise. Resolve.
+# r3 — Render. Review. Refine.
 
 r3 is a local-first workspace for **published artifacts and human/agent
 conversations**. A per-user daemon owns immutable content and persisted feedback;
