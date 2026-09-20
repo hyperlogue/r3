@@ -86,14 +86,11 @@ describe("artifact publications", () => {
   });
 
   test("storage includes retained Markdown without double counting a matching original", async () => {
-    const id = store.create({ kind: "html", actor: human }).id;
+    const id = store.create({ kind: "files", actor: human }).id;
     const source = "# café";
     const retained = `<article>${source}</article>`;
     const request = directory("markdown", 0, { "index.md": source, "same.html": retained });
-    await store.publish(id, {
-      ...request,
-      content: { ...request.content, kind: "html" },
-    });
+    await store.publish(id, request);
     const originalBytes = Buffer.byteLength(source);
     const retainedBytes = Buffer.byteLength(retained);
     expect(store.get(id).storage).toEqual({
@@ -102,7 +99,7 @@ describe("artifact publications", () => {
     });
     renderer = async () => ({ html: "<h1>Revised</h1>", revision: "renderer-2" });
     const next = directory("revised", 1, { "index.md": source });
-    await store.publish(id, { ...next, content: { ...next.content, kind: "html" } });
+    await store.publish(id, next);
     expect(store.get(id).storage).toEqual({
       totalBytes: originalBytes + retainedBytes + Buffer.byteLength("<h1>Revised</h1>"),
       latestVersionBytes: originalBytes + Buffer.byteLength("<h1>Revised</h1>"),
@@ -343,12 +340,22 @@ describe("artifact publications", () => {
 
   test("HTML entrypoint cycles and sparse diff histories are retained until whole deletion", async () => {
     const html = store.create({ kind: "html", actor: human });
-    const request = directory("one", 0, { "index.md": "# Hello" });
     const version = await store.publish(html.id, {
-      ...request,
-      content: { ...request.content, kind: "html" },
+      publicationKey: "one",
+      expectedSeq: 0,
+      actor: human,
+      content: {
+        kind: "html",
+        files: [
+          {
+            path: "index.html",
+            mediaType: "text/html",
+            base64: Buffer.from("<h1>Hello</h1>").toString("base64"),
+          },
+        ],
+      },
     });
-    expect(version.entrypoint).toBe("index.md");
+    expect(version.entrypoint).toBe("index.html");
     expect(() =>
       db.query("DELETE FROM artifact_versions WHERE artifact_id = ?").run(html.id),
     ).toThrow("retained");

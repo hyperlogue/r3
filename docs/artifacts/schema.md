@@ -70,12 +70,16 @@ artifact_versions holds the variant payload fields directly, with a CHECK that a
 | Kind | entrypoint | patch_body | file_count | version_files |
 | --- | --- | --- | --- | --- |
 | files | NULL | NULL | At least one | Complete directory membership; no inferred entrypoint |
-| html | index.html or index.md | NULL | At least one | Complete directory membership, including the entrypoint |
+| html | index.html (historical versions may use index.md) | NULL | At least one | Complete directory membership, including the entrypoint |
 | diff | NULL | Nonempty unified patch | NULL | Forbidden |
 
 Both directory kinds require at least one published file. Zero files would represent deleting every member, but there is no supported empty-publication workflow: publish another work product, archive it, or delete the artifact. Individual files may contain zero bytes. Creating an artifact record before its first publication does not create an empty version.
 
 This avoids an extra join and a separate rule requiring exactly one matching subtype row. Diff remains an independent sparse patch publication; it does not acquire a synthetic file tree or depend on applying preceding versions.
+
+New HTML publications require `index.html`. The stored variant also accepts
+historical `index.md` entrypoints so retained versions remain readable without
+rewriting their content or targets.
 
 An HTML entrypoint has a composite foreign key to a file in its own version. That foreign key is deferred because inserting the version and its files creates a temporary cycle. The publication transaction completes both sides before commit. Whole-artifact deletion removes both sides in one transaction. SQLite supports these deferred checks when foreign keys are enabled on the connection. [SQLite foreign keys](https://www.sqlite.org/foreignkeys.html)
 

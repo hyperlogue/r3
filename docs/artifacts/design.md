@@ -15,14 +15,14 @@ The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 | Kind | Published content | Workspace |
 | --- | --- | --- |
 | `files` | A complete directory with at least one file | All files in one scrolling pane with foldable headers and a synchronized file browser; Markdown opens rendered, other text opens as source, with per-file HTML/Markdown view switching, media previews, and downloads |
-| `html` | A complete directory with a root `index.html` or `index.md` | Rendered entrypoint and feedback panel; no file browser or source toggle |
+| `html` | A complete directory with a root `index.html` | Rendered entrypoint and feedback panel; no file browser or source toggle |
 | `diff` | An independent unified patch | Captured old/new lines, split or unified layout, and expandable retained context |
 
 Kind stays fixed for an artifact. CLI creation requires an explicit `--kind`;
 capture flags and index files never infer it. A new HTML version requires exactly
-one root `index.html` or `index.md`, selected automatically. Both or neither is an
-error; entrypoint overrides are rejected. Historical versions retain their selected
-entrypoints and complete membership unchanged.
+a root `index.html`, selected automatically; entrypoint overrides are rejected.
+An accompanying `index.md` is ordinary content. Historical versions retain their
+selected entrypoints, including Markdown, and complete membership unchanged.
 Individual zero-byte files are valid; empty directory publications are rejected.
 
 Files and HTML share file storage, retained rendering, and resource serving. HTML
@@ -196,7 +196,8 @@ origin/base. It holds at most 64 MiB, evicts least recently opened documents, an
 expires entries after 30 days without use. Oversized documents and unavailable
 browser storage fall back to ordinary reads. Cached bytes are hash-checked before
 use; injected scripts, capabilities, and permission grants are never cached there.
-This includes Markdown entrypoints in HTML artifacts, but not authored HTML.
+This includes Markdown companion documents and historical Markdown entrypoints
+in HTML artifacts, but not authored HTML.
 
 After ordinary application authentication, a warm Markdown visit first displays
 a passive local reading view while preview checks run. It preserves formatting,
@@ -290,7 +291,7 @@ Rendered Markdown in file artifacts expands to its natural document height withi
 the file stack. The main content pane owns vertical scrolling; width changes and
 late-loading images resize the card in both directions. Only retained Markdown
 members can report height through the current verified document port. HTML and
-media keep their viewport layout, including Markdown entrypoints in HTML artifacts.
+media keep their viewport layout, including Markdown documents viewed within HTML artifacts.
 This presentation behavior does not rewrite retained document bytes.
 Comment controls stay inside the visible part of a tall frame, clear of sticky
 file headers, and follow the outer scroll position. Rendered Locate waits for file

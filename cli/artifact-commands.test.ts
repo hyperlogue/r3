@@ -322,18 +322,23 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.artifacts.list()).toEqual([]);
   });
 
-  test("ambiguous HTML publications fail before creation or a new version becomes visible", async () => {
+  test("Markdown-only HTML publications fail without changing artifacts or versions", async () => {
     const id = await create();
     await writeFile(join(ctx.cwd, "index.md"), "# Another index\n");
+    await rm(join(ctx.cwd, "index.html"));
     await expect(command("create", ["--kind", "html", "--dir", "."])).rejects.toThrow(
-      "exactly one",
+      "root index.html",
     );
-    await expect(command("publish", [id, "--dir", "."])).rejects.toThrow("exactly one");
+    await expect(command("publish", [id, "--dir", "."])).rejects.toThrow("root index.html");
     expect(storage.artifacts.list()).toHaveLength(1);
     expect(storage.artifacts.versions(id)).toHaveLength(1);
     expect((await command("download", [id, "--version", "1", "--file", "index.html"])).text).toBe(
       "<h1>First</h1>\n",
     );
+    await writeFile(join(ctx.cwd, "index.html"), '<a href="index.md">Notes</a>\n');
+    await command("publish", [id, "--dir", "."]);
+    expect(storage.artifacts.version(id, 2).entrypoint).toBe("index.html");
+    expect(storage.artifacts.file(id, 2, "index.md").renderedHash).not.toBeNull();
   });
 
   test("stdin patches become independent published versions without any git checkout", async () => {

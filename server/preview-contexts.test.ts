@@ -136,19 +136,19 @@ test("external connections require an explicit HTML context and never relax an e
       kind: "html",
       files: [
         {
-          path: "index.md",
-          mediaType: "text/markdown",
-          base64: Buffer.from("# Page").toString("base64"),
+          path: "index.html",
+          mediaType: "text/html",
+          base64: Buffer.from("<h1>Page</h1>").toString("base64"),
         },
       ],
     },
   });
   for (const invalid of [null, true, "allow", { network: "external" }])
-    expect(() => contexts.create(html.id, 1, "index.md", "https://app.example", invalid)).toThrow(
+    expect(() => contexts.create(html.id, 1, "index.html", "https://app.example", invalid)).toThrow(
       "Preview network",
     );
-  const closed = contexts.create(html.id, 1, "index.md", "https://app.example");
-  const external = contexts.create(html.id, 1, "index.md", "https://app.example", "external");
+  const closed = contexts.create(html.id, 1, "index.html", "https://app.example");
+  const external = contexts.create(html.id, 1, "index.html", "https://app.example", "external");
   expect(external.id).not.toBe(closed.id);
   expect(external.network).toBe("external");
   const headers = previewPolicy(contexts.forRequest(request(external.documentUrl)));

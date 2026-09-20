@@ -8,7 +8,8 @@ owns isolation and enforcement details.
 ## Pages and assets
 
 Publish scripts, ES modules, styles, images, media, and data alongside the root
-`index.html` or `index.md`. Use relative URLs, hash routes, or published document
+`index.html`. Markdown may be linked as companion content; use a files artifact
+for a collection of Markdown documents. Use relative URLs, hash routes, or published document
 paths. The preview supplies the selected version's resource root. Automatic
 root-relative URL rewriting, history-route fallback, dependency installation,
 and backend hosting are outside this feature.

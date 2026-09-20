@@ -139,7 +139,7 @@ const HTML_GUIDE = `# HTML artifacts
 
 Read this once per session when HTML preparation is first needed; the main \`r3 guide\` covers publishing, listening, and replying.
 
-An HTML artifact presents a rendered page with optional assets such as images. The publication root must contain exactly one of \`index.html\` or \`index.md\`. Both present, or neither present, is an error. The user enters through that index.
+An HTML artifact presents a rendered page with optional assets such as images. The publication root must contain \`index.html\`; the user enters through that page. Markdown documents belong in files artifacts, or may be linked as companion documents from an HTML page. Previously published Markdown entrypoints remain readable.
 
 Use a shared navigation bar or tabs so every review page is reachable from every other page, directly or through several steps. Make the index a useful starting page and expose assets through the page's content or controls. The workspace intentionally has no file browser, source toggle, or companion-file viewer. Publishing a file alone does not make it discoverable. Use a files artifact when the human should browse the directory freely.
 

@@ -298,10 +298,10 @@ try {
       "Traversal adds no entries",
     );
   }
-  // Explicit version choices use that publication's own entrypoint, including
+  // Explicit version choices use that publication's root page, including
   // after native navigation to a companion document in the preceding version.
   for (const [seq, path, text] of [
-    [3, "index.md", "Markdown entrypoint"],
+    [3, "index.html", "Third HTML version"],
     [4, "index.html", "HTML entrypoint"],
   ] as const) {
     await storage.artifacts.publish(artifact.id, {
@@ -313,10 +313,8 @@ try {
         files: [
           {
             path,
-            mediaType: path.endsWith(".md") ? "text/markdown" : "text/html",
-            base64: Buffer.from(
-              path.endsWith(".md") ? `# ${text}\n` : `<!doctype html><h1>${text}</h1>`,
-            ).toString("base64"),
+            mediaType: "text/html",
+            base64: Buffer.from(`<!doctype html><h1>${text}</h1>`).toString("base64"),
           },
         ],
       },
@@ -343,7 +341,7 @@ try {
         }
       }
       return false;
-    }, "selected version renders its changed entrypoint");
+    }, "selected version returns to its published root page");
   }
   const screenshot = process.env.R3_TEST_SCREENSHOT;
   if (screenshot) {

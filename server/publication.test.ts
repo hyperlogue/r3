@@ -31,18 +31,21 @@ describe("complete publication validation", () => {
     ).toThrow("no entrypoint");
   });
 
-  test("HTML requires a unique root index without an entrypoint override", () => {
-    const one = publication({ kind: "html", files: [member("index.md")] });
-    expect(validatePublication(one).entrypoint).toBe("index.md");
+  test("HTML requires root index.html and treats Markdown as companion content", () => {
+    const one = publication({
+      kind: "html",
+      files: [member("index.html", "<p>hello</p>", "text/html")],
+    });
+    expect(validatePublication(one).entrypoint).toBe("index.html");
     const two = {
       kind: "html",
       files: [member("index.md"), member("index.html", "<p>hello</p>", "text/html")],
     };
-    for (const entrypoint of [undefined, "index.html", "index.md"])
-      expect(() => validatePublication(publication({ ...two, entrypoint }))).toThrow("exactly one");
-    expect(() =>
-      validatePublication(publication({ kind: "html", files: [member("nested/index.md")] })),
-    ).toThrow("root index");
+    expect(validatePublication(publication(two)).entrypoint).toBe("index.html");
+    for (const path of ["index.md", "nested/index.html", "nested/index.md", "readme.md"])
+      expect(() =>
+        validatePublication(publication({ kind: "html", files: [member(path)] })),
+      ).toThrow("root index.html");
     for (const entrypoint of ["index.html", "index.md"])
       expect(() =>
         validatePublication(publication({ ...(one.content as object), entrypoint })),

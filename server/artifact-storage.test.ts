@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { seedLegacyMarkdownArtifact } from "../scripts/legacy-markdown-fixture.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
 import { openArtifactStorage } from "./artifact-storage.ts";
 import { BlobStore } from "./blobs.ts";
@@ -41,6 +42,51 @@ const publication = () => ({
 });
 
 describe("private artifact storage bootstrap", () => {
+  test("historical Markdown HTML versions remain readable while new versions require HTML", async () => {
+    const previous = publication();
+    const id = await seedLegacyMarkdownArtifact(
+      options().databasePath,
+      [previous.content.files],
+      render,
+    );
+    storage = await openArtifactStorage(options());
+    const original = storage.artifacts.file(id, 1, "index.md");
+    expect(storage.artifacts.version(id, 1).entrypoint).toBe("index.md");
+    expect((await storage.artifacts.readFile(id, 1, "index.md", true)).toString()).toBe(
+      "<article># Shared</article>",
+    );
+    await expect(
+      storage.artifacts.publish(id, {
+        ...previous,
+        expectedSeq: 1,
+        content: { ...previous.content, kind: "html" },
+      }),
+    ).rejects.toThrow("root index.html");
+    expect(storage.artifacts.versions(id)).toHaveLength(1);
+    await storage.artifacts.publish(id, {
+      ...previous,
+      expectedSeq: 1,
+      content: {
+        kind: "html",
+        files: [
+          {
+            path: "index.html",
+            mediaType: "text/html",
+            base64: Buffer.from("<h1>HTML revision</h1>").toString("base64"),
+          },
+        ],
+      },
+    });
+    storage.close();
+    storage = await openArtifactStorage(options());
+    expect(storage.artifacts.version(id, 2).entrypoint).toBe("index.html");
+    expect(storage.artifacts.version(id, 1).entrypoint).toBe("index.md");
+    expect(storage.artifacts.file(id, 1, "index.md")).toEqual(original);
+    expect((await storage.artifacts.readFile(id, 1, "index.md", true)).toString()).toBe(
+      "<article># Shared</article>",
+    );
+  });
+
   test("creates a private store and reopens published content without legacy source access", async () => {
     storage = await openArtifactStorage(options());
     expect(storage.migration).toBeNull();

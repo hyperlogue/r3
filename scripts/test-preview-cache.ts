@@ -8,6 +8,7 @@ import { openArtifactStorage } from "../server/artifact-storage.ts";
 import { PREVIEW_PREFIX } from "../server/preview-contexts.ts";
 import { PreviewHost } from "../server/preview-host.ts";
 import { previewSupport } from "../server/preview-support.ts";
+import { seedLegacyMarkdownArtifact } from "./legacy-markdown-fixture.ts";
 import { browserLoweredCssPlugin } from "./spa-css.ts";
 
 // All bytes, browser state, and servers belong to this isolated acceptance run.
@@ -31,62 +32,61 @@ const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(
 const js = [...assets.keys()].find((path) => path.endsWith(".js"))!;
 const css = [...assets.keys()].find((path) => path.endsWith(".css"));
 const root = await mkdtemp(join(tmpdir(), "r3-cache-acceptance-"));
-const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+const filesForVersion = (seq: number, markdown: boolean) => [
+  {
+    path: markdown ? "index.md" : "index.html",
+    mediaType: markdown ? "text/markdown" : "text/html",
+    base64: Buffer.from(
+      markdown
+        ? `# Cache document ${seq}\n\n${Array.from({ length: 80 }, (_, i) => `## Section ${i + 1}\n\nPublished paragraph ${i + 1}.\n`).join("\n")}`
+        : `<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Cache HTML ${seq}</h1>${"<p>Published paragraph</p>".repeat(120)}<script>window.publisherStarted = true</script></body></html>`,
+    ).toString("base64"),
+  },
+  ...(markdown
+    ? [
+        ...Array.from({ length: 5 }, (_, index) => ({
+          path: `page-${index + 1}.md`,
+          mediaType: "text/markdown",
+          base64: Buffer.from(
+            `# Additional document ${index + 1}\n\n${"Published paragraph.\n\n".repeat(80)}\n\n## Destination\n\nNative fragment target.`,
+          ).toString("base64"),
+        })),
+        {
+          path: "r3-guide.txt",
+          mediaType: "text/plain",
+          base64: Buffer.from("Published command help\n".repeat(40)).toString("base64"),
+        },
+      ]
+    : []),
+  ...(!markdown
+    ? [
+        {
+          path: "style.css",
+          mediaType: "text/css",
+          base64: Buffer.from("body{font:18px sans-serif}p{margin:40px}").toString("base64"),
+        },
+      ]
+    : []),
+];
+const databasePath = join(root, "store.sqlite");
+const legacyId = await seedLegacyMarkdownArtifact(
+  databasePath,
+  [1, 2].map((seq) => filesForVersion(seq, true)),
+);
+const storage = await openArtifactStorage({ databasePath });
 const actor = { role: "human" as const, sessionId: null };
 const files = storage.artifacts.create({ kind: "files", actor, title: "Cache files" });
 const html = storage.artifacts.create({ kind: "html", actor, title: "Cache HTML" });
-const markdownPage = storage.artifacts.create({
-  kind: "html",
-  actor,
-  title: "Markdown entrypoint",
-});
+const markdownPage = storage.artifacts.get(legacyId);
 for (let seq = 1; seq <= 2; seq++) {
-  for (const artifact of [files, html, markdownPage]) {
-    const markdown = artifact.kind === "files" || artifact.id === markdownPage.id;
+  for (const artifact of [files, html]) {
     await storage.artifacts.publish(artifact.id, {
       actor,
       expectedSeq: seq - 1,
       publicationKey: `version-${seq}`,
       content: {
-        kind: artifact.kind,
-        files: [
-          {
-            path: markdown ? "index.md" : "index.html",
-            mediaType: markdown ? "text/markdown" : "text/html",
-            base64: Buffer.from(
-              markdown
-                ? `# Cache document ${seq}\n\n${Array.from({ length: 80 }, (_, i) => `## Section ${i + 1}\n\nPublished paragraph ${i + 1}.\n`).join("\n")}`
-                : `<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Cache HTML ${seq}</h1>${"<p>Published paragraph</p>".repeat(120)}<script>window.publisherStarted = true</script></body></html>`,
-            ).toString("base64"),
-          },
-          ...(markdown
-            ? [
-                ...Array.from({ length: 5 }, (_, index) => ({
-                  path: `page-${index + 1}.md`,
-                  mediaType: "text/markdown",
-                  base64: Buffer.from(
-                    `# Additional document ${index + 1}\n\n${"Published paragraph.\n\n".repeat(80)}\n\n## Destination\n\nNative fragment target.`,
-                  ).toString("base64"),
-                })),
-                {
-                  path: "r3-guide.txt",
-                  mediaType: "text/plain",
-                  base64: Buffer.from("Published command help\n".repeat(40)).toString("base64"),
-                },
-              ]
-            : []),
-          ...(!markdown
-            ? [
-                {
-                  path: "style.css",
-                  mediaType: "text/css",
-                  base64: Buffer.from("body{font:18px sans-serif}p{margin:40px}").toString(
-                    "base64",
-                  ),
-                },
-              ]
-            : []),
-        ],
+        kind: artifact.kind as "files" | "html",
+        files: filesForVersion(seq, artifact.kind === "files"),
       },
     });
   }
@@ -456,7 +456,7 @@ try {
       throw new Error(`Native Markdown fragment was not restored: ${JSON.stringify(position)}`);
     });
   console.log(
-    `${engine}: Markdown entrypoints keep reading position across passive/interactive replacement`,
+    `${engine}: historical Markdown entrypoints keep reading position across passive/interactive replacement`,
   );
 
   await page.goto(`${base}/${html.id}?version=1`);

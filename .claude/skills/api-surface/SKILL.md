@@ -171,8 +171,9 @@ The current command families:
 Creation requires `--kind files|html|diff` before capture or artifact creation.
 Publication labels use `--version-label`; `--label` is a compatibility alias, and
 supplying both is an error. Authentication-token labels remain `--label`. `--kind html` requires
-exactly one root `index.html` or `index.md`; new publications reject both or neither
-and reject entrypoint overrides. Historical versions retain their entrypoints. Diff capture flags select
+a root `index.html`; new publications reject Markdown-only directories and
+entrypoint overrides. An accompanying `index.md` is ordinary content. Historical
+versions retain their entrypoints, including `index.md`. Diff capture flags select
 working tree, index, commit, range, or stdin patch. Every version is complete and
 independent. `--ref`/`--file` captures a real Git revision on the publisher; there
 is no special file-index sentinel. Use `--dir` for current working-tree files,

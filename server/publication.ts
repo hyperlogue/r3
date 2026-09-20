@@ -37,7 +37,7 @@ export interface ValidatedPublication {
   provenance: Record<string, unknown>;
   kind: ArtifactKind;
   contentHash: string;
-  entrypoint: "index.html" | "index.md" | null;
+  entrypoint: "index.html" | null;
   patch: string | null;
   files: DecodedFile[];
 }
@@ -133,24 +133,20 @@ export function validatePublication(
     }
     paths.add(file.path);
   }
-  let entrypoint: "index.html" | "index.md" | null = null;
+  let entrypoint: "index.html" | null = null;
   if (content.kind === "files") {
     if (content.entrypoint !== undefined)
       throw new ArtifactError("Files artifacts have no entrypoint");
   } else {
-    const candidates = (["index.html", "index.md"] as const).filter((path) => paths.has(path));
-    if (candidates.length !== 1) {
+    if (!paths.has("index.html"))
       throw new ArtifactError(
-        candidates.length
-          ? "HTML requires exactly one root index.html or index.md; both were published"
-          : "HTML requires a root index.html or index.md",
+        "HTML requires a root index.html; publish Markdown as a files artifact",
       );
-    }
     if (content.entrypoint !== undefined)
       throw new ArtifactError("HTML entrypoint is selected automatically; omit entrypoint");
-    entrypoint = candidates[0];
+    entrypoint = "index.html";
     const index = files.find((file) => file.path === entrypoint)!;
-    if (entrypoint === "index.html" && index.mediaType.split(";")[0] !== "text/html") {
+    if (index.mediaType.split(";")[0] !== "text/html") {
       throw new ArtifactError("index.html must have the text/html media type");
     }
   }

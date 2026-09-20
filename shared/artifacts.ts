@@ -76,6 +76,7 @@ interface VersionMetadata {
 export type ArtifactVersion = VersionMetadata &
   (
     | { kind: "files"; entrypoint: null; fileCount: number }
+    // index.md survives in historical versions; new HTML publications require index.html.
     | { kind: "html"; entrypoint: "index.html" | "index.md"; fileCount: number }
     | { kind: "diff"; entrypoint: null; fileCount: null }
   );
