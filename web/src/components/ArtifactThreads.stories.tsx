@@ -520,6 +520,32 @@ export const FeedbackTabs: Story = {
     ).toBeTruthy();
   },
 };
+export const FeedbackTabSquash: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The 380 ms ease-in-out transition, paused halfway at 118% width and 85% height. Click Active to reverse from this pose.",
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("tab", { name: /Resolved/ }));
+    await waitFor(() => {
+      const indicator = canvasElement.querySelector("[data-feedback-tab-indicator]");
+      const animation = indicator?.getAnimations()[0];
+      expect(animation).toBeTruthy();
+      animation!.pause();
+      animation!.currentTime = 190;
+    });
+  },
+};
+export const FeedbackTabSquashDark: Story = {
+  ...FeedbackTabSquash,
+  globals: { theme: "dark" },
+};
 
 export const QueueDraftAndScroll: Story = {
   beforeEach: () => artifactDrafts.clear(artifactFixture.id),

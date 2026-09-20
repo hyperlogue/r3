@@ -1,5 +1,5 @@
 import { type AutoAnimationPlugin, getTransitionSizes } from "@formkit/auto-animate";
-import { createContext, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useLayoutEffect, useRef } from "react";
 import type { ArtifactFeedback } from "../../shared/artifacts.ts";
 import { prefersReduced } from "./ui.tsx";
 
@@ -108,49 +108,101 @@ export const feedbackAnimation: AutoAnimationPlugin = (element, action, before, 
 
 export function useFeedbackTabIndicator(selected: string) {
   const ref = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState<{
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const animation = useRef<Animation | null>(null);
+  const box = useRef<{
+    selected: string;
     left: number;
     top: number;
     width: number;
     height: number;
   } | null>(null);
+  useLayoutEffect(() => () => animation.current?.cancel(), []);
   // Selection changes move the indicator; counts/font sizes can resize either
   // tab independently of selection. Observe both without measuring on typing.
   useLayoutEffect(() => {
     const root = ref.current;
+    const indicator = indicatorRef.current;
     const button = root?.querySelector<HTMLElement>(`[data-feedback-tab="${selected}"]`);
-    if (!root || !button) return;
+    if (!root || !indicator || !button) return;
     const measure = () => {
       const next = {
+        selected,
         left: button.offsetLeft,
         top: button.offsetTop,
         width: button.offsetWidth,
         height: button.offsetHeight,
       };
-      setBox((previous) =>
+      const previous = box.current;
+      if (
         previous &&
         Object.keys(next).every(
           (key) => previous[key as keyof typeof next] === next[key as keyof typeof next],
         )
-          ? previous
-          : next,
+      )
+        return;
+      const moving =
+        previous &&
+        previous.selected !== selected &&
+        previous.width > 0 &&
+        next.width > 0 &&
+        !prefersReduced();
+      // Read the running pose before canceling, so a reversal never jumps back
+      // to a tab or snaps the background to its unsquashed size.
+      const style = moving ? getComputedStyle(indicator) : null;
+      const from = style && {
+        transform: new DOMMatrixReadOnly(style.transform),
+        width: parseFloat(style.width),
+        height: parseFloat(style.height),
+        top: parseFloat(style.top),
+      };
+      animation.current?.cancel();
+      box.current = next;
+      Object.assign(indicator.style, {
+        top: `${next.top}px`,
+        width: `${next.width}px`,
+        height: `${next.height}px`,
+        transform: `translateX(${next.left}px) scale(1, 1)`,
+      });
+      if (!from) return;
+      const mix = (start: number, end: number, progress: number) =>
+        start + (end - start) * progress;
+      const motion = indicator.animate(
+        [
+          [0, 0],
+          [0.16, 0.08],
+          [0.5, 1],
+          [0.84, 0.08],
+          [1, 0],
+        ].map(([offset, squash]) => {
+          const left = mix(from.transform.m41, next.left, offset);
+          const scaleX = mix(offset <= 0.5 ? from.transform.a : 1, 1.18, squash);
+          const scaleY = mix(offset <= 0.5 ? from.transform.d : 1, 0.85, squash);
+          return {
+            offset,
+            top: `${mix(from.top, next.top, offset)}px`,
+            width: `${mix(from.width, next.width, offset)}px`,
+            height: `${mix(from.height, next.height, offset)}px`,
+            transform: `translateX(${left}px) scale(${scaleX}, ${scaleY})`,
+          };
+        }),
+        { duration: 380, easing: "cubic-bezier(0.42, 0, 0.58, 1)" },
       );
+      animation.current = motion;
     };
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const stop = () => {
+      if (reduced.matches) animation.current?.cancel();
+    };
+    reduced.addEventListener("change", stop);
     const resize = new ResizeObserver(measure);
     resize.observe(root);
     for (const tab of root.querySelectorAll("[data-feedback-tab]")) resize.observe(tab);
     measure();
-    return () => resize.disconnect();
+    return () => {
+      resize.disconnect();
+      reduced.removeEventListener("change", stop);
+    };
   }, [selected]);
-  return {
-    ref,
-    style: box
-      ? {
-          top: box.top,
-          width: box.width,
-          height: box.height,
-          transform: `translateX(${box.left}px)`,
-        }
-      : undefined,
-  };
+  return { ref, indicatorRef };
 }

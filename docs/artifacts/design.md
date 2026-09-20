@@ -404,8 +404,10 @@ closes the card. Mobile continues to use its shared feedback sheet.
 
 Feedback cards retain their original motion: a quick fade with a 250 ms rise on
 insertion, a 200 ms fade/slide to the right on removal, and a 200 ms move between
-positions when reordered. The Active/Resolved fill slides between measured tab
-boxes in 150 ms.
+positions when reordered. The Active/Resolved fill eases in and out between measured
+tab boxes over 380 ms, stretching to 118% width and flattening to 85% height at the
+midpoint before settling to the selected tab. Labels stay unscaled; an interrupted
+transition reverses from its current position and shape.
 Reduced-motion preferences disable these animations.
 
 Rendered comment mode intercepts element picks before page handlers and supports

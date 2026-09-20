@@ -778,19 +778,17 @@ export function ArtifactThreads({
             aria-label="Feedback status"
             className="relative flex items-center gap-1"
           >
-            {indicator.style && (
-              <span
-                aria-hidden="true"
-                data-feedback-tab-indicator
-                style={indicator.style}
-                className={cn(
-                  "pointer-events-none absolute left-0 rounded-md transition-[transform,width] duration-150 ease-out will-change-transform motion-reduce:transition-none",
-                  tab === "resolved"
-                    ? "bg-success-100 dark:bg-success-950"
-                    : "bg-neutral-200 dark:bg-neutral-800",
-                )}
-              />
-            )}
+            <span
+              ref={indicator.indicatorRef}
+              aria-hidden="true"
+              data-feedback-tab-indicator
+              className={cn(
+                "pointer-events-none absolute left-0 rounded-md will-change-transform",
+                tab === "resolved"
+                  ? "bg-success-100 dark:bg-success-950"
+                  : "bg-neutral-200 dark:bg-neutral-800",
+              )}
+            />
             {(["active", "resolved"] as const).map((value) => (
               <button
                 key={value}

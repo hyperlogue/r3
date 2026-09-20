@@ -162,6 +162,25 @@ try {
     "other resolution persists independently",
   );
   await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
+  const indicator = "document.querySelector('[data-feedback-tab-indicator]')";
+  const badge = await page.evaluate(`(() => {
+    const indicator = ${indicator};
+    const animation = indicator.getAnimations()[0];
+    animation.pause(); animation.currentTime = 190;
+    const active = document.querySelector('[data-feedback-tab=active]');
+    const resolved = document.querySelector('[data-feedback-tab=resolved]');
+    return {
+      duration: animation.effect.getTiming().duration,
+      bounds: indicator.getBoundingClientRect().toJSON(),
+      width: (active.offsetWidth + resolved.offsetWidth) / 2,
+      height: resolved.offsetHeight,
+      label: resolved.getBoundingClientRect().toJSON(),
+    };
+  })()`);
+  assert.equal(badge.duration, 380);
+  assert(Math.abs(badge.bounds.width - badge.width * 1.18) < 0.2, "The badge stretches midway");
+  assert(Math.abs(badge.bounds.height - badge.height * 0.85) < 0.2, "The badge flattens midway");
+  assert(Math.abs(badge.label.height - badge.height) < 1, "The label keeps its normal height");
   const track = "document.querySelector('[data-feedback-track]')";
   await eventually(() => page.evaluate(`${track}.getAnimations().length > 0`), "queue slide");
   const slide = await page.evaluate(`(() => {
@@ -172,6 +191,25 @@ try {
   })()`);
   assert(slide.x < 0 && slide.x > -slide.width, "Resolved enters from the right");
   await page.evaluate("document.querySelector('[data-feedback-tab=active]').click()");
+  const reversedBadge = await page.evaluate(`(() => {
+    const indicator = ${indicator};
+    const animation = indicator.getAnimations()[0];
+    animation.pause(); animation.currentTime = 0;
+    const bounds = indicator.getBoundingClientRect().toJSON();
+    animation.finish();
+    return {bounds, settled: indicator.getBoundingClientRect().toJSON(),
+      target: document.querySelector('[data-feedback-tab=active]').getBoundingClientRect().toJSON()};
+  })()`);
+  for (const key of ["x", "y", "width", "height"] as const) {
+    assert(
+      Math.abs(reversedBadge.bounds[key] - badge.bounds[key]) < 0.2,
+      `Reversing preserves the badge's current ${key}`,
+    );
+    assert(
+      Math.abs(reversedBadge.settled[key] - reversedBadge.target[key]) < 1,
+      `The badge settles to the selected tab's ${key}`,
+    );
+  }
   await page.evaluate(`Promise.all(${track}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
   assert.equal(await page.evaluate(`new DOMMatrix(getComputedStyle(${track}).transform).m41`), 0);
   await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
@@ -417,6 +455,11 @@ try {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
   await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
+  assert.equal(
+    await page.evaluate(`${indicator}.getAnimations().length`),
+    0,
+    "Reduced motion moves the badge without squashing",
+  );
   assert.equal(
     await page.evaluate(`${track}.getAnimations().length`),
     0,
