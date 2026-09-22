@@ -28,6 +28,16 @@ can run the CLI.
 Markdown, and diff feedback with a scripted agent. It uses bundled examples;
 production preview protection is not simulated.
 
+[![Numbered workflow showing a human asking an AI agent to create an artifact on r3, reviewing it, sending feedback, and reviewing the agent's revisions and replies.](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)
+
+## Screenshots
+
+| Screenshot | What it shows |
+| --- | --- |
+| [![Reviewing an HTML UI proposal](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6)](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6) | Review a UI improvement proposal and leave comments directly on HTML elements. |
+| [![Exploring a library through an interactive demo](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62)](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62) | Learn how a library works internally through an interactive demo. |
+| [![Codex receiving feedback from r3](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19) | Codex receives a direct message from r3 when you ping the agent from the web page. |
+
 ## Get started
 
 Install globally to make the `r3` command available on your PATH:
