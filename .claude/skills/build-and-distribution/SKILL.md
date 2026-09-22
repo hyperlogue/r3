@@ -50,16 +50,20 @@ OIDC identity. So: **renaming `.github/workflows/release.yml` breaks publishing*
 until all five registrations are updated, publishing can't move to another
 workflow or a self-hosted runner, and a **brand-new** package name (adding a
 platform target) has no trusted publisher yet — its first publish is manual, then
-register `release.yml` on it. Requires npm ≥ 11.5.1, which is why both npm
-jobs upgrade npm and omit setup-node's `registry-url` (its `.npmrc` placeholder
-token would shadow OIDC).
+register `release.yml` on it. Requires npm ≥ 11.5.1, which is why the npm
+jobs upgrade npm and omit setup-node's `registry-url` (its `.npmrc`
+placeholder token would shadow OIDC).
 
 ### Five jobs, and the approval gate
 
 `release.yml` is **verify → build → publish → publish-platforms →
-publish-launcher**. Publication is three jobs so **Re-run failed jobs** resumes
-one stage: successful jobs stay complete, and an npm version already on the
-registry is skipped.
+publish-launcher**. **Re-run failed jobs** resumes one stage. A successful
+GitHub Release job is not run again.
+
+That split is load-bearing. Immutable releases reject a re-upload, and that
+rejection used to fail the single publish job before its npm steps — the
+retry had been started because npm failed. The upload fallback in `publish`
+only covers a full re-run. An npm retry must not enter `gh release upload`.
 
 - **`verify`** checks the tag *shape* (plain SemVer — a git ref may contain
   `$( )`, backticks and `;`, so an unvalidated tag reaching a `run:` block is an
@@ -78,18 +82,19 @@ registry is skipped.
   pins come from that staging, waits until every exact pin is visible, then
   publishes `@hyperlogue/r3`. `id-token: write`.
 
-All three publication jobs use **`environment: release`**. GitHub applies that
-gate per job, so each one waits for its own approval. Configure the
+Every publication job uses **`environment: release`**. GitHub asks for that
+environment once per job, so a release asks three times. That is required:
+each package's trusted publisher names the `release` environment, so the job
+that runs `npm publish` must too, and folding those publishes into `publish`
+makes an npm retry re-upload the immutable release. Configure the
 environment's required reviewers (GitHub creates it implicitly, so the workflow
 runs ungated until you do) plus a tag ruleset on `v*`. This matters because **a
 tag push bypasses branch protection**: without the gate, anyone with write
-access could tag an arbitrary commit straight into a signed npm publish. npm's
-trusted-publisher config has an *optional* environment field: blank keeps
-working, and if it's ever filled in it must say `release` on all five packages.
+access could tag an arbitrary commit straight into a signed npm publish.
 
 The npm jobs stage the **published GitHub assets**, not the workflow artifact,
 so a retry ships those bytes even when a full rerun rebuilt different binaries.
-Published immutable assets are kept when a re-upload is rejected.
+An npm version already on the registry is skipped.
 
 `scripts/wait-for-npm-packages.sh` gives the launcher one ten-minute deadline
 for every exact platform pin. Each poll revalidates npm metadata

@@ -20,12 +20,17 @@ name: Release
 # the npm jobs download the published GitHub assets — a retry keeps those bytes
 # even when a full rerun rebuilt different binaries.
 #
-# `environment: release` sits on every publication job (see `publish`).
-# Everything outward-facing waits behind an approval, and the two jobs that run
-# unattended on a tag push can only read. The binaries are already built and
-# smoke-tested by the time the first approval is asked for, so approving is a
-# decision about publishing, not about waiting. GitHub requires that approval
-# once per job.
+# Do not fold publication back into one job. Immutable releases reject a
+# re-upload, and that rejection used to fail the job before the npm steps the
+# retry was for. A failed npm publish is retried by re-running that job only;
+# the GitHub Release job stays done and is not uploaded again.
+#
+# `environment: release` sits on every publication job. npm's trusted publisher
+# requires that claim on the job that runs `npm publish`, and GitHub asks for
+# the environment once per job that names it. Everything outward-facing still
+# waits behind an approval, and the two jobs that run unattended on a tag push
+# can only read. The binaries are already built and smoke-tested by the time
+# the first approval is asked for.
 #
 # Three version sources must agree exactly: the git tag, npm/package.json, and
 # shared/version.ts. stage-npm-packages.ts stamps the launcher's per-platform
@@ -65,10 +70,12 @@ defaults:
 #   - Publishing from another workflow, a fork, or a self-hosted runner won't
 #     work — that's the point. (Publishing from another *job* of this file is
 #     fine: the claim names the workflow, not the job.)
-#   - npm's trusted-publisher config takes an OPTIONAL environment name. Leaving
-#     that field blank (as all five packages have it today) keeps working; if
-#     you ever fill it in, it must be `release` on every package, matching the
-#     environment on every publication job below.
+#   - Each package's trusted publisher names the `release` environment. The
+#     OIDC token carries that claim only when the job sets
+#     `environment: release`, so both npm jobs do. Removing it fails
+#     `npm publish`. Naming it is also why each of those jobs asks for
+#     approval; merging them into the GitHub Release job would make an npm
+#     retry re-upload an immutable release.
 #   - A brand-new package name (say, adding a windows target) has no trusted
 #     publisher yet, so its FIRST publish must be done by hand from a laptop;
 #     then register `release.yml` on it before the next release.

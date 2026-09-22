@@ -102,9 +102,9 @@ if they drift, so keep them in lockstep:
 ## After the tag lands on GitHub
 
 The tag-driven pipeline (`.github/workflows/release.yml`) verifies the tag,
-cross-compiles the four `r3-<os>-<arch>` binaries, then parks for approval.
-Publication is three jobs, and GitHub asks for the `release` environment on
-**each** of them:
+cross-compiles the four `r3-<os>-<arch>` binaries, then publishes in three
+jobs. Each one uses the `release` environment, and GitHub asks for that
+environment **once per job**:
 
 1. The GitHub Release (curl / Homebrew). Its description is the `## [X.Y.Z]`
    section of `CHANGELOG.md` in the tagged tree — step 2's entry, verbatim —
@@ -116,6 +116,12 @@ Publication is three jobs, and GitHub asks for the `release` environment on
 3. The npm launcher (`@hyperlogue/r3`), after those exact versions are visible.
    That wait is one ten-minute deadline, not a manual step.
 
+The repeated approvals are required. npm's trusted publisher names the
+`release` environment, so the job that runs `npm publish` must too. Putting
+the npm publishes in the GitHub Release job would let one approval cover
+them, and it would also make a failed npm publish retry by re-uploading the
+release. Immutable releases reject that re-upload.
+
 **Tell the user the run is parked** — a pushed tag no longer completes on its
 own, and each publication job waits for its own approval. Approve from the run
 page (Actions → the run → *Review deployments*). The binaries are already built
@@ -126,10 +132,10 @@ can compile again (or reuse assets the release already carries).
 
 The pins were already synced in step 3, so there is nothing else to bump by
 hand. If an npm job fails after the GitHub Release exists, use **Re-run failed
-jobs**. Successful jobs stay done, an npm version already on the registry is
-skipped, and the retry downloads the published release assets instead of
-rebuilding. Once that release exists, the expired build artifact does not block
-the npm retry.
+jobs**. The GitHub Release job stays done and is not uploaded again. The npm
+retry asks for its own approval, skips a version already on the registry, and
+downloads the published release assets instead of rebuilding. Once that release
+exists, the expired build artifact does not block the npm retry.
 
 ## If you botch a release
 
