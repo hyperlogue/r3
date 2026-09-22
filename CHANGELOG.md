@@ -4,6 +4,14 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-09-22
+
+r3 1.0 is redesigned around HTML artifacts: agents publish interactive pages,
+and humans review them and leave feedback directly on page elements. Agents can
+reply to comments and publish new versions, keeping the artifact and its
+conversation together. Files and diff artifact types retain the document and code
+review features from previous versions.
+
 ## [0.13.0] - 2026-09-04
 
 ### Added
@@ -466,6 +474,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[1.0.0]: https://github.com/hyperlogue/r3/compare/v0.13.0...v1.0.0
 [0.13.0]: https://github.com/hyperlogue/r3/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/hyperlogue/r3/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/hyperlogue/r3/compare/v0.10.1...v0.11.0

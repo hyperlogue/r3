@@ -1,7 +1,3 @@
-> [!WARNING]
-> This README describes an **unreleased version** with major changes to r3.
-> For the latest released version, see the [README at tag v0.13.0](https://github.com/hyperlogue/r3/blob/v0.13.0/README.md).
-
 <p align="center">
   <img src="web/favicon.svg" alt="r3 logo" width="120" height="120">
 </p>

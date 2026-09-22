@@ -1,6 +1,6 @@
 {
   "name": "@hyperlogue/r3",
-  "version": "0.13.0",
+  "version": "1.0.0",
   "description": "Render. Review. Refine. — view artifacts and give precise feedback to any coding agent. Runs the matching prebuilt native r3 binary (shipped as a per-platform optional dependency); works with `bunx @hyperlogue/r3` and `npx @hyperlogue/r3`.",
   "license": "MIT",
   "type": "module",
@@ -17,10 +17,10 @@
     "launch.mjs"
   ],
   "optionalDependencies": {
-    "@hyperlogue/r3-darwin-arm64": "0.13.0",
-    "@hyperlogue/r3-darwin-x64": "0.13.0",
-    "@hyperlogue/r3-linux-x64": "0.13.0",
-    "@hyperlogue/r3-linux-arm64": "0.13.0"
+    "@hyperlogue/r3-darwin-arm64": "1.0.0",
+    "@hyperlogue/r3-darwin-x64": "1.0.0",
+    "@hyperlogue/r3-linux-x64": "1.0.0",
+    "@hyperlogue/r3-linux-arm64": "1.0.0"
   },
   "engines": {
     "node": ">=18"

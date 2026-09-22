@@ -1,6 +1,6 @@
 {
   "name": "r3",
-  "version": "0.13.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "r3 — Render. Review. Refine. View artifacts and give precise feedback to any coding agent.",
