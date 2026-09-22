@@ -4,6 +4,16 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-09-22
+
+### Changed
+
+- **A release can be retried one step at a time.** Publishing the GitHub
+  release, the per-platform packages, and the launcher are separate steps. The
+  launcher waits up to ten minutes for those platform packages to appear on
+  npm, and a failed step can be run again without rebuilding or repeating a
+  step that already succeeded.
+
 ## [1.0.0] - 2026-09-22
 
 r3 1.0 is redesigned around HTML artifacts: agents publish interactive pages,
@@ -474,6 +484,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[1.0.1]: https://github.com/hyperlogue/r3/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/hyperlogue/r3/compare/v0.13.0...v1.0.0
 [0.13.0]: https://github.com/hyperlogue/r3/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/hyperlogue/r3/compare/v0.11.0...v0.12.0
