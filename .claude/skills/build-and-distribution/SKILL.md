@@ -1,6 +1,6 @@
 ---
 name: build-and-distribution
-description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the frontend-only browser demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, build-demo, stage-pages, gen-artifact-demo), npm/, web/demo/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/demo build.
+description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the frontend-only browser demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, wait-for-npm-packages, build-demo, stage-pages, gen-artifact-demo), npm/, web/demo/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/demo build.
 ---
 
 # Building and shipping r3
@@ -50,14 +50,16 @@ OIDC identity. So: **renaming `.github/workflows/release.yml` breaks publishing*
 until all five registrations are updated, publishing can't move to another
 workflow or a self-hosted runner, and a **brand-new** package name (adding a
 platform target) has no trusted publisher yet — its first publish is manual, then
-register `release.yml` on it. Requires npm ≥ 11.5.1, which is why the job upgrades
-npm and omits setup-node's `registry-url` (its `.npmrc` placeholder token would
-shadow OIDC).
+register `release.yml` on it. Requires npm ≥ 11.5.1, which is why both npm
+jobs upgrade npm and omit setup-node's `registry-url` (its `.npmrc` placeholder
+token would shadow OIDC).
 
-### Three jobs, and the approval gate
+### Five jobs, and the approval gate
 
-`release.yml` is **verify → build → publish**, and the split exists for the last
-one:
+`release.yml` is **verify → build → publish → publish-platforms →
+publish-launcher**. Publication is three jobs so **Re-run failed jobs** resumes
+one stage: successful jobs stay complete, and an npm version already on the
+registry is skipped.
 
 - **`verify`** checks the tag *shape* (plain SemVer — a git ref may contain
   `$( )`, backticks and `;`, so an unvalidated tag reaching a `run:` block is an
@@ -67,25 +69,44 @@ one:
   `--generate-notes`, and a prerelease tag legitimately has no section.
 - **`build`** compiles (or, on a re-run, re-downloads and digest-verifies this
   tag's existing assets), execs the linux-x64 binary as a smoke test, and hands
-  `dist/r3-*` to `publish` as an artifact. It can only read.
-- **`publish`** runs under **`environment: release`** — the human approval gate.
-  It is the only job with `contents: write` + `id-token: write`, so nothing
-  outward-facing happens until someone approves. This matters because **a tag
-  push bypasses branch protection**: without the gate, anyone with write access
-  could tag an arbitrary commit straight into a signed npm publish. Configure the
-  environment's required reviewers in repo settings (GitHub creates it
-  implicitly, so the workflow runs ungated until you do) plus a tag ruleset on
-  `v*`. npm's trusted-publisher config has an *optional* environment field:
-  blank keeps working, and if it's ever filled in it must say `release` on all
-  five packages.
+  `dist/r3-*` to `publish` as an artifact. It can only read. The npm jobs do
+  not use that artifact.
+- **`publish`** creates the GitHub Release. `contents: write`, no npm credential.
+- **`publish-platforms`** downloads those published assets, stages the four
+  platform packages, and publishes them. `id-token: write`.
+- **`publish-launcher`** downloads the same assets, stages again so the launcher
+  pins come from that staging, waits until every exact pin is visible, then
+  publishes `@hyperlogue/r3`. `id-token: write`.
+
+All three publication jobs use **`environment: release`**. GitHub applies that
+gate per job, so each one waits for its own approval. Configure the
+environment's required reviewers (GitHub creates it implicitly, so the workflow
+runs ungated until you do) plus a tag ruleset on `v*`. This matters because **a
+tag push bypasses branch protection**: without the gate, anyone with write
+access could tag an arbitrary commit straight into a signed npm publish. npm's
+trusted-publisher config has an *optional* environment field: blank keeps
+working, and if it's ever filled in it must say `release` on all five packages.
+
+The npm jobs stage the **published GitHub assets**, not the workflow artifact,
+so a retry ships those bytes even when a full rerun rebuilt different binaries.
+Published immutable assets are kept when a re-upload is rejected.
+
+`scripts/wait-for-npm-packages.sh` gives the launcher one ten-minute deadline
+for every exact platform pin. Each poll revalidates npm metadata
+(`--prefer-online`) and bounds the registry request, so a stall cannot outlive
+the deadline. The old per-package 30×5s loop was shorter than registry lag.
+Run `bun test scripts/wait-for-npm-packages.test.mjs` when changing that
+wait. CI runs the same command. A bare `bun test` does not discover `.mjs`.
 
 Two consequences worth keeping: the workflow-level default is `contents: read`
-(only `publish` elevates), and **`publish` never execs a release binary** — it
-only stats them for the exec bit. `build` already ran the one natively-runnable
-target, and exec'ing an unverified artifact in the job that can mint a publish
-credential would let a poisoned binary rewrite the other three platform packages
-first. The artifact's `retention-days: 7` also bounds how long the approval may
-idle; past that, re-run the whole workflow.
+(only `publish` raises it; only the npm jobs hold `id-token: write`), and **no
+publication job execs a release binary**. `publish-platforms` only stats the
+staged exec bit. `build` already ran the one natively-runnable target, and
+exec'ing an unverified artifact in a job that can mint a publish credential
+would let a poisoned binary rewrite the other platform packages first. The
+build artifact's `retention-days: 7` bounds how long the first approval may
+idle. Past that, re-run the workflow so `build` can compile again. Once the
+GitHub Release exists, an npm retry does not need the artifact.
 
 ## `package.json` overrides `bun` → `empty-npm-package`
 

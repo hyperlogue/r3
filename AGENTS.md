@@ -77,7 +77,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mermaid.ts`, `patch-hunks.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
 | Mobile | `web/src/mobile/` containers only; `ArtifactView` is their single composition point |
 | Static demo | `web/demo/artifact-model.ts`, `artifact-backend.ts`, `artifact-api.ts`, `application-api.ts`, `artifact-fixtures.gen.ts`; same public contract, local scripted workflow |
-| Distribution | `scripts/compile.ts`, `spa-css.ts`, `release-binaries.ts`, `stage-npm-packages.ts`, `gen-artifact-demo.ts`, `build-demo.ts`, `stage-pages.ts`; `npm/` binary launcher |
+| Distribution | `scripts/compile.ts`, `spa-css.ts`, `release-binaries.ts`, `stage-npm-packages.ts`, `wait-for-npm-packages.sh`, `gen-artifact-demo.ts`, `build-demo.ts`, `stage-pages.ts`; `npm/` binary launcher |
 
 ## Domain rules
 

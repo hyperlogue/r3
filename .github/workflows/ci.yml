@@ -56,6 +56,12 @@ jobs:
       - name: Lint + format check
         run: bunx @biomejs/biome@2.4.15 check .
 
+      # The release launcher waits on this script; keep its deadline behavior
+      # covered without standing up a registry. Explicit path: bun's default
+      # discovery does not include .mjs.
+      - name: npm publication wait tests
+        run: bun test scripts/wait-for-npm-packages.test.mjs
+
       # Build smoke: compile the host-target binary and confirm it execs. The CLI
       # has --help (no --version), so use that as the exit-0 probe.
       - name: Build smoke

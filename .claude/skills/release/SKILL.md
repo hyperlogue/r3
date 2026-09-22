@@ -102,23 +102,34 @@ if they drift, so keep them in lockstep:
 ## After the tag lands on GitHub
 
 The tag-driven pipeline (`.github/workflows/release.yml`) verifies the tag,
-cross-compiles the four `r3-<os>-<arch>` binaries, and then **stops and waits for
-a human approval** before publishing anything: the job that creates the GitHub
-Release (curl / Homebrew) and publishes the npm launcher (`@hyperlogue/r3`) with
-its per-platform optional-dependency packages runs under the `release`
-environment. **Tell the user the run is parked** — a pushed tag no longer
-completes on its own. Approve it from the run page (Actions → the run → *Review
-deployments*); the binaries are already built and smoke-tested by then, so the
-approval is purely the decision to publish. Approve within a week — the build
-artifact expires after 7 days, and a lapsed run has to be re-run whole.
+cross-compiles the four `r3-<os>-<arch>` binaries, then parks for approval.
+Publication is three jobs, and GitHub asks for the `release` environment on
+**each** of them:
 
-The publish job fills the **release description from the `## [X.Y.Z]` section of
-`CHANGELOG.md` in the tagged tree** — step 2's entry, verbatim —
-falling back to GitHub's auto-generated notes only if that section is
-missing or empty (the version guard warns when it is). This is why the tag must
-sit on the bump commit: a tag one commit early carries a changelog that doesn't
-describe it yet. The pins were already synced in step 3, so there is nothing else
-to bump by hand.
+1. The GitHub Release (curl / Homebrew). Its description is the `## [X.Y.Z]`
+   section of `CHANGELOG.md` in the tagged tree — step 2's entry, verbatim —
+   falling back to GitHub's auto-generated notes only if that section is
+   missing or empty (the version guard warns when it is). This is why the tag
+   must sit on the bump commit: a tag one commit early carries a changelog that
+   doesn't describe it yet.
+2. The four npm platform packages, staged from those published release assets.
+3. The npm launcher (`@hyperlogue/r3`), after those exact versions are visible.
+   That wait is one ten-minute deadline, not a manual step.
+
+**Tell the user the run is parked** — a pushed tag no longer completes on its
+own, and each publication job waits for its own approval. Approve from the run
+page (Actions → the run → *Review deployments*). The binaries are already built
+and smoke-tested, so the approval is the decision to publish. Approve the
+GitHub Release job within a week — its build artifact expires after 7 days. If
+that job never ran and the artifact is gone, re-run the workflow so the build
+can compile again (or reuse assets the release already carries).
+
+The pins were already synced in step 3, so there is nothing else to bump by
+hand. If an npm job fails after the GitHub Release exists, use **Re-run failed
+jobs**. Successful jobs stay done, an npm version already on the registry is
+skipped, and the retry downloads the published release assets instead of
+rebuilding. Once that release exists, the expired build artifact does not block
+the npm retry.
 
 ## If you botch a release
 

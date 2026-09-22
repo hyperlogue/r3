@@ -1,24 +1,31 @@
 name: Release
 
-# Tag-driven release, gated on a human approval. Pushing a `v<version>` tag runs
-# three jobs:
+# Tag-driven release, gated on a human approval. Pushing a `v<version>` tag runs:
 #
-#   verify   — the tag's shape and the version lockstep, in seconds, before a
-#              runner spends half an hour cross-compiling.
-#   build    — the four native binaries (or, on a re-run, the exact bytes already
-#              attached to this tag's release), handed to `publish` as an
-#              artifact. Holds no write permission and no publish credential.
-#   publish  — the GitHub Release (the manual / curl / brew channel), then the
-#              npm packages: the four per-platform binary packages FIRST, then
-#              the launcher that pins them — in that order, because a user must
-#              never resolve a launcher whose platform dependency isn't on the
-#              registry yet.
+#   verify            — the tag's shape and the version lockstep, in seconds,
+#                       before a runner spends half an hour cross-compiling.
+#   build             — the four native binaries (or, on a re-run, the exact
+#                       bytes already attached to this tag's release), handed to
+#                       the GitHub Release job as an artifact. Holds no write
+#                       permission and no publish credential.
+#   publish           — the GitHub Release only (manual / curl / brew).
+#   publish-platforms — the four per-platform npm packages, staged from the
+#                       assets that release just published.
+#   publish-launcher  — the launcher that pins those packages, after each exact
+#                       version is visible on the registry. A user must never
+#                       resolve a launcher whose platform dependency isn't there.
 #
-# The split exists for the `environment: release` gate on `publish` (see the
-# comment there): everything outward-facing waits behind an approval, and the two
-# jobs that run unattended on a tag push can only read. It also means the
-# binaries are already built and smoke-tested by the time the approval is asked
-# for, so approving is a decision about publishing, not about waiting.
+# Publication is split so "Re-run failed jobs" resumes one stage. Successful
+# jobs stay complete, an npm version already on the registry is skipped, and
+# the npm jobs download the published GitHub assets — a retry keeps those bytes
+# even when a full rerun rebuilt different binaries.
+#
+# `environment: release` sits on every publication job (see `publish`).
+# Everything outward-facing waits behind an approval, and the two jobs that run
+# unattended on a tag push can only read. The binaries are already built and
+# smoke-tested by the time the first approval is asked for, so approving is a
+# decision about publishing, not about waiting. GitHub requires that approval
+# once per job.
 #
 # Three version sources must agree exactly: the git tag, npm/package.json, and
 # shared/version.ts. stage-npm-packages.ts stamps the launcher's per-platform
@@ -28,8 +35,9 @@ on:
   push:
     tags: ['v*']
 
-# Least privilege by default: only `publish` elevates, and only from behind the
-# environment gate.
+# Least privilege by default. `publish` is the only job with `contents: write`.
+# Only the two npm jobs hold `id-token: write` (the OIDC identity npm mints a
+# publish credential from). All three sit behind the environment gate.
 permissions:
   contents: read
 
@@ -57,6 +65,10 @@ defaults:
 #   - Publishing from another workflow, a fork, or a self-hosted runner won't
 #     work — that's the point. (Publishing from another *job* of this file is
 #     fine: the claim names the workflow, not the job.)
+#   - npm's trusted-publisher config takes an OPTIONAL environment name. Leaving
+#     that field blank (as all five packages have it today) keeps working; if
+#     you ever fill it in, it must be `release` on every package, matching the
+#     environment on every publication job below.
 #   - A brand-new package name (say, adding a windows target) has no trusted
 #     publisher yet, so its FIRST publish must be done by hand from a laptop;
 #     then register `release.yml` on it before the next release.
@@ -182,15 +194,17 @@ jobs:
           chmod +x dist/r3-linux-x64
           ./dist/r3-linux-x64 --help
 
-      # Hand the binaries to `publish` rather than rebuilding them there: that job
-      # can write releases and mint an npm credential, so the less that happens
-      # inside it the better. The exec bit doesn't survive an artifact round-trip
-      # and doesn't need to — release assets are downloaded as plain bytes, and
-      # stage-npm-packages.ts chmods 0755 as it stages.
+      # Hand the binaries to the GitHub Release job. The npm jobs do not use this
+      # artifact: they download the published release assets, so a retry ships
+      # the bytes the release page serves even if a later full rerun rebuilt.
+      # The exec bit doesn't survive an artifact round-trip and doesn't need to —
+      # release assets are plain bytes, and stage-npm-packages.ts chmods 0755 as
+      # it stages.
       #
-      # `retention-days` also bounds how long the approval gate may idle: approve
-      # within a week, or re-run the whole workflow (which rebuilds, or reuses
-      # whatever already shipped).
+      # `retention-days` bounds how long the first approval may idle. Approve
+      # within a week, or re-run the workflow (which rebuilds, or reuses whatever
+      # the release already carries). Once that release exists, an npm retry does
+      # not need this artifact.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: r3-binaries
@@ -199,26 +213,20 @@ jobs:
           retention-days: 7
 
   publish:
-    name: publish release
+    name: publish GitHub release
     needs: [verify, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # THE APPROVAL GATE — the reason this workflow is three jobs. This job creates
-    # the GitHub Release and holds the OIDC identity npm mints publish credentials
-    # from, and a tag push bypasses branch protection: without a gate, anyone with
-    # write access (or any workflow holding contents:write) could tag an arbitrary
-    # commit straight into a signed publish. Configure this environment in repo
-    # settings with required reviewers, and add a tag ruleset on `v*`. GitHub
-    # creates the environment implicitly if it doesn't exist yet, so the workflow
-    # still runs — it just isn't gated until you configure it.
-    #
-    # npm's trusted-publisher config takes an OPTIONAL environment name. Leaving
-    # that field blank (as all five packages have it today) keeps working; if you
-    # ever fill it in, it must be this exact name on every one of them.
+    # THE APPROVAL GATE. Every publication job uses this environment, and a tag
+    # push bypasses branch protection: without a gate, anyone with write access
+    # (or any workflow holding contents:write) could tag an arbitrary commit
+    # straight into a signed publish. Configure this environment in repo settings
+    # with required reviewers, and add a tag ruleset on `v*`. GitHub creates the
+    # environment implicitly if it doesn't exist yet, so the workflow still runs
+    # — it just isn't gated until you configure it. The gate is per job.
     environment: release
     permissions:
       contents: write # create the GitHub Release + upload assets
-      id-token: write # npm trusted publishing (OIDC) + provenance attestation
     env:
       # The verified value, not the raw ref: the string is identical (verify
       # proved it) but sourcing it from the guard's output means an unvalidated
@@ -230,29 +238,26 @@ jobs:
           persist-credentials: false # gh uses GH_TOKEN; nothing pushes via git
 
       # By exact name, so a stray artifact uploaded by some future job in this run
-      # can't ride along into the release assets or the npm packages. v8 verifies
-      # the artifact's digest on the way out and fails the step on a mismatch.
+      # can't ride along into the release assets. v8 verifies the artifact's
+      # digest on the way out and fails the step on a mismatch.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: r3-binaries
           path: dist
 
-      # The bytes came from another job, so confirm the set is complete before
-      # anything outward-facing happens. Deliberately does NOT exec them: `build`
-      # already smoke-tested the one natively-runnable target, and running an
-      # unverified binary inside the job that can mint an npm publish credential
-      # would let a poisoned artifact rewrite the other three platform packages
-      # before they're published.
+      # Confirm the set is complete before anything outward-facing happens.
+      # Deliberately does not exec them: `build` already smoke-tested the one
+      # natively-runnable target, and this job only uploads bytes.
       - name: Check the downloaded binaries
         run: |
           test "$(ls dist/r3-* | wc -l)" = 4
           ls -l dist
 
-      # GitHub Release FIRST (reversible) — the manual/curl channel. Prerelease
-      # tags (v*-*) are marked so they never become the repo's "Latest". Idempotent:
-      # a re-run re-uploads assets with --clobber (a no-op when build reused them).
-      # Globbed as `dist/r3-*` rather than `dist/*` so only the intended asset kind
-      # is ever attached, whatever else lands in dist/ later.
+      # GitHub Release FIRST. The npm jobs download these published assets,
+      # including on retries, so npm ships the bytes the release page serves.
+      # Prerelease tags (v*-*) are marked so they never become the repo's
+      # "Latest". Globbed as `dist/r3-*` rather than `dist/*` so only the
+      # intended asset kind is ever attached.
       #
       # The release description is this version's CHANGELOG.md section, read from
       # the tagged tree — so the release page matches the changelog verbatim
@@ -268,10 +273,10 @@ jobs:
           PRERELEASE=""
           [[ "$GITHUB_REF_NAME" == *-* ]] && PRERELEASE="--prerelease"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            # Immutable releases (enabled on this repo) freeze a published
-            # release's assets, so a re-run's re-upload is rejected — don't die on
-            # it: the release channel is already converged and the npm steps
-            # below may be the whole reason this run was retried.
+            # Immutable releases freeze a published release's assets, so a
+            # re-upload is rejected. Don't die on it: keep the existing files.
+            # A rebuild is not byte-identical, and an npm package may already
+            # have been published from these bytes.
             gh release upload "$GITHUB_REF_NAME" dist/r3-* --clobber ||
               echo "asset upload rejected (immutable release) — keeping existing assets"
           else
@@ -289,6 +294,34 @@ jobs:
               --title "$GITHUB_REF_NAME" $NOTES $PRERELEASE
           fi
 
+  publish-platforms:
+    name: publish npm platforms
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) + provenance attestation
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # gh uses GH_TOKEN; nothing pushes via git
+
+      # Canonical bytes from the GitHub Release, not the workflow artifact. A
+      # full rerun may rebuild, and Bun builds aren't byte-identical; immutable
+      # release assets are what a retry must publish.
+      - name: Download published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release download "v$VERSION" -D dist -p 'r3-*' --clobber
+          test "$(ls dist/r3-* | wc -l)" = 4
+
       # Bun to run the staging script; no `bun install` — it imports nothing but
       # node: builtins and shared/version.ts, so this job pulls no third-party
       # dependency into the process that can publish.
@@ -304,8 +337,10 @@ jobs:
 
       # The binary ships 0755 in the tarball (npm preserves modes); a 0644 binary
       # would EACCES on every install, so verify the staged package kept the bit.
-      # Stat only — see "Check the downloaded binaries" for why nothing is exec'd
-      # in this job.
+      # Stat only. `build` already smoke-tested the one natively-runnable target,
+      # and running an unverified binary inside the job that can mint an npm
+      # publish credential would let a poisoned artifact rewrite the other three
+      # platform packages before they're published.
       - name: Check the staged packages
         run: |
           for d in dist/npm/*/; do
@@ -335,8 +370,9 @@ jobs:
       # launcher's optionalDependencies pin them at this exact version, so a user
       # must never resolve a launcher whose platform package isn't on the registry
       # yet. Each publish is idempotent (skip if this version already exists) so a
-      # re-run after a partial failure converges. --provenance attests the actual
-      # binary bytes, not just the launcher shim (trusted publishing is
+      # re-run after a partial failure converges. --prefer-online so a stale local
+      # cache can't hide a version that is already published. --provenance attests
+      # the actual binary bytes, not just the launcher shim (trusted publishing is
       # documented to attach provenance on its own, but the flag is what we
       # actually verify, so keep it explicit).
       - name: Publish platform binary packages
@@ -344,46 +380,82 @@ jobs:
           for d in dist/npm/*/; do
             NAME=$(jq -r .name "$d/package.json")
             V=$(jq -r .version "$d/package.json")
-            if [ -n "$(npm view "$NAME@$V" version 2>/dev/null || true)" ]; then
+            if [ -n "$(npm view "$NAME@$V" version --prefer-online 2>/dev/null || true)" ]; then
               echo "$NAME@$V already published — skipping (idempotent re-run)."
               continue
             fi
             ( cd "$d" && npm publish --provenance --access public )
           done
 
-      # npm's read path can lag a successful publish by seconds; wait until all
-      # four platform packages are visible before publishing the launcher, so the
-      # first post-release `npx` can't 404 on a platform dependency. A package
-      # still missing after the timeout FAILS the run — publishing the launcher
-      # anyway would ship exactly the broken resolve this step exists to prevent
-      # (a re-run converges once the registry catches up).
-      - name: Wait for platform packages to be visible
+  publish-launcher:
+    name: publish npm launcher
+    needs: [verify, publish-platforms]
+    runs-on: ubuntu-latest
+    # The visibility wait is ten minutes, and this job also upgrades npm first.
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) + provenance attestation
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # gh uses GH_TOKEN; nothing pushes via git
+
+      # Same canonical bytes as the platform job. Staging again is how this job
+      # gets the launcher pins; it does not republish the platform packages.
+      - name: Download published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          for d in dist/npm/*/; do
-            NAME=$(jq -r .name "$d/package.json")
-            V=$(jq -r .version "$d/package.json")
-            SEEN=""
-            for i in $(seq 1 30); do
-              [ -n "$(npm view "$NAME@$V" version 2>/dev/null || true)" ] && { echo "$NAME@$V visible."; SEEN=1; break; }
-              echo "waiting for $NAME@$V to appear ($i/30)…"; sleep 5
-            done
-            if [ -z "$SEEN" ]; then
-              echo "::error::$NAME@$V not visible after 150s — not publishing the launcher against a missing platform package."
-              exit 1
-            fi
-          done
+          set -euo pipefail
+          gh release download "v$VERSION" -D dist -p 'r3-*' --clobber
+          test "$(ls dist/r3-* | wc -l)" = 4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.13
+
+      - name: Stage npm packages and launcher pins
+        run: bun scripts/stage-npm-packages.ts
+
+      # Same node/npm setup as the platform job, including the omitted
+      # registry-url. See that job for why the upgrade and the missing .npmrc
+      # are load-bearing.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Use an npm that speaks OIDC
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      # npm's read path can lag a successful publish by minutes. Wait until all
+      # four platform packages are visible before publishing the launcher, so the
+      # first post-release `npx` can't 404 on a platform dependency. One
+      # ten-minute deadline covers every pin, the registry requests, and the
+      # sleeps. A package still missing after that FAILS the job — publishing
+      # the launcher anyway would ship exactly the broken resolve this step
+      # exists to prevent. Re-run failed jobs once the registry catches up.
+      - name: Wait for platform packages to be visible
+        run: scripts/wait-for-npm-packages.sh
 
       # npm publish LAST (effectively irreversible), after its platform packages.
       # Skip if this exact version is already on npm, so a re-run after a transient
       # failure converges. Prerelease versions go to the `next` dist-tag so `latest`
       # never resolves an RC. --provenance (needs id-token: write) gives users a
       # verifiable build attestation — free for a public repo whose repository URL
-      # already matches.
+      # already matches. Lifecycle scripts stay enabled: prepack copies the README
+      # into the published package.
       - name: Publish npm launcher
         working-directory: npm
         run: |
           V=$(jq -r .version package.json)
-          if [ -n "$(npm view "@hyperlogue/r3@$V" version 2>/dev/null || true)" ]; then
+          if [ -n "$(npm view "@hyperlogue/r3@$V" version --prefer-online 2>/dev/null || true)" ]; then
             echo "@hyperlogue/r3@$V already published — skipping (idempotent re-run)."
             exit 0
           fi
