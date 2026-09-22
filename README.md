@@ -8,7 +8,7 @@
 
 <h1 align="center">r3: Render. Review. Refine.</h1>
 
-<p align="center"><b>View artifacts. Give precise feedback.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
+<p align="center"><b>View artifacts created by AI agents. Give precise feedback.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
@@ -17,13 +17,12 @@
   <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
 </p>
 
-r3 is a Claude Artifacts-style tool for reading, using, and discussing agent output.
+r3 is a tool for reading, using, and discussing agent output.
 Open an interactive page, read a document, or inspect code changes. Select an
 element or passage to leave feedback and continue the conversation with your agent.
 
-Agents publish complete, versioned artifacts through a CLI or HTTP API. Every
-version stays available, and you choose when to switch to a revision. r3 works
-with any agent that can run the CLI.
+Agents publish artifacts through a CLI or HTTP API. r3 works with any agent that
+can run the CLI.
 
 [Try the browser demo](https://hyperlogue.github.io/r3/demo/) to explore HTML,
 Markdown, and diff feedback with a scripted agent. It uses bundled examples;
@@ -64,6 +63,9 @@ r3 supports three kinds of artifacts:
 
 HTML artifacts open as pages; files artifacts have a file browser; diff artifacts
 show captured code changes.
+
+For ideas on using HTML for plans, reports, and interactive explanations, see
+Anthropic's [The unreasonable effectiveness of HTML](https://claude.com/blog/using-claude-code-the-unreasonable-effectiveness-of-html).
 
 ## Local and remote access
 
