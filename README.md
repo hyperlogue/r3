@@ -8,7 +8,7 @@
 
 <h1 align="center">r3: Render. Review. Refine.</h1>
 
-<p align="center"><b>View artifacts created by AI agents. Give precise feedback.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
+<p align="center"><b>View AI-generated artifacts. Give precise feedback.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
