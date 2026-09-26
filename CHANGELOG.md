@@ -4,6 +4,28 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-09-26
+
+### Changed
+
+- **Bring feedback into your agent with a command.** Run
+  `r3 feedback fetch <artifact-id>` in your harness to load new feedback and
+  replies. Supported agents then listen for future feedback automatically. In the
+  web UI, a new button replaces **Copy prompt** and helps you copy this command
+  with the current artifact ID prefilled.
+
+### Fixed
+
+- **Feedback now has at-least-once delivery.** Fetch and watch mark feedback
+  delivered only after stdout succeeds, so failed output cannot be mistaken for
+  delivery. Retries may repeat feedback.
+- **Resolution updates survive edits.** Agents still receive resolution updates
+  for previously delivered notes that were edited before being resolved.
+
+### Removed
+
+- **The `r3 prompt` alias has been removed.** Use `r3 feedback fetch` instead.
+
 ## [1.0.1] - 2026-09-22
 
 ### Changed
@@ -484,6 +506,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[1.1.0]: https://github.com/hyperlogue/r3/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/hyperlogue/r3/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/hyperlogue/r3/compare/v0.13.0...v1.0.0
 [0.13.0]: https://github.com/hyperlogue/r3/compare/v0.12.0...v0.13.0
