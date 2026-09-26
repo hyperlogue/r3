@@ -26,7 +26,7 @@ test("the demo human owner can edit agent messages without making them undeliver
   expect(demo.note(note.id).note.sentAt).toBe(sentAt);
   expect(demo.pending(note.artifactId)).toHaveLength(0);
   await artifactApi.deleteFeedback(note.id);
-  expect(demo.get(note.artifactId).feedback).toHaveLength(0);
+  expect(demo.get(note.artifactId).feedback.some((item) => item.id === note.id)).toBe(false);
 });
 
 test("demo delivery acknowledges only the requested notes and emits presence updates", async () => {

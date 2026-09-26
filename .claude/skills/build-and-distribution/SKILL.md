@@ -146,6 +146,10 @@ queries as production. There is no global EventSource or fetch shim.
 
 `scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes two
 public demo artifacts: an interactive HTML curve lab and a six-file diff review.
+Each starts with four already-sent conversations: two human-authored and two
+agent-authored, with replies, three open threads, and one resolved thread. Saved
+gallery sessions gain the additional threads once, preserving existing work and
+later deletions.
 The curve lab embeds `samples/curve-lab.js` inline, with no external chart library;
 its sliders update the approximation, residual plot, and sampled error metrics.
 The generated workshop seed also retains the Files example for Storybook and the

@@ -4,8 +4,20 @@ import { ArtifactDemoBackend } from "./artifact-backend.ts";
 test("demo targets match their published source and diff, and reads retain prior versions", async () => {
   const backend = new ArtifactDemoBackend();
   try {
-    for (const artifact of backend.state.artifacts)
-      for (const note of artifact.feedback) backend.target(artifact.id, note.target);
+    for (const artifact of backend.state.artifacts) {
+      expect(backend.pending(artifact.id)).toEqual([]);
+      for (const note of artifact.feedback) {
+        backend.target(artifact.id, note.target);
+        expect(note.sentAt).not.toBeNull();
+        for (const reply of note.replies) {
+          expect(reply.sentAt).not.toBeNull();
+          expect(reply.context).toEqual({
+            versionSeq: 1,
+            representation: artifact.kind === "html" ? "rendered" : "diff",
+          });
+        }
+      }
+    }
     const id = backend.state.artifacts[0].id;
     const first = structuredClone(backend.publication(id, 1));
     const firstStorage = backend.get(id).storage;
@@ -141,4 +153,40 @@ test("older saved demos gain the HTML sample once without losing notes or undoin
   backend.close();
   upgraded.close();
   restored.close();
+});
+
+test("saved galleries gain sent conversations once while preserving user work and deletions", () => {
+  const backend = new ArtifactDemoBackend();
+  const id = "artifact_weekend";
+  const sample = backend.get(id);
+  const addedId = sample.feedback[1].id;
+  sample.feedback = sample.feedback.slice(0, 1);
+  sample.feedback[0].body = "Keep this edited welcome note";
+  const pending = backend.addFeedback(id, "Keep my unsent feedback", { kind: "artifact" });
+  const before = structuredClone(backend.note(pending.id).note);
+  backend.state.schema = 4;
+  backend.state.artifacts = backend.state.artifacts.filter((item) => item.id !== "artifact_code");
+  let snapshot = JSON.stringify(backend.state);
+  const storage = {
+    getItem: () => snapshot,
+    setItem: (_key: string, value: string) => {
+      snapshot = value;
+    },
+  };
+  const upgraded = new ArtifactDemoBackend(storage);
+  expect(upgraded.get(id).feedback).toHaveLength(5);
+  expect(upgraded.get(id).feedback[0].body).toBe("Keep this edited welcome note");
+  expect(upgraded.note(pending.id).note).toEqual(before);
+  expect(upgraded.pending(id).map((note) => note.id)).toEqual([pending.id]);
+  expect(upgraded.state.everDelivered[addedId]).toBe(true);
+  expect(upgraded.get(id).unhandledCount).toBe(2);
+  expect(() => upgraded.get("artifact_code")).toThrow("Artifact not found");
+  const reloaded = new ArtifactDemoBackend(storage);
+  expect(reloaded.get(id).feedback).toHaveLength(5);
+  reloaded.get(id).feedback = reloaded.get(id).feedback.filter((note) => note.id !== addedId);
+  reloaded.persist();
+  const deleted = new ArtifactDemoBackend(storage);
+  expect(deleted.get(id).feedback).toHaveLength(4);
+  expect(() => deleted.note(addedId)).toThrow("Feedback not found");
+  for (const instance of [backend, upgraded, reloaded, deleted]) instance.close();
 });

@@ -9,7 +9,10 @@ import {
   validateStoredPatch,
 } from "../server/patch-content.ts";
 import {
+  type ArtifactActor,
   type ArtifactDetail,
+  type ArtifactDocumentTarget,
+  type ArtifactFeedback,
   type ArtifactKind,
   type ArtifactVersion,
   isUnhandledArtifactFeedback,
@@ -21,6 +24,7 @@ const previews: Record<string, { contentHash: string; documents: Record<string, 
 
 const time = "2026-09-11T12:00:00.000Z";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
+const human = { role: "human" as const, sessionId: null };
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const project = {
   id: "project_demo",
@@ -264,6 +268,192 @@ for (const [item, content] of [
     },
   ];
 }
+function seedThread(
+  item: ArtifactDetail,
+  key: string,
+  target: ArtifactDocumentTarget,
+  messages: [ArtifactActor, string][],
+  status: ArtifactFeedback["status"] = "open",
+) {
+  const id = `feedback_${item.id}_${key}`;
+  const stamp = (index: number) =>
+    new Date(Date.parse(time) + (item.feedback.length * 5 + index) * 60_000).toISOString();
+  const [author, body] = messages[0];
+  const updatedAt = stamp(messages.length - 1);
+  item.feedback.push({
+    id,
+    artifactId: item.id,
+    author,
+    body,
+    target,
+    status,
+    legacy: null,
+    createdAt: stamp(0),
+    updatedAt,
+    sentAt: stamp(0),
+    statusUnsent: false,
+    claim: null,
+    replies: messages.slice(1).map(([author, body], index) => ({
+      id: `reply_${item.id}_${key}_${index + 1}`,
+      feedbackId: id,
+      artifactId: item.id,
+      author,
+      body,
+      context: { versionSeq: target.versionSeq, representation: target.kind },
+      target: null,
+      legacy: null,
+      createdAt: stamp(index + 1),
+      sentAt: stamp(index + 1),
+    })),
+  });
+  item.updatedAt = updatedAt;
+}
+
+seedThread(
+  html,
+  "residual_scale",
+  {
+    kind: "rendered",
+    versionSeq: 1,
+    path: "index.html",
+    locator: { selector: ".residual-heading h2", quote: "Residual error", route: "#" },
+  },
+  [
+    [
+      human,
+      "The residual curve still fills the chart after I choose Close fit. Is the error actually getting smaller?",
+    ],
+    [
+      actor,
+      "Yes. The residual axis rescales to the largest error, so its shape stays readable. Compare the axis labels and RMSE to see the improvement; the main signal plot keeps a fixed scale.",
+    ],
+    [
+      human,
+      "That explains it. A fixed-scale toggle would make it easier to compare two parameter setups.",
+    ],
+  ],
+);
+seedThread(
+  html,
+  "sampled_error",
+  {
+    kind: "rendered",
+    versionSeq: 1,
+    path: "index.html",
+    locator: {
+      selector: ".metrics div:last-child dt",
+      quote: "Maximum absolute error",
+      route: "#",
+    },
+  },
+  [
+    [
+      actor,
+      "This is the largest error among the sampled points. A slightly larger miss could fall between samples.",
+    ],
+    [
+      human,
+      "Please keep the sample count and interval visible next to the metrics so that limitation is clear.",
+    ],
+    [
+      actor,
+      "The caption below the metrics shows 401 evenly spaced samples over [0, 10]. Behind the curves also explains why this is a sampled maximum.",
+    ],
+  ],
+);
+seedThread(
+  html,
+  "close_fit",
+  {
+    kind: "rendered",
+    versionSeq: 1,
+    path: "index.html",
+    locator: { selector: '[data-preset="close"]', quote: "Close fit", route: "#" },
+  },
+  [
+    [human, "Is Close fit a calculated optimum, or a reference set of parameters?"],
+    [
+      actor,
+      "It matches the main decaying sine wave. The model has no second cosine term, so the small ripple remains. The method notes call this a reference preset, not a numerically optimized solution.",
+    ],
+    [human, "Got it. The explanation makes that distinction clear."],
+  ],
+  "resolved",
+);
+seedThread(
+  code,
+  "version_banner",
+  {
+    kind: "diff",
+    versionSeq: 1,
+    path: "components/VersionBanner.tsx",
+    locator: {
+      side: "new",
+      start: 11,
+      end: 11,
+      quote: "      <span>The workspace will open it automatically.</span>",
+    },
+  },
+  [
+    [
+      human,
+      "Can this offer a Go to the latest version button? Switching automatically would interrupt a review in progress.",
+    ],
+    [
+      actor,
+      "Agreed. The banner should announce the new publication and let the reader decide when to open it.",
+    ],
+    [human, "Please keep the current scroll position when that announcement arrives, too."],
+  ],
+);
+seedThread(
+  code,
+  "original_target",
+  {
+    kind: "diff",
+    versionSeq: 1,
+    path: "feedback.ts",
+    locator: { side: "new", start: 13, end: 13, quote: "    version: latestVersion," },
+  },
+  [
+    [
+      actor,
+      "Locate substitutes the newest version here even though the target already records its original version. The same line number could point at different code after publication.",
+    ],
+    [
+      human,
+      "Use the original target version for Locate. A reply can link to a fix in a newer version separately.",
+    ],
+    [
+      actor,
+      "I'll return note.target.version and add a regression check. That will keep the original evidence intact when more versions arrive.",
+    ],
+  ],
+);
+seedThread(
+  code,
+  "empty_state",
+  {
+    kind: "diff",
+    versionSeq: 1,
+    path: "navigation.test.ts",
+    locator: {
+      side: "new",
+      start: 9,
+      end: 9,
+      quote: "  expect(selectedVersion([], null)).toBeNull();",
+    },
+  },
+  [
+    [human, "What should the workspace show before the first publication is available?"],
+    [
+      actor,
+      "This test keeps the selection null for an empty list. The matching guard in workspace.tsx renders “No publications yet.” instead of trying to open a missing version.",
+    ],
+    [human, "That covers the empty state I was asking about. Thanks."],
+  ],
+  "resolved",
+);
 for (const item of [docs, code, html])
   item.unhandledCount = item.feedback.filter(isUnhandledArtifactFeedback).length;
 const themes = listThemes();

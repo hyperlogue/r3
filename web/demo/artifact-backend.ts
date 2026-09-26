@@ -38,7 +38,7 @@ export class ArtifactDemoBackend {
     this.state = this.seed();
     try {
       const saved = JSON.parse(storage?.getItem(KEY) ?? "null");
-      if ([1, 2, 3, 4].includes(saved?.schema) && Array.isArray(saved.artifacts))
+      if ([1, 2, 3, 4, 5].includes(saved?.schema) && Array.isArray(saved.artifacts))
         this.state = saved;
     } catch {
       /* A private or full browser store still supports this tab. */
@@ -74,6 +74,25 @@ export class ArtifactDemoBackend {
       this.state.schema = 4;
       this.persist();
     }
+    if (this.state.schema === 4) {
+      // Add the new conversation examples once without restoring deleted
+      // artifacts or the original welcome note, or replacing existing work.
+      for (const artifact of this.state.artifacts) {
+        const sample = this.fixtures.artifacts.find((item) => item.id === artifact.id);
+        const additions =
+          sample?.feedback
+            .slice(1)
+            .filter((note) => !artifact.feedback.some((saved) => saved.id === note.id)) ?? [];
+        if (!additions.length) continue;
+        artifact.feedback.push(...structuredClone(additions));
+        for (const note of additions) this.state.everDelivered[note.id] = true;
+        this.state.feedbackRevisions[artifact.id] =
+          (this.state.feedbackRevisions[artifact.id] ?? 0) + 1;
+        artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
+      }
+      this.state.schema = 5;
+      this.persist();
+    }
     // Backfill byte metadata for saved demos without discarding their feedback.
     const seedPublications = new Map(
       [...Object.values(this.fixtures.publications), ...Object.values(this.fixtures.pending)].map(
@@ -105,7 +124,7 @@ export class ArtifactDemoBackend {
     const seed = structuredClone(this.fixtures);
     return {
       ...seed,
-      schema: 4,
+      schema: 5,
       feedbackRevisions: {},
       viewed: {},
       everDelivered: Object.fromEntries(
