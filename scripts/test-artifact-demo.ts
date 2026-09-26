@@ -32,19 +32,28 @@ try {
   });
   await page.command("Page.navigate", { url: new URL("/r3/demo/", server.url).href });
   await eventually(
-    () => page.evaluate("document.body?.textContent.includes('Design a published workspace')"),
+    () =>
+      page.evaluate("document.body?.textContent.includes('Keep feedback on its original version')"),
     "demo artifact home",
   );
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('Explore'))?.click()",
   );
+  assert(
+    await page.evaluate("!document.body.textContent.includes('Design a published workspace')"),
+  );
+  assert(await page.evaluate("document.body.textContent.includes('Curve lab — a little closer')"));
   await page.evaluate(
-    "Array.from(document.querySelectorAll('a')).find(a=>a.textContent.includes('Design a published workspace')).click()",
+    "Array.from(document.querySelectorAll('a')).find(a=>a.textContent.includes('Keep feedback on its original version')).click()",
   );
   await eventually(
     () =>
       page.evaluate("document.querySelector('[aria-label=\"Published version\"]')?.value==='1'"),
     "demo first version",
+  );
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-file]').length === 6"),
+    "six captured diff files",
   );
   await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
   await eventually(

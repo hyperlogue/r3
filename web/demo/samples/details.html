@@ -3,19 +3,30 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>The small things</title>
+    <title>Behind the curves — Curve lab</title>
     <link rel="stylesheet" href="./style.css">
   </head>
   <body>
-    <main>
-      <p class="eyebrow">A small weekend guide · publication DEMO_VERSION</p>
-      <h1>The small things.</h1>
-      <p class="intro">A few things to bring. Plenty of room for the unexpected.</p>
-      <section id="checklist">
-        <h2>Before you head out</h2>
-        <ul><li>A refillable water bottle</li><li>Something to share</li><li>A book you want to finish</li><li>A light layer for the way home</li></ul>
+    <main class="method">
+      <header class="masthead"><span class="wordmark">∿ Curve lab</span><span>Publication DEMO_VERSION</span></header>
+      <p class="eyebrow">The experiment</p>
+      <h1>Behind the curves.</h1>
+      <section id="method">
+        <h2>A signal with a little extra detail</h2>
+        <p>The ground truth combines a decaying wave with a smaller ripple:</p>
+        <code>f(x) = e<sup>−0.22x</sup> sin(1.4x) + 0.12 cos(3x)</code>
+        <p>Your model has one decaying wave and a constant offset:</p>
+        <code>ĝ(x) = A e<sup>−dx</sup> sin(ωx + φ) + b</code>
+        <p>Start with A = 1, d = 0.22, ω = 1.4, φ = 0, and b = 0. This matches the main wave, but the model has no second cosine term. Even a close fit leaves a residual. The “Close fit” preset is a useful reference, not a numerically optimized solution.</p>
       </section>
-      <a href="./index.html#plan">← Back to the afternoon plan</a>
+      <section>
+        <h2>Three ways to measure the miss</h2>
+        <p>For each of 401 equally spaced points from 0 to 10, compute e = ĝ(x) − f(x). All three metrics use those same points and the signal’s units.</p>
+        <dl class="definitions"><dt>Root mean square error</dt><dd>√mean(e²). Squaring gives larger misses more weight.</dd><dt>Mean absolute error</dt><dd>mean(|e|). The average size of a miss, ignoring its sign.</dd><dt>Maximum absolute error</dt><dd>max(|e|). The worst miss among the sampled points; the continuous maximum may fall between samples.</dd></dl>
+        <p>The residual plot shows signed error: positive means the model is too high, negative means it is too low. Its vertical scale adapts to the largest error; the main signal plot keeps a fixed scale for comparison.</p>
+      </section>
+      <section><h2>Try this</h2><p>Choose “Phase drift”, then lower the frequency until the peaks line up. Try “Slow decay” and watch what happens near x = 10. Use the point inspector to compare both formulas at a specific x.</p><p>All calculations happen in this page. Sliders also work with arrow keys; Reset restores this publication’s initial setup. Opening another publication starts a fresh experiment.</p></section>
+      <a href="./index.html#experiment">← Back to the experiment</a>
     </main>
   </body>
 </html>

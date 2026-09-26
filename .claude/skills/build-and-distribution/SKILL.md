@@ -144,11 +144,16 @@ aliases five exact imports:
 and lifecycle in browser storage. An async event stream invalidates the same
 queries as production. There is no global EventSource or fetch shim.
 
-`scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes three
-synthetic artifacts, complete source/diff versions, original binary-safe bytes,
-retained Markdown HTML and metadata, HTML/CSS/image samples, theme palettes, and
-scripted follow-up publications. Preview documents are a separate generated export;
-they are not restored from browser storage.
+`scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes two
+public demo artifacts: an interactive HTML curve lab and a six-file diff review.
+The curve lab embeds `samples/curve-lab.js` inline, with no external chart library;
+its sliders update the approximation, residual plot, and sampled error metrics.
+The generated workshop seed also retains the Files example for Storybook and the
+tutorial. Complete versions, original bytes, retained Markdown HTML, theme palettes,
+and scripted follow-up publications share the same generator. Preview documents
+are a separate generated export; they are not restored from browser storage.
+This gallery uses the `r3-artifact-demo-curves` storage key so returning visitors
+start with the current examples; the previous practice state is left untouched.
 Shiki, SQLite, and Git never ship to the browser. Run `bun run gen:demo` after
 editing canned content; generated fixtures are excluded from Biome.
 

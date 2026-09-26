@@ -3,29 +3,67 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>A little room to wander</title>
+    <title>Curve lab — a little closer</title>
     <link rel="stylesheet" href="./style.css">
   </head>
-  <body>
+  <body data-version="DEMO_VERSION">
     <main>
-      <p class="eyebrow">A small weekend guide · publication DEMO_VERSION</p>
-      <h1>A little room<br>to wander.</h1>
-      <p class="intro">Leave the schedule open. Take the scenic path. Find something worth slowing down for.</p>
-      <img src="./landscape.svg" alt="A winding path through rolling green hills" width="720" height="220">
-      <section id="plan">
-        <h2>Your afternoon, unhurried</h2>
-        <p id="reading-time">DEMO_ESTIMATE min read</p>
-        <p>Start with a walk, stop for a warm drink, and leave a little space for a detour.</p>
-        <button type="button" id="pack">Add a picnic to the plan</button>
-        <p id="packed" role="status"></p>
-        <a href="./details.html#checklist">Open the packing checklist →</a>
-      </section>
-      <footer>Try comment mode on the reading estimate. Send feedback to the practice agent to see the next publication.</footer>
+      <header class="masthead"><span class="wordmark">∿ Curve lab</span><span>Experiment 01 · publication DEMO_VERSION</span></header>
+      <div class="intro">
+        <div><p class="eyebrow">An exercise in approximation</p><h1>A little closer.</h1></div>
+        <p>One true signal. Five dials.<br>Drag a parameter and see where your model gets it right — and where it misses.</p>
+      </div>
+      <div class="formulas">
+        <div><span class="legend truth">Ground truth</span><code>f(x) = e<sup>−0.22x</sup> sin(1.4x) + 0.12 cos(3x)</code></div>
+        <div><span class="legend estimate">Your approximation</span><code>ĝ(x) = A e<sup>−dx</sup> sin(ωx + φ) + b</code></div>
+      </div>
+      <div class="lab" id="experiment">
+        <section class="plots" aria-label="Live curve comparison">
+          <div class="section-heading"><h2>Signal &amp; approximation</h2><span>Shading shows the gap</span></div>
+          <svg id="curve-chart" class="plot" viewBox="0 0 744 284" role="img" aria-labelledby="curve-title curve-desc">
+            <title id="curve-title">Ground truth and adjustable approximation</title>
+            <desc id="curve-desc">Solid green is the ground truth; dashed orange is the approximation. Adjust the five parameters to compare the curves. The point inspector gives exact values.</desc>
+            <g class="grid"><path d="M52 46H712 M52 92H712 M52 184H712 M52 230H712 M52 25V251 M184 25V251 M316 25V251 M448 25V251 M580 25V251 M712 25V251"/></g>
+            <path class="zero" d="M52 138H712"/>
+            <g class="axis-label"><text x="40" y="50">2</text><text x="40" y="96">1</text><text x="40" y="142">0</text><text x="40" y="188">−1</text><text x="40" y="234">−2</text></g>
+            <g class="tick-label"><text x="52" y="272">0</text><text x="184" y="272">2</text><text x="316" y="272">4</text><text x="448" y="272">6</text><text x="580" y="272">8</text><text x="712" y="272">10</text></g>
+            <path id="gap-area" class="gap-area"/><path id="truth-path" class="truth-line"/><path id="estimate-path" class="estimate-line"/>
+            <line id="curve-cursor" class="cursor" x1="217" x2="217" y1="25" y2="251"/>
+            <circle id="truth-point" class="truth-point" r="4"/><circle id="estimate-point" class="estimate-point" r="4"/>
+          </svg>
+          <div class="section-heading residual-heading"><h2>Residual error</h2><span>ĝ(x) − f(x) · auto-scaled</span></div>
+          <svg id="error-chart" class="plot" viewBox="0 0 744 169" role="img" aria-labelledby="error-title error-desc">
+            <title id="error-title">Signed error across the domain</title>
+            <desc id="error-desc">Values above zero overestimate the true signal; values below zero underestimate it. The vertical scale follows the largest error.</desc>
+            <g class="grid"><path d="M52 25H712 M52 133H712 M52 25V133 M184 25V133 M316 25V133 M448 25V133 M580 25V133 M712 25V133"/></g>
+            <path class="zero" d="M52 79H712"/>
+            <g class="axis-label"><text id="error-upper" x="40" y="29">+1.0</text><text x="40" y="83">0</text><text id="error-lower" x="40" y="137">−1.0</text></g>
+            <g class="tick-label"><text x="52" y="158">0</text><text x="184" y="158">2</text><text x="316" y="158">4</text><text x="448" y="158">6</text><text x="580" y="158">8</text><text x="712" y="158">10</text></g>
+            <path id="error-area" class="gap-area"/><path id="error-path" class="error-line"/>
+            <line id="error-cursor" class="cursor" x1="217" x2="217" y1="25" y2="133"/><circle id="error-point" class="estimate-point" r="4"/>
+          </svg>
+          <section class="results" aria-label="Approximation error metrics">
+            <dl class="metrics"><div><dt>Root mean square error</dt><dd id="rmse">—</dd></div><div><dt>Mean absolute error</dt><dd id="mae">—</dd></div><div><dt>Maximum absolute error</dt><dd id="max-error">—</dd></div></dl>
+            <p id="fit-status" role="status">Adjust a dial to explore.</p><span>401 evenly spaced samples · x ∈ [0, 10]</span>
+          </section>
+          <div class="inspector">
+            <label for="probe">Inspect at x <output id="probe-value" for="probe">2.50</output></label>
+            <input id="probe" type="range" min="0" max="10" step="0.01" value="2.5">
+            <dl class="point-values"><div><dt>Truth</dt><dd id="point-truth">—</dd></div><div><dt>Approximation</dt><dd id="point-estimate">—</dd></div><div><dt>Signed error</dt><dd id="point-error">—</dd></div></dl>
+          </div>
+        </section>
+        <aside class="controls" aria-label="Approximation parameters">
+          <div class="section-heading"><h2>Tune your model</h2><button id="reset" type="button" class="text-button">Reset</button></div>
+          <div class="parameter"><label for="amplitude"><span>Amplitude <i>A</i></span><output id="amplitude-value" for="amplitude">0.80</output></label><input id="amplitude" type="range" min="0" max="1.8" step="0.01" value="0.8"><p>The height of the wave</p></div>
+          <div class="parameter"><label for="decay"><span>Decay <i>d</i></span><output id="decay-value" for="decay">0.12</output></label><input id="decay" type="range" min="0" max="0.6" step="0.01" value="0.12"><p>How quickly it fades</p></div>
+          <div class="parameter"><label for="frequency"><span>Frequency <i>ω</i></span><output id="frequency-value" for="frequency">1.15</output></label><input id="frequency" type="range" min="0.5" max="2.5" step="0.01" value="1.15"><p>The spacing between peaks</p></div>
+          <div class="parameter"><label for="phase"><span>Phase <i>φ</i></span><output id="phase-value" for="phase">0.30</output></label><input id="phase" type="range" min="-3.14" max="3.14" step="0.01" value="0.3"><p>A shift along the x-axis · radians</p></div>
+          <div class="parameter"><label for="offset"><span>Offset <i>b</i></span><output id="offset-value" for="offset">0.10</output></label><input id="offset" type="range" min="-0.5" max="0.5" step="0.01" value="0.1"><p>Move the whole signal up or down</p></div>
+          <div class="presets"><p class="eyebrow">Try a starting point</p><div><button type="button" data-preset="close" aria-pressed="false">Close fit</button><button type="button" data-preset="drift" aria-pressed="false">Phase drift</button><button type="button" data-preset="decay" aria-pressed="false">Slow decay</button></div></div>
+        </aside>
+      </div>
+      <footer><p id="model-note">DEMO_MODEL_NOTE</p><a href="./details.html#method">Behind the curves ↗</a></footer>
     </main>
-    <script>
-      document.getElementById("pack").addEventListener("click", () => {
-        document.getElementById("packed").textContent = "Picnic added. Leave room for something sweet.";
-      });
-    </script>
+    <script data-demo-script></script>
   </body>
 </html>

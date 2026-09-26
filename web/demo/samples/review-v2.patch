@@ -1,0 +1,142 @@
+diff --git a/components/VersionBanner.tsx b/components/VersionBanner.tsx
+--- a/components/VersionBanner.tsx
++++ b/components/VersionBanner.tsx
+@@ -1,14 +1,17 @@
+ type VersionBannerProps = {
+   latest: number;
+   selected: number;
++  onSelect: (version: number) => void;
+ };
+
+-export function VersionBanner({ latest, selected }: VersionBannerProps) {
+-  if (latest === selected) return null;
++export function VersionBanner({ latest, selected, onSelect }: VersionBannerProps) {
++  if (latest <= selected) return null;
+   return (
+     <aside className="version-banner" role="status">
+-      <span>Version {latest} is available.</span>
+-      <span>The workspace will open it automatically.</span>
++      <span>Version {latest} is available. You are reading version {selected}.</span>
++      <button type="button" onClick={() => onSelect(latest)}>
++        Go to the latest version
++      </button>
+     </aside>
+   );
+ }
+diff --git a/workspace.tsx b/workspace.tsx
+--- a/workspace.tsx
++++ b/workspace.tsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useState } from "react";
+ import { selectedVersion } from "./navigation";
+ import { VersionBanner } from "./components/VersionBanner";
+
+@@ -8,17 +8,17 @@
+ };
+
+ export function Workspace({ versions, renderVersion }: WorkspaceProps) {
+-  const [selected, setSelected] = useState<number | null>(null);
++  const [requested, setRequested] = useState<number | null>(null);
++  const selected = selectedVersion(versions, requested);
+   const latest = versions.at(-1) ?? null;
+
+-  useEffect(() => {
+-    setSelected(selectedVersion(versions, selected));
+-  }, [versions, selected]);
++  if (selected === null || latest === null) return <p>No publications yet.</p>;
++  // Pin the first available publication, including one arriving after an empty state.
++  if (requested !== selected) setRequested(selected);
+
+-  if (selected === null || latest === null) return <p>No publications yet.</p>;
+   return (
+     <main>
+-      <VersionBanner latest={latest} selected={selected} />
++      <VersionBanner latest={latest} selected={selected} onSelect={setRequested} />
+       {renderVersion(selected)}
+     </main>
+   );
+diff --git a/feedback.ts b/feedback.ts
+--- a/feedback.ts
++++ b/feedback.ts
+@@ -1,16 +1,17 @@
+ export type Feedback = {
+   id: string;
+   body: string;
+-  target: {
++  target: Readonly<{
+     version: number;
+     path: string;
+     line: number;
+-  };
++  }>;
+ };
+
+-export function locateFeedback(note: Feedback, latestVersion: number) {
++export function locateFeedback(note: Feedback) {
++  // A new publication does not rewrite the evidence a conversation began with.
+   return {
+-    version: latestVersion,
++    version: note.target.version,
+     path: note.target.path,
+     line: note.target.line,
+   };
+diff --git a/navigation.test.ts b/navigation.test.ts
+--- a/navigation.test.ts
++++ b/navigation.test.ts
+@@ -1,5 +1,6 @@
+ import { expect, test } from "bun:test";
+ import { selectedVersion } from "./navigation";
++import { locateFeedback } from "./feedback";
+
+ test("opens the latest publication on first visit", () => {
+   expect(selectedVersion([1, 2, 3], null)).toBe(3);
+@@ -8,3 +9,18 @@
+ test("handles an empty publication list", () => {
+   expect(selectedVersion([], null)).toBeNull();
+ });
++
++test("keeps a selected publication when newer content arrives", () => {
++  expect(selectedVersion([1, 2, 3], 1)).toBe(1);
++});
++
++test("falls back when a requested publication is unavailable", () => {
++  expect(selectedVersion([1, 3], 2)).toBe(3);
++});
++
++test("locates feedback in its original publication", () => {
++  const target = { version: 1, path: "navigation.ts", line: 4 };
++  const note = { id: "note_example", body: "Keep this version pinned.", target };
++  expect(locateFeedback(note)).toEqual(target);
++  expect(note.target).toEqual(target);
++});
+diff --git a/docs/version-navigation.md b/docs/version-navigation.md
+--- a/docs/version-navigation.md
++++ b/docs/version-navigation.md
+@@ -1,13 +1,22 @@
+ # Version navigation
+
+-The workspace opens the latest available publication.
+-When a new publication arrives, the workspace refreshes its selection.
++The workspace opens the latest available publication on the first visit.
++After that, the reader's selected publication stays pinned.
++
++## A new publication arrives
++
++1. Keep the current content and scroll position visible.
++2. Announce that another publication is available.
++3. Let the reader choose **Go to the latest version**.
++4. Keep earlier versions available in the version selector.
+
+ ## Feedback
+
+-Each conversation records the path and line where it began.
+-Locate opens that path in the latest version so the reader sees current code.
++Each conversation records the version, path, and line where it began.
++Locate opens that original publication, even after new content is published.
++A reply can describe a fix in another version without changing the original target.
+
+ ## Empty state
+
+ An artifact without a publication shows an empty-state message.
++If a requested version is unavailable, fall back to the latest available version.

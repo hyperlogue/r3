@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, waitFor } from "storybook/test";
 import type { ArtifactDocumentTarget } from "../../../shared/artifacts.ts";
-import { ARTIFACT_DEMO_SEED } from "../../demo/artifact-fixtures.gen.ts";
+import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { DemoArtifactPreview } from "../../demo/artifact-renderer.tsx";
 
 function PreviewWorkshop({ markdown = false }: { markdown?: boolean }) {
-  const detail = ARTIFACT_DEMO_SEED.artifacts.find(
+  const detail = ARTIFACT_WORKSHOP_SEED.artifacts.find(
     (item) => item.kind === (markdown ? "files" : "html"),
   )!;
   const [path, setPath] = useState(markdown ? "index.md" : "index.html");
@@ -44,7 +44,17 @@ const meta = {
 } satisfies Meta<typeof PreviewWorkshop>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Html: Story = {};
+export const CurveLab: Story = {};
+export const CurveLabDark: Story = { globals: { theme: "dark" } };
+export const CurveLabNarrow: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: 390, maxWidth: "100%" }}>
+        <Story />
+      </div>
+    ),
+  ],
+};
 export const Markdown: Story = {
   args: { markdown: true },
   play: async ({ canvasElement }) => {

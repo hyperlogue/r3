@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ArtifactFeedback, ArtifactReply, ArtifactTarget } from "../../../shared/artifacts.ts";
 import { demo, human } from "../../demo/artifact-backend.ts";
+import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import { ArtifactThreadCard } from "../components/ArtifactThreads.tsx";
@@ -24,6 +25,8 @@ const feedbackId = (key: string) => `feedback_gallery_${key}`;
 // Synthetic conversations use separate demo artifacts so trying their actions
 // does not change the main panel sample or its file/diff examples.
 export function seedFeedbackCardGallery() {
+  if (!demo.state.artifacts.some((item) => item.id === "artifact_documents"))
+    demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const [sourceId, id] of [
     ["artifact_documents", filesId],
     ["artifact_code", diffId],

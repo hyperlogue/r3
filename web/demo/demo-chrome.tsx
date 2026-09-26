@@ -99,8 +99,8 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
               feedback all live in this tab and save to local storage.
             </p>
             <p>
-              Three artifacts are loaded. Open an HTML page, rendered Markdown, or a diff. Leave
-              feedback on text or an element, then click{" "}
+              Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file
+              diff. Leave feedback on text or an element, then click{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
                 Send to agent
               </span>{" "}

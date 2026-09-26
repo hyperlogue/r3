@@ -115,7 +115,7 @@ test("demo archive retains unsent work and in-flight replies without publishing 
 
 test("older saved demos gain the HTML sample once without losing notes or undoing deletion", () => {
   const backend = new ArtifactDemoBackend();
-  const note = backend.addFeedback("artifact_documents", "Keep this note", { kind: "artifact" });
+  const note = backend.addFeedback("artifact_code", "Keep this note", { kind: "artifact" });
   backend.state.schema = 1;
   backend.state.artifacts = backend.state.artifacts.filter(
     (item) => item.id !== "artifact_weekend",

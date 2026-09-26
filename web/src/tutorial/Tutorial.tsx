@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { demo } from "../../demo/artifact-backend.ts";
+import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
@@ -61,7 +62,7 @@ r3 reply <feedback_id> --version 2 --view rendered -m "Updated the reading estim
 Inspect the original target in its explicit version and representation. Each agent uses a distinct logical session. A successful reply releases its claim; the human controls resolution. Use \`r3 guide\` for the complete contract.`;
 
 export function resetPractice() {
-  demo.reset();
+  demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const detail of demo.state.artifacts) {
     detail.feedback = [];
     detail.watching = true;

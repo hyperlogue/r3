@@ -1,0 +1,108 @@
+diff --git a/components/VersionBanner.tsx b/components/VersionBanner.tsx
+new file mode 100644
+--- /dev/null
++++ b/components/VersionBanner.tsx
+@@ -0,0 +1,14 @@
++type VersionBannerProps = {
++  latest: number;
++  selected: number;
++};
++
++export function VersionBanner({ latest, selected }: VersionBannerProps) {
++  if (latest === selected) return null;
++  return (
++    <aside className="version-banner" role="status">
++      <span>Version {latest} is available.</span>
++      <span>The workspace will open it automatically.</span>
++    </aside>
++  );
++}
+diff --git a/workspace.tsx b/workspace.tsx
+--- a/workspace.tsx
++++ b/workspace.tsx
+@@ -1,6 +1,25 @@
+-import { useState } from "react";
++import { useEffect, useState } from "react";
++import { selectedVersion } from "./navigation";
++import { VersionBanner } from "./components/VersionBanner";
+
+-export function Workspace({ versions, renderVersion }) {
+-  const [selected, setSelected] = useState(versions.at(-1));
+-  return renderVersion(selected, setSelected);
++type WorkspaceProps = {
++  versions: number[];
++  renderVersion: (seq: number) => React.ReactNode;
++};
++
++export function Workspace({ versions, renderVersion }: WorkspaceProps) {
++  const [selected, setSelected] = useState<number | null>(null);
++  const latest = versions.at(-1) ?? null;
++
++  useEffect(() => {
++    setSelected(selectedVersion(versions, selected));
++  }, [versions, selected]);
++
++  if (selected === null || latest === null) return <p>No publications yet.</p>;
++  return (
++    <main>
++      <VersionBanner latest={latest} selected={selected} />
++      {renderVersion(selected)}
++    </main>
++  );
+ }
+diff --git a/feedback.ts b/feedback.ts
+--- a/feedback.ts
++++ b/feedback.ts
+@@ -1,5 +1,17 @@
+ export type Feedback = {
++  id: string;
+   body: string;
+-  path: string;
+-  line: number;
++  target: {
++    version: number;
++    path: string;
++    line: number;
++  };
+ };
++
++export function locateFeedback(note: Feedback, latestVersion: number) {
++  return {
++    version: latestVersion,
++    path: note.target.path,
++    line: note.target.line,
++  };
++}
+diff --git a/navigation.test.ts b/navigation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/navigation.test.ts
+@@ -0,0 +1,10 @@
++import { expect, test } from "bun:test";
++import { selectedVersion } from "./navigation";
++
++test("opens the latest publication on first visit", () => {
++  expect(selectedVersion([1, 2, 3], null)).toBe(3);
++});
++
++test("handles an empty publication list", () => {
++  expect(selectedVersion([], null)).toBeNull();
++});
+diff --git a/docs/version-navigation.md b/docs/version-navigation.md
+new file mode 100644
+--- /dev/null
++++ b/docs/version-navigation.md
+@@ -0,0 +1,13 @@
++# Version navigation
++
++The workspace opens the latest available publication.
++When a new publication arrives, the workspace refreshes its selection.
++
++## Feedback
++
++Each conversation records the path and line where it began.
++Locate opens that path in the latest version so the reader sees current code.
++
++## Empty state
++
++An artifact without a publication shows an empty-state message.

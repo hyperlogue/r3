@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { ArtifactDemoBackend } from "./artifact-backend.ts";
+import { ARTIFACT_WORKSHOP_SEED } from "./artifact-fixtures.gen.ts";
 import { bundledPreview, demoReference } from "./preview-fixtures.ts";
 
 test("demo previews use only bundled bytes for a matching immutable publication", () => {
@@ -7,7 +8,7 @@ test("demo previews use only bundled bytes for a matching immutable publication"
   const stored = backend.publication("artifact_weekend", 1);
   stored.resources["index.html"] = btoa("<script>throw new Error('stored injection')</script>");
   const preview = bundledPreview(stored.version, "index.html")!;
-  expect(preview.html).toContain("5 min read");
+  expect(preview.html).toContain("A little closer.");
   expect(preview.html).not.toContain("stored injection");
   expect(preview.publication.resources["index.html"]).not.toEqual(stored.resources["index.html"]);
   expect(bundledPreview({ ...stored.version, contentHash: "changed" }, "index.html")).toBeNull();
@@ -15,7 +16,7 @@ test("demo previews use only bundled bytes for a matching immutable publication"
   expect(bundledPreview({ ...stored.version, seq: 99 }, "index.html")).toBeNull();
   expect(bundledPreview(stored.version, "__proto__")).toBeNull();
   expect(bundledPreview(stored.version, "style.css")).toBeNull();
-  const markdown = backend.publication("artifact_documents", 1);
+  const markdown = ARTIFACT_WORKSHOP_SEED.publications["artifact_documents/1"];
   expect(bundledPreview(markdown.version, "index.md")?.html).toContain(
     '<h1 id="published-workspace">Published workspace</h1>',
   );

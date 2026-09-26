@@ -1,11 +1,11 @@
 import type { ArtifactVersion } from "../../shared/artifacts.ts";
-import { ARTIFACT_DEMO_PREVIEWS, ARTIFACT_DEMO_SEED } from "./artifact-fixtures.gen.ts";
+import { ARTIFACT_DEMO_PREVIEWS, ARTIFACT_WORKSHOP_SEED } from "./artifact-fixtures.gen.ts";
 import { publicationKey } from "./artifact-model.ts";
 
 const publications = new Map(
   [
-    ...Object.values(ARTIFACT_DEMO_SEED.publications),
-    ...Object.values(ARTIFACT_DEMO_SEED.pending),
+    ...Object.values(ARTIFACT_WORKSHOP_SEED.publications),
+    ...Object.values(ARTIFACT_WORKSHOP_SEED.pending),
   ].map((item) => [publicationKey(item.version.artifactId, item.version.seq), item]),
 );
 

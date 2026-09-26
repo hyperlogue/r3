@@ -3,6 +3,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
 import { demo } from "../../demo/artifact-backend.ts";
+import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
@@ -37,7 +38,7 @@ import "../main.css";
 
 // The build aliases all API calls to this same in-memory demo backend.
 function resetSamples() {
-  demo.reset();
+  demo.reset(ARTIFACT_WORKSHOP_SEED);
   demo.get("artifact_documents").watching = true;
   demo.addFeedback("artifact_documents", "Could we make the target label easier to scan?", {
     kind: "artifact",

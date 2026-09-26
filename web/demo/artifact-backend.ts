@@ -10,9 +10,15 @@ import type {
 } from "../../shared/artifacts.ts";
 import { hasUnsentArtifactFeedback, isUnhandledArtifactFeedback } from "../../shared/artifacts.ts";
 import { ARTIFACT_DEMO_SEED } from "./artifact-fixtures.gen.ts";
-import { type ArtifactDemoState, demoStorageUsage, publicationKey } from "./artifact-model.ts";
+import {
+  type ArtifactDemoSeed,
+  type ArtifactDemoState,
+  demoStorageUsage,
+  publicationKey,
+} from "./artifact-model.ts";
 
-const KEY = "r3-artifact-demo";
+// A new gallery gets fresh practice state; older demo data stays under its original key.
+const KEY = "r3-artifact-demo-curves";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
 export const human = { role: "human" as const, sessionId: null };
 export const now = () => new Date().toISOString();
@@ -25,7 +31,10 @@ export class ArtifactDemoBackend {
   state: ArtifactDemoState;
   readonly subscribers = new Set<(event: ArtifactStreamEvent) => void>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
-  constructor(private readonly storage: Pick<Storage, "getItem" | "setItem"> | null = null) {
+  constructor(
+    private readonly storage: Pick<Storage, "getItem" | "setItem"> | null = null,
+    private fixtures: ArtifactDemoSeed = ARTIFACT_DEMO_SEED,
+  ) {
     this.state = this.seed();
     try {
       const saved = JSON.parse(storage?.getItem(KEY) ?? "null");
@@ -40,12 +49,12 @@ export class ArtifactDemoBackend {
       const id = "artifact_weekend";
       if (!this.state.artifacts.some((item) => item.id === id)) {
         this.state.artifacts.push(
-          structuredClone(ARTIFACT_DEMO_SEED.artifacts.find((item) => item.id === id)!),
+          structuredClone(this.fixtures.artifacts.find((item) => item.id === id)!),
         );
         this.state.publications[publicationKey(id, 1)] = structuredClone(
-          ARTIFACT_DEMO_SEED.publications[publicationKey(id, 1)],
+          this.fixtures.publications[publicationKey(id, 1)],
         );
-        this.state.pending[id] = structuredClone(ARTIFACT_DEMO_SEED.pending[id]);
+        this.state.pending[id] = structuredClone(this.fixtures.pending[id]);
       }
       this.state.schema = 2;
       this.persist();
@@ -67,10 +76,9 @@ export class ArtifactDemoBackend {
     }
     // Backfill byte metadata for saved demos without discarding their feedback.
     const seedPublications = new Map(
-      [
-        ...Object.values(ARTIFACT_DEMO_SEED.publications),
-        ...Object.values(ARTIFACT_DEMO_SEED.pending),
-      ].map((item) => [publicationKey(item.version.artifactId, item.version.seq), item]),
+      [...Object.values(this.fixtures.publications), ...Object.values(this.fixtures.pending)].map(
+        (item) => [publicationKey(item.version.artifactId, item.version.seq), item],
+      ),
     );
     for (const item of [
       ...Object.values(this.state.publications),
@@ -94,7 +102,7 @@ export class ArtifactDemoBackend {
     }
   }
   private seed(): ArtifactDemoState {
-    const seed = structuredClone(ARTIFACT_DEMO_SEED);
+    const seed = structuredClone(this.fixtures);
     return {
       ...seed,
       schema: 4,
@@ -107,8 +115,9 @@ export class ArtifactDemoBackend {
       ),
     };
   }
-  reset() {
+  reset(fixtures = this.fixtures) {
     this.close();
+    this.fixtures = fixtures;
     this.state = this.seed();
     this.persist();
   }

@@ -168,32 +168,43 @@ const nextDocs = await files(docs.id, 2, {
   "decisions.txt":
     "Files remain available when the publisher is offline.\nEach publication retains its own path membership.\nThe human decides when feedback is resolved.\nRendered selections and source selections keep separate native targets.\n",
 });
-const html = artifact("artifact_weekend", "html", "A little room to wander");
-const samplePaths = ["index.html", "details.html", "style.css", "landscape.svg"];
-async function weekend(seq: number) {
+const html = artifact("artifact_weekend", "html", "Curve lab — a little closer");
+const samplePaths = ["index.html", "details.html", "style.css"];
+const curveScript = await Bun.file(
+  join(import.meta.dir, "../web/demo/samples/curve-lab.js"),
+).text();
+async function curveLab(seq: number) {
   const contents = Object.fromEntries(
     await Promise.all(
       samplePaths.map(async (path) => [
         path,
         (await Bun.file(join(import.meta.dir, "../web/demo/samples", path)).text())
           .replaceAll("DEMO_VERSION", String(seq))
-          .replaceAll("DEMO_ESTIMATE", seq === 1 ? "5" : "10"),
+          .replaceAll(
+            "DEMO_MODEL_NOTE",
+            seq === 1
+              ? "Can this model capture every ripple?"
+              : "The small cosine ripple is outside this model; a close fit still has residual error.",
+          )
+          .replace("<script data-demo-script></script>", () => `<script>${curveScript}</script>`),
       ]),
     ),
   );
   return files(html.id, seq, contents, "html");
 }
-const firstHtml = await weekend(1);
-const nextHtml = await weekend(2);
+const firstHtml = await curveLab(1);
+const nextHtml = await curveLab(2);
 const firstDiff = await diff(
   code.id,
   1,
-  "diff --git a/navigation.ts b/navigation.ts\n--- a/navigation.ts\n+++ b/navigation.ts\n@@ -1,3 +1,5 @@\n export function selectedVersion(versions: number[], current: number | null) {\n-  return current;\n+  // Prefer the newest publication.\n+  const latest = versions.at(-1) ?? null;\n+  return latest;\n }\n",
+  "diff --git a/navigation.ts b/navigation.ts\n--- a/navigation.ts\n+++ b/navigation.ts\n@@ -1,3 +1,5 @@\n export function selectedVersion(versions: number[], current: number | null) {\n-  return current;\n+  // Prefer the newest publication.\n+  const latest = versions.at(-1) ?? null;\n+  return latest;\n }\n" +
+    (await Bun.file(join(import.meta.dir, "../web/demo/samples/review-v1.patch")).text()),
 );
 const nextDiff = await diff(
   code.id,
   2,
-  "diff --git a/navigation.ts b/navigation.ts\n--- a/navigation.ts\n+++ b/navigation.ts\n@@ -1,5 +1,6 @@\n export function selectedVersion(versions: number[], current: number | null) {\n-  // Prefer the newest publication.\n+  // Keep the reader on their selected publication.\n+  if (current !== null && versions.includes(current)) return current;\n   const latest = versions.at(-1) ?? null;\n   return latest;\n }\n",
+  "diff --git a/navigation.ts b/navigation.ts\n--- a/navigation.ts\n+++ b/navigation.ts\n@@ -1,5 +1,6 @@\n export function selectedVersion(versions: number[], current: number | null) {\n-  // Prefer the newest publication.\n+  // Keep the reader on their selected publication.\n+  if (current !== null && versions.includes(current)) return current;\n   const latest = versions.at(-1) ?? null;\n   return latest;\n }\n" +
+    (await Bun.file(join(import.meta.dir, "../web/demo/samples/review-v2.patch")).text()),
 );
 for (const [item, content] of [
   [docs, firstDocs],
@@ -209,7 +220,7 @@ for (const [item, content] of [
       author: actor,
       body:
         item.kind === "html"
-          ? "Try the picnic button, follow the checklist link, or comment on the reading estimate. Send a note to see a new publication."
+          ? "Try the parameter sliders and compare the residual error. Can the approximation capture the small ripple? Send a note to see a closer starting fit in version 2."
           : item.kind === "files"
             ? "Start with the version behavior in index.md. Select any line to ask a question or request a change."
             : "Does choosing the newest publication here preserve the reader’s selected version?",
@@ -220,7 +231,11 @@ for (const [item, content] of [
               kind: "rendered",
               versionSeq: 1,
               path: "index.html",
-              locator: { selector: "#reading-time", quote: "5 min read", route: "#" },
+              locator: {
+                selector: "#model-note",
+                quote: "Can this model capture every ripple?",
+                route: "#",
+              },
             }
           : item.kind === "files"
             ? {
@@ -259,19 +274,18 @@ const themeStyles = Object.fromEntries(
   ),
 );
 const seed: ArtifactDemoSeed = {
-  artifacts: [docs, code, html],
+  artifacts: [html, code],
   projects: [project],
   publications: {
-    [publicationKey(docs.id, 1)]: firstDocs,
-    [publicationKey(code.id, 1)]: firstDiff,
     [publicationKey(html.id, 1)]: firstHtml,
+    [publicationKey(code.id, 1)]: firstDiff,
   },
-  pending: { [docs.id]: nextDocs, [code.id]: nextDiff, [html.id]: nextHtml },
+  pending: { [html.id]: nextHtml, [code.id]: nextDiff },
   themes,
   themeStyles,
 };
 await Bun.write(
   join(import.meta.dir, "../web/demo/artifact-fixtures.gen.ts"),
-  `// GENERATED by scripts/gen-artifact-demo.ts.\nimport type { ArtifactDemoSeed } from "./artifact-model.ts";\nexport const ARTIFACT_DEMO_SEED = ${JSON.stringify(seed)} as ArtifactDemoSeed;\nexport const ARTIFACT_DEMO_PREVIEWS: Record<string, { contentHash: string; documents: Record<string, string> }> = ${JSON.stringify(previews)};\n`,
+  `// GENERATED by scripts/gen-artifact-demo.ts.\nimport type { ArtifactDemoSeed } from "./artifact-model.ts";\nexport const ARTIFACT_DEMO_SEED = ${JSON.stringify(seed)} as ArtifactDemoSeed;\nexport const ARTIFACT_WORKSHOP_SEED = { ...ARTIFACT_DEMO_SEED, artifacts: [${JSON.stringify(docs)}, ...ARTIFACT_DEMO_SEED.artifacts], publications: { ...ARTIFACT_DEMO_SEED.publications, [${JSON.stringify(publicationKey(docs.id, 1))}]: ${JSON.stringify(firstDocs)} }, pending: { ...ARTIFACT_DEMO_SEED.pending, [${JSON.stringify(docs.id)}]: ${JSON.stringify(nextDocs)} } } as ArtifactDemoSeed;\nexport const ARTIFACT_DEMO_PREVIEWS: Record<string, { contentHash: string; documents: Record<string, string> }> = ${JSON.stringify(previews)};\n`,
 );
-console.log("Generated files, HTML, and diff demos with bundled previews and scripted follow-ups.");
+console.log("Generated curve lab and multi-file diff demos, with separate workshop fixtures.");
