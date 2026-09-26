@@ -28,7 +28,7 @@ export class ArtifactDemoBackend {
     this.state = this.seed();
     try {
       const saved = JSON.parse(storage?.getItem(KEY) ?? "null");
-      if ([1, 2].includes(saved?.schema) && Array.isArray(saved.artifacts)) this.state = saved;
+      if ([1, 2, 3].includes(saved?.schema) && Array.isArray(saved.artifacts)) this.state = saved;
     } catch {
       /* A private or full browser store still supports this tab. */
     }
@@ -46,6 +46,16 @@ export class ArtifactDemoBackend {
         this.state.pending[id] = structuredClone(ARTIFACT_DEMO_SEED.pending[id]);
       }
       this.state.schema = 2;
+      this.persist();
+    }
+    if (this.state.schema === 2) {
+      // Match daemon upgrades: a cleared stamp cannot establish no prior handoff.
+      this.state.everDelivered = Object.fromEntries(
+        this.state.artifacts.flatMap((artifact) =>
+          artifact.feedback.map((note) => [note.id, true]),
+        ),
+      );
+      this.state.schema = 3;
       this.persist();
     }
     // Backfill byte metadata for saved demos without discarding their feedback.
@@ -77,7 +87,17 @@ export class ArtifactDemoBackend {
     }
   }
   private seed(): ArtifactDemoState {
-    return { ...structuredClone(ARTIFACT_DEMO_SEED), schema: 2, viewed: {} };
+    const seed = structuredClone(ARTIFACT_DEMO_SEED);
+    return {
+      ...seed,
+      schema: 3,
+      viewed: {},
+      everDelivered: Object.fromEntries(
+        seed.artifacts.flatMap((artifact) =>
+          artifact.feedback.map((note) => [note.id, note.sentAt !== null || note.statusUnsent]),
+        ),
+      ),
+    };
   }
   reset() {
     this.close();
@@ -200,6 +220,7 @@ export class ArtifactDemoBackend {
       claim: null,
     };
     this.get(id).feedback.push(note);
+    this.state.everDelivered[note.id] = false;
     this.changed(id);
     return structuredClone(note);
   }
@@ -215,6 +236,7 @@ export class ArtifactDemoBackend {
     const notes = this.pending(id).filter((note) => !feedback || feedback.includes(note.id));
     const time = now();
     for (const note of notes) {
+      this.state.everDelivered[note.id] = true;
       if (note.author.role === "human") note.sentAt = time;
       note.statusUnsent = false;
       for (const reply of note.replies) if (reply.author.role === "human") reply.sentAt = time;

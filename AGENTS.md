@@ -140,6 +140,8 @@ POST acknowledges its exact snapshot. The web UI copies a `r3 feedback fetch`
 command; copying does not acknowledge feedback. Running it drains new feedback
 and replies, then registers the caller as listener when its harness supports it.
 A wake notification alone does not stamp delivery.
+Feedback retains whether it was ever delivered independently of the current text's
+pending timestamp, so editing cannot suppress a later resolution notification.
 
 **Lifecycle events** have immutable ordered identities, actor, optional message,
 and operation key. Blank messages normalize to null. Archive changes state,

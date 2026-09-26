@@ -49,6 +49,7 @@ type FeedbackRow = TargetColumns &
     created_at: string;
     updated_at: string;
     sent_at: string | null;
+    ever_delivered: number;
     status_unsent: number;
   };
 type ReplyRow = Omit<TargetColumns, "target_kind"> &
@@ -183,8 +184,8 @@ export class ArtifactConversations {
         const feedbackId = `feedback_${randomUUID().replaceAll("-", "")}`;
         this.db
           .query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, agent_session_id,
-        body, target_kind, target_version_seq, target_path, locator_json, created_at, updated_at, sent_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        body, target_kind, target_version_seq, target_path, locator_json, created_at, updated_at, sent_at, ever_delivered)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
           .run(
             feedbackId,
             id,
@@ -199,6 +200,7 @@ export class ArtifactConversations {
             time,
             time,
             author.role === "agent" ? time : null,
+            author.role === "agent" ? 1 : 0,
           );
         this.touch(id, time);
         return this.get(feedbackId);
@@ -226,7 +228,7 @@ export class ArtifactConversations {
         const time = this.clock();
         const sentAt =
           row.author === "human" && status === "open" && body !== row.body ? null : row.sent_at;
-        const statusUnsent = row.status_unsent || (status !== row.status && row.sent_at !== null);
+        const statusUnsent = row.status_unsent || (status !== row.status && row.ever_delivered);
         this.db
           .query(
             "UPDATE feedback SET body = ?, status = ?, sent_at = ?, status_unsent = ?, updated_at = ? WHERE id = ?",
@@ -399,7 +401,7 @@ export class ArtifactConversations {
         for (const item of feedback) {
           this.db
             .query(
-              "UPDATE feedback SET sent_at = COALESCE(sent_at, ?), status_unsent = 0 WHERE id = ?",
+              "UPDATE feedback SET sent_at = COALESCE(sent_at, ?), ever_delivered = 1, status_unsent = 0 WHERE id = ?",
             )
             .run(time, item.id);
           for (const reply of item.replies) {

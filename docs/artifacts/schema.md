@@ -159,6 +159,13 @@ SQL verifies session existence and the role/session pairing, and prevents later 
 
 Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch/remote connections remain transient. Local delivery targets and fallback/explicit registrations persist in separate private tables.
 
+Feedback also retains an internal `ever_delivered` flag. New human notes start
+false; agent notes start true. Handoff sets it true, and edits never clear it.
+Editing an open human note can clear `sent_at` for the current text while retaining
+the history needed to send a later resolution or reopening. A status change on a
+new, never-delivered note does not create status work. Replies retain their own
+delivery timestamps; they do not need this feedback-status history flag.
+
 ## Archive events and optional messages
 
 artifact_events stores archive/restore transitions and optional archive messages. It has a globally increasing seq for order, a stable external id, an artifact-scoped operation_key for retries, actor attribution, and a timestamp. The sequence keeps event order unambiguous even when timestamps are equal.
@@ -286,6 +293,15 @@ transactions. Explicit failure deletes by registration ID, so an older failing s
 cannot remove a replacement. Fallback failures retain the saved target. SQLite and
 its backups are private and now contain local harness credentials. Session labels
 are mutable display names; internal IDs and authored attribution remain stable.
+
+Schema version 5 adds `feedback.ever_delivered`. Previous schemas could erase the
+only delivery timestamp during an edit, so the upgrade conservatively sets this
+flag for all existing notes. It preserves existing timestamps, pending flags, and
+messages. A later status change can therefore cause an extra notification for an
+old never-delivered note, rather than silently losing a change to a previously
+delivered note. Legacy imports use the same policy and record unknown history in
+migration defaults. New notes use exact delivery history. Static demo schema 3
+retains the same flag in its private state and follows the same upgrade policy.
 
 ## Required fields and migration defaults
 

@@ -62,11 +62,56 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test("version 4 preserves possible delivery history without inventing a delivery timestamp", async () => {
+    await migrateLegacyStore(db, options());
+    db.exec("ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 4");
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    const human = { role: "human" as const, sessionId: null };
+    const before = db
+      .query("SELECT sent_at, status_unsent FROM feedback WHERE id = 'feedback_retained'")
+      .get();
+    const result = await migrateLegacyStore(db, options("artifact-v4.sqlite"));
+    expect(result.migrated).toBe(true);
+    expect(
+      db.query("SELECT sent_at, status_unsent FROM feedback WHERE id = 'feedback_retained'").get(),
+    ).toEqual(before);
+    const conversations = new ArtifactConversations(db, store, () => time);
+    conversations.edit("feedback_retained", { actor: human, body: "Changed after upgrade" });
+    conversations.edit("feedback_retained", { actor: human, status: "resolved" });
+    expect(conversations.get("feedback_retained").sentAt).toBeNull();
+    expect(conversations.unsent("review_retained").map((note) => note.id)).toEqual([
+      "feedback_retained",
+    ]);
+    const fresh = await conversations.add("review_retained", {
+      actor: human,
+      body: "New after upgrade",
+      target: { kind: "artifact" },
+    });
+    conversations.edit(fresh.id, { actor: human, status: "resolved" });
+    expect(conversations.get(fresh.id).statusUnsent).toBe(false);
+    expect((await migrateLegacyStore(db, options("unused-v5.sqlite"))).migrated).toBe(false);
+    expect(conversations.get(fresh.id).statusUnsent).toBe(false);
+    const backup = new Database(result.backupPath!, { readonly: true });
+    try {
+      expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 4 });
+      expect(
+        backup
+          .query("PRAGMA table_info(feedback)")
+          .all()
+          .some((column: any) => column.name === "ever_delivered"),
+      ).toBe(false);
+    } finally {
+      backup.close();
+    }
+  });
+
   test("version 2 gains remote identities without changing project or artifact membership", async () => {
     await migrateLegacyStore(db, options());
     const before = db.query("SELECT id, project_id FROM artifacts ORDER BY id").all();
     const projects = db.query("SELECT * FROM projects ORDER BY id").all();
-    db.exec("DROP TABLE project_remotes; PRAGMA user_version = 2");
+    db.exec(
+      "DROP TABLE project_remotes; ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 2",
+    );
     const result = await migrateLegacyStore(db, options("artifact-v2.sqlite"));
     expect(result.migrated).toBe(true);
     expect(db.query("SELECT * FROM project_remotes").all()).toEqual([]);
@@ -79,7 +124,9 @@ describe("atomic legacy store migration", () => {
 
   test("upgrades artifact overviews into retained evidence with a private backup", async () => {
     await migrateLegacyStore(db, options());
-    db.exec("ALTER TABLE artifacts ADD COLUMN summary TEXT; PRAGMA user_version = 1");
+    db.exec(
+      "ALTER TABLE artifacts ADD COLUMN summary TEXT; ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 1",
+    );
     db.query("UPDATE artifacts SET summary = ? WHERE id = ?").run(
       "Retained overview",
       "review_retained",

@@ -88,7 +88,7 @@ export const artifactApi: typeof productionApi = {
     return copy(demo.get(id));
   },
   delete: async (id) => {
-    demo.get(id);
+    for (const note of demo.get(id).feedback) delete demo.state.everDelivered[note.id];
     demo.state.artifacts = demo.state.artifacts.filter((item) => item.id !== id);
     for (const key of Object.keys(demo.state.publications))
       if (key.startsWith(`${id}/`)) delete demo.state.publications[key];
@@ -103,7 +103,6 @@ export const artifactApi: typeof productionApi = {
     const { artifact, note } = demo.note(id);
     const previousBody = note.body;
     const previousStatus = note.status;
-    const previousSentAt = note.sentAt;
     if (body.body !== undefined) {
       if (!body.body.trim()) fail("Feedback requires a message");
       note.body = body.body;
@@ -114,7 +113,7 @@ export const artifactApi: typeof productionApi = {
     }
     if (note.author.role === "human" && note.status === "open" && note.body !== previousBody)
       note.sentAt = null;
-    note.statusUnsent ||= note.status !== previousStatus && previousSentAt !== null;
+    note.statusUnsent ||= note.status !== previousStatus && demo.state.everDelivered[id] === true;
     note.updatedAt = now();
     artifact.working = artifact.feedback.some((item) => item.claim !== null);
     demo.changed(artifact.id);
@@ -122,6 +121,7 @@ export const artifactApi: typeof productionApi = {
   },
   deleteFeedback: async (id) => {
     const { artifact } = demo.note(id);
+    delete demo.state.everDelivered[id];
     artifact.feedback = artifact.feedback.filter((item) => item.id !== id);
     artifact.placements = artifact.placements.filter((item) => item.feedbackId !== id);
     artifact.working = artifact.feedback.some((item) => item.claim !== null);

@@ -42,6 +42,33 @@ const publication = () => ({
 });
 
 describe("private artifact storage bootstrap", () => {
+  test("delivery history survives editing and reopening without promoting new feedback", async () => {
+    storage = await openArtifactStorage(options());
+    const id = storage.artifacts.create({ actor, kind: "files" }).id;
+    const delivered = await storage.conversations.add(id, {
+      actor,
+      body: "Delivered",
+      target: { kind: "artifact" },
+    });
+    storage.conversations.deliver(id);
+    storage.conversations.edit(delivered.id, { actor, body: "Edited after delivery" });
+    const fresh = await storage.conversations.add(id, {
+      actor,
+      body: "Never delivered",
+      target: { kind: "artifact" },
+    });
+    storage.close();
+    storage = await openArtifactStorage(options());
+    storage.conversations.edit(delivered.id, { actor, status: "resolved" });
+    storage.conversations.edit(fresh.id, { actor, status: "resolved" });
+    expect(storage.conversations.get(delivered.id).sentAt).toBeNull();
+    expect(storage.conversations.get(delivered.id).statusUnsent).toBe(true);
+    expect(storage.conversations.get(fresh.id).statusUnsent).toBe(false);
+    expect(storage.conversations.unsent(id).map((note) => note.id)).toEqual([delivered.id]);
+    storage.conversations.deliver(id);
+    expect(storage.conversations.unsent(id)).toEqual([]);
+  });
+
   test("historical Markdown HTML versions remain readable while new versions require HTML", async () => {
     const previous = publication();
     const id = await seedLegacyMarkdownArtifact(

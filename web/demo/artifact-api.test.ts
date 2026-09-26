@@ -37,3 +37,19 @@ test("demo delivery acknowledges only the requested notes and emits presence upd
     demo.subscribers.delete(listener);
   }
 });
+
+test("demo status handoff survives edits to delivered notes while new resolved notes stay quiet", async () => {
+  const id = demo.state.artifacts[0].id;
+  const delivered = demo.addFeedback(id, "Delivered note", { kind: "artifact" });
+  demo.handoff(id, [delivered.id]);
+  await artifactApi.editFeedback(delivered.id, { body: "Changed after delivery" });
+  await artifactApi.editFeedback(delivered.id, { status: "resolved" });
+  expect(demo.pending(id).map((note) => note.id)).toEqual([delivered.id]);
+  expect(demo.note(delivered.id).note.statusUnsent).toBe(true);
+  demo.handoff(id, [delivered.id]);
+  const fresh = demo.addFeedback(id, "New note", { kind: "artifact" });
+  await artifactApi.editFeedback(fresh.id, { body: "Changed before delivery" });
+  await artifactApi.editFeedback(fresh.id, { status: "resolved" });
+  expect(demo.pending(id)).toEqual([]);
+  expect(demo.note(fresh.id).note.statusUnsent).toBe(false);
+});

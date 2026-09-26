@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 4;
+export const ARTIFACT_SCHEMA_VERSION = 5;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -167,6 +167,7 @@ CREATE TABLE feedback (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   sent_at TEXT,
+  ever_delivered INTEGER NOT NULL DEFAULT 0 CHECK (ever_delivered IN (0, 1)),
   status_unsent INTEGER NOT NULL DEFAULT 0 CHECK (status_unsent IN (0, 1)),
   UNIQUE (id, artifact_id, artifact_kind),
   CHECK ((author = 'human' AND agent_session_id IS NULL) OR

@@ -56,6 +56,36 @@ test("saved demos gain storage accounting without losing their conversations", (
   restored.close();
 });
 
+test("demo delivery history survives reload and old saves conservatively retain unknown history", () => {
+  const backend = new ArtifactDemoBackend();
+  const id = backend.state.artifacts[0].id;
+  const note = backend.addFeedback(id, "Delivered", { kind: "artifact" });
+  backend.handoff(id, [note.id]);
+  backend.note(note.id).note.sentAt = null;
+  const fresh = backend.addFeedback(id, "Never delivered", { kind: "artifact" });
+  let snapshot = JSON.stringify(backend.state);
+  const storage = {
+    getItem: () => snapshot,
+    setItem: (_key: string, value: string) => {
+      snapshot = value;
+    },
+  };
+  const restored = new ArtifactDemoBackend(storage);
+  expect(restored.state.everDelivered[note.id]).toBe(true);
+  expect(restored.state.everDelivered[fresh.id]).toBe(false);
+  snapshot = JSON.stringify({ ...backend.state, schema: 2, everDelivered: undefined });
+  const upgraded = new ArtifactDemoBackend(storage);
+  expect(upgraded.state.everDelivered[note.id]).toBe(true);
+  expect(upgraded.state.everDelivered[fresh.id]).toBe(true);
+  expect(upgraded.note(note.id).note.sentAt).toBeNull();
+  expect(upgraded.note(fresh.id).note.sentAt).toBeNull();
+  const created = upgraded.addFeedback(id, "New after upgrade", { kind: "artifact" });
+  expect(upgraded.state.everDelivered[created.id]).toBe(false);
+  backend.close();
+  restored.close();
+  upgraded.close();
+});
+
 test("demo archive retains unsent work and in-flight replies without publishing or re-registering", async () => {
   const backend = new ArtifactDemoBackend();
   try {

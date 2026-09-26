@@ -130,6 +130,12 @@ export async function importLegacyConversations(
       defaults.record("status", status, "Mapped the legacy feedback lifecycle");
     const target = targetColumns((await originalTarget(store, artifactId, row, defaults))!);
     const sentAt = deliveredAt(row, author.role, createdAt, defaults);
+    if (sentAt === null)
+      defaults.record(
+        "everDelivered",
+        true,
+        "Prior delivery is unknown after legacy edits; preserve future status notifications",
+      );
     const claim = data.feedback_claims.find((claim) => claim.feedback_id === id);
     if (claim)
       defaults.record(
@@ -140,8 +146,8 @@ export async function importLegacyConversations(
     context.writeSessions();
     db.query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, agent_session_id, body, status,
       target_kind, target_version_seq, target_path, locator_json, legacy_anchor_json,
-      created_at, updated_at, sent_at, status_unsent)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      created_at, updated_at, sent_at, ever_delivered, status_unsent)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id,
       artifactId,
       artifact.kind,
@@ -161,6 +167,7 @@ export async function importLegacyConversations(
       createdAt,
       updatedAt,
       sentAt,
+      1,
       row.status_unsent ? 1 : 0,
     );
   }

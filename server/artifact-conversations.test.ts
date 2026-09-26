@@ -391,6 +391,29 @@ describe("owner handoff delivery", () => {
     expect(conversations.unsent(id)).toHaveLength(1);
   });
 
+  test("resolving an edited delivered note still hands off its status", async () => {
+    const note = await conversations.add(id, { actor: human, body: "Original", target: original });
+    conversations.deliver(id);
+    conversations.edit(note.id, { actor: human, body: "Changed after delivery" });
+    expect(conversations.get(note.id).sentAt).toBeNull();
+    conversations.edit(note.id, { actor: human, status: "resolved" });
+    expect(conversations.unsent(id).map((item) => item.id)).toEqual([note.id]);
+    const [snapshot] = conversations.deliver(id);
+    expect(snapshot.statusUnsent).toBe(true);
+    expect(snapshot.status).toBe("resolved");
+    expect(conversations.unsent(id)).toEqual([]);
+  });
+
+  test("resolving an edited never-delivered note does not create status work", async () => {
+    const note = await conversations.add(id, { actor: human, body: "Original", target: original });
+    conversations.edit(note.id, { actor: human, body: "Changed before delivery" });
+    conversations.edit(note.id, { actor: human, status: "resolved" });
+    expect(conversations.get(note.id).statusUnsent).toBe(false);
+    expect(conversations.unsent(id)).toEqual([]);
+    conversations.edit(note.id, { actor: human, status: "open" });
+    expect(conversations.unsent(id).map((item) => item.id)).toEqual([note.id]);
+  });
+
   test("archive blocks ordinary handoff and preserves pending messages for restore", async () => {
     const note = await conversations.add(id, { actor: human, body: "Pending", target: original });
     db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);

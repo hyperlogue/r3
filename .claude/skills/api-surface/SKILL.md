@@ -223,7 +223,8 @@ failure never rolls back lifecycle state and an operation-key retry never re-pus
 Delivery is the owner's artifact-level handoff, not a receipt from every agent.
 Agent messages start delivered. New human feedback/replies start pending; editing
 an open human note clears its delivery timestamp. Editing a resolved note does not
-reopen it. Human status changes after delivery set `statusUnsent`; resolving a
+reopen it. The private `ever_delivered` flag survives edits, so a subsequent human
+status change still sets `statusUnsent` after any earlier delivery; resolving a
 never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
