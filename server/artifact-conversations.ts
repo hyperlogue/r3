@@ -4,6 +4,7 @@ import type {
   ArtifactActor,
   ArtifactClaim,
   ArtifactFeedback,
+  ArtifactFeedbackAcknowledgment,
   ArtifactKind,
   ArtifactPlacement,
   ArtifactReply,
@@ -23,21 +24,6 @@ import { nowIso } from "./ids.ts";
 
 type AuthoredRow = { author: "human" | "agent"; agent_session_id: string | null };
 
-export function artifactDeliveryFingerprint(feedback: ArtifactFeedback[]): string {
-  const snapshot = feedback.map((item) => ({
-    id: item.id,
-    body: item.body,
-    status: item.status,
-    sentAt: item.sentAt,
-    statusUnsent: item.statusUnsent,
-    replies: item.replies.map((reply) => ({
-      id: reply.id,
-      body: reply.body,
-      sentAt: reply.sentAt,
-    })),
-  }));
-  return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
-}
 type FeedbackRow = TargetColumns &
   AuthoredRow & {
     id: string;
@@ -110,7 +96,11 @@ export class ArtifactConversations {
   }
 
   private touch(id: string, time = this.clock()): void {
-    this.db.query("UPDATE artifacts SET updated_at = ? WHERE id = ?").run(time, id);
+    this.db
+      .query(
+        "UPDATE artifacts SET updated_at = ?, feedback_revision = feedback_revision + 1 WHERE id = ?",
+      )
+      .run(time, id);
   }
 
   private row(id: string): FeedbackRow {
@@ -384,19 +374,33 @@ export class ArtifactConversations {
     );
   }
 
-  // Reads never mark delivery. An explicit owner handoff drains a transaction's
-  // exact snapshot, so later edits/replies cannot accidentally be stamped sent.
-  deliver(id: string, only?: string[], expectedFingerprint?: string): ArtifactFeedback[] {
+  // Bind the acknowledgment to the artifact, selection, and persisted revision.
+  // The revision prevents edit/revert cycles from revalidating an old snapshot.
+  snapshot(id: string, only?: string[]) {
+    if (this.artifacts.get(id).state !== "active")
+      throw new ArtifactError("Artifact is archived", 409);
+    const revision = this.db
+      .query<{ revision: number }, [string]>(
+        "SELECT feedback_revision AS revision FROM artifacts WHERE id = ?",
+      )
+      .get(id)!.revision;
+    const feedback = only ? [...new Set(only)].sort() : undefined;
+    const expectedFingerprint = createHash("sha256")
+      .update(JSON.stringify([id, revision, feedback ?? null]))
+      .digest("hex");
+    return {
+      feedback: this.unsent(id, feedback),
+      acknowledgment: { feedback, expectedFingerprint },
+    };
+  }
+
+  acknowledge(id: string, receipt: ArtifactFeedbackAcknowledgment): ArtifactFeedback[] {
     return this.db
       .transaction(() => {
-        if (this.artifacts.get(id).state !== "active")
-          throw new ArtifactError("Artifact is archived", 409);
-        const feedback = this.unsent(id, only);
-        if (
-          expectedFingerprint !== undefined &&
-          expectedFingerprint !== artifactDeliveryFingerprint(feedback)
-        )
-          throw new ArtifactError("Pending feedback changed; copy the updated prompt again", 409);
+        const snapshot = this.snapshot(id, receipt.feedback);
+        if (receipt.expectedFingerprint !== snapshot.acknowledgment.expectedFingerprint)
+          throw new ArtifactError("Feedback changed; fetch it again before acknowledging", 409);
+        const feedback = snapshot.feedback;
         const time = this.clock();
         for (const item of feedback) {
           this.db

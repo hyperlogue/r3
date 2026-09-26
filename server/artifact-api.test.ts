@@ -359,7 +359,34 @@ test("JSON input counts real streamed bytes and rejects malformed text", async (
 
 describe("artifact HTTP collaboration contract", () => {
   const human = { role: "human", sessionId: null };
-  test("manual copy cannot acknowledge feedback edited after the copied snapshot", async () => {
+  test("archive and restore invalidate a pending snapshot while history remains readable", async () => {
+    const id = await create();
+    await storage.conversations.add(id, {
+      actor: human,
+      body: "Retained",
+      target: { kind: "artifact" },
+    });
+    const snapshot = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    await request(`/api/artifacts/${id}/lifecycle`, "POST", {
+      actor: human,
+      event: "archived",
+      operationKey: "archive-snapshot",
+    });
+    expect((await request(`/api/artifacts/${id}/feedback/pending`)).status).toBe(409);
+    expect((await request(`/api/artifacts/${id}/feedback/history`)).status).toBe(200);
+    await request(`/api/artifacts/${id}/lifecycle`, "POST", {
+      actor: human,
+      event: "restored",
+      operationKey: "restore-snapshot",
+    });
+    expect(
+      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", snapshot.acknowledgment))
+        .status,
+    ).toBe(409);
+    expect(storage.conversations.unsent(id)).toHaveLength(1);
+  });
+
+  test("feedback acknowledgments require the exact pending snapshot, even after edit and revert", async () => {
     const id = await create();
     const feedback = await (
       await request(`/api/artifacts/${id}/feedback`, "POST", {
@@ -368,25 +395,40 @@ describe("artifact HTTP collaboration contract", () => {
         target: { kind: "artifact" },
       })
     ).json();
-    const preview = await request(`/api/artifacts/${id}/prompt?scope=unsent`);
-    const expectedFingerprint = preview.headers.get("x-r3-prompt-fingerprint");
+    const preview = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    const { expectedFingerprint } = preview.acknowledgment;
+    for (const body of [{}, { expectedFingerprint: "invalid" }])
+      expect(
+        (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", body)).status,
+      ).toBe(400);
     expect(expectedFingerprint).toHaveLength(64);
     await request(`/api/feedback/${feedback.id}`, "PATCH", {
       actor: human,
-      body: "Edited after copying",
+      body: "Edited after reading",
     });
     expect(
-      (await request(`/api/artifacts/${id}/prompt`, "POST", { expectedFingerprint })).status,
+      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", { expectedFingerprint }))
+        .status,
     ).toBe(409);
-    expect(storage.conversations.get(feedback.id).sentAt).toBeNull();
-    const updated = await request(`/api/artifacts/${id}/prompt?scope=unsent`);
-    expect(await updated.text()).toContain("Edited after copying");
+    await request(`/api/feedback/${feedback.id}`, "PATCH", { actor: human, body: "Original note" });
+    expect(
+      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", { expectedFingerprint }))
+        .status,
+    ).toBe(409);
     expect(
       (
-        await request(`/api/artifacts/${id}/prompt`, "POST", {
-          expectedFingerprint: updated.headers.get("x-r3-prompt-fingerprint"),
+        await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", {
+          ...preview.acknowledgment,
+          feedback: [feedback.id],
         })
       ).status,
+    ).toBe(409);
+    expect(storage.conversations.get(feedback.id).sentAt).toBeNull();
+    const updated = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    expect(updated.text).toContain("Original note");
+    expect(
+      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", updated.acknowledgment))
+        .status,
     ).toBe(200);
     expect(storage.conversations.get(feedback.id).sentAt).not.toBeNull();
   });
@@ -416,15 +458,25 @@ describe("artifact HTTP collaboration contract", () => {
         })
       ).status,
     ).toBe(200);
-    const preview = await request(`/api/artifacts/${id}/prompt?scope=unsent`);
-    expect(preview.headers.get("x-r3-prompt-items")).toBe("1");
+    const preview = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    expect(preview.itemCount).toBe(1);
+    expect(preview.text).toContain('"versionSeq":1');
     expect((await (await request(`/api/feedback/${feedback.id}`)).json()).sentAt).toBeNull();
-    const delivery = await request(`/api/artifacts/${id}/prompt`, "POST", {});
-    expect(delivery.headers.get("x-r3-prompt-items")).toBe("1");
-    expect(await delivery.text()).toContain('"versionSeq":1');
+    const delivery = await request(
+      `/api/artifacts/${id}/feedback/acknowledge`,
+      "POST",
+      preview.acknowledgment,
+    );
+    expect(await delivery.json()).toEqual({ acknowledgedCount: 1 });
     expect(
-      (await request(`/api/artifacts/${id}/prompt`, "POST", {})).headers.get("x-r3-prompt-items"),
-    ).toBe("0");
+      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", preview.acknowledgment))
+        .status,
+    ).toBe(409);
+    expect((await (await request(`/api/artifacts/${id}/feedback/pending`)).json()).itemCount).toBe(
+      0,
+    );
+    expect((await request(`/api/artifacts/${id}/prompt`)).status).toBe(404);
+    expect((await request(`/api/artifacts/${id}/prompt`, "POST", {})).status).toBe(404);
     const reply = await request(`/api/feedback/${feedback.id}/replies`, "POST", {
       actor,
       body: "I inspected the published source",

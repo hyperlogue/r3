@@ -139,7 +139,7 @@ export async function migrateLegacyStore(
     };
   }
   const artifactUpgrade =
-    [1, 2, 3, 4].includes(schemaVersion) &&
+    [1, 2, 3, 4, 5].includes(schemaVersion) &&
     tables.includes("artifacts") &&
     !tables.includes("reviews");
   if (
@@ -176,9 +176,12 @@ export async function migrateLegacyStore(
       db.exec(ARTIFACT_LISTENER_SCHEMA);
       // Older edits erased sent_at, so a null stamp cannot prove no delivery.
       // Prefer an extra future status notification over silently dropping one.
-      db.exec(`ALTER TABLE feedback ADD COLUMN ever_delivered INTEGER NOT NULL DEFAULT 0
+      if (schemaVersion < 5)
+        db.exec(`ALTER TABLE feedback ADD COLUMN ever_delivered INTEGER NOT NULL DEFAULT 0
         CHECK (ever_delivered IN (0, 1));
         UPDATE feedback SET ever_delivered = 1;`);
+      db.exec(`ALTER TABLE artifacts ADD COLUMN feedback_revision INTEGER NOT NULL DEFAULT 0
+        CHECK (feedback_revision >= 0);`);
     } else {
       const data = readLegacyData(db);
       checkLegacyRelations(data);

@@ -66,13 +66,20 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   new feedback, reply fix targets, and placements reject description anchors.
 - `POST/DELETE /api/claims { sessionId, feedbackIds }` claims/releases as the
   named registered agent. Claims change presence, not owner delivery.
-- `GET .../:id/prompt[?scope=unsent&feedback=<ids>]` is read-only;
-  `POST .../:id/prompt { feedback? }` drains the exact pending snapshot.
-  Both return text with `x-r3-prompt-items`; only POST stamps delivery.
-  An unsent preview also returns `x-r3-prompt-fingerprint`. API clients can send it
-  back as `expectedFingerprint`; a changed snapshot returns 409 without stamping
-  newly edited content. Direct CLI drains omit it. The browser copies only the CLI
-  command and makes no prompt or acknowledgment request.
+- `GET .../:id/feedback/pending[?feedback=<ids>]` returns an
+  `ArtifactFeedbackSnapshot`: formatted `text`, `itemCount`, and an `acknowledgment`
+  containing the selection and required `expectedFingerprint`. It is read-only and
+  uncached; archived artifacts return 409.
+  `POST .../:id/feedback/acknowledge` takes that `ArtifactFeedbackAcknowledgment`
+  after successful consumption and returns `{ acknowledgedCount }`. Missing/invalid
+  fingerprints return 400; stale revisions, changed selection, or archive return 409
+  without marking content delivered. The fingerprint binds artifact, selection, and
+  persisted conversation revision, including edit/revert and prior acknowledgment.
+  `GET .../:id/feedback/history[?feedback=<ids>]` returns `ArtifactFeedbackRead`
+  (`text`, `itemCount`) without acknowledgment data: open history by default, or the
+  specified threads including resolved ones. History remains readable after archive.
+  The browser copies only the CLI command and makes no feedback-read or acknowledgment
+  request. The former `/prompt` routes and CLI alias are removed.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
   delivery acknowledgment or a generic watch woken for pending feedback. An absent
   recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
@@ -179,7 +186,7 @@ The current command families:
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, explicit reply context, separate placements; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
-| `feedback fetch` (`prompt` alias), `watch`, `listen`, `unlisten` | Owner handoff and one designated outward recipient |
+| `feedback fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one designated outward recipient |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `auth`, `config`, `start/stop/status/restart`, `guide` | Browser login management, local configuration and daemon lifecycle |
@@ -212,7 +219,7 @@ agents can watch or poll. Remote `listen` retains its existing capability checks
 outward relay; automatic publication registration is currently local-only.
 
 Watch exits 10 for pending feedback, 0 for archived, 2 for timeout, and 4 for a
-superseded recipient. Archive takes precedence even if feedback is
+superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if feedback is
 pending or the timeout has just elapsed. Already archived watch returns immediately.
 A nonblank archive message reaches the captured listener and remains in history;
 blank messages produce no nudge. Restore needs a new registration. Notification
@@ -228,14 +235,21 @@ status change still sets `statusUnsent` after any earlier delivery; resolving a
 never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
-A prompt POST drains selected pending content atomically. `feedback fetch` uses
-that POST, prints the data, then registers the calling agent as an explicit listener
-when harness detection supports it. This reuses local daemon registration or the
-remote relay, returns after registration, and keeps listener output off stdout.
-Setup failures only warn on stderr after a successful fetch. Unsupported harnesses
-need no identity to fetch; `--human` skips registration. `--all` reads open history
-without acknowledgment or registration, and `--all --feedback` can read specific
-resolved threads too. `prompt` remains a compatibility alias.
+`feedback fetch` and `watch` read pending feedback, await successful stdout
+completion, then explicitly acknowledge that exact snapshot. Reads and failed output
+leave content pending. A failed acknowledgment returns an error and may repeat output
+on retry; concurrent conversation changes remain pending. This is at-least-once
+handoff to stdout, not proof that the harness/model processed the content. Reusing an
+old acknowledgment cannot drain a newer batch. All conversation mutations and
+archive/restore advance a persisted artifact revision; claims alone do not.
+
+After successful acknowledgment, `feedback fetch` registers the calling agent as an
+explicit listener when harness detection supports it. This reuses local daemon
+registration or the remote relay, returns after registration, and keeps listener
+output off stdout. Setup failures only warn on stderr after a successful fetch.
+Unsupported harnesses need no identity to fetch; `--human` skips registration.
+`--all` reads open history without acknowledgment or registration, and
+`--all --feedback` can read specific resolved threads too.
 Wake notifications use the preferred `r3 feedback fetch` spelling. Fetch and watch
 share a data-only formatter; workflow instructions live in the guide. Original
 targets, claims, reply/fix context, status changes, and history pointers remain in

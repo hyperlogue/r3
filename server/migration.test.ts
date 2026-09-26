@@ -62,9 +62,25 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic legacy store migration", () => {
+  test("version 5 adds feedback revisions while preserving exact delivery history", async () => {
+    await migrateLegacyStore(db, options());
+    db.exec(
+      "UPDATE feedback SET ever_delivered = 0; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 5",
+    );
+    const before = db.query("SELECT * FROM feedback ORDER BY id").all();
+    const result = await migrateLegacyStore(db, options("artifact-v5.sqlite"));
+    expect(result.migrated).toBe(true);
+    expect(db.query("SELECT * FROM feedback ORDER BY id").all()).toEqual(before);
+    expect(db.query("SELECT feedback_revision FROM artifacts").all()).toEqual([
+      { feedback_revision: 0 },
+    ]);
+  });
+
   test("version 4 preserves possible delivery history without inventing a delivery timestamp", async () => {
     await migrateLegacyStore(db, options());
-    db.exec("ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 4");
+    db.exec(
+      "ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 4",
+    );
     const store = new ArtifactStore(db, blobs, render, () => time);
     const human = { role: "human" as const, sessionId: null };
     const before = db
@@ -110,7 +126,7 @@ describe("atomic legacy store migration", () => {
     const before = db.query("SELECT id, project_id FROM artifacts ORDER BY id").all();
     const projects = db.query("SELECT * FROM projects ORDER BY id").all();
     db.exec(
-      "DROP TABLE project_remotes; ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 2",
+      "DROP TABLE project_remotes; ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 2",
     );
     const result = await migrateLegacyStore(db, options("artifact-v2.sqlite"));
     expect(result.migrated).toBe(true);
@@ -125,7 +141,7 @@ describe("atomic legacy store migration", () => {
   test("upgrades artifact overviews into retained evidence with a private backup", async () => {
     await migrateLegacyStore(db, options());
     db.exec(
-      "ALTER TABLE artifacts ADD COLUMN summary TEXT; ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 1",
+      "ALTER TABLE artifacts ADD COLUMN summary TEXT; ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 1",
     );
     db.query("UPDATE artifacts SET summary = ? WHERE id = ?").run(
       "Retained overview",

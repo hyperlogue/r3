@@ -77,7 +77,7 @@ describe("artifact conversations", () => {
     await conversations.addReply(note.id, { actor: agent, body: "Please review", context });
     expect(artifacts.list()[0].unhandledCount).toBe(1);
     conversations.claim([note.id], agent.sessionId);
-    conversations.deliver(id);
+    conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     expect(artifacts.get(id).unhandledCount).toBe(1);
     // All messages share a clock value: insertion order breaks the tie.
     await conversations.addReply(note.id, { actor: human, body: "One more change", context });
@@ -322,6 +322,33 @@ describe("agent session claims", () => {
 });
 
 describe("owner handoff delivery", () => {
+  test("snapshot revisions reject edits, reply reverts, changed selections, and old acknowledgment retries", async () => {
+    const note = await conversations.add(id, { actor: human, body: "Original", target: original });
+    const first = conversations.snapshot(id);
+    conversations.edit(note.id, { actor: human, body: "Temporary" });
+    conversations.edit(note.id, { actor: human, body: "Original" });
+    expect(() => conversations.acknowledge(id, first.acknowledgment)).toThrow("Feedback changed");
+    const reply = await conversations.addReply(note.id, { actor: human, body: "Reply", context });
+    const beforeReplyEdit = conversations.snapshot(id);
+    conversations.editReply(reply.id, { actor: human, body: "Temporary reply" });
+    conversations.editReply(reply.id, { actor: human, body: "Reply" });
+    expect(() => conversations.acknowledge(id, beforeReplyEdit.acknowledgment)).toThrow(
+      "Feedback changed",
+    );
+    const selected = conversations.snapshot(id, [note.id]);
+    expect(() =>
+      conversations.acknowledge(id, {
+        expectedFingerprint: selected.acknowledgment.expectedFingerprint,
+      }),
+    ).toThrow("Feedback changed");
+    conversations.acknowledge(id, selected.acknowledgment);
+    conversations.edit(note.id, { actor: human, body: "New pending body" });
+    expect(() => conversations.acknowledge(id, selected.acknowledgment)).toThrow(
+      "Feedback changed",
+    );
+    expect(conversations.get(note.id).sentAt).toBeNull();
+  });
+
   test("reads preserve pending work and a selected handoff stamps only its captured threads", async () => {
     const a = await conversations.add(id, { actor: human, body: "First", target: original });
     const b = await conversations.add(id, { actor: human, body: "Second", target: original });
@@ -333,15 +360,18 @@ describe("owner handoff delivery", () => {
     await conversations.addReply(a.id, { actor: human, body: "Details", context });
     expect(conversations.unsent(id).map((item) => item.id)).toEqual([a.id, b.id]);
     expect(conversations.get(a.id).sentAt).toBeNull();
-    const delivered = conversations.deliver(id, [a.id]);
+    const delivered = conversations.acknowledge(
+      id,
+      conversations.snapshot(id, [a.id]).acknowledgment,
+    );
     expect(delivered.map((item) => item.id)).toEqual([a.id]);
     expect(delivered[0].sentAt).toBeNull(); // snapshot before its delivery stamp
     expect(conversations.get(a.id).sentAt).toBe(time);
     expect(conversations.get(a.id).replies[0].sentAt).toBe(time);
     expect(conversations.unsent(id).map((item) => item.id)).toEqual([b.id]);
     expect(conversations.get(guidance.id).sentAt).toBe(time);
-    conversations.deliver(id);
-    expect(conversations.deliver(id)).toEqual([]);
+    conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
+    expect(conversations.acknowledge(id, conversations.snapshot(id).acknowledgment)).toEqual([]);
   });
 
   test("edited human content re-enters delivery while no-op and agent edits retain their stamps", async () => {
@@ -356,7 +386,7 @@ describe("owner handoff delivery", () => {
       body: "Acknowledged",
       context,
     });
-    conversations.deliver(id);
+    conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     time = "2026-09-01T00:10:00.000Z";
     conversations.edit(note.id, { actor: human, body: "Original" });
     conversations.editReply(reply.id, { actor: human, body: "Initial reply" });
@@ -368,7 +398,7 @@ describe("owner handoff delivery", () => {
     expect(pending).toHaveLength(1);
     expect(pending[0].body).toBe("Corrected");
     expect(pending[0].replies.find((item) => item.id === reply.id)?.sentAt).toBeNull();
-    conversations.deliver(id);
+    conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     expect(conversations.unsent(id)).toEqual([]);
   });
 
@@ -382,7 +412,7 @@ describe("owner handoff delivery", () => {
     conversations.edit(note.id, { actor: human, status: "resolved" });
     await conversations.addReply(note.id, { actor: human, body: "Answer", context });
     expect(conversations.unsent(id)).toHaveLength(1);
-    const handoff = conversations.deliver(id)[0];
+    const handoff = conversations.acknowledge(id, conversations.snapshot(id).acknowledgment)[0];
     expect(handoff.status).toBe("resolved");
     expect(handoff.statusUnsent).toBe(true);
     expect(handoff.replies[0].body).toBe("Answer");
@@ -393,12 +423,12 @@ describe("owner handoff delivery", () => {
 
   test("resolving an edited delivered note still hands off its status", async () => {
     const note = await conversations.add(id, { actor: human, body: "Original", target: original });
-    conversations.deliver(id);
+    conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     conversations.edit(note.id, { actor: human, body: "Changed after delivery" });
     expect(conversations.get(note.id).sentAt).toBeNull();
     conversations.edit(note.id, { actor: human, status: "resolved" });
     expect(conversations.unsent(id).map((item) => item.id)).toEqual([note.id]);
-    const [snapshot] = conversations.deliver(id);
+    const [snapshot] = conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     expect(snapshot.statusUnsent).toBe(true);
     expect(snapshot.status).toBe("resolved");
     expect(conversations.unsent(id)).toEqual([]);
@@ -417,11 +447,15 @@ describe("owner handoff delivery", () => {
   test("archive blocks ordinary handoff and preserves pending messages for restore", async () => {
     const note = await conversations.add(id, { actor: human, body: "Pending", target: original });
     db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
-    expect(() => conversations.deliver(id)).toThrow("archived");
+    expect(() => conversations.acknowledge(id, conversations.snapshot(id).acknowledgment)).toThrow(
+      "archived",
+    );
     expect(conversations.get(note.id).sentAt).toBeNull();
     expect(conversations.unsent(id)).toHaveLength(1);
     db.query("UPDATE artifacts SET state = 'active', archived_at = NULL WHERE id = ?").run(id);
-    expect(conversations.deliver(id)).toHaveLength(1);
+    expect(conversations.acknowledge(id, conversations.snapshot(id).acknowledgment)).toHaveLength(
+      1,
+    );
     expect(conversations.unsent(id)).toEqual([]);
   });
 });

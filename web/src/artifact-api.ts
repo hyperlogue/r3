@@ -10,6 +10,10 @@ import type {
   ArtifactActor,
   ArtifactDetail,
   ArtifactFeedback,
+  ArtifactFeedbackAcknowledged,
+  ArtifactFeedbackAcknowledgment,
+  ArtifactFeedbackRead,
+  ArtifactFeedbackSnapshot,
   ArtifactFile,
   ArtifactLifecycleBody,
   ArtifactLifecycleResponse,
@@ -116,14 +120,22 @@ export const artifactApi = {
     client().json<ArtifactWatcher[]>("GET", `${artifactApiPath(id)}/watchers`),
   submit: (id: string) =>
     client().json<{ notification: ArtifactNotification }>("POST", `${artifactApiPath(id)}/submit`),
-  prompt: async (id: string, acknowledge = false, feedback?: string[]) =>
-    (
-      await client().request(
-        acknowledge ? "POST" : "GET",
-        `${artifactApiPath(id)}/prompt${acknowledge ? "" : query({ scope: "unsent", feedback: feedback?.join(",") })}`,
-        acknowledge ? { feedback } : undefined,
-      )
-    ).text(),
+  pendingFeedback: (id: string, feedback?: string[]) =>
+    client().json<ArtifactFeedbackSnapshot>(
+      "GET",
+      `${artifactApiPath(id)}/feedback/pending${query({ feedback: feedback?.join(",") })}`,
+    ),
+  feedbackHistory: (id: string, feedback?: string[]) =>
+    client().json<ArtifactFeedbackRead>(
+      "GET",
+      `${artifactApiPath(id)}/feedback/history${query({ feedback: feedback?.join(",") })}`,
+    ),
+  acknowledgeFeedback: (id: string, body: ArtifactFeedbackAcknowledgment) =>
+    client().json<ArtifactFeedbackAcknowledged>(
+      "POST",
+      `${artifactApiPath(id)}/feedback/acknowledge`,
+      body,
+    ),
   viewed: (id: string) => client().json<string[]>("GET", `${artifactApiPath(id)}/viewed`),
   setViewed: (id: string, key: string, viewed: boolean) =>
     client().json("PUT", `${artifactApiPath(id)}/viewed`, { key, viewed }),

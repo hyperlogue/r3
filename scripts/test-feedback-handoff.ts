@@ -73,7 +73,7 @@ storage.artifacts.registerSession({ id: listener.sessionId, label: "Review assis
 storage.listeners.setTarget(listener.sessionId, { harness: "codex", threadId: "handoff-thread" });
 storage.listeners.register(artifact.id, listener, "fallback");
 let completed = 0;
-let promptRequests = 0;
+let feedbackReadRequests = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -81,7 +81,7 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith("/api/")) {
-      if (path.endsWith("/prompt")) promptRequests++;
+      if (/\/feedback\/(pending|history|acknowledge)$/.test(path)) feedbackReadRequests++;
       const response = await api.app.fetch(request);
       if (path.endsWith("/submit")) completed++;
       return response;
@@ -297,7 +297,10 @@ try {
   assert.equal(await other.evaluate(`(${button}).disabled`), true);
 
   api.collaboration.unregister(artifact.id, api.collaboration.watchers(artifact.id)[0].id);
-  storage.conversations.deliver(artifact.id);
+  storage.conversations.acknowledge(
+    artifact.id,
+    storage.conversations.snapshot(artifact.id).acknowledgment,
+  );
   const waiting = api.collaboration.watch(artifact.id, listener);
   const generic = await storage.conversations.add(artifact.id, {
     actor,
@@ -437,7 +440,7 @@ try {
     "unwatched artifacts offer the fetch command despite prior notification receipts",
   );
   const pendingBeforeCopy = storage.conversations.unsent(artifact.id);
-  const promptRequestsBeforeCopy = promptRequests;
+  const feedbackReadRequestsBeforeCopy = feedbackReadRequests;
   await page.evaluate(`(${navButton}).click()`);
   const popup =
     "document.querySelector('[role=dialog][aria-label=\"Read feedback in your agent\"]')";
@@ -463,7 +466,11 @@ try {
   );
   assert.equal(await page.evaluate("window.copiedCommand"), `r3 feedback fetch ${artifact.id}`);
   assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
-  assert.equal(promptRequests, promptRequestsBeforeCopy, "copying makes no prompt API requests");
+  assert.equal(
+    feedbackReadRequests,
+    feedbackReadRequestsBeforeCopy,
+    "copying makes no feedback read or acknowledgment requests",
+  );
   await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape" });
   await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape" });
   await eventually(() => page.evaluate(`!${popup}`), "Escape dismisses the command");
@@ -496,7 +503,7 @@ try {
     "copy failure keeps a selectable command",
   );
   assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
-  assert.equal(promptRequests, promptRequestsBeforeCopy);
+  assert.equal(feedbackReadRequests, feedbackReadRequestsBeforeCopy);
   console.log(
     "Notification delivery and command copying preserve pending feedback; command popovers work on desktop and mobile.",
   );

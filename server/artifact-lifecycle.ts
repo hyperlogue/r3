@@ -95,7 +95,9 @@ export class ArtifactLifecycle {
         const time = this.clock();
         const eventId = `event_${randomUUID().replaceAll("-", "")}`;
         this.db
-          .query("UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ? WHERE id = ?")
+          .query(
+            "UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ?, feedback_revision = feedback_revision + 1 WHERE id = ?",
+          )
           .run(state, state === "archived" ? time : null, time, id);
         this.db
           .query(`INSERT INTO artifact_events(id, artifact_id, event, operation_key, actor, agent_session_id, message, created_at)

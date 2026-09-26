@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 5;
+export const ARTIFACT_SCHEMA_VERSION = 6;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -51,6 +51,7 @@ CREATE TABLE artifacts (
   created_by TEXT NOT NULL CHECK (created_by IN ('human', 'agent')),
   creator_session_id TEXT REFERENCES agent_sessions(id),
   next_seq INTEGER NOT NULL DEFAULT 1 CHECK (next_seq >= 1),
+  feedback_revision INTEGER NOT NULL DEFAULT 0 CHECK (feedback_revision >= 0),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   archived_at TEXT,

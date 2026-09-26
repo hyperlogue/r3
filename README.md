@@ -57,7 +57,10 @@ Local Claude Code and Codex publications set up feedback delivery automatically,
 so you can send feedback from the artifact page. When no agent is listening, click
 **Use in agent** to copy `r3 feedback fetch <artifact-id>`. Run it with `!` in your
 agent harness to load new feedback and replies into context. Fetching acknowledges
-that feedback and registers supported agents as listeners for future updates.
+the snapshot only after stdout succeeds, then registers supported agents as listeners
+for future updates. A failed read or output leaves feedback pending; an acknowledgment
+failure can repeat already printed feedback on retry. `--all` reads history without
+acknowledging it or registering a listener.
 
 ## Artifact types
 

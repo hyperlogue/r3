@@ -31,6 +31,7 @@ export interface ArtifactDemoSeed {
 export interface ArtifactDemoState extends ArtifactDemoSeed {
   schema: number;
   viewed: Record<string, string[]>;
+  feedbackRevisions: Record<string, number>;
   everDelivered: Record<string, boolean>;
 }
 export const publicationKey = (id: string, seq: number) => `${id}/${seq}`;

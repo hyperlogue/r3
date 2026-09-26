@@ -77,7 +77,12 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     }
   };
   try {
-    expect((await run("help")).output).toContain("published artifacts");
+    const help = (await run("help")).output;
+    expect(help).toContain("published artifacts");
+    expect(help).not.toContain("prompt <id>");
+    const removed = await run("prompt", "artifact_missing");
+    expect(removed.code).toBe(1);
+    expect(removed.error).toContain("Unknown command: prompt");
     for (const [args, heading] of [
       [[], "# r3 — publish artifacts and respond to feedback"],
       [["html"], "# HTML artifacts"],

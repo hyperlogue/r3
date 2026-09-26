@@ -89,6 +89,7 @@ export const artifactApi: typeof productionApi = {
   },
   delete: async (id) => {
     for (const note of demo.get(id).feedback) delete demo.state.everDelivered[note.id];
+    delete demo.state.feedbackRevisions[id];
     demo.state.artifacts = demo.state.artifacts.filter((item) => item.id !== id);
     for (const key of Object.keys(demo.state.publications))
       if (key.startsWith(`${id}/`)) delete demo.state.publications[key];
@@ -199,15 +200,26 @@ export const artifactApi: typeof productionApi = {
     demo.handoff(id);
     return { notification: { state: "sent" } };
   },
-  prompt: async (id, acknowledge = false, feedback) => {
-    const selected = demo.pending(id);
-    const text = buildArtifactPrompt(
-      demo.get(id),
-      feedback ? selected.filter((item) => feedback.includes(item.id)) : selected,
-      true,
+  pendingFeedback: (id, feedback) => demo.snapshot(id, feedback),
+  feedbackHistory: async (id, feedback) => {
+    const artifact = demo.get(id);
+    const selected = artifact.feedback.filter((note) =>
+      feedback ? feedback.includes(note.id) : note.status === "open",
     );
-    if (acknowledge) demo.handoff(id, feedback);
-    return text;
+    return { text: buildArtifactPrompt(artifact, selected), itemCount: selected.length };
+  },
+  acknowledgeFeedback: async (id, body) => {
+    if (!/^[a-f0-9]{64}$/.test(body.expectedFingerprint ?? ""))
+      fail("Invalid feedback fingerprint");
+    const revision = demo.state.feedbackRevisions[id];
+    const snapshot = await demo.snapshot(id, body.feedback);
+    if (
+      revision !== demo.state.feedbackRevisions[id] ||
+      body.expectedFingerprint !== snapshot.acknowledgment.expectedFingerprint
+    )
+      fail("Feedback changed; fetch it again before acknowledging", 409);
+    demo.handoff(id, body.feedback);
+    return { acknowledgedCount: snapshot.itemCount };
   },
   viewed: async (id) => {
     demo.get(id);

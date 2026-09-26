@@ -20,6 +20,7 @@ import type {
 } from "../shared/artifacts.ts";
 import { normalizeGitRemote } from "../shared/git-remote.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
+import { fetchArtifactFeedback } from "./artifact-feedback.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
 
@@ -30,7 +31,7 @@ export interface ArtifactCommandContext {
   cwd: string;
   environment: Record<string, string | undefined>;
   stdin: () => Promise<string>;
-  write: (text: string | Uint8Array) => void;
+  write: (text: string | Uint8Array) => void | Promise<void>;
   error: (text: string) => void;
   listen?: (
     id: string,
@@ -112,7 +113,7 @@ export async function runArtifactCommand(
   if (command === "feedback" && args.positional[0] === "fetch") {
     args.positional.shift();
     command = "feedback fetch";
-  } else if (command === "prompt") command = "feedback fetch";
+  }
   const captureFlags = [
     "kind",
     "dir",
@@ -218,15 +219,15 @@ export async function runArtifactCommand(
     return value;
   };
   const detail = (id: string) => client.json<ArtifactDetail>("GET", artifactApiPath(id));
-  const printPublication = (artifact: Artifact, version: ArtifactVersion) => {
+  const printPublication = async (artifact: Artifact, version: ArtifactVersion) => {
     if (args.has("json"))
-      print({
+      await print({
         artifact,
         version,
         url: `${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
       });
     else
-      print(
+      await print(
         `${artifact.id} · ${artifact.kind} · version ${version.seq}${artifact.projectId ? `\nProject: ${artifact.projectId}` : ""}\n${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
       );
   };
@@ -251,7 +252,7 @@ export async function runArtifactCommand(
         listen,
         text,
       });
-      printPublication(artifact, version);
+      await printPublication(artifact, version);
       if (listenerWarning) ctx.error(listenerWarning);
       return 0;
     }
@@ -266,46 +267,46 @@ export async function runArtifactCommand(
         query.set("meta.session", id);
       }
       const rows = await client.json<Artifact[]>("GET", `/api/artifacts?${query}`);
-      if (args.has("json")) print(rows);
+      if (args.has("json")) await print(rows);
       else
         for (const row of rows)
-          print(
+          await print(
             `${row.id} · ${row.kind} · ${row.state}${row.watching ? " · listening" : ""} · ${row.title ?? "Untitled"}`,
           );
       return 0;
     }
     case "show": {
       const artifact = await detail(args.id());
-      if (args.has("json")) print(artifact);
+      if (args.has("json")) await print(artifact);
       else {
-        print(
+        await print(
           `${artifact.id} · ${artifact.kind} · ${artifact.state}\n${artifact.title ?? "Untitled"}`,
         );
         for (const version of artifact.versions)
-          print(
+          await print(
             `Version ${version.seq}${version.label ? ` · ${version.label}` : ""} · ${version.publishedAt}`,
           );
         for (const feedback of artifact.feedback) {
-          print(
+          await print(
             `\n${feedback.id} [${feedback.status}] ${artifactFeedbackTargetLabel(feedback)}${feedback.claim ? ` · working: ${feedback.claim.sessionId}` : ""}\n[${feedback.author.role}${feedback.author.sessionId ? ` ${feedback.author.sessionId}` : ""}] ${feedback.body}\nTarget: ${JSON.stringify(feedback.target)}${feedback.legacy ? `\nImported evidence: ${JSON.stringify(feedback.legacy)}` : ""}`,
           );
           for (const reply of feedback.replies)
-            print(
+            await print(
               `  ${reply.id} [${reply.author.role}${reply.author.sessionId ? ` ${reply.author.sessionId}` : ""}] ${reply.body}\n  Context: ${JSON.stringify(reply.context)}${reply.target ? `; fix: ${JSON.stringify(reply.target)}` : ""}`,
             );
         }
         for (const event of artifact.events)
-          print(
+          await print(
             `\n${event.event} · ${event.createdAt}${event.message ? `\n${event.message}` : ""}`,
           );
       }
       return 0;
     }
     case "versions":
-      print(await client.json("GET", `${artifactApiPath(args.id())}/versions`));
+      await print(await client.json("GET", `${artifactApiPath(args.id())}/versions`));
       return 0;
     case "files":
-      print(
+      await print(
         await client.json("GET", `${artifactApiPath(args.id())}/versions/${args.sequence()}/files`),
       );
       return 0;
@@ -314,10 +315,10 @@ export async function runArtifactCommand(
         "GET",
         `${artifactApiPath(args.id())}/versions/${args.sequence()}/source?path=${encodeURIComponent(args.require("file"))}`,
       );
-      if (args.has("json")) print(source);
+      if (args.has("json")) await print(source);
       else if (source.kind !== "text")
-        print(`${source.kind}: ${source.path} (${source.byteLength} bytes)`);
-      else for (const line of source.lines) print(`${line.lineNo}\t${line.text}`);
+        await print(`${source.kind}: ${source.path} (${source.byteLength} bytes)`);
+      else for (const line of source.lines) await print(`${line.lineNo}\t${line.text}`);
       return 0;
     }
     case "download":
@@ -333,7 +334,7 @@ export async function runArtifactCommand(
         for (;;) {
           const chunk = await reader.read();
           if (chunk.done) break;
-          ctx.write(chunk.value);
+          await ctx.write(chunk.value);
         }
       } finally {
         reader.releaseLock();
@@ -341,7 +342,7 @@ export async function runArtifactCommand(
       return 0;
     }
     case "edit": {
-      print(
+      await print(
         await client.json("PATCH", artifactApiPath(args.id()), {
           title: await text("title"),
           meta: args.has("meta") ? args.metadata() : undefined,
@@ -350,14 +351,14 @@ export async function runArtifactCommand(
       return 0;
     }
     case "delete":
-      print(await client.json("DELETE", artifactApiPath(args.id())));
+      await print(await client.json("DELETE", artifactApiPath(args.id())));
       return 0;
     case "feedback": {
       const [operation, id] = args.positional;
       if (!id) throw new ArtifactCommandError("feedback add|edit|delete <id>");
       const author = await actor();
       if (operation === "add")
-        print(
+        await print(
           await client.json("POST", `${artifactApiPath(id)}/feedback`, {
             actor: author,
             body: await message(),
@@ -365,7 +366,7 @@ export async function runArtifactCommand(
           }),
         );
       else if (operation === "edit")
-        print(
+        await print(
           await client.json("PATCH", feedbackApiPath(id), {
             actor: author,
             body: await text("message"),
@@ -373,7 +374,7 @@ export async function runArtifactCommand(
           }),
         );
       else if (operation === "delete")
-        print(await client.json("DELETE", feedbackApiPath(id), { actor: author }));
+        await print(await client.json("DELETE", feedbackApiPath(id), { actor: author }));
       else throw new ArtifactCommandError("feedback fetch|add|edit|delete <id>");
       return 0;
     }
@@ -386,7 +387,7 @@ export async function runArtifactCommand(
             representation: args.has("view") ? representation(args) : null,
           }
         : { versionSeq: null, representation: null };
-      print(
+      await print(
         await client.json("POST", `${feedbackApiPath(args.id())}/replies`, {
           actor: await actor(),
           body: await message(),
@@ -399,7 +400,7 @@ export async function runArtifactCommand(
     case "place": {
       if (!args.has("target") && !args.has("file"))
         throw new ArtifactCommandError("A placement requires a document target");
-      print(
+      await print(
         await client.json("PUT", `${feedbackApiPath(args.id())}/placements`, {
           actor: await actor(),
           target: commandTarget(args),
@@ -414,7 +415,7 @@ export async function runArtifactCommand(
       if (author.role !== "agent")
         throw new ArtifactCommandError("Claims require an agent session");
       args.id();
-      print(
+      await print(
         await client.json(command === "claim" ? "POST" : "DELETE", "/api/claims", {
           sessionId: author.sessionId,
           feedbackIds: args.positional,
@@ -423,15 +424,10 @@ export async function runArtifactCommand(
       return 0;
     }
     case "feedback fetch": {
-      const path = `${artifactApiPath(args.id())}/prompt`;
-      const selected = args.value("feedback");
-      const response = args.has("all")
-        ? await client.request(
-            "GET",
-            `${path}${selected ? `?feedback=${encodeURIComponent(selected)}` : ""}`,
-          )
-        : await client.request("POST", path, { feedback: selected?.split(",") });
-      ctx.write(await response.text());
+      await fetchArtifactFeedback(client, args.id(), ctx.write, {
+        all: args.has("all"),
+        feedback: args.value("feedback"),
+      });
       if (
         !args.has("all") &&
         !args.has("human") &&
@@ -455,15 +451,15 @@ export async function runArtifactCommand(
       if (!Number.isFinite(seconds) || seconds < 0)
         throw new ArtifactCommandError("--timeout must be a nonnegative number of seconds");
       const deadline = seconds ? Date.now() + seconds * 1000 : Infinity;
-      const archived = (current: ArtifactDetail) => {
+      const archived = async (current: ArtifactDetail) => {
         if (current.state !== "archived") return false;
         const event = current.events.findLast((event) => event.event === "archived");
-        if (event?.message) print(event.message);
+        if (event?.message) await print(event.message);
         return true;
       };
       for (;;) {
         const remaining = deadline - Date.now();
-        if (remaining <= 0) return archived(await detail(args.id())) ? 0 : 2;
+        if (remaining <= 0) return (await archived(await detail(args.id()))) ? 0 : 2;
         let result: ArtifactWatchResult;
         try {
           result = await client.json("POST", `${artifactApiPath(args.id())}/watch`, {
@@ -476,21 +472,17 @@ export async function runArtifactCommand(
         }
         if (result.result === "timeout") continue;
         if (result.result === "archived") {
-          if (result.event?.message) print(result.event.message);
+          if (result.event?.message) await print(result.event.message);
           return 0;
         }
         if (result.result === "feedback") {
           try {
-            ctx.write(
-              await (
-                await client.request("POST", `${artifactApiPath(args.id())}/prompt`, {})
-              ).text(),
-            );
+            await fetchArtifactFeedback(client, args.id(), ctx.write);
           } catch (error) {
             if (
               error instanceof ArtifactApiError &&
               error.status === 409 &&
-              archived(await detail(args.id()))
+              (await archived(await detail(args.id())))
             )
               return 0;
             throw error;
@@ -506,7 +498,7 @@ export async function runArtifactCommand(
       return ctx.listen(args.id(), await actor(), args.has("foreground"));
     }
     case "unlisten": {
-      print(
+      await print(
         await client.json("DELETE", `${artifactApiPath(args.id())}/listen`, {
           actor: await actor(),
         }),
@@ -522,13 +514,13 @@ export async function runArtifactCommand(
           operationKey: args.value("key") ?? randomUUID(),
           message: await text("message"),
         });
-        print(result);
+        await print(result);
         return 0;
       } catch (error) {
         if (error instanceof ArtifactApiError && error.status === 502) {
           const result = error.result as ArtifactLifecycleResponse | null;
           if (result?.event?.artifactId === args.id() && result.notification?.state === "failed") {
-            print(result);
+            await print(result);
             ctx.error(
               "The lifecycle change was saved, but the listener notification failed. The operation key in the event identifies this committed change.",
             );
@@ -544,23 +536,23 @@ export async function runArtifactCommand(
       const remote = inputRemote === undefined ? undefined : normalizeGitRemote(inputRemote);
       if (inputRemote !== undefined && !remote)
         throw new ArtifactCommandError("Project remote must be a network Git URL");
-      if (operation === "list") print(await client.json("GET", "/api/projects"));
+      if (operation === "list") await print(await client.json("GET", "/api/projects"));
       else if (operation === "create")
-        print(
+        await print(
           await client.json("POST", "/api/projects", {
             name: await text("title"),
             remoteUrl: remote?.url,
           }),
         );
       else if (operation === "edit")
-        print(
+        await print(
           await client.json("PATCH", `/api/projects/${encodeURIComponent(args.id(1))}`, {
             ...(args.has("title") ? { name: await text("title") } : {}),
             ...(remote ? { remoteUrl: remote.url } : {}),
           }),
         );
       else if (operation === "delete")
-        print(await client.json("DELETE", `/api/projects/${encodeURIComponent(args.id(1))}`));
+        await print(await client.json("DELETE", `/api/projects/${encodeURIComponent(args.id(1))}`));
       else throw new ArtifactCommandError("project list|create|edit|delete <id>");
       return 0;
     }

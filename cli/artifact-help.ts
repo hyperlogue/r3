@@ -31,7 +31,6 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
   place <feedback-id> --target <JSON document target> --state anchored|unplaced|ambiguous
   claim <feedback-id>... | release <feedback-id>...
   feedback fetch <id> [--all] [--feedback <id,id>]
-  prompt <id> [--all] [--feedback <id,id>]      # compatibility alias for feedback fetch
   watch <id> [--timeout <seconds>]
   listen <id>                                # explicit notification recipient
   unlisten <id>                              # remove your listener registrations
@@ -48,8 +47,10 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
 Identity: R3_AGENT_SESSION overrides the harness identity for agent writes.
           --session <name> sets a readable display name; it never changes identity.
           --human acts as the human owner. watch needs no supplied identity.
-Feedback fetch prints and acknowledges new feedback/replies, then registers the
-calling agent as listener when supported. Listener failure only warns on stderr.
+Feedback fetch writes new feedback/replies to stdout, acknowledges that snapshot
+only after output succeeds, then registers the calling agent when supported.
+Listener failure only warns on stderr. A failed acknowledgment can repeat output
+on retry; concurrent edits remain pending. --human skips listener registration.
 Use ! r3 feedback fetch <id> in your harness to load feedback into its context.
 --all reads history without acknowledgment or listener registration.
 Text flags accept - to read stdin. --json prints structured results.
@@ -130,9 +131,11 @@ Local Claude Code and Codex publications register the publisher as fallback in t
 
 With an explicit remote \`R3_URL\`, publishing remains supported; automatic publication registration is local-only for now. Explicit remote \`listen\` retains its publisher-side relay, and \`watch\` works everywhere. A local proxy for remote services is deferred.
 
-\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 prints and acknowledges feedback; 0 means archived, 2 means timeout, and 4 means another explicit listener or watcher superseded this request. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
+\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms feedback was written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the feedback snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
 
-\`r3 feedback fetch <id> [--all] [--feedback <id,id>]\` prints and acknowledges new feedback, replies, and status changes. It then registers the calling agent as the explicit listener when its harness supports listening, using the local daemon or remote relay. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--feedback <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
+\`r3 feedback fetch <id> [--all] [--feedback <id,id>]\` reads new feedback, replies, and status changes, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave feedback pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
+
+After acknowledgment, fetch registers the calling agent as the explicit listener when its harness supports listening, using the local daemon or remote relay. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--feedback <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
 
 When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 feedback fetch <id>\` in your harness to feed its output into context. Copying the command leaves feedback pending until it runs. Use the existing payload when feedback was returned by watch or a harness command.
 

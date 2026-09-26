@@ -1,9 +1,13 @@
 import type { Hono } from "hono";
 import { buildArtifactPrompt } from "../shared/artifact-prompt.ts";
-import type { ArtifactDetail } from "../shared/artifacts.ts";
+import type {
+  ArtifactDetail,
+  ArtifactFeedbackAcknowledged,
+  ArtifactFeedbackRead,
+  ArtifactFeedbackSnapshot,
+} from "../shared/artifacts.ts";
 import { AgentConnections } from "./agent-connections.ts";
 import type { ArtifactCollaboration } from "./artifact-collaboration.ts";
-import { artifactDeliveryFingerprint } from "./artifact-conversations.ts";
 import { ARTIFACT_EVENT_HEADERS, artifactEvents } from "./artifact-events.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
@@ -77,35 +81,43 @@ export function installArtifactConversations(
     return c.json(result ?? { ok: true });
   });
 
-  app.get("/api/artifacts/:id/prompt", (c) => {
+  app.get("/api/artifacts/:id/feedback/pending", (c) => {
     const id = c.req.param("id");
-    const only = ids(c.req.query("feedback")?.split(","));
-    const scope = c.req.query("scope");
-    if (scope !== undefined && scope !== "unsent") throw new ArtifactError("Invalid prompt scope");
-    const detail = detailFor(id);
-    const selected =
-      scope === "unsent"
-        ? conversations.unsent(id, only)
-        : detail.feedback.filter((feedback) =>
-            only ? only.includes(feedback.id) : feedback.status === "open",
-          );
-    c.header("x-r3-prompt-items", String(selected.length));
-    if (scope === "unsent")
-      c.header("x-r3-prompt-fingerprint", artifactDeliveryFingerprint(selected));
-    return c.text(buildArtifactPrompt(detail, selected, scope === "unsent"));
+    const snapshot = conversations.snapshot(id, ids(c.req.query("feedback")?.split(",")));
+    c.header("cache-control", "no-store");
+    return c.json({
+      text: buildArtifactPrompt(detailFor(id), snapshot.feedback, true),
+      itemCount: snapshot.feedback.length,
+      acknowledgment: snapshot.acknowledgment,
+    } satisfies ArtifactFeedbackSnapshot);
   });
-  app.post("/api/artifacts/:id/prompt", async (c) => {
+  app.get("/api/artifacts/:id/feedback/history", (c) => {
+    const detail = detailFor(c.req.param("id"));
+    const only = ids(c.req.query("feedback")?.split(","));
+    const selected = detail.feedback.filter((feedback) =>
+      only ? only.includes(feedback.id) : feedback.status === "open",
+    );
+    return c.json({
+      text: buildArtifactPrompt(detail, selected),
+      itemCount: selected.length,
+    } satisfies ArtifactFeedbackRead);
+  });
+  app.post("/api/artifacts/:id/feedback/acknowledge", async (c) => {
     const id = c.req.param("id");
     const input = await artifactJson(c.req.raw);
-    const expected =
-      input.expectedFingerprint === undefined
-        ? undefined
-        : requireString(input.expectedFingerprint, "Expected prompt fingerprint", 64);
-    const selected = conversations.deliver(id, ids(input.feedback), expected);
-    const detail = detailFor(id);
+    const expectedFingerprint = requireString(
+      input.expectedFingerprint,
+      "Expected feedback fingerprint",
+      64,
+    );
+    if (!/^[a-f0-9]{64}$/.test(expectedFingerprint))
+      throw new ArtifactError("Invalid feedback fingerprint");
+    const selected = conversations.acknowledge(id, {
+      feedback: ids(input.feedback),
+      expectedFingerprint,
+    });
     if (selected.length) collaboration.broadcast({ type: "artifact-updated", artifactId: id });
-    c.header("x-r3-prompt-items", String(selected.length));
-    return c.text(buildArtifactPrompt(detail, selected, true));
+    return c.json({ acknowledgedCount: selected.length } satisfies ArtifactFeedbackAcknowledged);
   });
   app.post("/api/artifacts/:id/submit", async (c) => {
     const notification = await collaboration.submit(c.req.param("id"));

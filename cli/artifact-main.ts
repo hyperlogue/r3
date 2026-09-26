@@ -11,6 +11,7 @@ import {
   localArtifactDelivery,
   startArtifactListenerProcess,
 } from "./artifact-listener.ts";
+import { writeArtifactOutput } from "./artifact-output.ts";
 import { authCommand, configCommand } from "./artifact-settings.ts";
 import { cliProcessArgv, daemonCommand, discoverArtifactServer } from "./daemon-client.ts";
 import { detectListener } from "./listener.ts";
@@ -32,7 +33,6 @@ const COMMANDS = new Set([
   "place",
   "claim",
   "release",
-  "prompt",
   "watch",
   "listen",
   "unlisten",
@@ -168,9 +168,7 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     environment: process.env,
     registerListener,
     stdin: stdinText,
-    write: (text) => {
-      process.stdout.write(text);
-    },
+    write: writeArtifactOutput,
     error: (text) => {
       process.stderr.write(`${text}\n`);
     },

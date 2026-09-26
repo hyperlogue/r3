@@ -175,7 +175,7 @@ test("schema 3 upgrades preserve artifacts and add durable local registrations",
   storage.close();
   const old = new Database(join(root, "store.sqlite"));
   old.exec(
-    "DROP TABLE artifact_listeners; DROP TABLE local_agent_targets; ALTER TABLE feedback DROP COLUMN ever_delivered; PRAGMA user_version = 3",
+    "DROP TABLE artifact_listeners; DROP TABLE local_agent_targets; ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 3",
   );
   old.close();
   await open();

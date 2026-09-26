@@ -362,11 +362,22 @@ export interface ArtifactNudgeAcknowledgment {
   error?: string;
 }
 
-export interface ArtifactPromptBody {
+export interface ArtifactFeedbackAcknowledgment {
   feedback?: string[];
-  // Manual copy acknowledges only the snapshot copied to the clipboard. CLI
-  // consumers can omit this and consume the atomic POST response directly.
-  expectedFingerprint?: string;
+  expectedFingerprint: string;
+}
+
+export interface ArtifactFeedbackRead {
+  text: string;
+  itemCount: number;
+}
+
+export interface ArtifactFeedbackSnapshot extends ArtifactFeedbackRead {
+  acknowledgment: ArtifactFeedbackAcknowledgment;
+}
+
+export interface ArtifactFeedbackAcknowledged {
+  acknowledgedCount: number;
 }
 
 // Compatible retains restrictive headers without requiring verified network

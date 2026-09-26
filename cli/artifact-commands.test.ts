@@ -45,7 +45,9 @@ beforeEach(async () => {
     cwd: publisher,
     environment: { R3_AGENT_SESSION: agent.sessionId },
     stdin: async () => "From stdin",
-    write: (text) => output.push(typeof text === "string" ? new TextEncoder().encode(text) : text),
+    write: (text) => {
+      output.push(typeof text === "string" ? new TextEncoder().encode(text) : text);
+    },
     error: (text) => errors.push(text),
   };
 });
@@ -73,6 +75,180 @@ async function create() {
 }
 
 describe("artifact CLI over the HTTP contract", () => {
+  for (const name of ["feedback", "watch"]) {
+    test(`${name} waits for stdout completion before acknowledgment`, async () => {
+      const id = await create();
+      const note = await storage.conversations.add(id, {
+        actor: { role: "human", sessionId: null },
+        body: "Buffered output",
+        target: { kind: "artifact" },
+      });
+      const entered = Promise.withResolvers<void>();
+      const written = Promise.withResolvers<void>();
+      ctx.write = async () => {
+        entered.resolve();
+        await written.promise;
+      };
+      const running = command(name, name === "feedback" ? ["fetch", id] : [id]);
+      await entered.promise;
+      expect(storage.conversations.get(note.id).sentAt).toBeNull();
+      written.resolve();
+      expect((await running).code).toBe(name === "watch" ? 10 : 0);
+      expect(storage.conversations.get(note.id).sentAt).not.toBeNull();
+    });
+
+    test(`${name} preserves pending replies on asynchronous output failure`, async () => {
+      const id = await create();
+      const note = await storage.conversations.add(id, {
+        actor: { role: "human", sessionId: null },
+        body: "Original",
+        target: { kind: "artifact" },
+      });
+      await command("feedback", ["fetch", id]);
+      const reply = await storage.conversations.addReply(note.id, {
+        actor: { role: "human", sessionId: null },
+        body: "New reply",
+        context: { versionSeq: null, representation: null },
+      });
+      ctx.write = async () => {
+        await Promise.resolve();
+        throw new Error("Broken pipe");
+      };
+      await expect(command(name, name === "feedback" ? ["fetch", id] : [id])).rejects.toThrow(
+        "Broken pipe",
+      );
+      expect(storage.conversations.reply(reply.id).sentAt).toBeNull();
+    });
+
+    test(`${name} preserves pending feedback when stdout fails`, async () => {
+      const id = await create();
+      const note = await storage.conversations.add(id, {
+        actor: { role: "human", sessionId: null },
+        body: "Must remain pending",
+        target: { kind: "artifact" },
+      });
+      ctx.write = () => {
+        throw new Error("Output failed");
+      };
+      await expect(command(name, name === "feedback" ? ["fetch", id] : [id])).rejects.toThrow(
+        "Output failed",
+      );
+      expect(storage.conversations.get(note.id).sentAt).toBeNull();
+      expect(storage.conversations.unsent(id).map((item) => item.id)).toEqual([note.id]);
+    });
+  }
+
+  test("lost snapshot responses leave feedback pending, and failed acknowledgments never register listeners", async () => {
+    const id = await create();
+    const note = await storage.conversations.add(id, {
+      actor: { role: "human", sessionId: null },
+      body: "Unread output",
+      target: { kind: "artifact" },
+    });
+    const request = ctx.client.request.bind(ctx.client);
+    ctx.client.request = async (...args) => {
+      const response = await request(...args);
+      if (args[1].includes("/feedback/pending")) throw new Error("Lost read response");
+      return response;
+    };
+    await expect(command("feedback", ["fetch", id])).rejects.toThrow("Lost read response");
+    expect(output).toEqual([]);
+    expect(storage.conversations.get(note.id).sentAt).toBeNull();
+    let registrations = 0;
+    ctx.environment.CODEX_THREAD_ID = "feedback-caller";
+    ctx.listen = async () => {
+      registrations++;
+      return 0;
+    };
+    ctx.client.request = async (...args) => {
+      if (args[1].endsWith("/feedback/acknowledge")) throw new Error("Acknowledgment unavailable");
+      return request(...args);
+    };
+    await expect(command("feedback", ["fetch", id])).rejects.toThrow(
+      "Feedback was printed, but acknowledgment was not confirmed",
+    );
+    expect(Buffer.concat(output).toString()).toContain("Unread output");
+    expect(storage.conversations.get(note.id).sentAt).toBeNull();
+    expect(registrations).toBe(0);
+  });
+
+  test("new feedback during output conflicts instead of acknowledging unseen work", async () => {
+    const id = await create();
+    const human = { role: "human" as const, sessionId: null };
+    const note = await storage.conversations.add(id, {
+      actor: human,
+      body: "Read first",
+      target: { kind: "artifact" },
+    });
+    ctx.write = async () => {
+      await storage.conversations.addReply(note.id, {
+        actor: human,
+        body: "Arrived during output",
+        context: { versionSeq: null, representation: null },
+      });
+    };
+    await expect(command("feedback", ["fetch", id])).rejects.toMatchObject({ status: 409 });
+    expect(storage.conversations.get(note.id).sentAt).toBeNull();
+    expect(storage.conversations.get(note.id).replies[0].sentAt).toBeNull();
+  });
+
+  test("a lost acknowledgment response leaves later feedback for the next fetch", async () => {
+    const id = await create();
+    const human = { role: "human" as const, sessionId: null };
+    const note = await storage.conversations.add(id, {
+      actor: human,
+      body: "Already printed",
+      target: { kind: "artifact" },
+    });
+    const request = ctx.client.request.bind(ctx.client);
+    ctx.client.request = async (...args) => {
+      const response = await request(...args);
+      if (args[1].endsWith("/feedback/acknowledge")) {
+        await storage.conversations.add(id, {
+          actor: human,
+          body: "Arrived after acknowledgment",
+          target: { kind: "artifact" },
+        });
+        throw new Error("Lost acknowledgment response");
+      }
+      return response;
+    };
+    await expect(command("feedback", ["fetch", id])).rejects.toThrow(
+      "acknowledgment was not confirmed",
+    );
+    expect(Buffer.concat(output).toString()).toContain("Already printed");
+    expect(storage.conversations.get(note.id).sentAt).not.toBeNull();
+    expect(storage.conversations.unsent(id)).toHaveLength(1);
+    ctx.client.request = request;
+    const retry = await command("feedback", ["fetch", id]);
+    expect(retry.text).toContain("Arrived after acknowledgment");
+    expect(retry.text).not.toContain("Already printed");
+    expect(storage.conversations.unsent(id)).toHaveLength(0);
+  });
+
+  test("watch gives archive priority when it happens during output and preserves pending feedback", async () => {
+    const id = await create();
+    const human = { role: "human" as const, sessionId: null };
+    const note = await storage.conversations.add(id, {
+      actor: human,
+      body: "Pending",
+      target: { kind: "artifact" },
+    });
+    let writes = 0;
+    ctx.write = async () => {
+      if (writes++ === 0)
+        await api.collaboration.transition(id, {
+          actor: human,
+          event: "archived",
+          operationKey: "archive-during-output",
+          message: "Stop here",
+        });
+    };
+    expect((await command("watch", [id])).code).toBe(0);
+    expect(writes).toBe(2);
+    expect(storage.conversations.get(note.id).sentAt).toBeNull();
+  });
+
   test("creation requires kind before capture and publication labels accept one spelling", async () => {
     let stdinReads = 0;
     ctx.stdin = async () => {
@@ -280,12 +456,12 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.conversations.get(feedback.id).status).toBe("resolved");
   });
 
-  test("prompt reads and watch exits preserve owner handoff and archive terminal precedence", async () => {
+  test("history reads and watch exits preserve owner handoff and archive terminal precedence", async () => {
     const id = await create();
     const feedback = JSON.parse(
       (await command("feedback", ["add", id, "--human", "-m", "Human note"])).text,
     );
-    expect((await command("prompt", [id, "--all"])).text).toContain("Human note");
+    expect((await command("feedback", ["fetch", id, "--all"])).text).toContain("Human note");
     expect(storage.conversations.get(feedback.id).sentAt).toBeNull();
     expect((await command("watch", [id])).code).toBe(10);
     expect(storage.conversations.get(feedback.id).sentAt).not.toBeNull();
@@ -302,7 +478,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.conversations.unsent(id)).toHaveLength(1);
   });
 
-  test("feedback fetch and prompt share selective delivery and resolved history semantics", async () => {
+  test("feedback fetch preserves selective delivery and resolved history semantics", async () => {
     const id = await create();
     const first = JSON.parse(
       (await command("feedback", ["add", id, "--human", "-m", "First note"])).text,
@@ -310,9 +486,7 @@ describe("artifact CLI over the HTTP contract", () => {
     const second = JSON.parse(
       (await command("feedback", ["add", id, "--human", "-m", "Second note"])).text,
     );
-    expect((await command("feedback", ["fetch", id, "--all"])).text).toBe(
-      (await command("prompt", [id, "--all"])).text,
-    );
+    expect((await command("feedback", ["fetch", id, "--all"])).text).toContain("First note");
     expect(storage.conversations.unsent(id)).toHaveLength(2);
     const selected = await command("feedback", ["fetch", id, "--feedback", first.id]);
     expect(selected.text).toContain("First note");
@@ -327,7 +501,9 @@ describe("artifact CLI over the HTTP contract", () => {
     expect((await command("feedback", ["fetch", id, "--all"])).text).not.toContain("First note");
     await expect(command("feedback", ["fetch", id, "extra"])).rejects.toThrow("expects 1");
     expect(storage.conversations.unsent(id)).toHaveLength(2);
-    expect((await command("prompt", [id])).text).toContain("The human marked this resolved");
+    expect((await command("feedback", ["fetch", id])).text).toContain(
+      "The human marked this resolved",
+    );
     expect(storage.conversations.unsent(id)).toHaveLength(0);
   });
 

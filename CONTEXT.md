@@ -111,7 +111,8 @@ _Avoid_: Designated recipient.
 
 **Handoff**:
 The explicit passing of pending human messages and status changes to an agent,
-including through a manually copied prompt.
+acknowledged after successful delivery. Copying a command or sending a notification
+alone does not complete a handoff.
 
 **Unsent feedback**:
 Human messages or status changes awaiting handoff to an agent.

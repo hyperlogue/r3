@@ -2,6 +2,7 @@ import { ArtifactApiError } from "../../shared/artifact-client.ts";
 import { buildArtifactPrompt } from "../../shared/artifact-prompt.ts";
 import type {
   ArtifactFeedback,
+  ArtifactFeedbackSnapshot,
   ArtifactLifecycleBody,
   ArtifactLifecycleResponse,
   ArtifactStreamEvent,
@@ -28,7 +29,8 @@ export class ArtifactDemoBackend {
     this.state = this.seed();
     try {
       const saved = JSON.parse(storage?.getItem(KEY) ?? "null");
-      if ([1, 2, 3].includes(saved?.schema) && Array.isArray(saved.artifacts)) this.state = saved;
+      if ([1, 2, 3, 4].includes(saved?.schema) && Array.isArray(saved.artifacts))
+        this.state = saved;
     } catch {
       /* A private or full browser store still supports this tab. */
     }
@@ -56,6 +58,11 @@ export class ArtifactDemoBackend {
         ),
       );
       this.state.schema = 3;
+      this.persist();
+    }
+    if (this.state.schema === 3) {
+      this.state.feedbackRevisions = {};
+      this.state.schema = 4;
       this.persist();
     }
     // Backfill byte metadata for saved demos without discarding their feedback.
@@ -90,7 +97,8 @@ export class ArtifactDemoBackend {
     const seed = structuredClone(ARTIFACT_DEMO_SEED);
     return {
       ...seed,
-      schema: 3,
+      schema: 4,
+      feedbackRevisions: {},
       viewed: {},
       everDelivered: Object.fromEntries(
         seed.artifacts.flatMap((artifact) =>
@@ -149,6 +157,7 @@ export class ArtifactDemoBackend {
   changed(id: string, event?: ArtifactStreamEvent) {
     const artifact = this.get(id);
     artifact.updatedAt = now();
+    this.state.feedbackRevisions[id] = (this.state.feedbackRevisions[id] ?? 0) + 1;
     artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
     artifact.storage = this.storageUsage(id);
     this.persist();
@@ -227,8 +236,22 @@ export class ArtifactDemoBackend {
   pending(id: string) {
     return this.get(id).feedback.filter(hasUnsentArtifactFeedback);
   }
-  prompt(id: string) {
-    return buildArtifactPrompt(this.get(id), this.pending(id), true);
+  async snapshot(id: string, only?: string[]): Promise<ArtifactFeedbackSnapshot> {
+    const artifact = this.get(id);
+    if (artifact.state !== "active") fail("Artifact is archived", 409);
+    const feedback = only ? [...new Set(only)].sort() : undefined;
+    const selected = this.pending(id).filter((note) => !feedback || feedback.includes(note.id));
+    const text = buildArtifactPrompt(artifact, selected, true);
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(
+        JSON.stringify([id, this.state.feedbackRevisions[id] ?? 0, feedback ?? null]),
+      ),
+    );
+    const expectedFingerprint = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+    return { text, itemCount: selected.length, acknowledgment: { feedback, expectedFingerprint } };
   }
   handoff(id: string, feedback?: string[]) {
     const artifact = this.get(id);

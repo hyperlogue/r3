@@ -303,6 +303,15 @@ delivered note. Legacy imports use the same policy and record unknown history in
 migration defaults. New notes use exact delivery history. Static demo schema 3
 retains the same flag in its private state and follows the same upgrade policy.
 
+Schema version 6 adds private `artifacts.feedback_revision`, starting at zero for
+existing artifacts without changing their delivery state. Conversation mutations,
+acknowledgments that deliver content, and archive/restore increment it in the same
+transaction. Pending-read fingerprints bind artifact, selection, and revision, so
+stale acknowledgments cannot consume later content even after edit/revert cycles
+or daemon restarts. Claims do not advance it. The daemon accepts acknowledgments
+only with a matching fingerprint; reading pending data never stamps delivery.
+Static demo schema 4 persists a corresponding revision map.
+
 ## Required fields and migration defaults
 
 Migration applies explicit defaults before inserting into the constrained schema.

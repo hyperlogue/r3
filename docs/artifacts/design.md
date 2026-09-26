@@ -504,7 +504,7 @@ Archive atomically clears both saved registrations, and restore does not revive 
 `unlisten` removes only the caller’s registrations; a future publication can register again.
 
 Remote publishing retains its existing outward relay for explicit listening. Automatic
-publication registration is local-only. After printing new feedback, `feedback fetch`
+publication registration is local-only. After printing and acknowledging new feedback, `feedback fetch`
 registers a supported calling harness as the explicit listener through the local
 daemon or existing remote relay. Setup failure warns without failing the fetch.
 History reads (`--all`) and human reads skip registration. A future local proxy may route requests to
@@ -513,8 +513,12 @@ open the remote site. This change does not implement that proxy.
 
 Delivery records the owner's handoff, not a read receipt from every agent. Agent
 messages start delivered; human feedback/replies wait for handoff. Reading or
-subscribing is not acknowledgment. The exact pending snapshot is acknowledged by
-prompt POST from the CLI. The browser copies the command without acknowledging content.
+subscribing is not acknowledgment. The CLI reads `feedback/pending`, completes stdout output, then calls the explicit
+`feedback/acknowledge` endpoint with that snapshot’s required fingerprint. A persisted
+revision rejects stale snapshots even after text is edited and reverted. Failed reads
+or output leave content pending; an acknowledgment failure may repeat already printed
+content on retry. `feedback/history` provides read-only history for `--all`. The browser
+copies the command without acknowledging content.
 See [delivery and status](../../.claude/skills/api-surface/SKILL.md#delivery-and-status)
 for edit and status-transition rules.
 

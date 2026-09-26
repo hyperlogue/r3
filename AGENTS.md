@@ -135,10 +135,13 @@ conflicts. Resolve, archive, deletion, and expiry clear claims. Claim presence i
 separate from status, activity ordering, and owner delivery.
 
 **Owner handoff** retains the existing distinction between unsent human content and
-agent messages born delivered. Reading a prompt is not acknowledgment. A draining
-POST acknowledges its exact snapshot. The web UI copies a `r3 feedback fetch`
-command; copying does not acknowledge feedback. Running it drains new feedback
-and replies, then registers the caller as listener when its harness supports it.
+agent messages born delivered. Pending reads return a snapshot without acknowledgment.
+The CLI writes it successfully to stdout before calling the explicit feedback
+acknowledgment endpoint with its required fingerprint. Persisted revisions prevent
+stale snapshots from acknowledging edits, including edit-and-revert cycles. Failed
+reads/output leave content pending; retries after acknowledgment failure may repeat
+output. The web UI copies a `r3 feedback fetch` command without acknowledging it.
+Successful fetch registers the caller as listener when its harness supports it.
 A wake notification alone does not stamp delivery.
 Feedback retains whether it was ever delivered independently of the current text's
 pending timestamp, so editing cannot suppress a later resolution notification.
@@ -160,7 +163,7 @@ The existing server daemon performs local delivery; remote proxying is deferred.
 `--session` is a display name; harness identity or `R3_AGENT_SESSION` identifies
 authored runs. Generic watch needs no supplied identity. Watch gives archive
 priority over pending feedback and timeout, including a watch begun after archive.
-Exit codes: archived `0`, pending `10`, timeout `2`, occupied/superseded `4`.
+Exit codes: archived `0`, pending `10`, timeout `2`, occupied/superseded or snapshot conflict `4`.
 Explicit listen adapter unavailability is `5`; automatic setup failure only warns
 after successful publication or feedback fetch. Generic agents can watch or poll.
 Use `cli/artifact-help.ts` as the exact command/help/agent-guide text.

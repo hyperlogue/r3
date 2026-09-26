@@ -42,6 +42,26 @@ const publication = () => ({
 });
 
 describe("private artifact storage bootstrap", () => {
+  test("a snapshot remains valid across restart but not an edit and revert after restart", async () => {
+    storage = await openArtifactStorage(options());
+    const id = storage.artifacts.create({ actor, kind: "files" }).id;
+    const note = await storage.conversations.add(id, {
+      actor,
+      body: "Original",
+      target: { kind: "artifact" },
+    });
+    const receipt = storage.conversations.snapshot(id).acknowledgment;
+    storage.close();
+    storage = await openArtifactStorage(options());
+    expect(storage.conversations.snapshot(id).acknowledgment).toEqual(receipt);
+    storage.conversations.edit(note.id, { actor, body: "Temporary" });
+    storage.conversations.edit(note.id, { actor, body: "Original" });
+    storage.close();
+    storage = await openArtifactStorage(options());
+    expect(() => storage!.conversations.acknowledge(id, receipt)).toThrow("Feedback changed");
+    expect(storage.conversations.get(note.id).sentAt).toBeNull();
+  });
+
   test("delivery history survives editing and reopening without promoting new feedback", async () => {
     storage = await openArtifactStorage(options());
     const id = storage.artifacts.create({ actor, kind: "files" }).id;
@@ -50,7 +70,7 @@ describe("private artifact storage bootstrap", () => {
       body: "Delivered",
       target: { kind: "artifact" },
     });
-    storage.conversations.deliver(id);
+    storage.conversations.acknowledge(id, storage.conversations.snapshot(id).acknowledgment);
     storage.conversations.edit(delivered.id, { actor, body: "Edited after delivery" });
     const fresh = await storage.conversations.add(id, {
       actor,
@@ -65,7 +85,7 @@ describe("private artifact storage bootstrap", () => {
     expect(storage.conversations.get(delivered.id).statusUnsent).toBe(true);
     expect(storage.conversations.get(fresh.id).statusUnsent).toBe(false);
     expect(storage.conversations.unsent(id).map((note) => note.id)).toEqual([delivered.id]);
-    storage.conversations.deliver(id);
+    storage.conversations.acknowledge(id, storage.conversations.snapshot(id).acknowledgment);
     expect(storage.conversations.unsent(id)).toEqual([]);
   });
 
