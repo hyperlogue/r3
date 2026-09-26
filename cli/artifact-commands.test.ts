@@ -331,6 +331,87 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.conversations.unsent(id)).toHaveLength(0);
   });
 
+  test("feedback fetch drains new notes and replies and registers the calling harness quietly", async () => {
+    const id = await create();
+    const first = JSON.parse(
+      (await command("feedback", ["add", id, "--human", "-m", "First note"])).text,
+    );
+    await command("feedback", ["fetch", id]);
+    await command("reply", [first.id, "--human", "-m", "New reply"]);
+    await command("feedback", ["add", id, "--human", "-m", "New note"]);
+    ctx.environment = { CODEX_THREAD_ID: "fetch-agent" };
+    const registrations: unknown[] = [];
+    ctx.listen = async (artifactId, actor, foreground, quiet) => {
+      registrations.push({ artifactId, actor, foreground, quiet });
+      storage.listeners.setTarget(actor.sessionId!, { harness: "codex", threadId: "fetch-agent" });
+      storage.listeners.register(artifactId, actor, "explicit");
+      return 0;
+    };
+    const fetched = await command("feedback", ["fetch", id, "--session", "Review assistant"]);
+    expect(fetched.code).toBe(0);
+    expect(fetched.text).toContain("New reply");
+    expect(fetched.text).toContain("New note");
+    expect(fetched.text).not.toContain("Listening on");
+    expect(storage.conversations.unsent(id)).toHaveLength(0);
+    expect(registrations).toEqual([
+      {
+        artifactId: id,
+        actor: { role: "agent", sessionId: "fetch-agent" },
+        foreground: false,
+        quiet: true,
+      },
+    ]);
+    expect(storage.listeners.selected(id)?.info).toMatchObject({
+      mode: "explicit",
+      label: "Review assistant",
+      actor: { sessionId: "fetch-agent" },
+    });
+    const empty = await command("feedback", ["fetch", id]);
+    expect(empty.text).not.toContain("New reply");
+    expect(empty.text).not.toContain("New note");
+    expect(registrations).toHaveLength(2);
+  });
+
+  test("feedback history, human reads, and unsupported harnesses leave listeners alone", async () => {
+    const id = await create();
+    await command("feedback", ["add", id, "--human", "-m", "Pending note"]);
+    let registrations = 0;
+    ctx.listen = async () => {
+      registrations++;
+      return 0;
+    };
+    ctx.environment = { CODEX_THREAD_ID: "fetch-agent" };
+    await command("feedback", ["fetch", id, "--all"]);
+    expect(storage.conversations.unsent(id)).toHaveLength(1);
+    await command("feedback", ["fetch", id, "--human"]);
+    ctx.environment = {};
+    expect((await command("feedback", ["fetch", id])).code).toBe(0);
+    expect(registrations).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("automatic listen failures preserve fetched feedback, but failed fetches never register", async () => {
+    const id = await create();
+    await command("feedback", ["add", id, "--human", "-m", "Pending note"]);
+    ctx.environment = { CODEX_THREAD_ID: "fetch-agent", R3_AGENT_SESSION: "logical-agent" };
+    let registrations = 0;
+    ctx.listen = async (_id, actor) => {
+      expect(actor.sessionId).toBe("logical-agent");
+      registrations++;
+      throw new Error("Adapter unavailable");
+    };
+    const fetched = await command("feedback", ["fetch", id]);
+    expect(fetched.code).toBe(0);
+    expect(fetched.text).toContain("Pending note");
+    expect(storage.conversations.unsent(id)).toHaveLength(0);
+    expect(errors).toEqual([
+      "Feedback fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
+    ]);
+    await command("archive", [id, "--human"]);
+    await expect(command("feedback", ["fetch", id])).rejects.toThrow();
+    expect(registrations).toBe(1);
+  });
+
   test("invalid capture and target flags fail before changing artifact state", async () => {
     await expect(
       command("create", ["--kind", "files", "--dir", ".", "--stdin-diff"]),

@@ -48,7 +48,7 @@ export const KEYMAP: readonly Binding[] = [
   // Shifted on purpose: the only binding that sends data out of the app, with no
   // keyboard undo once the agent has it. Everything else in this map is locally
   // reversible, so `S` reads like `Z` (fold *all*) — the bigger, less casual key.
-  { id: "handOff", keys: ["S"], label: "Submit / Copy prompt", group: "Review" },
+  { id: "handOff", keys: ["S"], label: "Send to agent / Use in agent", group: "Review" },
 
   // `Ctrl-n`/`Ctrl-p` are ALIASES, not the primary. On macOS both are free
   // (browsers put new-window and print on ⌘). On Windows/Linux they split:

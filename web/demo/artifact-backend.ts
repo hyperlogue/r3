@@ -209,9 +209,6 @@ export class ArtifactDemoBackend {
   prompt(id: string) {
     return buildArtifactPrompt(this.get(id), this.pending(id), true);
   }
-  fingerprint(id: string) {
-    return JSON.stringify(this.pending(id));
-  }
   handoff(id: string, feedback?: string[]) {
     const artifact = this.get(id);
     if (artifact.state === "archived") fail("Restore the artifact before submitting feedback", 409);

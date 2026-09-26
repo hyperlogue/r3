@@ -146,6 +146,18 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(await watchers()).toMatchObject([{ mode: "explicit" }]);
     expect((await run("unlisten", id)).code).toBe(0);
     expect(await watchers()).toEqual([]);
+    const fetched = await run("feedback", "fetch", id);
+    expect(fetched.code).toBe(0);
+    expect(fetched.error).toBe("");
+    expect(fetched.output).not.toContain("Listening on");
+    expect(await watchers()).toMatchObject([
+      { mode: "explicit", actor: { sessionId: "cli-runtime-publisher" } },
+    ]);
+    expect((await daemonInfo()).pid).toBe(daemonPid);
+    expect(await Bun.file(queueFile).exists()).toBe(false);
+    expect((await run("unlisten", id)).code).toBe(0);
+    expect((await run("feedback", "fetch", id, "--all")).code).toBe(0);
+    expect(await watchers()).toEqual([]);
     expect((await run("status")).output).toContain("artifacts-v1");
     await writeFile(join(directory, "page.md"), "# After\n");
     expect(

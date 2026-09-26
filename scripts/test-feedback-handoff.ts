@@ -73,6 +73,7 @@ storage.artifacts.registerSession({ id: listener.sessionId, label: "Review assis
 storage.listeners.setTarget(listener.sessionId, { harness: "codex", threadId: "handoff-thread" });
 storage.listeners.register(artifact.id, listener, "fallback");
 let completed = 0;
+let promptRequests = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -80,6 +81,7 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith("/api/")) {
+      if (path.endsWith("/prompt")) promptRequests++;
       const response = await api.app.fetch(request);
       if (path.endsWith("/submit")) completed++;
       return response;
@@ -87,7 +89,7 @@ const app = Bun.serve({
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
-      `<!doctype html><html><head>${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
       { headers: { "content-type": "text/html" } },
     );
   },
@@ -104,10 +106,8 @@ try {
     mobile: false,
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
-  const button =
-    "[...document.querySelectorAll('[data-feedback-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Queued|Copy prompt)/.test(button.textContent))";
-  const navButton =
-    "[...document.querySelectorAll('[data-app-header] button')].find(button=>/^(Send to agent|Sending…|Sent|Queued|Copy prompt)/.test(button.textContent))";
+  const button = "document.querySelector('[data-feedback-header] [data-artifact-handoff]')";
+  const navButton = "document.querySelector('[data-app-header] [data-artifact-handoff]')";
   await eventually(
     () =>
       page.evaluate(
@@ -431,8 +431,74 @@ try {
       identifier: injected.identifier,
     });
   }
+  api.collaboration.unlisten(artifact.id, listener);
+  await eventually(
+    () => page.evaluate(`(${navButton})?.textContent === 'Use in agent'`),
+    "unwatched artifacts offer the fetch command despite prior notification receipts",
+  );
+  const pendingBeforeCopy = storage.conversations.unsent(artifact.id);
+  const promptRequestsBeforeCopy = promptRequests;
+  await page.evaluate(`(${navButton}).click()`);
+  const popup =
+    "document.querySelector('[role=dialog][aria-label=\"Read feedback in your agent\"]')";
+  await eventually(() => page.evaluate(`!!${popup}`), "command popover");
+  assert.equal(
+    await page.evaluate(`(${popup}).querySelector('div > code').textContent`),
+    `r3 feedback fetch ${artifact.id}`,
+  );
+  assert.equal(
+    await page.evaluate("document.activeElement.getAttribute('aria-label')"),
+    "Copy command",
+  );
+  await page.evaluate(
+    "window.copiedCommand = null; Object.defineProperty(navigator, 'clipboard', {configurable:true,value:{writeText:async text=>{window.copiedCommand=text}}})",
+  );
+  await page.evaluate(`(${popup}).querySelector('button').click()`);
+  await eventually(
+    () =>
+      page.evaluate(
+        `(${popup}).querySelector('button').getAttribute('aria-label') === 'Command copied'`,
+      ),
+    "copy confirmation",
+  );
+  assert.equal(await page.evaluate("window.copiedCommand"), `r3 feedback fetch ${artifact.id}`);
+  assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
+  assert.equal(promptRequests, promptRequestsBeforeCopy, "copying makes no prompt API requests");
+  await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape" });
+  await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape" });
+  await eventually(() => page.evaluate(`!${popup}`), "Escape dismisses the command");
+  assert.equal(await page.evaluate(`document.activeElement === ${navButton}`), true);
+
+  // Exercise the same panel control at phone width, including the clipped sheet.
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  const mobileToggle =
+    "[...document.querySelectorAll('button')].find(button=>/^Feedback\\s*·.*open$/.test(button.textContent))";
+  await eventually(() => page.evaluate(`!!(${mobileToggle})`), "phone feedback control");
+  await page.evaluate(`(${mobileToggle}).click()`);
+  await page.evaluate(`(${button}).click()`);
+  await eventually(() => page.evaluate(`!!${popup}`), "phone command popover");
+  const bounds = await page.evaluate(
+    `(()=>{const rect=(${popup}).getBoundingClientRect();return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,width:innerWidth,height:innerHeight}})()`,
+  );
+  assert.ok(bounds.left >= 0 && bounds.right <= bounds.width);
+  assert.ok(bounds.top >= 0 && bounds.bottom <= bounds.height);
+  await page.evaluate(
+    "navigator.clipboard.writeText=async()=>{throw new Error('Denied')};document.execCommand=()=>false",
+  );
+  await page.evaluate(`(${popup}).querySelector('button').click()`);
+  await eventually(
+    () => page.evaluate(`(${popup}).textContent.includes('Clipboard access failed')`),
+    "copy failure keeps a selectable command",
+  );
+  assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
+  assert.equal(promptRequests, promptRequestsBeforeCopy);
   console.log(
-    "Send to agent acknowledges successful notification delivery immediately without draining feedback.",
+    "Notification delivery and command copying preserve pending feedback; command popovers work on desktop and mobile.",
   );
 } finally {
   for (const delivery of deliveries) delivery.reject(new Error("Test ended"));

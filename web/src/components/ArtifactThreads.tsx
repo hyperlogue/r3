@@ -46,6 +46,7 @@ import {
 import { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { AgentName } from "./AgentName.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
+import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 import { MessageInput } from "./MessageInput.tsx";
 
@@ -653,7 +654,7 @@ export function ArtifactThreads({
     );
   }, [activeFeedback, detail.feedback, setTab]);
   const handoff = useArtifactHandoff({ ...detail, feedback: notes });
-  const { draftCount, watchers, pending, disabledReason, notice } = handoff;
+  const { draftCount, watchers, pending, notice } = handoff;
   const noteOpen = useArtifactNoteOpen(detail.id);
   const wasNoteOpen = useRef(noteOpen);
   useEffect(() => {
@@ -726,7 +727,8 @@ export function ArtifactThreads({
   useKeyBindings(
     keysActive
       ? {
-          handOff: handoff.send,
+          handOff: () =>
+            panel.current?.querySelector<HTMLButtonElement>("[data-artifact-handoff]")?.click(),
           fbNext: () => move(1),
           fbPrev: () => move(-1),
           fbLocate: () => {
@@ -762,14 +764,7 @@ export function ArtifactThreads({
             >
               <CommentPlusIcon className="size-3.5" />
             </Button>
-            <Button
-              variant="primary"
-              disabled={!!disabledReason || handoff.isPending}
-              title={disabledReason ?? undefined}
-              onClick={handoff.send}
-            >
-              {handoff.label}
-            </Button>
+            <ArtifactHandoffButton handoff={handoff} active={keysActive} />
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">

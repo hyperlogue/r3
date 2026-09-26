@@ -5,7 +5,6 @@ import { artifactApi } from "./artifact-api.ts";
 import { useArtifactDraftCount } from "./artifact-drafts.ts";
 import { useFeedbackStatusPending } from "./artifact-feedback-status.ts";
 import { useFeedbackHandoffReceipt } from "./artifact-handoff.ts";
-import { copyText } from "./clipboard.ts";
 import { useCopyFlash } from "./ui.tsx";
 
 // The navbar and panel share delivery rules, receipts, and a mutation key so
@@ -20,7 +19,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const { copied: sent, flash: showSent } = useCopyFlash(3000);
   const [notice, setNotice] = useState("");
   const [deliveryLabel, setDeliveryLabel] = useState("Sent");
-  const { data: watchers = [] } = useQuery({
+  const { data: watchers = [], isPending: loadingWatchers } = useQuery({
     queryKey: ["artifact-watchers", detail.id],
     queryFn: () => artifactApi.watchers(detail.id),
   });
@@ -28,17 +27,21 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const disabledReason =
     detail.state === "archived"
       ? "Restore the artifact to send feedback"
-      : savingStatus
-        ? "Saving feedback status"
-        : draftCount
-          ? "Post or discard drafts before sending feedback"
-          : !pending
-            ? "No new feedback to send"
-            : receipt.hashes === null
-              ? "Checking pending feedback"
-              : receipt.covered
-                ? "Already sent. Add or update feedback to send again."
-                : null;
+      : loadingWatchers
+        ? "Checking for an agent"
+        : !watchers.length
+          ? null
+          : savingStatus
+            ? "Saving feedback status"
+            : draftCount
+              ? "Post or discard drafts before sending feedback"
+              : !pending
+                ? "No new feedback to send"
+                : receipt.hashes === null
+                  ? "Checking pending feedback"
+                  : receipt.covered
+                    ? "Already sent. Add or update feedback to send again."
+                    : null;
   const mutation = useMutation({
     mutationKey,
     mutationFn: async () => {
@@ -51,7 +54,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
           throw new Error(
             result.notification.state === "failed"
               ? result.notification.error
-              : "The agent notification was not delivered. Try again or copy the prompt.",
+              : "The agent notification was not delivered. Try again or run r3 feedback fetch.",
           );
         receipt.remember(snapshot);
         setDeliveryLabel(result.notification.state === "queued" ? "Queued" : "Sent");
@@ -60,12 +63,6 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
             "Notification queued in Codex. It will be processed when the session can accept it.",
           );
         showSent();
-      } else {
-        const preview = await artifactApi.previewPrompt(detail.id);
-        if (!(await copyText(preview.text)))
-          throw new Error("Clipboard access failed. Feedback has not been sent.");
-        await artifactApi.acknowledgePrompt(detail.id, preview.fingerprint);
-        setNotice("Prompt copied. Paste it into your agent conversation.");
       }
     },
     onSettled: () =>
@@ -75,18 +72,24 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
       ]),
   });
   return {
+    artifactId: detail.id,
     watchers,
     draftCount,
     pending,
     disabledReason,
     isPending,
-    showAction: (pending > 0 && !receipt.covered) || isPending || sent,
-    label:
-      sent && (receipt.covered || !pending)
+    showAction:
+      (!watchers.length && detail.state === "active") ||
+      (pending > 0 && !receipt.covered) ||
+      isPending ||
+      sent,
+    label: !watchers.length
+      ? "Use in agent"
+      : sent && (receipt.covered || !pending)
         ? deliveryLabel
         : isPending
           ? "Sending…"
-          : `${watchers.length ? "Send to agent" : "Copy prompt"}${pending ? ` · ${pending}` : ""}`,
+          : `Send to agent${pending ? ` · ${pending}` : ""}`,
     notice,
     error: mutation.error,
     dismiss: () => {
@@ -94,7 +97,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
       mutation.reset();
     },
     send: () => {
-      if (!disabledReason && !qc.isMutating({ mutationKey })) mutation.mutate();
+      if (watchers.length && !disabledReason && !qc.isMutating({ mutationKey })) mutation.mutate();
     },
   };
 }

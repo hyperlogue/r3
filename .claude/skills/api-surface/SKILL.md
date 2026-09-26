@@ -69,9 +69,10 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET .../:id/prompt[?scope=unsent&feedback=<ids>]` is read-only;
   `POST .../:id/prompt { feedback? }` drains the exact pending snapshot.
   Both return text with `x-r3-prompt-items`; only POST stamps delivery.
-  An unsent preview also returns `x-r3-prompt-fingerprint`. Manual copy sends it
-  back as `expectedFingerprint` after clipboard success; a changed snapshot
-  returns 409 without stamping newly edited content. Direct CLI drains omit it.
+  An unsent preview also returns `x-r3-prompt-fingerprint`. API clients can send it
+  back as `expectedFingerprint`; a changed snapshot returns 409 without stamping
+  newly edited content. Direct CLI drains omit it. The browser copies only the CLI
+  command and makes no prompt or acknowledgment request.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
   delivery acknowledgment or a generic watch woken for pending feedback. An absent
   recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
@@ -227,15 +228,20 @@ never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
 A prompt POST drains selected pending content atomically. `feedback fetch` uses
-that POST; `--all` reads open history without acknowledgment, and `--all --feedback`
-can read specific resolved threads too. `prompt` remains a compatibility alias.
-Wake notifications use the preferred `r3 feedback fetch` spelling. Fetch, watch,
-and browser copy share a data-only formatter; workflow instructions live in the
-guide. Original targets, claims, reply/fix context, status changes, and history
-pointers remain in the payload. The browser's manual-copy path conditionally
-acknowledges the exact copied snapshot; failed clipboard writes or changed content
-leave it pending. Claims, publication, notifications, and event-stream reads do
-not acknowledge feedback.
+that POST, prints the data, then registers the calling agent as an explicit listener
+when harness detection supports it. This reuses local daemon registration or the
+remote relay, returns after registration, and keeps listener output off stdout.
+Setup failures only warn on stderr after a successful fetch. Unsupported harnesses
+need no identity to fetch; `--human` skips registration. `--all` reads open history
+without acknowledgment or registration, and `--all --feedback` can read specific
+resolved threads too. `prompt` remains a compatibility alias.
+Wake notifications use the preferred `r3 feedback fetch` spelling. Fetch and watch
+share a data-only formatter; workflow instructions live in the guide. Original
+targets, claims, reply/fix context, status changes, and history pointers remain in
+the payload. Without a listener/watcher, the browser offers **Use in agent** with a
+copyable fetch command for `! <command>` in the harness. Opening/copying never
+acknowledges feedback. Claims, publication, notifications, and event-stream reads
+do not acknowledge feedback.
 
 Feedback status is human-controlled. Replies carry no status or resolve action;
 they release only the matching author's claim. Archive preserves unsent content

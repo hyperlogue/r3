@@ -327,12 +327,16 @@ The browser tab favicon adds a blue dot for the current artifact's same unhandle
 agent feedback. Viewing the tab does not clear it; a human reply or resolution does.
 Leaving the artifact restores the ordinary icon, including if its badge asset is
 still loading.
-Unsent human input also shows a desktop navbar handoff button immediately before
-the feedback toggle, available while the panel is hidden. The panel retains its
-handoff control, including on mobile; both controls share the in-flight request
-guard and delivery receipts. Navbar handoff errors and clipboard instructions remain
-visible beside that action. Posting adds feedback to r3; **Send to agent · N**
-or **Copy prompt · N** explicitly hands off the pending batch. Successful notification
+Unsent human input shows a desktop navbar handoff button immediately before
+the feedback toggle, available while the panel is hidden. With no listener/watcher,
+**Use in agent** opens a small command popover, even without pending feedback.
+It shows `r3 feedback fetch <id>` and a copy icon, with instructions to run it using
+`!` in the agent harness. Copying leaves feedback pending until the CLI runs.
+The panel retains the same control, including on mobile. Command popovers support
+Escape, outside dismissal, and focus return; their top layer avoids pane clipping.
+Both send controls share the in-flight request guard and delivery receipts.
+Navbar handoff errors remain visible beside that action. Posting adds feedback to
+r3; **Send to agent · N** notifies the registered recipient. Successful notification
 delivery shows **Sent** for three seconds, then hides the navbar action and keeps
 the panel button disabled until new human inputs are pending. A browser receipt covers exactly the inputs present when
 the ping began; concurrent edits remain eligible. Agent replies, claims, and body
@@ -500,14 +504,17 @@ Archive atomically clears both saved registrations, and restore does not revive 
 `unlisten` removes only the caller’s registrations; a future publication can register again.
 
 Remote publishing retains its existing outward relay for explicit listening. Automatic
-registration is local-only in this change. A future local proxy may route requests to
+publication registration is local-only. After printing new feedback, `feedback fetch`
+registers a supported calling harness as the explicit listener through the local
+daemon or existing remote relay. Setup failure warns without failing the fetch.
+History reads (`--all`) and human reads skip registration. A future local proxy may route requests to
 a remote artifact service while keeping harness delivery local; browser links would
 open the remote site. This change does not implement that proxy.
 
 Delivery records the owner's handoff, not a read receipt from every agent. Agent
 messages start delivered; human feedback/replies wait for handoff. Reading or
 subscribing is not acknowledgment. The exact pending snapshot is acknowledged by
-prompt POST; manual copy sends a fingerprint after successful clipboard writing.
+prompt POST from the CLI. The browser copies the command without acknowledging content.
 See [delivery and status](../../.claude/skills/api-surface/SKILL.md#delivery-and-status)
 for edit and status-transition rules.
 

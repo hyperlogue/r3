@@ -233,11 +233,12 @@ try {
         "composer is the first pending card in the thread list",
       );
       await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
-      await page.command("Input.insertText", { text: "A draft blocks handoff" });
+      await page.command("Input.insertText", { text: "A draft stays in this browser" });
       assert(
         await page.evaluate(
-          "[...document.querySelectorAll('button')].find(b=>b.textContent.startsWith('Copy prompt')).disabled",
+          "![...document.querySelectorAll('button')].find(b=>b.textContent === 'Use in agent').disabled",
         ),
+        "copying a command is available while a draft stays local",
       );
       await page.evaluate(
         "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Discard').click()",

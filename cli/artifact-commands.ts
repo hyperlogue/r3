@@ -32,7 +32,12 @@ export interface ArtifactCommandContext {
   stdin: () => Promise<string>;
   write: (text: string | Uint8Array) => void;
   error: (text: string) => void;
-  listen?: (id: string, actor: ArtifactActor, foreground: boolean) => Promise<number>;
+  listen?: (
+    id: string,
+    actor: ArtifactActor,
+    foreground: boolean,
+    quiet?: boolean,
+  ) => Promise<number>;
 }
 
 function representation(args: ArtifactArgs): Representation {
@@ -427,6 +432,21 @@ export async function runArtifactCommand(
           )
         : await client.request("POST", path, { feedback: selected?.split(",") });
       ctx.write(await response.text());
+      if (
+        !args.has("all") &&
+        !args.has("human") &&
+        ctx.listen &&
+        detectListener(ctx.environment).ok
+      ) {
+        try {
+          const result = await ctx.listen(args.id(), await actor(), false, true);
+          if (result !== 0) throw new Error("Listener registration failed");
+        } catch {
+          ctx.error(
+            "Feedback fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
+          );
+        }
+      }
       return 0;
     }
     case "watch": {

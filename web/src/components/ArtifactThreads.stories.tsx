@@ -38,6 +38,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const NativeRenderedThread: Story = {};
+export const FeedbackCommand: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", { name: "Use in agent" });
+    await userEvent.click(button);
+    const popup = canvas.getByRole("dialog", { name: "Read feedback in your agent" });
+    await expect(popup).toBeVisible();
+    await expect(within(popup).getByRole("button", { name: "Copy command" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(button).toHaveFocus();
+    await userEvent.keyboard("S");
+    await expect(canvas.getByRole("dialog", { name: "Read feedback in your agent" })).toBeVisible();
+  },
+};
 export const NamedFallback: Story = {
   parameters: {
     queryData: [

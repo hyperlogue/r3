@@ -195,7 +195,7 @@ export const artifactApi: typeof productionApi = {
       : [],
   submit: async (id) => {
     if (!demo.get(id).watching)
-      fail("No listener is registered; copy the prompt to hand it to an agent", 409);
+      fail("No listener is registered; run r3 feedback fetch in your agent", 409);
     demo.handoff(id);
     return { notification: { state: "sent" } };
   },
@@ -208,13 +208,6 @@ export const artifactApi: typeof productionApi = {
     );
     if (acknowledge) demo.handoff(id, feedback);
     return text;
-  },
-  previewPrompt: async (id) => ({ text: demo.prompt(id), fingerprint: demo.fingerprint(id) }),
-  acknowledgePrompt: async (id, expectedFingerprint) => {
-    if (demo.fingerprint(id) !== expectedFingerprint)
-      fail("Feedback changed; copy the new prompt before sending", 409);
-    demo.handoff(id);
-    return new Response(null, { status: 204 });
   },
   viewed: async (id) => {
     demo.get(id);

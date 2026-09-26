@@ -174,12 +174,12 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     error: (text) => {
       process.stderr.write(`${text}\n`);
     },
-    listen: async (id, actor, foreground) => {
+    listen: async (id, actor, foreground, quiet) => {
       if (localAgents) {
         if (!(await registerListener(actor)))
           throw new ArtifactCommandError("No local wake adapter is available; use r3 watch", 5);
         await localAgents.json("POST", "/api/local/listen", { artifactId: id, actor });
-        process.stdout.write(`Listening on ${id}\n`);
+        if (!quiet) process.stdout.write(`Listening on ${id}\n`);
         return 0;
       }
       if (foreground)
@@ -197,7 +197,7 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
         },
         cwd: process.cwd(),
       });
-      process.stdout.write(`Listening on ${id}\n`);
+      if (!quiet) process.stdout.write(`Listening on ${id}\n`);
       return 0;
     },
   });

@@ -18,6 +18,7 @@ import { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { AgentName } from "./AgentName.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
+import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
@@ -28,17 +29,7 @@ function ArtifactSendFeedback({ detail }: { detail: ArtifactDetail }) {
   const handoff = useArtifactHandoff(detail);
   return (
     <div className="relative flex shrink-0 items-center max-md:hidden">
-      {handoff.showAction && (
-        <Button
-          variant="primary"
-          className="whitespace-nowrap"
-          disabled={!!handoff.disabledReason || handoff.isPending}
-          title={handoff.disabledReason ?? undefined}
-          onClick={handoff.send}
-        >
-          {handoff.label}
-        </Button>
-      )}
+      {handoff.showAction && <ArtifactHandoffButton handoff={handoff} />}
       {(handoff.notice || handoff.error) && (
         <div className="absolute right-0 top-full z-50 mt-2 flex w-72 max-w-[calc(100vw-1rem)] items-start gap-2 rounded-lg border border-neutral-300 bg-white p-3 text-xs r3-popover dark:border-neutral-700 dark:bg-neutral-950">
           <p

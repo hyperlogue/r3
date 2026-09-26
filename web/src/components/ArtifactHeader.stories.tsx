@@ -305,7 +305,7 @@ export const PendingSend: Story = {
   beforeEach: resetHandoffReceipt,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const send = canvas.getByRole("button", { name: /^(Send to agent|Copy prompt) · 1$/ });
+    const send = canvas.getByRole("button", { name: "Send to agent · 1" });
     await waitFor(() => expect(send).toBeEnabled());
     const action = send.getBoundingClientRect();
     const toggle = canvas.getByRole("button", { name: "Hide feedback" }).getBoundingClientRect();
@@ -319,11 +319,31 @@ export const PendingSend: Story = {
   },
 };
 export const PendingSendDark: Story = { ...PendingSend, globals: { theme: "dark" } };
-export const PendingCopy: Story = {
+export const FeedbackCommand: Story = {
   ...PendingSend,
   parameters: { queryData: [[["artifact-watchers", artifactFixture.id], []]] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", { name: "Use in agent" });
+    await userEvent.click(button);
+    const popup = canvas.getByRole("dialog", { name: "Read feedback in your agent" });
+    await expect(popup).toBeVisible();
+    await expect(within(popup).getByText(`r3 feedback fetch ${artifactFixture.id}`)).toBeVisible();
+    const copy = within(popup).getByRole("button", { name: "Copy command" });
+    await expect(copy).toHaveFocus();
+    await userEvent.click(copy);
+    await expect(within(popup).getByRole("button", { name: "Command copied" })).toBeVisible();
+    await expect(button).toBeEnabled();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog", { name: "Read feedback in your agent" })).toBeNull();
+    await expect(button).toHaveFocus();
+  },
 };
-export const PendingCopyDark: Story = { ...PendingCopy, globals: { theme: "dark" } };
+export const FeedbackCommandDark: Story = { ...FeedbackCommand, globals: { theme: "dark" } };
+export const ConnectWithoutPendingFeedback: Story = {
+  ...FeedbackCommand,
+  args: { detail: { ...artifactFixture, feedback: [] } },
+};
 export const UnsentReply: Story = {
   ...PendingSend,
   args: {

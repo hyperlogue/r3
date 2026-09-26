@@ -124,14 +124,6 @@ export const artifactApi = {
         acknowledge ? { feedback } : undefined,
       )
     ).text(),
-  previewPrompt: async (id: string) => {
-    const response = await client().request("GET", `${artifactApiPath(id)}/prompt?scope=unsent`);
-    const fingerprint = response.headers.get("x-r3-prompt-fingerprint");
-    if (!fingerprint) throw new Error("The server did not return a prompt snapshot");
-    return { text: await response.text(), fingerprint };
-  },
-  acknowledgePrompt: (id: string, expectedFingerprint: string) =>
-    client().request("POST", `${artifactApiPath(id)}/prompt`, { expectedFingerprint }),
   viewed: (id: string) => client().json<string[]>("GET", `${artifactApiPath(id)}/viewed`),
   setViewed: (id: string, key: string, viewed: boolean) =>
     client().json("PUT", `${artifactApiPath(id)}/viewed`, { key, viewed }),
