@@ -102,9 +102,8 @@ if they drift, so keep them in lockstep:
 ## After the tag lands on GitHub
 
 The tag-driven pipeline (`.github/workflows/release.yml`) verifies the tag,
-cross-compiles the four `r3-<os>-<arch>` binaries, then publishes in three
-jobs. Each one uses the `release` environment, and GitHub asks for that
-environment **once per job**:
+cross-compiles the four `r3-<os>-<arch>` binaries, and verifies each on a native
+runner. One `publish` job uses the `release` environment and publishes in order:
 
 1. The GitHub Release (curl / Homebrew). Its description is the `## [X.Y.Z]`
    section of `CHANGELOG.md` in the tagged tree — step 2's entry, verbatim —
@@ -116,26 +115,25 @@ environment **once per job**:
 3. The npm launcher (`@hyperlogue/r3`), after those exact versions are visible.
    That wait is one ten-minute deadline, not a manual step.
 
-The repeated approvals are required. npm's trusted publisher names the
-`release` environment, so the job that runs `npm publish` must too. Putting
-the npm publishes in the GitHub Release job would let one approval cover
-them, and it would also make a failed npm publish retry by re-uploading the
-release. Immutable releases reject that re-upload.
+The single publication job requires one approval per attempt when the `release`
+environment has required reviewers configured. npm's trusted publisher names
+that environment, so the job that runs `npm publish` must use it. See
+[build-and-distribution](../build-and-distribution/SKILL.md#native-verification-one-approval-gate)
+for signing, native verification, and publication guards.
 
-**Tell the user the run is parked** — a pushed tag no longer completes on its
-own, and each publication job waits for its own approval. Approve from the run
-page (Actions → the run → *Review deployments*). The binaries are already built
-and smoke-tested, so the approval is the decision to publish. Approve the
-GitHub Release job within a week — its build artifact expires after 7 days. If
-that job never ran and the artifact is gone, re-run the workflow so the build
-can compile again (or reuse assets the release already carries).
+After a push, inspect the run and report its actual status. If publication is
+waiting for approval, direct the user to Actions → the run → *Review deployments*.
+The binaries have already passed native verification at that point. Approve
+within a week: build artifacts expire after 7 days. If publication has not run
+and those artifacts expire, re-run the workflow to rebuild (or reuse assets the
+release already carries).
 
 The pins were already synced in step 3, so there is nothing else to bump by
-hand. If an npm job fails after the GitHub Release exists, use **Re-run failed
-jobs**. The GitHub Release job stays done and is not uploaded again. The npm
-retry asks for its own approval, skips a version already on the registry, and
-downloads the published release assets instead of rebuilding. Once that release
-exists, the expired build artifact does not block the npm retry.
+hand. If npm publication fails after the GitHub Release exists, use **Re-run
+failed jobs**. The publication retry requests approval again, preserves the
+existing release and assets, and skips npm versions already on the registry.
+It downloads the published release assets instead of rebuilding. Once that
+release exists, expired build artifacts do not block the npm retry.
 
 ## If you botch a release
 

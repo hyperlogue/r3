@@ -4,6 +4,30 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-10-05
+
+Thanks to @TomGrozev for Elixir highlighting (#25) and @gerardthehuman for reporting
+the macOS startup failure (#24).
+
+### Added
+
+- **A reworked home page for finding your artifacts.** Browse all artifacts in a
+  list view with filters for project, kind, status, and items needing attention.
+  Search published content and conversations, including historical versions, and
+  open results at the matching file, passage, or conversation. Agents can search
+  with `r3 search`.
+- **The floating feedback composer can now be dragged anywhere on the page.**
+- **Elixir files have syntax highlighting.** Read `.ex` and `.exs` files with
+  Elixir highlighting; `.heex` templates use HTML highlighting.
+
+### Fixed
+
+- **Fixed invalid executable signatures on macOS binaries.** This fixes startup
+  failures in the v1.2.0 and v1.3.0 Apple Silicon downloads
+  ([#24](https://github.com/hyperlogue/r3/issues/24)). Releases now use the same
+  pinned toolchain as Nix and verify startup, embedded assets, publication, and
+  persistence on all four supported platforms before publishing.
+
 ## [1.3.0] - 2026-10-03
 
 ### Changed
@@ -559,6 +583,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[1.4.0]: https://github.com/hyperlogue/r3/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/hyperlogue/r3/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/hyperlogue/r3/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/hyperlogue/r3/compare/v1.0.1...v1.1.0
