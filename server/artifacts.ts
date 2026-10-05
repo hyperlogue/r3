@@ -281,6 +281,11 @@ export class ArtifactStore {
       .get(this.clock(), id);
     if (!row) throw new ArtifactError("Artifact not found", 404);
     return {
+      latestVersion: this.db
+        .query<NonNullable<Artifact["latestVersion"]>, [string]>(
+          "SELECT seq, label, summary, published_at AS publishedAt FROM artifact_versions WHERE artifact_id = ? AND published_at IS NOT NULL ORDER BY seq DESC LIMIT 1",
+        )
+        .get(id),
       id: row.id,
       kind: row.kind,
       state: row.state,

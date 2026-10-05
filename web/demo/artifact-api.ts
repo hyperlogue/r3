@@ -14,6 +14,7 @@ import { normalizeGitRemote } from "../../shared/git-remote.ts";
 import type { artifactApi as productionApi } from "../src/artifact-api.ts";
 import { DraftImageStore, draftImages, prepareDraftImage } from "../src/attachment-drafts.ts";
 import { demo, fail, human, mint, now } from "./artifact-backend.ts";
+import { searchDemoArtifacts } from "./artifact-search.ts";
 
 export { human as HUMAN_ACTOR };
 
@@ -90,6 +91,7 @@ async function messageOperation(
 }
 
 export const artifactApi: typeof productionApi = {
+  search: async (options) => copy(searchDemoArtifacts(demo.state, options)),
   feedbackSource: async (id) => demo.feedbackSource(id),
   sessions: async () =>
     [
@@ -113,12 +115,14 @@ export const artifactApi: typeof productionApi = {
     })),
   list: async (filters = {}) =>
     copy(
-      demo.state.artifacts.filter(
-        (item) =>
-          (!filters.state || item.state === filters.state) &&
-          (!filters.kind || item.kind === filters.kind) &&
-          (!filters.projectId || item.projectId === filters.projectId),
-      ),
+      demo.state.artifacts
+        .map((item) => ({ ...item, latestVersion: item.versions.at(-1) ?? null }))
+        .filter(
+          (item) =>
+            (!filters.state || item.state === filters.state) &&
+            (!filters.kind || item.kind === filters.kind) &&
+            (!filters.projectId || item.projectId === filters.projectId),
+        ),
     ),
   detail: async (id) => {
     const detail = copy(demo.get(id));

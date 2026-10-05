@@ -255,3 +255,23 @@ cancellation, resize preview invalidation, actual-pixel inspection, phone layout
 changes, reload, and equality between accepted preview and posted bytes.
 `web/src/image-edit.test.ts` covers crop evidence after resizing, and draft-image
 tests reject saving an optimization after its storage generation is revoked.
+
+
+## Artifact library and search
+
+- `server/artifact-search.test.ts`: latest/history scope, native source/diff/HTML
+  evidence, passive extraction, message edits/deletions, archive/attention filters,
+  pagination, skipped bytes, restart, and concurrent publication/deletion.
+- `server/artifact-api.test.ts` and `cli/artifact-commands.test.ts`: guarded search,
+  bounded query parsing, shared CLI results, and read-only agent access.
+- `server/migration.test.ts`: version 7 upgrades with a private backup and unchanged
+  publications/conversations. `web/src/artifact-library.test.ts`: return state,
+  attention ordering, and independent reply context.
+- Storybook `Pages/ArtifactHome`: compact rows, project navigation, historical
+  search, empty results, dark theme, and phone layouts. `EarlierReplySearchResult`
+  in `Components/ArtifactThreads` exposes a match among collapsed older replies.
+- `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-library.ts`: full
+  application against temporary storage with a fresh browser. Exercises desktop,
+  dark, and phone layouts, source locations, version pinning, earlier replies,
+  native Back, return filters, and no-result recovery. Set `R3_TEST_SCREENSHOTS`
+  to a temporary directory for visual evidence.

@@ -839,3 +839,41 @@ only the current, in-limit output can be accepted. The exact preview bytes are
 saved without another encode. PNG and transparency remain the output policy;
 JPEG output and lossy compression are deferred. Resized captures retain crop
 evidence in the original captured pixel coordinates, including subsequent crops.
+
+
+## Search and the artifact library
+
+The library uses compact, flat rows with title, project, latest published version,
+publication summary, review attention, stored content size, and recent activity.
+Rows open the artifact directly. Desktop navigation holds the library views and
+projects; mobile exposes those filters above the list. Attention first orders
+active artifacts awaiting human review before agent presence and other work;
+archived artifacts follow. Needs you includes active artifacts with unhandled
+agent messages, independently of delivery or claims.
+
+Search spans artifact metadata, version labels/summaries, published text, feedback,
+and replies. Content defaults to the latest committed publication; Include history
+adds earlier publications. Conversations always retain their recorded version
+context, including resolved conversations. Replies open their message context,
+which can differ from the original concern and from a reply’s fix target. A
+missing version or location never silently substitutes a newer publication.
+
+Source matches open the matching file and line. Diff matches use captured rows and
+native old/new coordinates; missing context is not reconstructed. HTML matches
+use static text from the version’s entrypoint with rendered quote evidence;
+scripts, styles, hidden markup, and companion code are excluded. CSS visibility
+and script-generated content are not evaluated, so a rendered match can be
+unavailable at runtime. Search snippets are plain text rendered through React.
+
+The query is a conjunction of up to 16 Unicode word prefixes (256 characters).
+The API returns counts by result type and bounded pages. Binary/invalid UTF-8
+files and text files above 4 MiB are counted as excluded; no partial file is
+silently treated as complete. The first search lazily indexes selected publications
+from immutable blobs. Search does not fetch publisher paths, execute documents,
+acknowledge feedback, or register a listener.
+
+Query, project, view, kind, result type, history, sorting, and page are encoded in
+the library URL. A workspace return link preserves this state; same-tab return
+restores list scroll. Native links support browser Back and opening new tabs.
+Search supports its visible focus shortcut and list-local arrow navigation,
+while other fields and overlays retain their own keys.

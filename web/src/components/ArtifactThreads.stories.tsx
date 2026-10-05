@@ -897,3 +897,40 @@ export const WithImages: Story = {
   ),
 };
 export const WithImagesDark: Story = { ...WithImages, globals: { theme: "dark" } };
+
+export const EarlierReplySearchResult: Story = {
+  args: {
+    activeFeedback: artifactFixtureFeedback.id,
+    activeReplyId: "reply_search_match",
+    detail: {
+      ...artifactFixture,
+      feedback: [
+        {
+          ...artifactFixtureFeedback,
+          replies: Array.from({ length: 6 }, (_, index) => ({
+            id: index ? `reply_followup_${index}` : "reply_search_match",
+            feedbackId: artifactFixtureFeedback.id,
+            artifactId: artifactFixture.id,
+            author: { role: "agent" as const, sessionId: "design-agent" },
+            body: index
+              ? `Later follow-up ${index}.`
+              : "The earlier reply found by search stays visible.",
+            context: { versionSeq: 1, representation: "rendered" as const },
+            target: null,
+            legacy: null,
+            createdAt: artifactFixture.createdAt,
+            sentAt: artifactFixture.createdAt,
+          })),
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("The earlier reply found by search stays visible."),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "hide earlier replies" }));
+    await expect(canvas.queryByText("The earlier reply found by search stays visible.")).toBeNull();
+  },
+};

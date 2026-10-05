@@ -9,6 +9,7 @@ import { ArtifactLifecycle } from "./artifact-lifecycle.ts";
 import { ArtifactListeners } from "./artifact-listeners.ts";
 import type { ProjectGroupingOptions } from "./artifact-projects.ts";
 import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema.ts";
+import { ArtifactSearch } from "./artifact-search.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
 import { BlobStore } from "./blobs.ts";
@@ -30,6 +31,7 @@ export interface ArtifactStorageOptions {
 }
 
 export interface ArtifactStorage {
+  search: ArtifactSearch;
   listeners: ArtifactListeners;
   artifacts: ArtifactStore;
   conversations: ArtifactConversations;
@@ -140,6 +142,7 @@ export async function openArtifactStorage(
     conversations.expireClaims();
     authentication.cleanupOnStartup();
     return {
+      search: new ArtifactSearch(db, artifacts, conversations),
       listeners,
       artifacts,
       conversations,

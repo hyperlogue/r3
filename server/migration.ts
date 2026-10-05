@@ -7,6 +7,7 @@ import {
   createArtifactTables,
   PROJECT_REMOTE_SCHEMA,
 } from "./artifact-schema.ts";
+import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import type { BlobStore } from "./blobs.ts";
 import { nowIso } from "./ids.ts";
@@ -140,7 +141,7 @@ export async function migrateLegacyStore(
     };
   }
   const artifactUpgrade =
-    [1, 2, 3, 4, 5, 6].includes(schemaVersion) &&
+    [1, 2, 3, 4, 5, 6, 7].includes(schemaVersion) &&
     tables.includes("artifacts") &&
     !tables.includes("reviews");
   if (
@@ -185,6 +186,7 @@ export async function migrateLegacyStore(
         db.exec(`ALTER TABLE artifacts ADD COLUMN feedback_revision INTEGER NOT NULL DEFAULT 0
         CHECK (feedback_revision >= 0);`);
       db.exec(ATTACHMENT_SCHEMA);
+      db.exec(ARTIFACT_SEARCH_SCHEMA);
     } else {
       const data = readLegacyData(db);
       checkLegacyRelations(data);

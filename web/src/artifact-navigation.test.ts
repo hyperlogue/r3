@@ -78,3 +78,20 @@ test("rendered threads gain source highlights only through an explicit anchored 
     ),
   ).toEqual([]);
 });
+
+test("search entry locations survive reload but clear on an explicit view change", async () => {
+  const { artifactWorkspaceSearch } = await import("./artifact-navigation.ts");
+  const view = {
+    versionSeq: 2,
+    path: "notes.txt",
+    representation: "source" as const,
+    feedbackId: null,
+  };
+  const original = "?version=2&file=notes.txt&view=source&line=81&library=%3Fq%3Dkeyboard";
+  const retained = new URLSearchParams(artifactWorkspaceSearch(view, original));
+  expect(retained.get("line")).toBe("81");
+  expect(retained.get("library")).toBe("?q=keyboard");
+  const moved = new URLSearchParams(artifactWorkspaceSearch({ ...view, versionSeq: 3 }, original));
+  expect(moved.has("line")).toBe(false);
+  expect(moved.get("library")).toBe("?q=keyboard");
+});

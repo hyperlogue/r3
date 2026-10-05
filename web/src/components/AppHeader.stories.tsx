@@ -15,3 +15,7 @@ export const WithTitle: Story = {
   },
 };
 export const WithTitleDark: Story = { ...WithTitle, globals: { theme: "dark" } };
+export const BackToSearch: Story = {
+  ...WithTitle,
+  args: { ...WithTitle.args, returnRoute: "/?q=keyboard&history=all" },
+};

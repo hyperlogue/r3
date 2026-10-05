@@ -37,7 +37,13 @@ export function useArtifactEvents(): boolean {
               void markdownCache.reconcile(async () =>
                 (await artifactApi.list()).map((artifact) => artifact.id),
               );
-              for (const key of ["artifacts", "artifact", "artifact-watchers", "artifact-projects"])
+              for (const key of [
+                "artifacts",
+                "artifact",
+                "artifact-watchers",
+                "artifact-projects",
+                "artifact-search",
+              ])
                 void queryClient.invalidateQueries({ queryKey: [key] });
             } else {
               if (event.type === "artifact-updated")
@@ -51,6 +57,7 @@ export function useArtifactEvents(): boolean {
                   queryClient.removeQueries({ queryKey: [key, event.artifactId] });
               }
               void queryClient.invalidateQueries({ queryKey: ["artifacts"] });
+              void queryClient.invalidateQueries({ queryKey: ["artifact-search"] });
               void queryClient.invalidateQueries({ queryKey: ["artifact", event.artifactId] });
               if (
                 event.type === "presence-changed" ||

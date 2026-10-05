@@ -4,6 +4,11 @@ import {
   artifactApiPath,
   feedbackApiPath,
 } from "../../shared/artifact-client.ts";
+import {
+  type ArtifactSearchOptions,
+  type ArtifactSearchResponse,
+  artifactSearchParams,
+} from "../../shared/artifact-search.ts";
 import type {
   AgentSession,
   Artifact,
@@ -52,6 +57,13 @@ const query = (values: Record<string, string | number | undefined>) => {
 // Replaced as a whole by the static demo backend at build time. Presentation
 // components use exactly these artifact/version/native-target shapes.
 export const artifactApi = {
+  search: (options: ArtifactSearchOptions, signal?: AbortSignal) =>
+    client().json<ArtifactSearchResponse>(
+      "GET",
+      `/api/search?${artifactSearchParams(options)}`,
+      undefined,
+      signal,
+    ),
   sessions: () => client().json<AgentSession[]>("GET", "/api/sessions"),
   list: (filters: Record<string, string | undefined> = {}) =>
     client().json<Artifact[]>("GET", `/api/artifacts${query(filters)}`),

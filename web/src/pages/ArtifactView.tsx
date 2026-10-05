@@ -15,7 +15,7 @@ import { artifactDrafts, useArtifactNoteOpen, useHasArtifactNote } from "../arti
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
   type ArtifactLocation,
-  artifactLocationSearch,
+  artifactWorkspaceSearch,
   defaultFileRepresentation,
   isArtifactDocumentTarget,
   readArtifactLocation,
@@ -158,7 +158,7 @@ export function ArtifactView({
         history.replaceState(
           null,
           "",
-          `${location.pathname}${artifactLocationSearch(view, view.feedbackId)}`,
+          `${location.pathname}${artifactWorkspaceSearch(view, location.search)}`,
         )
       }
     />
@@ -222,6 +222,8 @@ function Workspace({
   const suspendedSpy = useRef(false);
   const jumpNonce = useRef(0);
   const initialFeedback = useRef(view.feedbackId);
+  const [searchEntry] = useState(() => new URLSearchParams(initialSearch));
+  const initialSearchEntry = useRef(true);
   const initialPath = useRef(view.feedbackId ? null : view.path);
   const hasNote = useHasArtifactNote(detail.id);
   const noteOpen = useArtifactNoteOpen(detail.id);
@@ -544,12 +546,60 @@ function Workspace({
   );
   useEffect(() => {
     const id = initialFeedback.current;
-    if (!id) return;
+    if (!initialSearchEntry.current) return;
+    initialSearchEntry.current = false;
     initialFeedback.current = null;
+    if (!id) {
+      const line = searchEntry.get("line");
+      if (view.versionSeq !== null && searchEntry.get("summary") === "1") {
+        locate({ kind: "version_summary", versionSeq: view.versionSeq, locator: null });
+      } else if (
+        view.versionSeq !== null &&
+        view.path &&
+        view.representation === "rendered" &&
+        searchEntry.get("text")
+      ) {
+        locate({
+          kind: "rendered",
+          versionSeq: view.versionSeq,
+          path: view.path,
+          locator: { selector: "body", quote: searchEntry.get("text")!.slice(0, 240) },
+        });
+      } else if (
+        view.versionSeq !== null &&
+        view.path &&
+        line &&
+        /^[1-9]\d*$/.test(line) &&
+        Number.isSafeInteger(Number(line))
+      ) {
+        const locator = { start: Number(line), end: Number(line), quote: "" };
+        if (view.representation === "source")
+          locate({ kind: "source", versionSeq: view.versionSeq, path: view.path, locator });
+        else if (view.representation === "diff")
+          locate({
+            kind: "diff",
+            versionSeq: view.versionSeq,
+            path: view.path,
+            locator: { ...locator, side: searchEntry.get("side") === "old" ? "old" : "new" },
+          });
+      }
+      return;
+    }
     const feedback = detail.feedback.find((feedback) => feedback.id === id);
-    if (feedback) locate(feedback.target, id);
-    else setNotice("This conversation is unavailable.");
-  }, [detail.feedback, locate]);
+    if (!feedback) {
+      setNotice("This conversation is unavailable.");
+      return;
+    }
+    const replyId = searchEntry.get("reply");
+    if (replyId) {
+      const reply = feedback.replies.find((reply) => reply.id === replyId);
+      if (!reply) setNotice("This reply is unavailable.");
+      else if (reply.context.versionSeq === null)
+        setNotice("This reply has no recorded publication context.");
+    } else locate(feedback.target, id);
+    if (mobile) setSheet("full");
+    else showFeedbackPanel();
+  }, [detail.feedback, locate, mobile, searchEntry, view]);
   const jumpRef = useCallback<ArtifactRefJump>(
     (ref, messageContext) => {
       if (!messageContext.versionSeq || !messageContext.representation) {
@@ -751,6 +801,7 @@ function Workspace({
       onLocate={locate}
       onJumpRef={jumpRef}
       activeFeedback={view.feedbackId}
+      activeReplyId={searchEntry.get("reply")}
       onFocusFeedback={showFeedback}
       composer={composer}
       keysActive={mobile ? sheet !== "closed" : !collapsed}

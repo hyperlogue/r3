@@ -1,4 +1,5 @@
 import { type ReactNode, useRef } from "react";
+import { libraryReturnRoute } from "../artifact-library.ts";
 import { DemoChrome } from "../demo-chrome.tsx";
 import { hrefFor, navigate } from "../router.ts";
 import { Logo, type LogoHandle } from "./Logo.tsx";
@@ -7,9 +8,11 @@ import { SettingsPopup } from "./SettingsPopup.tsx";
 export function AppHeader({
   children,
   showSettings = true,
+  returnRoute = libraryReturnRoute(location.search),
 }: {
   children?: ReactNode;
   showSettings?: boolean;
+  returnRoute?: string | null;
 }) {
   const logo = useRef<LogoHandle>(null);
   return (
@@ -49,6 +52,29 @@ export function AppHeader({
           r3
         </a>
       </nav>
+      {returnRoute && (
+        <a
+          href={hrefFor(returnRoute)}
+          className="shrink-0 px-2 text-xs text-neutral-500 hover:text-primary-600"
+          onClick={(event) => {
+            if (
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey ||
+              event.button !== 0
+            )
+              return;
+            event.preventDefault();
+            navigate(returnRoute);
+          }}
+        >
+          ←{" "}
+          {new URLSearchParams(returnRoute.split("?")[1]).get("q")
+            ? "Back to search"
+            : "Back to library"}
+        </a>
+      )}
       {children ? (
         <>
           <span

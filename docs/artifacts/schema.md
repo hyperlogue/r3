@@ -394,3 +394,25 @@ message; changed input conflicts. Editing preserves omitted attachments and repl
 an explicitly supplied ordered list. Existing IDs may be retained only on their
 original message. Image changes advance the persisted conversation revision and
 use the same delivery rules as text changes, including edit/revert detection.
+
+
+## Derived search index
+
+Schema version 8 adds `artifact_search_versions`, `artifact_search_documents`,
+and an external-content FTS5 index with insert/update/delete triggers. The daemon
+uses its injected connection as the sole writer. Upgrade creates empty derived
+tables after the normal private backup; it preserves publications and conversations.
+
+`artifact_search_versions` marks completely indexed publications and counts skipped
+files. Content is read only through immutable published membership, prepared before
+a short transaction, and made searchable atomically with its completion marker.
+A search rechecks current published sequences after asynchronous reads. Deletion
+during preparation cannot reintroduce content. Foreign-key cascades remove indexed
+versions, messages, and artifacts, with matching FTS deletions.
+
+Search reconciles current artifact metadata and message text immediately before
+its synchronous result snapshot. Message edits, including edit-and-revert, never
+leave stale searchable text. Conversation targets and reply context remain native
+records; search adds no placement, resolution, delivery, or ownership state.
+The index can be rebuilt from retained publications and current messages. Its
+database space is overhead and is excluded from published-content storage totals.

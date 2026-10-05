@@ -1,4 +1,10 @@
 import type { ArtifactAttachment, AttachmentInput } from "./attachments.ts";
+
+export type {
+  ArtifactSearchMatch,
+  ArtifactSearchOptions,
+  ArtifactSearchResponse,
+} from "./artifact-search.ts";
 // Artifact HTTP contract. Content and message targets always name a publication;
 // publisher-local paths and live working trees never participate in reads.
 
@@ -43,6 +49,8 @@ export interface ArtifactStorageUsage {
 }
 
 export interface Artifact {
+  // A list projection of the latest committed publication; never nextSeq - 1.
+  latestVersion?: Pick<ArtifactVersion, "seq" | "label" | "summary" | "publishedAt"> | null;
   id: string;
   kind: ArtifactKind;
   state: ArtifactState;

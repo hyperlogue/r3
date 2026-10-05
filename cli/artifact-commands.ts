@@ -7,6 +7,7 @@ import {
   feedbackApiPath,
 } from "../shared/artifact-client.ts";
 import { artifactFeedbackTargetLabel, attachmentPrompt } from "../shared/artifact-prompt.ts";
+import type { ArtifactSearchResponse } from "../shared/artifact-search.ts";
 import type {
   Artifact,
   ArtifactActor,
@@ -148,6 +149,7 @@ export async function runArtifactCommand(
     create: [...captureFlags, "title", "project", "meta"],
     publish: captureFlags,
     list: ["state", "kind", "project", "meta", "mine"],
+    search: ["state", "kind", "project", "attention", "history", "type", "limit", "offset"],
     show: [],
     versions: [],
     files: ["version"],
@@ -242,6 +244,28 @@ export async function runArtifactCommand(
       );
   };
   switch (command) {
+    case "search": {
+      const params = new URLSearchParams({ q: args.id() });
+      for (const flag of flags.search) if (args.has(flag)) params.set(flag, args.require(flag));
+      const result = await client.json<ArtifactSearchResponse>("GET", `/api/search?${params}`);
+      if (args.has("json")) await print(result);
+      else {
+        await print(
+          `${result.total} matches (${result.counts.content} content, ${result.counts.conversation} conversations)`,
+        );
+        for (const match of result.matches) {
+          const artifact = result.artifacts.find((item) => item.id === match.artifactId)!;
+          await print(
+            `${artifact.title ?? artifact.id} · ${match.category}${match.versionSeq === null ? "" : ` · v${match.versionSeq}`}${match.path ? ` · ${match.path}` : ""}\n  ${match.artifactId}${match.feedbackId ? ` · ${match.feedbackId}` : ""}${match.replyId ? ` · ${match.replyId}` : ""}\n  ${match.snippet}`,
+          );
+        }
+        if (result.nextOffset !== null)
+          await print(`More results: repeat with --offset ${result.nextOffset}`);
+        if (result.skippedFiles)
+          await print(`${result.skippedFiles} binary, invalid UTF-8, or oversized files excluded`);
+      }
+      return 0;
+    }
     case "create":
     case "publish": {
       const author = await actor();

@@ -787,3 +787,34 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(feedback.target.locator.side).toBe("old");
   });
 });
+
+test("search exposes pinned publication matches and pagination without an agent identity", async () => {
+  const id = await create();
+  ctx.environment = {};
+  const result = JSON.parse(
+    (
+      await command("search", [
+        "First",
+        "--json",
+        "--type",
+        "content",
+        "--history",
+        "all",
+        "--limit",
+        "1",
+      ])
+    ).text,
+  );
+  expect(result.matches).toHaveLength(1);
+  expect(result.matches[0]).toMatchObject({
+    artifactId: id,
+    category: "content",
+    versionSeq: 1,
+    path: "index.html",
+  });
+  expect(result.matches[0].target.kind).toBe("rendered");
+  const text = (await command("search", ["First"])).text;
+  expect(text).toContain("1 matches");
+  expect(text).toContain("v1");
+  await expect(command("search", ["First", "--limit", "1000"])).rejects.toThrow();
+});

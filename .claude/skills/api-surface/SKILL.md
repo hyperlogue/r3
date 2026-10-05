@@ -41,8 +41,23 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `storage.totalBytes` and `storage.latestVersionBytes` report deduplicated published
   content and the latest publication's full footprint, excluding database/filesystem
   overhead. See [storage accounting](../../../docs/artifacts/schema.md#content-storage-accounting).
+  `latestVersion` is null before publication, otherwise a list projection of the
+  latest committed sequence, label, summary, and publication time; never `nextSeq - 1`.
   Artifact metadata has no overview/summary field. Publication summaries remain
   immutable version metadata; `edit --summary` is unsupported.
+- `GET /api/search?q=...` returns `ArtifactSearchResponse` from `shared/artifact-search.ts`
+  (re-exported by `shared/artifacts.ts`). Filters: `state=active|archived`,
+  `kind=files|html|diff`, `project=<id>`, `attention=true|false`, `history=latest|all`,
+  `type=all|content|conversation`, `limit=1..100` (default 50), and `offset=0..100000`.
+  Queries contain 1–16 Unicode word prefixes, at most 256 characters, combined with AND;
+  punctuation is a separator and FTS syntax is never executed. Latest scope limits
+  publications; conversation matches retain each message’s recorded context. Results
+  contain plain-text snippets, native targets, feedback/reply IDs, per-type counts,
+  and `nextOffset`. `skippedFiles` reports excluded binary, invalid UTF-8, or >4 MiB
+  text files in the selected scope. HTML searches static entrypoint text without
+  executing scripts or searching companion source. Same authentication/origin guards
+  as artifact reads; no feedback acknowledgment, claim, listener, or delivery effect.
+  CLI: `r3 search "words"` with corresponding flags, `--attention`, and `--json`.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
   complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
   optional boolean `listen` (default true). A new commit replaces the fallback

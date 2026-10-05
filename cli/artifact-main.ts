@@ -20,6 +20,7 @@ const COMMANDS = new Set([
   "create",
   "publish",
   "list",
+  "search",
   "show",
   "versions",
   "files",

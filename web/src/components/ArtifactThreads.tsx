@@ -154,6 +154,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   onLocate,
   onJumpRef,
   active = false,
+  activeReplyId,
   visible = true,
   onResolved,
 }: {
@@ -165,14 +166,24 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   active?: boolean;
+  activeReplyId?: string | null;
   visible?: boolean;
   onResolved?: (id: string) => void;
 }) {
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
+  const [earlierOpen, setEarlierOpen] = useState(!!activeReplyId);
   useEffect(() => {
-    if (active) element.current?.scrollIntoView({ block: "nearest" });
-  }, [active]);
+    if (active && activeReplyId) setEarlierOpen(true);
+  }, [active, activeReplyId]);
+  useEffect(() => {
+    if (!active || !visible) return;
+    const reply =
+      earlierOpen && activeReplyId
+        ? element.current?.querySelector(`[data-artifact-reply="${CSS.escape(activeReplyId)}"]`)
+        : null;
+    (reply ?? element.current)?.scrollIntoView({ block: "nearest" });
+  }, [active, activeReplyId, visible, earlierOpen]);
   const [replying, setReplying] = useState(false);
   const [editing, setEditing] = useState<{
     replyId?: string;
@@ -189,7 +200,6 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const menu = useRef<HTMLDivElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   usePopoverFocus(menuOpen, menu, menuTrigger);
-  const [earlierOpen, setEarlierOpen] = useState(false);
   useEscape(menuOpen, () => setMenuOpen(false));
   const lastReply = feedback.replies.at(-1);
   const canEdit = (lastReply?.author ?? feedback.author).role === "human";
@@ -500,6 +510,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       {(earlierOpen ? feedback.replies : feedback.replies.slice(-3)).map((reply) => (
         <div
           key={reply.id}
+          data-artifact-reply={reply.id}
           data-message-author={reply.author.role}
           className={cn(
             "mt-2.5",
@@ -656,6 +667,7 @@ export function ArtifactThreads({
   onLocate,
   onJumpRef,
   activeFeedback,
+  activeReplyId,
   composer,
   panelControls,
   onFocusFeedback,
@@ -669,6 +681,7 @@ export function ArtifactThreads({
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   activeFeedback?: string | null;
+  activeReplyId?: string | null;
   composer?: ReactNode;
   panelControls?: ReactNode;
   onFocusFeedback?: (id: string) => void;
@@ -946,6 +959,7 @@ export function ArtifactThreads({
                     onJumpRef={onJumpRef}
                     visible={tab === queue}
                     active={tab === queue && activeFeedback === feedback.id}
+                    activeReplyId={activeFeedback === feedback.id ? activeReplyId : null}
                     onResolved={afterResolve}
                   />
                 ))}

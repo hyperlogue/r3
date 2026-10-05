@@ -12,6 +12,7 @@ const BOOLEAN = new Set([
   "human",
   "all",
   "mine",
+  "attention",
   "stdin-diff",
   "working",
   "staged",
@@ -21,6 +22,10 @@ const BOOLEAN = new Set([
 ]);
 const VALUE = new Set([
   "kind",
+  "history",
+  "type",
+  "limit",
+  "offset",
   "title",
   "summary",
   "dir",

@@ -367,3 +367,23 @@ describe("atomic legacy store migration", () => {
     expect((await migrateLegacyStore(db, options())).migrated).toBe(true);
   });
 });
+
+test("version 7 gains an empty derived search index without changing publications or feedback", async () => {
+  await migrateLegacyStore(db, options());
+  const before = db.query("SELECT * FROM artifact_versions").all();
+  const feedback = db.query("SELECT * FROM feedback").all();
+  db.exec(`DROP TRIGGER search_document_insert; DROP TRIGGER search_document_delete; DROP TRIGGER search_document_update;
+    DROP TABLE artifact_search_fts; DROP TABLE artifact_search_documents; DROP TABLE artifact_search_versions; PRAGMA user_version = 7;`);
+  const result = await migrateLegacyStore(db, options("search-backup.sqlite"));
+  expect(result.migrated).toBe(true);
+  expect(db.query("SELECT * FROM artifact_versions").all()).toEqual(before);
+  expect(db.query("SELECT * FROM feedback").all()).toEqual(feedback);
+  expect(db.query("SELECT * FROM artifact_search_documents").all()).toEqual([]);
+  expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+  const backup = new Database(result.backupPath!, { readonly: true });
+  try {
+    expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 7 });
+  } finally {
+    backup.close();
+  }
+});

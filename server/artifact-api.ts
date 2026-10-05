@@ -19,6 +19,7 @@ import { ArtifactCollaboration, type LocalAgentDelivery } from "./artifact-colla
 import { installArtifactConversations } from "./artifact-conversation-api.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
+import { parseArtifactSearch } from "./artifact-search.ts";
 import { artifactSourceResponse } from "./artifact-source.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
 import { ArtifactError, requireArtifactPath, requireSequence } from "./artifact-validation.ts";
@@ -199,6 +200,18 @@ export function createArtifactApi(
         })
         .map((artifact) => ({ ...artifact, watching: collaboration.watching(artifact.id) })),
     );
+  });
+  app.get("/api/search", async (c) => {
+    const results = await storage.search.search(
+      parseArtifactSearch(new URL(c.req.url).searchParams),
+    );
+    return artifactJsonResponse(c.req.raw, {
+      ...results,
+      artifacts: results.artifacts.map((artifact) => ({
+        ...artifact,
+        watching: collaboration.watching(artifact.id),
+      })),
+    });
   });
   app.post("/api/artifacts", async (c) => {
     const artifact = artifacts.create(await artifactJson(c.req.raw));

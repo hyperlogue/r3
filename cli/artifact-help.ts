@@ -5,6 +5,9 @@ export const ARTIFACT_HELP = `r3 — published artifacts and human/agent convers
   create --kind files|html|diff <capture flags> [--title T] [--summary S]
   publish <id> <capture flags> [--expected <seq>] [--key <retry-key>]
   list [--state active|archived] [--kind K] [--project ID] [--meta k=v] [--mine]
+  search <query> [--state active|archived] [--kind K] [--project ID]
+        [--attention] [--history latest|all] [--type all|content|conversation]
+        [--limit 1..100] [--offset N] [--json]
   show <id> [--json]
   versions <id>
   files <id> --version <seq>
@@ -19,6 +22,10 @@ Capture: --dir <prepared-directory> [--file <relative-path>]...
          --stdin-diff | --working | --staged | --commit <sha> | --diff <base>..<head>
 Diff text requires UTF-8. Git capture always includes changed submodule pointers.
 Publication summaries belong to versions. Artifacts have no overview field.
+Search: quote multiword queries; all words match as prefixes (up to 16 words / 256 characters).
+        Latest content by default; conversations retain their recorded version context.
+        HTML searches static entrypoint text without scripts. Text files over 4 MiB,
+        binary files, and invalid UTF-8 are excluded and counted. No delivery acknowledgment.
 Publication: --version-label L --summary S --key K --no-listen
              --label remains a publication-only alias; do not supply both spellings.
 Create: --kind is required; --project ID --meta k=v (repeatable).
@@ -141,6 +148,8 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 \`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
 
 \`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
+
+Search retained work with \`r3 search "keyboard focus" --history all --json\`. Matches carry explicit publication, document/line or rendered-text evidence, and feedback/reply identity. Use \`--type conversation\` for messages or \`--attention\` for active artifacts awaiting human review. Search never acknowledges feedback or claims work.
 
 Optional \`--version-label\` names the published version; \`--summary\` describes it. The CLI detects the Git remote for server-configured project grouping. Explicit \`--project\` overrides inference; details and artifact metadata flags are in \`r3 --help\`.
 

@@ -34,6 +34,10 @@ production preview protection is not simulated.
 | [![Exploring a library through an interactive demo](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62)](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62) | Learn how a library works internally through an interactive demo. |
 | [![Codex receiving feedback from r3](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19) | Codex receives a direct message from r3 when you ping the agent from the web page. |
 
+Search your library by project, content, or conversation. Results open the matching
+publication or message, and **Include history** searches older versions. Agents can
+use the same search with `r3 search "keyboard focus" --history all --json`.
+
 ## Get started
 
 Install globally to make the `r3` command available on your PATH:

@@ -37,7 +37,7 @@ function subscribe(cb: () => void) {
 
 export function navigate(route: string) {
   const url = hrefFor(route);
-  if (url !== window.location.pathname) {
+  if (url !== window.location.pathname + window.location.search) {
     window.history.pushState({}, "", url);
     window.dispatchEvent(new Event("r3-navigate"));
   }

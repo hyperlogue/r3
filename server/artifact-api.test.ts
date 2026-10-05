@@ -607,3 +607,31 @@ test("session lists compress and revalidate after authenticated reads", async ()
   );
   expect(denied.status).toBe(401);
 });
+
+test("library search requires application auth and validates bounded filters", async () => {
+  const anonymous = await api.app.request(
+    new Request("http://localhost/api/search?q=Original", { headers: { host: "localhost" } }),
+  );
+  expect(anonymous.status).toBe(401);
+  const opaque = await request("/api/search?q=Original", "GET", undefined, { origin: "null" });
+  expect(opaque.status).toBe(403);
+  const id = await create();
+  await request(`/api/artifacts/${id}/versions`, "POST", publication());
+  const response = await request("/api/search?q=Original&type=content");
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toContain("private");
+  const result = await response.json();
+  expect(result.matches.some((match: { artifactId: string }) => match.artifactId === id)).toBe(
+    true,
+  );
+  for (const query of [
+    "q=*",
+    "q=original&limit=1000",
+    "q=original&offset=-1",
+    "q=original&kind=other",
+    "q=original&history=unknown",
+    "q=original&type=other",
+    "q=original&attention=yes",
+  ])
+    expect((await request(`/api/search?${query}`)).status).toBe(400);
+});

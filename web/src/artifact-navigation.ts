@@ -52,6 +52,22 @@ export function artifactLocationSearch(
   return `?${params}`;
 }
 
+// Keep a search entry reproducible on reload until the reader changes its view.
+// The library return state survives subsequent navigation inside the artifact.
+export function artifactWorkspaceSearch(view: ArtifactLocation, previousSearch: string): string {
+  const params = new URLSearchParams(artifactLocationSearch(view, view.feedbackId));
+  const previous = new URLSearchParams(previousSearch);
+  if (previous.has("library")) params.set("library", previous.get("library")!);
+  if (
+    ["version", "file", "feedback"].every((key) => params.get(key) === previous.get(key)) &&
+    (!previous.has("view") || params.get("view") === previous.get("view"))
+  ) {
+    for (const key of ["line", "side", "text", "summary", "reply"])
+      if (previous.has(key)) params.set(key, previous.get(key)!);
+  }
+  return `?${params}`;
+}
+
 export function isArtifactDocumentTarget(target: ArtifactTarget): target is ArtifactDocumentTarget {
   return target.kind === "source" || target.kind === "rendered" || target.kind === "diff";
 }
