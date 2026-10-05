@@ -166,6 +166,13 @@ export const Search: Story = {
   },
 };
 export const SearchDark: Story = { ...Search, globals: { theme: "dark" } };
+export const SearchFocused: Story = {
+  ...Search,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("searchbox"));
+  },
+};
+export const SearchFocusedDark: Story = { ...SearchFocused, globals: { theme: "dark" } };
 export const SearchPhone: Story = {
   ...Search,
   parameters: { ...Search.parameters, ...phoneViewport() },

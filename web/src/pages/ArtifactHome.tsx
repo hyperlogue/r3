@@ -17,6 +17,8 @@ import { StrokeIcon } from "../ui.tsx";
 
 const control =
   "min-h-8 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs focus-visible:outline-primary-500 max-md:min-h-9 max-md:min-w-0 max-md:w-full max-md:text-base dark:border-neutral-700 dark:bg-neutral-950";
+const filterControl =
+  "min-h-9 min-w-0 rounded-none border-neutral-200 bg-transparent py-2 pl-5 pr-3 text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:w-full max-md:pl-4 max-md:text-base dark:border-neutral-800 dark:hover:bg-neutral-900";
 const views = [
   ["all", "All artifacts"],
   ["attention", "Needs you"],
@@ -220,8 +222,8 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
         className="min-w-0 flex-1 overflow-y-auto bg-white [scrollbar-gutter:stable] dark:bg-neutral-950"
       >
         <div className="mx-auto w-full max-w-6xl">
-          <div className="border-b border-neutral-200 px-5 pb-4 pt-6 max-md:px-4 max-md:pt-5 dark:border-neutral-800">
-            <div className="mb-4 flex items-baseline gap-3">
+          <div className="border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-baseline gap-3 px-5 pb-4 pt-6 max-md:px-4 max-md:pt-5">
               <div className="min-w-0 flex-1">
                 <h1 className="truncate text-xl font-semibold tracking-tight" title={title}>
                   {title}
@@ -238,7 +240,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 {counts.all} artifacts · {projects.data?.length ?? 0} projects
               </span>
             </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-neutral-300 bg-neutral-50 px-3 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-900">
+            <div className="flex items-center gap-2.5 border-y border-neutral-200 bg-neutral-50 px-5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-primary-500 max-md:px-4 dark:border-neutral-800 dark:bg-neutral-900">
               <StrokeIcon className="size-4 shrink-0 text-neutral-400">
                 <circle cx="10.5" cy="10.5" r="6.5" />
                 <path d="m16 16 5 5" />
@@ -257,13 +259,13 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                     pane.current?.querySelector<HTMLAnchorElement>("[data-library-row]")?.focus();
                   }
                 }}
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none max-md:text-base"
+                className="h-11 min-w-0 flex-1 rounded-none bg-transparent text-sm outline-none max-md:text-base"
               />
               {state.q && (
                 <button
                   type="button"
                   aria-label="Clear search"
-                  className="flex size-8 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                  className="flex size-8 shrink-0 items-center justify-center text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   onClick={() => {
                     update({ q: "" });
                     searchInput.current?.focus();
@@ -283,10 +285,10 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 <kbd>⌘ / Ctrl K</kbd>
               </button>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 max-md:grid max-md:grid-cols-2">
+            <div className="flex flex-wrap items-stretch max-md:grid max-md:grid-cols-2">
               <select
                 aria-label="Artifact kind"
-                className={control}
+                className={`${filterControl} border-r max-md:border-b`}
                 value={state.kind}
                 onChange={(event) =>
                   update({ kind: event.target.value as ArtifactLibraryState["kind"] })
@@ -299,7 +301,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               </select>
               <select
                 aria-label="Library view"
-                className={`${control} md:hidden`}
+                className={`${filterControl} border-b md:hidden`}
                 value={state.view}
                 onChange={(event) =>
                   update({ view: event.target.value as ArtifactLibraryState["view"] })
@@ -313,7 +315,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               </select>
               <select
                 aria-label="Project"
-                className={`${control} md:hidden`}
+                className={`${filterControl} border-r md:hidden`}
                 value={state.project}
                 onChange={(event) => update({ project: event.target.value })}
               >
@@ -327,7 +329,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               {state.project && (
                 <button
                   type="button"
-                  className="rounded px-2 py-1 text-xs text-neutral-500 hover:text-primary-600 max-md:hidden"
+                  className="px-5 py-2 text-xs text-neutral-500 hover:text-primary-600 max-md:hidden"
                   onClick={() => update({ project: "" })}
                 >
                   Clear project ×
@@ -337,7 +339,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               {searching ? (
                 <select
                   aria-label="Publications to search"
-                  className={control}
+                  className={`${filterControl} border-l max-md:border-l-0`}
                   value={state.history}
                   onChange={(event) =>
                     update({ history: event.target.value as ArtifactLibraryState["history"] })
@@ -349,7 +351,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               ) : (
                 <select
                   aria-label="Sort artifacts"
-                  className={control}
+                  className={`${filterControl} border-l max-md:border-l-0`}
                   value={state.sort}
                   onChange={(event) =>
                     update({ sort: event.target.value as ArtifactLibraryState["sort"] })

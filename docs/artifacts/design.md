@@ -845,6 +845,7 @@ evidence in the original captured pixel coordinates, including subsequent crops.
 
 The library uses compact, flat rows with title, project, latest published version,
 publication summary, review attention, stored content size, and recent activity.
+Search and filter controls form square, flush rows with shared dividers.
 Rows open the artifact directly. The list reserves its scrollbar space so filtering
 does not shift the content horizontally. Desktop navigation holds the library views and
 projects; mobile exposes those filters above the list. Attention first orders
