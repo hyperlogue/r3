@@ -3,7 +3,7 @@ import type { DocumentRenderer } from "./publication.ts";
 
 // Bump when changing the persisted document structure or styling. Already
 // published versions keep their bytes and revision; reads do not re-render them.
-export const DOCUMENT_RENDERER_REVISION = "r3-markdown-1";
+export const DOCUMENT_RENDERER_REVISION = "r3-markdown-2";
 
 const DOCUMENT_CSS = `
 :root{color-scheme:light dark;font:16px/1.65 system-ui,sans-serif}
