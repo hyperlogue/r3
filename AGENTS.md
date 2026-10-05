@@ -9,6 +9,13 @@ Write README.md for human readers evaluating and getting started with r3. Keep
 agent instructions, protocol semantics, and exhaustive feature details in the
 agent guide or reference documentation.
 
+When the user requests an r3 publication, share the credential-free URL returned
+by the CLI (`url` in JSON output) unchanged in the direct reply. That request
+authorizes sharing the configured hostname for this handoff under the privacy
+rules. The returned URL is the browser address, even when the CLI connects to a
+local daemon. Keep environment-specific URLs out of repository files and public
+posts unless explicitly requested.
+
 This file, the [artifact design](docs/artifacts/design.md),
 [schema explanation](docs/artifacts/schema.md), and the deep-reference skills below
 are the design source of truth. Update the document that owns a decision when it
