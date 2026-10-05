@@ -10,13 +10,16 @@ type Step = {
   if?: string;
   run?: string;
   "working-directory"?: string;
-  with?: { path: string };
+  with?: { path: string; pattern?: string; "merge-multiple"?: boolean };
 };
 const root = join(import.meta.dir, "..");
 const workflow = Bun.YAML.parse(
   readFileSync(join(root, ".github/workflows/release.yml"), "utf8"),
 ) as {
-  jobs: Record<string, { environment?: string; steps: Step[] }>;
+  jobs: Record<
+    string,
+    { environment?: string; steps: Step[]; needs?: string[] | string; uses?: string }
+  >;
 };
 const platforms = ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"];
 const assets = Object.fromEntries(platforms.map((p) => [`r3-${p}`, `published bytes for ${p}`]));
@@ -165,6 +168,20 @@ test("publication has one approval gate", () => {
   expect(Object.entries(workflow.jobs).filter(([, job]) => job.environment)).toEqual([
     ["publish", expect.objectContaining({ environment: "release" })],
   ]);
+});
+
+test("publication requires native verification and downloads only its outputs", () => {
+  expect(workflow.jobs.publish.needs).toContain("binaries");
+  expect(workflow.jobs.binaries.uses).toBe("./.github/workflows/verify-binaries.yml");
+  const downloads = workflow.jobs.publish.steps.filter((step) =>
+    step.uses?.startsWith("actions/download-artifact@"),
+  );
+  expect(downloads).toHaveLength(1);
+  expect(downloads[0]!.with).toEqual({
+    pattern: "r3-verified-*",
+    "merge-multiple": true,
+    path: "dist",
+  });
 });
 
 test("an npm timeout retries without touching the immutable release or expired artifact", () => {

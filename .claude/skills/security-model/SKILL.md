@@ -448,6 +448,8 @@ update paths:
 
 - `bun`'s `minimumReleaseAge` (`bunfig.toml`, in **seconds** — 1814400) gates every
   local `bun install`/`add`/`update`;
+- the pinned npm's `min-release-age` (`toolchain/.npmrc`, in **days** — 21)
+  gates manual toolchain resolution; installs disable lifecycle scripts;
 - a matching Dependabot `cooldown` (`default-days: 21`, `.github/dependabot.yml`)
   gates bot PRs.
 

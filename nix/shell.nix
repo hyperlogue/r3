@@ -1,6 +1,6 @@
 # Dev shell entered by `nix develop` / direnv `use flake` (see .envrc).
 # Bun runs everything (server, CLI, vite, tsc via node_modules), so the shell
-# adds only what isn't a project dependency: bun itself, biome (not a devDep),
+# adds the locked toolchain from toolchain/package-lock.json,
 # and the beads task tracker (`br`) + its helper wrappers.
 {...}: {
   perSystem = {pkgs, ...}: {
@@ -10,6 +10,8 @@
       packages = with pkgs; [
         bun
         biome
+        r3Node
+        (lib.hiPrio r3Npm)
 
         # bun.nix regeneration needs no shell package: the wasm bun2nix is an
         # exact-pinned devDependency and the package.json postinstall runs it

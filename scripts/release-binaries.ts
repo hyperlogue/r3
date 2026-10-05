@@ -6,6 +6,9 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { R3_VERSION } from "../shared/version.ts";
 import { browserLoweredCssPlugin } from "./spa-css.ts";
+import { assertBuildToolchain } from "./toolchain.ts";
+
+assertBuildToolchain();
 
 const DIR = join(import.meta.dir, "..");
 const OUT = join(DIR, "dist");

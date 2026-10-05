@@ -50,13 +50,13 @@ OIDC identity. So: **renaming `.github/workflows/release.yml` breaks publishing*
 until all five registrations are updated, publishing can't move to another
 workflow or a self-hosted runner, and a **brand-new** package name (adding a
 platform target) has no trusted publisher yet — its first publish is manual, then
-register `release.yml` on it. Requires npm ≥ 11.5.1, which is why the npm
-steps upgrade npm and omit setup-node's `registry-url` (its `.npmrc`
+register `release.yml` on it. Requires npm ≥ 11.5.1. The shared toolchain pins
+an OIDC-capable npm and omits setup-node's `registry-url` (its `.npmrc`
 placeholder token would shadow OIDC).
 
-### Three jobs, one approval gate
+### Native verification, one approval gate
 
-`release.yml` is **verify → build → publish**. The single `publish` job creates
+`release.yml` is **verify → build → binaries → publish**. The single `publish` job creates
 or reuses the GitHub Release, publishes the four platform packages, waits for
 all exact platform pins to become visible, then publishes the launcher.
 **Re-run failed jobs** repeats this job safely: an existing published release
@@ -69,8 +69,14 @@ skipped.
   verified version. A missing `## [X.Y.Z]` changelog section only **warns** —
   the release falls back to `--generate-notes`.
 - **`build`** compiles (or re-downloads and digest-verifies this tag's existing
-  assets), execs the linux-x64 binary as a smoke test, and hands `dist/r3-*` to
-  `publish` as an artifact. It can only read.
+  assets) and hands `dist/r3-*` to native verification. It can only read.
+- **`binaries`** uses `verify-binaries.yml` on all four native platforms. Fresh
+  macOS builds receive an ad-hoc signature; reused assets remain byte-identical.
+  `scripts/verify-binary.ts` checks macOS signatures with `codesign --verify --strict`,
+  then copies the binary outside the checkout and checks CLI startup, a private
+  daemon, embedded JS/CSS, publication, source highlighting, binary downloads and
+  persistence after restart. Publish consumes only the `r3-verified-*` outputs.
+  An invalid reused asset fails verification rather than being silently repaired.
 - **`publish`** checks for the GitHub Release before downloading the build
   artifact. Only a 404 permits creation; other API failures and an unfinished
   draft stop publication. If the release exists, skip the artifact download,
@@ -101,7 +107,7 @@ in `scripts/release-workflow.test.ts` exercise publication with fake GitHub and
 npm commands. CI runs both suites without publishing.
 
 **The publish job never execs a release binary.** It only stats staged exec bits;
-`build` already ran the natively-runnable target. Executing an unverified binary
+Native runners already verified every target. Executing an unverified binary
 with publish credentials could let it rewrite the other platform packages.
 The build artifact's `retention-days: 7` bounds how long initial approval may
 idle. Past that, re-run the workflow so `build` can compile again. Once the
@@ -204,6 +210,30 @@ into the router (`hrefFor`/`__R3_BASE__`) and asset `publicPath`. Then
 Local `build:demo` defaults to a root base, so `bunx serve -s dist/demo` just works.
 
 ## Nix
+
+`toolchain/package.json` and its npm lockfile own the Bun, Biome and npm versions
+and platform archive integrity. `nix/toolchain.nix` consumes these archives;
+`.github/actions/setup-toolchain` consumes the same pins. Keep this package
+separate from the application's empty `bun` override. Toolchain installs disable
+lifecycle scripts; the Bun runtime comes from setup-bun or the Nix derivation,
+not the npm wrapper. The Node engine pin must match `nodejs_24` in `flake.lock`;
+Nix asserts that relationship when the snapshot changes. The bun2nix generator
+in the root manifest must also match the flake's bun2nix consumer version.
+
+Dependabot updates `/toolchain` weekly with the 21-day cooldown. For manual
+updates use the pinned npm from `nix develop`, then run
+`npm install --prefix toolchain --package-lock-only`; `toolchain/.npmrc` applies
+the same minimum age. Keep the manifest and lockfile together. The Biome schema
+comes from `npm ci --prefix toolchain`, so it follows the installed version.
+`scripts/check-toolchain.ts` checks the running versions and all platform pins.
+
+CI builds all four release targets and uses the same native verification as
+releases. The existing `check` status aggregates those jobs and Linux/macOS Nix
+builds, so a toolchain PR cannot pass on a Linux-only smoke check. Local compile
+scripts reject a Bun version that differs from the shared pin: the compiler's
+runtime is part of the shipped executable. Bun 1.3.13 produced an invalid final
+page hash on macOS arm64; native signing also repairs the stale signature left
+by Intel macOS cross-compilation.
 
 `nix/r3.nix` drives the same `bun run build` with a custom `buildPhase` on top of
 stdenv + the bun2nix hook (which installs the pinned deps from `bun.nix`) — the

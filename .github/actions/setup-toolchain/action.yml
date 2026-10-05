@@ -1,0 +1,24 @@
+name: Set up the locked toolchain
+description: Install the versions shared with the Nix flake, without lifecycle scripts.
+runs:
+  using: composite
+  steps:
+    - id: versions
+      shell: bash
+      run: echo "bun=$(jq -r '.devDependencies.bun' toolchain/package.json)" >> "$GITHUB_OUTPUT"
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: ${{ steps.versions.outputs.bun }}
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: toolchain/package.json
+    - shell: bash
+      run: |
+        npm ci --prefix toolchain --ignore-scripts --no-audit --no-fund
+        mkdir -p "$RUNNER_TEMP/r3-toolchain-bin"
+        ln -sf "$GITHUB_WORKSPACE/toolchain/node_modules/@biomejs/biome/bin/biome" "$RUNNER_TEMP/r3-toolchain-bin/biome"
+        ln -sf "$GITHUB_WORKSPACE/toolchain/node_modules/npm/bin/npm-cli.js" "$RUNNER_TEMP/r3-toolchain-bin/npm"
+        ln -sf "$GITHUB_WORKSPACE/toolchain/node_modules/npm/bin/npx-cli.js" "$RUNNER_TEMP/r3-toolchain-bin/npx"
+        echo "$RUNNER_TEMP/r3-toolchain-bin" >> "$GITHUB_PATH"
+    - shell: bash
+      run: bun scripts/check-toolchain.ts

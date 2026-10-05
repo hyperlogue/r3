@@ -3,6 +3,9 @@
 
 import { join } from "node:path";
 import { browserLoweredCssPlugin } from "./spa-css.ts";
+import { assertBuildToolchain } from "./toolchain.ts";
+
+assertBuildToolchain();
 
 const DIR = join(import.meta.dir, "..");
 

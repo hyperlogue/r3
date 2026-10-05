@@ -26,6 +26,7 @@
       ../tsconfig.json
       ../bun.lock
       ../bun.nix
+      ../toolchain/package.json
       ../scripts
       ../server
       ../cli
@@ -34,9 +35,12 @@
     ];
   };
 
-  bunDeps = bun2nix.fetchBunDeps {
-    bunNix = ../bun.nix;
-  };
+  bunDeps = assert lib.assertMsg
+  (bun2nix.version == (builtins.fromJSON (builtins.readFile ../package.json)).devDependencies.bun2nix)
+  "The bun2nix generator in package.json must match the flake's bun2nix input.";
+    bun2nix.fetchBunDeps {
+      bunNix = ../bun.nix;
+    };
 in
   stdenv.mkDerivation {
     pname = "r3";
