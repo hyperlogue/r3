@@ -224,7 +224,7 @@ Dependabot updates `/toolchain` weekly with the 21-day cooldown. For manual
 updates use the pinned npm from `nix develop`, then run
 `npm install --prefix toolchain --package-lock-only`; `toolchain/.npmrc` applies
 the same minimum age. Keep the manifest and lockfile together. The Biome schema
-comes from `npm ci --prefix toolchain`, so it follows the installed version.
+uses the hosted URL in `biome.jsonc`, independently of the installed version.
 `scripts/check-toolchain.ts` checks the running versions and all platform pins.
 
 CI builds all four release targets and uses the same native verification as
