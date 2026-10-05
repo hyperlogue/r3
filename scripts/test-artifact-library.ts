@@ -208,6 +208,35 @@ try {
   assert.ok(height >= 52 && height <= 82, `compact rows retain spacing (${height}px)`);
   await screenshot("library-desktop");
   await noOverflow();
+  const libraryGeometry = () =>
+    page.evaluate(`(() => {
+      const pane = document.querySelector('[data-library-pane]');
+      const content = pane.firstElementChild.getBoundingClientRect();
+      const input = pane.querySelector('input[type="search"]').getBoundingClientRect();
+      return {
+        overflowing: pane.scrollHeight > pane.clientHeight,
+        width: pane.clientWidth,
+        contentLeft: content.left,
+        contentWidth: content.width,
+        inputLeft: input.left,
+        inputWidth: input.width,
+      };
+    })()`);
+  const { overflowing, ...fullGeometry } = await libraryGeometry();
+  assert.equal(overflowing, true, "full library scrolls");
+  await select('[aria-label="Library view"]', "attention");
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-library-row]').length===1"),
+    "short library",
+  );
+  const { overflowing: shortOverflow, ...shortGeometry } = await libraryGeometry();
+  assert.equal(shortOverflow, false, "filtered library does not scroll");
+  assert.deepEqual(shortGeometry, fullGeometry, "scrollbar changes preserve content alignment");
+  await select('[aria-label="Library view"]', "all");
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-library-row]').length===15"),
+    "full library restored",
+  );
   await page.evaluate("document.documentElement.classList.add('dark')");
   await screenshot("library-dark");
   await page.evaluate("document.documentElement.classList.remove('dark')");
@@ -241,9 +270,8 @@ try {
     await page.evaluate("location.search.includes('version=1')"),
     "historical version is pinned",
   );
-  await page.evaluate(
-    "void [...document.querySelectorAll('a')].find(a=>a.textContent.includes('Back to search'))?.click()",
-  );
+  await screenshot("workspace-desktop");
+  await click('[data-app-header] a[title="Artifact library"]');
   await ready();
   assert.equal(
     await page.evaluate("document.querySelector('input[type=search]').value"),
@@ -300,9 +328,8 @@ try {
     "mobile artifact",
   );
   await noOverflow();
-  await page.evaluate(
-    "void [...document.querySelectorAll('a')].find(a=>a.textContent.includes('Back to library'))?.click()",
-  );
+  await screenshot("workspace-mobile");
+  await click('[data-app-header] a[title="Artifact library"]');
   await ready();
   assert.equal(
     await page.evaluate("document.querySelector('[aria-label=\"Project\"]').value"),

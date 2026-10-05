@@ -73,8 +73,11 @@ const meta = {
   component: ArtifactHome,
   args: { initialSearch: "" },
   decorators: [
-    (Story) => (
-      <div className="h-[780px] bg-neutral-50 dark:bg-neutral-900">
+    (Story, context) => (
+      <div
+        className="bg-neutral-50 dark:bg-neutral-900"
+        style={{ height: context.parameters.libraryHeight ?? 780 }}
+      >
         <Story />
       </div>
     ),
@@ -95,6 +98,7 @@ export const Default: Story = {
 export const Dark: Story = { ...Default, globals: { theme: "dark" } };
 export const Phone: Story = { ...Default, parameters: phoneViewport() };
 export const Filter: Story = {
+  parameters: { libraryHeight: 420 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: /Archived 1/ }));

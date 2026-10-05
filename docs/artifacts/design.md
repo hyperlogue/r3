@@ -845,7 +845,8 @@ evidence in the original captured pixel coordinates, including subsequent crops.
 
 The library uses compact, flat rows with title, project, latest published version,
 publication summary, review attention, stored content size, and recent activity.
-Rows open the artifact directly. Desktop navigation holds the library views and
+Rows open the artifact directly. The list reserves its scrollbar space so filtering
+does not shift the content horizontally. Desktop navigation holds the library views and
 projects; mobile exposes those filters above the list. Attention first orders
 active artifacts awaiting human review before agent presence and other work;
 archived artifacts follow. Needs you includes active artifacts with unhandled
@@ -873,7 +874,7 @@ from immutable blobs. Search does not fetch publisher paths, execute documents,
 acknowledge feedback, or register a listener.
 
 Query, project, view, kind, result type, history, sorting, and page are encoded in
-the library URL. A workspace return link preserves this state; same-tab return
+the library URL. The header’s r3 link preserves this state; same-tab return
 restores list scroll. Native links support browser Back and opening new tabs.
 Search supports its visible focus shortcut and list-local arrow navigation,
 while other fields and overlays retain their own keys.

@@ -214,7 +214,11 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
           )}
         </nav>
       </aside>
-      <div ref={pane} className="min-w-0 flex-1 overflow-y-auto bg-white dark:bg-neutral-950">
+      <div
+        ref={pane}
+        data-library-pane
+        className="min-w-0 flex-1 overflow-y-auto bg-white [scrollbar-gutter:stable] dark:bg-neutral-950"
+      >
         <div className="mx-auto w-full max-w-6xl">
           <div className="border-b border-neutral-200 px-5 pb-4 pt-6 max-md:px-4 max-md:pt-5 dark:border-neutral-800">
             <div className="mb-4 flex items-baseline gap-3">

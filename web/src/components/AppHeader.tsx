@@ -15,6 +15,7 @@ export function AppHeader({
   returnRoute?: string | null;
 }) {
   const logo = useRef<LogoHandle>(null);
+  const libraryRoute = returnRoute ?? "/";
   return (
     <header
       data-app-header
@@ -33,8 +34,8 @@ export function AppHeader({
           />
         </button>
         <a
-          href={hrefFor("/")}
-          title="All artifacts"
+          href={hrefFor(libraryRoute)}
+          title="Artifact library"
           onClick={(event) => {
             if (
               event.metaKey ||
@@ -45,36 +46,13 @@ export function AppHeader({
             )
               return;
             event.preventDefault();
-            navigate("/");
+            navigate(libraryRoute);
           }}
           className="flex items-center self-stretch text-sm font-semibold text-neutral-800 hover:text-primary-600 max-md:min-h-9 dark:text-neutral-100 dark:hover:text-primary-400"
         >
           r3
         </a>
       </nav>
-      {returnRoute && (
-        <a
-          href={hrefFor(returnRoute)}
-          className="shrink-0 px-2 text-xs text-neutral-500 hover:text-primary-600"
-          onClick={(event) => {
-            if (
-              event.metaKey ||
-              event.ctrlKey ||
-              event.shiftKey ||
-              event.altKey ||
-              event.button !== 0
-            )
-              return;
-            event.preventDefault();
-            navigate(returnRoute);
-          }}
-        >
-          ←{" "}
-          {new URLSearchParams(returnRoute.split("?")[1]).get("q")
-            ? "Back to search"
-            : "Back to library"}
-        </a>
-      )}
       {children ? (
         <>
           <span
