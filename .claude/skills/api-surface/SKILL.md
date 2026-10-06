@@ -221,7 +221,10 @@ supported constraints and track compatibility.
 
 ## CLI and agent loop
 
-`r3 guide` and `r3 --help` come from `cli/artifact-help.ts`; keep both accurate in
+Bare `r3` prints a compact human welcome with quick-start commands and an explicit
+pointer to `r3 guide` for agents. It returns without contacting or starting a daemon.
+`r3 help`, `r3 --help`, and `r3 -h` print the full command reference.
+The welcome, help, and guides come from `cli/artifact-help.ts`; keep them accurate in
 any change to commands, flags, results, or protocol. `r3 guide` is the concise
 agent workflow, read once per session. `r3 guide html|files|diff` contains only the
 preparation details for that kind, loaded when first needed. Unknown topics and

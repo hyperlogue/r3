@@ -1,6 +1,24 @@
+import { styleText } from "node:util";
+import { R3_VERSION } from "../shared/version.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 
+export function artifactWelcome(): string {
+  return `
+  ${styleText(["bold", "cyan"], "r3")}  Render. Review. Refine.  ${styleText("dim", `v${R3_VERSION}`)}
+
+  Review files, pages, and code changes with your agent.
+
+  ${styleText("cyan", "r3 start")}     Start the workspace and show its URL
+  ${styleText("cyan", "r3 list")}      List your artifacts
+  ${styleText("cyan", "r3 --help")}    All commands and options
+
+  ${styleText("bold", "Agents:")} run ${styleText("cyan", "r3 guide")} before publishing or handling feedback.
+`;
+}
+
 export const ARTIFACT_HELP = `r3 — published artifacts and human/agent conversations
+
+Run r3 for a quick start. Agents: start with r3 guide.
 
   create --kind files|html|diff <capture flags> [--title T] [--summary S]
   publish <id> <capture flags> [--expected <seq>] [--key <retry-key>]

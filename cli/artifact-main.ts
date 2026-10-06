@@ -5,7 +5,7 @@ import type { ArtifactActor } from "../shared/artifacts.ts";
 import { R3_VERSION } from "../shared/version.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { runArtifactCommand } from "./artifact-commands.ts";
-import { ARTIFACT_HELP, artifactGuide } from "./artifact-help.ts";
+import { ARTIFACT_HELP, artifactGuide, artifactWelcome } from "./artifact-help.ts";
 import {
   listenArtifactConnection,
   localArtifactDelivery,
@@ -88,7 +88,11 @@ async function runListener(id: string, actor: ArtifactActor, ready?: () => void)
 }
 
 export async function artifactMain(argv = process.argv.slice(2)): Promise<number> {
-  const [command = "help", ...args] = argv;
+  const [command, ...args] = argv;
+  if (command === undefined) {
+    console.log(artifactWelcome());
+    return 0;
+  }
   if (["help", "--help", "-h"].includes(command)) {
     console.log(ARTIFACT_HELP);
     return 0;
