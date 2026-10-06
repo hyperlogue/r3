@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactApiError } from "../../../shared/artifact-client.ts";
-import type {
-  ArtifactDetail,
-  ArtifactDocumentTarget,
-  ArtifactTarget,
-  ArtifactVersion,
-  RenderedLocator,
+import {
+  type ArtifactDetail,
+  type ArtifactDocumentTarget,
+  type ArtifactTarget,
+  type ArtifactVersion,
+  artifactMediaKind,
+  type RenderedLocator,
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import { artifactApi } from "../artifact-api.ts";
@@ -1033,7 +1034,10 @@ function Workspace({
                             path={file.path}
                             version={`${version.seq}:${theme}`}
                             initialHeight={file.renderedHash ? "100dvh" : undefined}
-                            retain={!!file.renderedHash && fileMode(file.path) === "rendered"}
+                            retain={
+                              (!!file.renderedHash && fileMode(file.path) === "rendered") ||
+                              ["audio", "video"].includes(artifactMediaKind(file.mediaType) ?? "")
+                            }
                           >
                             {({ active, onHydrated, onOpenChange }) => (
                               <ArtifactFile

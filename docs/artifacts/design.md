@@ -205,6 +205,13 @@ again. Initially folded files still load only when opened. Switching to source,
 changing versions, or leaving the artifact releases the preview normally. Scrolling
 away keeps loaded Markdown mounted and measured.
 
+Opened audio and video previews also stay mounted when scrolled out of view, so
+playback continues and paused position, volume, and playback speed survive the
+scroll. Unopened players remain lazy. Explicitly folding a media file, changing
+versions, or leaving the artifact releases its player; playback state is not
+persisted across those actions. Retention keeps opened players in memory for the
+current workspace visit.
+
 Opened Markdown also has a workspace-owned IndexedDB cache, keyed by artifact,
 version, path, retained rendering hash, and renderer revision within the application
 origin/base. It holds at most 64 MiB, evicts least recently opened documents, and

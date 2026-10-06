@@ -200,7 +200,8 @@ export function ProgressiveFile({
   // the flat INITIAL_HEIGHT it always used.
   reserve?: ReserveSpec | null;
   initialHeight?: string;
-  // Retained Markdown keeps its measured frame when scrolled away or folded.
+  // Keep opened stateful previews mounted when scrolled away. The child owns
+  // whether folding also retains its body (Markdown) or releases it (media).
   retain?: boolean;
   children: (state: {
     active: boolean;
