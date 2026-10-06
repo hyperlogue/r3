@@ -880,6 +880,11 @@ evidence in the original captured pixel coordinates, including subsequent crops.
 The library uses compact, flat rows with title, project, latest published version,
 publication summary, review attention, stored content size, and recent activity.
 Search and filter controls form square, flush rows with shared dividers.
+The result count and **Selection mode** toggle sit beside the kind filter;
+there is no separate count row. Selection starts off, keeping bulk actions and
+row checkboxes hidden without reserving space. Toggling slides the bulk toolbar
+and checkbox columns into or out of view, respecting reduced motion; hidden
+controls are inert. Leaving selection mode clears the selection.
 Rows open the artifact directly. The list reserves its scrollbar space so filtering
 does not shift the content horizontally. Desktop navigation holds the library views and
 projects; mobile exposes those filters above the list. Attention first orders
@@ -932,7 +937,7 @@ remove content immediately after confirmation, independently of TTL.
 
 Home selection uses artifact identity, so repeated search matches share a
 checkbox state. **Select page** covers unique artifacts on the visible page.
-Changing filters or page clears selection. **Archive selected** confirms the
+Changing filters or page also clears selection. **Archive selected** confirms the
 selection and offers one optional message for each current listener; already
 archived items are skipped without changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.

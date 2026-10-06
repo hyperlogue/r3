@@ -19,12 +19,12 @@ import {
   type ArtifactActionResult,
 } from "../components/ArtifactActionDialog.tsx";
 import { ArtifactLibraryRow } from "../components/ArtifactLibraryRow.tsx";
-import { Button, StrokeIcon } from "../ui.tsx";
+import { Button, Collapse, StrokeIcon } from "../ui.tsx";
 
 const control =
   "min-h-8 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs focus-visible:outline-primary-500 max-md:min-h-9 max-md:min-w-0 max-md:w-full max-md:text-base dark:border-neutral-700 dark:bg-neutral-950";
 const filterControl =
-  "min-h-9 min-w-0 rounded-none border-neutral-200 bg-transparent py-2 pl-5 pr-3 text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:w-full max-md:pl-4 max-md:text-base dark:border-neutral-800 dark:hover:bg-neutral-900";
+  "min-h-9 min-w-0 rounded-none border-neutral-200 bg-transparent py-2 pl-5 pr-3 text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:pl-4 max-md:text-base dark:border-neutral-800 dark:hover:bg-neutral-900";
 const views = [
   ["all", "All artifacts"],
   ["attention", "Needs you"],
@@ -52,6 +52,7 @@ function LibraryIcon({ kind }: { kind: string }) {
 
 export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const [state, setState] = useState(() => readLibraryState(initialSearch ?? location.search));
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({
     scope: "",
     ids: new Set(),
@@ -178,15 +179,20 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
       return { scope: search, ids };
     });
   const selectBox = (artifact: Artifact) => (
-    <label className="flex shrink-0 items-center border-b border-neutral-200 px-3 dark:border-neutral-800">
-      <input
-        type="checkbox"
-        aria-label={`Select ${artifact.title ?? artifact.id}`}
-        checked={selectedIds.has(artifact.id)}
-        onChange={() => toggleSelection(artifact.id)}
-        className="size-4 accent-primary-600"
-      />
-    </label>
+    <div
+      inert={!selectionMode}
+      className={`flex shrink-0 overflow-hidden border-b border-neutral-200 transition-[width,opacity] duration-200 ease-in-out motion-reduce:transition-none dark:border-neutral-800 ${selectionMode ? "w-10 opacity-100" : "w-0 opacity-0"}`}
+    >
+      <label className="flex w-10 shrink-0 items-center justify-center">
+        <input
+          type="checkbox"
+          aria-label={`Select ${artifact.title ?? artifact.id}`}
+          checked={selectedIds.has(artifact.id)}
+          onChange={() => toggleSelection(artifact.id)}
+          className="size-4 accent-primary-600"
+        />
+      </label>
+    </div>
   );
   const error = artifacts.error ?? projects.error ?? (searching ? results.error : null);
   const count = searching ? (searchData?.total ?? 0) : shown.length;
@@ -354,22 +360,50 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               </button>
             </div>
             <div className="flex flex-wrap items-stretch max-md:grid max-md:grid-cols-2">
-              <select
-                aria-label="Artifact kind"
-                className={`${filterControl} border-r max-md:border-b`}
-                value={state.kind}
-                onChange={(event) =>
-                  update({ kind: event.target.value as ArtifactLibraryState["kind"] })
-                }
-              >
-                <option value="all">All kinds</option>
-                <option value="html">HTML</option>
-                <option value="files">Files</option>
-                <option value="diff">Diff</option>
-              </select>
+              <div className="flex min-w-0 items-center max-md:col-span-2 max-md:border-b max-md:border-neutral-200 dark:max-md:border-neutral-800">
+                <select
+                  aria-label="Artifact kind"
+                  className={`${filterControl} self-stretch border-r`}
+                  value={state.kind}
+                  onChange={(event) =>
+                    update({ kind: event.target.value as ArtifactLibraryState["kind"] })
+                  }
+                >
+                  <option value="all">All kinds</option>
+                  <option value="html">HTML</option>
+                  <option value="files">Files</option>
+                  <option value="diff">Diff</option>
+                </select>
+                <span
+                  role="status"
+                  className="px-3 text-[0.7rem] tabular-nums text-neutral-500 max-md:flex-1 max-md:px-2"
+                >
+                  {loading
+                    ? searching
+                      ? "Searching…"
+                      : "Loading artifacts…"
+                    : `${count} ${searching ? (count === 1 ? "match" : "matches") : count === 1 ? "artifact" : "artifacts"}`}
+                </span>
+                <Button
+                  variant={selectionMode ? "primary-outline" : "nav"}
+                  aria-pressed={selectionMode}
+                  aria-controls="library-selection-actions"
+                  className="mr-2 shrink-0 focus-visible:outline-2 focus-visible:outline-primary-500"
+                  onClick={() => {
+                    setSelectionMode(!selectionMode);
+                    setSelection({ scope: search, ids: new Set() });
+                  }}
+                >
+                  <StrokeIcon className="size-3.5 max-sm:hidden">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="m7 12 3 3 7-7" />
+                  </StrokeIcon>
+                  Selection mode
+                </Button>
+              </div>
               <select
                 aria-label="Library view"
-                className={`${filterControl} border-b md:hidden`}
+                className={`${filterControl} border-r border-b md:hidden`}
                 value={state.view}
                 onChange={(event) =>
                   update({ view: event.target.value as ArtifactLibraryState["view"] })
@@ -383,7 +417,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               </select>
               <select
                 aria-label="Project"
-                className={`${filterControl} border-r md:hidden`}
+                className={`${filterControl} border-b md:hidden`}
                 value={state.project}
                 onChange={(event) => update({ project: event.target.value })}
               >
@@ -407,7 +441,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               {searching ? (
                 <select
                   aria-label="Publications to search"
-                  className={`${filterControl} border-l max-md:border-l-0`}
+                  className={`${filterControl} border-l max-md:col-span-2 max-md:border-l-0`}
                   value={state.history}
                   onChange={(event) =>
                     update({ history: event.target.value as ArtifactLibraryState["history"] })
@@ -419,7 +453,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               ) : (
                 <select
                   aria-label="Sort artifacts"
-                  className={`${filterControl} border-l max-md:border-l-0`}
+                  className={`${filterControl} border-l max-md:col-span-2 max-md:border-l-0`}
                   value={state.sort}
                   onChange={(event) =>
                     update({ sort: event.target.value as ArtifactLibraryState["sort"] })
@@ -459,27 +493,6 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               ))}
             </fieldset>
           )}
-          <div
-            role="status"
-            className="flex items-center gap-3 px-5 py-3 text-[0.7rem] text-neutral-500 max-md:px-4"
-          >
-            <span>
-              {loading
-                ? searching
-                  ? "Searching…"
-                  : "Loading artifacts…"
-                : `${count} ${searching ? (count === 1 ? "match" : "matches") : count === 1 ? "artifact" : "artifacts"}`}
-            </span>
-            <span className="ml-auto max-sm:hidden">
-              {searching
-                ? "Open a match at its recorded location"
-                : state.sort === "attention"
-                  ? "Agent replies surface first"
-                  : state.sort === "recent"
-                    ? "Newest activity first"
-                    : "Sorted alphabetically"}
-            </span>
-          </div>
           {error && (
             <p role="alert" className="px-5 py-4 text-sm text-danger-600">
               {error.message}{" "}
@@ -538,44 +551,51 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 </div>
               </div>
             )}
-          <div className="flex flex-wrap items-center gap-3 border-y border-neutral-200 px-4 py-2 text-xs dark:border-neutral-800">
-            <label className="flex min-h-8 items-center gap-2">
-              <input
-                type="checkbox"
-                aria-label="Select all artifacts on this page"
-                checked={visible.length > 0 && selected.length === visible.length}
-                disabled={!visible.length}
-                ref={(node) => {
-                  if (node)
-                    node.indeterminate = selected.length > 0 && selected.length < visible.length;
-                }}
-                onChange={() =>
-                  setSelection({
-                    scope: search,
-                    ids: new Set(
-                      selected.length === visible.length
-                        ? []
-                        : visible.map((artifact) => artifact.id),
-                    ),
-                  })
-                }
-                className="size-4 accent-primary-600"
-              />{" "}
-              Select page
-            </label>
-            <span aria-live="polite">{selected.length} artifacts selected</span>
-            <Button
-              disabled={!selected.length}
-              onClick={() => setAction({ kind: "archive", items: selected })}
-            >
-              Archive selected
-            </Button>
-            <Button
-              disabled={!selected.length}
-              onClick={() => setAction({ kind: "delete", items: selected })}
-            >
-              Delete selected
-            </Button>
+          <div id="library-selection-actions">
+            <Collapse open={selectionMode}>
+              <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-2 text-xs dark:border-neutral-800">
+                <label className="flex min-h-8 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all artifacts on this page"
+                    checked={visible.length > 0 && selected.length === visible.length}
+                    disabled={!visible.length}
+                    ref={(node) => {
+                      if (node)
+                        node.indeterminate =
+                          selected.length > 0 && selected.length < visible.length;
+                    }}
+                    onChange={() =>
+                      setSelection({
+                        scope: search,
+                        ids: new Set(
+                          selected.length === visible.length
+                            ? []
+                            : visible.map((artifact) => artifact.id),
+                        ),
+                      })
+                    }
+                    className="size-4 accent-primary-600"
+                  />{" "}
+                  Select page
+                </label>
+                <span aria-live="polite">
+                  {selected.length} {selected.length === 1 ? "artifact" : "artifacts"} selected
+                </span>
+                <Button
+                  disabled={!selected.length}
+                  onClick={() => setAction({ kind: "archive", items: selected })}
+                >
+                  Archive selected
+                </Button>
+                <Button
+                  disabled={!selected.length}
+                  onClick={() => setAction({ kind: "delete", items: selected })}
+                >
+                  Delete selected
+                </Button>
+              </div>
+            </Collapse>
           </div>
           {actionResults.length > 0 && (
             <div

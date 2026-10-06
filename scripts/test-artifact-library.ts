@@ -200,6 +200,7 @@ try {
     );
   const screenshot = async (name: string) => {
     if (!process.env.R3_TEST_SCREENSHOTS) return;
+    await Bun.sleep(250);
     await mkdir(process.env.R3_TEST_SCREENSHOTS, { recursive: true });
     const shot = await page.command("Page.captureScreenshot", { format: "png" });
     await Bun.write(
@@ -255,6 +256,78 @@ try {
   assert.ok(height >= 52 && height <= 82, `compact rows retain spacing (${height}px)`);
   await screenshot("library-desktop");
   await noOverflow();
+  const selectionToggle = '[aria-controls="library-selection-actions"]';
+  const selectionState = () =>
+    page.evaluate(`(() => {
+      const toolbar = document.querySelector('#library-selection-actions');
+      const checkbox = document.querySelector('section input[type="checkbox"]');
+      return {
+        active: document.querySelector('${selectionToggle}').getAttribute('aria-pressed') === 'true',
+        toolbarHeight: toolbar.getBoundingClientRect().height,
+        checkboxWidth: checkbox.parentElement.parentElement.getBoundingClientRect().width,
+        inert: !!checkbox.closest('[inert]'),
+        checked: document.querySelectorAll('section input:checked').length,
+      };
+    })()`);
+  assert.deepEqual(await selectionState(), {
+    active: false,
+    toolbarHeight: 0,
+    checkboxWidth: 0,
+    inert: true,
+    checked: 0,
+  });
+  assert.equal(
+    await page.evaluate(`(() => {
+      const kind = document.querySelector('[aria-label="Artifact kind"]');
+      return kind.parentElement.querySelector('[role="status"]')?.textContent;
+    })()`),
+    "15 artifacts",
+  );
+  // Sample actual geometry to check that both controls animate on their first reveal.
+  const reveal = await page.evaluate(`new Promise(resolve => {
+    const samples = [];
+    const start = performance.now();
+    document.querySelector('${selectionToggle}').click();
+    function frame() {
+      samples.push({
+        width: document.querySelector('section input[type="checkbox"]').parentElement.parentElement.getBoundingClientRect().width,
+        height: document.querySelector('#library-selection-actions').getBoundingClientRect().height,
+      });
+      if (performance.now() - start < 300) requestAnimationFrame(frame);
+      else resolve(samples);
+    }
+    requestAnimationFrame(frame);
+  })`);
+  const expanded = await selectionState();
+  assert.ok(expanded.active && !expanded.inert && expanded.toolbarHeight > 0);
+  assert.ok(
+    reveal.some(
+      (sample: { width: number }) => sample.width > 0 && sample.width < expanded.checkboxWidth,
+    ),
+  );
+  assert.ok(
+    reveal.some(
+      (sample: { height: number }) => sample.height > 0 && sample.height < expanded.toolbarHeight,
+    ),
+  );
+  await click('section input[type="checkbox"]');
+  assert.equal((await selectionState()).checked, 1);
+  await screenshot("library-selection-desktop");
+  await page.evaluate(`document.querySelector('${selectionToggle}').focus()`);
+  await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: " ", code: "Space" });
+  await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: " ", code: "Space" });
+  assert.ok((await selectionState()).inert, "exiting immediately disables hidden controls");
+  await eventually(async () => (await selectionState()).checkboxWidth === 0, "selection exit");
+  assert.equal((await selectionState()).toolbarHeight, 0);
+  assert.equal((await selectionState()).checked, 0, "leaving selection mode clears selection");
+  assert.ok(
+    await page.evaluate(`(() => {
+    const checkbox = document.querySelector('section input[type="checkbox"]');
+    checkbox.focus();
+    return document.activeElement !== checkbox;
+  })()`),
+    "hidden checkboxes cannot receive focus",
+  );
   const libraryGeometry = () =>
     page.evaluate(`(() => {
       const pane = document.querySelector('[data-library-pane]');
@@ -369,6 +442,26 @@ try {
   );
   await screenshot("library-mobile");
   await noOverflow();
+  await page.command("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  await click(selectionToggle);
+  await eventually(async () => (await selectionState()).active, "mobile selection mode");
+  assert.ok(
+    await page.evaluate(`(() => {
+    const checkbox = document.querySelector('section input[type="checkbox"]');
+    const toolbar = document.querySelector('#library-selection-actions').firstElementChild;
+    return getComputedStyle(checkbox.parentElement.parentElement).transitionProperty === 'none'
+      && getComputedStyle(toolbar).transitionProperty === 'none';
+  })()`),
+    "reduced motion disables selection transitions",
+  );
+  await click('[aria-label="Select all artifacts on this page"]');
+  assert.equal((await selectionState()).checked, 1);
+  await screenshot("library-selection-mobile");
+  await noOverflow();
+  await click(selectionToggle);
+  await page.command("Emulation.setEmulatedMedia", { features: [] });
   await click("[data-library-row]");
   await eventually(
     () => page.evaluate("!!document.querySelector('[aria-label=\"Published version\"]')"),
@@ -447,6 +540,8 @@ try {
   );
   await page.command("Page.navigate", { url: origin });
   await ready();
+  await click(selectionToggle);
+  await eventually(async () => (await selectionState()).checkboxWidth > 0, "bulk selection mode");
   for (const item of batch) await click(`[aria-label="Select ${item.title}"]`);
   await clickText("Archive selected");
   await eventually(
@@ -519,7 +614,7 @@ try {
   await clickText("Done", "dialog[open]");
   assert.deepEqual(errors, []);
   console.log(
-    "Library browser acceptance passed: compact rows, desktop/dark/mobile, archive-aware review attention, history, source locations, earlier replies, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
+    "Library browser acceptance passed: compact rows, desktop/dark/mobile, animated selection mode, keyboard toggle, inert hidden controls, reduced motion, archive-aware review attention, history, source locations, earlier replies, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
   );
 } finally {
   await browser?.close();
