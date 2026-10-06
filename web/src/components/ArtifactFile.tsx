@@ -97,7 +97,11 @@ export const ArtifactFile = memo(function ArtifactFile({
         // folded. Preserve loaded Markdown so unfolding reuses its document.
         (open || (rendered && !!file.renderedHash)) &&
         (rendered ? (
-          <div className={cn("flex flex-col", !file.renderedHash && "min-h-96")}>{preview()}</div>
+          <div
+            className={cn("flex flex-col", !file.renderedHash && media !== "video" && "min-h-96")}
+          >
+            {preview()}
+          </div>
         ) : source.isPending ? (
           <p className="p-3 text-xs text-neutral-500">Loading published source…</p>
         ) : source.error ? (

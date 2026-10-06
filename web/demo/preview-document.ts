@@ -1,6 +1,7 @@
 import type { ArtifactVersion } from "../../shared/artifacts.ts";
 import { normalizeRenderedText } from "../../shared/rendered-text.ts";
-import { installMarkdownLayout, installMarkdownTheme } from "../src/preview-markdown.ts";
+import { installPreviewLayout } from "../src/preview-layout.ts";
+import { installMarkdownTheme } from "../src/preview-markdown.ts";
 import { installPreviewRuntime } from "../src/preview-runtime.ts";
 import { composerKeyAction, observeTextSelection } from "../src/selection-events.ts";
 import { bundledPreview, demoReference } from "./preview-fixtures.ts";
@@ -68,7 +69,7 @@ export function prepareDemoDocument(
   script.textContent = `(() => { const config = ${config};
 const connection = (${connectDemoPreview.toString()})(config);
 (${installMarkdownTheme.toString()})(config, connection);
-(${installMarkdownLayout.toString()})(config, connection);
+(${installPreviewLayout.toString()})(config, connection);
 (${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); })();`.replace(
     /<\/script/gi,
     "<\\/script",

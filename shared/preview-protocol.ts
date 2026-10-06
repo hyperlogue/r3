@@ -35,7 +35,7 @@ export interface PreviewPageContext {
 export interface PreviewDisplay {
   // r3 appearance for retained Markdown; authored HTML retains its own styling.
   theme?: PreviewTheme;
-  // Retained Markdown in file stacks grows with the document's natural height.
+  // Markdown and video file previews grow with their natural content height.
   fitContent?: boolean;
   // File-stack document links scroll to another published card. HTML artifacts
   // omit these fields and retain their native document navigation.

@@ -58,8 +58,10 @@ Large diff artifacts progressively hydrate file bodies through
 scroll spy, file picking, and Locate geometry. Files artifacts use the same complete
 stack, with per-file source/rendered controls and source row virtualization. Scale behavior is shared,
 not a mobile fork. Rendered Markdown in files artifacts grows to its natural
-height and scrolls with the outer file stack. HTML, media, and Markdown documents
-viewed within HTML artifacts keep their viewport-sized preview.
+height and scrolls with the outer file stack. Native video previews fill the card
+width at their natural aspect ratio, with the frame growing and shrinking around
+them. HTML, images, audio, and Markdown documents viewed within HTML artifacts
+keep their viewport-sized preview.
 
 A persistent bottom bar (`Feedback · N open` — the whole bar is the toggle; watcher
 presence shows only inside the panel) toggles a bottom **sheet** hosting the panel,

@@ -8,6 +8,7 @@ import { openArtifactStorage } from "../server/artifact-storage.ts";
 import { PREVIEW_PREFIX } from "../server/preview-contexts.ts";
 import { PreviewHost } from "../server/preview-host.ts";
 import { previewSupport } from "../server/preview-support.ts";
+import { eventually } from "./browser.ts";
 import { browserLoweredCssPlugin } from "./spa-css.ts";
 
 // Real media, scrolling, and sandboxed previews in a disposable workspace.
@@ -150,6 +151,43 @@ try {
       });
     }
     await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'));
+    if (fixture.kind === "video") {
+      for (const [name, width, height] of [
+        ["wide", 1920, 900],
+        ["phone", 390, 844],
+        ["desktop", 1440, 900],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        const layout = await eventually(async () => {
+          const box = await mediaElement().evaluate((video: HTMLVideoElement) => {
+            const rect = video.getBoundingClientRect();
+            return {
+              width: rect.width,
+              height: rect.height,
+              frameWidth: innerWidth,
+              frameHeight: innerHeight,
+              ratio: video.videoWidth / video.videoHeight,
+              overflow: document.documentElement.scrollHeight - innerHeight,
+            };
+          });
+          const previewBox = await card.locator("[data-artifact-preview]").boundingBox();
+          return (
+            Math.abs(box.width - box.frameWidth) <= 1 &&
+            Math.abs(box.height - box.width / box.ratio) <= 1 &&
+            Math.abs(box.height - box.frameHeight) <= 1 &&
+            box.overflow <= 1 &&
+            previewBox &&
+            Math.abs(previewBox.height - box.height) <= 1 &&
+            box
+          );
+        }, "full-width video and fitted frame without cropping, inner scrolling, or empty space");
+        console.log(`${name} video layout: ${layout.width} × ${layout.height}`);
+        if (process.env.R3_TEST_SCREENSHOTS)
+          await page.screenshot({
+            path: join(process.env.R3_TEST_SCREENSHOTS, `media-video-${name}.png`),
+          });
+      }
+    }
     const before =
       fixture.kind === "image"
         ? 0

@@ -206,8 +206,10 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
             ?.filter((file) => file.renderedHash || file.mediaType.split(";")[0] === "text/html")
             .map((file) => file.path) ?? []
         }
-        markdownPaths={
-          files.data?.filter((file) => file.renderedHash).map((file) => file.path) ?? []
+        fittedPaths={
+          files.data
+            ?.filter((file) => file.renderedHash || artifactMediaKind(file.mediaType) === "video")
+            .map((file) => file.path) ?? []
         }
         markdownFiles={files.data?.filter((file) => file.renderedHash) ?? []}
         onRetry={() => {
@@ -224,7 +226,7 @@ function PreviewSession(
   props: ArtifactRenderedPaneProps & {
     paths: string[];
     documentPaths: string[];
-    markdownPaths: string[];
+    fittedPaths: string[];
     markdownFiles: ArtifactFile[];
     network: ArtifactPreviewNetwork;
     devices: PreviewDevicePermissions;
@@ -405,7 +407,7 @@ function PreviewSession(
     const display = () => {
       const props = current.current;
       const fitContent =
-        props.detail.kind === "files" && props.markdownPaths.includes(currentPath.current);
+        props.detail.kind === "files" && props.fittedPaths.includes(currentPath.current);
       const value: PreviewDisplay = {
         theme: theme.current,
         noteHasText: props.noteHasText,
@@ -485,7 +487,7 @@ function PreviewSession(
       const independentScroll = () =>
         !current.current.independentReading &&
         context.presentation === "document" &&
-        !(current.current.detail.kind === "files" && current.current.markdownPaths.includes(path));
+        !(current.current.detail.kind === "files" && current.current.fittedPaths.includes(path));
       const scrollKey = (route: unknown) =>
         typeof route === "string" && route.length <= 4096 && /^[?#]/.test(route)
           ? readingKey(id, seq, path, `rendered:${route}`)
@@ -616,11 +618,11 @@ function PreviewSession(
           if (independentScroll() && key && isReadingPosition(message.point))
             readingPositions.set(key, message.point);
         } else if (message.type === "r3-preview-height") {
-          // Only the verified current port and a retained Markdown member may
-          // size a file card. Authored HTML keeps its own viewport.
+          // Only the verified current port and an approved Markdown/video member
+          // may size a file card. Authored HTML keeps its own viewport.
           if (
             current.current.detail.kind === "files" &&
-            current.current.markdownPaths.includes(path) &&
+            current.current.fittedPaths.includes(path) &&
             typeof message.height === "number" &&
             Number.isFinite(message.height) &&
             message.height > 0 &&
@@ -808,11 +810,11 @@ function PreviewSession(
       theme: dark ? "dark" : "light",
       noteHasText: props.noteHasText,
       composerVisible: props.composerVisible,
-      fitContent: props.detail.kind === "files" && props.markdownPaths.includes(props.path),
+      fitContent: props.detail.kind === "files" && props.fittedPaths.includes(props.path),
       filePaths: props.detail.kind === "files" ? props.documentPaths : undefined,
       navigation:
         props.detail.kind !== "files" ||
-        !props.markdownPaths.includes(props.path) ||
+        !props.fittedPaths.includes(props.path) ||
         documentHeight?.path === props.path
           ? props.navigation
           : null,
@@ -826,7 +828,7 @@ function PreviewSession(
       ),
       jump:
         props.detail.kind !== "files" ||
-        !props.markdownPaths.includes(props.path) ||
+        !props.fittedPaths.includes(props.path) ||
         documentHeight?.path === props.path
           ? props.jump
           : null,
@@ -848,14 +850,14 @@ function PreviewSession(
     props.navigation,
     props.path,
     props.detail,
-    props.markdownPaths,
+    props.fittedPaths,
     props.documentPaths,
     documentHeight,
     dark,
   ]);
 
   const height =
-    documentHeight?.path === props.path && props.markdownPaths.includes(props.path)
+    documentHeight?.path === props.path && props.fittedPaths.includes(props.path)
       ? documentHeight.height
       : undefined;
   // Entry-point setup can overlap the manifest. Publisher bytes always wait
@@ -894,14 +896,14 @@ function PreviewSession(
         !(reading && cachedDocument?.height !== undefined) &&
         (!ready ||
           (props.detail.kind === "files" &&
-            props.markdownPaths.includes(props.path) &&
+            props.fittedPaths.includes(props.path) &&
             height === undefined))
       }
       className={cn(
         "relative flex flex-col bg-white dark:bg-neutral-950",
         visibleHeight === undefined && "flex-1",
         visibleHeight === undefined &&
-          (props.detail.kind === "files" && props.markdownPaths.includes(props.path)
+          (props.detail.kind === "files" && props.fittedPaths.includes(props.path)
             ? "min-h-dvh"
             : props.independentReading
               ? "min-h-0"
