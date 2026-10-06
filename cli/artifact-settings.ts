@@ -18,6 +18,7 @@ const NAMES = [
   "allowedHosts",
   "requireLogin",
   "authTokenIdleDays",
+  "archiveTtlDays",
   "previewPort",
   "previewBaseUrl",
   "projectGrouping",
@@ -61,6 +62,13 @@ export function configCommand(argv: string[]): void {
     const value = raw?.trim();
     if (!value) throw new ArtifactCommandError(`Use r3 config unset ${name} to clear this setting`);
     switch (name) {
+      case "archiveTtlDays": {
+        const days = Number(value);
+        if (!Number.isInteger(days) || days < 1 || days > 36500)
+          throw new ArtifactCommandError("archiveTtlDays must be an integer from 1 to 36500");
+        next.archiveTtlDays = days;
+        break;
+      }
       case "authTokenIdleDays": {
         const days = Number(value);
         if (!Number.isSafeInteger(days) || days < 1)

@@ -56,6 +56,7 @@ export async function startArtifactDaemon(): Promise<void> {
       databasePath: stateDbPath(),
       projectGrouping: artifactProjectSettings(process.env, readConfig()),
       ...artifactAuthSettings(process.env, readConfig()),
+      archiveTtlDays: readConfig().archiveTtlDays,
     });
     const token = getToken();
     runtime = startArtifactServer({

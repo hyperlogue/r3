@@ -25,6 +25,7 @@ import { normalizeGitRemote } from "../shared/git-remote.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { fetchArtifactFeedback } from "./artifact-feedback.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
+import { runUsageCommand } from "./artifact-usage.ts";
 import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attachment-files.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
 
@@ -113,6 +114,7 @@ export async function runArtifactCommand(
   argv: string[],
   ctx: ArtifactCommandContext,
 ): Promise<number> {
+  if (command === "stat" || command === "gc") return runUsageCommand(command, argv, ctx);
   const args = new ArtifactArgs(argv);
   if (command === "feedback" && ["fetch", "image", "source"].includes(args.positional[0]!)) {
     command = `feedback ${args.positional.shift()}`;

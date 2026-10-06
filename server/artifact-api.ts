@@ -153,6 +153,31 @@ export function createArtifactApi(
   app.notFound((c) => c.json({ error: "Not found" }, 404));
   installArtifactAuth(app, storage.authentication, policy);
 
+  app.get("/api/stat", (c) => {
+    const window = c.req.query("window") ?? "daily";
+    if (window !== "daily" && window !== "weekly")
+      throw new ArtifactError("window must be daily or weekly");
+    c.header("Cache-Control", "no-store");
+    return c.json(storage.usage.stat(window));
+  });
+  app.post("/api/gc", async (c) => {
+    const result = storage.usage.gc(await artifactJson(c.req.raw));
+    for (const id of result.deletedIds) {
+      options.previews?.revokeArtifact(id);
+      collaboration.deleted(id);
+    }
+    if (!result.dryRun) {
+      try {
+        await storage.collectBlobs();
+      } catch {
+        result.cleanupError =
+          "Artifacts were removed, but blob cleanup failed; run gc again to retry cleanup";
+      }
+    }
+    c.header("Cache-Control", "no-store");
+    return c.json(result);
+  });
+
   app.get("/api/sessions", (c) => artifactJsonResponse(c.req.raw, artifacts.sessions()));
   app.post("/api/sessions", async (c) =>
     c.json(artifacts.registerSession(await artifactJson(c.req.raw))),

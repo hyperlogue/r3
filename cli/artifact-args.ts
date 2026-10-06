@@ -9,6 +9,8 @@ export class ArtifactCommandError extends Error {
 
 const BOOLEAN = new Set([
   "json",
+  "weekly",
+  "dry-run",
   "human",
   "all",
   "mine",
@@ -22,6 +24,7 @@ const BOOLEAN = new Set([
 ]);
 const VALUE = new Set([
   "kind",
+  "ttl",
   "history",
   "type",
   "limit",

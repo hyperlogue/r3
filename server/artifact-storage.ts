@@ -10,6 +10,7 @@ import { ArtifactListeners } from "./artifact-listeners.ts";
 import type { ProjectGroupingOptions } from "./artifact-projects.ts";
 import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema.ts";
 import { ArtifactSearch } from "./artifact-search.ts";
+import { ArtifactUsageStore } from "./artifact-usage.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
 import { BlobStore } from "./blobs.ts";
@@ -28,9 +29,12 @@ export interface ArtifactStorageOptions {
   isWatching?: (id: string) => boolean;
   projectGrouping?: ProjectGroupingOptions;
   authTokenIdleDays?: number;
+  archiveTtlDays?: number;
+  timezone?: string;
 }
 
 export interface ArtifactStorage {
+  usage: ArtifactUsageStore;
   search: ArtifactSearch;
   listeners: ArtifactListeners;
   artifacts: ArtifactStore;
@@ -142,6 +146,7 @@ export async function openArtifactStorage(
     conversations.expireClaims();
     authentication.cleanupOnStartup();
     return {
+      usage: new ArtifactUsageStore(db, artifacts, clock, options.archiveTtlDays, options.timezone),
       search: new ArtifactSearch(db, artifacts, conversations),
       listeners,
       artifacts,

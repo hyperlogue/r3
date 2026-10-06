@@ -416,3 +416,34 @@ leave stale searchable text. Conversation targets and reply context remain nativ
 records; search adds no placement, resolution, delivery, or ownership state.
 The index can be rebuilt from retained publications and current messages. Its
 database space is overhead and is excluded from published-content storage totals.
+
+
+## Usage history and archive cleanup
+
+Schema revision 9 adds `artifact_activity` counters keyed by UTC instant and
+metric, with no artifact/session identity, foreign key, path, title, or message
+body. Insert/commit triggers count artifact creation, committed publications,
+new feedback, new replies, and archive/restore events in the originating
+transaction. Rollback and operation-key replay cannot add activity. Deleting
+feedback or artifacts leaves counters intact. `artifact_activity_coverage`
+records the upgrade instant; backfill counts surviving rows once and never
+claims to reconstruct previously deleted activity. Fresh stores have complete
+coverage. UTC instants are bucketed in the daemon's timezone at read time, so
+calendar days and Monday-start weeks handle DST without assuming 24-hour days.
+
+Global content bytes deduplicate original files, retained Markdown renderings,
+and feedback images together across all published artifacts. Each published
+patch contributes its UTF-8 length separately. Unreferenced blobs and disk
+metadata, indexes, WAL files, and backups are excluded. Reclaimable content
+counts only hashes whose every reference belongs to the selected expired set,
+plus that set's patches; it is not a prediction of filesystem free space.
+
+`archiveTtlDays` defaults to 30 and accepts 1..36500. Eligibility compares
+`archived_at <= now - ttlDays * 24 hours`; edits, replies and reads do not extend
+it. Restore clears the timestamp; another archive starts a fresh TTL. Explicit
+GC deletes eligible whole artifacts and uses the existing blob collection hold.
+Web confirmation carries the preview's IDs and archive timestamps: newer
+eligible artifacts are not silently added, and changed timestamps are skipped.
+Per-artifact failure does not prevent remaining deletions. Projects and agent
+sessions survive, as does anonymous activity history. No automatic expiry job
+is installed.

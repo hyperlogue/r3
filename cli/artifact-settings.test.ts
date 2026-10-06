@@ -49,3 +49,35 @@ test("token inactivity config round-trips, validates days and sanitizes hand-edi
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("archive TTL persists independently and rejects unsafe values", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-gc-config-"));
+  const run = async (...args: string[]) => {
+    const child = Bun.spawn(
+      [process.execPath, join(import.meta.dir, "index.ts"), "config", ...args],
+      {
+        env: {
+          ...process.env,
+          XDG_CONFIG_HOME: join(root, "config"),
+          XDG_STATE_HOME: join(root, "state"),
+          XDG_RUNTIME_DIR: join(root, "runtime"),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [output, code] = await Promise.all([new Response(child.stdout).text(), child.exited]);
+    return { output, code };
+  };
+  try {
+    expect((await run("set", "archiveTtlDays", "7")).code).toBe(0);
+    expect((await run("get", "archiveTtlDays")).output.trim()).toBe("7");
+    for (const invalid of ["0", "-1", "1.5", "36501", "7d", "Infinity"])
+      expect((await run("set", "archiveTtlDays", invalid)).code).toBe(1);
+    expect((await run("get", "archiveTtlDays")).output.trim()).toBe("7");
+    expect((await run("unset", "archiveTtlDays")).code).toBe(0);
+    expect(JSON.parse((await run("show")).output)).toEqual({});
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

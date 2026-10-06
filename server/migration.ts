@@ -8,6 +8,7 @@ import {
   PROJECT_REMOTE_SCHEMA,
 } from "./artifact-schema.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
+import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import type { BlobStore } from "./blobs.ts";
 import { nowIso } from "./ids.ts";
@@ -141,7 +142,7 @@ export async function migrateLegacyStore(
     };
   }
   const artifactUpgrade =
-    [1, 2, 3, 4, 5, 6, 7].includes(schemaVersion) &&
+    [1, 2, 3, 4, 5, 6, 7, 8].includes(schemaVersion) &&
     tables.includes("artifacts") &&
     !tables.includes("reviews");
   if (
@@ -224,6 +225,11 @@ export async function migrateLegacyStore(
         if (tables.includes(table)) db.exec(`DROP TABLE ${sqlName(`legacy_${table}`)}`);
       }
     }
+    installArtifactUsage(db, (options.clock ?? nowIso)());
+    if (!artifactUpgrade)
+      db.query("UPDATE artifact_activity_coverage SET complete_since = ?").run(
+        (options.clock ?? nowIso)(),
+      );
     if (db.query("PRAGMA foreign_key_check").all().length)
       throw new Error("Migrated references failed the foreign-key check");
     const integrity = db.query<{ integrity_check: string }, []>("PRAGMA integrity_check").all();

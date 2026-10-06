@@ -1,3 +1,10 @@
+export type {
+  ArtifactGcRequest,
+  ArtifactGcResult,
+  ArtifactUsage,
+  UsageWindow,
+} from "./artifact-usage.ts";
+
 import type { ArtifactAttachment, AttachmentInput } from "./attachments.ts";
 
 export type {

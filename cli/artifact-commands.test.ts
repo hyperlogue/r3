@@ -818,3 +818,20 @@ test("search exposes pinned publication matches and pagination without an agent 
   expect(text).toContain("v1");
   await expect(command("search", ["First", "--limit", "1000"])).rejects.toThrow();
 });
+
+test("stat and gc expose fixed windows, JSON and validated day overrides without agent identity", async () => {
+  ctx.environment = {};
+  const daily = await command("stat", ["--json"]);
+  expect(JSON.parse(daily.text)).toMatchObject({ window: "daily", artifacts: { total: 0 } });
+  expect(JSON.parse(daily.text).periods).toHaveLength(14);
+  const weekly = await command("stat", ["--weekly"]);
+  expect(weekly.text).toContain("Last 4 weeks");
+  expect(weekly.text).toContain("Content:");
+  const gc = await command("gc", ["--dry-run", "--ttl", "7d", "--json"]);
+  expect(JSON.parse(gc.text)).toMatchObject({ dryRun: true, ttlDays: 7, candidates: [] });
+  expect((await command("gc", [])).code).toBe(0);
+  for (const value of ["0d", "-1d", "1.5d", "7", "36501d"])
+    await expect(command("gc", ["--ttl", value])).rejects.toThrow();
+  await expect(command("stat", ["extra"])).rejects.toThrow();
+  await expect(command("stat", ["--ttl", "1d"])).rejects.toThrow();
+});

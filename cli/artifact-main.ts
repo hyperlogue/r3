@@ -21,6 +21,8 @@ const COMMANDS = new Set([
   "publish",
   "list",
   "search",
+  "stat",
+  "gc",
   "show",
   "versions",
   "files",

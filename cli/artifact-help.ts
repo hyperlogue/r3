@@ -35,6 +35,21 @@ Run r3 for a quick start. Agents: start with r3 guide.
   patch <id> --version <seq>                  # original unified diff
   edit <id> [--title T] [--meta k=v]
   delete <id>                                # whole artifact and history
+  stat [--weekly] [--json]                    # current totals and activity
+  gc [--dry-run] [--ttl 30d] [--json]          # permanently remove expired archives
+
+Statistics: daily activity for the last 14 calendar days; --weekly selects the last
+            4 Monday-start weeks. Uses the displayed server timezone and includes
+            the current partial period. Activity counts survive artifact deletion;
+            pre-upgrade history covers surviving records only.
+Cleanup: manual only. Default TTL is 30 elapsed days since the latest archive.
+         --dry-run previews without deleting. gc deletes without prompting, keeps
+         shared content still in use, and reports failures (exit 1; success 0).
+         --ttl accepts 1d..36500d and overrides the server default for one run.
+         r3 config set archiveTtlDays 30 persists that default; restart to apply.
+         This edits the local config, even when R3_URL selects a remote daemon.
+         Restore cancels eligibility; archiving again starts a new countdown.
+         Content size excludes database/filesystem overhead.
 
 Capture: --dir <prepared-directory> [--file <relative-path>]...
          --ref <git-ref> --file <relative-path>...
@@ -106,7 +121,7 @@ Optional previewBaseUrl selects a separate endpoint; previewPort defaults to the
 application port + 1 only for that override. Wildcard subdomains are unnecessary.
 Configuration names:
 bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
-previewPort, previewBaseUrl,
+previewPort, previewBaseUrl, archiveTtlDays (1..36500; default 30),
 projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
 Login tokens expire after authTokenIdleDays of inactivity (default 14, positive
 integer). Successful login or cookie authentication refreshes last use; unused
@@ -149,6 +164,16 @@ r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
 \`\`\`
 
 Local registrations survive daemon restarts. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
+
+## Usage and cleanup
+
+Use \`r3 stat\` for current library totals and daily activity over 14 days, or
+\`r3 stat --weekly\` for four weeks. Both support \`--json\` and use the server timezone.
+Activity counts remain after deletion; pre-upgrade history is partial.
+\`r3 gc --dry-run\` previews archived artifacts past the TTL. \`r3 gc\` permanently removes
+them and their conversations without prompting. The default is 30 days since archive;
+\`--ttl 7d\` overrides one run. \`r3 config set archiveTtlDays 30\` changes the local
+server default after restart. Cleanup is manual; restore cancels eligibility.
 
 ## Session and artifact kind
 

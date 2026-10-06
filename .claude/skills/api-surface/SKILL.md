@@ -21,6 +21,22 @@ three clients (browser, CLI, agent). When you change behavior, change
 `server/artifact-daemon.ts` opens and migrates storage before accepting requests.
 The CLI, browser, and demo all use this protocol; legacy routes are removed.
 
+- `GET /api/stat?window=daily|weekly` returns `ArtifactUsage`: current daemon-wide
+  inventory, published versions, conversation counts, deduplicated content bytes,
+  default-TTL GC eligibility, and activity buckets. Windows are fixed at 14 calendar
+  days or four Monday-start weeks, including the current partial period, in the
+  explicitly returned server timezone. Activity counts survive content deletion;
+  `completeSince` marks partial pre-upgrade coverage. Reads have no delivery effect.
+- `POST /api/gc` accepts `ArtifactGcRequest`: optional `ttlDays` (integer 1..36500),
+  `dryRun` (default false), and optional confirmed `candidates` (`id`, `archivedAt`).
+  Default TTL is persisted `archiveTtlDays`, or 30 elapsed days. Only archived
+  artifacts at or before the cutoff qualify. A supplied candidate list restricts
+  deletion to that preview and skips changed archive timestamps, restored artifacts,
+  and missing members. Results include candidates, reclaimable content bytes,
+  deleted/skipped IDs, per-artifact failures and any post-commit blob cleanup error.
+  Cleanup uses whole-artifact cascades, preview revocation, deletion invalidations,
+  and publication-coordinated blob collection. Both routes require normal API auth
+  and origin guards and return `no-store`. GC is manual, never a startup timer.
 - `GET/POST /api/sessions` lists/registers explicit agent identities; labels are
   mutable display names and never identity or delivery addresses;
   `GET/POST /api/projects` and `PATCH/DELETE /api/projects/:id` manage optional grouping.
@@ -236,6 +252,7 @@ The current command families:
 | --- | --- |
 | `create`, `publish` | Local stable capture, complete binary-safe upload; fixed kind, explicit retry key and expected latest publication |
 | `list`, `show`, `versions`, `files`, `source`, `download`, `patch` | Read only; content reads name a version; downloads preserve original bytes |
+| `stat [--weekly] [--json]`, `gc [--dry-run] [--ttl 30d] [--json]` | Fixed activity windows; manual TTL cleanup, exit 1 on deletion/cleanup failure; no identity required |
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, explicit reply context, separate placements; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
