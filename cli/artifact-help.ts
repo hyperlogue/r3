@@ -9,6 +9,7 @@ export function artifactWelcome(): string {
   Review files, pages, and code changes with your agent.
 
   ${styleText("cyan", "r3 start")}     Start the workspace and show its URL
+  ${styleText("cyan", "r3 status")}    Show workspace status and URL
   ${styleText("cyan", "r3 list")}      List your artifacts
   ${styleText("cyan", "r3 --help")}    All commands and options
 
