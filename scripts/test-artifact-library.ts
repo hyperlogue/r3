@@ -90,6 +90,7 @@ for (let i = 0; i < 4; i++)
     body: `Another follow-up ${i + 1}`,
     context: { versionSeq: 2, representation: "source" },
   });
+const archivedIds: string[] = [];
 for (let i = 0; i < 14; i++) {
   const artifact = storage.artifacts.create({
     kind: "files",
@@ -121,18 +122,26 @@ for (let i = 0; i < 14; i++) {
       ],
     },
   });
-  if (i > 11)
+  if (i > 11) {
+    await storage.conversations.add(artifact.id, {
+      actor: agent,
+      body: "Please review this published work.",
+      target: { kind: "artifact" },
+    });
     storage.lifecycle.transition(artifact.id, {
       actor,
       event: "archived",
       operationKey: "archive",
     });
+    archivedIds.push(artifact.id);
+  }
 }
 const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const token = randomBytes(32).toString("base64url");
 const api = createArtifactApi(
   storage,
   {
-    token: randomBytes(32).toString("base64url"),
+    token,
     requireLogin: false,
     version: "acceptance",
     allowedHost: (host) => host === "localhost",
@@ -202,6 +211,40 @@ try {
   await page.command("Page.navigate", { url: origin });
   await ready();
   assert.equal(await page.evaluate("document.querySelectorAll('[data-library-row]').length"), 15);
+  const groupIds = (name: string) =>
+    page.evaluate<string[]>(`(() => {
+      let group = '';
+      const ids = [];
+      for (const child of document.querySelector('section[aria-label="Artifacts"]').children) {
+        if (child.tagName === 'H2') group = child.textContent;
+        if (group === ${JSON.stringify(name)} && child.hasAttribute('data-library-row'))
+          ids.push(new URL(child.href).pathname.slice(1));
+      }
+      return ids;
+    })()`);
+  assert.deepEqual(await groupIds("Needs your review"), [notes.id]);
+  assert.deepEqual(new Set(await groupIds("Archived")), new Set(archivedIds));
+  for (const id of archivedIds) assert.equal(storage.artifacts.get(id).unhandledCount, 1);
+  const transition = async (event: "archived" | "restored") => {
+    const response = await fetch(`${origin}/api/artifacts/${notes.id}/lifecycle`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ actor, event, operationKey: `library-${event}` }),
+    });
+    assert.equal(response.status, 200);
+  };
+  await transition("archived");
+  await eventually(
+    async () => (await groupIds("Needs your review")).length === 0,
+    "archiving removes the artifact from review attention",
+  );
+  assert.ok((await groupIds("Archived")).includes(notes.id));
+  assert.equal(storage.artifacts.get(notes.id).unhandledCount, 1);
+  await transition("restored");
+  await eventually(
+    async () => (await groupIds("Needs your review")).includes(notes.id),
+    "restoring returns the artifact to review attention",
+  );
   const height = await page.evaluate(
     "document.querySelector('[data-library-row]').getBoundingClientRect().height",
   );
@@ -341,7 +384,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Library browser acceptance passed: compact rows, desktop/dark/mobile, history, source locations, earlier replies, pinned versions, return filters, and empty search.",
+    "Library browser acceptance passed: compact rows, desktop/dark/mobile, archive-aware review attention, history, source locations, earlier replies, pinned versions, return filters, and empty search.",
   );
 } finally {
   await browser?.close();

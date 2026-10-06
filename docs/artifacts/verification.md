@@ -273,5 +273,6 @@ tests reject saving an optimization after its storage generation is revoked.
 - `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-library.ts`: full
   application against temporary storage with a fresh browser. Exercises desktop,
   dark, and phone layouts, source locations, version pinning, earlier replies,
-  native Back, return filters, and no-result recovery. Set `R3_TEST_SCREENSHOTS`
+  native Back, return filters, no-result recovery, and archive/restore moving items
+  out of/into review attention without changing retained feedback. Set `R3_TEST_SCREENSHOTS`
   to a temporary directory for visual evidence.

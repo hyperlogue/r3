@@ -108,6 +108,21 @@ export const WideDesktop: Story = {
   },
 };
 export const Phone: Story = { ...Default, parameters: phoneViewport() };
+export const ArchivedWithPendingReview: Story = {
+  parameters: {
+    queryData: [
+      [["artifacts"], [artifacts[2]]],
+      [["artifact-projects"], projects],
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("link", { name: /Stored code changes/ })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Needs you 0" })).toBeVisible();
+    await expect(canvas.queryByRole("heading", { name: "Needs your review" })).toBeNull();
+    await expect(canvas.queryByText("1 to review")).toBeNull();
+  },
+};
 export const Filter: Story = {
   parameters: { libraryHeight: 420 },
   play: async ({ canvasElement }) => {
