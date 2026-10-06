@@ -3,8 +3,10 @@ import { type Ref, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
+import { libraryReturnRoute } from "../artifact-library.ts";
 import { formatBytes } from "../format-bytes.ts";
 import type { MessageRef } from "../markdown.ts";
+import { navigate } from "../router.ts";
 import {
   Button,
   CopyMeta,
@@ -17,6 +19,7 @@ import {
 import { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { AgentName } from "./AgentName.tsx";
 import { AppHeader } from "./AppHeader.tsx";
+import { ArtifactActionDialog } from "./ArtifactActionDialog.tsx";
 import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
 import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { ArtifactHandoffNotice } from "./ArtifactHandoffNotice.tsx";
@@ -173,6 +176,7 @@ export function ArtifactHeader({
 }) {
   detail = useOptimisticArtifact(detail);
   const qc = useQueryClient();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -504,6 +508,16 @@ export function ArtifactHeader({
               Restore artifact
             </Button>
           )}
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-danger-600!"
+            onClick={() => {
+              setDetailsOpen(false);
+              setDeleteOpen(true);
+            }}
+          >
+            Delete artifact
+          </Button>
         </div>
       </div>
       {notice && <Notification {...notice} onDismiss={() => setNotice(null)} />}
@@ -520,6 +534,27 @@ export function ArtifactHeader({
       )}
       {settingsOpen && (
         <SettingsDialog onClose={() => setSettingsOpen(false)} trigger={detailsTrigger} />
+      )}
+      {deleteOpen && (
+        <ArtifactActionDialog
+          items={[detail]}
+          action="delete"
+          onClose={() => {
+            setDeleteOpen(false);
+            detailsTrigger.current?.focus();
+          }}
+          onDone={(results) => {
+            setDeleteOpen(false);
+            const failure = results.find((result) => result.state === "failed");
+            if (failure)
+              setNotice({
+                title: "Could not delete artifact",
+                message: failure.warning,
+                tone: "error",
+              });
+            else navigate(libraryReturnRoute(location.search) ?? "/");
+          }}
+        />
       )}
       {archiveOpen && (
         <ArtifactArchiveDialog

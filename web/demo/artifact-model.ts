@@ -7,6 +7,7 @@ import type {
   ArtifactVersion,
 } from "../../shared/artifacts.ts";
 import type { DiffFileChange, ThemeOption, ThemeStyle } from "../../shared/types.ts";
+import type { DemoActivity } from "./artifact-usage.ts";
 
 // Presentation payloads are baked by the generator. The public entities remain
 // exactly the daemon contract; this only describes the demo's storage.
@@ -29,6 +30,7 @@ export interface ArtifactDemoSeed {
   themeStyles: Record<string, ThemeStyle>;
 }
 export interface ArtifactDemoState extends ArtifactDemoSeed {
+  activity?: DemoActivity;
   messageOperations?: Record<
     string,
     { hash: string; id: string; kind: "feedback" | "reply"; artifactId: string }

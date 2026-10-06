@@ -91,3 +91,14 @@ test("demo message retry keys deduplicate concurrent saves and reject changed co
   expect(reply.id).toBe(retried.id);
   expect(demo.note(first.id).note.replies).toHaveLength(1);
 });
+
+test("demo usage keeps past activity when artifacts are deleted", async () => {
+  const id = demo.state.artifacts[0].id;
+  const before = await artifactApi.stat();
+  await artifactApi.delete(id);
+  const after = await artifactApi.stat();
+  expect(after.artifacts.total).toBe(before.artifacts.total - 1);
+  expect(after.periods).toEqual(before.periods);
+  expect(after.contentBytes).toBeLessThanOrEqual(before.contentBytes);
+  expect(await artifactApi.gc({ dryRun: true })).toMatchObject({ dryRun: true, deletedIds: [] });
+});

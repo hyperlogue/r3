@@ -879,3 +879,27 @@ the library URL. The header’s r3 link preserves this state; same-tab return
 restores list scroll. Native links support browser Back and opening new tabs.
 Search supports its visible focus shortcut and list-local arrow navigation,
 while other fields and overlays retain their own keys.
+
+
+## Usage and library cleanup
+
+The home header's statistics control opens a floating window shared in meaning
+with `r3 stat`. Current library totals show artifacts by state and kind, published
+versions, open/resolved threads and replies, deduplicated content size, and
+cleanup eligibility/reclaimable content. Activity switches between 14 daily
+buckets and four weekly buckets, using the displayed server timezone. Weeks
+start Monday; the current period is partial. Counts survive deletion; earlier
+history seeded from surviving data is explicitly marked incomplete.
+
+Settings offers **Clean up archived artifacts**, showing a preview before
+confirmation. Manual cleanup respects the persisted archive TTL (30 days by
+default); single-artifact **Delete artifact** and home-page **Delete selected**
+remove content immediately after confirmation, independently of TTL.
+
+Home selection uses artifact identity, so repeated search matches share a
+checkbox state. **Select page** covers unique artifacts on the visible page.
+Changing filters or page clears selection. **Archive selected** confirms the
+selection and offers one optional message for each current listener; already
+archived items are skipped without changing their timestamp. Both bulk actions
+continue after failures, report results, and retain failed items for retry.
+Notification failure is reported separately from a committed archive.

@@ -10,6 +10,12 @@ import {
   artifactSearchParams,
 } from "../../shared/artifact-search.ts";
 import type {
+  ArtifactGcRequest,
+  ArtifactGcResult,
+  ArtifactUsage,
+  UsageWindow,
+} from "../../shared/artifact-usage.ts";
+import type {
   AgentSession,
   Artifact,
   ArtifactActor,
@@ -57,6 +63,9 @@ const query = (values: Record<string, string | number | undefined>) => {
 // Replaced as a whole by the static demo backend at build time. Presentation
 // components use exactly these artifact/version/native-target shapes.
 export const artifactApi = {
+  stat: (window: UsageWindow = "daily") =>
+    client().json<ArtifactUsage>("GET", `/api/stat?window=${window}`),
+  gc: (body: ArtifactGcRequest) => client().json<ArtifactGcResult>("POST", "/api/gc", body),
   search: (options: ArtifactSearchOptions, signal?: AbortSignal) =>
     client().json<ArtifactSearchResponse>(
       "GET",

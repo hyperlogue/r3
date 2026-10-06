@@ -15,6 +15,7 @@ import type { artifactApi as productionApi } from "../src/artifact-api.ts";
 import { DraftImageStore, draftImages, prepareDraftImage } from "../src/attachment-drafts.ts";
 import { demo, fail, human, mint, now } from "./artifact-backend.ts";
 import { searchDemoArtifacts } from "./artifact-search.ts";
+import { demoGcPreview, demoUsage } from "./artifact-usage.ts";
 
 export { human as HUMAN_ACTOR };
 
@@ -91,6 +92,20 @@ async function messageOperation(
 }
 
 export const artifactApi: typeof productionApi = {
+  stat: async (window = "daily") => copy(demoUsage(demo.state, window, now())),
+  gc: async (input) => {
+    const result = demoGcPreview(demo.state, input, now());
+    if (!result.dryRun)
+      for (const row of result.candidates) {
+        try {
+          await artifactApi.delete(row.id);
+          result.deletedIds.push(row.id);
+        } catch {
+          result.failures.push({ id: row.id, error: "Artifact deletion failed" });
+        }
+      }
+    return result;
+  },
   search: async (options) => copy(searchDemoArtifacts(demo.state, options)),
   feedbackSource: async (id) => demo.feedbackSource(id),
   sessions: async () =>

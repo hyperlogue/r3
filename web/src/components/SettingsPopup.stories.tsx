@@ -35,6 +35,7 @@ export const Open: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByTitle("Settings"));
     await expect(canvas.getByText("Appearance")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Clean up archived artifacts" })).toBeVisible();
   },
 };
 export const KeyboardDismiss: Story = {

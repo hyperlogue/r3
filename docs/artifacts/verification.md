@@ -276,3 +276,16 @@ tests reject saving an optimization after its storage generation is revoked.
   native Back, return filters, no-result recovery, and archive/restore moving items
   out of/into review attention without changing retained feedback. Set `R3_TEST_SCREENSHOTS`
   to a temporary directory for visual evidence.
+
+
+### Usage and cleanup
+
+- `bun test server/artifact-usage.test.ts`: deduplicated content, shared references,
+  archive-time TTL boundaries, restore/re-archive and confirmed preview races,
+  retained activity after deletion/restart, migration backfill, retry counting,
+  and server calendar buckets across DST.
+- `bun test server/artifact-api.test.ts cli/artifact-commands.test.ts`: authenticated
+  statistics/GC routes, fixed windows, JSON, and TTL input validation.
+- `bun scripts/test-artifact-library.ts` with `R3_TEST_BROWSER`: statistics window,
+  Settings GC confirmation, manual delete, selection and bulk actions, in an
+  isolated daemon and fresh browser profile.

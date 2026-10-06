@@ -33,7 +33,11 @@ const css = build.outputs
   .path.split("/")
   .at(-1)!;
 const root = await mkdtemp(join(tmpdir(), "r3-library-acceptance-"));
-const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+let clockNow = new Date().toISOString();
+const storage = await openArtifactStorage({
+  databasePath: join(root, "store.sqlite"),
+  clock: () => clockNow,
+});
 const actor = { role: "human", sessionId: null } as const;
 const agent = { role: "agent", sessionId: "library-agent" } as const;
 storage.artifacts.registerSession({ id: agent.sessionId, label: "Design agent" });
@@ -217,8 +221,8 @@ try {
       const ids = [];
       for (const child of document.querySelector('section[aria-label="Artifacts"]').children) {
         if (child.tagName === 'H2') group = child.textContent;
-        if (group === ${JSON.stringify(name)} && child.hasAttribute('data-library-row'))
-          ids.push(new URL(child.href).pathname.slice(1));
+        const row = child.matches('[data-library-row]') ? child : child.querySelector('[data-library-row]');
+        if (group === ${JSON.stringify(name)} && row) ids.push(new URL(row.href).pathname.slice(1));
       }
       return ids;
     })()`);
@@ -382,9 +386,140 @@ try {
     await page.evaluate("document.querySelector('[aria-label=\"Library view\"]').value"),
     "attention",
   );
+  // Exercise usage and destructive controls against this test store only.
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await page.command("Page.navigate", { url: origin });
+  await ready();
+  const clickText = (text: string, within = "body") =>
+    page.evaluate(
+      `(() => { const root = document.querySelector(${JSON.stringify(within)}); const button = [...root.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}); if (!button) throw new Error('Missing action'); button.click(); })()`,
+    );
+  await click('[aria-label="Usage statistics"]');
+  await eventually(
+    () =>
+      page.evaluate(
+        `!!document.querySelector('[role="dialog"][aria-label="Usage statistics"] table')`,
+      ),
+    "usage table",
+  );
+  assert.equal(
+    await page.evaluate(
+      `document.querySelectorAll('[role="dialog"][aria-label="Usage statistics"] tbody tr').length`,
+    ),
+    14,
+  );
+  assert.ok(
+    await page.evaluate(
+      `document.querySelector('[role="dialog"][aria-label="Usage statistics"]').textContent.includes(${JSON.stringify(storage.usage.timezone)})`,
+    ),
+  );
+  await screenshot("usage-desktop");
+  await clickText("Last 4 weeks");
+  await eventually(
+    () =>
+      page.evaluate(
+        `document.querySelectorAll('[role="dialog"][aria-label="Usage statistics"] tbody tr').length === 4`,
+      ),
+    "weekly usage",
+  );
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await noOverflow();
+  await screenshot("usage-mobile");
+  await click('[aria-label="Close statistics"]');
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  const batch = ["Batch design", "Batch prototype"].map((title) =>
+    storage.artifacts.create({ kind: "files", actor, title }),
+  );
+  await page.command("Page.navigate", { url: origin });
+  await ready();
+  for (const item of batch) await click(`[aria-label="Select ${item.title}"]`);
+  await clickText("Archive selected");
+  await eventually(
+    () => page.evaluate('!!document.querySelector("dialog[open]")'),
+    "bulk archive confirmation",
+  );
+  await clickText("Archive artifacts", "dialog[open]");
+  await eventually(
+    async () => batch.every((item) => storage.artifacts.get(item.id).state === "archived"),
+    "bulk archive committed",
+  );
+  await eventually(
+    () => page.evaluate('!document.querySelector("dialog[open]")'),
+    "bulk archive finished",
+  );
+  for (const item of batch) await click(`[aria-label="Select ${item.title}"]`);
+  await clickText("Delete selected");
+  await eventually(
+    () => page.evaluate('!!document.querySelector("dialog[open]")'),
+    "bulk delete confirmation",
+  );
+  await screenshot("bulk-delete");
+  await clickText("Delete artifacts", "dialog[open]");
+  await eventually(
+    async () => batch.every((item) => !storage.artifacts.list().some((a) => a.id === item.id)),
+    "bulk delete committed",
+  );
+  await eventually(
+    () => page.evaluate('!document.querySelector("dialog[open]")'),
+    "bulk delete finished",
+  );
+  const single = storage.artifacts.create({ kind: "files", actor, title: "Delete one artifact" });
+  await page.command("Page.navigate", { url: `${origin}/${single.id}` });
+  await eventually(
+    () => page.evaluate(`!!document.querySelector('[aria-label="Artifact details and actions"]')`),
+    "artifact details",
+  );
+  await click('[aria-label="Artifact details and actions"]');
+  await clickText("Delete artifact");
+  await eventually(
+    () => page.evaluate('!!document.querySelector("dialog[open]")'),
+    "single delete confirmation",
+  );
+  await clickText("Delete artifact", "dialog[open]");
+  await ready();
+  assert.ok(!storage.artifacts.list().some((a) => a.id === single.id));
+  clockNow = new Date(Date.now() - 31 * 86400000).toISOString();
+  const expired = storage.artifacts.create({ kind: "files", actor, title: "Expired archive" });
+  storage.lifecycle.transition(expired.id, { actor, event: "archived", operationKey: "expire" });
+  clockNow = new Date().toISOString();
+  await click('[title="Settings"]');
+  await clickText("Clean up archived artifacts");
+  await eventually(
+    () =>
+      page.evaluate(
+        'document.querySelector("dialog[open]")?.textContent.includes("Expired archive")',
+      ),
+    "GC preview",
+  );
+  await screenshot("gc-preview");
+  assert.ok(storage.artifacts.list().some((a) => a.id === expired.id));
+  await clickText("Delete eligible artifacts", "dialog[open]");
+  await eventually(
+    () =>
+      page.evaluate('document.querySelector("dialog[open]")?.textContent.includes("Deleted 1")'),
+    "GC result",
+  );
+  assert.ok(!storage.artifacts.list().some((a) => a.id === expired.id));
+  assert.equal(storage.artifacts.get(notes.id).state, "active");
+  await clickText("Done", "dialog[open]");
   assert.deepEqual(errors, []);
   console.log(
-    "Library browser acceptance passed: compact rows, desktop/dark/mobile, archive-aware review attention, history, source locations, earlier replies, pinned versions, return filters, and empty search.",
+    "Library browser acceptance passed: compact rows, desktop/dark/mobile, archive-aware review attention, history, source locations, earlier replies, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
   );
 } finally {
   await browser?.close();

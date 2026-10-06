@@ -13,6 +13,7 @@ import {
 } from "../settings.ts";
 import type { ThemeOption } from "../types.ts";
 import { Button, cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
+import { ArtifactGcDialog } from "./ArtifactGcDialog.tsx";
 import { TokenManager } from "./TokenManager.tsx";
 
 // Group theme options by their `group` field, preserving first-seen order.
@@ -140,6 +141,7 @@ export function SettingsDialog({
   trigger: RefObject<HTMLButtonElement | null>;
 }) {
   const popup = useRef<HTMLDivElement>(null);
+  const [gcOpen, setGcOpen] = useState(false);
   usePopoverFocus(true, popup, trigger);
   const [dark, toggleTheme] = useTheme();
   const fontSize = useFontSize();
@@ -232,6 +234,12 @@ export function SettingsDialog({
           </p>
         </Section>
 
+        <Section label="Storage">
+          <Button className="w-full justify-center" onClick={() => setGcOpen(true)}>
+            Clean up archived artifacts
+          </Button>
+        </Section>
+
         {/* Login tokens for reaching r3 when it's exposed beyond loopback —
                 absent in the browser demo, which has no daemon to expose. */}
         {CAN_MANAGE_TOKENS && (
@@ -254,6 +262,7 @@ export function SettingsDialog({
           </Section>
         )}
       </div>
+      {gcOpen && <ArtifactGcDialog onClose={() => setGcOpen(false)} />}
     </>
   );
 }

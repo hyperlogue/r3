@@ -18,6 +18,7 @@ import {
   demoStorageUsage,
   publicationKey,
 } from "./artifact-model.ts";
+import { syncDemoActivity } from "./artifact-usage.ts";
 
 // A new gallery gets fresh practice state; older demo data stays under its original key.
 const KEY = "r3-artifact-demo-curves";
@@ -95,6 +96,7 @@ export class ArtifactDemoBackend {
       this.state.schema = 5;
       this.persist();
     }
+    syncDemoActivity(this.state);
     // Backfill byte metadata for saved demos without discarding their feedback.
     const seedPublications = new Map(
       [...Object.values(this.fixtures.publications), ...Object.values(this.fixtures.pending)].map(
@@ -147,6 +149,7 @@ export class ArtifactDemoBackend {
     this.timers.clear();
   }
   persist() {
+    syncDemoActivity(this.state);
     try {
       this.storage?.setItem(KEY, JSON.stringify(this.state));
     } catch {

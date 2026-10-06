@@ -19,7 +19,7 @@ export function App() {
         <ArtifactView key={artifactId} artifactId={artifactId} />
       ) : (
         <>
-          <AppHeader />
+          <AppHeader showUsage />
           <main className="min-h-0 flex-1 overflow-hidden">
             <ArtifactHome />
           </main>

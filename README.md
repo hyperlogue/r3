@@ -73,6 +73,23 @@ show captured code changes.
 For ideas on using HTML for plans, reports, and interactive explanations, see
 Anthropic's [The unreasonable effectiveness of HTML](https://claude.com/blog/using-claude-code-the-unreasonable-effectiveness-of-html).
 
+## Usage and cleanup
+
+Open usage statistics beside Settings to see library totals and recent activity,
+or use the CLI:
+
+```sh
+r3 stat                 # daily activity for the last 14 days
+r3 stat --weekly        # weekly activity for the last 4 weeks
+r3 gc --dry-run         # preview expired archives
+r3 gc                   # permanently remove them
+```
+
+Cleanup is manual and defaults to 30 days after archiving. Set the server default
+with `r3 config set archiveTtlDays 30`, then restart to apply it. The web Settings
+panel offers the same cleanup with a confirmation. You can also select artifacts
+on the home page to archive or permanently delete them together.
+
 ## Local and remote access
 
 r3 runs locally by default. The CLI lazily starts a background daemon when a

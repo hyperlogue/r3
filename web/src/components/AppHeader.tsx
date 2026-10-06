@@ -2,16 +2,19 @@ import { type ReactNode, useRef } from "react";
 import { libraryReturnRoute } from "../artifact-library.ts";
 import { DemoChrome } from "../demo-chrome.tsx";
 import { hrefFor, navigate } from "../router.ts";
+import { ArtifactUsagePopup } from "./ArtifactUsagePopup.tsx";
 import { Logo, type LogoHandle } from "./Logo.tsx";
 import { SettingsPopup } from "./SettingsPopup.tsx";
 
 export function AppHeader({
   children,
   showSettings = true,
+  showUsage = false,
   returnRoute = libraryReturnRoute(location.search),
 }: {
   children?: ReactNode;
   showSettings?: boolean;
+  showUsage?: boolean;
   returnRoute?: string | null;
 }) {
   const logo = useRef<LogoHandle>(null);
@@ -66,6 +69,7 @@ export function AppHeader({
       )}
       <div className="flex shrink-0 items-center self-stretch">
         <DemoChrome />
+        {showUsage && <ArtifactUsagePopup />}
         {showSettings && <SettingsPopup />}
       </div>
     </header>

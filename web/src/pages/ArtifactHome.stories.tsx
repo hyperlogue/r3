@@ -223,3 +223,21 @@ export const NoMatches: Story = {
     ],
   },
 };
+
+export const BulkSelection: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "Select all artifacts on this page" }),
+    );
+    await expect(canvas.getByText("5 artifacts selected")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Archive selected" }));
+    await expect(canvas.getByRole("dialog", { name: "Archive artifacts" })).toBeVisible();
+    await expect(
+      canvas.getByRole("textbox", { name: "Shared archive message (optional)" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Delete selected" }));
+    await expect(canvas.getByRole("dialog", { name: "Delete artifacts" })).toBeVisible();
+  },
+};

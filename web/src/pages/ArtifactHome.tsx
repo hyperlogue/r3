@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { artifactSearchTerms } from "../../../shared/artifact-search.ts";
+import type { Artifact } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import {
   type ArtifactLibraryState,
@@ -12,8 +13,13 @@ import {
   readLibraryState,
   rememberLibraryScroll,
 } from "../artifact-library.ts";
+import {
+  type ActionArtifact,
+  ArtifactActionDialog,
+  type ArtifactActionResult,
+} from "../components/ArtifactActionDialog.tsx";
 import { ArtifactLibraryRow } from "../components/ArtifactLibraryRow.tsx";
-import { StrokeIcon } from "../ui.tsx";
+import { Button, StrokeIcon } from "../ui.tsx";
 
 const control =
   "min-h-8 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs focus-visible:outline-primary-500 max-md:min-h-9 max-md:min-w-0 max-md:w-full max-md:text-base dark:border-neutral-700 dark:bg-neutral-950";
@@ -46,6 +52,15 @@ function LibraryIcon({ kind }: { kind: string }) {
 
 export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const [state, setState] = useState(() => readLibraryState(initialSearch ?? location.search));
+  const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({
+    scope: "",
+    ids: new Set(),
+  });
+  const [action, setAction] = useState<{
+    kind: "archive" | "delete";
+    items: ActionArtifact[];
+  } | null>(null);
+  const [actionResults, setActionResults] = useState<ArtifactActionResult[]>([]);
   const [query, setQuery] = useState(state.q);
   const [now, setNow] = useState(Date.now);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -102,6 +117,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   }, []);
   const search = librarySearch(state);
   useEffect(() => {
+    setSelection({ scope: search, ids: new Set() });
+  }, [search]);
+  useEffect(() => {
     if (initialSearch === undefined)
       history.replaceState(history.state, "", `${location.pathname}${search}`);
   }, [search, initialSearch]);
@@ -137,6 +155,39 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
       setState((current) => ({ ...current, offset: 0 }));
   }, [searchData, state.offset]);
   const searchArtifacts = new Map(searchData?.artifacts.map((artifact) => [artifact.id, artifact]));
+  const visible = loading
+    ? []
+    : searching
+      ? [
+          ...new Map(
+            (searchData?.matches ?? []).flatMap((match) => {
+              const artifact = searchArtifacts.get(match.artifactId);
+              return artifact ? [[artifact.id, artifact] as const] : [];
+            }),
+          ).values(),
+        ]
+      : shown;
+  const selected =
+    selection.scope === search ? visible.filter((artifact) => selection.ids.has(artifact.id)) : [];
+  const selectedIds = new Set(selected.map((artifact) => artifact.id));
+  const toggleSelection = (id: string) =>
+    setSelection(() => {
+      const ids = new Set(selectedIds);
+      if (ids.has(id)) ids.delete(id);
+      else ids.add(id);
+      return { scope: search, ids };
+    });
+  const selectBox = (artifact: Artifact) => (
+    <label className="flex shrink-0 items-center border-b border-neutral-200 px-3 dark:border-neutral-800">
+      <input
+        type="checkbox"
+        aria-label={`Select ${artifact.title ?? artifact.id}`}
+        checked={selectedIds.has(artifact.id)}
+        onChange={() => toggleSelection(artifact.id)}
+        className="size-4 accent-primary-600"
+      />
+    </label>
+  );
   const error = artifacts.error ?? projects.error ?? (searching ? results.error : null);
   const count = searching ? (searchData?.total ?? 0) : shown.length;
   useLayoutEffect(() => {
@@ -168,6 +219,23 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const remember = () => rememberLibraryScroll(search, pane.current?.scrollTop ?? 0);
   return (
     <div className="flex h-full min-w-0">
+      {action && (
+        <ArtifactActionDialog
+          items={action.items}
+          action={action.kind}
+          onClose={() => setAction(null)}
+          onDone={(results) => {
+            setActionResults(results);
+            setSelection({
+              scope: search,
+              ids: new Set(
+                results.filter((result) => result.state === "failed").map((result) => result.id),
+              ),
+            });
+            setAction(null);
+          }}
+        />
+      )}
       <aside
         aria-label="Library navigation"
         className="flex w-52 shrink-0 flex-col gap-7 overflow-y-auto border-r border-neutral-200 bg-neutral-50 px-3 py-6 max-md:hidden dark:border-neutral-800 dark:bg-neutral-950/40"
@@ -470,6 +538,65 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 </div>
               </div>
             )}
+          <div className="flex flex-wrap items-center gap-3 border-y border-neutral-200 px-4 py-2 text-xs dark:border-neutral-800">
+            <label className="flex min-h-8 items-center gap-2">
+              <input
+                type="checkbox"
+                aria-label="Select all artifacts on this page"
+                checked={visible.length > 0 && selected.length === visible.length}
+                disabled={!visible.length}
+                ref={(node) => {
+                  if (node)
+                    node.indeterminate = selected.length > 0 && selected.length < visible.length;
+                }}
+                onChange={() =>
+                  setSelection({
+                    scope: search,
+                    ids: new Set(
+                      selected.length === visible.length
+                        ? []
+                        : visible.map((artifact) => artifact.id),
+                    ),
+                  })
+                }
+                className="size-4 accent-primary-600"
+              />{" "}
+              Select page
+            </label>
+            <span aria-live="polite">{selected.length} artifacts selected</span>
+            <Button
+              disabled={!selected.length}
+              onClick={() => setAction({ kind: "archive", items: selected })}
+            >
+              Archive selected
+            </Button>
+            <Button
+              disabled={!selected.length}
+              onClick={() => setAction({ kind: "delete", items: selected })}
+            >
+              Delete selected
+            </Button>
+          </div>
+          {actionResults.length > 0 && (
+            <div
+              role="status"
+              className="border-b border-neutral-200 px-4 py-3 text-xs dark:border-neutral-800"
+            >
+              {actionResults.filter((result) => result.state === "done").length} completed ·{" "}
+              {actionResults.filter((result) => result.state === "skipped").length} skipped ·{" "}
+              {actionResults.filter((result) => result.state === "failed").length} failed
+              {actionResults
+                .filter((result) => result.warning)
+                .map((result) => (
+                  <p key={result.id} className="mt-1">
+                    {result.id}: {result.warning}
+                  </p>
+                ))}
+              <Button variant="ghost" onClick={() => setActionResults([])}>
+                Dismiss
+              </Button>
+            </div>
+          )}
           <section
             aria-label={searching ? "Search results" : "Artifacts"}
             onKeyDown={(event) => {
@@ -510,13 +637,16 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                         {group}
                       </h2>
                     )}
-                    <ArtifactLibraryRow
-                      artifact={artifact}
-                      project={names.get(artifact.projectId ?? "") ?? null}
-                      now={now}
-                      route={artifactLibraryRoute(artifact, state)}
-                      onOpen={remember}
-                    />
+                    <div className="flex [&>[data-library-row]]:flex-1">
+                      {selectBox(artifact)}
+                      <ArtifactLibraryRow
+                        artifact={artifact}
+                        project={names.get(artifact.projectId ?? "") ?? null}
+                        now={now}
+                        route={artifactLibraryRoute(artifact, state)}
+                        onOpen={remember}
+                      />
+                    </div>
                   </Fragment>
                 );
               })}
@@ -525,16 +655,18 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 const artifact = searchArtifacts.get(match.artifactId);
                 return (
                   artifact && (
-                    <ArtifactLibraryRow
-                      key={match.id}
-                      artifact={artifact}
-                      match={match}
-                      query={query}
-                      project={names.get(artifact.projectId ?? "") ?? null}
-                      now={now}
-                      route={artifactLibraryRoute(artifact, state, match)}
-                      onOpen={remember}
-                    />
+                    <div key={match.id} className="flex [&>[data-library-row]]:flex-1">
+                      {selectBox(artifact)}
+                      <ArtifactLibraryRow
+                        artifact={artifact}
+                        match={match}
+                        query={query}
+                        project={names.get(artifact.projectId ?? "") ?? null}
+                        now={now}
+                        route={artifactLibraryRoute(artifact, state, match)}
+                        onOpen={remember}
+                      />
+                    </div>
                   )
                 );
               })}

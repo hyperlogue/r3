@@ -653,3 +653,14 @@ export const SettingsFromMenu: Story = {
   },
 };
 export const SettingsFromMenuDark: Story = { ...SettingsFromMenu, globals: { theme: "dark" } };
+
+export const DeleteFromMenu: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Artifact details and actions" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Delete artifact" }));
+    await expect(canvas.getByRole("dialog", { name: "Delete artifact" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await expect(canvas.queryByRole("dialog", { name: "Delete artifact" })).toBeNull();
+  },
+};

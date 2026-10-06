@@ -43,9 +43,15 @@ export function useArtifactEvents(): boolean {
                 "artifact-watchers",
                 "artifact-projects",
                 "artifact-search",
+                "artifact-usage",
+                "artifact-gc",
               ])
                 void queryClient.invalidateQueries({ queryKey: [key] });
             } else {
+              if (event.type !== "presence-changed") {
+                void queryClient.invalidateQueries({ queryKey: ["artifact-usage"] });
+                void queryClient.invalidateQueries({ queryKey: ["artifact-gc"] });
+              }
               if (event.type === "artifact-updated")
                 void queryClient.invalidateQueries({ queryKey: ["artifact-projects"] });
               if (event.type === "artifact-deleted") {

@@ -6,7 +6,7 @@ const meta = { title: "Components/AppHeader", component: AppHeader } satisfies M
 >;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const ArtifactList: Story = {};
+export const ArtifactList: Story = { args: { showUsage: true } };
 export const WithTitle: Story = {
   args: {
     children: (
