@@ -18,7 +18,7 @@ export const libraryDefaults: ArtifactLibraryState = {
   kind: "all",
   history: "latest",
   type: "all",
-  sort: "attention",
+  sort: "recent",
   offset: 0,
 };
 export function readLibraryState(search: string): ArtifactLibraryState {
@@ -35,7 +35,7 @@ export function readLibraryState(search: string): ArtifactLibraryState {
     kind: choice("kind", ["all", "files", "html", "diff"], "all"),
     history: choice("history", ["latest", "all"], "latest"),
     type: choice("type", ["all", "content", "conversation"], "all"),
-    sort: choice("sort", ["attention", "recent", "title"], "attention"),
+    sort: choice("sort", ["attention", "recent", "title"], libraryDefaults.sort),
     offset: /^\d+$/.test(rawOffset) && Number(rawOffset) <= 100_000 ? Number(rawOffset) : 0,
   };
 }

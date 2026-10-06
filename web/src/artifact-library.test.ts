@@ -25,7 +25,9 @@ test("attention excludes archived artifacts and outranks live presence", () => {
   const working = { ...artifactFixture, id: "working", unhandledCount: 0, working: true };
   const attention = { ...artifactFixture, id: "attention" };
   expect(
-    filterLibrary([working, archived, attention], readLibraryState("")).map((a) => a.id),
+    filterLibrary([working, archived, attention], readLibraryState("?sort=attention")).map(
+      (a) => a.id,
+    ),
   ).toEqual(["attention", "working", "archived"]);
   expect(
     filterLibrary([working, archived, attention], readLibraryState("?view=attention")).map(

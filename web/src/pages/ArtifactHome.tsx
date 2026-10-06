@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { artifactSearchTerms } from "../../../shared/artifact-search.ts";
 import type { Artifact } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
@@ -19,12 +27,24 @@ import {
   type ArtifactActionResult,
 } from "../components/ArtifactActionDialog.tsx";
 import { ArtifactLibraryRow } from "../components/ArtifactLibraryRow.tsx";
-import { Button, Collapse, StrokeIcon } from "../ui.tsx";
+import { Button, ChevronDown, Collapse, StrokeIcon } from "../ui.tsx";
 
 const control =
   "min-h-8 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs focus-visible:outline-primary-500 max-md:min-h-9 max-md:min-w-0 max-md:w-full max-md:text-base dark:border-neutral-700 dark:bg-neutral-950";
 const filterControl =
-  "min-h-9 min-w-0 rounded-none border-neutral-200 bg-transparent py-2 pl-5 pr-3 text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:pl-4 max-md:text-base dark:border-neutral-800 dark:hover:bg-neutral-900";
+  "min-h-9 min-w-0 w-full appearance-none rounded-none bg-transparent py-2 pl-4 pr-10 text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:text-base dark:hover:bg-neutral-900";
+
+function LibrarySelect({ className = "", ...props }: ComponentProps<"select">) {
+  return (
+    <div
+      className={`relative flex min-w-0 border-neutral-200 dark:border-neutral-800 ${className}`}
+    >
+      <select {...props} className={filterControl} />
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" />
+    </div>
+  );
+}
+
 const views = [
   ["all", "All artifacts"],
   ["attention", "Needs you"],
@@ -361,9 +381,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
             </div>
             <div className="flex flex-wrap items-stretch max-md:grid max-md:grid-cols-2">
               <div className="flex min-w-0 items-center max-md:col-span-2 max-md:border-b max-md:border-neutral-200 dark:max-md:border-neutral-800">
-                <select
+                <LibrarySelect
                   aria-label="Artifact kind"
-                  className={`${filterControl} self-stretch border-r`}
+                  className="self-stretch border-r"
                   value={state.kind}
                   onChange={(event) =>
                     update({ kind: event.target.value as ArtifactLibraryState["kind"] })
@@ -373,7 +393,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   <option value="html">HTML</option>
                   <option value="files">Files</option>
                   <option value="diff">Diff</option>
-                </select>
+                </LibrarySelect>
                 <span
                   role="status"
                   className="px-3 text-[0.7rem] tabular-nums text-neutral-500 max-md:flex-1 max-md:px-2"
@@ -401,9 +421,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   Selection mode
                 </Button>
               </div>
-              <select
+              <LibrarySelect
                 aria-label="Library view"
-                className={`${filterControl} border-r border-b md:hidden`}
+                className="border-r border-b md:hidden"
                 value={state.view}
                 onChange={(event) =>
                   update({ view: event.target.value as ArtifactLibraryState["view"] })
@@ -414,10 +434,10 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                     {label}
                   </option>
                 ))}
-              </select>
-              <select
+              </LibrarySelect>
+              <LibrarySelect
                 aria-label="Project"
-                className={`${filterControl} border-b md:hidden`}
+                className="border-b md:hidden"
                 value={state.project}
                 onChange={(event) => update({ project: event.target.value })}
               >
@@ -427,7 +447,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                     {project.name ?? project.id}
                   </option>
                 ))}
-              </select>
+              </LibrarySelect>
               {state.project && (
                 <button
                   type="button"
@@ -439,9 +459,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               )}
               <div className="flex-1 max-md:hidden" />
               {searching ? (
-                <select
+                <LibrarySelect
                   aria-label="Publications to search"
-                  className={`${filterControl} border-l max-md:col-span-2 max-md:border-l-0`}
+                  className="border-l max-md:col-span-2 max-md:border-l-0"
                   value={state.history}
                   onChange={(event) =>
                     update({ history: event.target.value as ArtifactLibraryState["history"] })
@@ -449,20 +469,20 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 >
                   <option value="latest">Latest publications</option>
                   <option value="all">Include history</option>
-                </select>
+                </LibrarySelect>
               ) : (
-                <select
+                <LibrarySelect
                   aria-label="Sort artifacts"
-                  className={`${filterControl} border-l max-md:col-span-2 max-md:border-l-0`}
+                  className="border-l max-md:col-span-2 max-md:border-l-0"
                   value={state.sort}
                   onChange={(event) =>
                     update({ sort: event.target.value as ArtifactLibraryState["sort"] })
                   }
                 >
-                  <option value="attention">Attention first</option>
                   <option value="recent">Recently updated</option>
+                  <option value="attention">Attention first</option>
                   <option value="title">Title A–Z</option>
-                </select>
+                </LibrarySelect>
               )}
             </div>
           </div>

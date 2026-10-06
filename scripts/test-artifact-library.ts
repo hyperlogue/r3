@@ -216,6 +216,12 @@ try {
   await page.command("Page.navigate", { url: origin });
   await ready();
   assert.equal(await page.evaluate("document.querySelectorAll('[data-library-row]').length"), 15);
+  assert.equal(
+    await page.evaluate("document.querySelector('[aria-label=\"Sort artifacts\"]').value"),
+    "recent",
+  );
+  await screenshot("library-recent");
+  await select('[aria-label="Sort artifacts"]', "attention");
   const groupIds = (name: string) =>
     page.evaluate<string[]>(`(() => {
       let group = '';
@@ -279,7 +285,7 @@ try {
   assert.equal(
     await page.evaluate(`(() => {
       const kind = document.querySelector('[aria-label="Artifact kind"]');
-      return kind.parentElement.querySelector('[role="status"]')?.textContent;
+      return kind.parentElement.parentElement.querySelector('[role="status"]')?.textContent;
     })()`),
     "15 artifacts",
   );

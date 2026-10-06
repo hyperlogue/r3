@@ -891,6 +891,8 @@ evidence in the original captured pixel coordinates, including subsequent crops.
 The library uses compact, flat rows with title, project, latest published version,
 publication summary, review attention, stored content size, and recent activity.
 Search and filter controls form square, flush rows with shared dividers.
+Filter dropdowns use matching label and chevron edge insets with reserved space
+between them, keeping native select interaction.
 The result count and **Selection mode** toggle sit beside the kind filter;
 there is no separate count row. Selection starts off, keeping bulk actions and
 row checkboxes hidden without reserving space. Toggling slides the bulk toolbar
@@ -898,7 +900,8 @@ and checkbox columns into or out of view, respecting reduced motion; hidden
 controls are inert. Leaving selection mode clears the selection.
 Rows open the artifact directly. The list reserves its scrollbar space so filtering
 does not shift the content horizontally. Desktop navigation holds the library views and
-projects; mobile exposes those filters above the list. Attention first orders
+projects; mobile exposes those filters above the list. Recently updated is the
+default sort, showing the most recently changed artifacts first. Attention first orders
 active artifacts awaiting human review before agent presence and other work;
 archived artifacts follow. Needs you includes active artifacts with unhandled
 agent messages, independently of delivery or claims.
