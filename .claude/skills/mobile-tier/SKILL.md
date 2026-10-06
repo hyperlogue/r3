@@ -76,6 +76,13 @@ containers remain flat.
 
 Locate/ref jumps close the sheet before scrolling the code pane.
 
+During a proposed-fix comparison, this same panel stays mounted in a flat dock
+below the previews, taking roughly 42% of workspace height. It cannot overlay,
+float, or hide. The Original / Proposed fix controls choose one mounted preview
+at a time. Returning restores the ordinary sheet state; drafts and conversation
+state remain shared. `MobileReviewChrome` owns this temporary geometry and
+`MobileComparisonTabs` owns the phone-only controls, both mounted by `ArtifactView`.
+
 ## Navigation
 
 The shared `JumpToFile` picker is a toolbar button for files/diff on **both** tiers: a flat

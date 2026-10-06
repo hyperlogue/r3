@@ -35,6 +35,7 @@ export function installPreviewRuntime(
   let selectedRange: Range | null = null;
   let hover: Element | null = null;
   let located: Element | null = null;
+  let locatedRange: Range | null = null;
   let lastJump = -1;
   let restoringRoute = false;
   let frame = 0;
@@ -201,7 +202,10 @@ export function installPreviewRuntime(
       button.style.left = `${Math.max(0, Math.min(rect.right - 24, innerWidth - 24))}px`;
       button.style.top = `${Math.max(0, rect.top)}px`;
     }
-    const element = picked || (display.commenting ? hover : null) || located;
+    const element =
+      picked ||
+      (display.commenting ? hover : null) ||
+      (display.highlightLocated === false ? null : located);
     box.hidden = !element?.isConnected;
     const bounds = viewport ?? { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
     controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
@@ -249,6 +253,7 @@ export function installPreviewRuntime(
     if (!root || !jump || jump.nonce === lastJump) return;
     lastJump = jump.nonce;
     cancel();
+    locatedRange = null;
     highlight(null);
     if (!jump.locator) {
       located = document.body;
@@ -263,7 +268,8 @@ export function installPreviewRuntime(
       // normal page behavior. No SPA route or unrecorded document is invented.
       lastJump = -1;
       restoringRoute = true;
-      location.href = location.pathname + route;
+      if (display.replaceLocateRoute) location.replace(location.pathname + route);
+      else location.href = location.pathname + route;
       return;
     }
     const deadline = performance.now() + 2500;
@@ -275,7 +281,8 @@ export function installPreviewRuntime(
         return;
       }
       located = result.element ?? null;
-      highlight(result.range ?? null);
+      locatedRange = result.range ?? null;
+      highlight(display.highlightLocated === false ? null : locatedRange);
       located?.scrollIntoView({ block: "center", inline: "nearest" });
       schedule();
       send("r3-preview-located", { state: result.state, nonce: jump.nonce });
@@ -293,6 +300,7 @@ export function installPreviewRuntime(
     if (message?.type !== "r3-preview-display" || message.contextId !== config.contextId) return;
     display = message.display as PreviewDisplay;
     markersDirty = true;
+    highlight(display.highlightLocated === false ? null : locatedRange);
     if (!display.commenting) cancel();
     locate();
     schedule();

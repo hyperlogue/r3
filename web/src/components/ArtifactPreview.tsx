@@ -72,8 +72,11 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
   } | null>(null);
   const verification = checked?.network === network ? checked.state : "checking";
   const setVerification = useCallback(
-    (state: PreviewVerification) => setChecked({ network, state }),
-    [network],
+    (state: PreviewVerification) => {
+      setChecked({ network, state });
+      if (state === "error") props.onLocated?.("unplaced");
+    },
+    [network, props.onLocated],
   );
   const [compatibilityRequired, setCompatibilityRequired] = useState(false);
   const [confirmCompatibility, setConfirmCompatibility] = useState(false);
@@ -139,9 +142,9 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
   const file = files.data?.find((file) => file.path === props.path);
   const media = !!file && !!artifactMediaKind(file.mediaType);
   return (
-    <div className="flex flex-1 flex-col" data-artifact-preview>
+    <div className="flex min-h-0 flex-1 flex-col" data-artifact-preview>
       <ArtifactPreviewSecuritySource
-        path={props.path}
+        path={props.previewLabel ?? props.path}
         network={network}
         verification={verification}
         devices={devices}
@@ -413,7 +416,10 @@ function PreviewSession(
           props.path === currentPath.current && (!fitContent || fittedPath.current === props.path)
             ? props.navigation
             : null,
-        commenting: props.commenting && context.presentation === "document",
+        highlightLocated: props.highlightLocated,
+        replaceLocateRoute: props.independentReading,
+        commenting:
+          props.active !== false && props.commenting && context.presentation === "document",
         targets: props.targets.flatMap(({ feedbackId, target }) =>
           target.kind === "rendered" &&
           target.versionSeq === seq &&
@@ -477,6 +483,7 @@ function PreviewSession(
       let documentOpened = false;
       let markdownRequested = false;
       const independentScroll = () =>
+        !current.current.independentReading &&
         context.presentation === "document" &&
         !(current.current.detail.kind === "files" && current.current.markdownPaths.includes(path));
       const scrollKey = (route: unknown) =>
@@ -623,6 +630,7 @@ function PreviewSession(
         } else if (message.type === "r3-preview-toggle-commenting") {
           if (
             context.presentation === "document" &&
+            current.current.active !== false &&
             document.activeElement === iframe.current &&
             !keysSuspended()
           )
@@ -630,6 +638,7 @@ function PreviewSession(
         } else if (message.type === "r3-preview-composer-key") {
           if (
             context.presentation === "document" &&
+            current.current.active !== false &&
             document.activeElement === iframe.current &&
             !keysSuspended() &&
             (message.action === "focus" || message.action === "escape")
@@ -638,6 +647,7 @@ function PreviewSession(
         } else if (message.type === "r3-preview-selection") {
           if (
             context.presentation !== "document" ||
+            current.current.active === false ||
             document.activeElement !== iframe.current ||
             keysSuspended() ||
             !iframe.current
@@ -665,6 +675,7 @@ function PreviewSession(
           }
         } else if (message.type === "r3-preview-target") {
           if (
+            current.current.active === false ||
             !current.current.commenting ||
             context.presentation !== "document" ||
             document.activeElement !== iframe.current ||
@@ -684,6 +695,7 @@ function PreviewSession(
           }
         } else if (message.type === "r3-preview-feedback") {
           if (
+            current.current.active !== false &&
             current.current.detail.feedback.some((feedback) => feedback.id === message.feedbackId)
           )
             current.current.onFeedback(message.feedbackId);
@@ -691,6 +703,8 @@ function PreviewSession(
           message.type === "r3-preview-located" &&
           message.nonce === current.current.jump?.nonce
         ) {
+          if (["anchored", "ambiguous", "unplaced"].includes(message.state))
+            current.current.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
               ? "This target matches more than one place in the document."
@@ -730,7 +744,7 @@ function PreviewSession(
             },
             props.detail,
             artifactApi,
-            navigator.userActivation?.isActive === true,
+            props.active !== false && navigator.userActivation?.isActive === true,
             previewThemePreference(() => localStorage, id),
           )
             .then((value) => {
@@ -802,7 +816,9 @@ function PreviewSession(
         documentHeight?.path === props.path
           ? props.navigation
           : null,
-      commenting: props.commenting && context.presentation === "document",
+      highlightLocated: props.highlightLocated,
+      replaceLocateRoute: props.independentReading,
+      commenting: props.active !== false && props.commenting && context.presentation === "document",
       targets: props.targets.flatMap(({ feedbackId, target }) =>
         target.kind === "rendered" && target.versionSeq === seq && target.path === props.path
           ? [{ feedbackId, locator: target.locator }]
@@ -821,6 +837,9 @@ function PreviewSession(
     context,
     ready,
     seq,
+    props.active,
+    props.highlightLocated,
+    props.independentReading,
     props.commenting,
     props.noteHasText,
     props.composerVisible,
@@ -884,7 +903,9 @@ function PreviewSession(
         visibleHeight === undefined &&
           (props.detail.kind === "files" && props.markdownPaths.includes(props.path)
             ? "min-h-dvh"
-            : "min-h-80"),
+            : props.independentReading
+              ? "min-h-0"
+              : "min-h-80"),
       )}
     >
       {ready &&
@@ -951,20 +972,24 @@ function PreviewSession(
           key={`${frameSrc}:${documentEpoch}`}
           ref={iframe}
           src={frameSrc}
-          title={`${props.detail.title || "Artifact"} preview`}
+          title={`${props.previewLabel ?? props.detail.title ?? "Artifact"} preview`}
           sandbox="allow-scripts"
           {...{ credentialless: "" }}
           allow="camera 'none'; microphone 'none'; display-capture 'none'"
           referrerPolicy="no-referrer"
-          aria-hidden={!ready}
-          inert={!ready}
+          aria-hidden={!ready || props.active === false}
+          inert={!ready || props.active === false}
           // Verify the current port after every load. A count of gate/document
           // loads is unreliable when a page redirects before finishing loading.
           onLoad={() => checkDocument.current()}
           style={{ height: visibleHeight }}
           className={cn(
             "w-full border-0 bg-white",
-            visibleHeight === undefined ? "min-h-80 flex-1" : "flex-none",
+            visibleHeight === undefined
+              ? props.independentReading
+                ? "min-h-0 flex-1"
+                : "min-h-80 flex-1"
+              : "flex-none",
             (!ready || reading) && "invisible",
             reading && "absolute inset-0",
           )}

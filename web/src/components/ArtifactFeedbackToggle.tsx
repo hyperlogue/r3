@@ -6,11 +6,13 @@ import { Button, StrokeIcon } from "../ui.tsx";
 
 // Only the draft count is subscribed; typing does not rerender the navbar.
 export function ArtifactFeedbackToggle({
+  disabled = false,
   artifactId,
   feedback,
   visible,
   onToggle,
 }: {
+  disabled?: boolean;
   artifactId: string;
   feedback: ArtifactFeedback[];
   visible: boolean;
@@ -23,6 +25,7 @@ export function ArtifactFeedbackToggle({
   const description = `${unhandled} unhandled ${unhandled === 1 ? "thread" : "threads"} · ${drafts} ${drafts === 1 ? "draft" : "drafts"} · ${unsent} not sent`;
   return (
     <Button
+      disabled={disabled}
       variant={visible ? "primary-outline" : "nav"}
       className="relative h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:hidden"
       aria-label={visible ? "Hide feedback" : "Show feedback"}

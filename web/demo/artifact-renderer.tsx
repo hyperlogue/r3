@@ -75,7 +75,9 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
       const value: PreviewDisplay = {
         theme: dark ? "dark" : "light",
         fitContent,
-        commenting: props.commenting,
+        commenting: props.active !== false && props.commenting,
+        highlightLocated: props.highlightLocated,
+        replaceLocateRoute: props.independentReading,
         noteHasText: props.noteHasText,
         composerVisible: props.composerVisible,
         targets: props.targets.flatMap(({ feedbackId, target }) =>
@@ -132,6 +134,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
           props.onDocument(message.nextPath);
         } else if (message.type === "r3-preview-target") {
           if (
+            props.active === false ||
             !props.commenting ||
             window.document.activeElement !== iframe.current ||
             keysSuspended()
@@ -149,6 +152,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
           }
         } else if (message.type === "r3-preview-selection") {
           if (
+            props.active === false ||
             window.document.activeElement !== iframe.current ||
             keysSuspended() ||
             !iframe.current
@@ -176,15 +180,21 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
           }
         } else if (message.type === "r3-preview-composer-key") {
           if (
+            props.active !== false &&
             window.document.activeElement === iframe.current &&
             !keysSuspended() &&
             (message.action === "focus" || message.action === "escape")
           )
             props.onComposerKey?.(message.action);
         } else if (message.type === "r3-preview-feedback") {
-          if (props.targets.some((target) => target.feedbackId === message.feedbackId))
+          if (
+            props.active !== false &&
+            props.targets.some((target) => target.feedbackId === message.feedbackId)
+          )
             props.onFeedback(message.feedbackId);
         } else if (message.type === "r3-preview-located" && message.nonce === props.jump?.nonce) {
+          if (["anchored", "ambiguous", "unplaced"].includes(message.state))
+            props.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
               ? "This target matches more than one place in the document."
@@ -261,12 +271,12 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
                 key={document.contextId}
                 ref={iframe}
                 srcDoc={document.html}
-                title={`${props.detail.title || "Artifact"} demo preview`}
+                title={`${props.previewLabel ?? props.detail.title ?? "Artifact"} demo preview`}
                 sandbox="allow-scripts"
                 allow="camera 'none'; microphone 'none'"
                 referrerPolicy="no-referrer"
-                aria-hidden={!ready}
-                inert={!ready}
+                aria-hidden={!ready || props.active === false}
+                inert={!ready || props.active === false}
                 style={{ height }}
                 className={cn(
                   "w-full border-0",

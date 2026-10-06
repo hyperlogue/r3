@@ -5,6 +5,7 @@ import type {
   ArtifactKind,
   ArtifactMessageContext,
 } from "../../../shared/artifacts.ts";
+import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { suspendKeys } from "../keys.ts";
 import { Button } from "../ui.tsx";
 import {
@@ -23,6 +24,8 @@ export function ArtifactThreadPopover({
   latestVersionSeq,
   onLocate,
   onJumpRef,
+  comparisons,
+  onCompare,
   onExpand,
   onClose,
 }: {
@@ -33,6 +36,8 @@ export function ArtifactThreadPopover({
   latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
+  comparisons?: ReadonlyMap<string, ArtifactComparison>;
+  onCompare?: (replyId: string) => void;
   onExpand: () => void;
   onClose: () => void;
 }) {
@@ -80,6 +85,8 @@ export function ArtifactThreadPopover({
           latestVersionSeq={latestVersionSeq}
           onLocate={onLocate}
           onJumpRef={onJumpRef}
+          comparisons={comparisons}
+          onCompare={onCompare}
         />
       </div>
     </div>

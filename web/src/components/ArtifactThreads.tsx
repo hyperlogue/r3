@@ -25,6 +25,7 @@ import {
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import { artifactApi } from "../artifact-api.ts";
+import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
 import { activeArtifactFeedback, artifactNeedsAttention } from "../artifact-feedback.ts";
 import { useFeedbackStatus, useOptimisticArtifact } from "../artifact-feedback-status.ts";
@@ -157,6 +158,9 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   activeReplyId,
   visible = true,
   onResolved,
+  comparisons,
+  onCompare,
+  hidden = false,
 }: {
   feedback: ArtifactFeedback;
   agentLabels?: ArtifactDetail["agentLabels"];
@@ -169,6 +173,9 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   activeReplyId?: string | null;
   visible?: boolean;
   onResolved?: (id: string) => void;
+  comparisons?: ReadonlyMap<string, ArtifactComparison>;
+  onCompare?: (replyId: string) => void;
+  hidden?: boolean;
 }) {
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
@@ -406,6 +413,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     <article
       ref={element}
       data-artifact-feedback={feedback.id}
+      hidden={hidden}
+      inert={hidden}
       className={cn(
         "relative border-b border-neutral-200 px-3 py-3 text-sm dark:border-neutral-800",
         feedback.status === "resolved"
@@ -545,6 +554,16 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               ↳ Fix: {fixTargetLabel(reply.target, latestVersionSeq, artifactKind)}
             </button>
           )}
+          {onCompare && comparisons?.has(reply.id) && (
+            <Button
+              className="ml-2 mt-2"
+              variant="primary-outline"
+              data-compare-reply={reply.id}
+              onClick={() => onCompare(reply.id)}
+            >
+              Compare
+            </Button>
+          )}
           {reply.legacy && (
             <details className="mt-1 text-xs text-neutral-500">
               <summary>Imported reference evidence</summary>
@@ -672,6 +691,9 @@ export function ArtifactThreads({
   panelControls,
   onFocusFeedback,
   onNewNote,
+  comparisons,
+  onCompare,
+  comparisonMode = false,
   keysActive = true,
   tab: controlledTab,
   onTabChange,
@@ -686,6 +708,9 @@ export function ArtifactThreads({
   panelControls?: ReactNode;
   onFocusFeedback?: (id: string) => void;
   onNewNote?: () => void;
+  comparisons?: ReadonlyMap<string, ArtifactComparison>;
+  onCompare?: (replyId: string) => void;
+  comparisonMode?: boolean;
   keysActive?: boolean;
   tab?: ArtifactFeedbackTab;
   onTabChange?: (tab: ArtifactFeedbackTab) => void;
@@ -736,13 +761,22 @@ export function ArtifactThreads({
     if (noteOpen && !wasNoteOpen.current) setTab("active");
     wasNoteOpen.current = noteOpen;
   }, [noteOpen, setTab]);
-  const { active, resolved } = useMemo(
+  const comparable = useMemo(
+    () => new Set([...(comparisons?.values() ?? [])].map((pair) => pair.feedbackId)),
+    [comparisons],
+  );
+  const included = (note: ArtifactFeedback) => !comparisonMode || comparable.has(note.id);
+  const queues = useMemo(
     () => ({
       active: activeArtifactFeedback(notes),
       resolved: notes.filter((note) => note.status === "resolved"),
     }),
     [notes],
   );
+  const { active, resolved } = useMemo(() => {
+    const included = (note: ArtifactFeedback) => !comparisonMode || comparable.has(note.id);
+    return { active: queues.active.filter(included), resolved: queues.resolved.filter(included) };
+  }, [queues, comparable, comparisonMode]);
   const ordered = tab === "active" ? active : resolved;
   const locate = useCallback<ArtifactTargetJump>(
     (target, feedbackId) => onLocate(target, feedbackId),
@@ -828,6 +862,11 @@ export function ArtifactThreads({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="shrink-0 text-base font-semibold">Feedback</span>
+            {comparisonMode && (
+              <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[0.625rem] font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-300">
+                Comparison
+              </span>
+            )}
             {panelControls}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -947,7 +986,7 @@ export function ArtifactThreads({
                     {composer ?? <ArtifactComposer artifactId={detail.id} />}
                   </div>
                 )}
-                {(queue === "active" ? active : resolved).map((feedback) => (
+                {(queue === "active" ? queues.active : queues.resolved).map((feedback) => (
                   <ArtifactThreadCard
                     key={feedback.id}
                     feedback={feedback}
@@ -957,7 +996,10 @@ export function ArtifactThreads({
                     latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
                     onLocate={locate}
                     onJumpRef={onJumpRef}
-                    visible={tab === queue}
+                    visible={tab === queue && included(feedback)}
+                    hidden={!included(feedback)}
+                    comparisons={comparisons}
+                    onCompare={onCompare}
                     active={tab === queue && activeFeedback === feedback.id}
                     activeReplyId={activeFeedback === feedback.id ? activeReplyId : null}
                     onResolved={afterResolve}

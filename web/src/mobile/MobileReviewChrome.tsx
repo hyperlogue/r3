@@ -16,11 +16,13 @@ import { cn, StrokeIcon } from "../ui.tsx";
 export type MobileSheetState = "closed" | "peek" | "full";
 
 export function MobileReviewChrome({
+  docked = false,
   openCount,
   sheet,
   onSetSheet,
   children,
 }: {
+  docked?: boolean;
   openCount: number;
   sheet: MobileSheetState;
   onSetSheet: (s: MobileSheetState) => void;
@@ -35,9 +37,13 @@ export function MobileReviewChrome({
           the feedback panel's edge, not another file-header strip. The whole bar
           is one expand/collapse button — no other controls live here (watcher
           presence shows inside the panel, where Submit is). */}
-      <div className="shrink-0 border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950">
+      <div
+        hidden={docked}
+        className="shrink-0 border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950"
+      >
         <button
           type="button"
+          data-mobile-feedback-toggle
           onClick={() => onSetSheet(sheet === "closed" ? "full" : "closed")}
           className="flex min-h-11 w-full items-center gap-2 px-3 text-sm font-semibold"
         >
@@ -57,7 +63,7 @@ export function MobileReviewChrome({
 
       {/* Full-height sheet gets a dimmed click-away backdrop; the peek doesn't —
           the code above it must stay readable and selectable while composing. */}
-      {sheet === "full" && (
+      {!docked && sheet === "full" && (
         <button
           type="button"
           aria-label="Close feedback"
@@ -66,11 +72,14 @@ export function MobileReviewChrome({
         />
       )}
       <div
-        inert={sheet === "closed"}
+        data-mobile-feedback={docked ? "docked" : "sheet"}
+        inert={!docked && sheet === "closed"}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-xl border-t border-neutral-300 bg-neutral-50 pb-[env(safe-area-inset-bottom)] r3-sheet transition-[transform,height] duration-200 dark:border-neutral-700 dark:bg-neutral-900",
-          sheet === "full" ? "h-[92dvh]" : "h-[45dvh]",
-          sheet === "closed" && "translate-y-full",
+          docked
+            ? "relative h-[42%] min-h-56 shrink-0 overflow-hidden border-t border-neutral-300 pb-[env(safe-area-inset-bottom)] dark:border-neutral-700"
+            : "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-xl border-t border-neutral-300 bg-neutral-50 pb-[env(safe-area-inset-bottom)] r3-sheet transition-[transform,height] duration-200 dark:border-neutral-700 dark:bg-neutral-900",
+          !docked && (sheet === "full" ? "h-[92dvh]" : "h-[45dvh]"),
+          !docked && sheet === "closed" && "translate-y-full",
         )}
       >
         {/* Header strip: borderless, on the panel-header surface so it and the
@@ -79,7 +88,10 @@ export function MobileReviewChrome({
             spans the whole strip with the grab-handle glyph truly screen-centered
             (absolute — not flexed against the ✕'s leftover space); the ✕ overlays
             the right edge (w-11, so it's a 44px square). */}
-        <div className="relative h-11 shrink-0 rounded-t-xl bg-white dark:bg-neutral-950">
+        <div
+          hidden={docked}
+          className="relative h-11 shrink-0 rounded-t-xl bg-white dark:bg-neutral-950"
+        >
           <button
             type="button"
             onClick={() => onSetSheet(sheet === "full" ? "peek" : "full")}

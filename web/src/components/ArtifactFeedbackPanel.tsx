@@ -18,10 +18,12 @@ const edges: [PanelEdge, string][] = [
 
 // Desktop container only. The mobile sheet owns its geometry and gestures.
 export function ArtifactFeedbackPanel({
+  locked = false,
   mode,
   onModeChange,
   children,
 }: {
+  locked?: boolean;
   mode: FeedbackPanelMode;
   onModeChange: (mode: FeedbackPanelMode) => void;
   children: (controls: ReactNode) => ReactNode;
@@ -77,7 +79,7 @@ export function ArtifactFeedbackPanel({
           </StrokeIcon>
         </button>
       )}
-      <FeedbackPanelControls mode={presentation} onChange={changeMode} />
+      <FeedbackPanelControls disabled={locked} mode={presentation} onChange={changeMode} />
     </>
   );
   return (
@@ -147,7 +149,7 @@ export function ArtifactFeedbackPanel({
       <div
         className={cn("h-full overflow-hidden", floating && "rounded-[inherit]")}
         style={{
-          width: floating ? undefined : dock.width,
+          width: floating || !hidden ? undefined : dock.width,
           visibility: hidden && !floating ? "hidden" : undefined,
         }}
       >

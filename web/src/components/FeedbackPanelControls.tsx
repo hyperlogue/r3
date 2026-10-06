@@ -5,9 +5,11 @@ const control =
   "flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100";
 
 export function FeedbackPanelControls({
+  disabled = false,
   mode,
   onChange,
 }: {
+  disabled?: boolean;
   mode: Exclude<FeedbackPanelMode, "hidden">;
   onChange: (mode: FeedbackPanelMode) => void;
 }) {
@@ -17,10 +19,11 @@ export function FeedbackPanelControls({
     <div className="flex shrink-0 items-center gap-0.5">
       <button
         type="button"
+        disabled={disabled}
         aria-label={label}
         title={label}
         onClick={() => onChange(next)}
-        className={control}
+        className={`${control} disabled:opacity-40 disabled:pointer-events-none`}
       >
         <StrokeIcon className="size-4">
           <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -33,10 +36,11 @@ export function FeedbackPanelControls({
       </button>
       <button
         type="button"
+        disabled={disabled}
         aria-label="Hide feedback"
         title="Hide feedback (Esc / p)"
         onClick={() => onChange("hidden")}
-        className={control}
+        className={`${control} disabled:opacity-40 disabled:pointer-events-none`}
       >
         <StrokeIcon className="size-4">
           <path d={mode === "expanded" ? "m9 6 6 6-6 6" : "m6 6 12 12M6 18 18 6"} />

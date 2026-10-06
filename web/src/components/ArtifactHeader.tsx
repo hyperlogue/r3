@@ -157,9 +157,11 @@ export function ArtifactHeader({
   detailsRequest,
   onJumpRef,
   commenting,
+  commentingLocked,
   onToggleCommenting,
   captureRef,
   feedbackVisible,
+  feedbackLocked,
   onToggleFeedback,
 }: {
   detail: ArtifactDetail;
@@ -169,9 +171,11 @@ export function ArtifactHeader({
   detailsRequest?: number;
   onJumpRef?: (reference: MessageRef) => void;
   commenting?: boolean;
+  commentingLocked?: boolean;
   onToggleCommenting?: () => void;
   captureRef?: Ref<HTMLDivElement>;
   feedbackVisible?: boolean;
+  feedbackLocked?: boolean;
   onToggleFeedback?: () => void;
 }) {
   detail = useOptimisticArtifact(detail);
@@ -259,6 +263,7 @@ export function ArtifactHeader({
         <div className="flex shrink-0 items-center max-md:hidden">
           <ArtifactSendFeedback detail={detail} visible={!feedbackVisible} />
           <ArtifactFeedbackToggle
+            disabled={feedbackLocked}
             artifactId={detail.id}
             feedback={detail.feedback}
             visible={!!feedbackVisible}
@@ -268,6 +273,7 @@ export function ArtifactHeader({
       )}
       {onToggleCommenting && (
         <Button
+          disabled={commentingLocked}
           variant={commenting ? "primary-outline" : "nav"}
           className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
           aria-label={commenting ? "Exit comment mode" : "Comment mode"}

@@ -57,6 +57,7 @@ export function artifactLocationSearch(
 export function artifactWorkspaceSearch(view: ArtifactLocation, previousSearch: string): string {
   const params = new URLSearchParams(artifactLocationSearch(view, view.feedbackId));
   const previous = new URLSearchParams(previousSearch);
+  if (previous.has("compare")) params.set("compare", previous.get("compare")!);
   if (previous.has("library")) params.set("library", previous.get("library")!);
   if (
     ["version", "file", "feedback"].every((key) => params.get(key) === previous.get(key)) &&

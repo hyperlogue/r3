@@ -558,6 +558,40 @@ pointing to a source fix in version 2. References needing different message cont
 belong in separate replies. Publishing and replying leave feedback status under
 human control.
 
+### Comparing proposed fixes
+
+An agent reply offers **Compare** when both the feedback's immutable original
+target and that reply's explicit fix target are rendered element locators in
+retained publications. General, whole-document, source/diff, and unavailable
+publication targets do not qualify. Reply context and placements never substitute
+for either target. Each eligible reply identifies its own comparison, including
+multiple fixes on one thread or two targets in the same version.
+
+Compare slides the artifact off to the left and brings in independently scoped
+Original and Proposed fix previews from the right. Both use the existing preview
+gate, opaque sandbox, native document path, and recorded route. Runtime matching
+reports located, ambiguous, or unavailable elements; stored selectors cannot prove
+that dynamic application state still contains the element. Such a failure keeps
+the conversation and its evidence readable. Targets toggles highlighting; Focus
+retries locating after interaction. Desktop supports side-by-side, stacked, and
+narrow previews. Phones select one of the two mounted previews.
+
+The navbar and feedback panel remain shared with the artifact workspace. Comparison
+adds a badge by Feedback and filters its Active/Resolved queues to eligible
+conversations. The panel is temporarily docked and cannot float or hide; phone
+feedback is in flow beneath the previews. Replies, resolution, undo, handoff, and
+draft storage use their ordinary behavior. New comparison replies default to the
+explicit fix version; existing draft context remains pinned.
+
+Returning reverses the slide and restores the previous panel mode, floating
+geometry, feedback tab, scroll, and focus. The main document stays mounted and
+inert during comparison, preserving its page state and selected publication.
+Comparison scroll does not replace its saved reading position. Offscreen previews
+cannot invoke workspace actions or use human activation to mutate conversations.
+The `compare` workspace query parameter names a reply, supporting Back/Forward and
+reloads. New publications do not retarget an existing comparison. Reduced motion
+removes the slide; comparison previews are released after the return transition.
+
 ## Agent collaboration and lifecycle
 
 One human owner collaborates with multiple logical agent sessions. Distinct agents,

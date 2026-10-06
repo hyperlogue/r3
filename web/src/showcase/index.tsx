@@ -27,11 +27,13 @@ import { NotificationProvider } from "../components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
+import { ArtifactWorkspace } from "../pages/ArtifactView.tsx";
 import type { FeedbackPanelMode } from "../settings.ts";
 import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } from "../settings.ts";
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
+import { ComparisonSampleDocument } from "./ComparisonSampleDocument.tsx";
 import { FeedbackCardGallery, seedFeedbackCardGallery } from "./FeedbackCardGallery.tsx";
 import { OverlayContrastPreview } from "./OverlayContrastPreview.tsx";
 import "./forms.ts";
@@ -56,6 +58,25 @@ function resetSamples() {
       demo.changed(detail.id);
     }
   }
+  const comparisonArtifact = demo.get("artifact_weekend");
+  const note = comparisonArtifact.feedback[0];
+  note.replies.push({
+    id: "reply_showcase_comparison",
+    feedbackId: note.id,
+    artifactId: comparisonArtifact.id,
+    author: { role: "agent", sessionId: "demo-agent" },
+    body: "Adjusted the starting fit. Compare the original and proposed model notes.",
+    context: { versionSeq: 2, representation: "rendered" },
+    target: {
+      kind: "rendered",
+      versionSeq: 2,
+      path: "index.html",
+      locator: { selector: "#model-note", label: "Model note", route: "#" },
+    },
+    createdAt: comparisonArtifact.updatedAt,
+    sentAt: comparisonArtifact.updatedAt,
+    legacy: null,
+  });
 }
 resetSamples();
 seedFeedbackCardGallery();
@@ -63,10 +84,29 @@ const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }
 const sections = [
   ["feedback", "Feedback & artifact header"],
   ["feedback-cards", "Feedback card gallery"],
+  ["comparison", "Compare proposed fixes"],
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
   ["controls", "Controls & typography"],
 ] as const;
+
+function ComparisonShowcase() {
+  const { data } = useQuery({
+    queryKey: ["artifact", "artifact_weekend"],
+    queryFn: () => artifactApi.detail("artifact_weekend"),
+  });
+  return (
+    <div className="flex h-[800px] min-h-0 flex-col overflow-hidden border border-neutral-300 dark:border-neutral-700">
+      {data && (
+        <ArtifactWorkspace
+          detail={data}
+          renderPreview={(props) => <ComparisonSampleDocument {...props} />}
+          initialSearch="?version=1"
+        />
+      )}
+    </div>
+  );
+}
 
 function Section({ id, children }: { id: (typeof sections)[number][0]; children: ReactNode }) {
   return (
@@ -476,6 +516,13 @@ function Showcase() {
             on reload. Use r3’s outer comment mode to leave your design feedback.
           </p>
           <FeedbackCardGallery announce={setNotice} />
+        </Section>
+        <Section id="comparison">
+          <p className="text-sm text-neutral-500">
+            Open Compare on the model-note reply. Try the sliding transition, docked panel, target
+            controls, and returning to the original version with a draft intact.
+          </p>
+          <ComparisonShowcase />
         </Section>
         <Section id="content">
           <p className="text-sm text-neutral-500">

@@ -42,6 +42,8 @@ export interface PreviewDisplay {
   filePaths?: string[];
   navigation?: { route: string; nonce: number } | null;
   commenting: boolean;
+  highlightLocated?: boolean;
+  replaceLocateRoute?: boolean;
   noteHasText?: boolean;
   composerVisible?: boolean;
   targets: { feedbackId: string; locator: RenderedLocator | null }[];

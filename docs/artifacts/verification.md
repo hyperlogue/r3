@@ -194,6 +194,21 @@ demo backend; display settings use memory in the opaque preview. The real
 artifact's outer comment mode records UI review feedback. Rebuild and publish a
 new version after component changes; existing publications remain immutable.
 
+The showcase also includes the comparison workspace with an inline sample document
+(nested preview frames are forbidden inside a publication). Production comparison
+is verified separately with real sandboxed publications:
+
+```sh
+bun test web/src/artifact-comparison.test.ts
+R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-comparison.ts
+```
+
+The browser check covers explicit original/fix pairs, filtered shared queues,
+retained page state and drafts, floating geometry, browser history, pinned versions
+after publication, reply context, human resolution, missing runtime targets, dark
+and mobile layouts, and reduced motion. Set `R3_TEST_SCREENSHOTS` to a temporary
+directory to capture the visual states.
+
 Build the interactive tutorial with `bun scripts/build-ui-tutorial.ts` and publish
 `dist/ui-tutorial` as an HTML artifact. It imports the actual `ArtifactWorkspace`,
 artifact list, file/diff viewers, feedback cards, and composer, using the scripted
