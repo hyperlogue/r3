@@ -1,9 +1,7 @@
 /* `source(none)` disables Tailwind v4's automatic source detection, which
    otherwise crawls the repo root and reads build artifacts as text to harvest
    class names — including the ~100MB compiled `r3` binary, which exhausts the
-   Node heap (OOM). Scan only the app source here (relative to this file).
-   Storybook needs its decorators scanned too, but adds that in its own entry
-   (.storybook/preview.css) so those classes stay out of the app bundle. */
+   Node heap (OOM). Scan only the app source here (relative to this file). */
 @import "tailwindcss" source(none);
 @source "./";
 
@@ -229,7 +227,7 @@ html.dark .sx {
    from /api/theme-style; these paint the code area like the theme does in an
    editor, so e.g. Nord isn't pale token colours on r3's near-black card. The
    background falls back to the neutral card colour when no theme style is loaded
-   (Storybook, in-flight); the foreground var, when unset, simply inherits the
+   (isolated previews, in-flight); the foreground var, when unset, inherits the
    app's text colour. Setting the default fg matters when the theme's mode differs
    from the app's (a dark theme in light mode) — un-tokenised text stays legible. */
 .shiki-surface {

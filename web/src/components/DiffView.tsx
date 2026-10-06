@@ -779,8 +779,8 @@ const FileBlock = memo(function FileBlock({
   regions: Region[];
   locate?: DiffLocate;
   // A big round leaves every cheap block shell mounted but renders the rows only
-  // near the viewport (ProgressiveFile). Defaulted, so a caller with no provider
-  // — Storybook, the demo — renders exactly as it always did.
+  // near the viewport (ProgressiveFile). Defaults to eager rendering when a
+  // caller, such as the demo, has no provider.
   active?: boolean;
   onHydrated?: (ready: boolean) => void;
   onOpenChange?: (open: boolean) => void;
@@ -858,11 +858,10 @@ export function DiffView({
   rounds: PatchDiff[];
   // How to render each file: one interleaved column, or two parallel old/new
   // columns. A pure display choice — the payload, the anchors, and every
-  // callback shape are identical either way. Defaults to unified so stories and
-  // the demo need no wiring.
+  // callback shape are identical either way. Defaults to unified.
   layout?: DiffLayout;
   // Fetch a gap's unchanged rows. Omitted ⇒ no expanders anywhere in this view —
-  // which is what a caller with no route to ask (the demo, stories) wants.
+  // which is what a caller with no route to ask (the demo) wants.
   fetchContext?: FetchContext;
   // Which round to show. Defaults to the latest round when unset/unmatched.
   activeSeq?: number | null;
@@ -937,9 +936,8 @@ export function DiffView({
       {/* Every block is wrapped, as ArtifactView wraps a files artifact's
           cards: the wrapper is what owns the stable [data-file] box and the
           measured height, and whether it actually defers anything is the
-          provider's call. With no provider — Storybook, a caller that mounts
-          none — `active` is true from the first frame and this is the eager
-          render it always was. Paths are unique within the one round on screen,
+          provider's call. With no provider, `active` is true from the first frame
+          and rendering is eager. Paths are unique within the one round on screen,
           so they key the activation registry a jump reaches for. */}
       {round.files.map((f) => (
         <ProgressiveFile

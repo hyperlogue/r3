@@ -245,22 +245,20 @@ bun install
 process-compose up           # isolated workspace data, application 8891
 bun run dev                 # source daemon, server watch; restart for frontend edits
 bun cli/index.ts <command>
-bun run storybook            # component workshop on 6007
 bun run build               # self-contained ./r3
 bun run gen:demo
 bun run build:demo
 ```
 
 Nix/direnv provides Bun and Biome. Do not read `.env`, `.envrc`, or `.env.*` files.
-The source daemon bundles its guarded SPA assets once at startup. Vite is used
-only by Storybook. The compiled binary embeds all application assets and works
-without a source checkout.
+The source daemon bundles its guarded SPA assets once at startup. The compiled
+binary embeds all application assets and works without a source checkout.
 
 Before committing, run `bun run typecheck`, `bun test`, and `biome check .`.
 Use `biome check --write <paths>` for formatting. Tests should prove important
 state, timing, byte, migration, or security rules; no coverage target or tests that
-merely mirror implementation. Components have Storybook stories as their visual
-surface. Update a story when changing a component.
+merely mirror implementation. Use the component showcases and isolated
+browser acceptance scripts to review UI changes.
 
 Tests inject temporary storage or use isolated XDG directories for subprocesses.
 Never open, migrate, restart, or modify the normal user daemon/database just to

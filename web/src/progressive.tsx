@@ -32,8 +32,8 @@ export const PROGRESSIVE_FILES_MIN = 24;
 // machinery costs more than it saves.
 export const PROGRESSIVE_ROWS_MIN = 2000;
 
-// The fallback for a shell whose caller computed no ReserveSpec (Storybook, the
-// demo, any caller with no line counts): enough provisional height that the
+// The fallback for a shell whose caller computed no ReserveSpec (the demo or
+// any caller with no line counts): enough provisional height that the
 // initially compact set of shells does not all enter the preload band before the
 // first blobs land. A caller that CAN say how tall its file is should — see
 // ReserveSpec.

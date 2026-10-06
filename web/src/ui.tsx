@@ -23,7 +23,7 @@ export function cn(...parts: (string | false | null | undefined)[]): string {
 
 // The nearest scrollable ancestor of `el` — the pane it scrolls within. Walks the
 // DOM (rather than threading a ref down) so a shared leaf component can find its
-// own scroll container. Returns null if there is none (e.g. in Storybook).
+// own scroll container. Returns null if there is none.
 export function scrollParent(el: HTMLElement | null): HTMLElement | null {
   for (let n = el?.parentElement ?? null; n; n = n.parentElement) {
     const oy = getComputedStyle(n).overflowY;

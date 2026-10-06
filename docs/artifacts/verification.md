@@ -34,7 +34,7 @@ implementation checklists and historical test counts are kept in Git history.
 | Authenticated API/SSE, full-origin checks, resource bytes/ranges, scoped preview access | `server/artifact-api.test.ts`, `server/artifact-auth.test.ts`, `server/artifact-resources.test.ts`, `server/preview-*.test.ts` |
 | Authenticated HTML bootstrap/detail, scoped mutable agent labels, selected-version manifest, prepared restrictive contexts, authenticated scoped resume hints, stable URLs and bounded fallback, escaped metadata, no-store/validator behavior, session revocation and origin guards | `server/application-bootstrap.test.ts`, `server/artifact-server.test.ts` |
 | Login-token deferred last use, calculated inactivity, revocation, restart cleanup, configuration | `server/auth.test.ts`, `server/artifact-auth.test.ts`, `server/artifact-storage.test.ts`, `server/artifact-config.test.ts`, `cli/artifact-settings.test.ts` |
-| Draft retention, version selection, source/diff Locate, folded composer, phone layout | `web/src/artifact-*.test.ts`, `web/src/pages/ArtifactView.stories.tsx`, `ArtifactHome.stories.tsx`, component stories |
+| Draft retention, version selection, source/diff Locate, folded composer, phone layout | `web/src/artifact-*.test.ts`, `scripts/test-artifact-app.ts`, `scripts/test-artifact-library.ts` |
 | Device constraints, stale/pending permission results, capture shutdown, bounded RTC answers | `web/src/preview-capture.test.ts` |
 | Demo owner edits, delivery, claims, publication and archive behavior | `web/demo/artifact-api.test.ts`, `web/demo/artifact-backend.test.ts` |
 
@@ -150,20 +150,19 @@ isolation checks also passed. These checks used fresh profiles and temporary sto
 The managed Markdown cache and passive reading suites passed in Chromium and
 Firefox, including delayed authentication/verification, zero document-byte fetches
 on warm hits across context replacement, native fragments, scroll preservation,
-deletion cleanup, hostile passive markup, and cross-tab invalidation. Light/dark
-cached-reading Storybook examples also rendered in Chromium. Safari remains untested.
+deletion cleanup, hostile passive markup, and cross-tab invalidation. Safari
+remains untested.
 Reproduce new failures with isolated fixtures and extend the relevant check.
 Native iOS touch ergonomics remain the separate device-validation item tracked in
 [the mobile reference](../../.claude/skills/mobile-tier/SKILL.md#owed).
 
-## Demo, Storybook, and distribution
+## Demo and distribution
 
 ```sh
 R3_DEMO_BASE=/r3/demo bun run build:demo
 bun run stage:pages
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-demo.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-demo-preview.ts
-bun run build-storybook
 ```
 
 The demo acceptance script serves the staged Pages output at `/r3/demo/`. It checks
@@ -177,7 +176,7 @@ request to a controlled endpoint, internal document navigation, native text and
 element feedback, Locate across documents, human resolution, scripted publication
 with version pinning, rejection of executable bytes restored from localStorage,
 full-height Markdown, retained frames after folding, theme changes, narrow layout,
-and deep-link reloads. Demo preview stories are under `Demo/Previews`.
+and deep-link reloads.
 
 Chromium and Firefox were also exercised with fresh Playwright contexts for HTML
 interaction/navigation, native text selection, feedback/publication/version
@@ -204,21 +203,17 @@ The sample document renders inline because an opaque publication cannot create a
 nested preview iframe. Rendered exercise targets stay native to that sample, while
 source and diff gestures use the production components. Practice navigation and
 storage stay inside the tutorial; the outer artifact's comment mode reviews the
-tutorial itself. Guide stories are under `Tutorial/Guide`.
+tutorial itself.
 
 The tutorial's opaque-sandbox browser check covers all six lessons, draft retention
 through float/dock/hide, explicit agent handoff, pinned versions, manual resolution,
 file folding and source display, both themes, narrow layout, and reset.
 
-Storybook is the component and responsive-layout surface. For targeted interactive
-runs, use the relevant workspace or component story; the compiled app and preview
-scripts cover integration with the real server. The
+Use the component showcases and tutorial for interactive UI review. The compiled
+app and preview acceptance scripts cover integration with the real server, including
+desktop and phone layouts. The
 [distribution reference](../../.claude/skills/build-and-distribution/SKILL.md) owns
 binary embedding, CSS compilation, demo aliases, and Pages layout.
-
-Workspace and component stories expose desktop and mobile states for visual review.
-`ReopenDuringExit` exercises focus while an earlier composer is still leaving;
-`SettingsFromMenu` and `KeyboardDismiss` cover menu placement and focus restoration.
 
 
 ## Feedback images
@@ -267,9 +262,6 @@ tests reject saving an optimization after its storage generation is revoked.
 - `server/migration.test.ts`: version 7 upgrades with a private backup and unchanged
   publications/conversations. `web/src/artifact-library.test.ts`: return state,
   attention ordering, and independent reply context.
-- Storybook `Pages/ArtifactHome`: compact rows, project navigation, historical
-  search, empty results, dark theme, and phone layouts. `EarlierReplySearchResult`
-  in `Components/ArtifactThreads` exposes a match among collapsed older replies.
 - `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-library.ts`: full
   application against temporary storage with a fresh browser. Exercises desktop,
   dark, and phone layouts, source locations, version pinning, earlier replies,

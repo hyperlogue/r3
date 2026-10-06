@@ -3,7 +3,7 @@ is_strict: true
 
 processes:
   # The daemon bundles its guarded SPA at startup. Server edits restart it;
-  # restart after frontend edits or use Storybook for component development.
+  # restart after frontend edits.
   # Application 8891 and preview 8892 use a non-default port pair
   # and an isolated, gitignored data dir so this compose instance never collides
   # with — or writes into — an r3 daemon you run normally (default port 8791,
@@ -21,11 +21,3 @@ processes:
       - "XDG_STATE_HOME=${PWD}/workspace"
       - "XDG_RUNTIME_DIR=${PWD}/workspace"
       - "XDG_CONFIG_HOME=${PWD}/workspace"
-  # Component workshop on http://127.0.0.1:6007 (off the default 6006 so it
-  # doesn't clash with another project's Storybook). Off by default; enable
-  # with `process-compose up storybook` or flip disabled to false.
-  storybook:
-    command: bun run storybook --no-open
-    disabled: true
-    environment:
-      - "FORCE_COLOR=1"

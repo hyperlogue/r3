@@ -244,7 +244,7 @@ export function fileScrollKey(patchSeq: number | null | undefined, file: string)
 // sliding window reconciles cleanly. `resolveIndex(line, side)` maps a source
 // line to this list's row index for scroll-to-line (default: index === line-1,
 // the files-view case). Renders every row (no windowing) when there's no pane
-// (Storybook), the pane hasn't mounted, or the file is short.
+// (an isolated preview), the pane hasn't mounted, or the file is short.
 export function VirtualLines({
   count,
   itemKey,

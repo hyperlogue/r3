@@ -1,5 +1,5 @@
 # Dev shell entered by `nix develop` / direnv `use flake` (see .envrc).
-# Bun runs everything (server, CLI, vite, tsc via node_modules), so the shell
+# Bun runs everything (server, CLI, tsc via node_modules), so the shell
 # adds the locked toolchain from toolchain/package-lock.json,
 # and the beads task tracker (`br`) + its helper wrappers.
 {...}: {
