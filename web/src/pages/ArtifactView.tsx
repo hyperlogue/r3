@@ -1036,7 +1036,7 @@ function Workspace({
                             initialHeight={file.renderedHash ? "100dvh" : undefined}
                             retain={
                               (!!file.renderedHash && fileMode(file.path) === "rendered") ||
-                              ["audio", "video"].includes(artifactMediaKind(file.mediaType) ?? "")
+                              !!artifactMediaKind(file.mediaType)
                             }
                           >
                             {({ active, onHydrated, onOpenChange }) => (

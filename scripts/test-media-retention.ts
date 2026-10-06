@@ -13,7 +13,7 @@ import { browserLoweredCssPlugin } from "./spa-css.ts";
 // Real media, scrolling, and sandboxed previews in a disposable workspace.
 // Supply installed Playwright, Chromium, and ffmpeg; no downloads or user daemon.
 const playwright = await import(process.env.R3_TEST_PLAYWRIGHT!);
-const root = await mkdtemp(join(tmpdir(), "r3-media-playback-"));
+const root = await mkdtemp(join(tmpdir(), "r3-media-retention-"));
 const build = await Bun.build({
   entrypoints: [join(import.meta.dir, "preview-workspace-fixture.tsx")],
   target: "browser",
@@ -28,26 +28,37 @@ const css = [...assets.keys()].find((path) => path.endsWith(".css"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
 const fixtures = [];
-for (const kind of ["video", "audio"] as const) {
-  const path = kind === "video" ? "clip.webm" : "clip.wav";
-  const generate = Bun.spawn(
-    [
-      process.env.R3_TEST_FFMPEG ?? "ffmpeg",
-      "-v",
-      "error",
-      "-f",
-      "lavfi",
-      "-i",
-      kind === "video" ? "color=c=blue:s=160x90:r=10" : "anullsrc=r=8000:cl=mono",
-      "-t",
-      "40",
-      ...(kind === "video" ? ["-c:v", "libvpx", "-b:v", "20k"] : []),
+for (const { kind, path, mediaType } of [
+  { kind: "image", path: "clip.svg", mediaType: "image/svg+xml" },
+  { kind: "video", path: "clip.webm", mediaType: "video/webm" },
+  { kind: "audio", path: "clip.wav", mediaType: "audio/wav" },
+] as const) {
+  if (kind === "image") {
+    await Bun.write(
       join(root, path),
-    ],
-    { stdout: "ignore", stderr: "ignore" },
-  );
-  assert.equal(await generate.exited, 0, "ffmpeg must generate the synthetic media fixture");
-  const artifact = storage.artifacts.create({ kind: "files", actor, title: `${kind} playback` });
+      '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="blue"/></svg>',
+    );
+  } else {
+    const generate = Bun.spawn(
+      [
+        process.env.R3_TEST_FFMPEG ?? "ffmpeg",
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        kind === "video" ? "color=c=blue:s=160x90:r=10" : "anullsrc=r=8000:cl=mono",
+        "-t",
+        "40",
+        ...(kind === "video" ? ["-c:v", "libvpx", "-b:v", "20k"] : []),
+        join(root, path),
+      ],
+      { stdout: "ignore", stderr: "ignore" },
+    );
+    assert.equal(await generate.exited, 0, "ffmpeg must generate the synthetic media fixture");
+  }
+  const base64 = Buffer.from(await Bun.file(join(root, path)).arrayBuffer()).toString("base64");
+  const artifact = storage.artifacts.create({ kind: "files", actor, title: `${kind} retention` });
   for (const seq of [1, 2]) {
     await storage.artifacts.publish(artifact.id, {
       actor,
@@ -56,11 +67,7 @@ for (const kind of ["video", "audio"] as const) {
       content: {
         kind: "files",
         files: [
-          {
-            path,
-            mediaType: kind === "video" ? "video/webm" : "audio/wav",
-            base64: Buffer.from(await Bun.file(join(root, path)).arrayBuffer()).toString("base64"),
-          },
+          { path, mediaType, base64 },
           {
             path: "transcript.md",
             mediaType: "text/markdown",
@@ -68,11 +75,7 @@ for (const kind of ["video", "audio"] as const) {
               `# Transcript\n\n${"Published paragraph.\n\n".repeat(100)}`,
             ).toString("base64"),
           },
-          {
-            path: `unopened-${path}`,
-            mediaType: kind === "video" ? "video/webm" : "audio/wav",
-            base64: Buffer.from(await Bun.file(join(root, path)).arrayBuffer()).toString("base64"),
-          },
+          { path: `unopened-${path}`, mediaType, base64 },
         ],
       },
     });
@@ -80,6 +83,7 @@ for (const kind of ["video", "audio"] as const) {
   fixtures.push({ id: artifact.id, path, kind });
 }
 const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const resourceRequests = new Map<string, number>();
 const api = createArtifactApi(
   storage,
   {
@@ -96,7 +100,11 @@ const app = Bun.serve({
   idleTimeout: 0,
   fetch(request) {
     const path = new URL(request.url).pathname;
-    if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
+    if (path.startsWith(PREVIEW_PREFIX)) {
+      const file = path.split("/files/")[1];
+      if (file) resourceRequests.set(file, (resourceRequests.get(file) ?? 0) + 1);
+      return preview.fetch(request);
+    }
     if (path.startsWith("/api/")) return api.app.fetch(request);
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
@@ -121,83 +129,108 @@ try {
     if (process.env.R3_TEST_UNSUPPORTED === "1")
       await page.getByRole("button", { name: "Accept risk and continue" }).click();
     const card = page.locator(`[data-file="${fixture.path}"]`);
-    const player = () => card.frameLocator('iframe[aria-hidden="false"]').locator(fixture.kind);
-    await player().waitFor();
+    const mediaElement = () =>
+      card
+        .frameLocator('iframe[aria-hidden="false"]')
+        .locator(fixture.kind === "image" ? "img" : fixture.kind);
+    await mediaElement().waitFor();
     assert.equal(
       await page.locator(`[data-file="unopened-${fixture.path}"] iframe`).count(),
       0,
       "offscreen media must remain unloaded until first opened",
     );
     const originalFrame = await card.locator('iframe[aria-hidden="false"]').elementHandle();
-    await player().evaluate(async (media: HTMLMediaElement) => {
-      media.muted = true;
-      await media.play();
-      media.currentTime = 5;
-    });
+    if (fixture.kind === "image") {
+      await mediaElement().evaluate((image: HTMLImageElement) => image.decode());
+    } else {
+      await mediaElement().evaluate(async (media: HTMLMediaElement) => {
+        media.muted = true;
+        await media.play();
+        media.currentTime = 5;
+      });
+    }
     await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'));
-    const before = await player().evaluate((media: HTMLMediaElement) => media.currentTime);
+    const before =
+      fixture.kind === "image"
+        ? 0
+        : await mediaElement().evaluate((media: HTMLMediaElement) => media.currentTime);
+    const requestsBefore = resourceRequests.get(fixture.path);
     const pane = page.locator("[data-artifact-content]");
     await pane.evaluate((el: HTMLElement) => {
       el.scrollTop = el.scrollHeight;
     });
     await page.waitForTimeout(400);
     const mountedOffscreen = await card.locator('iframe[aria-hidden="false"]').count();
-    const offscreenTime = mountedOffscreen
-      ? await player().evaluate((media: HTMLMediaElement) => media.currentTime)
-      : 0;
+    const offscreenTime =
+      mountedOffscreen && fixture.kind !== "image"
+        ? await mediaElement().evaluate((media: HTMLMediaElement) => media.currentTime)
+        : 0;
     await pane.evaluate((el: HTMLElement) => {
       el.scrollTop = 0;
     });
-    await player().waitFor();
-    const after = await player().evaluate((media: HTMLMediaElement) => ({
-      time: media.currentTime,
-      paused: media.paused,
-    }));
-    console.log(
-      `${fixture.kind}: before=${before.toFixed(2)}, after=${after.time.toFixed(2)}, paused=${after.paused}, mountedOffscreen=${mountedOffscreen}`,
-    );
-    assert(after.time >= before, "scrolling away and back must not reset media progress");
-    assert.equal(after.paused, false, "scrolling must not interrupt playback");
+    await mediaElement().waitFor();
     assert.equal(mountedOffscreen, 1, "the same media preview must remain mounted offscreen");
-    assert(offscreenTime > before, "playback must advance while offscreen");
     assert(await originalFrame.evaluate((frame: HTMLIFrameElement) => frame.isConnected));
-
-    const pausedAt = await player().evaluate((media: HTMLMediaElement) => {
-      media.pause();
-      media.volume = 0.3;
-      media.playbackRate = 1.5;
-      return media.currentTime;
-    });
-    await pane.evaluate((el: HTMLElement) => {
-      el.scrollTop = el.scrollHeight;
-    });
-    await page.waitForTimeout(400);
-    await pane.evaluate((el: HTMLElement) => {
-      el.scrollTop = 0;
-    });
-    assert.deepEqual(
-      await player().evaluate((media: HTMLMediaElement) => ({
+    if (fixture.kind === "image") {
+      await mediaElement().evaluate((image: HTMLImageElement) => image.decode());
+      assert.equal(
+        await mediaElement().evaluate((image: HTMLImageElement) => image.naturalWidth),
+        160,
+      );
+      assert.equal(
+        resourceRequests.get(fixture.path),
+        requestsBefore,
+        "scrolling must not reload image bytes",
+      );
+      console.log("image: retained the loaded preview without refetching bytes");
+    } else {
+      const after = await mediaElement().evaluate((media: HTMLMediaElement) => ({
         time: media.currentTime,
         paused: media.paused,
-        volume: media.volume,
-        rate: media.playbackRate,
-      })),
-      { time: pausedAt, paused: true, volume: 0.3, rate: 1.5 },
-    );
+      }));
+      console.log(
+        `${fixture.kind}: before=${before.toFixed(2)}, after=${after.time.toFixed(2)}, paused=${after.paused}, mountedOffscreen=${mountedOffscreen}`,
+      );
+      assert(after.time >= before, "scrolling away and back must not reset media progress");
+      assert.equal(after.paused, false, "scrolling must not interrupt playback");
+      assert(offscreenTime > before, "playback must advance while offscreen");
+
+      const pausedAt = await mediaElement().evaluate((media: HTMLMediaElement) => {
+        media.pause();
+        media.volume = 0.3;
+        media.playbackRate = 1.5;
+        return media.currentTime;
+      });
+      await pane.evaluate((el: HTMLElement) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      await page.waitForTimeout(400);
+      await pane.evaluate((el: HTMLElement) => {
+        el.scrollTop = 0;
+      });
+      assert.deepEqual(
+        await mediaElement().evaluate((media: HTMLMediaElement) => ({
+          time: media.currentTime,
+          paused: media.paused,
+          volume: media.volume,
+          rate: media.playbackRate,
+        })),
+        { time: pausedAt, paused: true, volume: 0.3, rate: 1.5 },
+      );
+    }
 
     await page.getByRole("button", { name: "Go to the latest version", exact: true }).click();
     await page.waitForFunction((frame: HTMLIFrameElement) => !frame.isConnected, originalFrame);
-    await player().waitFor();
-    assert.equal(
-      await player().evaluate((media: HTMLMediaElement) => media.currentTime),
-      0,
-      "a different publication must have its own player state",
-    );
+    await mediaElement().waitFor();
+    if (fixture.kind !== "image")
+      assert.equal(
+        await mediaElement().evaluate((media: HTMLMediaElement) => media.currentTime),
+        0,
+        "a different publication must have its own player state",
+      );
     await card.getByRole("button", { name: "Collapse", exact: true }).click();
     await card.locator("iframe").waitFor({ state: "detached" });
-    console.log(
-      `${fixture.kind}: paused state, lazy loading, version replacement, and collapse cleanup passed`,
-    );
+    console.log(`${fixture.kind}: lazy loading, version replacement, and collapse cleanup passed`);
     await context.close();
   }
 } finally {
