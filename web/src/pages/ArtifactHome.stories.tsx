@@ -96,6 +96,17 @@ export const Default: Story = {
   },
 };
 export const Dark: Story = { ...Default, globals: { theme: "dark" } };
+export const WideDesktop: Story = {
+  ...Default,
+  parameters: {
+    viewport: {
+      viewports: {
+        wide: { name: "Wide desktop", styles: { width: "1920px", height: "1080px" } },
+      },
+      defaultViewport: "wide",
+    },
+  },
+};
 export const Phone: Story = { ...Default, parameters: phoneViewport() };
 export const Filter: Story = {
   parameters: { libraryHeight: 420 },

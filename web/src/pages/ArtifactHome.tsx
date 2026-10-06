@@ -221,7 +221,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
         data-library-pane
         className="min-w-0 flex-1 overflow-y-auto bg-white [scrollbar-gutter:stable] dark:bg-neutral-950"
       >
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
           <div className="border-b border-neutral-200 dark:border-neutral-800">
             <div className="flex items-baseline gap-3 px-5 pb-4 pt-6 max-md:px-4 max-md:pt-5">
               <div className="min-w-0 flex-1">
