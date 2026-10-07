@@ -7,8 +7,9 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import type { Region } from "../highlights.ts";
 import type { DiffSide } from "../types.ts";
-import { Button, cn } from "../ui.tsx";
+import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
+import { Notification } from "./Notifications.tsx";
 import { RepresentationToggle } from "./RepresentationToggle.tsx";
 import { SourceCode } from "./SourceCode.tsx";
 
@@ -53,6 +54,7 @@ export const ArtifactFile = memo(function ArtifactFile({
 }) {
   const [open, setOpen] = useState(!viewed);
   const media = artifactMediaKind(file.mediaType);
+  const filename = file.path.split("/").at(-1)!;
   const canRender = !!file.renderedHash || file.mediaType.split(";")[0] === "text/html";
   const rendered = !!media || (representation === "rendered" && canRender);
   const source = useQuery({
@@ -72,67 +74,96 @@ export const ArtifactFile = memo(function ArtifactFile({
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = file.path.split("/").at(-1)!;
+      link.download = filename;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     },
   });
   return (
-    <FileCard
-      path={file.path}
-      ownsFileMarker={false}
-      current={current}
-      viewed={viewed}
-      onToggleViewed={onViewed}
-      onFileFeedback={onFileFeedback}
-      foldSignal={fold}
-      onOpenChange={setOpen}
-      stats={(expanded) =>
-        expanded &&
-        canRender && <RepresentationToggle value={representation} onChange={onRepresentation} />
-      }
-    >
-      {active &&
-        // Collapse mounts on first open and keeps its children inert while
-        // folded. Preserve loaded Markdown so unfolding reuses its document.
-        (open || (rendered && !!file.renderedHash)) &&
-        (rendered ? (
-          <div
-            className={cn("flex flex-col", !file.renderedHash && media !== "video" && "min-h-96")}
+    <>
+      <FileCard
+        path={file.path}
+        pathAction={
+          <button
+            type="button"
+            aria-label={`Download ${filename}`}
+            title={download.isPending ? `Downloading ${filename}…` : `Download ${filename}`}
+            aria-busy={download.isPending}
+            disabled={download.isPending}
+            onClick={() => download.mutate()}
+            className="flex shrink-0 items-center rounded px-1 py-0.5 text-neutral-500 opacity-0 transition-colors hover:bg-neutral-200 hover:text-neutral-700 group-hover/file-path:opacity-100 group-focus-within/file-path:opacity-100 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:cursor-wait disabled:opacity-100 pointer-coarse:min-w-7 pointer-coarse:justify-center pointer-coarse:py-2 pointer-coarse:opacity-100 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
           >
-            {preview()}
-          </div>
-        ) : source.isPending ? (
-          <p className="p-3 text-xs text-neutral-500">Loading published source…</p>
-        ) : source.error ? (
-          <p role="alert" className="p-3 text-xs text-red-600">
-            {source.error.message}
-          </p>
-        ) : source.data?.kind === "text" ? (
-          <SourceCode
-            data={source.data}
-            path={file.path}
-            regions={regions}
-            onPickLines={onPickLines}
-          />
-        ) : (
-          <div className="space-y-2 p-3">
-            <p className="text-xs text-neutral-500">
-              {source.data?.kind === "oversize"
-                ? "This file is too large for source highlighting."
-                : "This file contains binary content."}{" "}
-              Download the published file to open it.
+            <StrokeIcon
+              className={cn("size-3.5", download.isPending && "motion-safe:animate-spin")}
+            >
+              {download.isPending ? (
+                <path d="M21 12a9 9 0 1 1-6.2-8.55" />
+              ) : (
+                <>
+                  <path d="M12 3v12m-5-5 5 5 5-5" />
+                  <path d="M5 16v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" />
+                </>
+              )}
+            </StrokeIcon>
+          </button>
+        }
+        ownsFileMarker={false}
+        current={current}
+        viewed={viewed}
+        onToggleViewed={onViewed}
+        onFileFeedback={onFileFeedback}
+        foldSignal={fold}
+        onOpenChange={setOpen}
+        stats={(expanded) =>
+          expanded &&
+          canRender && <RepresentationToggle value={representation} onChange={onRepresentation} />
+        }
+      >
+        {active &&
+          // Collapse mounts on first open and keeps its children inert while
+          // folded. Preserve loaded Markdown so unfolding reuses its document.
+          (open || (rendered && !!file.renderedHash)) &&
+          (rendered ? (
+            <div
+              className={cn("flex flex-col", !file.renderedHash && media !== "video" && "min-h-96")}
+            >
+              {preview()}
+            </div>
+          ) : source.isPending ? (
+            <p className="p-3 text-xs text-neutral-500">Loading published source…</p>
+          ) : source.error ? (
+            <p role="alert" className="p-3 text-xs text-red-600">
+              {source.error.message}
             </p>
-            <Button disabled={download.isPending} onClick={() => download.mutate()}>
-              {download.isPending ? "Downloading…" : "Download file"}
-            </Button>
-          </div>
-        ))}
+          ) : source.data?.kind === "text" ? (
+            <SourceCode
+              data={source.data}
+              path={file.path}
+              regions={regions}
+              onPickLines={onPickLines}
+            />
+          ) : (
+            <div className="space-y-2 p-3">
+              <p className="text-xs text-neutral-500">
+                {source.data?.kind === "oversize"
+                  ? "This file is too large for source highlighting."
+                  : "This file contains binary content."}{" "}
+                Download the published file to open it.
+              </p>
+              <Button disabled={download.isPending} onClick={() => download.mutate()}>
+                {download.isPending ? "Downloading…" : "Download file"}
+              </Button>
+            </div>
+          ))}
+      </FileCard>
       {download.error && (
-        <p role="alert" className="p-3 text-xs text-red-600">
-          {download.error.message}
-        </p>
+        <Notification
+          tone="error"
+          title={`Could not download ${filename}`}
+          message={download.error.message}
+          onDismiss={() => download.reset()}
+        />
       )}
-    </FileCard>
+    </>
   );
 });

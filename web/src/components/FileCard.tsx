@@ -1,13 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { copyText } from "../clipboard.ts";
-import { Collapse, CommentPlusIcon, cn, FoldTriangle, scrollParent, useCopyFlash } from "../ui.tsx";
-
-function splitPath(path: string): { dir: string; name: string } {
-  const i = path.lastIndexOf("/");
-  return i === -1
-    ? { dir: "", name: path }
-    : { dir: path.slice(0, i + 1), name: path.slice(i + 1) };
-}
+import { Collapse, CommentPlusIcon, cn, FoldTriangle, scrollParent } from "../ui.tsx";
+import { FilePath } from "./FilePath.tsx";
 
 // Inline SVGs (not unicode glyphs) so the icons sit on the text's optical
 // centre — ▸/▾/✓/○ render with inconsistent vertical metrics across fonts,
@@ -24,23 +17,6 @@ function CheckIcon({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-// Classic two-card copy glyph.
-function CopyIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <rect x="6" y="6" width="8" height="8" rx="1.5" />
-      <path d="M10 6 V4 A1.5 1.5 0 0 0 8.5 2.5 H4 A1.5 1.5 0 0 0 2.5 4 V8.5 A1.5 1.5 0 0 0 4 10 H6" />
     </svg>
   );
 }
@@ -70,6 +46,7 @@ export interface FoldSignal {
 // Collapse only wraps the content below it).
 export function FileCard({
   path,
+  pathAction,
   stats,
   viewed,
   onToggleViewed,
@@ -83,6 +60,8 @@ export function FileCard({
   children,
 }: {
   path: string;
+  // A file-scoped action beside the path, available even while folded.
+  pathAction?: ReactNode;
   // A render fn receives the open state, so header controls (e.g. a markdown
   // rendered/raw toggle) can hide themselves when the card is folded.
   stats?: ReactNode | ((open: boolean) => ReactNode);
@@ -189,19 +168,6 @@ export function FileCard({
 
   useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
 
-  // Click the path to copy it; the chevron toggles the fold.
-  const { copied, flash } = useCopyFlash();
-  const copyPath = () => {
-    // Route through copyText (not navigator.clipboard directly) for its
-    // execCommand fallback: on a plain-http/remote bind navigator.clipboard is
-    // undefined, and a bare `?.` short-circuit would silently do nothing.
-    void copyText(path).then((ok) => {
-      if (ok) flash();
-    });
-  };
-
-  const { dir, name } = splitPath(path);
-
   return (
     <div ref={rootRef} data-file={ownsFileMarker ? path : undefined}>
       {/* The -1px (not 0): the rem-scaled layout (root font-size setting) puts
@@ -242,22 +208,7 @@ export function FileCard({
         >
           <FoldTriangle open={open} />
         </button>
-        <button
-          type="button"
-          onClick={copyPath}
-          className="group/path inline-flex min-w-0 flex-1 items-center gap-1.5 text-left font-mono text-xs"
-          title={copied ? "Copied!" : `Copy path: ${path}`}
-        >
-          <span className="min-w-0 truncate">
-            <span className="text-neutral-400">{dir}</span>
-            <span className="font-medium text-neutral-800 dark:text-neutral-100">{name}</span>
-          </span>
-          {copied ? (
-            <CheckIcon className="size-3 shrink-0 text-success-600 dark:text-success-400" />
-          ) : (
-            <CopyIcon className="size-3 shrink-0 text-neutral-400 opacity-0 transition-opacity group-hover/path:opacity-100 pointer-coarse:opacity-100" />
-          )}
-        </button>
+        <FilePath key={path} path={path} action={pathAction} />
         {typeof stats === "function" ? stats(open) : stats}
         {onToggleViewed && (
           <button
@@ -266,7 +217,7 @@ export function FileCard({
             aria-pressed={viewed}
             title={viewed ? "Marked viewed — click to unmark" : "Mark file viewed"}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors pointer-coarse:self-stretch pointer-coarse:min-w-7",
+              "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] leading-3.5 font-medium transition-colors pointer-coarse:self-stretch pointer-coarse:min-w-7",
               viewed
                 ? "bg-success-100 text-success-700 dark:bg-success-900/50 dark:text-success-300"
                 : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",

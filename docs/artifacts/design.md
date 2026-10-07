@@ -38,6 +38,20 @@ Files artifacts use the file panel's tree order throughout the content stack and
 file navigation: visit folders before files at each level, sorting siblings
 alphabetically. Folding a folder in the panel does not reorder or hide its content.
 
+Every file in a files artifact has a download action immediately after its header
+path, including media, text, HTML, and binary content. Hovering that path area or
+focusing its controls reveals the action; touch devices keep it visible. It works
+while folded and saves the selected version's original bytes under the filename,
+without changing Viewed state. Pending downloads disable the action, and failures
+appear outside the folded body so the reader can retry.
+
+File and diff headers copy paths by segment: clicking the filename copies only
+that name, while clicking a directory copies that segment through the filename.
+Hover or keyboard focus underlines the exact suffix. A successful copy colors it
+green and shows a green copy icon and check for one second; another successful
+copy restarts that confirmation. A failed copy never shows success. These path
+controls do not change folding, Viewed state, or the selected file.
+
 A diff keeps its sparse patch payload. Removed lines, hunk gaps, rename metadata,
 and binary markers cannot be represented by a fabricated complete directory.
 Publication order does not imply patch application: version 2 need not apply on

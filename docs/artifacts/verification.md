@@ -55,6 +55,7 @@ endpoints. Set `TEST_CHROMIUM` to a headless Chromium shell executable,
 bun run build
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-file-header-actions.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-selection.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-source-feedback.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-favicon.ts
@@ -82,6 +83,7 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 
 | Script | Acceptance boundary |
 | --- | --- |
+| `test-file-header-actions.ts` | Actual workspace and authenticated resource reads save the selected version's exact bytes and filename for media, source, Markdown, HTML, and binary files, including folded headers. Covers pending duplicate suppression, visible failure and retry, unchanged Viewed state, exact path-suffix clipboard contents and underlines, one-second confirmation and repeated/out-of-order copies, clipboard failure, keyboard and touch access, phone layout, and path copying without complete-file download on sparse diffs. Optional `R3_TEST_SCREENSHOTS` captures light/dark layouts |
 | `test-feedback-creation.ts` | Newest-first save, composer-to-card height transition, early event-stream reads and concurrent replies before the POST response, no duplicate cards, failed-save draft retention, retry, reduced motion; shared note/reply drafts across tabs, latest saved edit, reload, discard propagation, and submitted-reply cleanup |
 | `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand feedback composer, draft handoff guard, and inactive shortcuts in hidden desktop/closed mobile panels; expanded/floating/hidden widths, remembered panel mode, and individual thread drafts with the dock hidden; Escape dismissal, keyboard reopening/general feedback, retained drafts, editor/popup priority, and repeat guards |
 | `test-artifact-selection.ts` | Source/diff and rendered HTML/Markdown selection, unfocused composer, Space/Tab across the opaque frame, idle Escape, keyboard debounce, editable exclusions, quote destination and anchor preservation, native posted Markdown target, and touch action with selection collapse during the tap; comment-mode shortcuts in the workspace and preview, selected-node Space, native posted node targets, and repeat/modifier guards |
