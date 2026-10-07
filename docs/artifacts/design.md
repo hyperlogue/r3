@@ -207,8 +207,10 @@ away keeps loaded Markdown mounted and measured.
 
 Opened media previews (images, audio, and video) also stay mounted when scrolled
 out of view. Images reuse their loaded document without a scroll-triggered reload;
-playback continues and paused position, volume, and playback speed survive the
-scroll. Unopened previews remain lazy. Explicitly folding a media file, changing
+playback continues and paused position, mute state, volume, and playback speed
+survive the scroll. Native video previews start muted; readers can unmute them
+using the player controls. Audio previews retain their audible default.
+Unopened previews remain lazy. Explicitly folding a media file, changing
 versions, or leaving the artifact releases its preview; playback state is not
 persisted across those actions. Retention keeps opened previews in memory for the
 current workspace visit, including their image and media resources.

@@ -205,7 +205,7 @@ export class PreviewHost {
           ? "html{overflow:hidden}video{display:block;width:100%;height:auto}"
           : "body{min-height:100vh;display:grid;place-items:center}img{max-width:100%;max-height:100vh}audio{width:min(90%,40rem)}";
       return plain(
-        `<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Media preview</title><style>body{margin:0;background:#171717}${layout}</style><${tag} src="${src}" ${kind === "image" ? 'alt="Published image"' : 'controls preload="metadata"'}></${tag}>${this.runtimeScript(scope)}</html>`,
+        `<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Media preview</title><style>body{margin:0;background:#171717}${layout}</style><${tag} src="${src}" ${kind === "image" ? 'alt="Published image"' : 'controls preload="metadata"'}${kind === "video" ? " muted" : ""}></${tag}>${this.runtimeScript(scope)}</html>`,
         200,
         { "content-type": "text/html; charset=utf-8" },
       );

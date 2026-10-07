@@ -32,6 +32,7 @@ const fixtures = [];
 for (const { kind, path, mediaType } of [
   { kind: "image", path: "clip.svg", mediaType: "image/svg+xml" },
   { kind: "video", path: "clip.webm", mediaType: "video/webm" },
+  { kind: "video", path: "clip.mp4", mediaType: "video/mp4" },
   { kind: "audio", path: "clip.wav", mediaType: "audio/wav" },
 ] as const) {
   if (kind === "image") {
@@ -49,9 +50,16 @@ for (const { kind, path, mediaType } of [
         "lavfi",
         "-i",
         kind === "video" ? "color=c=blue:s=160x90:r=10" : "anullsrc=r=8000:cl=mono",
+        ...(mediaType === "video/mp4"
+          ? ["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100"]
+          : []),
         "-t",
         "40",
-        ...(kind === "video" ? ["-c:v", "libvpx", "-b:v", "20k"] : []),
+        ...(mediaType === "video/mp4"
+          ? ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac"]
+          : kind === "video"
+            ? ["-c:v", "libvpx", "-b:v", "20k"]
+            : []),
         join(root, path),
       ],
       { stdout: "ignore", stderr: "ignore" },
@@ -144,8 +152,13 @@ try {
     if (fixture.kind === "image") {
       await mediaElement().evaluate((image: HTMLImageElement) => image.decode());
     } else {
+      assert.equal(
+        await mediaElement().evaluate((media: HTMLMediaElement) => media.muted),
+        fixture.kind === "video",
+        "video previews start muted; audio previews retain their audible default",
+      );
       await mediaElement().evaluate(async (media: HTMLMediaElement) => {
-        media.muted = true;
+        if (media instanceof HTMLAudioElement) media.muted = true;
         await media.play();
         media.currentTime = 5;
       });
@@ -205,10 +218,14 @@ try {
       await pane.evaluate((el: HTMLElement) => {
         el.scrollTop = el.scrollHeight;
       });
-      await bottomVideo.evaluate(async (video: HTMLVideoElement) => {
-        video.muted = true;
-        await video.play();
-      });
+      assert.equal(
+        await bottomVideo.evaluate((video: HTMLVideoElement) => video.muted),
+        true,
+        "a lazily opened video starts muted too",
+      );
+      const videoBox = await bottomVideo.boundingBox();
+      assert(videoBox);
+      await bottomVideo.click({ position: { x: 30, y: videoBox.height - 25 } });
       const bottomFrame = await bottomCard.locator('iframe[aria-hidden="false"]').elementHandle();
       for (const visiblePixels of [null, 120, -40, -1200]) {
         if (visiblePixels !== null) {
@@ -297,6 +314,7 @@ try {
 
       const pausedAt = await mediaElement().evaluate((media: HTMLMediaElement) => {
         media.pause();
+        media.muted = false;
         media.volume = 0.3;
         media.playbackRate = 1.5;
         return media.currentTime;
@@ -312,10 +330,11 @@ try {
         await mediaElement().evaluate((media: HTMLMediaElement) => ({
           time: media.currentTime,
           paused: media.paused,
+          muted: media.muted,
           volume: media.volume,
           rate: media.playbackRate,
         })),
-        { time: pausedAt, paused: true, volume: 0.3, rate: 1.5 },
+        { time: pausedAt, paused: true, muted: false, volume: 0.3, rate: 1.5 },
       );
     }
 
@@ -323,9 +342,12 @@ try {
     await page.waitForFunction((frame: HTMLIFrameElement) => !frame.isConnected, originalFrame);
     await mediaElement().waitFor();
     if (fixture.kind !== "image")
-      assert.equal(
-        await mediaElement().evaluate((media: HTMLMediaElement) => media.currentTime),
-        0,
+      assert.deepEqual(
+        await mediaElement().evaluate((media: HTMLMediaElement) => ({
+          time: media.currentTime,
+          muted: media.muted,
+        })),
+        { time: 0, muted: fixture.kind === "video" },
         "a different publication must have its own player state",
       );
     await card.getByRole("button", { name: "Collapse", exact: true }).click();
