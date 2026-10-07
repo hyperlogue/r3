@@ -15,16 +15,13 @@ import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
 import { BlobStore } from "./blobs.ts";
 import { nowIso } from "./ids.ts";
-import { type LegacyMigrationResult, migrateLegacyStore } from "./migration.ts";
-import { legacyLocalCapture } from "./migration-capture.ts";
-import type { LegacyCapture } from "./migration-content.ts";
+import { type ArtifactMigrationResult, upgradeArtifactStore } from "./migration.ts";
 import type { DocumentRenderer } from "./publication.ts";
 
 export interface ArtifactStorageOptions {
   databasePath: string;
   contentRoot?: string;
   render?: DocumentRenderer;
-  capture?: LegacyCapture;
   clock?: () => string;
   isWatching?: (id: string) => boolean;
   projectGrouping?: ProjectGroupingOptions;
@@ -41,7 +38,7 @@ export interface ArtifactStorage {
   conversations: ArtifactConversations;
   lifecycle: ArtifactLifecycle;
   authentication: AuthService;
-  migration: LegacyMigrationResult | null;
+  migration: ArtifactMigrationResult | null;
   collectBlobs(): Promise<number>;
   // The caller stops accepting requests before closing storage.
   close(): void;
@@ -91,7 +88,7 @@ export async function openArtifactStorage(
     const schemaVersion = db
       .query<{ user_version: number }, []>("PRAGMA user_version")
       .get()!.user_version;
-    let migration: LegacyMigrationResult | null = null;
+    let migration: ArtifactMigrationResult | null = null;
     if (!tables.length && schemaVersion === 0) {
       db.transaction(() => {
         createArtifactTables(db);
@@ -100,17 +97,9 @@ export async function openArtifactStorage(
     } else {
       const backupRoot = join(root, "backups");
       await privateDirectory(backupRoot);
-      migration = await migrateLegacyStore(db, {
-        backupPath: join(backupRoot, `legacy-${randomUUID()}.sqlite`),
-        blobs,
-        render,
+      migration = await upgradeArtifactStore(db, {
+        backupPath: join(backupRoot, `upgrade-${randomUUID()}.sqlite`),
         clock,
-        capture:
-          options.capture ??
-          legacyLocalCapture({
-            scratchRoot: join(dirname(databasePath), "scratch"),
-            docsRoot: join(dirname(databasePath), "docs"),
-          }),
       });
     }
     const listeners = new ArtifactListeners(db, clock);

@@ -2,40 +2,18 @@ import type { Database } from "bun:sqlite";
 import { open } from "node:fs/promises";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
 import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
-import {
-  ARTIFACT_SCHEMA_VERSION,
-  createArtifactTables,
-  PROJECT_REMOTE_SCHEMA,
-} from "./artifact-schema.ts";
+import { ARTIFACT_SCHEMA_VERSION, PROJECT_REMOTE_SCHEMA } from "./artifact-schema.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
-import { ArtifactStore } from "./artifacts.ts";
-import type { BlobStore } from "./blobs.ts";
 import { nowIso } from "./ids.ts";
-import { importLegacyContent, type LegacyCapture } from "./migration-content.ts";
-import { importLegacyConversations } from "./migration-conversations.ts";
-import {
-  hasLegacyFileBytes,
-  LEGACY_TABLES,
-  type LegacyData,
-  type LegacyTable,
-  legacyId,
-  MigrationContext,
-  readLegacyData,
-  sqlName,
-} from "./migration-data.ts";
-import type { DocumentRenderer } from "./publication.ts";
 
-export interface LegacyMigrationOptions {
+export interface ArtifactMigrationOptions {
   // Must be a new file in an owner-only directory supplied by store bootstrap.
   backupPath: string;
-  blobs: BlobStore;
-  render: DocumentRenderer;
-  capture?: LegacyCapture;
   clock?: () => string;
 }
 
-export interface LegacyMigrationResult {
+export interface ArtifactMigrationResult {
   migrated: boolean;
   artifactCount: number;
   backupPath: string | null;
@@ -45,78 +23,13 @@ function dataVersion(db: Database): number {
   return db.query<{ data_version: number }, []>("PRAGMA data_version").get()!.data_version;
 }
 
-function checkLegacyRelations(data: LegacyData): void {
-  const reviews = new Map(data.reviews.map((row) => [legacyId(row.id), row]));
-  for (const table of ["patches", "snapshots", "feedback", "viewed_marks"] as const) {
-    for (const row of data[table]) {
-      const review = reviews.get(legacyId(row.review_id));
-      if (!review) throw new Error(`Legacy ${table} record has no owning review`);
-      if (table === "patches" && review.kind !== "diff")
-        throw new Error("Legacy patch belongs to a non-diff review");
-      if (table === "snapshots" && review.kind === "diff")
-        throw new Error("Legacy snapshot belongs to a diff review");
-    }
-  }
-  const snapshots = new Set(data.snapshots.map((row) => JSON.stringify([row.review_id, row.seq])));
-  for (const row of data.snapshot_files) {
-    if (!snapshots.has(JSON.stringify([row.review_id, row.seq])))
-      throw new Error("Legacy file has no owning snapshot");
-  }
-  const feedback = new Set(data.feedback.map((row) => legacyId(row.id)));
-  for (const table of ["replies", "feedback_claims"] as const) {
-    for (const row of data[table]) {
-      if (!feedback.has(legacyId(row.feedback_id)))
-        throw new Error(`Legacy ${table} record has no owning feedback`);
-    }
-  }
-}
-
-function importAuxiliary(context: MigrationContext, store: ArtifactStore): void {
-  const { db, data } = context;
-  // Credentials stay hashed, and the cookie/token contract is unchanged. Do
-  // not copy arbitrary extra legacy columns into a new credential record.
-  for (const [table, columns] of [
-    ["auth_tokens", ["id", "label", "token_hash", "created_at", "last_used_at", "revoked_at"]],
-    ["auth_sessions", ["id", "token_id", "session_hash", "created_at", "expires_at"]],
-  ] as const) {
-    const insert = db.query(
-      `INSERT INTO ${table}(${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
-    );
-    for (const row of data[table]) insert.run(...columns.map((column) => row[column] ?? null));
-  }
-  for (const row of data.viewed_marks) {
-    const id = legacyId(row.review_id);
-    const key = legacyId(row.key);
-    const keys = new Set([key]);
-    if (key.startsWith("f:")) {
-      // Only translate a content mark when the old digest identifies surviving
-      // bytes. Keep the original opaque key too, including unavailable history.
-      for (const file of data.snapshot_files) {
-        if (
-          file.review_id !== id ||
-          !hasLegacyFileBytes(file) ||
-          key !== `f:${file.path}@${file.sha}`
-        )
-          continue;
-        const current = store.file(id, Number(file.seq), String(file.path));
-        keys.add(`f:${file.path}@${current.hash}`);
-      }
-    }
-    for (const key of keys)
-      db.query(
-        "INSERT INTO viewed_marks(artifact_id, key) VALUES (?, ?) ON CONFLICT DO NOTHING",
-      ).run(id, key);
-  }
-}
-
 // Startup owns this connection exclusively until the promise resolves. The
-// explicit transaction spans async byte preparation; no request handler may
-// observe it. A failure or process crash rolls back both schema and data. Blobs
-// installed before a rollback are unreferenced and reclaimed by startup GC.
-export async function migrateLegacyStore(
+// upgrade transaction is private to startup. A failure or process crash rolls
+// back schema and data; a private backup retains the previous database.
+export async function upgradeArtifactStore(
   db: Database,
-  options: LegacyMigrationOptions,
-): Promise<LegacyMigrationResult> {
+  options: ArtifactMigrationOptions,
+): Promise<ArtifactMigrationResult> {
   if (db.inTransaction)
     throw new Error("Migration needs exclusive ownership of the database connection");
   const schemaVersion = db
@@ -141,18 +54,10 @@ export async function migrateLegacyStore(
       backupPath: null,
     };
   }
-  const artifactUpgrade =
-    [1, 2, 3, 4, 5, 6, 7, 8].includes(schemaVersion) &&
-    tables.includes("artifacts") &&
-    !tables.includes("reviews");
-  if (
-    !artifactUpgrade &&
-    (schemaVersion !== 0 ||
-      !tables.includes("reviews") ||
-      tables.some((name) => !LEGACY_TABLES.includes(name as LegacyTable)))
-  ) {
+  if (tables.includes("reviews"))
+    throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(schemaVersion) || !tables.includes("artifacts"))
     throw new Error("Unrecognized store schema; migration did not modify it");
-  }
   db.exec("PRAGMA foreign_keys = ON");
   const beforeBackup = dataVersion(db);
   // Reserve an empty private file before SQLite writes the consistent backup;
@@ -168,68 +73,26 @@ export async function migrateLegacyStore(
   try {
     if (dataVersion(db) !== beforeBackup)
       throw new Error(
-        "Legacy store changed while backing up; retry migration after stopping its writer",
+        "Artifact store changed while backing up; retry migration after stopping its writer",
       );
-    if (artifactUpgrade) {
-      if (schemaVersion === 1) {
-        db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
-          ALTER TABLE artifacts DROP COLUMN summary;`);
-      }
-      db.exec(PROJECT_REMOTE_SCHEMA);
-      db.exec(ARTIFACT_LISTENER_SCHEMA);
-      // Older edits erased sent_at, so a null stamp cannot prove no delivery.
-      // Prefer an extra future status notification over silently dropping one.
-      if (schemaVersion < 5)
-        db.exec(`ALTER TABLE feedback ADD COLUMN ever_delivered INTEGER NOT NULL DEFAULT 0
-        CHECK (ever_delivered IN (0, 1));
-        UPDATE feedback SET ever_delivered = 1;`);
-      if (schemaVersion < 6)
-        db.exec(`ALTER TABLE artifacts ADD COLUMN feedback_revision INTEGER NOT NULL DEFAULT 0
-        CHECK (feedback_revision >= 0);`);
-      db.exec(ATTACHMENT_SCHEMA);
-      db.exec(ARTIFACT_SEARCH_SCHEMA);
-    } else {
-      const data = readLegacyData(db);
-      checkLegacyRelations(data);
-      const context = new MigrationContext(db, data, (options.clock ?? nowIso)());
-      // Remove named legacy indexes/triggers before creating destination objects.
-      // Autoindexes belong to their renamed table and need no manual changes.
-      for (const object of db
-        .query<{ type: string; name: string }, []>(
-          "SELECT type, name FROM sqlite_master WHERE type IN ('index', 'trigger') AND sql IS NOT NULL",
-        )
-        .all())
-        db.exec(`DROP ${object.type === "index" ? "INDEX" : "TRIGGER"} ${sqlName(object.name)}`);
-      for (const table of tables)
-        db.exec(`ALTER TABLE ${sqlName(table)} RENAME TO ${sqlName(`legacy_${table}`)}`);
-      createArtifactTables(db);
-      const store = new ArtifactStore(db, options.blobs, options.render, () => context.time);
-      await importLegacyContent(context, options.blobs, options.render, options.capture);
-      await importLegacyConversations(context, store);
-      importAuxiliary(context, store);
-      // Children first: avoid cascades while removing the old schema, and retain
-      // the destination's independent FK graph throughout the transaction.
-      for (const table of [
-        "auth_sessions",
-        "auth_tokens",
-        "feedback_claims",
-        "replies",
-        "feedback",
-        "snapshot_files",
-        "snapshots",
-        "patches",
-        "viewed_marks",
-        "reviews",
-        "repos",
-      ]) {
-        if (tables.includes(table)) db.exec(`DROP TABLE ${sqlName(`legacy_${table}`)}`);
-      }
+    if (schemaVersion === 1) {
+      db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
+        ALTER TABLE artifacts DROP COLUMN summary;`);
     }
+    db.exec(PROJECT_REMOTE_SCHEMA);
+    db.exec(ARTIFACT_LISTENER_SCHEMA);
+    // Older edits erased sent_at, so a null stamp cannot prove no delivery.
+    // Prefer an extra future status notification over silently dropping one.
+    if (schemaVersion < 5)
+      db.exec(`ALTER TABLE feedback ADD COLUMN ever_delivered INTEGER NOT NULL DEFAULT 0
+      CHECK (ever_delivered IN (0, 1));
+      UPDATE feedback SET ever_delivered = 1;`);
+    if (schemaVersion < 6)
+      db.exec(`ALTER TABLE artifacts ADD COLUMN feedback_revision INTEGER NOT NULL DEFAULT 0
+      CHECK (feedback_revision >= 0);`);
+    db.exec(ATTACHMENT_SCHEMA);
+    db.exec(ARTIFACT_SEARCH_SCHEMA);
     installArtifactUsage(db, (options.clock ?? nowIso)());
-    if (!artifactUpgrade)
-      db.query("UPDATE artifact_activity_coverage SET complete_since = ?").run(
-        (options.clock ?? nowIso)(),
-      );
     if (db.query("PRAGMA foreign_key_check").all().length)
       throw new Error("Migrated references failed the foreign-key check");
     const integrity = db.query<{ integrity_check: string }, []>("PRAGMA integrity_check").all();

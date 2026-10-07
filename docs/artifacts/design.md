@@ -823,12 +823,11 @@ owns the build alias and Pages layout.
 
 ## Upgrade and scope boundaries
 
-The artifact protocol replaces the live-review API and commands. Legacy files and
-scratch reviews become files artifacts; surviving patches remain independent diff
-versions. Migration preserves identity, conversations, delivery, and known native
-references, while explicitly retaining uncertainty and missing-history evidence.
-A one-time current capture is labeled nonhistorical. The
-[migration reference](schema.md#migration-from-legacy-reviews) owns defaults, backups, and recovery.
+Startup upgrades artifact schemas while preserving immutable publications and
+already-imported conversations and evidence. Direct upgrades from the retired
+live-review store require r3 1.5.0 first. The current daemon has no local-source
+capture adapter. The [migration reference](schema.md#artifact-schema-upgrades)
+owns supported upgrades, backups, and recovery.
 
 Builds, dependency installation, server-side application execution, backend hosting,
 deployment orchestration, multi-user permissions, recipient fan-out, automatic

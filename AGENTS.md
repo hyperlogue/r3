@@ -13,8 +13,8 @@ This file, the [artifact design](docs/artifacts/design.md),
 [schema explanation](docs/artifacts/schema.md), and the deep-reference skills below
 are the design source of truth. Update the document that owns a decision when it
 changes. [Verification](docs/artifacts/verification.md) maps behavior to executable
-acceptance checks. Earlier live-file reviews have been retired; historical storage
-rows are confined to migration and do not define new API behavior.
+acceptance checks. Earlier live-file reviews have been retired; imported historical
+evidence remains readable but does not define new API behavior.
 
 ## Architecture
 
@@ -35,8 +35,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   constructed and injected; importing modules must not open a database.
 - Ordinary requests use artifact/version identity. The server never resolves a
   publisher path, Git repository, worktree, or live file. Git and directory capture
-  run on the publisher; the one-time legacy migration is the only local-read adapter
-  the daemon uses.
+  run on the publisher. Direct upgrades from live-review stores require r3 1.5.0
+  first; current startup upgrades only artifact schemas.
 - Projects are optional groups, assigned explicitly or inferred from a sanitized
   publisher-supplied Git remote under server policy. Their IDs do not derive from
   paths or URLs. Later publications preserve the group; deletion preserves artifacts.
@@ -62,7 +62,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Public contracts | `shared/artifacts.ts`, `artifact-client.ts`, `artifact-prompt.ts`, `preview-protocol.ts`, `event-stream.ts`; `shared/types.ts` adds renderer, bootstrap, and publisher wake shapes |
 | Entrypoints | `cli/index.ts` → `artifact-main.ts`; `server/index.ts` → `artifact-daemon.ts`; `web/src/App.tsx` → `ArtifactHome` / `ArtifactView` |
 | Bootstrap and exposure | `server/config.ts`, `artifact-config.ts`, `artifact-daemon.ts`, `artifact-server.ts`, `application-assets.ts`; `cli/daemon-client.ts`, `artifact-settings.ts` |
-| Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration*.ts`; private backup, atomic migration, recovery, coordinated garbage collection |
+| Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration.ts`; private backup, atomic migration, recovery, coordinated garbage collection |
 | Publication | `server/artifacts.ts`, `publication.ts`, `artifact-validation.ts`; stable upload identity, preparation before atomic publish, immutable membership |
 | Project grouping | `server/artifact-projects.ts`, `shared/git-remote.ts`; remote identities, explicit overrides, configured aliases, conditional metadata updates; terms in [CONTEXT.md](CONTEXT.md) |
 | Publisher capture | `cli/capture.ts`, `capture-git.ts`, `publisher-remote.ts`, `artifact-publish.ts`; bounded stable bytes, sanitized remote hints, Git process isolation, explicit retry diagnostics |

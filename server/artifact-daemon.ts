@@ -29,7 +29,7 @@ import {
 import { startLocalAgents } from "./local-agents.ts";
 
 // Migration occurs only after this process holds the per-user daemon lock.
-// Importing the CLI/server opens no legacy or artifact database.
+// Importing the CLI/server opens no database.
 export async function startArtifactDaemon(): Promise<void> {
   if (!acquireDaemonLock()) {
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -112,7 +112,7 @@ export async function startArtifactDaemon(): Promise<void> {
     console.log(`r3 artifact daemon on ${PUBLIC_URL}/ (v${R3_VERSION})`);
     if (storage.migration?.migrated)
       console.log(
-        "r3: previous reviews imported; their database backup is retained in artifact storage",
+        "r3: artifact schema upgraded; its database backup is retained in artifact storage",
       );
   } catch (error) {
     await localAgents?.stop();

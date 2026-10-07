@@ -13,13 +13,12 @@ CREATE TABLE IF NOT EXISTS project_remotes (
 ) STRICT;
 `;
 
-// Applied to fresh stores and to the destination of the legacy migration.
+// Applied to fresh artifact stores.
 // This module never opens a database itself.
 export const ARTIFACT_SCHEMA = `
 -- Content bytes are stored outside SQLite, addressed by SHA-256.
 -- Times are canonical UTC ISO-8601 strings supplied by the server.
--- Required attribution is explicit. Migration backfills missing values before
--- insert; the normal write path gets no implicit historical defaults.
+-- Required attribution is explicit; ordinary writes get no historical defaults.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE projects (

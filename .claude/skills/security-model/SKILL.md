@@ -402,8 +402,9 @@ Blob storage is private, immutable, content-addressed, fsynced, and hash-verifie
 Publication prepares bytes before the atomic metadata transaction. Garbage
 collection coordinates with active publication leases. Database and content paths
 are runtime configuration, never hardcoded machine paths. Migration obtains the
-daemon lock, writes a new private consistent backup, imports under an exclusive
-transaction, verifies integrity, and retains missing/uncertain historical evidence.
+daemon lock, writes a new private consistent backup, upgrades artifact schemas
+under an exclusive transaction, and verifies integrity. Already-imported history
+remains readable; live-review stores require an intermediate upgrade with r3 1.5.0.
 Do not use the real user store for development checks.
 
 ## Local wake adapters

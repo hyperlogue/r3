@@ -1,5 +1,5 @@
 // Artifact HTTP contracts, source/diff presentation, application bootstrap, and
-// publisher-local wake targets. Historical storage rows live in server/migration-data.ts.
+// publisher-local wake targets.
 export * from "./artifacts.ts";
 
 export type DiffSide = "old" | "new";

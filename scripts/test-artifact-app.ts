@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { chmod, copyFile, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { ArtifactConversations } from "../server/artifact-conversations.ts";
+import { renderArtifactDocument } from "../server/artifact-document.ts";
+import { createArtifactTables } from "../server/artifact-schema.ts";
+import { ArtifactStore } from "../server/artifacts.ts";
+import { BlobStore } from "../server/blobs.ts";
 import { eventually, openTestBrowser } from "./browser.ts";
 
 // Runs the shipped CLI/daemon/browser together, from a temporary directory that
@@ -54,20 +59,52 @@ const command = async (args: string[], override: Record<string, string> = {}) =>
 };
 let browser: Awaited<ReturnType<typeof openTestBrowser>> | undefined;
 try {
-  const legacy = new Database(environment.R3_DB);
-  legacy.exec(`
-    CREATE TABLE reviews(id TEXT PRIMARY KEY, kind TEXT, title TEXT, status TEXT, source TEXT);
-    CREATE TABLE snapshots(review_id TEXT, seq INTEGER, label TEXT);
-    CREATE TABLE snapshot_files(review_id TEXT, seq INTEGER, path TEXT, content TEXT, sha TEXT);
-    CREATE TABLE feedback(id TEXT PRIMARY KEY, review_id TEXT, author TEXT, file TEXT, body TEXT, status TEXT);
-    CREATE TABLE replies(id TEXT PRIMARY KEY, feedback_id TEXT, author TEXT, body TEXT, ref_version INTEGER);
-    INSERT INTO reviews VALUES ('review_imported', 'files', 'Imported publication', 'open', '{}');
-    INSERT INTO snapshots VALUES ('review_imported', 2, 'Retained snapshot');
-    INSERT INTO snapshot_files VALUES ('review_imported', 2, 'index.md', '# Retained legacy content', 'original-digest');
-    INSERT INTO feedback VALUES ('feedback_imported', 'review_imported', 'human', '', 'Retained human note', 'open');
-    INSERT INTO replies VALUES ('reply_imported', 'feedback_imported', 'agent', 'Retained agent reply', 2);
-  `);
-  legacy.close();
+  // Already-imported history remains readable. Seed an older artifact schema
+  // before starting the isolated daemon so the compiled binary performs its upgrade.
+  const previous = new Database(environment.R3_DB);
+  createArtifactTables(previous);
+  const time = "2026-09-01T00:00:00.000Z";
+  previous
+    .query(`INSERT INTO artifacts
+    (id, kind, title, created_by, next_seq, created_at, updated_at, legacy_json)
+    VALUES ('review_imported', 'files', 'Imported publication', 'human', 2, ?, ?, '{}')`)
+    .run(time, time);
+  const store = new ArtifactStore(
+    previous,
+    new BlobStore(join(`${environment.R3_DB}.artifacts`, "blobs")),
+    renderArtifactDocument,
+    () => time,
+  );
+  const human = { role: "human" as const, sessionId: null };
+  await store.publish("review_imported", {
+    actor: human,
+    expectedSeq: 0,
+    publicationKey: "retained",
+    content: {
+      kind: "files",
+      files: [
+        {
+          path: "index.md",
+          mediaType: "text/markdown",
+          base64: Buffer.from("# Retained legacy content").toString("base64"),
+        },
+      ],
+    },
+  });
+  const conversations = new ArtifactConversations(previous, store, () => time);
+  const retainedNote = await conversations.add("review_imported", {
+    actor: human,
+    body: "Retained human note",
+    target: { kind: "artifact" },
+  });
+  store.registerSession({ id: "imported-agent", label: "Imported agent" });
+  const retainedReply = await conversations.addReply(retainedNote.id, {
+    actor: { role: "agent", sessionId: "imported-agent" },
+    body: "Retained agent reply",
+    context: { versionSeq: 2, representation: "source" },
+  });
+  previous.exec("PRAGMA user_version = 8");
+  previous.close();
   await writeFile(
     join(directory, "index.html"),
     '<!doctype html><html><body><h1 id="title">First published page</h1><button id="send">Discuss this heading</button><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{const note=await r3.createFeedback({body:"Please explain the heading",locator:{selector:"#title",quote:title.textContent}});window.createdNote=note.id;};</script></body></html>',
@@ -153,14 +190,15 @@ try {
     imported.versions.map((version: { seq: number }) => version.seq),
     [2],
   );
-  assert.equal(imported.feedback[0].replies[0].id, "reply_imported");
+  assert.equal(imported.feedback[0].replies[0].id, retainedReply.id);
   assert.equal(imported.feedback[0].sentAt, null);
   const backups = await readdir(`${environment.R3_DB}.artifacts/backups`);
   assert.equal(backups.length, 1);
   const backup = new Database(join(`${environment.R3_DB}.artifacts/backups`, backups[0]), {
     readonly: true,
   });
-  assert.deepEqual(backup.query("SELECT id FROM reviews").all(), [{ id: "review_imported" }]);
+  assert.deepEqual(backup.query("PRAGMA user_version").get(), { user_version: 8 });
+  assert.deepEqual(backup.query("SELECT id FROM artifacts").all(), [{ id: "review_imported" }]);
   backup.close();
   await page.command("Page.navigate", { url: `${url}/${html.artifact.id}` });
   const content = await eventually(async () => {
@@ -265,7 +303,7 @@ try {
   );
   assert.deepEqual(await readdir(`${environment.R3_DB}.artifacts/backups`), backups);
   console.log(
-    "Compiled app: legacy migration and restart, retained URL and threads, lazy daemon, embedded assets, isolated preview, human utility thread, remote upload, pinned version, offline Markdown and binary reads passed.",
+    "Compiled app: artifact upgrade and restart, retained URL and threads, lazy daemon, embedded assets, isolated preview, human utility thread, remote upload, pinned version, offline Markdown and binary reads passed.",
   );
 } finally {
   await browser?.close();

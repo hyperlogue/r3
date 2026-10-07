@@ -253,31 +253,27 @@ Deleting an artifact cascades through versions, files, feedback, replies, placem
 
 All connections must enable foreign keys. STRICT tables constrain storage types, and explicit NULL checks prevent required variant fields from slipping through SQL's nullable CHECK semantics. Times are canonical UTC ISO-8601 strings supplied by the server. [SQLite STRICT tables](https://www.sqlite.org/stricttables.html), [SQLite CHECK constraints](https://www.sqlite.org/lang_createtable.html#check_constraints)
 
-## Migration from legacy reviews
+## Artifact schema upgrades
 
-| Legacy storage | Artifact storage |
-| --- | --- |
-| reviews | artifacts; preserve stored identity, translate lifecycle, retain legacy source/worktree/status provenance |
-| Approved/abandoned state and closure metadata | Synthetic archived event; original outcome and any closure message remain in artifact legacy provenance; no fresh notification |
-| repos | Optional projects; old location/worktree metadata remains migration provenance, never a content lookup key |
-| patches | diff artifact_versions with the original round sequence and stored patch_body |
-| snapshots / snapshot_files | files artifact_versions / version_files / blobs for bytes that were actually retained |
-| feedback.patch_seq and source anchor fields | Verified typed original target, or explicit legacy evidence when version/representation is unknown |
-| replies.ref_version and pin fields | Explicit context and fix target only when the old reference is supported by surviving content |
-| Known agent/session metadata | agent_sessions and required attribution references; missing values receive documented migration defaults |
-| feedback_claims | Preserve evidence and clear old leases; the new protocol requires fresh claims |
-| viewed_marks, auth tables | Preserve read progress and the login token/session contract |
+Startup upgrades artifact schema versions 1–8 to the current schema before serving
+requests. Live-review stores are rejected without changing their schema or rows;
+upgrade them with r3 1.5.0 before opening them with a newer release.
 
-Do not present migration-generated defaults as recovered historical facts. Required fields still receive valid values; provenance records how they were chosen. Do not fabricate missing historical source bytes, patch bodies, or verified rendered/source correspondence. legacy_json, legacy_anchor_json, and legacy_reference_json preserve unresolved historical evidence. A note whose target cannot be established can retain artifact scope plus that evidence, displayed as a historical target unavailable; it must not be presented as an originally general note. A later verified placement remains separate.
+`server/migration.ts` owns the upgrade transaction. Startup supplies an exclusively
+owned connection and a new backup path in a private directory. It creates a
+consistent 0600 SQLite backup, checks for a concurrent writer, upgrades the schema,
+checks references and integrity, then commits the schema marker. Failure or process
+interruption rolls back schema and data together. A retry takes another backup.
+Unknown or newer schemas stop the upgrade before creating a backup.
 
-Startup migrates supported legacy stores before serving artifact requests. The
-old command, route, event, and client protocols are retired; preserved review IDs
-still open as artifact URLs.
-
-Migration records incomplete publications and generated notices in provenance.
-New publications use the complete-directory contract. `next_seq` starts above every
-preserved or historically referenced sequence, including missing rounds. The DDL
-defines the current schema; `migration.ts` owns the upgrade from old tables.
+Already-imported history remains readable. Preserved review IDs still open as
+artifact URLs, and `next_seq` remains above all retained or historically referenced
+sequences, including missing rounds. `legacy_json`, `legacy_anchor_json`, and
+`legacy_reference_json` retain uncertain source evidence and migration defaults.
+Treat generated notices, fallback attribution, and imported timestamps as recorded
+migration decisions, not recovered historical facts. An unavailable original target
+stays explicit; a later verified placement remains separate. The current daemon
+never reads an old repository, worktree, scratch directory, or live document.
 
 Schema version 3 adds `project_remotes` without changing project IDs, primary
 remote metadata, or artifact membership. Existing primary remotes are matched
@@ -285,23 +281,6 @@ lazily using the same normalization as new requests; duplicate historical matche
 require explicit selection or configuration. Backfilling missing primary remotes
 uses authenticated project updates, optionally requiring `expectedRemoteUrl: null`.
 The schema upgrade never inspects local Git repositories.
-
-`server/migration.ts` owns the upgrade transaction. Startup supplies an exclusively
-owned connection, a new backup path in a private directory, the byte store,
-renderer, and optional one-time local capture adapter. It creates a consistent
-0600 SQLite backup, checks for a concurrent writer, renames the legacy tables,
-imports into the constrained destination, checks references and integrity, then
-commits the schema marker. Failure or process interruption rolls back schema and
-data together; a retry takes another backup and reuses immutable byte content.
-Unknown schemas and orphaned content stop the upgrade without discarding rows.
-
-`migration-content.ts` preserves retained file and patch identities and reserves
-missing sequence ranges. `migration-conversations.ts` preserves message IDs,
-delivery state, supported native targets, and uncertain historical evidence.
-Obsolete work leases are retained as evidence and cleared: agents must establish
-their sessions and transport registrations under the new protocol. Authentication
-hash records retain the existing cookie contract. Viewed marks carry forward,
-with SHA-256 keys added when retained bytes establish the old content identity.
 
 Schema version 4 adds `local_agent_targets` (session-to-harness delivery details) and
 `artifact_listeners` (artifact, fallback/explicit mode, registration ID, session, time).
@@ -317,9 +296,7 @@ only delivery timestamp during an edit, so the upgrade conservatively sets this
 flag for all existing notes. It preserves existing timestamps, pending flags, and
 messages. A later status change can therefore cause an extra notification for an
 old never-delivered note, rather than silently losing a change to a previously
-delivered note. Legacy imports use the same policy and record unknown history in
-migration defaults. New notes use exact delivery history. Static demo schema 3
-retains the same flag in its private state and follows the same upgrade policy.
+delivered note. New notes use exact delivery history.
 
 Schema version 6 adds private `artifacts.feedback_revision`, starting at zero for
 existing artifacts without changing their delivery state. Conversation mutations,
@@ -328,29 +305,10 @@ transaction. Pending-read fingerprints bind artifact, selection, and revision, s
 stale acknowledgments cannot consume later content even after edit/revert cycles
 or daemon restarts. Claims do not advance it. The daemon accepts acknowledgments
 only with a matching fingerprint; reading pending data never stamps delivery.
-Static demo schema 4 persists a corresponding revision map.
 
-## Required fields and migration defaults
-
-Migration applies explicit defaults before inserting into the constrained schema.
-Missing historical fields do not weaken the rules for ordinary writes. Each
-fallback records its source entity, field, value, and reason.
+## Required fields and historical evidence
 
 created_by, published_by, and artifact_events.actor are NOT NULL. Agent-authored artifacts, versions, events, feedback, and replies must reference an agent session; human-authored rows must have no agent session. Ordinary write requests supply required attribution explicitly. There is no blanket SQL default that would silently convert a malformed new agent request into human authorship.
-
-| Missing legacy information | Migration default |
-| --- | --- |
-| Creator/publisher role | Recover a known role/session when available; otherwise use human, the single owner's fallback attribution |
-| Archive/restore actor | Use the known actor; otherwise human, matching the owner-driven lifecycle |
-| Known agent role but no session | Create a deterministic imported session with label Imported agent; retain any known grouping, and do not merge unrelated unknown agents into one inferred identity |
-| Required creation timestamp | Reuse an appropriate existing source timestamp; if none survives, use the migration time and record that fallback |
-| File media type | Derive from retained content/path when possible; otherwise application/octet-stream |
-| Old files snapshot with no recoverable member files | Materialize a MIGRATION.md notice explaining that no original files were retained; explicitly mark it as migration-generated and preserve the original empty record in provenance |
-| Original target cannot be established | Use the existing artifact-level target variant, preserving the old anchor evidence; do not invent a precise verified placement |
-
-For example, a role defaulted to human is usable by the normal model, while migration provenance records that the original role was absent. An Imported agent session is a migration-created attribution record, not proof of a recovered historical process or a live listener. A generated notice is real stored content satisfying file_count > 0, clearly identified as generated; simply setting file_count to 1 without a file would be invalid.
-
-Store the source evidence and a defaults list identifying entity, field, chosen value, and reason in the artifact's legacy_json or the version's provenance_json. Record generated files there too. This keeps migration assumptions inspectable without sending NULL through required product fields. Missing diff bodies remain documented gaps with reserved sequences; a fake patch is not a meaningful default.
 
 NULL remains where absence is a supported state: no project grouping, no optional archive message, no fix target, no version context for a general message, no agent session for a human, a kind-inapplicable payload column, or a publication being assembled inside its transaction. These are product or transaction semantics, not concessions to legacy data.
 
@@ -368,7 +326,7 @@ Schema revision 2 removes `artifacts.summary`. Upgrading revision 1 first writes
 an owner-only consistent backup, then retains existing text in
 `legacy_json.retiredOverview` and drops the column in one transaction. Original
 `artifact_summary` feedback targets stay unchanged and readable, but are rejected
-for new comments. The old live-review migration retains its overview in the
+for new comments. Previously imported live-review overviews remain in the
 original review provenance. Version summaries are unaffected.
 
 

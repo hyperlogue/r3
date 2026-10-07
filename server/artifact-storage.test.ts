@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedLegacyMarkdownArtifact } from "../scripts/legacy-markdown-fixture.ts";
@@ -197,12 +197,7 @@ describe("private artifact storage bootstrap", () => {
     expect((await stat(`${options().databasePath}.artifacts`)).mode & 0o777).toBe(0o700);
     storage.close();
     storage = null;
-    storage = await openArtifactStorage({
-      ...options(),
-      capture: async () => {
-        throw new Error("Must not capture on reopen");
-      },
-    });
+    storage = await openArtifactStorage(options());
     expect(storage.migration?.migrated).toBe(false);
     expect((await storage.artifacts.readFile(id, 1, "index.md")).toString()).toBe("# Shared");
     expect(await readdir(join(`${options().databasePath}.artifacts`, "backups"))).toEqual([]);
@@ -227,25 +222,31 @@ describe("private artifact storage bootstrap", () => {
     await expect(blobs.read(file.renderedHash!)).rejects.toThrow();
   });
 
-  test("startup reclaims interrupted upload bytes and migrates scratch assets once", async () => {
-    const legacy = new Database(options().databasePath);
-    legacy.exec(`CREATE TABLE reviews(id TEXT PRIMARY KEY, kind TEXT, source TEXT, status TEXT);
-      INSERT INTO reviews VALUES ('review_scratch', 'files', '{"ref":"SCRATCH","files":[]}', 'open');`);
-    legacy.close();
-    await mkdir(join(root, "scratch/review_scratch"), { recursive: true });
-    await writeFile(join(root, "scratch/review_scratch/index.md"), "# Current scratch");
+  test("startup reclaims interrupted upload bytes", async () => {
     const blobs = new BlobStore(join(`${options().databasePath}.artifacts`, "blobs"));
     const orphan = await blobs.put("Abandoned before SQL commit");
     storage = await openArtifactStorage(options());
-    expect(storage.migration?.migrated).toBe(true);
-    expect(await Bun.file(storage.migration!.backupPath!).exists()).toBe(true);
     await expect(blobs.read(orphan.hash)).rejects.toThrow();
-    await rm(join(root, "scratch"), { recursive: true });
-    expect(
-      (await storage.artifacts.readFile("review_scratch", 1, "review_scratch/index.md")).toString(),
-    ).toBe("# Current scratch");
-    expect(storage.artifacts.version("review_scratch", 1).provenance).toMatchObject({
-      migration: { currentCapture: true },
-    });
+  });
+
+  test("startup refuses live-review stores without changing their schema or rows", async () => {
+    const legacy = new Database(options().databasePath);
+    legacy.exec(`CREATE TABLE reviews(id TEXT PRIMARY KEY, body TEXT);
+      INSERT INTO reviews VALUES ('review_retained', 'Keep this history');`);
+    legacy.close();
+    await expect(openArtifactStorage(options())).rejects.toThrow("r3 1.5.0");
+    const probe = new Database(options().databasePath, { readonly: true });
+    try {
+      expect(probe.query("SELECT * FROM reviews").all()).toEqual([
+        { id: "review_retained", body: "Keep this history" },
+      ]);
+      expect(probe.query("PRAGMA user_version").get()).toEqual({ user_version: 0 });
+      expect(probe.query("SELECT name FROM sqlite_master WHERE type = 'table'").all()).toEqual([
+        { name: "reviews" },
+      ]);
+    } finally {
+      probe.close();
+    }
+    expect(await readdir(join(`${options().databasePath}.artifacts`, "backups"))).toEqual([]);
   });
 });
