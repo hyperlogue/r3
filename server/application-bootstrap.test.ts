@@ -36,7 +36,7 @@ const snapshot = (html: string): ApplicationBootstrap | null => {
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-bootstrap-"));
   storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
-  previews = new PreviewHost(storage.artifacts, undefined, previewSupport);
+  previews = new PreviewHost(storage.artifacts, previewSupport);
   token = randomBytes(32).toString("base64url");
   const login = storage.authentication.createLoginToken("bootstrap fixture");
   tokenId = login.info.id;

@@ -14,33 +14,16 @@ export interface ArtifactServerOptions {
   authentication: ArtifactAuthPolicy;
   bind: string;
   port: number;
-  previewPort?: number;
-  previewBaseUrl?: string;
 }
 
-// The runtime owns the application listener and an optional preview listener. Neither
-// reads publisher files; the caller owns storage and closes it after stop().
+// The runtime owns the application listener, including scoped preview dispatch.
+// It never reads publisher files; the caller owns storage and closes it after stop().
 export function startArtifactServer(options: ArtifactServerOptions) {
   if (options.bind === "0.0.0.0" || options.bind === "::" || options.bind === "[::]")
     throw new Error("r3 requires a loopback or explicitly selected interface");
-  const previews = new PreviewHost(
-    options.storage.artifacts,
-    options.previewBaseUrl,
-    previewSupport,
-  );
-  let previewServer: Bun.Server<undefined> | undefined;
+  const previews = new PreviewHost(options.storage.artifacts, previewSupport);
   let api: ReturnType<typeof createArtifactApi> | undefined;
   try {
-    if (options.previewBaseUrl)
-      previewServer = Bun.serve({
-        hostname: "127.0.0.1",
-        port: options.previewPort ?? options.port + 1,
-        reusePort: false,
-        development: false,
-        idleTimeout: 120,
-        maxRequestBodySize: 4096,
-        fetch: (request) => previews.fetch(request),
-      });
     // Opaque preview documents send Origin:null. Keep the application's exact
     // origin guard; a shared transport hostname is not a preview principal.
     const policy = options.authentication;
@@ -75,7 +58,6 @@ export function startArtifactServer(options: ArtifactServerOptions) {
     let stopped = false;
     return {
       server,
-      previewServer,
       previews,
       api: application,
       async stop() {
@@ -83,8 +65,7 @@ export function startArtifactServer(options: ArtifactServerOptions) {
         stopped = true;
         application.close();
         previews.close();
-        const listeners = previewServer ? [server, previewServer] : [server];
-        const draining = Promise.all(listeners.map((listener) => listener.stop()));
+        const draining = server.stop();
         let timer: ReturnType<typeof setTimeout>;
         await Promise.race([
           draining,
@@ -93,12 +74,11 @@ export function startArtifactServer(options: ArtifactServerOptions) {
           }),
         ]);
         clearTimeout(timer!);
-        await Promise.all(listeners.map((listener) => listener.stop(true)));
+        await server.stop(true);
       },
     };
   } catch (error) {
     api?.close();
-    void previewServer?.stop(true);
     previews.close();
     throw error;
   }

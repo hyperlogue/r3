@@ -25,11 +25,10 @@ export class PreviewHost {
   readonly contexts: PreviewContexts;
   constructor(
     private readonly artifacts: ArtifactStore,
-    baseUrl: string | undefined,
     private readonly support: PreviewSupport,
     now?: () => number,
   ) {
-    this.contexts = new PreviewContexts(artifacts, baseUrl, now);
+    this.contexts = new PreviewContexts(artifacts, now);
   }
   create(
     artifactId: string,

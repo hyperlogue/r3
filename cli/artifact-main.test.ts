@@ -23,11 +23,6 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
   );
   await chmod(join(bin, "codex"), 0o700);
   const reservation = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() });
-  const previewReservation = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch: () => new Response(),
-  });
   const environment = {
     ...process.env,
     XDG_STATE_HOME: join(root, "state"),
@@ -35,10 +30,8 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     XDG_RUNTIME_DIR: join(root, "runtime"),
     R3_DB: join(root, "store.sqlite"),
     R3_PORT: String(reservation.port),
-    R3_PREVIEW_PORT: String(previewReservation.port),
     R3_BIND: "127.0.0.1",
     R3_PUBLIC_URL: "",
-    R3_PREVIEW_BASE_URL: "",
     R3_ALLOWED_HOSTS: "",
     R3_REQUIRE_LOGIN: "0",
     R3_URL: "",
@@ -55,7 +48,6 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     R3_TEST_QUEUE_FILE: queueFile,
   };
   await reservation.stop(true);
-  await previewReservation.stop(true);
   const run = async (...args: string[]) => {
     const child = Bun.spawn([process.execPath, join(import.meta.dir, "index.ts"), ...args], {
       cwd: directory,
@@ -239,10 +231,8 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(archived.output).toContain("Keep this history");
     expect((await run("publish", id, "--dir", directory)).code).toBe(4);
     expect((await run("restore", id, "--human", "--key", "restore-once")).code).toBe(0);
-    expect((await run("config", "set", "previewPort", environment.R3_PREVIEW_PORT)).code).toBe(0);
-    expect((await run("config", "get", "previewPort")).output.trim()).toBe(
-      environment.R3_PREVIEW_PORT,
-    );
+    expect((await run("config", "set", "port", environment.R3_PORT)).code).toBe(0);
+    expect((await run("config", "get", "port")).output.trim()).toBe(environment.R3_PORT);
   } finally {
     const stopped = await run("stop");
     expect(stopped.code).toBe(0);

@@ -114,7 +114,7 @@ await storage.conversations.add(artifact.id, {
   body: "No proposed fix yet",
   target: target("#cta"),
 });
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const api = createArtifactApi(
   storage,
   {

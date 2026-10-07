@@ -51,7 +51,7 @@ beforeEach(async () => {
       ],
     },
   });
-  host = new PreviewHost(storage.artifacts, "https://preview.example", {
+  host = new PreviewHost(storage.artifacts, {
     runtime: () => "/* r3 runtime fixture */",
     utility: () => "export const fixture = true;",
   });
@@ -386,7 +386,7 @@ test("preview support revalidates its bytes without bypassing navigation or cont
 
 test("generated preview responses negotiate compression without weakening validators or guards", async () => {
   host.close();
-  host = new PreviewHost(storage.artifacts, "https://preview.example", {
+  host = new PreviewHost(storage.artifacts, {
     runtime: () => "/* runtime fixture */".repeat(100),
     utility: () => "",
   });
@@ -439,7 +439,7 @@ test("generated preview responses negotiate compression without weakening valida
 
 test("inline runtime preserves script delimiters as JavaScript data", async () => {
   host.close();
-  host = new PreviewHost(storage.artifacts, "https://preview.example", {
+  host = new PreviewHost(storage.artifacts, {
     runtime: () => 'window.example = "<!--<script></ScRiPt>";',
     utility: () => "",
   });

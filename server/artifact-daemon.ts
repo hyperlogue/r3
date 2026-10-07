@@ -1,11 +1,7 @@
 import { dirname, join } from "node:path";
 import index from "../web/index.html";
 import { loadApplicationAssets } from "./application-assets.ts";
-import {
-  artifactAuthSettings,
-  artifactPreviewSettings,
-  artifactProjectSettings,
-} from "./artifact-config.ts";
+import { artifactAuthSettings, artifactProjectSettings } from "./artifact-config.ts";
 import { startArtifactServer } from "./artifact-server.ts";
 import { openArtifactStorage } from "./artifact-storage.ts";
 import {
@@ -50,7 +46,6 @@ export async function startArtifactDaemon(): Promise<void> {
   let runtime: ReturnType<typeof startArtifactServer> | undefined;
   let localAgents: Awaited<ReturnType<typeof startLocalAgents>> | undefined;
   try {
-    const settings = artifactPreviewSettings(process.env, readConfig(), PORT);
     const assets = await loadApplicationAssets(index);
     storage = await openArtifactStorage({
       databasePath: stateDbPath(),
@@ -64,8 +59,6 @@ export async function startArtifactDaemon(): Promise<void> {
       assets,
       bind: BIND,
       port: PORT,
-      previewPort: settings.port,
-      previewBaseUrl: settings.baseUrl,
       authentication: {
         token,
         requireLogin: REQUIRE_LOGIN,
@@ -85,7 +78,6 @@ export async function startArtifactDaemon(): Promise<void> {
       version: R3_VERSION,
       protocol: "artifacts-v1",
       publicUrl: PUBLIC_URL,
-      previewBaseUrl: settings.baseUrl ?? PUBLIC_URL,
       requireLogin: REQUIRE_LOGIN,
       exec: process.execPath,
       argv: process.argv,

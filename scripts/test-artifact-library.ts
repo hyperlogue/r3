@@ -140,7 +140,7 @@ for (let i = 0; i < 14; i++) {
     archivedIds.push(artifact.id);
   }
 }
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const token = randomBytes(32).toString("base64url");
 const api = createArtifactApi(
   storage,

@@ -91,7 +91,7 @@ for (const { kind, path, mediaType } of [
   }
   fixtures.push({ id: artifact.id, path, kind });
 }
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const resourceRequests = new Map<string, number>();
 const api = createArtifactApi(
   storage,

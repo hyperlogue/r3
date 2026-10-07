@@ -139,8 +139,6 @@ export interface PersistedConfig {
   requireLogin?: boolean;
   authTokenIdleDays?: number;
   archiveTtlDays?: number;
-  previewPort?: number;
-  previewBaseUrl?: string;
   projectGrouping?: "remote" | "manual";
   projectMappings?: Record<string, string>;
 }
@@ -184,9 +182,6 @@ function sanitizeConfig(o: Record<string, unknown>): PersistedConfig {
     o.archiveTtlDays <= 36500
   )
     out.archiveTtlDays = o.archiveTtlDays;
-  if (typeof o.previewPort === "number" && Number.isInteger(o.previewPort))
-    out.previewPort = o.previewPort;
-  if (typeof o.previewBaseUrl === "string") out.previewBaseUrl = o.previewBaseUrl;
   if (o.projectGrouping === "remote" || o.projectGrouping === "manual")
     out.projectGrouping = o.projectGrouping;
   if (
@@ -275,7 +270,6 @@ export interface DaemonInfo {
   token: string;
   version: string;
   protocol?: "artifacts-v1";
-  previewBaseUrl?: string;
   // How this daemon was launched, recorded by the serving process itself:
   // `exec` is its binary/interpreter (process.execPath — the compiled r3 binary,
   // or the bun that ran the script), `argv` the full command line

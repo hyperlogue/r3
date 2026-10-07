@@ -151,10 +151,8 @@ media type, validators, private caching, and byte-range support. Application-ori
 downloads are attachments. Executable content belongs to the sandboxed preview dispatcher.
 
 A preview context binds one artifact/version to a temporary random URL prefix on
-one preview endpoint, automatically using the browser's application address.
-An optional endpoint override adds a separate loopback preview listener; no
-wildcard DNS is needed. Its `files/<path>` resources use that version's content;
-`r3/` serves trusted preview support. Documents use `sandbox="allow-scripts"`
+the browser's application address. Its `files/<path>` resources use that version's
+content; `r3/` serves trusted preview support. Documents use `sandbox="allow-scripts"`
 and the same CSP sandbox, producing a fresh opaque origin on every navigation.
 Native modules, CSS, images, audio/video, fetch, and XHR use scoped URLs and
 credential-free resource CORS. No preview cookie or application credential is

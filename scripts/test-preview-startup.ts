@@ -51,7 +51,7 @@ await storage.artifacts.publish(artifact.id, {
     ],
   },
 });
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const api = createArtifactApi(
   storage,
   {

@@ -1,4 +1,3 @@
-import { isIP } from "node:net";
 import {
   type PersistedConfig,
   parseBoolFlag,
@@ -19,8 +18,6 @@ const NAMES = [
   "requireLogin",
   "authTokenIdleDays",
   "archiveTtlDays",
-  "previewPort",
-  "previewBaseUrl",
   "projectGrouping",
   "projectMappings",
 ] as const;
@@ -106,8 +103,7 @@ export function configCommand(argv: string[]): void {
         next.projectMappings = Object.fromEntries(entries);
         break;
       }
-      case "port":
-      case "previewPort": {
+      case "port": {
         const port = Number(value);
         if (!Number.isInteger(port) || port < 1 || port > 65535)
           throw new ArtifactCommandError(`${name} must be between 1 and 65535`);
@@ -119,8 +115,7 @@ export function configCommand(argv: string[]): void {
           throw new ArtifactCommandError("Use loopback or an explicitly selected interface");
         next.bind = value;
         break;
-      case "publicUrl":
-      case "previewBaseUrl": {
+      case "publicUrl": {
         let url: URL;
         try {
           url = new URL(value);
@@ -137,17 +132,6 @@ export function configCommand(argv: string[]): void {
         )
           throw new ArtifactCommandError(
             `${name} requires an HTTP(S) origin without credentials or a path`,
-          );
-        if (
-          name === "previewBaseUrl" &&
-          url.protocol === "http:" &&
-          url.hostname !== "localhost" &&
-          !url.hostname.endsWith(".localhost") &&
-          url.hostname !== "[::1]" &&
-          !(isIP(url.hostname) === 4 && url.hostname.startsWith("127."))
-        )
-          throw new ArtifactCommandError(
-            "previewBaseUrl requires an HTTPS origin or an HTTP loopback origin",
           );
         next[name] = url.origin;
         break;
@@ -173,8 +157,6 @@ export function configCommand(argv: string[]): void {
       }
     }
   }
-  if (next.port !== undefined && next.port === next.previewPort)
-    throw new ArtifactCommandError("Application and preview ports must differ");
   writeConfig(next);
   console.log("Saved r3 configuration. Run r3 restart to apply it.");
 }

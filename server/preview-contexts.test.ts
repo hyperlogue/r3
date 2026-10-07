@@ -45,7 +45,7 @@ beforeEach(async () => {
       },
     });
   time = Date.parse("2026-09-11T12:00:00Z");
-  contexts = new PreviewContexts(storage.artifacts, "https://preview.example", () => time);
+  contexts = new PreviewContexts(storage.artifacts, () => time);
 });
 afterEach(async () => {
   contexts.close();
@@ -113,12 +113,10 @@ test("each preview grants one publication through an exact, temporary capability
   expect(contexts.forRequest(request(second.documentUrl)).versionSeq).toBe(2);
   expect(first.documentUrl.endsWith("/files/notes/a%20%23%20b%3F.md")).toBe(true);
   expect(() =>
-    contexts.forRequest(
-      request(first.documentUrl.replace("preview.example", "preview.example:444")),
-    ),
+    contexts.forRequest(request(first.documentUrl.replace("app.example", "app.example:444"))),
   ).toThrow("unavailable");
   expect(() =>
-    contexts.forRequest(request(first.documentUrl.replace("preview.example", "other.example"))),
+    contexts.forRequest(request(first.documentUrl.replace("app.example", "other.example"))),
   ).toThrow("unavailable");
   expect(() => contexts.forRequest(new Request(first.documentUrl))).toThrow("unavailable");
   expect(() => contexts.create(id, 1, "data.json", "https://app.example")).toThrow(
@@ -224,31 +222,20 @@ test("external connections require an explicit HTML context and never relax an e
   expect(() => contexts.forRequest(request(external.documentUrl))).toThrow("unavailable");
 });
 
-test("preview origins require secure contexts and an explicit secure transport origin", () => {
-  expect(() => new PreviewContexts(storage.artifacts, "http://preview.example")).toThrow("HTTPS");
-  expect(() => new PreviewContexts(storage.artifacts, "http://127.preview.example")).toThrow(
-    "HTTPS",
-  );
-  expect(() => new PreviewContexts(storage.artifacts, "https://preview.example/base")).toThrow(
-    "URL path",
-  );
-  expect(() => new PreviewContexts(storage.artifacts, "http://127.0.0.1:8792")).not.toThrow();
-  const local = new PreviewContexts(storage.artifacts, "http://localhost:8792");
-  expect(() => local.create(id, 1, "notes/a # b?.md", "https://app.example")).toThrow(
-    "R3_PREVIEW_BASE_URL",
-  );
-  const context = local.create(id, 1, "notes/a # b?.md", "http://localhost:8791");
-  expect(new URL(context.origin).port).toBe("8792");
-  expect(() => local.create(id, 1, "notes/a # b?.md", "http://127.0.0.1:8791")).not.toThrow();
-  expect(() => local.create(id, 1, "notes/a # b?.md", "http://[::1]:8791")).not.toThrow();
-  expect(() => local.create(id, 1, "notes/a # b?.md", context.origin)).not.toThrow();
+test("preview origins require HTTPS or loopback without URL paths", () => {
+  for (const origin of [
+    "http://preview.example",
+    "http://127.preview.example",
+    "https://app.example/base",
+  ])
+    expect(() => contexts.create(id, 1, "notes/a # b?.md", origin)).toThrow("HTTPS origin");
   const kept = contexts.create(id, 1, "notes/a # b?.md", "https://app.example");
   storage.artifacts.delete(id);
   expect(() => contexts.forRequest(request(kept.documentUrl))).toThrow();
 });
 
 test("automatic contexts use the authenticated application origin, including HTTPS and loopback", () => {
-  const automatic = new PreviewContexts(storage.artifacts, undefined);
+  const automatic = new PreviewContexts(storage.artifacts);
   for (const origin of [
     "https://reviews.example",
     "http://localhost:8791",

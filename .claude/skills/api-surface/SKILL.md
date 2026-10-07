@@ -212,9 +212,9 @@ atomically clears durable records; restore requires a new publication/registrati
   the shared source palette stylesheet.
 
 The preview dispatcher serves its own gate, resources and runtime under
-`/__r3_preview/:context/files/` and `/__r3_preview/:context/r3/`. Automatic hosting
-uses the Host-guarded application listener; an explicit endpoint adds a separate
-loopback preview listener. It serves no application API, proxy, or unknown-path SPA fallback. See
+`/__r3_preview/:context/files/` and `/__r3_preview/:context/r3/` through the
+Host-guarded application listener. Preview dispatch serves no application API,
+proxy, or unknown-path SPA fallback. See
 [security-model](../security-model/SKILL.md) for its authorization boundary.
 The context capability authorizes resource reads. The trusted browser gate checks
 capabilities before the workspace loads publisher content unless browser risk

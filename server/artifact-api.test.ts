@@ -24,7 +24,7 @@ beforeEach(async () => {
     render: async () => ({ html: "<h1>Retained document</h1>", revision: "api-test" }),
   });
   token = randomBytes(32).toString("base64url");
-  previews = new PreviewHost(storage.artifacts, "https://preview.example", previewSupport);
+  previews = new PreviewHost(storage.artifacts, previewSupport);
   api = createArtifactApi(
     storage,
     {

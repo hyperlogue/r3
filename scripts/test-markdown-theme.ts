@@ -72,7 +72,7 @@ const lastSection = await storage.conversations.add(artifact.id, {
     locator: { selector: "h2:nth-of-type(30)", quote: "Section 30" },
   },
 });
-const preview = new PreviewHost(storage.artifacts, undefined, {
+const preview = new PreviewHost(storage.artifacts, {
   ...previewSupport,
   runtime: (scope) => {
     // Hold the first height report so cold Locate cannot accidentally pass

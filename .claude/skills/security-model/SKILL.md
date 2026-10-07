@@ -14,8 +14,8 @@ logical agents, not multi-user accounts or per-agent permissions.
 
 ## Application boundary
 
-`server/artifact-server.ts` binds the application listener on loopback; an explicit
-preview endpoint adds a separate loopback listener. All-interface binds are rejected.
+`server/artifact-server.ts` binds the application listener on loopback and serves
+scoped preview paths through it. All-interface binds are rejected.
 The application Host guard runs before API, preview dispatch, and static assets.
 Allowed application hosts are exact local, explicitly allowlisted, or advertised
 public hostnames; never wildcards. Transport hostnames are not document identities:
@@ -114,23 +114,16 @@ credentials. Both clients and probes reject redirects when carrying credentials.
 
 Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults.
 Configuration contains no secret. Supported settings include application bind,
-port, publicUrl, allowedHosts, requireLogin and authTokenIdleDays, plus previewPort
-and previewBaseUrl.
-Changes take effect at restart. With no preview override, the authenticated
+port, publicUrl, allowedHosts, requireLogin and authTokenIdleDays.
+Changes take effect at restart. The authenticated
 preview-creation request chooses the browser's application origin and the existing
 listener dispatches `/__r3_preview/` through the preview module after the Host
 guard. No second port, wildcard DNS, or Tailscale Serve change is needed.
 
-An explicit `previewBaseUrl` selects one HTTPS endpoint (or HTTP loopback locally).
-Only then is `previewPort` used, defaulting to application port + 1 and requiring
-a distinct valid port. The extra listener has no application routes or credentials.
-Forward its Host and paths unchanged. Clear the override to use automatic hosting.
-
 For an application proxy that rewrites Host, the preview dispatcher can normalize
 only a context whose transport origin equals its application origin and appears
 in the configured application-origin set. The application Host guard runs first;
-arbitrary forwarded headers never authorize that normalization. The dedicated
-preview listener accepts no such proxy-origin exemption.
+arbitrary forwarded headers never authorize that normalization.
 
 ## Preview host
 

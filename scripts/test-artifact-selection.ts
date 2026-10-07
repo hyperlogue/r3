@@ -99,7 +99,7 @@ await storage.conversations.addReply(thread.id, {
   body: "An agent reply that can be quoted.",
   context: { versionSeq: 1, representation: "rendered" },
 });
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const api = createArtifactApi(
   storage,
   {

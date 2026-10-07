@@ -180,7 +180,6 @@ export async function daemonCommand(
         ? `r3 daemon: ${info.publicUrl ?? info.url} · v${health.version} · ${health.protocol ?? "previous review protocol"}`
         : "r3: announced daemon is not responding",
     );
-    if (info.previewBaseUrl) console.log(`preview base: ${info.previewBaseUrl}`);
     console.log(`login ${info.requireLogin ? "required" : "not required"}`);
     return;
   }

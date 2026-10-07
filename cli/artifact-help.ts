@@ -117,19 +117,16 @@ Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential
   guide [html|files|diff]                     # workflow and optional preparation guides
 
 Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
-Optional previewBaseUrl selects a separate endpoint; previewPort defaults to the
-application port + 1 only for that override. Wildcard subdomains are unnecessary.
 Configuration names:
 bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
-previewPort, previewBaseUrl, archiveTtlDays (1..36500; default 30),
+archiveTtlDays (1..36500; default 30),
 projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
 Login tokens expire after authTokenIdleDays of inactivity (default 14, positive
 integer). Successful login or cookie authentication refreshes last use; unused
 tokens age from creation. Inactivity is calculated when authenticating; startup
 removes inactive or revoked rows.
 Cookie-use timestamps are saved once per minute and at graceful shutdown.
-Environment overrides: R3_AUTH_TOKEN_IDLE_DAYS, R3_PREVIEW_PORT,
-R3_PREVIEW_BASE_URL, R3_PROJECT_GROUPING.
+Environment overrides: R3_AUTH_TOKEN_IDLE_DAYS, R3_PROJECT_GROUPING.
 Project settings take effect on the server after restart. An explicit project wins
 over remote inference; project mappings can group aliases under an existing ID.
 The CLI detects origin's fetch URL (then upstream or the sole remote), removes

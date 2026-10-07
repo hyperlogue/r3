@@ -94,7 +94,7 @@ await storage.conversations.add(html.id, {
   target: { kind: "artifact" },
   body: "Fixture conversation",
 });
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const api = createArtifactApi(
   storage,
   {

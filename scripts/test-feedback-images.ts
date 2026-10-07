@@ -66,7 +66,7 @@ for (const seq of [1, 2])
       ],
     },
   });
-const preview = new PreviewHost(storage.artifacts, undefined, previewSupport);
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 let failNextPost = false;
 const api = createArtifactApi(
   storage,

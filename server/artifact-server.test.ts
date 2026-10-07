@@ -6,10 +6,7 @@ import { join } from "node:path";
 import { startArtifactServer } from "./artifact-server.ts";
 import { openArtifactStorage } from "./artifact-storage.ts";
 
-test.each([
-  "automatic",
-  "explicit",
-])("%s preview hosting preserves capability and application guards", async (mode) => {
+test("shared preview hosting preserves capability and application guards", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-servers-"));
   const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
   const token = randomBytes(32).toString("base64url");
@@ -32,8 +29,6 @@ test.each([
     },
     bind: "127.0.0.1",
     port: 0,
-    previewPort: 0,
-    ...(mode === "explicit" ? { previewBaseUrl: "https://preview.example" } : {}),
   });
   const base = `http://localhost:${runtime.server.port}`;
   try {
@@ -70,12 +65,9 @@ test.each([
       ((await (await fetch(`${base}/api/health`)).json()) as { protocol: string }).protocol,
     ).toBe("artifacts-v1");
     const preview = runtime.previews.create(artifact.id, 1, "index.html", base);
-    expect(preview.origin).toBe(mode === "automatic" ? base : "https://preview.example");
-    expect(!!runtime.previewServer).toBe(mode === "explicit");
-    const endpoint =
-      mode === "automatic" ? base : `http://localhost:${runtime.previewServer!.port}`;
+    expect(preview.origin).toBe(base);
     const read = (url: string, init: RequestInit = {}) =>
-      fetch(endpoint + new URL(url).pathname, {
+      fetch(base + new URL(url).pathname, {
         ...init,
         headers: {
           host: new URL(preview.origin).host,
@@ -107,36 +99,29 @@ test.each([
     expect((await fetch(`${base}/`, { headers: { host: "untrusted.example" } })).status).toBe(403);
     expect((await read(`${preview.resourceRoot}../../api/boot`)).status).toBe(404);
     expect((await fetch(`${base}/files/index.html`)).status).toBe(404);
-    if (mode === "explicit") {
-      expect(
-        (await fetch(`${endpoint}/api/boot`, { headers: { "x-r3-token": token } })).status,
-      ).toBe(404);
-      expect((await fetch(`${endpoint}/`, { headers: { "x-r3-token": token } })).status).toBe(404);
-    } else {
-      // The authenticated Origin chooses the existing HTTPS edge even when the
-      // reverse proxy rewrites Host to the loopback application listener.
-      const created = await fetch(`${base}/api/artifacts/${artifact.id}/versions/1/previews`, {
-        method: "POST",
-        headers: {
-          "x-r3-token": token,
-          "content-type": "application/json",
-          origin: "https://reviews.example",
-        },
-        body: JSON.stringify({ path: "index.html" }),
-      });
-      expect(created.status).toBe(201);
-      const remote = (await created.json()) as { origin: string; gateUrl: string };
-      expect(remote.origin).toBe("https://reviews.example");
-      const remotePath = new URL(remote.gateUrl).pathname;
-      expect((await fetch(base + remotePath)).status).toBe(200);
-      expect(
-        (
-          await fetch(base + remotePath, {
-            headers: { host: "untrusted.example", "x-forwarded-host": "reviews.example" },
-          })
-        ).status,
-      ).toBe(403);
-    }
+    // The authenticated Origin chooses the existing HTTPS edge even when the
+    // reverse proxy rewrites Host to the loopback application listener.
+    const created = await fetch(`${base}/api/artifacts/${artifact.id}/versions/1/previews`, {
+      method: "POST",
+      headers: {
+        "x-r3-token": token,
+        "content-type": "application/json",
+        origin: "https://reviews.example",
+      },
+      body: JSON.stringify({ path: "index.html" }),
+    });
+    expect(created.status).toBe(201);
+    const remote = (await created.json()) as { origin: string; gateUrl: string };
+    expect(remote.origin).toBe("https://reviews.example");
+    const remotePath = new URL(remote.gateUrl).pathname;
+    expect((await fetch(base + remotePath)).status).toBe(200);
+    expect(
+      (
+        await fetch(base + remotePath, {
+          headers: { host: "untrusted.example", "x-forwarded-host": "reviews.example" },
+        })
+      ).status,
+    ).toBe(403);
   } finally {
     await runtime.stop();
     storage.close();

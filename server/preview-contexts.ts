@@ -73,14 +73,10 @@ export class PreviewContexts {
   private readonly contexts = new Map<string, PreviewScope>();
   private readonly alternatives = new Map<string, string>();
   private readonly resumable = new Map<string, string>();
-  private readonly base: URL | undefined;
   constructor(
     private readonly artifacts: ArtifactStore,
-    baseUrl: string | undefined,
     private readonly now: () => number = Date.now,
-  ) {
-    this.base = baseUrl ? secureOrigin(baseUrl) : undefined;
-  }
+  ) {}
 
   create(
     artifactId: string,
@@ -90,11 +86,6 @@ export class PreviewContexts {
     network: unknown = "blocked",
   ): ArtifactPreviewContext {
     const app = secureOrigin(applicationOrigin);
-    if (!localOrigin(app) && this.base && this.base.protocol !== "https:")
-      throw new ArtifactError(
-        "Remote rendered previews require an HTTPS preview origin. Configure R3_PREVIEW_BASE_URL and route that endpoint to the preview listener.",
-        503,
-      );
     const version = this.artifacts.version(artifactId, versionSeq);
     if (network !== "blocked" && network !== "compatible" && network !== "external")
       throw new ArtifactError("Preview network must be blocked, compatible, or external");
@@ -110,7 +101,7 @@ export class PreviewContexts {
     if (this.contexts.size >= MAX_CONTEXTS)
       throw new ArtifactError("Too many open preview contexts", 413);
     const id = `p${randomBytes(24).toString("hex")}`;
-    const origin = this.base?.origin ?? app.origin;
+    const origin = app.origin;
     const scope: PreviewScope = Object.freeze({
       id,
       artifactId,

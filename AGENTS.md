@@ -48,8 +48,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   that URL never inherits a local token unless the complete normalized URL matches.
 - The loopback application listener dispatches scoped preview paths separately
   from its authenticated API. Previews use the browser's r3 address automatically;
-  an explicit endpoint override adds a separate loopback preview listener. Every
-  rendered document has an opaque browser origin and no application credentials.
+  every rendered document has an opaque browser origin and no application
+  credentials.
   App HTML downloads are attachments; the workspace checks browser capabilities
   and obtains any required consent before loading executable documents.
 - SSE carries invalidations after committed writes. Clients refetch state on ready

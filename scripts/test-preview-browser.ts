@@ -10,21 +10,8 @@ import { eventually, openTestBrowser } from "./browser.ts";
 const root = await mkdtemp(join(tmpdir(), "r3-preview-acceptance-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
-let preview: PreviewHost;
+const preview = new PreviewHost(storage.artifacts, previewSupport);
 const requests: string[] = [];
-const resourceServer = Bun.serve({
-  hostname: "127.0.0.1",
-  port: 0,
-  fetch: async (request) => {
-    requests.push(new URL(request.url).pathname);
-    return preview.fetch(request);
-  },
-});
-preview = new PreviewHost(
-  storage.artifacts,
-  `http://localhost:${resourceServer.port}`,
-  previewSupport,
-);
 const artifact = storage.artifacts.create({ kind: "html", actor });
 const files: Record<string, [string, string]> = {
   "index.html": [
@@ -50,6 +37,11 @@ const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   fetch(request) {
+    const path = new URL(request.url).pathname;
+    if (path.startsWith("/__r3_preview/")) {
+      requests.push(path);
+      return preview.fetch(request);
+    }
     const context = preview.create(artifact.id, 1, "index.html", new URL(request.url).origin);
     return new Response(
       `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts" credentialless></iframe><script>
@@ -185,7 +177,6 @@ try {
 } finally {
   await browser?.close();
   app.stop(true);
-  resourceServer.stop(true);
   preview.close();
   storage.close();
   await rm(root, { recursive: true, force: true });
