@@ -6,9 +6,6 @@
     in {
       inherit r3;
       default = r3;
-      # Re-export the overlay tools so they're buildable/runnable directly
-      # (`nix run .#beads_rust`) and visible to CI, not only via the dev shell.
-      inherit (pkgs) beads_rust;
       inherit (pkgs) bun biome;
       node = pkgs.r3Node;
       npm = pkgs.r3Npm;

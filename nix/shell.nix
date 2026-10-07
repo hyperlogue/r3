@@ -1,7 +1,6 @@
 # Dev shell entered by `nix develop` / direnv `use flake` (see .envrc).
 # Bun runs everything (server, CLI, tsc via node_modules), so the shell
-# adds the locked toolchain from toolchain/package-lock.json,
-# and the beads task tracker (`br`) + its helper wrappers.
+# adds the locked toolchain from toolchain/package-lock.json.
 {...}: {
   perSystem = {pkgs, ...}: {
     devShells.default = pkgs.mkShell {
@@ -22,36 +21,6 @@
         git
         gh
         jq
-
-        # Task tracking with beads — see .claude/skills/task-management.
-        beads_rust
-
-        # Quick triage capture: file an issue with the `inbox` label.
-        (writeShellScriptBin "br-inbox" ''
-          br create "$@" -l inbox
-        '')
-
-        # Before/after summary of uncommitted tracker changes: import the
-        # JSONL, diff it, and re-list the touched issues.
-        (writeShellScriptBin "br-diff" ''
-          br sync --import-only
-          diff_output=$(git diff .beads/issues.jsonl)
-          if [ -z "$diff_output" ]; then
-            echo "No uncommitted issue changes."
-            exit 0
-          fi
-          fmt='"\(.id) [P\(.priority)] [\(.status)] [\(.issue_type // "-")] \(.title)"'
-          before=$(echo "$diff_output" | grep '^-{' | sed 's/^-//' | jq -r "$fmt" | sort)
-          ids=$(echo "$diff_output" | grep '^[+-]{' | sed 's/^[+-]//' | jq -r '.id' | sort -u)
-          if [ -n "$before" ]; then
-            echo "Before:"
-            echo "$before"
-            echo
-          fi
-          echo "After:"
-          # shellcheck disable=SC2086
-          br list -s open -s closed -s in_progress $(echo "$ids" | xargs -I{} echo --id {})
-        '')
       ];
 
       shellHook = ''

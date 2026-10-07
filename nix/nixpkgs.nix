@@ -7,7 +7,6 @@
       inherit system;
       overlays = [
         inputs.bun2nix.overlays.default
-        inputs.fenix.overlays.default
         (import ./overlay)
       ];
     };
