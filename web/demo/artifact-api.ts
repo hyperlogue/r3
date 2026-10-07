@@ -12,7 +12,7 @@ import {
 } from "../../shared/attachments.ts";
 import { normalizeGitRemote } from "../../shared/git-remote.ts";
 import type { artifactApi as productionApi } from "../src/artifact-api.ts";
-import { DraftImageStore, draftImages, prepareDraftImage } from "../src/attachment-drafts.ts";
+import { draftImages, prepareDraftImage } from "../src/attachment-drafts.ts";
 import { demo, fail, human, mint, now } from "./artifact-backend.ts";
 import { searchDemoArtifacts } from "./artifact-search.ts";
 import { demoGcPreview, demoUsage } from "./artifact-usage.ts";
@@ -20,7 +20,6 @@ import { demoGcPreview, demoUsage } from "./artifact-usage.ts";
 export { human as HUMAN_ACTOR };
 
 const copy = <T>(value: T): T => structuredClone(value);
-const demoImages = new DraftImageStore("r3-demo-images");
 async function attachments(
   artifactId: string,
   inputs: AttachmentInput[] | undefined,
@@ -45,8 +44,7 @@ async function attachments(
     );
     const blob = await draftImages.get(prepared.attachment.id);
     const id = `image_${crypto.randomUUID().replaceAll("-", "")}`;
-    const saved = await demoImages.put(artifactId, blob, id);
-    if (!saved.persisted) fail("Demo image storage is unavailable; the message was not saved");
+    demo.images.set(id, { artifactId, blob });
     const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
     const hash = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),
@@ -85,7 +83,6 @@ async function messageOperation(
       if (key) {
         demo.state.messageOperations ??= {};
         demo.state.messageOperations[index] = { hash, id, kind, artifactId };
-        demo.persist();
       }
     },
   };
@@ -163,7 +160,6 @@ export const artifactApi: typeof productionApi = {
       fail("Remote already belongs to another project; use an explicit project mapping", 409);
     if ("name" in body) project.name = body.name?.trim() || null;
     if ("remoteUrl" in body) project.remoteUrl = remote?.url ?? null;
-    demo.persist();
     for (const artifact of demo.state.artifacts)
       if (artifact.projectId === id) demo.changed(artifact.id);
     return copy(project);
@@ -204,8 +200,8 @@ export const artifactApi: typeof productionApi = {
     delete demo.state.viewed[id];
     for (const [key, operation] of Object.entries(demo.state.messageOperations ?? {}))
       if (operation.artifactId === id) delete demo.state.messageOperations![key];
-    await demoImages.clear(id);
-    demo.persist();
+    for (const [imageId, image] of demo.images)
+      if (image.artifactId === id) demo.images.delete(imageId);
     for (const listener of demo.subscribers) listener({ type: "artifact-deleted", artifactId: id });
     return { ok: true };
   },
@@ -233,7 +229,7 @@ export const artifactApi: typeof productionApi = {
         ...note.replies.flatMap((reply) => reply.attachments ?? []),
       ]);
     if (!images.some((image) => image.id === id)) fail("Attachment not found", 404);
-    return new Response(await demoImages.get(id));
+    return new Response(demo.images.get(id)?.blob ?? fail("Attachment not found", 404));
   },
   editFeedback: async (id, body) => {
     const { artifact, note } = demo.note(id);
@@ -396,7 +392,6 @@ export const artifactApi: typeof productionApi = {
     if (viewed) keys.add(key);
     else keys.delete(key);
     demo.state.viewed[id] = [...keys];
-    demo.persist();
     return { ok: true };
   },
   download: async (id, seq, path) => {

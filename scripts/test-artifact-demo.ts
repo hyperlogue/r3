@@ -64,15 +64,37 @@ try {
   await page.command("Input.insertText", {
     text: "Please keep the version I am reading selected.",
   });
+  await page.evaluate(`new Promise(resolve => {
+    const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16;
+    canvas.getContext('2d').fillRect(0, 0, 16, 16);
+    canvas.toBlob(blob => {
+      const data = new DataTransfer();
+      data.items.add(new File([blob], 'practice.png', {type: 'image/png'}));
+      document.querySelector('[aria-label="Feedback"]').dispatchEvent(
+        new ClipboardEvent('paste', {bubbles: true, cancelable: true, clipboardData: data}));
+      resolve(true);
+    }, 'image/png');
+  })`);
+  await eventually(
+    () => page.evaluate("document.querySelector('[data-artifact-composer] img')?.naturalWidth > 0"),
+    "practice image preview",
+  );
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Add feedback').click()",
   );
   await eventually(
     () =>
       page.evaluate(
-        "!!document.querySelector('[data-feedback-id]') || document.body?.textContent.includes('Please keep the version I am reading selected.')",
+        "Array.from(document.querySelectorAll('[data-artifact-feedback]')).some(card => card.textContent.includes('Please keep the version I am reading selected.'))",
       ),
     "saved feedback",
+  );
+  await eventually(
+    () =>
+      page.evaluate(
+        "Array.from(document.querySelectorAll('[data-artifact-feedback] img')).some(image => image.naturalWidth === 16)",
+      ),
+    "saved practice image served from memory",
   );
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Send to agent')).click()",
@@ -89,16 +111,29 @@ try {
     "1",
   );
   assert(await page.evaluate("document.body.textContent.includes('scripted demo reply')"));
+  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
+    "unsent practice draft",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
+  await page.command("Input.insertText", { text: "Discard this draft on reload." });
+  await Bun.sleep(500);
   await page.command("Page.reload");
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='2' && document.body?.textContent.includes('scripted demo reply')",
+        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='1' && !document.body?.textContent.includes('scripted demo reply') && !document.body?.textContent.includes('Please keep the version I am reading selected.')",
       ),
-    "Pages deep-link reload and retained storage",
+    "Pages deep-link reload resets practice state",
+  );
+  assert.equal(
+    await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]')?.value ?? ''"),
+    "",
+    "reload discards unsent practice drafts",
   );
   console.log(
-    "Static demo under /r3/demo including deep-link reload: publication, human feedback, scripted reply, retained selected version passed",
+    "Static demo under /r3/demo including deep-link reload: publication, human feedback, scripted reply, selected version stays pinned until reload, practice state resets passed",
   );
   if (process.env.R3_TEST_SCREENSHOT) {
     const shot = await page.command("Page.captureScreenshot", { format: "png" });

@@ -16,7 +16,8 @@ on:
       - web/**
       - shared/**
       - scripts/build-demo.ts
-      - scripts/gen-demo-fixtures.ts
+      - scripts/gen-artifact-demo.ts
+      - scripts/stage-pages.ts
       - bunfig.toml
       - bun.lock
       - package.json

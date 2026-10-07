@@ -31,7 +31,6 @@ export async function buildComponentArtifact(options: {
       "components/FileBrowser.tsx",
     ].map((path) => join(root, "web/src", path)),
   );
-  storageConsumers.add(join(root, "web/demo/artifact-backend.ts"));
   const showcase: BunPlugin = {
     name: "isolated-ui-showcase",
     setup(build) {

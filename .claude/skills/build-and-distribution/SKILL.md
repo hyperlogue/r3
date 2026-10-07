@@ -127,8 +127,9 @@ override if a release marks the peer optional or moves it to `engines`.
 
 `bun run build:demo` (`scripts/build-demo.ts`) produces a static `dist/demo/` that
 runs the **whole SPA with no daemon** — a third client of the same components, but
-its "backend" is an **in-browser store** (`web/demo/`) over `localStorage`,
-with feedback image bytes in IndexedDB.
+its "backend" is an **in-memory store** (`web/demo/`). Practice messages,
+publications, and message image bytes last for the page visit; reload resets them.
+The demo build also gives drafts an in-memory storage adapter.
 
 It uses the same `web/index.html` and application components. One build plugin
 aliases five exact imports:
@@ -142,23 +143,21 @@ aliases five exact imports:
 | `web/src/main.css` | `web/demo/main.css` — also scans demo classes |
 
 `ArtifactDemoBackend` owns seeded publications, conversations, delivery, claims,
-and lifecycle in browser storage. An async event stream invalidates the same
+and lifecycle in memory. An async event stream invalidates the same
 queries as production. There is no global EventSource or fetch shim.
 
 `scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes two
 public demo artifacts: an interactive HTML curve lab and a six-file diff review.
 Each starts with four already-sent conversations: two human-authored and two
-agent-authored, with replies, three open threads, and one resolved thread. Saved
-gallery sessions gain the additional threads once, preserving existing work and
-later deletions.
+agent-authored, with replies, three open threads, and one resolved thread.
 The curve lab embeds `samples/curve-lab.js` inline, with no external chart library;
 its sliders update the approximation, residual plot, and sampled error metrics.
 The generated workshop seed also retains the Files example for the component
 showcases and tutorial. Complete versions, original bytes, retained Markdown HTML,
 theme palettes, and scripted follow-up publications share the same generator.
 Preview documents are a separate generated export; they are not restored from browser storage.
-This gallery uses the `r3-artifact-demo-curves` storage key so returning visitors
-start with the current examples; the previous practice state is left untouched.
+Old saved practice state is ignored. Display preferences and the intro-seen flag
+can still survive reloads.
 Shiki, SQLite, and Git never ship to the browser. Run `bun run gen:demo` after
 editing canned content; generated fixtures are excluded from Biome.
 
@@ -166,7 +165,7 @@ Explicit Submit schedules the scripted agent, claims notes, publishes a new
 version, replies with context, and leaves status for the human. Selection stays on
 the original version. Archive prevents publication and re-registration while
 allowing in-flight replies and retaining pending work. The demo implements the
-public contract directly; its persistence model is separate from wire types.
+public contract directly; its temporary state is separate from wire types.
 
 The build replaces only the default renderer used by `ArtifactView`. The demo
 renders immutable build fixtures in `srcdoc` iframes with `sandbox="allow-scripts"`
@@ -176,7 +175,7 @@ bytes. CSS and images are embedded from the same bundle, and links resolve only
 to that publication's documents and fragments. Query routes, external links,
 arbitrary publication uploads, and the publisher utility/device API are outside this demo.
 Feedback paste/upload and crop use the shared image controls; message retry keys
-persist with demo state and image reads verify membership in the selected artifact.
+last for the page visit and image reads verify membership in the selected artifact.
 
 The shared selection/Locate runtime and Markdown theme/height adapters run on a
 document-specific port exposing only preview UI events. Fragment evidence is

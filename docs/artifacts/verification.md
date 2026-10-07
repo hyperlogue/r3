@@ -175,15 +175,17 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-demo-preview.ts
 ```
 
 The demo acceptance script serves the staged Pages output at `/r3/demo/`. It checks
-home → files → feedback → Submit → scripted publication/reply, retained version
-selection, and a deep-link reload with persisted history. Regenerate fixtures with
-`bun run gen:demo` after changing canned content.
+home → files → feedback with a pasted image → Submit → scripted publication/reply,
+retained version selection, and a deep-link reload that resets practice state and
+discards unsent drafts. Regenerate fixtures with `bun run gen:demo` after changing
+canned content.
 
-`test-demo-preview.ts` serves the built demo directly under the same prefix and
+`test-demo-preview.ts` builds a temporary demo with inspection and workshop
+fixtures available only in that test bundle, serves it under the same prefix, and
 checks bundled HTML/CSS/images, opaque parent/storage isolation, a CSP-blocked
 request to a controlled endpoint, internal document navigation, native text and
 element feedback, Locate across documents, human resolution, scripted publication
-with version pinning, rejection of executable bytes restored from localStorage,
+with version pinning, ignored historical practice saves and reset on reload,
 full-height Markdown, retained frames after folding, theme changes, narrow layout,
 and deep-link reloads.
 

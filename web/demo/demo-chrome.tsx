@@ -96,7 +96,7 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
                 just a demo
               </span>{" "}
               — the whole thing runs in your browser. There's no server: the artifacts and your
-              feedback all live in this tab and save to local storage.
+              feedback live in this tab. Reloading starts a fresh demo.
             </p>
             <p>
               Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file
@@ -109,8 +109,7 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Previews use bundled examples in opaque sandboxed frames. The demo does not simulate
-              the daemon’s verified network protection. Your changes persist in this browser; Reset
-              restores the original artifacts.
+              the daemon’s verified network protection. Reset restores the original artifacts.
             </p>
           </div>
         </div>

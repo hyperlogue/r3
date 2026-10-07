@@ -78,48 +78,23 @@ test("demo targets match their published source and diff, and reads retain prior
   }
 });
 
-test("saved demos gain storage accounting without losing their conversations", () => {
+test("demo reset restores the seed and drops practice messages, images and pending agent work", async () => {
   const backend = new ArtifactDemoBackend();
-  const id = backend.state.artifacts[0].id;
-  const note = backend.addFeedback(id, "Keep this saved note", { kind: "artifact" });
-  const snapshot = JSON.stringify(backend.state, (key, value) =>
-    ["storage", "storageBlobs", "patchBytes"].includes(key) ? undefined : value,
-  );
-  const restored = new ArtifactDemoBackend({ getItem: () => snapshot, setItem: () => {} });
-  expect(restored.get(id).storage).toEqual(backend.get(id).storage);
-  expect(restored.note(note.id).note.body).toBe("Keep this saved note");
-  backend.close();
-  restored.close();
-});
-
-test("demo delivery history survives reload and old saves conservatively retain unknown history", () => {
-  const backend = new ArtifactDemoBackend();
-  const id = backend.state.artifacts[0].id;
-  const note = backend.addFeedback(id, "Delivered", { kind: "artifact" });
-  backend.handoff(id, [note.id]);
-  backend.note(note.id).note.sentAt = null;
-  const fresh = backend.addFeedback(id, "Never delivered", { kind: "artifact" });
-  let snapshot = JSON.stringify(backend.state);
-  const storage = {
-    getItem: () => snapshot,
-    setItem: (_key: string, value: string) => {
-      snapshot = value;
-    },
-  };
-  const restored = new ArtifactDemoBackend(storage);
-  expect(restored.state.everDelivered[note.id]).toBe(true);
-  expect(restored.state.everDelivered[fresh.id]).toBe(false);
-  snapshot = JSON.stringify({ ...backend.state, schema: 2, everDelivered: undefined });
-  const upgraded = new ArtifactDemoBackend(storage);
-  expect(upgraded.state.everDelivered[note.id]).toBe(true);
-  expect(upgraded.state.everDelivered[fresh.id]).toBe(true);
-  expect(upgraded.note(note.id).note.sentAt).toBeNull();
-  expect(upgraded.note(fresh.id).note.sentAt).toBeNull();
-  const created = upgraded.addFeedback(id, "New after upgrade", { kind: "artifact" });
-  expect(upgraded.state.everDelivered[created.id]).toBe(false);
-  backend.close();
-  restored.close();
-  upgraded.close();
+  try {
+    const id = backend.state.artifacts[0].id;
+    const original = structuredClone(backend.state);
+    backend.addFeedback(id, "Temporary practice note", { kind: "artifact" });
+    backend.images.set("practice-image", { artifactId: id, blob: new Blob(["practice"]) });
+    backend.handoff(id);
+    backend.reset();
+    expect(backend.images.size).toBe(0);
+    expect(backend.state.artifacts).toEqual(original.artifacts);
+    await Bun.sleep(1900);
+    expect(backend.state.artifacts).toEqual(original.artifacts);
+    expect(backend.pending(id)).toEqual([]);
+  } finally {
+    backend.close();
+  }
 });
 
 test("demo archive retains unsent work and in-flight replies without publishing or re-registering", async () => {
@@ -147,70 +122,4 @@ test("demo archive retains unsent work and in-flight replies without publishing 
   } finally {
     backend.close();
   }
-});
-
-test("older saved demos gain the HTML sample once without losing notes or undoing deletion", () => {
-  const backend = new ArtifactDemoBackend();
-  const note = backend.addFeedback("artifact_code", "Keep this note", { kind: "artifact" });
-  backend.state.schema = 1;
-  backend.state.artifacts = backend.state.artifacts.filter(
-    (item) => item.id !== "artifact_weekend",
-  );
-  delete backend.state.publications["artifact_weekend/1"];
-  delete backend.state.pending.artifact_weekend;
-  let snapshot = JSON.stringify(backend.state);
-  const storage = {
-    getItem: () => snapshot,
-    setItem: (_key: string, value: string) => {
-      snapshot = value;
-    },
-  };
-  const upgraded = new ArtifactDemoBackend(storage);
-  expect(upgraded.get("artifact_weekend").kind).toBe("html");
-  expect(upgraded.note(note.id).note.body).toBe("Keep this note");
-  upgraded.state.artifacts = upgraded.state.artifacts.filter(
-    (item) => item.id !== "artifact_weekend",
-  );
-  upgraded.persist();
-  const restored = new ArtifactDemoBackend(storage);
-  expect(() => restored.get("artifact_weekend")).toThrow("Artifact not found");
-  backend.close();
-  upgraded.close();
-  restored.close();
-});
-
-test("saved galleries gain sent conversations once while preserving user work and deletions", () => {
-  const backend = new ArtifactDemoBackend();
-  const id = "artifact_weekend";
-  const sample = backend.get(id);
-  const addedId = sample.feedback[1].id;
-  sample.feedback = sample.feedback.slice(0, 1);
-  sample.feedback[0].body = "Keep this edited welcome note";
-  const pending = backend.addFeedback(id, "Keep my unsent feedback", { kind: "artifact" });
-  const before = structuredClone(backend.note(pending.id).note);
-  backend.state.schema = 4;
-  backend.state.artifacts = backend.state.artifacts.filter((item) => item.id !== "artifact_code");
-  let snapshot = JSON.stringify(backend.state);
-  const storage = {
-    getItem: () => snapshot,
-    setItem: (_key: string, value: string) => {
-      snapshot = value;
-    },
-  };
-  const upgraded = new ArtifactDemoBackend(storage);
-  expect(upgraded.get(id).feedback).toHaveLength(5);
-  expect(upgraded.get(id).feedback[0].body).toBe("Keep this edited welcome note");
-  expect(upgraded.note(pending.id).note).toEqual(before);
-  expect(upgraded.pending(id).map((note) => note.id)).toEqual([pending.id]);
-  expect(upgraded.state.everDelivered[addedId]).toBe(true);
-  expect(upgraded.get(id).unhandledCount).toBe(2);
-  expect(() => upgraded.get("artifact_code")).toThrow("Artifact not found");
-  const reloaded = new ArtifactDemoBackend(storage);
-  expect(reloaded.get(id).feedback).toHaveLength(5);
-  reloaded.get(id).feedback = reloaded.get(id).feedback.filter((note) => note.id !== addedId);
-  reloaded.persist();
-  const deleted = new ArtifactDemoBackend(storage);
-  expect(deleted.get(id).feedback).toHaveLength(4);
-  expect(() => deleted.note(addedId)).toThrow("Feedback not found");
-  for (const instance of [backend, upgraded, reloaded, deleted]) instance.close();
 });

@@ -807,9 +807,10 @@ uses this preference for its theme button; publishers choose whether to use it.
 
 The GitHub Pages demo substitutes a renderer at build time. Only its bundled HTML
 examples and retained Markdown documents can execute; the selected artifact,
-version, content hash, and path must match a bundled publication. Browser storage
-retains conversations and publication state but cannot supply executable preview
-bytes or assets.
+version, content hash, and path must match a bundled publication. Conversations,
+publications, message images, and draft references stay in memory for the page visit.
+Reload restores the original examples; saved practice state is ignored. Executable
+preview bytes and assets always come from the bundle.
 
 Each document uses an opaque `srcdoc` iframe with `sandbox="allow-scripts"`.
 Bundled styles and images are embedded, document links stay within the publication,

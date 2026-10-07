@@ -6,7 +6,6 @@ import { searchDemoArtifacts } from "./artifact-search.ts";
 test("demo search uses immutable publications and current conversations", () => {
   const state: ArtifactDemoState = {
     ...structuredClone(ARTIFACT_WORKSHOP_SEED),
-    schema: 4,
     viewed: {},
     feedbackRevisions: {},
     everDelivered: {},

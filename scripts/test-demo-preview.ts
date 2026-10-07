@@ -1,11 +1,32 @@
-// Build first with R3_DEMO_BASE=/r3/demo bun run build:demo. This serves only
-// those static outputs and uses a fresh Chromium profile; no daemon is involved.
 import assert from "node:assert/strict";
-import { resolve, sep } from "node:path";
-import { ARTIFACT_WORKSHOP_SEED } from "../web/demo/artifact-fixtures.gen.ts";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
 import { eventually, openTestBrowser } from "./browser.ts";
+import { buildDemo } from "./build-demo.ts";
 
-const root = resolve(import.meta.dir, "../dist/demo");
+// Keep inspection and workshop seeding inside this test bundle. The public demo
+// exposes neither and always boots the original gallery.
+const root = await mkdtemp(join(tmpdir(), "r3-demo-preview-"));
+await buildDemo({
+  directory: root,
+  base: "/r3/demo",
+  plugins: [
+    {
+      name: "demo-preview-fixture",
+      setup(build) {
+        build.onLoad({ filter: /artifact-backend\.ts$/ }, async ({ path }) => ({
+          loader: "ts",
+          contents: `${await Bun.file(path).text()}
+          import { ARTIFACT_WORKSHOP_SEED } from "./artifact-fixtures.gen.ts";
+          Object.assign(window, { demo });
+          if (location.pathname.endsWith("/artifact_documents")) demo.reset(ARTIFACT_WORKSHOP_SEED);
+        `,
+        }));
+      },
+    },
+  ],
+});
 let outsideRequests = 0;
 const server = Bun.serve({
   hostname: "127.0.0.1",
@@ -259,7 +280,7 @@ try {
     "void document.querySelector('textarea[aria-label=\"Feedback\"]').form.requestSubmit()",
   );
   const readNote =
-    "JSON.parse(localStorage.getItem('r3-artifact-demo-curves')).artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.body==='Explain the remaining error.')";
+    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.body==='Explain the remaining error.')";
   const note = await eventually(() => page.evaluate(readNote), "saved native feedback");
   assert.equal(note.target.kind, "rendered");
   assert.equal(note.target.versionSeq, 1);
@@ -277,10 +298,6 @@ try {
     ),
   );
   await clickButton("Go to the latest version");
-  await preview(
-    "The small cosine ripple is outside this model; a close fit still has residual error.",
-  );
-  await page.command("Page.reload");
   await preview(
     "The small cosine ripple is outside this model; a close fit still has residual error.",
   );
@@ -357,7 +374,7 @@ try {
   const elementNote = await eventually(
     () =>
       page.evaluate(
-        "JSON.parse(localStorage.getItem('r3-artifact-demo-curves')).artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.body==='Keep this explanation heading.')",
+        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.body==='Keep this explanation heading.')",
       ),
     "saved element feedback",
   );
@@ -379,27 +396,18 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        `JSON.parse(localStorage.getItem('r3-artifact-demo-curves')).artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.id==='${elementNote.id}').status==='resolved'`,
+        `window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.id==='${elementNote.id}').status==='resolved'`,
       ),
     "human resolution",
   );
-  await open("artifact_weekend?version=2&file=index.html");
-  // A tampered local-storage document cannot replace the trusted bundled bytes.
+  // Historical practice saves are ignored, including tampered executable bytes.
   await page.evaluate(
-    "(()=>{const s=JSON.parse(localStorage.getItem('r3-artifact-demo-curves'));s.publications['artifact_weekend/2'].resources['index.html']=btoa('<h1>Stored replacement</h1>');localStorage.setItem('r3-artifact-demo-curves',JSON.stringify(s))})()",
+    "(()=>{const s=window.demo.state;s.publications['artifact_weekend/2'].resources['index.html']=btoa('<h1>Stored replacement</h1>');localStorage.setItem('r3-artifact-demo-curves',JSON.stringify(s))})()",
   );
-  await page.command("Page.reload");
-  await preview(
-    "The small cosine ripple is outside this model; a close fit still has residual error.",
-  );
-  // The public gallery has no Files artifact. Install the development-only
-  // fixture in this isolated profile for the Markdown renderer checks below.
-  await page.evaluate(`(() => {
-    const saved = JSON.parse(localStorage.getItem('r3-artifact-demo-curves'));
-    saved.artifacts.push(${JSON.stringify(ARTIFACT_WORKSHOP_SEED.artifacts.find((item) => item.id === "artifact_documents"))});
-    saved.publications['artifact_documents/1'] = ${JSON.stringify(ARTIFACT_WORKSHOP_SEED.publications["artifact_documents/1"])};
-    localStorage.setItem('r3-artifact-demo-curves', JSON.stringify(saved));
-  })()`);
+  await open("artifact_weekend?version=1&file=index.html");
+  await preview("Can this model capture every ripple?");
+  assert.equal(await page.evaluate("window.demo.get('artifact_weekend').versions.length"), 1);
+  assert.equal(await page.evaluate(readNote), undefined);
   await open("artifact_documents?version=1&file=index.md&view=rendered");
   frame = await preview("Published workspace");
   await eventually(
@@ -443,7 +451,7 @@ try {
     await page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
     "narrow layout does not overflow",
   );
-  await open("artifact_weekend?version=2");
+  await open("artifact_weekend?version=1");
   frame = await preview("A little closer.");
   assert(
     await frame.evaluate("document.documentElement.scrollWidth<=innerWidth"),
@@ -467,4 +475,5 @@ try {
 } finally {
   await browser?.close();
   server.stop(true);
+  await rm(root, { recursive: true, force: true });
 }

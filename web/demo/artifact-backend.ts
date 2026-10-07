@@ -20,8 +20,6 @@ import {
 } from "./artifact-model.ts";
 import { syncDemoActivity } from "./artifact-usage.ts";
 
-// A new gallery gets fresh practice state; older demo data stays under its original key.
-const KEY = "r3-artifact-demo-curves";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
 export const human = { role: "human" as const, sessionId: null };
 export const now = () => new Date().toISOString();
@@ -34,101 +32,14 @@ export class ArtifactDemoBackend {
   state: ArtifactDemoState;
   readonly subscribers = new Set<(event: ArtifactStreamEvent) => void>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
-  constructor(
-    private readonly storage: Pick<Storage, "getItem" | "setItem"> | null = null,
-    private fixtures: ArtifactDemoSeed = ARTIFACT_DEMO_SEED,
-  ) {
+  readonly images = new Map<string, { artifactId: string; blob: Blob }>();
+  constructor(private fixtures: ArtifactDemoSeed = ARTIFACT_DEMO_SEED) {
     this.state = this.seed();
-    try {
-      const saved = JSON.parse(storage?.getItem(KEY) ?? "null");
-      if ([1, 2, 3, 4, 5].includes(saved?.schema) && Array.isArray(saved.artifacts))
-        this.state = saved;
-    } catch {
-      /* A private or full browser store still supports this tab. */
-    }
-    // Add the new HTML sample once; later deletions stay deleted. Existing
-    // publications and conversations survive the demo fixture upgrade.
-    if (this.state.schema === 1) {
-      const id = "artifact_weekend";
-      if (!this.state.artifacts.some((item) => item.id === id)) {
-        this.state.artifacts.push(
-          structuredClone(this.fixtures.artifacts.find((item) => item.id === id)!),
-        );
-        this.state.publications[publicationKey(id, 1)] = structuredClone(
-          this.fixtures.publications[publicationKey(id, 1)],
-        );
-        this.state.pending[id] = structuredClone(this.fixtures.pending[id]);
-      }
-      this.state.schema = 2;
-      this.persist();
-    }
-    if (this.state.schema === 2) {
-      // Match daemon upgrades: a cleared stamp cannot establish no prior handoff.
-      this.state.everDelivered = Object.fromEntries(
-        this.state.artifacts.flatMap((artifact) =>
-          artifact.feedback.map((note) => [note.id, true]),
-        ),
-      );
-      this.state.schema = 3;
-      this.persist();
-    }
-    if (this.state.schema === 3) {
-      this.state.feedbackRevisions = {};
-      this.state.schema = 4;
-      this.persist();
-    }
-    if (this.state.schema === 4) {
-      // Add the new conversation examples once without restoring deleted
-      // artifacts or the original welcome note, or replacing existing work.
-      for (const artifact of this.state.artifacts) {
-        const sample = this.fixtures.artifacts.find((item) => item.id === artifact.id);
-        const additions =
-          sample?.feedback
-            .slice(1)
-            .filter((note) => !artifact.feedback.some((saved) => saved.id === note.id)) ?? [];
-        if (!additions.length) continue;
-        artifact.feedback.push(...structuredClone(additions));
-        for (const note of additions) this.state.everDelivered[note.id] = true;
-        this.state.feedbackRevisions[artifact.id] =
-          (this.state.feedbackRevisions[artifact.id] ?? 0) + 1;
-        artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
-      }
-      this.state.schema = 5;
-      this.persist();
-    }
-    syncDemoActivity(this.state);
-    // Backfill byte metadata for saved demos without discarding their feedback.
-    const seedPublications = new Map(
-      [...Object.values(this.fixtures.publications), ...Object.values(this.fixtures.pending)].map(
-        (item) => [publicationKey(item.version.artifactId, item.version.seq), item],
-      ),
-    );
-    for (const item of [
-      ...Object.values(this.state.publications),
-      ...Object.values(this.state.pending),
-    ]) {
-      const seed = seedPublications.get(publicationKey(item.version.artifactId, item.version.seq));
-      if (seed) {
-        item.storageBlobs = seed.storageBlobs;
-        item.patchBytes = seed.patchBytes;
-      }
-    }
-    for (const detail of this.state.artifacts) {
-      if ("summary" in detail) {
-        detail.legacy = { ...detail.legacy, retiredOverview: detail.summary };
-        delete detail.summary;
-      }
-      detail.unhandledCount = detail.feedback.filter(isUnhandledArtifactFeedback).length;
-      detail.working = false;
-      detail.storage = this.storageUsage(detail.id);
-      for (const note of detail.feedback) note.claim = null;
-    }
   }
   private seed(): ArtifactDemoState {
     const seed = structuredClone(this.fixtures);
-    return {
+    const state: ArtifactDemoState = {
       ...seed,
-      schema: 5,
       feedbackRevisions: {},
       viewed: {},
       everDelivered: Object.fromEntries(
@@ -137,24 +48,18 @@ export class ArtifactDemoBackend {
         ),
       ),
     };
+    syncDemoActivity(state);
+    return state;
   }
   reset(fixtures = this.fixtures) {
     this.close();
     this.fixtures = fixtures;
     this.state = this.seed();
-    this.persist();
+    this.images.clear();
   }
   close() {
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
-  }
-  persist() {
-    syncDemoActivity(this.state);
-    try {
-      this.storage?.setItem(KEY, JSON.stringify(this.state));
-    } catch {
-      /* Keep the in-memory session. */
-    }
   }
   get(id: string) {
     return (
@@ -193,7 +98,7 @@ export class ArtifactDemoBackend {
     this.state.feedbackRevisions[id] = (this.state.feedbackRevisions[id] ?? 0) + 1;
     artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
     artifact.storage = this.storageUsage(id);
-    this.persist();
+    syncDemoActivity(this.state);
     for (const listener of this.subscribers) {
       listener(event ?? { type: "artifact-updated", artifactId: id });
       listener({ type: "presence-changed", artifactId: id });
@@ -459,11 +364,4 @@ export class ArtifactDemoBackend {
   }
 }
 
-const browserStorage = () => {
-  try {
-    return localStorage;
-  } catch {
-    return null;
-  }
-};
-export const demo = new ArtifactDemoBackend(browserStorage());
+export const demo = new ArtifactDemoBackend();

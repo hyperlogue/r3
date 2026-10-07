@@ -35,7 +35,6 @@ export interface ArtifactDemoState extends ArtifactDemoSeed {
     string,
     { hash: string; id: string; kind: "feedback" | "reply"; artifactId: string }
   >;
-  schema: number;
   viewed: Record<string, string[]>;
   feedbackRevisions: Record<string, number>;
   everDelivered: Record<string, boolean>;

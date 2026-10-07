@@ -364,7 +364,7 @@ function cacheSet(key: string, v: string[]): void {
 }
 
 // codeToTokens on one reused worker so highlighting does not block SSE / r3
-// watch. Idle-unref so tests and gen-demo-fixtures can exit. Worker missing
+// watch. Idle-unref so tests and gen-artifact-demo can exit. Worker missing
 // or failing to load → in-process; timeout / tokenizer error → throw (escaped
 // plain lines, same as today's catch).
 //
