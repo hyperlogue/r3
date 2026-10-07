@@ -32,7 +32,7 @@ import { Button, ChevronDown, Collapse, StrokeIcon } from "../ui.tsx";
 const control =
   "min-h-8 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs focus-visible:outline-primary-500 max-md:min-h-9 max-md:min-w-0 max-md:w-full max-md:text-base dark:border-neutral-700 dark:bg-neutral-950";
 const filterControl =
-  "min-h-9 min-w-0 w-full appearance-none rounded-none bg-transparent py-2 pl-4 pr-11 text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:text-base dark:hover:bg-neutral-900";
+  "min-h-9 min-w-0 w-full appearance-none rounded-none bg-transparent py-2 pl-4 pr-[calc(1.75rem+12px)] text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:text-base dark:hover:bg-neutral-900";
 
 function LibrarySelect({ className = "", ...props }: ComponentProps<"select">) {
   return (
@@ -40,7 +40,7 @@ function LibrarySelect({ className = "", ...props }: ComponentProps<"select">) {
       className={`relative flex min-w-0 border-neutral-200 dark:border-neutral-800 ${className}`}
     >
       <select {...props} className={filterControl} />
-      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2" />
+      <ChevronDown className="pointer-events-none absolute right-[12px] top-1/2 size-4 -translate-y-1/2" />
     </div>
   );
 }
