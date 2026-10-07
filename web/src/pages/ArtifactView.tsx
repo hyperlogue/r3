@@ -253,7 +253,7 @@ function Workspace({
     regions,
     renderedTargets,
     viewedPaths,
-    rounds,
+    patch,
     fetchContext,
   } = useArtifactContent(detail, view, setNotice);
   const syntaxPalette = useSyntaxPalette(theme, detail.kind !== "html");
@@ -1006,8 +1006,7 @@ function Workspace({
                           <p className="p-6 text-sm text-neutral-500">Loading published patch…</p>
                         ) : (
                           <DiffView
-                            rounds={rounds}
-                            activeSeq={version.seq}
+                            patch={patch}
                             layout={layout}
                             fetchContext={fetchContext}
                             isViewed={viewed.isViewed}

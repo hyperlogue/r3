@@ -103,16 +103,8 @@ export function useArtifactContent(
       ),
     [paths, files, detail.kind, version, viewed.isViewed],
   );
-  const rounds = useMemo<PatchDiff[]>(
-    () =>
-      version && diffQuery.data
-        ? [
-            {
-              seq: version.seq,
-              files: diffQuery.data,
-            },
-          ]
-        : [],
+  const patch = useMemo<PatchDiff | null>(
+    () => (version && diffQuery.data ? { seq: version.seq, files: diffQuery.data } : null),
     [version, diffQuery.data],
   );
   const fetchContext = useCallback<FetchContext>(
@@ -143,7 +135,7 @@ export function useArtifactContent(
     regions,
     renderedTargets,
     viewedPaths,
-    rounds,
+    patch,
     fetchContext,
   };
 }

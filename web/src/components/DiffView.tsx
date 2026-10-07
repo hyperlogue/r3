@@ -841,8 +841,7 @@ const FileBlock = memo(function FileBlock({
 // Render the selected immutable patch. ArtifactView owns version selection and
 // metadata; the data-round scope keeps source/diff gestures pinned to this patch.
 export function DiffView({
-  rounds,
-  activeSeq,
+  patch,
   isViewed,
   currentPath,
   layout = "unified",
@@ -855,7 +854,7 @@ export function DiffView({
   locate,
   progressiveVersion = "",
 }: {
-  rounds: PatchDiff[];
+  patch: PatchDiff | null;
   // How to render each file: one interleaved column, or two parallel old/new
   // columns. A pure display choice — the payload, the anchors, and every
   // callback shape are identical either way. Defaults to unified.
@@ -863,10 +862,8 @@ export function DiffView({
   // Fetch a gap's unchanged rows. Omitted ⇒ no expanders anywhere in this view —
   // which is what a caller with no route to ask (the demo) wants.
   fetchContext?: FetchContext;
-  // Which round to show. Defaults to the latest round when unset/unmatched.
-  activeSeq?: number | null;
   // Viewed-state as content-identity predicates. Keyed per
-  // round via diffViewedKey, so a mark in round 1 doesn't carry into round 2.
+  // patch via diffViewedKey, so a mark in patch 1 doesn't carry into patch 2.
   // Omit both to render without viewed controls.
   isViewed?: (key: string) => boolean;
   toggle?: (key: string) => void;
@@ -876,7 +873,7 @@ export function DiffView({
   currentPath?: string | null;
   onPickLines: PickLines;
   // Called from a file header's feedback button to anchor a note to the whole
-  // file within the given round (no line span).
+  // file within the given patch (no line span).
   onFileFeedback?: (file: string, patchSeq: number) => void;
   // The pane toolbar's fold/unfold-all broadcast, passed through to every file.
   foldSignal?: FoldSignal | null;
@@ -898,10 +895,7 @@ export function DiffView({
     }
     return m;
   }, [regions]);
-  // Resolved above the empty-round guard below, because the reserve memo is a
-  // hook and can't sit after an early return.
-  const round = rounds.find((r) => r.seq === activeSeq) ?? rounds[rounds.length - 1];
-  // How tall each deferred block will be. A round's rows arrive with the
+  // How tall each deferred block will be. A patch's rows arrive with the
   // payload, so this is arithmetic rather than a guess: the same autoFold/viewed
   // test FileBlock hands FileCard decides whether the block is 2rem of header,
   // and the layout decides whether the row count is the unified list or its
@@ -909,9 +903,10 @@ export function DiffView({
   // and the split count walks every row.
   const reserves = useMemo(() => {
     const m = new Map<string, ReserveSpec>();
-    for (const f of round?.files ?? []) {
+    if (!patch) return m;
+    for (const f of patch.files) {
       const folded =
-        (isViewed?.(diffViewedKey(round.seq, f.path)) ?? false) || f.lines.length > AUTOFOLD_ROWS;
+        (isViewed?.(diffViewedKey(patch.seq, f.path)) ?? false) || f.lines.length > AUTOFOLD_ROWS;
       m.set(
         f.path,
         folded
@@ -923,25 +918,22 @@ export function DiffView({
       );
     }
     return m;
-  }, [round, layout, isViewed]);
+  }, [patch, layout, isViewed]);
 
-  if (rounds.length === 0 || rounds.every((r) => r.files.length === 0)) {
-    return <p className="p-6 text-sm text-neutral-400">No changes in this review.</p>;
+  if (!patch || patch.files.length === 0) {
+    return <p className="p-6 text-sm text-neutral-400">No changes in this publication.</p>;
   }
   return (
-    <section key={round.seq} data-round={round.seq}>
-      {round.files.length === 0 && (
-        <p className="px-3 py-2 text-xs text-neutral-400">(empty round)</p>
-      )}
+    <section key={patch.seq} data-round={patch.seq}>
       {/* Every block is wrapped, as ArtifactView wraps a files artifact's
           cards: the wrapper is what owns the stable [data-file] box and the
           measured height, and whether it actually defers anything is the
           provider's call. With no provider, `active` is true from the first frame
-          and rendering is eager. Paths are unique within the one round on screen,
+          and rendering is eager. Paths are unique within the one patch on screen,
           so they key the activation registry a jump reaches for. */}
-      {round.files.map((f) => (
+      {patch.files.map((f) => (
         <ProgressiveFile
-          key={`${round.seq}:${f.path}`}
+          key={`${patch.seq}:${f.path}`}
           path={f.path}
           version={progressiveVersion}
           reserve={reserves.get(f.path) ?? null}
@@ -949,8 +941,8 @@ export function DiffView({
           {({ active, onHydrated, onOpenChange }) => (
             <FileBlock
               f={f}
-              patchSeq={round.seq}
-              viewed={isViewed?.(diffViewedKey(round.seq, f.path)) ?? false}
+              patchSeq={patch.seq}
+              viewed={isViewed?.(diffViewedKey(patch.seq, f.path)) ?? false}
               current={f.path === currentPath}
               layout={layout}
               fetchContext={fetchContext}

@@ -360,12 +360,10 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
               ))
             ) : (
               <DiffView
-                rounds={[
-                  {
-                    seq: publication.version.seq,
-                    files: publication.diff,
-                  },
-                ]}
+                patch={{
+                  seq: publication.version.seq,
+                  files: publication.diff,
+                }}
                 currentPath={active}
                 layout={layout}
                 foldSignal={fold}
