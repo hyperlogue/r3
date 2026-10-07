@@ -4,6 +4,38 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-10-06
+
+### Added
+
+- **Compare before & after when agent addresses feedback.** Check whether a fix
+  addresses your feedback without switching between versions. This works in HTML
+  and rendered Markdown previews, with feedback pinned to an element and an agent
+  reply linking the fix.
+- **See workspace usage.** View totals and recent activity in the UI or with
+  `r3 stat [--weekly]`.
+- **Clean up old artifacts.** Bulk archive or delete from the home page. Manually
+  remove archives older than 30 days in Settings or with `r3 gc`; preview with
+  `r3 gc --dry-run`.
+- **More source files get syntax highlighting.** Files and captured diffs now
+  recognize the full bundled language registry, including common special
+  filenames and compound extensions such as `Makefile` and `.blade.php`.
+
+### Changed
+
+- **The home page opens with your most recently updated artifacts.** Bulk actions
+  and checkboxes appear when you enter selection mode.
+- **Running `r3` shows a concise welcome.** Find the commands to start the
+  workspace, check its status, list artifacts, and open the full help.
+- **Native video previews start muted.** Unmute from the playback controls when
+  you want sound.
+
+### Fixed
+
+- **Media stays steady while you scroll through files.** Audio and video keep
+  their playback position, and opened images remain loaded when they leave the
+  visible area. Videos also use the full file card width.
+
 ## [1.4.0] - 2026-10-05
 
 Thanks to @TomGrozev for Elixir highlighting (#25) and @gerardthehuman for reporting
@@ -583,6 +615,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[1.5.0]: https://github.com/hyperlogue/r3/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/hyperlogue/r3/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/hyperlogue/r3/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/hyperlogue/r3/compare/v1.1.0...v1.2.0
