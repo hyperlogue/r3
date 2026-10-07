@@ -4,6 +4,30 @@ import { renderStoredPatch, storedPatchContext, validateStoredPatch } from "./pa
 const header = "diff --git a/code.ts b/code.ts\n--- a/code.ts\n+++ b/code.ts\n";
 
 describe("stored patch content", () => {
+  test("additional grammars highlight both captured sides and expanded context", async () => {
+    for (const [path, before, after] of [
+      ["main.dart", "const answer = 41;", "const answer = 42;"],
+      ["Main.hs", 'main = putStrLn "before"', 'main = putStrLn "after"'],
+      ["core.clj", "(def answer 41)", "(def answer 42)"],
+      ["main.zig", "const answer: u32 = 41;", "const answer: u32 = 42;"],
+      ["config/Makefile", "before:", "after:"],
+      ["config/.bashrc", "export ANSWER=41", "export ANSWER=42"],
+      ["page.blade.php", "@if ($before)", "@if ($after)"],
+    ]) {
+      const patch = `--- a/${path}\n+++ b/${path}\n@@ -20,2 +40,2 @@\n ${before}\n-${before}\n+${after}\n`;
+      const [file] = await renderStoredPatch(patch);
+      const removed = file.lines.find((line) => line.type === "del")!;
+      const added = file.lines.find((line) => line.type === "add")!;
+      expect(removed).toMatchObject({ text: before, oldLine: 21 });
+      expect(added).toMatchObject({ text: after, newLine: 41 });
+      expect(removed.html).toContain('<span class="');
+      expect(added.html).toContain('<span class="');
+      const context = await storedPatchContext(patch, path, 40, 40);
+      expect(context?.[0]).toMatchObject({ text: before, newLine: 40 });
+      expect(context?.[0].html).toContain('<span class="');
+    }
+  });
+
   test("ordinary unified patches retain file boundaries and header-like source lines", () => {
     const patch =
       "--- before.sql\t2026-09-11\n+++ after.sql\t2026-09-11\n@@ -1 +1 @@\n--- removed comment\n+++ added expression\n--- removed.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-deleted\n\\ No newline at end of file\n";

@@ -7,7 +7,7 @@ import { escapeHtml, highlightToLines, langForPath } from "./highlight.ts";
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 
 // Bump when source serialization or highlighting changes. Theme is in the key.
-const SOURCE_REVISION = 2;
+const SOURCE_REVISION = 3;
 
 export function artifactSourceResponse(
   store: ArtifactStore,

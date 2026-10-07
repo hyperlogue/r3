@@ -22,11 +22,17 @@ never migrate, restart, or read the normal user daemon/database for verification
 The tests and scripts are the maintained source of acceptance coverage; completed
 implementation checklists and historical test counts are kept in Git history.
 
+After upgrading Shiki, run `bun scripts/gen-highlight-languages.ts` to refresh
+the checked-in filename metadata. This uses the installed grammars and Biome,
+without fetching external language databases. The language detection test rejects
+stale metadata; review changed associations and ambiguous-extension defaults.
+
 | Boundary | Checks |
 | --- | --- |
 | Complete directory capture, stable Git inputs, binary bytes | `cli/capture.test.ts`, `cli/capture-git.test.ts`, `cli/artifact-publish.test.ts` |
 | Publication validation, atomic visibility, retries, concurrent publishers, retained rendering, deduplicated content accounting, deletion | `server/publication.test.ts`, `server/artifacts.test.ts`, `server/blobs.test.ts`, `server/artifact-schema.test.ts` |
 | Source/rendered/diff targets, explicit reply context, independent placements | `server/artifact-targets.test.ts`, `server/artifact-conversations.test.ts`, `web/src/artifact-navigation.test.ts` |
+| All bundled Shiki languages, filename metadata drift, compound extensions, escaped source and both captured diff sides | `server/highlight-languages.test.ts`, `server/artifact-source.test.ts`, `server/patch-content.test.ts` |
 | Durable local fallback, takeover, restart, delivery failure, private registration | `server/artifact-listeners.test.ts`, `server/local-agents.test.ts`, `cli/artifact-main.test.ts` |
 | Claims, owner delivery, archive races/messages, terminal watch, outward listeners | `server/artifact-collaboration.test.ts`, `server/artifact-lifecycle.test.ts`, `server/agent-connections.test.ts`, `cli/artifact-listener.test.ts`, `cli/artifact-commands.test.ts` |
 | Snapshot acknowledgment after successful stdout, failed/lost output, concurrent edits/reverts, restart, selective history | `cli/artifact-output.test.ts`, `cli/artifact-commands.test.ts`, `server/artifact-conversations.test.ts`, `server/artifact-api.test.ts`, `server/artifact-storage.test.ts` |

@@ -187,6 +187,15 @@ palette. Trusted preview support applies explicit text/background colors and ada
 legacy OS-dependent palette rules in memory; retained document bytes stay immutable.
 Authored HTML keeps its own appearance.
 
+Source files and both captured diff sides use every language bundled with Shiki.
+Filename detection uses Shiki IDs and aliases, generated grammar file types,
+and explicit associations for common missing extensions and special filenames.
+Compound suffixes take precedence over shorter extensions. Shared extensions
+have fixed defaults (for example `.h` is C, `.m` is Objective-C, `.v` is V,
+and `.fs` is F#); detection does not inspect contents or infer dialects. Unknown
+names remain escaped plain text. Grammar loading stays on demand in the daemon,
+with the existing size limit, worker timeout, and plain-text failure fallback.
+
 Publication reuses a retained Markdown rendering when source digest, path, and
 declared renderer revision match an existing publication. The existing version
 membership is the cache index; no second durable rendering store is needed.

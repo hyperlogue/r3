@@ -51,6 +51,41 @@ afterEach(async () => {
 });
 
 describe("published source rendering", () => {
+  test("additional grammars highlight published bytes without changing source coordinates", async () => {
+    const samples = [
+      ["main.dart", "dart", 'void main() { print("<script>"); }'],
+      ["Main.hs", "haskell", 'main = putStrLn "<script>"'],
+      ["core.clj", "clojure", '(defn main [] (println "<script>"))'],
+      ["main.zig", "zig", 'const message = "<script>";'],
+      ["Makefile", "make", "all:\n\techo '<script>'"],
+      [".bashrc", "shellscript", 'export MESSAGE="<script>"'],
+      ["page.blade.php", "blade", "@if ($ready)\n<p>{{ $message }}</p>\n@endif"],
+    ];
+    await storage.artifacts.publish(id, {
+      actor,
+      expectedSeq: 1,
+      publicationKey: "languages",
+      content: {
+        kind: "files",
+        files: samples.map(([path, , code]) => ({
+          path,
+          mediaType: "text/plain",
+          base64: Buffer.from(`${code}\n`).toString("base64"),
+        })),
+      },
+    });
+    for (const [path, language, code] of samples) {
+      const result = await artifactSource(storage.artifacts, id, 2, path);
+      expect(result.language).toBe(language);
+      expect(result.lines.map((line) => line.text)).toEqual(code.split("\n"));
+      expect(result.lines.map((line) => line.lineNo)).toEqual(
+        code.split("\n").map((_, index) => index + 1),
+      );
+      expect(result.lines.map((line) => line.html).join("\n")).toContain('<span class="');
+      expect(result.lines.map((line) => line.html).join("\n")).not.toContain("<script>");
+    }
+  });
+
   test("conditional source reads skip blob access while checking membership and theme", async () => {
     const request = new Request("https://app.example/source");
     const first = await artifactSourceResponse(

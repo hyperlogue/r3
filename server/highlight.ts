@@ -3,7 +3,6 @@
 
 import MarkdownIt from "markdown-it";
 import {
-  bundledLanguages,
   bundledThemes,
   bundledThemesInfo,
   codeToTokens,
@@ -12,7 +11,10 @@ import {
 } from "shiki";
 import { applyColorReplacements, normalizeTheme } from "shiki/core";
 import type { ThemeOption, ThemeStyle } from "../shared/types.ts";
+import { langForFence } from "./highlight-languages.ts";
 import { renderMermaidSvg } from "./mermaid.ts";
+
+export { langForFence, langForPath } from "./highlight-languages.ts";
 
 // Curated syntax-theme *families*: each is a light/dark pair, rendered into the
 // two class slots below, so the client's dark-mode toggle picks the readable
@@ -212,85 +214,6 @@ export function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-// Map a file extension to a Shiki language id. Unknown → null (rendered plain).
-const EXT_LANG: Record<string, string> = {
-  ts: "typescript",
-  tsx: "tsx",
-  js: "javascript",
-  jsx: "jsx",
-  mjs: "javascript",
-  cjs: "javascript",
-  py: "python",
-  rs: "rust",
-  go: "go",
-  rb: "ruby",
-  java: "java",
-  c: "c",
-  h: "c",
-  cpp: "cpp",
-  hpp: "cpp",
-  cc: "cpp",
-  cs: "csharp",
-  php: "php",
-  swift: "swift",
-  kt: "kotlin",
-  scala: "scala",
-  ex: "elixir",
-  exs: "elixir",
-  heex: "html",
-  sh: "shellscript",
-  bash: "shellscript",
-  zsh: "shellscript",
-  fish: "fish",
-  lua: "lua",
-  sql: "sql",
-  html: "html",
-  css: "css",
-  scss: "scss",
-  less: "less",
-  json: "json",
-  jsonc: "jsonc",
-  json5: "json5",
-  yaml: "yaml",
-  yml: "yaml",
-  toml: "toml",
-  xml: "xml",
-  md: "markdown",
-  mdx: "mdx",
-  vue: "vue",
-  svelte: "svelte",
-  graphql: "graphql",
-  gql: "graphql",
-  dockerfile: "docker",
-  nix: "nix",
-  proto: "proto",
-  wgsl: "wgsl",
-  glsl: "glsl",
-  diff: "diff",
-  ini: "ini",
-};
-
-export function langForPath(path: string): string | null {
-  const base = path.split("/").pop() ?? "";
-  if (base.toLowerCase() === "dockerfile") return "docker";
-  const ext = base.includes(".") ? (base.split(".").pop()?.toLowerCase() ?? "") : "";
-  return EXT_LANG[ext] ?? null;
-}
-
-// The grammar a Markdown fence names: the first word of its info string
-// (```ts, ```js {1,3}, ```bash title=run.sh). Shiki's bundled map is keyed by
-// language id AND alias, so `ts`, `sh`, `c++` resolve without a table of our
-// own; an extension spelling it doesn't know (`gql`) falls back to the path
-// map. Unknown — including the deliberate `text`/`plaintext` — → null, which
-// renders the fence escaped and unstyled exactly as it did before.
-export function langForFence(info: string): string | null {
-  const word = info.trim().split(/[\s,{]/)[0];
-  const key = word ? word.toLowerCase() : "";
-  if (!key) return null;
-  if (key in bundledLanguages) return key;
-  return EXT_LANG[key] ?? null;
 }
 
 function styleOf(t: ThemedToken): string {
