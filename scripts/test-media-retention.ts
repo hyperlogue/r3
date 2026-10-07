@@ -194,6 +194,68 @@ try {
         : await mediaElement().evaluate((media: HTMLMediaElement) => media.currentTime);
     const requestsBefore = resourceRequests.get(fixture.path);
     const pane = page.locator("[data-artifact-content]");
+    if (fixture.kind === "video") {
+      await pane.evaluate((el: HTMLElement) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      const bottomCard = page.locator(`[data-file="unopened-${fixture.path}"]`);
+      const bottomVideo = bottomCard.frameLocator('iframe[aria-hidden="false"]').locator("video");
+      await bottomVideo.waitFor();
+      await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'));
+      await pane.evaluate((el: HTMLElement) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      await bottomVideo.evaluate(async (video: HTMLVideoElement) => {
+        video.muted = true;
+        await video.play();
+      });
+      const bottomFrame = await bottomCard.locator('iframe[aria-hidden="false"]').elementHandle();
+      for (const visiblePixels of [null, 120, -40, -1200]) {
+        if (visiblePixels !== null) {
+          await pane.evaluate(
+            (
+              el: HTMLElement,
+              { frame, visiblePixels }: { frame: HTMLIFrameElement; visiblePixels: number },
+            ) => {
+              el.scrollTop +=
+                frame.getBoundingClientRect().top -
+                el.getBoundingClientRect().bottom +
+                visiblePixels;
+            },
+            { frame: bottomFrame, visiblePixels },
+          );
+          await eventually(async () => {
+            const frameBox = await bottomCard.locator('iframe[aria-hidden="false"]').boundingBox();
+            const paneBox = await pane.boundingBox();
+            return (
+              frameBox &&
+              paneBox &&
+              Math.abs(paneBox.y + paneBox.height - frameBox.y - visiblePixels) < 1
+            );
+          }, "bottom video reaches the requested viewport edge");
+        }
+        const before = await bottomVideo.evaluate((video: HTMLVideoElement) => video.currentTime);
+        await page.waitForTimeout(700);
+        const playback = await bottomVideo.evaluate((video: HTMLVideoElement) => ({
+          paused: video.paused,
+          time: video.currentTime,
+        }));
+        assert.equal(
+          playback.paused,
+          false,
+          "bottom video must keep playing when fully visible, partly visible, and offscreen",
+        );
+        assert(
+          playback.time > before + 0.3,
+          "bottom video playback must advance at every viewport position",
+        );
+        assert(await bottomFrame.evaluate((frame: HTMLIFrameElement) => frame.isConnected));
+      }
+      console.log(
+        "bottom video: uninterrupted playback while visible, at the viewport edge, and offscreen",
+      );
+      await bottomVideo.evaluate((video: HTMLVideoElement) => video.pause());
+    }
     await pane.evaluate((el: HTMLElement) => {
       el.scrollTop = el.scrollHeight;
     });
