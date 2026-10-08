@@ -219,64 +219,71 @@ export function FileCard({
         ) : (
           <FilePath key={path} path={path} action={pathAction} />
         )}
-        {!wrapHeader && (typeof stats === "function" ? stats(open) : stats)}
-        {onToggleViewed && (
-          <button
-            type="button"
-            onClick={onToggleViewed}
-            aria-pressed={viewed}
-            title={viewed ? "Marked viewed — click to unmark" : "Mark file viewed"}
-            className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] leading-3.5 font-medium transition-colors pointer-coarse:self-stretch pointer-coarse:min-w-7",
-              viewed
-                ? "bg-success-100 text-success-700 dark:bg-success-900/50 dark:text-success-300"
-                : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",
-            )}
-          >
-            {/* A square checkbox that stays visible once viewed, so it still reads
-                as a toggle you can click again to unmark. */}
-            <span
+        <div
+          className={cn("flex items-center gap-2 max-md:gap-1", wrapHeader && "ml-auto max-w-full")}
+        >
+          {wrapHeader && open ? (
+            <div className="flex min-w-0 items-center">
+              {typeof stats === "function" ? stats(open) : stats}
+            </div>
+          ) : typeof stats === "function" ? (
+            stats(open)
+          ) : (
+            stats
+          )}
+          {onToggleViewed && (
+            <button
+              type="button"
+              onClick={onToggleViewed}
+              aria-pressed={viewed}
+              title={viewed ? "Marked viewed — click to unmark" : "Mark file viewed"}
               className={cn(
-                "flex size-3 items-center justify-center rounded-[3px] border transition-colors",
+                "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] leading-3.5 font-medium transition-colors pointer-coarse:self-stretch pointer-coarse:min-w-7",
                 viewed
-                  ? "border-success-600 bg-success-600 text-white dark:border-success-500 dark:bg-success-500 dark:text-success-950"
-                  : "border-neutral-400 dark:border-neutral-500",
+                  ? "bg-success-100 text-success-700 dark:bg-success-900/50 dark:text-success-300"
+                  : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",
               )}
             >
-              {viewed && <CheckIcon className="size-2.5" />}
-            </span>
-            <span className="max-md:sr-only">Viewed</span>
-          </button>
-        )}
-        {onFileFeedback && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onFileFeedback();
-            }}
-            title="Leave feedback on this file"
-            // Match the sibling "Viewed" pill's height (same py-0.5; the size-3.5
-            // icon ≈ the pill's text/checkbox line-box) so the two per-file
-            // controls read as one matched cluster — the same reason the markdown
-            // rendered/raw toggle sizes itself to the pill.
-            // `-ml-1.5` evens the visible spacing: the preceding "Viewed" pill
-            // donates its px-1.5 right padding to the gap, while the pill before
-            // *it* sits flush (border at its box edge, no padding donated). Pulling
-            // the icon left by that same px-1.5 makes both inter-control gaps equal.
-            // pointer-coarse:py-2/pr-2 grow the touch target vertically (absorbed by
-            // the h-8 header's items-center — no height change) and rightward into
-            // the header's own px-2 padding, never leftward toward the Viewed pill.
-            className="-ml-1.5 flex shrink-0 items-center rounded px-1 py-0.5 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700 pointer-coarse:py-2 pointer-coarse:pr-2 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          >
-            <CommentPlusIcon className="size-3.5" />
-          </button>
-        )}
-        {wrapHeader && (
-          <div className="ml-auto flex max-w-full items-center">
-            {typeof stats === "function" ? stats(open) : stats}
-          </div>
-        )}
+              {/* A square checkbox that stays visible once viewed, so it still reads
+                as a toggle you can click again to unmark. */}
+              <span
+                className={cn(
+                  "flex size-3 items-center justify-center rounded-[3px] border transition-colors",
+                  viewed
+                    ? "border-success-600 bg-success-600 text-white dark:border-success-500 dark:bg-success-500 dark:text-success-950"
+                    : "border-neutral-400 dark:border-neutral-500",
+                )}
+              >
+                {viewed && <CheckIcon className="size-2.5" />}
+              </span>
+              <span className="max-md:sr-only">Viewed</span>
+            </button>
+          )}
+          {onFileFeedback && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFileFeedback();
+              }}
+              title="Leave feedback on this file"
+              // Match the sibling "Viewed" pill's height (same py-0.5; the size-3.5
+              // icon ≈ the pill's text/checkbox line-box) so the two per-file
+              // controls read as one matched cluster — the same reason the markdown
+              // rendered/raw toggle sizes itself to the pill.
+              // `-ml-1.5` evens the visible spacing: the preceding "Viewed" pill
+              // donates its px-1.5 right padding to the gap, while the pill before
+              // *it* sits flush (border at its box edge, no padding donated). Pulling
+              // the icon left by that same px-1.5 makes both inter-control gaps equal.
+              // pointer-coarse:py-2/pr-2 grow the touch target vertically (absorbed by
+              // the h-8 header's items-center — no height change) and rightward into
+              // the header's own px-2 padding, never leftward toward the Viewed pill.
+              className="-ml-1.5 flex shrink-0 items-center rounded px-1 py-0.5 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700 pointer-coarse:py-2 pointer-coarse:pr-2 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            >
+              <CommentPlusIcon className="size-3.5" />
+            </button>
+          )}
+        </div>
       </div>
       {/* The block's bottom separator lives on the content, inside the fold, so
           it slides away with it — the (always-bordered) header then provides the

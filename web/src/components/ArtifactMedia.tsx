@@ -52,6 +52,8 @@ export function ArtifactMedia({
   const savedImage = useRef<HTMLImageElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const player = useRef<HTMLDivElement>(null);
+  const feedbackAction = useRef<HTMLButtonElement>(null);
+  const selection = useRef<HTMLButtonElement>(null);
   const [selecting, setSelecting] = useState(false);
   const [box, setBox] = useState<MediaBox>(FULL_MEDIA_BOX);
   const [frozen, setFrozen] = useState<{
@@ -64,7 +66,7 @@ export function ArtifactMedia({
   const [muted, setMuted] = useState(true);
   const [saving, setSaving] = useState(false);
   const alive = useRef(true);
-  const drag = useRef<{ x: number; y: number; previous: MediaBox } | null>(null);
+  const drag = useRef<{ x: number; y: number; id: number } | null>(null);
   const saved = useMediaImage(jump?.target.locator.frame);
   const [showSaved, setShowSaved] = useState(false);
   useEffect(() => {
@@ -108,6 +110,9 @@ export function ArtifactMedia({
   useEffect(() => {
     if (!active) video.current?.pause();
   }, [active]);
+  useEffect(() => {
+    if (selecting) selection.current?.focus({ preventScroll: true });
+  }, [selecting]);
   useEffect(() => {
     if (!jump || !ready) return;
     video.current?.pause();
@@ -156,17 +161,20 @@ export function ArtifactMedia({
   const select = () => {
     try {
       freeze();
+      setBox(FULL_MEDIA_BOX);
       setSelecting(!selecting);
       setError("");
     } catch (e) {
       setError((e as Error).message);
     }
   };
-  const add = async () => {
+  const add = async (selectedBox: MediaBox) => {
     if (!onTarget || saving) return;
     try {
       const captured = freeze();
       setSaving(true);
+      setSelecting(false);
+      setBox(selectedBox);
       const blob = await new Promise<Blob>((resolve, reject) =>
         captured.canvas.toBlob(
           (blob) => (blob ? resolve(blob) : reject(new Error("Unable to capture this frame"))),
@@ -179,11 +187,15 @@ export function ArtifactMedia({
         height: captured.canvas.height,
       });
       if (!alive.current) return;
-      const accepted = onTarget(
-        { kind: "media", versionSeq, path: file.path, locator: { time: captured.time, box } },
+      onTarget(
+        {
+          kind: "media",
+          versionSeq,
+          path: file.path,
+          locator: { time: captured.time, box: selectedBox },
+        },
         output.attachment,
       );
-      if (accepted) setSelecting(false);
       if (!output.persisted)
         setError("Frame saved for this tab only. Keep the tab open until you post your feedback.");
     } catch (e) {
@@ -209,54 +221,23 @@ export function ArtifactMedia({
         </span>
       )}
       {onTarget && !animated && (
-        <>
-          <button
-            type="button"
-            className={iconClass}
-            title="Use full frame"
-            aria-label="Use full frame"
-            disabled={!ready || saving}
-            onClick={() => {
-              try {
-                freeze();
-                setBox(FULL_MEDIA_BOX);
-                setSelecting(false);
-                setError("");
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            <StrokeIcon className="size-3.5">
-              <rect x="3" y="5" width="18" height="14" rx="1" />
-            </StrokeIcon>
-          </button>
-          <button
-            type="button"
-            className={cn(iconClass, selecting && "text-primary-500 dark:text-primary-400")}
-            title="Select region"
-            aria-label="Select region"
-            aria-pressed={selecting}
-            disabled={!ready || saving}
-            onClick={select}
-          >
-            <StrokeIcon className="size-3.5">
-              <path d="M8 3H3v5m9-5h1m3 0h5v5M3 12v1m0 3v5h5m4 0h1m8-9v1m-6 2 6 2-3 1-1 3-2-6Z" />
-            </StrokeIcon>
-          </button>
-          <button
-            type="button"
-            className={iconClass}
-            title="Add media feedback"
-            aria-label="Add media feedback"
-            disabled={!ready || saving}
-            onClick={() => void add()}
-          >
-            <StrokeIcon className="size-3.5">
-              <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 12h8m-4-4v8" />
-            </StrokeIcon>
-          </button>
-        </>
+        <button
+          ref={feedbackAction}
+          type="button"
+          className={cn(
+            iconClass,
+            selecting && "bg-primary-500/15 text-primary-600 dark:text-primary-400",
+          )}
+          title="Add media feedback"
+          aria-label="Add media feedback"
+          aria-pressed={selecting}
+          disabled={!ready || saving}
+          onClick={select}
+        >
+          <StrokeIcon className="size-3.5">
+            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 12h8m-4-4v8" />
+          </StrokeIcon>
+        </button>
       )}
       {jump?.target.locator.frame && (
         <button
@@ -298,6 +279,7 @@ export function ArtifactMedia({
             controls={controls}
             disabled={!ready}
             selecting={selecting}
+            selectionHint={selecting ? "Click for full frame · Drag for region" : undefined}
             onPanMode={() => setSelecting(false)}
             resetKey={jump?.nonce}
           >
@@ -347,18 +329,35 @@ export function ArtifactMedia({
               )}
               {showTarget && (frozen || showSaved) && <MediaBoxOverlay box={targetBox} />}
               {selecting && (
-                <div
-                  role="img"
-                  aria-label="Drag to select one region, or use the full-frame button"
-                  className="absolute inset-0 touch-none cursor-crosshair"
+                <button
+                  ref={selection}
+                  type="button"
+                  data-media-selection
+                  aria-label="Click or press Enter for full-frame feedback, drag to select a region, or press Escape to cancel"
+                  className="absolute inset-0 touch-none cursor-crosshair focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
+                  onClick={(event) => {
+                    if (event.detail === 0) void add(FULL_MEDIA_BOX);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setSelecting(false);
+                      feedbackAction.current?.focus({ preventScroll: true });
+                    } else if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (!event.repeat) void add(FULL_MEDIA_BOX);
+                    }
+                  }}
                   onPointerDown={(event) => {
-                    if (event.button !== 0) return;
+                    if (event.button !== 0 || drag.current) return;
                     event.currentTarget.setPointerCapture(event.pointerId);
-                    drag.current = { ...point(event), previous: box };
+                    drag.current = { ...point(event), id: event.pointerId };
                   }}
                   onPointerMove={(event) => {
                     const from = drag.current;
-                    if (!from) return;
+                    if (!from || from.id !== event.pointerId) return;
                     const to = point(event);
                     setBox({
                       x: Math.min(from.x, to.x),
@@ -367,13 +366,26 @@ export function ArtifactMedia({
                       height: Math.abs(from.y - to.y),
                     });
                   }}
-                  onPointerUp={() => {
-                    if (drag.current && (box.width < 0.003 || box.height < 0.003))
-                      setBox(drag.current.previous);
+                  onPointerUp={(event) => {
+                    const from = drag.current;
+                    if (!from || from.id !== event.pointerId) return;
+                    const to = point(event);
+                    const region = {
+                      x: Math.min(from.x, to.x),
+                      y: Math.min(from.y, to.y),
+                      width: Math.abs(from.x - to.x),
+                      height: Math.abs(from.y - to.y),
+                    };
+                    const rect = surface.current!.getBoundingClientRect();
                     drag.current = null;
+                    void add(
+                      region.width * rect.width < 4 || region.height * rect.height < 4
+                        ? FULL_MEDIA_BOX
+                        : region,
+                    );
                   }}
                   onPointerCancel={() => {
-                    if (drag.current) setBox(drag.current.previous);
+                    setBox(FULL_MEDIA_BOX);
                     drag.current = null;
                   }}
                 />

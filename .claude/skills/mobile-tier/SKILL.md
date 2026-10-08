@@ -143,9 +143,10 @@ Below `md`:
 A real-device **iOS Safari pass** is still owed before touch anchoring is called
 done.
 
-Native media targets share the desktop state and renderer: compact full-frame,
-region and media-feedback icons stay in the file header. Pointer capture supports
-a single touch-drawn rectangle; the full-frame button offers a non-drag action.
+Native media targets share the desktop state and renderer: one media-feedback
+icon in the file header enables targeting. Tap the frozen frame to accept the
+full frame or drag one region using pointer capture. Viewed and whole-file
+feedback stay together at the trailing edge after the media tools.
 The accepted snapshot opens the existing composer peek. Media Compare reuses the
 existing phone tabs and dock, with independent playback and Return to targets.
 Image/video zoom and pan reuse the same viewer on all tiers. Pan mode uses pointer

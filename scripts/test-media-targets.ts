@@ -224,7 +224,7 @@ try {
     ),
     "2",
   );
-  await click('[data-file="clip.webm"] [aria-label="Select region"]');
+  await click('[data-file="clip.webm"] [aria-label="Add media feedback"]');
   assert.equal(
     await page.evaluate(
       'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
@@ -254,7 +254,6 @@ try {
     clickCount: 1,
     ...to,
   });
-  await click('[data-file="clip.webm"] [aria-label="Add media feedback"]');
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "captured frame in composer",
@@ -430,8 +429,8 @@ try {
       ),
     "image ready after returning to artifact",
   );
-  await click('[data-file="image.png"] [aria-label="Use full frame"]');
   await click('[data-file="image.png"] [aria-label="Add media feedback"]');
+  await click('[data-file="image.png"] [data-media-selection]');
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "still image captured",
@@ -464,6 +463,22 @@ try {
   );
   await page.evaluate("document.querySelector('[data-file=\"clip.webm\"] video').currentTime = 7");
   await click('[data-file="clip.webm"] [aria-label="Add media feedback"]');
+  await eventually(
+    () => page.evaluate('document.activeElement?.matches("[data-media-selection]")'),
+    "targeting surface focused",
+  );
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 13,
+  });
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 13,
+  });
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "visible saved frame captured",

@@ -989,22 +989,30 @@ Notification failure is reported separately from a committed archive.
 
 Files artifacts support native targets for video and static PNG, JPEG and WebP.
 GIF, APNG, animated WebP and other image formats retain whole-file feedback.
-A separate frame-with-plus icon sits beside the existing file-feedback icon.
-Full-frame and region-selection icons are in the same file header; there is no
-extra selection toolbar below the media or target-editing link in the composer.
+The file header has a media-feedback action separate from whole-file feedback.
+This single media-feedback button freezes the frame and enables targeting. Click
+the frame (or press Enter) to accept the full frame, or drag one region to accept
+that rectangle. The gesture opens the composer with its saved snapshot; Escape
+or toggling the button cancels targeting. A temporary hint explains click versus
+drag. There are no separate full-frame/select controls, extra selection toolbar
+below the media, or target-editing link in the composer.
 Image and video headers also offer zoom out, a percentage button that resets to
 fit, zoom in, and Pan mode. Zoom ranges from 25% to 800% of the fitted view. Pan
 mode is available above 100%; dragging or focused arrow keys move the enlarged
 media within its bounds. Pan and region selection are mutually exclusive modes.
-Media tools wrap within the header when space is limited. Playback controls stay
+Zoom in, zoom out, and reset use a quick 150 ms ease-out transition, disabled for
+reduced-motion preferences. Drag panning follows the pointer immediately. Starting
+a pan or region gesture finishes any zoom transition before reading coordinates.
+Media tools wrap within the header when space is limited; Viewed and whole-file
+feedback remain together at the far right, after the media tools. Playback controls stay
 outside the transformed frame. Zoom and pan are local to each viewer, including
 each comparison pane, and never crop or change saved evidence or intrinsic region
 coordinates. Reset zoom, Locate, and Return to targets restore a centered fitted
 view. Legacy image previews retain their isolated iframe inside the same view
 transform; audio controls have no visual zoom.
 The default is the entire intrinsic frame. A region is one normalized rectangle,
-excluding player controls and letterboxing. Selecting freezes the visible pixels;
-Add media feedback accepts those pixels into the independently persisted draft.
+excluding player controls and letterboxing. Activating media feedback freezes the
+visible pixels; completing the click or drag accepts them into the persisted draft.
 Seeking, view changes and reload do not retarget the accepted draft. A populated
 draft must be posted or discarded before accepting another target.
 

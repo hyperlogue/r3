@@ -215,7 +215,7 @@ try {
     await page.evaluate(`(() => {
     const h=document.querySelector(${JSON.stringify(sourceHeader)});
     const d=h.querySelector('[aria-label^=Download]').getBoundingClientRect();
-    return [h.querySelector('[aria-pressed]'),h.querySelector(':scope > button:last-child')].every(e=>{const r=e.getBoundingClientRect();return Math.abs(r.top-d.top)<.1&&Math.abs(r.height-d.height)<.1;});
+    return [h.querySelector('[aria-pressed]'),h.querySelector('button[title="Leave feedback on this file"]')].every(e=>{const r=e.getBoundingClientRect();return Math.abs(r.top-d.top)<.1&&Math.abs(r.height-d.height)<.1;});
   })()`),
     "Download hover background aligns with Viewed and feedback controls",
   );

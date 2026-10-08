@@ -21,6 +21,7 @@ export function MediaViewport({
   children,
   controls,
   selecting = false,
+  selectionHint,
   onPanMode,
   resetKey,
   disabled = false,
@@ -28,11 +29,14 @@ export function MediaViewport({
   children: ReactNode;
   controls?: HTMLElement | null;
   selecting?: boolean;
+  selectionHint?: string;
   onPanMode?: () => void;
   resetKey?: number;
   disabled?: boolean;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
+  const transform = useRef<HTMLDivElement>(null);
+  const [animate, setAnimate] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState(center);
   const [pan, setPan] = useState(false);
@@ -40,6 +44,7 @@ export function MediaViewport({
   const drag = useRef<{ id: number; x: number; y: number; offset: Offset } | null>(null);
   const panning = pan && zoom > 1 && !selecting;
   const reset = () => {
+    setAnimate(true);
     setZoom(1);
     setOffset(center);
     setPan(false);
@@ -53,6 +58,7 @@ export function MediaViewport({
     if (selecting) setPan(false);
   }, [selecting]);
   const changeZoom = (next: number) => {
+    setAnimate(true);
     setOffset((value) =>
       constrain({ x: (value.x * next) / zoom, y: (value.y * next) / zoom }, next),
     );
@@ -119,14 +125,32 @@ export function MediaViewport({
   return (
     <>
       {controls && createPortal(actions, controls)}
-      <div ref={viewport} className="relative overflow-hidden" data-media-viewport data-zoom={zoom}>
+      <div
+        ref={viewport}
+        className="relative overflow-hidden"
+        data-media-viewport
+        data-zoom={zoom}
+        onPointerDownCapture={() => {
+          // Settle zoom before either a region or pan gesture reads geometry.
+          for (const animation of transform.current?.getAnimations() ?? []) animation.finish();
+        }}
+      >
         <div
+          ref={transform}
           data-media-transform
-          className="origin-center"
+          className={cn(
+            "origin-center",
+            animate && "transition-transform duration-150 ease-out motion-reduce:transition-none",
+          )}
           style={{ transform: `translate(${offset.x * 100}%, ${offset.y * 100}%) scale(${zoom})` }}
         >
           {children}
         </div>
+        {selectionHint && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 bg-white/85 px-2 py-1 text-center text-xs text-neutral-600 dark:bg-neutral-950/85 dark:text-neutral-300">
+            {selectionHint}
+          </div>
+        )}
         {panning && (
           <div
             role="application"
@@ -148,11 +172,13 @@ export function MediaViewport({
               if (!step) return;
               event.preventDefault();
               event.stopPropagation();
+              setAnimate(false);
               setOffset((value) => constrain({ x: value.x + step.x, y: value.y + step.y }, zoom));
             }}
             onPointerDown={(event) => {
               if (event.button !== 0 || drag.current) return;
               event.preventDefault();
+              setAnimate(false);
               event.currentTarget.focus({ preventScroll: true });
               event.currentTarget.setPointerCapture(event.pointerId);
               drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, offset };
