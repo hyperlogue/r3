@@ -4,6 +4,29 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-10-08
+
+### Added
+
+- **Add feedback on an image or video frame.** Click to select the whole frame or
+  drag to mark a region. Feedback preserves the exact visible pixels and video
+  timestamp so your agent can inspect what you saw, even after playback moves on.
+- **Compare media fixes before and after.** Agent replies can link a saved frame
+  and region in a new publication. Compare the original and proposed fix, with
+  independent playback and a return to the saved frames.
+- **Zoom and pan images and videos.** Inspect details at up to 800% zoom, drag or
+  use arrow keys to pan, and reset to fit. Comparison panes zoom independently.
+
+### Removed
+
+- **Separate preview endpoint settings.** Previews now always use the browser's
+  r3 address. The `previewPort` and `previewBaseUrl` settings and their
+  `R3_PREVIEW_PORT` and `R3_PREVIEW_BASE_URL` environment overrides are removed.
+- **Direct upgrades from retired live-review stores.** This only affects
+  workspaces last opened with r3 0.13.0 or earlier. Open them with r3 1.5.0 first,
+  then upgrade to this release. Existing r3 1.x artifact workspaces upgrade
+  automatically, preserving publications and feedback.
+
 ## [1.5.0] - 2026-10-06
 
 ### Added
@@ -615,6 +638,7 @@ and files reviews, anchored feedback with quote-first re-anchoring, replies,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[1.6.0]: https://github.com/hyperlogue/r3/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/hyperlogue/r3/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/hyperlogue/r3/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/hyperlogue/r3/compare/v1.2.0...v1.3.0
