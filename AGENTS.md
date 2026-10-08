@@ -238,6 +238,10 @@ Read the relevant `.claude/skills/<name>/SKILL.md` before changing its area:
 Cutting a release is a separate task using the release skill; implementation does
 not imply a version bump, tag, publication, or push.
 
+Keep public website content, styles, build scripts, tests, and demo customizations
+under `site/`. Its repository integration contract belongs to the
+[build-and-distribution skill](.claude/skills/build-and-distribution/SKILL.md#public-website-integration).
+
 ## Development and checks
 
 ```sh

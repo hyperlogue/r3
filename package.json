@@ -33,6 +33,7 @@
     "@types/react-dom": "^19.3.0",
     "bun-plugin-tailwind": "^0.1.2",
     "bun2nix": "2.1.1",
+    "pagefind": "1.5.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",

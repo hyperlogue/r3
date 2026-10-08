@@ -53,6 +53,18 @@ jobs:
           bun test
           bun test scripts/wait-for-npm-packages.test.mjs
 
+      # Exercise the same complete builder used by Pages at both supported URL
+      # shapes. The demo-only checkout remains valid until site/build.ts lands.
+      - name: Check website builds
+        run: |
+          if [ -f site/build.ts ]; then
+            for site_base in /r3 ""; do
+              R3_SITE_BASE="$site_base" R3_SITE_URL="https://example.test$site_base" bun site/build.ts
+              test -s dist/pages/index.html
+              test -s dist/pages/404.html
+            done
+          fi
+
       - name: Build all release targets
         run: bun scripts/release-binaries.ts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

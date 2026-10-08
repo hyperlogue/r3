@@ -1,6 +1,6 @@
 ---
 name: build-and-distribution
-description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the frontend-only browser demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, wait-for-npm-packages, build-demo, stage-pages, gen-artifact-demo), npm/, web/demo/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/demo build.
+description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the public website and frontend-only demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, wait-for-npm-packages, build-demo, stage-pages, gen-artifact-demo), npm/, web/demo/, site/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/site/demo build.
 ---
 
 # Building and shipping r3
@@ -190,11 +190,43 @@ present it as production security or add a same-origin execution fallback.
 `CAN_MANAGE_TOKENS=false` hides access management and sign-out, which have no
 meaning in this tab.
 
-### The Pages layout
+### Public website integration
 
-`.github/workflows/pages.yml` builds the demo and deploys on push to `main`,
-mounting it at **`…/r3/demo/`** — the project page (`/r3/`, the repo name, forced by
-Pages) plus a `/demo` sub-path.
+Keep website implementation under `site/`: content, HTML layouts, CSS, browser
+scripts, media, demo customizations, build logic, and tests. Reuse dependencies
+from the root package; Pagefind is a development dependency for static search.
+Root TypeScript checking includes `site/`; the existing test and Biome commands
+discover its files. Keep generated output under the ignored `dist/` directory.
+
+The Pages workflow uses `bun site/build.ts` when that entrypoint exists. This
+single command owns the complete deployable output, including the demo:
+
+- `R3_SITE_BASE` is the mount path from `configure-pages`, such as `/r3` or an
+  empty string for a custom domain. Normalize it once for all site and demo URLs.
+- `R3_SITE_URL` is the full public base URL, including the mount path, for
+  canonical links, sitemap entries, and agent-readable links.
+- Output goes to `dist/pages/`, including nonempty `index.html` and `404.html`.
+  Rebuild from clean output so old assets cannot survive a new publication.
+- The builder owns fixtures, assets, search, exports, and link validation. It can
+  reuse `buildDemo({ directory, base, plugins })` from `scripts/build-demo.ts`;
+  keep site-specific build plugins and demo overrides inside `site/`.
+- Preserve demo deep-link reloads while providing a useful website 404. Pages
+  honors only the site-root `404.html`; directory-level fallback files do not
+  handle requests independently.
+
+Before `site/build.ts` is added, Pages retains the demo-only build below. A present
+website builder that fails must fail deployment, without falling back to the demo.
+Both paths verify the output entrypoints before upload. CI runs a present website
+builder with both a project mount and a root mount; it performs no deployment.
+The workflow path filter includes website content and product sources used by
+documentation and fixture generation. The compiled product build remains separate;
+`site/` is outside the Nix binary's source fileset.
+
+### Demo-only Pages layout
+
+The fallback in `.github/workflows/pages.yml` builds the demo on push to `main`,
+mounting it at `<base_path>/demo/`. A project page uses `/r3` as its base path;
+a custom domain can use the root.
 
 `R3_DEMO_BASE=<base_path>/demo` (base_path from `configure-pages`) bakes that prefix
 into the router (`hrefFor`/`__R3_BASE__`) and asset `publicPath`. Then
