@@ -190,8 +190,17 @@ try {
     "0.75",
   );
   await click('[data-file="clip.webm"] [aria-label="Reset zoom"]');
-  for (let i = 0; i < 3; i++) await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
+  await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
+  const videoPanMode = () =>
+    page.evaluate(
+      'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
+    );
+  assert.equal(await videoPanMode(), "true", "zooming in enables pan by default");
   await click('[data-file="clip.webm"] [aria-label="Pan mode"]');
+  await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
+  assert.equal(await videoPanMode(), "false", "further zoom keeps pan explicitly disabled");
+  await click('[data-file="clip.webm"] [aria-label="Pan mode"]');
+  await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
   const viewport = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-file=\"clip.webm\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
   );
@@ -224,7 +233,7 @@ try {
     ),
     "2",
   );
-  await click('[data-file="clip.webm"] [aria-label="Add media feedback"]');
+  await click('[data-file="clip.webm"] [aria-label="Add video feedback"]');
   assert.equal(
     await page.evaluate(
       'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
@@ -258,6 +267,7 @@ try {
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "captured frame in composer",
   );
+  assert.equal(await videoPanMode(), "true", "pan resumes after accepting a region");
   const acceptedHash = await page.evaluate(`(async () => {
     const bytes = await fetch(document.querySelector('[data-artifact-composer] img').src).then(r => r.arrayBuffer());
     return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -330,7 +340,12 @@ try {
     ),
     "1",
   );
-  await click('[data-comparison-side="original"] [aria-label="Pan mode"]');
+  assert.equal(
+    await page.evaluate(
+      'document.querySelector(\'[data-comparison-side="original"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
+    ),
+    "true",
+  );
   const comparisonView = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-comparison-side=\"original\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
   );
@@ -347,7 +362,7 @@ try {
   await shot("05-media-zoom.png");
   assert.equal(
     await page.evaluate(
-      "document.querySelector('[data-artifact-comparison] [aria-label=\"Add media feedback\"]') === null",
+      "document.querySelector('[data-artifact-comparison] [aria-label=\"Add video feedback\"]') === null",
     ),
     true,
   );
@@ -393,7 +408,6 @@ try {
   );
   await page.command("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
   await click('[data-comparison-side="proposed"] [aria-label="Zoom in"]');
-  await click('[data-comparison-side="proposed"] [aria-label="Pan mode"]');
   const touchRect = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-comparison-side=\"proposed\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
   );
@@ -425,16 +439,30 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        '!!document.querySelector(\'[data-file="image.png"] [aria-label="Add media feedback"]:not(:disabled)\')',
+        '!!document.querySelector(\'[data-file="image.png"] [aria-label="Add image feedback"]:not(:disabled)\')',
       ),
     "image ready after returning to artifact",
   );
-  await click('[data-file="image.png"] [aria-label="Add media feedback"]');
+  await click('[data-file="image.png"] [aria-label="Add image feedback"]');
   await click('[data-file="image.png"] [data-media-selection]');
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "still image captured",
   );
+  const imageHasBox = () =>
+    page.evaluate(
+      "!!document.querySelector('[data-file=\"image.png\"] [data-media-frame] [data-media-box]')",
+    );
+  assert.equal(await imageHasBox(), true, "region remains visible while composing feedback");
+  await click('[data-artifact-composer] button:has(+ button[type="submit"])');
+  await eventually(async () => !(await imageHasBox()), "cancelling clears image region");
+  await click('[data-file="image.png"] [aria-label="Add image feedback"]');
+  await click('[data-file="image.png"] [data-media-selection]');
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
+    "image recaptured after cancelling",
+  );
+  assert.equal(await imageHasBox(), true);
   await click("[data-artifact-composer] textarea");
   await page.command("Input.insertText", { text: "Review the whole image." });
   await shot("04-image-feedback.png");
@@ -443,6 +471,7 @@ try {
     async () => storage.conversations.list(artifact.id).length === 2,
     "image feedback saved",
   );
+  await eventually(async () => !(await imageHasBox()), "posting clears image region");
   const imageTarget = storage.conversations.list(artifact.id)[1]!.target as ArtifactMediaTarget;
   assert.equal(imageTarget.locator.time, null);
   assert.deepEqual(imageTarget.locator.box, { x: 0, y: 0, width: 1, height: 1 });
@@ -462,7 +491,7 @@ try {
     "original saved frame located",
   );
   await page.evaluate("document.querySelector('[data-file=\"clip.webm\"] video').currentTime = 7");
-  await click('[data-file="clip.webm"] [aria-label="Add media feedback"]');
+  await click('[data-file="clip.webm"] [aria-label="Add video feedback"]');
   await eventually(
     () => page.evaluate('document.activeElement?.matches("[data-media-selection]")'),
     "targeting surface focused",
@@ -483,6 +512,11 @@ try {
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "visible saved frame captured",
   );
+  const videoHasBox = () =>
+    page.evaluate(
+      "!!document.querySelector('[data-file=\"clip.webm\"] [data-media-frame] [data-media-box]')",
+    );
+  assert.equal(await videoHasBox(), true);
   await click("[data-artifact-composer] textarea");
   await page.command("Input.insertText", { text: "Another note on this exact saved frame." });
   await click('[data-artifact-composer] button[type="submit"]');
@@ -490,6 +524,7 @@ try {
     async () => storage.conversations.list(artifact.id).length === 3,
     "saved-frame feedback posted",
   );
+  await eventually(async () => !(await videoHasBox()), "posting clears video region");
   const recaptured = storage.conversations.list(artifact.id)[2]!.target as ArtifactMediaTarget;
   assert.equal(recaptured.locator.time, time);
   assert.equal(recaptured.locator.frame?.hash, acceptedHash);

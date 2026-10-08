@@ -989,17 +989,22 @@ Notification failure is reported separately from a committed archive.
 
 Files artifacts support native targets for video and static PNG, JPEG and WebP.
 GIF, APNG, animated WebP and other image formats retain whole-file feedback.
-The file header has a media-feedback action separate from whole-file feedback.
+The file header has an **Add image feedback** or **Add video feedback** action
+separate from whole-file feedback.
 This single media-feedback button freezes the frame and enables targeting. Click
 the frame (or press Enter) to accept the full frame, or drag one region to accept
 that rectangle. The gesture opens the composer with its saved snapshot; Escape
 or toggling the button cancels targeting. A temporary hint explains click versus
 drag. There are no separate full-frame/select controls, extra selection toolbar
 below the media, or target-editing link in the composer.
+The accepted region overlay follows its draft: cancelling, discarding, clearing
+the target, or posting hides it. Locate and comparison can still show saved targets.
 Image and video headers also offer zoom out, a percentage button that resets to
 fit, zoom in, and Pan mode. Zoom ranges from 25% to 800% of the fitted view. Pan
-mode is available above 100%; dragging or focused arrow keys move the enlarged
-media within its bounds. Pan and region selection are mutually exclusive modes.
+mode defaults on when zooming above 100%; dragging or focused arrow keys move the
+enlarged media within its bounds. Users can turn pan off until returning to fit
+or resetting the view. Region selection temporarily suppresses pan and restores
+the previous preference when targeting ends.
 Zoom in, zoom out, and reset use a quick 150 ms ease-out transition, disabled for
 reduced-motion preferences. Drag panning follows the pointer immediately. Starting
 a pan or region gesture finishes any zoom transition before reading coordinates.

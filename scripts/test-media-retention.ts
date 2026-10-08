@@ -164,7 +164,6 @@ try {
       const reads = resourceRequests.get(fixture.path);
       await card.getByRole("button", { name: "Zoom in", exact: true }).click();
       assert.equal(await card.locator("[data-media-viewport]").getAttribute("data-zoom"), "1.25");
-      await card.getByRole("button", { name: "Pan mode", exact: true }).click();
       assert.equal(
         await card.getByRole("button", { name: "Pan mode" }).getAttribute("aria-pressed"),
         "true",

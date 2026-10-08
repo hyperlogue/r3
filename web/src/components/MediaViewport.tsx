@@ -39,7 +39,7 @@ export function MediaViewport({
   const [animate, setAnimate] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState(center);
-  const [pan, setPan] = useState(false);
+  const [pan, setPan] = useState(true);
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ id: number; x: number; y: number; offset: Offset } | null>(null);
   const panning = pan && zoom > 1 && !selecting;
@@ -47,23 +47,20 @@ export function MediaViewport({
     setAnimate(true);
     setZoom(1);
     setOffset(center);
-    setPan(false);
+    setPan(true);
     setDragging(false);
     drag.current = null;
   };
   // Locate and Return to targets restore a complete, unobscured frame.
   // biome-ignore lint/correctness/useExhaustiveDependencies: explicit target navigation resets the view
   useEffect(reset, [resetKey]);
-  useEffect(() => {
-    if (selecting) setPan(false);
-  }, [selecting]);
   const changeZoom = (next: number) => {
     setAnimate(true);
     setOffset((value) =>
       constrain({ x: (value.x * next) / zoom, y: (value.y * next) / zoom }, next),
     );
     setZoom(next);
-    if (next <= 1) setPan(false);
+    if (next <= 1 || zoom <= 1) setPan(true);
   };
   const actions = (
     <span data-media-zoom-controls className="flex shrink-0 items-center gap-0.5">

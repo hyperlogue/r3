@@ -283,6 +283,12 @@ export const useHasArtifactNote = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => hasMessageContent(artifactDrafts.get(id)));
 export const useArtifactNoteOpen = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.get(id) !== null);
+// Media viewers follow the frame's lifetime without subscribing to typed text.
+export const useArtifactMediaDraftFrame = (id: string) =>
+  useSyncExternalStore(artifactDrafts.subscribe, () => {
+    const draft = artifactDrafts.get(id);
+    return draft?.target.kind === "media" ? (draft.mediaSnapshot?.id ?? null) : null;
+  });
 export const useArtifactDraftCount = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.count(id));
 if (typeof window !== "undefined") {

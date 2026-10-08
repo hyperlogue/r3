@@ -8,6 +8,7 @@ import {
   targetableMedia,
 } from "../../../shared/media-target.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { useArtifactMediaDraftFrame } from "../artifact-drafts.ts";
 import { type DraftAttachment, saveDraftImageOutput } from "../attachment-drafts.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 import { MediaBoxOverlay, useMediaImage } from "./MediaTargetPreview.tsx";
@@ -40,6 +41,9 @@ export function ArtifactMedia({
   onSavedFrame?: (saved: boolean) => void;
 }) {
   const kind = targetableMedia(file.mediaType);
+  const feedbackLabel = kind === "video" ? "Add video feedback" : "Add image feedback";
+  const currentDraftFrame = useArtifactMediaDraftFrame(artifactId);
+  const [acceptedFrame, setAcceptedFrame] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [animated, setAnimated] = useState(false);
@@ -187,7 +191,7 @@ export function ArtifactMedia({
         height: captured.canvas.height,
       });
       if (!alive.current) return;
-      onTarget(
+      const accepted = onTarget(
         {
           kind: "media",
           versionSeq,
@@ -196,6 +200,7 @@ export function ArtifactMedia({
         },
         output.attachment,
       );
+      setAcceptedFrame(accepted ? output.attachment.id : null);
       if (!output.persisted)
         setError("Frame saved for this tab only. Keep the tab open until you post your feedback.");
     } catch (e) {
@@ -228,8 +233,8 @@ export function ArtifactMedia({
             iconClass,
             selecting && "bg-primary-500/15 text-primary-600 dark:text-primary-400",
           )}
-          title="Add media feedback"
-          aria-label="Add media feedback"
+          title={feedbackLabel}
+          aria-label={feedbackLabel}
           aria-pressed={selecting}
           disabled={!ready || saving}
           onClick={select}
@@ -327,7 +332,13 @@ export function ArtifactMedia({
                   className="pointer-events-none absolute inset-0 h-full w-full"
                 />
               )}
-              {showTarget && (frozen || showSaved) && <MediaBoxOverlay box={targetBox} />}
+              {showTarget &&
+                (showSaved ||
+                  selecting ||
+                  saving ||
+                  (frozen && acceptedFrame && acceptedFrame === currentDraftFrame)) && (
+                  <MediaBoxOverlay box={targetBox} />
+                )}
               {selecting && (
                 <button
                   ref={selection}

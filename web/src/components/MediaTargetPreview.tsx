@@ -7,6 +7,7 @@ export function MediaBoxOverlay({ box }: { box: MediaBox }) {
   return (
     <div
       aria-hidden="true"
+      data-media-box
       className="pointer-events-none absolute border-2 border-primary-500 bg-primary-500/5"
       style={{
         left: `${box.x * 100}%`,
