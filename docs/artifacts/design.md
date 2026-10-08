@@ -1009,7 +1009,8 @@ reduced-motion preferences. Drag panning follows the pointer immediately. Starti
 a pan or region gesture finishes any zoom transition before reading coordinates.
 Media tools wrap within the header when space is limited; Viewed and whole-file
 feedback remain together at the far right, after the media tools. Playback controls stay
-outside the transformed frame. Zoom and pan are local to each viewer, including
+outside the transformed frame and show the displayed video's timestamp; file and
+comparison headers omit it. Zoom and pan are local to each viewer, including
 each comparison pane, and never crop or change saved evidence or intrinsic region
 coordinates. Reset zoom, Locate, and Return to targets restore a centered fitted
 view. Legacy image previews retain their isolated iframe inside the same view

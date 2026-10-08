@@ -218,13 +218,10 @@ export function ArtifactMedia({
   };
   const overlay = showSaved && saved.url ? saved.url : frozen?.url;
   const targetBox = showSaved && jump ? jump.target.locator.box : box;
+  const displayedTime =
+    showSaved && jump ? (jump.target.locator.time ?? 0) : (frozen?.time ?? time);
   const actions = (
     <>
-      {kind === "video" && (
-        <span className="text-[0.625rem] tabular-nums text-neutral-500">
-          {mediaTime(showSaved && jump ? (jump.target.locator.time ?? 0) : (frozen?.time ?? time))}
-        </span>
-      )}
       {onTarget && !animated && (
         <button
           ref={feedbackAction}
@@ -422,14 +419,14 @@ export function ArtifactMedia({
                 </StrokeIcon>
               </button>
               <span className="text-[0.625rem] tabular-nums text-neutral-500">
-                {mediaTime(time)}
+                {mediaTime(displayedTime)}
               </span>
               <input
                 type="range"
                 min="0"
                 max={Number.isFinite(duration) ? duration : 0}
                 step="0.001"
-                value={time}
+                value={displayedTime}
                 aria-label="Video position"
                 disabled={!ready}
                 className="min-w-0 flex-1 accent-primary-500"
