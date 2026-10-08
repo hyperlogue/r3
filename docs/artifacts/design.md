@@ -992,6 +992,16 @@ GIF, APNG, animated WebP and other image formats retain whole-file feedback.
 A separate frame-with-plus icon sits beside the existing file-feedback icon.
 Full-frame and region-selection icons are in the same file header; there is no
 extra selection toolbar below the media or target-editing link in the composer.
+Image and video headers also offer zoom out, a percentage button that resets to
+fit, zoom in, and Pan mode. Zoom ranges from 25% to 800% of the fitted view. Pan
+mode is available above 100%; dragging or focused arrow keys move the enlarged
+media within its bounds. Pan and region selection are mutually exclusive modes.
+Media tools wrap within the header when space is limited. Playback controls stay
+outside the transformed frame. Zoom and pan are local to each viewer, including
+each comparison pane, and never crop or change saved evidence or intrinsic region
+coordinates. Reset zoom, Locate, and Return to targets restore a centered fitted
+view. Legacy image previews retain their isolated iframe inside the same view
+transform; audio controls have no visual zoom.
 The default is the entire intrinsic frame. A region is one normalized rectangle,
 excluding player controls and letterboxing. Selecting freezes the visible pixels;
 Add media feedback accepts those pixels into the independently persisted draft.

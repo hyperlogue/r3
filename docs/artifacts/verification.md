@@ -321,6 +321,8 @@ original/fix targets and agent authorship.
 Run `R3_TEST_BROWSER=/path/to/chromium R3_TEST_FFMPEG=/path/to/ffmpeg bun scripts/test-media-targets.ts`
 for actual capture, rectangle selection, persistent drafts after seeking/reload,
 posting, independent comparison playback, return to saved frames, recapturing the
-visible saved frame after Locate, and phone layout.
+visible saved frame after Locate, and phone layout. It also checks bounded zoom
+and panning, independent comparison transforms, reset behavior, and intrinsic
+region coordinates when selecting a zoomed and panned frame.
 The script owns a temporary store and fresh browser profile, and writes screenshots
 under `workspace/media-target-acceptance/`.

@@ -13,6 +13,7 @@ import type { DiffSide } from "../types.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { ArtifactMedia } from "./ArtifactMedia.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
+import { MediaViewport } from "./MediaViewport.tsx";
 import { Notification } from "./Notifications.tsx";
 import { RepresentationToggle } from "./RepresentationToggle.tsx";
 import { SourceCode } from "./SourceCode.tsx";
@@ -125,10 +126,14 @@ export const ArtifactFile = memo(function ArtifactFile({
         onFileFeedback={onFileFeedback}
         foldSignal={fold}
         onOpenChange={setOpen}
+        wrapHeader={media === "image" || media === "video"}
         stats={(expanded) =>
           expanded &&
-          (targetableMedia(file.mediaType) ? (
-            <span ref={setMediaControls} className="flex items-center gap-1" />
+          (media === "image" || media === "video" ? (
+            <span
+              ref={setMediaControls}
+              className="flex min-h-8 flex-wrap items-center justify-end gap-1"
+            />
           ) : (
             canRender && <RepresentationToggle value={representation} onChange={onRepresentation} />
           ))
@@ -152,6 +157,8 @@ export const ArtifactFile = memo(function ArtifactFile({
                   jump={mediaJump}
                   active={mediaActive && open}
                 />
+              ) : media === "image" ? (
+                <MediaViewport controls={mediaControls}>{preview()}</MediaViewport>
               ) : (
                 preview()
               )}

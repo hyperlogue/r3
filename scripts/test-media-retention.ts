@@ -161,6 +161,22 @@ try {
     const originalFrame = await card.locator(previewSelector).elementHandle();
     if (fixture.kind === "image") {
       await mediaElement().evaluate((image: HTMLImageElement) => image.decode());
+      const reads = resourceRequests.get(fixture.path);
+      await card.getByRole("button", { name: "Zoom in", exact: true }).click();
+      assert.equal(await card.locator("[data-media-viewport]").getAttribute("data-zoom"), "1.25");
+      await card.getByRole("button", { name: "Pan mode", exact: true }).click();
+      assert.equal(
+        await card.getByRole("button", { name: "Pan mode" }).getAttribute("aria-pressed"),
+        "true",
+      );
+      await card.getByRole("button", { name: "Reset zoom", exact: true }).click();
+      assert.equal(await card.locator("[data-media-viewport]").getAttribute("data-zoom"), "1");
+      assert(await originalFrame.evaluate((frame: HTMLIFrameElement) => frame.isConnected));
+      assert.equal(
+        resourceRequests.get(fixture.path),
+        reads,
+        "zooming retains the isolated image preview",
+      );
     } else {
       assert.equal(
         await mediaElement().evaluate((media: HTMLMediaElement) => media.muted),

@@ -11,6 +11,7 @@ import { artifactApi } from "../artifact-api.ts";
 import { type DraftAttachment, saveDraftImageOutput } from "../attachment-drafts.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 import { MediaBoxOverlay, useMediaImage } from "./MediaTargetPreview.tsx";
+import { MediaViewport } from "./MediaViewport.tsx";
 
 const iconClass =
   "flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
@@ -50,6 +51,7 @@ export function ArtifactMedia({
   const image = useRef<HTMLImageElement>(null);
   const savedImage = useRef<HTMLImageElement>(null);
   const surface = useRef<HTMLDivElement>(null);
+  const player = useRef<HTMLDivElement>(null);
   const [selecting, setSelecting] = useState(false);
   const [box, setBox] = useState<MediaBox>(FULL_MEDIA_BOX);
   const [frozen, setFrozen] = useState<{
@@ -276,7 +278,7 @@ export function ArtifactMedia({
     </>
   );
   return (
-    <div className="flex flex-col" data-native-media>
+    <div ref={player} className="flex flex-col" data-native-media>
       {controls && createPortal(actions, controls)}
       {error && (
         <p role="alert" className="px-3 py-2 text-xs text-red-600">
@@ -292,84 +294,92 @@ export function ArtifactMedia({
         <p className="p-3 text-xs text-neutral-500">Loading media…</p>
       ) : (
         <>
-          <div ref={surface} className="relative w-full" data-media-frame>
-            {kind === "video" ? (
-              <video
-                ref={video}
-                muted={muted}
-                src={url}
-                playsInline
-                preload="auto"
-                className="block w-full"
-                onLoadedData={() => {
-                  setReady(true);
-                  setDuration(video.current?.duration ?? 0);
-                }}
-                onTimeUpdate={() => setTime(video.current?.currentTime ?? 0)}
-                onError={() => setError("This browser could not decode the video.")}
-                onPlay={() => {
-                  setPaused(false);
-                  setShowSaved(false);
-                  setFrozen(null);
-                  setSelecting(false);
-                }}
-                onPause={() => setPaused(true)}
-                onVolumeChange={() => setMuted(video.current?.muted ?? true)}
-              >
-                <track kind="captions" />
-              </video>
-            ) : (
-              <img
-                ref={image}
-                src={url}
-                alt={file.path}
-                className="block w-full"
-                onLoad={() => setReady(true)}
-                onError={() => setError("This browser could not decode the image.")}
-              />
-            )}
-            {overlay && (
-              <img
-                ref={savedImage}
-                src={overlay}
-                alt="Saved frame"
-                className="pointer-events-none absolute inset-0 h-full w-full"
-              />
-            )}
-            {showTarget && (frozen || showSaved) && <MediaBoxOverlay box={targetBox} />}
-            {selecting && (
-              <div
-                role="img"
-                aria-label="Drag to select one region, or use the full-frame button"
-                className="absolute inset-0 touch-none cursor-crosshair"
-                onPointerDown={(event) => {
-                  if (event.button !== 0) return;
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  drag.current = { ...point(event), previous: box };
-                }}
-                onPointerMove={(event) => {
-                  const from = drag.current;
-                  if (!from) return;
-                  const to = point(event);
-                  setBox({
-                    x: Math.min(from.x, to.x),
-                    y: Math.min(from.y, to.y),
-                    width: Math.abs(from.x - to.x),
-                    height: Math.abs(from.y - to.y),
-                  });
-                }}
-                onPointerUp={() => {
-                  if (drag.current && (box.width < 0.003 || box.height < 0.003))
-                    setBox(drag.current.previous);
-                  drag.current = null;
-                }}
-                onPointerCancel={() => {
-                  if (drag.current) setBox(drag.current.previous);
-                  drag.current = null;
-                }}
-              />
-            )}
-          </div>
+          <MediaViewport
+            controls={controls}
+            disabled={!ready}
+            selecting={selecting}
+            onPanMode={() => setSelecting(false)}
+            resetKey={jump?.nonce}
+          >
+            <div ref={surface} className="relative w-full" data-media-frame>
+              {kind === "video" ? (
+                <video
+                  ref={video}
+                  muted={muted}
+                  src={url}
+                  playsInline
+                  preload="auto"
+                  className="block w-full"
+                  onLoadedData={() => {
+                    setReady(true);
+                    setDuration(video.current?.duration ?? 0);
+                  }}
+                  onTimeUpdate={() => setTime(video.current?.currentTime ?? 0)}
+                  onError={() => setError("This browser could not decode the video.")}
+                  onPlay={() => {
+                    setPaused(false);
+                    setShowSaved(false);
+                    setFrozen(null);
+                    setSelecting(false);
+                  }}
+                  onPause={() => setPaused(true)}
+                  onVolumeChange={() => setMuted(video.current?.muted ?? true)}
+                >
+                  <track kind="captions" />
+                </video>
+              ) : (
+                <img
+                  ref={image}
+                  src={url}
+                  alt={file.path}
+                  className="block w-full"
+                  onLoad={() => setReady(true)}
+                  onError={() => setError("This browser could not decode the image.")}
+                />
+              )}
+              {overlay && (
+                <img
+                  ref={savedImage}
+                  src={overlay}
+                  alt="Saved frame"
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                />
+              )}
+              {showTarget && (frozen || showSaved) && <MediaBoxOverlay box={targetBox} />}
+              {selecting && (
+                <div
+                  role="img"
+                  aria-label="Drag to select one region, or use the full-frame button"
+                  className="absolute inset-0 touch-none cursor-crosshair"
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    drag.current = { ...point(event), previous: box };
+                  }}
+                  onPointerMove={(event) => {
+                    const from = drag.current;
+                    if (!from) return;
+                    const to = point(event);
+                    setBox({
+                      x: Math.min(from.x, to.x),
+                      y: Math.min(from.y, to.y),
+                      width: Math.abs(from.x - to.x),
+                      height: Math.abs(from.y - to.y),
+                    });
+                  }}
+                  onPointerUp={() => {
+                    if (drag.current && (box.width < 0.003 || box.height < 0.003))
+                      setBox(drag.current.previous);
+                    drag.current = null;
+                  }}
+                  onPointerCancel={() => {
+                    if (drag.current) setBox(drag.current.previous);
+                    drag.current = null;
+                  }}
+                />
+              )}
+            </div>
+          </MediaViewport>
           {kind === "video" && (
             <div className="flex items-center gap-2 px-3 py-2">
               <button
@@ -435,9 +445,7 @@ export function ArtifactMedia({
                 className={iconClass}
                 aria-label="Full screen video"
                 onClick={() => {
-                  void surface.current?.parentElement
-                    ?.requestFullscreen?.()
-                    .catch((e) => setError(e.message));
+                  void player.current?.requestFullscreen?.().catch((e) => setError(e.message));
                 }}
               >
                 <StrokeIcon className="size-3.5">

@@ -48,6 +48,7 @@ export function FileCard({
   path,
   pathAction,
   stats,
+  wrapHeader = false,
   viewed,
   onToggleViewed,
   onFileFeedback,
@@ -65,6 +66,8 @@ export function FileCard({
   // A render fn receives the open state, so header controls (e.g. a markdown
   // rendered/raw toggle) can hide themselves when the card is folded.
   stats?: ReactNode | ((open: boolean) => ReactNode);
+  // Media tools can flow onto another header row in a narrow pane.
+  wrapHeader?: boolean;
   viewed: boolean;
   // Omit when this surface does not offer read-progress controls.
   onToggleViewed?: () => void;
@@ -192,6 +195,7 @@ export function FileCard({
         data-file-header
         className={cn(
           "sticky top-[calc(var(--pane-sticky-h,0px)-1px)] z-10 flex h-8 items-center gap-2 max-md:gap-1 border-b border-neutral-300 bg-neutral-50/95 px-2 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95",
+          wrapHeader && open && "h-auto min-h-8 flex-wrap gap-y-0",
           current &&
             "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:before:bg-primary-400",
         )}
@@ -208,8 +212,14 @@ export function FileCard({
         >
           <FoldTriangle open={open} />
         </button>
-        <FilePath key={path} path={path} action={pathAction} />
-        {typeof stats === "function" ? stats(open) : stats}
+        {wrapHeader && open ? (
+          <div className="flex min-h-8 min-w-24 flex-1 items-center">
+            <FilePath key={path} path={path} action={pathAction} />
+          </div>
+        ) : (
+          <FilePath key={path} path={path} action={pathAction} />
+        )}
+        {!wrapHeader && (typeof stats === "function" ? stats(open) : stats)}
         {onToggleViewed && (
           <button
             type="button"
@@ -261,6 +271,11 @@ export function FileCard({
           >
             <CommentPlusIcon className="size-3.5" />
           </button>
+        )}
+        {wrapHeader && (
+          <div className="ml-auto flex max-w-full items-center">
+            {typeof stats === "function" ? stats(open) : stats}
+          </div>
         )}
       </div>
       {/* The block's bottom separator lives on the content, inside the fold, so

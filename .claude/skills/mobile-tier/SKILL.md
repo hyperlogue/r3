@@ -123,7 +123,8 @@ Below `md`:
 - **Compact ~40px touch targets** — the shared `Button` gets `min-h-9`, icon buttons
   `size-9`. Real-device feedback found full 44px CTAs too tall. The **h-8 header
   stack** — pane toolbar and file headers — is deliberately exempt and
-  stays `h-8`.
+  stays `h-8`. Image/video headers can wrap their media tools onto another compact
+  row when the pane is too narrow to retain both the filename and all controls.
 - **≥16px composer/input fonts** via `max-md:text-base` (1rem = 18px at the default
   root size, `main.css --r3-font-size`), so iOS doesn't zoom the page on focus (it
   does for any field under 16px). A user who shrinks the root font below 16px trades
@@ -147,3 +148,7 @@ region and media-feedback icons stay in the file header. Pointer capture support
 a single touch-drawn rectangle; the full-frame button offers a non-drag action.
 The accepted snapshot opens the existing composer peek. Media Compare reuses the
 existing phone tabs and dock, with independent playback and Return to targets.
+Image/video zoom and pan reuse the same viewer on all tiers. Pan mode uses pointer
+capture and touch-action none only on its active drag surface; disabling it
+restores ordinary page scrolling. Playback controls stay outside the transformed
+frame, and region selection uses the transformed frame's intrinsic coordinates.

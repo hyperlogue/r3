@@ -144,6 +144,26 @@ try {
     const result = await page.command("Page.captureScreenshot", { format: "png" });
     await Bun.write(join(out, name), Buffer.from(result.data, "base64"));
   };
+  const dragPointer = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      button: "left",
+      clickCount: 1,
+      ...from,
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      button: "left",
+      buttons: 1,
+      ...to,
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      button: "left",
+      clickCount: 1,
+      ...to,
+    });
+  };
   const url = `http://localhost:${app.port}/${artifact.id}?version=1&file=clip.webm`;
   await page.command("Page.navigate", { url });
   await eventually(
@@ -156,12 +176,66 @@ try {
     "seek completed",
   );
   const time = await page.evaluate("document.querySelector('video').currentTime");
+  assert.equal(
+    await page.evaluate(
+      'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').disabled',
+    ),
+    true,
+  );
+  await click('[data-file="clip.webm"] [aria-label="Zoom out"]');
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-file=\"clip.webm\"] [data-media-viewport]').dataset.zoom",
+    ),
+    "0.75",
+  );
+  await click('[data-file="clip.webm"] [aria-label="Reset zoom"]');
+  for (let i = 0; i < 3; i++) await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
+  await click('[data-file="clip.webm"] [aria-label="Pan mode"]');
+  const viewport = await page.evaluate(
+    "(()=>{const r=document.querySelector('[data-file=\"clip.webm\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
+  );
+  await dragPointer(
+    { x: viewport.x + viewport.w * 0.5, y: viewport.y + viewport.h * 0.5 },
+    { x: viewport.x + viewport.w * 0.6, y: viewport.y + viewport.h * 0.55 },
+  );
+  const panned = await page.evaluate(
+    "document.querySelector('[data-file=\"clip.webm\"] [data-media-transform]').style.transform",
+  );
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "ArrowRight",
+    code: "ArrowRight",
+  });
+  assert.notEqual(
+    await page.evaluate(
+      "document.querySelector('[data-file=\"clip.webm\"] [data-media-transform]').style.transform",
+    ),
+    panned,
+  );
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "ArrowLeft",
+    code: "ArrowLeft",
+  });
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-file=\"clip.webm\"] [data-media-viewport]').dataset.zoom",
+    ),
+    "2",
+  );
   await click('[data-file="clip.webm"] [aria-label="Select region"]');
+  assert.equal(
+    await page.evaluate(
+      'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
+    ),
+    "false",
+  );
   const rect = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-file=\"clip.webm\"] [data-media-frame]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
   );
-  const from = { x: rect.x + rect.w * 0.15, y: rect.y + rect.h * 0.6 };
-  const to = { x: rect.x + rect.w * 0.8, y: rect.y + rect.h * 0.85 };
+  const from = { x: rect.x + rect.w * 0.4, y: rect.y + rect.h * 0.45 };
+  const to = { x: rect.x + rect.w * 0.65, y: rect.y + rect.h * 0.65 };
   await page.command("Input.dispatchMouseEvent", {
     type: "mousePressed",
     button: "left",
@@ -208,8 +282,10 @@ try {
   const note = storage.conversations.list(artifact.id)[0]!;
   const original = note.target as ArtifactMediaTarget;
   assert.equal(original.locator.time, time);
-  assert.ok(Math.abs(original.locator.box.width - 0.65) < 0.01);
-  assert.ok(Math.abs(original.locator.box.height - 0.25) < 0.01);
+  assert.ok(Math.abs(original.locator.box.x - 0.4) < 0.01);
+  assert.ok(Math.abs(original.locator.box.y - 0.45) < 0.01);
+  assert.ok(Math.abs(original.locator.box.width - 0.25) < 0.01);
+  assert.ok(Math.abs(original.locator.box.height - 0.2) < 0.01);
   assert.equal(original.locator.frame?.width, 640);
   assert.equal(original.locator.frame?.hash, acceptedHash);
   // Publish a native fix at another instant and retained version.
@@ -247,6 +323,29 @@ try {
     throw error;
   });
   await shot("02-media-comparison.png");
+  for (let i = 0; i < 3; i++)
+    await click('[data-comparison-side="original"] [aria-label="Zoom in"]');
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-comparison-side=\"proposed\"] [data-media-viewport]').dataset.zoom",
+    ),
+    "1",
+  );
+  await click('[data-comparison-side="original"] [aria-label="Pan mode"]');
+  const comparisonView = await page.evaluate(
+    "(()=>{const r=document.querySelector('[data-comparison-side=\"original\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
+  );
+  await dragPointer(
+    { x: comparisonView.x + comparisonView.w * 0.5, y: comparisonView.y + comparisonView.h * 0.5 },
+    { x: comparisonView.x + comparisonView.w * 2, y: comparisonView.y + comparisonView.h * 2 },
+  );
+  assert.equal(
+    await page.evaluate(
+      "(()=>{const v=document.querySelector('[data-comparison-side=\"original\"] [data-media-viewport]').getBoundingClientRect();const r=document.querySelector('[data-comparison-side=\"original\"] [data-media-transform]').getBoundingClientRect();return r.left<=v.left+.1 && r.top<=v.top+.1 && r.right>=v.right-.1 && r.bottom>=v.bottom-.1})()",
+    ),
+    true,
+  );
+  await shot("05-media-zoom.png");
   assert.equal(
     await page.evaluate(
       "document.querySelector('[data-artifact-comparison] [aria-label=\"Add media feedback\"]') === null",
@@ -273,6 +372,12 @@ try {
       ),
     "return to captured targets",
   );
+  assert.equal(
+    await page.evaluate(
+      '[...document.querySelectorAll("[data-artifact-comparison] [data-media-viewport]")].every(e=>e.dataset.zoom === "1")',
+    ),
+    true,
+  );
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,
@@ -281,6 +386,35 @@ try {
   });
   await shot("03-mobile-comparison.png");
   assert.equal(await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), true);
+  assert.equal(
+    await page.evaluate(
+      '[...document.querySelectorAll("[data-artifact-comparison] [data-media-zoom-controls]")].every(e=>{const r=e.getBoundingClientRect();return !r.width || (r.left>=0 && r.right<=innerWidth)})',
+    ),
+    true,
+  );
+  await page.command("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+  await click('[data-comparison-side="proposed"] [aria-label="Zoom in"]');
+  await click('[data-comparison-side="proposed"] [aria-label="Pan mode"]');
+  const touchRect = await page.evaluate(
+    "(()=>{const r=document.querySelector('[data-comparison-side=\"proposed\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
+  );
+  await page.command("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: touchRect.x + touchRect.w * 0.5, y: touchRect.y + touchRect.h * 0.5 }],
+  });
+  await page.command("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: touchRect.x + touchRect.w * 0.6, y: touchRect.y + touchRect.h * 0.55 }],
+  });
+  await page.command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  assert.equal(
+    await page.evaluate(
+      'document.querySelector(\'[data-comparison-side="proposed"] [data-media-transform]\').style.transform.startsWith("translate(0%, 0%)")',
+    ),
+    false,
+  );
+  await click('[data-comparison-side="proposed"] [aria-label="Reset zoom"]');
+  await page.command("Emulation.setTouchEmulationEnabled", { enabled: false });
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 1536,
     height: 1024,
