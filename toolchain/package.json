@@ -6,8 +6,8 @@
     "node": "24.16.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
+    "@biomejs/biome": "2.5.14",
     "bun": "1.4.2",
-    "npm": "11.19.1"
+    "npm": "12.0.2"
   }
 }
