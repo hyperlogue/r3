@@ -322,8 +322,8 @@ Run `R3_TEST_BROWSER=/path/to/chromium R3_TEST_FFMPEG=/path/to/ffmpeg bun script
 for actual capture, rectangle selection, persistent drafts after seeking/reload,
 posting, independent comparison playback, return to saved frames, recapturing the
 visible saved frame after Locate, and phone layout. It also checks region overlay
-cleanup after cancelling/posting, bounded zoom, pan enabled by default and explicit
-opt-out, independent comparison transforms, reset behavior, and intrinsic region
+cleanup after cancelling/posting, bounded zoom, automatic panning and its handoff
+to region selection, independent comparison transforms, reset behavior, and intrinsic region
 coordinates when selecting a zoomed and panned frame.
 The script owns a temporary store and fresh browser profile, and writes screenshots
 under `workspace/media-target-acceptance/`.

@@ -149,8 +149,8 @@ full frame or drag one region using pointer capture. Viewed and whole-file
 feedback stay together at the trailing edge after the media tools.
 The accepted snapshot opens the existing composer peek. Media Compare reuses the
 existing phone tabs and dock, with independent playback and Return to targets.
-Image/video zoom and pan reuse the same viewer on all tiers. Pan defaults on above
-100%; region selection temporarily takes over dragging. Pan mode uses pointer
-capture and touch-action none only on its active drag surface; disabling it
-restores ordinary page scrolling. Playback controls stay outside the transformed
+Image/video zoom and pan reuse the same viewer on all tiers. Pan is automatic above
+100%; region selection temporarily takes over dragging. Panning uses pointer
+capture and touch-action none only on its active drag surface; resetting to fit
+restores ordinary page scrolling over the media. Playback controls stay outside the transformed
 frame, and region selection uses the transformed frame's intrinsic coordinates.

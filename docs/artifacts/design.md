@@ -1000,11 +1000,10 @@ below the media, or target-editing link in the composer.
 The accepted region overlay follows its draft: cancelling, discarding, clearing
 the target, or posting hides it. Locate and comparison can still show saved targets.
 Image and video headers also offer zoom out, a percentage button that resets to
-fit, zoom in, and Pan mode. Zoom ranges from 25% to 800% of the fitted view. Pan
-mode defaults on when zooming above 100%; dragging or focused arrow keys move the
-enlarged media within its bounds. Users can turn pan off until returning to fit
-or resetting the view. Region selection temporarily suppresses pan and restores
-the previous preference when targeting ends.
+fit, and zoom in. Zoom ranges from 25% to 800% of the fitted view. Above 100%,
+dragging or focused arrow keys automatically pan the enlarged media within its
+bounds. Region selection temporarily takes over dragging; panning resumes when
+targeting ends. Returning to fit restores ordinary touch scrolling over the media.
 Zoom in, zoom out, and reset use a quick 150 ms ease-out transition, disabled for
 reduced-motion preferences. Drag panning follows the pointer immediately. Starting
 a pan or region gesture finishes any zoom transition before reading coordinates.

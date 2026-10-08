@@ -176,12 +176,11 @@ try {
     "seek completed",
   );
   const time = await page.evaluate("document.querySelector('video').currentTime");
-  assert.equal(
-    await page.evaluate(
-      'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').disabled',
-    ),
-    true,
-  );
+  const videoCanPan = () =>
+    page.evaluate(
+      '!!document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan media with drag or arrow keys"]\')',
+    );
+  assert.equal(await videoCanPan(), false, "fitted media leaves scrolling available");
   await click('[data-file="clip.webm"] [aria-label="Zoom out"]');
   assert.equal(
     await page.evaluate(
@@ -191,15 +190,8 @@ try {
   );
   await click('[data-file="clip.webm"] [aria-label="Reset zoom"]');
   await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
-  const videoPanMode = () =>
-    page.evaluate(
-      'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
-    );
-  assert.equal(await videoPanMode(), "true", "zooming in enables pan by default");
-  await click('[data-file="clip.webm"] [aria-label="Pan mode"]');
+  assert.equal(await videoCanPan(), true, "zooming in enables pan automatically");
   await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
-  assert.equal(await videoPanMode(), "false", "further zoom keeps pan explicitly disabled");
-  await click('[data-file="clip.webm"] [aria-label="Pan mode"]');
   await click('[data-file="clip.webm"] [aria-label="Zoom in"]');
   const viewport = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-file=\"clip.webm\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
@@ -234,12 +226,7 @@ try {
     "2",
   );
   await click('[data-file="clip.webm"] [aria-label="Add video feedback"]');
-  assert.equal(
-    await page.evaluate(
-      'document.querySelector(\'[data-file="clip.webm"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
-    ),
-    "false",
-  );
+  assert.equal(await videoCanPan(), false, "region selection takes over dragging");
   const rect = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-file=\"clip.webm\"] [data-media-frame]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
   );
@@ -267,7 +254,7 @@ try {
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "captured frame in composer",
   );
-  assert.equal(await videoPanMode(), "true", "pan resumes after accepting a region");
+  assert.equal(await videoCanPan(), true, "pan resumes after accepting a region");
   const acceptedHash = await page.evaluate(`(async () => {
     const bytes = await fetch(document.querySelector('[data-artifact-composer] img').src).then(r => r.arrayBuffer());
     return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -342,9 +329,9 @@ try {
   );
   assert.equal(
     await page.evaluate(
-      'document.querySelector(\'[data-comparison-side="original"] [aria-label="Pan mode"]\').getAttribute("aria-pressed")',
+      '!!document.querySelector(\'[data-comparison-side="original"] [aria-label="Pan media with drag or arrow keys"]\')',
     ),
-    "true",
+    true,
   );
   const comparisonView = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-comparison-side=\"original\"] [data-media-viewport]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",

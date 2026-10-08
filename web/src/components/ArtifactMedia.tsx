@@ -285,7 +285,6 @@ export function ArtifactMedia({
             disabled={!ready}
             selecting={selecting}
             selectionHint={selecting ? "Click for full frame · Drag for region" : undefined}
-            onPanMode={() => setSelecting(false)}
             resetKey={jump?.nonce}
           >
             <div ref={surface} className="relative w-full" data-media-frame>

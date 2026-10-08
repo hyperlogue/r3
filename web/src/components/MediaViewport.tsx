@@ -22,7 +22,6 @@ export function MediaViewport({
   controls,
   selecting = false,
   selectionHint,
-  onPanMode,
   resetKey,
   disabled = false,
 }: {
@@ -30,7 +29,6 @@ export function MediaViewport({
   controls?: HTMLElement | null;
   selecting?: boolean;
   selectionHint?: string;
-  onPanMode?: () => void;
   resetKey?: number;
   disabled?: boolean;
 }) {
@@ -39,15 +37,13 @@ export function MediaViewport({
   const [animate, setAnimate] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState(center);
-  const [pan, setPan] = useState(true);
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ id: number; x: number; y: number; offset: Offset } | null>(null);
-  const panning = pan && zoom > 1 && !selecting;
+  const panning = zoom > 1 && !selecting;
   const reset = () => {
     setAnimate(true);
     setZoom(1);
     setOffset(center);
-    setPan(true);
     setDragging(false);
     drag.current = null;
   };
@@ -60,7 +56,6 @@ export function MediaViewport({
       constrain({ x: (value.x * next) / zoom, y: (value.y * next) / zoom }, next),
     );
     setZoom(next);
-    if (next <= 1 || zoom <= 1) setPan(true);
   };
   const actions = (
     <span data-media-zoom-controls className="flex shrink-0 items-center gap-0.5">
@@ -98,25 +93,6 @@ export function MediaViewport({
           <path d="M5 12h14m-7-7v14" />
         </StrokeIcon>
       </button>
-      <button
-        type="button"
-        className={cn(
-          buttonClass,
-          panning && "bg-primary-500/15 text-primary-600 dark:text-primary-400",
-        )}
-        title={zoom > 1 ? "Pan mode: drag to move the media" : "Zoom in to pan"}
-        aria-label="Pan mode"
-        aria-pressed={panning}
-        disabled={disabled || zoom <= 1}
-        onClick={() => {
-          if (!panning) onPanMode?.();
-          setPan(!panning);
-        }}
-      >
-        <StrokeIcon className="size-3.5">
-          <path d="M8 12V5a2 2 0 0 1 4 0v6-7a2 2 0 0 1 4 0v7-5a2 2 0 0 1 4 0v8c0 5-3 8-7 8-3 0-5-2-7-5l-3-4a2 2 0 0 1 3-2l2 2" />
-        </StrokeIcon>
-      </button>
     </span>
   );
   return (
@@ -152,7 +128,7 @@ export function MediaViewport({
           <div
             role="application"
             aria-label="Pan media with drag or arrow keys"
-            // biome-ignore lint/a11y/noNoninteractiveTabindex: the two-dimensional pan surface handles keyboard arrows while pan mode is active
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: the two-dimensional pan surface handles keyboard arrows when zoomed in
             tabIndex={0}
             className={cn(
               "absolute inset-0 touch-none outline-offset-[-2px] focus-visible:outline-2 focus-visible:outline-primary-500",

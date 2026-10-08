@@ -165,8 +165,8 @@ try {
       await card.getByRole("button", { name: "Zoom in", exact: true }).click();
       assert.equal(await card.locator("[data-media-viewport]").getAttribute("data-zoom"), "1.25");
       assert.equal(
-        await card.getByRole("button", { name: "Pan mode" }).getAttribute("aria-pressed"),
-        "true",
+        await card.getByRole("application", { name: "Pan media with drag or arrow keys" }).count(),
+        1,
       );
       await card.getByRole("button", { name: "Reset zoom", exact: true }).click();
       assert.equal(await card.locator("[data-media-viewport]").getAttribute("data-zoom"), "1");
