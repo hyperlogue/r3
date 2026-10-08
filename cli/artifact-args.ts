@@ -58,6 +58,7 @@ const VALUE = new Set([
   "timeout",
   "remote",
   "attach",
+  "frame",
   "attachments-dir",
   "image",
   "output",

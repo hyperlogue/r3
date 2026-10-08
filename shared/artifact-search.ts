@@ -85,6 +85,7 @@ export function searchMatchTarget(
   terms: string[],
 ): ArtifactDocumentTarget | null {
   if (!target) return null;
+  if (target.kind === "media") return target;
   const offset = searchMatchOffset(text, terms);
   if (target.kind === "rendered") {
     const start = Math.max(text.lastIndexOf("\n", offset - 1) + 1, offset - 40);

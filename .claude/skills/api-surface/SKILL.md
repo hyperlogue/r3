@@ -94,6 +94,12 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `PUT /api/feedback/:id/placements` use native immutable original targets,
   explicit reply context, and separate placements. Every message mutation names
   an `actor`; deletion takes `{ actor }`. Only human actors change feedback status.
+  Files also accept native `media` targets with `locator: { time, box }` and a
+  required `mediaSnapshot` (full-frame PNG/JPEG upload). Reads add the immutable
+  `locator.frame` descriptor; bytes use the attachment route. Snapshot evidence
+  is separate from editable message attachments. CLI feedback add/reply accept
+  `--frame <path>` with a media `--target`; reply context accepts `--view media`.
+  Feedback fetch manifests include target frames, including follow-up originals.
   Rendered locators accept an optional plain-text `label` for named HTML fix links;
   matching still uses the selector and native evidence. See `r3 guide html` for
   the reply example and the schema document for storage semantics.

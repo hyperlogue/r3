@@ -106,7 +106,7 @@ export function artifactLibraryRoute(
     if (match.category === "content" && match.target?.locator) {
       const target = match.target;
       if (target.kind === "rendered") params.set("text", target.locator?.quote ?? "");
-      else {
+      else if (target.kind !== "media") {
         params.set("line", String(target.locator!.start));
         if (target.kind === "diff") params.set("side", target.locator!.side);
       }

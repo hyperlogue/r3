@@ -70,8 +70,8 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
         [--attach <image>]... | [--clear-attachments]
   feedback delete <feedback-id>
   reply <feedback-id> [-m <message>] [--attach <image>]... [--key K]
-        [--version <seq> --view source|rendered|diff]
-        [--target <JSON fix target>]
+        [--version <seq> --view source|rendered|diff|media]
+        [--target <JSON fix target>] [--frame <snapshot.png>]
   place <feedback-id> --target <JSON document target> --state anchored|unplaced|ambiguous
   claim <feedback-id>... | release <feedback-id>...
   feedback fetch <id> [--all] [--feedback <id,id>] [--attachments-dir <directory>]
@@ -88,6 +88,9 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          [--line <start-end> --quote <text>] [--side old|new]
          source/diff quotes may be exact excerpts within the complete line range.
          rendered: --selector <CSS> [--quote <text>] [--route <query/hash>]
+         Media: --target JSON with kind media, versionSeq, path, locator {time, box},
+         plus --frame <snapshot.png|jpg>. time is seconds (null for images); box is
+         normalized {x,y,width,height}, default full frame. Snapshots stay immutable.
          HTML fix links: set locator.label in --target JSON (see r3 guide html).
          no target flags means general artifact feedback.
          Version descriptions are read-only metadata, not feedback targets.
@@ -220,7 +223,7 @@ Inspect original targets in their recorded version and representation. Rendered 
 
 Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 feedback source <feedback-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge feedback, claim it, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
 
-Publish changed content, then \`r3 reply <feedback-id> -m <message>\`. Reply separately to each thread. Include \`--version <seq> --view source|rendered|diff\` when discussing a publication; omit both for general messages. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. A null locator targets the whole file. The fix target has its own version/view, independent of message context. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified placements.
+Publish changed content, then \`r3 reply <feedback-id> -m <message>\`. Reply separately to each thread. Include \`--version <seq> --view source|rendered|diff|media\` when discussing a publication; omit both for general messages. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target has its own version/view, independent of message context. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified source/rendered/diff placements.
 
 Successful replies release only your own claims. Publishing and replying never resolve feedback; the human controls status. Complete the requested work, reply, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
 
@@ -295,6 +298,22 @@ Directory capture includes hidden files. Prepare the intended publication direct
 ## Source and rendered feedback
 
 For a new source target, \`feedback add\` accepts \`--file <path> --version <seq> --view source --line <start-end> --quote <captured text>\`. Omit line and quote for a whole-file target.
+
+For image/video feedback, use a native \`media\` target and supply the full unannotated
+PNG/JPEG snapshot with \`--frame\`. The locator is \`{time, box}\`: time is one instant in
+seconds without rounding, or null for a still image; box is normalized
+\`{x,y,width,height}\` within the intrinsic frame, defaulting to the full frame.
+The saved frame is authoritative; video seeking may show a neighboring frame.
+PNG, JPEG, static WebP and browser-decodable video are supported. Animated images
+remain whole-file feedback. For example:
+
+\`r3 reply feedback_a --version 2 --view media -m 'Improved caption contrast.' --target '{"kind":"media","versionSeq":2,"path":"clip.mp4","locator":{"time":6.3,"box":{"x":0.1,"y":0.7,"width":0.8,"height":0.2}}}' --frame ./fixed-frame.png\`
+
+\`r3 feedback fetch <id> --attachments-dir ./feedback-images\` also downloads the
+original and fix snapshots; \`r3 feedback image\` retrieves an individual frame.
+Inspect those saved pixels and the normalized box instead of reconstructing the
+original by seeking. Only agent replies with explicit media fix targets qualify
+for media Compare; replying leaves resolution to the human.
 
 For rendered HTML/Markdown, use \`--view rendered\` with \`--selector <CSS>\` and optional \`--quote <text>\` and \`--route <query/hash>\`, or the recorded JSON target. Keep any companion assets in the publication and use relative document URLs. Rendered previews remain isolated; files artifacts do not receive the HTML-artifact external-access grant.
 

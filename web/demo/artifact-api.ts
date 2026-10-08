@@ -3,6 +3,7 @@ import {
   type ArtifactFeedback,
   type ArtifactReply,
   type ArtifactStreamEvent,
+  type ArtifactTarget,
   artifactAgentIds,
 } from "../../shared/artifacts.ts";
 import {
@@ -20,6 +21,20 @@ import { demoGcPreview, demoUsage } from "./artifact-usage.ts";
 export { human as HUMAN_ACTOR };
 
 const copy = <T>(value: T): T => structuredClone(value);
+async function mediaEvidence<T extends ArtifactTarget | null | undefined>(
+  id: string,
+  target: T,
+  snapshot?: AttachmentInput,
+): Promise<T> {
+  if (target?.kind !== "media") {
+    if (snapshot) fail("A media snapshot requires a media target");
+    return target;
+  }
+  if (!snapshot || "id" in snapshot) fail("A media target requires a full-frame snapshot");
+  const [frame] = await attachments(id, [snapshot]);
+  return { ...target, locator: { ...target.locator, frame } };
+}
+
 async function attachments(
   artifactId: string,
   inputs: AttachmentInput[] | undefined,
@@ -211,23 +226,20 @@ export const artifactApi: typeof productionApi = {
       body,
       target,
       attachments: options.attachments,
+      mediaSnapshot: options.mediaSnapshot,
     });
     const replay = operation.replay();
     if (replay) return replay as ArtifactFeedback;
     const images = await attachments(id, options.attachments);
+    const accepted = await mediaEvidence(id, target, options.mediaSnapshot);
     const concurrent = operation.replay();
     if (concurrent) return concurrent as ArtifactFeedback;
-    const note = demo.addFeedback(id, body, target, images);
+    const note = demo.addFeedback(id, body, accepted!, images);
     operation.save(note.id);
     return note;
   },
   attachment: async (artifactId, id) => {
-    const images = demo
-      .get(artifactId)
-      .feedback.flatMap((note) => [
-        ...(note.attachments ?? []),
-        ...note.replies.flatMap((reply) => reply.attachments ?? []),
-      ]);
+    const images = feedbackAttachments(demo.get(artifactId).feedback);
     if (!images.some((image) => image.id === id)) fail("Attachment not found", 404);
     return new Response(demo.images.get(id)?.blob ?? fail("Attachment not found", 404));
   },
@@ -282,6 +294,7 @@ export const artifactApi: typeof productionApi = {
     const replay = operation.replay();
     if (replay) return replay as ArtifactReply;
     const images = await attachments(artifact.id, body.attachments);
+    const acceptedTarget = await mediaEvidence(artifact.id, body.target, body.mediaSnapshot);
     const concurrent = operation.replay();
     if (concurrent) return concurrent as ArtifactReply;
     if (!body.body.trim() && !images.length) fail("A reply needs text or an image");
@@ -295,7 +308,7 @@ export const artifactApi: typeof productionApi = {
       body: body.body,
       attachments: images,
       context: copy(body.context),
-      target: copy(body.target ?? null),
+      target: copy(acceptedTarget ?? null),
       legacy: null,
       createdAt: now(),
       sentAt: null,

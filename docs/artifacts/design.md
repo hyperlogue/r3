@@ -595,8 +595,8 @@ human control.
 ### Comparing proposed fixes
 
 An agent reply offers **Compare** when both the feedback's immutable original
-target and that reply's explicit fix target are rendered element locators in
-retained publications. General, whole-document, source/diff, and unavailable
+target and that reply's explicit fix target are both rendered element locators
+or both media targets with saved frames in retained publications. General, whole-document, source/diff, and unavailable
 publication targets do not qualify. Reply context and placements never substitute
 for either target. Each eligible reply identifies its own comparison, including
 multiple fixes on one thread or two targets in the same version.
@@ -609,6 +609,11 @@ that dynamic application state still contains the element. Such a failure keeps
 the conversation and its evidence readable. Targets toggles highlighting; Focus
 retries locating after interaction. Desktop supports side-by-side, stacked, and
 narrow previews. Phones select one of the two mounted previews.
+
+Media comparison shows the saved full frames and one normalized box per side.
+Original and fix can use different timestamps, dimensions and filenames. Playback
+and seeking are independent; **Return to targets** restores both saved frames.
+The saved-frame icon is in each file header. Compare has no region creation tools.
 
 The navbar and feedback panel remain shared with the artifact workspace. Comparison
 adds a badge by Feedback and filters its Active/Resolved queues to eligible
@@ -979,3 +984,31 @@ selection and offers one optional message for each current listener; already
 archived items are skipped without changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.
 Notification failure is reported separately from a committed archive.
+
+## Media feedback targets
+
+Files artifacts support native targets for video and static PNG, JPEG and WebP.
+GIF, APNG, animated WebP and other image formats retain whole-file feedback.
+A separate frame-with-plus icon sits beside the existing file-feedback icon.
+Full-frame and region-selection icons are in the same file header; there is no
+extra selection toolbar below the media or target-editing link in the composer.
+The default is the entire intrinsic frame. A region is one normalized rectangle,
+excluding player controls and letterboxing. Selecting freezes the visible pixels;
+Add media feedback accepts those pixels into the independently persisted draft.
+Seeking, view changes and reload do not retarget the accepted draft. A populated
+draft must be posted or discarded before accepting another target.
+
+Capture pauses video and synchronously copies its decoded pixels to canvas before
+encoding. The full unannotated PNG is stored with the accepted target and is what
+the agent downloads. The exact unrounded browser time is retained for navigation;
+the display rounds to milliseconds. Seeking alone is not an exact-frame guarantee.
+Snapshot limits match feedback images: 5 MiB and 20 megapixels. Frame evidence has
+no edit/remove action; clearing the draft target removes its draft reference.
+
+Only native raster/video decoding runs in the trusted app, using authenticated
+published bytes and revocable local blob URLs. Executable documents, SVG and other
+media continue through their existing isolated previews. Saved frames use the
+existing authenticated feedback-image endpoint. The server checks publication and
+media membership, still-image animation, timestamp shape, rectangle bounds, and
+snapshot raster structure; it does not claim to prove a submitted snapshot was
+decoded from that video. The recorded snapshot is the accepted evidence.

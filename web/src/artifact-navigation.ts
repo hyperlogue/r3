@@ -18,7 +18,7 @@ export function artifactRepresentation(
 ): Representation {
   if (kind === "diff") return "diff";
   if (kind === "html") return "rendered";
-  return requested === "rendered" ? "rendered" : "source";
+  return requested === "media" ? "media" : requested === "rendered" ? "rendered" : "source";
 }
 
 export interface ArtifactLocation extends ArtifactViewSelection {
@@ -70,7 +70,12 @@ export function artifactWorkspaceSearch(view: ArtifactLocation, previousSearch: 
 }
 
 export function isArtifactDocumentTarget(target: ArtifactTarget): target is ArtifactDocumentTarget {
-  return target.kind === "source" || target.kind === "rendered" || target.kind === "diff";
+  return (
+    target.kind === "media" ||
+    target.kind === "source" ||
+    target.kind === "rendered" ||
+    target.kind === "diff"
+  );
 }
 
 // Only explicit native targets appear in a representation. A thread's original
@@ -109,7 +114,13 @@ export function artifactRegions(
     detail.feedback.filter((feedback) => feedback.status === "open").map((feedback) => feedback.id),
   );
   return visibleArtifactTargets(detail, seq, representation).flatMap(({ feedbackId, target }) => {
-    if (!open.has(feedbackId) || target.kind === "rendered" || !target.locator) return [];
+    if (
+      !open.has(feedbackId) ||
+      target.kind === "rendered" ||
+      target.kind === "media" ||
+      !target.locator
+    )
+      return [];
     return [
       {
         id: feedbackId,

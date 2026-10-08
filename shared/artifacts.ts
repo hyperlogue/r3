@@ -18,7 +18,7 @@ export type {
 export const ARTIFACT_KINDS = ["files", "html", "diff"] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 export type ArtifactState = "active" | "archived";
-export type Representation = "source" | "rendered" | "diff";
+export type Representation = "source" | "rendered" | "diff" | "media";
 export type ArtifactActor =
   | { role: "human"; sessionId: null }
   | { role: "agent"; sessionId: string };
@@ -150,7 +150,31 @@ export interface DiffLocator extends SourceLocator {
   side: "old" | "new";
 }
 
+export interface MediaBox {
+  // Fractions of the intrinsic frame, excluding letterboxing and player controls.
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface MediaLocator {
+  // One navigation instant in seconds, without rounding; null for still images.
+  time: number | null;
+  box: MediaBox;
+  // Present on saved targets. The snapshot is authoritative, seeking is approximate.
+  frame?: ArtifactAttachment;
+}
+
+export interface ArtifactMediaTarget {
+  kind: "media";
+  versionSeq: number;
+  path: string;
+  locator: MediaLocator;
+}
+
 export type ArtifactDocumentTarget =
+  | ArtifactMediaTarget
   | { kind: "source"; versionSeq: number; path: string; locator: SourceLocator | null }
   | { kind: "rendered"; versionSeq: number; path: string; locator: RenderedLocator | null }
   | { kind: "diff"; versionSeq: number; path: string; locator: DiffLocator | null };
@@ -305,6 +329,7 @@ export interface PublishArtifactBody {
 }
 
 export interface CreateArtifactFeedbackBody {
+  mediaSnapshot?: AttachmentInput;
   operationKey?: string;
   attachments?: AttachmentInput[];
   actor: ArtifactActor;
@@ -313,6 +338,7 @@ export interface CreateArtifactFeedbackBody {
 }
 
 export interface CreateArtifactReplyBody {
+  mediaSnapshot?: AttachmentInput;
   operationKey?: string;
   attachments?: AttachmentInput[];
   actor: ArtifactActor;

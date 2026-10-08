@@ -11,6 +11,7 @@ import type {
 } from "../../shared/artifacts.ts";
 import { hasUnsentArtifactFeedback, isUnhandledArtifactFeedback } from "../../shared/artifacts.ts";
 import type { ArtifactAttachment } from "../../shared/attachments.ts";
+import { animatedImage, targetableMedia } from "../../shared/media-target.ts";
 import { ARTIFACT_DEMO_SEED } from "./artifact-fixtures.gen.ts";
 import {
   type ArtifactDemoSeed,
@@ -114,6 +115,40 @@ export class ArtifactDemoBackend {
     const content = this.publication(id, target.versionSeq);
     if (detail.kind === "diff" ? target.kind !== "diff" : target.kind === "diff")
       fail("Target representation does not belong to this artifact");
+    if (target.kind === "media") {
+      const file = content.files.find((file) => file.path === target.path);
+      if (detail.kind !== "files" || !file)
+        fail("Media targets require a file in a files publication");
+      const media = targetableMedia(file.mediaType);
+      if (
+        !media ||
+        (media === "image" &&
+          animatedImage(
+            Uint8Array.from(atob(content.resources[file.path] ?? ""), (c) => c.charCodeAt(0)),
+            file.mediaType,
+          ))
+      )
+        fail("This file does not support media targets");
+      const { time, box } = target.locator;
+      if (
+        media === "image"
+          ? time !== null
+          : typeof time !== "number" || !Number.isFinite(time) || time < 0
+      )
+        fail("Invalid media timestamp");
+      if (
+        !box ||
+        ![box.x, box.y, box.width, box.height].every(
+          (n) => Number.isFinite(n) && n >= 0 && n <= 1,
+        ) ||
+        !box.width ||
+        !box.height ||
+        box.x + box.width > 1.000000001 ||
+        box.y + box.height > 1.000000001
+      )
+        fail("Invalid media box");
+      return;
+    }
     if (target.kind === "diff") {
       const file = content.fullDiff.find(
         (file) => file.path === target.path || file.oldPath === target.path,

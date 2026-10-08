@@ -1,13 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { memo, type ReactNode, useEffect, useState } from "react";
 import {
+  type ArtifactMediaTarget,
   artifactMediaKind,
   type ArtifactFile as PublishedFile,
 } from "../../../shared/artifacts.ts";
+import { targetableMedia } from "../../../shared/media-target.ts";
 import { artifactApi } from "../artifact-api.ts";
+import type { DraftAttachment } from "../attachment-drafts.ts";
 import type { Region } from "../highlights.ts";
 import type { DiffSide } from "../types.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
+import { ArtifactMedia } from "./ArtifactMedia.tsx";
 import { FileCard, type FoldSignal } from "./FileCard.tsx";
 import { Notification } from "./Notifications.tsx";
 import { RepresentationToggle } from "./RepresentationToggle.tsx";
@@ -27,6 +31,9 @@ export const ArtifactFile = memo(function ArtifactFile({
   viewed,
   onViewed,
   onFileFeedback,
+  onMediaTarget,
+  mediaJump,
+  mediaActive,
   fold,
   onOpenChange,
   onHydrated,
@@ -45,6 +52,9 @@ export const ArtifactFile = memo(function ArtifactFile({
   viewed: boolean;
   onViewed: () => void;
   onFileFeedback: () => void;
+  onMediaTarget: (target: ArtifactMediaTarget, snapshot: DraftAttachment) => boolean;
+  mediaJump?: { target: ArtifactMediaTarget; nonce: number } | null;
+  mediaActive?: boolean;
   fold: FoldSignal | null;
   onOpenChange: (open: boolean) => void;
   onHydrated: (ready: boolean) => void;
@@ -52,6 +62,7 @@ export const ArtifactFile = memo(function ArtifactFile({
   onPickLines: (side: DiffSide, start: number, end: number, quote: string) => void;
   preview: () => ReactNode;
 }) {
+  const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(!viewed);
   const media = artifactMediaKind(file.mediaType);
   const filename = file.path.split("/").at(-1)!;
@@ -116,7 +127,11 @@ export const ArtifactFile = memo(function ArtifactFile({
         onOpenChange={setOpen}
         stats={(expanded) =>
           expanded &&
-          canRender && <RepresentationToggle value={representation} onChange={onRepresentation} />
+          (targetableMedia(file.mediaType) ? (
+            <span ref={setMediaControls} className="flex items-center gap-1" />
+          ) : (
+            canRender && <RepresentationToggle value={representation} onChange={onRepresentation} />
+          ))
         }
       >
         {active &&
@@ -127,7 +142,19 @@ export const ArtifactFile = memo(function ArtifactFile({
             <div
               className={cn("flex flex-col", !file.renderedHash && media !== "video" && "min-h-96")}
             >
-              {preview()}
+              {targetableMedia(file.mediaType) ? (
+                <ArtifactMedia
+                  artifactId={artifactId}
+                  versionSeq={versionSeq}
+                  file={file}
+                  controls={mediaControls}
+                  onTarget={onMediaTarget}
+                  jump={mediaJump}
+                  active={mediaActive && open}
+                />
+              ) : (
+                preview()
+              )}
             </div>
           ) : source.isPending ? (
             <p className="p-3 text-xs text-neutral-500">Loading published source…</p>

@@ -1,11 +1,18 @@
-import type { ArtifactDetail, ArtifactTarget, RenderedLocator } from "../../shared/artifacts.ts";
+import type {
+  ArtifactDetail,
+  ArtifactMediaTarget,
+  ArtifactTarget,
+  RenderedLocator,
+} from "../../shared/artifacts.ts";
 
-export type ComparisonTarget = {
+export type ElementComparisonTarget = {
   kind: "rendered";
   versionSeq: number;
   path: string;
   locator: RenderedLocator;
 };
+
+export type ComparisonTarget = ElementComparisonTarget | ArtifactMediaTarget;
 
 export interface ArtifactComparison {
   feedbackId: string;
@@ -15,7 +22,10 @@ export interface ArtifactComparison {
 }
 
 function elementTarget(target: ArtifactTarget | null): target is ComparisonTarget {
-  return target?.kind === "rendered" && !!target.locator?.selector.trim();
+  return (
+    (target?.kind === "rendered" && !!target.locator?.selector.trim()) ||
+    (target?.kind === "media" && !!target.locator.frame)
+  );
 }
 
 // Eligibility uses recorded native evidence, never reply context, placements, or
@@ -31,6 +41,7 @@ export function artifactComparisons(detail: ArtifactDetail): Map<string, Artifac
       if (
         reply.author.role !== "agent" ||
         !elementTarget(proposed) ||
+        proposed.kind !== original.kind ||
         !versions.has(proposed.versionSeq)
       )
         continue;

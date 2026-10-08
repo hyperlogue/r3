@@ -7,10 +7,12 @@ import { hasMessageContent } from "../../../shared/attachments.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { type ArtifactDraft, artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
 import { withSavedReply } from "../artifact-feedback.ts";
+import { draftAttachmentInputs } from "../attachment-drafts.ts";
 import { FeedbackCreationContext, prepareFeedbackMorph } from "../feedback-motion.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { useFloatingComposer } from "../useFloatingComposer.ts";
+import { MediaTargetPreview } from "./MediaTargetPreview.tsx";
 import {
   type EditableImage,
   editableImageInputs,
@@ -55,6 +57,10 @@ export function ArtifactComposer({
         return artifactApi.addFeedback(artifactId, submitted.body, submitted.target, {
           attachments,
           operationKey: submitted.operationKey,
+          mediaSnapshot:
+            submitted.target.kind === "media" && submitted.mediaSnapshot
+              ? (await draftAttachmentInputs([submitted.mediaSnapshot]))[0]
+              : undefined,
         });
     },
     onSuccess: async (saved, submitted) => {
@@ -172,7 +178,12 @@ export function ArtifactComposer({
           <button
             type="button"
             className={cn("shrink-0 underline", floating && "pt-1")}
-            onClick={() => artifactDrafts.update(artifactId, { target: { kind: "artifact" } })}
+            onClick={() =>
+              artifactDrafts.update(artifactId, {
+                target: { kind: "artifact" },
+                mediaSnapshot: undefined,
+              })
+            }
           >
             Clear target
           </button>
@@ -209,6 +220,9 @@ export function ArtifactComposer({
             {draft.target.locator.quote}
           </blockquote>
         )}
+      {!replyTo && draft?.target.kind === "media" && draft.mediaSnapshot && (
+        <MediaTargetPreview image={draft.mediaSnapshot} box={draft.target.locator.box} />
+      )}
       <MessageInput
         inputRef={textarea}
         aria-label={replyTo ? "Reply" : "Feedback"}

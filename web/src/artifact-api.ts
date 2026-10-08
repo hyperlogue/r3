@@ -102,7 +102,11 @@ export const artifactApi = {
     id: string,
     body: string,
     target: ArtifactTarget,
-    options: { attachments?: AttachmentInput[]; operationKey?: string } = {},
+    options: {
+      attachments?: AttachmentInput[];
+      operationKey?: string;
+      mediaSnapshot?: AttachmentInput;
+    } = {},
   ) =>
     client().json<ArtifactFeedback>("POST", `${artifactApiPath(id)}/feedback`, {
       actor: HUMAN_ACTOR,

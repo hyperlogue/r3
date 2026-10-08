@@ -114,7 +114,13 @@ const app = Bun.serve({
       if (file) resourceRequests.set(file, (resourceRequests.get(file) ?? 0) + 1);
       return preview.fetch(request);
     }
-    if (path.startsWith("/api/")) return api.app.fetch(request);
+    if (path.startsWith("/api/")) {
+      if (path.endsWith("/resource")) {
+        const file = new URL(request.url).searchParams.get("path")!;
+        resourceRequests.set(file, (resourceRequests.get(file) ?? 0) + 1);
+      }
+      return api.app.fetch(request);
+    }
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
@@ -135,20 +141,24 @@ try {
     await page.goto(
       `http://localhost:${app.port}/${fixture.id}?version=1&file=${fixture.path}&view=rendered`,
     );
-    if (process.env.R3_TEST_UNSUPPORTED === "1")
+    if (process.env.R3_TEST_UNSUPPORTED === "1" && fixture.kind !== "video")
       await page.getByRole("button", { name: "Accept risk and continue" }).click();
     const card = page.locator(`[data-file="${fixture.path}"]`);
+    const native = fixture.kind === "video";
+    const previewSelector = native ? "[data-native-media]" : 'iframe[aria-hidden="false"]';
     const mediaElement = () =>
-      card
-        .frameLocator('iframe[aria-hidden="false"]')
-        .locator(fixture.kind === "image" ? "img" : fixture.kind);
+      native
+        ? card.locator("video")
+        : card
+            .frameLocator('iframe[aria-hidden="false"]')
+            .locator(fixture.kind === "image" ? "img" : fixture.kind);
     await mediaElement().waitFor();
     assert.equal(
-      await page.locator(`[data-file="unopened-${fixture.path}"] iframe`).count(),
+      await page.locator(`[data-file="unopened-${fixture.path}"] ${previewSelector}`).count(),
       0,
       "offscreen media must remain unloaded until first opened",
     );
-    const originalFrame = await card.locator('iframe[aria-hidden="false"]').elementHandle();
+    const originalFrame = await card.locator(previewSelector).elementHandle();
     if (fixture.kind === "image") {
       await mediaElement().evaluate((image: HTMLImageElement) => image.decode());
     } else {
@@ -183,13 +193,11 @@ try {
               overflow: document.documentElement.scrollHeight - innerHeight,
             };
           });
-          const previewBox = await card.locator("[data-artifact-preview]").boundingBox();
+          const previewBox = await card.locator("[data-media-frame]").boundingBox();
           return (
-            Math.abs(box.width - box.frameWidth) <= 1 &&
-            Math.abs(box.height - box.width / box.ratio) <= 1 &&
-            Math.abs(box.height - box.frameHeight) <= 1 &&
-            box.overflow <= 1 &&
             previewBox &&
+            Math.abs(box.width - previewBox.width) <= 1 &&
+            Math.abs(box.height - box.width / box.ratio) <= 1 &&
             Math.abs(previewBox.height - box.height) <= 1 &&
             box
           );
@@ -212,7 +220,7 @@ try {
         el.scrollTop = el.scrollHeight;
       });
       const bottomCard = page.locator(`[data-file="unopened-${fixture.path}"]`);
-      const bottomVideo = bottomCard.frameLocator('iframe[aria-hidden="false"]').locator("video");
+      const bottomVideo = bottomCard.locator("video");
       await bottomVideo.waitFor();
       await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'));
       await pane.evaluate((el: HTMLElement) => {
@@ -223,10 +231,14 @@ try {
         true,
         "a lazily opened video starts muted too",
       );
+      if (process.env.R3_TEST_UNSUPPORTED === "1") {
+        const consent = page.getByRole("button", { name: "Accept risk and continue" });
+        if (await consent.isVisible()) await consent.click();
+      }
       const videoBox = await bottomVideo.boundingBox();
       assert(videoBox);
-      await bottomVideo.click({ position: { x: 30, y: videoBox.height - 25 } });
-      const bottomFrame = await bottomCard.locator('iframe[aria-hidden="false"]').elementHandle();
+      await bottomCard.getByRole("button", { name: "Play video", exact: true }).click();
+      const bottomFrame = await bottomCard.locator(previewSelector).elementHandle();
       for (const visiblePixels of [null, 120, -40, -1200]) {
         if (visiblePixels !== null) {
           await pane.evaluate(
@@ -242,7 +254,7 @@ try {
             { frame: bottomFrame, visiblePixels },
           );
           await eventually(async () => {
-            const frameBox = await bottomCard.locator('iframe[aria-hidden="false"]').boundingBox();
+            const frameBox = await bottomCard.locator(previewSelector).boundingBox();
             const paneBox = await pane.boundingBox();
             return (
               frameBox &&
@@ -277,7 +289,7 @@ try {
       el.scrollTop = el.scrollHeight;
     });
     await page.waitForTimeout(400);
-    const mountedOffscreen = await card.locator('iframe[aria-hidden="false"]').count();
+    const mountedOffscreen = await card.locator(previewSelector).count();
     const offscreenTime =
       mountedOffscreen && fixture.kind !== "image"
         ? await mediaElement().evaluate((media: HTMLMediaElement) => media.currentTime)
@@ -351,7 +363,7 @@ try {
         "a different publication must have its own player state",
       );
     await card.getByRole("button", { name: "Collapse", exact: true }).click();
-    await card.locator("iframe").waitFor({ state: "detached" });
+    await card.locator(previewSelector).waitFor({ state: "detached" });
     console.log(`${fixture.kind}: lazy loading, version replacement, and collapse cleanup passed`);
     await context.close();
   }

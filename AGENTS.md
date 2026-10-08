@@ -115,7 +115,7 @@ deletion; no partial version becomes readable.
 
 **Feedback** has an immutable native target, an author, and human-controlled
 `open|resolved` status. New targets distinguish artifact/general,
-source line/quote, rendered DOM/text/context/route/viewport, and diff
+source line/quote, rendered DOM/text/context/route/viewport, media instant/region/saved frame, and diff
 old/new line/quote. Whole-file targets are explicit. The server validates recorded
 content and version membership. Rendered evidence is never reverse-mapped into
 source lines. Unknown legacy evidence remains explicitly unknown.

@@ -10,6 +10,7 @@ import type {
   TextQuote,
 } from "../shared/artifacts.ts";
 import { MAX_RENDERED_HEIGHT } from "../shared/artifacts.ts";
+import { animatedImage, FULL_MEDIA_BOX, targetableMedia } from "../shared/media-target.ts";
 import { normalizeRenderedText } from "../shared/rendered-text.ts";
 import {
   ArtifactError,
@@ -32,7 +33,7 @@ export const TARGET_LIMITS = {
 
 function requireRepresentation(kind: ArtifactKind, value: unknown): Representation {
   if (
-    (kind === "files" && (value === "source" || value === "rendered")) ||
+    (kind === "files" && (value === "source" || value === "rendered" || value === "media")) ||
     (kind === "html" && value === "rendered") ||
     (kind === "diff" && value === "diff")
   )
@@ -147,6 +148,52 @@ export class ArtifactTargets {
     this.artifacts.version(id, versionSeq);
     const kind = requireRepresentation(artifact.kind, target.kind);
     const path = requireArtifactPath(target.path);
+    if (kind === "media") {
+      const file = this.artifacts.file(id, versionSeq, path);
+      const media = targetableMedia(file.mediaType);
+      if (
+        !media ||
+        (media === "image" &&
+          animatedImage(await this.artifacts.readFile(id, versionSeq, path), file.mediaType))
+      )
+        throw new ArtifactError(
+          "Media targets require a video or a static PNG, JPEG, or WebP image",
+        );
+      const locator = requireObject(target.locator, "Media locator");
+      const time = locator.time;
+      if (
+        media === "image"
+          ? time !== null
+          : typeof time !== "number" || !Number.isFinite(time) || time < 0 || time > 86400 * 365
+      )
+        throw new ArtifactError(
+          "Use one finite timestamp in seconds for video and null for an image",
+        );
+      const box =
+        locator.box === undefined ? FULL_MEDIA_BOX : requireObject(locator.box, "Media box");
+      const { x, y, width, height } = box;
+      if (
+        ![x, y, width, height].every(
+          (n) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1,
+        ) ||
+        !(Number(width) > 0) ||
+        !(Number(height) > 0) ||
+        Number(x) + Number(width) > 1.000000001 ||
+        Number(y) + Number(height) > 1.000000001
+      )
+        throw new ArtifactError(
+          "Media box must be a nonempty rectangle within the intrinsic frame, normalized to 0–1",
+        );
+      return {
+        kind,
+        versionSeq,
+        path,
+        locator: {
+          time: time as number | null,
+          box: { x: x as number, y: y as number, width: width as number, height: height as number },
+        },
+      };
+    }
     if (allowMissingDocument && target.locator === null) {
       return { kind, versionSeq, path, locator: null };
     }

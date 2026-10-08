@@ -56,7 +56,7 @@ export async function upgradeArtifactStore(
   }
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
-  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(schemaVersion) || !tables.includes("artifacts"))
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(schemaVersion) || !tables.includes("artifacts"))
     throw new Error("Unrecognized store schema; migration did not modify it");
   db.exec("PRAGMA foreign_keys = ON");
   const beforeBackup = dataVersion(db);
@@ -69,8 +69,9 @@ export async function upgradeArtifactStore(
   } finally {
     await backup.close();
   }
-  db.exec("BEGIN IMMEDIATE");
+  db.exec("PRAGMA foreign_keys = OFF");
   try {
+    db.exec("BEGIN IMMEDIATE");
     if (dataVersion(db) !== beforeBackup)
       throw new Error(
         "Artifact store changed while backing up; retry migration after stopping its writer",
@@ -90,6 +91,43 @@ export async function upgradeArtifactStore(
     if (schemaVersion < 6)
       db.exec(`ALTER TABLE artifacts ADD COLUMN feedback_revision INTEGER NOT NULL DEFAULT 0
       CHECK (feedback_revision >= 0);`);
+    // Rebuild constrained target tables without changing their native evidence.
+    // The connection is private during migration and references are checked below.
+    for (const table of ["feedback", "replies", "feedback_placements"]) {
+      const schema = db
+        .query<{ sql: string }, [string]>(
+          "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+        )
+        .get(table)!.sql;
+      const next = schema.replaceAll("'source', 'rendered'", "'source', 'rendered', 'media'");
+      if (next === schema || schema.includes("'media'")) continue;
+      const objects = db
+        .query<{ name: string; type: string; sql: string }, [string]>(
+          "SELECT name, type, sql FROM sqlite_master WHERE tbl_name = ? AND type IN ('index', 'trigger') AND sql IS NOT NULL",
+        )
+        .all(table);
+      db.exec(next.replace(`CREATE TABLE ${table}`, `CREATE TABLE ${table}_media_upgrade`));
+      db.exec(`INSERT INTO ${table}_media_upgrade SELECT * FROM ${table}`);
+      for (const object of objects) {
+        if (object.type === "trigger")
+          db.exec(`DROP TRIGGER "${object.name.replaceAll('"', '""')}"`);
+      }
+      db.exec(`DROP TABLE ${table}`);
+      db.exec(`ALTER TABLE ${table}_media_upgrade RENAME TO ${table}`);
+      for (const object of objects) db.exec(object.sql);
+    }
+    if (
+      tables.includes("message_attachments") &&
+      !db
+        .query<{ name: string }, []>("PRAGMA table_info(message_attachments)")
+        .all()
+        .some((column) => column.name === "purpose")
+    ) {
+      db.exec(
+        "ALTER TABLE message_attachments ADD COLUMN purpose TEXT NOT NULL DEFAULT 'message' CHECK (purpose IN ('message', 'target'))",
+      );
+      db.exec("DROP TRIGGER IF EXISTS immutable_message_attachment");
+    }
     db.exec(ATTACHMENT_SCHEMA);
     db.exec(ARTIFACT_SEARCH_SCHEMA);
     installArtifactUsage(db, (options.clock ?? nowIso)());
@@ -108,5 +146,7 @@ export async function upgradeArtifactStore(
   } catch (error) {
     if (db.inTransaction) db.exec("ROLLBACK");
     throw error;
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
   }
 }

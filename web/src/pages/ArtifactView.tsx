@@ -4,6 +4,7 @@ import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import {
   type ArtifactDetail,
   type ArtifactDocumentTarget,
+  type ArtifactMediaTarget,
   type ArtifactTarget,
   type ArtifactVersion,
   artifactMediaKind,
@@ -259,7 +260,8 @@ function Workspace({
   const syntaxPalette = useSyntaxPalette(theme, detail.kind !== "html");
   const fileMode = useCallback(
     (filePath: string): "source" | "rendered" =>
-      view.path === filePath && view.representation !== "diff"
+      view.path === filePath &&
+      (view.representation === "source" || view.representation === "rendered")
         ? view.representation
         : (fileViews[`${version?.seq}:${filePath}`] ?? defaultFileRepresentation(filePath)),
     [view.path, view.representation, fileViews, version?.seq],
@@ -269,7 +271,12 @@ function Workspace({
       ? readingKey(detail.id, version.seq, path, detail.kind === "files" ? fileMode(path) : "diff")
       : null;
   useEffect(() => {
-    if (detail.kind === "files" && view.path && version && view.representation !== "diff") {
+    if (
+      detail.kind === "files" &&
+      view.path &&
+      version &&
+      (view.representation === "source" || view.representation === "rendered")
+    ) {
       const key = `${version.seq}:${view.path}`;
       const mode = view.representation;
       setFileViews((current) => (current[key] === mode ? current : { ...current, [key]: mode }));
@@ -422,7 +429,10 @@ function Workspace({
           ? { left: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom }
           : { left: innerWidth * 0.5, top: innerHeight * 0.4, bottom: innerHeight * 0.4 });
       if (!artifactDrafts.anchor(detail.id, target)) {
-        const text = "locator" in target ? target.locator?.quote : undefined;
+        const text =
+          "locator" in target && target.locator && "quote" in target.locator
+            ? target.locator.quote
+            : undefined;
         if (text) {
           if (quoteNow) appendQuote(text);
           else setQuote({ ...at, text });
@@ -524,6 +534,9 @@ function Workspace({
     );
   }, [coarse, selectText, view]);
 
+  const [mediaJump, setMediaJump] = useState<{ target: ArtifactMediaTarget; nonce: number } | null>(
+    null,
+  );
   const locate = useCallback<ArtifactTargetJump>(
     (target, feedbackId) => {
       comparison.close(false);
@@ -532,7 +545,11 @@ function Workspace({
       setSheet("closed");
       const nonce = ++jumpNonce.current;
       if (isArtifactDocumentTarget(target)) {
-        if (target.kind === "rendered") {
+        if (target.kind === "media") {
+          setMediaJump({ target, nonce });
+          setJump({ path: target.path, side: "new", nonce });
+          setFold({ mode: "unfold", path: target.path, nonce });
+        } else if (target.kind === "rendered") {
           if (detail.kind === "files") {
             // Hydrate/unfold and finish aligning the file header before the
             // rendered target can scroll that same outer content pane.
@@ -842,7 +859,10 @@ function Workspace({
       detail={detail}
       context={
         comparison.active && comparison.selected
-          ? { versionSeq: comparison.selected.proposed.versionSeq, representation: "rendered" }
+          ? {
+              versionSeq: comparison.selected.proposed.versionSeq,
+              representation: comparison.selected.proposed.kind,
+            }
           : context
       }
       tab={comparison.active ? comparisonTab : feedbackTab}
@@ -1061,6 +1081,26 @@ function Workspace({
                                     locator: null,
                                   })
                                 }
+                                onMediaTarget={(target, snapshot) => {
+                                  if (!artifactDrafts.anchor(detail.id, target)) {
+                                    setNotice(
+                                      "Finish or discard the current draft before changing its target.",
+                                    );
+                                    openComposer(undefined, false);
+                                    return false;
+                                  }
+                                  artifactDrafts.update(detail.id, { mediaSnapshot: snapshot });
+                                  artifactDrafts.flush();
+                                  openComposer(undefined, false);
+                                  return true;
+                                }}
+                                mediaJump={
+                                  mediaJump?.target.path === file.path &&
+                                  mediaJump.target.versionSeq === version.seq
+                                    ? mediaJump
+                                    : null
+                                }
+                                mediaActive={!comparison.active}
                                 fold={fold}
                                 onHydrated={onHydrated}
                                 onOpenChange={onOpenChange}

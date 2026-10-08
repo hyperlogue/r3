@@ -82,7 +82,8 @@ the conversation needs no further attention, whether or not content changed.
 
 **Original target**:
 The immutable subject of feedback when it was opened: the artifact as a whole, or
-a page, file, or code change as it appeared in a specific version and view.
+a page, file, media instant and region, or code change as it appeared in a specific
+version and view. A media target retains the full saved frame as its visual evidence.
 
 **Message context**:
 The published version a reply is talking about and, when needed, the view used

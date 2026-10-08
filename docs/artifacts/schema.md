@@ -118,9 +118,9 @@ Feedback's original target is stored as queryable fields plus a native locator:
 
 ```text
 target_kind         artifact | artifact_summary | version_summary |
-                    source | rendered | diff
-target_version_seq  required for version_summary/source/rendered/diff
-target_path         required for source/rendered/diff
+                    source | rendered | diff | media
+target_version_seq  required for version_summary/source/rendered/diff/media
+target_path         required for source/rendered/diff/media
 locator_json        NULL for a whole document or unquoted summary;
                     otherwise a native locator/quote object
 ```
@@ -161,7 +161,7 @@ agent-chosen name instead of a filename. It is presentation metadata and never
 participates in matching. It is retained in `locator_json`; older locators need
 no migration.
 
-Files accepts source and rendered targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. General artifact feedback works across all three kinds. Version summaries remain immutable descriptive metadata displayed in the navigation's details popup.
+Files accepts source, rendered and media targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. General artifact feedback works across all three kinds. Version summaries remain immutable descriptive metadata displayed in the navigation's details popup.
 
 Replies have context_version_seq/context_representation for the message being written, independently of the optional target_kind/target_version_seq/target_path/locator_json identifying a fix. For example, a reply can discuss rendered files version 1 and point to a source fix in version 2. A NULL context means no version context was supplied; the server never silently interprets it as latest. An explicit representation requires an explicit version. Inline references use the reply's shared context; use separate replies for different message contexts. The fix target carries its own version independently.
 
@@ -255,7 +255,7 @@ All connections must enable foreign keys. STRICT tables constrain storage types,
 
 ## Artifact schema upgrades
 
-Startup upgrades artifact schema versions 1–8 to the current schema before serving
+Startup upgrades artifact schema versions 1–9 to the current schema before serving
 requests. Live-review stores are rejected without changing their schema or rows;
 upgrade them with r3 1.5.0 before opening them with a newer release.
 
@@ -405,3 +405,25 @@ eligible artifacts are not silently added, and changed timestamps are skipped.
 Per-artifact failure does not prevent remaining deletions. Projects and agent
 sessions survive, as does anonymous activity history. No automatic expiry job
 is installed.
+
+## Native media evidence
+
+Schema version 10 extends files targets and message contexts with `media`.
+A media locator stores `time` (one finite nonnegative video instant in seconds,
+or null for a still image) and `box` (normalized x/y/width/height). Missing boxes
+normalize to the full frame. Media placement inference is deferred; original and
+explicit reply fix targets retain their own version, file and geometry.
+
+`message_attachments.purpose` separates ordinary `message` attachments from the
+single immutable `target` snapshot. Existing rows default to `message`. A create
+or reply requires `mediaSnapshot` containing full-frame PNG/JPEG bytes for a media
+target. The snapshot is validated under the GC hold and committed atomically with
+the message. Ordinary attachment lists and edits exclude it. Reads expose its
+metadata as `target.locator.frame`; bytes use the existing authenticated attachment
+route. Four ordinary images and one target snapshot fit the 40 MiB request limit.
+Message deletion cascades both kinds; archive, text edits and attachment edits
+retain target evidence. Existing blob accounting and GC cover both purposes.
+
+The upgrade backs up the database, rebuilds the constrained conversation tables
+in one transaction, preserves all rows/indexes/triggers, adds the purpose column,
+and checks foreign keys and integrity before enabling service.

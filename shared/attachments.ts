@@ -2,7 +2,7 @@ export const ATTACHMENT_LIMITS = {
   count: 4,
   bytes: 5 * 1024 * 1024,
   pixels: 20_000_000,
-  requestBytes: 32 * 1024 * 1024,
+  requestBytes: 40 * 1024 * 1024,
 } as const;
 
 export const imagePlaceholder = (number: number): string => `[image${number}]`;

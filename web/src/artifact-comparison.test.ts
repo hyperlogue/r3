@@ -86,3 +86,36 @@ test("comparison excludes general, whole-document, source, unknown and missing-p
   detail.feedback[0].replies[0].author = { role: "human", sessionId: null };
   expect(artifactComparisons(detail).size).toBe(0);
 });
+
+test("media Compare requires saved original and agent fix frames with independent times", () => {
+  const detail = fixture();
+  const frame = {
+    id: "image_frame",
+    artifactId: detail.id,
+    hash: "f".repeat(64),
+    mediaType: "image/png" as const,
+    byteLength: 100,
+    width: 640,
+    height: 360,
+  };
+  const media = {
+    kind: "media" as const,
+    versionSeq: 1,
+    path: "clip.mp4",
+    locator: { time: 4.8123456, box: { x: 0, y: 0, width: 1, height: 1 }, frame },
+  };
+  detail.feedback[0].target = media;
+  detail.feedback[0].replies[0].target = {
+    ...media,
+    versionSeq: 2,
+    locator: { ...media.locator, time: 6.3 },
+  };
+  const comparison = [...artifactComparisons(detail).values()][0]!;
+  expect(comparison.original).toEqual(media);
+  expect(comparison.proposed).toEqual(detail.feedback[0].replies[0].target!);
+  detail.feedback[0].replies[0].author = { role: "human", sessionId: null };
+  expect(artifactComparisons(detail).size).toBe(0);
+  detail.feedback[0].replies[0].author = { role: "agent", sessionId: "design-agent" };
+  detail.feedback[0].target = { ...media, locator: { ...media.locator, frame: undefined } };
+  expect(artifactComparisons(detail).size).toBe(0);
+});

@@ -48,8 +48,8 @@ export interface ArtifactCommandContext {
 
 function representation(args: ArtifactArgs): Representation {
   const view = args.require("view");
-  if (view !== "source" && view !== "rendered" && view !== "diff")
-    throw new ArtifactCommandError("--view must be source, rendered, or diff");
+  if (view !== "source" && view !== "rendered" && view !== "diff" && view !== "media")
+    throw new ArtifactCommandError("--view must be source, rendered, diff, or media");
   return view;
 }
 
@@ -73,6 +73,8 @@ export function commandTarget(args: ArtifactArgs): ArtifactTarget {
   const kind = representation(args);
   const path = args.require("file");
   const versionSeq = args.sequence();
+  if (kind === "media")
+    throw new ArtifactCommandError("Media targets use --target JSON and --frame snapshot.png");
   if (kind === "rendered") {
     if (args.has("line") || args.has("side"))
       throw new ArtifactCommandError("Rendered targets use selectors, not source lines");
@@ -162,11 +164,11 @@ export async function runArtifactCommand(
     delete: [],
     feedback:
       args.positional[0] === "add"
-        ? ["message", "attach", "key", ...targetFlags]
+        ? ["message", "attach", "frame", "key", ...targetFlags]
         : args.positional[0] === "edit"
           ? ["message", "status", "attach", "clear-attachments"]
           : [],
-    reply: ["message", "version", "view", "target", "attach", "key"],
+    reply: ["message", "version", "view", "target", "attach", "frame", "key"],
     place: [...targetFlags, "state"],
     claim: [],
     release: [],
@@ -416,6 +418,9 @@ export async function runArtifactCommand(
             body: await message(),
             target: commandTarget(args),
             attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd),
+            ...(args.has("frame")
+              ? { mediaSnapshot: (await readAttachmentFiles([args.require("frame")], ctx.cwd))[0] }
+              : {}),
             operationKey: args.value("key"),
           }),
         );
@@ -452,6 +457,9 @@ export async function runArtifactCommand(
           body: await message(),
           context,
           attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd),
+          ...(args.has("frame")
+            ? { mediaSnapshot: (await readAttachmentFiles([args.require("frame")], ctx.cwd))[0] }
+            : {}),
           operationKey: args.value("key"),
           target: args.has("target") ? commandTarget(args) : undefined,
         }),

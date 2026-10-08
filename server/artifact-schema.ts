@@ -4,7 +4,7 @@ import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 9;
+export const ARTIFACT_SCHEMA_VERSION = 10;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -157,7 +157,7 @@ CREATE TABLE feedback (
   body TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
   target_kind TEXT NOT NULL CHECK (target_kind IN (
-    'artifact', 'artifact_summary', 'version_summary', 'source', 'rendered', 'diff'
+    'artifact', 'artifact_summary', 'version_summary', 'source', 'rendered', 'media', 'diff'
   )),
   target_version_seq INTEGER,
   target_path TEXT CHECK (target_path IS NULL OR length(target_path) > 0),
@@ -184,12 +184,12 @@ CREATE TABLE feedback (
       AND target_path IS NULL AND locator_json IS NULL) OR
     (target_kind = 'artifact_summary' AND target_version_seq IS NULL AND target_path IS NULL) OR
     (target_kind = 'version_summary' AND target_version_seq IS NOT NULL AND target_path IS NULL) OR
-    (target_kind IN ('source', 'rendered', 'diff')
+    (target_kind IN ('source', 'rendered', 'media', 'diff')
       AND target_version_seq IS NOT NULL AND target_path IS NOT NULL)
   ),
   CHECK (
     target_kind IN ('artifact', 'artifact_summary', 'version_summary') OR
-    (artifact_kind = 'files' AND target_kind IN ('source', 'rendered')) OR
+    (artifact_kind = 'files' AND target_kind IN ('source', 'rendered', 'media')) OR
     (artifact_kind = 'html' AND target_kind = 'rendered') OR
     (artifact_kind = 'diff' AND target_kind = 'diff')
   )
@@ -204,8 +204,8 @@ CREATE TABLE replies (
   agent_session_id TEXT REFERENCES agent_sessions(id),
   body TEXT NOT NULL,
   context_version_seq INTEGER,
-  context_representation TEXT CHECK (context_representation IN ('source', 'rendered', 'diff')),
-  target_kind TEXT CHECK (target_kind IN ('version_summary', 'source', 'rendered', 'diff')),
+  context_representation TEXT CHECK (context_representation IN ('source', 'rendered', 'media', 'diff')),
+  target_kind TEXT CHECK (target_kind IN ('version_summary', 'source', 'rendered', 'media', 'diff')),
   target_version_seq INTEGER,
   target_path TEXT CHECK (target_path IS NULL OR length(target_path) > 0),
   locator_json TEXT
@@ -227,7 +227,7 @@ CREATE TABLE replies (
   CHECK (context_version_seq IS NOT NULL OR context_representation IS NULL),
   CHECK (
     context_representation IS NULL OR
-    (artifact_kind = 'files' AND context_representation IN ('source', 'rendered')) OR
+    (artifact_kind = 'files' AND context_representation IN ('source', 'rendered', 'media')) OR
     (artifact_kind = 'html' AND context_representation = 'rendered') OR
     (artifact_kind = 'diff' AND context_representation = 'diff')
   ),
@@ -240,7 +240,7 @@ CREATE TABLE replies (
   END),
   CHECK (
     target_kind IS NULL OR target_kind = 'version_summary' OR
-    (artifact_kind = 'files' AND target_kind IN ('source', 'rendered')) OR
+    (artifact_kind = 'files' AND target_kind IN ('source', 'rendered', 'media')) OR
     (artifact_kind = 'html' AND target_kind = 'rendered') OR
     (artifact_kind = 'diff' AND target_kind = 'diff')
   )
@@ -254,7 +254,7 @@ CREATE TABLE feedback_placements (
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
   version_seq INTEGER NOT NULL,
   document_path TEXT NOT NULL CHECK (length(document_path) > 0),
-  representation TEXT NOT NULL CHECK (representation IN ('source', 'rendered', 'diff')),
+  representation TEXT NOT NULL CHECK (representation IN ('source', 'rendered', 'media', 'diff')),
   match_state TEXT NOT NULL CHECK (match_state IN ('anchored', 'unplaced', 'ambiguous')),
   locator_json TEXT
     CHECK (locator_json IS NULL OR
@@ -268,7 +268,7 @@ CREATE TABLE feedback_placements (
     REFERENCES artifact_versions(artifact_id, seq) DEFERRABLE INITIALLY DEFERRED,
   CHECK (match_state = 'anchored' OR locator_json IS NULL),
   CHECK (
-    (artifact_kind = 'files' AND representation IN ('source', 'rendered')) OR
+    (artifact_kind = 'files' AND representation IN ('source', 'rendered', 'media')) OR
     (artifact_kind = 'html' AND representation = 'rendered') OR
     (artifact_kind = 'diff' AND representation = 'diff')
   )

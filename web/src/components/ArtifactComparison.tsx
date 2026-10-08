@@ -1,8 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ArtifactDetail } from "../../../shared/artifacts.ts";
+import type { ArtifactDetail, ArtifactMediaTarget } from "../../../shared/artifacts.ts";
+import { artifactApi } from "../artifact-api.ts";
 import type { ArtifactComparison as Comparison, ComparisonTarget } from "../artifact-comparison.ts";
 import type { ArtifactRenderer } from "../pages/ArtifactView.tsx";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
+import { ArtifactMedia } from "./ArtifactMedia.tsx";
 
 export type ComparisonSide = "original" | "proposed";
 
@@ -59,10 +62,10 @@ export function ArtifactComparison({
         </Button>
         <Button
           variant="ghost"
-          aria-label="Focus targets"
+          aria-label={comparison?.original.kind === "media" ? "Return to targets" : "Focus targets"}
           onClick={() => setFocus((value) => value + 1)}
         >
-          Focus
+          {comparison?.original.kind === "media" ? "Return to targets" : "Focus"}
         </Button>
         <Button
           className="max-md:hidden"
@@ -165,7 +168,9 @@ function ComparisonPreview({
   narrow: boolean;
   focus: number;
 }) {
+  const [savedFrame, setSavedFrame] = useState(false);
   const [path, setPath] = useState(target.path);
+  const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
   const [state, setState] = useState<"anchored" | "ambiguous" | "unplaced" | null>(null);
   const version = detail.versions.find((version) => version.seq === target.versionSeq);
   const [nonce, setNonce] = useState(0);
@@ -177,7 +182,10 @@ function ComparisonPreview({
     setState(null);
     setNonce((value) => value + 1);
   }, [active, target.path, focus, layout, narrow]);
-  const jump = useMemo(() => ({ locator: target.locator, nonce }), [target.locator, nonce]);
+  const jump = useMemo(
+    () => (target.kind === "rendered" ? { locator: target.locator, nonce } : null),
+    [target, nonce],
+  );
   return (
     <>
       <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-3 py-2 text-xs dark:border-neutral-800">
@@ -185,10 +193,17 @@ function ComparisonPreview({
         <span className="text-neutral-500">v{target.versionSeq}</span>
         <span
           className="min-w-0 flex-1 truncate text-neutral-500"
-          title={`${target.path} · ${target.locator.selector}`}
+          title={
+            target.kind === "media" ? target.path : `${target.path} · ${target.locator.selector}`
+          }
         >
-          {target.locator.label ?? target.locator.selector}
+          {target.kind === "media"
+            ? target.path
+            : (target.locator.label ?? target.locator.selector)}
         </span>
+        {target.kind === "media" && (
+          <span ref={setMediaControls} className="flex items-center gap-1" />
+        )}
         <span
           role="status"
           data-comparison-target-state={state ?? "locating"}
@@ -197,18 +212,33 @@ function ComparisonPreview({
             state === "anchored" ? "text-success-700 dark:text-success-400" : "text-neutral-500",
           )}
         >
-          {state === "anchored"
-            ? "Located"
-            : state === "ambiguous"
-              ? "Multiple matches"
-              : state === "unplaced"
-                ? "Target unavailable"
-                : "Locating…"}
+          {target.kind === "media"
+            ? savedFrame
+              ? "Saved frame"
+              : "Playback"
+            : state === "anchored"
+              ? "Located"
+              : state === "ambiguous"
+                ? "Multiple matches"
+                : state === "unplaced"
+                  ? "Target unavailable"
+                  : "Locating…"}
         </span>
       </div>
       <div data-artifact-content className="flex min-h-0 flex-1 overflow-auto">
         <div className={cn("mx-auto flex min-h-0 w-full flex-col", narrow && "max-w-[390px]")}>
-          {version &&
+          {target.kind === "media" ? (
+            <MediaComparison
+              artifactId={detail.id}
+              target={target}
+              controls={mediaControls}
+              active={active}
+              showTarget={targets}
+              nonce={nonce}
+              onSavedFrame={setSavedFrame}
+            />
+          ) : (
+            version &&
             renderPreview({
               detail,
               version,
@@ -224,9 +254,52 @@ function ComparisonPreview({
               onLocated: setState,
               independentReading: true,
               previewLabel: `${label} · v${target.versionSeq} · ${target.path}`,
-            })}
+            })
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+function MediaComparison({
+  artifactId,
+  target,
+  controls,
+  active,
+  showTarget,
+  nonce,
+  onSavedFrame,
+}: {
+  artifactId: string;
+  target: ArtifactMediaTarget;
+  controls: HTMLElement | null;
+  active: boolean;
+  showTarget: boolean;
+  nonce: number;
+  onSavedFrame: (saved: boolean) => void;
+}) {
+  const files = useQuery({
+    queryKey: ["artifact-files", artifactId, target.versionSeq],
+    queryFn: () => artifactApi.files(artifactId, target.versionSeq),
+    staleTime: Infinity,
+  });
+  const file = files.data?.find((file) => file.path === target.path);
+  const jump = useMemo(() => ({ target, nonce }), [target, nonce]);
+  return file ? (
+    <ArtifactMedia
+      artifactId={artifactId}
+      versionSeq={target.versionSeq}
+      file={file}
+      controls={controls}
+      active={active}
+      showTarget={showTarget}
+      jump={jump}
+      onSavedFrame={onSavedFrame}
+    />
+  ) : (
+    <p role="status" className="p-3 text-xs text-neutral-500">
+      {files.error ? files.error.message : files.isPending ? "Loading media…" : "Media unavailable"}
+    </p>
   );
 }

@@ -4,6 +4,7 @@ import { hasMessageContent } from "../../shared/attachments.ts";
 import { type DraftAttachment, draftImages } from "./attachment-drafts.ts";
 
 export interface ArtifactDraft {
+  mediaSnapshot?: DraftAttachment;
   attachments?: DraftAttachment[];
   operationKey?: string;
   body: string;
@@ -182,7 +183,7 @@ export class ArtifactDraftStore {
   }
   anchor(id: string, target: ArtifactTarget): boolean {
     if (hasMessageContent(this.get(id))) return false;
-    this.update(id, { target, imported: false });
+    this.update(id, { target, imported: false, mediaSnapshot: undefined });
     return true;
   }
   beginReply(id: string, replyTo: string, context: ArtifactMessageContext): void {
@@ -303,6 +304,7 @@ if (typeof window !== "undefined")
         if (!key.startsWith(slotPrefix)) continue;
         const draft = JSON.parse(localStorage.getItem(key) ?? "null") as ArtifactDraft | null;
         for (const image of draft?.attachments ?? []) referenced.add(image.id);
+        if (draft?.mediaSnapshot) referenced.add(draft.mediaSnapshot.id);
       }
       void draftImages.sweep(referenced);
     } catch {

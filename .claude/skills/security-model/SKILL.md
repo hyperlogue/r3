@@ -479,3 +479,16 @@ resumes access; logout suspends/clears it across tabs. Stored generations reject
 writes and bootstrap completions started before revocation. Deletion also clears
 that artifact's draft images. Browser-profile storage is a local copy, not encrypted
 or remotely erasable while offline.
+
+### Native media targets
+
+Targetable raster images and videos in files artifacts use authenticated resource
+fetches and revocable local blob URLs in trusted img/video elements. No document
+execution is admitted through this path; authored HTML and SVG retain opaque
+preview isolation. Animation is checked before offering/accepting still-image
+targets. Canvas capture stores one full static PNG/JPEG as message-owned immutable
+target evidence. Ordinary image edits cannot alter or reuse that ownership.
+The existing authenticated attachment route, raster validation, GC coordination,
+logout revocation and no-store response policy apply. Media snapshot plus four
+ordinary attachments are bounded by a 40 MiB message request. Snapshot provenance
+is client-supplied evidence, not a server claim of video decoder equivalence.

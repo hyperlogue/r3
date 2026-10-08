@@ -141,3 +141,9 @@ Below `md`:
 
 A real-device **iOS Safari pass** is still owed before touch anchoring is called
 done.
+
+Native media targets share the desktop state and renderer: compact full-frame,
+region and media-feedback icons stay in the file header. Pointer capture supports
+a single touch-drawn rectangle; the full-frame button offers a non-drag action.
+The accepted snapshot opens the existing composer peek. Media Compare reuses the
+existing phone tabs and dock, with independent playback and Return to targets.

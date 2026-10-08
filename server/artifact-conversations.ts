@@ -8,6 +8,7 @@ import type {
   ArtifactKind,
   ArtifactPlacement,
   ArtifactReply,
+  ArtifactTarget,
   ArtifactVersionTarget,
   Representation,
 } from "../shared/artifacts.ts";
@@ -127,6 +128,34 @@ export class ArtifactConversations {
     }
   }
 
+  private withFrame<T extends ArtifactTarget | null>(
+    target: T,
+    owner: { feedbackId: string } | { replyId: string },
+  ): T {
+    if (target?.kind !== "media") return target;
+    const frame = this.artifacts.attachments.list(owner, "target")[0];
+    return { ...target, locator: { ...target.locator, frame } };
+  }
+
+  private preparingFrame<T>(
+    artifactId: string,
+    target: ArtifactTarget | null,
+    snapshot: unknown,
+    work: (frames: PreparedAttachment[]) => T,
+  ): Promise<T> {
+    if (target?.kind !== "media") {
+      if (snapshot !== undefined)
+        throw new ArtifactError("A media snapshot requires a media target");
+      return Promise.resolve(work([]));
+    }
+    const input = requireObject(snapshot, "Media snapshot");
+    if (input.id !== undefined || input.capture !== undefined)
+      throw new ArtifactError(
+        "A media target requires its own unannotated full-frame PNG or JPEG snapshot",
+      );
+    return this.artifacts.attachments.preparing(artifactId, [input], work);
+  }
+
   async source(id: string) {
     const row = this.row(id);
     return this.targets.sourceRange(row.artifact_id, targetFromColumns(row));
@@ -141,7 +170,7 @@ export class ArtifactConversations {
       body: row.body,
       attachments: this.artifacts.attachments.list({ feedbackId: id }),
       status: row.status,
-      target: targetFromColumns(row),
+      target: this.withFrame(targetFromColumns(row), { feedbackId: id }),
       legacy: row.legacy_anchor_json === null ? null : JSON.parse(row.legacy_anchor_json),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -174,49 +203,58 @@ export class ArtifactConversations {
   reply(id: string): ArtifactReply {
     const row = this.db.query<ReplyRow, [string]>("SELECT * FROM replies WHERE id = ?").get(id);
     if (!row) throw new ArtifactError("Reply not found", 404);
-    return { ...replyFromRow(row), attachments: this.artifacts.attachments.list({ replyId: id }) };
+    return {
+      ...replyFromRow(row),
+      target: this.withFrame(replyFromRow(row).target, { replyId: id }),
+      attachments: this.artifacts.attachments.list({ replyId: id }),
+    };
   }
 
   async add(id: string, value: unknown): Promise<ArtifactFeedback> {
     const input = requireObject(value, "Feedback");
     const author = this.artifacts.validateActor(input.actor);
 
-    const target = targetColumns(await this.targets.target(id, input.target));
-    return this.artifacts.attachments.preparing(id, input.attachments, (images) =>
-      this.db
-        .transaction(() => {
-          const operation = this.artifacts.attachments.operation(id, input, "feedback", id);
-          if (operation.replay) return this.get(operation.replay);
-          const body = messageBody(input.body, images.length);
-          const artifact = this.artifacts.get(id);
-          const time = this.clock();
-          const feedbackId = `feedback_${randomUUID().replaceAll("-", "")}`;
-          this.db
-            .query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, agent_session_id,
+    const native = await this.targets.target(id, input.target);
+    const target = targetColumns(native);
+    return this.preparingFrame(id, native, input.mediaSnapshot, (frames) =>
+      this.artifacts.attachments.preparing(id, input.attachments, (images) =>
+        this.db
+          .transaction(() => {
+            const operation = this.artifacts.attachments.operation(id, input, "feedback", id);
+            if (operation.replay) return this.get(operation.replay);
+            const body = messageBody(input.body, images.length);
+            const artifact = this.artifacts.get(id);
+            const time = this.clock();
+            const feedbackId = `feedback_${randomUUID().replaceAll("-", "")}`;
+            this.db
+              .query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, agent_session_id,
         body, target_kind, target_version_seq, target_path, locator_json, created_at, updated_at, sent_at, ever_delivered)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-            .run(
-              feedbackId,
-              id,
-              artifact.kind,
-              author.role,
-              author.sessionId,
-              body,
-              target.target_kind,
-              target.target_version_seq,
-              target.target_path,
-              target.locator_json,
-              time,
-              time,
-              author.role === "agent" ? time : null,
-              author.role === "agent" ? 1 : 0,
-            );
-          this.artifacts.attachments.replace(id, { feedbackId }, images);
-          operation.save({ feedbackId });
-          this.touch(id, time);
-          return this.get(feedbackId);
-        })
-        .immediate(),
+              .run(
+                feedbackId,
+                id,
+                artifact.kind,
+                author.role,
+                author.sessionId,
+                body,
+                target.target_kind,
+                target.target_version_seq,
+                target.target_path,
+                target.locator_json,
+                time,
+                time,
+                author.role === "agent" ? time : null,
+                author.role === "agent" ? 1 : 0,
+              );
+            this.artifacts.attachments.replace(id, { feedbackId }, images);
+            if (frames.length)
+              this.artifacts.attachments.replace(id, { feedbackId }, frames, "target");
+            operation.save({ feedbackId });
+            this.touch(id, time);
+            return this.get(feedbackId);
+          })
+          .immediate(),
+      ),
     );
   }
 
@@ -296,52 +334,61 @@ export class ArtifactConversations {
     if (target?.kind === "artifact" || target?.kind === "artifact_summary")
       throw new ArtifactError("A fix target must name a published version");
     const columns = target === null ? null : targetColumns(target);
-    return this.artifacts.attachments.preparing(original.artifact_id, input.attachments, (images) =>
-      this.db
-        .transaction(() => {
-          const feedback = this.row(id);
-          const operation = this.artifacts.attachments.operation(
-            feedback.artifact_id,
-            input,
-            "reply",
-            id,
-          );
-          if (operation.replay) return this.reply(operation.replay);
-          const body = messageBody(input.body, images.length);
-          const time = this.clock();
-          const replyId = `reply_${randomUUID().replaceAll("-", "")}`;
-          this.db
-            .query(`INSERT INTO replies(id, feedback_id, artifact_id, artifact_kind, author, agent_session_id,
+    return this.preparingFrame(original.artifact_id, target, input.mediaSnapshot, (frames) =>
+      this.artifacts.attachments.preparing(original.artifact_id, input.attachments, (images) =>
+        this.db
+          .transaction(() => {
+            const feedback = this.row(id);
+            const operation = this.artifacts.attachments.operation(
+              feedback.artifact_id,
+              input,
+              "reply",
+              id,
+            );
+            if (operation.replay) return this.reply(operation.replay);
+            const body = messageBody(input.body, images.length);
+            const time = this.clock();
+            const replyId = `reply_${randomUUID().replaceAll("-", "")}`;
+            this.db
+              .query(`INSERT INTO replies(id, feedback_id, artifact_id, artifact_kind, author, agent_session_id,
         body, context_version_seq, context_representation, target_kind, target_version_seq,
         target_path, locator_json, created_at, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-            .run(
-              replyId,
-              id,
-              feedback.artifact_id,
-              feedback.artifact_kind,
-              author.role,
-              author.sessionId,
-              body,
-              context.versionSeq,
-              context.representation,
-              columns?.target_kind ?? null,
-              columns?.target_version_seq ?? null,
-              columns?.target_path ?? null,
-              columns?.locator_json ?? null,
-              time,
-              author.role === "agent" ? time : null,
-            );
-          if (author.role === "agent") {
-            this.db
-              .query("DELETE FROM feedback_claims WHERE feedback_id = ? AND agent_session_id = ?")
-              .run(id, author.sessionId);
-          }
-          this.artifacts.attachments.replace(feedback.artifact_id, { replyId }, images);
-          operation.save({ replyId });
-          this.touch(feedback.artifact_id, time);
-          return this.reply(replyId);
-        })
-        .immediate(),
+              .run(
+                replyId,
+                id,
+                feedback.artifact_id,
+                feedback.artifact_kind,
+                author.role,
+                author.sessionId,
+                body,
+                context.versionSeq,
+                context.representation,
+                columns?.target_kind ?? null,
+                columns?.target_version_seq ?? null,
+                columns?.target_path ?? null,
+                columns?.locator_json ?? null,
+                time,
+                author.role === "agent" ? time : null,
+              );
+            if (author.role === "agent") {
+              this.db
+                .query("DELETE FROM feedback_claims WHERE feedback_id = ? AND agent_session_id = ?")
+                .run(id, author.sessionId);
+            }
+            this.artifacts.attachments.replace(feedback.artifact_id, { replyId }, images);
+            if (frames.length)
+              this.artifacts.attachments.replace(
+                feedback.artifact_id,
+                { replyId },
+                frames,
+                "target",
+              );
+            operation.save({ replyId });
+            this.touch(feedback.artifact_id, time);
+            return this.reply(replyId);
+          })
+          .immediate(),
+      ),
     );
   }
 

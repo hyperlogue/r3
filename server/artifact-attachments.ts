@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS message_attachments (
   artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
   feedback_id TEXT,
   reply_id TEXT,
+  purpose TEXT NOT NULL DEFAULT 'message' CHECK (purpose IN ('message', 'target')),
   position INTEGER NOT NULL CHECK (position >= 0 AND position < 4),
   blob_hash TEXT NOT NULL REFERENCES blobs(hash),
   media_type TEXT NOT NULL CHECK (media_type IN ('image/png', 'image/jpeg')),
@@ -35,8 +36,10 @@ CREATE TABLE IF NOT EXISTS message_attachments (
   FOREIGN KEY (reply_id, artifact_id) REFERENCES replies(id, artifact_id) ON DELETE CASCADE
 ) STRICT;
 CREATE TRIGGER IF NOT EXISTS immutable_message_attachment
-BEFORE UPDATE OF id, artifact_id, feedback_id, reply_id, blob_hash, media_type, width, height, capture_json
+BEFORE UPDATE OF id, artifact_id, feedback_id, reply_id, blob_hash, media_type, width, height, capture_json, purpose
 ON message_attachments BEGIN SELECT RAISE(ABORT, 'Attachment evidence is immutable'); END;
+CREATE UNIQUE INDEX IF NOT EXISTS target_frame_feedback ON message_attachments(feedback_id) WHERE purpose = 'target';
+CREATE UNIQUE INDEX IF NOT EXISTS target_frame_reply ON message_attachments(reply_id) WHERE purpose = 'target';
 CREATE INDEX IF NOT EXISTS attachments_feedback ON message_attachments(feedback_id);
 CREATE INDEX IF NOT EXISTS attachments_reply ON message_attachments(reply_id);
 CREATE TABLE IF NOT EXISTS message_operations (
@@ -74,10 +77,12 @@ export class ArtifactAttachments {
     private readonly clock: () => string,
   ) {}
 
-  list(owner: Owner): ArtifactAttachment[] {
+  list(owner: Owner, purpose: "message" | "target" = "message"): ArtifactAttachment[] {
     return this.db
-      .query<ImageRow, [string]>(`${select} WHERE a.${ownerColumn(owner)} = ? ORDER BY a.position`)
-      .all(ownerId(owner))
+      .query<ImageRow, [string, string]>(
+        `${select} WHERE a.${ownerColumn(owner)} = ? AND a.purpose = ? ORDER BY a.position`,
+      )
+      .all(ownerId(owner), purpose)
       .map(fromRow);
   }
 
@@ -137,8 +142,15 @@ export class ArtifactAttachments {
   }
 
   // Called inside the conversation transaction; existing IDs never move between messages.
-  replace(artifactId: string, owner: Owner, images: PreparedAttachment[]) {
-    const current = this.list(owner);
+  replace(
+    artifactId: string,
+    owner: Owner,
+    images: PreparedAttachment[],
+    purpose: "message" | "target" = "message",
+  ) {
+    const current = this.list(owner, purpose);
+    if (purpose === "target" && current.length)
+      throw new ArtifactError("Media evidence is immutable");
     const retained = images.flatMap((image) => ("existing" in image ? [image.existing] : []));
     if (
       new Set(retained).size !== retained.length ||
@@ -168,7 +180,7 @@ export class ArtifactAttachments {
         .run(image.hash, image.byteLength, this.clock());
       this.db
         .query(
-          `INSERT INTO message_attachments(id, artifact_id, feedback_id, reply_id, position, blob_hash, media_type, width, height, capture_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO message_attachments(id, artifact_id, feedback_id, reply_id, position, blob_hash, media_type, width, height, capture_json, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           `image_${randomUUID().replaceAll("-", "")}`,
@@ -181,6 +193,7 @@ export class ArtifactAttachments {
           image.width,
           image.height,
           image.capture ? canonicalJson(image.capture) : null,
+          purpose,
         );
     });
     return true;

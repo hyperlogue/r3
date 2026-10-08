@@ -51,6 +51,7 @@ import { AgentName } from "./AgentName.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { ArtifactHandoffNotice } from "./ArtifactHandoffNotice.tsx";
+import { MediaTargetPreview } from "./MediaTargetPreview.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 import {
   type EditableImage,
@@ -460,6 +461,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           )}
         </div>
       )}
+      {feedback.target.kind === "media" && feedback.target.locator.frame && (
+        <MediaTargetPreview
+          image={feedback.target.locator.frame}
+          box={feedback.target.locator.box}
+        />
+      )}
       {(hasUnsentArtifactFeedback(feedback) || feedback.claim) && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
           {hasUnsentArtifactFeedback(feedback) && <span>Not sent</span>}
@@ -553,6 +560,9 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             >
               ↳ Fix: {fixTargetLabel(reply.target, latestVersionSeq, artifactKind)}
             </button>
+          )}
+          {reply.target?.kind === "media" && reply.target.locator.frame && (
+            <MediaTargetPreview image={reply.target.locator.frame} box={reply.target.locator.box} />
           )}
           {onCompare && comparisons?.has(reply.id) && (
             <Button

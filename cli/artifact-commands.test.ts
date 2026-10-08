@@ -75,6 +75,61 @@ async function create() {
 }
 
 describe("artifact CLI over the HTTP contract", () => {
+  test("media fixes upload snapshots and feedback fetch downloads authoritative frames", async () => {
+    const human = { role: "human", sessionId: null } as const;
+    const artifact = storage.artifacts.create({ kind: "files", actor: human });
+    const bytes = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGP4HyD3H4QZYAwAV6YJsVhH600AAAAASUVORK5CYII=",
+      "base64",
+    );
+    await writeFile(join(ctx.cwd, "frame.png"), bytes);
+    await storage.artifacts.publish(artifact.id, {
+      actor: human,
+      expectedSeq: 0,
+      publicationKey: "media",
+      content: {
+        kind: "files",
+        files: [{ path: "image.png", mediaType: "image/png", base64: bytes.toString("base64") }],
+      },
+    });
+    const note = await storage.conversations.add(artifact.id, {
+      actor: human,
+      body: "Fix this image",
+      target: { kind: "artifact" },
+    });
+    const result = await command("reply", [
+      note.id,
+      "--version",
+      "1",
+      "--view",
+      "media",
+      "-m",
+      "Fixed",
+      "--target",
+      JSON.stringify({ kind: "media", versionSeq: 1, path: "image.png", locator: { time: null } }),
+      "--frame",
+      "frame.png",
+    ]);
+    expect(result.code).toBe(0);
+    const reply = JSON.parse(result.text);
+    expect(reply.target.locator.box).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+    const fetched = await command("feedback", [
+      "fetch",
+      artifact.id,
+      "--all",
+      "--attachments-dir",
+      "evidence",
+    ]);
+    expect(fetched.code).toBe(0);
+    expect(fetched.text).toContain("Saved fix frame");
+    expect(
+      Buffer.from(
+        await Bun.file(
+          join(ctx.cwd, "evidence", `${reply.target.locator.frame.id}.png`),
+        ).arrayBuffer(),
+      ),
+    ).toEqual(bytes);
+  });
   test("feedback source reads full original ranges on demand without delivery side effects", async () => {
     const human = { role: "human" as const, sessionId: null };
     const lines = ["first", "  second", "third", "fourth", "fifth", "sixth  ", ""];
