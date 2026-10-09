@@ -5,6 +5,7 @@ import {
   type ArtifactStreamEvent,
   type ArtifactTarget,
   artifactAgentIds,
+  artifactReferenceContext,
 } from "../../shared/artifacts.ts";
 import {
   type ArtifactAttachment,
@@ -301,7 +302,6 @@ export const artifactApi: typeof productionApi = {
     if (concurrent) return concurrent as ArtifactReply;
     demo.requireActive(artifact.id);
     if (!body.body.trim() && !images.length) fail("A reply needs text or an image");
-    if (body.context.versionSeq !== null) demo.publication(artifact.id, body.context.versionSeq);
     if (body.target) demo.target(artifact.id, body.target);
     const reply = {
       id: mint("reply"),
@@ -310,7 +310,7 @@ export const artifactApi: typeof productionApi = {
       author: human,
       body: body.body,
       attachments: images,
-      context: copy(body.context),
+      context: artifactReferenceContext(acceptedTarget, note.target),
       target: copy(acceptedTarget ?? null),
       legacy: null,
       createdAt: now(),

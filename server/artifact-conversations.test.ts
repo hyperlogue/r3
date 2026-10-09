@@ -113,6 +113,10 @@ describe("artifact conversations", () => {
       VALUES ('description-reply', 'description-note', ?, 'files', 'human', 'Existing fix',
       1, 'version_summary', 2, ?)`).run(id, time);
     expect(conversations.get("description-note").target).toEqual(target);
+    expect(conversations.reply("description-reply").context).toEqual({
+      versionSeq: 1,
+      representation: null,
+    });
     expect(conversations.reply("description-reply").target).toEqual({
       kind: "version_summary",
       versionSeq: 2,
@@ -142,7 +146,7 @@ describe("artifact conversations", () => {
     expect(resolved.status).toBe("resolved");
   });
 
-  test("original feedback, message context and fix target retain their separate versions and representations", async () => {
+  test("comment references derive from their own target or the original discussion target", async () => {
     const note = await conversations.add(id, {
       actor: human,
       body: "Please revise this",
@@ -160,17 +164,27 @@ describe("artifact conversations", () => {
       context,
       target: fix,
     });
-    expect(reply.context).toEqual(context);
+    expect(reply.context).toEqual({ versionSeq: 2, representation: "source" });
     expect(reply.target).toEqual(fix);
     expect(reply.author).toEqual(agent);
     const thread = conversations.get(note.id);
     expect(thread.target).toEqual(original);
     expect(thread.status).toBe("open");
     expect(thread.replies.map((reply) => reply.id)).toEqual([reply.id]);
-    await expect(
-      conversations.addReply(note.id, { actor: agent, body: "Missing context" }),
-    ).rejects.toThrow("context");
-    expect(conversations.get(note.id).replies).toHaveLength(1);
+    const inherited = await conversations.addReply(note.id, {
+      actor: agent,
+      body: "Inherited reference",
+    });
+    expect(inherited.context).toEqual({ versionSeq: 1, representation: "source" });
+    const general = await conversations.add(id, {
+      actor: human,
+      body: "General discussion",
+      target: { kind: "artifact" },
+    });
+    expect(
+      (await conversations.addReply(general.id, { actor: agent, body: "No version" })).context,
+    ).toEqual({ versionSeq: null, representation: null });
+    expect(conversations.get(note.id).replies).toHaveLength(2);
   });
 
   test("human status changes and authored message edits preserve original targets and attribution", async () => {
@@ -209,9 +223,10 @@ describe("artifact conversations", () => {
         context: { versionSeq: 2, representation: "source" },
       }),
     ).toThrow("immutable");
-    expect(conversations.editReply(reply.id, { actor: agent, body: "Thank you" }).context).toEqual(
-      context,
-    );
+    expect(conversations.editReply(reply.id, { actor: agent, body: "Thank you" }).context).toEqual({
+      versionSeq: 1,
+      representation: "source",
+    });
     expect(conversations.get(note.id).status).toBe("resolved");
   });
 

@@ -55,7 +55,7 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | version_files | artifact_id + version_seq + path | media_type, original blob_hash, optional rendered_blob_hash and renderer_revision |
 | blobs | hash | SHA-256 content address, byte_length, created_at. Bytes live in server-managed storage |
 | feedback | id | Artifact ownership, author role/agent session, body, open/resolved status, immutable original target, legacy anchor evidence, delivery fields, timestamps |
-| replies | id | Feedback ownership, author role/agent session, body, explicit message context, optional fix target, legacy reference evidence, delivery time. No status |
+| replies | id | Feedback ownership, author role/agent session, body, derived reference context, optional fix target, legacy reference evidence, delivery time. No status |
 | feedback_placements | feedback_id + version_seq + document_path + representation | Additional native locator and anchored/unplaced/ambiguous match state |
 | feedback_claims | feedback_id | One renewable agent_session_id-owned lease: claimed_at, renewed_at, expires_at |
 | viewed_marks | artifact_id + key | Existing read-progress identity, including representation when needed |
@@ -163,7 +163,12 @@ no migration.
 
 Files accepts source, rendered and media targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. General artifact feedback works across all three kinds. Version summaries remain immutable descriptive metadata displayed in the navigation's details popup.
 
-Replies have context_version_seq/context_representation for the message being written, independently of the optional target_kind/target_version_seq/target_path/locator_json identifying a fix. For example, a reply can discuss rendered files version 1 and point to a source fix in version 2. A NULL context means no version context was supplied; the server never silently interprets it as latest. An explicit representation requires an explicit version. Inline references use the reply's shared context; use separate replies for different message contexts. The fix target carries its own version independently.
+New comments derive context_version_seq/context_representation from their own target
+when present, otherwise from the discussion's original target. General discussions
+without a version remain unbound. The server saves that derived reference context
+with the comment; clients do not choose a second version/view. Existing historical
+contexts remain pinned as recorded, including contexts that differ from a fix target.
+A comment's own target never changes the original discussion target.
 
 feedback_placements records additional document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
 

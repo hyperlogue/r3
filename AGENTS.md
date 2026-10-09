@@ -137,9 +137,9 @@ representation, with `anchored|ambiguous|unplaced` state. They never rewrite the
 original target. Locate initially returns to that original view. An unavailable
 runtime element does not make its conversation disappear.
 
-**Replies** are pure messages. Their explicit version/representation context pins
-inline references; an optional fix target is independent and may name a different
-version/view. No reply action resolves feedback. Successful agent replies release
+**Replies** are pure messages. Inline references derive from their own fix target
+when present, otherwise from the discussion's original target. General discussions
+stay unbound without a version target; historical references remain pinned. No reply action resolves feedback. Successful agent replies release
 only that same agent's claim.
 
 **Claims** are 60-minute renewable feedback-scoped leases. Another live owner
@@ -223,7 +223,7 @@ older work. The scroll spy measures visible blocks and rechecks on resize.
 Source highlighting ships escaped palette classes and one theme stylesheet, never
 Shiki/WASM in the browser. Retained document HTML belongs in preview. Feedback,
 replies, and summaries render safe client Markdown (`html:false`); inline file refs
-resolve against explicit message context. Mermaid's supported diagrams use safe
+resolve against saved, derived reference context. Mermaid's supported diagrams use safe
 SVG; unsupported syntax falls through to source.
 
 Opened Markdown is cached by immutable rendering identity in the trusted app's

@@ -1,6 +1,5 @@
 import type {
   ArtifactKind,
-  ArtifactMessageContext,
   ArtifactSourceRange,
   ArtifactTarget,
   DiffLocator,
@@ -120,21 +119,6 @@ function checkSourceQuote(lines: string[], locator: SourceLocator): void {
 // native evidence without being reverse-mapped into an invented source range.
 export class ArtifactTargets {
   constructor(private readonly artifacts: ArtifactStore) {}
-
-  context(id: string, value: unknown): ArtifactMessageContext {
-    const context = requireObject(value, "Message context");
-    if (context.versionSeq === null && context.representation === null) {
-      this.artifacts.get(id);
-      return { versionSeq: null, representation: null };
-    }
-    const versionSeq = requireSequence(context.versionSeq);
-    const version = this.artifacts.version(id, versionSeq);
-    const representation =
-      context.representation === null
-        ? null
-        : requireRepresentation(version.kind, context.representation);
-    return { versionSeq, representation };
-  }
 
   async target(id: string, value: unknown, allowMissingDocument = false): Promise<ArtifactTarget> {
     const target = requireObject(value, "Target");

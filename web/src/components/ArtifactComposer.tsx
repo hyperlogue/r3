@@ -51,7 +51,6 @@ export function ArtifactComposer({
       if (replyTo)
         return artifactApi.reply(replyTo, {
           body: submitted.body,
-          context: submitted.context,
           attachments,
           operationKey: submitted.operationKey,
         });

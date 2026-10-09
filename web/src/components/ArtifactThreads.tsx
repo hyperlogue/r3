@@ -150,7 +150,6 @@ function FeedbackQuote({ quote }: { quote: string }) {
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   feedback,
   agentLabels,
-  context,
   artifactKind,
   latestVersionSeq,
   onLocate,
@@ -214,7 +213,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const lastReply = feedback.replies.at(-1);
   const canEdit = (lastReply?.author ?? feedback.author).role === "human";
   const openReply = () => {
-    artifactDrafts.beginReply(feedback.artifactId, feedback.id, context);
+    artifactDrafts.beginReply(feedback.artifactId, feedback.id, originalContext);
     setReplying(true);
     requestAnimationFrame(() => {
       const input = element.current?.querySelector<HTMLTextAreaElement>("[data-reply-to] textarea");

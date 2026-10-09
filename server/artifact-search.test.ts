@@ -81,7 +81,7 @@ test("conversation edits, replies, resolution, archive and deletion reconcile wi
   const reply = await storage.conversations.addReply(feedback.id, {
     actor: agent,
     body: "Keyboard fix ready",
-    context: { versionSeq: 2, representation: "source" },
+    target: { kind: "source", versionSeq: 2, path: "notes.md", locator: null },
   });
   const found = await search("keyboard", { type: "conversation", attention: true });
   expect(found.total).toBe(2);

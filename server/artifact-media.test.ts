@@ -161,7 +161,7 @@ test("agent fix frames remain independent and authenticated reads expose the exa
     mediaSnapshot: png,
   });
   expect((reply.target as ArtifactMediaTarget).locator.time).toBe(6.300123);
-  expect(reply.context.versionSeq).toBe(1);
+  expect(reply.context).toEqual({ versionSeq: 2, representation: "media" });
   expect(store.conversations.get(note.id).claim).toBeNull();
   expect(store.conversations.get(note.id).status).toBe("open");
   const token = randomBytes(32).toString("base64url");

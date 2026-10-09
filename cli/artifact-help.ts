@@ -70,8 +70,7 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
         [--attach <image>]... | [--clear-attachments]
   feedback delete <feedback-id>
   reply <feedback-id> [-m <message>] [--attach <image>]... [--key K]
-        [--version <seq> --view source|rendered|diff|media]
-        [--target <JSON fix target>] [--frame <snapshot.png>]
+        [target flags] [--frame <snapshot.png>]
   place <feedback-id> --target <JSON document target> --state anchored|unplaced|ambiguous
   claim <feedback-id>... | release <feedback-id>...
   feedback fetch <id> [--all] [--feedback <id,id>] [--attachments-dir <directory>]
@@ -164,10 +163,10 @@ r3 claim feedback_a feedback_b feedback_c
 # Inspect the recorded targets and revise the prepared files.
 r3 publish "$artifact_id" --dir ./prepared --expected 1
 # Suppose publication returned version 2, discussed in rendered view:
-r3 reply feedback_a --version 2 --view rendered -m 'Clarified ownership.' \\
+r3 reply feedback_a -m 'Clarified ownership.' \\
   --target '{"kind":"rendered","versionSeq":2,"path":"plan.md","locator":{"selector":"#ownership"}}'
-r3 reply feedback_b --version 2 --view rendered -m 'Added the missing case.'
-r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
+r3 reply feedback_b -m 'Added the missing case.'
+r3 reply feedback_c -m 'Corrected the example.'
 \`\`\`
 
 The worker saves registration intent across restarts. After reconnect, the backend restores a registration only when no other recipient exists; a conflict remains visible in \`r3 worker status\`. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
@@ -232,7 +231,7 @@ Inspect original targets in their recorded version and representation. Rendered 
 
 Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 feedback source <feedback-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge feedback, claim it, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
 
-Publish changed content, then \`r3 reply <feedback-id> -m <message>\`. Reply separately to each thread. Include \`--version <seq> --view source|rendered|diff|media\` when discussing a publication; omit both for general messages. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target has its own version/view, independent of message context. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified source/rendered/diff placements.
+Publish changed content, then \`r3 reply <feedback-id> -m <message>\`. Reply separately to each thread. References use the comment's own target when present, otherwise the discussion's original target. General discussions without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified source/rendered/diff placements.
 
 Successful replies release only your own claims. Publishing and replying never resolve feedback; the human controls status. Complete the requested work, reply, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
 
@@ -360,7 +359,7 @@ Patch text must be valid UTF-8. Invalid text bytes are rejected instead of repla
 
 Read the captured patch with \`r3 patch <id> --version <seq>\`. For a new line target, \`feedback add\` accepts \`--file <path> --version <seq> --view diff --side old|new --line <start-end> --quote <captured text>\`.
 
-The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence, additional placements, and replying with explicit version/diff context.`;
+The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence, additional placements, and replying with a native fix target.`;
 
 export function artifactGuide(args: string[]): string {
   if (args.length > 1)

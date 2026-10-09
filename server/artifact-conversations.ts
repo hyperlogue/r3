@@ -12,7 +12,7 @@ import type {
   ArtifactVersionTarget,
   Representation,
 } from "../shared/artifacts.ts";
-import { hasUnsentArtifactFeedback } from "../shared/artifacts.ts";
+import { artifactReferenceContext, hasUnsentArtifactFeedback } from "../shared/artifacts.ts";
 import type { PreparedAttachment } from "./artifact-attachments.ts";
 import {
   ArtifactTargets,
@@ -330,11 +330,11 @@ export class ArtifactConversations {
     const author = this.artifacts.validateActor(input.actor);
 
     const original = this.row(id);
-    const context = this.targets.context(original.artifact_id, input.context);
     const target =
       input.target == null ? null : await this.targets.target(original.artifact_id, input.target);
     if (target?.kind === "artifact" || target?.kind === "artifact_summary")
       throw new ArtifactError("A fix target must name a published version");
+    const context = artifactReferenceContext(target, targetFromColumns(original));
     const columns = target === null ? null : targetColumns(target);
     return this.preparingFrame(original.artifact_id, target, input.mediaSnapshot, (frames) =>
       this.artifacts.attachments.preparing(original.artifact_id, input.attachments, (images) =>

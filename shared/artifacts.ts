@@ -201,6 +201,20 @@ export type ArtifactMessageContext =
   | { versionSeq: null; representation: null }
   | { versionSeq: number; representation: Representation | null };
 
+// References inherit the discussion's original evidence unless the comment
+// identifies a different published location. Existing saved contexts stay pinned.
+export function artifactReferenceContext(
+  target: ArtifactTarget | null | undefined,
+  original?: ArtifactTarget,
+): ArtifactMessageContext {
+  const location = target ?? original;
+  if (!location || !("versionSeq" in location)) return { versionSeq: null, representation: null };
+  return {
+    versionSeq: location.versionSeq,
+    representation: location.kind === "version_summary" ? null : location.kind,
+  };
+}
+
 export interface ArtifactClaim {
   feedbackId: string;
   sessionId: string;
@@ -350,7 +364,6 @@ export interface CreateArtifactReplyBody {
   attachments?: AttachmentInput[];
   actor: ArtifactActor;
   body: string;
-  context: ArtifactMessageContext;
   target?: ArtifactVersionTarget | null;
 }
 

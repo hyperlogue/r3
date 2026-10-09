@@ -98,7 +98,7 @@ function block(feedback: ArtifactFeedback, unsent: boolean): string {
     lines.push("", `[${author}] ${reply.body}`);
     if (reply.attachments?.length) lines.push(attachmentPrompt(reply.attachments));
     if (reply.context.versionSeq !== null)
-      lines.push(`Message context: ${JSON.stringify(reply.context)}`);
+      lines.push(`Reference context: ${JSON.stringify(reply.context)}`);
     if (reply.target?.kind === "media" && reply.target.locator.frame)
       lines.push("Saved fix frame:", attachmentPrompt([reply.target.locator.frame], false));
     if (reply.target) lines.push(`Fix target: ${JSON.stringify(reply.target)}`);

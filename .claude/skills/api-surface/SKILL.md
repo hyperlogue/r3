@@ -94,13 +94,13 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET/POST /api/artifacts/:id/feedback`, `GET/PATCH/DELETE /api/feedback/:id`,
   `POST /api/feedback/:id/replies`, `PATCH /api/replies/:id`, and
   `PUT /api/feedback/:id/placements` use native immutable original targets,
-  explicit reply context, and separate placements. Every message mutation names
+  derived comment references, and separate placements. Every message mutation names
   an `actor`; deletion takes `{ actor }`. Only human actors change feedback status.
   Files also accept native `media` targets with `locator: { time, box }` and a
   required `mediaSnapshot` (full-frame PNG/JPEG upload). Reads add the immutable
   `locator.frame` descriptor; bytes use the attachment route. Snapshot evidence
   is separate from editable message attachments. CLI feedback add/reply accept
-  `--frame <path>` with a media `--target`; reply context accepts `--view media`.
+  `--frame <path>` with a media `--target`; media targets accept `--view media`.
   Feedback fetch manifests include target frames, including follow-up originals.
   Rendered locators accept an optional plain-text `label` for named HTML fix links;
   matching still uses the selector and native evidence. See `r3 guide html` for
@@ -268,7 +268,7 @@ The current command families:
 | `list`, `show`, `versions`, `files`, `source`, `download`, `patch` | Read only; content reads name a version; downloads preserve original bytes |
 | `stat [--weekly] [--json]`, `gc [--dry-run] [--ttl 30d] [--json]` | Fixed activity windows; manual TTL cleanup, exit 1 on deletion/cleanup failure; no identity required |
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
-| `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, explicit reply context, separate placements; `--human` required for status edits |
+| `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, derived comment references, separate placements; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
 | `feedback fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
 | `feedback source <feedback-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |

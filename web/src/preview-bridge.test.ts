@@ -91,10 +91,7 @@ test("preview bridge exposes only its artifact's human conversation at the selec
     },
   ]);
   await call("reply", { feedbackId: feedback.id, body: "About version two" }, true);
-  expect(calls[1]).toEqual([
-    feedback.id,
-    { body: "About version two", context: { versionSeq: 2, representation: "rendered" } },
-  ]);
+  expect(calls[1]).toEqual([feedback.id, { body: "About version two" }]);
   await call("submit", undefined, true);
   expect(calls[2]).toEqual([context.artifactId]);
 });

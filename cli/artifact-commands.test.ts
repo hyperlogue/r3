@@ -566,7 +566,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.artifacts.get(id).createdBy).toEqual(agent);
   });
 
-  test("native rendered feedback and explicit reply context survive independent agent sessions", async () => {
+  test("native targets and inherited comment references survive independent agent sessions", async () => {
     const id = await create();
     const feedback = JSON.parse(
       (
@@ -594,17 +594,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(feedback.target.locator).toMatchObject({ selector: "h1", route: "#intro" });
     await command("claim", [feedback.id]);
     ctx.environment.R3_AGENT_SESSION = "second-agent";
-    await command("reply", [
-      feedback.id,
-      "--session",
-      "second-agent",
-      "-m",
-      "I also inspected it",
-      "--version",
-      "1",
-      "--view",
-      "rendered",
-    ]);
+    await command("reply", [feedback.id, "--session", "second-agent", "-m", "I also inspected it"]);
     expect(storage.conversations.get(feedback.id).claim?.sessionId).toBe(agent.sessionId);
     ctx.environment.R3_AGENT_SESSION = agent.sessionId;
     const fix = {
@@ -783,7 +773,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.artifacts.list()).toEqual([]);
     await expect(
       command("reply", ["feedback_missing", "-m", "test", "--file", "index.html"]),
-    ).rejects.toThrow("not supported");
+    ).rejects.toThrow("--view is required");
     ctx.environment = {};
     await expect(command("create", ["--dir", "."])).rejects.toThrow("stable agent ID");
     expect(storage.artifacts.list()).toEqual([]);

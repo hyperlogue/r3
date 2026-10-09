@@ -13,7 +13,6 @@ import type {
   ArtifactActor,
   ArtifactDetail,
   ArtifactLifecycleResponse,
-  ArtifactMessageContext,
   ArtifactSource,
   ArtifactSourceRange,
   ArtifactTarget,
@@ -170,7 +169,7 @@ export async function runArtifactCommand(
         : args.positional[0] === "edit"
           ? ["message", "status", "attach", "clear-attachments"]
           : [],
-    reply: ["message", "version", "view", "target", "attach", "frame", "key"],
+    reply: ["message", "attach", "frame", "key", ...targetFlags],
     place: [...targetFlags, "state"],
     claim: [],
     release: [],
@@ -460,25 +459,20 @@ export async function runArtifactCommand(
       return 0;
     }
     case "reply": {
-      if (args.has("view") && !args.has("version"))
-        throw new ArtifactCommandError("--view requires --version");
-      const context: ArtifactMessageContext = args.has("version")
-        ? {
-            versionSeq: args.sequence(),
-            representation: args.has("view") ? representation(args) : null,
-          }
-        : { versionSeq: null, representation: null };
+      if ((args.has("version") || args.has("view")) && !args.has("target") && !args.has("file"))
+        throw new ArtifactCommandError(
+          "References inherit the discussion target; use --target or --file for a different published location",
+        );
       await print(
         await client.json("POST", `${feedbackApiPath(args.id())}/replies`, {
           actor: await actor(),
           body: await message(),
-          context,
           attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd),
           ...(args.has("frame")
             ? { mediaSnapshot: (await readAttachmentFiles([args.require("frame")], ctx.cwd))[0] }
             : {}),
           operationKey: args.value("key"),
-          target: args.has("target") ? commandTarget(args) : undefined,
+          target: args.has("target") || args.has("file") ? commandTarget(args) : undefined,
         }),
       );
       return 0;

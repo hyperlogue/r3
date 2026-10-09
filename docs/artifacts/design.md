@@ -586,11 +586,11 @@ longer exist in the current page state; the thread and captured context remain
 readable, and unavailable or ambiguous placement is explicit. Published bytes do
 not freeze runtime form values, modals, or device frames.
 
-A reply has an explicit version/representation context for its inline references,
-plus an independent optional fix target. It can discuss rendered version 1 while
-pointing to a source fix in version 2. References needing different message contexts
-belong in separate replies. Publishing and replying leave feedback status under
-human control.
+A comment's inline references use its own target's published version and view when
+present, otherwise the discussion's original target. A general discussion stays
+unbound until a comment supplies a version target; it never silently means latest.
+There is no separately chosen message context. Historical comments retain their
+recorded reference context.
 
 ### Comparing proposed fixes
 

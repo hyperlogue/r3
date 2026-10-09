@@ -139,7 +139,7 @@ describe("artifact prompt formatting", () => {
     expect(prompt).toContain("New owner response");
     expect(prompt).not.toContain("Already delivered answer");
     expect(prompt).toContain("The human marked this resolved");
-    expect(prompt).toContain('Message context: {"versionSeq":2,"representation":"rendered"}');
+    expect(prompt).toContain('Reference context: {"versionSeq":2,"representation":"rendered"}');
     expect(prompt).toContain(`Earlier discussion: r3 show ${detail.id}`);
     expect(buildArtifactPrompt(detail, [feedback])).toContain("Already delivered answer");
   });

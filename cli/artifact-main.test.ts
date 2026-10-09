@@ -203,20 +203,19 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(watch.code).toBe(10);
     expect(watch.output).toContain(feedback.id);
     expect((await run("claim", feedback.id)).code).toBe(0);
-    expect(
-      (
-        await run(
-          "reply",
-          feedback.id,
-          "-m",
-          "Updated in version two",
-          "--version",
-          "2",
-          "--view",
-          "source",
-        )
-      ).code,
-    ).toBe(0);
+    const replyResult = await run(
+      "reply",
+      feedback.id,
+      "-m",
+      "Updated in version two",
+      "--file",
+      "page.md",
+      "--version",
+      "2",
+      "--view",
+      "source",
+    );
+    expect(replyResult).toMatchObject({ code: 0, error: "" });
     const detail = JSON.parse((await run("show", id, "--json")).output);
     expect(detail.feedback[0].status).toBe("open");
     expect(detail.feedback[0].claim).toBeNull();

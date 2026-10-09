@@ -120,7 +120,6 @@ export async function previewBridgeCall(
       throw new Error("Thread is not part of this artifact");
     return api.reply(input.feedbackId, {
       body: input.body,
-      context: { versionSeq: context.versionSeq, representation: context.representation },
     });
   }
   const locator = previewLocator(input.locator);

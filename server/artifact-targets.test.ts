@@ -185,7 +185,7 @@ describe("native artifact targets", () => {
     ).rejects.toThrow("gap");
   });
 
-  test("reply context and unavailable placements remain explicit", async () => {
+  test("unavailable placements stay native to their artifact", async () => {
     const id = artifacts.create({ kind: "files", actor }).id;
     await artifacts.publish(id, {
       actor,
@@ -193,21 +193,6 @@ describe("native artifact targets", () => {
       publicationKey: "one",
       content: { kind: "files", files: [file("a", "text")] },
     });
-    expect(targets.context(id, { versionSeq: null, representation: null })).toEqual({
-      versionSeq: null,
-      representation: null,
-    });
-    expect(targets.context(id, { versionSeq: 1, representation: "source" })).toEqual({
-      versionSeq: 1,
-      representation: "source",
-    });
-    expect(() => targets.context(id, { versionSeq: null, representation: "source" })).toThrow();
-    expect(() => targets.context(id, { versionSeq: 1, representation: "diff" })).toThrow(
-      "incompatible",
-    );
-    expect(() => targets.context(id, { versionSeq: 2, representation: "source" })).toThrow(
-      "not found",
-    );
     const missing = { kind: "source" as const, versionSeq: 1, path: "missing", locator: null };
     await expect(targets.target(id, missing)).rejects.toThrow("absent");
     expect(await targets.target(id, missing, true)).toEqual(missing);
