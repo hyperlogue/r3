@@ -9,6 +9,7 @@ import {
   type ArtifactSearchResponse,
   artifactSearchParams,
 } from "../../shared/artifact-search.ts";
+import type { ArtifactUpdate } from "../../shared/artifact-updates.ts";
 import type {
   ArtifactGcRequest,
   ArtifactGcResult,
@@ -75,6 +76,15 @@ export const artifactApi = {
   sessions: () => client().json<AgentSession[]>("GET", "/api/sessions"),
   list: (filters: Record<string, string | undefined> = {}) =>
     client().json<Artifact[]>("GET", `/api/artifacts${query(filters)}`),
+  summary: (id: string, signal?: AbortSignal) =>
+    client().json<Artifact>("GET", `${artifactApiPath(id)}?view=summary`, undefined, signal),
+  updates: (id: string, since?: string, signal?: AbortSignal) =>
+    client().json<ArtifactUpdate>(
+      "GET",
+      `${artifactApiPath(id)}${query({ since })}`,
+      undefined,
+      signal,
+    ),
   detail: (id: string) => client().json<ArtifactDetail>("GET", artifactApiPath(id)),
   discussionSource: (id: string) =>
     client().json<ArtifactSourceRange>("GET", `${discussionApiPath(id)}/source`),

@@ -149,6 +149,8 @@ export const artifactApi: typeof productionApi = {
             (!filters.projectId || item.projectId === filters.projectId),
         ),
     ),
+  summary: async (id) => copy(demo.get(id)),
+  updates: async (id) => copy(demo.get(id)),
   detail: async (id) => {
     const detail = copy(demo.get(id));
     detail.agentLabels = Object.fromEntries(

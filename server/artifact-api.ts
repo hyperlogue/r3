@@ -23,6 +23,7 @@ import { artifactResourceResponse } from "./artifact-resources.ts";
 import { parseArtifactSearch } from "./artifact-search.ts";
 import { artifactSourceResponse } from "./artifact-source.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
+import { ArtifactUpdates } from "./artifact-updates.ts";
 import { ArtifactError, requireArtifactPath, requireSequence } from "./artifact-validation.ts";
 import { COOKIE_NAME } from "./auth.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
@@ -70,6 +71,7 @@ export function createArtifactApi(
     ...artifactDetail(storage, id),
     watching: collaboration.watching(id),
   });
+  const updates = new ArtifactUpdates(storage, collaboration, detail);
   const bootstrap = (request: Request): ApplicationBootstrap | null => {
     const host = artifactRequestHostname(request);
     if (host === null || !policy.allowedHost(host) || !artifactSameOrigin(request, policy))
@@ -84,7 +86,7 @@ export function createArtifactApi(
     let artifact: ArtifactDetail | null = null;
     if (id) {
       try {
-        artifact = detail(id);
+        artifact = updates.snapshot(id);
       } catch (error) {
         if (!(error instanceof ArtifactError) || error.status !== 404) throw error;
       }
@@ -249,7 +251,13 @@ export function createArtifactApi(
     return c.json(artifact, 201);
   });
   app.get("/api/artifacts/:id", (c) => {
-    return artifactJsonResponse(c.req.raw, detail(c.req.param("id")));
+    const id = c.req.param("id");
+    return artifactJsonResponse(
+      c.req.raw,
+      c.req.query("view") === "summary"
+        ? { ...artifacts.get(id), watching: collaboration.watching(id) }
+        : updates.read(id, c.req.query("since")),
+    );
   });
   app.patch("/api/artifacts/:id", async (c) => {
     const artifact = artifacts.edit(c.req.param("id"), await artifactJson(c.req.raw));
@@ -383,6 +391,7 @@ export function createArtifactApi(
     close() {
       workers.close();
       conversations.close();
+      updates.close();
     },
   };
 }

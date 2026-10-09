@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
+import type { Artifact, ArtifactDetail } from "../../shared/artifacts.ts";
 import { artifactApi, artifactEventStream } from "./artifact-api.ts";
+import { cacheArtifactSummary } from "./artifact-sync.ts";
 import { draftImages } from "./attachment-drafts.ts";
 import { markdownCache } from "./markdown-cache.ts";
 import { previewSessions } from "./preview-sessions.ts";
@@ -25,6 +27,7 @@ export function useArtifactEvents(): boolean {
       });
     void (async () => {
       let delay = 500;
+      let ready = false;
       while (!controller.signal.aborted) {
         try {
           for await (const event of artifactEventStream(controller.signal)) {
@@ -32,13 +35,24 @@ export function useArtifactEvents(): boolean {
             setConnected(true);
             delay = 500;
             if (event.type === "ready") {
-              // One membership reconciliation also finds deletions missed while
-              // disconnected. Never probe or prefetch each cached document.
+              // Share the library read with its mounted query and cache cleanup.
+              await queryClient.invalidateQueries({ queryKey: ["artifacts"], refetchType: "none" });
               void markdownCache.reconcile(async () =>
-                (await artifactApi.list()).map((artifact) => artifact.id),
+                (
+                  await queryClient.fetchQuery<Artifact[]>({
+                    queryKey: ["artifacts"],
+                    queryFn: () => artifactApi.list(),
+                  })
+                ).map((artifact) => artifact.id),
               );
+              if (ready) {
+                await queryClient.cancelQueries({ queryKey: ["artifact"] });
+                queryClient.setQueriesData<ArtifactDetail>({ queryKey: ["artifact"] }, (detail) =>
+                  detail ? { ...detail, syncCursor: undefined } : detail,
+                );
+              }
+              ready = true;
               for (const key of [
-                "artifacts",
                 "artifact",
                 "artifact-watchers",
                 "artifact-projects",
@@ -62,7 +76,32 @@ export function useArtifactEvents(): boolean {
                 for (const key of ["artifact-files", "artifact-source", "artifact-diff"])
                   queryClient.removeQueries({ queryKey: [key, event.artifactId] });
               }
-              void queryClient.invalidateQueries({ queryKey: ["artifacts"] });
+              await queryClient.cancelQueries({
+                queryKey: ["artifact-summary", event.artifactId],
+                exact: true,
+              });
+              if (event.type === "artifact-deleted") {
+                queryClient.setQueryData<Artifact[]>(["artifacts"], (items) =>
+                  items?.filter((item) => item.id !== event.artifactId),
+                );
+              } else if (
+                !queryClient
+                  .getQueryCache()
+                  .find({ queryKey: ["artifact", event.artifactId], exact: true })
+                  ?.isActive()
+              ) {
+                // A library-only view needs a summary, never full conversations.
+                if (queryClient.getQueryData(["artifacts"])) {
+                  void queryClient
+                    .fetchQuery({
+                      queryKey: ["artifact-summary", event.artifactId],
+                      queryFn: ({ signal }) => artifactApi.summary(event.artifactId, signal),
+                      staleTime: 0,
+                    })
+                    .then((artifact) => cacheArtifactSummary(queryClient, artifact))
+                    .catch(() => {});
+                }
+              }
               void queryClient.invalidateQueries({ queryKey: ["artifact-search"] });
               void queryClient.invalidateQueries({ queryKey: ["artifact", event.artifactId] });
               if (

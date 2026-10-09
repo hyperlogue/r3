@@ -292,6 +292,8 @@ export interface ArtifactLifecycleEvent {
   createdAt: string;
 }
 export interface ArtifactDetail extends Artifact {
+  // Optional cursor for bounded incremental reads; invalid after server restart.
+  syncCursor?: string;
   versions: ArtifactVersion[];
   discussions: ArtifactDiscussion[];
   placements: ArtifactPlacement[];

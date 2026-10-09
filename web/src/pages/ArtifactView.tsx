@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import {
@@ -11,7 +11,6 @@ import {
   type RenderedLocator,
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
-import { artifactApi } from "../artifact-api.ts";
 import { artifactComposerField, focusArtifactComposer } from "../artifact-composer-keys.ts";
 import { activeArtifactDiscussion } from "../artifact-discussions.ts";
 import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
@@ -24,6 +23,7 @@ import {
   readArtifactLocation,
 } from "../artifact-navigation.ts";
 import { renderPublishedPreview } from "../artifact-renderer.tsx";
+import { readArtifactUpdate } from "../artifact-sync.ts";
 import { artifactViewForTarget, stepArtifactVersion } from "../artifact-version.ts";
 import { draftImages } from "../attachment-drafts.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
@@ -125,9 +125,10 @@ export function ArtifactView({
   artifactId: string;
   renderPreview?: ArtifactRenderer;
 }) {
+  const qc = useQueryClient();
   const query = useQuery({
     queryKey: ["artifact", artifactId],
-    queryFn: () => artifactApi.detail(artifactId),
+    queryFn: ({ signal }) => readArtifactUpdate(qc, artifactId, signal),
   });
   useEffect(() => {
     document.title = `${query.data?.title || artifactId} · r3`;

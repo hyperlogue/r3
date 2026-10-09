@@ -271,3 +271,21 @@ into a harness address. `R3_AGENT_SESSION` is an explicit complete identity over
 and stays unchanged. Existing unqualified identities and their history stay intact;
 new automatic registration uses the qualified identity. Clients of other backends
 must similarly avoid collisions in their backend's session namespace.
+
+### Incremental browser reads
+
+Artifact detail includes an optional `syncCursor`. `GET /api/artifacts/:id?since=<cursor>`
+returns either full detail or an `ArtifactDelta` with `delta:true`, the exact
+`baseCursor`, a new `syncCursor`, artifact summary, changed discussions, removed
+Discussion IDs, current claims/subscriptions, and labels needed by those changes.
+The client applies a delta only to its exact base. Original publications, targets,
+placements and unrelated conversations stay in the cached snapshot. Cursors are
+opaque, process-scoped and not delivery acknowledgments.
+
+The server retains at most 512 invalidations, without content. An unknown cursor,
+restart, journal gap, publication, metadata edit, acknowledgment, or lifecycle event
+returns full detail. The browser also obtains a full snapshot after reconnect.
+`?view=summary` returns only the Artifact projection for library reconciliation.
+Initial stream readiness can use the embedded detail's cursor; library and local
+reading-cache reconciliation share one request. Mutation results remain immediately
+usable, with a bounded incremental read reconciling concurrent writes.

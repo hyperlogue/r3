@@ -504,6 +504,14 @@ export class ArtifactConversations {
       })
       .immediate();
   }
+  claims(id: string): ArtifactClaim[] {
+    return this.db
+      .query<ArtifactClaim, [string, string]>(`SELECT discussion_id AS discussionId,
+      agent_session_id AS sessionId, claimed_at AS claimedAt, renewed_at AS renewedAt,
+      expires_at AS expiresAt FROM discussion_claims WHERE discussion_id IN
+      (SELECT id FROM discussions WHERE artifact_id = ?) AND expires_at > ?`)
+      .all(id, this.clock());
+  }
   claim(ids: string[], sessionId: string): ArtifactClaim[] {
     this.artifacts.validateActor({ role: "agent", sessionId });
     return this.db

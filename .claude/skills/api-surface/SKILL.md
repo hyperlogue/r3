@@ -48,6 +48,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `remoteUrl` hint for server-configured project inference; explicit `projectId`,
   including null, wins. List filters are `state`,
   `kind`, `project`, and `meta.<key>`. No repo header or local path is involved.
+  Artifact detail includes a process-scoped `syncCursor`; `?since=<cursor>` returns
+  a bounded delta or a full snapshot on a gap. `?view=summary` reads only its Artifact
+  projection. See [incremental reads](../../../docs/artifacts/remote-protocol.md#incremental-browser-reads).
   Artifact detail includes `agentLabels`, current display labels keyed by the
   sessions referenced in its creator, versions, discussions, comments, claims, and
   lifecycle events. Unnamed entries are null; unrelated sessions are omitted.

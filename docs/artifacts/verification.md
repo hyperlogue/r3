@@ -333,3 +333,8 @@ to region selection, independent comparison transforms, reset behavior, and intr
 coordinates when selecting a zoomed and panned frame.
 The script owns a temporary store and fresh browser profile, and writes screenshots
 under `workspace/media-target-acceptance/`.
+
+Incremental workspace reads are covered by `server/artifact-updates.test.ts`
+(changed discussion payloads, deletion, claims, stale base rejection and full
+recovery after gaps/restart) and `scripts/test-artifact-sync.ts`
+(real browser concurrent comments, pending decisions, deletion and metadata recovery).
