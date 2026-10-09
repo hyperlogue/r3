@@ -67,6 +67,11 @@ export class ArtifactDemoBackend {
       this.state.artifacts.find((artifact) => artifact.id === id) ?? fail("Artifact not found", 404)
     );
   }
+  requireActive(id: string) {
+    const artifact = this.get(id);
+    if (artifact.state !== "active") fail("Artifact is archived", 409);
+    return artifact;
+  }
   note(id: string) {
     for (const artifact of this.state.artifacts) {
       const note = artifact.feedback.find((note) => note.id === id);
@@ -228,6 +233,7 @@ export class ArtifactDemoBackend {
     attachments: ArtifactAttachment[] = [],
   ): ArtifactFeedback {
     if (!body.trim() && !attachments.length) fail("Feedback needs text or an image");
+    this.requireActive(id);
     this.target(id, target);
     const time = now();
     const note: ArtifactFeedback = {
@@ -310,14 +316,14 @@ export class ArtifactDemoBackend {
     artifact.working = artifact.feedback.some((note) => note.claim !== null);
     this.changed(id);
     // Each explicit handoff schedules its own response, so a second submission
-    // cannot cancel the first batch. Archiving still permits in-flight replies.
+    // cannot cancel the first batch. Archive closes all further conversation writes.
     const key = mint("work");
     this.timers.set(
       key,
       setTimeout(() => {
         this.timers.delete(key);
         const current = this.state.artifacts.find((item) => item.id === id);
-        if (!current) return;
+        if (!current || current.state !== "active") return;
         const pending = this.state.pending[id];
         if (pending && current.state === "active") {
           const publication = structuredClone(pending);

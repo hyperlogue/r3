@@ -707,10 +707,13 @@ archive commits must fail rather than extend the archived conversation. Reading
 retained content, restoring the artifact, and deleting the whole artifact remain
 available. Restore allows work again and requires a fresh subscription.
 
-Implementation gap: the current server still accepts conversation and metadata
-mutations after archive, including late replies. The read-only rule above records
-the accepted requirement from the glossary review; enforcing it in the server,
-browser, and demo remains outstanding.
+The backend checks active state at each content mutation's commit, including after
+asynchronous target and attachment preparation. Rejected writes return 409 without
+changing retained content. A retry of an already committed operation may return
+its original result; it does not create a new mutation. The browser disables
+mutating controls and retains drafts; the static demo enforces the same boundary.
+The CLI and notification worker rely on backend rejection rather than duplicating
+this policy.
 
 ## Preview and communication boundary
 

@@ -75,11 +75,11 @@ test("global content and reclaimable content deduplicate across artifacts and ve
   expect((await storage.artifacts.readFile(second.id, 1, "test.txt")).toString()).toBe("shared");
 });
 
-test("TTL uses the archive instant, reaches equality, and ignores subsequent activity", async () => {
+test("TTL uses the archive instant, reaches equality, and ignores rejected writes", async () => {
   const artifact = create();
   transition(artifact.id, "archived");
   time = "2026-11-04T11:59:59.999Z";
-  storage.artifacts.edit(artifact.id, { title: "Recent edit" });
+  expect(() => storage.artifacts.edit(artifact.id, { title: "Recent edit" })).toThrow("archived");
   expect(storage.usage.gc({ dryRun: true }).candidates).toHaveLength(0);
   time = "2026-11-04T12:00:00.000Z";
   expect(storage.usage.gc({ dryRun: true }).candidates).toHaveLength(1);

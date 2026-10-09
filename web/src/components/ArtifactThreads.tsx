@@ -162,6 +162,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   comparisons,
   onCompare,
   hidden = false,
+  readOnly = false,
 }: {
   feedback: ArtifactFeedback;
   agentLabels?: ArtifactDetail["agentLabels"];
@@ -177,6 +178,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   comparisons?: ReadonlyMap<string, ArtifactComparison>;
   onCompare?: (replyId: string) => void;
   hidden?: boolean;
+  readOnly?: boolean;
 }) {
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
@@ -225,7 +227,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const bubble = useQuoteBubble(element, (range) => {
     const node = range.commonAncestorContainer;
     const element = node instanceof Element ? node : node.parentElement;
-    return visible && !!element?.closest('[data-message-author="agent"]');
+    return !readOnly && visible && !!element?.closest('[data-message-author="agent"]');
   });
   useEffect(() => {
     if (!visible) {
@@ -354,7 +356,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       )}
     </div>
   );
-  const editForm = editing && (
+  const editForm = !readOnly && editing && (
     <form
       data-edit-message
       onPaste={attachmentInput.onPaste}
@@ -501,7 +503,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             Agent · <AgentName id={feedback.author.sessionId} labels={agentLabels} />
           </div>
         )}
-        {editing && !editing.replyId ? (
+        {!readOnly && editing && !editing.replyId ? (
           editForm
         ) : (
           <MessageProse
@@ -509,7 +511,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             onJumpRef={(ref) => onJumpRef(ref, originalContext)}
           />
         )}
-        {!(editing && !editing.replyId) && (
+        {(readOnly || !(editing && !editing.replyId)) && (
           <MessageAttachments artifactId={feedback.artifactId} images={feedback.attachments} />
         )}
       </div>
@@ -539,12 +541,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               Agent · <AgentName id={reply.author.sessionId} labels={agentLabels} />
             </div>
           )}
-          {editing?.replyId === reply.id ? (
+          {!readOnly && editing?.replyId === reply.id ? (
             editForm
           ) : (
             <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
           )}
-          {editing?.replyId !== reply.id && (
+          {(readOnly || editing?.replyId !== reply.id) && (
             <MessageAttachments artifactId={feedback.artifactId} images={reply.attachments} />
           )}
           {reply.target && (
@@ -589,7 +591,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           {error.message}
         </p>
       )}
-      {!editing && !replying && (
+      {!readOnly && !editing && !replying && (
         <div className="mt-3 flex items-center gap-1 text-[0.6875rem]">
           {resolveButton}
           {moreMenu}
@@ -598,7 +600,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           </Button>
         </div>
       )}
-      {deleting && (
+      {!readOnly && deleting && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span>Delete this thread and its replies?</span>
           <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
@@ -607,7 +609,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <Button onClick={() => setDeleting(false)}>Keep</Button>
         </div>
       )}
-      {replying && (
+      {!readOnly && replying && (
         <div className="-mx-3 mt-3">
           <ArtifactComposer
             artifactId={feedback.artifactId}
@@ -616,7 +618,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           />
         </div>
       )}
-      {visible && bubble.pos && (
+      {!readOnly && visible && bubble.pos && (
         <QuoteBubble
           pos={bubble.pos}
           label="Quote in reply"
@@ -829,6 +831,7 @@ export function ArtifactThreads({
       ?.click();
   };
   const newNote = () => {
+    if (detail.state !== "active") return;
     setTab("active");
     if (onNewNote) onNewNote();
     else {
@@ -885,6 +888,7 @@ export function ArtifactThreads({
               aria-label="Add general feedback"
               title="Add general feedback (n)"
               onClick={newNote}
+              disabled={detail.state !== "active"}
             >
               <CommentPlusIcon className="size-3.5" />
             </Button>
@@ -993,13 +997,19 @@ export function ArtifactThreads({
               >
                 {queue === "active" && noteOpen && (
                   <div key="composer" data-feedback-draft>
-                    {composer ?? <ArtifactComposer artifactId={detail.id} />}
+                    {composer ?? (
+                      <ArtifactComposer
+                        artifactId={detail.id}
+                        readOnly={detail.state !== "active"}
+                      />
+                    )}
                   </div>
                 )}
                 {(queue === "active" ? queues.active : queues.resolved).map((feedback) => (
                   <ArtifactThreadCard
                     key={feedback.id}
                     feedback={feedback}
+                    readOnly={detail.state !== "active"}
                     agentLabels={detail.agentLabels}
                     context={context}
                     artifactKind={detail.kind}

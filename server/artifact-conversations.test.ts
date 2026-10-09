@@ -244,17 +244,18 @@ describe("artifact conversations", () => {
     ).rejects.toThrow("cannot claim a locator");
   });
 
-  test("an in-flight reply on an archived artifact persists without reopening or resolving it", async () => {
+  test("archive rejects a reply whose target preparation began before the transition", async () => {
     const note = await conversations.add(id, { actor: human, body: "Work", target: original });
-    db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
-    await conversations.addReply(note.id, {
+    const pending = conversations.addReply(note.id, {
       actor: agent,
       body: "Reporting the work already completed",
       context,
+      target: original,
     });
-    expect(artifacts.get(id).state).toBe("archived");
+    db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
+    await expect(pending).rejects.toThrow("Artifact is archived");
+    expect(conversations.get(note.id).replies).toHaveLength(0);
     expect(conversations.get(note.id).status).toBe("open");
-    expect(conversations.get(note.id).replies).toHaveLength(1);
   });
 });
 

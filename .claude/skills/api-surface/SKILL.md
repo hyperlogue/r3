@@ -343,8 +343,8 @@ do not acknowledge feedback.
 
 Feedback status is human-controlled. Replies carry no status or resolve action;
 they release only the matching author's claim. Archive preserves unsent content
-and accepts in-flight replies, while blocking publication, new claims, and normal
-handoff. Thread originals stay readable even when a placement is unavailable.
+and rejects content mutations, including in-flight replies, with 409 until restore.
+The backend checks at commit after any asynchronous preparation; reads remain available. Thread originals stay readable even when a placement is unavailable.
 
 
 ## Conversation images

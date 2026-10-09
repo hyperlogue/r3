@@ -108,6 +108,12 @@ test("conversation edits, replies, resolution, archive and deletion reconcile wi
   });
   expect((await search("pointer", { state: "active" })).total).toBe(0);
   expect((await search("pointer", { state: "archived" })).total).toBe(2);
+  expect(() => storage.conversations.delete(feedback.id, human)).toThrow("archived");
+  storage.lifecycle.transition(artifact.id, {
+    actor: human,
+    event: "restored",
+    operationKey: "restore",
+  });
   storage.conversations.delete(feedback.id, human);
   expect((await search("pointer")).total).toBe(0);
   storage.artifacts.delete(artifact.id);

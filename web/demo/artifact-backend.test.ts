@@ -97,7 +97,7 @@ test("demo reset restores the seed and drops practice messages, images and pendi
   }
 });
 
-test("demo archive retains unsent work and in-flight replies without publishing or re-registering", async () => {
+test("demo archive retains unsent work and prevents in-flight replies and publication", async () => {
   const backend = new ArtifactDemoBackend();
   try {
     const id = backend.state.artifacts[0].id;
@@ -114,7 +114,7 @@ test("demo archive retains unsent work and in-flight replies without publishing 
     expect(backend.get(id).watching).toBe(false);
     await Bun.sleep(1900);
     expect(backend.get(id).versions).toHaveLength(1);
-    expect(backend.note(note.id).note.replies).toHaveLength(1);
+    expect(backend.note(note.id).note.replies).toHaveLength(0);
     expect(backend.note(pending.id).note.sentAt).toBeNull();
     backend.lifecycle(id, { event: "restored", operationKey: "restore-demo" });
     expect(backend.get(id).watching).toBe(false);

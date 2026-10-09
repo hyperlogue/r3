@@ -126,15 +126,15 @@ describe("artifact collaboration ordering", () => {
 
   test("watch always ends on archive and terminal state precedes already pending feedback", async () => {
     const waiting = collaboration.watch(id, first);
-    await collaboration.transition(id, archive("done", "Iteration complete"));
-    expect(await waiting).toMatchObject({
-      result: "archived",
-      event: { message: "Iteration complete" },
-    });
     await storage.conversations.add(id, {
       actor: human,
       target: { kind: "artifact" },
       body: "Still pending",
+    });
+    await collaboration.transition(id, archive("done", "Iteration complete"));
+    expect(await waiting).toMatchObject({
+      result: "archived",
+      event: { message: "Iteration complete" },
     });
     expect(await collaboration.watch(id, second)).toMatchObject({ result: "archived" });
     expect(storage.conversations.unsent(id)).toHaveLength(1);

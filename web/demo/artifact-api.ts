@@ -201,7 +201,7 @@ export const artifactApi: typeof productionApi = {
   },
   edit: async (id, body) => {
     if ("summary" in body) fail("Artifact overview was removed; publish a version summary instead");
-    Object.assign(demo.get(id), body);
+    Object.assign(demo.requireActive(id), body);
     demo.changed(id);
     return copy(demo.get(id));
   },
@@ -246,6 +246,7 @@ export const artifactApi: typeof productionApi = {
   editFeedback: async (id, body) => {
     const { artifact, note } = demo.note(id);
     const nextImages = await attachments(artifact.id, body.attachments, note.attachments);
+    demo.requireActive(artifact.id);
     const imagesChanged = JSON.stringify(nextImages) !== JSON.stringify(note.attachments ?? []);
     if (!(body.body ?? note.body).trim() && !nextImages.length)
       fail("A message needs text or an image");
@@ -273,6 +274,7 @@ export const artifactApi: typeof productionApi = {
   },
   deleteFeedback: async (id) => {
     const { artifact } = demo.note(id);
+    demo.requireActive(artifact.id);
     delete demo.state.everDelivered[id];
     for (const [key, operation] of Object.entries(demo.state.messageOperations ?? {}))
       if (
@@ -297,6 +299,7 @@ export const artifactApi: typeof productionApi = {
     const acceptedTarget = await mediaEvidence(artifact.id, body.target, body.mediaSnapshot);
     const concurrent = operation.replay();
     if (concurrent) return concurrent as ArtifactReply;
+    demo.requireActive(artifact.id);
     if (!body.body.trim() && !images.length) fail("A reply needs text or an image");
     if (body.context.versionSeq !== null) demo.publication(artifact.id, body.context.versionSeq);
     if (body.target) demo.target(artifact.id, body.target);
@@ -321,6 +324,7 @@ export const artifactApi: typeof productionApi = {
   editReply: async (id, body, inputs) => {
     const { artifact, reply } = demo.reply(id);
     const images = await attachments(artifact.id, inputs, reply.attachments);
+    demo.requireActive(artifact.id);
     if (!body.trim() && !images.length) fail("A reply needs text or an image");
     if (reply.body !== body || JSON.stringify(images) !== JSON.stringify(reply.attachments ?? [])) {
       reply.attachments = images;
@@ -332,6 +336,7 @@ export const artifactApi: typeof productionApi = {
   },
   place: async (id, body) => {
     const { artifact } = demo.note(id);
+    demo.requireActive(artifact.id);
     demo.target(artifact.id, body.target);
     const index = artifact.placements.findIndex(
       (item) =>

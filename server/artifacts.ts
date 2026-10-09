@@ -371,8 +371,14 @@ export class ArtifactStore {
       .map(({ id }) => this.get(id));
   }
 
+  requireActive(id: string): Artifact {
+    const artifact = this.get(id);
+    if (artifact.state !== "active") throw new ArtifactError("Artifact is archived", 409);
+    return artifact;
+  }
+
   edit(id: string, value: unknown): Artifact {
-    const current = this.get(id);
+    const current = this.requireActive(id);
     const body = requireObject(value, "Artifact edit");
     const title =
       body.title === undefined ? current.title : optionalText(body.title, "title", 1000);

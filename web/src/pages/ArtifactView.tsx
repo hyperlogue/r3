@@ -421,6 +421,7 @@ function Workspace({
   );
   const anchor = useCallback(
     (target: ArtifactTarget, quoteNow = false, position?: AnchorRect, focus = true) => {
+      if (detail.state !== "active") return;
       const selection = window.getSelection();
       const rect = selection?.rangeCount ? selection.getRangeAt(0).getBoundingClientRect() : null;
       const at =
@@ -442,7 +443,7 @@ function Workspace({
         }
       } else openComposer(at, focus);
     },
-    [detail.id, appendQuote, openComposer],
+    [detail.state, detail.id, appendQuote, openComposer],
   );
   const selectRendered = useCallback(
     (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => {
@@ -819,6 +820,7 @@ function Workspace({
   const composer = (
     <ArtifactComposer
       artifactId={detail.id}
+      readOnly={detail.state !== "active"}
       onDone={() => {
         setFloating(null);
         if (mobile) setSheet("closed");
@@ -910,7 +912,7 @@ function Workspace({
         onJumpRef={(ref) => jumpRef(ref, context)}
         commenting={!comparison.active && commenting}
         onToggleCommenting={toggleCommenting}
-        commentingLocked={comparison.active}
+        commentingLocked={comparison.active || detail.state !== "active"}
         captureRef={setCaptureContainer}
       />
       <main ref={splitRef} className="relative flex min-h-0 flex-1">
@@ -984,7 +986,7 @@ function Workspace({
                       detail,
                       version,
                       path,
-                      commenting: !comparison.active && commenting,
+                      commenting: detail.state === "active" && !comparison.active && commenting,
                       active: !comparison.active,
                       captureContainer: comparison.active ? null : captureContainer,
                       jump: renderedJump,
@@ -1113,7 +1115,8 @@ function Workspace({
                                     detail,
                                     version,
                                     path: file.path,
-                                    commenting: !comparison.active && commenting,
+                                    commenting:
+                                      detail.state === "active" && !comparison.active && commenting,
                                     active: !comparison.active,
                                     jump: view.path === file.path ? renderedJump : null,
                                     navigation: view.path === file.path ? renderedNavigation : null,
@@ -1214,7 +1217,7 @@ function Workspace({
           {panel()}
         </MobileReviewChrome>
       )}
-      {coarse && !comparison.active && (
+      {coarse && detail.state === "active" && !comparison.active && (
         <AddFeedbackPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
       {quote && <QuoteBubble pos={quote} label="Quote in note" onQuote={appendQuote} />}

@@ -378,6 +378,83 @@ test("JSON input counts real streamed bytes and rejects malformed text", async (
 
 describe("artifact HTTP collaboration contract", () => {
   const human = { role: "human", sessionId: null };
+  test("archive rejects content mutations at the backend while reads and restore remain available", async () => {
+    const id = await create();
+    await request(`/api/artifacts/${id}/versions`, "POST", publication());
+    const target = { kind: "rendered", versionSeq: 1, path: "page.html", locator: null };
+    const note = await (
+      await request(`/api/artifacts/${id}/feedback`, "POST", {
+        actor,
+        body: "Keep this discussion",
+        target,
+      })
+    ).json();
+    const context = { versionSeq: 1, representation: "rendered" };
+    const reply = await (
+      await request(`/api/feedback/${note.id}/replies`, "POST", {
+        actor,
+        body: "Retained reply",
+        context,
+      })
+    ).json();
+    const archive = await request(`/api/artifacts/${id}/lifecycle`, "POST", {
+      actor,
+      event: "archived",
+      operationKey: "freeze",
+    });
+    expect(archive.status).toBe(200);
+    const before = await (await request(`/api/artifacts/${id}`)).json();
+    const mutations: [string, string, unknown][] = [
+      [`/api/artifacts/${id}`, "PATCH", { title: "Changed" }],
+      [`/api/artifacts/${id}/versions`, "POST", publication(1, "second")],
+      [`/api/artifacts/${id}/feedback`, "POST", { actor, body: "Late note", target }],
+      [`/api/feedback/${note.id}`, "PATCH", { actor, body: "Changed" }],
+      [
+        `/api/feedback/${note.id}`,
+        "PATCH",
+        { actor: { role: "human", sessionId: null }, status: "resolved" },
+      ],
+      [`/api/feedback/${note.id}`, "DELETE", { actor }],
+      [`/api/feedback/${note.id}/replies`, "POST", { actor, body: "Late reply", context }],
+      [`/api/replies/${reply.id}`, "PATCH", { actor, body: "Changed" }],
+      [`/api/feedback/${note.id}/placements`, "PUT", { actor, target, state: "anchored" }],
+      ["/api/claims", "POST", { sessionId: actor.sessionId, feedbackIds: [note.id] }],
+      [`/api/artifacts/${id}/listen`, "POST", { actor }],
+      [`/api/artifacts/${id}/submit`, "POST", {}],
+    ];
+    for (const [path, method, body] of mutations) {
+      const response = await request(path, method, body);
+      expect({ path, method, status: response.status }).toEqual({ path, method, status: 409 });
+      expect((await response.json()).error).toContain("archived");
+    }
+    expect(await (await request(`/api/artifacts/${id}`)).json()).toEqual(before);
+    expect((await request(`/api/artifacts/${id}/versions/1/resource?path=page.html`)).status).toBe(
+      200,
+    );
+    expect((await request(`/api/artifacts/${id}/feedback/history`)).status).toBe(200);
+    expect(
+      (
+        await request(`/api/artifacts/${id}/lifecycle`, "POST", {
+          actor,
+          event: "restored",
+          operationKey: "resume",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await request(`/api/artifacts/${id}`, "PATCH", { title: "Restored work" })).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(`/api/feedback/${note.id}/replies`, "POST", {
+          actor,
+          body: "Work resumed",
+          context,
+        })
+      ).status,
+    ).toBe(201);
+  });
+
   test("archive and restore invalidate a pending snapshot while history remains readable", async () => {
     const id = await create();
     await storage.conversations.add(id, {

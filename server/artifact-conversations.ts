@@ -223,7 +223,7 @@ export class ArtifactConversations {
             const operation = this.artifacts.attachments.operation(id, input, "feedback", id);
             if (operation.replay) return this.get(operation.replay);
             const body = messageBody(input.body, images.length);
-            const artifact = this.artifacts.get(id);
+            const artifact = this.artifacts.requireActive(id);
             const time = this.clock();
             const feedbackId = `feedback_${randomUUID().replaceAll("-", "")}`;
             this.db
@@ -278,6 +278,7 @@ export class ArtifactConversations {
     return this.db
       .transaction(() => {
         const row = this.row(id);
+        this.artifacts.requireActive(row.artifact_id);
         if (input.body !== undefined || images) this.editable(author, row);
         const body = messageBody(
           input.body === undefined ? row.body : input.body,
@@ -316,6 +317,7 @@ export class ArtifactConversations {
     this.db
       .transaction(() => {
         const row = this.row(id);
+        this.artifacts.requireActive(row.artifact_id);
         this.editable(author, row);
         this.db.query("DELETE FROM feedback WHERE id = ?").run(id);
         this.touch(row.artifact_id);
@@ -346,6 +348,7 @@ export class ArtifactConversations {
               id,
             );
             if (operation.replay) return this.reply(operation.replay);
+            this.artifacts.requireActive(feedback.artifact_id);
             const body = messageBody(input.body, images.length);
             const time = this.clock();
             const replyId = `reply_${randomUUID().replaceAll("-", "")}`;
@@ -416,6 +419,7 @@ export class ArtifactConversations {
       .transaction(() => {
         const row = this.db.query<ReplyRow, [string]>("SELECT * FROM replies WHERE id = ?").get(id);
         if (!row) throw new ArtifactError("Reply not found", 404);
+        this.artifacts.requireActive(row.artifact_id);
         this.editable(author, row);
         const body = messageBody(
           input.body === undefined ? row.body : input.body,
@@ -560,6 +564,7 @@ export class ArtifactConversations {
     this.db
       .transaction(() => {
         this.row(id);
+        this.artifacts.requireActive(feedback.artifact_id);
         this.db
           .query(`INSERT INTO feedback_placements(feedback_id, artifact_id, artifact_kind, version_seq,
         document_path, representation, match_state, locator_json, created_at, updated_at)

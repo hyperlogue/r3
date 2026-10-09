@@ -630,6 +630,38 @@ try {
   console.log(
     "Floating composer: drag across previews, text selection, growth, viewport bounds, retained target/draft, posting and drag cleanup passed.",
   );
+  await openComposer("draft before archive");
+  await page.evaluate(`${composer}.querySelector('textarea').focus()`);
+  await page.command("Input.insertText", { text: "Draft retained across archive" });
+  await api.collaboration.transition(artifact.id, {
+    actor,
+    event: "archived",
+    operationKey: "browser-freeze",
+  });
+  await eventually(
+    () =>
+      page.evaluate(
+        `document.querySelector('[aria-label="Add general feedback"]').disabled && !document.querySelector('[data-feedback-action]') && !${composer}`,
+      ),
+    "archive disables conversation actions and hides the composer",
+  );
+  await api.collaboration.transition(artifact.id, {
+    actor,
+    event: "restored",
+    operationKey: "browser-resume",
+  });
+  await eventually(
+    () =>
+      page.evaluate(
+        `${composer}?.querySelector('textarea').value === 'Draft retained across archive'`,
+      ),
+    "restore recovers the saved draft",
+  );
+  assert.equal(
+    await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').disabled"),
+    false,
+  );
+  console.log("Archive freezes conversation controls and restore preserves the draft.");
   rejectDetail = true;
   api.collaboration.broadcast({ type: "artifact-updated", artifactId: artifact.id });
   await eventually(async () => failedDetailReads > 0, "failed background detail refresh");

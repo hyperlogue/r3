@@ -320,6 +320,7 @@ export function ArtifactHeader({
           {title === null ? (
             <Button
               ref={titleButton}
+              disabled={detail.state !== "active"}
               variant="ghost"
               className="w-full justify-start"
               onClick={() => {
@@ -342,7 +343,7 @@ export function ArtifactHeader({
               }}
               onSubmit={(event) => {
                 event.preventDefault();
-                edit.mutate();
+                if (detail.state === "active") edit.mutate();
               }}
             >
               <input
@@ -351,13 +352,17 @@ export function ArtifactHeader({
                 className="min-w-0 flex-1 rounded border border-neutral-300 bg-transparent px-2 text-sm max-md:text-base dark:border-neutral-700"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                disabled={edit.isPending}
+                disabled={detail.state !== "active" || edit.isPending}
               />
               <div className="flex justify-end gap-1">
-                <Button type="submit" disabled={edit.isPending}>
+                <Button type="submit" disabled={detail.state !== "active" || edit.isPending}>
                   Save
                 </Button>
-                <Button type="button" disabled={edit.isPending} onClick={() => setTitle(null)}>
+                <Button
+                  type="button"
+                  disabled={detail.state !== "active" || edit.isPending}
+                  onClick={() => setTitle(null)}
+                >
                   Cancel
                 </Button>
               </div>

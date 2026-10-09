@@ -165,9 +165,9 @@ registrations before post-commit notifications. Push only a nonblank message to
 that captured recipient.
 A failed push preserves the event and reports failure; retry does not notify again.
 Restore permits work but never revives an old registration. Archive preserves
-feedback state, unsent content, and drafts. The accepted archive requirement is
-read-only content until restore, including rejection of late replies; the current
-enforcement gap is recorded in [artifact design](docs/artifacts/design.md).
+feedback state, unsent content, and drafts. Archived content is read-only until
+restore: the backend rejects content mutations at commit, including late replies.
+The browser retains drafts while disabling mutation controls.
 
 An artifact can retain a publisher fallback and an explicit subscription, with
 one selected subscription. A publication replaces the fallback; unsupported publishers

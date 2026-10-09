@@ -28,8 +28,10 @@ export function ArtifactComposer({
   replyTo,
   onDone,
   floating,
+  readOnly = false,
 }: {
   artifactId: string;
+  readOnly?: boolean;
   replyTo?: string;
   onDone?: () => void;
   floating?: { left: number; top: number; bottom: number; onClose: () => void };
@@ -118,6 +120,12 @@ export function ArtifactComposer({
     post.isPending,
     textarea,
   );
+  if (readOnly)
+    return (
+      <p className="px-3 py-2 text-xs text-neutral-500">
+        Archived. Restore this artifact to continue the conversation. Your draft is saved.
+      </p>
+    );
   const context = draft?.context;
   const form = (
     <form

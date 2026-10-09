@@ -172,6 +172,8 @@ r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
 
 The worker saves registration intent across restarts. After reconnect, the backend restores a registration only when no other recipient exists; a conflict remains visible in \`r3 worker status\`. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
 
+Archived artifacts remain readable. Content changes, comments, and subscriptions return a conflict until you restore the artifact. A reply still in preparation when archive commits is rejected; keep its text and restore before retrying.
+
 ## Usage and cleanup
 
 Use \`r3 stat\` for current library totals and daily activity over 14 days, or
