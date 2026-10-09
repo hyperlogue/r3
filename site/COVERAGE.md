@@ -48,12 +48,12 @@ details come directly from their product sources during the build.
 
 | Story | Text and layout | Interactive demo / recording |
 | --- | --- | --- |
-| Project-creation prototype | `/use-cases/prototype/` | Follow-up |
+| Project-creation prototype | `/use-cases/prototype/` | Interactive workspace at `/example/index.html`; recording follows |
 | Onboarding proposal | `/use-cases/proposal/` | Follow-up |
 | Search explanation | `/use-cases/explanation/` | Follow-up |
 | Duplicate-submission fix | `/use-cases/code-review/` | Follow-up |
 | Launch media review | `/use-cases/media/` | Follow-up |
 
 The public live demo remains available with its existing fixtures. The site labels
-the homepage illustration and the demo’s scripted behavior without presenting
-future Example Fieldwork scenarios or recordings as available.
+the homepage’s real workspace with fictional data and the demo’s scripted
+behavior. Additional Example Fieldwork scenarios and recordings remain follow-up.

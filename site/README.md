@@ -3,7 +3,8 @@
 The website implementation lives in this folder. It uses Bun and shared HTML
 templates, with optional Markdown that permits authored HTML. Custom CSS and
 Tailwind utilities share one stylesheet. Ordinary pages ship static HTML and a
-small browser script; the existing React demo stays under `/demo/`.
+small browser script. The homepage embeds the real React workspace under
+`/example/index.html`; the existing full demo stays under `/demo/`.
 
 ## Build and preview
 
@@ -40,7 +41,9 @@ Use the same `R3_SITE_BASE` as the preceding build. Packaging uses relative asse
 URLs and explicit document filenames, with no dependency on server directory
 redirects. Search runs without a worker in the opaque preview. The live demo
 opens separately because its own nested previews are unavailable inside an r3
-artifact; `R3_SITE_DEMO_URL` defaults to the running local preview's demo URL.
+artifact. The homepage uses an actual workspace capture linking to the same
+interactive React page within the artifact; its authored React document needs no
+nested preview frame. `R3_SITE_DEMO_URL` defaults to the running local preview's demo URL.
 Set it to the deployed demo URL when sharing beyond the local machine.
 
 ## Author content
@@ -73,10 +76,33 @@ interactive layout an equivalent readable explanation.
 the PNG used by link-preview services. Browser tooling is not needed for a normal
 site build.
 
+## Authentic workspace example
+
+`showcase/index.tsx` mounts `ArtifactPage` from `web/src/artifact-page.tsx`, exactly
+as the connected r3 app does. It supplies a detail snapshot, reads, mutation
+handlers from the existing in-memory demo backend, and the authored
+`FieldworkDocument` renderer. No API aliases, authentication, or server bootstrap
+are involved. The build rejects runtime imports of connected application modules.
+
+`showcase/fixture.ts` owns the fictional versions and conversation. Comments,
+resolution, version selection, comparison, and scripted agent replies use real
+product components. Reset restores the fixture and clears sample drafts. One page
+per document isolates r3's stylesheet, keyboard bindings, and display preferences.
+The sample renderer uses ordinary React controls; it does not run uploaded HTML
+or emulate the production preview security boundary.
+
+After changing the sample or shared UI, build the site, then run
+`bun --no-env-file site/check-showcase.ts --capture` with `R3_TEST_BROWSER` set.
+This checks interactions and refreshes `assets/fieldwork-light.png` and
+`assets/fieldwork-dark.png` directly from the real rendered page. Rebuild afterward
+to copy the updated captures. They serve no-JavaScript readers and packaged HTML
+previews; the normal website embeds the interactive page.
+
 ## Dependencies
 
 All dependencies come from the root manifest: Bun, TypeScript, markdown-it,
-Shiki, Tailwind with bun-plugin-tailwind, and Pagefind. Shiki and Markdown parsing
+Shiki, Tailwind with bun-plugin-tailwind, and Pagefind. The workspace reuses the
+app’s React, React DOM, TanStack Query, and existing UI dependencies. Shiki and Markdown parsing
 run at build time. Pagefind indexes static output and searches locally in the
 browser. The site loads no remote fonts, analytics, or hosted search service.
 
@@ -93,16 +119,21 @@ After a build, set `R3_TEST_BROWSER` to an installed Chromium executable and run
 fresh profile and an ephemeral loopback static server. It checks desktop/mobile
 layout, theme persistence, clipboard actions, search and empty results, no-JS
 reading, and demo deep links. Screenshots go to ignored `dist/site-review/`.
-Run the repository-wide tests before committing.
+Run `bun --no-env-file site/check-showcase.ts` to exercise injected mutations,
+comparison, mobile layout, and the absence of backend requests. Run the
+repository-wide tests before committing.
+
+After packaging, `bun --no-env-file site/check-artifact.ts` serves only the bundle
+through the real preview policy in an isolated browser. It checks relative
+navigation, theme, search, and React interactions inside the opaque sandbox.
 
 ## Content boundary
 
-This pass supplies text and layouts. The homepage screen is explicitly an
-illustrated workflow; it is not a product screenshot. The live demo retains its
-existing curve-lab and code-review fixtures. The five Example Fieldwork articles
-are guided reproduction instructions, not five new scripted demo scenarios.
+The homepage uses the actual r3 page with a fictional Example Fieldwork project;
+the captions identify the sample data and scripted agent. The full demo retains
+its curve-lab and code-review fixtures. The five Example Fieldwork articles are
+guided reproduction instructions, not five scripted demo scenarios.
 
-Video production, current product screenshots, and expanded Example Fieldwork
-demo fixtures remain separate follow-up work. There are no empty video players
-or claims that those media already exist. The capability map is in
+Video production remains follow-up work. There are no empty video players or
+claims that those recordings already exist. The capability map is in
 [COVERAGE.md](COVERAGE.md).

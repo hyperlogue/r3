@@ -1,0 +1,169 @@
+@import "../../web/src/main.css";
+@source "./";
+
+#root {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body {
+  color: var(--color-neutral-900);
+  background: white;
+}
+.dark body {
+  color: var(--color-neutral-100);
+  background: var(--color-neutral-950);
+}
+.example-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-600);
+}
+.dark .example-banner {
+  background: var(--color-neutral-900);
+  border-color: var(--color-neutral-700);
+  color: var(--color-neutral-400);
+}
+.example-actions {
+  display: flex;
+  gap: 16px;
+}
+.example-banner a,
+.example-banner button,
+.example-deleted button {
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.example-deleted {
+  margin: auto;
+  text-align: center;
+}
+.fieldwork-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #f7f8f6;
+  color: #25332c;
+  font-size: 14px;
+}
+.fieldwork-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 26px;
+  border-bottom: 1px solid #dce2dc;
+  font-size: 11px;
+}
+.fieldwork-brand strong {
+  font-size: 17px;
+}
+.fieldwork-body {
+  max-width: 440px;
+  padding: 36px 28px 48px;
+  margin: 0 auto;
+}
+.fieldwork-eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #63716a;
+}
+.fieldwork-body h1 {
+  margin: 9px 0;
+  font-size: 32px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.fieldwork-intro {
+  margin-bottom: 26px;
+  color: #63716a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fieldwork-body label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 17px;
+}
+.fieldwork-body label > span {
+  color: #63716a;
+  margin-left: 4px;
+  font-size: 10px;
+}
+.fieldwork-body input,
+.fieldwork-body select {
+  display: block;
+  width: 100%;
+  background: white;
+  border: 1px solid #bcc8be;
+  padding: 10px 12px;
+  margin-top: 7px;
+  border-radius: 5px;
+  font: inherit;
+}
+.fieldwork-visibility {
+  position: relative;
+}
+.fieldwork-located {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 7px;
+}
+.fieldwork-help {
+  margin: -7px 0 19px;
+  color: #63716a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fieldwork-pin {
+  position: absolute;
+  right: -10px;
+  top: -8px;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  color: white;
+  background: var(--color-primary-600);
+  font-size: 12px;
+  cursor: pointer;
+}
+.fieldwork-anchor {
+  border: 1px solid var(--color-primary-500);
+  color: var(--color-primary-700);
+  padding: 6px 12px;
+  margin: 0 0 16px;
+  cursor: pointer;
+}
+.fieldwork-create {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin: 24px 0 20px;
+  padding: 11px 14px;
+  border-radius: 5px;
+  background: #304d3b;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+@media (max-width: 767px) {
+  .example-explainer {
+    display: none;
+  }
+  .fieldwork-body {
+    padding-top: 26px;
+  }
+  .fieldwork-body input,
+  .fieldwork-body select {
+    font-size: 16px;
+  }
+}

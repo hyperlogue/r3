@@ -26,6 +26,36 @@ function retainArtifactTheme() {
 }
 retainArtifactTheme();
 
+// Each workspace gets its own document for the app's CSS and keyboard bindings.
+// An r3 artifact cannot nest preview frames; its captured product image links to
+// the same React page as a native document instead.
+const example = document.querySelector<HTMLElement>("[data-workspace-example]");
+let workspace: HTMLIFrameElement | undefined;
+function syncWorkspaceTheme() {
+  workspace?.contentWindow?.postMessage(
+    {
+      type: "r3-site-theme",
+      theme: document.documentElement.dataset.theme,
+    },
+    location.origin,
+  );
+}
+if (example && !artifact) {
+  workspace = document.createElement("iframe");
+  workspace.title = "Example Fieldwork — interactive r3 workspace";
+  const url = new URL("example/index.html", root);
+  url.searchParams.set("theme", document.documentElement.dataset.theme || "light");
+  url.searchParams.set("embedded", "1");
+  workspace.src = url.href;
+  workspace.loading = "lazy";
+  example.dataset.interactive = "true";
+  workspace.addEventListener("load", () => {
+    example.dataset.loaded = "true";
+    syncWorkspaceTheme();
+  });
+  example.append(workspace);
+}
+
 function notify(message: string) {
   const toast = document.querySelector<HTMLElement>(".toast");
   if (!toast) return;
@@ -37,6 +67,7 @@ function notify(message: string) {
 document.querySelector(".theme-toggle")?.addEventListener("click", () => {
   const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
+  syncWorkspaceTheme();
   retainArtifactTheme();
   try {
     localStorage.setItem("r3-site-theme", theme);

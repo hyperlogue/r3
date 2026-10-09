@@ -19,88 +19,16 @@ export function storyCards() {
     .join("");
 }
 
-export function workflowIllustration() {
-  return `<figure class="workflow-figure">
-<div class="illustration-caption">
-<span>
-<span class="status-dot">
-</span> A review in Example Fieldwork</span>
-<span>Illustrated workflow</span>
+export function workflowExample() {
+  return `<figure class="workflow-figure" id="fieldwork-workspace">
+<div class="illustration-caption"><span><span class="status-dot"></span> A review in Example Fieldwork</span><a href="/example/index.html">Open the workspace ↗</a></div>
+<div class="workspace-example" data-workspace-example>
+<a class="workspace-fallback" href="/example/index.html" aria-label="Explore Example Fieldwork in the real r3 workspace">
+<img class="workspace-light" src="/assets/fieldwork-light.png" width="1200" height="740" alt="The r3 workspace showing Example Fieldwork’s project form and a discussion about who can access a project.">
+<img class="workspace-dark" src="/assets/fieldwork-dark.png" width="1200" height="740" alt="The same r3 workspace in dark mode.">
+</a>
 </div>
-<div class="review-window">
-<div class="window-bar">
-<div class="window-project">
-<span class="mini-mark">r3</span>
-<span>Project creation</span>
-<span class="version-chip">Version 1</span>
-</div>
-<span class="window-feedback">Discussions <b>1</b>
-</span>
-</div>
-<div class="review-panes">
-<div class="fieldwork-preview">
-<div class="fieldwork-nav">
-<span class="fieldwork-logo">▧ <b>Fieldwork</b>
-</span>
-<span>Workspace / Projects</span>
-</div>
-<div class="fieldwork-form">
-<span class="mini-eyebrow">A little room for your next big idea</span>
-<h3>Start something good.</h3>
-<p>Bring your people, plans, and progress together.</p>
-<div class="illustrated-field">
-<span>Project name</span>
-<strong>Autumn launch</strong>
-</div>
-<div class="illustrated-field">
-<span>Project description <small>Optional</small>
-</span>
-<strong>A calmer way to plan our next release.</strong>
-</div>
-<div class="selected-control">
-<span>Visibility</span>
-<strong>Workspace <span aria-hidden="true">⌄</span>
-</strong>
-<span class="anchor-pin">1</span>
-</div>
-<div class="illustrated-submit">Create project <span aria-hidden="true">↗</span>
-</div>
-</div>
-<span class="selection-note">01 — Point at the part that needs work</span>
-</div>
-<div class="illustrated-thread">
-<div class="thread-heading">
-<span>Active</span>
-<span>Resolved</span>
-</div>
-<div class="thread-content">
-<div class="thread-byline">
-<span class="avatar human">Y</span>
-<b>You</b>
-<span>on Visibility</span>
-</div>
-<blockquote>Who can see a workspace project? Explain this before I create it.</blockquote>
-<div class="target-label">
-<span class="anchor-pin">1</span> Visibility · Version 1</div>
-<div class="thread-rule">
-</div>
-<div class="thread-byline">
-<span class="avatar agent">a</span>
-<b>Agent</b>
-<span>Version 2</span>
-</div>
-<p>Added an explanation beneath the visibility setting. Your choice stays editable.</p>
-<a class="fix-link" href="/use-cases/prototype/#review-the-revision">↗ Fix: Visibility explanation</a>
-<div class="fixed-preview">
-<span>Workspace</span>
-<p>Everyone in your workspace can find and open this project.</p>
-</div>
-<span class="thread-footer">02 — Follow the reply to the fix</span>
-</div>
-</div>
-</div>
-</div>
-<figcaption>One concrete comment. One traceable revision. You decide when it’s resolved.</figcaption>
+<figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the discussion.</figcaption>
 </figure>`;
 }
 
@@ -123,7 +51,7 @@ export function home() {
 </div>
 <p class="hero-footnote">Works with any agent that can run a command.<br>Runs locally. Yours to explore.</p>
 </div>
-</div>${workflowIllustration()}</section>
+</div>${workflowExample()}</section>
 <section class="loop-section container" aria-labelledby="loop-heading">
 <div class="section-intro">
 <p class="eyebrow">Render. Review. Refine.</p>

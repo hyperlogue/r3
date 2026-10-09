@@ -16,6 +16,7 @@ import {
   normalizeBase,
   publicURL,
 } from "./render.ts";
+import { buildShowcase } from "./showcase/build.ts";
 import { frontendTheme } from "./theme.ts";
 import { validateLinks } from "./validate.ts";
 
@@ -60,7 +61,7 @@ function landingMarkdown(page: Page) {
     return `# Documentation\n\n${page.description}\n\n${docs.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n`;
   if (page.path === "/use-cases/")
     return `# Example Fieldwork\n\n${page.description}\n\n${cases.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n\nThe separate [live demo](/demo/) uses a curve lab and a code review with scripted agent replies.\n`;
-  return `# r3 — Render. Review. Refine.\n\nSee the work. Point to the change. Make it better.\n\n${page.description}\n\n## A clearer review loop\n\n1. Ask your agent to publish an interactive page, document, file collection, or code diff.\n2. Select the element, passage, line, or media region you want to discuss. Send precise feedback.\n3. Follow the agent’s reply to a new publication and its verified fix. You decide when to resolve the thread.\n\n## Start a review\n\nInstall with \`npm install -g @hyperlogue/r3\`. Ask your agent to read \`r3 guide\` and publish its work.\n\n[Get started](/docs/get-started/) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s Example Fieldwork screen is an illustrated workflow. The live demo uses bundled examples with a scripted agent.\n`;
+  return `# r3 — Render. Review. Refine.\n\nSee the work. Point to the change. Make it better.\n\n${page.description}\n\n## A clearer review loop\n\n1. Ask your agent to publish an interactive page, document, file collection, or code diff.\n2. Select the element, passage, line, or media region you want to discuss. Send precise feedback.\n3. Follow the agent’s reply to a new publication and its verified fix. You decide when to resolve the thread.\n\n## Start a review\n\nInstall with \`npm install -g @hyperlogue/r3\`. Ask your agent to read \`r3 guide\` and publish its work.\n\n[Get started](/docs/get-started/) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
 }
 
 export async function buildSite() {
@@ -126,6 +127,14 @@ export async function buildSite() {
   await rm(join(outputDirectory, "assets/style.css"));
   await cp(join(siteDirectory, "../web/favicon.svg"), join(outputDirectory, "assets/favicon.svg"));
   await cp(join(siteDirectory, "assets/social.png"), join(outputDirectory, "assets/social.png"));
+
+  await buildShowcase(join(outputDirectory, "example"));
+  for (const theme of ["light", "dark"]) {
+    await cp(
+      join(siteDirectory, `assets/fieldwork-${theme}.png`),
+      join(outputDirectory, `assets/fieldwork-${theme}.png`),
+    );
+  }
 
   // Reuse the current real demo. This content/layout pass does not replace its
   // fixtures or promise that the five editorial walkthroughs are demo scenarios.
