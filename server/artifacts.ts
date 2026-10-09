@@ -273,11 +273,11 @@ export class ArtifactStore {
   get(id: string): Artifact {
     const row = this.db
       .query<ArtifactRow, [string, string]>(`SELECT a.*, EXISTS (
-      SELECT 1 FROM feedback f JOIN feedback_claims c ON c.feedback_id = f.id
+      SELECT 1 FROM discussions f JOIN discussion_claims c ON c.discussion_id = f.id
       WHERE f.artifact_id = a.id AND c.expires_at > ?
     ) AS working, (
-      SELECT count(*) FROM feedback f WHERE f.artifact_id = a.id AND f.status = 'open'
-      AND COALESCE((SELECT r.author FROM replies r WHERE r.feedback_id = f.id
+      SELECT count(*) FROM discussions f WHERE f.artifact_id = a.id AND f.status = 'open'
+      AND COALESCE((SELECT r.author FROM comments r WHERE r.discussion_id = f.id
         ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1), f.author) = 'agent'
     ) AS unhandled_count FROM artifacts a WHERE a.id = ?`)
       .get(this.clock(), id);

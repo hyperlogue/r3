@@ -1,5 +1,9 @@
 // Public component/demo fixtures. All identities and publications are synthetic.
-import type { ArtifactDetail, ArtifactFeedback, ArtifactVersion } from "../../shared/artifacts.ts";
+import type {
+  ArtifactDetail,
+  ArtifactDiscussion,
+  ArtifactVersion,
+} from "../../shared/artifacts.ts";
 
 const time = "2026-09-11T12:00:00.000Z";
 export const artifactFixtureVersion: ArtifactVersion = {
@@ -8,7 +12,7 @@ export const artifactFixtureVersion: ArtifactVersion = {
   publicationKey: "fixture-publication",
   contentHash: "fixture-content",
   label: "Initial publication",
-  summary: "Read the page and leave feedback on the content.",
+  summary: "Read the page and leave discussions on the content.",
   publishedBy: { role: "agent", sessionId: "design-agent" },
   provenance: {},
   createdAt: time,
@@ -17,8 +21,8 @@ export const artifactFixtureVersion: ArtifactVersion = {
   entrypoint: null,
   fileCount: 2,
 };
-export const artifactFixtureFeedback: ArtifactFeedback = {
-  id: "feedback_example",
+export const artifactFixtureDiscussion: ArtifactDiscussion = {
+  id: "discussion_example",
   artifactId: "artifact_example",
   author: { role: "human", sessionId: null },
   body: "Could the comparison explain which option works best for small teams?",
@@ -34,10 +38,10 @@ export const artifactFixtureFeedback: ArtifactFeedback = {
   updatedAt: time,
   sentAt: time,
   statusUnsent: false,
-  replies: [
+  comments: [
     {
-      id: "reply_example",
-      feedbackId: "feedback_example",
+      id: "comment_example",
+      discussionId: "discussion_example",
       artifactId: "artifact_example",
       author: { role: "agent", sessionId: "design-agent" },
       body: "I can add a short recommendation beside the comparison.",
@@ -68,7 +72,7 @@ export const artifactFixture: ArtifactDetail = {
   storage: { totalBytes: 24576, latestVersionBytes: 24576 },
   legacy: null,
   versions: [artifactFixtureVersion],
-  feedback: [artifactFixtureFeedback],
+  discussions: [artifactFixtureDiscussion],
   placements: [],
   events: [],
 };

@@ -33,10 +33,10 @@ export interface ArtifactDemoState extends ArtifactDemoSeed {
   activity?: DemoActivity;
   messageOperations?: Record<
     string,
-    { hash: string; id: string; kind: "feedback" | "reply"; artifactId: string }
+    { hash: string; id: string; kind: "discussions" | "comment"; artifactId: string }
   >;
   viewed: Record<string, string[]>;
-  feedbackRevisions: Record<string, number>;
+  discussionRevisions: Record<string, number>;
   everDelivered: Record<string, boolean>;
 }
 export const publicationKey = (id: string, seq: number) => `${id}/${seq}`;

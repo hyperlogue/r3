@@ -1,7 +1,7 @@
 # Authoring HTML artifacts
 
 Use `r3 guide html` for publication commands, directory preparation, stable element
-IDs, and named reply fix links. This guide covers the page runtime and device API.
+IDs, and named comment fix links. This guide covers the page runtime and device API.
 The [security model](../../.claude/skills/security-model/SKILL.md#preview-host)
 owns isolation and enforcement details.
 
@@ -32,8 +32,8 @@ Pages can import `/r3/utility.js` to use the
 
 - `getContext()` returns this artifact, version, document path, and resource root.
 - `getThreads()` reads this artifact's conversations.
-- `createFeedback({ body, locator })`, `reply({ feedbackId, body })`, and `submit()`
-  use the same threads and explicit handoff as the feedback panel. Human mutations
+- `createDiscussion({ body, locator })`, `comment({ discussionId, body })`, and `submit()`
+  use the same threads and explicit handoff as the discussions panel. Human mutations
   require user activation.
 - `subscribe(callback)` observes changes and returns an unsubscribe function.
 - `getTheme()` and `setTheme(theme)` read and save a `"light"` or `"dark"` preference

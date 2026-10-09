@@ -167,13 +167,16 @@ try {
       `${mode}: theme changes`,
     );
     await click('[aria-label="Close settings"]');
-    await click('[aria-label="Float feedback"]');
-    await eventually(() => exists('[aria-label="Dock feedback"]'), `${mode}: feedback floats`);
-    const mover = '[aria-label="Move feedback"]';
+    await click('[aria-label="Float discussions"]');
+    await eventually(
+      () => exists('[aria-label="Dock discussions"]'),
+      `${mode}: discussions floats`,
+    );
+    const mover = '[aria-label="Move discussions"]';
     await eventually(() => exists(mover), `${mode}: floating controls mount`);
     const floatingX = () =>
       page.evaluate<number>(
-        `document.querySelector(${JSON.stringify(mover)}).closest("[data-feedback-mode]").getBoundingClientRect().x`,
+        `document.querySelector(${JSON.stringify(mover)}).closest("[data-discussions-mode]").getBoundingClientRect().x`,
       );
     const previousX = await floatingX();
     await key(mover, "ArrowLeft");
@@ -181,8 +184,11 @@ try {
       async () => (await floatingX()) < previousX,
       `${mode}: floating geometry changes`,
     );
-    await click('[aria-label="Dock feedback"]');
-    await eventually(() => exists('[aria-label="Float feedback"]'), `${mode}: feedback docks`);
+    await click('[aria-label="Dock discussions"]');
+    await eventually(
+      () => exists('[aria-label="Float discussions"]'),
+      `${mode}: discussions docks`,
+    );
     const rememberedWidth = (await width()) + 10;
     await key(fileHandle, "ArrowRight");
     await eventually(

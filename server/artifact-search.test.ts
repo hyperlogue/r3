@@ -69,33 +69,33 @@ test("latest search, history, summaries and source locations use actual publishe
   expect((await search("keyboard", { history: "all" })).total).toBe(2);
 });
 
-test("conversation edits, replies, resolution, archive and deletion reconcile without delivery changes", async () => {
+test("conversation edits, comments, resolution, archive and deletion reconcile without delivery changes", async () => {
   const artifact = create();
   await publish(artifact.id, "Original document");
-  const feedback = await storage.conversations.add(artifact.id, {
+  const discussions = await storage.conversations.add(artifact.id, {
     actor: human,
-    body: "Keyboard feedback",
+    body: "Keyboard discussions",
     target: { kind: "source", versionSeq: 1, path: "notes.md", locator: null },
   });
   await publish(artifact.id, "Replacement document", 1);
-  const reply = await storage.conversations.addReply(feedback.id, {
+  const comment = await storage.conversations.addComment(discussions.id, {
     actor: agent,
     body: "Keyboard fix ready",
     target: { kind: "source", versionSeq: 2, path: "notes.md", locator: null },
   });
   const found = await search("keyboard", { type: "conversation", attention: true });
   expect(found.total).toBe(2);
-  expect(found.matches.find((m) => m.category === "feedback")?.versionSeq).toBe(1);
-  expect(found.matches.find((m) => m.category === "reply")).toMatchObject({
+  expect(found.matches.find((m) => m.category === "discussions")?.versionSeq).toBe(1);
+  expect(found.matches.find((m) => m.category === "comment")).toMatchObject({
     versionSeq: 2,
-    replyId: reply.id,
-    feedbackId: feedback.id,
+    commentId: comment.id,
+    discussionId: discussions.id,
   });
-  expect(storage.conversations.get(feedback.id).sentAt).toBeNull();
-  await storage.conversations.editReply(reply.id, { actor: agent, body: "Pointer fix ready" });
-  await storage.conversations.edit(feedback.id, {
+  expect(storage.conversations.get(discussions.id).sentAt).toBeNull();
+  await storage.conversations.editComment(comment.id, { actor: agent, body: "Pointer fix ready" });
+  await storage.conversations.edit(discussions.id, {
     actor: human,
-    body: "Pointer feedback",
+    body: "Pointer discussions",
     status: "resolved",
   });
   expect((await search("keyboard")).total).toBe(0);
@@ -108,13 +108,13 @@ test("conversation edits, replies, resolution, archive and deletion reconcile wi
   });
   expect((await search("pointer", { state: "active" })).total).toBe(0);
   expect((await search("pointer", { state: "archived" })).total).toBe(2);
-  expect(() => storage.conversations.delete(feedback.id, human)).toThrow("archived");
+  expect(() => storage.conversations.delete(discussions.id, human)).toThrow("archived");
   storage.lifecycle.transition(artifact.id, {
     actor: human,
     event: "restored",
     operationKey: "restore",
   });
-  storage.conversations.delete(feedback.id, human);
+  storage.conversations.delete(discussions.id, human);
   expect((await search("pointer")).total).toBe(0);
   storage.artifacts.delete(artifact.id);
   expect((await search("document", { history: "all" })).total).toBe(0);

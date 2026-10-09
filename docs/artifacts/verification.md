@@ -31,7 +31,7 @@ stale metadata; review changed associations and ambiguous-extension defaults.
 | --- | --- |
 | Complete directory capture, stable Git inputs, binary bytes | `cli/capture.test.ts`, `cli/capture-git.test.ts`, `cli/artifact-publish.test.ts` |
 | Publication validation, atomic visibility, retries, concurrent publishers, retained rendering, deduplicated content accounting, deletion | `server/publication.test.ts`, `server/artifacts.test.ts`, `server/blobs.test.ts`, `server/artifact-schema.test.ts` |
-| Source/rendered/diff targets, explicit reply context, independent placements | `server/artifact-targets.test.ts`, `server/artifact-conversations.test.ts`, `web/src/artifact-navigation.test.ts` |
+| Source/rendered/diff targets, explicit comment context, independent placements | `server/artifact-targets.test.ts`, `server/artifact-conversations.test.ts`, `web/src/artifact-navigation.test.ts` |
 | All bundled Shiki languages, filename metadata drift, compound extensions, escaped source and both captured diff sides | `server/highlight-languages.test.ts`, `server/artifact-source.test.ts`, `server/patch-content.test.ts` |
 | Retained worker subscriptions, offline replacement, credential-bound reconnect, backend restart, isolated credentials, multiple backends and destination import | `server/worker-connections.test.ts`, `cli/worker-runtime.test.ts`, `cli/worker-api.test.ts`, `cli/worker-client.test.ts`, `cli/backend.test.ts` |
 | Device approval boundaries, polling/expiry/reuse, audit, revocation and trusted source addresses | `server/client-auth.test.ts`, `server/client-auth-api.test.ts` |
@@ -63,15 +63,15 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-file-header-actions.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-selection.ts
-R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-source-feedback.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-source-discussions.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-favicon.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-projects.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-display-preferences.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-file-navigation.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-markdown-theme.ts
-R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-interactions.ts
-R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-creation.ts
-R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-feedback-handoff.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-discussions-interactions.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-discussions-creation.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-discussions-handoff.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-startup.ts
@@ -90,21 +90,21 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | Script | Acceptance boundary |
 | --- | --- |
 | `test-file-header-actions.ts` | Actual workspace and authenticated resource reads save the selected version's exact bytes and filename for media, source, Markdown, HTML, and binary files, including folded headers. Covers pending duplicate suppression, visible failure and retry, unchanged Viewed state, exact path-suffix clipboard contents and underlines, one-second confirmation and repeated/out-of-order copies, clipboard failure, keyboard and touch access, phone layout, and path copying without complete-file download on sparse diffs. Optional `R3_TEST_SCREENSHOTS` captures light/dark layouts |
-| `test-feedback-creation.ts` | Newest-first save, composer-to-card height transition, early event-stream reads and concurrent replies before the POST response, no duplicate cards, failed-save draft retention, retry, reduced motion; shared note/reply drafts across tabs, latest saved edit, reload, discard propagation, and submitted-reply cleanup |
-| `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand feedback composer, draft handoff guard, and inactive shortcuts in hidden desktop/closed mobile panels; expanded/floating/hidden widths, remembered panel mode, and individual thread drafts with the dock hidden; Escape dismissal, keyboard reopening/general feedback, retained drafts, editor/popup priority, and repeat guards |
+| `test-discussions-creation.ts` | Newest-first save, composer-to-card height transition, early event-stream reads and concurrent comments before the POST response, no duplicate cards, failed-save draft retention, retry, reduced motion; shared note/comment drafts across tabs, latest saved edit, reload, discard propagation, and submitted-comment cleanup |
+| `test-artifact-reading.ts` | Computed syntax colors for source/diff in light and dark modes; complete file stacks with progressive hydration; folding, file picking, and scroll-synchronized highlighting; delayed file hydration aligns below the toolbar without stealing newer jumps; on-demand discussions composer, draft handoff guard, and inactive shortcuts in hidden desktop/closed mobile panels; expanded/floating/hidden widths, remembered panel mode, and individual thread drafts with the dock hidden; Escape dismissal, keyboard reopening/general discussions, retained drafts, editor/popup priority, and repeat guards |
 | `test-artifact-selection.ts` | Source/diff and rendered HTML/Markdown selection, unfocused composer, Space/Tab across the opaque frame, idle Escape, keyboard debounce, editable exclusions, quote destination and anchor preservation, native posted Markdown target, and touch action with selection collapse during the tap; comment-mode shortcuts in the workspace and preview, selected-node Space, native posted node targets, and repeat/modifier guards |
-| `test-source-feedback.ts` | Production source/diff gestures post compact quote excerpts while preserving full ranges; authenticated on-demand reads recover all original lines without acknowledgment. Covers reverse drags, partial text, blank lines, trailing whitespace, pinned versions, and both diff sides/layouts. Requires `R3_TEST_PLAYWRIGHT` and `R3_TEST_BROWSER` |
-| `test-artifact-favicon.ts` | Agent feedback invalidations add a rendered blue favicon dot; human replies and resolution clear it; navigation restores the ordinary icon and reopening retains unhandled attention |
+| `test-source-discussions.ts` | Production source/diff gestures post compact quote excerpts while preserving full ranges; authenticated on-demand reads recover all original lines without acknowledgment. Covers reverse drags, partial text, blank lines, trailing whitespace, pinned versions, and both diff sides/layouts. Requires `R3_TEST_PLAYWRIGHT` and `R3_TEST_BROWSER` |
+| `test-artifact-favicon.ts` | Agent discussions invalidations add a rendered blue favicon dot; human comments and resolution clear it; navigation restores the ordinary icon and reopening retains unhandled attention |
 | `test-artifact-projects.ts` | Inferred project names, renames, and deletion update an already-open artifact home through committed-write events |
-| `test-display-preferences.ts` | Native site-data denial still boots the complete files workspace; failed preference writes preserve file-panel collapse/resize/reset, font and theme changes, and feedback docking/floating controls without uncaught errors |
+| `test-display-preferences.ts` | Native site-data denial still boots the complete files workspace; failed preference writes preserve file-panel collapse/resize/reset, font and theme changes, and discussions docking/floating controls without uncaught errors |
 | `test-preview-file-navigation.ts` | Desktop and phone-sized file stacks scroll cross-file links to visible headings or document start, retain source identity and history, and handle cold/folded destinations, query clearing, native anchors, and scripted document replacement |
-| `test-artifact-app.ts` | Copies the compiled binary outside the checkout; upgrades an isolated artifact store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human feedback, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
+| `test-artifact-app.ts` | Copies the compiled binary outside the checkout; upgrades an isolated artifact store; opens preserved URLs/threads; verifies backup and restart; exercises embedded assets, rendered human discussions, remote publication by another agent, pinned version selection, and Markdown/binary reads after deleting the publisher directory |
 | `test-preview-browser.ts` | Capability gate, scoped resources, modules, utility RPC/subscriptions, element capture, contextual Locate, and normal page interaction; unsupported mode checks that no published file is requested |
 | `test-markdown-theme.ts` | All four system/r3 theme combinations, live theme changes, retained syntax colors, unchanged authored HTML and stored bytes; full-height Markdown, fold/unfold reuse without document reload, width and late-image resizing, outer-pane Locate on mounted/new previews, reachable comment controls, and file-divider dragging over the opaque frame |
-| `test-feedback-interactions.ts` | Archive disables conversation mutations and restores saved drafts;  Held status responses, optimistic Resolve/Reopen, concurrent decisions and SSE replies, rollback of only the failed decision; directional queue slides, badge squash/stretch with continuous reversal and unscaled labels, retained Active drafts, mode-transition reversal and reduced motion; stable typing and composer/card motion; reopening during an inert exit; floating-panel drag/resize over previews, independent dock width, saved geometry, clamping and keyboard controls; standalone composer dragging over previews, text selection, growth/viewport clamping, retained drafts and targets, posting and drag cleanup; transient refetch recovery and definitive deletion |
-| `test-feedback-handoff.ts` | Retained subscription errors and connection recovery; Navbar sending with the panel hidden, shared navbar/panel in-flight guard, unhandled-only attention dots; held notification responses, unified Sending/Sent and corner confirmation including Codex queue acceptance, duplicate suppression across reloads/tabs, concurrent inputs, out-of-order completions, recovery after session reconnection and generic watch wakeups; agent activity does not create a pending batch; unavailable Web Crypto uses memory without persisting raw inputs; desktop/mobile command popovers, copy success/failure without pending/history reads or acknowledgment, focus return and viewport fit |
+| `test-discussions-interactions.ts` | Archive disables conversation mutations and restores saved drafts;  Held status responses, optimistic Resolve/Reopen, concurrent decisions and SSE comments, rollback of only the failed decision; directional queue slides, badge squash/stretch with continuous reversal and unscaled labels, retained Active drafts, mode-transition reversal and reduced motion; stable typing and composer/card motion; reopening during an inert exit; floating-panel drag/resize over previews, independent dock width, saved geometry, clamping and keyboard controls; standalone composer dragging over previews, text selection, growth/viewport clamping, retained drafts and targets, posting and drag cleanup; transient refetch recovery and definitive deletion |
+| `test-discussions-handoff.ts` | Retained subscription errors and connection recovery; Navbar sending with the panel hidden, shared navbar/panel in-flight guard, unhandled-only attention dots; held notification responses, unified Sending/Sent and corner confirmation including Codex queue acceptance, duplicate suppression across reloads/tabs, concurrent inputs, out-of-order completions, recovery after session reconnection and generic watch wakeups; agent activity does not create a pending batch; unavailable Web Crypto uses memory without persisting raw inputs; desktop/mobile command popovers, copy success/failure without pending/history reads or acknowledgment, focus return and viewport fit |
 | `test-notifications.ts` | Shared corner stacking outside clipped/inert sources, Strict Mode registration, desktop/compact/phone viewport fit, automatic success dismissal without a gesture and paused by keyboard focus, warnings and errors persisting beyond the success timeout until independently dismissed, selectable fetch command after clipboard denial, capture exclusion, and originating-component cleanup on navigation |
-| `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: preview setup adds no browser history entry; artifact-scoped theme persistence through reload and version changes; rendered feedback in the shared thread, version switching, original-target Locate, and native published-document navigation; automatic context recovery after expiry or server restart retains the selected version/document and repeats the gate, overlapping wake events share renewal, and authentication/server failures require explicit retry |
+| `test-preview-workspace.ts` | Actual workspace against temporary API/storage and automatic application-address previews: preview setup adds no browser history entry; artifact-scoped theme persistence through reload and version changes; rendered discussions in the shared thread, version switching, original-target Locate, and native published-document navigation; automatic context recovery after expiry or server restart retains the selected version/document and repeats the gate, overlapping wake events share renewal, and authentication/server failures require explicit retry |
 | `test-preview-startup.ts` | Remote-latency fixture verifies overlapping entrypoint setup and manifest reads, no separate blocking runtime request, and no published document before gate success and manifest membership; `R3_TEST_SLOW_MANIFEST=1` also covers verification finishing before the manifest |
 | `test-application-startup.ts` | Production SPA with embedded bootstrap/detail/manifest/preview setup and readable publisher labels, delayed SSE and detail reads, stable preview URLs across full navigation, HTTP document revalidation, missing-hint API renewal without URL replacement, independent tab revocation, no initial preview create/renew or global sessions/manifest/HTML syntax-palette request, Strict-cookie cross-site fallback, a stale HTML response racing cross-tab logout with working or unavailable browser storage, and fresh cache resumption. Set `R3_TEST_PLAYWRIGHT` to a caller-installed Playwright module and `R3_TEST_BROWSER` to Chromium; `R3_TEST_COMPATIBLE=1` exercises saved consent with no probes |
 | `test-preview-cache.ts` | HTTP revalidation for preview documents including their inline trusted runtime; persistent Markdown byte reuse after source switches, refresh, historical visits, and context replacement/renewal expiry; visible-only startup, retained frames, scroll restoration, repeated gate checks, opaque origins, deletion cleanup, real cross-tab logout and authenticated cache resumption. Accepts the same caller-installed Playwright engine settings as the compatibility suite |
@@ -112,7 +112,7 @@ R3_TEST_BROWSER="$TEST_UNSUPPORTED_CHROMIUM" R3_TEST_UNSUPPORTED=1 bun scripts/t
 | `test-markdown-cache.ts` | Real IndexedDB persistence, hash/identity checks, concurrent opens, LRU/expiry, oversized documents, cross-instance invalidation races, stale bootstrap responses, persisted cache suspension, corrupt bytes, reconnect cleanup, and storage failure. Uses the same Playwright engine settings |
 | `test-passive-markdown.ts` | Passive formatting, theme, scroll and opaque isolation; hostile script/HTML/SVG/CSS inputs cannot initiate requests or navigate. Uses the same Playwright engine settings |
 | `test-preview-network.ts` | HTML-only network control in the nav security popover and modal shortcut suspension; protected default, cancellation, external script loading and transmission of fixture content/conversations to a controlled endpoint; retained sandbox and real app API rejection, including after external navigation to a document with workers and nested frames; context revocation, native navigation, version/reload reset; explicit opt-out in a browser that refuses protected rendering; `R3_TEST_CAPTURE=1` adds real browser denial/grant, received audio/video, independent physical track and clone shutdown, Stop sharing, stale consent dialog dismissal, navigation/version revocation, and unresponsive-page shutdown/recovery |
-| `test-preview-compatibility.ts` | Actual capability gate and workspace in caller-installed Playwright engines: no publication bytes before consent, one warning and one aggregate nav indicator for concurrent media previews, decline/reopen, remembered acknowledgment skips every gate and probe across reloads/tabs/versions (including capable browsers), delayed manifest membership, cross-tab revocation restores verification, storage-write failure, publisher gate-message forgery rejection, restrictive CSP, accurate external-navigation disclosure, app isolation, interaction/feedback, native navigation, versions, rendered files, and authenticated context failures remain closed; unconsented recovery refuses transport errors |
+| `test-preview-compatibility.ts` | Actual capability gate and workspace in caller-installed Playwright engines: no publication bytes before consent, one warning and one aggregate nav indicator for concurrent media previews, decline/reopen, remembered acknowledgment skips every gate and probe across reloads/tabs/versions (including capable browsers), delayed manifest membership, cross-tab revocation restores verification, storage-write failure, publisher gate-message forgery rejection, restrictive CSP, accurate external-navigation disclosure, app isolation, interaction/discussions, native navigation, versions, rendered files, and authenticated context failures remain closed; unconsented recovery refuses transport errors |
 | `test-preview-isolation.ts` | Native modules/CSS/fetch/XHR/media, video/audio seeking and ranges, two opaque frames on the application address, parent/sibling/storage and cookie isolation, denied workers and frames, blocked external resources/navigation/redirects/sockets/WebRTC, and denied capture even after a transport-origin device grant |
 
 The compatibility suite uses an existing `playwright-core` package without adding
@@ -181,7 +181,7 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-demo-preview.ts
 ```
 
 The demo acceptance script serves the staged Pages output at `/r3/demo/`. It checks
-home → files → feedback with a pasted image → Submit → scripted publication/reply,
+home → files → discussions with a pasted image → Submit → scripted publication/comment,
 retained version selection, and a deep-link reload that resets practice state and
 discards unsent drafts. Regenerate fixtures with `bun run gen:demo` after changing
 canned content.
@@ -190,13 +190,13 @@ canned content.
 fixtures available only in that test bundle, serves it under the same prefix, and
 checks bundled HTML/CSS/images, opaque parent/storage isolation, a CSP-blocked
 request to a controlled endpoint, internal document navigation, native text and
-element feedback, Locate across documents, human resolution, scripted publication
+element discussions, Locate across documents, human resolution, scripted publication
 with version pinning, ignored historical practice saves and reset on reload,
 full-height Markdown, retained frames after folding, theme changes, narrow layout,
 and deep-link reloads.
 
 Chromium and Firefox were also exercised with fresh Playwright contexts for HTML
-interaction/navigation, native text selection, feedback/publication/version
+interaction/navigation, native text selection, discussions/publication/version
 switching, Markdown height, and prefix reload. The locally available WebKit build
 could not launch in the test environment; this is not branded Safari or iOS
 acceptance evidence. Production gates, external access, device capture, and
@@ -205,10 +205,10 @@ the static demo explicitly does not simulate their security guarantees.
 
 For a commentable gallery of current components, run
 `bun scripts/build-ui-showcase.ts`, then publish `dist/ui-showcase` as an HTML
-artifact with entrypoint `index.html`. It includes feedback, file/diff stacks,
+artifact with entrypoint `index.html`. It includes discussions, file/diff stacks,
 protection dialogs, and light/dark controls. Sample API calls use the in-memory
 demo backend; display settings use memory in the opaque preview. The real
-artifact's outer comment mode records UI review feedback. Rebuild and publish a
+artifact's outer comment mode records UI review discussions. Rebuild and publish a
 new version after component changes; existing publications remain immutable.
 
 The showcase also includes the comparison workspace with an inline sample document
@@ -222,13 +222,13 @@ R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-comparison.ts
 
 The browser check covers explicit original/fix pairs, filtered shared queues,
 retained page state and drafts, floating geometry, browser history, pinned versions
-after publication, reply context, human resolution, missing runtime targets, dark
+after publication, comment context, human resolution, missing runtime targets, dark
 and mobile layouts, and reduced motion. Set `R3_TEST_SCREENSHOTS` to a temporary
 directory to capture the visual states.
 
 Build the interactive tutorial with `bun scripts/build-ui-tutorial.ts` and publish
 `dist/ui-tutorial` as an HTML artifact. It imports the actual `ArtifactWorkspace`,
-artifact list, file/diff viewers, feedback cards, and composer, using the scripted
+artifact list, file/diff viewers, discussions cards, and composer, using the scripted
 demo backend for practice. Only the lesson guidance and sample document content
 are tutorial-specific; it contains no parallel implementation of the review UI.
 The sample document renders inline because an opaque publication cannot create a
@@ -248,9 +248,9 @@ desktop and phone layouts. The
 binary embedding, CSS compilation, demo aliases, and Pages layout.
 
 
-## Feedback images
+## Discussion images
 
-`bun test server/artifact-attachments.test.ts` covers image-only messages/replies,
+`bun test server/artifact-attachments.test.ts` covers image-only messages/comments,
 immutable byte retrieval, shared-blob GC, atomic failures, scoped membership,
 retry keys, stale acknowledgment rejection, version-6 upgrade, and malformed input.
 CLI and draft-store tests cover download-before-acknowledgment, failed output paths,
@@ -259,9 +259,9 @@ stories cover crop/drawing controls and image drafts, including failed preparati
 in both themes. `bun test cli/attachment-files.test.ts` checks that upload and
 download reuse reject named pipes immediately without waiting for a writer.
 
-`R3_TEST_BROWSER=<chromium> bun scripts/test-feedback-images.ts` uses isolated
+`R3_TEST_BROWSER=<chromium> bun scripts/test-discussions-images.ts` uses isolated
 storage and a fresh browser profile. It covers paste, reload, failed posting/retry,
-image-only reply, real current-tab capture with the browser's test chooser flag,
+image-only comment, real current-tab capture with the browser's test chooser flag,
 cropping, permission denial and late grants, stopped screen tracks, preview bridge
 exclusion, and narrow layout. Drawing checks exercise pen, arrow, rectangle, color,
 undo/redo branches, clearing, cancellation, and actual flattened PNG pixels. The
@@ -273,10 +273,10 @@ capture toolbar with each required browser API independently unavailable. It
 checks that capture is hidden when unsupported and appears as an accessible icon
 when all required APIs are present. The `ArtifactHeader` and `PreviewScreenshot`
 stories cover the navbar placement and unsupported state in both themes.
-The feedback image browser check also covers cursor insertion, spaced image
+The discussions image browser check also covers cursor insertion, spaced image
 placeholders, mixed clipboard text, typing during preparation, file selection,
-renumbering after removal, and reply composers without thread actions. Pure
-placeholder and prompt tests keep labels aligned across notes, edits, and replies.
+renumbering after removal, and comment composers without thread actions. Pure
+placeholder and prompt tests keep labels aligned across notes, edits, and comments.
 The same browser check covers oversized normalization, queued optimization and
 cancellation, resize preview invalidation, actual-pixel inspection, phone layout
 changes, reload, and equality between accepted preview and posted bytes.
@@ -293,14 +293,14 @@ tests reject saving an optimization after its storage generation is revoked.
   bounded query parsing, shared CLI results, and read-only agent access.
 - `server/migration.test.ts`: version 7 upgrades with a private backup and unchanged
   publications/conversations. `web/src/artifact-library.test.ts`: return state,
-  attention ordering, and independent reply context.
+  attention ordering, and independent comment context.
 - `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-library.ts`: full
   application against temporary storage with a fresh browser. Exercises desktop,
   dark, and phone layouts, collapsed selection controls, animated selection mode,
   inert hidden checkboxes, selection clearing on exit, reduced motion, source
-  locations, version pinning, earlier replies,
+  locations, version pinning, earlier comments,
   native Back, return filters, no-result recovery, and archive/restore moving items
-  out of/into review attention without changing retained feedback. Set `R3_TEST_SCREENSHOTS`
+  out of/into review attention without changing retained discussions. Set `R3_TEST_SCREENSHOTS`
   to a temporary directory for visual evidence.
 
 

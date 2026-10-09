@@ -49,7 +49,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   including null, wins. List filters are `state`,
   `kind`, `project`, and `meta.<key>`. No repo header or local path is involved.
   Artifact detail includes `agentLabels`, current display labels keyed by the
-  sessions referenced in its creator, versions, feedback, replies, claims, and
+  sessions referenced in its creator, versions, discussions, comments, claims, and
   lifecycle events. Unnamed entries are null; unrelated sessions are omitted.
   The browser uses these labels without fetching the global session list.
   Artifact reads include computed `unhandledCount`: open threads whose latest
@@ -68,11 +68,11 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Queries contain 1–16 Unicode word prefixes, at most 256 characters, combined with AND;
   punctuation is a separator and FTS syntax is never executed. Latest scope limits
   publications; conversation matches retain each message’s recorded context. Results
-  contain plain-text snippets, native targets, feedback/reply IDs, per-type counts,
+  contain plain-text snippets, native targets, discussions/comment IDs, per-type counts,
   and `nextOffset`. `skippedFiles` reports excluded binary, invalid UTF-8, or >4 MiB
   text files in the selected scope. HTML searches static entrypoint text without
   executing scripts or searching companion source. Same authentication/origin guards
-  as artifact reads; no feedback acknowledgment, claim, listener, or delivery effect.
+  as artifact reads; no discussions acknowledgment, claim, listener, or delivery effect.
   CLI: `r3 search "words"` with corresponding flags, `--attention`, and `--json`.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
   complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
@@ -91,51 +91,51 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   different version or the filesystem. Executable rendering belongs to preview.
 - `GET/PUT /api/artifacts/:id/viewed` persists opaque read-progress keys with
   `{ key, viewed }`. Theme and login-token endpoints retain their response shapes.
-- `GET/POST /api/artifacts/:id/feedback`, `GET/PATCH/DELETE /api/feedback/:id`,
-  `POST /api/feedback/:id/replies`, `PATCH /api/replies/:id`, and
-  `PUT /api/feedback/:id/placements` use native immutable original targets,
+- `GET/POST /api/artifacts/:id/discussions`, `GET/PATCH/DELETE /api/discussions/:id`,
+  `POST /api/discussions/:id/comments`, `PATCH /api/comments/:id`, and
+  `PUT /api/discussions/:id/placements` use native immutable original targets,
   derived comment references, and separate placements. Every message mutation names
-  an `actor`; deletion takes `{ actor }`. Only human actors change feedback status.
+  an `actor`; deletion takes `{ actor }`. Only human actors change discussions status.
   Files also accept native `media` targets with `locator: { time, box }` and a
   required `mediaSnapshot` (full-frame PNG/JPEG upload). Reads add the immutable
   `locator.frame` descriptor; bytes use the attachment route. Snapshot evidence
-  is separate from editable message attachments. CLI feedback add/reply accept
+  is separate from editable message attachments. CLI discussions add/comment accept
   `--frame <path>` with a media `--target`; media targets accept `--view media`.
-  Feedback fetch manifests include target frames, including follow-up originals.
+  Discussion fetch manifests include target frames, including follow-up originals.
   Rendered locators accept an optional plain-text `label` for named HTML fix links;
   matching still uses the selector and native evidence. See `r3 guide html` for
-  the reply example and the schema document for storage semantics.
+  the comment example and the schema document for storage semantics.
   `artifact_summary` and `version_summary` are historical read-only targets;
-  new feedback, reply fix targets, and placements reject description anchors.
-- `GET /api/feedback/:id/source` returns `ArtifactSourceRange` for the original
+  new discussions, comment fix targets, and placements reject description anchors.
+- `GET /api/discussions/:id/source` returns `ArtifactSourceRange` for the original
   source/diff line target: artifact, version, path, side (`null` for source),
   inclusive start/end, and complete text with LF separators. Rendered, general,
-  and whole-file targets return 400; missing feedback returns 404. The normal
-  authentication and origin guards apply. This read never acknowledges feedback,
+  and whole-file targets return 400; missing discussions returns 404. The normal
+  authentication and origin guards apply. This read never acknowledges discussions,
   claims it, or registers a listener. Source/diff quotes may be nonblank exact
   excerpts within the complete captured range; range existence, version/file/side,
   diff gaps, and input limits remain validated. Browser excerpts are capped at
   four lines and 2,048 UTF-16 code units; existing saved quotes are unchanged.
-- `POST/DELETE /api/claims { sessionId, feedbackIds }` claims/releases as the
+- `POST/DELETE /api/claims { sessionId, discussionIds }` claims/releases as the
   named registered agent. Claims change presence, not owner delivery.
-- `GET .../:id/feedback/pending[?feedback=<ids>]` returns an
-  `ArtifactFeedbackSnapshot`: formatted `text`, `itemCount`, and an `acknowledgment`
+- `GET .../:id/discussions/pending[?discussions=<ids>]` returns an
+  `ArtifactDiscussionSnapshot`: formatted `text`, `itemCount`, and an `acknowledgment`
   containing the selection and required `expectedFingerprint`. It is read-only and
   uncached; archived artifacts return 409.
-  `POST .../:id/feedback/acknowledge` takes that `ArtifactFeedbackAcknowledgment`
+  `POST .../:id/discussions/acknowledge` takes that `ArtifactDiscussionAcknowledgment`
   after successful consumption and returns `{ acknowledgedCount }`. Missing/invalid
   fingerprints return 400; stale revisions, changed selection, or archive return 409
   without marking content delivered. The fingerprint binds artifact, selection, and
   persisted conversation revision, including edit/revert and prior acknowledgment.
-  `GET .../:id/feedback/history[?feedback=<ids>]` returns `ArtifactFeedbackRead`
+  `GET .../:id/discussions/history[?discussions=<ids>]` returns `ArtifactDiscussionRead`
   (`text`, `itemCount`) without acknowledgment data: open history by default, or the
   specified threads including resolved ones. History remains readable after archive.
-  The browser copies only the CLI command and makes no feedback-read or acknowledgment
+  The browser copies only the CLI command and makes no discussions-read or acknowledgment
   request. The former `/prompt` routes and CLI alias are removed.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
-  delivery acknowledgment or a generic watch woken for pending feedback. An absent
+  delivery acknowledgment or a generic watch woken for pending discussions. An absent
   recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
-  returns `queued`; failure returns `failed` and HTTP 502. Neither drains feedback.
+  returns `queued`; failure returns `failed` and HTTP 502. Neither drains discussions.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event, replay flag, and notification result. Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
@@ -198,7 +198,7 @@ subscriptions; restore requires a fresh publication or subscription.
   plus an optional non-authorizing `resumeKey` for authenticated HTML navigation,
   never application credentials. `origin` is the transport origin; rendered
   documents have opaque origins.
-- `GET /api/health` reports version and `protocol: artifacts-v1`; `GET /api/boot`
+- `GET /api/health` reports version and `protocol: artifacts-v2`; `GET /api/boot`
   supplies local bootstrap or required-login state. Both remain Host/origin gated.
   Authenticated application HTML may inline that bootstrap plus the current
   `ArtifactDetail`, using the same contracts to seed the initial workspace.
@@ -270,10 +270,10 @@ The current command families:
 | `list`, `show`, `versions`, `files`, `source`, `download`, `patch` | Read only; content reads name a version; downloads preserve original bytes |
 | `stat [--weekly] [--json]`, `gc [--dry-run] [--ttl 30d] [--json]` | Fixed activity windows; manual TTL cleanup, exit 1 on deletion/cleanup failure; no identity required |
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
-| `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, derived comment references, separate placements; `--human` required for status edits |
-| `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
-| `feedback fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
-| `feedback source <feedback-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
+| `discussions add/edit/delete`, `comment`, `place` | Native immutable originals, derived comment references, separate placements; `--human` required for status edits |
+| `claim`, `release` | Registered session owns a renewable discussions-scoped lease |
+| `discussions fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
+| `discussions source <discussions-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `login`, `auth`, `config`, `server`, `worker`, `start/stop/status/restart`, `guide` | Saved backend access, client/browser management, configuration, server/worker lifecycle; root lifecycle aliases manage the server |
@@ -304,8 +304,8 @@ fallback. Conflicts stop automatic attempts until fresh CLI action; archive,
 replacement and cancellation retire identities even while their worker is offline.
 Codex queue success need not mean the session is running. Other agents watch or poll.
 
-Watch exits 10 for pending feedback, 0 for archived, 2 for timeout, and 4 for a
-superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if feedback is
+Watch exits 10 for pending discussions, 0 for archived, 2 for timeout, and 4 for a
+superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if discussion is
 pending or the timeout has just elapsed. Already archived watch returns immediately.
 A nonblank archive message reaches the captured recipient and remains in history;
 blank messages produce no nudge. Restore needs a new registration. Notification
@@ -314,14 +314,14 @@ failure never rolls back lifecycle state and an operation-key retry never re-pus
 ## Delivery and status
 
 Delivery is the owner's artifact-level handoff, not a receipt from every agent.
-Agent messages start delivered. New human feedback/replies start pending; editing
+Agent messages start delivered. New human discussions/comments start pending; editing
 an open human note clears its delivery timestamp. Editing a resolved note does not
 reopen it. The private `ever_delivered` flag survives edits, so a subsequent human
 status change still sets `statusUnsent` after any earlier delivery; resolving a
 never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
-`feedback fetch` and `watch` read pending feedback, await successful stdout
+`discussions fetch` and `watch` read pending discussions, await successful stdout
 completion, then explicitly acknowledge that exact snapshot. Reads and failed output
 leave content pending. A failed acknowledgment returns an error and may repeat output
 on retry; concurrent conversation changes remain pending. This is at-least-once
@@ -329,23 +329,23 @@ handoff to stdout, not proof that the harness/model processed the content. Reusi
 old acknowledgment cannot drain a newer batch. All conversation mutations and
 archive/restore advance a persisted artifact revision; claims alone do not.
 
-After successful acknowledgment, `feedback fetch` registers the calling agent as an
+After successful acknowledgment, `discussions fetch` registers the calling agent as an
 explicit listener when harness detection supports it. This uses the persistent worker and direct backend registration, returns after registration, and keeps listener
 output off stdout. Setup failures only warn on stderr after a successful fetch.
 Unsupported harnesses need no identity to fetch; `--human` skips registration.
 `--all` reads open history without acknowledgment or registration, and
-`--all --feedback` can read specific resolved threads too.
-Wake notifications use the preferred `r3 feedback fetch` spelling. Fetch and watch
+`--all --discussions` can read specific resolved threads too.
+Wake notifications use the preferred `r3 discussions fetch` spelling. Fetch and watch
 share a data-only formatter; workflow instructions live in the guide. Original
-targets, claims, reply/fix context, status changes, and history pointers remain in
+targets, claims, comment/fix context, status changes, and history pointers remain in
 the payload. Without a listener/watcher, the browser offers **Use in agent** with a
 copyable fetch command for `! <command>` in the harness. Opening/copying never
-acknowledges feedback. Claims, publication, notifications, and event-stream reads
-do not acknowledge feedback.
+acknowledges discussions. Claims, publication, notifications, and event-stream reads
+do not acknowledge discussions.
 
-Feedback status is human-controlled. Replies carry no status or resolve action;
+Discussion status is human-controlled. Comments carry no status or resolve action;
 they release only the matching author's claim. Archive preserves unsent content
-and rejects content mutations, including in-flight replies, with 409 until restore.
+and rejects content mutations, including in-flight comments, with 409 until restore.
 The backend checks at commit after any asynchronous preparation; reads remain available. Thread originals stay readable even when a placement is unavailable.
 
 
@@ -354,7 +354,7 @@ The backend checks at commit after any asynchronous preparation; reads remain av
 Message create/edit bodies accept `attachments`: an ordered list of up to four
 `{ base64, mediaType, capture? }` new PNG/JPEG images or `{ id }` references retained
 from that same message. Omission on edit preserves images; `[]` removes them. A
-message requires nonblank text or an image. New note/reply bodies can include an
+message requires nonblank text or an image. New note/comment bodies can include an
 `operationKey`; identical retries return the existing message and changed input
 conflicts. Message image routes use a 32 MiB streamed JSON bound, while individual
 images are limited to 5 MiB and 20 megapixels. Ordinary route limits stay unchanged.
@@ -365,11 +365,11 @@ same-origin resource policy, and no CORS capability. Pending/history responses
 include the attachment manifest for the same messages represented in their text.
 Preview `getThreads()` projects conversation text without attachment descriptors.
 
-`feedback add` and `reply` accept repeatable `--attach <image>` and optional retry
-`--key`; image-only messages may omit `-m`. `feedback edit --attach` replaces the
-image list, and `--clear-attachments` removes it. `feedback image <artifact-id>
+`discussions add` and `comment` accept repeatable `--attach <image>` and optional retry
+`--key`; image-only messages may omit `-m`. `discussions edit --attach` replaces the
+image list, and `--clear-attachments` removes it. `discussions image <artifact-id>
 --image <image-id> [--output <file>]` downloads bytes; omitted output writes stdout.
-`feedback fetch --attachments-dir <directory>` downloads and hash-verifies the
+`discussions fetch --attachments-dir <directory>` downloads and hash-verifies the
 snapshot's images before output/acknowledgment, reusing only matching existing
-files. Failure leaves feedback pending. The guide requires agents to open relevant
-images with their harness's image viewer before replying.
+files. Failure leaves discussions pending. The guide requires agents to open relevant
+images with their harness's image viewer before commenting.

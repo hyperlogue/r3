@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { feedbackAttachments } from "../shared/artifact-prompt.ts";
+import { discussionAttachments } from "../shared/artifact-prompt.ts";
 import type { ArtifactMediaTarget } from "../shared/artifacts.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
@@ -73,7 +73,7 @@ test("media evidence survives message edits, delivery, restart and blob collecti
   expect(saved.locator.time).toBe(4.800123456);
   expect(saved.locator.frame?.width).toBe(2);
   expect(note.attachments).toEqual([]);
-  expect(feedbackAttachments([note])).toEqual([saved.locator.frame!]);
+  expect(discussionAttachments([note])).toEqual([saved.locator.frame!]);
   await store.conversations.update(note.id, {
     actor: human,
     body: "Changed text",
@@ -100,7 +100,7 @@ test("media evidence survives message edits, delivery, restart and blob collecti
   expect(store.conversations.get(note.id).target).toEqual(saved);
   const snapshot = store.conversations.snapshot(id);
   store.conversations.acknowledge(id, snapshot.acknowledgment);
-  expect(feedbackAttachments([store.conversations.get(note.id)], true)).toContainEqual(
+  expect(discussionAttachments([store.conversations.get(note.id)], true)).toContainEqual(
     saved.locator.frame!,
   );
   store.conversations.delete(note.id, human);
@@ -153,15 +153,15 @@ test("agent fix frames remain independent and authenticated reads expose the exa
     mediaSnapshot: png,
   });
   store.conversations.claim([note.id], session.id);
-  const reply = await store.conversations.addReply(note.id, {
+  const comment = await store.conversations.addComment(note.id, {
     actor,
     body: "Fixed",
     context: { versionSeq: 1, representation: "source" },
     target: { ...target(6.300123), versionSeq: 2 },
     mediaSnapshot: png,
   });
-  expect((reply.target as ArtifactMediaTarget).locator.time).toBe(6.300123);
-  expect(reply.context).toEqual({ versionSeq: 2, representation: "media" });
+  expect((comment.target as ArtifactMediaTarget).locator.time).toBe(6.300123);
+  expect(comment.context).toEqual({ versionSeq: 2, representation: "media" });
   expect(store.conversations.get(note.id).claim).toBeNull();
   expect(store.conversations.get(note.id).status).toBe("open");
   const token = randomBytes(32).toString("base64url");
@@ -172,7 +172,7 @@ test("agent fix frames remain independent and authenticated reads expose the exa
     allowedHost: () => true,
   });
   try {
-    const frame = (reply.target as ArtifactMediaTarget).locator.frame!;
+    const frame = (comment.target as ArtifactMediaTarget).locator.frame!;
     const path = `http://localhost/api/artifacts/${id}/attachments/${frame.id}`;
     expect((await api.app.request(path, { headers: { host: "localhost" } })).status).toBe(401);
     const response = await api.app.request(path, {
@@ -212,15 +212,15 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
       target: { kind: "source", versionSeq: 1, path: "image.png", locator: null },
       attachments: [png],
     });
-    await conversations.addReply(note.id, {
+    await conversations.addComment(note.id, {
       actor: human,
-      body: "Keep this reply",
+      body: "Keep this comment",
       context: { versionSeq: 1, representation: "source" },
     });
     const before = conversations.get(note.id);
     const activity = db.query("SELECT * FROM artifact_activity ORDER BY occurred_at, metric").all();
     db.exec(
-      "DROP INDEX target_frame_feedback; DROP INDEX target_frame_reply; DROP TRIGGER immutable_message_attachment; ALTER TABLE message_attachments DROP COLUMN purpose; PRAGMA user_version = 9",
+      "DROP INDEX target_frame_discussions; DROP INDEX target_frame_comment; DROP TRIGGER immutable_message_attachment; ALTER TABLE message_attachments DROP COLUMN purpose; PRAGMA user_version = 9",
     );
     await upgradeArtifactStore(db, { backupPath: join(root, "backup.sqlite") });
     expect(db.query("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
@@ -240,7 +240,7 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
     });
     const tables = db
       .query<{ sql: string }, []>(
-        "SELECT sql FROM sqlite_master WHERE name IN ('feedback', 'replies', 'feedback_placements')",
+        "SELECT sql FROM sqlite_master WHERE name IN ('discussions', 'comments', 'discussion_placements')",
       )
       .all();
     expect(tables.every((table) => table.sql.includes("'media'"))).toBe(true);

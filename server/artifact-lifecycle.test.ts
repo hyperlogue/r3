@@ -79,21 +79,21 @@ describe("artifact lifecycle transactions", () => {
     ).toThrow("already active");
   });
 
-  test("claims clear in the transition while content, feedback and unsent state survive", () => {
+  test("claims clear in the transition while content, discussions and unsent state survive", () => {
     artifacts.registerSession({ id: "test-agent" });
-    db.query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, body, target_kind, created_at, updated_at)
-      VALUES ('feedback_test', ?, 'files', 'human', 'Pending', 'artifact', ?, ?)`).run(
+    db.query(`INSERT INTO discussions(id, artifact_id, artifact_kind, author, body, target_kind, created_at, updated_at)
+      VALUES ('discussion_test', ?, 'files', 'human', 'Pending', 'artifact', ?, ?)`).run(
       id,
       time,
       time,
     );
-    db.query(`INSERT INTO feedback_claims(feedback_id, agent_session_id, claimed_at, renewed_at, expires_at)
-      VALUES ('feedback_test', 'test-agent', ?, ?, '2026-09-01T01:00:00.000Z')`).run(time, time);
+    db.query(`INSERT INTO discussion_claims(discussion_id, agent_session_id, claimed_at, renewed_at, expires_at)
+      VALUES ('discussion_test', 'test-agent', ?, ?, '2026-09-01T01:00:00.000Z')`).run(time, time);
     expect(artifacts.get(id).working).toBe(true);
     lifecycle.transition(id, { actor, event: "archived", operationKey: "archive-1" });
     expect(artifacts.get(id).working).toBe(false);
     expect(
-      db.query("SELECT body, status, sent_at FROM feedback WHERE id = 'feedback_test'").get(),
+      db.query("SELECT body, status, sent_at FROM discussions WHERE id = 'discussion_test'").get(),
     ).toEqual({ body: "Pending", status: "open", sent_at: null });
     expect(artifacts.get(id).nextSeq).toBe(1);
   });

@@ -16,7 +16,7 @@ export function TutorialDocument(props: ArtifactRenderedPaneProps) {
     top: number;
   } | null>(null);
   const [packed, setPacked] = useState(false);
-  const { path, version, commenting, onTarget, onFeedback, targets, jump } = props;
+  const { path, version, commenting, onTarget, onDiscussion, targets, jump } = props;
   useEffect(() => {
     if (!commenting) setPicked(null);
   }, [commenting]);
@@ -97,11 +97,11 @@ export function TutorialDocument(props: ArtifactRenderedPaneProps) {
                   target.versionSeq === version.seq &&
                   target.path === path,
               )
-              .map(({ feedbackId }) => (
+              .map(({ discussionId }) => (
                 <Button
-                  key={feedbackId}
-                  aria-label="Open reading estimate feedback"
-                  onClick={() => onFeedback(feedbackId)}
+                  key={discussionId}
+                  aria-label="Open reading estimate discussions"
+                  onClick={() => onDiscussion(discussionId)}
                 >
                   ●
                 </Button>

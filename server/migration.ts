@@ -6,6 +6,7 @@ import { ARTIFACT_SCHEMA_VERSION, PROJECT_REMOTE_SCHEMA } from "./artifact-schem
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
+import { renameConversations } from "./conversation-migration.ts";
 import { nowIso } from "./ids.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
@@ -58,7 +59,10 @@ export async function upgradeArtifactStore(
   }
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(schemaVersion) || !tables.includes("artifacts"))
+  if (
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(schemaVersion) ||
+    !tables.includes("artifacts")
+  )
     throw new Error("Unrecognized store schema; migration did not modify it");
   db.exec("PRAGMA foreign_keys = ON");
   const beforeBackup = dataVersion(db);
@@ -78,6 +82,7 @@ export async function upgradeArtifactStore(
       throw new Error(
         "Artifact store changed while backing up; retry migration after stopping its writer",
       );
+    renameConversations(db);
     if (schemaVersion === 1) {
       db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
         ALTER TABLE artifacts DROP COLUMN summary;`);
@@ -101,15 +106,15 @@ export async function upgradeArtifactStore(
     // Older edits erased sent_at, so a null stamp cannot prove no delivery.
     // Prefer an extra future status notification over silently dropping one.
     if (schemaVersion < 5)
-      db.exec(`ALTER TABLE feedback ADD COLUMN ever_delivered INTEGER NOT NULL DEFAULT 0
+      db.exec(`ALTER TABLE discussions ADD COLUMN ever_delivered INTEGER NOT NULL DEFAULT 0
       CHECK (ever_delivered IN (0, 1));
-      UPDATE feedback SET ever_delivered = 1;`);
+      UPDATE discussions SET ever_delivered = 1;`);
     if (schemaVersion < 6)
-      db.exec(`ALTER TABLE artifacts ADD COLUMN feedback_revision INTEGER NOT NULL DEFAULT 0
-      CHECK (feedback_revision >= 0);`);
+      db.exec(`ALTER TABLE artifacts ADD COLUMN discussion_revision INTEGER NOT NULL DEFAULT 0
+      CHECK (discussion_revision >= 0);`);
     // Rebuild constrained target tables without changing their native evidence.
     // The connection is private during migration and references are checked below.
-    for (const table of ["feedback", "replies", "feedback_placements"]) {
+    for (const table of ["discussions", "comments", "discussion_placements"]) {
       const schema = db
         .query<{ sql: string }, [string]>(
           "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",

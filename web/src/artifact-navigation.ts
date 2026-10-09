@@ -22,7 +22,7 @@ export function artifactRepresentation(
 }
 
 export interface ArtifactLocation extends ArtifactViewSelection {
-  feedbackId: string | null;
+  discussionId: string | null;
 }
 
 export function readArtifactLocation(kind: ArtifactKind, search: string): ArtifactLocation {
@@ -36,34 +36,34 @@ export function readArtifactLocation(kind: ArtifactKind, search: string): Artifa
       kind,
       params.get("view") ?? defaultFileRepresentation(params.get("file") ?? ""),
     ),
-    feedbackId: params.get("feedback") || null,
+    discussionId: params.get("discussions") || null,
   };
 }
 
 export function artifactLocationSearch(
   view: ArtifactViewSelection,
-  feedbackId?: string | null,
+  discussionId?: string | null,
 ): string {
   const params = new URLSearchParams();
   if (view.versionSeq !== null) params.set("version", String(view.versionSeq));
   if (view.path) params.set("file", view.path);
   params.set("view", view.representation);
-  if (feedbackId) params.set("feedback", feedbackId);
+  if (discussionId) params.set("discussions", discussionId);
   return `?${params}`;
 }
 
 // Keep a search entry reproducible on reload until the reader changes its view.
 // The library return state survives subsequent navigation inside the artifact.
 export function artifactWorkspaceSearch(view: ArtifactLocation, previousSearch: string): string {
-  const params = new URLSearchParams(artifactLocationSearch(view, view.feedbackId));
+  const params = new URLSearchParams(artifactLocationSearch(view, view.discussionId));
   const previous = new URLSearchParams(previousSearch);
   if (previous.has("compare")) params.set("compare", previous.get("compare")!);
   if (previous.has("library")) params.set("library", previous.get("library")!);
   if (
-    ["version", "file", "feedback"].every((key) => params.get(key) === previous.get(key)) &&
+    ["version", "file", "discussions"].every((key) => params.get(key) === previous.get(key)) &&
     (!previous.has("view") || params.get("view") === previous.get("view"))
   ) {
-    for (const key of ["line", "side", "text", "summary", "reply"])
+    for (const key of ["line", "side", "text", "summary", "comment"])
       if (previous.has(key)) params.set(key, previous.get(key)!);
   }
   return `?${params}`;
@@ -84,24 +84,24 @@ export function visibleArtifactTargets(
   detail: ArtifactDetail,
   seq: number,
   representation: Representation,
-): { feedbackId: string; target: ArtifactDocumentTarget }[] {
-  return detail.feedback.flatMap((feedback) => {
-    const original = feedback.target;
+): { discussionId: string; target: ArtifactDocumentTarget }[] {
+  return detail.discussions.flatMap((discussions) => {
+    const original = discussions.target;
     if (
       isArtifactDocumentTarget(original) &&
       original.versionSeq === seq &&
       original.kind === representation
     )
-      return [{ feedbackId: feedback.id, target: original }];
+      return [{ discussionId: discussions.id, target: original }];
     return detail.placements
       .filter(
         (placement) =>
-          placement.feedbackId === feedback.id &&
+          placement.discussionId === discussions.id &&
           placement.state === "anchored" &&
           placement.target.versionSeq === seq &&
           placement.target.kind === representation,
       )
-      .map((placement) => ({ feedbackId: feedback.id, target: placement.target }));
+      .map((placement) => ({ discussionId: discussions.id, target: placement.target }));
   });
 }
 
@@ -111,11 +111,13 @@ export function artifactRegions(
   representation: Representation,
 ): Region[] {
   const open = new Set(
-    detail.feedback.filter((feedback) => feedback.status === "open").map((feedback) => feedback.id),
+    detail.discussions
+      .filter((discussions) => discussions.status === "open")
+      .map((discussions) => discussions.id),
   );
-  return visibleArtifactTargets(detail, seq, representation).flatMap(({ feedbackId, target }) => {
+  return visibleArtifactTargets(detail, seq, representation).flatMap(({ discussionId, target }) => {
     if (
-      !open.has(feedbackId) ||
+      !open.has(discussionId) ||
       target.kind === "rendered" ||
       target.kind === "media" ||
       !target.locator
@@ -123,7 +125,7 @@ export function artifactRegions(
       return [];
     return [
       {
-        id: feedbackId,
+        id: discussionId,
         file: target.path,
         start: target.locator.start,
         end: target.locator.end,

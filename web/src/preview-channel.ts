@@ -6,7 +6,7 @@ export interface PreviewConnection {
 }
 
 // Serialized before publisher scripts. The child transfers a port to the exact
-// application origin; replies use that document's port, never a WindowProxy
+// application origin; comments use that document's port, never a WindowProxy
 // whose document may have changed while an application request was pending.
 export function connectPreview(config: PreviewBootstrap): PreviewConnection {
   const channel = new MessageChannel();

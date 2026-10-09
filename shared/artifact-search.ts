@@ -18,7 +18,7 @@ export interface ArtifactSearchOptions {
   offset?: number;
 }
 
-export type ArtifactSearchCategory = "artifact" | "summary" | "content" | "feedback" | "reply";
+export type ArtifactSearchCategory = "artifact" | "summary" | "content" | "discussions" | "comment";
 
 export interface ArtifactSearchMatch {
   id: string;
@@ -26,8 +26,8 @@ export interface ArtifactSearchMatch {
   category: ArtifactSearchCategory;
   versionSeq: number | null;
   path: string | null;
-  feedbackId: string | null;
-  replyId: string | null;
+  discussionId: string | null;
+  commentId: string | null;
   context: ArtifactMessageContext;
   target: ArtifactDocumentTarget | null;
   snippet: string;

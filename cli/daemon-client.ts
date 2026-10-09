@@ -128,7 +128,7 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
     info = await spawnDaemon();
     health = await probe(info.url);
   }
-  if (health?.protocol !== "artifacts-v1")
+  if (health?.protocol !== "artifacts-v2")
     throw new ArtifactCommandError(
       "The running daemon uses the previous review protocol. Run r3 restart to migrate it before using artifact commands.",
     );

@@ -1,30 +1,34 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ArtifactFeedback, ArtifactReply, ArtifactTarget } from "../../../shared/artifacts.ts";
+import type {
+  ArtifactComment,
+  ArtifactDiscussion,
+  ArtifactTarget,
+} from "../../../shared/artifacts.ts";
 import { demo, human } from "../../demo/artifact-backend.ts";
 import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
+import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { ArtifactThreadCard } from "../components/ArtifactThreads.tsx";
 
 const filesId = "artifact_gallery_files";
 const diffId = "artifact_gallery_diff";
 const examples = [
-  ["new", "New feedback · not sent", filesId],
-  ["sent", "Sent feedback · waiting for the agent", filesId],
+  ["new", "New discussions · not sent", filesId],
+  ["sent", "Sent discussions · waiting for the agent", filesId],
   ["working", "Agent working", filesId],
   ["attention", "Agent replied · needs your attention", filesId],
   ["followup", "Human follow-up · waiting for the agent", filesId],
   ["resolved", "Resolved · with a fix in a later version", filesId],
   ["rendered", "Rendered anchor · long quotation", filesId],
   ["diff", "Diff anchor · code in the message", diffId],
-  ["history", "Long conversation · earlier replies", filesId],
-  ["agent", "Agent-created feedback", filesId],
+  ["history", "Long conversation · earlier comments", filesId],
+  ["agent", "Agent-created discussions", filesId],
 ] as const;
-const feedbackId = (key: string) => `feedback_gallery_${key}`;
+const discussionId = (key: string) => `discussion_gallery_${key}`;
 
 // Synthetic conversations use separate demo artifacts so trying their actions
 // does not change the main panel sample or its file/diff examples.
-export function seedFeedbackCardGallery() {
+export function seedDiscussionCardGallery() {
   if (!demo.state.artifacts.some((item) => item.id === "artifact_documents"))
     demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const [sourceId, id] of [
@@ -37,8 +41,8 @@ export function seedFeedbackCardGallery() {
     const pending = demo.state.pending[sourceId];
     if (pending) publications.push(pending);
     detail.id = id;
-    detail.title = "Feedback card examples";
-    detail.feedback = [];
+    detail.title = "Discussion card examples";
+    detail.discussions = [];
     detail.placements = [];
     detail.events = [];
     detail.versions = publications.map((publication) => {
@@ -53,13 +57,13 @@ export function seedFeedbackCardGallery() {
   }
   const time = new Date().toISOString();
   const agent = { role: "agent" as const, sessionId: "sample-agent" };
-  const sourceTarget = structuredClone(demo.get("artifact_documents").feedback[0]!.target);
-  const diffTarget = structuredClone(demo.get("artifact_code").feedback[0]!.target);
+  const sourceTarget = structuredClone(demo.get("artifact_documents").discussions[0]!.target);
+  const diffTarget = structuredClone(demo.get("artifact_code").discussions[0]!.target);
   if (sourceTarget.kind !== "source") throw new Error("The gallery needs a source anchor sample");
   const add = (key: string, body: string, target: ArtifactTarget = { kind: "artifact" }) => {
     const artifactId = key === "diff" ? diffId : filesId;
-    const note: ArtifactFeedback = {
-      id: feedbackId(key),
+    const note: ArtifactDiscussion = {
+      id: discussionId(key),
       artifactId,
       author: human,
       body,
@@ -70,21 +74,21 @@ export function seedFeedbackCardGallery() {
       updatedAt: time,
       sentAt: time,
       statusUnsent: false,
-      replies: [],
+      comments: [],
       claim: null,
     };
-    demo.get(artifactId).feedback.push(note);
+    demo.get(artifactId).discussions.push(note);
     return note;
   };
-  const reply = (
-    note: ArtifactFeedback,
+  const comment = (
+    note: ArtifactDiscussion,
     body: string,
     role: "agent" | "human" = "agent",
     seq = 1,
   ) => {
-    const message: ArtifactReply = {
-      id: `${note.id}_reply_${note.replies.length + 1}`,
-      feedbackId: note.id,
+    const message: ArtifactComment = {
+      id: `${note.id}_comment_${note.comments.length + 1}`,
+      discussionId: note.id,
       artifactId: note.artifactId,
       author: role === "human" ? human : agent,
       body,
@@ -94,7 +98,7 @@ export function seedFeedbackCardGallery() {
       createdAt: time,
       sentAt: time,
     };
-    note.replies.push(message);
+    note.comments.push(message);
     return message;
   };
 
@@ -106,7 +110,7 @@ export function seedFeedbackCardGallery() {
   );
   const working = add("working", "Please keep the version selector visible when I scroll.");
   working.claim = {
-    feedbackId: working.id,
+    discussionId: working.id,
     sessionId: agent.sessionId,
     claimedAt: time,
     renewedAt: time,
@@ -118,18 +122,18 @@ export function seedFeedbackCardGallery() {
     path: "index.md",
     locator: null,
   });
-  reply(
+  comment(
     attention,
     "The original comment stays attached to the version you reviewed.\n\n- You can return to that exact target.\n- A later fix can point to a different version.\n- Publishing an update leaves the thread open for you to resolve.\n\nDoes this match what you expected?",
     "agent",
     2,
   );
   const followup = add("followup", "The selected version needs to be clearer.");
-  reply(followup, "I can add a short version badge beside the title.");
-  reply(followup, "Yes, and keep its label visible when there is enough room.", "human").sentAt =
+  comment(followup, "I can add a short version badge beside the title.");
+  comment(followup, "Yes, and keep its label visible when there is enough room.", "human").sentAt =
     null;
   const resolved = add("resolved", "Keep my selected publication pinned.", sourceTarget);
-  reply(
+  comment(
     resolved,
     "The selected version now stays pinned. You can try it in version 2.",
     "agent",
@@ -146,7 +150,7 @@ export function seedFeedbackCardGallery() {
       locator: {
         selector: "main > section",
         quote:
-          "Each publication is a complete version of the artifact.\nYou can switch between versions without losing your place in the conversation.\nComments keep the version and target you originally selected.\nA reply can point to a fix in a later publication.\nPublishing that fix leaves the final decision to you.",
+          "Each publication is a complete version of the artifact.\nYou can switch between versions without losing your place in the conversation.\nComments keep the version and target you originally selected.\nA comment can point to a fix in a later publication.\nPublishing that fix leaves the final decision to you.",
         route: "#versions",
       },
     },
@@ -158,15 +162,15 @@ export function seedFeedbackCardGallery() {
   );
   const history = add("history", "Can we keep a long conversation easy to scan?");
   for (const [index, body] of [
-    "I can collapse older replies while keeping the latest exchange visible.",
-    "How many replies would remain visible?",
+    "I can collapse older comments while keeping the latest exchange visible.",
+    "How many comments would remain visible?",
     "The latest three, with an action to show the rest.",
-    "Keep the earlier replies in their original order.",
+    "Keep the earlier comments in their original order.",
     "Yes. Expanding them reveals the complete conversation in order.",
-    "And I should still be able to select text from those replies.",
-    "You can expand the earlier replies and select a passage to quote in your response. Please try it here.",
+    "And I should still be able to select text from those comments.",
+    "You can expand the earlier comments and select a passage to quote in your response. Please try it here.",
   ].entries()) {
-    reply(history, body, index % 2 ? "human" : "agent");
+    comment(history, body, index % 2 ? "human" : "agent");
   }
   add("agent", "One open question: should a long file path wrap, or stay on a single line?", {
     kind: "source",
@@ -190,7 +194,7 @@ function CardExample({
     queryFn: () => artifactApi.detail(artifactId),
   });
   const detail = useOptimisticArtifact(data);
-  const note = detail.feedback.find((item) => item.id === feedbackId(key));
+  const note = detail.discussions.find((item) => item.id === discussionId(key));
   return (
     <section data-card-example={key} className="min-w-0 space-y-2">
       <h3 className="text-sm font-medium">{label}</h3>
@@ -199,7 +203,7 @@ function CardExample({
           <ArtifactThreadCard
             agentLabels={detail.agentLabels}
             artifactKind={detail.kind}
-            feedback={note}
+            discussions={note}
             latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
             context={{ versionSeq: 2, representation: key === "diff" ? "diff" : "source" }}
             onLocate={() =>
@@ -215,7 +219,7 @@ function CardExample({
   );
 }
 
-export function FeedbackCardGallery({ announce }: { announce: (message: string) => void }) {
+export function DiscussionCardGallery({ announce }: { announce: (message: string) => void }) {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-2">
       {examples.map((example) => (

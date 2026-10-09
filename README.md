@@ -4,7 +4,7 @@
 
 <h1 align="center">r3: Render. Review. Refine.</h1>
 
-<p align="center"><b>View AI-generated artifacts. Give precise feedback.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
+<p align="center"><b>View AI-generated artifacts. Give precise discussions.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@hyperlogue/r3"><img src="https://img.shields.io/npm/v/@hyperlogue/r3?color=cb3837&amp;logo=npm&amp;label=%40hyperlogue%2Fr3" alt="npm version"></a>
@@ -15,16 +15,16 @@
 
 r3 is a tool for reading, using, and discussing agent output.
 Open an interactive page, read a document, or inspect code changes. Select an
-element or passage to leave feedback and continue the conversation with your agent.
+element or passage to leave discussions and continue the conversation with your agent.
 
 Agents publish artifacts through a CLI or HTTP API. r3 works with any agent that
 can run the CLI.
 
 [Try the browser demo](https://hyperlogue.github.io/r3/demo/) to explore HTML,
-Markdown, and diff feedback with a scripted agent. It uses bundled examples;
+Markdown, and diff discussions with a scripted agent. It uses bundled examples;
 production preview protection is not simulated.
 
-[![Numbered workflow showing a human asking an AI agent to create an artifact on r3, reviewing it, sending feedback, and reviewing the agent's revisions and replies.](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)
+[![Numbered workflow showing a human asking an AI agent to create an artifact on r3, reviewing it, sending discussions, and reviewing the agent's revisions and comments.](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)
 
 ## Screenshots
 
@@ -32,7 +32,7 @@ production preview protection is not simulated.
 | --- | --- |
 | [![Reviewing an HTML UI proposal](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6)](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6) | Review a UI improvement proposal and leave comments directly on HTML elements. |
 | [![Exploring a library through an interactive demo](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62)](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62) | Learn how a library works internally through an interactive demo. |
-| [![Codex receiving feedback from r3](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19) | Codex receives a direct message from r3 when you ping the agent from the web page. |
+| [![Codex receiving discussions from r3](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19) | Codex receives a direct message from r3 when you ping the agent from the web page. |
 
 Search your library by project, content, or conversation. Results open the matching
 publication or message, and **Include history** searches older versions. Agents can
@@ -54,7 +54,7 @@ npx @hyperlogue/r3@latest
 ```
 
 Ask your agent to run `r3 guide` and publish an artifact. The guide explains how
-to publish, listen for feedback, and reply. Open the artifact URL from your agent, or visit
+to publish, listen for discussions, and comment. Open the artifact URL from your agent, or visit
 `http://127.0.0.1:8791/` for the full list.
 
 ## Artifact types
@@ -63,7 +63,7 @@ r3 supports three kinds of artifacts:
 
 | Artifact | What you can do | Examples |
 | --- | --- | --- |
-| HTML pages | Interact with a page and leave feedback on specific elements or text | Prototypes, dashboards, interactive tutorials |
+| HTML pages | Interact with a page and leave discussions on specific elements or text | Prototypes, dashboards, interactive tutorials |
 | Documents and files | Read rendered Markdown, browse related files, and discuss specific passages or lines | Design proposals, research reports, generated project files |
 | Code changes | See what changed and discuss it beside the affected lines | Bug fixes, refactors, feature reviews |
 
@@ -93,7 +93,7 @@ on the home page to archive or permanently delete them together.
 ## Local and remote access
 
 r3 runs locally by default. The CLI starts a background server when a command
-first needs the local backend. The server stores artifacts and feedback, serves
+first needs the local backend. The server stores artifacts and discussions, serves
 the browser UI, and listens only on loopback. Local browser access works without
 a login unless you enable one. A separate worker wakes local agent sessions and
 opens only a private Unix socket.
@@ -152,10 +152,10 @@ A project's `.r3.json` can override your default:
 
 This file can be committed. Credentials stay in your private user configuration.
 `R3_URL` overrides both project and user settings for an invocation. Every command,
-including feedback fetch, uses the selected backend. Run `r3 config unset backendUrl`
+including discussions fetch, uses the selected backend. Run `r3 config unset backendUrl`
 and remove any override to return to automatic local mode.
 
-Publishing, listening, and feedback fetch work the same locally and remotely.
+Publishing, listening, and discussions fetch work the same locally and remotely.
 The CLI talks directly to the selected server. Supported Claude Code and Codex
 sessions automatically use the persistent worker for notifications; `r3 watch`
 works without it. No inbound TCP port is opened on a remote publisher.

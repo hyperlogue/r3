@@ -7,20 +7,20 @@ import {
 import { useMemo } from "react";
 import {
   type ArtifactDetail,
-  type ArtifactFeedback,
-  isUnhandledArtifactFeedback,
+  type ArtifactDiscussion,
+  isUnhandledArtifactDiscussion,
 } from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
 
-type StatusChange = { feedbackId: string; status: ArtifactFeedback["status"] };
-const statusKey = (artifactId: string) => ["feedback-status", artifactId];
+type StatusChange = { discussionId: string; status: ArtifactDiscussion["status"] };
+const statusKey = (artifactId: string) => ["discussions-status", artifactId];
 
-export function useFeedbackStatusPending(artifactId: string): boolean {
+export function useDiscussionStatusPending(artifactId: string): boolean {
   return useIsMutating({ mutationKey: statusKey(artifactId) }) > 0;
 }
 
 // Pending human decisions are a presentation layer over the latest server data.
-// Refetches can still bring in replies and other agents' work without undoing a
+// Refetches can still bring in comments and other agents' work without undoing a
 // pending click. Failed mutations simply reveal that latest authoritative state.
 export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
   const pending = useMutationState<StatusChange>({
@@ -29,9 +29,9 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
   });
   return useMemo(() => {
     if (!pending.length) return detail;
-    const statuses = new Map(pending.map((change) => [change.feedbackId, change.status]));
+    const statuses = new Map(pending.map((change) => [change.discussionId, change.status]));
     let changed = false;
-    const feedback = detail.feedback.map((note) => {
+    const discussions = detail.discussions.map((note) => {
       const status = statuses.get(note.id);
       if (!status || status === note.status) return note;
       changed = true;
@@ -43,14 +43,18 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
       };
     });
     return changed
-      ? { ...detail, feedback, unhandledCount: feedback.filter(isUnhandledArtifactFeedback).length }
+      ? {
+          ...detail,
+          discussions,
+          unhandledCount: discussions.filter(isUnhandledArtifactDiscussion).length,
+        }
       : detail;
   }, [detail, pending]);
 }
 
-export function useFeedbackStatus(feedback: ArtifactFeedback) {
+export function useDiscussionStatus(discussions: ArtifactDiscussion) {
   const qc = useQueryClient();
-  const key = [...statusKey(feedback.artifactId), feedback.id];
+  const key = [...statusKey(discussions.artifactId), discussions.id];
   const mutations = useMutationState({
     filters: { mutationKey: key, exact: true },
     select: (mutation) => ({ status: mutation.state.status, error: mutation.state.error }),
@@ -59,13 +63,13 @@ export function useFeedbackStatus(feedback: ArtifactFeedback) {
   const mutation = useMutation({
     mutationKey: key,
     mutationFn: (change: StatusChange) =>
-      artifactApi.editFeedback(change.feedbackId, { status: change.status }),
+      artifactApi.editDiscussion(change.discussionId, { status: change.status }),
     onSuccess: (saved) => {
-      // Patch only status-owned fields. A concurrent reply or body edit may be
+      // Patch only status-owned fields. A concurrent comment or body edit may be
       // newer than this mutation's response and must survive its completion.
-      qc.setQueryData<ArtifactDetail>(["artifact", feedback.artifactId], (current) => {
+      qc.setQueryData<ArtifactDetail>(["artifact", discussions.artifactId], (current) => {
         if (!current) return current;
-        const notes = current.feedback.map((note) =>
+        const notes = current.discussions.map((note) =>
           note.id === saved.id
             ? {
                 ...note,
@@ -78,23 +82,23 @@ export function useFeedbackStatus(feedback: ArtifactFeedback) {
         );
         return {
           ...current,
-          feedback: notes,
-          unhandledCount: notes.filter(isUnhandledArtifactFeedback).length,
+          discussions: notes,
+          unhandledCount: notes.filter(isUnhandledArtifactDiscussion).length,
         };
       });
     },
     onSettled: () =>
       Promise.all([
-        qc.invalidateQueries({ queryKey: ["artifact", feedback.artifactId] }),
+        qc.invalidateQueries({ queryKey: ["artifact", discussions.artifactId] }),
         qc.invalidateQueries({ queryKey: ["artifacts"] }),
       ]),
   });
   return {
     isPending: latest?.status === "pending",
     error: latest?.status === "error" ? latest.error : null,
-    change: (status: ArtifactFeedback["status"]) => {
+    change: (status: ArtifactDiscussion["status"]) => {
       if (!qc.isMutating({ mutationKey: key, exact: true }))
-        mutation.mutate({ feedbackId: feedback.id, status });
+        mutation.mutate({ discussionId: discussions.id, status });
     },
   };
 }

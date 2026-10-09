@@ -63,7 +63,7 @@ test("shared preview hosting preserves capability and application guards", async
     expect(shell.headers.get("x-frame-options")).toBe("DENY");
     expect(
       ((await (await fetch(`${base}/api/health`)).json()) as { protocol: string }).protocol,
-    ).toBe("artifacts-v1");
+    ).toBe("artifacts-v2");
     const preview = runtime.previews.create(artifact.id, 1, "index.html", base);
     expect(preview.origin).toBe(base);
     const read = (url: string, init: RequestInit = {}) =>

@@ -1,6 +1,6 @@
 ---
 name: mobile-tier
-description: r3's phone-tier (below Tailwind md/768px) design — the isolate-don't-interleave rule, web/src/mobile/ containers, the bottom bar + 3-state feedback sheet, sticky toolbar/--pane-sticky-h mechanics, touch selection anchoring via AddFeedbackPill and usePointerCoarse, and the compact-target/16px-font ergonomics. Use when changing anything that renders below md, touching web/src/mobile/, adding max-md:/pointer-coarse: classes, working on touch selection or the mobile sheet, or debugging a phone/tablet layout.
+description: r3's phone-tier (below Tailwind md/768px) design — the isolate-don't-interleave rule, web/src/mobile/ containers, the bottom bar + 3-state discussions sheet, sticky toolbar/--pane-sticky-h mechanics, touch selection anchoring via AddDiscussionPill and usePointerCoarse, and the compact-target/16px-font ergonomics. Use when changing anything that renders below md, touching web/src/mobile/, adding max-md:/pointer-coarse: classes, working on touch selection or the mobile sheet, or debugging a phone/tablet layout.
 ---
 
 # The phone tier
@@ -8,7 +8,7 @@ description: r3's phone-tier (below Tailwind md/768px) design — the isolate-do
 This file is the **design source of truth** for r3 below Tailwind `md` — update it
 here when the mobile design changes.
 
-The phone tier supports reading, version switching, feedback, replies, resolution,
+The phone tier supports reading, version switching, discussions, comments, resolution,
 and Submit below `md` (768px). Artifact authoring stays with the publisher.
 Portrait tablets keep the desktop layout.
 
@@ -28,7 +28,7 @@ Mobile must not add complexity to desktop code.
 
 `web/src/mobile/` holds containers **only**: `useIsMobile` + `usePointerCoarse`
 (both over `useMediaQuery`), `MobileReviewChrome` (bottom bar + the 3-state
-feedback sheet), and `AddFeedbackPill` (the touch selection-anchor pill).
+discussions sheet), and `AddDiscussionPill` (the touch selection-anchor pill).
 
 **Side-by-side diffs never render below `md`.** Two code columns don't fit a phone
 pane, so `ArtifactView` forces `layout="unified"` and the workspace toolbar hides the toggle
@@ -63,7 +63,7 @@ width at their natural aspect ratio, with the frame growing and shrinking around
 them. HTML, images, audio, and Markdown documents viewed within HTML artifacts
 keep their viewport-sized preview.
 
-A persistent bottom bar (`Feedback · N open` — the whole bar is the toggle; watcher
+A persistent bottom bar (`Discussion · N open` — the whole bar is the toggle; watcher
 presence shows only inside the panel) toggles a bottom **sheet** hosting the panel,
 with three discrete tap-only states:
 
@@ -99,7 +99,7 @@ still gets touch anchoring.
 
 In source, diffs, rendered Markdown, and HTML, the `mouseup` selection path swaps
 for a debounced `selectionchange`
-listener raising a floating **"Add feedback" pill** (`AddFeedbackPill`):
+listener raising a floating **"Add discussions" pill** (`AddDiscussionPill`):
 
 - The anchor/quote/rect are captured **at selectionchange time** — iOS collapses the
   selection on tap — and the position clamps into the viewport.
@@ -121,7 +121,7 @@ selection collapse; the parent opens the shared composer peek without autofocus.
 Below `md`:
 
 - **Compact ~40px touch targets** — the shared `Button` gets `min-h-9`, icon buttons
-  `size-9`. Real-device feedback found full 44px CTAs too tall. The **h-8 header
+  `size-9`. Real-device discussions found full 44px CTAs too tall. The **h-8 header
   stack** — pane toolbar and file headers — is deliberately exempt and
   stays `h-8`. Image/video headers can wrap their media tools onto another compact
   row when the pane is too narrow to retain both the filename and all controls.
@@ -143,10 +143,10 @@ Below `md`:
 A real-device **iOS Safari pass** is still owed before touch anchoring is called
 done.
 
-Native media targets share the desktop state and renderer: one media-feedback
+Native media targets share the desktop state and renderer: one media-discussions
 icon in the file header enables targeting. Tap the frozen frame to accept the
 full frame or drag one region using pointer capture. Viewed and whole-file
-feedback stay together at the trailing edge after the media tools.
+discussions stay together at the trailing edge after the media tools.
 The accepted snapshot opens the existing composer peek. Media Compare reuses the
 existing phone tabs and dock, with independent playback and Return to targets.
 Image/video zoom and pan reuse the same viewer on all tiers. Pan is automatic above

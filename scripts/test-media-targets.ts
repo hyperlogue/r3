@@ -225,7 +225,7 @@ try {
     ),
     "2",
   );
-  await click('[data-file="clip.webm"] [aria-label="Add video feedback"]');
+  await click('[data-file="clip.webm"] [aria-label="Add video discussions"]');
   assert.equal(await videoCanPan(), false, "region selection takes over dragging");
   const rect = await page.evaluate(
     "(()=>{const r=document.querySelector('[data-file=\"clip.webm\"] [data-media-frame]').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()",
@@ -269,11 +269,11 @@ try {
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "draft frame restored",
   );
-  await shot("01-video-feedback.png");
+  await shot("01-video-discussions.png");
   await click('[data-artifact-composer] button[type="submit"]');
   await eventually(
     async () => storage.conversations.list(artifact.id).length === 1,
-    "media feedback saved",
+    "media discussion saved",
   );
   const note = storage.conversations.list(artifact.id)[0]!;
   const original = note.target as ArtifactMediaTarget;
@@ -285,7 +285,7 @@ try {
   assert.equal(original.locator.frame?.width, 640);
   assert.equal(original.locator.frame?.hash, acceptedHash);
   // Publish a native fix at another instant and retained version.
-  const fix = await storage.conversations.addReply(note.id, {
+  const fix = await storage.conversations.addComment(note.id, {
     actor: agent,
     body: "Updated this region in version 2.",
     context: { versionSeq: 2, representation: "media" },
@@ -299,10 +299,10 @@ try {
   });
   await page.command("Page.reload");
   await eventually(
-    () => page.evaluate(`!!document.querySelector('[data-compare-reply="${fix.id}"]')`),
+    () => page.evaluate(`!!document.querySelector('[data-compare-comment="${fix.id}"]')`),
     "media Compare action",
   );
-  await click(`[data-compare-reply="${fix.id}"]`);
+  await click(`[data-compare-comment="${fix.id}"]`);
   await eventually(
     () =>
       page.evaluate(
@@ -349,7 +349,7 @@ try {
   await shot("05-media-zoom.png");
   assert.equal(
     await page.evaluate(
-      "document.querySelector('[data-artifact-comparison] [aria-label=\"Add video feedback\"]') === null",
+      "document.querySelector('[data-artifact-comparison] [aria-label=\"Add video discussions\"]') === null",
     ),
     true,
   );
@@ -426,11 +426,11 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        '!!document.querySelector(\'[data-file="image.png"] [aria-label="Add image feedback"]:not(:disabled)\')',
+        '!!document.querySelector(\'[data-file="image.png"] [aria-label="Add image discussions"]:not(:disabled)\')',
       ),
     "image ready after returning to artifact",
   );
-  await click('[data-file="image.png"] [aria-label="Add image feedback"]');
+  await click('[data-file="image.png"] [aria-label="Add image discussions"]');
   await click('[data-file="image.png"] [data-media-selection]');
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
@@ -440,10 +440,10 @@ try {
     page.evaluate(
       "!!document.querySelector('[data-file=\"image.png\"] [data-media-frame] [data-media-box]')",
     );
-  assert.equal(await imageHasBox(), true, "region remains visible while composing feedback");
+  assert.equal(await imageHasBox(), true, "region remains visible while composing discussions");
   await click('[data-artifact-composer] button:has(+ button[type="submit"])');
   await eventually(async () => !(await imageHasBox()), "cancelling clears image region");
-  await click('[data-file="image.png"] [aria-label="Add image feedback"]');
+  await click('[data-file="image.png"] [aria-label="Add image discussions"]');
   await click('[data-file="image.png"] [data-media-selection]');
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
@@ -452,11 +452,11 @@ try {
   assert.equal(await imageHasBox(), true);
   await click("[data-artifact-composer] textarea");
   await page.command("Input.insertText", { text: "Review the whole image." });
-  await shot("04-image-feedback.png");
+  await shot("04-image-discussions.png");
   await click('[data-artifact-composer] button[type="submit"]');
   await eventually(
     async () => storage.conversations.list(artifact.id).length === 2,
-    "image feedback saved",
+    "image discussions saved",
   );
   await eventually(async () => !(await imageHasBox()), "posting clears image region");
   const imageTarget = storage.conversations.list(artifact.id)[1]!.target as ArtifactMediaTarget;
@@ -464,12 +464,12 @@ try {
   assert.deepEqual(imageTarget.locator.box, { x: 0, y: 0, width: 1, height: 1 });
   assert.ok(
     await page.evaluate(
-      '!!document.querySelector(\'[data-file="image.png"] button[title="Leave feedback on this file"]\')',
+      '!!document.querySelector(\'[data-file="image.png"] button[title="Leave discussions on this file"]\')',
     ),
   );
   // Locate shows the immutable snapshot. A new note must capture those visible
   // pixels even when the underlying decoder is at a different frame.
-  await click(`[data-artifact-feedback="${note.id}"] button[title*="clip.webm"]`);
+  await click(`[data-artifact-discussions="${note.id}"] button[title*="clip.webm"]`);
   await eventually(
     () =>
       page.evaluate(
@@ -478,7 +478,7 @@ try {
     "original saved frame located",
   );
   await page.evaluate("document.querySelector('[data-file=\"clip.webm\"] video').currentTime = 7");
-  await click('[data-file="clip.webm"] [aria-label="Add video feedback"]');
+  await click('[data-file="clip.webm"] [aria-label="Add video discussions"]');
   await eventually(
     () => page.evaluate('document.activeElement?.matches("[data-media-selection]")'),
     "targeting surface focused",
@@ -509,7 +509,7 @@ try {
   await click('[data-artifact-composer] button[type="submit"]');
   await eventually(
     async () => storage.conversations.list(artifact.id).length === 3,
-    "saved-frame feedback posted",
+    "saved-frame discussions posted",
   );
   await eventually(async () => !(await videoHasBox()), "posting clears video region");
   const recaptured = storage.conversations.list(artifact.id)[2]!.target as ArtifactMediaTarget;

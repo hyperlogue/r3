@@ -33,7 +33,7 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Selection workspace" });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><p id="selection-text">A second selectable paragraph for quoting.</p><input id="input" value="Editable input"><div id="editor" contenteditable>Editable region</div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createFeedback({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastFeedback=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><p id="selection-text">A second selectable paragraph for quoting.</p><input id="input" value="Editable input"><div id="editor" contenteditable>Editable region</div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createDiscussion({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastDiscussion=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -94,9 +94,9 @@ const thread = await storage.conversations.add(artifact.id, {
   body: "Discuss this passage",
   target: { kind: "artifact" },
 });
-await storage.conversations.addReply(thread.id, {
+await storage.conversations.addComment(thread.id, {
   actor: { role: "agent", sessionId: "selection-agent" },
-  body: "An agent reply that can be quoted.",
+  body: "An agent comment that can be quoted.",
   context: { versionSeq: 1, representation: "rendered" },
 });
 const preview = new PreviewHost(storage.artifacts, previewSupport);
@@ -162,10 +162,10 @@ try {
       }
       return null;
     }, "rendered document");
-  const feedbackField =
-    "document.querySelector('[data-artifact-composer]:not([data-reply-to]) textarea')";
-  const hasComposer = () => page.evaluate(`!!${feedbackField}`);
-  const focused = () => page.evaluate(`document.activeElement === ${feedbackField}`);
+  const discussionField =
+    "document.querySelector('[data-artifact-composer]:not([data-comment-to]) textarea')";
+  const hasComposer = () => page.evaluate(`!!${discussionField}`);
+  const focused = () => page.evaluate(`document.activeElement === ${discussionField}`);
   const click = async (label: string) => {
     await page.evaluate(
       `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim() === ${JSON.stringify(label)} || b.getAttribute('aria-label') === ${JSON.stringify(label)})?.click()`,
@@ -196,12 +196,12 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-feedback-mode]').dataset.feedbackMode === 'hidden'",
+        "document.querySelector('[data-discussions-mode]').dataset.discussionMode === 'hidden'",
       ),
-    "idle Escape in the preview hides the desktop feedback panel",
+    "idle Escape in the preview hides the desktop discussions panel",
   );
   assert(await hasComposer(), "hiding the panel preserves its empty preview note");
-  await click("Show feedback");
+  await click("Show discussions");
   await select(content, "#selection-text");
   await waitComposer("second paragraph composer");
   await select(content, "#heading");
@@ -214,7 +214,7 @@ try {
   await page.command("Input.insertText", { text: "Keep this note." });
   await key("Escape", "Escape");
   assert.equal(await focused(), false);
-  assert.equal(await page.evaluate(`${feedbackField}.value`), "Keep this note.");
+  assert.equal(await page.evaluate(`${discussionField}.value`), "Keep this note.");
   await key("Tab", "Tab");
   await eventually(focused, "explicit composer focus");
   await select(content, "#selection-text");
@@ -267,7 +267,7 @@ try {
   };
   await tapAction("Quote in note");
   await eventually(
-    () => page.evaluate(`${feedbackField}.value.includes('> A second selectable paragraph')`),
+    () => page.evaluate(`${discussionField}.value.includes('> A second selectable paragraph')`),
     "quoted selection",
   );
   await eventually(focused, "explicit composer focus");
@@ -299,17 +299,17 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Quote in reply')",
+        "Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Quote in comment')",
       ),
     "same-thread quote action",
   );
-  await click("Quote in reply");
+  await click("Quote in comment");
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-reply-to] textarea')?.value.includes('> An agent reply')",
+        "document.querySelector('[data-comment-to] textarea')?.value.includes('> An agent comment')",
       ),
-    "reply quote",
+    "comment quote",
   );
   assert.equal(await hasComposer(), false, "agent text does not create a new note");
   await open(files.id, "&view=source&file=index.md");
@@ -340,7 +340,7 @@ try {
   await key("Tab", "Tab");
   await eventually(focused, "Markdown Tab focus");
   await page.command("Input.insertText", { text: "A native Markdown target." });
-  await click("Add feedback");
+  await click("Add discussions");
   await eventually(
     () =>
       Promise.resolve(
@@ -348,7 +348,7 @@ try {
           .list(files.id)
           .some((note) => note.body === "A native Markdown target."),
       ),
-    "posted Markdown feedback",
+    "posted Markdown discussions",
   );
   const posted = storage.conversations
     .list(files.id)
@@ -367,11 +367,11 @@ try {
   content = await frame("Published first version");
   await content.evaluate("getSelection().removeAllRanges()");
   await select(content, "#heading", true);
-  await eventually(() => action("Add feedback"), "touch Add feedback action");
+  await eventually(() => action("Add discussions"), "touch Add discussions action");
   assert.equal(await hasComposer(), false, "touch selection waits for an explicit action");
-  await tapAction("Add feedback", content);
+  await tapAction("Add discussions", content);
   await waitComposer("touch selection composer");
-  assert.equal(await focused(), false, "touch Add feedback opens without the keyboard");
+  assert.equal(await focused(), false, "touch Add discussions opens without the keyboard");
   await click("Cancel");
   await eventually(async () => !(await hasComposer()), "clear the touch draft before navigation");
   // Start node-keyboard checks in a fresh desktop document so earlier gestures
@@ -405,7 +405,7 @@ try {
   await page.evaluate(
     "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
   );
-  // A selected page button must become a native feedback target, not activate.
+  // A selected page button must become a native discussions target, not activate.
   await content.evaluate(
     "getSelection().removeAllRanges();document.querySelector('#send').focus();document.querySelector('#send').click()",
   );
@@ -422,12 +422,12 @@ try {
   await key(" ", "Space");
   await eventually(focused, "Space comments on the picked node and focuses its editor");
   assert.equal(
-    await content.evaluate("window.lastFeedback"),
+    await content.evaluate("window.lastDiscussion"),
     undefined,
     "the page button stays inactive",
   );
   await page.command("Input.insertText", { text: "A keyboard-picked node." });
-  await click("Add feedback");
+  await click("Add discussions");
   await eventually(
     () =>
       Promise.resolve(
@@ -435,7 +435,7 @@ try {
           .list(artifact.id)
           .find((note) => note.body === "A keyboard-picked node."),
       ),
-    "posted node feedback",
+    "posted node discussions",
   );
   const nodeNote = storage.conversations
     .list(artifact.id)
@@ -448,7 +448,7 @@ try {
   await eventually(async () => !(await commentMode()), "return to normal interaction");
   await content.evaluate("document.activeElement.blur();getSelection().removeAllRanges()");
   console.log(
-    "Selection acceptance passed: all native views, debounce, focus, drafts, reply quotes, and touch action.",
+    "Selection acceptance passed: all native views, debounce, focus, drafts, comment quotes, and touch action.",
   );
 } finally {
   await browser?.close();

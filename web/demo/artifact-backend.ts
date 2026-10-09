@@ -1,15 +1,18 @@
 import { ArtifactApiError } from "../../shared/artifact-client.ts";
-import { buildArtifactPrompt, feedbackAttachments } from "../../shared/artifact-prompt.ts";
+import { buildArtifactPrompt, discussionAttachments } from "../../shared/artifact-prompt.ts";
 import type {
-  ArtifactFeedback,
-  ArtifactFeedbackSnapshot,
+  ArtifactDiscussion,
+  ArtifactDiscussionSnapshot,
   ArtifactLifecycleBody,
   ArtifactLifecycleResponse,
   ArtifactSourceRange,
   ArtifactStreamEvent,
   ArtifactTarget,
 } from "../../shared/artifacts.ts";
-import { hasUnsentArtifactFeedback, isUnhandledArtifactFeedback } from "../../shared/artifacts.ts";
+import {
+  hasUnsentArtifactDiscussion,
+  isUnhandledArtifactDiscussion,
+} from "../../shared/artifacts.ts";
 import type { ArtifactAttachment } from "../../shared/attachments.ts";
 import { animatedImage, targetableMedia } from "../../shared/media-target.ts";
 import { ARTIFACT_DEMO_SEED } from "./artifact-fixtures.gen.ts";
@@ -41,11 +44,11 @@ export class ArtifactDemoBackend {
     const seed = structuredClone(this.fixtures);
     const state: ArtifactDemoState = {
       ...seed,
-      feedbackRevisions: {},
+      discussionRevisions: {},
       viewed: {},
       everDelivered: Object.fromEntries(
         seed.artifacts.flatMap((artifact) =>
-          artifact.feedback.map((note) => [note.id, note.sentAt !== null || note.statusUnsent]),
+          artifact.discussions.map((note) => [note.id, note.sentAt !== null || note.statusUnsent]),
         ),
       ),
     };
@@ -74,18 +77,18 @@ export class ArtifactDemoBackend {
   }
   note(id: string) {
     for (const artifact of this.state.artifacts) {
-      const note = artifact.feedback.find((note) => note.id === id);
+      const note = artifact.discussions.find((note) => note.id === id);
       if (note) return { artifact, note };
     }
-    return fail("Feedback not found", 404);
+    return fail("Discussion not found", 404);
   }
-  reply(id: string) {
+  comment(id: string) {
     for (const artifact of this.state.artifacts)
-      for (const note of artifact.feedback) {
-        const reply = note.replies.find((reply) => reply.id === id);
-        if (reply) return { artifact, note, reply };
+      for (const note of artifact.discussions) {
+        const comment = note.comments.find((comment) => comment.id === id);
+        if (comment) return { artifact, note, comment };
       }
-    return fail("Reply not found", 404);
+    return fail("Comment not found", 404);
   }
   publication(id: string, seq: number) {
     this.get(id);
@@ -101,8 +104,8 @@ export class ArtifactDemoBackend {
   changed(id: string, event?: ArtifactStreamEvent) {
     const artifact = this.get(id);
     artifact.updatedAt = now();
-    this.state.feedbackRevisions[id] = (this.state.feedbackRevisions[id] ?? 0) + 1;
-    artifact.unhandledCount = artifact.feedback.filter(isUnhandledArtifactFeedback).length;
+    this.state.discussionRevisions[id] = (this.state.discussionRevisions[id] ?? 0) + 1;
+    artifact.unhandledCount = artifact.discussions.filter(isUnhandledArtifactDiscussion).length;
     artifact.storage = this.storageUsage(id);
     syncDemoActivity(this.state);
     for (const listener of this.subscribers) {
@@ -196,11 +199,11 @@ export class ArtifactDemoBackend {
       }
     }
   }
-  feedbackSource(id: string): ArtifactSourceRange {
+  discussionSource(id: string): ArtifactSourceRange {
     const { artifact, note } = this.note(id);
     const target = note.target;
     if ((target.kind !== "source" && target.kind !== "diff") || !target.locator)
-      fail("Feedback has no captured source or diff line range");
+      fail("Discussion has no captured source or diff line range");
     this.target(artifact.id, target);
     const { versionSeq, path, locator } = target;
     const { start, end } = locator;
@@ -226,18 +229,18 @@ export class ArtifactDemoBackend {
     };
   }
 
-  addFeedback(
+  addDiscussion(
     id: string,
     body: string,
     target: ArtifactTarget,
     attachments: ArtifactAttachment[] = [],
-  ): ArtifactFeedback {
-    if (!body.trim() && !attachments.length) fail("Feedback needs text or an image");
+  ): ArtifactDiscussion {
+    if (!body.trim() && !attachments.length) fail("Discussion needs text or an image");
     this.requireActive(id);
     this.target(id, target);
     const time = now();
-    const note: ArtifactFeedback = {
-      id: mint("feedback"),
+    const note: ArtifactDiscussion = {
+      id: mint("discussions"),
       artifactId: id,
       author: human,
       body,
@@ -249,27 +252,29 @@ export class ArtifactDemoBackend {
       updatedAt: time,
       sentAt: null,
       statusUnsent: false,
-      replies: [],
+      comments: [],
       claim: null,
     };
-    this.get(id).feedback.push(note);
+    this.get(id).discussions.push(note);
     this.state.everDelivered[note.id] = false;
     this.changed(id);
     return structuredClone(note);
   }
   pending(id: string) {
-    return this.get(id).feedback.filter(hasUnsentArtifactFeedback);
+    return this.get(id).discussions.filter(hasUnsentArtifactDiscussion);
   }
-  async snapshot(id: string, only?: string[]): Promise<ArtifactFeedbackSnapshot> {
+  async snapshot(id: string, only?: string[]): Promise<ArtifactDiscussionSnapshot> {
     const artifact = this.get(id);
     if (artifact.state !== "active") fail("Artifact is archived", 409);
-    const feedback = only ? [...new Set(only)].sort() : undefined;
-    const selected = this.pending(id).filter((note) => !feedback || feedback.includes(note.id));
+    const discussions = only ? [...new Set(only)].sort() : undefined;
+    const selected = this.pending(id).filter(
+      (note) => !discussions || discussions.includes(note.id),
+    );
     const text = buildArtifactPrompt(artifact, selected, true);
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(
-        JSON.stringify([id, this.state.feedbackRevisions[id] ?? 0, feedback ?? null]),
+        JSON.stringify([id, this.state.discussionRevisions[id] ?? 0, discussions ?? null]),
       ),
     );
     const expectedFingerprint = Array.from(new Uint8Array(digest), (byte) =>
@@ -278,20 +283,22 @@ export class ArtifactDemoBackend {
     return {
       text,
       itemCount: selected.length,
-      attachments: feedbackAttachments(selected, true),
-      acknowledgment: { feedback, expectedFingerprint },
+      attachments: discussionAttachments(selected, true),
+      acknowledgment: { discussions, expectedFingerprint },
     };
   }
-  handoff(id: string, feedback?: string[]) {
+  handoff(id: string, discussions?: string[]) {
     const artifact = this.get(id);
-    if (artifact.state === "archived") fail("Restore the artifact before submitting feedback", 409);
-    const notes = this.pending(id).filter((note) => !feedback || feedback.includes(note.id));
+    if (artifact.state === "archived")
+      fail("Restore the artifact before submitting discussions", 409);
+    const notes = this.pending(id).filter((note) => !discussions || discussions.includes(note.id));
     const time = now();
     for (const note of notes) {
       this.state.everDelivered[note.id] = true;
       if (note.author.role === "human") note.sentAt = time;
       note.statusUnsent = false;
-      for (const reply of note.replies) if (reply.author.role === "human") reply.sentAt = time;
+      for (const comment of note.comments)
+        if (comment.author.role === "human") comment.sentAt = time;
     }
     this.changed(id);
     if (notes.length)
@@ -304,16 +311,16 @@ export class ArtifactDemoBackend {
     const artifact = this.get(id);
     artifact.watching = false;
     const time = now();
-    for (const note of artifact.feedback)
+    for (const note of artifact.discussions)
       if (ids.includes(note.id) && note.status === "open")
         note.claim = {
-          feedbackId: note.id,
+          discussionId: note.id,
           sessionId: actor.sessionId,
           claimedAt: time,
           renewedAt: time,
           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
         };
-    artifact.working = artifact.feedback.some((note) => note.claim !== null);
+    artifact.working = artifact.discussions.some((note) => note.claim !== null);
     this.changed(id);
     // Each explicit handoff schedules its own response, so a second submission
     // cannot cancel the first batch. Archive closes all further conversation writes.
@@ -334,14 +341,14 @@ export class ArtifactDemoBackend {
           delete this.state.pending[id];
         }
         const latest = current.versions.at(-1)!;
-        for (const note of current.feedback)
+        for (const note of current.discussions)
           if (ids.includes(note.id)) {
-            note.replies.push({
-              id: mint("reply"),
+            note.comments.push({
+              id: mint("comment"),
               artifactId: id,
-              feedbackId: note.id,
+              discussionId: note.id,
               author: actor,
-              body: `This is a scripted demo reply. I reviewed your note${pending && current.state === "active" ? ` and published version ${latest.seq}` : ""}. You can keep reading the original version, inspect the publication, and resolve the thread when you are satisfied.`,
+              body: `This is a scripted demo comment. I reviewed your note${pending && current.state === "active" ? ` and published version ${latest.seq}` : ""}. You can keep reading the original version, inspect the publication, and resolve the thread when you are satisfied.`,
               context: {
                 versionSeq: latest.seq,
                 representation:
@@ -358,7 +365,7 @@ export class ArtifactDemoBackend {
             });
             note.claim = null;
           }
-        current.working = current.feedback.some((note) => note.claim !== null);
+        current.working = current.discussions.some((note) => note.claim !== null);
         if (current.state === "active" && !current.working) current.watching = true;
         this.changed(id, { type: "version-published", artifactId: id, seq: latest.seq });
       }, 1800),
@@ -395,7 +402,7 @@ export class ArtifactDemoBackend {
     artifact.events.push(event);
     artifact.watching = false;
     artifact.working = false;
-    for (const note of artifact.feedback) note.claim = null;
+    for (const note of artifact.discussions) note.claim = null;
     this.changed(id, { type: "lifecycle", artifactId: id, event });
     return {
       event: structuredClone(event),

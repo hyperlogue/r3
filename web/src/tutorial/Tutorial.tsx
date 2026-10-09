@@ -12,7 +12,7 @@ import { useTheme } from "../hooks.ts";
 import { ArtifactHome } from "../pages/ArtifactHome.tsx";
 import { type ArtifactRenderer, ArtifactWorkspace } from "../pages/ArtifactView.tsx";
 import { navigate, useRoute } from "../router.ts";
-import { setFeedbackMode } from "../settings.ts";
+import { setDiscussionMode } from "../settings.ts";
 import { Button } from "../ui.tsx";
 import { TutorialDocument } from "./Document.tsx";
 
@@ -24,12 +24,12 @@ const lessons = [
     "An agent publishes a complete directory. Click Publish sample to begin with version 1.",
   ],
   [
-    "Anchor your feedback",
-    "In the workspace navbar, enable comment mode. Click “5 min read”, choose Comment here, then write and save your feedback.",
+    "Anchor your discussions",
+    "In the workspace navbar, enable comment mode. Click “5 min read”, choose Comment here, then write and save your discussions.",
   ],
   [
     "Bring in an agent",
-    "Use Send to agent at the top of the feedback panel. The practice agent will claim your note, publish version 2, and reply.",
+    "Use Send to agent at the top of the discussions panel. The practice agent will claim your note, publish version 2, and comment.",
   ],
   [
     "Review the new version",
@@ -37,7 +37,7 @@ const lessons = [
   ],
   [
     "Resolve the thread",
-    "Click Resolve on your feedback card. Use the Resolved filter to find it again. The agent’s reply leaves this decision to you.",
+    "Click Resolve on your discussions card. Use the Resolved filter to find it again. The agent’s comment leaves this decision to you.",
   ],
   [
     "Explore all three kinds",
@@ -52,25 +52,25 @@ Run these commands in your terminal. The practice workspace above uses a scripte
 r3 create --kind html --dir ./artifact --title "Weekend guide"
 r3 listen <artifact_id>
 # Generic agents can use r3 watch <artifact_id> instead.
-r3 feedback fetch <artifact_id>
-r3 claim <feedback_id>
+r3 discussions fetch <artifact_id>
+r3 claim <discussion_id>
 # Edit locally, then publish the complete directory.
 r3 publish <artifact_id> --dir ./artifact
-r3 reply <feedback_id> --version 2 --view rendered -m "Updated the reading estimate."
+r3 comment <discussion_id> --version 2 --view rendered -m "Updated the reading estimate."
 \`\`\`
 
-Inspect the original target in its explicit version and representation. Each agent uses a distinct logical session. A successful reply releases its claim; the human controls resolution. Use \`r3 guide\` for the complete contract.`;
+Inspect the original target in its explicit version and representation. Each agent uses a distinct logical session. A successful comment releases its claim; the human controls resolution. Use \`r3 guide\` for the complete contract.`;
 
 export function resetPractice() {
   demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const detail of demo.state.artifacts) {
-    detail.feedback = [];
+    detail.discussions = [];
     detail.watching = true;
     detail.unhandledCount = 0;
     artifactDrafts.clear(detail.id);
     demo.changed(detail.id);
   }
-  setFeedbackMode("expanded");
+  setDiscussionMode("expanded");
   navigate("/");
 }
 
@@ -153,13 +153,13 @@ export function Tutorial() {
     queryKey: ["artifact", primary],
     queryFn: () => artifactApi.detail(primary),
   });
-  const note = query.data?.feedback.find(
+  const note = query.data?.discussions.find(
     (note) => note.author.role === "human" && note.target.kind === "rendered",
   );
   const done = [
     published,
     !!note,
-    !!note?.replies.some((reply) => reply.author.role === "agent"),
+    !!note?.comments.some((comment) => comment.author.role === "agent"),
     inspected,
     note?.status === "resolved",
     samples.every((id) => visited.includes(id)),

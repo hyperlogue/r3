@@ -33,7 +33,7 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Published workspace" });
 // Keep a native utility import so readiness also proves the inline runtime ran
-// before publisher modules; no unrelated publications or feedback are needed.
+// before publisher modules; no unrelated publications or discussions are needed.
 const source =
   '<!doctype html><html><head><title>Startup fixture</title></head><body><h1>Published document</h1><script type="module">import r3 from "/r3/utility.js";window.r3=r3;</script></body></html>';
 await storage.artifacts.publish(artifact.id, {

@@ -19,7 +19,7 @@ export function ArtifactUsagePanel({ stats }: { stats: ArtifactUsage }) {
           ["Artifacts", a.total, `${a.active} active · ${a.archived} archived`],
           ["Kinds", `${a.files} / ${a.html} / ${a.diff}`, "Files / HTML / diff"],
           ["Published versions", stats.versions, "All retained publications"],
-          ["Conversations", `${c.open} open`, `${c.resolved} resolved · ${c.replies} replies`],
+          ["Conversations", `${c.open} open`, `${c.resolved} resolved · ${c.comments} comments`],
           ["Content size", formatBytes(stats.contentBytes), "Shared bytes counted once"],
           [
             "Ready for cleanup",
@@ -46,7 +46,7 @@ export function ArtifactUsagePanel({ stats }: { stats: ArtifactUsage }) {
                 "Created",
                 "Published",
                 "Threads",
-                "Replies",
+                "Comments",
                 "Archived",
                 "Restored",
               ].map((label, i) => (

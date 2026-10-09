@@ -55,7 +55,7 @@ const VALUE = new Set([
   "session",
   "message",
   "status",
-  "feedback",
+  "discussions",
   "timeout",
   "remote",
   "attach",

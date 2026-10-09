@@ -390,7 +390,7 @@ let nextTokenizeId = 0;
 let watchdog: ReturnType<typeof setTimeout> | null = null;
 const pending = new Map<number, Pending>();
 
-// Re-armed on every reply (proof of life) and cleared when the queue drains.
+// Re-armed on every comment (proof of life) and cleared when the queue drains.
 function armWatchdog(): void {
   if (watchdog) clearTimeout(watchdog);
   watchdog = null;

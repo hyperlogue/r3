@@ -43,7 +43,7 @@ export function scrollParent(el: HTMLElement | null): HTMLElement | null {
 // Two ways to set the default: a fixed `initial` px (fixed-width panels like the
 // reviews sidebar — seeds the width from the first render), or a `defaultFraction`
 // of `containerRef`'s width (a proportional split, e.g. 0.382 for a golden
-// feedback split — adapts to the viewport). A fraction is measured once the
+// discussions split — adapts to the viewport). A fraction is measured once the
 // container is laid out, so until then (or a saved width) the width is `undefined`
 // and the pane sizes to content for the pre-paint frame only.
 export function useResizableWidth(
@@ -318,7 +318,7 @@ export function ChevronDown({ className }: { className?: string }) {
 
 // --- Fold affordances -------------------------------------------------------
 // One icon language for every fold in the app. A *horizontal* fold (a section
-// collapsing upward: summary, file block, directory subtree, earlier replies)
+// collapsing upward: summary, file block, directory subtree, earlier comments)
 // is a filled triangle that points right when folded and rotates to point down
 // when open. A *vertical* fold (a panel collapsing into a rail: reviews
 // sidebar, file browser) is a double chevron pointing where the panel will
@@ -398,8 +398,8 @@ export function TrashIcon({ className = "size-4" }: { className?: string }) {
 }
 
 // A speech bubble with a plus inside — the shared "leave a note" mark. Used for
-// both the file header's whole-file feedback button and the panel's "add general
-// feedback" button, so the two read as the same gesture at different scopes.
+// both the file header's whole-file discussions button and the panel's "add general
+// discussions" button, so the two read as the same gesture at different scopes.
 export function CommentPlusIcon({ className = "size-4" }: { className?: string }) {
   return (
     <StrokeIcon className={cn("shrink-0", className)}>
@@ -460,9 +460,9 @@ export function Button({
     | "success-outline";
 }) {
   // max-md:min-h-9 gives every shared button a compact ~40px touch target below
-  // md (inert on desktop) — real-device feedback found full 44px CTAs
+  // md (inert on desktop) — real-device discussions found full 44px CTAs
   // (Approve/Submit) too tall for the phone layout. The shared Button is only
-  // used off the protected h-8 header stack (the feedback action rows,
+  // used off the protected h-8 header stack (the discussions action rows,
   // composers, panel/review-header CTAs, login, settings) — those bars use
   // their own raw buttons — so this can't grow any h-8 bar.
   const base =
@@ -525,7 +525,7 @@ export function MoreActionsButton({
 
 // A click-to-copy token for an identifier the reader will want to paste
 // somewhere else: the review header's project dir / commit range / branch /
-// session, and the feedback panel's live agent-session badges. Underlines on
+// session, and the discussions panel's live agent-session badges. Underlines on
 // hover, copies `value` on click, and flashes a "Copied" bubble. The bubble is
 // `position: fixed` (measured off the button rect) rather than absolute so it
 // escapes the truncating, overflow-hidden lines these tokens sit on.

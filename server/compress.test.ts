@@ -9,7 +9,7 @@ function body(bytes: number): Uint8Array<ArrayBuffer> {
   let total = 0;
   let i = 0;
   while (total < bytes) {
-    const s = `{"id":"feedback_${i.toString(36)}","body":"a reviewer note, number ${i}"},`;
+    const s = `{"id":"discussion_${i.toString(36)}","body":"a reviewer note, number ${i}"},`;
     parts.push(s);
     total += s.length;
     i++;

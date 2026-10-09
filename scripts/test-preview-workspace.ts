@@ -33,7 +33,7 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Published workspace" });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createFeedback({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastFeedback=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createDiscussion({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastDiscussion=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -144,9 +144,9 @@ try {
     "theme persistence retains opaque storage isolation",
   );
   assert.equal(
-    await content.evaluate("r3.createFeedback({body:'Automatic'}).then(()=>false,()=>true)"),
+    await content.evaluate("r3.createDiscussion({body:'Automatic'}).then(()=>false,()=>true)"),
     true,
-    "page load alone must not send feedback",
+    "page load alone must not send discussions",
   );
   // Trusted pointer input activates the real embedded control and its parent.
   const click = async (expression: string) => {
@@ -180,9 +180,9 @@ try {
       x: offset.x + rect.x,
       y: offset.y + rect.y,
     });
-  const feedbackId = await eventually(
-    () => content.evaluate("window.lastFeedback"),
-    "utility feedback creation",
+  const discussionId = await eventually(
+    () => content.evaluate("window.lastDiscussion"),
+    "utility discussions creation",
   );
   assert.equal(await content.evaluate("r3.getTheme()"), "dark");
   assert.equal(
@@ -190,11 +190,11 @@ try {
     null,
     "the artifact cannot change the application theme",
   );
-  const feedback = storage.conversations
+  const discussions = storage.conversations
     .list(artifact.id)
-    .find((feedback) => feedback.id === feedbackId)!;
-  assert.equal(feedback.author.role, "human");
-  assert.deepEqual(feedback.target, {
+    .find((discussions) => discussions.id === discussionId)!;
+  assert.equal(discussions.author.role, "human");
+  assert.deepEqual(discussions.target, {
     kind: "rendered",
     versionSeq: 1,
     path: "index.html",
@@ -202,7 +202,7 @@ try {
   });
   await eventually(
     () => page.evaluate("document.body.textContent.includes('Please revise this chart')"),
-    "same thread in the feedback panel",
+    "same thread in the discussions panel",
   );
   await click("document.querySelector('[aria-label=\"Published version\"]')");
   await click("document.querySelector('[data-version-seq=\"2\"]')");
@@ -245,7 +245,7 @@ try {
     }
     return false;
   }, "theme survives reloading the workspace");
-  await click("document.querySelector('[data-artifact-feedback] button')");
+  await click("document.querySelector('[data-artifact-discussions] button')");
   const original = await eventually(async () => {
     for (const context of page.contexts.values()) {
       if (context.origin !== "://" || !context.auxData?.isDefault) continue;

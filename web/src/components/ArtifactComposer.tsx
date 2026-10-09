@@ -5,10 +5,10 @@ import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { withSavedComment } from "../artifact-discussions.ts";
 import { type ArtifactDraft, artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
-import { withSavedReply } from "../artifact-feedback.ts";
 import { draftAttachmentInputs } from "../attachment-drafts.ts";
-import { FeedbackCreationContext, prepareFeedbackMorph } from "../feedback-motion.ts";
+import { DiscussionCreationContext, prepareDiscussionMorph } from "../discussions-motion.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { useFloatingComposer } from "../useFloatingComposer.ts";
@@ -25,37 +25,37 @@ import { MessageInput } from "./MessageInput.tsx";
 // subscribe the conversation list or the content pane to every character.
 export function ArtifactComposer({
   artifactId,
-  replyTo,
+  commentTo,
   onDone,
   floating,
   readOnly = false,
 }: {
   artifactId: string;
   readOnly?: boolean;
-  replyTo?: string;
+  commentTo?: string;
   onDone?: () => void;
   floating?: { left: number; top: number; bottom: number; onClose: () => void };
 }) {
-  const draft = useArtifactDraft(artifactId, replyTo);
+  const draft = useArtifactDraft(artifactId, commentTo);
   const retiredTarget =
-    !replyTo &&
+    !commentTo &&
     (draft?.target.kind === "version_summary" || draft?.target.kind === "artifact_summary");
   const formElement = useRef<HTMLFormElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const floatingComposer = useFloatingComposer(floating);
   const qc = useQueryClient();
-  const showCreated = useContext(FeedbackCreationContext);
+  const showCreated = useContext(DiscussionCreationContext);
   const post = useMutation({
     mutationFn: async (submitted: ArtifactDraft) => {
       const attachments = await editableImageInputs(submitted.attachments ?? []);
-      if (replyTo)
-        return artifactApi.reply(replyTo, {
+      if (commentTo)
+        return artifactApi.comment(commentTo, {
           body: submitted.body,
           attachments,
           operationKey: submitted.operationKey,
         });
       else
-        return artifactApi.addFeedback(artifactId, submitted.body, submitted.target, {
+        return artifactApi.addDiscussion(artifactId, submitted.body, submitted.target, {
           attachments,
           operationKey: submitted.operationKey,
           mediaSnapshot:
@@ -69,22 +69,22 @@ export function ArtifactComposer({
       let cleared = false;
       // Do not let an older in-flight read replace the acknowledged note.
       await qc.cancelQueries({ queryKey: ["artifact", artifactId], exact: true });
-      if ("feedbackId" in saved) {
+      if ("discussionId" in saved) {
         flushSync(() => {
           qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
-            current ? withSavedReply(current, saved) : current,
+            current ? withSavedComment(current, saved) : current,
           );
-          cleared = artifactDrafts.clearIfCurrent(artifactId, submitted, replyTo);
+          cleared = artifactDrafts.clearIfCurrent(artifactId, submitted, commentTo);
         });
       } else {
         const current = artifactDrafts.get(artifactId) === submitted;
-        if (current) prepareFeedbackMorph(formElement.current, saved.id);
+        if (current) prepareDiscussionMorph(formElement.current, saved.id);
         flushSync(() => {
           if (current) release = showCreated?.(saved);
           qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
-            !current || current.feedback.some((note) => note.id === saved.id)
+            !current || current.discussions.some((note) => note.id === saved.id)
               ? current
-              : { ...current, feedback: [...current.feedback, saved] },
+              : { ...current, discussions: [...current.discussions, saved] },
           );
           cleared = artifactDrafts.clearIfCurrent(artifactId, submitted);
         });
@@ -98,7 +98,7 @@ export function ArtifactComposer({
     change: (images: EditableImage[]) => EditableImage[],
     insertion?: ImageInsertion,
   ) => {
-    const held = artifactDrafts.get(artifactId, replyTo);
+    const held = artifactDrafts.get(artifactId, commentTo);
     const before = held?.attachments ?? [];
     const after = change(before);
     if (before.length === after.length && before.every((image, i) => image === after[i])) return;
@@ -108,7 +108,7 @@ export function ArtifactComposer({
         attachments: after,
         body: imageMessageBody(held?.body ?? "", before, after, insertion),
       },
-      replyTo,
+      commentTo,
     );
     artifactDrafts.flush();
   };
@@ -131,12 +131,12 @@ export function ArtifactComposer({
       ref={formElement}
       className={cn(
         "relative flex flex-col gap-2 bg-white py-3 dark:bg-neutral-950",
-        !replyTo &&
+        !commentTo &&
           !floating &&
           "border-b border-neutral-200 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:border-neutral-800",
       )}
       data-artifact-composer={artifactId}
-      data-reply-to={replyTo}
+      data-comment-to={commentTo}
       onPaste={attachments.onPaste}
       onSubmit={(event) => {
         event.preventDefault();
@@ -148,10 +148,10 @@ export function ArtifactComposer({
           !retiredTarget
         ) {
           if (!draft.operationKey) {
-            artifactDrafts.update(artifactId, { operationKey: crypto.randomUUID() }, replyTo);
+            artifactDrafts.update(artifactId, { operationKey: crypto.randomUUID() }, commentTo);
             artifactDrafts.flush();
           }
-          post.mutate(artifactDrafts.get(artifactId, replyTo)!);
+          post.mutate(artifactDrafts.get(artifactId, commentTo)!);
         }
       }}
     >
@@ -175,13 +175,13 @@ export function ArtifactComposer({
           </button>
         )}
         <span className={cn(floating && "min-w-0 flex-1 break-words pt-1")}>
-          {replyTo
+          {commentTo
             ? context?.versionSeq
-              ? `Reply about version ${context.versionSeq}${context.representation ? ` · ${context.representation}` : ""}`
-              : "Reply without a published context"
+              ? `Comment about version ${context.versionSeq}${context.representation ? ` · ${context.representation}` : ""}`
+              : "Comment without a published context"
             : artifactTargetLabel(draft?.target ?? { kind: "artifact" })}
         </span>
-        {!replyTo && draft?.target.kind !== "artifact" && draft?.target && (
+        {!commentTo && draft?.target.kind !== "artifact" && draft?.target && (
           <button
             type="button"
             className={cn("shrink-0 underline", floating && "pt-1")}
@@ -215,7 +215,7 @@ export function ArtifactComposer({
       {retiredTarget && (
         <p className="px-3 text-xs text-amber-700 dark:text-amber-400">
           Description anchoring is no longer supported. Clear the target to post this draft as
-          general feedback.
+          general discussions.
         </p>
       )}
       {draft &&
@@ -227,17 +227,17 @@ export function ArtifactComposer({
             {draft.target.locator.quote}
           </blockquote>
         )}
-      {!replyTo && draft?.target.kind === "media" && draft.mediaSnapshot && (
+      {!commentTo && draft?.target.kind === "media" && draft.mediaSnapshot && (
         <MediaTargetPreview image={draft.mediaSnapshot} box={draft.target.locator.box} />
       )}
       <MessageInput
         inputRef={textarea}
-        aria-label={replyTo ? "Reply" : "Feedback"}
-        placeholder={replyTo ? "Write a reply…" : "Write feedback…"}
+        aria-label={commentTo ? "Comment" : "Discussion"}
+        placeholder={commentTo ? "Write a comment…" : "Write discussions…"}
         disabled={post.isPending}
         value={draft?.body ?? ""}
         onChange={(event) =>
-          artifactDrafts.update(artifactId, { body: event.target.value }, replyTo)
+          artifactDrafts.update(artifactId, { body: event.target.value }, commentTo)
         }
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -247,7 +247,7 @@ export function ArtifactComposer({
             event.preventDefault();
             event.stopPropagation();
             if (!hasMessageContent(draft)) {
-              artifactDrafts.clear(artifactId, replyTo);
+              artifactDrafts.clear(artifactId, commentTo);
               onDone?.();
             } else event.currentTarget.blur();
           }
@@ -278,7 +278,7 @@ export function ArtifactComposer({
           type="button"
           disabled={post.isPending}
           onClick={() => {
-            artifactDrafts.clear(artifactId, replyTo);
+            artifactDrafts.clear(artifactId, commentTo);
             onDone?.();
           }}
         >
@@ -291,7 +291,7 @@ export function ArtifactComposer({
             !hasMessageContent(draft) || attachments.unfinished || post.isPending || retiredTarget
           }
         >
-          {post.isPending ? "Posting…" : replyTo ? "Reply" : "Add feedback"}
+          {post.isPending ? "Posting…" : commentTo ? "Comment" : "Add discussions"}
         </Button>
       </div>
     </form>

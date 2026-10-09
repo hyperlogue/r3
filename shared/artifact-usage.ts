@@ -5,7 +5,7 @@ export const ACTIVITY_METRICS = [
   "artifactsCreated",
   "versionsPublished",
   "threadsAdded",
-  "repliesAdded",
+  "commentsAdded",
   "archived",
   "restored",
 ] as const;
@@ -54,7 +54,7 @@ export interface ArtifactUsage {
     diff: number;
   };
   versions: number;
-  conversations: { open: number; resolved: number; replies: number };
+  conversations: { open: number; resolved: number; comments: number };
   contentBytes: number;
   gc: { ttlDays: number; eligibleArtifacts: number; reclaimableBytes: number };
   periods: UsagePeriod[];
@@ -103,7 +103,7 @@ export function usagePeriods(
       artifactsCreated: 0,
       versionsPublished: 0,
       threadsAdded: 0,
-      repliesAdded: 0,
+      commentsAdded: 0,
       archived: 0,
       restored: 0,
     };

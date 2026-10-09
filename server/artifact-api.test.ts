@@ -187,7 +187,7 @@ describe("artifact HTTP content contract", () => {
     }
   });
 
-  test("full feedback source remains behind authentication and origin guards", async () => {
+  test("full discussions source remains behind authentication and origin guards", async () => {
     const id = await create();
     await request(`/api/artifacts/${id}/versions`, "POST", publication());
     const source = storage.artifacts.files(id, 1)[0];
@@ -196,14 +196,14 @@ describe("artifact HTTP content contract", () => {
       body: "Read this",
       target: { kind: "source", versionSeq: 1, path: source.path, locator: null },
     });
-    const path = `/api/feedback/${note.id}/source`;
+    const path = `/api/discussions/${note.id}/source`;
     const denied = await api.app.request(
       new Request(`http://localhost${path}`, { headers: { host: "localhost" } }),
     );
     expect(denied.status).toBe(401);
     expect((await request(path, "GET", undefined, { origin: "null" })).status).toBe(403);
     expect((await request(path)).status).toBe(400); // Whole-file targets do not invent a range.
-    expect((await request("/api/feedback/missing/source")).status).toBe(404);
+    expect((await request("/api/discussions/missing/source")).status).toBe(404);
   });
 
   test("authenticated preview grants bind the application origin and revoke with the artifact", async () => {
@@ -383,17 +383,17 @@ describe("artifact HTTP collaboration contract", () => {
     await request(`/api/artifacts/${id}/versions`, "POST", publication());
     const target = { kind: "rendered", versionSeq: 1, path: "page.html", locator: null };
     const note = await (
-      await request(`/api/artifacts/${id}/feedback`, "POST", {
+      await request(`/api/artifacts/${id}/discussions`, "POST", {
         actor,
         body: "Keep this discussion",
         target,
       })
     ).json();
     const context = { versionSeq: 1, representation: "rendered" };
-    const reply = await (
-      await request(`/api/feedback/${note.id}/replies`, "POST", {
+    const comment = await (
+      await request(`/api/discussions/${note.id}/comments`, "POST", {
         actor,
-        body: "Retained reply",
+        body: "Retained comment",
         context,
       })
     ).json();
@@ -407,18 +407,18 @@ describe("artifact HTTP collaboration contract", () => {
     const mutations: [string, string, unknown][] = [
       [`/api/artifacts/${id}`, "PATCH", { title: "Changed" }],
       [`/api/artifacts/${id}/versions`, "POST", publication(1, "second")],
-      [`/api/artifacts/${id}/feedback`, "POST", { actor, body: "Late note", target }],
-      [`/api/feedback/${note.id}`, "PATCH", { actor, body: "Changed" }],
+      [`/api/artifacts/${id}/discussions`, "POST", { actor, body: "Late note", target }],
+      [`/api/discussions/${note.id}`, "PATCH", { actor, body: "Changed" }],
       [
-        `/api/feedback/${note.id}`,
+        `/api/discussions/${note.id}`,
         "PATCH",
         { actor: { role: "human", sessionId: null }, status: "resolved" },
       ],
-      [`/api/feedback/${note.id}`, "DELETE", { actor }],
-      [`/api/feedback/${note.id}/replies`, "POST", { actor, body: "Late reply", context }],
-      [`/api/replies/${reply.id}`, "PATCH", { actor, body: "Changed" }],
-      [`/api/feedback/${note.id}/placements`, "PUT", { actor, target, state: "anchored" }],
-      ["/api/claims", "POST", { sessionId: actor.sessionId, feedbackIds: [note.id] }],
+      [`/api/discussions/${note.id}`, "DELETE", { actor }],
+      [`/api/discussions/${note.id}/comments`, "POST", { actor, body: "Late comment", context }],
+      [`/api/comments/${comment.id}`, "PATCH", { actor, body: "Changed" }],
+      [`/api/discussions/${note.id}/placements`, "PUT", { actor, target, state: "anchored" }],
+      ["/api/claims", "POST", { sessionId: actor.sessionId, discussionIds: [note.id] }],
       [`/api/artifacts/${id}/listen`, "POST", { actor }],
       [`/api/artifacts/${id}/submit`, "POST", {}],
     ];
@@ -431,7 +431,7 @@ describe("artifact HTTP collaboration contract", () => {
     expect((await request(`/api/artifacts/${id}/versions/1/resource?path=page.html`)).status).toBe(
       200,
     );
-    expect((await request(`/api/artifacts/${id}/feedback/history`)).status).toBe(200);
+    expect((await request(`/api/artifacts/${id}/discussions/history`)).status).toBe(200);
     expect(
       (
         await request(`/api/artifacts/${id}/lifecycle`, "POST", {
@@ -446,7 +446,7 @@ describe("artifact HTTP collaboration contract", () => {
     ).toBe(200);
     expect(
       (
-        await request(`/api/feedback/${note.id}/replies`, "POST", {
+        await request(`/api/discussions/${note.id}/comments`, "POST", {
           actor,
           body: "Work resumed",
           context,
@@ -462,79 +462,98 @@ describe("artifact HTTP collaboration contract", () => {
       body: "Retained",
       target: { kind: "artifact" },
     });
-    const snapshot = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    const snapshot = await (await request(`/api/artifacts/${id}/discussions/pending`)).json();
     await request(`/api/artifacts/${id}/lifecycle`, "POST", {
       actor: human,
       event: "archived",
       operationKey: "archive-snapshot",
     });
-    expect((await request(`/api/artifacts/${id}/feedback/pending`)).status).toBe(409);
-    expect((await request(`/api/artifacts/${id}/feedback/history`)).status).toBe(200);
+    expect((await request(`/api/artifacts/${id}/discussions/pending`)).status).toBe(409);
+    expect((await request(`/api/artifacts/${id}/discussions/history`)).status).toBe(200);
     await request(`/api/artifacts/${id}/lifecycle`, "POST", {
       actor: human,
       event: "restored",
       operationKey: "restore-snapshot",
     });
     expect(
-      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", snapshot.acknowledgment))
-        .status,
+      (
+        await request(
+          `/api/artifacts/${id}/discussions/acknowledge`,
+          "POST",
+          snapshot.acknowledgment,
+        )
+      ).status,
     ).toBe(409);
     expect(storage.conversations.unsent(id)).toHaveLength(1);
   });
 
-  test("feedback acknowledgments require the exact pending snapshot, even after edit and revert", async () => {
+  test("discussions acknowledgments require the exact pending snapshot, even after edit and revert", async () => {
     const id = await create();
-    const feedback = await (
-      await request(`/api/artifacts/${id}/feedback`, "POST", {
+    const discussions = await (
+      await request(`/api/artifacts/${id}/discussions`, "POST", {
         actor: human,
         body: "Original note",
         target: { kind: "artifact" },
       })
     ).json();
-    const preview = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    const preview = await (await request(`/api/artifacts/${id}/discussions/pending`)).json();
     const { expectedFingerprint } = preview.acknowledgment;
     for (const body of [{}, { expectedFingerprint: "invalid" }])
       expect(
-        (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", body)).status,
+        (await request(`/api/artifacts/${id}/discussions/acknowledge`, "POST", body)).status,
       ).toBe(400);
     expect(expectedFingerprint).toHaveLength(64);
-    await request(`/api/feedback/${feedback.id}`, "PATCH", {
+    await request(`/api/discussions/${discussions.id}`, "PATCH", {
       actor: human,
       body: "Edited after reading",
     });
     expect(
-      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", { expectedFingerprint }))
-        .status,
-    ).toBe(409);
-    await request(`/api/feedback/${feedback.id}`, "PATCH", { actor: human, body: "Original note" });
-    expect(
-      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", { expectedFingerprint }))
-        .status,
-    ).toBe(409);
-    expect(
       (
-        await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", {
-          ...preview.acknowledgment,
-          feedback: [feedback.id],
+        await request(`/api/artifacts/${id}/discussions/acknowledge`, "POST", {
+          expectedFingerprint,
         })
       ).status,
     ).toBe(409);
-    expect(storage.conversations.get(feedback.id).sentAt).toBeNull();
-    const updated = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    await request(`/api/discussions/${discussions.id}`, "PATCH", {
+      actor: human,
+      body: "Original note",
+    });
+    expect(
+      (
+        await request(`/api/artifacts/${id}/discussions/acknowledge`, "POST", {
+          expectedFingerprint,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(`/api/artifacts/${id}/discussions/acknowledge`, "POST", {
+          ...preview.acknowledgment,
+          discussions: [discussions.id],
+        })
+      ).status,
+    ).toBe(409);
+    expect(storage.conversations.get(discussions.id).sentAt).toBeNull();
+    const updated = await (await request(`/api/artifacts/${id}/discussions/pending`)).json();
     expect(updated.text).toContain("Original note");
     expect(
-      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", updated.acknowledgment))
-        .status,
+      (
+        await request(
+          `/api/artifacts/${id}/discussions/acknowledge`,
+          "POST",
+          updated.acknowledgment,
+        )
+      ).status,
     ).toBe(200);
-    expect(storage.conversations.get(feedback.id).sentAt).not.toBeNull();
+    expect(storage.conversations.get(discussions.id).sentAt).not.toBeNull();
   });
-  test("native threads, explicit reply context, owner delivery, and claims use the same IDs across HTTP", async () => {
+  test("native threads, explicit comment context, owner delivery, and claims use the same IDs across HTTP", async () => {
     const id = await create();
     await request(`/api/artifacts/${id}/versions`, "POST", publication());
     const events = readEventStream((await request(`/api/events?artifact=${id}`)).body!);
     expect((await events.next()).value?.event).toBe("ready");
-    const feedback = await (
-      await request(`/api/artifacts/${id}/feedback`, "POST", {
+    const discussions = await (
+      await request(`/api/artifacts/${id}/discussions`, "POST", {
         actor: human,
         body: "Please change this",
         target: {
@@ -545,51 +564,60 @@ describe("artifact HTTP collaboration contract", () => {
         },
       })
     ).json();
-    expect((await events.next()).value?.data).toContain(feedback.id);
+    expect((await events.next()).value?.data).toContain(discussions.id);
     expect(
       (
         await request("/api/claims", "POST", {
           sessionId: actor.sessionId,
-          feedbackIds: [feedback.id],
+          discussionIds: [discussions.id],
         })
       ).status,
     ).toBe(200);
-    const preview = await (await request(`/api/artifacts/${id}/feedback/pending`)).json();
+    const preview = await (await request(`/api/artifacts/${id}/discussions/pending`)).json();
     expect(preview.itemCount).toBe(1);
     expect(preview.text).toContain('"versionSeq":1');
-    expect((await (await request(`/api/feedback/${feedback.id}`)).json()).sentAt).toBeNull();
+    expect((await (await request(`/api/discussions/${discussions.id}`)).json()).sentAt).toBeNull();
     const delivery = await request(
-      `/api/artifacts/${id}/feedback/acknowledge`,
+      `/api/artifacts/${id}/discussions/acknowledge`,
       "POST",
       preview.acknowledgment,
     );
     expect(await delivery.json()).toEqual({ acknowledgedCount: 1 });
     expect(
-      (await request(`/api/artifacts/${id}/feedback/acknowledge`, "POST", preview.acknowledgment))
-        .status,
+      (
+        await request(
+          `/api/artifacts/${id}/discussions/acknowledge`,
+          "POST",
+          preview.acknowledgment,
+        )
+      ).status,
     ).toBe(409);
-    expect((await (await request(`/api/artifacts/${id}/feedback/pending`)).json()).itemCount).toBe(
-      0,
-    );
+    expect(
+      (await (await request(`/api/artifacts/${id}/discussions/pending`)).json()).itemCount,
+    ).toBe(0);
     expect((await request(`/api/artifacts/${id}/prompt`)).status).toBe(404);
     expect((await request(`/api/artifacts/${id}/prompt`, "POST", {})).status).toBe(404);
-    const reply = await request(`/api/feedback/${feedback.id}/replies`, "POST", {
+    const comment = await request(`/api/discussions/${discussions.id}/comments`, "POST", {
       actor,
       body: "I inspected the published source",
       context: { versionSeq: 1, representation: "source" },
     });
-    expect(reply.status).toBe(201);
-    expect((await reply.json()).context).toEqual({ versionSeq: 1, representation: "source" });
-    const current = await (await request(`/api/feedback/${feedback.id}`)).json();
+    expect(comment.status).toBe(201);
+    expect((await comment.json()).context).toEqual({ versionSeq: 1, representation: "source" });
+    const current = await (await request(`/api/discussions/${discussions.id}`)).json();
     expect(current.claim).toBeNull();
     expect(current.status).toBe("open");
     expect(
-      (await request(`/api/feedback/${feedback.id}`, "PATCH", { actor, status: "resolved" }))
+      (await request(`/api/discussions/${discussions.id}`, "PATCH", { actor, status: "resolved" }))
         .status,
     ).toBe(400);
     expect(
-      (await request(`/api/feedback/${feedback.id}`, "PATCH", { actor: human, status: "resolved" }))
-        .status,
+      (
+        await request(`/api/discussions/${discussions.id}`, "PATCH", {
+          actor: human,
+          status: "resolved",
+        })
+      ).status,
     ).toBe(200);
     await events.return(undefined);
   });
@@ -637,7 +665,7 @@ describe("artifact HTTP collaboration contract", () => {
     expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
   });
 
-  test("watch shutdown releases the held slot and archived terminal state precedes pending feedback", async () => {
+  test("watch shutdown releases the held slot and archived terminal state precedes pending discussions", async () => {
     const id = await create();
     const wait = request(`/api/artifacts/${id}/watch`, "POST", { actor, timeoutMs: 5000 });
     // Let the JSON request reader register the waiter before shutting down.
@@ -645,7 +673,7 @@ describe("artifact HTTP collaboration contract", () => {
     api.close();
     expect((await (await wait).json()).result).toBe("cancelled");
     expect(api.collaboration.watchers(id)).toEqual([]);
-    await request(`/api/artifacts/${id}/feedback`, "POST", {
+    await request(`/api/artifacts/${id}/discussions`, "POST", {
       actor: human,
       body: "Unsent content",
       target: { kind: "artifact" },

@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import type { FeedbackPanelMode } from "./settings.ts";
+import type { DiscussionPanelMode } from "./settings.ts";
 import { prefersReduced } from "./ui.tsx";
 
 type Box = { x: number; y: number; width: number; height: number };
 type Snapshot = {
-  mode: FeedbackPanelMode;
+  mode: DiscussionPanelMode;
   box: Box;
   radius: string;
   shadow: string;
   opacity: string;
 };
-const snapshot = (node: HTMLElement, mode: FeedbackPanelMode): Snapshot => {
+const snapshot = (node: HTMLElement, mode: DiscussionPanelMode): Snapshot => {
   const style = getComputedStyle(node);
   return {
     mode,
@@ -23,8 +23,8 @@ const snapshot = (node: HTMLElement, mode: FeedbackPanelMode): Snapshot => {
 
 // The layout changes once. Animate the same shell from its previous visual box,
 // preserving its children and avoiding per-frame reflow of the content pane.
-export function useFeedbackPanelMotion(
-  mode: FeedbackPanelMode,
+export function useDiscussionPanelMotion(
+  mode: DiscussionPanelMode,
   rect: Box | null,
   dockWidth: number | undefined,
 ) {

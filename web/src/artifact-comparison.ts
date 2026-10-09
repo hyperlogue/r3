@@ -15,8 +15,8 @@ export type ElementComparisonTarget = {
 export type ComparisonTarget = ElementComparisonTarget | ArtifactMediaTarget;
 
 export interface ArtifactComparison {
-  feedbackId: string;
-  replyId: string;
+  discussionId: string;
+  commentId: string;
   original: ComparisonTarget;
   proposed: ComparisonTarget;
 }
@@ -28,24 +28,29 @@ function elementTarget(target: ArtifactTarget | null): target is ComparisonTarge
   );
 }
 
-// Eligibility uses recorded native evidence, never reply context, placements, or
+// Eligibility uses recorded native evidence, never comment context, placements, or
 // the latest publication. Runtime availability is checked by each scoped preview.
 export function artifactComparisons(detail: ArtifactDetail): Map<string, ArtifactComparison> {
   const versions = new Set(detail.versions.map((version) => version.seq));
   const comparisons = new Map<string, ArtifactComparison>();
-  for (const feedback of detail.feedback) {
-    const original = feedback.target;
+  for (const discussions of detail.discussions) {
+    const original = discussions.target;
     if (!elementTarget(original) || !versions.has(original.versionSeq)) continue;
-    for (const reply of feedback.replies) {
-      const proposed = reply.target;
+    for (const comment of discussions.comments) {
+      const proposed = comment.target;
       if (
-        reply.author.role !== "agent" ||
+        comment.author.role !== "agent" ||
         !elementTarget(proposed) ||
         proposed.kind !== original.kind ||
         !versions.has(proposed.versionSeq)
       )
         continue;
-      comparisons.set(reply.id, { feedbackId: feedback.id, replyId: reply.id, original, proposed });
+      comparisons.set(comment.id, {
+        discussionId: discussions.id,
+        commentId: comment.id,
+        original,
+        proposed,
+      });
     }
   }
   return comparisons;

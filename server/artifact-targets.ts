@@ -114,7 +114,7 @@ function checkSourceQuote(lines: string[], locator: SourceLocator): void {
   }
 }
 
-// Version and representation are explicit on every target and reply context.
+// Version and representation are explicit on every target and comment context.
 // Source/diff validation uses retained bytes; a dynamic rendered DOM supplies
 // native evidence without being reverse-mapped into an invented source range.
 export class ArtifactTargets {
@@ -216,7 +216,7 @@ export class ArtifactTargets {
 
   async sourceRange(id: string, target: ArtifactTarget): Promise<ArtifactSourceRange> {
     if ((target.kind !== "source" && target.kind !== "diff") || !target.locator)
-      throw new ArtifactError("Feedback has no captured source or diff line range");
+      throw new ArtifactError("Discussion has no captured source or diff line range");
     const versionSeq = requireSequence(target.versionSeq);
     const version = this.artifacts.version(id, versionSeq);
     requireRepresentation(version.kind, target.kind);
@@ -245,7 +245,7 @@ export class ArtifactTargets {
         source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         if (source.includes("\0")) throw new Error("Binary source");
       } catch {
-        throw new ArtifactError("Binary files support whole-file feedback only");
+        throw new ArtifactError("Binary files support whole-file discussions only");
       }
       const all = source.replaceAll("\r\n", "\n").split("\n");
       if (source.endsWith("\n")) all.pop();

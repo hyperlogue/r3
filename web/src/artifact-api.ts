@@ -2,7 +2,7 @@ import {
   ArtifactApiError,
   ArtifactClient,
   artifactApiPath,
-  feedbackApiPath,
+  discussionApiPath,
 } from "../../shared/artifact-client.ts";
 import {
   type ArtifactSearchOptions,
@@ -19,12 +19,13 @@ import type {
   AgentSession,
   Artifact,
   ArtifactActor,
+  ArtifactComment,
   ArtifactDetail,
-  ArtifactFeedback,
-  ArtifactFeedbackAcknowledged,
-  ArtifactFeedbackAcknowledgment,
-  ArtifactFeedbackRead,
-  ArtifactFeedbackSnapshot,
+  ArtifactDiscussion,
+  ArtifactDiscussionAcknowledged,
+  ArtifactDiscussionAcknowledgment,
+  ArtifactDiscussionRead,
+  ArtifactDiscussionSnapshot,
   ArtifactFile,
   ArtifactLifecycleBody,
   ArtifactLifecycleResponse,
@@ -33,15 +34,14 @@ import type {
   ArtifactPreviewContext,
   ArtifactPreviewNetwork,
   ArtifactProject,
-  ArtifactReply,
   ArtifactSource,
   ArtifactSourceRange,
   ArtifactStreamEvent,
   ArtifactTarget,
   ArtifactVersion,
   ArtifactWatcher,
-  CreateArtifactReplyBody,
-  EditArtifactFeedbackBody,
+  CreateArtifactCommentBody,
+  EditArtifactDiscussionBody,
   EditArtifactProjectBody,
 } from "../../shared/artifacts.ts";
 import { type AttachmentInput, attachmentPath } from "../../shared/attachments.ts";
@@ -77,8 +77,8 @@ export const artifactApi = {
   list: (filters: Record<string, string | undefined> = {}) =>
     client().json<Artifact[]>("GET", `/api/artifacts${query(filters)}`),
   detail: (id: string) => client().json<ArtifactDetail>("GET", artifactApiPath(id)),
-  feedbackSource: (id: string) =>
-    client().json<ArtifactSourceRange>("GET", `${feedbackApiPath(id)}/source`),
+  discussionSource: (id: string) =>
+    client().json<ArtifactSourceRange>("GET", `${discussionApiPath(id)}/source`),
   projects: () => client().json<ArtifactProject[]>("GET", "/api/projects"),
   editProject: (id: string, body: EditArtifactProjectBody) =>
     client().json<ArtifactProject>("PATCH", `/api/projects/${encodeURIComponent(id)}`, body),
@@ -98,7 +98,7 @@ export const artifactApi = {
   edit: (id: string, body: { title?: string; summary?: string }) =>
     client().json<Artifact>("PATCH", artifactApiPath(id), body),
   delete: (id: string) => client().json<{ ok: boolean }>("DELETE", artifactApiPath(id)),
-  addFeedback: (
+  addDiscussion: (
     id: string,
     body: string,
     target: ArtifactTarget,
@@ -108,23 +108,26 @@ export const artifactApi = {
       mediaSnapshot?: AttachmentInput;
     } = {},
   ) =>
-    client().json<ArtifactFeedback>("POST", `${artifactApiPath(id)}/feedback`, {
+    client().json<ArtifactDiscussion>("POST", `${artifactApiPath(id)}/discussions`, {
       actor: HUMAN_ACTOR,
       body,
       target,
       ...options,
     }),
-  editFeedback: (id: string, body: Omit<EditArtifactFeedbackBody, "actor">) =>
-    client().json<ArtifactFeedback>("PATCH", feedbackApiPath(id), { ...body, actor: HUMAN_ACTOR }),
-  deleteFeedback: (id: string) =>
-    client().json<{ ok: boolean }>("DELETE", feedbackApiPath(id), { actor: HUMAN_ACTOR }),
-  reply: (id: string, body: Omit<CreateArtifactReplyBody, "actor">) =>
-    client().json<ArtifactReply>("POST", `${feedbackApiPath(id)}/replies`, {
+  editDiscussion: (id: string, body: Omit<EditArtifactDiscussionBody, "actor">) =>
+    client().json<ArtifactDiscussion>("PATCH", discussionApiPath(id), {
       ...body,
       actor: HUMAN_ACTOR,
     }),
-  editReply: (id: string, body: string, attachments?: AttachmentInput[]) =>
-    client().json<ArtifactReply>("PATCH", `/api/replies/${encodeURIComponent(id)}`, {
+  deleteDiscussion: (id: string) =>
+    client().json<{ ok: boolean }>("DELETE", discussionApiPath(id), { actor: HUMAN_ACTOR }),
+  comment: (id: string, body: Omit<CreateArtifactCommentBody, "actor">) =>
+    client().json<ArtifactComment>("POST", `${discussionApiPath(id)}/comments`, {
+      ...body,
+      actor: HUMAN_ACTOR,
+    }),
+  editComment: (id: string, body: string, attachments?: AttachmentInput[]) =>
+    client().json<ArtifactComment>("PATCH", `/api/comments/${encodeURIComponent(id)}`, {
       actor: HUMAN_ACTOR,
       body,
       attachments,
@@ -132,7 +135,7 @@ export const artifactApi = {
   attachment: (artifactId: string, id: string) =>
     client().request("GET", attachmentPath(artifactId, id)),
   place: (id: string, body: Omit<ArtifactPlacementBody, "actor">) =>
-    client().json("PUT", `${feedbackApiPath(id)}/placements`, { ...body, actor: HUMAN_ACTOR }),
+    client().json("PUT", `${discussionApiPath(id)}/placements`, { ...body, actor: HUMAN_ACTOR }),
   lifecycle: async (id: string, body: Omit<ArtifactLifecycleBody, "actor">) => {
     try {
       return await client().json<ArtifactLifecycleResponse>(
@@ -158,20 +161,20 @@ export const artifactApi = {
     client().json<ArtifactWatcher[]>("GET", `${artifactApiPath(id)}/watchers`),
   submit: (id: string) =>
     client().json<{ notification: ArtifactNotification }>("POST", `${artifactApiPath(id)}/submit`),
-  pendingFeedback: (id: string, feedback?: string[]) =>
-    client().json<ArtifactFeedbackSnapshot>(
+  pendingDiscussion: (id: string, discussions?: string[]) =>
+    client().json<ArtifactDiscussionSnapshot>(
       "GET",
-      `${artifactApiPath(id)}/feedback/pending${query({ feedback: feedback?.join(",") })}`,
+      `${artifactApiPath(id)}/discussions/pending${query({ discussions: discussions?.join(",") })}`,
     ),
-  feedbackHistory: (id: string, feedback?: string[]) =>
-    client().json<ArtifactFeedbackRead>(
+  discussionHistory: (id: string, discussions?: string[]) =>
+    client().json<ArtifactDiscussionRead>(
       "GET",
-      `${artifactApiPath(id)}/feedback/history${query({ feedback: feedback?.join(",") })}`,
+      `${artifactApiPath(id)}/discussions/history${query({ discussions: discussions?.join(",") })}`,
     ),
-  acknowledgeFeedback: (id: string, body: ArtifactFeedbackAcknowledgment) =>
-    client().json<ArtifactFeedbackAcknowledged>(
+  acknowledgeDiscussion: (id: string, body: ArtifactDiscussionAcknowledgment) =>
+    client().json<ArtifactDiscussionAcknowledged>(
       "POST",
-      `${artifactApiPath(id)}/feedback/acknowledge`,
+      `${artifactApiPath(id)}/discussions/acknowledge`,
       body,
     ),
   viewed: (id: string) => client().json<string[]>("GET", `${artifactApiPath(id)}/viewed`),

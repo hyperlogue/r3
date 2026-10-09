@@ -215,9 +215,9 @@ try {
     await page.evaluate(`(() => {
     const h=document.querySelector(${JSON.stringify(sourceHeader)});
     const d=h.querySelector('[aria-label^=Download]').getBoundingClientRect();
-    return [h.querySelector('[aria-pressed]'),h.querySelector('button[title="Leave feedback on this file"]')].every(e=>{const r=e.getBoundingClientRect();return Math.abs(r.top-d.top)<.1&&Math.abs(r.height-d.height)<.1;});
+    return [h.querySelector('[aria-pressed]'),h.querySelector('button[title="Leave discussions on this file"]')].every(e=>{const r=e.getBoundingClientRect();return Math.abs(r.top-d.top)<.1&&Math.abs(r.height-d.height)<.1;});
   })()`),
-    "Download hover background aligns with Viewed and feedback controls",
+    "Download hover background aligns with Viewed and discussions controls",
   );
   assert(
     await page.evaluate(
@@ -255,7 +255,7 @@ try {
   await click(copy(source, source));
   await eventually(
     () => exists(`${sourceHeader} [data-path-copy=error]`),
-    "clipboard failure feedback",
+    "clipboard failure discussions",
   );
   assert(!(await exists(success)), "A failed copy cannot show success");
   await page.evaluate(

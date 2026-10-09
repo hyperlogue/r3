@@ -39,7 +39,7 @@ The common suite must cover:
 
 - Initial HTML/Markdown rendering, publisher JavaScript, local modules and assets,
   interaction, and native navigation through published documents.
-- Rendered selection, feedback creation and replies, Locate, pinned versions, and
+- Rendered selection, discussions creation and comments, Locate, pinned versions, and
   switching back to an earlier publication.
 - Parent/application and sibling-artifact isolation, credential handling, and
   the exact network guarantee advertised by the selected mode.

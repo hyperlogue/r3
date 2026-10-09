@@ -37,10 +37,10 @@ const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({
   kind: "html",
   actor,
-  title: "Image feedback acceptance",
+  title: "Image discussions acceptance",
 });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createFeedback({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastFeedback=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createDiscussion({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastDiscussion=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -85,7 +85,7 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
-    if (failNextPost && request.method === "POST" && path.endsWith("/feedback")) {
+    if (failNextPost && request.method === "POST" && path.endsWith("/discussions")) {
       failNextPost = false;
       return Response.json({ error: "Image save failed; retry" }, { status: 503 });
     }
@@ -114,7 +114,8 @@ try {
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const button = (label: string) =>
     `Array.from((document.querySelector('dialog[open]') || document).querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(label)} || b.getAttribute('aria-label')===${JSON.stringify(label)})`;
-  const input = "document.querySelector('[data-artifact-composer]:not([data-reply-to]) textarea')";
+  const input =
+    "document.querySelector('[data-artifact-composer]:not([data-comment-to]) textarea')";
   await eventually(async () => {
     await page.evaluate(`${button("Accept risk and continue")}?.click()`);
     return page.evaluate(`!!${button("Capture area")}`);
@@ -127,12 +128,12 @@ try {
     ),
     "Comment mode",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
   await eventually(() => page.evaluate(`!!(${input})`), "composer");
   const paste = async (selector: string, plainText = "") =>
     page.evaluate(`(() => {
     const canvas=document.createElement('canvas'); canvas.width=160;canvas.height=90;
-    const ctx=canvas.getContext('2d');ctx.fillStyle='#f05020';ctx.fillRect(0,0,160,90);ctx.fillStyle='#ffffff';ctx.fillText('Image feedback',10,30);
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#f05020';ctx.fillRect(0,0,160,90);ctx.fillStyle='#ffffff';ctx.fillText('Image discussions',10,30);
     return new Promise(resolve=>canvas.toBlob(blob=>{
       const data=new DataTransfer();data.items.add(new File([blob],'image.png',{type:'image/png'}));
       if (${JSON.stringify(plainText)}) data.setData('text/plain', ${JSON.stringify(plainText)});
@@ -293,7 +294,7 @@ try {
       page.evaluate(
         "innerWidth === 390 && !!Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('· 0 open'))",
       ),
-    "phone feedback sheet",
+    "phone discussions sheet",
   );
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('· 0 open')).click();document.documentElement.classList.add('dark')",
@@ -351,7 +352,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "!!document.querySelector('[data-artifact-feedback] img') && !document.querySelector('[data-artifact-composer]')",
+        "!!document.querySelector('[data-artifact-discussions] img') && !document.querySelector('[data-artifact-composer]')",
       ),
     "image-only note saved",
   );
@@ -376,35 +377,35 @@ try {
     "posted PNG contains flattened arrow, rectangle and pen",
   );
   await page.evaluate(
-    "document.querySelector('[data-artifact-feedback] [data-feedback-action=reply]').click()",
+    "document.querySelector('[data-artifact-discussions] [data-discussions-action=comment]').click()",
   );
-  const replyInput = "document.querySelector('[data-reply-to] textarea')";
-  // Opening a reply moves the caret on the next animation frame. Wait for that
+  const commentInput = "document.querySelector('[data-comment-to] textarea')";
+  // Opening a comment moves the caret on the next animation frame. Wait for that
   // focus before simulating the user's text and cursor placement.
   await eventually(
-    () => page.evaluate(`!!(${replyInput}) && document.activeElement === ${replyInput}`),
-    "focused reply composer",
+    () => page.evaluate(`!!(${commentInput}) && document.activeElement === ${commentInput}`),
+    "focused comment composer",
   );
   assert.equal(
     await page.evaluate(
-      "!!document.querySelector('[data-reply-to] [data-feedback-action=resolve], [data-reply-to] [aria-label=\"More actions\"]')",
+      "!!document.querySelector('[data-comment-to] [data-discussions-action=resolve], [data-comment-to] [aria-label=\"More actions\"]')",
     ),
     false,
   );
   assert(
     await page.evaluate(
-      "document.querySelector('[data-reply-to] button[title]')?.title.includes('paste an image directly')",
+      "document.querySelector('[data-comment-to] button[title]')?.title.includes('paste an image directly')",
     ),
   );
   await page.evaluate(
-    `(()=>{const field=${replyInput};Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,'Beforeafter');field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();field.setSelectionRange(6,6)})()`,
+    `(()=>{const field=${commentInput};Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,'Beforeafter');field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();field.setSelectionRange(6,6)})()`,
   );
   await page.evaluate(
     "window.originalImageDecode=window.createImageBitmap;window.createImageBitmap=(blob)=>new Promise((resolve,reject)=>{window.releaseImageDecode=()=>window.originalImageDecode(blob).then(resolve,reject)})",
   );
-  await paste(replyInput, " caption");
-  assert.equal(await page.evaluate(`${replyInput}.value`), "Before caption [image1] after");
-  assert.equal(await page.evaluate(`${replyInput}.selectionStart`), 24);
+  await paste(commentInput, " caption");
+  assert.equal(await page.evaluate(`${commentInput}.value`), "Before caption [image1] after");
+  assert.equal(await page.evaluate(`${commentInput}.selectionStart`), 24);
   await page.command("Input.insertText", { text: "detail " });
   await eventually(
     () => page.evaluate("typeof window.releaseImageDecode === 'function'"),
@@ -414,27 +415,30 @@ try {
     "window.createImageBitmap=window.originalImageDecode;window.releaseImageDecode()",
   );
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-reply-to] img')"),
-    "reply image preview",
+    () => page.evaluate("!!document.querySelector('[data-comment-to] img')"),
+    "comment image preview",
   );
-  assert.equal(await page.evaluate(`${replyInput}.value`), "Before caption [image1] detail after");
-  await page.evaluate(`${replyInput}.form.requestSubmit()`);
+  assert.equal(
+    await page.evaluate(`${commentInput}.value`),
+    "Before caption [image1] detail after",
+  );
+  await page.evaluate(`${commentInput}.form.requestSubmit()`);
   await eventually(
-    () => Promise.resolve(storage.conversations.get(note.id).replies.length === 1),
-    "image reply saved",
+    () => Promise.resolve(storage.conversations.get(note.id).comments.length === 1),
+    "image comment saved",
   );
-  assert.equal(storage.conversations.get(note.id).replies[0]!.attachments?.length, 1);
+  assert.equal(storage.conversations.get(note.id).comments[0]!.attachments?.length, 1);
   // The trusted parent's display capture uses a real tab stream, never a fake image.
   await page.evaluate(
     `window.captureTracks=[];const native=navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getDisplayMedia=async options=>{const stream=await native(options);window.captureTracks.push(...stream.getTracks());return stream;}`,
   );
   await eventually(
-    () => page.evaluate("!document.querySelector('[data-reply-to]')"),
-    "reply save completes",
+    () => page.evaluate("!document.querySelector('[data-comment-to]')"),
+    "comment save completes",
   );
   await eventually(
     () => page.evaluate(`!!${button("Capture area")} && !${button("Capture area")}.disabled`),
-    "ready capture control after reply",
+    "ready capture control after comment",
   );
   await page.command("Page.bringToFront");
   // Ensure a real compositor paint before the headless chooser auto-accepts.
@@ -516,8 +520,8 @@ try {
   const threads = await previewPage.evaluate("window.r3.getThreads()");
   assert(
     threads.every(
-      (thread: { attachments?: unknown; replies: { attachments?: unknown }[] }) =>
-        !thread.attachments && thread.replies.every((reply) => !reply.attachments),
+      (thread: { attachments?: unknown; comments: { attachments?: unknown }[] }) =>
+        !thread.attachments && thread.comments.every((comment) => !comment.attachments),
     ),
   );
   const cancelled = await page.evaluate(`(async () => {
@@ -570,7 +574,7 @@ try {
   assert.equal(cancelled.retryStopped, true);
   // A compact photo can become an oversized lossless PNG. Queue both imports,
   // cancel one, then accept only the exact resized preview of the other.
-  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
   await eventually(() => page.evaluate(`!!(${input})`), "optimization composer");
   const photoBytes = await page.evaluate(`(async()=>{
     const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1200;
@@ -662,7 +666,7 @@ try {
   await page.evaluate(`${input}.form.requestSubmit()`);
   await eventually(
     () => Promise.resolve(storage.conversations.list(artifact.id).length === 3),
-    "optimized feedback posted",
+    "optimized discussions posted",
   );
   const optimized = storage.conversations.list(artifact.id)[2]!.attachments![0]!;
   assert.equal(optimized.width, 800);
@@ -677,7 +681,7 @@ try {
   });
   assert.equal(await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), true);
   console.log(
-    "Feedback images: paste, reload, retry, reply, real tab capture, crop, drawing, undo/redo, optimization preview, exact saved bytes, cancellation, scoped bridge, and narrow layout passed",
+    "Discussion images: paste, reload, retry, comment, real tab capture, crop, drawing, undo/redo, optimization preview, exact saved bytes, cancellation, scoped bridge, and narrow layout passed",
   );
 } finally {
   await browser?.close();

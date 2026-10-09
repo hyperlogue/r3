@@ -98,7 +98,7 @@ export class ArtifactLifecycle {
         const eventId = `event_${randomUUID().replaceAll("-", "")}`;
         this.db
           .query(
-            "UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ?, feedback_revision = feedback_revision + 1 WHERE id = ?",
+            "UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ?, discussion_revision = discussion_revision + 1 WHERE id = ?",
           )
           .run(state, state === "archived" ? time : null, time, id);
         this.db
@@ -110,7 +110,7 @@ export class ArtifactLifecycle {
           this.workerRecords?.retire(id);
           this.db
             .query(
-              "DELETE FROM feedback_claims WHERE feedback_id IN (SELECT id FROM feedback WHERE artifact_id = ?)",
+              "DELETE FROM discussion_claims WHERE discussion_id IN (SELECT id FROM discussions WHERE artifact_id = ?)",
             )
             .run(id);
         }

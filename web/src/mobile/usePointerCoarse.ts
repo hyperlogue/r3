@@ -5,7 +5,7 @@ import { useMediaQuery } from "./useMediaQuery.ts";
 // diverge on purpose — a narrow desktop window (fine pointer below md) must keep
 // the instant mouseup→anchor path, and a portrait tablet (coarse pointer, desktop
 // layout) must still get touch anchoring. So layout forks on `useIsMobile`; every
-// touch-anchor affordance (the AddFeedbackPill, the mouseup-listener skip) gates
+// touch-anchor affordance (the AddDiscussionPill, the mouseup-listener skip) gates
 // on this. No fallback probe like useIsMobile's: `(pointer: coarse)` is a plain
 // feature query with no old/new syntax split.
 export function usePointerCoarse(): boolean {

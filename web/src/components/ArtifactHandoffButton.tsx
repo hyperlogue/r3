@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { feedbackFetchCommand } from "../artifact-handoff.ts";
+import { discussionFetchCommand } from "../artifact-handoff.ts";
 import { copyText } from "../clipboard.ts";
 import { Button, StrokeIcon, useCopyFlash, useEscape, usePopoverFocus } from "../ui.tsx";
 import type { useArtifactHandoff } from "../useArtifactHandoff.ts";
@@ -35,7 +35,7 @@ export function ArtifactHandoffButton({
         {handoff.label}
       </Button>
       {showCommand && (
-        <FeedbackCommand
+        <DiscussionCommand
           id={id}
           artifactId={handoff.artifactId}
           trigger={trigger}
@@ -46,7 +46,7 @@ export function ArtifactHandoffButton({
   );
 }
 
-function FeedbackCommand({
+function DiscussionCommand({
   id,
   artifactId,
   trigger,
@@ -60,12 +60,12 @@ function FeedbackCommand({
   const popup = useRef<HTMLDivElement>(null);
   const { copied, flash } = useCopyFlash();
   const [error, setError] = useState("");
-  const command = feedbackFetchCommand(artifactId);
+  const command = discussionFetchCommand(artifactId);
   useLayoutEffect(() => {
     const node = popup.current;
     const button = trigger.current;
     if (!node || !button) return;
-    // The browser's top layer keeps the command above clipped feedback panes.
+    // The browser's top layer keeps the command above clipped discussions panes.
     node.showPopover();
     const place = () => {
       if (!button.getClientRects().length) {
@@ -100,13 +100,13 @@ function FeedbackCommand({
       id={id}
       popover="auto"
       role="dialog"
-      aria-label="Read feedback in your agent"
+      aria-label="Read discussions in your agent"
       onToggle={(event) => {
         if (event.newState === "closed") onClose();
       }}
       className="fixed inset-auto m-0 w-80 max-w-[calc(100vw-1rem)] rounded-lg border border-neutral-300 bg-white p-3 text-neutral-900 r3-popover dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
     >
-      <p className="text-xs font-semibold">Read feedback in your agent</p>
+      <p className="text-xs font-semibold">Read discussions in your agent</p>
       <p className="mt-1 text-xs text-neutral-500">
         Run <code>!</code> followed by this command in your agent harness.
       </p>
@@ -135,7 +135,7 @@ function FeedbackCommand({
         </Button>
       </div>
       <p className="mt-2 text-xs text-neutral-500">
-        Loads new feedback and replies. Supported agents also listen for future feedback.
+        Loads new discussions and comments. Supported agents also listen for future discussions.
       </p>
       {error && (
         <p role="alert" className="mt-2 text-xs text-red-600">

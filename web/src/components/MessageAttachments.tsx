@@ -101,7 +101,7 @@ function AttachmentImage({
         >
           <img
             src={url}
-            alt="Feedback attachment"
+            alt="Discussion attachment"
             width={image.width}
             height={image.height}
             className="h-24 w-full object-contain"
@@ -215,7 +215,7 @@ export function MessageAttachments({
         >
           <img
             src={viewUrl}
-            alt="Feedback attachment at full size"
+            alt="Discussion attachment at full size"
             className="max-h-[75dvh] max-w-full object-contain"
           />
           <div className="mt-3 flex justify-end gap-3">

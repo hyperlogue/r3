@@ -67,22 +67,22 @@ afterEach(async () => {
 });
 
 describe("artifact conversations", () => {
-  test("unhandled counts follow replies and human resolution, independent of delivery and claims", async () => {
+  test("unhandled counts follow comments and human resolution, independent of delivery and claims", async () => {
     const note = await conversations.add(id, {
       actor: human,
       body: "Check this",
       target: original,
     });
     expect(artifacts.get(id).unhandledCount).toBe(0);
-    await conversations.addReply(note.id, { actor: agent, body: "Please review", context });
+    await conversations.addComment(note.id, { actor: agent, body: "Please review", context });
     expect(artifacts.list()[0].unhandledCount).toBe(1);
     conversations.claim([note.id], agent.sessionId);
     conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     expect(artifacts.get(id).unhandledCount).toBe(1);
     // All messages share a clock value: insertion order breaks the tie.
-    await conversations.addReply(note.id, { actor: human, body: "One more change", context });
+    await conversations.addComment(note.id, { actor: human, body: "One more change", context });
     expect(artifacts.get(id).unhandledCount).toBe(0);
-    await conversations.addReply(note.id, { actor: agent, body: "Updated", context });
+    await conversations.addComment(note.id, { actor: agent, body: "Updated", context });
     expect(artifacts.get(id).unhandledCount).toBe(1);
     conversations.edit(note.id, { actor: human, status: "resolved" });
     expect(artifacts.get(id).unhandledCount).toBe(0);
@@ -103,28 +103,28 @@ describe("artifact conversations", () => {
     ).rejects.toThrow("read-only historical evidence");
     expect(conversations.list(id)).toHaveLength(0);
 
-    // An existing database can retain description feedback and fix targets.
-    db.query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, body,
+    // An existing database can retain description discussions and fix targets.
+    db.query(`INSERT INTO discussions(id, artifact_id, artifact_kind, author, body,
       target_kind, target_version_seq, locator_json, created_at, updated_at)
       VALUES ('description-note', ?, 'files', 'human', 'Existing description note',
       'version_summary', 1, ?, ?, ?)`).run(id, JSON.stringify(target.locator), time, time);
-    db.query(`INSERT INTO replies(id, feedback_id, artifact_id, artifact_kind, author, body,
+    db.query(`INSERT INTO comments(id, discussion_id, artifact_id, artifact_kind, author, body,
       context_version_seq, target_kind, target_version_seq, created_at)
-      VALUES ('description-reply', 'description-note', ?, 'files', 'human', 'Existing fix',
+      VALUES ('description-comment', 'description-note', ?, 'files', 'human', 'Existing fix',
       1, 'version_summary', 2, ?)`).run(id, time);
     expect(conversations.get("description-note").target).toEqual(target);
-    expect(conversations.reply("description-reply").context).toEqual({
+    expect(conversations.comment("description-comment").context).toEqual({
       versionSeq: 1,
       representation: null,
     });
-    expect(conversations.reply("description-reply").target).toEqual({
+    expect(conversations.comment("description-comment").target).toEqual({
       kind: "version_summary",
       versionSeq: 2,
       locator: null,
     });
 
     await expect(
-      conversations.addReply("description-note", {
+      conversations.addComment("description-note", {
         actor: agent,
         body: "New fix",
         context,
@@ -134,15 +134,15 @@ describe("artifact conversations", () => {
     await expect(
       conversations.place("description-note", { actor: agent, state: "anchored", target }),
     ).rejects.toThrow("read-only historical evidence");
-    expect(conversations.get("description-note").replies).toHaveLength(1);
-    await conversations.addReply("description-note", {
+    expect(conversations.get("description-note").comments).toHaveLength(1);
+    await conversations.addComment("description-note", {
       actor: agent,
       body: "Still discussing this",
       context,
     });
     const resolved = conversations.edit("description-note", { actor: human, status: "resolved" });
     expect(resolved.target).toEqual(target);
-    expect(resolved.replies).toHaveLength(2);
+    expect(resolved.comments).toHaveLength(2);
     expect(resolved.status).toBe("resolved");
   });
 
@@ -158,20 +158,20 @@ describe("artifact conversations", () => {
       path: "index.md",
       locator: { start: 1, end: 1, quote: "# New" },
     } as const;
-    const reply = await conversations.addReply(note.id, {
+    const comment = await conversations.addComment(note.id, {
       actor: agent,
       body: "Updated the heading",
       context,
       target: fix,
     });
-    expect(reply.context).toEqual({ versionSeq: 2, representation: "source" });
-    expect(reply.target).toEqual(fix);
-    expect(reply.author).toEqual(agent);
+    expect(comment.context).toEqual({ versionSeq: 2, representation: "source" });
+    expect(comment.target).toEqual(fix);
+    expect(comment.author).toEqual(agent);
     const thread = conversations.get(note.id);
     expect(thread.target).toEqual(original);
     expect(thread.status).toBe("open");
-    expect(thread.replies.map((reply) => reply.id)).toEqual([reply.id]);
-    const inherited = await conversations.addReply(note.id, {
+    expect(thread.comments.map((comment) => comment.id)).toEqual([comment.id]);
+    const inherited = await conversations.addComment(note.id, {
       actor: agent,
       body: "Inherited reference",
     });
@@ -182,9 +182,9 @@ describe("artifact conversations", () => {
       target: { kind: "artifact" },
     });
     expect(
-      (await conversations.addReply(general.id, { actor: agent, body: "No version" })).context,
+      (await conversations.addComment(general.id, { actor: agent, body: "No version" })).context,
     ).toEqual({ versionSeq: null, representation: null });
-    expect(conversations.get(note.id).replies).toHaveLength(2);
+    expect(conversations.get(note.id).comments).toHaveLength(2);
   });
 
   test("human status changes and authored message edits preserve original targets and attribution", async () => {
@@ -212,18 +212,24 @@ describe("artifact conversations", () => {
     expect(resolved.statusUnsent).toBe(true);
     expect(resolved.author).toEqual(agent);
     expect(resolved.target).toEqual(original);
-    const reply = await conversations.addReply(note.id, { actor: agent, body: "Thanks", context });
-    expect(() => conversations.editReply(reply.id, { actor: other, body: "Different" })).toThrow(
-      "their own",
-    );
+    const comment = await conversations.addComment(note.id, {
+      actor: agent,
+      body: "Thanks",
+      context,
+    });
     expect(() =>
-      conversations.editReply(reply.id, {
+      conversations.editComment(comment.id, { actor: other, body: "Different" }),
+    ).toThrow("their own");
+    expect(() =>
+      conversations.editComment(comment.id, {
         actor: human,
         body: "Different",
         context: { versionSeq: 2, representation: "source" },
       }),
     ).toThrow("immutable");
-    expect(conversations.editReply(reply.id, { actor: agent, body: "Thank you" }).context).toEqual({
+    expect(
+      conversations.editComment(comment.id, { actor: agent, body: "Thank you" }).context,
+    ).toEqual({
       versionSeq: 1,
       representation: "source",
     });
@@ -259,9 +265,9 @@ describe("artifact conversations", () => {
     ).rejects.toThrow("cannot claim a locator");
   });
 
-  test("archive rejects a reply whose target preparation began before the transition", async () => {
+  test("archive rejects a comment whose target preparation began before the transition", async () => {
     const note = await conversations.add(id, { actor: human, body: "Work", target: original });
-    const pending = conversations.addReply(note.id, {
+    const pending = conversations.addComment(note.id, {
       actor: agent,
       body: "Reporting the work already completed",
       context,
@@ -269,7 +275,7 @@ describe("artifact conversations", () => {
     });
     db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
     await expect(pending).rejects.toThrow("Artifact is archived");
-    expect(conversations.get(note.id).replies).toHaveLength(0);
+    expect(conversations.get(note.id).comments).toHaveLength(0);
     expect(conversations.get(note.id).status).toBe("open");
   });
 });
@@ -295,18 +301,22 @@ describe("agent session claims", () => {
     expect(conversations.get(a.id).claim?.sessionId).toBe(agent.sessionId);
   });
 
-  test("only a successful reply from the claim owner releases it", async () => {
-    const feedback = await note();
-    conversations.claim([feedback.id], agent.sessionId);
+  test("only a successful comment from the claim owner releases it", async () => {
+    const discussions = await note();
+    conversations.claim([discussions.id], agent.sessionId);
     await expect(
-      conversations.addReply(feedback.id, { actor: agent, body: "", context }),
+      conversations.addComment(discussions.id, { actor: agent, body: "", context }),
     ).rejects.toThrow();
-    await conversations.addReply(feedback.id, { actor: human, body: "More detail", context });
-    await conversations.addReply(feedback.id, { actor: other, body: "An observation", context });
-    expect(conversations.get(feedback.id).claim?.sessionId).toBe(agent.sessionId);
-    await conversations.addReply(feedback.id, { actor: agent, body: "Handled", context });
-    expect(conversations.get(feedback.id).claim).toBeNull();
-    expect(conversations.get(feedback.id).status).toBe("open");
+    await conversations.addComment(discussions.id, { actor: human, body: "More detail", context });
+    await conversations.addComment(discussions.id, {
+      actor: other,
+      body: "An observation",
+      context,
+    });
+    expect(conversations.get(discussions.id).claim?.sessionId).toBe(agent.sessionId);
+    await conversations.addComment(discussions.id, { actor: agent, body: "Handled", context });
+    expect(conversations.get(discussions.id).claim).toBeNull();
+    expect(conversations.get(discussions.id).status).toBe("open");
   });
 
   test("batch conflicts roll back all new claims and expiry allows a fresh owner", async () => {
@@ -326,41 +336,45 @@ describe("agent session claims", () => {
   });
 
   test("resolution clears the lease and resolved or archived work cannot be claimed", async () => {
-    const feedback = await note();
-    conversations.claim([feedback.id], agent.sessionId);
-    conversations.edit(feedback.id, { actor: human, status: "resolved" });
-    expect(conversations.get(feedback.id).claim).toBeNull();
-    expect(() => conversations.claim([feedback.id], agent.sessionId)).toThrow("Resolved");
-    conversations.edit(feedback.id, { actor: human, status: "open" });
+    const discussions = await note();
+    conversations.claim([discussions.id], agent.sessionId);
+    conversations.edit(discussions.id, { actor: human, status: "resolved" });
+    expect(conversations.get(discussions.id).claim).toBeNull();
+    expect(() => conversations.claim([discussions.id], agent.sessionId)).toThrow("Resolved");
+    conversations.edit(discussions.id, { actor: human, status: "open" });
     db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
-    expect(() => conversations.claim([feedback.id], agent.sessionId)).toThrow("archived");
+    expect(() => conversations.claim([discussions.id], agent.sessionId)).toThrow("archived");
   });
 });
 
 describe("owner handoff delivery", () => {
-  test("snapshot revisions reject edits, reply reverts, changed selections, and old acknowledgment retries", async () => {
+  test("snapshot revisions reject edits, comment reverts, changed selections, and old acknowledgment retries", async () => {
     const note = await conversations.add(id, { actor: human, body: "Original", target: original });
     const first = conversations.snapshot(id);
     conversations.edit(note.id, { actor: human, body: "Temporary" });
     conversations.edit(note.id, { actor: human, body: "Original" });
-    expect(() => conversations.acknowledge(id, first.acknowledgment)).toThrow("Feedback changed");
-    const reply = await conversations.addReply(note.id, { actor: human, body: "Reply", context });
-    const beforeReplyEdit = conversations.snapshot(id);
-    conversations.editReply(reply.id, { actor: human, body: "Temporary reply" });
-    conversations.editReply(reply.id, { actor: human, body: "Reply" });
-    expect(() => conversations.acknowledge(id, beforeReplyEdit.acknowledgment)).toThrow(
-      "Feedback changed",
+    expect(() => conversations.acknowledge(id, first.acknowledgment)).toThrow("Discussion changed");
+    const comment = await conversations.addComment(note.id, {
+      actor: human,
+      body: "Comment",
+      context,
+    });
+    const beforeCommentEdit = conversations.snapshot(id);
+    conversations.editComment(comment.id, { actor: human, body: "Temporary comment" });
+    conversations.editComment(comment.id, { actor: human, body: "Comment" });
+    expect(() => conversations.acknowledge(id, beforeCommentEdit.acknowledgment)).toThrow(
+      "Discussion changed",
     );
     const selected = conversations.snapshot(id, [note.id]);
     expect(() =>
       conversations.acknowledge(id, {
         expectedFingerprint: selected.acknowledgment.expectedFingerprint,
       }),
-    ).toThrow("Feedback changed");
+    ).toThrow("Discussion changed");
     conversations.acknowledge(id, selected.acknowledgment);
     conversations.edit(note.id, { actor: human, body: "New pending body" });
     expect(() => conversations.acknowledge(id, selected.acknowledgment)).toThrow(
-      "Feedback changed",
+      "Discussion changed",
     );
     expect(conversations.get(note.id).sentAt).toBeNull();
   });
@@ -373,7 +387,7 @@ describe("owner handoff delivery", () => {
       body: "Reading guidance",
       target: original,
     });
-    await conversations.addReply(a.id, { actor: human, body: "Details", context });
+    await conversations.addComment(a.id, { actor: human, body: "Details", context });
     expect(conversations.unsent(id).map((item) => item.id)).toEqual([a.id, b.id]);
     expect(conversations.get(a.id).sentAt).toBeNull();
     const delivered = conversations.acknowledge(
@@ -383,7 +397,7 @@ describe("owner handoff delivery", () => {
     expect(delivered.map((item) => item.id)).toEqual([a.id]);
     expect(delivered[0].sentAt).toBeNull(); // snapshot before its delivery stamp
     expect(conversations.get(a.id).sentAt).toBe(time);
-    expect(conversations.get(a.id).replies[0].sentAt).toBe(time);
+    expect(conversations.get(a.id).comments[0].sentAt).toBe(time);
     expect(conversations.unsent(id).map((item) => item.id)).toEqual([b.id]);
     expect(conversations.get(guidance.id).sentAt).toBe(time);
     conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
@@ -392,12 +406,12 @@ describe("owner handoff delivery", () => {
 
   test("edited human content re-enters delivery while no-op and agent edits retain their stamps", async () => {
     const note = await conversations.add(id, { actor: human, body: "Original", target: original });
-    const reply = await conversations.addReply(note.id, {
+    const comment = await conversations.addComment(note.id, {
       actor: human,
-      body: "Initial reply",
+      body: "Initial comment",
       context,
     });
-    const agentReply = await conversations.addReply(note.id, {
+    const agentComment = await conversations.addComment(note.id, {
       actor: agent,
       body: "Acknowledged",
       context,
@@ -405,15 +419,18 @@ describe("owner handoff delivery", () => {
     conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     time = "2026-09-01T00:10:00.000Z";
     conversations.edit(note.id, { actor: human, body: "Original" });
-    conversations.editReply(reply.id, { actor: human, body: "Initial reply" });
-    conversations.editReply(agentReply.id, { actor: agent, body: "Acknowledged with a detail" });
+    conversations.editComment(comment.id, { actor: human, body: "Initial comment" });
+    conversations.editComment(agentComment.id, {
+      actor: agent,
+      body: "Acknowledged with a detail",
+    });
     expect(conversations.unsent(id)).toEqual([]);
     conversations.edit(note.id, { actor: human, body: "Corrected" });
-    conversations.editReply(reply.id, { actor: human, body: "Corrected reply" });
+    conversations.editComment(comment.id, { actor: human, body: "Corrected comment" });
     const pending = conversations.unsent(id);
     expect(pending).toHaveLength(1);
     expect(pending[0].body).toBe("Corrected");
-    expect(pending[0].replies.find((item) => item.id === reply.id)?.sentAt).toBeNull();
+    expect(pending[0].comments.find((item) => item.id === comment.id)?.sentAt).toBeNull();
     conversations.acknowledge(id, conversations.snapshot(id).acknowledgment);
     expect(conversations.unsent(id)).toEqual([]);
   });
@@ -426,12 +443,12 @@ describe("owner handoff delivery", () => {
     });
     expect(conversations.unsent(id)).toEqual([]);
     conversations.edit(note.id, { actor: human, status: "resolved" });
-    await conversations.addReply(note.id, { actor: human, body: "Answer", context });
+    await conversations.addComment(note.id, { actor: human, body: "Answer", context });
     expect(conversations.unsent(id)).toHaveLength(1);
     const handoff = conversations.acknowledge(id, conversations.snapshot(id).acknowledgment)[0];
     expect(handoff.status).toBe("resolved");
     expect(handoff.statusUnsent).toBe(true);
-    expect(handoff.replies[0].body).toBe("Answer");
+    expect(handoff.comments[0].body).toBe("Answer");
     expect(conversations.unsent(id)).toEqual([]);
     conversations.edit(note.id, { actor: human, status: "open" });
     expect(conversations.unsent(id)).toHaveLength(1);

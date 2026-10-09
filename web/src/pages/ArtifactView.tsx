@@ -13,9 +13,9 @@ import {
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactComposerField, focusArtifactComposer } from "../artifact-composer-keys.ts";
+import { activeArtifactDiscussion } from "../artifact-discussions.ts";
+import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { artifactDrafts, useArtifactNoteOpen, useHasArtifactNote } from "../artifact-drafts.ts";
-import { activeArtifactFeedback } from "../artifact-feedback.ts";
-import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
   type ArtifactLocation,
   artifactWorkspaceSearch,
@@ -29,14 +29,14 @@ import { draftImages } from "../attachment-drafts.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactComparison, type ComparisonSide } from "../components/ArtifactComparison.tsx";
 import { ArtifactComposer } from "../components/ArtifactComposer.tsx";
-import { ArtifactFeedbackPanel } from "../components/ArtifactFeedbackPanel.tsx";
+import { ArtifactDiscussionPanel } from "../components/ArtifactDiscussionPanel.tsx";
 import { ArtifactFile } from "../components/ArtifactFile.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreviewSecurityProvider } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
 import {
-  type ArtifactFeedbackTab,
+  type ArtifactDiscussionTab,
   type ArtifactRefJump,
   type ArtifactTargetJump,
   ArtifactThreads,
@@ -52,7 +52,7 @@ import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "../components/PaneTo
 import { ShortcutsOverlay } from "../components/ShortcutsOverlay.tsx";
 import { keysSuspended, useKeyBindings } from "../keys.ts";
 import { markdownCache } from "../markdown-cache.ts";
-import { AddFeedbackPill } from "../mobile/AddFeedbackPill.tsx";
+import { AddDiscussionPill } from "../mobile/AddDiscussionPill.tsx";
 // This page is the artifact workspace's single mobile container mount point.
 import { MobileComparisonTabs } from "../mobile/MobileComparisonTabs.tsx";
 import { MobileReviewChrome, type MobileSheetState } from "../mobile/MobileReviewChrome.tsx";
@@ -69,10 +69,10 @@ import { type AnchorRect, getSelectionAnchor, type PendingAnchor } from "../sele
 import { composerKeyAction, observeTextSelection } from "../selection-events.ts";
 import {
   setDiffLayout,
-  setFeedbackMode,
-  showFeedbackPanel,
+  setDiscussionMode,
+  showDiscussionPanel,
   useDiffLayout,
-  useFeedbackMode,
+  useDiscussionMode,
 } from "../settings.ts";
 import type { DiffSide } from "../types.ts";
 import { cn } from "../ui.tsx";
@@ -98,7 +98,7 @@ export interface ArtifactRenderedPaneProps {
   commenting: boolean;
   jump: { locator: RenderedLocator | null; nonce: number } | null;
   navigation?: { route: string; nonce: number } | null;
-  targets: { feedbackId: string; target: ArtifactDocumentTarget }[];
+  targets: { discussionId: string; target: ArtifactDocumentTarget }[];
   onTarget: (target: ArtifactDocumentTarget) => void;
   onSelection?: (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => void;
   onComposerKey?: (action: "focus" | "escape") => void;
@@ -107,7 +107,7 @@ export interface ArtifactRenderedPaneProps {
   noteHasText?: boolean;
   composerVisible?: boolean;
   onDocument: (path: string, route?: string) => void;
-  onFeedback: (id: string) => void;
+  onDiscussion: (id: string) => void;
 }
 export type ArtifactRenderer = (props: ArtifactRenderedPaneProps) => ReactNode;
 
@@ -204,21 +204,21 @@ function Workspace({
 }: ArtifactWorkspaceProps) {
   const [view, setView] = useState(() => readArtifactLocation(detail.kind, initialSearch));
   const comparison = useArtifactComparison(detail, initialSearch, !!onLocationChange);
-  const [comparisonTab, setComparisonTab] = useState<ArtifactFeedbackTab>("active");
+  const [comparisonTab, setComparisonTab] = useState<ArtifactDiscussionTab>("active");
   const [comparisonSide, setComparisonSide] = useState<ComparisonSide>("proposed");
   const preferredLayout = useDiffLayout();
   const mobile = useIsMobile();
   const coarse = usePointerCoarse();
   const layout = mobile ? "unified" : preferredLayout;
-  const feedbackMode = useFeedbackMode();
-  const collapsed = !comparison.active && feedbackMode === "hidden";
+  const discussionMode = useDiscussionMode();
+  const collapsed = !comparison.active && discussionMode === "hidden";
   const [sheet, setSheet] = useState<MobileSheetState>("closed");
   const [commenting, setCommenting] = useState(false);
   const [captureContainer, setCaptureContainer] = useState<HTMLDivElement | null>(null);
-  const [feedbackTab, setFeedbackTab] = useState<ArtifactFeedbackTab>("active");
+  const [discussionTab, setDiscussionTab] = useState<ArtifactDiscussionTab>("active");
   const [notice, setNotice] = useState("");
   const [floating, setFloating] = useState<AnchorRect | null>(null);
-  const [popoverFeedback, setPopoverFeedback] = useState<string | null>(null);
+  const [popoverDiscussion, setPopoverDiscussion] = useState<string | null>(null);
   const [quote, setQuote] = useState<QuotePos | null>(null);
   const [jump, setJump] = useState<ArtifactCodeJump | null>(null);
   const [renderedJump, setRenderedJump] = useState<ArtifactRenderedPaneProps["jump"]>(null);
@@ -235,10 +235,10 @@ function Workspace({
   const splitRef = useRef<HTMLDivElement>(null);
   const suspendedSpy = useRef(false);
   const jumpNonce = useRef(0);
-  const initialFeedback = useRef(view.feedbackId);
+  const initialDiscussion = useRef(view.discussionId);
   const [searchEntry] = useState(() => new URLSearchParams(initialSearch));
   const initialSearchEntry = useRef(true);
-  const initialPath = useRef(view.feedbackId ? null : view.path);
+  const initialPath = useRef(view.discussionId ? null : view.path);
   const hasNote = useHasArtifactNote(detail.id);
   const noteOpen = useArtifactNoteOpen(detail.id);
   const {
@@ -293,7 +293,7 @@ function Workspace({
   useReadingPosition(
     paneRef,
     positionKey,
-    !!jump || !!renderedJump || !!initialFeedback.current,
+    !!jump || !!renderedJump || !!initialDiscussion.current,
     version?.seq ?? null,
     prepareReadingPosition,
   );
@@ -312,7 +312,7 @@ function Workspace({
   }, []);
 
   // Pin the first actual publication. New versions are announced and remain an
-  // explicit reader choice, including while an unanchored reply is being typed.
+  // explicit reader choice, including while an unanchored comment is being typed.
   useEffect(() => {
     if (version && view.versionSeq === null)
       setView((current) => ({ ...current, versionSeq: version.seq }));
@@ -320,7 +320,7 @@ function Workspace({
   useEffect(() => {
     const restore = () => {
       setView(readArtifactLocation(detail.kind, location.search));
-      setPopoverFeedback(null);
+      setPopoverDiscussion(null);
     };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
@@ -343,7 +343,7 @@ function Workspace({
     setRenderedNavigation(null);
     pendingRenderedNavigation.current = null;
     setNotice("");
-    setPopoverFeedback(null);
+    setPopoverDiscussion(null);
   }, []);
   const selectVersion = (versionSeq: number | null) => {
     comparison.close(false);
@@ -361,7 +361,7 @@ function Workspace({
       if (action === "focus") return focusArtifactComposer(detail.id);
       setQuote(null);
       if (!mobile && !collapsed) {
-        setFeedbackMode("hidden");
+        setDiscussionMode("hidden");
         return true;
       }
       if (!hasMessageContent(artifactDrafts.get(detail.id))) {
@@ -390,8 +390,8 @@ function Workspace({
   const openComposer = useCallback(
     (rect?: AnchorRect, focus = true) => {
       if (comparison.active) setComparisonTab("active");
-      else setFeedbackTab("active");
-      setPopoverFeedback(null);
+      else setDiscussionTab("active");
+      setPopoverDiscussion(null);
       if (mobile && !comparison.active) setSheet("peek");
       else if (collapsed)
         setFloating(
@@ -463,7 +463,7 @@ function Workspace({
     noteHasText: hasNote,
     composerVisible:
       noteOpen &&
-      feedbackTab === "active" &&
+      discussionTab === "active" &&
       (mobile ? sheet !== "closed" : !collapsed || !!floating),
   };
   const pickLines = useCallback(
@@ -539,10 +539,10 @@ function Workspace({
     null,
   );
   const locate = useCallback<ArtifactTargetJump>(
-    (target, feedbackId) => {
+    (target, discussionId) => {
       comparison.close(false);
       const next = artifactViewForTarget(detail.kind, target, view);
-      changeView({ ...next, ...(feedbackId ? { feedbackId } : {}) });
+      changeView({ ...next, ...(discussionId ? { discussionId } : {}) });
       setSheet("closed");
       const nonce = ++jumpNonce.current;
       if (isArtifactDocumentTarget(target)) {
@@ -580,10 +580,10 @@ function Workspace({
     [detail.kind, view, changeView, comparison.close],
   );
   useEffect(() => {
-    const id = initialFeedback.current;
+    const id = initialDiscussion.current;
     if (!initialSearchEntry.current) return;
     initialSearchEntry.current = false;
-    initialFeedback.current = null;
+    initialDiscussion.current = null;
     if (!id) {
       const line = searchEntry.get("line");
       if (view.versionSeq !== null && searchEntry.get("summary") === "1") {
@@ -620,21 +620,21 @@ function Workspace({
       }
       return;
     }
-    const feedback = detail.feedback.find((feedback) => feedback.id === id);
-    if (!feedback) {
+    const discussions = detail.discussions.find((discussions) => discussions.id === id);
+    if (!discussions) {
       setNotice("This conversation is unavailable.");
       return;
     }
-    const replyId = searchEntry.get("reply");
-    if (replyId) {
-      const reply = feedback.replies.find((reply) => reply.id === replyId);
-      if (!reply) setNotice("This reply is unavailable.");
-      else if (reply.context.versionSeq === null)
-        setNotice("This reply has no recorded publication context.");
-    } else locate(feedback.target, id);
+    const commentId = searchEntry.get("comment");
+    if (commentId) {
+      const comment = discussions.comments.find((comment) => comment.id === commentId);
+      if (!comment) setNotice("This comment is unavailable.");
+      else if (comment.context.versionSeq === null)
+        setNotice("This comment has no recorded publication context.");
+    } else locate(discussions.target, id);
     if (mobile) setSheet("full");
-    else showFeedbackPanel();
-  }, [detail.feedback, locate, mobile, searchEntry, view]);
+    else showDiscussionPanel();
+  }, [detail.discussions, locate, mobile, searchEntry, view]);
   const jumpRef = useCallback<ArtifactRefJump>(
     (ref, messageContext) => {
       comparison.close(false);
@@ -659,21 +659,23 @@ function Workspace({
     },
     [changeView, comparison.close],
   );
-  const showFeedback = useCallback(
-    (feedbackId: string) => {
-      setView((current) => ({ ...current, feedbackId }));
+  const showDiscussion = useCallback(
+    (discussionId: string) => {
+      setView((current) => ({ ...current, discussionId }));
       if (mobile) setSheet("full");
       else if (collapsed) {
         setFloating(null);
-        setPopoverFeedback(feedbackId);
+        setPopoverDiscussion(discussionId);
       }
     },
     [mobile, collapsed],
   );
   useEffect(() => {
-    if (mobile || !collapsed) setPopoverFeedback(null);
+    if (mobile || !collapsed) setPopoverDiscussion(null);
   }, [mobile, collapsed]);
-  const visibleThread = detail.feedback.find((feedback) => feedback.id === popoverFeedback);
+  const visibleThread = detail.discussions.find(
+    (discussions) => discussions.id === popoverDiscussion,
+  );
   const selectFile = useCallback(
     (path: string) => {
       changeView({ path, representation: detail.kind === "diff" ? "diff" : fileMode(path) });
@@ -767,13 +769,13 @@ function Workspace({
       ? () => anchor({ kind: "artifact" })
       : undefined,
     panelHide:
-      !comparison.active && !mobile && !collapsed ? () => setFeedbackMode("hidden") : undefined,
+      !comparison.active && !mobile && !collapsed ? () => setDiscussionMode("hidden") : undefined,
     panelToggle: comparison.active
       ? undefined
       : () => {
           if (mobile) setSheet(sheet === "closed" ? "full" : "closed");
-          else if (collapsed) showFeedbackPanel();
-          else setFeedbackMode("hidden");
+          else if (collapsed) showDiscussionPanel();
+          else setDiscussionMode("hidden");
         },
     ...(!comparison.active && version
       ? {
@@ -833,28 +835,28 @@ function Workspace({
     />
   );
   const focusComparison = useCallback(
-    (feedbackId: string) => {
+    (discussionId: string) => {
       const pairs = [...comparison.comparisons.values()].filter(
-        (pair) => pair.feedbackId === feedbackId,
+        (pair) => pair.discussionId === discussionId,
       );
-      if (pairs.length) comparison.open(pairs.at(-1)!.replyId);
+      if (pairs.length) comparison.open(pairs.at(-1)!.commentId);
     },
     [comparison.comparisons, comparison.open],
   );
   const orderedComparisons = useMemo(() => {
     const notes =
       comparisonTab === "active"
-        ? activeArtifactFeedback(detail.feedback)
-        : detail.feedback.filter((note) => note.status === "resolved");
+        ? activeArtifactDiscussion(detail.discussions)
+        : detail.discussions.filter((note) => note.status === "resolved");
     return notes.flatMap((note) =>
-      note.replies.flatMap((reply) => {
-        const pair = comparison.comparisons.get(reply.id);
+      note.comments.flatMap((comment) => {
+        const pair = comparison.comparisons.get(comment.id);
         return pair ? [pair] : [];
       }),
     );
-  }, [comparisonTab, detail.feedback, comparison.comparisons]);
+  }, [comparisonTab, detail.discussions, comparison.comparisons]);
   const comparisonPosition = orderedComparisons.findIndex(
-    (pair) => pair.replyId === comparison.selected?.replyId,
+    (pair) => pair.commentId === comparison.selected?.commentId,
   );
   const panel = (controls?: ReactNode) => (
     <ArtifactThreads
@@ -867,13 +869,15 @@ function Workspace({
             }
           : context
       }
-      tab={comparison.active ? comparisonTab : feedbackTab}
-      onTabChange={comparison.active ? setComparisonTab : setFeedbackTab}
+      tab={comparison.active ? comparisonTab : discussionTab}
+      onTabChange={comparison.active ? setComparisonTab : setDiscussionTab}
       onLocate={locate}
       onJumpRef={jumpRef}
-      activeFeedback={comparison.active ? comparison.selected?.feedbackId : view.feedbackId}
-      activeReplyId={comparison.active ? comparison.selected?.replyId : searchEntry.get("reply")}
-      onFocusFeedback={comparison.active ? focusComparison : showFeedback}
+      activeDiscussion={comparison.active ? comparison.selected?.discussionId : view.discussionId}
+      activeCommentId={
+        comparison.active ? comparison.selected?.commentId : searchEntry.get("comment")
+      }
+      onFocusDiscussion={comparison.active ? focusComparison : showDiscussion}
       comparisons={comparison.comparisons}
       onCompare={comparison.open}
       comparisonMode={comparison.active}
@@ -903,10 +907,12 @@ function Workspace({
         version={version}
         selectedVersion={view.versionSeq}
         onSelectVersion={selectVersion}
-        feedbackVisible={!collapsed}
-        feedbackLocked={comparison.active}
-        onToggleFeedback={
-          !mobile ? () => (collapsed ? showFeedbackPanel() : setFeedbackMode("hidden")) : undefined
+        discussionVisible={!collapsed}
+        discussionLocked={comparison.active}
+        onToggleDiscussion={
+          !mobile
+            ? () => (collapsed ? showDiscussionPanel() : setDiscussionMode("hidden"))
+            : undefined
         }
         detailsRequest={detailsRequest}
         onJumpRef={(ref) => jumpRef(ref, context)}
@@ -957,7 +963,7 @@ function Workspace({
                     return;
                   if (event.target.closest("[data-gutter], button, a, input, textarea")) return;
                   const row = event.target.closest<HTMLElement>("[data-fb-id]");
-                  if (row?.dataset.fbId) showFeedback(row.dataset.fbId);
+                  if (row?.dataset.fbId) showDiscussion(row.dataset.fbId);
                 }}
               >
                 {toolbar}
@@ -996,13 +1002,13 @@ function Workspace({
                       onDocument: (next) => {
                         if (next !== path) {
                           setRenderedJump(null);
-                          setPopoverFeedback(null);
+                          setPopoverDiscussion(null);
                         }
                         setView((current) =>
                           current.path === next ? current : { ...current, path: next },
                         );
                       },
-                      onFeedback: showFeedback,
+                      onDiscussion: showDiscussion,
                     })
                   ) : filesQuery.isPending ? (
                     <ArtifactLoading />
@@ -1035,7 +1041,7 @@ function Workspace({
                             toggle={viewed.toggle}
                             currentPath={currentPath}
                             onPickLines={pickLines}
-                            onFileFeedback={(path) =>
+                            onFileDiscussion={(path) =>
                               anchor({ kind: "diff", versionSeq: version.seq, path, locator: null })
                             }
                             foldSignal={
@@ -1075,7 +1081,7 @@ function Workspace({
                                 }}
                                 viewed={viewed.isViewed(fileViewedKey(file.path, file.hash))}
                                 onViewed={() => viewed.toggle(fileViewedKey(file.path, file.hash))}
-                                onFileFeedback={() =>
+                                onFileDiscussion={() =>
                                   anchor({
                                     kind: fileMode(file.path),
                                     versionSeq: version.seq,
@@ -1134,7 +1140,7 @@ function Workspace({
                                       setJump({ path: next, side: "new", nonce });
                                       setFold({ mode: "unfold", path: next, nonce });
                                     },
-                                    onFeedback: showFeedback,
+                                    onDiscussion: showDiscussion,
                                   })
                                 }
                               />
@@ -1171,7 +1177,7 @@ function Workspace({
                     count={orderedComparisons.length}
                     onStep={(direction) => {
                       const next = orderedComparisons[comparisonPosition + direction];
-                      if (next) comparison.open(next.replyId);
+                      if (next) comparison.open(next.commentId);
                     }}
                   />
                 </>
@@ -1180,13 +1186,13 @@ function Workspace({
           </div>
         </div>
         {!mobile && (
-          <ArtifactFeedbackPanel
-            mode={comparison.active ? "expanded" : feedbackMode}
+          <ArtifactDiscussionPanel
+            mode={comparison.active ? "expanded" : discussionMode}
             locked={comparison.active}
-            onModeChange={setFeedbackMode}
+            onModeChange={setDiscussionMode}
           >
             {panel}
-          </ArtifactFeedbackPanel>
+          </ArtifactDiscussionPanel>
         )}
         {!mobile && collapsed && visibleThread && (
           <div className="pointer-events-none absolute right-2 bottom-2 top-[calc(var(--pane-sticky-h,2rem)+0.5rem)] z-30 flex w-[440px] max-w-[calc(100%-1rem)] flex-col items-stretch [&>*]:pointer-events-auto">
@@ -1194,22 +1200,24 @@ function Workspace({
               artifactKind={detail.kind}
               agentLabels={detail.agentLabels}
               key={visibleThread.id}
-              feedback={visibleThread}
+              discussions={visibleThread}
               context={context}
               latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
               onLocate={locate}
               onJumpRef={jumpRef}
               comparisons={comparison.comparisons}
               onCompare={comparison.open}
-              onExpand={showFeedbackPanel}
-              onClose={() => setPopoverFeedback(null)}
+              onExpand={showDiscussionPanel}
+              onClose={() => setPopoverDiscussion(null)}
             />
           </div>
         )}
       </main>
       {mobile && (
         <MobileReviewChrome
-          openCount={detail.feedback.filter((feedback) => feedback.status === "open").length}
+          openCount={
+            detail.discussions.filter((discussions) => discussions.status === "open").length
+          }
           sheet={sheet}
           docked={comparison.active}
           onSetSheet={setSheet}
@@ -1218,7 +1226,7 @@ function Workspace({
         </MobileReviewChrome>
       )}
       {coarse && detail.state === "active" && !comparison.active && (
-        <AddFeedbackPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
+        <AddDiscussionPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
       {quote && <QuoteBubble pos={quote} label="Quote in note" onQuote={appendQuote} />}
       <ShortcutsOverlay />

@@ -7,7 +7,7 @@ import type { DiffSide } from "./types.ts";
 export interface PendingAnchor {
   file: string;
   side: DiffSide | null;
-  // A whole-file anchor (the file header's feedback button) carries a real `file`
+  // A whole-file anchor (the file header's discussions button) carries a real `file`
   // but no span: lineStart/lineEnd/quote are null. A selection or gutter pick fills
   // all three.
   lineStart: number | null;
@@ -21,7 +21,7 @@ export interface PendingAnchor {
 // Where an anchor gesture happened, in viewport coordinates: `left` is the
 // horizontal centre of the selection (or picked row) and `top`/`bottom` its
 // vertical extent. It positions the transient UI a gesture raises — the "Quote in
-// note" bubble above `top`, and, with the feedback panel hidden,
+// note" bubble above `top`, and, with the discussions panel hidden,
 // the floating composer below `bottom`. Never stored: the quote is the anchor of
 // record, this is pixels.
 export interface AnchorRect {
@@ -90,7 +90,7 @@ export function getSelectionAnchor(scope: HTMLElement): PendingAnchor | null {
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
   // The selection has to touch the file view, but it may spill past it — e.g. a
-  // drag released over the feedback panel, whose common ancestor with the file
+  // drag released over the discussions panel, whose common ancestor with the file
   // view is an outer container. Requiring the *common* ancestor inside `scope`
   // dropped those whole, so re-selecting near the edge silently failed to
   // re-point a pending draft; require just one endpoint inside and clamp to the

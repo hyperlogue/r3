@@ -302,7 +302,7 @@ describe("outward agent connections", () => {
     expect(collaboration.watchers(id)).toEqual([]);
   });
 
-  test("registration leaves pending feedback alone until explicit submission", async () => {
+  test("registration leaves pending discussions alone until explicit submission", async () => {
     await storage.conversations.add(id, {
       actor: human,
       body: "Please review",
@@ -320,7 +320,7 @@ describe("outward agent connections", () => {
     const frame = JSON.parse(
       new TextDecoder().decode(chunk.value).split("data: ")[1]!,
     ) as ArtifactAgentStreamEvent;
-    if (frame.type !== "nudge") throw new Error("Missing pending feedback nudge");
+    if (frame.type !== "nudge") throw new Error("Missing pending discussions nudge");
     expect(frame.nudge.event).toBe("submitted");
     connections.acknowledge(registration.id, { actor, nudgeId: frame.nudge.id, ok: true });
     expect(await submitted).toEqual({ state: "sent" });

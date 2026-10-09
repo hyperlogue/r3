@@ -169,7 +169,7 @@ function TreeDir({
 // Memoized: the only prop that moves while you read is `activePath`, and the
 // scroll-spy changes that as often as once a frame. Its callers hand it a
 // memoized file list and viewed set, so an unrelated re-render of the review
-// view — a reply landing, a sha report — costs nothing here.
+// view — a comment landing, a sha report — costs nothing here.
 export const FileBrowser = memo(function FileBrowser({
   files,
   viewed,
@@ -252,7 +252,7 @@ export const FileBrowser = memo(function FileBrowser({
               this tree its own paint unit. It matters because the tree is NOT
               virtualized: a 208-file review mounts ~1500 nodes here, and without
               containment every one of them was re-recorded on each keystroke typed
-              into the feedback composer (measured ~4ms of a 10ms keystroke). */}
+              into the discussions composer (measured ~4ms of a 10ms keystroke). */}
           <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2 [contain:paint]">
             <TreeDir
               node={tree}

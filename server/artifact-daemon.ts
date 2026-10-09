@@ -78,7 +78,7 @@ export async function startArtifactDaemon(): Promise<void> {
       pid: process.pid,
       token,
       version: R3_VERSION,
-      protocol: "artifacts-v1",
+      protocol: "artifacts-v2",
       publicUrl: PUBLIC_URL,
       requireLogin: REQUIRE_LOGIN,
       exec: process.execPath,

@@ -324,7 +324,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 </h1>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                   {state.view === "attention"
-                    ? "Agent replies waiting for your review."
+                    ? "Agent comments waiting for your review."
                     : state.view === "archived"
                       ? "Every version and conversation, retained."
                       : "Pick up where the conversation left off."}

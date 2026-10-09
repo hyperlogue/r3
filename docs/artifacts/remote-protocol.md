@@ -21,11 +21,11 @@ CLI ───────── authenticated HTTP/JSON ─────── ba
  local harness
 ```
 
-This document defines the language-neutral extension to `artifacts-v1`.
+This document defines the language-neutral extension to `artifacts-v2`.
 `GET /api/health` advertises `r3-worker-v2`, `r3-auth-v1`, and `publication-url`
 in its `capabilities` array. JSON uses UTF-8, camelCase names, and opaque string
 identifiers. Unknown identifiers never imply a path or executable. Existing artifact
-routes, immutable versions, feedback acknowledgment, and watch exit codes retain
+routes, immutable versions, discussions acknowledgment, and watch exit codes retain
 their contracts in the [API reference](../../.claude/skills/api-surface/SKILL.md).
 
 ## Backend selection and transport
@@ -39,7 +39,7 @@ Every CLI invocation resolves one backend, in order:
 4. The lazily started local server.
 
 Malformed selected configuration is an error. Commands never search other backends
-for a missing artifact. Feedback fetch, source, and image reads have no backend
+for a missing artifact. Discussion fetch, source, and image reads have no backend
 argument. A project file can be committed; it contains a URL, never credentials.
 
 Backend identity is the complete normalized URL, including port and base path.
@@ -120,7 +120,7 @@ refresh, device, cookie, or harness secrets. Addresses are observations, not ide
 ## Worker connection
 
 One worker serves all configured backends independently. It opens no TCP listener,
-reads no artifact database, and caches no artifact/feedback content. Its private
+reads no artifact database, and caches no artifact/discussions content. Its private
 Unix socket passes local setup information only. HTTP watch and all data reads
 remain between CLI and backend.
 
@@ -233,12 +233,12 @@ destination; separate destinations/backends do not block each other. At most six
 notifications, including the active one, are queued per destination. The 15-second
 acknowledgment deadline starts at dispatch, and disconnect rejects queued work.
 
-Only the human's Send to agent action submits feedback. Setup, reconnect and
+Only the human's Send to agent action submits discussions. Setup, reconnect and
 fallback selection never send pending content. Existing lifecycle rules still
 allow an explicit nonblank archive message to reach the captured recipient after
 archive commits. Delivery failure is reported to the human. `queued` means Codex
 accepted the wake, not that a session is running. A nudge acknowledgment never
-consumes feedback; snapshot fetch/output/acknowledgment remains a separate protocol.
+consumes discussions; snapshot fetch/output/acknowledgment remains a separate protocol.
 
 ## Publication response and compatibility checks
 

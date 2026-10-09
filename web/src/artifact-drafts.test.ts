@@ -45,19 +45,21 @@ test("tabs editing different drafts do not overwrite each other", () => {
   const first = new ArtifactDraftStore(disk);
   const second = new ArtifactDraftStore(disk);
   first.update("artifact_example", { body: "A shared note" });
-  second.update("artifact_example", { body: "An independent reply" }, "feedback_example");
+  second.update("artifact_example", { body: "An independent comment" }, "discussion_example");
   first.flush();
   second.flush();
   const reloaded = new ArtifactDraftStore(disk);
   expect(reloaded.get("artifact_example")?.body).toBe("A shared note");
-  expect(reloaded.get("artifact_example", "feedback_example")?.body).toBe("An independent reply");
+  expect(reloaded.get("artifact_example", "discussion_example")?.body).toBe(
+    "An independent comment",
+  );
 });
 test("the latest saved edit and discard reach other tabs without rewriting unrelated pending drafts", () => {
   const disk = storage();
   const first = new ArtifactDraftStore(disk);
   const second = new ArtifactDraftStore(disk);
-  second.update("artifact_example", { body: "Pending reply" }, "feedback_example");
-  const reply = second.get("artifact_example", "feedback_example");
+  second.update("artifact_example", { body: "Pending comment" }, "discussion_example");
+  const comment = second.get("artifact_example", "discussion_example");
   let notifications = 0;
   second.subscribe(() => notifications++);
   first.update("artifact_example", { body: "First note" });
@@ -65,7 +67,7 @@ test("the latest saved edit and discard reach other tabs without rewriting unrel
   const noteKey = disk.key(0)!;
   second.sync(noteKey);
   expect(second.get("artifact_example")?.body).toBe("First note");
-  expect(second.get("artifact_example", "feedback_example")).toBe(reply);
+  expect(second.get("artifact_example", "discussion_example")).toBe(comment);
   expect(notifications).toBe(1);
 
   second.update("artifact_example", { body: "Latest note" });
@@ -75,8 +77,8 @@ test("the latest saved edit and discard reach other tabs without rewriting unrel
   first.sync(noteKey);
   expect(first.get("artifact_example")?.body).toBe("Latest note");
   expect(second.get("artifact_example")?.body).toBe("Latest note");
-  expect(new ArtifactDraftStore(disk).get("artifact_example", "feedback_example")?.body).toBe(
-    "Pending reply",
+  expect(new ArtifactDraftStore(disk).get("artifact_example", "discussion_example")?.body).toBe(
+    "Pending comment",
   );
 
   first.clear("artifact_example");
@@ -91,17 +93,17 @@ test("an incoming empty draft cannot erase text waiting for its debounce", () =>
   const disk = storage();
   const first = new ArtifactDraftStore(disk);
   const second = new ArtifactDraftStore(disk);
-  second.beginReply("artifact_example", "feedback_example", {
+  second.beginComment("artifact_example", "discussion_example", {
     versionSeq: 1,
     representation: "source",
   });
-  first.update("artifact_example", { body: "Just typed" }, "feedback_example");
+  first.update("artifact_example", { body: "Just typed" }, "discussion_example");
   second.flush();
   first.sync(disk.key(0));
-  expect(first.get("artifact_example", "feedback_example")?.body).toBe("Just typed");
+  expect(first.get("artifact_example", "discussion_example")?.body).toBe("Just typed");
   first.flush();
   second.sync(disk.key(0));
-  expect(second.get("artifact_example", "feedback_example")?.body).toBe("Just typed");
+  expect(second.get("artifact_example", "discussion_example")?.body).toBe("Just typed");
 });
 
 test("a changed draft from another tab survives an older completed submission", () => {
@@ -129,23 +131,23 @@ test("per-draft saves preserve untouched older records and keep cleared drafts c
     "r3-artifact-draft-artifact_example",
     JSON.stringify({
       note: draft("Old note"),
-      replies: {
-        feedback_kept: draft("Keep this reply"),
-        feedback_cleared: draft("Discard this reply"),
+      comments: {
+        discussion_kept: draft("Keep this comment"),
+        discussion_cleared: draft("Discard this comment"),
       },
     }),
   );
   const store = new ArtifactDraftStore(disk);
   store.update("artifact_example", { body: "Updated note" });
-  store.clear("artifact_example", "feedback_cleared");
+  store.clear("artifact_example", "discussion_cleared");
   store.flush();
   const reloaded = new ArtifactDraftStore(disk);
   expect(reloaded.get("artifact_example")?.body).toBe("Updated note");
-  expect(reloaded.get("artifact_example", "feedback_kept")?.body).toBe("Keep this reply");
-  expect(reloaded.get("artifact_example", "feedback_cleared")).toBeNull();
+  expect(reloaded.get("artifact_example", "discussion_kept")?.body).toBe("Keep this comment");
+  expect(reloaded.get("artifact_example", "discussion_cleared")).toBeNull();
 });
 
-test("draft target and reply context remain on their original publication while the pane moves", () => {
+test("draft target and comment context remain on their original publication while the pane moves", () => {
   const disk = storage();
   const store = new ArtifactDraftStore(disk);
   const original = {
@@ -157,19 +159,19 @@ test("draft target and reply context remain on their original publication while 
   expect(store.anchor("artifact_example", original)).toBe(true);
   store.update("artifact_example", { body: "A note about this link" });
   expect(store.anchor("artifact_example", { ...original, versionSeq: 2 })).toBe(false);
-  store.beginReply("artifact_example", "feedback_example", {
+  store.beginComment("artifact_example", "discussion_example", {
     versionSeq: 1,
     representation: "rendered",
   });
-  store.update("artifact_example", { body: "Reply about v1" }, "feedback_example");
-  store.beginReply("artifact_example", "feedback_example", {
+  store.update("artifact_example", { body: "Comment about v1" }, "discussion_example");
+  store.beginComment("artifact_example", "discussion_example", {
     versionSeq: 2,
     representation: "source",
   });
   store.flush();
   const reloaded = new ArtifactDraftStore(disk);
   expect(reloaded.get("artifact_example")?.target).toEqual(original);
-  expect(reloaded.get("artifact_example", "feedback_example")?.context).toEqual({
+  expect(reloaded.get("artifact_example", "discussion_example")?.context).toEqual({
     versionSeq: 1,
     representation: "rendered",
   });
@@ -183,16 +185,16 @@ test("legacy draft text survives without inventing a publication target or reapp
       general: "Saved note",
       text: "Anchored draft",
       anchor: { file: "notes.md", lineStart: 2 },
-      replies: { feedback_old: "Old reply" },
+      comments: { discussion_old: "Old comment" },
     }),
   );
   const store = new ArtifactDraftStore(disk);
   expect(store.get("review_imported")?.body).toContain("Anchored draft");
   expect(store.get("review_imported")?.imported).toBe(true);
   expect(store.get("review_imported")?.target).toEqual({ kind: "artifact" });
-  expect(store.get("review_imported", "feedback_old")?.context.versionSeq).toBeNull();
+  expect(store.get("review_imported", "discussion_old")?.context.versionSeq).toBeNull();
   store.clear("review_imported");
-  store.clear("review_imported", "feedback_old");
+  store.clear("review_imported", "discussion_old");
   store.flush();
   expect(new ArtifactDraftStore(disk).has("review_imported")).toBe(false);
   expect(disk.getItem("r3-draft-review_imported")).not.toBeNull();
@@ -202,44 +204,46 @@ test("deleted threads cannot leave an invisible draft blocking handoff", () => {
   const disk = storage();
   const store = new ArtifactDraftStore(disk);
   store.update("artifact_example", { body: "Keep this note" });
-  store.update("artifact_example", { body: "Deleted thread reply" }, "feedback_deleted");
-  store.update("artifact_example", { body: "Resolved thread reply" }, "feedback_resolved");
-  store.pruneReplies("artifact_example", new Set(["feedback_resolved"]));
+  store.update("artifact_example", { body: "Deleted thread comment" }, "discussion_deleted");
+  store.update("artifact_example", { body: "Resolved thread comment" }, "discussion_resolved");
+  store.pruneComments("artifact_example", new Set(["discussion_resolved"]));
   store.flush();
   const reloaded = new ArtifactDraftStore(disk);
   expect(reloaded.count("artifact_example")).toBe(2);
-  expect(reloaded.get("artifact_example", "feedback_deleted")).toBeNull();
-  expect(reloaded.get("artifact_example", "feedback_resolved")?.body).toBe("Resolved thread reply");
+  expect(reloaded.get("artifact_example", "discussion_deleted")).toBeNull();
+  expect(reloaded.get("artifact_example", "discussion_resolved")?.body).toBe(
+    "Resolved thread comment",
+  );
 });
 
-test("a completed save cannot discard a newer note or reply draft, including edit and revert", () => {
+test("a completed save cannot discard a newer note or comment draft, including edit and revert", () => {
   const disk = storage();
   const store = new ArtifactDraftStore(disk);
-  for (const replyTo of [undefined, "feedback_example"]) {
-    store.update("artifact_example", { body: "Submitted text" }, replyTo);
-    const submitted = store.get("artifact_example", replyTo)!;
-    store.update("artifact_example", { body: "New text" }, replyTo);
-    expect(store.clearIfCurrent("artifact_example", submitted, replyTo)).toBe(false);
-    expect(store.get("artifact_example", replyTo)?.body).toBe("New text");
-    store.update("artifact_example", { body: "Submitted text" }, replyTo);
-    expect(store.clearIfCurrent("artifact_example", submitted, replyTo)).toBe(false);
+  for (const commentTo of [undefined, "discussion_example"]) {
+    store.update("artifact_example", { body: "Submitted text" }, commentTo);
+    const submitted = store.get("artifact_example", commentTo)!;
+    store.update("artifact_example", { body: "New text" }, commentTo);
+    expect(store.clearIfCurrent("artifact_example", submitted, commentTo)).toBe(false);
+    expect(store.get("artifact_example", commentTo)?.body).toBe("New text");
+    store.update("artifact_example", { body: "Submitted text" }, commentTo);
+    expect(store.clearIfCurrent("artifact_example", submitted, commentTo)).toBe(false);
   }
   store.flush();
   const reloaded = new ArtifactDraftStore(disk);
   expect(reloaded.get("artifact_example")?.body).toBe("Submitted text");
-  expect(reloaded.get("artifact_example", "feedback_example")?.body).toBe("Submitted text");
+  expect(reloaded.get("artifact_example", "discussion_example")?.body).toBe("Submitted text");
 });
 
 test("a completed save clears its unchanged draft while preserving other draft slots", () => {
   const store = new ArtifactDraftStore(storage());
   store.update("artifact_example", { body: "Submitted note" });
   const submitted = store.get("artifact_example")!;
-  store.update("artifact_example", { body: "Independent reply" }, "feedback_example");
+  store.update("artifact_example", { body: "Independent comment" }, "discussion_example");
   expect(store.clearIfCurrent("artifact_example", submitted)).toBe(true);
   expect(store.get("artifact_example")).toBeNull();
-  expect(store.get("artifact_example", "feedback_example")?.body).toBe("Independent reply");
-  const reply = store.get("artifact_example", "feedback_example")!;
-  expect(store.clearIfCurrent("artifact_example", reply, "feedback_example")).toBe(true);
+  expect(store.get("artifact_example", "discussion_example")?.body).toBe("Independent comment");
+  const comment = store.get("artifact_example", "discussion_example")!;
+  expect(store.clearIfCurrent("artifact_example", comment, "discussion_example")).toBe(true);
   store.flush();
 });
 

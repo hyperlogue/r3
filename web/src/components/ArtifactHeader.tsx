@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Ref, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { useOptimisticArtifact } from "../artifact-feedback-status.ts";
+import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { libraryReturnRoute } from "../artifact-library.ts";
 import { formatBytes } from "../format-bytes.ts";
 import type { MessageRef } from "../markdown.ts";
@@ -20,7 +20,7 @@ import { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { AgentName } from "./AgentName.tsx";
 import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactActionDialog } from "./ArtifactActionDialog.tsx";
-import { ArtifactFeedbackToggle } from "./ArtifactFeedbackToggle.tsx";
+import { ArtifactDiscussionToggle } from "./ArtifactDiscussionToggle.tsx";
 import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { ArtifactHandoffNotice } from "./ArtifactHandoffNotice.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
@@ -30,7 +30,7 @@ import { MessageProse } from "./Message.tsx";
 import { Notification, type NotificationProps } from "./Notifications.tsx";
 import { SettingsDialog } from "./SettingsPopup.tsx";
 
-function ArtifactSendFeedback({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
+function ArtifactSendDiscussion({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
   const handoff = useArtifactHandoff(detail);
   return (
     <div className="r3-nav-handoff relative shrink-0" aria-hidden={!visible} inert={!visible}>
@@ -160,9 +160,9 @@ export function ArtifactHeader({
   commentingLocked,
   onToggleCommenting,
   captureRef,
-  feedbackVisible,
-  feedbackLocked,
-  onToggleFeedback,
+  discussionVisible,
+  discussionLocked,
+  onToggleDiscussion,
 }: {
   detail: ArtifactDetail;
   version?: ArtifactVersion | null;
@@ -174,9 +174,9 @@ export function ArtifactHeader({
   commentingLocked?: boolean;
   onToggleCommenting?: () => void;
   captureRef?: Ref<HTMLDivElement>;
-  feedbackVisible?: boolean;
-  feedbackLocked?: boolean;
-  onToggleFeedback?: () => void;
+  discussionVisible?: boolean;
+  discussionLocked?: boolean;
+  onToggleDiscussion?: () => void;
 }) {
   detail = useOptimisticArtifact(detail);
   const qc = useQueryClient();
@@ -259,15 +259,15 @@ export function ArtifactHeader({
       </div>
       {detail.state === "archived" && <Pill>Archived</Pill>}
       <div className="min-w-0 flex-1" />
-      {onToggleFeedback && (
+      {onToggleDiscussion && (
         <div className="flex shrink-0 items-center max-md:hidden">
-          <ArtifactSendFeedback detail={detail} visible={!feedbackVisible} />
-          <ArtifactFeedbackToggle
-            disabled={feedbackLocked}
+          <ArtifactSendDiscussion detail={detail} visible={!discussionVisible} />
+          <ArtifactDiscussionToggle
+            disabled={discussionLocked}
             artifactId={detail.id}
-            feedback={detail.feedback}
-            visible={!!feedbackVisible}
-            onToggle={onToggleFeedback}
+            discussions={detail.discussions}
+            visible={!!discussionVisible}
+            onToggle={onToggleDiscussion}
           />
         </div>
       )}

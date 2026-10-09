@@ -5,7 +5,7 @@ import type { Database } from "bun:sqlite";
 export function installArtifactUsage(db: Database, completeSince: string | null): void {
   db.exec(`CREATE TABLE IF NOT EXISTS artifact_activity (
     occurred_at TEXT NOT NULL,
-    metric TEXT NOT NULL CHECK (metric IN ('artifactsCreated','versionsPublished','threadsAdded','repliesAdded','archived','restored')),
+    metric TEXT NOT NULL CHECK (metric IN ('artifactsCreated','versionsPublished','threadsAdded','commentsAdded','archived','restored')),
     count INTEGER NOT NULL CHECK (count > 0),
     PRIMARY KEY (occurred_at, metric)
   ) STRICT;
@@ -17,8 +17,8 @@ export function installArtifactUsage(db: Database, completeSince: string | null)
     db.exec(`INSERT INTO artifact_activity SELECT occurred_at, metric, count(*) FROM (
       SELECT created_at AS occurred_at, 'artifactsCreated' AS metric FROM artifacts
       UNION ALL SELECT published_at, 'versionsPublished' FROM artifact_versions WHERE published_at IS NOT NULL
-      UNION ALL SELECT created_at, 'threadsAdded' FROM feedback
-      UNION ALL SELECT created_at, 'repliesAdded' FROM replies
+      UNION ALL SELECT created_at, 'threadsAdded' FROM discussions
+      UNION ALL SELECT created_at, 'commentsAdded' FROM comments
       UNION ALL SELECT created_at, event FROM artifact_events
     ) GROUP BY occurred_at, metric;`);
   }
@@ -36,8 +36,8 @@ export function installArtifactUsage(db: Database, completeSince: string | null)
       "'versionsPublished'",
       "WHEN NEW.published_at IS NOT NULL",
     ],
-    ["thread", "feedback", "NEW.created_at", "'threadsAdded'", ""],
-    ["reply", "replies", "NEW.created_at", "'repliesAdded'", ""],
+    ["thread", "discussions", "NEW.created_at", "'threadsAdded'", ""],
+    ["comment", "comments", "NEW.created_at", "'commentsAdded'", ""],
     ["lifecycle", "artifact_events", "NEW.created_at", "NEW.event", ""],
   ])
     db.exec(

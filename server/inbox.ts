@@ -7,12 +7,12 @@
 // held for approval, or dropped. That asymmetry is why Submit probes liveness
 // and reports failure loudly: a connect error is the only signal we ever get.
 //
-// We deliberately send no `from` reply address. A valid one has to be a socket
+// We deliberately send no `from` comment address. A valid one has to be a socket
 // in the harness's own namespace, and r3 could only supply that by binding
 // `cc-socks/<pid>.sock` itself — which would squat that namespace and make the
 // daemon show up as a session in the harness's own agent list.
 //
-// Consequence, measured rather than assumed: without a reply address the harness
+// Consequence, measured rather than assumed: without a comment address the harness
 // cannot send us its "message held" receipt either, so a session whose inbound
 // policy holds our push is indistinguishable to us from one that read it.
 

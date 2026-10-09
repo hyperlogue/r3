@@ -47,7 +47,7 @@ const publish = (seq: number) =>
           mediaType: "text/html",
           base64: Buffer.from(`<!doctype html><html><head><style>
   *{box-sizing:border-box}body{margin:0;padding:32px;font:16px/1.6 system-ui;background:#f7f8fa;color:#17212e}h1{font-size:32px;line-height:1.2;letter-spacing:-1px}small{color:#667085}section{padding:24px 0;border-top:1px solid #d7dce2}button{padding:12px 18px;border:0;background:#2f55cc;color:white;cursor:pointer}input{width:100%;padding:12px;border:1px solid #9da9ba}#hint{color:#647084}button:focus-visible{outline:3px solid #b488fa;outline-offset:4px}
-  </style></head><body><small>WORKSPACE / PROJECTS</small><h1>${seq === 1 ? "Your next project starts here" : "Make room for your next idea"}</h1><section><h2>No projects yet</h2><p id="hint">${seq === 1 ? "Start by making a project." : "Create a project to bring files, decisions, and feedback together."}</p><button id="cta">${seq === 1 ? "Start" : "Create workspace"}</button></section><section><label>Workspace name<input id="draft" placeholder="Name your workspace"></label></section><script>window.visit=crypto.randomUUID();document.querySelector('#cta').onclick=()=>document.querySelector('#hint').textContent='Project created';</script></body></html>`).toString(
+  </style></head><body><small>WORKSPACE / PROJECTS</small><h1>${seq === 1 ? "Your next project starts here" : "Make room for your next idea"}</h1><section><h2>No projects yet</h2><p id="hint">${seq === 1 ? "Start by making a project." : "Create a project to bring files, decisions, and discussions together."}</p><button id="cta">${seq === 1 ? "Start" : "Create workspace"}</button></section><section><label>Workspace name<input id="draft" placeholder="Name your workspace"></label></section><script>window.visit=crypto.randomUUID();document.querySelector('#cta').onclick=()=>document.querySelector('#hint').textContent='Project created';</script></body></html>`).toString(
             "base64",
           ),
         },
@@ -67,7 +67,7 @@ const note = await storage.conversations.add(artifact.id, {
   body: "Make the primary action clear and keep keyboard focus visible.",
   target: target("#cta"),
 });
-const fix = await storage.conversations.addReply(note.id, {
+const fix = await storage.conversations.addComment(note.id, {
   actor: agent,
   body: "Clarified the action and added a visible keyboard focus outline.",
   context: { versionSeq: 1, representation: "rendered" },
@@ -78,7 +78,7 @@ const resolved = await storage.conversations.add(artifact.id, {
   body: "Explain how projects work.",
   target: target("#hint"),
 });
-await storage.conversations.addReply(resolved.id, {
+await storage.conversations.addComment(resolved.id, {
   actor: agent,
   body: "Added a short explanation.",
   context: { versionSeq: 2, representation: "rendered" },
@@ -90,7 +90,7 @@ const missing = await storage.conversations.add(artifact.id, {
   body: "This element requires unavailable application state.",
   target: target("#missing"),
 });
-await storage.conversations.addReply(missing.id, {
+await storage.conversations.addComment(missing.id, {
   actor: agent,
   body: "Proposed a replacement.",
   context: { versionSeq: 2, representation: "rendered" },
@@ -99,10 +99,10 @@ await storage.conversations.addReply(missing.id, {
 for (const nativeTarget of [{ kind: "artifact" }, { ...target("#cta"), locator: null }]) {
   const general = await storage.conversations.add(artifact.id, {
     actor,
-    body: "General design feedback",
+    body: "General design discussions",
     target: nativeTarget,
   });
-  await storage.conversations.addReply(general.id, {
+  await storage.conversations.addComment(general.id, {
     actor: agent,
     body: "See this element.",
     context: { versionSeq: 2, representation: "rendered" },
@@ -182,7 +182,7 @@ try {
     eventually(() => read(js), message).catch(async (error) => {
       console.log(
         await read(
-          "JSON.stringify({url:location.search, states:[...document.querySelectorAll('[data-comparison-target-state]')].map(e=>e.outerHTML), tabs:[...document.querySelectorAll('[data-feedback-tab]')].map(e=>[e.textContent,e.getAttribute('aria-selected')])})",
+          "JSON.stringify({url:location.search, states:[...document.querySelectorAll('[data-comparison-target-state]')].map(e=>e.outerHTML), tabs:[...document.querySelectorAll('[data-discussions-tab]')].map(e=>[e.textContent,e.getAttribute('aria-selected')])})",
         ),
       );
       await shot("comparison-failure");
@@ -201,7 +201,7 @@ try {
     "initial preview",
   );
   await wait(
-    "document.querySelectorAll('[data-compare-reply]').length===3",
+    "document.querySelectorAll('[data-compare-comment]').length===3",
     "eligible Compare entries",
   );
   const previewFrame = await eventually(async () => {
@@ -217,26 +217,26 @@ try {
   const visit = await previewFrame.evaluate("window.visit");
   await previewFrame.evaluate("document.querySelector('#draft').value='Keep this page state'");
   await read(
-    "window.mainFrame=document.querySelector('[data-artifact-surface] iframe');window.mainPanel=document.querySelector('[aria-label=\"Artifact feedback\"]'); true",
+    "window.mainFrame=document.querySelector('[data-artifact-surface] iframe');window.mainPanel=document.querySelector('[aria-label=\"Artifact discussions\"]'); true",
   );
-  await click('[aria-label="Float feedback"]');
+  await click('[aria-label="Float discussions"]');
   await Bun.sleep(450);
   const rect = await read(
-    "(()=>{const r=document.querySelector('[data-feedback-mode]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()",
+    "(()=>{const r=document.querySelector('[data-discussions-mode]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()",
   );
   // Prepare an ordinary draft before entering; changing panels must preserve it.
-  await click('[aria-label="Add general feedback"]');
-  await wait("!!document.querySelector('[data-feedback-draft] textarea')", "draft input");
+  await click('[aria-label="Add general discussions"]');
+  await wait("!!document.querySelector('[data-discussions-draft] textarea')", "draft input");
   await wait(
-    "document.activeElement === document.querySelector('[data-feedback-draft] textarea')",
+    "document.activeElement === document.querySelector('[data-discussions-draft] textarea')",
     "draft focused",
   );
   await page.command("Input.insertText", { text: "Keep this unfinished note" });
   assert.equal(
-    await read("document.querySelector('[data-feedback-draft] textarea').value"),
+    await read("document.querySelector('[data-discussions-draft] textarea').value"),
     "Keep this unfinished note",
   );
-  await click(`[data-compare-reply="${fix.id}"]`);
+  await click(`[data-compare-comment="${fix.id}"]`);
   await wait("document.querySelector('[data-artifact-surface]').inert", "comparison entry");
   const motion = await read(
     "getComputedStyle(document.querySelector('[data-comparison-track]')).transform",
@@ -247,11 +247,13 @@ try {
     "both version-specific targets located",
   );
   assert.equal(
-    await read("document.querySelector('[data-feedback-mode]').dataset.feedbackMode"),
+    await read("document.querySelector('[data-discussions-mode]').dataset.discussionMode"),
     "expanded",
   );
   assert.equal(
-    await read("document.querySelector('[aria-label=\"Artifact feedback\"]')===window.mainPanel"),
+    await read(
+      "document.querySelector('[aria-label=\"Artifact discussions\"]')===window.mainPanel",
+    ),
     true,
   );
   assert.equal(
@@ -260,17 +262,17 @@ try {
   );
   assert.equal(
     await read(
-      "document.querySelectorAll('[data-feedback-mode] [data-artifact-feedback]:not([hidden])').length",
+      "document.querySelectorAll('[data-discussions-mode] [data-artifact-discussions]:not([hidden])').length",
     ),
     3,
   );
   assert.equal(
-    await read("document.querySelector('[aria-label=\"Float feedback\"]').disabled"),
+    await read("document.querySelector('[aria-label=\"Float discussions\"]').disabled"),
     true,
   );
   assert.equal(
     await read(
-      "[...document.querySelectorAll('[aria-label=\"Hide feedback\"]')].every(b=>b.disabled)",
+      "[...document.querySelectorAll('[aria-label=\"Hide discussions\"]')].every(b=>b.disabled)",
     ),
     true,
   );
@@ -293,23 +295,23 @@ try {
     "document.querySelectorAll('[data-comparison-target-state=anchored]').length===2",
     "target refocus",
   );
-  // Ordinary reply/resolve behavior is shared, and reply context names the fix.
-  await click(`[data-artifact-feedback="${note.id}"] [data-feedback-action=reply]`);
+  // Ordinary comment/resolve behavior is shared, and comment context names the fix.
+  await click(`[data-artifact-discussions="${note.id}"] [data-discussions-action=comment]`);
   await wait(
-    `document.activeElement === document.querySelector('[data-artifact-feedback="${note.id}"] [data-reply-to] textarea')`,
-    "reply focused",
+    `document.activeElement === document.querySelector('[data-artifact-discussions="${note.id}"] [data-comment-to] textarea')`,
+    "comment focused",
   );
-  await page.command("Input.insertText", { text: "Retain this comparison reply" });
+  await page.command("Input.insertText", { text: "Retain this comparison comment" });
   await click('[aria-label="Return to artifact"]');
   await wait("!document.querySelector('[data-artifact-surface]').inert", "return to artifact");
   await Bun.sleep(550);
   assert.equal(
-    await read("document.querySelector('[data-feedback-mode]').dataset.feedbackMode"),
+    await read("document.querySelector('[data-discussions-mode]').dataset.discussionMode"),
     "floating",
   );
   assert.deepEqual(
     await read(
-      "(()=>{const r=document.querySelector('[data-feedback-mode]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()",
+      "(()=>{const r=document.querySelector('[data-discussions-mode]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()",
     ),
     rect,
   );
@@ -319,17 +321,17 @@ try {
     "Keep this page state",
   );
   assert.equal(
-    await read("document.querySelector('[data-feedback-draft] textarea').value"),
+    await read("document.querySelector('[data-discussions-draft] textarea').value"),
     "Keep this unfinished note",
   );
   assert.equal(
     await read(
-      `document.querySelector('[data-artifact-feedback="${note.id}"] [data-reply-to] textarea').value`,
+      `document.querySelector('[data-artifact-discussions="${note.id}"] [data-comment-to] textarea').value`,
     ),
-    "Retain this comparison reply",
+    "Retain this comparison comment",
   );
   assert.equal(
-    await read("document.querySelectorAll('[data-artifact-feedback]:not([hidden])').length"),
+    await read("document.querySelectorAll('[data-artifact-discussions]:not([hidden])').length"),
     6,
   );
   await shot("comparison-return-floating");
@@ -355,16 +357,16 @@ try {
     ),
     true,
   );
-  await click(`[data-artifact-feedback="${note.id}"] [data-reply-to] button[type=submit]`);
+  await click(`[data-artifact-discussions="${note.id}"] [data-comment-to] button[type=submit]`);
   await wait(
-    `!!document.querySelector('[data-artifact-feedback="${note.id}"] [data-feedback-action=resolve]')`,
-    "reply posted",
+    `!!document.querySelector('[data-artifact-discussions="${note.id}"] [data-discussions-action=resolve]')`,
+    "comment posted",
   );
-  assert.equal(storage.conversations.get(note.id).replies.at(-1)?.context.versionSeq, 2);
+  assert.equal(storage.conversations.get(note.id).comments.at(-1)?.context.versionSeq, 2);
   assert.equal(storage.conversations.get(note.id).status, "open");
-  await click(`[data-artifact-feedback="${note.id}"] [data-feedback-action=resolve]`);
+  await click(`[data-artifact-discussions="${note.id}"] [data-discussions-action=resolve]`);
   await wait(
-    `document.querySelector('[data-artifact-feedback="${note.id}"] [data-feedback-action=resolve]')?.textContent==='Reopen'`,
+    `document.querySelector('[data-artifact-discussions="${note.id}"] [data-discussions-action=resolve]')?.textContent==='Reopen'`,
     "human resolution",
   );
   assert.equal(storage.conversations.get(note.id).status, "resolved");
@@ -375,9 +377,9 @@ try {
   await shot("comparison-unavailable");
   await click('[aria-label="Return to artifact"]');
   await Bun.sleep(550);
-  await click("[data-feedback-tab=resolved]");
+  await click("[data-discussions-tab=resolved]");
   await Bun.sleep(300);
-  await click(`[data-compare-reply="${fix.id}"]`);
+  await click(`[data-compare-comment="${fix.id}"]`);
   await wait(
     "document.querySelectorAll('[data-comparison-target-state=anchored]').length===2",
     "resolved comparison",
@@ -391,11 +393,17 @@ try {
     deviceScaleFactor: 1,
     mobile: true,
   });
-  await wait("!!document.querySelector('[data-mobile-feedback=docked]')", "mobile feedback dock");
-  const mobileBoxes = await read(
-    "(()=>{const c=document.querySelector('[data-comparison-surface]').getBoundingClientRect(),p=document.querySelector('[data-mobile-feedback=docked]').getBoundingClientRect();return {bottom:c.bottom,top:p.top,overflow:document.documentElement.scrollWidth>innerWidth}})()",
+  await wait(
+    "!!document.querySelector('[data-mobile-discussions=docked]')",
+    "mobile discussions dock",
   );
-  assert.ok(mobileBoxes.bottom <= mobileBoxes.top + 1, "feedback must not overlay the comparison");
+  const mobileBoxes = await read(
+    "(()=>{const c=document.querySelector('[data-comparison-surface]').getBoundingClientRect(),p=document.querySelector('[data-mobile-discussions=docked]').getBoundingClientRect();return {bottom:c.bottom,top:p.top,overflow:document.documentElement.scrollWidth>innerWidth}})()",
+  );
+  assert.ok(
+    mobileBoxes.bottom <= mobileBoxes.top + 1,
+    "discussions must not overlay the comparison",
+  );
   assert.equal(mobileBoxes.overflow, false);
   await shot("comparison-mobile");
   await button("Original");
@@ -403,15 +411,15 @@ try {
   await button("Proposed fix");
   await click('[aria-label="Return to artifact"]');
   await wait(
-    "!!document.querySelector('[data-mobile-feedback=sheet]')",
+    "!!document.querySelector('[data-mobile-discussions=sheet]')",
     "ordinary mobile sheet restored",
   );
-  await click("[data-mobile-feedback-toggle]");
+  await click("[data-mobile-discussions-toggle]");
   await Bun.sleep(300);
   await page.command("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
-  await click(`[data-compare-reply="${fix.id}"]`);
+  await click(`[data-compare-comment="${fix.id}"]`);
   assert.equal(
     await read(
       "getComputedStyle(document.querySelector('[data-comparison-track]')).transitionProperty",

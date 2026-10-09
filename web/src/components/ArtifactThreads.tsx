@@ -12,28 +12,28 @@ import {
   useState,
 } from "react";
 import {
-  artifactFeedbackTargetLabel,
+  artifactDiscussionTargetLabel,
   artifactTargetLabel,
 } from "../../../shared/artifact-prompt.ts";
 import {
   type ArtifactDetail,
-  type ArtifactFeedback,
+  type ArtifactDiscussion,
   type ArtifactKind,
   type ArtifactMessageContext,
   type ArtifactTarget,
-  hasUnsentArtifactFeedback,
+  hasUnsentArtifactDiscussion,
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import { artifactApi } from "../artifact-api.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
+import { activeArtifactDiscussion, artifactNeedsAttention } from "../artifact-discussions.ts";
+import { useDiscussionStatus, useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
-import { activeArtifactFeedback, artifactNeedsAttention } from "../artifact-feedback.ts";
-import { useFeedbackStatus, useOptimisticArtifact } from "../artifact-feedback-status.ts";
 import {
-  FeedbackCreationContext,
-  feedbackAnimation,
-  useFeedbackTabIndicator,
-} from "../feedback-motion.ts";
+  DiscussionCreationContext,
+  discussionAnimation,
+  useDiscussionTabIndicator,
+} from "../discussions-motion.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
@@ -62,7 +62,7 @@ import {
 import { MessageInput } from "./MessageInput.tsx";
 
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactMessageContext) => void;
-export type ArtifactTargetJump = (target: ArtifactTarget, feedbackId?: string) => void;
+export type ArtifactTargetJump = (target: ArtifactTarget, discussionId?: string) => void;
 
 function targetContext(target: ArtifactTarget): ArtifactMessageContext {
   return "versionSeq" in target
@@ -95,7 +95,7 @@ function fixTargetLabel(
   return target.versionSeq === latestVersionSeq ? label : `Version ${target.versionSeq} · ${label}`;
 }
 
-function FeedbackQuote({ quote }: { quote: string }) {
+function DiscussionQuote({ quote }: { quote: string }) {
   const element = useRef<HTMLQuoteElement>(null);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -148,14 +148,14 @@ function FeedbackQuote({ quote }: { quote: string }) {
 }
 
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
-  feedback,
+  discussions,
   agentLabels,
   artifactKind,
   latestVersionSeq,
   onLocate,
   onJumpRef,
   active = false,
-  activeReplyId,
+  activeCommentId,
   visible = true,
   onResolved,
   comparisons,
@@ -163,7 +163,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   hidden = false,
   readOnly = false,
 }: {
-  feedback: ArtifactFeedback;
+  discussions: ArtifactDiscussion;
   agentLabels?: ArtifactDetail["agentLabels"];
   context: ArtifactMessageContext;
   artifactKind: ArtifactKind;
@@ -171,31 +171,31 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   active?: boolean;
-  activeReplyId?: string | null;
+  activeCommentId?: string | null;
   visible?: boolean;
   onResolved?: (id: string) => void;
   comparisons?: ReadonlyMap<string, ArtifactComparison>;
-  onCompare?: (replyId: string) => void;
+  onCompare?: (commentId: string) => void;
   hidden?: boolean;
   readOnly?: boolean;
 }) {
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
-  const [earlierOpen, setEarlierOpen] = useState(!!activeReplyId);
+  const [earlierOpen, setEarlierOpen] = useState(!!activeCommentId);
   useEffect(() => {
-    if (active && activeReplyId) setEarlierOpen(true);
-  }, [active, activeReplyId]);
+    if (active && activeCommentId) setEarlierOpen(true);
+  }, [active, activeCommentId]);
   useEffect(() => {
     if (!active || !visible) return;
-    const reply =
-      earlierOpen && activeReplyId
-        ? element.current?.querySelector(`[data-artifact-reply="${CSS.escape(activeReplyId)}"]`)
+    const comment =
+      earlierOpen && activeCommentId
+        ? element.current?.querySelector(`[data-artifact-comment="${CSS.escape(activeCommentId)}"]`)
         : null;
-    (reply ?? element.current)?.scrollIntoView({ block: "nearest" });
-  }, [active, activeReplyId, visible, earlierOpen]);
-  const [replying, setReplying] = useState(false);
+    (comment ?? element.current)?.scrollIntoView({ block: "nearest" });
+  }, [active, activeCommentId, visible, earlierOpen]);
+  const [commenting, setCommenting] = useState(false);
   const [editing, setEditing] = useState<{
-    replyId?: string;
+    commentId?: string;
     body: string;
     attachments: EditableImage[];
   } | null>(null);
@@ -210,13 +210,15 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const menuTrigger = useRef<HTMLButtonElement>(null);
   usePopoverFocus(menuOpen, menu, menuTrigger);
   useEscape(menuOpen, () => setMenuOpen(false));
-  const lastReply = feedback.replies.at(-1);
-  const canEdit = (lastReply?.author ?? feedback.author).role === "human";
-  const openReply = () => {
-    artifactDrafts.beginReply(feedback.artifactId, feedback.id, originalContext);
-    setReplying(true);
+  const lastComment = discussions.comments.at(-1);
+  const canEdit = (lastComment?.author ?? discussions.author).role === "human";
+  const openComment = () => {
+    artifactDrafts.beginComment(discussions.artifactId, discussions.id, originalContext);
+    setCommenting(true);
     requestAnimationFrame(() => {
-      const input = element.current?.querySelector<HTMLTextAreaElement>("[data-reply-to] textarea");
+      const input = element.current?.querySelector<HTMLTextAreaElement>(
+        "[data-comment-to] textarea",
+      );
       if (!input) return;
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
@@ -234,13 +236,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       bubble.hide();
     }
   }, [visible, bubble.hide]);
-  const refresh = () => qc.invalidateQueries({ queryKey: ["artifact", feedback.artifactId] });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["artifact", discussions.artifactId] });
   const edit = useMutation({
     mutationFn: async () => {
       if (!editing) return;
       const attachments = await editableImageInputs(editing.attachments);
-      if (editing.replyId) await artifactApi.editReply(editing.replyId, editing.body, attachments);
-      else await artifactApi.editFeedback(feedback.id, { body: editing.body, attachments });
+      if (editing.commentId)
+        await artifactApi.editComment(editing.commentId, editing.body, attachments);
+      else await artifactApi.editDiscussion(discussions.id, { body: editing.body, attachments });
     },
     onSuccess: () => {
       setEditing(null);
@@ -262,38 +265,41 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       };
     });
   const attachmentInput = useAttachmentInput(
-    feedback.artifactId,
+    discussions.artifactId,
     editing?.attachments ?? [],
     changeImages,
     edit.isPending,
     editTextarea,
   );
-  const status = useFeedbackStatus(feedback);
+  const status = useDiscussionStatus(discussions);
   const remove = useMutation({
-    mutationFn: () => artifactApi.deleteFeedback(feedback.id),
+    mutationFn: () => artifactApi.deleteDiscussion(discussions.id),
     onSuccess: refresh,
   });
-  const unavailable = artifactFeedbackTargetLabel(feedback) === "Historical target unavailable";
-  const hasTarget = unavailable || feedback.target.kind !== "artifact";
-  const originalContext = targetContext(feedback.target);
+  const unavailable =
+    artifactDiscussionTargetLabel(discussions) === "Historical target unavailable";
+  const hasTarget = unavailable || discussions.target.kind !== "artifact";
+  const originalContext = targetContext(discussions.target);
   const quote =
-    "locator" in feedback.target && feedback.target.locator && "quote" in feedback.target.locator
-      ? feedback.target.locator.quote
+    "locator" in discussions.target &&
+    discussions.target.locator &&
+    "quote" in discussions.target.locator
+      ? discussions.target.locator.quote
       : null;
   const error = edit.error ?? status.error ?? remove.error;
   const resolveButton = (
     <Button
       type="button"
-      data-feedback-action="resolve"
-      variant={feedback.status === "open" ? "success-outline" : "ghost"}
+      data-discussions-action="resolve"
+      variant={discussions.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
-      className={feedback.status === "resolved" ? "text-neutral-400" : undefined}
+      className={discussions.status === "resolved" ? "text-neutral-400" : undefined}
       onClick={() => {
-        status.change(feedback.status === "open" ? "resolved" : "open");
-        if (feedback.status === "open") onResolved?.(feedback.id);
+        status.change(discussions.status === "open" ? "resolved" : "open");
+        if (discussions.status === "open") onResolved?.(discussions.id);
       }}
     >
-      {feedback.status === "open" ? "✓ Resolve" : "Reopen"}
+      {discussions.status === "open" ? "✓ Resolve" : "Reopen"}
     </Button>
   );
   const moreMenu = (
@@ -316,26 +322,26 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <div
             ref={menu}
             role="dialog"
-            aria-label="Feedback actions"
+            aria-label="Discussion actions"
             className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
           >
             <button
               type="button"
               disabled={!canEdit}
-              title={canEdit ? undefined : "The agent replied last — post a new reply instead"}
+              title={canEdit ? undefined : "The agent replied last — post a new comment instead"}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:text-neutral-400 dark:hover:bg-neutral-800"
               onClick={() => {
                 setEditing(
-                  lastReply
+                  lastComment
                     ? {
-                        replyId: lastReply.id,
-                        body: lastReply.body,
-                        attachments: lastReply.attachments ?? [],
+                        commentId: lastComment.id,
+                        body: lastComment.body,
+                        attachments: lastComment.attachments ?? [],
                       }
-                    : { body: feedback.body, attachments: feedback.attachments ?? [] },
+                    : { body: discussions.body, attachments: discussions.attachments ?? [] },
                 );
                 setMenuOpen(false);
-                setReplying(false);
+                setCommenting(false);
               }}
             >
               Edit
@@ -385,7 +391,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       />
       <div className="px-3">
         <MessageAttachments
-          artifactId={feedback.artifactId}
+          artifactId={discussions.artifactId}
           images={editing.attachments}
           onChange={changeImages}
           disabled={edit.isPending}
@@ -414,28 +420,28 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   return (
     <article
       ref={element}
-      data-artifact-feedback={feedback.id}
+      data-artifact-discussions={discussions.id}
       hidden={hidden}
       inert={hidden}
       className={cn(
         "relative border-b border-neutral-200 px-3 py-3 text-sm dark:border-neutral-800",
-        feedback.status === "resolved"
+        discussions.status === "resolved"
           ? "bg-success-50/60 dark:bg-success-950/20"
           : "bg-white dark:bg-neutral-950",
-        feedback.claim && "bg-neutral-100/70 dark:bg-neutral-900/70",
+        discussions.claim && "bg-neutral-100/70 dark:bg-neutral-900/70",
         active &&
           "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-warning-500",
       )}
     >
-      {feedback.claim && (
+      {discussions.claim && (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 bg-neutral-500/10"
         />
       )}
-      {(hasTarget || artifactNeedsAttention(feedback) || feedback.status === "resolved") && (
+      {(hasTarget || artifactNeedsAttention(discussions) || discussions.status === "resolved") && (
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
-          {artifactNeedsAttention(feedback) && (
+          {artifactNeedsAttention(discussions) && (
             <span
               title="Unhandled agent response"
               className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
@@ -449,137 +455,148 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             <button
               type="button"
               className="min-w-0 flex-1 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
-              title={artifactFeedbackTargetLabel(feedback)}
-              onClick={() => onLocate(feedback.target, feedback.id)}
+              title={artifactDiscussionTargetLabel(discussions)}
+              onClick={() => onLocate(discussions.target, discussions.id)}
             >
-              {cardTargetLabel(feedback.target, latestVersionSeq)}
+              {cardTargetLabel(discussions.target, latestVersionSeq)}
             </button>
           ) : null}
-          {feedback.status === "resolved" && (
+          {discussions.status === "resolved" && (
             <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
               ✓ resolved
             </span>
           )}
         </div>
       )}
-      {feedback.target.kind === "media" && feedback.target.locator.frame && (
+      {discussions.target.kind === "media" && discussions.target.locator.frame && (
         <MediaTargetPreview
-          image={feedback.target.locator.frame}
-          box={feedback.target.locator.box}
+          image={discussions.target.locator.frame}
+          box={discussions.target.locator.box}
         />
       )}
-      {(hasUnsentArtifactFeedback(feedback) || feedback.claim) && (
+      {(hasUnsentArtifactDiscussion(discussions) || discussions.claim) && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          {hasUnsentArtifactFeedback(feedback) && <span>Not sent</span>}
-          {feedback.claim && (
+          {hasUnsentArtifactDiscussion(discussions) && <span>Not sent</span>}
+          {discussions.claim && (
             <span
               className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
-              title={`Working agent: ${feedback.claim.sessionId}`}
+              title={`Working agent: ${discussions.claim.sessionId}`}
             >
-              Working · <AgentName id={feedback.claim.sessionId} labels={agentLabels} />
+              Working · <AgentName id={discussions.claim.sessionId} labels={agentLabels} />
             </span>
           )}
         </div>
       )}
-      {quote && <FeedbackQuote quote={quote} />}
+      {quote && <DiscussionQuote quote={quote} />}
       {unavailable && (
         <details className="mb-2 text-xs text-neutral-500">
           <summary>Imported anchor evidence</summary>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap">
-            {JSON.stringify(feedback.legacy?.source, null, 2)}
+            {JSON.stringify(discussions.legacy?.source, null, 2)}
           </pre>
         </details>
       )}
       <div
-        data-message-author={feedback.author.role}
+        data-message-author={discussions.author.role}
         className={cn(
-          feedback.author.role === "agent" &&
+          discussions.author.role === "agent" &&
             "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
         )}
       >
-        {feedback.author.role === "agent" && (
-          <div className="mb-1 text-xs text-neutral-500" title={feedback.author.sessionId}>
-            Agent · <AgentName id={feedback.author.sessionId} labels={agentLabels} />
+        {discussions.author.role === "agent" && (
+          <div className="mb-1 text-xs text-neutral-500" title={discussions.author.sessionId}>
+            Agent · <AgentName id={discussions.author.sessionId} labels={agentLabels} />
           </div>
         )}
-        {!readOnly && editing && !editing.replyId ? (
+        {!readOnly && editing && !editing.commentId ? (
           editForm
         ) : (
           <MessageProse
-            source={feedback.body}
+            source={discussions.body}
             onJumpRef={(ref) => onJumpRef(ref, originalContext)}
           />
         )}
-        {(readOnly || !(editing && !editing.replyId)) && (
-          <MessageAttachments artifactId={feedback.artifactId} images={feedback.attachments} />
+        {(readOnly || !(editing && !editing.commentId)) && (
+          <MessageAttachments
+            artifactId={discussions.artifactId}
+            images={discussions.attachments}
+          />
         )}
       </div>
-      {feedback.replies.length > 3 && (
+      {discussions.comments.length > 3 && (
         <button
           type="button"
           className="mt-2.5 flex items-center gap-1 text-[0.6875rem] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           onClick={() => setEarlierOpen((value) => !value)}
         >
           <FoldTriangle open={earlierOpen} className="size-2.5" />
-          {earlierOpen ? "hide earlier replies" : `${feedback.replies.length - 3} earlier replies`}
+          {earlierOpen
+            ? "hide earlier comments"
+            : `${discussions.comments.length - 3} earlier comments`}
         </button>
       )}
-      {(earlierOpen ? feedback.replies : feedback.replies.slice(-3)).map((reply) => (
+      {(earlierOpen ? discussions.comments : discussions.comments.slice(-3)).map((comment) => (
         <div
-          key={reply.id}
-          data-artifact-reply={reply.id}
-          data-message-author={reply.author.role}
+          key={comment.id}
+          data-artifact-comment={comment.id}
+          data-message-author={comment.author.role}
           className={cn(
             "mt-2.5",
-            reply.author.role === "agent" &&
+            comment.author.role === "agent" &&
               "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
           )}
         >
-          {reply.author.role === "agent" && (
-            <div className="mb-1 text-xs text-neutral-500" title={reply.author.sessionId}>
-              Agent · <AgentName id={reply.author.sessionId} labels={agentLabels} />
+          {comment.author.role === "agent" && (
+            <div className="mb-1 text-xs text-neutral-500" title={comment.author.sessionId}>
+              Agent · <AgentName id={comment.author.sessionId} labels={agentLabels} />
             </div>
           )}
-          {!readOnly && editing?.replyId === reply.id ? (
+          {!readOnly && editing?.commentId === comment.id ? (
             editForm
           ) : (
-            <MessageProse source={reply.body} onJumpRef={(ref) => onJumpRef(ref, reply.context)} />
+            <MessageProse
+              source={comment.body}
+              onJumpRef={(ref) => onJumpRef(ref, comment.context)}
+            />
           )}
-          {(readOnly || editing?.replyId !== reply.id) && (
-            <MessageAttachments artifactId={feedback.artifactId} images={reply.attachments} />
+          {(readOnly || editing?.commentId !== comment.id) && (
+            <MessageAttachments artifactId={discussions.artifactId} images={comment.attachments} />
           )}
-          {reply.target && (
+          {comment.target && (
             <button
               type="button"
               className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
               title={
-                artifactKind === "html" && reply.target.kind === "rendered"
-                  ? `Version ${reply.target.versionSeq} · ${reply.target.locator?.selector ?? "Page"}`
-                  : artifactTargetLabel(reply.target)
+                artifactKind === "html" && comment.target.kind === "rendered"
+                  ? `Version ${comment.target.versionSeq} · ${comment.target.locator?.selector ?? "Page"}`
+                  : artifactTargetLabel(comment.target)
               }
-              onClick={() => onLocate(reply.target!, feedback.id)}
+              onClick={() => onLocate(comment.target!, discussions.id)}
             >
-              ↳ Fix: {fixTargetLabel(reply.target, latestVersionSeq, artifactKind)}
+              ↳ Fix: {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
             </button>
           )}
-          {reply.target?.kind === "media" && reply.target.locator.frame && (
-            <MediaTargetPreview image={reply.target.locator.frame} box={reply.target.locator.box} />
+          {comment.target?.kind === "media" && comment.target.locator.frame && (
+            <MediaTargetPreview
+              image={comment.target.locator.frame}
+              box={comment.target.locator.box}
+            />
           )}
-          {onCompare && comparisons?.has(reply.id) && (
+          {onCompare && comparisons?.has(comment.id) && (
             <Button
               className="ml-2 mt-2"
               variant="primary-outline"
-              data-compare-reply={reply.id}
-              onClick={() => onCompare(reply.id)}
+              data-compare-comment={comment.id}
+              onClick={() => onCompare(comment.id)}
             >
               Compare
             </Button>
           )}
-          {reply.legacy && (
+          {comment.legacy && (
             <details className="mt-1 text-xs text-neutral-500">
               <summary>Imported reference evidence</summary>
               <pre className="max-h-32 overflow-auto whitespace-pre-wrap">
-                {JSON.stringify(reply.legacy, null, 2)}
+                {JSON.stringify(comment.legacy, null, 2)}
               </pre>
             </details>
           )}
@@ -590,50 +607,50 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           {error.message}
         </p>
       )}
-      {!readOnly && !editing && !replying && (
+      {!readOnly && !editing && !commenting && (
         <div className="mt-3 flex items-center gap-1 text-[0.6875rem]">
           {resolveButton}
           {moreMenu}
-          <Button className="ml-auto" data-feedback-action="reply" onClick={openReply}>
-            Reply
+          <Button className="ml-auto" data-discussions-action="comment" onClick={openComment}>
+            Comment
           </Button>
         </div>
       )}
       {!readOnly && deleting && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <span>Delete this thread and its replies?</span>
+          <span>Delete this thread and its comments?</span>
           <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
             Delete thread
           </Button>
           <Button onClick={() => setDeleting(false)}>Keep</Button>
         </div>
       )}
-      {!readOnly && replying && (
+      {!readOnly && commenting && (
         <div className="-mx-3 mt-3">
           <ArtifactComposer
-            artifactId={feedback.artifactId}
-            replyTo={feedback.id}
-            onDone={() => setReplying(false)}
+            artifactId={discussions.artifactId}
+            commentTo={discussions.id}
+            onDone={() => setCommenting(false)}
           />
         </div>
       )}
       {!readOnly && visible && bubble.pos && (
         <QuoteBubble
           pos={bubble.pos}
-          label="Quote in reply"
+          label="Quote in comment"
           onQuote={(text) => {
-            openReply();
-            const draft = artifactDrafts.get(feedback.artifactId, feedback.id);
+            openComment();
+            const draft = artifactDrafts.get(discussions.artifactId, discussions.id);
             const body = draft?.body ?? "";
             artifactDrafts.update(
-              feedback.artifactId,
+              discussions.artifactId,
               {
                 body: `${body.trim() ? `${body}\n\n` : ""}${text
                   .split("\n")
                   .map((line) => `> ${line}`)
                   .join("\n")}\n\n`,
               },
-              feedback.id,
+              discussions.id,
             );
             bubble.hide();
           }}
@@ -643,24 +660,24 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   );
 });
 
-export type ArtifactFeedbackTab = "active" | "resolved";
+export type ArtifactDiscussionTab = "active" | "resolved";
 
 // Each queue owns its scroll position and row animation. Switching tabs changes
-// only the track transform, so cards, reply editors, and the Active draft survive.
-function FeedbackQueue({
+// only the track transform, so cards, comment editors, and the Active draft survive.
+function DiscussionQueue({
   tab,
   selected,
   tabsId,
   empty,
   children,
 }: {
-  tab: ArtifactFeedbackTab;
+  tab: ArtifactDiscussionTab;
   selected: boolean;
   tabsId: string;
   empty: boolean;
   children: ReactNode;
 }) {
-  const [listAnimation] = useAutoAnimate<HTMLDivElement>(feedbackAnimation);
+  const [listAnimation] = useAutoAnimate<HTMLDivElement>(discussionAnimation);
   return (
     <div
       role="tabpanel"
@@ -668,7 +685,7 @@ function FeedbackQueue({
       aria-labelledby={`${tabsId}-${tab}`}
       aria-hidden={!selected}
       inert={!selected}
-      data-feedback-queue={tab}
+      data-discussions-queue={tab}
       className="h-full min-w-0 w-full shrink-0 overflow-x-hidden overflow-y-auto"
     >
       <div className="relative min-h-full">
@@ -680,10 +697,10 @@ function FeedbackQueue({
           )}
         >
           {tab === "resolved"
-            ? "No resolved feedback."
-            : "Select content to leave feedback, or add a general note."}
+            ? "No resolved discussions."
+            : "Select content to leave discussions, or add a general note."}
         </p>
-        <div ref={listAnimation} data-feedback-list>
+        <div ref={listAnimation} data-discussions-list>
           {children}
         </div>
       </div>
@@ -696,11 +713,11 @@ export function ArtifactThreads({
   context,
   onLocate,
   onJumpRef,
-  activeFeedback,
-  activeReplyId,
+  activeDiscussion,
+  activeCommentId,
   composer,
   panelControls,
-  onFocusFeedback,
+  onFocusDiscussion,
   onNewNote,
   comparisons,
   onCompare,
@@ -713,58 +730,59 @@ export function ArtifactThreads({
   context: ArtifactMessageContext;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
-  activeFeedback?: string | null;
-  activeReplyId?: string | null;
+  activeDiscussion?: string | null;
+  activeCommentId?: string | null;
   composer?: ReactNode;
   panelControls?: ReactNode;
-  onFocusFeedback?: (id: string) => void;
+  onFocusDiscussion?: (id: string) => void;
   onNewNote?: () => void;
   comparisons?: ReadonlyMap<string, ArtifactComparison>;
-  onCompare?: (replyId: string) => void;
+  onCompare?: (commentId: string) => void;
   comparisonMode?: boolean;
   keysActive?: boolean;
-  tab?: ArtifactFeedbackTab;
-  onTabChange?: (tab: ArtifactFeedbackTab) => void;
+  tab?: ArtifactDiscussionTab;
+  onTabChange?: (tab: ArtifactDiscussionTab) => void;
 }) {
   detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
-  const [localTab, setLocalTab] = useState<ArtifactFeedbackTab>("active");
+  const [localTab, setLocalTab] = useState<ArtifactDiscussionTab>("active");
   const tab = controlledTab ?? localTab;
   const setTab = onTabChange ?? setLocalTab;
   const tabsId = useId();
-  const [created, setCreated] = useState<ArtifactFeedback | null>(null);
+  const [created, setCreated] = useState<ArtifactDiscussion | null>(null);
   const showCreated = useCallback(
-    (feedback: ArtifactFeedback) => {
-      setCreated(feedback);
+    (discussions: ArtifactDiscussion) => {
+      setCreated(discussions);
       setTab("active");
-      return () => setCreated((current) => (current?.id === feedback.id ? null : current));
+      return () => setCreated((current) => (current?.id === discussions.id ? null : current));
     },
     [setTab],
   );
   const notes = useMemo(
     () =>
-      created?.artifactId === detail.id && !detail.feedback.some((note) => note.id === created.id)
-        ? [...detail.feedback, created]
-        : detail.feedback,
-    [created, detail.id, detail.feedback],
+      created?.artifactId === detail.id &&
+      !detail.discussions.some((note) => note.id === created.id)
+        ? [...detail.discussions, created]
+        : detail.discussions,
+    [created, detail.id, detail.discussions],
   );
-  const indicator = useFeedbackTabIndicator(tab);
+  const indicator = useDiscussionTabIndicator(tab);
   useEffect(() => {
-    // Deleted threads have no reply destination. Reap only missing membership;
+    // Deleted threads have no comment destination. Reap only missing membership;
     // resolved and archived conversations keep their drafts.
-    artifactDrafts.pruneReplies(detail.id, new Set(detail.feedback.map((note) => note.id)));
-  }, [detail.id, detail.feedback]);
+    artifactDrafts.pruneComments(detail.id, new Set(detail.discussions.map((note) => note.id)));
+  }, [detail.id, detail.discussions]);
   const selected = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (!activeFeedback || selected.current === activeFeedback) return;
-    selected.current = activeFeedback;
+    if (!activeDiscussion || selected.current === activeDiscussion) return;
+    selected.current = activeDiscussion;
     setTab(
-      detail.feedback.find((note) => note.id === activeFeedback)?.status === "resolved"
+      detail.discussions.find((note) => note.id === activeDiscussion)?.status === "resolved"
         ? "resolved"
         : "active",
     );
-  }, [activeFeedback, detail.feedback, setTab]);
-  const handoff = useArtifactHandoff({ ...detail, feedback: notes });
+  }, [activeDiscussion, detail.discussions, setTab]);
+  const handoff = useArtifactHandoff({ ...detail, discussions: notes });
   const { draftCount, watchers, pending } = handoff;
   const noteOpen = useArtifactNoteOpen(detail.id);
   const wasNoteOpen = useRef(noteOpen);
@@ -773,50 +791,50 @@ export function ArtifactThreads({
     wasNoteOpen.current = noteOpen;
   }, [noteOpen, setTab]);
   const comparable = useMemo(
-    () => new Set([...(comparisons?.values() ?? [])].map((pair) => pair.feedbackId)),
+    () => new Set([...(comparisons?.values() ?? [])].map((pair) => pair.discussionId)),
     [comparisons],
   );
-  const included = (note: ArtifactFeedback) => !comparisonMode || comparable.has(note.id);
+  const included = (note: ArtifactDiscussion) => !comparisonMode || comparable.has(note.id);
   const queues = useMemo(
     () => ({
-      active: activeArtifactFeedback(notes),
+      active: activeArtifactDiscussion(notes),
       resolved: notes.filter((note) => note.status === "resolved"),
     }),
     [notes],
   );
   const { active, resolved } = useMemo(() => {
-    const included = (note: ArtifactFeedback) => !comparisonMode || comparable.has(note.id);
+    const included = (note: ArtifactDiscussion) => !comparisonMode || comparable.has(note.id);
     return { active: queues.active.filter(included), resolved: queues.resolved.filter(included) };
   }, [queues, comparable, comparisonMode]);
   const ordered = tab === "active" ? active : resolved;
   const locate = useCallback<ArtifactTargetJump>(
-    (target, feedbackId) => onLocate(target, feedbackId),
+    (target, discussionId) => onLocate(target, discussionId),
     [onLocate],
   );
   const afterResolve = useCallback(
     (id: string) => {
-      if (activeFeedback !== id) return;
+      if (activeDiscussion !== id) return;
       const at = active.findIndex((note) => note.id === id);
       const next = active[at + 1] ?? active[at - 1];
-      if (next) onFocusFeedback?.(next.id);
+      if (next) onFocusDiscussion?.(next.id);
     },
-    [active, activeFeedback, onFocusFeedback],
+    [active, activeDiscussion, onFocusDiscussion],
   );
   const move = (direction: -1 | 1) => {
-    const at = ordered.findIndex((note) => note.id === activeFeedback);
+    const at = ordered.findIndex((note) => note.id === activeDiscussion);
     const next =
       at < 0
         ? direction > 0
           ? 0
           : ordered.length - 1
         : Math.max(0, Math.min(ordered.length - 1, at + direction));
-    if (ordered[next]) onFocusFeedback?.(ordered[next].id);
+    if (ordered[next]) onFocusDiscussion?.(ordered[next].id);
   };
-  const action = (name: "reply" | "resolve") => {
-    if (!activeFeedback) return;
-    if (name === "reply") {
+  const action = (name: "comment" | "resolve") => {
+    if (!activeDiscussion) return;
+    if (name === "comment") {
       const editor = panel.current?.querySelector<HTMLTextAreaElement>(
-        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-reply-to] textarea:not([inert] *)`,
+        `[data-artifact-discussions="${CSS.escape(activeDiscussion)}"] [data-comment-to] textarea:not([inert] *)`,
       );
       if (editor) {
         editor.focus();
@@ -825,7 +843,7 @@ export function ArtifactThreads({
     }
     panel.current
       ?.querySelector<HTMLButtonElement>(
-        `[data-artifact-feedback="${CSS.escape(activeFeedback)}"] [data-feedback-action="${name}"]:not([inert] *)`,
+        `[data-artifact-discussions="${CSS.escape(activeDiscussion)}"] [data-discussions-action="${name}"]:not([inert] *)`,
       )
       ?.click();
   };
@@ -838,7 +856,7 @@ export function ArtifactThreads({
       requestAnimationFrame(() =>
         panel.current
           ?.querySelector<HTMLTextAreaElement>(
-            "[data-artifact-composer]:not([data-reply-to]) textarea:not([inert] *)",
+            "[data-artifact-composer]:not([data-comment-to]) textarea:not([inert] *)",
           )
           ?.focus(),
       );
@@ -853,10 +871,10 @@ export function ArtifactThreads({
           fbNext: () => move(1),
           fbPrev: () => move(-1),
           fbLocate: () => {
-            const note = detail.feedback.find((note) => note.id === activeFeedback);
+            const note = detail.discussions.find((note) => note.id === activeDiscussion);
             if (note) locate(note.target, note.id);
           },
-          fbReply: () => action("reply"),
+          fbComment: () => action("comment"),
           fbResolve: () => action("resolve"),
         }
       : {},
@@ -865,15 +883,15 @@ export function ArtifactThreads({
     <section
       ref={panel}
       className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950"
-      aria-label="Artifact feedback"
+      aria-label="Artifact discussions"
     >
       <div
-        data-feedback-header
+        data-discussions-header
         className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="shrink-0 text-base font-semibold">Feedback</span>
+            <span className="shrink-0 text-base font-semibold">Discussion</span>
             {comparisonMode && (
               <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[0.625rem] font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-300">
                 Comparison
@@ -884,8 +902,8 @@ export function ArtifactThreads({
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
               variant="ghost"
-              aria-label="Add general feedback"
-              title="Add general feedback (n)"
+              aria-label="Add general discussions"
+              title="Add general discussions (n)"
               onClick={newNote}
               disabled={detail.state !== "active"}
             >
@@ -907,13 +925,13 @@ export function ArtifactThreads({
           <div
             ref={indicator.ref}
             role="tablist"
-            aria-label="Feedback status"
+            aria-label="Discussion status"
             className="relative flex items-center gap-1"
           >
             <span
               ref={indicator.indicatorRef}
               aria-hidden="true"
-              data-feedback-tab-indicator
+              data-discussions-tab-indicator
               className={cn(
                 "pointer-events-none absolute left-0 rounded-md will-change-transform",
                 tab === "resolved"
@@ -926,7 +944,7 @@ export function ArtifactThreads({
                 key={value}
                 type="button"
                 role="tab"
-                data-feedback-tab={value}
+                data-discussions-tab={value}
                 id={`${tabsId}-${value}`}
                 aria-controls={`${tabsId}-${value}-panel`}
                 aria-selected={tab === value}
@@ -988,13 +1006,13 @@ export function ArtifactThreads({
       </div>
       <div className="min-h-0 flex-1 overflow-clip">
         <div
-          data-feedback-track
+          data-discussions-track
           className="flex h-full transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
           style={{ transform: tab === "active" ? "translateX(0)" : "translateX(-100%)" }}
         >
-          <FeedbackCreationContext.Provider value={showCreated}>
+          <DiscussionCreationContext.Provider value={showCreated}>
             {(["active", "resolved"] as const).map((queue) => (
-              <FeedbackQueue
+              <DiscussionQueue
                 key={queue}
                 tab={queue}
                 tabsId={tabsId}
@@ -1004,7 +1022,7 @@ export function ArtifactThreads({
                 }
               >
                 {queue === "active" && noteOpen && (
-                  <div key="composer" data-feedback-draft>
+                  <div key="composer" data-discussions-draft>
                     {composer ?? (
                       <ArtifactComposer
                         artifactId={detail.id}
@@ -1013,10 +1031,10 @@ export function ArtifactThreads({
                     )}
                   </div>
                 )}
-                {(queue === "active" ? queues.active : queues.resolved).map((feedback) => (
+                {(queue === "active" ? queues.active : queues.resolved).map((discussions) => (
                   <ArtifactThreadCard
-                    key={feedback.id}
-                    feedback={feedback}
+                    key={discussions.id}
+                    discussions={discussions}
                     readOnly={detail.state !== "active"}
                     agentLabels={detail.agentLabels}
                     context={context}
@@ -1024,18 +1042,18 @@ export function ArtifactThreads({
                     latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
                     onLocate={locate}
                     onJumpRef={onJumpRef}
-                    visible={tab === queue && included(feedback)}
-                    hidden={!included(feedback)}
+                    visible={tab === queue && included(discussions)}
+                    hidden={!included(discussions)}
                     comparisons={comparisons}
                     onCompare={onCompare}
-                    active={tab === queue && activeFeedback === feedback.id}
-                    activeReplyId={activeFeedback === feedback.id ? activeReplyId : null}
+                    active={tab === queue && activeDiscussion === discussions.id}
+                    activeCommentId={activeDiscussion === discussions.id ? activeCommentId : null}
                     onResolved={afterResolve}
                   />
                 ))}
-              </FeedbackQueue>
+              </DiscussionQueue>
             ))}
-          </FeedbackCreationContext.Provider>
+          </DiscussionCreationContext.Provider>
         </div>
       </div>
       <ArtifactHandoffNotice handoff={handoff} />

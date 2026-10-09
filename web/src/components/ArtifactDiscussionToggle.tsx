@@ -1,36 +1,36 @@
 import { useId } from "react";
-import { type ArtifactFeedback, hasUnsentArtifactFeedback } from "../../../shared/artifacts.ts";
+import { type ArtifactDiscussion, hasUnsentArtifactDiscussion } from "../../../shared/artifacts.ts";
+import { artifactNeedsAttention } from "../artifact-discussions.ts";
 import { useArtifactDraftCount } from "../artifact-drafts.ts";
-import { artifactNeedsAttention } from "../artifact-feedback.ts";
 import { Button, StrokeIcon } from "../ui.tsx";
 
 // Only the draft count is subscribed; typing does not rerender the navbar.
-export function ArtifactFeedbackToggle({
+export function ArtifactDiscussionToggle({
   disabled = false,
   artifactId,
-  feedback,
+  discussions,
   visible,
   onToggle,
 }: {
   disabled?: boolean;
   artifactId: string;
-  feedback: ArtifactFeedback[];
+  discussions: ArtifactDiscussion[];
   visible: boolean;
   onToggle: () => void;
 }) {
   const drafts = useArtifactDraftCount(artifactId);
   const descriptionId = useId();
-  const unhandled = feedback.filter(artifactNeedsAttention).length;
-  const unsent = feedback.filter(hasUnsentArtifactFeedback).length;
+  const unhandled = discussions.filter(artifactNeedsAttention).length;
+  const unsent = discussions.filter(hasUnsentArtifactDiscussion).length;
   const description = `${unhandled} unhandled ${unhandled === 1 ? "thread" : "threads"} · ${drafts} ${drafts === 1 ? "draft" : "drafts"} · ${unsent} not sent`;
   return (
     <Button
       disabled={disabled}
       variant={visible ? "primary-outline" : "nav"}
       className="relative h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:hidden"
-      aria-label={visible ? "Hide feedback" : "Show feedback"}
+      aria-label={visible ? "Hide discussions" : "Show discussions"}
       aria-describedby={descriptionId}
-      title={`${visible ? "Hide" : "Show"} feedback (p)\n${description}`}
+      title={`${visible ? "Hide" : "Show"} discussions (p)\n${description}`}
       aria-pressed={visible}
       onClick={onToggle}
     >
@@ -41,7 +41,7 @@ export function ArtifactFeedbackToggle({
       {unhandled > 0 && (
         <span
           aria-hidden="true"
-          data-feedback-attention
+          data-discussions-attention
           className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary-600 ring-1 ring-white dark:bg-primary-400 dark:ring-neutral-950"
         />
       )}

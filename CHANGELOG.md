@@ -8,10 +8,10 @@ All notable changes to r3 are documented here. The format follows
 
 ### Added
 
-- **Add feedback on an image or video frame.** Click to select the whole frame or
-  drag to mark a region. Feedback preserves the exact visible pixels and video
+- **Add discussions on an image or video frame.** Click to select the whole frame or
+  drag to mark a region. Discussion preserves the exact visible pixels and video
   timestamp so your agent can inspect what you saw, even after playback moves on.
-- **Compare media fixes before and after.** Agent replies can link a saved frame
+- **Compare media fixes before and after.** Agent comments can link a saved frame
   and region in a new publication. Compare the original and proposed fix, with
   independent playback and a return to the saved frames.
 - **Zoom and pan images and videos.** Inspect details at up to 800% zoom, drag or
@@ -25,16 +25,16 @@ All notable changes to r3 are documented here. The format follows
 - **Direct upgrades from retired live-review stores.** This only affects
   workspaces last opened with r3 0.13.0 or earlier. Open them with r3 1.5.0 first,
   then upgrade to this release. Existing r3 1.x artifact workspaces upgrade
-  automatically, preserving publications and feedback.
+  automatically, preserving publications and discussions.
 
 ## [1.5.0] - 2026-10-06
 
 ### Added
 
-- **Compare before & after when agent addresses feedback.** Check whether a fix
-  addresses your feedback without switching between versions. This works in HTML
-  and rendered Markdown previews, with feedback pinned to an element and an agent
-  reply linking the fix.
+- **Compare before & after when agent addresses discussions.** Check whether a fix
+  addresses your discussions without switching between versions. This works in HTML
+  and rendered Markdown previews, with discussions pinned to an element and an agent
+  comment linking the fix.
 - **See workspace usage.** View totals and recent activity in the UI or with
   `r3 stat [--weekly]`.
 - **Clean up old artifacts.** Bulk archive or delete from the home page. Manually
@@ -71,7 +71,7 @@ the macOS startup failure (#24).
   Search published content and conversations, including historical versions, and
   open results at the matching file, passage, or conversation. Agents can search
   with `r3 search`.
-- **The floating feedback composer can now be dragged anywhere on the page.**
+- **The floating discussions composer can now be dragged anywhere on the page.**
 - **Elixir files have syntax highlighting.** Read `.ex` and `.exs` files with
   Elixir highlighting; `.heex` templates use HTML highlighting.
 
@@ -90,22 +90,22 @@ the macOS startup failure (#24).
 - **We optimized HTML artifact opening performance.** It's about 86% faster in our
   benchmark compared to the previous version.
 - **Notifications stay in one place.** Successes dismiss automatically; warnings
-  and errors remain. Failed feedback delivery includes recovery guidance and a
+  and errors remain. Failed discussions delivery includes recovery guidance and a
   copyable command.
 
 ### Fixed
 
-- **Line-range feedback saves correctly with compact quotes.** Source and diff
+- **Line-range discussions saves correctly with compact quotes.** Source and diff
   selections keep their full line range while storing a short excerpt. Agents can
-  retrieve every captured line with `r3 feedback source <feedback-id>`.
+  retrieve every captured line with `r3 discussions source <discussions-id>`.
 
 ## [1.2.0] - 2026-10-01
 
 ### Added
 
-- **Attach image in the feedback and replies.** Show what needs to change with
+- **Attach image in the discussions and comments.** Show what needs to change with
   screenshots or pasted images. Crop, annotate, and preview them before sending
-  to make feedback easier to understand.
+  to make discussions easier to understand.
 
 ### Changed
 
@@ -113,13 +113,13 @@ the macOS startup failure (#24).
   are revoked after 14 days without a successful login or authenticated browser
   request. Configure the period with `authTokenIdleDays` or
   `R3_AUTH_TOKEN_IDLE_DAYS`.
-- **Feedback controls stay close to the conversation.** The navbar handoff action
-  appears when the feedback panel is hidden; the open panel provides its own
+- **Discussion controls stay close to the conversation.** The navbar handoff action
+  appears when the discussions panel is hidden; the open panel provides its own
   action. Image edit and remove controls use compact icons.
 
 ### Fixed
 
-- **Drafts stay in sync across tabs.** Notes and replies no longer overwrite
+- **Drafts stay in sync across tabs.** Notes and comments no longer overwrite
   unrelated drafts in another tab, and a completed save preserves newer edits.
 - **File links land on the right heading.** Links between rendered Markdown files
   open the destination and scroll to its heading, including folded files and
@@ -127,7 +127,7 @@ the macOS startup failure (#24).
 - **Git captures preserve the intended changes.** Custom Git prefixes no longer
   break captured paths, submodule pointer changes are included, and invalid text
   is rejected instead of silently altered.
-- **Remote feedback delivery reports its real state.** Queued notifications keep
+- **Remote discussions delivery reports its real state.** Queued notifications keep
   their delivery status, and timeouts begin when each notification is sent.
 - **Workspace updates are more reliable.** Open artifacts reflect project renames
   and deletion, and display controls remain usable when browser storage is blocked
@@ -140,23 +140,23 @@ the macOS startup failure (#24).
 
 ### Changed
 
-- **Bring feedback into your agent with a command.** Run
-  `r3 feedback fetch <artifact-id>` in your harness to load new feedback and
-  replies. Supported agents then listen for future feedback automatically. In the
+- **Bring discussions into your agent with a command.** Run
+  `r3 discussions fetch <artifact-id>` in your harness to load new discussions and
+  comments. Supported agents then listen for future discussions automatically. In the
   web UI, a new button replaces **Copy prompt** and helps you copy this command
   with the current artifact ID prefilled.
 
 ### Fixed
 
-- **Feedback now has at-least-once delivery.** Fetch and watch mark feedback
+- **Discussion now has at-least-once delivery.** Fetch and watch mark discussions
   delivered only after stdout succeeds, so failed output cannot be mistaken for
-  delivery. Retries may repeat feedback.
+  delivery. Retries may repeat discussions.
 - **Resolution updates survive edits.** Agents still receive resolution updates
   for previously delivered notes that were edited before being resolved.
 
 ### Removed
 
-- **The `r3 prompt` alias has been removed.** Use `r3 feedback fetch` instead.
+- **The `r3 prompt` alias has been removed.** Use `r3 discussions fetch` instead.
 
 ## [1.0.1] - 2026-09-22
 
@@ -171,8 +171,8 @@ the macOS startup failure (#24).
 ## [1.0.0] - 2026-09-22
 
 r3 1.0 is redesigned around HTML artifacts: agents publish interactive pages,
-and humans review them and leave feedback directly on page elements. Agents can
-reply to comments and publish new versions, keeping the artifact and its
+and humans review them and leave discussions directly on page elements. Agents can
+comment to comments and publish new versions, keeping the artifact and its
 conversation together. Files and diff artifact types retain the document and code
 review features from previous versions.
 
@@ -182,10 +182,10 @@ review features from previous versions.
 
 - **r3 can actively wake up session to send notifications.** `r3 listen <id>`
   registers the current Claude Code or Codex session and returns. When the
-  reviewer submits feedback, approves, or abandons the review, r3 sends a
-  notification into that agent session; the agent can then fetch the feedback
+  reviewer submits discussions, approves, or abandons the review, r3 sends a
+  notification into that agent session; the agent can then fetch the discussions
   with `r3 prompt`. Previously, agents must keep an `r3 watch` long running
-  process to receive feedback.
+  process to receive discussions.
 - **Session ids are recorded automatically.** Reviews and work-in-progress
   badges identify the agent session involved. The UI shows a short id and lets
   you copy the full one, making it easier to find or contact the same session.
@@ -197,9 +197,9 @@ review features from previous versions.
   move through the review, and desktop paint containment roughly halves the
   measured composer-keystroke cost on a 200-file review.
 - **The agent guide better explains how to use r3.** It now starts with which
-  kind of review to create and walks through receiving feedback, claiming work,
-  replying, and sending another revision.
-- **Anchoring feedback in scratch reviews is simpler.** Agent commands can refer
+  kind of review to create and walks through receiving discussions, claiming work,
+  commenting, and sending another revision.
+- **Anchoring discussions in scratch reviews is simpler.** Agent commands can refer
   to a scratch file by its displayed filename, such as `notes.md`.
 
 ### Fixed
@@ -208,22 +208,22 @@ review features from previous versions.
   Submit reached nobody, repeated Submits cannot be deduplicated into silence,
   and stale registrations no longer lock another agent out of the review.
 - **Marking a rendered Markdown table row keeps its columns aligned.** The
-  feedback bar no longer inserts an apparent empty cell ahead of the row.
+  discussions bar no longer inserts an apparent empty cell ahead of the row.
 
 ## [0.12.0] - 2026-08-31
 
 ### Added
 
-- **Fold the feedback dock to a rail.** Collapse the panel to a strip that keeps the
+- **Fold the discussions dock to a rail.** Collapse the panel to a strip that keeps the
   open count and a status glyph, and floats the composer next to the code when
   you anchor a note there.
-- **Resolved feedback is unmistakable.** A resolved card takes a success wash
+- **Resolved discussion is unmistakable.** A resolved card takes a success wash
   and a `✓ resolved` pill.
 
 ### Changed
 
 - **Large reviews got a lot faster.** A 200-file review scrolls smoothly,
-  highlighted code arrives 59% lighter per line, a keystroke in a feedback
+  highlighted code arrives 59% lighter per line, a keystroke in a discussion
   composer costs one box instead of the whole page, and a multi-megabyte
   response compresses off the daemon's event loop so live updates and an agent
   blocked on `r3 watch` keep flowing.
@@ -260,7 +260,7 @@ review features from previous versions.
 
 - **A binary or oversize file in a files review is marked as such**, instead of
   being reported as deleted or quietly dropped from a snapshot.
-- **Feedback handed off to `r3 watch` can't be lost.** The hand-off is drained in
+- **Discussion handed off to `r3 watch` can't be lost.** The hand-off is drained in
   one step, so two agents on the same review can't both claim it and a note
   whose text resembles r3's own output no longer reads as an empty round.
 - **Removing a diff review's last round leaves it empty**, instead of falling
@@ -268,7 +268,7 @@ review features from previous versions.
 - **`r3 reanchor` checks where you point it** — the path and line range are
   validated on the way in, and the next automatic pass re-verifies the result
   rather than trusting it.
-- **A round or snapshot never reuses a number an older reply still refers to**,
+- **A round or snapshot never reuses a number an older comment still refers to**,
   so a `@path:Lx-y` ref keeps pointing at the code it was written against.
 - **`r3 guide` matches what the CLI accepts** for `files rm`, `snapshot rm`, and
   scratch reviews.
@@ -287,14 +287,14 @@ review features from previous versions.
 
 ### Fixed
 
-- **Editing a sent reply sends the new wording to the agent.** The next
+- **Editing a sent comment sends the new wording to the agent.** The next
   Copy prompt, Submit, or `r3 watch` includes the correction.
 
 ## [0.10.0] - 2026-08-21
 
 ### Added
 
-- **Claim work in flight.** `r3 claim <feedback_id>...` shows in the UI
+- **Claim work in flight.** `r3 claim <discussion_id>...` shows in the UI
   which notes an agent is handling, so a long edit no longer looks like
   the agent wandered off.
 - **Fenced code in a reviewed `.md` is highlighted** with the same syntax
@@ -322,10 +322,10 @@ review features from previous versions.
 
 ### Changed
 
-- **Focusing a note no longer moves the file pane.** Resolving or replying
+- **Focusing a note no longer moves the file pane.** Resolving or commenting
   advances to the next card — and `j`/`k` walk the list — with each anchor
   ringing where it already is; the pane jumps only on an explicit locate: a
-  card's file:line header, a reply's pin, or `o`.
+  card's file:line header, a comment's pin, or `o`.
 
 ### Fixed
 
@@ -338,7 +338,7 @@ review features from previous versions.
   - A selection longer than the quote cap keeps its full line range instead of
     being rewritten to the quote's first lines.
   - A triple-clicked paragraph no longer extends the anchor into the block
-    after it, and a drag released over the feedback panel keeps the paragraph's
+    after it, and a drag released over the discussions panel keeps the paragraph's
     whole text in the quote.
 - **Relative links between reviewed docs work.** A `[setup.md](setup.md)` link
   in a rendered `.md` opened a URL that never existed; it now jumps to that
@@ -350,18 +350,18 @@ review features from previous versions.
 
 ### Fixed
 
-- **Feedback on rendered Markdown anchors to what you selected.** A note on a
+- **Discussion on rendered Markdown anchors to what you selected.** A note on a
   bullet, a table cell, or a phrase mid-paragraph was recorded as the whole
   list, table, or paragraph, and now lands on the lines its quote occupies.
 - **Clicking prose in a `.md` review no longer hijacks the page.** Only a click
-  on the highlighted quote focuses its feedback, instead of a click anywhere in
+  on the highlighted quote focuses its discussions, instead of a click anywhere in
   the block around it.
 
 ## [0.9.1] - 2026-08-11
 
 ### Fixed
 
-- **Space and Tab focus the feedback composer again.** A note anchored from the
+- **Space and Tab focus the discussions composer again.** A note anchored from the
   file pane opens unfocused so your selection survives; either key now puts the
   caret in it instead of re-firing the last button you clicked.
 
@@ -370,25 +370,25 @@ review features from previous versions.
 ### Changed
 
 - **Untrusted Markdown no longer loads remote images.** An image in
-  agent-authored feedback or in a reviewed `.md` renders as a link you can click
+  agent-authored discussions or in a reviewed `.md` renders as a link you can click
   instead of fetching the moment you open the review. Reviewed `.md` also stops
   promoting bare filenames like `setup.py` to external links, and its links open
   in a new tab rather than navigating the app away.
 - **The "agent is watching" indicator can no longer be faked.** While `r3 watch`
-  is running, the feedback panel shows the agent as connected and swaps _Copy
+  is running, the discussions panel shows the agent as connected and swaps _Copy
   prompt_ for _Submit_. Any website open in your browser could trigger that
-  against your local daemon, so r3 could offer to hand your feedback to an agent
+  against your local daemon, so r3 could offer to hand your discussions to an agent
   that was never there. Registering as a watcher now needs the API token;
   `r3 watch` itself works as before.
 
 ### Fixed
 
-- **Feedback keeps the line range you picked.** A note dragged over 10 lines was
+- **Discussion keeps the line range you picked.** A note dragged over 10 lines was
   rewritten to the first 4 on the next render, and `r3 reanchor --quote` blanked
   a note's range entirely. `r3 reanchor --file --line` now re-derives the quote,
   so the repair sticks instead of drifting back to "outdated".
-- **Editing a reply hands it to the agent again** — a correction typed into an
-  already-delivered reply was marked as sent and never arrived.
+- **Editing a comment hands it to the agent again** — a correction typed into an
+  already-delivered comment was marked as sent and never arrived.
 - **A large file no longer freezes the daemon.** One 2 MB file blocked every
   request, live update, and waiting `r3 watch` for over a minute; large files now
   render unhighlighted. Syntax highlighting also holds a memory budget rather
@@ -401,7 +401,7 @@ review features from previous versions.
   instead of silently ending file-watching for the rest of the session.
 - **`r3 watch` survives a daemon restart** instead of exiting with a code the
   loop doesn't define and dropping the review.
-- **Reply pins are validated against the round**, so a line the round never had
+- **Comment pins are validated against the round**, so a line the round never had
   is refused rather than stored as a jump that goes nowhere.
 - **In-progress composer drafts** are no longer skipped at startup and then
   overwritten, and the **login-token Copy button** works on the plain-HTTP
@@ -422,7 +422,7 @@ review features from previous versions.
 ### Added
 
 - **Drive the review loop from the keyboard.** `?` lists the map: `j`/`k` step
-  through feedback, `o` jumps to a note's anchor, `r` replies, `e` resolves, `n`
+  through discussions, `o` jumps to a note's anchor, `r` comments, `e` resolves, `n`
   starts a note, `S` hands the review to the agent; `]`/`[` step files, `f`
   jumps to one, `z`/`Z` fold, `x` marks viewed, `a` annotates the current file;
   `<`/`>` walk diff rounds and snapshots, `\` toggles side-by-side. Every
@@ -447,7 +447,7 @@ review features from previous versions.
 - **Dragging the line gutter** now caps the quote the way a text selection
   already did — a 40-line drag stored a 40-line quote, which is exactly what
   re-anchoring relocates worst.
-- **Jumping to a feedback centers its line** instead of always landing 30% down
+- **Jumping to a discussion centers its line** instead of always landing 30% down
   the pane.
 - The **current-file highlight** — in the file browser and the jump-to-file
   picker — is right on open and while you scroll. It was picked against a hidden
@@ -470,7 +470,7 @@ review features from previous versions.
   highlighting, and viewed marks work as they do in unified. Phones stay unified.
 - **Expand the context around a change.** The gap between two hunks becomes a
   control: reveal 20 more lines from either end, or the whole gap. Revealed lines
-  are ordinary code rows you can anchor feedback on, so a note is no longer
+  are ordinary code rows you can anchor discussions on, so a note is no longer
   confined to the three lines around a change. Applies to snapshot diffs
   immediately, and to diff rounds captured from this version on — older rounds
   stored only three lines of context, so they show no control.
@@ -501,8 +501,8 @@ review features from previous versions.
 - A failed **Resolve, Reopen, or Delete** now shows its error. Those actions
   move the card out of the visible tab, and the remount wiped the banner, so a
   failure just snapped the card back with no message.
-- **Replying floats a review back to the top** of the reviews list; a posted
-  reply wasn't re-stamping the review's `updated_at`.
+- **Commenting floats a review back to the top** of the reviews list; a posted
+  comment wasn't re-stamping the review's `updated_at`.
 - Clicking an `@path:Lx-y` ref no longer **yanks the pane off the live view**
   when the snapshot it points at is what you're already looking at.
 
@@ -511,9 +511,9 @@ review features from previous versions.
 ### Added
 
 - **Mobile-friendly review UI.** Below 768px the review becomes one pane: the
-  feedback panel moves into a bottom bar + sheet, touch selections raise an
-  "Add feedback" pill, and the toolbar + file headers stick while the header
-  scrolls away. Reading, replying, resolving, submitting, and adding feedback
+  discussions panel moves into a bottom bar + sheet, touch selections raise an
+  "Add discussions" pill, and the toolbar + file headers stick while the header
+  scrolls away. Reading, commenting, resolving, submitting, and adding discussions
   all work on a phone; desktop is unchanged.
 - **Jump-to-file picker.** A filterable file list with viewed ticks on both
   tiers — popover on desktop, bottom sheet on mobile. Picking a viewed
@@ -528,19 +528,19 @@ review features from previous versions.
 
 ### Changed
 
-- Creating feedback is optimistic like the other mutations; a failed add
+- Creating discussion is optimistic like the other mutations; a failed add
   restores your draft.
-- Agent-authored feedback bodies render in the agent's bubble and support
+- Agent-authored discussions bodies render in the agent's bubble and support
   select-to-quote.
 - The agent prompt nudges an initial snapshot on files reviews at hand-off.
 
 ### Fixed
 
-- Replying over plain HTTP on a non-loopback bind no longer crashes
+- Commenting over plain HTTP on a non-loopback bind no longer crashes
   (`crypto.randomUUID` is secure-context-only).
 - Failed or echo-less optimistic writes reconcile instead of leaving stale
   cards or erasing newer server truth.
-- Replying to a card that stays put no longer yanks focus to the next item.
+- Commenting to a card that stays put no longer yanks focus to the next item.
 - A summary note's highlight survives snapshot switches and re-anchors.
 - Fewer redundant refetches: one review refetch per write, and diff rounds
   refetch only when rounds change.
@@ -552,7 +552,7 @@ review features from previous versions.
 - **Optimistic UI updates.** Most UI operations apply at the instant you click,
   instead of waiting for backend to acknowledge. This improves the user experience
   when running r3 on a remote server.
-- **Replying advances focus** to the next item down, like resolving already did,
+- **Commenting advances focus** to the next item down, like resolving already did,
   instead of following the just-answered card down to the bottom of the list.
 - **Version-switch crossfade.** Changing diff rounds or a snapshot from/to
   comparison briefly crossfades the file pane instead of hard-cutting; scroll and
@@ -560,9 +560,9 @@ review features from previous versions.
 
 ### Fixed
 
-- Resolving or replying to a feedback triggers a single review refetch, not three
+- Resolving or commenting to a discussion triggers a single review refetch, not three
   (a redundant self-invalidation plus a doubled SSE broadcast).
-- Focusing a rendered-file or diff feedback no longer loses its yellow quote
+- Focusing a rendered-file or diff discussions no longer loses its yellow quote
   highlight (the summary-highlight pass was clearing the shared registry).
 - The settings font-size slider no longer clips the `+` button at small sizes.
 - Revoking the login token behind your own session is refused (`409`) instead of
@@ -573,34 +573,34 @@ review features from previous versions.
 
 ### Added
 
-- **Markdown messages.** Feedback bodies and replies render as safe Markdown
+- **Markdown messages.** Discussion bodies and comments render as safe Markdown
   (client-side, markdown-it with `html:false` — raw HTML is escaped, never
   injected). Single newlines keep reading as line breaks; only explicit
   `http(s)://` URLs auto-link.
 - **`@path:Lx-y` code refs.** An agent-authored ref in a message becomes a
   click-to-scroll chip that jumps the pane to that file/line (keyboard-operable:
-  the chip is a real focusable link). Replies capture `ref_version` at post time
+  the chip is a real focusable link). Comments capture `ref_version` at post time
   — the latest diff round or content snapshot — so a ref keeps pointing at the
   code as it was written; the column is auto-migrated on daemon start, and the
   CLI help, agent prompt, and `r3 guide` document the syntax and the
-  snapshot-then-reply ordering that pins old vs. new.
-- **Quote bubbles.** Selecting text in an agent reply raises "Quote in reply";
+  snapshot-then-comment ordering that pins old vs. new.
+- **Quote bubbles.** Selecting text in an agent comment raises "Quote in comment";
   selecting file-pane code while an anchored note already has text raises
   "Quote in note". Both drop the selection into the composer as a `>` blockquote
   with the caret placed after it.
-- **Attention-first feedback ordering.** Active-tab cards where the agent had
+- **Attention-first discussions ordering.** Active-tab cards where the agent had
   the last word float to the top, each marked with a "your turn" dot, above a
-  "no response needed" divider; replying or resolving sinks a card, a fresh
-  agent reply raises it.
-- **Auto-growing composers.** The feedback, reply, and inline-edit textareas
+  "no response needed" divider; commenting or resolving sinks a card, a fresh
+  agent comment raises it.
+- **Auto-growing composers.** The discussions, comment, and inline-edit textareas
   grow with their content up to a line cap, then scroll; a long draft opens
   already expanded.
 
 ### Changed
 
-- Reply threads fold to the last three replies instead of two (version-pinned
-  answers often split across replies).
-- Locating a feedback no longer scrolls the file pane when the anchored lines
+- Comment threads fold to the last three comments instead of two (version-pinned
+  answers often split across comments).
+- Locating a discussion no longer scrolls the file pane when the anchored lines
   are already fully in view — the highlight rings in place.
 - Roomier version-picker rows in the snapshot select, matched to the round
   select's scale.
@@ -612,7 +612,7 @@ review features from previous versions.
 - Bare filenames whose extension collides with a TLD (`README.md`, `setup.py`)
   no longer render as external links inside messages.
 - Quote-bubble dismiss listeners attach only while a bubble is showing, instead
-  of one document-wide selection listener per feedback card.
+  of one document-wide selection listener per discussions card.
 
 ### Removed
 
@@ -634,7 +634,7 @@ review features from previous versions.
 ## [0.1.0] - 2026-07-09
 
 Initial public release: the per-user daemon + CLI + SPA in one binary — diff
-and files reviews, anchored feedback with quote-first re-anchoring, replies,
+and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 

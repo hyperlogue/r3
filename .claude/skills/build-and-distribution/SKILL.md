@@ -149,7 +149,7 @@ queries as production. There is no global EventSource or fetch shim.
 `scripts/gen-artifact-demo.ts` → `web/demo/artifact-fixtures.gen.ts` bakes two
 public demo artifacts: an interactive HTML curve lab and a six-file diff review.
 Each starts with four already-sent conversations: two human-authored and two
-agent-authored, with replies, three open threads, and one resolved thread.
+agent-authored, with comments, three open threads, and one resolved thread.
 The curve lab embeds `samples/curve-lab.js` inline, with no external chart library;
 its sliders update the approximation, residual plot, and sampled error metrics.
 The generated workshop seed also retains the Files example for the component
@@ -162,9 +162,9 @@ Shiki, SQLite, and Git never ship to the browser. Run `bun run gen:demo` after
 editing canned content; generated fixtures are excluded from Biome.
 
 Explicit Submit schedules the scripted agent, claims notes, publishes a new
-version, replies with context, and leaves status for the human. Selection stays on
+version, comments with context, and leaves status for the human. Selection stays on
 the original version. Archive prevents publication and re-registration while
-allowing in-flight replies and retaining pending work. The demo implements the
+allowing in-flight comments and retaining pending work. The demo implements the
 public contract directly; its temporary state is separate from wire types.
 
 The build replaces only the default renderer used by `ArtifactView`. The demo
@@ -174,7 +174,7 @@ bundled publication; localStorage cannot provide executable document or asset
 bytes. CSS and images are embedded from the same bundle, and links resolve only
 to that publication's documents and fragments. Query routes, external links,
 arbitrary publication uploads, and the publisher utility/device API are outside this demo.
-Feedback paste/upload and crop use the shared image controls; message retry keys
+Discussion paste/upload and crop use the shared image controls; message retry keys
 last for the page visit and image reads verify membership in the selected artifact.
 
 The shared selection/Locate runtime and Markdown theme/height adapters run on a

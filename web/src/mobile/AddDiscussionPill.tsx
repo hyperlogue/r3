@@ -4,7 +4,7 @@ import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 // The touch-tier replacement for ArtifactView's desktop `mouseup` selection-anchor
 // listener (see the mobile-tier skill → Anchoring (touch)). iOS/Android never fire a
 // usable `mouseup` for a long-press selection gesture, so on coarse pointers we watch
-// `selectionchange` instead and float an "Add feedback" pill under the selection
+// `selectionchange` instead and float an "Add discussions" pill under the selection
 // (under, not over — iOS's native Copy/Look Up callout owns the space above).
 // ArtifactView mounts this whenever the primary pointer is coarse — on BOTH tiers,
 // since it's a fixed overlay — and skips its own mouseup path; desktop components
@@ -28,7 +28,7 @@ interface Capture {
 // the moving handles.
 const SETTLE_MS = 275;
 
-export function AddFeedbackPill({
+export function AddDiscussionPill({
   scopeRef,
   composing,
   onAdd,
@@ -37,7 +37,7 @@ export function AddFeedbackPill({
   scopeRef: RefObject<HTMLElement | null>;
   // True when the anchored composer already holds text: the gesture handler will
   // then drop the selection in as a quote rather than re-anchor, so the pill reads
-  // "Quote in note" (the desktop QuoteBubble's wording) instead of "Add feedback".
+  // "Quote in note" (the desktop QuoteBubble's wording) instead of "Add discussions".
   composing: boolean;
   onAdd: (anchor: PendingAnchor, quote: string) => void;
 }) {
@@ -128,7 +128,7 @@ export function AddFeedbackPill({
       }`}
       style={{ left, top: flipUp ? cap.top - 6 : cap.bottom + 8 }}
     >
-      {composing ? "Quote in note" : "Add feedback"}
+      {composing ? "Quote in note" : "Add discussions"}
     </button>
   );
 }

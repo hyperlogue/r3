@@ -257,7 +257,7 @@ test("artifact labels include every referenced role, omit unrelated sessions, an
     "creator",
     "publisher",
     "commenter",
-    "reply",
+    "comment",
     "claim",
     "lifecycle",
     "unrelated",
@@ -273,17 +273,17 @@ test("artifact labels include every referenced role, omit unrelated sessions, an
   });
   const note = await storage.conversations.add(artifactId, {
     actor: agent("commenter"),
-    body: "Feedback",
+    body: "Discussion",
     target: { kind: "artifact" },
   });
-  await storage.conversations.addReply(note.id, {
-    actor: agent("reply"),
-    body: "Reply",
+  await storage.conversations.addComment(note.id, {
+    actor: agent("comment"),
+    body: "Comment",
     context: { versionSeq: null, representation: null },
   });
-  await storage.conversations.addReply(note.id, {
+  await storage.conversations.addComment(note.id, {
     actor: agent("__proto__"),
-    body: "Another reply",
+    body: "Another comment",
     context: { versionSeq: null, representation: null },
   });
   storage.lifecycle.transition(artifactId, {
@@ -304,11 +304,11 @@ test("artifact labels include every referenced role, omit unrelated sessions, an
   expect(Object.keys(labels).sort()).toEqual([
     "__proto__",
     "claim",
+    "comment",
     "commenter",
     "creator",
     "lifecycle",
     "publisher",
-    "reply",
   ]);
   expect(labels.creator).toBe(title);
   expect(labels.__proto__).toBe("Label __proto__");

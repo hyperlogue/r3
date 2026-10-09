@@ -76,7 +76,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(removed.code).toBe(1);
     expect(removed.error).toContain("Unknown command: prompt");
     for (const [args, heading] of [
-      [[], "# r3 — publish artifacts and respond to feedback"],
+      [[], "# r3 — publish artifacts and respond to discussions"],
       [["html"], "# HTML artifacts"],
       [["files"], "# Files artifacts"],
       [["diff"], "# Diff artifacts"],
@@ -143,7 +143,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(await watchers()).toMatchObject([{ mode: "explicit" }]);
     expect((await run("unlisten", id)).code).toBe(0);
     expect(await watchers()).toEqual([]);
-    const fetched = await run("feedback", "fetch", id);
+    const fetched = await run("discussions", "fetch", id);
     expect(fetched.code).toBe(0);
     expect(fetched.error).toBe("");
     expect(fetched.output).not.toContain("Listening on");
@@ -153,9 +153,9 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect((await daemonInfo()).pid).toBe(daemonPid);
     expect(await Bun.file(queueFile).exists()).toBe(false);
     expect((await run("unlisten", id)).code).toBe(0);
-    expect((await run("feedback", "fetch", id, "--all")).code).toBe(0);
+    expect((await run("discussions", "fetch", id, "--all")).code).toBe(0);
     expect(await watchers()).toEqual([]);
-    expect((await run("status")).output).toContain("artifacts-v1");
+    expect((await run("status")).output).toContain("artifacts-v2");
     await writeFile(join(directory, "page.md"), "# After\n");
     expect(
       JSON.parse((await run("source", id, "--version", "1", "--file", "page.md", "--json")).output)
@@ -180,7 +180,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(await watchers()).toMatchObject([{ mode: "fallback", label: "Friendly publisher" }]);
     expect(await Bun.file(queueFile).exists()).toBe(false);
     const note = await run(
-      "feedback",
+      "discussions",
       "add",
       id,
       "--human",
@@ -198,14 +198,14 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "# Before",
     );
     expect(note.code).toBe(0);
-    const feedback = JSON.parse(note.output);
+    const discussions = JSON.parse(note.output);
     const watch = await run("watch", id, "--timeout", "1");
     expect(watch.code).toBe(10);
-    expect(watch.output).toContain(feedback.id);
-    expect((await run("claim", feedback.id)).code).toBe(0);
-    const replyResult = await run(
-      "reply",
-      feedback.id,
+    expect(watch.output).toContain(discussions.id);
+    expect((await run("claim", discussions.id)).code).toBe(0);
+    const commentResult = await run(
+      "comment",
+      discussions.id,
       "-m",
       "Updated in version two",
       "--file",
@@ -215,18 +215,27 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "--view",
       "source",
     );
-    expect(replyResult).toMatchObject({ code: 0, error: "" });
+    expect(commentResult).toMatchObject({ code: 0, error: "" });
     const detail = JSON.parse((await run("show", id, "--json")).output);
-    expect(detail.feedback[0].status).toBe("open");
-    expect(detail.feedback[0].claim).toBeNull();
-    expect(detail.feedback[0].replies[0].context).toEqual({
+    expect(detail.discussions[0].status).toBe("open");
+    expect(detail.discussions[0].claim).toBeNull();
+    expect(detail.discussions[0].comments[0].context).toEqual({
       versionSeq: 2,
       representation: "source",
     });
-    expect(
-      (await run("archive", id, "--human", "--key", "archive-once", "-m", "Keep this history"))
-        .code,
-    ).toBe(0);
+    const archiveResult = await run(
+      "archive",
+      id,
+      "--human",
+      "--key",
+      "archive-once",
+      "-m",
+      "Keep this history",
+    );
+    expect({ code: archiveResult.code, error: archiveResult.error }).toEqual({
+      code: 0,
+      error: "",
+    });
     const archived = await run("watch", id, "--timeout", "0.001");
     expect(archived.code).toBe(0);
     expect(archived.output).toContain("Keep this history");

@@ -35,9 +35,9 @@ export function syncDemoActivity(state: ArtifactDemoState): void {
     add(artifact.id, artifact.createdAt, "artifactsCreated");
     for (const version of artifact.versions)
       add(`${artifact.id}/${version.seq}`, version.publishedAt, "versionsPublished");
-    for (const note of artifact.feedback) {
+    for (const note of artifact.discussions) {
       add(note.id, note.createdAt, "threadsAdded");
-      for (const reply of note.replies) add(reply.id, reply.createdAt, "repliesAdded");
+      for (const comment of note.comments) add(comment.id, comment.createdAt, "commentsAdded");
     }
     for (const event of artifact.events) add(event.id, event.createdAt, event.event);
   }
@@ -61,8 +61,8 @@ function content(state: ArtifactDemoState, ids?: Set<string>): number {
       if (selected) patches += publication.patchBytes;
       for (const [hash, size] of Object.entries(publication.storageBlobs)) add(hash, size);
     }
-    for (const note of artifact.feedback)
-      for (const message of [note, ...note.replies])
+    for (const note of artifact.discussions)
+      for (const message of [note, ...note.comments])
         for (const image of message.attachments ?? []) add(image.hash, image.byteLength);
   }
   return (
@@ -117,7 +117,7 @@ export function demoUsage(
     if (period) period[row.metric] += row.count;
   }
   const items = state.artifacts,
-    notes = items.flatMap((artifact) => artifact.feedback);
+    notes = items.flatMap((artifact) => artifact.discussions);
   const gc = demoGcPreview(state, { dryRun: true }, asOf);
   return {
     asOf,
@@ -137,7 +137,7 @@ export function demoUsage(
     conversations: {
       open: notes.filter((n) => n.status === "open").length,
       resolved: notes.filter((n) => n.status === "resolved").length,
-      replies: notes.reduce((total, note) => total + note.replies.length, 0),
+      comments: notes.reduce((total, note) => total + note.comments.length, 0),
     },
     contentBytes: content(state),
     gc: {

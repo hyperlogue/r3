@@ -14,9 +14,9 @@ export interface ArtifactDraft {
 }
 interface Drafts {
   note: ArtifactDraft | null;
-  replies: Record<string, ArtifactDraft>;
+  comments: Record<string, ArtifactDraft>;
 }
-const empty = (): Drafts => ({ note: null, replies: {} });
+const empty = (): Drafts => ({ note: null, comments: {} });
 const blank = (): ArtifactDraft => ({
   body: "",
   target: { kind: "artifact" },
@@ -25,7 +25,7 @@ const blank = (): ArtifactDraft => ({
 const prefix = "r3-artifact-draft-";
 const slotPrefix = "r3-artifact-draft-slot-";
 type Slot = string | null;
-const slotKey = (id: string, replyTo: Slot) => slotPrefix + JSON.stringify([id, replyTo]);
+const slotKey = (id: string, commentTo: Slot) => slotPrefix + JSON.stringify([id, commentTo]);
 const valid = (draft: ArtifactDraft | null) =>
   draft === null ||
   (typeof draft?.body === "string" &&
@@ -74,13 +74,17 @@ function parseSlotKey(key: string): [string, Slot] | null {
   }
   return null;
 }
-function withDraft(drafts: Drafts, replyTo: Slot, draft: ArtifactDraft | null): Drafts {
-  if (replyTo === null) return { ...drafts, note: draft };
-  const replies = { ...drafts.replies };
-  if (draft === null) delete replies[replyTo];
+function withDraft(drafts: Drafts, commentTo: Slot, draft: ArtifactDraft | null): Drafts {
+  if (commentTo === null) return { ...drafts, note: draft };
+  const comments = { ...drafts.comments };
+  if (draft === null) delete comments[commentTo];
   else
-    Object.defineProperty(replies, replyTo, { value: draft, enumerable: true, configurable: true });
-  return { ...drafts, replies };
+    Object.defineProperty(comments, commentTo, {
+      value: draft,
+      enumerable: true,
+      configurable: true,
+    });
+  return { ...drafts, comments };
 }
 
 export class ArtifactDraftStore {
@@ -105,16 +109,18 @@ export class ArtifactDraftStore {
     try {
       const saved = this.storage?.getItem(prefix + id);
       if (saved) {
-        const value = JSON.parse(saved) as Drafts;
+        const value = JSON.parse(saved) as Drafts & { replies?: Drafts["comments"] };
+        // Older aggregate drafts predate Comment terminology. Slot keys are unchanged.
+        value.comments ??= value.replies ?? {};
         if (
           valid(value.note) &&
-          value.replies &&
-          Object.values(value.replies).every((draft) => draft !== null && valid(draft))
+          value.comments &&
+          Object.values(value.comments).every((draft) => draft !== null && valid(draft))
         )
           drafts = {
             note: recover(value.note),
-            replies: Object.fromEntries(
-              Object.entries(value.replies).map(([id, draft]) => [id, recover(draft)!]),
+            comments: Object.fromEntries(
+              Object.entries(value.comments).map(([id, draft]) => [id, recover(draft)!]),
             ),
           };
       } else {
@@ -131,9 +137,11 @@ export class ArtifactDraftStore {
               : "";
             drafts.note = { ...blank(), body: parts.join("\n\n") + evidence, imported: true };
           }
-          for (const [feedbackId, body] of Object.entries(legacy.replies ?? {}))
+          for (const [discussionId, body] of Object.entries(
+            legacy.comments ?? legacy.replies ?? {},
+          ))
             if (typeof body === "string" && body.trim())
-              Object.defineProperty(drafts.replies, feedbackId, {
+              Object.defineProperty(drafts.comments, discussionId, {
                 value: { ...blank(), body, imported: true },
                 enumerable: true,
                 configurable: true,
@@ -162,9 +170,9 @@ export class ArtifactDraftStore {
     return drafts;
   }
 
-  get(id: string, replyTo?: string): ArtifactDraft | null {
+  get(id: string, commentTo?: string): ArtifactDraft | null {
     const drafts = this.load(id);
-    return replyTo ? (drafts.replies[replyTo] ?? null) : drafts.note;
+    return commentTo ? (drafts.comments[commentTo] ?? null) : drafts.note;
   }
   has(id: string): boolean {
     return this.count(id) > 0;
@@ -173,41 +181,41 @@ export class ArtifactDraftStore {
     const drafts = this.load(id);
     return (
       Number(hasMessageContent(drafts.note)) +
-      Object.values(drafts.replies).filter(hasMessageContent).length
+      Object.values(drafts.comments).filter(hasMessageContent).length
     );
   }
-  update(id: string, patch: Partial<ArtifactDraft>, replyTo?: string): void {
-    const next = { ...(this.get(id, replyTo) ?? blank()), ...patch };
+  update(id: string, patch: Partial<ArtifactDraft>, commentTo?: string): void {
+    const next = { ...(this.get(id, commentTo) ?? blank()), ...patch };
     if (patch.operationKey === undefined) next.operationKey = undefined;
-    this.commit(id, next, replyTo ?? null);
+    this.commit(id, next, commentTo ?? null);
   }
   anchor(id: string, target: ArtifactTarget): boolean {
     if (hasMessageContent(this.get(id))) return false;
     this.update(id, { target, imported: false, mediaSnapshot: undefined });
     return true;
   }
-  beginReply(id: string, replyTo: string, context: ArtifactMessageContext): void {
-    if (hasMessageContent(this.get(id, replyTo))) return;
-    this.update(id, { context }, replyTo);
+  beginComment(id: string, commentTo: string, context: ArtifactMessageContext): void {
+    if (hasMessageContent(this.get(id, commentTo))) return;
+    this.update(id, { context }, commentTo);
   }
-  clear(id: string, replyTo?: string): void {
-    this.commit(id, null, replyTo ?? null);
+  clear(id: string, commentTo?: string): void {
+    this.commit(id, null, commentTo ?? null);
   }
-  clearIfCurrent(id: string, submitted: ArtifactDraft, replyTo?: string): boolean {
+  clearIfCurrent(id: string, submitted: ArtifactDraft, commentTo?: string): boolean {
     // A save can finish after another composer has resumed this draft. Object
     // identity also preserves edits that return the text to its submitted value.
-    if (this.get(id, replyTo) !== submitted) return false;
-    this.clear(id, replyTo);
+    if (this.get(id, commentTo) !== submitted) return false;
+    this.clear(id, commentTo);
     return true;
   }
-  pruneReplies(id: string, feedbackIds: ReadonlySet<string>): void {
-    for (const feedbackId of Object.keys(this.load(id).replies))
-      if (!feedbackIds.has(feedbackId)) this.clear(id, feedbackId);
+  pruneComments(id: string, discussionIds: ReadonlySet<string>): void {
+    for (const discussionId of Object.keys(this.load(id).comments))
+      if (!discussionIds.has(discussionId)) this.clear(id, discussionId);
   }
-  private commit(id: string, draft: ArtifactDraft | null, replyTo: Slot): void {
-    this.cache.set(id, withDraft(this.load(id), replyTo, draft));
+  private commit(id: string, draft: ArtifactDraft | null, commentTo: Slot): void {
+    this.cache.set(id, withDraft(this.load(id), commentTo, draft));
     const dirty = this.dirty.get(id) ?? new Set<Slot>();
-    dirty.add(replyTo);
+    dirty.add(commentTo);
     this.dirty.set(id, dirty);
     for (const listener of this.listeners) listener();
     clearTimeout(this.timers.get(id));
@@ -220,13 +228,13 @@ export class ArtifactDraftStore {
     );
   }
   private persist(id: string): void {
-    for (const replyTo of this.dirty.get(id) ?? []) {
+    for (const commentTo of this.dirty.get(id) ?? []) {
       try {
         // Independent drafts cannot overwrite one another. A null value keeps
         // cleared drafts from being imported again from retained legacy keys.
         this.storage?.setItem(
-          slotKey(id, replyTo),
-          JSON.stringify(this.get(id, replyTo ?? undefined)),
+          slotKey(id, commentTo),
+          JSON.stringify(this.get(id, commentTo ?? undefined)),
         );
       } catch {
         /* Quota/private mode: retain the current in-memory draft. */
@@ -243,15 +251,15 @@ export class ArtifactDraftStore {
     } else {
       const slot = parseSlotKey(key);
       if (!slot || !this.cache.has(slot[0])) return;
-      const [id, replyTo] = slot;
+      const [id, commentTo] = slot;
       // Let local typing finish its debounce; that later save will be shared.
-      if (this.dirty.get(id)?.has(replyTo)) return;
+      if (this.dirty.get(id)?.has(commentTo)) return;
       try {
         // Read the latest value: an event can arrive after another tab's write.
         const draft = JSON.parse(this.storage?.getItem(key) ?? "null");
         if (!valid(draft)) return;
-        if (JSON.stringify(this.get(id, replyTo ?? undefined)) === JSON.stringify(draft)) return;
-        this.cache.set(id, withDraft(this.load(id), replyTo, draft));
+        if (JSON.stringify(this.get(id, commentTo ?? undefined)) === JSON.stringify(draft)) return;
+        this.cache.set(id, withDraft(this.load(id), commentTo, draft));
       } catch {
         return;
       }
@@ -275,8 +283,8 @@ const browserStorage = () => {
   }
 };
 export const artifactDrafts = new ArtifactDraftStore(browserStorage());
-export const useArtifactDraft = (id: string, replyTo?: string) =>
-  useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.get(id, replyTo));
+export const useArtifactDraft = (id: string, commentTo?: string) =>
+  useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.get(id, commentTo));
 export const useHasArtifactDraft = (id: string) =>
   useSyncExternalStore(artifactDrafts.subscribe, () => artifactDrafts.has(id));
 export const useHasArtifactNote = (id: string) =>

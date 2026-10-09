@@ -8,7 +8,7 @@ import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
-import { ArtifactFeedbackPanel } from "../components/ArtifactFeedbackPanel.tsx";
+import { ArtifactDiscussionPanel } from "../components/ArtifactDiscussionPanel.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
@@ -18,7 +18,7 @@ import {
   ArtifactPreviewSecuritySource,
 } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
-import { type ArtifactFeedbackTab, ArtifactThreads } from "../components/ArtifactThreads.tsx";
+import { type ArtifactDiscussionTab, ArtifactThreads } from "../components/ArtifactThreads.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
@@ -28,13 +28,18 @@ import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
 import { ArtifactWorkspace } from "../pages/ArtifactView.tsx";
-import type { FeedbackPanelMode } from "../settings.ts";
-import { setFeedbackMode, showFeedbackPanel, useDiffLayout, useFeedbackMode } from "../settings.ts";
+import type { DiscussionPanelMode } from "../settings.ts";
+import {
+  setDiscussionMode,
+  showDiscussionPanel,
+  useDiffLayout,
+  useDiscussionMode,
+} from "../settings.ts";
 import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import { ComparisonSampleDocument } from "./ComparisonSampleDocument.tsx";
-import { FeedbackCardGallery, seedFeedbackCardGallery } from "./FeedbackCardGallery.tsx";
+import { DiscussionCardGallery, seedDiscussionCardGallery } from "./DiscussionCardGallery.tsx";
 import { OverlayContrastPreview } from "./OverlayContrastPreview.tsx";
 import "./forms.ts";
 import "../main.css";
@@ -43,10 +48,10 @@ import "../main.css";
 function resetSamples() {
   demo.reset(ARTIFACT_WORKSHOP_SEED);
   demo.get("artifact_documents").watching = true;
-  demo.addFeedback("artifact_documents", "Could we make the target label easier to scan?", {
+  demo.addDiscussion("artifact_documents", "Could we make the target label easier to scan?", {
     kind: "artifact",
   });
-  demo.addFeedback("artifact_documents", "Keep the spacing comfortable when a reply wraps.", {
+  demo.addDiscussion("artifact_documents", "Keep the spacing comfortable when a comment wraps.", {
     kind: "artifact",
   });
   for (const detail of demo.state.artifacts) {
@@ -59,10 +64,10 @@ function resetSamples() {
     }
   }
   const comparisonArtifact = demo.get("artifact_weekend");
-  const note = comparisonArtifact.feedback[0];
-  note.replies.push({
-    id: "reply_showcase_comparison",
-    feedbackId: note.id,
+  const note = comparisonArtifact.discussions[0];
+  note.comments.push({
+    id: "comment_showcase_comparison",
+    discussionId: note.id,
     artifactId: comparisonArtifact.id,
     author: { role: "agent", sessionId: "demo-agent" },
     body: "Adjusted the starting fit. Compare the original and proposed model notes.",
@@ -79,11 +84,11 @@ function resetSamples() {
   });
 }
 resetSamples();
-seedFeedbackCardGallery();
+seedDiscussionCardGallery();
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const sections = [
-  ["feedback", "Feedback & artifact header"],
-  ["feedback-cards", "Feedback card gallery"],
+  ["discussions", "Discussion & artifact header"],
+  ["discussions-cards", "Discussion card gallery"],
   ["comparison", "Compare proposed fixes"],
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
@@ -120,20 +125,20 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
   );
 }
 
-function Feedback({ announce }: { announce: (text: string) => void }) {
+function Discussion({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
-  const [feedbackTab, setFeedbackTab] = useState<ArtifactFeedbackTab>("active");
+  const [discussionTab, setDiscussionTab] = useState<ArtifactDiscussionTab>("active");
   const [versionSeq, setVersionSeq] = useState<number | null>(1);
-  const mode = useFeedbackMode();
+  const mode = useDiscussionMode();
   const collapsed = mode === "hidden";
   const [threadOpen, setThreadOpen] = useState(false);
-  const changeMode = (next: FeedbackPanelMode) => {
-    setFeedbackMode(next);
+  const changeMode = (next: DiscussionPanelMode) => {
+    setDiscussionMode(next);
     setThreadOpen(false);
   };
   const reopen = () => {
-    showFeedbackPanel();
+    showDiscussionPanel();
     setThreadOpen(false);
   };
   const { data } = useQuery({ queryKey: ["artifact", id], queryFn: () => artifactApi.detail(id) });
@@ -143,7 +148,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
       <p className="text-sm text-neutral-500">
         Try floating and docking the panel, then switch between Active and Resolved. Start a draft
         in Active to see it slide with that queue and stay intact when you return. These are sample
-        conversations; use r3’s outer comment mode for your UI feedback.
+        conversations; use r3’s outer comment mode for your UI discussions.
       </p>
       <div className="border border-neutral-300 dark:border-neutral-700">
         <ArtifactHeader
@@ -152,8 +157,8 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           selectedVersion={versionSeq}
           onSelectVersion={setVersionSeq}
           onJumpRef={() => announce("Sample file reference selected")}
-          feedbackVisible={!collapsed}
-          onToggleFeedback={() => (collapsed ? reopen() : changeMode("hidden"))}
+          discussionVisible={!collapsed}
+          onToggleDiscussion={() => (collapsed ? reopen() : changeMode("hidden"))}
           commenting={commenting}
           onToggleCommenting={() => setCommenting(!commenting)}
         />
@@ -161,16 +166,16 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
           <div className="relative isolate min-w-0 flex-1">
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
-                The feedback panel has three states: hidden, expanded beside the content, or
+                The discussions panel has three states: hidden, expanded beside the content, or
                 floating over it. Use the navbar button to hide or show it, and its panel control to
-                switch modes. Hidden anchors open one conversation at a time. Showing feedback
+                switch modes. Hidden anchors open one conversation at a time. Showing discussions
                 restores the last expanded or floating mode. Drag the floating header to move it, or
                 its edges to resize it.
               </p>
               <Button
                 onClick={() => {
                   changeMode("expanded");
-                  setFeedbackTab("active");
+                  setDiscussionTab("active");
                   artifactDrafts.anchor(id, { kind: "artifact" });
                 }}
               >
@@ -187,7 +192,7 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={() =>
-                    demo.addFeedback(
+                    demo.addDiscussion(
                       id,
                       "A new sample thread for reviewing the entrance animation.",
                       { kind: "artifact" },
@@ -197,31 +202,31 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                   Insert sample card
                 </Button>
                 <Button
-                  disabled={!data.feedback.length}
+                  disabled={!data.discussions.length}
                   onClick={() => {
-                    const last = demo.get(id).feedback.at(-1);
-                    if (last) void artifactApi.deleteFeedback(last.id);
+                    const last = demo.get(id).discussions.at(-1);
+                    if (last) void artifactApi.deleteDiscussion(last.id);
                   }}
                 >
                   Remove sample card
                 </Button>
                 <Button
-                  disabled={data.feedback.length < 2}
+                  disabled={data.discussions.length < 2}
                   onClick={() => {
                     const artifact = demo.get(id);
-                    const note = artifact.feedback[0];
+                    const note = artifact.discussions[0];
                     if (!note) return;
                     const now = new Date().toISOString();
                     note.claim = note.claim
                       ? null
                       : {
-                          feedbackId: note.id,
+                          discussionId: note.id,
                           sessionId: "showcase-agent",
                           claimedAt: now,
                           renewedAt: now,
                           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
                         };
-                    artifact.working = artifact.feedback.some((item) => item.claim !== null);
+                    artifact.working = artifact.discussions.some((item) => item.claim !== null);
                     demo.changed(id);
                   }}
                 >
@@ -230,11 +235,11 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
               </div>
               <p>
                 Use the sample panel to explore spacing and interaction. Real review comments belong
-                to this showcase artifact’s own feedback panel.
+                to this showcase artifact’s own discussions panel.
               </p>
             </div>
           </div>
-          <ArtifactFeedbackPanel mode={mode} onModeChange={changeMode}>
+          <ArtifactDiscussionPanel mode={mode} onModeChange={changeMode}>
             {(controls) => (
               <ArtifactThreads
                 detail={data}
@@ -244,17 +249,17 @@ function Feedback({ announce }: { announce: (text: string) => void }) {
                 }
                 onJumpRef={() => announce("Sample file reference selected")}
                 keysActive={false}
-                tab={feedbackTab}
-                onTabChange={setFeedbackTab}
+                tab={discussionTab}
+                onTabChange={setDiscussionTab}
                 panelControls={controls}
               />
             )}
-          </ArtifactFeedbackPanel>
-          {collapsed && threadOpen && data.feedback[0] && (
+          </ArtifactDiscussionPanel>
+          {collapsed && threadOpen && data.discussions[0] && (
             <div className="pointer-events-none absolute right-2 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-1rem)] flex-col [&>*]:pointer-events-auto">
               <ArtifactThreadPopover
                 artifactKind={data.kind}
-                feedback={data.feedback[0]}
+                discussions={data.discussions[0]}
                 latestVersionSeq={data.versions.at(-1)?.seq ?? null}
                 context={{ versionSeq: 1, representation: "source" }}
                 onLocate={() => announce("Sample target selected")}
@@ -345,7 +350,7 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
                   current={active === path}
                   viewed={viewed.has(path)}
                   onToggleViewed={() => toggle(path)}
-                  onFileFeedback={() => announce(`Sample whole-file target: ${path}`)}
+                  onFileDiscussion={() => announce(`Sample whole-file target: ${path}`)}
                   foldSignal={fold}
                 >
                   <SourceCode
@@ -490,7 +495,7 @@ function Showcase() {
           </div>
           <p className="max-w-3xl text-sm text-neutral-500">
             Current r3 components, ready for polishing. Turn on r3’s comment mode and select any
-            element to leave feedback. Sample interactions reset when the page reloads.
+            element to leave discussions. Sample interactions reset when the page reloads.
           </p>
           <OverlayContrastPreview />
           <nav
@@ -504,20 +509,20 @@ function Showcase() {
             ))}
           </nav>
         </header>
-        <Section id="feedback">
-          <Feedback announce={setNotice} />
+        <Section id="discussions">
+          <Discussion announce={setNotice} />
         </Section>
-        <Section id="feedback-cards">
+        <Section id="discussions-cards">
           <p className="max-w-3xl text-sm text-neutral-500">
-            Ten examples of the current feedback card. Try replying, editing, resolving, expanding
-            quotes, and opening earlier replies. Sample actions stay inside this gallery and reset
-            on reload. Use r3’s outer comment mode to leave your design feedback.
+            Ten examples of the current discussions card. Try commenting, editing, resolving,
+            expanding quotes, and opening earlier comments. Sample actions stay inside this gallery
+            and reset on reload. Use r3’s outer comment mode to leave your design discussions.
           </p>
-          <FeedbackCardGallery announce={setNotice} />
+          <DiscussionCardGallery announce={setNotice} />
         </Section>
         <Section id="comparison">
           <p className="text-sm text-neutral-500">
-            Open Compare on the model-note reply. Try the sliding transition, docked panel, target
+            Open Compare on the model-note comment. Try the sliding transition, docked panel, target
             controls, and returning to the original version with a draft intact.
           </p>
           <ComparisonShowcase />
@@ -565,7 +570,7 @@ function Showcase() {
           <div className="max-w-2xl border border-neutral-300 p-3 dark:border-neutral-700">
             <MessageProse
               source={
-                "### Markdown typography\n\nBody text with **emphasis**, *secondary emphasis*, and `inline code`.\n\n- Keep feedback anchored to its original version.\n- Open the latest publication when you are ready.\n\n> A short quotation from the design discussion.\n\n```ts\nconst version = artifact.versions.at(-1);\n```"
+                "### Markdown typography\n\nBody text with **emphasis**, *secondary emphasis*, and `inline code`.\n\n- Keep discussions anchored to its original version.\n- Open the latest publication when you are ready.\n\n> A short quotation from the design discussion.\n\n```ts\nconst version = artifact.versions.at(-1);\n```"
               }
               onJumpRef={() => setNotice("Sample reference selected")}
             />

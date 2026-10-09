@@ -75,7 +75,7 @@ await publish(
 await publish("The workspace has a clear next step.\nThe primary action is now visible.", 1);
 const note = await storage.conversations.add(notes.id, {
   actor,
-  body: "Keyboard focus feedback",
+  body: "Keyboard focus discussions",
   target: {
     kind: "source",
     versionSeq: 1,
@@ -83,13 +83,13 @@ const note = await storage.conversations.add(notes.id, {
     locator: { start: 81, end: 81, quote: "Keyboard focus needs a visible outline." },
   },
 });
-const reply = await storage.conversations.addReply(note.id, {
+const comment = await storage.conversations.addComment(note.id, {
   actor: agent,
   body: "Keyboard focus is fixed in version 2.",
   context: { versionSeq: 2, representation: "source" },
 });
 for (let i = 0; i < 4; i++)
-  await storage.conversations.addReply(note.id, {
+  await storage.conversations.addComment(note.id, {
     actor: agent,
     body: `Another follow-up ${i + 1}`,
     context: { versionSeq: 2, representation: "source" },
@@ -409,17 +409,19 @@ try {
   );
   await eventually(
     () =>
-      page.evaluate(`!!document.querySelector('[data-library-row][href*="reply=${reply.id}"]')`),
-    "reply result",
+      page.evaluate(
+        `!!document.querySelector('[data-library-row][href*="comment=${comment.id}"]')`,
+      ),
+    "comment result",
   );
-  await click(`[data-library-row][href*="reply=${reply.id}"]`);
+  await click(`[data-library-row][href*="comment=${comment.id}"]`);
   await eventually(
-    () => page.evaluate(`!!document.querySelector('[data-artifact-reply="${reply.id}"]')`),
-    "earlier reply expanded",
+    () => page.evaluate(`!!document.querySelector('[data-artifact-comment="${comment.id}"]')`),
+    "earlier comment expanded",
   );
   assert.ok(
     await page.evaluate("location.search.includes('version=2')"),
-    "reply uses its own version context",
+    "comment uses its own version context",
   );
   await page.evaluate("history.back()");
   await ready();
@@ -620,7 +622,7 @@ try {
   await clickText("Done", "dialog[open]");
   assert.deepEqual(errors, []);
   console.log(
-    "Library browser acceptance passed: compact rows, desktop/dark/mobile, animated selection mode, keyboard toggle, inert hidden controls, reduced motion, archive-aware review attention, history, source locations, earlier replies, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
+    "Library browser acceptance passed: compact rows, desktop/dark/mobile, animated selection mode, keyboard toggle, inert hidden controls, reduced motion, archive-aware review attention, history, source locations, earlier comments, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
   );
 } finally {
   await browser?.close();

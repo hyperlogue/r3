@@ -433,11 +433,11 @@ function PreviewSession(
         replaceLocateRoute: props.independentReading,
         commenting:
           props.active !== false && props.commenting && context.presentation === "document",
-        targets: props.targets.flatMap(({ feedbackId, target }) =>
+        targets: props.targets.flatMap(({ discussionId, target }) =>
           target.kind === "rendered" &&
           target.versionSeq === seq &&
           target.path === currentPath.current
-            ? [{ feedbackId, locator: target.locator }]
+            ? [{ discussionId, locator: target.locator }]
             : [],
         ),
         jump:
@@ -518,7 +518,7 @@ function PreviewSession(
         if (closed || connection.current !== port) return;
         const message = event.data;
         if (!message || message.contextId !== context.id || message.path !== path) return;
-        const reply = (value: Record<string, unknown>) =>
+        const comment = (value: Record<string, unknown>) =>
           port.postMessage({ contextId: context.id, ...value });
         if (message.type === "r3-preview-markdown-needed") {
           const file = current.current.markdownFiles.find((file) => file.path === path);
@@ -549,7 +549,7 @@ function PreviewSession(
             )
             .then((html) => {
               if (!closed && connection.current === port)
-                reply({ type: "r3-preview-markdown", html });
+                comment({ type: "r3-preview-markdown", html });
             })
             .catch((error) => {
               if (!closed && connection.current === port) {
@@ -621,7 +621,7 @@ function PreviewSession(
             (message.route === "#" || !message.route.includes("#"))
           ) {
             const point = readingPositions.get(key);
-            if (point) reply({ type: "r3-preview-restore-scroll", route: message.route, point });
+            if (point) comment({ type: "r3-preview-restore-scroll", route: message.route, point });
           }
           documentOpened = true;
         } else if (message.type === "r3-preview-scroll") {
@@ -706,12 +706,14 @@ function PreviewSession(
           } catch (error) {
             setNotice(error instanceof Error ? error.message : "Unable to capture this element");
           }
-        } else if (message.type === "r3-preview-feedback") {
+        } else if (message.type === "r3-preview-discussions") {
           if (
             current.current.active !== false &&
-            current.current.detail.feedback.some((feedback) => feedback.id === message.feedbackId)
+            current.current.detail.discussions.some(
+              (discussions) => discussions.id === message.discussionId,
+            )
           )
-            current.current.onFeedback(message.feedbackId);
+            current.current.onDiscussion(message.discussionId);
         } else if (
           message.type === "r3-preview-located" &&
           message.nonce === current.current.jump?.nonce
@@ -761,13 +763,13 @@ function PreviewSession(
             previewThemePreference(() => localStorage, id),
           )
             .then((value) => {
-              if (!closed) reply({ type: "r3-preview-result", id: message.id, value });
-              if (["createFeedback", "reply", "submit"].includes(message.method))
+              if (!closed) comment({ type: "r3-preview-result", id: message.id, value });
+              if (["createDiscussion", "comment", "submit"].includes(message.method))
                 void qc.invalidateQueries({ queryKey: ["artifact", id] });
             })
             .catch((error) => {
               if (!closed)
-                reply({
+                comment({
                   type: "r3-preview-result",
                   id: message.id,
                   error: error instanceof Error ? error.message : "r3 request failed",
@@ -832,9 +834,9 @@ function PreviewSession(
       highlightLocated: props.highlightLocated,
       replaceLocateRoute: props.independentReading,
       commenting: props.active !== false && props.commenting && context.presentation === "document",
-      targets: props.targets.flatMap(({ feedbackId, target }) =>
+      targets: props.targets.flatMap(({ discussionId, target }) =>
         target.kind === "rendered" && target.versionSeq === seq && target.path === props.path
-          ? [{ feedbackId, locator: target.locator }]
+          ? [{ discussionId, locator: target.locator }]
           : [],
       ),
       jump:

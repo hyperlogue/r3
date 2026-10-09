@@ -69,7 +69,7 @@ export function PaneToolbar({
 }) {
   // h-8 matches the file header height so the file pane's two stacked bars (this
   // toolbar + each file header) read as one consistent header stack. Intra-panel
-  // only — we deliberately DON'T match the feedback panel's bars across the split
+  // only — we deliberately DON'T match the discussions panel's bars across the split
   // (equal heights there read as one connected bar); those keep their own heights.
   return (
     <div className="flex h-8 shrink-0 items-center border-b border-neutral-300 bg-white px-1.5 max-md:h-auto max-md:flex-wrap dark:border-neutral-700 dark:bg-neutral-950">

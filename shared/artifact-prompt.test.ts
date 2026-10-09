@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { artifactNudgeText, buildArtifactPrompt } from "./artifact-prompt.ts";
-import type { ArtifactDetail, ArtifactFeedback } from "./artifacts.ts";
+import type { ArtifactDetail, ArtifactDiscussion } from "./artifacts.ts";
 import type { ArtifactAttachment } from "./attachments.ts";
 
 const time = "2026-09-01T00:00:00.000Z";
@@ -23,13 +23,13 @@ const detail: ArtifactDetail = {
   storage: { totalBytes: 0, latestVersionBytes: 0 },
   legacy: null,
   versions: [],
-  feedback: [],
+  discussions: [],
   placements: [],
   events: [],
 };
-function note(): ArtifactFeedback {
+function note(): ArtifactDiscussion {
   return {
-    id: "feedback_example",
+    id: "discussion_example",
     artifactId: detail.id,
     author: human,
     body: "Please change the title",
@@ -50,13 +50,13 @@ function note(): ArtifactFeedback {
     updatedAt: time,
     sentAt: null,
     statusUnsent: false,
-    replies: [],
+    comments: [],
     claim: null,
   };
 }
 
 describe("artifact prompt formatting", () => {
-  test("image placeholders identify attachments within each note or reply", () => {
+  test("image placeholders identify attachments within each note or comment", () => {
     const image = (id: string): ArtifactAttachment => ({
       id,
       artifactId: detail.id,
@@ -66,17 +66,17 @@ describe("artifact prompt formatting", () => {
       width: 10,
       height: 10,
     });
-    const feedback = note();
-    feedback.body = "Compare [image1] and [image2]";
-    feedback.attachments = [image("first"), image("second")];
-    feedback.replies = [
+    const discussions = note();
+    discussions.body = "Compare [image1] and [image2]";
+    discussions.attachments = [image("first"), image("second")];
+    discussions.comments = [
       {
-        id: "reply_images",
+        id: "comment_images",
         artifactId: detail.id,
-        feedbackId: feedback.id,
+        discussionId: discussions.id,
         author: human,
         body: "Try [image1]",
-        attachments: [image("reply_image")],
+        attachments: [image("comment_image")],
         context: { versionSeq: 2, representation: "rendered" },
         target: null,
         createdAt: time,
@@ -84,35 +84,35 @@ describe("artifact prompt formatting", () => {
         legacy: null,
       },
     ];
-    const prompt = buildArtifactPrompt(detail, [feedback]);
+    const prompt = buildArtifactPrompt(detail, [discussions]);
     expect(prompt).toContain("[image1] Image first");
     expect(prompt).toContain("[image2] Image second");
-    expect(prompt).toContain("[image1] Image reply_image");
+    expect(prompt).toContain("[image1] Image comment_image");
     expect(prompt).not.toContain("[image3]");
   });
   test("preserves native version, representation and rendered evidence without changing delivery state", () => {
-    const feedback = note();
-    const prompt = buildArtifactPrompt(detail, [feedback], true);
+    const discussions = note();
+    const prompt = buildArtifactPrompt(detail, [discussions], true);
     expect(prompt).toContain("Version 2 · rendered · index.md");
     expect(prompt).toContain('"selector":"h1"');
     expect(prompt).toContain('"route":"#overview"');
     expect(prompt).toContain("Please change the title");
     expect(prompt).not.toContain("r3 claim");
     expect(prompt).not.toContain("r3 publish");
-    expect(prompt).not.toContain("r3 reply");
-    expect(feedback.sentAt).toBeNull();
+    expect(prompt).not.toContain("r3 comment");
+    expect(discussions.sentAt).toBeNull();
   });
 
   test("follow-ups include only newly delivered human messages and explicit status changes", () => {
-    const feedback = note();
-    feedback.sentAt = time;
-    feedback.status = "resolved";
-    feedback.statusUnsent = true;
-    feedback.replies = [
+    const discussions = note();
+    discussions.sentAt = time;
+    discussions.status = "resolved";
+    discussions.statusUnsent = true;
+    discussions.comments = [
       {
-        id: "reply_old",
+        id: "comment_old",
         artifactId: detail.id,
-        feedbackId: feedback.id,
+        discussionId: discussions.id,
         author: { role: "agent", sessionId: "previous-agent" },
         body: "Already delivered answer",
         context: { versionSeq: 2, representation: "rendered" },
@@ -122,9 +122,9 @@ describe("artifact prompt formatting", () => {
         legacy: null,
       },
       {
-        id: "reply_new",
+        id: "comment_new",
         artifactId: detail.id,
-        feedbackId: feedback.id,
+        discussionId: discussions.id,
         author: human,
         body: "New owner response",
         context: { versionSeq: 2, representation: "rendered" },
@@ -134,17 +134,17 @@ describe("artifact prompt formatting", () => {
         legacy: null,
       },
     ];
-    const prompt = buildArtifactPrompt(detail, [feedback], true);
+    const prompt = buildArtifactPrompt(detail, [discussions], true);
     expect(prompt).toContain("(follow-up)");
     expect(prompt).toContain("New owner response");
     expect(prompt).not.toContain("Already delivered answer");
     expect(prompt).toContain("The human marked this resolved");
     expect(prompt).toContain('Reference context: {"versionSeq":2,"representation":"rendered"}');
     expect(prompt).toContain(`Earlier discussion: r3 show ${detail.id}`);
-    expect(buildArtifactPrompt(detail, [feedback])).toContain("Already delivered answer");
+    expect(buildArtifactPrompt(detail, [discussions])).toContain("Already delivered answer");
   });
 
-  test("submission nudges use the preferred feedback fetch command", () => {
+  test("submission nudges use the preferred discussions fetch command", () => {
     expect(
       artifactNudgeText({
         id: "nudge_example",
@@ -155,20 +155,20 @@ describe("artifact prompt formatting", () => {
         message: null,
       }),
     ).toBe(
-      `[r3] ${detail.id} — feedback submitted\nArtifact: Published design\nRun: r3 feedback fetch ${detail.id}`,
+      `[r3] ${detail.id} — discussions submitted\nArtifact: Published design\nRun: r3 discussions fetch ${detail.id}`,
     );
   });
 
   test("uncertain imported targets remain historical evidence and archived nudges imply no approval", () => {
-    const feedback = note();
-    feedback.target = { kind: "artifact" };
-    feedback.legacy = { source: { file: "notes.md", quote: "Original title", line_start: 3 } };
+    const discussions = note();
+    discussions.target = { kind: "artifact" };
+    discussions.legacy = { source: { file: "notes.md", quote: "Original title", line_start: 3 } };
     const prompt = buildArtifactPrompt({ ...detail, state: "archived", archivedAt: time }, [
-      feedback,
+      discussions,
     ]);
     expect(prompt).toContain("Historical target unavailable");
     expect(prompt).toContain('"file":"notes.md"');
-    expect(prompt).not.toContain("General artifact feedback");
+    expect(prompt).not.toContain("General artifact discussions");
     expect(prompt).not.toContain("Publish the complete updated directory");
     const nudge = artifactNudgeText({
       id: "nudge_example",

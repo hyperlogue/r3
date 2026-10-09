@@ -77,7 +77,7 @@ export function observeTextSelection(
     )
       keyboard = true;
   };
-  // Document-wide release includes drags ending over the feedback panel.
+  // Document-wide release includes drags ending over the discussions panel.
   window.addEventListener("pointerdown", down, true);
   window.addEventListener("mouseup", up, true);
   window.addEventListener("pointerup", release, true);

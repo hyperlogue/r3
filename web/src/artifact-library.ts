@@ -100,8 +100,8 @@ export function artifactLibraryRoute(
     if (match.path) params.set("file", match.path);
     const representation = match.target?.kind ?? match.context.representation;
     if (representation) params.set("view", representation);
-    if (match.feedbackId) params.set("feedback", match.feedbackId);
-    if (match.replyId) params.set("reply", match.replyId);
+    if (match.discussionId) params.set("discussions", match.discussionId);
+    if (match.commentId) params.set("comment", match.commentId);
     if (match.category === "summary") params.set("summary", "1");
     if (match.category === "content" && match.target?.locator) {
       const target = match.target;

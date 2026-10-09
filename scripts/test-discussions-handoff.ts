@@ -15,7 +15,7 @@ const build = await Bun.build({
   define: { "process.env.NODE_ENV": '"production"' },
   plugins: [await browserLoweredCssPlugin()],
 });
-if (!build.success) throw new Error("Feedback acceptance workspace failed to build");
+if (!build.success) throw new Error("Discussion acceptance workspace failed to build");
 const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
 const js = build.outputs
   .find((output) => output.path.endsWith(".js"))!
@@ -25,14 +25,18 @@ const css = build.outputs
   .find((output) => output.path.endsWith(".css"))
   ?.path.split("/")
   .at(-1);
-const root = await mkdtemp(join(tmpdir(), "r3-feedback-acceptance-"));
+const root = await mkdtemp(join(tmpdir(), "r3-discussions-acceptance-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
-const artifact = storage.artifacts.create({ kind: "files", actor, title: "Feedback interactions" });
+const artifact = storage.artifacts.create({
+  kind: "files",
+  actor,
+  title: "Discussion interactions",
+});
 await storage.artifacts.publish(artifact.id, {
   actor,
   expectedSeq: 0,
-  publicationKey: "feedback-interactions",
+  publicationKey: "discussions-interactions",
   content: {
     kind: "files",
     files: [
@@ -45,7 +49,7 @@ await storage.artifacts.publish(artifact.id, {
   },
 });
 const notes = await Promise.all(
-  ["Review this feedback"].map((body) =>
+  ["Review this discussion"].map((body) =>
     storage.conversations.add(artifact.id, { actor, body, target: { kind: "artifact" } }),
   ),
 );
@@ -73,7 +77,7 @@ storage.artifacts.registerSession({ id: listener.sessionId, label: "Review assis
 storage.listeners.setTarget(listener.sessionId, { harness: "codex", threadId: "handoff-thread" });
 storage.listeners.register(artifact.id, listener, "fallback");
 let completed = 0;
-let feedbackReadRequests = 0;
+let discussionReadRequests = 0;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -81,7 +85,7 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith("/api/")) {
-      if (/\/feedback\/(pending|history|acknowledge)$/.test(path)) feedbackReadRequests++;
+      if (/\/discussions\/(pending|history|acknowledge)$/.test(path)) discussionReadRequests++;
       const response = await api.app.fetch(request);
       if (path.endsWith("/submit")) completed++;
       return response;
@@ -106,7 +110,7 @@ try {
     mobile: false,
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
-  const button = "document.querySelector('[data-feedback-header] [data-artifact-handoff]')";
+  const button = "document.querySelector('[data-discussions-header] [data-artifact-handoff]')";
   const navButton = "document.querySelector('[data-app-header] [data-artifact-handoff]')";
   await eventually(
     () =>
@@ -127,8 +131,11 @@ try {
     "second tab ready",
   );
   await page.command("Page.bringToFront");
-  assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), false);
-  await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
+  assert.equal(
+    await page.evaluate("!!document.querySelector('[data-discussions-attention]')"),
+    false,
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
   await page.evaluate(`(${navButton}).click()`);
   await eventually(async () => deliveries.length === 1, "pending notification delivery");
   assert.equal(await page.evaluate(`(${button}).textContent`), "Sending…");
@@ -157,7 +164,7 @@ try {
   assert.equal(
     storage.conversations.unsent(artifact.id)[0]?.id,
     notes[0].id,
-    "A ping does not acknowledge the feedback snapshot",
+    "A ping does not acknowledge the discussions snapshot",
   );
   await eventually(
     () => other.evaluate(`(${button}).disabled && (${button}).title.startsWith('Already sent')`),
@@ -174,20 +181,20 @@ try {
   await page.command("Page.reload");
   await eventually(
     () => page.evaluate(`!!${button} && (${button}).title.startsWith('Already sent')`),
-    "receipt survives reload before the agent reads feedback",
+    "receipt survives reload before the agent reads discussions",
   );
   assert.equal(await page.evaluate(`!!(${navButton})`), false);
-  await page.evaluate("document.querySelector('[aria-label=\"Show feedback\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Show discussions\"]').click()");
   storage.conversations.claim([notes[0].id], listener.sessionId);
-  await storage.conversations.addReply(notes[0].id, {
+  await storage.conversations.addComment(notes[0].id, {
     actor: listener,
     body: "Agent is checking this",
     context: { versionSeq: null, representation: null },
   });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: notes[0].id,
+    discussionId: notes[0].id,
   });
   await eventually(
     () => page.evaluate("document.body.textContent.includes('Agent is checking this')"),
@@ -195,38 +202,44 @@ try {
   );
   await eventually(
     () => page.evaluate("document.body.textContent.includes('Agent · Review assistant')"),
-    "agent replies display the readable session name",
+    "agent comments display the readable session name",
   );
-  assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), true);
+  assert.equal(
+    await page.evaluate("!!document.querySelector('[data-discussions-attention]')"),
+    true,
+  );
   assert.equal(
     await page.evaluate(`(${button}).disabled`),
     true,
-    "Agent replies and claims do not enable another ping",
+    "Agent comments and claims do not enable another ping",
   );
-  storage.conversations.edit(notes[0].id, { actor, body: "Updated human feedback" });
+  storage.conversations.edit(notes[0].id, { actor, body: "Updated human discussions" });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: notes[0].id,
+    discussionId: notes[0].id,
   });
   await eventually(() => page.evaluate(`!(${button}).disabled`), "human edit enables Send");
   await page.evaluate(`(${button}).click()`);
   await eventually(async () => deliveries.length === 1, "second ping pending");
-  const reply = await storage.conversations.addReply(notes[0].id, {
+  const comment = await storage.conversations.addComment(notes[0].id, {
     actor,
     body: "More input during delivery",
     context: { versionSeq: null, representation: null },
   });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: notes[0].id,
+    discussionId: notes[0].id,
   });
   await eventually(
     () => page.evaluate("document.body.textContent.includes('More input during delivery')"),
-    "concurrent human reply",
+    "concurrent human comment",
   );
-  assert.equal(await page.evaluate("!!document.querySelector('[data-feedback-attention]')"), false);
+  assert.equal(
+    await page.evaluate("!!document.querySelector('[data-discussions-attention]')"),
+    false,
+  );
   deliveries.shift()!.accept();
   await eventually(
     () => page.evaluate(`!(${button}).disabled`),
@@ -260,32 +273,32 @@ try {
     () => page.evaluate(`(${button}).textContent === 'Sent' && (${button}).disabled`),
     "successful retry",
   );
-  storage.conversations.editReply(reply.id, { actor, body: "Edited human reply" });
+  storage.conversations.editComment(comment.id, { actor, body: "Edited human comment" });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: notes[0].id,
+    discussionId: notes[0].id,
   });
   await eventually(
     () => page.evaluate(`!(${button}).disabled`),
-    "human reply edit enables Send during Sent flash",
+    "human comment edit enables Send during Sent flash",
   );
   await page.evaluate(`(${button}).click()`);
   await eventually(async () => deliveries.length === 1, "older tab submission");
   const extra = await storage.conversations.add(artifact.id, {
     actor,
-    body: "New feedback while another tab sends",
+    body: "New discussions while another tab sends",
     target: { kind: "artifact" },
   });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: extra.id,
+    discussionId: extra.id,
   });
   await eventually(
     () =>
       other.evaluate(
-        `!(${button}).disabled && document.body.textContent.includes('New feedback while another tab sends')`,
+        `!(${button}).disabled && document.body.textContent.includes('New discussions while another tab sends')`,
       ),
     "new input in the other tab",
   );
@@ -311,13 +324,13 @@ try {
   const waiting = api.collaboration.watch(artifact.id, listener);
   const generic = await storage.conversations.add(artifact.id, {
     actor,
-    body: "Feedback for a generic agent",
+    body: "Discussion for a generic agent",
     target: { kind: "artifact" },
   });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: generic.id,
+    discussionId: generic.id,
   });
   await eventually(
     () =>
@@ -325,7 +338,7 @@ try {
     "generic watcher receives human input",
   );
   await page.evaluate(`(${button}).click()`);
-  assert.deepEqual(await waiting, { result: "feedback" });
+  assert.deepEqual(await waiting, { result: "discussions" });
   await eventually(
     () => page.evaluate(`(${button}).textContent === 'Sent' && (${button}).disabled`),
     "generic watch handoff confirms Sent",
@@ -340,9 +353,9 @@ try {
   });
   storage.conversations.edit(agentNote.id, { actor, status: "resolved" });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: agentNote.id,
+    discussionId: agentNote.id,
   });
   await eventually(
     () =>
@@ -358,11 +371,11 @@ try {
   );
   storage.conversations.edit(agentNote.id, { actor: listener, body: "Agent edits its own note" });
   api.collaboration.broadcast({
-    type: "feedback-updated",
+    type: "discussions-updated",
     artifactId: artifact.id,
-    feedbackId: agentNote.id,
+    discussionId: agentNote.id,
   });
-  await page.evaluate("document.querySelector('[data-feedback-tab=resolved]').click()");
+  await page.evaluate("document.querySelector('[data-discussions-tab=resolved]').click()");
   await eventually(
     () => page.evaluate("document.body.textContent.includes('Agent edits its own note')"),
     "agent body edit reaches the browser",
@@ -376,9 +389,9 @@ try {
   for (const status of ["open", "resolved"] as const) {
     storage.conversations.edit(agentNote.id, { actor, status });
     api.collaboration.broadcast({
-      type: "feedback-updated",
+      type: "discussions-updated",
       artifactId: artifact.id,
-      feedbackId: agentNote.id,
+      discussionId: agentNote.id,
     });
     await eventually(
       () => page.evaluate(`!(${button}).disabled`),
@@ -392,23 +405,23 @@ try {
       "repeated status sent",
     );
   }
-  for (const body of ["A changed reply", "Edited human reply"]) {
-    storage.conversations.editReply(reply.id, { actor, body });
+  for (const body of ["A changed comment", "Edited human comment"]) {
+    storage.conversations.editComment(comment.id, { actor, body });
     api.collaboration.broadcast({
-      type: "feedback-updated",
+      type: "discussions-updated",
       artifactId: artifact.id,
-      feedbackId: notes[0].id,
+      discussionId: notes[0].id,
     });
     await eventually(
       () => page.evaluate(`!(${button}).disabled`),
-      "reverting to previously sent reply text remains new input",
+      "reverting to previously sent comment text remains new input",
     );
     await page.evaluate(`(${button}).click()`);
-    await eventually(async () => deliveries.length === 1, "repeated reply text ping");
+    await eventually(async () => deliveries.length === 1, "repeated comment text ping");
     deliveries.shift()!.accept();
     await eventually(
       () => page.evaluate(`(${button}).textContent === 'Sent'`),
-      "repeated reply text sent",
+      "repeated comment text sent",
     );
   }
   for (const unavailable of [true, false]) {
@@ -432,7 +445,7 @@ try {
     );
     assert.equal(
       await page.evaluate(
-        "Object.values(JSON.parse(localStorage.getItem('r3-feedback-notifications') ?? '{}')).flatMap(entry=>entry.delivered?.hashes ?? []).every(hash=>/^[a-f0-9]{64}$/.test(hash))",
+        "Object.values(JSON.parse(localStorage.getItem('r3-discussions-notifications') ?? '{}')).flatMap(entry=>entry.delivered?.hashes ?? []).every(hash=>/^[a-f0-9]{64}$/.test(hash))",
       ),
       true,
       "Fallback inputs never enter persistent storage",
@@ -447,19 +460,19 @@ try {
     "unwatched artifacts offer the fetch command despite prior notification receipts",
   );
   const pendingBeforeCopy = storage.conversations.unsent(artifact.id);
-  const feedbackReadRequestsBeforeCopy = feedbackReadRequests;
-  await page.evaluate("document.querySelector('[aria-label=\"Hide feedback\"]').click()");
+  const discussionReadRequestsBeforeCopy = discussionReadRequests;
+  await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
   await eventually(
     () => page.evaluate(`getComputedStyle(${navButton}).visibility === 'visible'`),
-    "navbar handoff returns when feedback is hidden",
+    "navbar handoff returns when discussion is hidden",
   );
   await page.evaluate(`(${navButton}).click()`);
   const popup =
-    "document.querySelector('[role=dialog][aria-label=\"Read feedback in your agent\"]')";
+    "document.querySelector('[role=dialog][aria-label=\"Read discussions in your agent\"]')";
   await eventually(() => page.evaluate(`!!${popup}`), "command popover");
   assert.equal(
     await page.evaluate(`(${popup}).querySelector('div > code').textContent`),
-    `r3 feedback fetch ${artifact.id}`,
+    `r3 discussions fetch ${artifact.id}`,
   );
   assert.equal(
     await page.evaluate("document.activeElement.getAttribute('aria-label')"),
@@ -476,12 +489,12 @@ try {
       ),
     "copy confirmation",
   );
-  assert.equal(await page.evaluate("window.copiedCommand"), `r3 feedback fetch ${artifact.id}`);
+  assert.equal(await page.evaluate("window.copiedCommand"), `r3 discussions fetch ${artifact.id}`);
   assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
   assert.equal(
-    feedbackReadRequests,
-    feedbackReadRequestsBeforeCopy,
-    "copying makes no feedback read or acknowledgment requests",
+    discussionReadRequests,
+    discussionReadRequestsBeforeCopy,
+    "copying makes no discussions read or acknowledgment requests",
   );
   await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape" });
   await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape" });
@@ -496,8 +509,8 @@ try {
     mobile: true,
   });
   const mobileToggle =
-    "[...document.querySelectorAll('button')].find(button=>/^Feedback\\s*·.*open$/.test(button.textContent))";
-  await eventually(() => page.evaluate(`!!(${mobileToggle})`), "phone feedback control");
+    "[...document.querySelectorAll('button')].find(button=>/^Discussion\\s*·.*open$/.test(button.textContent))";
+  await eventually(() => page.evaluate(`!!(${mobileToggle})`), "phone discussions control");
   await page.evaluate(`(${mobileToggle}).click()`);
   await page.evaluate(`(${button}).click()`);
   await eventually(() => page.evaluate(`!!${popup}`), "phone command popover");
@@ -515,7 +528,7 @@ try {
     "copy failure keeps a selectable command",
   );
   assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
-  assert.equal(feedbackReadRequests, feedbackReadRequestsBeforeCopy);
+  assert.equal(discussionReadRequests, discussionReadRequestsBeforeCopy);
   const subscription = api.collaboration.register(
     artifact.id,
     listener,
@@ -542,7 +555,7 @@ try {
     "reconnection clears the visible error",
   );
   console.log(
-    "Notification delivery and command copying preserve pending feedback; command popovers work on desktop and mobile.",
+    "Notification delivery and command copying preserve pending discussions; command popovers work on desktop and mobile.",
   );
 } finally {
   for (const delivery of deliveries) delivery.reject(new Error("Test ended"));

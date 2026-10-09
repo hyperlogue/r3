@@ -29,12 +29,12 @@ export async function runUsageCommand(
         `Usage · ${stats.timezone} · as of ${stats.asOf}`,
         `Artifacts: ${a.total} (${a.active} active, ${a.archived} archived; ${a.files} files, ${a.html} HTML, ${a.diff} diff)`,
         `Published versions: ${stats.versions}`,
-        `Conversations: ${c.open} open, ${c.resolved} resolved, ${c.replies} replies`,
+        `Conversations: ${c.open} open, ${c.resolved} resolved, ${c.comments} comments`,
         `Content: ${bytes(stats.contentBytes)} (deduplicated; excludes disk overhead)`,
         `Cleanup: ${stats.gc.eligibleArtifacts} eligible · ${bytes(stats.gc.reclaimableBytes)} reclaimable content · TTL ${stats.gc.ttlDays} days`,
         "",
         `${stats.window === "daily" ? "Last 14 days" : "Last 4 weeks"} · ${stats.timezone}`,
-        "Period       Created  Published  Threads  Replies  Archived  Restored",
+        "Period       Created  Published  Threads  Comments  Archived  Restored",
         ...stats.periods.map(
           (period) =>
             `${period.start}  ${ACTIVITY_METRICS.map((metric) => String(period[metric]).padStart(7)).join("  ")}${period.partial ? "  (in progress)" : ""}${period.incompleteHistory ? "  [partial history]" : ""}`,

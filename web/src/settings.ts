@@ -61,31 +61,32 @@ export function setFontSize(px: number): void {
   font.set(clampFont(px));
 }
 
-// ---- feedback panel mode (desktop) ----
+// ---- discussions panel mode (desktop) ----
 
 // Expanded reserves content space; floating overlays it; hidden reserves no space.
 // Keep the existing storage key to retain old collapsed preferences ("1").
 // Mobile uses its own sheet without changing this global display preference.
-export type FeedbackPanelMode = "hidden" | "expanded" | "floating";
-const feedbackMode = persistedStore<FeedbackPanelMode>("r3-feedback-collapsed", {
+export type DiscussionPanelMode = "hidden" | "expanded" | "floating";
+const discussionMode = persistedStore<DiscussionPanelMode>("r3-feedback-collapsed", {
   load: (raw) =>
     raw === "1" || raw === "hidden" ? "hidden" : raw === "floating" ? "floating" : "expanded",
   save: (mode) => (mode === "expanded" ? null : mode),
 });
-export const useFeedbackMode = feedbackMode.use;
-const feedbackOpenMode = persistedStore<Exclude<FeedbackPanelMode, "hidden">>(
+export const useDiscussionMode = discussionMode.use;
+const discussionOpenMode = persistedStore<Exclude<DiscussionPanelMode, "hidden">>(
   "r3-feedback-open-mode",
   {
     load: (raw) =>
-      feedbackMode.get() === "floating" || (feedbackMode.get() === "hidden" && raw === "floating")
+      discussionMode.get() === "floating" ||
+      (discussionMode.get() === "hidden" && raw === "floating")
         ? "floating"
         : "expanded",
   },
 );
-export function setFeedbackMode(mode: FeedbackPanelMode): void {
-  if (mode !== "hidden") feedbackOpenMode.set(mode);
-  feedbackMode.set(mode);
+export function setDiscussionMode(mode: DiscussionPanelMode): void {
+  if (mode !== "hidden") discussionOpenMode.set(mode);
+  discussionMode.set(mode);
 }
-export function showFeedbackPanel(): void {
-  setFeedbackMode(feedbackOpenMode.get());
+export function showDiscussionPanel(): void {
+  setDiscussionMode(discussionOpenMode.get());
 }

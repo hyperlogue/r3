@@ -90,7 +90,7 @@ const ROW_GRID =
 const SPLIT_ROW_GRID =
   "grid min-w-full [--gutter-w:3rem] max-md:[--gutter-w:2.25rem] grid-cols-[var(--gutter-w)_1fr] font-mono text-xs";
 
-// One gutter line-number cell: click to anchor feedback on that line, drag to
+// One gutter line-number cell: click to anchor discussions on that line, drag to
 // extend. Empty (no number on this side) cells are inert. `selected` is
 // precomputed by the parent from the live selection (a boolean, so memoized rows
 // don't re-render on unrelated drag steps).
@@ -235,7 +235,7 @@ const Row = memo(function Row({
   const gutterBg = GUTTER_BG[ln.type];
   return (
     <div
-      className={cn(ROW_GRID, ROW_BG[ln.type], fbId && "r3-feedback-region")}
+      className={cn(ROW_GRID, ROW_BG[ln.type], fbId && "r3-discussions-region")}
       data-line={line ?? undefined}
       data-side={side}
       data-old-line={ln.oldLine ?? undefined}
@@ -415,7 +415,7 @@ const SplitHalfRow = memo(function SplitHalfRow({
   const line = side === "old" ? ln.oldLine : ln.newLine;
   return (
     <div
-      className={cn(SPLIT_ROW_GRID, ROW_BG[ln.type], fbId && "r3-feedback-region")}
+      className={cn(SPLIT_ROW_GRID, ROW_BG[ln.type], fbId && "r3-discussions-region")}
       data-line={line ?? undefined}
       data-side={side}
       data-fb-id={fbId}
@@ -539,7 +539,7 @@ function DiffFileBody({
         const cur = prev[gap.key] ?? { top: [], bottom: [] };
         // Re-check the edge lengths inside the updater: between the fetch
         // resolving and this commit a second click could have landed, and
-        // appending both replies would duplicate rows.
+        // appending both comments would duplicate rows.
         if (
           cur.top.length !== (reveal[gap.key]?.top.length ?? 0) ||
           cur.bottom.length !== (reveal[gap.key]?.bottom.length ?? 0)
@@ -747,7 +747,7 @@ const FileBlock = memo(function FileBlock({
   fetchContext,
   toggle,
   onPickLines,
-  onFileFeedback,
+  onFileDiscussion,
   foldSignal,
   regions,
   locate,
@@ -771,9 +771,9 @@ const FileBlock = memo(function FileBlock({
   toggle?: (key: string) => void;
   onPickLines: PickLines;
   // Open the composer anchored to this whole file within this round (no span).
-  onFileFeedback?: (file: string, patchSeq: number) => void;
+  onFileDiscussion?: (file: string, patchSeq: number) => void;
   foldSignal?: FoldSignal | null;
-  // This file's unresolved-feedback spans; empty when none. A primitive `fbId`
+  // This file's unresolved-discussions spans; empty when none. A primitive `fbId`
   // is derived per row so memoized rows don't re-render on unrelated region
   // changes.
   regions: Region[];
@@ -811,7 +811,7 @@ const FileBlock = memo(function FileBlock({
       stats={stats}
       viewed={viewed}
       onToggleViewed={toggle ? () => toggle(diffViewedKey(patchSeq, f.path)) : undefined}
-      onFileFeedback={onFileFeedback ? () => onFileFeedback(f.path, patchSeq) : undefined}
+      onFileDiscussion={onFileDiscussion ? () => onFileDiscussion(f.path, patchSeq) : undefined}
       autoFold={f.lines.length > AUTOFOLD_ROWS}
       current={current}
       foldSignal={foldSignal}
@@ -848,7 +848,7 @@ export function DiffView({
   fetchContext,
   toggle,
   onPickLines,
-  onFileFeedback,
+  onFileDiscussion,
   foldSignal,
   regions = NO_REGIONS,
   locate,
@@ -872,12 +872,12 @@ export function DiffView({
   // FileBlocks don't all re-render when it moves.
   currentPath?: string | null;
   onPickLines: PickLines;
-  // Called from a file header's feedback button to anchor a note to the whole
+  // Called from a file header's discussions button to anchor a note to the whole
   // file within the given patch (no line span).
-  onFileFeedback?: (file: string, patchSeq: number) => void;
+  onFileDiscussion?: (file: string, patchSeq: number) => void;
   // The pane toolbar's fold/unfold-all broadcast, passed through to every file.
   foldSignal?: FoldSignal | null;
-  // Open feedback spans to wash onto matching source/diff rows.
+  // Open discussions spans to wash onto matching source/diff rows.
   regions?: Region[];
   locate?: DiffLocate;
   // ProgressiveFile's reset signal for the bodies below: whatever identifies the
@@ -948,7 +948,7 @@ export function DiffView({
               fetchContext={fetchContext}
               toggle={toggle}
               onPickLines={onPickLines}
-              onFileFeedback={onFileFeedback}
+              onFileDiscussion={onFileDiscussion}
               foldSignal={foldSignal}
               regions={byFile.get(f.path) ?? NO_REGIONS}
               locate={locate?.path === f.path ? locate : undefined}

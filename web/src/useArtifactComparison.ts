@@ -8,17 +8,17 @@ export function useArtifactComparison(
   syncLocation: boolean,
 ) {
   const comparisons = useMemo(() => artifactComparisons(detail), [detail]);
-  const [replyId, setReplyId] = useState<string | null>(() =>
+  const [commentId, setCommentId] = useState<string | null>(() =>
     new URLSearchParams(initialSearch).get("compare"),
   );
-  const active = replyId !== null;
-  const [retainedId, setRetainedId] = useState(replyId);
+  const active = commentId !== null;
+  const [retainedId, setRetainedId] = useState(commentId);
   const trigger = useRef<HTMLElement | null>(null);
   const scroll = useRef<{ node: HTMLElement; top: number }[]>([]);
-  if (replyId && replyId !== retainedId) setRetainedId(replyId);
+  if (commentId && commentId !== retainedId) setRetainedId(commentId);
   const remember = useCallback(() => {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    scroll.current = [...document.querySelectorAll<HTMLElement>("[data-feedback-queue]")].map(
+    scroll.current = [...document.querySelectorAll<HTMLElement>("[data-discussions-queue]")].map(
       (node) => ({ node, top: node.scrollTop }),
     );
   }, []);
@@ -26,12 +26,12 @@ export function useArtifactComparison(
     if (!syncLocation) return;
     const restore = () => {
       const next = new URLSearchParams(location.search).get("compare");
-      if (next && !replyId) remember();
-      setReplyId(next);
+      if (next && !commentId) remember();
+      setCommentId(next);
     };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, [replyId, remember, syncLocation]);
+  }, [commentId, remember, syncLocation]);
   useEffect(() => {
     if (active) return;
     const frame = requestAnimationFrame(() => {
@@ -58,14 +58,14 @@ export function useArtifactComparison(
           history.replaceState({ ...history.state, r3Comparison: history.length }, "", url);
         }
       }
-      setReplyId(id);
+      setCommentId(id);
     },
     [active, comparisons, remember, syncLocation],
   );
   const close = useCallback(
     (back = true) => {
       if (!active) return;
-      setReplyId(null);
+      setCommentId(null);
       if (!syncLocation) return;
       if (back && history.state?.r3Comparison === history.length) history.back();
       else {
@@ -79,7 +79,7 @@ export function useArtifactComparison(
   return {
     active,
     comparisons,
-    selected: comparisons.get(replyId ?? retainedId ?? "") ?? null,
+    selected: comparisons.get(commentId ?? retainedId ?? "") ?? null,
     retained: retainedId !== null,
     open,
     close,

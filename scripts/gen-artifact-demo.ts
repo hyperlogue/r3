@@ -11,11 +11,11 @@ import {
 import {
   type ArtifactActor,
   type ArtifactDetail,
+  type ArtifactDiscussion,
   type ArtifactDocumentTarget,
-  type ArtifactFeedback,
   type ArtifactKind,
   type ArtifactVersion,
-  isUnhandledArtifactFeedback,
+  isUnhandledArtifactDiscussion,
 } from "../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../web/demo/artifact-model.ts";
 import { demoStorageUsage, publicationKey } from "../web/demo/artifact-model.ts";
@@ -51,7 +51,7 @@ function artifact(id: string, kind: ArtifactKind, title: string): ArtifactDetail
     storage: { totalBytes: 0, latestVersionBytes: 0 },
     legacy: null,
     versions: [],
-    feedback: [],
+    discussions: [],
     placements: [],
     events: [],
   };
@@ -71,8 +71,8 @@ function version(
     label: seq === 1 ? "Initial publication" : "Clearer behavior",
     summary:
       seq === 1
-        ? "Select a line to start a conversation. Submit feedback to see a scripted agent reply and publish the next version."
-        : "The scripted agent published this complete version. Earlier content and native feedback targets remain available.",
+        ? "Select a line to start a conversation. Submit discussions to see a scripted agent comment and publish the next version."
+        : "The scripted agent published this complete version. Earlier content and native discussions targets remain available.",
     publishedBy: actor,
     provenance: { demo: true },
     createdAt: time,
@@ -159,18 +159,18 @@ async function diff(id: string, seq: number, patch: string): Promise<DemoPublica
   };
 }
 const docs = artifact("artifact_documents", "files", "Design a published workspace");
-const code = artifact("artifact_code", "diff", "Keep feedback on its original version");
+const code = artifact("artifact_code", "diff", "Keep discussions on its original version");
 const firstDocs = await files(docs.id, 1, {
   "index.md":
-    "# Published workspace\n\nAn artifact is a directory of files.\n\n## Versions\n\nAn agent publishes a complete directory after revising it.\nThe user can switch between published versions.\n\n## Feedback\n\nSelect source text to discuss a specific part of a document.\nReplies stay in the same thread.\n",
+    "# Published workspace\n\nAn artifact is a directory of files.\n\n## Versions\n\nAn agent publishes a complete directory after revising it.\nThe user can switch between published versions.\n\n## Discussion\n\nSelect source text to discuss a specific part of a document.\nComments stay in the same thread.\n",
   "decisions.txt":
-    "Files remain available when the publisher is offline.\nEach publication retains its own path membership.\nThe human decides when feedback is resolved.\n",
+    "Files remain available when the publisher is offline.\nEach publication retains its own path membership.\nThe human decides when discussion is resolved.\n",
 });
 const nextDocs = await files(docs.id, 2, {
   "index.md":
-    "# Published workspace\n\nAn artifact is a complete, versioned directory of files.\n\n## Versions\n\nAn agent publishes a complete directory after revising it.\nThe user can switch between published versions.\nPublishing does not change the version the user is reading.\n\n## Feedback\n\nSelect source text to discuss a specific part of a document.\nReplies stay in the same thread.\nLocate original returns to the publication where the thread began.\n",
+    "# Published workspace\n\nAn artifact is a complete, versioned directory of files.\n\n## Versions\n\nAn agent publishes a complete directory after revising it.\nThe user can switch between published versions.\nPublishing does not change the version the user is reading.\n\n## Discussion\n\nSelect source text to discuss a specific part of a document.\nComments stay in the same thread.\nLocate original returns to the publication where the thread began.\n",
   "decisions.txt":
-    "Files remain available when the publisher is offline.\nEach publication retains its own path membership.\nThe human decides when feedback is resolved.\nRendered selections and source selections keep separate native targets.\n",
+    "Files remain available when the publisher is offline.\nEach publication retains its own path membership.\nThe human decides when discussion is resolved.\nRendered selections and source selections keep separate native targets.\n",
 });
 const html = artifact("artifact_weekend", "html", "Curve lab — a little closer");
 const samplePaths = ["index.html", "details.html", "style.css"];
@@ -217,9 +217,9 @@ for (const [item, content] of [
 ] as const) {
   item.versions = [content.version];
   item.storage = demoStorageUsage([content]);
-  item.feedback = [
+  item.discussions = [
     {
-      id: `feedback_${item.id}`,
+      id: `discussion_${item.id}`,
       artifactId: item.id,
       author: actor,
       body:
@@ -263,7 +263,7 @@ for (const [item, content] of [
       updatedAt: time,
       sentAt: time,
       statusUnsent: false,
-      replies: [],
+      comments: [],
       claim: null,
     },
   ];
@@ -273,14 +273,14 @@ function seedThread(
   key: string,
   target: ArtifactDocumentTarget,
   messages: [ArtifactActor, string][],
-  status: ArtifactFeedback["status"] = "open",
+  status: ArtifactDiscussion["status"] = "open",
 ) {
-  const id = `feedback_${item.id}_${key}`;
+  const id = `discussion_${item.id}_${key}`;
   const stamp = (index: number) =>
-    new Date(Date.parse(time) + (item.feedback.length * 5 + index) * 60_000).toISOString();
+    new Date(Date.parse(time) + (item.discussions.length * 5 + index) * 60_000).toISOString();
   const [author, body] = messages[0];
   const updatedAt = stamp(messages.length - 1);
-  item.feedback.push({
+  item.discussions.push({
     id,
     artifactId: item.id,
     author,
@@ -293,9 +293,9 @@ function seedThread(
     sentAt: stamp(0),
     statusUnsent: false,
     claim: null,
-    replies: messages.slice(1).map(([author, body], index) => ({
-      id: `reply_${item.id}_${key}_${index + 1}`,
-      feedbackId: id,
+    comments: messages.slice(1).map(([author, body], index) => ({
+      id: `comment_${item.id}_${key}_${index + 1}`,
+      discussionId: id,
       artifactId: item.id,
       author,
       body,
@@ -412,7 +412,7 @@ seedThread(
   {
     kind: "diff",
     versionSeq: 1,
-    path: "feedback.ts",
+    path: "discussions.ts",
     locator: { side: "new", start: 13, end: 13, quote: "    version: latestVersion," },
   },
   [
@@ -422,7 +422,7 @@ seedThread(
     ],
     [
       human,
-      "Use the original target version for Locate. A reply can link to a fix in a newer version separately.",
+      "Use the original target version for Locate. A comment can link to a fix in a newer version separately.",
     ],
     [
       actor,
@@ -455,7 +455,7 @@ seedThread(
   "resolved",
 );
 for (const item of [docs, code, html])
-  item.unhandledCount = item.feedback.filter(isUnhandledArtifactFeedback).length;
+  item.unhandledCount = item.discussions.filter(isUnhandledArtifactDiscussion).length;
 const themes = listThemes();
 const palette = (await themeStyle()).css;
 const themeStyles = Object.fromEntries(

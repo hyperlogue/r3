@@ -12,13 +12,13 @@ test("demo diff excerpts retain and retrieve the complete native range", () => {
     const start = rows[0].newLine!;
     const end = rows.at(-1)!.newLine!;
     const quote = rows.find((row) => row.text.trim())!.text;
-    const note = backend.addFeedback(artifact.id, "Full range", {
+    const note = backend.addDiscussion(artifact.id, "Full range", {
       kind: "diff",
       versionSeq: 1,
       path: file.path,
       locator: { side: "new", start, end, quote },
     });
-    expect(backend.feedbackSource(note.id).text).toBe(rows.map((row) => row.text).join("\n"));
+    expect(backend.discussionSource(note.id).text).toBe(rows.map((row) => row.text).join("\n"));
     expect(backend.note(note.id).note.sentAt).toBeNull();
   } finally {
     backend.close();
@@ -30,12 +30,12 @@ test("demo targets match their published source and diff, and reads retain prior
   try {
     for (const artifact of backend.state.artifacts) {
       expect(backend.pending(artifact.id)).toEqual([]);
-      for (const note of artifact.feedback) {
+      for (const note of artifact.discussions) {
         backend.target(artifact.id, note.target);
         expect(note.sentAt).not.toBeNull();
-        for (const reply of note.replies) {
-          expect(reply.sentAt).not.toBeNull();
-          expect(reply.context).toEqual({
+        for (const comment of note.comments) {
+          expect(comment.sentAt).not.toBeNull();
+          expect(comment.context).toEqual({
             versionSeq: 1,
             representation: artifact.kind === "html" ? "rendered" : "diff",
           });
@@ -48,13 +48,13 @@ test("demo targets match their published source and diff, and reads retain prior
     expect(firstStorage.totalBytes).toBeGreaterThan(0);
     expect(firstStorage.latestVersionBytes).toBe(firstStorage.totalBytes);
     expect(() =>
-      backend.addFeedback(id, "Description note", {
+      backend.addDiscussion(id, "Description note", {
         kind: "version_summary",
         versionSeq: 1,
         locator: null,
       }),
     ).toThrow("read-only historical evidence");
-    const note = backend.addFeedback(id, "Keep the original version available", {
+    const note = backend.addDiscussion(id, "Keep the original version available", {
       kind: "artifact",
     });
     expect(backend.note(note.id).note.sentAt).toBeNull();
@@ -69,7 +69,7 @@ test("demo targets match their published source and diff, and reads retain prior
       backend.get(id).storage.latestVersionBytes,
     );
     expect(backend.publication(id, 1)).toEqual(first);
-    expect(backend.note(note.id).note.replies[0].context.versionSeq).toBe(2);
+    expect(backend.note(note.id).note.comments[0].context.versionSeq).toBe(2);
     expect(backend.note(note.id).note.status).toBe("open");
     expect(backend.note(note.id).note.claim).toBeNull();
     expect(backend.get(id).watching).toBe(true);
@@ -83,7 +83,7 @@ test("demo reset restores the seed and drops practice messages, images and pendi
   try {
     const id = backend.state.artifacts[0].id;
     const original = structuredClone(backend.state);
-    backend.addFeedback(id, "Temporary practice note", { kind: "artifact" });
+    backend.addDiscussion(id, "Temporary practice note", { kind: "artifact" });
     backend.images.set("practice-image", { artifactId: id, blob: new Blob(["practice"]) });
     backend.handoff(id);
     backend.reset();
@@ -97,13 +97,13 @@ test("demo reset restores the seed and drops practice messages, images and pendi
   }
 });
 
-test("demo archive retains unsent work and prevents in-flight replies and publication", async () => {
+test("demo archive retains unsent work and prevents in-flight comments and publication", async () => {
   const backend = new ArtifactDemoBackend();
   try {
     const id = backend.state.artifacts[0].id;
-    const note = backend.addFeedback(id, "Explain this", { kind: "artifact" });
+    const note = backend.addDiscussion(id, "Explain this", { kind: "artifact" });
     backend.handoff(id);
-    const pending = backend.addFeedback(id, "Keep this for later", { kind: "artifact" });
+    const pending = backend.addDiscussion(id, "Keep this for later", { kind: "artifact" });
     const command = {
       event: "archived" as const,
       operationKey: "archive-demo",
@@ -114,7 +114,7 @@ test("demo archive retains unsent work and prevents in-flight replies and public
     expect(backend.get(id).watching).toBe(false);
     await Bun.sleep(1900);
     expect(backend.get(id).versions).toHaveLength(1);
-    expect(backend.note(note.id).note.replies).toHaveLength(0);
+    expect(backend.note(note.id).note.comments).toHaveLength(0);
     expect(backend.note(pending.id).note.sentAt).toBeNull();
     backend.lifecycle(id, { event: "restored", operationKey: "restore-demo" });
     expect(backend.get(id).watching).toBe(false);

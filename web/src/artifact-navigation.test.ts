@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ArtifactTarget } from "../../shared/artifacts.ts";
-import { artifactFixture, artifactFixtureFeedback } from "./artifact-fixtures.ts";
+import { artifactFixture, artifactFixtureDiscussion } from "./artifact-fixtures.ts";
 import {
   artifactLocationSearch,
   artifactRegions,
@@ -24,8 +24,8 @@ test("Markdown defaults to rendered while explicit source links retain their nat
 test("artifact links retain native view and unusual path characters, while fixed kinds cannot switch representations", () => {
   const location = { versionSeq: 7, path: "notes/a # b?.md", representation: "rendered" as const };
   expect(
-    readArtifactLocation("files", artifactLocationSearch(location, "feedback_example")),
-  ).toEqual({ ...location, feedbackId: "feedback_example" });
+    readArtifactLocation("files", artifactLocationSearch(location, "discussion_example")),
+  ).toEqual({ ...location, discussionId: "discussion_example" });
   expect(readArtifactLocation("html", "?view=source").representation).toBe("rendered");
   expect(readArtifactLocation("diff", "?view=rendered").representation).toBe("diff");
   expect(readArtifactLocation("files", "?version=9007199254740992").versionSeq).toBeNull();
@@ -39,7 +39,7 @@ test("rendered threads gain source highlights only through an explicit anchored 
     ...artifactFixture,
     placements: [
       {
-        feedbackId: artifactFixtureFeedback.id,
+        discussionId: artifactFixtureDiscussion.id,
         artifactId: artifactFixture.id,
         target: {
           kind: "source" as const,
@@ -55,7 +55,7 @@ test("rendered threads gain source highlights only through an explicit anchored 
   };
   expect(artifactRegions(placed, 2, "source")).toEqual([
     {
-      id: artifactFixtureFeedback.id,
+      id: artifactFixtureDiscussion.id,
       file: "index.md",
       start: 4,
       end: 4,
@@ -65,7 +65,7 @@ test("rendered threads gain source highlights only through an explicit anchored 
   ]);
   expect(artifactRegions(placed, 1, "source")).toEqual([]);
   expect(visibleArtifactTargets(placed, 1, "rendered")[0].target as ArtifactTarget).toBe(
-    artifactFixtureFeedback.target,
+    artifactFixtureDiscussion.target,
   );
   expect(
     artifactRegions(
@@ -85,7 +85,7 @@ test("search entry locations survive reload but clear on an explicit view change
     versionSeq: 2,
     path: "notes.txt",
     representation: "source" as const,
-    feedbackId: null,
+    discussionId: null,
   };
   const original = "?version=2&file=notes.txt&view=source&line=81&library=%3Fq%3Dkeyboard";
   const retained = new URLSearchParams(artifactWorkspaceSearch(view, original));

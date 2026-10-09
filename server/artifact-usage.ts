@@ -99,9 +99,9 @@ export class ArtifactUsageStore {
       artifacts,
       versions: count("SELECT count(*) AS n FROM artifact_versions WHERE published_at IS NOT NULL"),
       conversations: {
-        open: count("SELECT count(*) AS n FROM feedback WHERE status='open'"),
-        resolved: count("SELECT count(*) AS n FROM feedback WHERE status='resolved'"),
-        replies: count("SELECT count(*) AS n FROM replies"),
+        open: count("SELECT count(*) AS n FROM discussions WHERE status='open'"),
+        resolved: count("SELECT count(*) AS n FROM discussions WHERE status='resolved'"),
+        comments: count("SELECT count(*) AS n FROM comments"),
       },
       contentBytes: this.bytes(),
       gc: {

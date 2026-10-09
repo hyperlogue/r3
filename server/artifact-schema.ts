@@ -6,7 +6,7 @@ import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 12;
+export const ARTIFACT_SCHEMA_VERSION = 13;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -55,7 +55,7 @@ CREATE TABLE artifacts (
   created_by TEXT NOT NULL CHECK (created_by IN ('human', 'agent')),
   creator_session_id TEXT REFERENCES agent_sessions(id),
   next_seq INTEGER NOT NULL DEFAULT 1 CHECK (next_seq >= 1),
-  feedback_revision INTEGER NOT NULL DEFAULT 0 CHECK (feedback_revision >= 0),
+  discussion_revision INTEGER NOT NULL DEFAULT 0 CHECK (discussion_revision >= 0),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   archived_at TEXT,
@@ -66,7 +66,7 @@ CREATE TABLE artifacts (
          (state = 'archived' AND archived_at IS NOT NULL))
 ) STRICT;
 
--- Archive/restore history is separate from open/resolved feedback.
+-- Archive/restore history is separate from open/resolved discussions.
 -- Local delivery registrations live in separate private tables.
 CREATE TABLE artifact_events (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,7 +150,7 @@ CREATE TABLE version_files (
 
 -- target_kind also identifies the representation. NULL locator = whole
 -- document/summary; object locator = a native range, quote, or element selector.
-CREATE TABLE feedback (
+CREATE TABLE discussions (
   id TEXT PRIMARY KEY NOT NULL,
   artifact_id TEXT NOT NULL,
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
@@ -197,9 +197,9 @@ CREATE TABLE feedback (
   )
 ) STRICT;
 
-CREATE TABLE replies (
+CREATE TABLE comments (
   id TEXT PRIMARY KEY NOT NULL,
-  feedback_id TEXT NOT NULL,
+  discussion_id TEXT NOT NULL,
   artifact_id TEXT NOT NULL,
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
   author TEXT NOT NULL CHECK (author IN ('human', 'agent')),
@@ -220,8 +220,8 @@ CREATE TABLE replies (
   sent_at TEXT,
   CHECK ((author = 'human' AND agent_session_id IS NULL) OR
          (author = 'agent' AND agent_session_id IS NOT NULL)),
-  FOREIGN KEY (feedback_id, artifact_id, artifact_kind)
-    REFERENCES feedback(id, artifact_id, artifact_kind) ON DELETE CASCADE,
+  FOREIGN KEY (discussion_id, artifact_id, artifact_kind)
+    REFERENCES discussions(id, artifact_id, artifact_kind) ON DELETE CASCADE,
   FOREIGN KEY (artifact_id, context_version_seq)
     REFERENCES artifact_versions(artifact_id, seq) DEFERRABLE INITIALLY DEFERRED,
   FOREIGN KEY (artifact_id, target_version_seq)
@@ -248,10 +248,10 @@ CREATE TABLE replies (
   )
 ) STRICT;
 
--- Native original targets remain on feedback. This table is for additional
+-- Native original targets remain on discussions. This table is for additional
 -- document placements; artifact/summary notes do not need a document placement.
-CREATE TABLE feedback_placements (
-  feedback_id TEXT NOT NULL,
+CREATE TABLE discussion_placements (
+  discussion_id TEXT NOT NULL,
   artifact_id TEXT NOT NULL,
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
   version_seq INTEGER NOT NULL,
@@ -263,9 +263,9 @@ CREATE TABLE feedback_placements (
       CASE WHEN json_valid(locator_json) THEN json_type(locator_json) = 'object' ELSE 0 END),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (feedback_id, version_seq, document_path, representation),
-  FOREIGN KEY (feedback_id, artifact_id, artifact_kind)
-    REFERENCES feedback(id, artifact_id, artifact_kind) ON DELETE CASCADE,
+  PRIMARY KEY (discussion_id, version_seq, document_path, representation),
+  FOREIGN KEY (discussion_id, artifact_id, artifact_kind)
+    REFERENCES discussions(id, artifact_id, artifact_kind) ON DELETE CASCADE,
   FOREIGN KEY (artifact_id, version_seq)
     REFERENCES artifact_versions(artifact_id, seq) DEFERRABLE INITIALLY DEFERRED,
   CHECK (match_state = 'anchored' OR locator_json IS NULL),
@@ -276,8 +276,8 @@ CREATE TABLE feedback_placements (
   )
 ) STRICT;
 
-CREATE TABLE feedback_claims (
-  feedback_id TEXT PRIMARY KEY NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
+CREATE TABLE discussion_claims (
+  discussion_id TEXT PRIMARY KEY NOT NULL REFERENCES discussions(id) ON DELETE CASCADE,
   agent_session_id TEXT NOT NULL REFERENCES agent_sessions(id),
   claimed_at TEXT NOT NULL,
   renewed_at TEXT NOT NULL,
@@ -321,16 +321,16 @@ CREATE INDEX versions_by_sequence
 CREATE INDEX versions_by_publisher ON artifact_versions(publisher_session_id);
 CREATE INDEX files_by_blob ON version_files(blob_hash);
 CREATE INDEX files_by_rendered_blob ON version_files(rendered_blob_hash);
-CREATE INDEX feedback_by_artifact ON feedback(artifact_id, status, created_at);
-CREATE INDEX feedback_by_version ON feedback(artifact_id, target_version_seq);
-CREATE INDEX feedback_by_agent ON feedback(agent_session_id);
-CREATE INDEX replies_by_feedback ON replies(feedback_id, created_at);
-CREATE INDEX replies_by_agent ON replies(agent_session_id);
-CREATE INDEX replies_by_context ON replies(artifact_id, context_version_seq);
-CREATE INDEX replies_by_target ON replies(artifact_id, target_version_seq);
-CREATE INDEX placements_by_version ON feedback_placements(artifact_id, version_seq);
-CREATE INDEX claims_by_expiry ON feedback_claims(expires_at);
-CREATE INDEX claims_by_agent ON feedback_claims(agent_session_id);
+CREATE INDEX discussion_by_artifact ON discussions(artifact_id, status, created_at);
+CREATE INDEX discussion_by_version ON discussions(artifact_id, target_version_seq);
+CREATE INDEX discussion_by_agent ON discussions(agent_session_id);
+CREATE INDEX comments_by_discussions ON comments(discussion_id, created_at);
+CREATE INDEX comments_by_agent ON comments(agent_session_id);
+CREATE INDEX comments_by_context ON comments(artifact_id, context_version_seq);
+CREATE INDEX comments_by_target ON comments(artifact_id, target_version_seq);
+CREATE INDEX placements_by_version ON discussion_placements(artifact_id, version_seq);
+CREATE INDEX claims_by_expiry ON discussion_claims(expires_at);
+CREATE INDEX claims_by_agent ON discussion_claims(agent_session_id);
 CREATE INDEX sessions_by_token ON auth_sessions(token_id);
 
 CREATE TRIGGER artifact_kind_is_immutable
@@ -422,41 +422,41 @@ BEFORE DELETE ON version_files WHEN EXISTS (
   SELECT RAISE(ABORT, 'version files are retained with the artifact');
 END;
 
-CREATE TRIGGER feedback_original_target_is_immutable
+CREATE TRIGGER discussion_original_target_is_immutable
 BEFORE UPDATE OF artifact_id, artifact_kind, author, agent_session_id, target_kind, target_version_seq,
-  target_path, locator_json, legacy_anchor_json ON feedback BEGIN
+  target_path, locator_json, legacy_anchor_json ON discussions BEGIN
   SELECT RAISE(ABORT, 'record a placement instead of changing the original target');
 END;
 
-CREATE TRIGGER reply_references_are_immutable
-BEFORE UPDATE OF feedback_id, artifact_id, artifact_kind, author, agent_session_id,
+CREATE TRIGGER comment_references_are_immutable
+BEFORE UPDATE OF discussion_id, artifact_id, artifact_kind, author, agent_session_id,
   context_version_seq, context_representation, target_kind, target_version_seq,
-  target_path, locator_json, legacy_reference_json ON replies BEGIN
-  SELECT RAISE(ABORT, 'reply reference context is immutable');
+  target_path, locator_json, legacy_reference_json ON comments BEGIN
+  SELECT RAISE(ABORT, 'comment reference context is immutable');
 END;
 
-CREATE TRIGGER feedback_references_published_content
-BEFORE INSERT ON feedback WHEN NEW.target_version_seq IS NOT NULL BEGIN
+CREATE TRIGGER discussion_references_published_content
+BEFORE INSERT ON discussions WHEN NEW.target_version_seq IS NOT NULL BEGIN
   SELECT CASE WHEN NOT EXISTS (
     SELECT 1 FROM artifact_versions WHERE artifact_id = NEW.artifact_id
       AND seq = NEW.target_version_seq AND published_at IS NOT NULL
-  ) THEN RAISE(ABORT, 'feedback target must name a published version') END;
+  ) THEN RAISE(ABORT, 'discussions target must name a published version') END;
 END;
 
-CREATE TRIGGER reply_references_published_content
-BEFORE INSERT ON replies BEGIN
+CREATE TRIGGER comment_references_published_content
+BEFORE INSERT ON comments BEGIN
   SELECT CASE WHEN NEW.context_version_seq IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM artifact_versions WHERE artifact_id = NEW.artifact_id
       AND seq = NEW.context_version_seq AND published_at IS NOT NULL
-  ) THEN RAISE(ABORT, 'reply context must name a published version') END;
+  ) THEN RAISE(ABORT, 'comment context must name a published version') END;
   SELECT CASE WHEN NEW.target_version_seq IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM artifact_versions WHERE artifact_id = NEW.artifact_id
       AND seq = NEW.target_version_seq AND published_at IS NOT NULL
-  ) THEN RAISE(ABORT, 'reply target must name a published version') END;
+  ) THEN RAISE(ABORT, 'comment target must name a published version') END;
 END;
 
 CREATE TRIGGER placement_references_published_content
-BEFORE INSERT ON feedback_placements BEGIN
+BEFORE INSERT ON discussion_placements BEGIN
   SELECT CASE WHEN NOT EXISTS (
     SELECT 1 FROM artifact_versions WHERE artifact_id = NEW.artifact_id
       AND seq = NEW.version_seq AND published_at IS NOT NULL
@@ -464,8 +464,8 @@ BEFORE INSERT ON feedback_placements BEGIN
 END;
 
 CREATE TRIGGER placement_identity_is_immutable
-BEFORE UPDATE OF feedback_id, artifact_id, artifact_kind, version_seq,
-  document_path, representation ON feedback_placements BEGIN
+BEFORE UPDATE OF discussion_id, artifact_id, artifact_kind, version_seq,
+  document_path, representation ON discussion_placements BEGIN
   SELECT RAISE(ABORT, 'replace a placement instead of changing its identity');
 END;
 

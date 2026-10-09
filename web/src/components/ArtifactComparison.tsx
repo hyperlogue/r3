@@ -124,7 +124,7 @@ export function ArtifactComparison({
               )}
             >
               <ComparisonPreview
-                key={`${comparison.replyId}:${name}`}
+                key={`${comparison.commentId}:${name}`}
                 detail={detail}
                 target={comparison[name]}
                 label={name === "original" ? "Original" : "Proposed fix"}
@@ -140,7 +140,7 @@ export function ArtifactComparison({
         </div>
       ) : (
         <p role="status" className="p-6 text-sm text-neutral-500">
-          This comparison is no longer available. Return to the artifact to read its feedback.
+          This comparison is no longer available. Return to the artifact to read its discussions.
         </p>
       )}
     </section>
@@ -248,7 +248,7 @@ function ComparisonPreview({
               targets: [],
               onTarget: () => {},
               onDocument: setPath,
-              onFeedback: () => {},
+              onDiscussion: () => {},
               active,
               highlightLocated: targets,
               onLocated: setState,

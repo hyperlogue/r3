@@ -27,7 +27,7 @@ export function MessageProse({
     },
     [onJumpRef],
   );
-  // Parse once per distinct source — a card re-renders on every reply keystroke,
+  // Parse once per distinct source — a card re-renders on every comment keystroke,
   // and re-parsing the whole thread's Markdown each time would be wasteful. The
   // memo must return the `{__html}` wrapper object itself, not just the string:
   // React 19 re-sets innerHTML on every commit whenever that object's identity
@@ -141,7 +141,7 @@ export function useQuoteBubble(
   subRef.current.isEligible = isEligible;
   subRef.current.setPos = setPos;
   useEffect(() => retainQuoteSub(subRef.current), []);
-  // The global dismiss listeners attach only while a bubble is up: every feedback
+  // The global dismiss listeners attach only while a bubble is up: every discussions
   // card runs this hook, so idle cards must cost zero document/scroll listeners
   // (N cards would otherwise each re-check the selection on every caret move).
   useEffect(() => {

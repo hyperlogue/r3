@@ -1,9 +1,9 @@
 import { type ReactNode, useCallback, useRef, useState } from "react";
-import type { FeedbackPanelMode } from "../settings.ts";
+import type { DiscussionPanelMode } from "../settings.ts";
 import { cn, StrokeIcon, useResizableWidth } from "../ui.tsx";
-import { useFeedbackPanelMotion } from "../useFeedbackPanelMotion.ts";
+import { useDiscussionPanelMotion } from "../useDiscussionPanelMotion.ts";
 import { type PanelEdge, useFloatingPanel } from "../useFloatingPanel.ts";
-import { FeedbackPanelControls } from "./FeedbackPanelControls.tsx";
+import { DiscussionPanelControls } from "./DiscussionPanelControls.tsx";
 
 const edges: [PanelEdge, string][] = [
   ["n", "inset-x-2 -top-1 h-2 cursor-n-resize"],
@@ -17,15 +17,15 @@ const edges: [PanelEdge, string][] = [
 ];
 
 // Desktop container only. The mobile sheet owns its geometry and gestures.
-export function ArtifactFeedbackPanel({
+export function ArtifactDiscussionPanel({
   locked = false,
   mode,
   onModeChange,
   children,
 }: {
   locked?: boolean;
-  mode: FeedbackPanelMode;
-  onModeChange: (mode: FeedbackPanelMode) => void;
+  mode: DiscussionPanelMode;
+  onModeChange: (mode: DiscussionPanelMode) => void;
   children: (controls: ReactNode) => ReactNode;
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
@@ -35,7 +35,7 @@ export function ArtifactFeedbackPanel({
     defaultFraction: 0.382,
     containerRef,
   });
-  const [lastVisibleMode, setLastVisibleMode] = useState<Exclude<FeedbackPanelMode, "hidden">>(
+  const [lastVisibleMode, setLastVisibleMode] = useState<Exclude<DiscussionPanelMode, "hidden">>(
     mode === "hidden" ? "expanded" : mode,
   );
   if (mode !== "hidden" && mode !== lastVisibleMode) setLastVisibleMode(mode);
@@ -43,7 +43,7 @@ export function ArtifactFeedbackPanel({
   const floating = presentation === "floating";
   const hidden = mode === "hidden";
   const pane = useFloatingPanel(containerRef, mode === "floating", dock.width);
-  const motion = useFeedbackPanelMotion(mode, pane.rect, dock.width);
+  const motion = useDiscussionPanelMotion(mode, pane.rect, dock.width);
   const motionRef = motion.ref;
   const setPanel = useCallback(
     (node: HTMLElement | null) => {
@@ -52,7 +52,7 @@ export function ArtifactFeedbackPanel({
     },
     [motionRef],
   );
-  const changeMode = (next: FeedbackPanelMode) => {
+  const changeMode = (next: DiscussionPanelMode) => {
     motion.capture();
     onModeChange(next);
   };
@@ -61,13 +61,13 @@ export function ArtifactFeedbackPanel({
       {floating && (
         <button
           type="button"
-          aria-label="Move feedback"
+          aria-label="Move discussions"
           title="Drag to move; arrow keys move, Shift moves faster"
           onKeyDown={(event) => {
             motion.cancel();
             pane.key(event);
           }}
-          data-feedback-drag
+          data-discussions-drag
           className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
         >
           <StrokeIcon className="size-4">
@@ -79,18 +79,18 @@ export function ArtifactFeedbackPanel({
           </StrokeIcon>
         </button>
       )}
-      <FeedbackPanelControls disabled={locked} mode={presentation} onChange={changeMode} />
+      <DiscussionPanelControls disabled={locked} mode={presentation} onChange={changeMode} />
     </>
   );
   return (
     <aside
       ref={setPanel}
-      data-feedback-mode={mode}
+      data-discussions-mode={mode}
       inert={hidden}
       className={cn(
         "border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
         floating
-          ? "absolute z-20 rounded-lg border r3-floating [&_[data-feedback-header]]:cursor-grab [&_[data-feedback-header]]:touch-none"
+          ? "absolute z-20 rounded-lg border r3-floating [&_[data-discussions-header]]:cursor-grab [&_[data-discussions-header]]:touch-none"
           : hidden
             ? "absolute inset-y-0 right-0 pointer-events-none overflow-hidden"
             : "relative shrink-0 border-l",
@@ -112,8 +112,8 @@ export function ArtifactFeedbackPanel({
       onPointerDown={(event) => {
         const target = event.target as Element;
         if (
-          target.closest("[data-feedback-drag]") ||
-          (target.closest("[data-feedback-header]") &&
+          target.closest("[data-discussions-drag]") ||
+          (target.closest("[data-discussions-header]") &&
             !target.closest("button, a, input, textarea, select, [role=tab]"))
         ) {
           motion.cancel();
@@ -125,7 +125,7 @@ export function ArtifactFeedbackPanel({
         // biome-ignore lint/a11y/useSemanticElements: interactive adjustable separator, not a thematic break
         <div
           role="separator"
-          aria-label="Resize feedback"
+          aria-label="Resize discussions"
           aria-orientation="vertical"
           aria-valuemin={300}
           aria-valuemax={700}
@@ -161,13 +161,13 @@ export function ArtifactFeedbackPanel({
             key={edge}
             type="button"
             tabIndex={edge === "se" ? 0 : -1}
-            aria-label={`Resize feedback ${edge}`}
+            aria-label={`Resize discussions ${edge}`}
             title={
               edge === "se"
                 ? "Drag to resize; arrow keys resize, Shift resizes faster"
                 : "Drag to resize; double-click to reset width"
             }
-            data-feedback-resize={edge}
+            data-discussions-resize={edge}
             onPointerDown={(event) => {
               motion.cancel();
               pane.start(event, edge);

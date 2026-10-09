@@ -1,6 +1,6 @@
 import type {
   ArtifactDetail,
-  ArtifactFeedback,
+  ArtifactDiscussion,
   ArtifactNudge,
   ArtifactTarget,
 } from "./artifacts.ts";
@@ -11,31 +11,33 @@ export function attachmentPrompt(images: ArtifactAttachment[] = [], placeholders
   return images
     .map(
       (image, index) =>
-        `${placeholders ? `${imagePlaceholder(index + 1)} ` : ""}Image ${image.id} (${image.mediaType}, ${image.width}×${image.height}, ${image.byteLength} bytes)${image.capture ? `\nCapture context: ${JSON.stringify(image.capture)}` : ""}\nDownload: r3 feedback image ${image.artifactId} --image ${image.id} --output ${image.id}.${image.mediaType === "image/png" ? "png" : "jpg"}`,
+        `${placeholders ? `${imagePlaceholder(index + 1)} ` : ""}Image ${image.id} (${image.mediaType}, ${image.width}×${image.height}, ${image.byteLength} bytes)${image.capture ? `\nCapture context: ${JSON.stringify(image.capture)}` : ""}\nDownload: r3 discussions image ${image.artifactId} --image ${image.id} --output ${image.id}.${image.mediaType === "image/png" ? "png" : "jpg"}`,
     )
     .join("\n");
 }
 
-export function feedbackAttachments(
-  feedback: ArtifactFeedback[],
+export function discussionAttachments(
+  discussions: ArtifactDiscussion[],
   unsent = false,
 ): ArtifactAttachment[] {
   const frames = (target: ArtifactTarget | null) =>
     target?.kind === "media" && target.locator.frame ? [target.locator.frame] : [];
-  return feedback.flatMap((item) => {
+  return discussions.flatMap((item) => {
     const followup = unsent && !(item.author.role === "human" && item.sentAt === null);
     return [
       ...frames(item.target),
       ...(followup ? [] : (item.attachments ?? [])),
-      ...item.replies
-        .filter((reply) => !followup || (reply.author.role === "human" && reply.sentAt === null))
-        .flatMap((reply) => [...(reply.attachments ?? []), ...frames(reply.target)]),
+      ...item.comments
+        .filter(
+          (comment) => !followup || (comment.author.role === "human" && comment.sentAt === null),
+        )
+        .flatMap((comment) => [...(comment.attachments ?? []), ...frames(comment.target)]),
     ];
   });
 }
 
 export function artifactTargetLabel(target: ArtifactTarget): string {
-  if (target.kind === "artifact") return "General artifact feedback";
+  if (target.kind === "artifact") return "General artifact discussions";
   if (target.kind === "artifact_summary") return "Retired artifact overview";
   if (target.kind === "version_summary") return `Version ${target.versionSeq} summary`;
   if (target.kind === "media")
@@ -47,70 +49,72 @@ export function artifactTargetLabel(target: ArtifactTarget): string {
   return `Version ${target.versionSeq} · ${target.kind} · ${target.path}${range}`;
 }
 
-function historicalTarget(feedback: ArtifactFeedback): boolean {
-  const source = feedback.legacy?.source as { file?: unknown } | undefined;
+function historicalTarget(discussions: ArtifactDiscussion): boolean {
+  const source = discussions.legacy?.source as { file?: unknown } | undefined;
   return (
-    feedback.target.kind === "artifact" && typeof source?.file === "string" && source.file !== ""
+    discussions.target.kind === "artifact" && typeof source?.file === "string" && source.file !== ""
   );
 }
 
-export function artifactFeedbackTargetLabel(feedback: ArtifactFeedback): string {
-  return historicalTarget(feedback)
+export function artifactDiscussionTargetLabel(discussions: ArtifactDiscussion): string {
+  return historicalTarget(discussions)
     ? "Historical target unavailable"
-    : artifactTargetLabel(feedback.target);
+    : artifactTargetLabel(discussions.target);
 }
 
-function block(feedback: ArtifactFeedback, unsent: boolean): string {
-  const fresh = feedback.author.role === "human" && feedback.sentAt === null;
+function block(discussions: ArtifactDiscussion, unsent: boolean): string {
+  const fresh = discussions.author.role === "human" && discussions.sentAt === null;
   const followup = unsent && !fresh;
-  const label = artifactFeedbackTargetLabel(feedback);
+  const label = artifactDiscussionTargetLabel(discussions);
   const author =
-    feedback.author.role === "agent" ? ` [agent-authored: ${feedback.author.sessionId}]` : "";
+    discussions.author.role === "agent" ? ` [agent-authored: ${discussions.author.sessionId}]` : "";
   const lines = [
-    `### ${feedback.id} — ${label} [${feedback.status}]${author}${followup ? " (follow-up)" : ""}`,
+    `### ${discussions.id} — ${label} [${discussions.status}]${author}${followup ? " (follow-up)" : ""}`,
   ];
-  if (historicalTarget(feedback)) {
-    const evidence = feedback.legacy!.source as Record<string, unknown>;
+  if (historicalTarget(discussions)) {
+    const evidence = discussions.legacy!.source as Record<string, unknown>;
     lines.push(
       `Legacy anchor evidence: ${JSON.stringify({ file: evidence.file, side: evidence.side, lineStart: evidence.line_start, lineEnd: evidence.line_end, quote: evidence.quote, patchSeq: evidence.patch_seq })}`,
     );
-  } else lines.push(`Original target: ${JSON.stringify(feedback.target)}`);
+  } else lines.push(`Original target: ${JSON.stringify(discussions.target)}`);
   if (
-    (feedback.target.kind === "source" || feedback.target.kind === "diff") &&
-    feedback.target.locator
+    (discussions.target.kind === "source" || discussions.target.kind === "diff") &&
+    discussions.target.locator
   )
-    lines.push(`Full captured range: r3 feedback source ${feedback.id}`);
-  if (feedback.target.kind === "media" && feedback.target.locator.frame)
+    lines.push(`Full captured range: r3 discussions source ${discussions.id}`);
+  if (discussions.target.kind === "media" && discussions.target.locator.frame)
     lines.push(
       "Saved full frame (authoritative; video seeking is approximate):",
-      attachmentPrompt([feedback.target.locator.frame], false),
+      attachmentPrompt([discussions.target.locator.frame], false),
     );
-  if (feedback.claim) lines.push(`Working agent: ${feedback.claim.sessionId}`);
+  if (discussions.claim) lines.push(`Working agent: ${discussions.claim.sessionId}`);
   if (!followup) {
-    lines.push("", feedback.body);
-    if (feedback.attachments?.length) lines.push(attachmentPrompt(feedback.attachments));
+    lines.push("", discussions.body);
+    if (discussions.attachments?.length) lines.push(attachmentPrompt(discussions.attachments));
   }
-  const replies = followup
-    ? feedback.replies.filter((reply) => reply.author.role === "human" && reply.sentAt === null)
-    : feedback.replies;
-  for (const reply of replies) {
-    const author = reply.author.role === "agent" ? `agent: ${reply.author.sessionId}` : "human";
-    lines.push("", `[${author}] ${reply.body}`);
-    if (reply.attachments?.length) lines.push(attachmentPrompt(reply.attachments));
-    if (reply.context.versionSeq !== null)
-      lines.push(`Reference context: ${JSON.stringify(reply.context)}`);
-    if (reply.target?.kind === "media" && reply.target.locator.frame)
-      lines.push("Saved fix frame:", attachmentPrompt([reply.target.locator.frame], false));
-    if (reply.target) lines.push(`Fix target: ${JSON.stringify(reply.target)}`);
+  const comments = followup
+    ? discussions.comments.filter(
+        (comment) => comment.author.role === "human" && comment.sentAt === null,
+      )
+    : discussions.comments;
+  for (const comment of comments) {
+    const author = comment.author.role === "agent" ? `agent: ${comment.author.sessionId}` : "human";
+    lines.push("", `[${author}] ${comment.body}`);
+    if (comment.attachments?.length) lines.push(attachmentPrompt(comment.attachments));
+    if (comment.context.versionSeq !== null)
+      lines.push(`Reference context: ${JSON.stringify(comment.context)}`);
+    if (comment.target?.kind === "media" && comment.target.locator.frame)
+      lines.push("Saved fix frame:", attachmentPrompt([comment.target.locator.frame], false));
+    if (comment.target) lines.push(`Fix target: ${JSON.stringify(comment.target)}`);
   }
-  if (feedback.statusUnsent)
+  if (discussions.statusUnsent)
     lines.push(
       "",
-      feedback.status === "resolved"
+      discussions.status === "resolved"
         ? "The human marked this resolved; no further action is requested."
-        : "The human reopened this feedback.",
+        : "The human reopened this discussion.",
     );
-  if (followup) lines.push("", `Earlier discussion: r3 show ${feedback.artifactId}`);
+  if (followup) lines.push("", `Earlier discussion: r3 show ${discussions.artifactId}`);
   return lines.join("\n");
 }
 
@@ -118,27 +122,28 @@ function block(feedback: ArtifactFeedback, unsent: boolean): string {
 // Formatting is pure and cannot acknowledge messages accidentally.
 export function buildArtifactPrompt(
   detail: ArtifactDetail,
-  feedback: ArtifactFeedback[],
+  discussions: ArtifactDiscussion[],
   unsent = false,
 ): string {
   const latest = detail.versions.at(-1)?.seq;
   const lines = [
     `Artifact ${detail.id}${detail.title ? ` — ${detail.title}` : ""}`,
     `Kind: ${detail.kind}. State: ${detail.state}. Latest published version: ${latest ?? "none"}.`,
-    `${feedback.length} feedback item${feedback.length === 1 ? "" : "s"}.`,
+    `${discussions.length} discussion${discussions.length === 1 ? "" : "s"}.`,
     "",
   ];
-  if (!feedback.length) lines.push(unsent ? "No undelivered feedback." : "No selected feedback.");
-  else lines.push(feedback.map((item) => block(item, unsent)).join("\n\n"));
+  if (!discussions.length)
+    lines.push(unsent ? "No undelivered discussions." : "No selected discussions.");
+  else lines.push(discussions.map((item) => block(item, unsent)).join("\n\n"));
   return `${lines.join("\n")}\n`;
 }
 
 export function artifactNudgeText(nudge: ArtifactNudge): string {
   const lines = [
-    `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "feedback submitted"}`,
+    `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "discussions submitted"}`,
   ];
   if (nudge.title) lines.push(`Artifact: ${nudge.title.slice(0, 500)}`);
-  if (nudge.event === "submitted") lines.push(`Run: r3 feedback fetch ${nudge.artifactId}`);
+  if (nudge.event === "submitted") lines.push(`Run: r3 discussions fetch ${nudge.artifactId}`);
   else {
     if (nudge.lifecycleEventId) lines.push(`Event: ${nudge.lifecycleEventId}`);
     if (nudge.message) {

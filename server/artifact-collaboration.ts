@@ -32,7 +32,7 @@ interface Registration {
 }
 
 // One designated recipient is transport presence, never ownership of the
-// artifact. Every other registered agent can still read, publish, claim or reply.
+// artifact. Every other registered agent can still read, publish, claim or comment.
 export class ArtifactCollaboration {
   private readonly registrations = new Map<string, Registration>();
   private readonly fallbacks = new Map<string, Registration>();
@@ -222,7 +222,7 @@ export class ArtifactCollaboration {
     const wakesWatch = held?.info.kind === "watch" && this.conversations.unsent(id).length > 0;
     this.broadcast({ type: "submitted", artifactId: id });
     // The synchronous broadcast completes a pending generic watch. Like a local
-    // harness acknowledgment, this confirms the wake without draining feedback.
+    // harness acknowledgment, this confirms the wake without draining discussions.
     if (wakesWatch) return { state: "sent" };
     return this.notify(id, held, {
       id: randomUUID(),
@@ -328,11 +328,11 @@ export class ArtifactCollaboration {
           const terminal = archived();
           if (terminal) finish(terminal);
           else if (event.type === "submitted" && this.conversations.unsent(id).length)
-            finish({ result: "feedback" });
+            finish({ result: "discussions" });
         });
         options.signal?.addEventListener("abort", abort, { once: true });
         timer = setTimeout(() => finish(archived() ?? { result: "timeout" }), timeout);
-        if (this.conversations.unsent(id).length) finish(archived() ?? { result: "feedback" });
+        if (this.conversations.unsent(id).length) finish(archived() ?? { result: "discussions" });
       } catch (error) {
         settled = true;
         unsubscribe();

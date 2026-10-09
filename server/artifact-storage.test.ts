@@ -112,11 +112,11 @@ describe("private artifact storage bootstrap", () => {
     storage.conversations.edit(note.id, { actor, body: "Original" });
     storage.close();
     storage = await openArtifactStorage(options());
-    expect(() => storage!.conversations.acknowledge(id, receipt)).toThrow("Feedback changed");
+    expect(() => storage!.conversations.acknowledge(id, receipt)).toThrow("Discussion changed");
     expect(storage.conversations.get(note.id).sentAt).toBeNull();
   });
 
-  test("delivery history survives editing and reopening without promoting new feedback", async () => {
+  test("delivery history survives editing and reopening without promoting new discussions", async () => {
     storage = await openArtifactStorage(options());
     const id = storage.artifacts.create({ actor, kind: "files" }).id;
     const delivered = await storage.conversations.add(id, {

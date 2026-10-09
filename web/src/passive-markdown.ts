@@ -52,7 +52,7 @@ export function passiveMarkdownDocument(
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${options.nonce}'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"><meta name="viewport" content="width=device-width,initial-scale=1">${styles}</head><body>${main.outerHTML}<script nonce="${options.nonce}">${script}</script></body></html>`;
 }
 
-// Only r3's layout/scroll helper executes. The document cannot request feedback,
+// Only r3's layout/scroll helper executes. The document cannot request discussions,
 // retrieve cached documents, or acquire an application/preview credential.
 function installPassiveReading(options: {
   nonce: string;

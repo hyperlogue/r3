@@ -3,16 +3,16 @@ import { createHash, randomUUID } from "node:crypto";
 import type {
   ArtifactActor,
   ArtifactClaim,
-  ArtifactFeedback,
-  ArtifactFeedbackAcknowledgment,
+  ArtifactComment,
+  ArtifactDiscussion,
+  ArtifactDiscussionAcknowledgment,
   ArtifactKind,
   ArtifactPlacement,
-  ArtifactReply,
   ArtifactTarget,
   ArtifactVersionTarget,
   Representation,
 } from "../shared/artifacts.ts";
-import { artifactReferenceContext, hasUnsentArtifactFeedback } from "../shared/artifacts.ts";
+import { artifactReferenceContext, hasUnsentArtifactDiscussion } from "../shared/artifacts.ts";
 import type { PreparedAttachment } from "./artifact-attachments.ts";
 import {
   ArtifactTargets,
@@ -34,7 +34,7 @@ function messageBody(value: unknown, images: number): string {
 
 type AuthoredRow = { author: "human" | "agent"; agent_session_id: string | null };
 
-type FeedbackRow = TargetColumns &
+type DiscussionRow = TargetColumns &
   AuthoredRow & {
     id: string;
     artifact_id: string;
@@ -48,10 +48,10 @@ type FeedbackRow = TargetColumns &
     ever_delivered: number;
     status_unsent: number;
   };
-type ReplyRow = Omit<TargetColumns, "target_kind"> &
+type CommentRow = Omit<TargetColumns, "target_kind"> &
   AuthoredRow & {
     id: string;
-    feedback_id: string;
+    discussion_id: string;
     artifact_id: string;
     body: string;
     context_version_seq: number | null;
@@ -68,10 +68,10 @@ function authorFromRow(row: AuthoredRow): ArtifactActor {
     : { role: "agent", sessionId: row.agent_session_id! };
 }
 
-function replyFromRow(row: ReplyRow): ArtifactReply {
+function commentFromRow(row: CommentRow): ArtifactComment {
   return {
     id: row.id,
-    feedbackId: row.feedback_id,
+    discussionId: row.discussion_id,
     artifactId: row.artifact_id,
     author: authorFromRow(row),
     body: row.body,
@@ -108,14 +108,16 @@ export class ArtifactConversations {
   private touch(id: string, time = this.clock()): void {
     this.db
       .query(
-        "UPDATE artifacts SET updated_at = ?, feedback_revision = feedback_revision + 1 WHERE id = ?",
+        "UPDATE artifacts SET updated_at = ?, discussion_revision = discussion_revision + 1 WHERE id = ?",
       )
       .run(time, id);
   }
 
-  private row(id: string): FeedbackRow {
-    const row = this.db.query<FeedbackRow, [string]>("SELECT * FROM feedback WHERE id = ?").get(id);
-    if (!row) throw new ArtifactError("Feedback not found", 404);
+  private row(id: string): DiscussionRow {
+    const row = this.db
+      .query<DiscussionRow, [string]>("SELECT * FROM discussions WHERE id = ?")
+      .get(id);
+    if (!row) throw new ArtifactError("Discussion not found", 404);
     return row;
   }
 
@@ -130,7 +132,7 @@ export class ArtifactConversations {
 
   private withFrame<T extends ArtifactTarget | null>(
     target: T,
-    owner: { feedbackId: string } | { replyId: string },
+    owner: { discussionId: string } | { commentId: string },
   ): T {
     if (target?.kind !== "media") return target;
     const frame = this.artifacts.attachments.list(owner, "target")[0];
@@ -161,57 +163,57 @@ export class ArtifactConversations {
     return this.targets.sourceRange(row.artifact_id, targetFromColumns(row));
   }
 
-  get(id: string): ArtifactFeedback {
+  get(id: string): ArtifactDiscussion {
     const row = this.row(id);
     return {
       id: row.id,
       artifactId: row.artifact_id,
       author: authorFromRow(row),
       body: row.body,
-      attachments: this.artifacts.attachments.list({ feedbackId: id }),
+      attachments: this.artifacts.attachments.list({ discussionId: id }),
       status: row.status,
-      target: this.withFrame(targetFromColumns(row), { feedbackId: id }),
+      target: this.withFrame(targetFromColumns(row), { discussionId: id }),
       legacy: row.legacy_anchor_json === null ? null : JSON.parse(row.legacy_anchor_json),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       sentAt: row.sent_at,
       statusUnsent: !!row.status_unsent,
-      replies: this.db
-        .query<ReplyRow, [string]>(
-          "SELECT * FROM replies WHERE feedback_id = ? ORDER BY created_at, rowid",
+      comments: this.db
+        .query<CommentRow, [string]>(
+          "SELECT * FROM comments WHERE discussion_id = ? ORDER BY created_at, rowid",
         )
         .all(id)
-        .map((row) => this.reply(row.id)),
+        .map((row) => this.comment(row.id)),
       claim: this.db
-        .query<ArtifactClaim, [string, string]>(`SELECT feedback_id AS feedbackId,
+        .query<ArtifactClaim, [string, string]>(`SELECT discussion_id AS discussionId,
         agent_session_id AS sessionId, claimed_at AS claimedAt, renewed_at AS renewedAt, expires_at AS expiresAt
-        FROM feedback_claims WHERE feedback_id = ? AND expires_at > ?`)
+        FROM discussion_claims WHERE discussion_id = ? AND expires_at > ?`)
         .get(id, this.clock()),
     };
   }
 
-  list(id: string): ArtifactFeedback[] {
+  list(id: string): ArtifactDiscussion[] {
     this.artifacts.get(id);
     return this.db
       .query<{ id: string }, [string]>(
-        "SELECT id FROM feedback WHERE artifact_id = ? ORDER BY created_at, rowid",
+        "SELECT id FROM discussions WHERE artifact_id = ? ORDER BY created_at, rowid",
       )
       .all(id)
       .map(({ id }) => this.get(id));
   }
 
-  reply(id: string): ArtifactReply {
-    const row = this.db.query<ReplyRow, [string]>("SELECT * FROM replies WHERE id = ?").get(id);
-    if (!row) throw new ArtifactError("Reply not found", 404);
+  comment(id: string): ArtifactComment {
+    const row = this.db.query<CommentRow, [string]>("SELECT * FROM comments WHERE id = ?").get(id);
+    if (!row) throw new ArtifactError("Comment not found", 404);
     return {
-      ...replyFromRow(row),
-      target: this.withFrame(replyFromRow(row).target, { replyId: id }),
-      attachments: this.artifacts.attachments.list({ replyId: id }),
+      ...commentFromRow(row),
+      target: this.withFrame(commentFromRow(row).target, { commentId: id }),
+      attachments: this.artifacts.attachments.list({ commentId: id }),
     };
   }
 
-  async add(id: string, value: unknown): Promise<ArtifactFeedback> {
-    const input = requireObject(value, "Feedback");
+  async add(id: string, value: unknown): Promise<ArtifactDiscussion> {
+    const input = requireObject(value, "Discussion");
     const author = this.artifacts.validateActor(input.actor);
 
     const native = await this.targets.target(id, input.target);
@@ -220,18 +222,18 @@ export class ArtifactConversations {
       this.artifacts.attachments.preparing(id, input.attachments, (images) =>
         this.db
           .transaction(() => {
-            const operation = this.artifacts.attachments.operation(id, input, "feedback", id);
+            const operation = this.artifacts.attachments.operation(id, input, "discussions", id);
             if (operation.replay) return this.get(operation.replay);
             const body = messageBody(input.body, images.length);
             const artifact = this.artifacts.requireActive(id);
             const time = this.clock();
-            const feedbackId = `feedback_${randomUUID().replaceAll("-", "")}`;
+            const discussionId = `discussion_${randomUUID().replaceAll("-", "")}`;
             this.db
-              .query(`INSERT INTO feedback(id, artifact_id, artifact_kind, author, agent_session_id,
+              .query(`INSERT INTO discussions(id, artifact_id, artifact_kind, author, agent_session_id,
         body, target_kind, target_version_seq, target_path, locator_json, created_at, updated_at, sent_at, ever_delivered)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
               .run(
-                feedbackId,
+                discussionId,
                 id,
                 artifact.kind,
                 author.role,
@@ -246,20 +248,20 @@ export class ArtifactConversations {
                 author.role === "agent" ? time : null,
                 author.role === "agent" ? 1 : 0,
               );
-            this.artifacts.attachments.replace(id, { feedbackId }, images);
+            this.artifacts.attachments.replace(id, { discussionId }, images);
             if (frames.length)
-              this.artifacts.attachments.replace(id, { feedbackId }, frames, "target");
-            operation.save({ feedbackId });
+              this.artifacts.attachments.replace(id, { discussionId }, frames, "target");
+            operation.save({ discussionId });
             this.touch(id, time);
-            return this.get(feedbackId);
+            return this.get(discussionId);
           })
           .immediate(),
       ),
     );
   }
 
-  async update(id: string, value: unknown): Promise<ArtifactFeedback> {
-    const input = requireObject(value, "Feedback edit");
+  async update(id: string, value: unknown): Promise<ArtifactDiscussion> {
+    const input = requireObject(value, "Discussion edit");
     if (input.attachments === undefined) return this.edit(id, input);
     const row = this.row(id);
     this.editable(this.artifacts.validateActor(input.actor), row);
@@ -268,8 +270,8 @@ export class ArtifactConversations {
     );
   }
 
-  edit(id: string, value: unknown, images?: PreparedAttachment[]): ArtifactFeedback {
-    const input = requireObject(value, "Feedback edit");
+  edit(id: string, value: unknown, images?: PreparedAttachment[]): ArtifactDiscussion {
+    const input = requireObject(value, "Discussion edit");
     if (input.attachments !== undefined && !images)
       throw new ArtifactError("Image edits require prepared attachments");
     const author = this.artifacts.validateActor(input.actor);
@@ -282,15 +284,15 @@ export class ArtifactConversations {
         if (input.body !== undefined || images) this.editable(author, row);
         const body = messageBody(
           input.body === undefined ? row.body : input.body,
-          images?.length ?? this.artifacts.attachments.list({ feedbackId: id }).length,
+          images?.length ?? this.artifacts.attachments.list({ discussionId: id }).length,
         );
         const status = input.status === undefined ? row.status : input.status;
         if (status !== "open" && status !== "resolved")
-          throw new ArtifactError("Invalid feedback status");
+          throw new ArtifactError("Invalid discussions status");
         if (input.status !== undefined && author.role !== "human")
-          throw new ArtifactError("Feedback status is controlled by the human owner");
+          throw new ArtifactError("Discussion status is controlled by the human owner");
         const imagesChanged = images
-          ? this.artifacts.attachments.replace(row.artifact_id, { feedbackId: id }, images)
+          ? this.artifacts.attachments.replace(row.artifact_id, { discussionId: id }, images)
           : false;
         if (body === row.body && status === row.status && !imagesChanged) return this.get(id);
         const time = this.clock();
@@ -301,11 +303,11 @@ export class ArtifactConversations {
         const statusUnsent = row.status_unsent || (status !== row.status && row.ever_delivered);
         this.db
           .query(
-            "UPDATE feedback SET body = ?, status = ?, sent_at = ?, status_unsent = ?, updated_at = ? WHERE id = ?",
+            "UPDATE discussions SET body = ?, status = ?, sent_at = ?, status_unsent = ?, updated_at = ? WHERE id = ?",
           )
           .run(body, status, sentAt, statusUnsent ? 1 : 0, time, id);
         if (status === "resolved")
-          this.db.query("DELETE FROM feedback_claims WHERE feedback_id = ?").run(id);
+          this.db.query("DELETE FROM discussion_claims WHERE discussion_id = ?").run(id);
         this.touch(row.artifact_id, time);
         return this.get(id);
       })
@@ -319,14 +321,14 @@ export class ArtifactConversations {
         const row = this.row(id);
         this.artifacts.requireActive(row.artifact_id);
         this.editable(author, row);
-        this.db.query("DELETE FROM feedback WHERE id = ?").run(id);
+        this.db.query("DELETE FROM discussions WHERE id = ?").run(id);
         this.touch(row.artifact_id);
       })
       .immediate();
   }
 
-  async addReply(id: string, value: unknown): Promise<ArtifactReply> {
-    const input = requireObject(value, "Reply");
+  async addComment(id: string, value: unknown): Promise<ArtifactComment> {
+    const input = requireObject(value, "Comment");
     const author = this.artifacts.validateActor(input.actor);
 
     const original = this.row(id);
@@ -340,27 +342,27 @@ export class ArtifactConversations {
       this.artifacts.attachments.preparing(original.artifact_id, input.attachments, (images) =>
         this.db
           .transaction(() => {
-            const feedback = this.row(id);
+            const discussions = this.row(id);
             const operation = this.artifacts.attachments.operation(
-              feedback.artifact_id,
+              discussions.artifact_id,
               input,
-              "reply",
+              "comment",
               id,
             );
-            if (operation.replay) return this.reply(operation.replay);
-            this.artifacts.requireActive(feedback.artifact_id);
+            if (operation.replay) return this.comment(operation.replay);
+            this.artifacts.requireActive(discussions.artifact_id);
             const body = messageBody(input.body, images.length);
             const time = this.clock();
-            const replyId = `reply_${randomUUID().replaceAll("-", "")}`;
+            const commentId = `comment_${randomUUID().replaceAll("-", "")}`;
             this.db
-              .query(`INSERT INTO replies(id, feedback_id, artifact_id, artifact_kind, author, agent_session_id,
+              .query(`INSERT INTO comments(id, discussion_id, artifact_id, artifact_kind, author, agent_session_id,
         body, context_version_seq, context_representation, target_kind, target_version_seq,
         target_path, locator_json, created_at, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
               .run(
-                replyId,
+                commentId,
                 id,
-                feedback.artifact_id,
-                feedback.artifact_kind,
+                discussions.artifact_id,
+                discussions.artifact_kind,
                 author.role,
                 author.sessionId,
                 body,
@@ -375,65 +377,69 @@ export class ArtifactConversations {
               );
             if (author.role === "agent") {
               this.db
-                .query("DELETE FROM feedback_claims WHERE feedback_id = ? AND agent_session_id = ?")
+                .query(
+                  "DELETE FROM discussion_claims WHERE discussion_id = ? AND agent_session_id = ?",
+                )
                 .run(id, author.sessionId);
             }
-            this.artifacts.attachments.replace(feedback.artifact_id, { replyId }, images);
+            this.artifacts.attachments.replace(discussions.artifact_id, { commentId }, images);
             if (frames.length)
               this.artifacts.attachments.replace(
-                feedback.artifact_id,
-                { replyId },
+                discussions.artifact_id,
+                { commentId },
                 frames,
                 "target",
               );
-            operation.save({ replyId });
-            this.touch(feedback.artifact_id, time);
-            return this.reply(replyId);
+            operation.save({ commentId });
+            this.touch(discussions.artifact_id, time);
+            return this.comment(commentId);
           })
           .immediate(),
       ),
     );
   }
 
-  async updateReply(id: string, value: unknown): Promise<ArtifactReply> {
-    const input = requireObject(value, "Reply edit");
-    if (input.attachments === undefined) return this.editReply(id, input);
-    const reply = this.reply(id);
+  async updateComment(id: string, value: unknown): Promise<ArtifactComment> {
+    const input = requireObject(value, "Comment edit");
+    if (input.attachments === undefined) return this.editComment(id, input);
+    const comment = this.comment(id);
     this.editable(this.artifacts.validateActor(input.actor), {
-      author: reply.author.role,
-      agent_session_id: reply.author.sessionId,
+      author: comment.author.role,
+      agent_session_id: comment.author.sessionId,
     });
-    return this.artifacts.attachments.preparing(reply.artifactId, input.attachments, (images) =>
-      this.editReply(id, input, images),
+    return this.artifacts.attachments.preparing(comment.artifactId, input.attachments, (images) =>
+      this.editComment(id, input, images),
     );
   }
 
-  editReply(id: string, value: unknown, images?: PreparedAttachment[]): ArtifactReply {
-    const input = requireObject(value, "Reply edit");
+  editComment(id: string, value: unknown, images?: PreparedAttachment[]): ArtifactComment {
+    const input = requireObject(value, "Comment edit");
     const author = this.artifacts.validateActor(input.actor);
     if (input.attachments !== undefined && !images)
       throw new ArtifactError("Image edits require prepared attachments");
     if (input.target !== undefined || input.context !== undefined)
-      throw new ArtifactError("Reply references are immutable");
+      throw new ArtifactError("Comment references are immutable");
     return this.db
       .transaction(() => {
-        const row = this.db.query<ReplyRow, [string]>("SELECT * FROM replies WHERE id = ?").get(id);
-        if (!row) throw new ArtifactError("Reply not found", 404);
+        const row = this.db
+          .query<CommentRow, [string]>("SELECT * FROM comments WHERE id = ?")
+          .get(id);
+        if (!row) throw new ArtifactError("Comment not found", 404);
         this.artifacts.requireActive(row.artifact_id);
         this.editable(author, row);
         const body = messageBody(
           input.body === undefined ? row.body : input.body,
-          images?.length ?? this.artifacts.attachments.list({ replyId: id }).length,
+          images?.length ?? this.artifacts.attachments.list({ commentId: id }).length,
         );
         const imagesChanged = images
-          ? this.artifacts.attachments.replace(row.artifact_id, { replyId: id }, images)
+          ? this.artifacts.attachments.replace(row.artifact_id, { commentId: id }, images)
           : false;
-        if (body === row.body && !imagesChanged) return this.reply(id);
+        if (body === row.body && !imagesChanged) return this.comment(id);
         this.db
-          .query("UPDATE replies SET body = ?, sent_at = ? WHERE id = ?")
+          .query("UPDATE comments SET body = ?, sent_at = ? WHERE id = ?")
           .run(body, row.author === "human" ? null : row.sent_at, id);
         this.touch(row.artifact_id);
-        return this.reply(id);
+        return this.comment(id);
       })
       .immediate();
   }
@@ -446,20 +452,20 @@ export class ArtifactConversations {
         const expiresAt = new Date(Date.parse(time) + 60 * 60 * 1000).toISOString();
         const claims: ArtifactClaim[] = [];
         for (const id of new Set(ids)) {
-          const feedback = this.get(id);
-          if (feedback.status !== "open")
-            throw new ArtifactError("Resolved feedback cannot be claimed", 409);
-          if (this.artifacts.get(feedback.artifactId).state !== "active")
+          const discussions = this.get(id);
+          if (discussions.status !== "open")
+            throw new ArtifactError("Resolved discussions cannot be claimed", 409);
+          if (this.artifacts.get(discussions.artifactId).state !== "active")
             throw new ArtifactError("Artifact is archived", 409);
-          if (feedback.claim !== null && feedback.claim.sessionId !== sessionId)
-            throw new ArtifactError("Feedback is already claimed by another agent", 409);
-          const claimedAt = feedback.claim?.claimedAt ?? time;
+          if (discussions.claim !== null && discussions.claim.sessionId !== sessionId)
+            throw new ArtifactError("Discussion is already claimed by another agent", 409);
+          const claimedAt = discussions.claim?.claimedAt ?? time;
           this.db
-            .query(`INSERT INTO feedback_claims(feedback_id, agent_session_id, claimed_at, renewed_at, expires_at)
-          VALUES (?, ?, ?, ?, ?) ON CONFLICT(feedback_id) DO UPDATE SET agent_session_id = excluded.agent_session_id,
+            .query(`INSERT INTO discussion_claims(discussion_id, agent_session_id, claimed_at, renewed_at, expires_at)
+          VALUES (?, ?, ?, ?, ?) ON CONFLICT(discussion_id) DO UPDATE SET agent_session_id = excluded.agent_session_id,
           claimed_at = excluded.claimed_at, renewed_at = excluded.renewed_at, expires_at = excluded.expires_at`)
             .run(id, sessionId, claimedAt, time, expiresAt);
-          claims.push({ feedbackId: id, sessionId, claimedAt, renewedAt: time, expiresAt });
+          claims.push({ discussionId: id, sessionId, claimedAt, renewedAt: time, expiresAt });
         }
         return claims;
       })
@@ -472,7 +478,7 @@ export class ArtifactConversations {
       .transaction(() => {
         for (const id of new Set(ids))
           this.db
-            .query("DELETE FROM feedback_claims WHERE feedback_id = ? AND agent_session_id = ?")
+            .query("DELETE FROM discussion_claims WHERE discussion_id = ? AND agent_session_id = ?")
             .run(id, sessionId);
       })
       .immediate();
@@ -483,19 +489,20 @@ export class ArtifactConversations {
       .transaction(() => {
         const time = this.clock();
         const affected = this.db
-          .query<{ id: string }, [string]>(`SELECT DISTINCT f.artifact_id AS id FROM feedback f
-        JOIN feedback_claims c ON c.feedback_id = f.id WHERE c.expires_at <= ?`)
+          .query<{ id: string }, [string]>(`SELECT DISTINCT f.artifact_id AS id FROM discussions f
+        JOIN discussion_claims c ON c.discussion_id = f.id WHERE c.expires_at <= ?`)
           .all(time)
           .map(({ id }) => id);
-        this.db.query("DELETE FROM feedback_claims WHERE expires_at <= ?").run(time);
+        this.db.query("DELETE FROM discussion_claims WHERE expires_at <= ?").run(time);
         return affected;
       })
       .immediate();
   }
 
-  unsent(id: string, only?: string[]): ArtifactFeedback[] {
+  unsent(id: string, only?: string[]): ArtifactDiscussion[] {
     return this.list(id).filter(
-      (feedback) => hasUnsentArtifactFeedback(feedback) && (!only || only.includes(feedback.id)),
+      (discussions) =>
+        hasUnsentArtifactDiscussion(discussions) && (!only || only.includes(discussions.id)),
     );
   }
 
@@ -506,40 +513,40 @@ export class ArtifactConversations {
       throw new ArtifactError("Artifact is archived", 409);
     const revision = this.db
       .query<{ revision: number }, [string]>(
-        "SELECT feedback_revision AS revision FROM artifacts WHERE id = ?",
+        "SELECT discussion_revision AS revision FROM artifacts WHERE id = ?",
       )
       .get(id)!.revision;
-    const feedback = only ? [...new Set(only)].sort() : undefined;
+    const discussions = only ? [...new Set(only)].sort() : undefined;
     const expectedFingerprint = createHash("sha256")
-      .update(JSON.stringify([id, revision, feedback ?? null]))
+      .update(JSON.stringify([id, revision, discussions ?? null]))
       .digest("hex");
     return {
-      feedback: this.unsent(id, feedback),
-      acknowledgment: { feedback, expectedFingerprint },
+      discussions: this.unsent(id, discussions),
+      acknowledgment: { discussions, expectedFingerprint },
     };
   }
 
-  acknowledge(id: string, receipt: ArtifactFeedbackAcknowledgment): ArtifactFeedback[] {
+  acknowledge(id: string, receipt: ArtifactDiscussionAcknowledgment): ArtifactDiscussion[] {
     return this.db
       .transaction(() => {
-        const snapshot = this.snapshot(id, receipt.feedback);
+        const snapshot = this.snapshot(id, receipt.discussions);
         if (receipt.expectedFingerprint !== snapshot.acknowledgment.expectedFingerprint)
-          throw new ArtifactError("Feedback changed; fetch it again before acknowledging", 409);
-        const feedback = snapshot.feedback;
+          throw new ArtifactError("Discussion changed; fetch it again before acknowledging", 409);
+        const discussions = snapshot.discussions;
         const time = this.clock();
-        for (const item of feedback) {
+        for (const item of discussions) {
           this.db
             .query(
-              "UPDATE feedback SET sent_at = COALESCE(sent_at, ?), ever_delivered = 1, status_unsent = 0 WHERE id = ?",
+              "UPDATE discussions SET sent_at = COALESCE(sent_at, ?), ever_delivered = 1, status_unsent = 0 WHERE id = ?",
             )
             .run(time, item.id);
-          for (const reply of item.replies) {
-            if (reply.author.role === "human" && reply.sentAt === null)
-              this.db.query("UPDATE replies SET sent_at = ? WHERE id = ?").run(time, reply.id);
+          for (const comment of item.comments) {
+            if (comment.author.role === "human" && comment.sentAt === null)
+              this.db.query("UPDATE comments SET sent_at = ? WHERE id = ?").run(time, comment.id);
           }
         }
-        if (feedback.length) this.touch(id, time);
-        return feedback;
+        if (discussions.length) this.touch(id, time);
+        return discussions;
       })
       .immediate();
   }
@@ -550,9 +557,9 @@ export class ArtifactConversations {
     const state = input.state;
     if (state !== "anchored" && state !== "unplaced" && state !== "ambiguous")
       throw new ArtifactError("Invalid placement state");
-    const feedback = this.row(id);
+    const discussions = this.row(id);
     const target = await this.targets.target(
-      feedback.artifact_id,
+      discussions.artifact_id,
       input.target,
       state !== "anchored",
     );
@@ -564,16 +571,16 @@ export class ArtifactConversations {
     this.db
       .transaction(() => {
         this.row(id);
-        this.artifacts.requireActive(feedback.artifact_id);
+        this.artifacts.requireActive(discussions.artifact_id);
         this.db
-          .query(`INSERT INTO feedback_placements(feedback_id, artifact_id, artifact_kind, version_seq,
+          .query(`INSERT INTO discussion_placements(discussion_id, artifact_id, artifact_kind, version_seq,
         document_path, representation, match_state, locator_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(feedback_id, version_seq, document_path, representation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(discussion_id, version_seq, document_path, representation)
         DO UPDATE SET match_state = excluded.match_state, locator_json = excluded.locator_json, updated_at = excluded.updated_at`)
           .run(
             id,
-            feedback.artifact_id,
-            feedback.artifact_kind,
+            discussions.artifact_id,
+            discussions.artifact_kind,
             target.versionSeq,
             target.path,
             target.kind,
@@ -582,12 +589,12 @@ export class ArtifactConversations {
             time,
             time,
           );
-        this.touch(feedback.artifact_id, time);
+        this.touch(discussions.artifact_id, time);
       })
       .immediate();
-    return this.placements(feedback.artifact_id).find(
+    return this.placements(discussions.artifact_id).find(
       (placement) =>
-        placement.feedbackId === id &&
+        placement.discussionId === id &&
         placement.target.versionSeq === target.versionSeq &&
         placement.target.path === target.path &&
         placement.target.kind === target.kind,
@@ -597,7 +604,7 @@ export class ArtifactConversations {
   placements(id: string): ArtifactPlacement[] {
     this.artifacts.get(id);
     type Row = {
-      feedback_id: string;
+      discussion_id: string;
       artifact_id: string;
       version_seq: number;
       document_path: string;
@@ -609,11 +616,11 @@ export class ArtifactConversations {
     };
     return this.db
       .query<Row, [string]>(
-        "SELECT * FROM feedback_placements WHERE artifact_id = ? ORDER BY version_seq, document_path, representation",
+        "SELECT * FROM discussion_placements WHERE artifact_id = ? ORDER BY version_seq, document_path, representation",
       )
       .all(id)
       .map((row) => ({
-        feedbackId: row.feedback_id,
+        discussionId: row.discussion_id,
         artifactId: row.artifact_id,
         target: {
           kind: row.representation,

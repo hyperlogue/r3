@@ -3,7 +3,7 @@
   "version": "1.6.0",
   "private": true,
   "type": "module",
-  "description": "r3 — Render. Review. Refine. View artifacts and give precise feedback to any coding agent.",
+  "description": "r3 — Render. Review. Refine. View artifacts and give precise discussions to any coding agent.",
   "license": "MIT",
   "bin": {
     "r3": "./cli/index.ts"

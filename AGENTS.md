@@ -1,7 +1,7 @@
 # r3 — Render. Review. Refine.
 
 r3 is a local-first workspace for **published artifacts and human/agent
-conversations**. A per-user server owns immutable content and persisted feedback;
+conversations**. A per-user server owns immutable content and persisted discussions;
 the browser, CLI, and agents use the same HTTP/JSON contract. The server, worker,
 CLI, and SPA ship as one self-contained binary. Read [README.md](README.md) for usage.
 
@@ -30,7 +30,7 @@ and `web/src/artifact-api.ts`. Keep all three clients aligned.
 ```text
 publisher: capture local files/git → CLI HTTP upload ─┐
 browser: fetch + authenticated event stream ──────────┼→ backend server
-agent: CLI/HTTP publications, feedback, claims ───────┘    SQLite + immutable blobs
+agent: CLI/HTTP publications, discussions, claims ───────┘    SQLite + immutable blobs
 local agent harness ← persistent worker ← outward stream ← selected backend
 opaque preview document → scoped version bytes + trusted r3 runtime
 ```
@@ -83,7 +83,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
 | Markdown reading cache | `web/src/markdown-cache.ts`, `passive-markdown.ts`, `components/PassiveMarkdown.tsx`; bounded immutable bytes, invalidation, and passive reading during preview checks |
 | Workspace | `web/src/pages/ArtifactView.tsx`, `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
-| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-feedback.ts`, `useArtifactHandoff.ts`; stable message props, Active/Resolved queues, independently subscribed drafts, shared navbar/panel handoff |
+| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-discussions.ts`, `useArtifactHandoff.ts`; stable message props, Active/Resolved queues, independently subscribed drafts, shared navbar/panel handoff |
 | Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
 | Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `viewed.ts`, `pane.ts` |
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mermaid.ts`, `patch-hunks.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
@@ -121,7 +121,7 @@ migration gaps. Concurrent publication or archive returns an ordered result or a
 conflict. Blob cleanup coordinates with in-progress publication and whole-artifact
 deletion; no partial version becomes readable.
 
-**Feedback** has an immutable native target, an author, and human-controlled
+**Discussion** has an immutable native target, an author, and human-controlled
 `open|resolved` status. New targets distinguish artifact/general,
 source line/quote, rendered DOM/text/context/route/viewport, media instant/region/saved frame, and diff
 old/new line/quote. Whole-file targets are explicit. The server validates recorded
@@ -129,33 +129,33 @@ content and version membership. Rendered evidence is never reverse-mapped into
 source lines. Unknown legacy evidence remains explicitly unknown.
 
 The selected version's summary is read-only description in the navigation info
-popup. Retired description targets remain readable; new feedback and reply fix
+popup. Retired description targets remain readable; new discussions and comment fix
 targets cannot anchor to descriptions.
 
-**Placements** are separate records keyed by feedback, version, path, and
+**Placements** are separate records keyed by discussions, version, path, and
 representation, with `anchored|ambiguous|unplaced` state. They never rewrite the
 original target. Locate initially returns to that original view. An unavailable
 runtime element does not make its conversation disappear.
 
-**Replies** are pure messages. Inline references derive from their own fix target
+**Comments** are pure messages. Inline references derive from their own fix target
 when present, otherwise from the discussion's original target. General discussions
-stay unbound without a version target; historical references remain pinned. No reply action resolves feedback. Successful agent replies release
+stay unbound without a version target; historical references remain pinned. No comment action resolves discussions. Successful agent comments release
 only that same agent's claim.
 
-**Claims** are 60-minute renewable feedback-scoped leases. Another live owner
+**Claims** are 60-minute renewable discussions-scoped leases. Another live owner
 conflicts. Resolve, archive, deletion, and expiry clear claims. Claim presence is
 separate from status, activity ordering, and owner delivery.
 
 **Owner handoff** retains the existing distinction between unsent human content and
 agent messages born delivered. Pending reads return a snapshot without acknowledgment.
-The CLI writes it successfully to stdout before calling the explicit feedback
+The CLI writes it successfully to stdout before calling the explicit discussions
 acknowledgment endpoint with its required fingerprint. Persisted revisions prevent
 stale snapshots from acknowledging edits, including edit-and-revert cycles. Failed
 reads/output leave content pending; retries after acknowledgment failure may repeat
-output. The web UI copies a `r3 feedback fetch` command without acknowledging it.
+output. The web UI copies a `r3 discussions fetch` command without acknowledging it.
 Successful fetch registers the caller as listener when its harness supports it.
 A wake notification alone does not stamp delivery.
-Feedback retains whether it was ever delivered independently of the current text's
+Discussion retains whether it was ever delivered independently of the current text's
 pending timestamp, so editing cannot suppress a later resolution notification.
 
 **Lifecycle events** have immutable ordered identities, actor, optional message,
@@ -165,8 +165,8 @@ registrations before post-commit notifications. Push only a nonblank message to
 that captured recipient.
 A failed push preserves the event and reports failure; retry does not notify again.
 Restore permits work but never revives an old registration. Archive preserves
-feedback state, unsent content, and drafts. Archived content is read-only until
-restore: the backend rejects content mutations at commit, including late replies.
+discussions state, unsent content, and drafts. Archived content is read-only until
+restore: the backend rejects content mutations at commit, including late comments.
 The browser retains drafts while disabling mutation controls.
 
 An artifact can retain a publisher fallback and an explicit subscription, with
@@ -181,16 +181,16 @@ can replace a subscription; ended identities never return. The worker saves loca
 destinations, not recovery intents. Generic watch remains scoped to its request.
 `--session` is a display name; harness identity or `R3_AGENT_SESSION` identifies
 authored runs. Generic watch needs no supplied identity. Watch gives archive
-priority over pending feedback and timeout, including a watch begun after archive.
+priority over pending discussions and timeout, including a watch begun after archive.
 Exit codes: archived `0`, pending `10`, timeout `2`, occupied/superseded or snapshot conflict `4`.
 Explicit listen adapter unavailability is `5`; automatic setup failure only warns
-after successful publication or feedback fetch. Generic agents can watch or poll.
+after successful publication or discussions fetch. Generic agents can watch or poll.
 Use `cli/artifact-help.ts` as the exact command/help/agent-guide text.
 
 ## Browser design
 
 Structural containers use square corners, compact spacing, shared dividers, and no
-elevation in the base layer. This includes feedback cards and multiline editors.
+elevation in the base layer. This includes discussions cards and multiline editors.
 Detached outer overlays use rounded corners, visible borders, subtle edge lighting,
 and layered shadows; inner content stays flat. Mobile bottom sheets intentionally
 keep rounded top corners and square bottom corners. Buttons, filter bubbles, badges,
@@ -202,7 +202,7 @@ offer **Go to the latest version**. Drafts hold their native target/context inde
 current pane, survive view switches, and persist after a 400 ms debounce. Legacy
 browser drafts remain evidence rather than being guessed into new targets.
 
-The desktop navbar toggles the feedback dock, restoring its last expanded or floating
+The desktop navbar toggles the discussions dock, restoring its last expanded or floating
 mode. Both visible modes also provide an in-panel Hide control. Hidden panels stay
 mounted without reserving content space. An anchor gesture with an empty composer
 starts a note; a composer holding text gets a quote action instead. A hidden dock uses
@@ -221,8 +221,8 @@ unfolds/hydrates, then retries the row jump under a nonce so newer jumps invalid
 older work. The scroll spy measures visible blocks and rechecks on resize.
 
 Source highlighting ships escaped palette classes and one theme stylesheet, never
-Shiki/WASM in the browser. Retained document HTML belongs in preview. Feedback,
-replies, and summaries render safe client Markdown (`html:false`); inline file refs
+Shiki/WASM in the browser. Retained document HTML belongs in preview. Discussion,
+comments, and summaries render safe client Markdown (`html:false`); inline file refs
 resolve against saved, derived reference context. Mermaid's supported diagrams use safe
 SVG; unsupported syntax falls through to source.
 

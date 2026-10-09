@@ -35,13 +35,13 @@ test("image-only messages survive restart, retain immutable bytes and participat
     target: { kind: "artifact" },
     attachments: [image],
   });
-  const reply = await store.conversations.addReply(note.id, {
+  const comment = await store.conversations.addComment(note.id, {
     actor: human,
     body: "",
     context: { versionSeq: null, representation: null },
     attachments: [image],
   });
-  expect(note.attachments![0]!.hash).toBe(reply.attachments![0]!.hash);
+  expect(note.attachments![0]!.hash).toBe(comment.attachments![0]!.hash);
   expect(store.artifacts.get(artifact.id).storage.attachmentBytes).toBe(
     Buffer.from(base64, "base64").length,
   );
@@ -56,7 +56,7 @@ test("image-only messages survive restart, retain immutable bytes and participat
   const reopened = await openArtifactStorage({ databasePath });
   stores.push(reopened);
   expect(reopened.conversations.get(note.id).attachments).toEqual(note.attachments);
-  expect(reopened.conversations.reply(reply.id).attachments).toEqual(reply.attachments);
+  expect(reopened.conversations.comment(comment.id).attachments).toEqual(comment.attachments);
   reopened.conversations.delete(note.id, human);
   expect(await reopened.collectBlobs()).toBe(1);
   await expect(

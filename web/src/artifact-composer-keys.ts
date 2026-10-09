@@ -2,7 +2,7 @@ import { keysSuspended } from "./keys.ts";
 
 export function artifactComposerField(id: string): HTMLTextAreaElement | null {
   const fields = document.querySelectorAll<HTMLTextAreaElement>(
-    `[data-artifact-composer="${CSS.escape(id)}"]:not([data-reply-to]) textarea`,
+    `[data-artifact-composer="${CSS.escape(id)}"]:not([data-comment-to]) textarea`,
   );
   return (
     [...fields].find(

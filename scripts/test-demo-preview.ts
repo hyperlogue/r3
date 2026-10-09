@@ -271,27 +271,31 @@ try {
     y: offset.y + text.y,
   });
   await eventually(
-    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Feedback\"]')"),
+    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Discussion\"]')"),
     "rendered selection composer",
   );
-  await page.evaluate("void document.querySelector('textarea[aria-label=\"Feedback\"]').focus()");
+  await page.evaluate("void document.querySelector('textarea[aria-label=\"Discussion\"]').focus()");
   await page.command("Input.insertText", { text: "Explain the remaining error." });
   await page.evaluate(
-    "void document.querySelector('textarea[aria-label=\"Feedback\"]').form.requestSubmit()",
+    "void document.querySelector('textarea[aria-label=\"Discussion\"]').form.requestSubmit()",
   );
   const readNote =
-    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.body==='Explain the remaining error.')";
-  const note = await eventually(() => page.evaluate(readNote), "saved native feedback");
+    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').discussions.find(n=>n.body==='Explain the remaining error.')";
+  const note = await eventually(() => page.evaluate(readNote), "saved native discussions");
   assert.equal(note.target.kind, "rendered");
   assert.equal(note.target.versionSeq, 1);
   assert.equal(note.target.path, "index.html");
   assert.equal(note.target.locator.quote, "Can this model capture every ripple?");
   await clickButton("Send to agent");
   await eventually(
-    () => page.evaluate(`(${readNote})?.replies.length === 1`),
-    "scripted agent reply",
+    () => page.evaluate(`(${readNote})?.comments.length === 1`),
+    "scripted agent comment",
   );
-  assert.equal(await page.evaluate(`(${readNote}).status`), "open", "agent replies do not resolve");
+  assert.equal(
+    await page.evaluate(`(${readNote}).status`),
+    "open",
+    "agent comments do not resolve",
+  );
   assert(
     await frame.evaluate(
       "document.querySelector('#model-note').textContent==='Can this model capture every ripple?'",
@@ -363,20 +367,20 @@ try {
       y: (control[1] + control[5]) / 2 + (frame.command === page.command ? 0 : frameOffset.y),
     });
   await eventually(
-    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Feedback\"]')"),
+    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Discussion\"]')"),
     "element composer",
   );
-  await page.evaluate("void document.querySelector('textarea[aria-label=\"Feedback\"]').focus()");
+  await page.evaluate("void document.querySelector('textarea[aria-label=\"Discussion\"]').focus()");
   await page.command("Input.insertText", { text: "Keep this explanation heading." });
   await page.evaluate(
-    "void document.querySelector('textarea[aria-label=\"Feedback\"]').form.requestSubmit()",
+    "void document.querySelector('textarea[aria-label=\"Discussion\"]').form.requestSubmit()",
   );
   const elementNote = await eventually(
     () =>
       page.evaluate(
-        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.body==='Keep this explanation heading.')",
+        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').discussions.find(n=>n.body==='Keep this explanation heading.')",
       ),
-    "saved element feedback",
+    "saved element discussions",
   );
   assert.equal(elementNote.target.path, "details.html");
   assert.equal(elementNote.target.locator.quote, "Behind the curves.");
@@ -387,16 +391,16 @@ try {
     "The small cosine ripple is outside this model; a close fit still has residual error.",
   );
   await page.evaluate(
-    `void document.querySelector('[data-artifact-feedback="${elementNote.id}"] button[title]').click()`,
+    `void document.querySelector('[data-artifact-discussions="${elementNote.id}"] button[title]').click()`,
   );
   await preview("Behind the curves.");
   await page.evaluate(
-    `void document.querySelector('[data-artifact-feedback="${elementNote.id}"] [data-feedback-action="resolve"]').click()`,
+    `void document.querySelector('[data-artifact-discussions="${elementNote.id}"] [data-discussions-action="resolve"]').click()`,
   );
   await eventually(
     () =>
       page.evaluate(
-        `window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').feedback.find(n=>n.id==='${elementNote.id}').status==='resolved'`,
+        `window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').discussions.find(n=>n.id==='${elementNote.id}').status==='resolved'`,
       ),
     "human resolution",
   );

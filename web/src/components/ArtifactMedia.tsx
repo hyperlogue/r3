@@ -41,7 +41,7 @@ export function ArtifactMedia({
   onSavedFrame?: (saved: boolean) => void;
 }) {
   const kind = targetableMedia(file.mediaType);
-  const feedbackLabel = kind === "video" ? "Add video feedback" : "Add image feedback";
+  const discussionLabel = kind === "video" ? "Add video discussions" : "Add image discussions";
   const currentDraftFrame = useArtifactMediaDraftFrame(artifactId);
   const [acceptedFrame, setAcceptedFrame] = useState<string | null>(null);
   const [url, setUrl] = useState("");
@@ -56,7 +56,7 @@ export function ArtifactMedia({
   const savedImage = useRef<HTMLImageElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const player = useRef<HTMLDivElement>(null);
-  const feedbackAction = useRef<HTMLButtonElement>(null);
+  const discussionAction = useRef<HTMLButtonElement>(null);
   const selection = useRef<HTMLButtonElement>(null);
   const [selecting, setSelecting] = useState(false);
   const [box, setBox] = useState<MediaBox>(FULL_MEDIA_BOX);
@@ -202,7 +202,9 @@ export function ArtifactMedia({
       );
       setAcceptedFrame(accepted ? output.attachment.id : null);
       if (!output.persisted)
-        setError("Frame saved for this tab only. Keep the tab open until you post your feedback.");
+        setError(
+          "Frame saved for this tab only. Keep the tab open until you post your discussions.",
+        );
     } catch (e) {
       if (alive.current) setError((e as Error).message);
     } finally {
@@ -224,14 +226,14 @@ export function ArtifactMedia({
     <>
       {onTarget && !animated && (
         <button
-          ref={feedbackAction}
+          ref={discussionAction}
           type="button"
           className={cn(
             iconClass,
             selecting && "bg-primary-500/15 text-primary-600 dark:text-primary-400",
           )}
-          title={feedbackLabel}
-          aria-label={feedbackLabel}
+          title={discussionLabel}
+          aria-label={discussionLabel}
           aria-pressed={selecting}
           disabled={!ready || saving}
           onClick={select}
@@ -340,7 +342,7 @@ export function ArtifactMedia({
                   ref={selection}
                   type="button"
                   data-media-selection
-                  aria-label="Click or press Enter for full-frame feedback, drag to select a region, or press Escape to cancel"
+                  aria-label="Click or press Enter for full-frame discussions, drag to select a region, or press Escape to cancel"
                   className="absolute inset-0 touch-none cursor-crosshair focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
                   onClick={(event) => {
                     if (event.detail === 0) void add(FULL_MEDIA_BOX);
@@ -350,7 +352,7 @@ export function ArtifactMedia({
                       event.preventDefault();
                       event.stopPropagation();
                       setSelecting(false);
-                      feedbackAction.current?.focus({ preventScroll: true });
+                      discussionAction.current?.focus({ preventScroll: true });
                     } else if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       event.stopPropagation();

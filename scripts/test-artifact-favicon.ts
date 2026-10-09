@@ -76,7 +76,7 @@ try {
   const page = await browser.attach(targetId);
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/${artifact.id}` });
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-feedback-mode]')"),
+    () => page.evaluate("!!document.querySelector('[data-discussions-mode]')"),
     "artifact workspace",
   );
   const icon = "document.querySelector('link[rel=icon]').href";
@@ -84,21 +84,21 @@ try {
   const changed = async () => (await page.evaluate(icon)) !== original;
   const notify = () =>
     api.collaboration.broadcast({
-      type: "feedback-updated",
+      type: "discussions-updated",
       artifactId: artifact.id,
-      feedbackId: note.id,
+      discussionId: note.id,
     });
-  await storage.conversations.addReply(note.id, {
+  await storage.conversations.addComment(note.id, {
     actor: { role: "agent", sessionId: "favicon-agent" },
     body: "Ready for your review.",
     context: { versionSeq: 1, representation: "source" },
   });
   notify();
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-feedback-attention]')"),
-    "agent reply reaches the panel attention indicator",
+    () => page.evaluate("!!document.querySelector('[data-discussions-attention]')"),
+    "agent comment reaches the panel attention indicator",
   );
-  await eventually(changed, "unhandled agent feedback adds the favicon notification dot");
+  await eventually(changed, "unhandled agent discussions adds the favicon notification dot");
   const pixel = await page.evaluate<number[]>(`new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
@@ -112,20 +112,20 @@ try {
     image.src = ${icon};
   })`);
   assert(pixel[2] > pixel[0] && pixel[2] > pixel[1], "the favicon dot renders blue");
-  await storage.conversations.addReply(note.id, {
+  await storage.conversations.addComment(note.id, {
     actor,
     body: "Thanks, reviewed.",
     context: { versionSeq: 1, representation: "source" },
   });
   notify();
-  await eventually(async () => !(await changed()), "a human reply clears the favicon dot");
-  await storage.conversations.addReply(note.id, {
+  await eventually(async () => !(await changed()), "a human comment clears the favicon dot");
+  await storage.conversations.addComment(note.id, {
     actor: { role: "agent", sessionId: "favicon-agent" },
     body: "One more item for your review.",
     context: { versionSeq: 1, representation: "source" },
   });
   notify();
-  await eventually(changed, "another agent reply restores the dot");
+  await eventually(changed, "another agent comment restores the dot");
   await page.evaluate("document.querySelector('a[title=\"All artifacts\"]').click()");
   await eventually(async () => !(await changed()), "leaving the artifact restores the normal icon");
   await eventually(
@@ -134,10 +134,10 @@ try {
   );
   await page.evaluate(`document.querySelector('a[href="/${artifact.id}"]').click()`);
   await eventually(changed, "reopening an artifact retains its unhandled attention");
-  await page.evaluate("document.querySelector('[data-feedback-action=resolve]').click()");
-  await eventually(async () => !(await changed()), "resolving feedback clears the favicon dot");
+  await page.evaluate("document.querySelector('[data-discussions-action=resolve]').click()");
+  await eventually(async () => !(await changed()), "resolving discussions clears the favicon dot");
   console.log(
-    "Favicon acceptance passed: blue agent-attention dot, human replies, resolution, and navigation cleanup.",
+    "Favicon acceptance passed: blue agent-attention dot, human comments, resolution, and navigation cleanup.",
   );
 } finally {
   await browser?.close();

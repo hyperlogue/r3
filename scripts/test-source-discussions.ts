@@ -12,7 +12,7 @@ import { openArtifactStorage } from "../server/artifact-storage.ts";
 const { chromium, firefox } = await import(process.env.R3_TEST_PLAYWRIGHT!);
 const engine = process.env.R3_TEST_ENGINE === "firefox" ? firefox : chromium;
 const assets = await loadApplicationAssets({ index: join(import.meta.dir, "../web/index.html") });
-const root = await mkdtemp(join(tmpdir(), "r3-source-feedback-"));
+const root = await mkdtemp(join(tmpdir(), "r3-source-discussions-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "files", actor, title: "Source range fixture" });
@@ -231,14 +231,14 @@ try {
         },
       );
     }
-    const composer = page.locator("[data-artifact-composer]:not([data-reply-to]):visible");
+    const composer = page.locator("[data-artifact-composer]:not([data-comment-to]):visible");
     await composer.locator("textarea").fill("Please consolidate this range.");
     const posted = page.waitForResponse(
       (response: any) =>
         response.request().method() === "POST" &&
-        new URL(response.url()).pathname.endsWith("/feedback"),
+        new URL(response.url()).pathname.endsWith("/discussions"),
     );
-    await composer.getByRole("button", { name: "Add feedback", exact: true }).click();
+    await composer.getByRole("button", { name: "Add discussions", exact: true }).click();
     const response = await posted;
     assert.equal(response.status(), 201, await response.text());
     const note = await response.json();
@@ -260,7 +260,7 @@ try {
       end,
       quote: scenario.quote ?? selected.slice(0, 4).join("\n").trim(),
     });
-    const read = await fetch(`http://localhost:${app.port}/api/feedback/${note.id}/source`, {
+    const read = await fetch(`http://localhost:${app.port}/api/discussions/${note.id}/source`, {
       headers: { "x-r3-token": token },
     });
     assert.equal(read.status, 200);
@@ -270,7 +270,7 @@ try {
     await page.close();
   }
   console.log(
-    "Source/diff feedback: compact excerpts retain full ranges, retrievable without acknowledgment.",
+    "Source/diff discussions: compact excerpts retain full ranges, retrievable without acknowledgment.",
   );
 } finally {
   await browser.close();

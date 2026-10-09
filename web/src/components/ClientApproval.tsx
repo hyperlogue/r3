@@ -48,7 +48,7 @@ export function ClientApproval() {
         <>
           <p className="mb-6 text-sm text-neutral-500">
             Approve only a login you started. This client will have access to every artifact and
-            feedback conversation on this server.
+            discussions conversation on this server.
           </p>
           <form
             onSubmit={(event) => {

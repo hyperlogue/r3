@@ -64,8 +64,8 @@ export function createArtifactUtility(
     setTheme: (theme) => call("setTheme", theme),
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),
-    createFeedback: (input) => call("createFeedback", input),
-    reply: (input) => call("reply", input),
+    createDiscussion: (input) => call("createDiscussion", input),
+    comment: (input) => call("comment", input),
     submit: () => call("submit"),
     subscribe: (listener) => {
       subscribers.add(listener);

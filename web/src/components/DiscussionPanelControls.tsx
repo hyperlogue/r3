@@ -1,20 +1,20 @@
-import type { FeedbackPanelMode } from "../settings.ts";
+import type { DiscussionPanelMode } from "../settings.ts";
 import { StrokeIcon } from "../ui.tsx";
 
 const control =
   "flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100";
 
-export function FeedbackPanelControls({
+export function DiscussionPanelControls({
   disabled = false,
   mode,
   onChange,
 }: {
   disabled?: boolean;
-  mode: Exclude<FeedbackPanelMode, "hidden">;
-  onChange: (mode: FeedbackPanelMode) => void;
+  mode: Exclude<DiscussionPanelMode, "hidden">;
+  onChange: (mode: DiscussionPanelMode) => void;
 }) {
   const next = mode === "floating" ? "expanded" : "floating";
-  const label = next === "expanded" ? "Dock feedback" : "Float feedback";
+  const label = next === "expanded" ? "Dock discussions" : "Float discussions";
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <button
@@ -37,8 +37,8 @@ export function FeedbackPanelControls({
       <button
         type="button"
         disabled={disabled}
-        aria-label="Hide feedback"
-        title="Hide feedback (Esc / p)"
+        aria-label="Hide discussions"
+        title="Hide discussions (Esc / p)"
         onClick={() => onChange("hidden")}
         className={`${control} disabled:opacity-40 disabled:pointer-events-none`}
       >

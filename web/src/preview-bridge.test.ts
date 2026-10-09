@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import type { ArtifactDetail, ArtifactFeedback, ArtifactReply } from "../../shared/artifacts.ts";
+import type {
+  ArtifactComment,
+  ArtifactDetail,
+  ArtifactDiscussion,
+} from "../../shared/artifacts.ts";
 import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
 import { previewBridgeCall, previewLocator, previewSelectionPosition } from "./preview-bridge.ts";
 import { previewThemePreference } from "./preview-theme.ts";
@@ -22,17 +26,17 @@ test("preview bridge exposes only its artifact's human conversation at the selec
     resourceRoot: "https://preview.example/files/",
     state: "active",
   };
-  const feedback = { id: "feedback_fixture", replies: [] } as unknown as ArtifactFeedback;
-  const detail = { feedback: [feedback] } as ArtifactDetail;
+  const discussions = { id: "discussion_fixture", comments: [] } as unknown as ArtifactDiscussion;
+  const detail = { discussions: [discussions] } as ArtifactDetail;
   const calls: unknown[] = [];
   const api = {
-    addFeedback: async (...args: unknown[]) => {
+    addDiscussion: async (...args: unknown[]) => {
       calls.push(args);
-      return feedback;
+      return discussions;
     },
-    reply: async (...args: unknown[]) => {
+    comment: async (...args: unknown[]) => {
       calls.push(args);
-      return {} as ArtifactReply;
+      return {} as ArtifactComment;
     },
     submit: async (...args: unknown[]) => {
       calls.push(args);
@@ -45,38 +49,40 @@ test("preview bridge exposes only its artifact's human conversation at the selec
       set: () => {},
     });
   expect(await call("getContext")).toEqual(context);
-  expect(await call("getThreads")).toEqual([feedback]);
-  detail.feedback = [
+  expect(await call("getThreads")).toEqual([discussions]);
+  detail.discussions = [
     {
-      ...feedback,
-      attachments: [{ id: "private-image" }] as ArtifactFeedback["attachments"],
-      replies: [{ id: "reply", attachments: [{ id: "private-reply-image" }] } as ArtifactReply],
+      ...discussions,
+      attachments: [{ id: "private-image" }] as ArtifactDiscussion["attachments"],
+      comments: [
+        { id: "comment", attachments: [{ id: "private-comment-image" }] } as ArtifactComment,
+      ],
     },
   ];
-  expect(await call("getThreads")).toEqual([{ id: feedback.id, replies: [{ id: "reply" }] }]);
-  await expect(call("createFeedback", { body: "Spoof", attachments: [] }, true)).rejects.toThrow(
+  expect(await call("getThreads")).toEqual([{ id: discussions.id, comments: [{ id: "comment" }] }]);
+  await expect(call("createDiscussion", { body: "Spoof", attachments: [] }, true)).rejects.toThrow(
     "scope",
   );
   for (const method of ["publish", "archive", "claim", "fetch", "exec", "createSession"])
     await expect(call(method, {}, true)).rejects.toThrow("Unsupported");
-  for (const method of ["createFeedback", "reply", "submit"])
+  for (const method of ["createDiscussion", "comment", "submit"])
     await expect(call(method)).rejects.toThrow("user action");
   await expect(
-    call("reply", { feedbackId: "feedback_other", body: "Another artifact" }, true),
+    call("comment", { discussionId: "discussion_other", body: "Another artifact" }, true),
   ).rejects.toThrow("not part");
   await expect(
-    call("createFeedback", { body: "Spoof", actor: { role: "agent" } }, true),
+    call("createDiscussion", { body: "Spoof", actor: { role: "agent" } }, true),
   ).rejects.toThrow("scope");
   await expect(
     call(
-      "createFeedback",
+      "createDiscussion",
       { body: "Navigate", locator: { selector: "h1", route: "https://outside.example" } },
       true,
     ),
   ).rejects.toThrow("document");
   expect(calls).toHaveLength(0);
   await call(
-    "createFeedback",
+    "createDiscussion",
     { body: "Revise", locator: { selector: "#heading", quote: "Visible\n text" } },
     true,
   );
@@ -90,8 +96,8 @@ test("preview bridge exposes only its artifact's human conversation at the selec
       locator: { selector: "#heading", quote: "Visible text" },
     },
   ]);
-  await call("reply", { feedbackId: feedback.id, body: "About version two" }, true);
-  expect(calls[1]).toEqual([feedback.id, { body: "About version two" }]);
+  await call("comment", { discussionId: discussions.id, body: "About version two" }, true);
+  expect(calls[1]).toEqual([discussions.id, { body: "About version two" }]);
   await call("submit", undefined, true);
   expect(calls[2]).toEqual([context.artifactId]);
 });
@@ -120,8 +126,8 @@ test("preview themes persist only a user-selected light/dark preference for thei
       method,
       value,
       scope,
-      { feedback: [] } as unknown as ArtifactDetail,
-      { addFeedback: unavailable, reply: unavailable, submit: unavailable },
+      { discussions: [] } as unknown as ArtifactDetail,
+      { addDiscussion: unavailable, comment: unavailable, submit: unavailable },
       activated,
       previewThemePreference(storage, scope.artifactId),
     );
@@ -155,7 +161,7 @@ test("preview themes persist only a user-selected light/dark preference for thei
       undefined,
       context,
       {} as ArtifactDetail,
-      { addFeedback: unavailable, reply: unavailable, submit: unavailable },
+      { addDiscussion: unavailable, comment: unavailable, submit: unavailable },
       false,
       blocked,
     ),

@@ -1,7 +1,7 @@
-import { buildArtifactPrompt, feedbackAttachments } from "../../shared/artifact-prompt.ts";
+import { buildArtifactPrompt, discussionAttachments } from "../../shared/artifact-prompt.ts";
 import {
-  type ArtifactFeedback,
-  type ArtifactReply,
+  type ArtifactComment,
+  type ArtifactDiscussion,
   type ArtifactStreamEvent,
   type ArtifactTarget,
   artifactAgentIds,
@@ -72,7 +72,7 @@ async function attachments(
 
 async function messageOperation(
   artifactId: string,
-  kind: "feedback" | "reply",
+  kind: "discussions" | "comment",
   key: string | undefined,
   input: unknown,
 ) {
@@ -91,9 +91,9 @@ async function messageOperation(
       if (!saved) return null;
       if (saved.hash !== hash || saved.kind !== kind)
         fail("Operation key was used for a different message", 409);
-      return saved.kind === "feedback"
+      return saved.kind === "discussions"
         ? copy(demo.note(saved.id).note)
-        : copy(demo.reply(saved.id).reply);
+        : copy(demo.comment(saved.id).comment);
     },
     save(id: string) {
       if (key) {
@@ -120,7 +120,7 @@ export const artifactApi: typeof productionApi = {
     return result;
   },
   search: async (options) => copy(searchDemoArtifacts(demo.state, options)),
-  feedbackSource: async (id) => demo.feedbackSource(id),
+  discussionSource: async (id) => demo.discussionSource(id),
   sessions: async () =>
     [
       ...new Set(
@@ -128,9 +128,9 @@ export const artifactApi: typeof productionApi = {
           .flatMap((artifact) => [
             artifact.createdBy.sessionId,
             ...artifact.versions.map((version) => version.publishedBy.sessionId),
-            ...artifact.feedback.flatMap((feedback) => [
-              feedback.author.sessionId,
-              ...feedback.replies.map((reply) => reply.author.sessionId),
+            ...artifact.discussions.flatMap((discussions) => [
+              discussions.author.sessionId,
+              ...discussions.comments.map((comment) => comment.author.sessionId),
             ]),
           ])
           .filter((id): id is string => id !== null),
@@ -207,8 +207,8 @@ export const artifactApi: typeof productionApi = {
     return copy(demo.get(id));
   },
   delete: async (id) => {
-    for (const note of demo.get(id).feedback) delete demo.state.everDelivered[note.id];
-    delete demo.state.feedbackRevisions[id];
+    for (const note of demo.get(id).discussions) delete demo.state.everDelivered[note.id];
+    delete demo.state.discussionRevisions[id];
     demo.state.artifacts = demo.state.artifacts.filter((item) => item.id !== id);
     for (const key of Object.keys(demo.state.publications))
       if (key.startsWith(`${id}/`)) delete demo.state.publications[key];
@@ -221,30 +221,30 @@ export const artifactApi: typeof productionApi = {
     for (const listener of demo.subscribers) listener({ type: "artifact-deleted", artifactId: id });
     return { ok: true };
   },
-  addFeedback: async (id, body, target, options = {}) => {
+  addDiscussion: async (id, body, target, options = {}) => {
     demo.target(id, target);
-    const operation = await messageOperation(id, "feedback", options.operationKey, {
+    const operation = await messageOperation(id, "discussions", options.operationKey, {
       body,
       target,
       attachments: options.attachments,
       mediaSnapshot: options.mediaSnapshot,
     });
     const replay = operation.replay();
-    if (replay) return replay as ArtifactFeedback;
+    if (replay) return replay as ArtifactDiscussion;
     const images = await attachments(id, options.attachments);
     const accepted = await mediaEvidence(id, target, options.mediaSnapshot);
     const concurrent = operation.replay();
-    if (concurrent) return concurrent as ArtifactFeedback;
-    const note = demo.addFeedback(id, body, accepted!, images);
+    if (concurrent) return concurrent as ArtifactDiscussion;
+    const note = demo.addDiscussion(id, body, accepted!, images);
     operation.save(note.id);
     return note;
   },
   attachment: async (artifactId, id) => {
-    const images = feedbackAttachments(demo.get(artifactId).feedback);
+    const images = discussionAttachments(demo.get(artifactId).discussions);
     if (!images.some((image) => image.id === id)) fail("Attachment not found", 404);
     return new Response(demo.images.get(id)?.blob ?? fail("Attachment not found", 404));
   },
-  editFeedback: async (id, body) => {
+  editDiscussion: async (id, body) => {
     const { artifact, note } = demo.note(id);
     const nextImages = await attachments(artifact.id, body.attachments, note.attachments);
     demo.requireActive(artifact.id);
@@ -269,44 +269,47 @@ export const artifactApi: typeof productionApi = {
       note.sentAt = null;
     note.statusUnsent ||= note.status !== previousStatus && demo.state.everDelivered[id] === true;
     note.updatedAt = now();
-    artifact.working = artifact.feedback.some((item) => item.claim !== null);
+    artifact.working = artifact.discussions.some((item) => item.claim !== null);
     demo.changed(artifact.id);
     return copy(note);
   },
-  deleteFeedback: async (id) => {
+  deleteDiscussion: async (id) => {
     const { artifact } = demo.note(id);
     demo.requireActive(artifact.id);
     delete demo.state.everDelivered[id];
     for (const [key, operation] of Object.entries(demo.state.messageOperations ?? {}))
       if (
         operation.id === id ||
-        artifact.feedback
+        artifact.discussions
           .find((note) => note.id === id)
-          ?.replies.some((reply) => reply.id === operation.id)
+          ?.comments.some((comment) => comment.id === operation.id)
       )
         delete demo.state.messageOperations![key];
-    artifact.feedback = artifact.feedback.filter((item) => item.id !== id);
-    artifact.placements = artifact.placements.filter((item) => item.feedbackId !== id);
-    artifact.working = artifact.feedback.some((item) => item.claim !== null);
+    artifact.discussions = artifact.discussions.filter((item) => item.id !== id);
+    artifact.placements = artifact.placements.filter((item) => item.discussionId !== id);
+    artifact.working = artifact.discussions.some((item) => item.claim !== null);
     demo.changed(artifact.id);
     return { ok: true };
   },
-  reply: async (id, body) => {
+  comment: async (id, body) => {
     const { artifact, note } = demo.note(id);
-    const operation = await messageOperation(artifact.id, "reply", body.operationKey, { id, body });
+    const operation = await messageOperation(artifact.id, "comment", body.operationKey, {
+      id,
+      body,
+    });
     const replay = operation.replay();
-    if (replay) return replay as ArtifactReply;
+    if (replay) return replay as ArtifactComment;
     const images = await attachments(artifact.id, body.attachments);
     const acceptedTarget = await mediaEvidence(artifact.id, body.target, body.mediaSnapshot);
     const concurrent = operation.replay();
-    if (concurrent) return concurrent as ArtifactReply;
+    if (concurrent) return concurrent as ArtifactComment;
     demo.requireActive(artifact.id);
-    if (!body.body.trim() && !images.length) fail("A reply needs text or an image");
+    if (!body.body.trim() && !images.length) fail("A comment needs text or an image");
     if (body.target) demo.target(artifact.id, body.target);
-    const reply = {
-      id: mint("reply"),
+    const comment = {
+      id: mint("comment"),
       artifactId: artifact.id,
-      feedbackId: id,
+      discussionId: id,
       author: human,
       body: body.body,
       attachments: images,
@@ -316,23 +319,26 @@ export const artifactApi: typeof productionApi = {
       createdAt: now(),
       sentAt: null,
     };
-    note.replies.push(reply);
-    operation.save(reply.id);
+    note.comments.push(comment);
+    operation.save(comment.id);
     demo.changed(artifact.id);
-    return copy(reply);
+    return copy(comment);
   },
-  editReply: async (id, body, inputs) => {
-    const { artifact, reply } = demo.reply(id);
-    const images = await attachments(artifact.id, inputs, reply.attachments);
+  editComment: async (id, body, inputs) => {
+    const { artifact, comment } = demo.comment(id);
+    const images = await attachments(artifact.id, inputs, comment.attachments);
     demo.requireActive(artifact.id);
-    if (!body.trim() && !images.length) fail("A reply needs text or an image");
-    if (reply.body !== body || JSON.stringify(images) !== JSON.stringify(reply.attachments ?? [])) {
-      reply.attachments = images;
-      reply.body = body;
-      if (reply.author.role === "human") reply.sentAt = null;
+    if (!body.trim() && !images.length) fail("A comment needs text or an image");
+    if (
+      comment.body !== body ||
+      JSON.stringify(images) !== JSON.stringify(comment.attachments ?? [])
+    ) {
+      comment.attachments = images;
+      comment.body = body;
+      if (comment.author.role === "human") comment.sentAt = null;
     }
     demo.changed(artifact.id);
-    return copy(reply);
+    return copy(comment);
   },
   place: async (id, body) => {
     const { artifact } = demo.note(id);
@@ -340,13 +346,13 @@ export const artifactApi: typeof productionApi = {
     demo.target(artifact.id, body.target);
     const index = artifact.placements.findIndex(
       (item) =>
-        item.feedbackId === id &&
+        item.discussionId === id &&
         item.target.kind === body.target.kind &&
         item.target.path === body.target.path &&
         item.target.versionSeq === body.target.versionSeq,
     );
     const placement = {
-      feedbackId: id,
+      discussionId: id,
       artifactId: artifact.id,
       ...copy(body),
       createdAt: index < 0 ? now() : artifact.placements[index].createdAt,
@@ -371,33 +377,33 @@ export const artifactApi: typeof productionApi = {
       : [],
   submit: async (id) => {
     if (!demo.get(id).watching)
-      fail("No listener is registered; run r3 feedback fetch in your agent", 409);
+      fail("No listener is registered; run r3 discussions fetch in your agent", 409);
     demo.handoff(id);
     return { notification: { state: "sent" } };
   },
-  pendingFeedback: (id, feedback) => demo.snapshot(id, feedback),
-  feedbackHistory: async (id, feedback) => {
+  pendingDiscussion: (id, discussions) => demo.snapshot(id, discussions),
+  discussionHistory: async (id, discussions) => {
     const artifact = demo.get(id);
-    const selected = artifact.feedback.filter((note) =>
-      feedback ? feedback.includes(note.id) : note.status === "open",
+    const selected = artifact.discussions.filter((note) =>
+      discussions ? discussions.includes(note.id) : note.status === "open",
     );
     return {
       text: buildArtifactPrompt(artifact, selected),
       itemCount: selected.length,
-      attachments: feedbackAttachments(selected),
+      attachments: discussionAttachments(selected),
     };
   },
-  acknowledgeFeedback: async (id, body) => {
+  acknowledgeDiscussion: async (id, body) => {
     if (!/^[a-f0-9]{64}$/.test(body.expectedFingerprint ?? ""))
-      fail("Invalid feedback fingerprint");
-    const revision = demo.state.feedbackRevisions[id];
-    const snapshot = await demo.snapshot(id, body.feedback);
+      fail("Invalid discussions fingerprint");
+    const revision = demo.state.discussionRevisions[id];
+    const snapshot = await demo.snapshot(id, body.discussions);
     if (
-      revision !== demo.state.feedbackRevisions[id] ||
+      revision !== demo.state.discussionRevisions[id] ||
       body.expectedFingerprint !== snapshot.acknowledgment.expectedFingerprint
     )
-      fail("Feedback changed; fetch it again before acknowledging", 409);
-    demo.handoff(id, body.feedback);
+      fail("Discussion changed; fetch it again before acknowledging", 409);
+    demo.handoff(id, body.discussions);
     return { acknowledgedCount: snapshot.itemCount };
   },
   viewed: async (id) => {

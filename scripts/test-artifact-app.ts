@@ -101,16 +101,16 @@ try {
     target: { kind: "artifact" },
   });
   store.registerSession({ id: "imported-agent", label: "Imported agent" });
-  const retainedReply = await conversations.addReply(retainedNote.id, {
+  const retainedComment = await conversations.addComment(retainedNote.id, {
     actor: { role: "agent", sessionId: "imported-agent" },
-    body: "Retained agent reply",
+    body: "Retained agent comment",
     context: { versionSeq: 2, representation: "source" },
   });
   previous.exec("PRAGMA user_version = 8");
   previous.close();
   await writeFile(
     join(directory, "index.html"),
-    '<!doctype html><html><body><h1 id="title">First published page</h1><button id="send">Discuss this heading</button><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{const note=await r3.createFeedback({body:"Please explain the heading",locator:{selector:"#title",quote:title.textContent}});window.createdNote=note.id;};</script></body></html>',
+    '<!doctype html><html><body><h1 id="title">First published page</h1><button id="send">Discuss this heading</button><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{const note=await r3.createDiscussion({body:"Please explain the heading",locator:{selector:"#title",quote:title.textContent}});window.createdNote=note.id;};</script></body></html>',
   );
   await writeFile(
     join(directory, "index.md"),
@@ -143,7 +143,7 @@ try {
       "--json",
     ]),
   );
-  assert((await command(["status"])).includes("artifacts-v1"));
+  assert((await command(["status"])).includes("artifacts-v2"));
   browser = await openTestBrowser();
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
@@ -205,7 +205,7 @@ try {
   await eventually(async () => {
     if (
       !(await page.evaluate(
-        "document.body?.textContent.includes('Retained human note') && document.body?.textContent.includes('Retained agent reply')",
+        "document.body?.textContent.includes('Retained human note') && document.body?.textContent.includes('Retained agent comment')",
       ))
     )
       return false;
@@ -218,8 +218,8 @@ try {
     imported.versions.map((version: { seq: number }) => version.seq),
     [2],
   );
-  assert.equal(imported.feedback[0].replies[0].id, retainedReply.id);
-  assert.equal(imported.feedback[0].sentAt, null);
+  assert.equal(imported.discussions[0].comments[0].id, retainedComment.id);
+  assert.equal(imported.discussions[0].sentAt, null);
   const backups = await readdir(`${environment.R3_DB}.artifacts/backups`);
   assert.equal(backups.length, 1);
   const backup = new Database(join(`${environment.R3_DB}.artifacts/backups`, backups[0]), {
@@ -249,16 +249,16 @@ try {
     });
   const noteId = await eventually(
     () => content.evaluate("window.createdNote"),
-    "compiled human utility feedback",
+    "compiled human utility discussions",
   );
   await eventually(
     () => page.evaluate("document.body.textContent.includes('Please explain the heading')"),
     "compiled conversation panel",
   );
   const detail = JSON.parse(await command(["show", html.artifact.id, "--json"]));
-  assert.equal(detail.feedback[0].id, noteId);
-  assert.equal(detail.feedback[0].author.role, "human");
-  assert.equal(detail.feedback[0].target.versionSeq, 1);
+  assert.equal(detail.discussions[0].id, noteId);
+  assert.equal(detail.discussions[0].author.role, "human");
+  assert.equal(detail.discussions[0].target.versionSeq, 1);
   await writeFile(join(directory, "index.html"), "<!doctype html><h1>Second published page</h1>");
   // A remote publisher has its own discovery directories and explicit server
   // credential; it uploads bytes without exposing any local path to the daemon.

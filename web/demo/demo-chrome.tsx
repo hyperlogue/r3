@@ -32,7 +32,7 @@ export function DemoChrome() {
   function reset() {
     if (
       !confirm(
-        "Reset the demo? This clears feedback, replies, and publications back to the original artifacts.",
+        "Reset the demo? This clears discussions, comments, and publications back to the original artifacts.",
       )
     )
       return;
@@ -96,15 +96,15 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
                 just a demo
               </span>{" "}
               — the whole thing runs in your browser. There's no server: the artifacts and your
-              feedback live in this tab. Reloading starts a fresh demo.
+              discussions live in this tab. Reloading starts a fresh demo.
             </p>
             <p>
               Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file
-              diff. Leave feedback on text or an element, then click{" "}
+              diff. Leave discussions on text or an element, then click{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
                 Send to agent
               </span>{" "}
-              — a scripted agent replies and publishes a new version. Your selected version and
+              — a scripted agent comments and publishes a new version. Your selected version and
               original comment targets stay available.
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">

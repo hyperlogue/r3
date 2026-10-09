@@ -316,12 +316,12 @@ application APIs or gate HTML.
 
 The parent accepts a bridge connection only from its exact iframe window,
 `Origin:null`, context id, and a published path, after gate readiness or remembered
-compatibility consent. Each document transfers a MessagePort to the exact application origin. Replies stay on that
+compatibility consent. Each document transfers a MessagePort to the exact application origin. Comments stay on that
 port, so navigation cannot deliver a pending result to a replacement document.
-The bridge exposes context, same-artifact conversations, human feedback/replies,
+The bridge exposes context, same-artifact conversations, human discussions/comments,
 explicit Submit, change notifications, and an artifact-scoped light/dark preference. It has no generic HTTP or host-command
 operation and accepts no actor or version override. Mutations require browser
-user activation. Published membership is checked before dispatch; reply ids must
+user activation. Published membership is checked before dispatch; comment ids must
 belong to the same artifact, and the server validates each native target.
 Selection, element picks, comment-mode toggles, and composer focus messages are
 UI actions on the current verified port, accepted only while that exact iframe
@@ -466,7 +466,7 @@ cooldown to land a dependency**; if a needed version is younger than 21 days, st
 and say so.
 
 
-## Feedback image isolation
+## Discussion image isolation
 
 Image reads use application authentication and artifact/message membership, never
 a blob hash capability or the preview resource allowlist. Raster responses deny

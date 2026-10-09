@@ -33,7 +33,9 @@ try {
   await page.command("Page.navigate", { url: new URL("/r3/demo/", server.url).href });
   await eventually(
     () =>
-      page.evaluate("document.body?.textContent.includes('Keep feedback on its original version')"),
+      page.evaluate(
+        "document.body?.textContent.includes('Keep discussions on its original version')",
+      ),
     "demo artifact home",
   );
   await page.evaluate(
@@ -44,7 +46,7 @@ try {
   );
   assert(await page.evaluate("document.body.textContent.includes('Curve lab — a little closer')"));
   await page.evaluate(
-    "Array.from(document.querySelectorAll('a')).find(a=>a.textContent.includes('Keep feedback on its original version')).click()",
+    "Array.from(document.querySelectorAll('a')).find(a=>a.textContent.includes('Keep discussions on its original version')).click()",
   );
   await eventually(
     () =>
@@ -55,12 +57,12 @@ try {
     () => page.evaluate("document.querySelectorAll('[data-file]').length === 6"),
     "six captured diff files",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
   await eventually(
-    () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
+    () => page.evaluate("!!document.querySelector('[aria-label=\"Discussion\"]')"),
     "composer",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
+  await page.evaluate("document.querySelector('[aria-label=\"Discussion\"]').focus()");
   await page.command("Input.insertText", {
     text: "Please keep the version I am reading selected.",
   });
@@ -70,7 +72,7 @@ try {
     canvas.toBlob(blob => {
       const data = new DataTransfer();
       data.items.add(new File([blob], 'practice.png', {type: 'image/png'}));
-      document.querySelector('[aria-label="Feedback"]').dispatchEvent(
+      document.querySelector('[aria-label="Discussion"]').dispatchEvent(
         new ClipboardEvent('paste', {bubbles: true, cancelable: true, clipboardData: data}));
       resolve(true);
     }, 'image/png');
@@ -80,19 +82,19 @@ try {
     "practice image preview",
   );
   await page.evaluate(
-    "Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Add feedback').click()",
+    "Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Add discussions').click()",
   );
   await eventually(
     () =>
       page.evaluate(
-        "Array.from(document.querySelectorAll('[data-artifact-feedback]')).some(card => card.textContent.includes('Please keep the version I am reading selected.'))",
+        "Array.from(document.querySelectorAll('[data-artifact-discussions]')).some(card => card.textContent.includes('Please keep the version I am reading selected.'))",
       ),
-    "saved feedback",
+    "saved discussions",
   );
   await eventually(
     () =>
       page.evaluate(
-        "Array.from(document.querySelectorAll('[data-artifact-feedback] img')).some(image => image.naturalWidth === 16)",
+        "Array.from(document.querySelectorAll('[data-artifact-discussions] img')).some(image => image.naturalWidth === 16)",
       ),
     "saved practice image served from memory",
   );
@@ -110,30 +112,30 @@ try {
     await page.evaluate("document.querySelector('[aria-label=\"Published version\"]').value"),
     "1",
   );
-  assert(await page.evaluate("document.body.textContent.includes('scripted demo reply')"));
-  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  assert(await page.evaluate("document.body.textContent.includes('scripted demo comment')"));
+  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
   await eventually(
-    () => page.evaluate("!!document.querySelector('[aria-label=\"Feedback\"]')"),
+    () => page.evaluate("!!document.querySelector('[aria-label=\"Discussion\"]')"),
     "unsent practice draft",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]').focus()");
+  await page.evaluate("document.querySelector('[aria-label=\"Discussion\"]').focus()");
   await page.command("Input.insertText", { text: "Discard this draft on reload." });
   await Bun.sleep(500);
   await page.command("Page.reload");
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='1' && !document.body?.textContent.includes('scripted demo reply') && !document.body?.textContent.includes('Please keep the version I am reading selected.')",
+        "document.querySelector('[aria-label=\"Published version\"]')?.dataset.versionCount==='1' && !document.body?.textContent.includes('scripted demo comment') && !document.body?.textContent.includes('Please keep the version I am reading selected.')",
       ),
     "Pages deep-link reload resets practice state",
   );
   assert.equal(
-    await page.evaluate("document.querySelector('[aria-label=\"Feedback\"]')?.value ?? ''"),
+    await page.evaluate("document.querySelector('[aria-label=\"Discussion\"]')?.value ?? ''"),
     "",
     "reload discards unsent practice drafts",
   );
   console.log(
-    "Static demo under /r3/demo including deep-link reload: publication, human feedback, scripted reply, selected version stays pinned until reload, practice state resets passed",
+    "Static demo under /r3/demo including deep-link reload: publication, human discussions, scripted comment, selected version stays pinned until reload, practice state resets passed",
   );
   if (process.env.R3_TEST_SCREENSHOT) {
     const shot = await page.command("Page.captureScreenshot", { format: "png" });

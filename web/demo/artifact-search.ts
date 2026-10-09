@@ -56,8 +56,8 @@ export function searchDemoArtifacts(
       artifactId: artifact.id,
       path: null,
       target: null,
-      feedbackId: null,
-      replyId: null,
+      discussionId: null,
+      commentId: null,
     };
     add(
       {
@@ -168,7 +168,7 @@ export function searchDemoArtifacts(
           });
         }
     }
-    for (const note of artifact.feedback) {
+    for (const note of artifact.discussions) {
       const target = ["source", "rendered", "diff"].includes(note.target.kind)
         ? (note.target as ArtifactDocumentTarget)
         : null;
@@ -177,9 +177,9 @@ export function searchDemoArtifacts(
         {
           ...base,
           id: note.id,
-          category: "feedback",
+          category: "discussions",
           versionSeq: seq,
-          feedbackId: note.id,
+          discussionId: note.id,
           path: target?.path ?? null,
           target,
           context:
@@ -190,19 +190,19 @@ export function searchDemoArtifacts(
         target?.path ?? "",
         note.body,
       );
-      for (const reply of note.replies)
+      for (const comment of note.comments)
         add(
           {
             ...base,
-            id: reply.id,
-            category: "reply",
-            versionSeq: reply.context.versionSeq,
-            feedbackId: note.id,
-            replyId: reply.id,
-            context: reply.context,
+            id: comment.id,
+            category: "comment",
+            versionSeq: comment.context.versionSeq,
+            discussionId: note.id,
+            commentId: comment.id,
+            context: comment.context,
           },
           "",
-          reply.body,
+          comment.body,
         );
     }
   }
@@ -213,7 +213,7 @@ export function searchDemoArtifacts(
       a.id.localeCompare(b.id),
   );
   const conversation = (m: ArtifactSearchMatch) =>
-    m.category === "feedback" || m.category === "reply";
+    m.category === "discussions" || m.category === "comment";
   const counts = {
     all: matches.length,
     conversation: matches.filter(conversation).length,

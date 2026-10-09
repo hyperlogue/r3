@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type {
   ArtifactDetail,
-  ArtifactFeedback,
+  ArtifactDiscussion,
   ArtifactKind,
   ArtifactMessageContext,
 } from "../../../shared/artifacts.ts";
@@ -15,9 +15,9 @@ import {
 } from "./ArtifactThreads.tsx";
 
 // One conversation uses the same card, server mutations, and draft store as the
-// full panel. Its container owns only focus and dismissal, never feedback state.
+// full panel. Its container owns only focus and dismissal, never discussions state.
 export function ArtifactThreadPopover({
-  feedback,
+  discussions,
   agentLabels,
   context,
   artifactKind,
@@ -29,7 +29,7 @@ export function ArtifactThreadPopover({
   onExpand,
   onClose,
 }: {
-  feedback: ArtifactFeedback;
+  discussions: ArtifactDiscussion;
   agentLabels?: ArtifactDetail["agentLabels"];
   context: ArtifactMessageContext;
   artifactKind: ArtifactKind;
@@ -37,7 +37,7 @@ export function ArtifactThreadPopover({
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   comparisons?: ReadonlyMap<string, ArtifactComparison>;
-  onCompare?: (replyId: string) => void;
+  onCompare?: (commentId: string) => void;
   onExpand: () => void;
   onClose: () => void;
 }) {
@@ -56,7 +56,7 @@ export function ArtifactThreadPopover({
     <div
       ref={root}
       role="dialog"
-      aria-label="Feedback thread"
+      aria-label="Discussion thread"
       tabIndex={-1}
       data-artifact-thread-popover
       onKeyDown={(event) => {
@@ -70,7 +70,7 @@ export function ArtifactThreadPopover({
       <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
         <span className="flex-1 text-sm font-semibold">Thread</span>
         <Button variant="ghost" onClick={onExpand}>
-          Open all feedback
+          Open all discussions
         </Button>
         <Button variant="ghost" aria-label="Close thread" onClick={onClose}>
           ×
@@ -78,7 +78,7 @@ export function ArtifactThreadPopover({
       </div>
       <div className="min-h-0 overflow-y-auto">
         <ArtifactThreadCard
-          feedback={feedback}
+          discussions={discussions}
           agentLabels={agentLabels}
           context={context}
           artifactKind={artifactKind}

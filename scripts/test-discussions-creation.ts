@@ -16,14 +16,14 @@ const build = await Bun.build({
   define: { "process.env.NODE_ENV": '"production"' },
   plugins: [await browserLoweredCssPlugin()],
 });
-if (!build.success) throw new Error("Feedback workspace failed to build");
+if (!build.success) throw new Error("Discussion workspace failed to build");
 const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
 const js = [...assets.keys()].find((name) => name.endsWith(".js"))!;
 const css = [...assets.keys()].find((name) => name.endsWith(".css"))!;
-const root = await mkdtemp(join(tmpdir(), "r3-feedback-creation-"));
+const root = await mkdtemp(join(tmpdir(), "r3-discussions-creation-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
-const artifact = storage.artifacts.create({ kind: "files", actor, title: "Feedback creation" });
+const artifact = storage.artifacts.create({ kind: "files", actor, title: "Discussion creation" });
 await storage.artifacts.publish(artifact.id, {
   actor,
   expectedSeq: 0,
@@ -39,9 +39,9 @@ await storage.artifacts.publish(artifact.id, {
     ],
   },
 });
-storage.artifacts.registerSession({ id: "feedback-test-agent" });
+storage.artifacts.registerSession({ id: "discussions-test-agent" });
 const discussion = await storage.conversations.add(artifact.id, {
-  actor: { role: "agent", sessionId: "feedback-test-agent" },
+  actor: { role: "agent", sessionId: "discussions-test-agent" },
   body: "Earlier conversation",
   target: { kind: "artifact" },
 });
@@ -61,7 +61,7 @@ const app = Bun.serve({
   idleTimeout: 30,
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (request.method === "POST" && path === `/api/artifacts/${artifact.id}/feedback`) {
+    if (request.method === "POST" && path === `/api/artifacts/${artifact.id}/discussions`) {
       if (mode === "fail")
         return Response.json({ error: "Please retry this save" }, { status: 400 });
       const response = await api.app.fetch(request);
@@ -96,20 +96,23 @@ try {
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/` });
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-feedback-list] > article')"),
-    "initial feedback",
+    () => page.evaluate("!!document.querySelector('[data-discussions-list] > article')"),
+    "initial discussions",
   );
-  await page.evaluate(`window.feedbackMotions=[]; window.KeyframeEffect=class extends KeyframeEffect {
+  await page.evaluate(`window.discussionMotions=[]; window.KeyframeEffect=class extends KeyframeEffect {
     constructor(target,frames,options) {
       super(target,frames,options);
-      if(target?.matches('[data-artifact-feedback]') && Array.isArray(frames) && frames.some(f=>f.height))
-        window.feedbackMotions.push({id:target.dataset.artifactFeedback,frames,options});
+      if(target?.matches('[data-artifact-discussions]') && Array.isArray(frames) && frames.some(f=>f.height))
+        window.discussionMotions.push({id:target.dataset.artifactDiscussion,frames,options});
     }
   }`);
-  const input = "document.querySelector('[data-artifact-composer]:not([data-reply-to]) textarea')";
-  const firstText = "document.querySelector('[data-feedback-list] > article')?.textContent";
+  const input =
+    "document.querySelector('[data-artifact-composer]:not([data-comment-to]) textarea')";
+  const firstText = "document.querySelector('[data-discussions-list] > article')?.textContent";
   const add = async (body: string) => {
-    await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+    await page.evaluate(
+      "document.querySelector('[aria-label=\"Add general discussions\"]').click()",
+    );
     await eventually(() => page.evaluate(`!!(${input})`), "new-note composer");
     await page.evaluate(`${input}.focus()`);
     await page.command("Input.insertText", { text: body });
@@ -121,17 +124,17 @@ try {
       "saved note occupies its queue position",
     );
     assert.equal(
-      await page.evaluate("document.querySelectorAll('[data-feedback-list] > article').length"),
+      await page.evaluate("document.querySelectorAll('[data-discussions-list] > article').length"),
       count,
     );
   };
   await add("First saved note");
   await saved("First saved note", 2);
   await eventually(
-    () => page.evaluate("window.feedbackMotions.length > 0"),
+    () => page.evaluate("window.discussionMotions.length > 0"),
     "composer-to-card height transition",
   );
-  const motion = await page.evaluate("window.feedbackMotions.at(-1)");
+  const motion = await page.evaluate("window.discussionMotions.at(-1)");
   assert.equal(motion.id, postedId);
   assert.equal(motion.options.duration, 280);
   assert.equal(motion.frames[0].transform, "translate(0px, 0px)");
@@ -143,29 +146,29 @@ try {
       page.evaluate(`!!(${input}) && ${firstText}?.includes('Event stream arrives before POST')`),
     "early event-stream read",
   );
-  const reply = await api.app.request(`http://localhost/api/feedback/${postedId}/replies`, {
+  const comment = await api.app.request(`http://localhost/api/discussions/${postedId}/comments`, {
     method: "POST",
     headers: { host: "localhost", "x-r3-token": token, "content-type": "application/json" },
     body: JSON.stringify({
-      actor: { role: "agent", sessionId: "feedback-test-agent" },
-      body: "Concurrent agent reply",
+      actor: { role: "agent", sessionId: "discussions-test-agent" },
+      body: "Concurrent agent comment",
       context: { versionSeq: null, representation: null },
     }),
   });
-  assert.equal(reply.status, 201);
-  // An early agent reply moves this note out of the fresh-unsent group. Check
+  assert.equal(comment.status, 201);
+  // An early agent comment moves this note out of the fresh-unsent group. Check
   // the stable card identity while the earlier unsent human note stays ahead.
-  const earlyText = `document.querySelector('[data-artifact-feedback="${postedId}"]')?.textContent`;
+  const earlyText = `document.querySelector('[data-artifact-discussions="${postedId}"]')?.textContent`;
   await eventually(
-    () => page.evaluate(`${earlyText}?.includes('Concurrent agent reply')`),
-    "concurrent reply arrives",
+    () => page.evaluate(`${earlyText}?.includes('Concurrent agent comment')`),
+    "concurrent comment arrives",
   );
   releasePost?.();
   await saved("Event stream arrives before POST", 3, earlyText);
-  assert(await page.evaluate(`${earlyText}?.includes('Concurrent agent reply')`));
+  assert(await page.evaluate(`${earlyText}?.includes('Concurrent agent comment')`));
   assert(await page.evaluate(`${firstText}?.includes('First saved note')`));
   await eventually(
-    () => page.evaluate(`window.feedbackMotions.some(m=>m.id===${JSON.stringify(postedId)})`),
+    () => page.evaluate(`window.discussionMotions.some(m=>m.id===${JSON.stringify(postedId)})`),
     "early card still morphs",
   );
 
@@ -180,17 +183,17 @@ try {
   );
   assert.equal(await page.evaluate(`${input}.value`), "Retain this failed draft");
   assert.equal(
-    await page.evaluate("document.querySelectorAll('[data-feedback-list] > article').length"),
+    await page.evaluate("document.querySelectorAll('[data-discussions-list] > article').length"),
     3,
   );
   mode = "normal";
   await page.command("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
-  await page.evaluate("window.feedbackMotions=[]");
+  await page.evaluate("window.discussionMotions=[]");
   await page.evaluate(`${input}.form.requestSubmit()`);
   await saved("Retain this failed draft", 4);
-  assert.deepEqual(await page.evaluate("window.feedbackMotions"), []);
+  assert.deepEqual(await page.evaluate("window.discussionMotions"), []);
   assert.equal(storage.conversations.list(artifact.id).length, 4);
 
   const { targetId: otherTarget } = await browser.send("Target.createTarget", {
@@ -206,14 +209,14 @@ try {
   await other.command("Page.navigate", { url: `http://localhost:${app.port}/` });
   await eventually(
     () =>
-      other.evaluate("document.querySelectorAll('[data-feedback-list] > article').length === 4"),
+      other.evaluate("document.querySelectorAll('[data-discussions-list] > article').length === 4"),
     "second tab workspace",
   );
   const edit = async (tab: typeof page, field: string, body: string) => {
     await tab.evaluate(`${field}.focus(); ${field}.select()`);
     await tab.command("Input.insertText", { text: body });
   };
-  await page.evaluate("document.querySelector('[aria-label=\"Add general feedback\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
   await eventually(() => page.evaluate(`!!(${input})`), "shared-note composer");
   await edit(page, input, "Shared note from the first tab");
   await eventually(
@@ -226,19 +229,19 @@ try {
     "latest note edit reaches the first tab",
   );
 
-  const replyInput = `document.querySelector('[data-reply-to="${discussion.id}"] textarea')`;
-  const openReply = async (tab: typeof page) => {
+  const commentInput = `document.querySelector('[data-comment-to="${discussion.id}"] textarea')`;
+  const openComment = async (tab: typeof page) => {
     await tab.evaluate(
-      `document.querySelector('[data-artifact-feedback="${discussion.id}"] [data-feedback-action=reply]').click()`,
+      `document.querySelector('[data-artifact-discussions="${discussion.id}"] [data-discussions-action=comment]').click()`,
     );
-    await eventually(() => tab.evaluate(`!!(${replyInput})`), "shared-reply composer");
+    await eventually(() => tab.evaluate(`!!(${commentInput})`), "shared-comment composer");
   };
-  await openReply(page);
-  await openReply(other);
-  await edit(page, replyInput, "Independent shared reply");
+  await openComment(page);
+  await openComment(other);
+  await edit(page, commentInput, "Independent shared comment");
   await eventually(
-    () => other.evaluate(`${replyInput}?.value === 'Independent shared reply'`),
-    "reply edit reaches the other tab",
+    () => other.evaluate(`${commentInput}?.value === 'Independent shared comment'`),
+    "comment edit reaches the other tab",
   );
   assert.equal(await other.evaluate(`${input}.value`), "Latest shared note");
   await other.command("Page.reload");
@@ -246,8 +249,8 @@ try {
     () => other.evaluate(`${input}?.value === 'Latest shared note'`),
     "shared note survives reload",
   );
-  await openReply(other);
-  assert.equal(await other.evaluate(`${replyInput}.value`), "Independent shared reply");
+  await openComment(other);
+  assert.equal(await other.evaluate(`${commentInput}.value`), "Independent shared comment");
   await other.evaluate(
     `[...${input}.form.querySelectorAll('button')].find(b=>b.textContent==='Discard').click()`,
   );
@@ -255,22 +258,22 @@ try {
   // animation frames even though their storage events have already arrived.
   await page.command("Page.bringToFront");
   await eventually(() => page.evaluate(`!(${input})`), "discard clears the other tab's note");
-  assert.equal(await page.evaluate(`${replyInput}.value`), "Independent shared reply");
-  await page.evaluate(`${replyInput}.form.requestSubmit()`);
+  assert.equal(await page.evaluate(`${commentInput}.value`), "Independent shared comment");
+  await page.evaluate(`${commentInput}.form.requestSubmit()`);
   await other.command("Page.bringToFront");
   await eventually(
-    () => other.evaluate(`${replyInput}?.value === ''`),
-    "posted reply clears the other tab's draft",
+    () => other.evaluate(`${commentInput}?.value === ''`),
+    "posted comment clears the other tab's draft",
   );
   assert.equal(
     storage.conversations
       .list(artifact.id)
       .find((note) => note.id === discussion.id)
-      ?.replies.at(-1)?.body,
-    "Independent shared reply",
+      ?.comments.at(-1)?.body,
+    "Independent shared comment",
   );
   console.log(
-    "Feedback creation: save/morph, early SSE and concurrent reply, retry, reduced motion, shared drafts across tabs, last saved edit, reload, discard, and reply cleanup passed.",
+    "Discussion creation: save/morph, early SSE and concurrent comment, retry, reduced motion, shared drafts across tabs, last saved edit, reload, discard, and comment cleanup passed.",
   );
 } finally {
   releasePost?.();

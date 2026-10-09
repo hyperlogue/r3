@@ -31,8 +31,8 @@ const SEQUENCE = `sequenceDiagram
     A->>S: [1] r3 create — opens a review
     loop until you Approve or Abandon
         A->>S: [2] r3 watch
-        U->>S: [3] leave feedback + Submit
-        S-->>A: watch prints feedback
+        U->>S: [3] leave discussions + Submit
+        S-->>A: watch prints discussions
     end
 `;
 
@@ -62,7 +62,7 @@ describe("renderMermaidSvg", () => {
     expect(svg).toContain("r3-mmd-dotted");
   });
 
-  test("renders a sequence diagram with aliases, loops, and dashed replies", () => {
+  test("renders a sequence diagram with aliases, loops, and dashed comments", () => {
     const svg = renderMermaidSvg("mermaid", SEQUENCE);
     expect(svg).toBeTruthy();
     expect(svg).toContain("Agent");

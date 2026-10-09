@@ -114,7 +114,7 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
     expect(await Bun.file(join(root, "runtime", "r3", "daemon.json")).exists()).toBe(false);
     expect(await Bun.file(join(root, "publisher.sqlite")).exists()).toBe(false);
     expect((await api.collaboration.submit(id)).state).toBe("queued");
-    expect(await Bun.file(queue).text()).toContain(`r3 feedback fetch ${id}`);
+    expect(await Bun.file(queue).text()).toContain(`r3 discussions fetch ${id}`);
     expect((await run(["worker", "stop"])).code).toBe(0);
     for (
       let i = 0;

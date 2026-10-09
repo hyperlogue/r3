@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { ArtifactFeedback } from "../../shared/artifacts.ts";
+import type { ArtifactDiscussion } from "../../shared/artifacts.ts";
 
 // Browser receipts record successful pings, never agent acknowledgment. Persist
 // hashes only; without Web Crypto, exact inputs remain in memory for this visit.
@@ -102,21 +102,21 @@ function remember(artifactId: string, attempt: Attempt) {
   );
 }
 
-function pendingInputs(feedback: ArtifactFeedback[]): string[] {
+function pendingInputs(discussions: ArtifactDiscussion[]): string[] {
   const inputs: string[] = [];
-  for (const note of feedback) {
+  for (const note of discussions) {
     if (note.author.role === "human" && note.sentAt === null && note.status === "open")
       inputs.push(JSON.stringify(["note", note.id, note.body, note.updatedAt]));
     if (note.statusUnsent) inputs.push(JSON.stringify(["status", note.id, note.status]));
-    for (const reply of note.replies)
-      if (reply.author.role === "human" && reply.sentAt === null)
-        inputs.push(JSON.stringify(["reply", reply.id, reply.body]));
+    for (const comment of note.comments)
+      if (comment.author.role === "human" && comment.sentAt === null)
+        inputs.push(JSON.stringify(["comment", comment.id, comment.body]));
   }
   return inputs.sort();
 }
 
-export function useFeedbackHandoffReceipt(artifactId: string, feedback: ArtifactFeedback[]) {
-  const source = useMemo(() => JSON.stringify(pendingInputs(feedback)), [feedback]);
+export function useDiscussionHandoffReceipt(artifactId: string, discussions: ArtifactDiscussion[]) {
+  const source = useMemo(() => JSON.stringify(pendingInputs(discussions)), [discussions]);
   const [snapshot, setSnapshot] = useState<{ source: string; hashes: string[] } | null>(null);
   const saved = useSyncExternalStore(subscribe, get)[artifactId]?.delivered?.hashes ?? [];
   useEffect(() => {
@@ -147,9 +147,9 @@ export function useFeedbackHandoffReceipt(artifactId: string, feedback: Artifact
     remember: (attempt: Attempt) => remember(artifactId, attempt),
   };
 }
-export function feedbackFetchCommand(artifactId: string): string {
+export function discussionFetchCommand(artifactId: string): string {
   const argument = /^[a-zA-Z0-9_-]+$/.test(artifactId)
     ? artifactId
     : `'${artifactId.replaceAll("'", "'\\''")}'`;
-  return `r3 feedback fetch ${argument}`;
+  return `r3 discussions fetch ${argument}`;
 }

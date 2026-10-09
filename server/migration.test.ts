@@ -46,9 +46,9 @@ async function fixture(database: Database): Promise<void> {
     },
   });
   database
-    .query(`INSERT INTO feedback
+    .query(`INSERT INTO discussions
     (id, artifact_id, artifact_kind, author, body, target_kind, legacy_anchor_json, created_at, updated_at)
-    VALUES ('feedback_retained', 'review_retained', 'files', 'human', 'Keep the thread', 'artifact', ?, ?, ?)`)
+    VALUES ('discussion_retained', 'review_retained', 'files', 'human', 'Keep the thread', 'artifact', ?, ?, ?)`)
     .run(JSON.stringify({ source: { file: "unknown.md" } }), time, time);
 }
 
@@ -80,44 +80,46 @@ describe("atomic artifact schema upgrades", () => {
       state: "retired",
       principal: "",
     });
-    expect(db.query("SELECT body FROM feedback WHERE id='feedback_retained'").get()).toEqual({
+    expect(db.query("SELECT body FROM discussions WHERE id='discussion_retained'").get()).toEqual({
       body: "Keep the thread",
     });
   });
 
-  test("version 5 adds feedback revisions while preserving exact delivery history", async () => {
+  test("version 5 adds discussions revisions while preserving exact delivery history", async () => {
     db.exec(
-      "UPDATE feedback SET ever_delivered = 0; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 5",
+      "UPDATE discussions SET ever_delivered = 0; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 5",
     );
-    const before = db.query("SELECT * FROM feedback ORDER BY id").all();
+    const before = db.query("SELECT * FROM discussions ORDER BY id").all();
     const result = await upgradeArtifactStore(db, options("artifact-v5.sqlite"));
     expect(result.migrated).toBe(true);
-    expect(db.query("SELECT * FROM feedback ORDER BY id").all()).toEqual(before);
-    expect(db.query("SELECT feedback_revision FROM artifacts").all()).toEqual([
-      { feedback_revision: 0 },
+    expect(db.query("SELECT * FROM discussions ORDER BY id").all()).toEqual(before);
+    expect(db.query("SELECT discussion_revision FROM artifacts").all()).toEqual([
+      { discussion_revision: 0 },
     ]);
   });
 
   test("version 4 preserves possible delivery history without inventing a delivery timestamp", async () => {
     db.exec(
-      "ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 4",
+      "ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 4",
     );
     const store = new ArtifactStore(db, blobs, render, () => time);
     const human = { role: "human" as const, sessionId: null };
     const before = db
-      .query("SELECT sent_at, status_unsent FROM feedback WHERE id = 'feedback_retained'")
+      .query("SELECT sent_at, status_unsent FROM discussions WHERE id = 'discussion_retained'")
       .get();
     const result = await upgradeArtifactStore(db, options("artifact-v4.sqlite"));
     expect(result.migrated).toBe(true);
     expect(
-      db.query("SELECT sent_at, status_unsent FROM feedback WHERE id = 'feedback_retained'").get(),
+      db
+        .query("SELECT sent_at, status_unsent FROM discussions WHERE id = 'discussion_retained'")
+        .get(),
     ).toEqual(before);
     const conversations = new ArtifactConversations(db, store, () => time);
-    conversations.edit("feedback_retained", { actor: human, body: "Changed after upgrade" });
-    conversations.edit("feedback_retained", { actor: human, status: "resolved" });
-    expect(conversations.get("feedback_retained").sentAt).toBeNull();
+    conversations.edit("discussion_retained", { actor: human, body: "Changed after upgrade" });
+    conversations.edit("discussion_retained", { actor: human, status: "resolved" });
+    expect(conversations.get("discussion_retained").sentAt).toBeNull();
     expect(conversations.unsent("review_retained").map((note) => note.id)).toEqual([
-      "feedback_retained",
+      "discussion_retained",
     ]);
     const fresh = await conversations.add("review_retained", {
       actor: human,
@@ -133,7 +135,7 @@ describe("atomic artifact schema upgrades", () => {
       expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 4 });
       expect(
         backup
-          .query("PRAGMA table_info(feedback)")
+          .query("PRAGMA table_info(discussions)")
           .all()
           .some((column: any) => column.name === "ever_delivered"),
       ).toBe(false);
@@ -146,7 +148,7 @@ describe("atomic artifact schema upgrades", () => {
     const before = db.query("SELECT id, project_id FROM artifacts ORDER BY id").all();
     const projects = db.query("SELECT * FROM projects ORDER BY id").all();
     db.exec(
-      "DROP TABLE project_remotes; ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 2",
+      "DROP TABLE project_remotes; ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 2",
     );
     const result = await upgradeArtifactStore(db, options("artifact-v2.sqlite"));
     expect(result.migrated).toBe(true);
@@ -160,7 +162,7 @@ describe("atomic artifact schema upgrades", () => {
 
   test("upgrades artifact overviews into retained evidence with a private backup", async () => {
     db.exec(
-      "ALTER TABLE artifacts ADD COLUMN summary TEXT; ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 1",
+      "ALTER TABLE artifacts ADD COLUMN summary TEXT; ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 1",
     );
     db.query("UPDATE artifacts SET summary = ? WHERE id = ?").run(
       "Retained overview",
@@ -190,15 +192,15 @@ describe("atomic artifact schema upgrades", () => {
   });
 });
 
-test("version 7 gains an empty derived search index without changing publications or feedback", async () => {
+test("version 7 gains an empty derived search index without changing publications or discussions", async () => {
   const before = db.query("SELECT * FROM artifact_versions").all();
-  const feedback = db.query("SELECT * FROM feedback").all();
+  const discussions = db.query("SELECT * FROM discussions").all();
   db.exec(`DROP TRIGGER search_document_insert; DROP TRIGGER search_document_delete; DROP TRIGGER search_document_update;
     DROP TABLE artifact_search_fts; DROP TABLE artifact_search_documents; DROP TABLE artifact_search_versions; PRAGMA user_version = 7;`);
   const result = await upgradeArtifactStore(db, options("search-backup.sqlite"));
   expect(result.migrated).toBe(true);
   expect(db.query("SELECT * FROM artifact_versions").all()).toEqual(before);
-  expect(db.query("SELECT * FROM feedback").all()).toEqual(feedback);
+  expect(db.query("SELECT * FROM discussions").all()).toEqual(discussions);
   expect(db.query("SELECT * FROM artifact_search_documents").all()).toEqual([]);
   expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
   const backup = new Database(result.backupPath!, { readonly: true });
@@ -220,7 +222,9 @@ test("upgrades preserve imported evidence and login state across reopen", async 
   const store = new ArtifactStore(db, blobs, render, () => time);
   const conversations = new ArtifactConversations(db, store, () => time);
   expect(store.get("review_retained").legacy).toEqual({ source: { kind: "files" } });
-  expect(conversations.get("feedback_retained").legacy).toEqual({ source: { file: "unknown.md" } });
+  expect(conversations.get("discussion_retained").legacy).toEqual({
+    source: { file: "unknown.md" },
+  });
   expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
   expect(new AuthService(db, () => time).sessionValid(session.cookieValue)).toBe(true);
   expect(new AuthService(db, () => time).verifyLogin(token.token)).toEqual({
@@ -237,7 +241,7 @@ test("failed upgrades roll back schema changes and preserve the private backup",
   expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
   expect((await stat(options().backupPath)).mode & 0o777).toBe(0o600);
   db.exec(
-    "ALTER TABLE feedback DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN feedback_revision",
+    "ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision",
   );
   await expect(upgradeArtifactStore(db, options())).rejects.toThrow();
   expect((await upgradeArtifactStore(db, options("retry.sqlite"))).migrated).toBe(true);

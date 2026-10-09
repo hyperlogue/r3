@@ -83,21 +83,21 @@ export async function previewBridgeCall(
   value: unknown,
   context: PreviewPageContext,
   detail: ArtifactDetail,
-  api: Pick<typeof artifactApi, "addFeedback" | "reply" | "submit">,
+  api: Pick<typeof artifactApi, "addDiscussion" | "comment" | "submit">,
   userActivated: boolean,
   theme: ReturnType<typeof previewThemePreference>,
 ): Promise<unknown> {
   if (method === "getTheme") return theme.get();
   if (method === "getContext") return context;
   if (method === "getThreads")
-    return detail.feedback.map(({ attachments: _images, replies, ...feedback }) => ({
-      ...feedback,
-      replies: replies.map(({ attachments: _replyImages, ...reply }) => reply),
+    return detail.discussions.map(({ attachments: _images, comments, ...discussions }) => ({
+      ...discussions,
+      comments: comments.map(({ attachments: _commentImages, ...comment }) => comment),
     }));
-  if (!["createFeedback", "reply", "submit", "setTheme"].includes(method))
+  if (!["createDiscussion", "comment", "submit", "setTheme"].includes(method))
     throw new Error("Unsupported r3 preview operation");
   // Browser user activation propagates from the preview to its parent. Loading
-  // a page or receiving an agent reply cannot silently start another handoff.
+  // a page or receiving an agent comment cannot silently start another handoff.
   if (!userActivated) throw new Error("Use a button or another user action to send through r3");
   if (method === "setTheme") {
     if (value !== "light" && value !== "dark") throw new Error("Theme must be light or dark");
@@ -107,25 +107,25 @@ export async function previewBridgeCall(
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Invalid r3 message");
   const input = value as Record<string, unknown>;
-  const allowed = method === "reply" ? ["body", "feedbackId"] : ["body", "locator"];
+  const allowed = method === "comment" ? ["body", "discussionId"] : ["body", "locator"];
   if (Object.keys(input).some((key) => !allowed.includes(key)))
     throw new Error("Preview messages cannot change actor, publication, or scope");
   if (typeof input.body !== "string" || !input.body.trim() || input.body.length > 1024 * 1024)
     throw new Error("Message must contain between 1 and 1048576 characters");
-  if (method === "reply") {
+  if (method === "comment") {
     if (
-      typeof input.feedbackId !== "string" ||
-      !detail.feedback.some((feedback) => feedback.id === input.feedbackId)
+      typeof input.discussionId !== "string" ||
+      !detail.discussions.some((discussions) => discussions.id === input.discussionId)
     )
       throw new Error("Thread is not part of this artifact");
-    return api.reply(input.feedbackId, {
+    return api.comment(input.discussionId, {
       body: input.body,
     });
   }
   const locator = previewLocator(input.locator);
   if (context.representation === "source" && locator)
-    throw new Error("Media previews support whole-file feedback");
-  return api.addFeedback(
+    throw new Error("Media previews support whole-file discussions");
+  return api.addDiscussion(
     context.artifactId,
     input.body,
     context.representation === "source"

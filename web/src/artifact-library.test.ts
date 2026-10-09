@@ -36,23 +36,23 @@ test("attention excludes archived artifacts and outranks live presence", () => {
   ).toEqual(["attention"]);
 });
 
-test("reply links preserve the reply context independently of the original concern", () => {
+test("comment links preserve the comment context independently of the original concern", () => {
   const route = artifactLibraryRoute(artifactFixture, readLibraryState("?q=keyboard&history=all"), {
-    id: "reply_match",
+    id: "comment_match",
     artifactId: artifactFixture.id,
-    category: "reply",
+    category: "comment",
     versionSeq: 2,
     context: { versionSeq: 2, representation: "rendered" },
     path: null,
     target: null,
-    feedbackId: "feedback_original",
-    replyId: "reply_match",
+    discussionId: "discussion_original",
+    commentId: "comment_match",
     snippet: "Keyboard fix",
   });
   const params = new URLSearchParams(route.split("?")[1]);
   expect(params.get("version")).toBe("2");
   expect(params.get("view")).toBe("rendered");
-  expect(params.get("reply")).toBe("reply_match");
+  expect(params.get("comment")).toBe("comment_match");
   expect(params.get("file")).toBeNull();
   expect(params.get("library")).toBe("?q=keyboard&history=all");
 });

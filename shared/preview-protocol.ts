@@ -1,4 +1,4 @@
-import type { ArtifactFeedback, ArtifactNotification, RenderedLocator } from "./artifacts.ts";
+import type { ArtifactDiscussion, ArtifactNotification, RenderedLocator } from "./artifacts.ts";
 
 export interface PreviewDevicePermissions {
   camera: boolean;
@@ -46,7 +46,7 @@ export interface PreviewDisplay {
   replaceLocateRoute?: boolean;
   noteHasText?: boolean;
   composerVisible?: boolean;
-  targets: { feedbackId: string; locator: RenderedLocator | null }[];
+  targets: { discussionId: string; locator: RenderedLocator | null }[];
   jump: { locator: RenderedLocator | null; nonce: number } | null;
 }
 
@@ -67,12 +67,12 @@ export interface ArtifactUtility {
   setTheme(theme: PreviewTheme): Promise<void>;
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;
-  getThreads(): Promise<ArtifactFeedback[]>;
-  createFeedback(input: {
+  getThreads(): Promise<ArtifactDiscussion[]>;
+  createDiscussion(input: {
     body: string;
     locator?: RenderedLocator | null;
-  }): Promise<ArtifactFeedback>;
-  reply(input: { feedbackId: string; body: string }): Promise<unknown>;
+  }): Promise<ArtifactDiscussion>;
+  comment(input: { discussionId: string; body: string }): Promise<unknown>;
   submit(): Promise<{ notification: ArtifactNotification }>;
   subscribe(listener: () => void): () => void;
 }

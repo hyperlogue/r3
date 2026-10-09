@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import { cn, StrokeIcon } from "../ui.tsx";
 
 // The phone-tier review chrome (see the mobile-tier skill): a persistent bottom
-// bar summarizing the feedback state, and a bottom sheet hosting the one
+// bar summarizing the discussions state, and a bottom sheet hosting the one
 // ArtifactThreads instance. Three discrete states — closed, "peek" (short sheet:
 // the composer, which the panel auto-scrolls into view, over the code being
-// annotated), "full" (browse/reply/resolve) — every transition a tap, no drag
+// annotated), "full" (browse/comment/resolve) — every transition a tap, no drag
 // physics. The sheet stays mounted across states (panel-internal state — tab,
 // optimistic cards, scroll — survives), hidden by transform + `inert`.
 //
@@ -32,9 +32,9 @@ export function MobileReviewChrome({
     <>
       {/* The bar is in-flow at the bottom of ArtifactView's column (not fixed), so
           it never overlaps the last code line; safe-area padding clears the home
-          indicator. It wears the feedback surface (panel-header white/near-black)
+          indicator. It wears the discussions surface (panel-header white/near-black)
           behind a 2px rule — the desktop dock's border weight — so it reads as
-          the feedback panel's edge, not another file-header strip. The whole bar
+          the discussions panel's edge, not another file-header strip. The whole bar
           is one expand/collapse button — no other controls live here (watcher
           presence shows inside the panel, where Submit is). */}
       <div
@@ -43,7 +43,7 @@ export function MobileReviewChrome({
       >
         <button
           type="button"
-          data-mobile-feedback-toggle
+          data-mobile-discussions-toggle
           onClick={() => onSetSheet(sheet === "closed" ? "full" : "closed")}
           className="flex min-h-11 w-full items-center gap-2 px-3 text-sm font-semibold"
         >
@@ -56,7 +56,7 @@ export function MobileReviewChrome({
           >
             <path d="m6 15 6-6 6 6" />
           </StrokeIcon>
-          Feedback
+          Discussion
           <span className="font-normal text-neutral-500">· {openCount} open</span>
         </button>
       </div>
@@ -66,13 +66,13 @@ export function MobileReviewChrome({
       {!docked && sheet === "full" && (
         <button
           type="button"
-          aria-label="Close feedback"
+          aria-label="Close discussions"
           onClick={() => onSetSheet("closed")}
           className="fixed inset-0 z-40 cursor-default bg-black/30"
         />
       )}
       <div
-        data-mobile-feedback={docked ? "docked" : "sheet"}
+        data-mobile-discussions={docked ? "docked" : "sheet"}
         inert={!docked && sheet === "closed"}
         className={cn(
           docked
@@ -103,7 +103,7 @@ export function MobileReviewChrome({
           </button>
           <button
             type="button"
-            aria-label="Close feedback"
+            aria-label="Close discussions"
             onClick={() => onSetSheet("closed")}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-neutral-500"
           >

@@ -124,7 +124,7 @@ describe("artifact collaboration ordering", () => {
     expect(collaboration.watchers(id)).toEqual([current]);
   });
 
-  test("watch always ends on archive and terminal state precedes already pending feedback", async () => {
+  test("watch always ends on archive and terminal state precedes already pending discussions", async () => {
     const waiting = collaboration.watch(id, first);
     await storage.conversations.add(id, {
       actor: human,
@@ -152,7 +152,7 @@ describe("artifact collaboration ordering", () => {
     });
     expect(collaboration.watchers(id)).toHaveLength(1);
     expect(await collaboration.submit(id)).toEqual({ state: "sent" });
-    expect(await waiting).toEqual({ result: "feedback" });
+    expect(await waiting).toEqual({ result: "discussions" });
     expect(storage.conversations.unsent(id)).toHaveLength(1);
     expect(collaboration.watchers(id)).toEqual([]);
   });

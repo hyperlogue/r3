@@ -127,7 +127,7 @@ export interface SourceLocator {
   quote: string;
 }
 
-// Complete captured lines for a feedback target, fetched only on demand.
+// Complete captured lines for a discussion target, fetched only on demand.
 export interface ArtifactSourceRange {
   artifactId: string;
   versionSeq: number;
@@ -216,17 +216,17 @@ export function artifactReferenceContext(
 }
 
 export interface ArtifactClaim {
-  feedbackId: string;
+  discussionId: string;
   sessionId: string;
   claimedAt: string;
   renewedAt: string;
   expiresAt: string;
 }
 
-export interface ArtifactReply {
+export interface ArtifactComment {
   attachments?: ArtifactAttachment[];
   id: string;
-  feedbackId: string;
+  discussionId: string;
   artifactId: string;
   author: ArtifactActor;
   body: string;
@@ -237,7 +237,7 @@ export interface ArtifactReply {
   sentAt: string | null;
 }
 
-export interface ArtifactFeedback {
+export interface ArtifactDiscussion {
   attachments?: ArtifactAttachment[];
   id: string;
   artifactId: string;
@@ -250,12 +250,12 @@ export interface ArtifactFeedback {
   updatedAt: string;
   sentAt: string | null;
   statusUnsent: boolean;
-  replies: ArtifactReply[];
+  comments: ArtifactComment[];
   claim: ArtifactClaim | null;
 }
 
 export interface ArtifactPlacement {
-  feedbackId: string;
+  discussionId: string;
   artifactId: string;
   target: ArtifactDocumentTarget;
   state: "anchored" | "unplaced" | "ambiguous";
@@ -276,7 +276,7 @@ export interface ArtifactLifecycleEvent {
 
 export interface ArtifactDetail extends Artifact {
   versions: ArtifactVersion[];
-  feedback: ArtifactFeedback[];
+  discussions: ArtifactDiscussion[];
   placements: ArtifactPlacement[];
   events: ArtifactLifecycleEvent[];
   // Current labels only for sessions referenced by this artifact. Older saved
@@ -291,10 +291,10 @@ export function artifactAgentIds(detail: ArtifactDetail): string[] {
         detail.createdBy.sessionId,
         ...detail.versions.map((version) => version.publishedBy.sessionId),
         ...detail.events.map((event) => event.actor.sessionId),
-        ...detail.feedback.flatMap((feedback) => [
-          feedback.author.sessionId,
-          feedback.claim?.sessionId,
-          ...feedback.replies.map((reply) => reply.author.sessionId),
+        ...detail.discussions.flatMap((discussions) => [
+          discussions.author.sessionId,
+          discussions.claim?.sessionId,
+          ...discussions.comments.map((comment) => comment.author.sessionId),
         ]),
       ].filter((id): id is string => typeof id === "string"),
     ),
@@ -349,7 +349,7 @@ export interface PublishArtifactBody {
     | { kind: "diff"; patch: string };
 }
 
-export interface CreateArtifactFeedbackBody {
+export interface CreateArtifactDiscussionBody {
   mediaSnapshot?: AttachmentInput;
   operationKey?: string;
   attachments?: AttachmentInput[];
@@ -358,7 +358,7 @@ export interface CreateArtifactFeedbackBody {
   target: ArtifactTarget;
 }
 
-export interface CreateArtifactReplyBody {
+export interface CreateArtifactCommentBody {
   mediaSnapshot?: AttachmentInput;
   operationKey?: string;
   attachments?: AttachmentInput[];
@@ -367,14 +367,14 @@ export interface CreateArtifactReplyBody {
   target?: ArtifactVersionTarget | null;
 }
 
-export interface EditArtifactFeedbackBody {
+export interface EditArtifactDiscussionBody {
   attachments?: AttachmentInput[];
   actor: ArtifactActor;
   body?: string;
   status?: "open" | "resolved";
 }
 
-export interface EditArtifactReplyBody {
+export interface EditArtifactCommentBody {
   attachments?: AttachmentInput[];
   actor: ArtifactActor;
   body: string;
@@ -386,18 +386,22 @@ export interface ArtifactPlacementBody {
   state: ArtifactPlacement["state"];
 }
 
-export function isUnhandledArtifactFeedback(feedback: ArtifactFeedback): boolean {
+export function isUnhandledArtifactDiscussion(discussions: ArtifactDiscussion): boolean {
   return (
-    feedback.status === "open" &&
-    (feedback.replies.at(-1)?.author ?? feedback.author).role === "agent"
+    discussions.status === "open" &&
+    (discussions.comments.at(-1)?.author ?? discussions.author).role === "agent"
   );
 }
 
-export function hasUnsentArtifactFeedback(feedback: ArtifactFeedback): boolean {
+export function hasUnsentArtifactDiscussion(discussions: ArtifactDiscussion): boolean {
   return (
-    (feedback.author.role === "human" && feedback.sentAt === null && feedback.status === "open") ||
-    feedback.statusUnsent ||
-    feedback.replies.some((reply) => reply.author.role === "human" && reply.sentAt === null)
+    (discussions.author.role === "human" &&
+      discussions.sentAt === null &&
+      discussions.status === "open") ||
+    discussions.statusUnsent ||
+    discussions.comments.some(
+      (comment) => comment.author.role === "human" && comment.sentAt === null,
+    )
   );
 }
 
@@ -412,13 +416,13 @@ export type ArtifactStreamEvent =
   | { type: "artifact-updated"; artifactId: string }
   | { type: "artifact-deleted"; artifactId: string }
   | { type: "version-published"; artifactId: string; seq: number }
-  | { type: "feedback-updated"; artifactId: string; feedbackId: string }
+  | { type: "discussions-updated"; artifactId: string; discussionId: string }
   | { type: "presence-changed"; artifactId: string }
   | { type: "submitted"; artifactId: string }
   | { type: "lifecycle"; artifactId: string; event: ArtifactLifecycleEvent }
   | { type: "superseded"; artifactId: string };
 
-export const ARTIFACT_WATCH_EXIT = { archived: 0, feedback: 10, timeout: 2, busy: 4 } as const;
+export const ARTIFACT_WATCH_EXIT = { archived: 0, discussions: 10, timeout: 2, busy: 4 } as const;
 
 export interface ArtifactWatcher {
   connectionState?: "connected" | "disconnected" | "failed";
@@ -455,7 +459,7 @@ export interface ArtifactLifecycleResponse {
 
 export type ArtifactWatchResult =
   | { result: "archived"; event: ArtifactLifecycleEvent | null }
-  | { result: "feedback" | "timeout" | "cancelled" | "superseded" | "deleted" };
+  | { result: "discussions" | "timeout" | "cancelled" | "superseded" | "deleted" };
 
 export type ArtifactAgentStreamEvent =
   | { type: "ready"; registration: ArtifactWatcher }
@@ -472,22 +476,22 @@ export interface ArtifactNudgeAcknowledgment {
   error?: string;
 }
 
-export interface ArtifactFeedbackAcknowledgment {
-  feedback?: string[];
+export interface ArtifactDiscussionAcknowledgment {
+  discussions?: string[];
   expectedFingerprint: string;
 }
 
-export interface ArtifactFeedbackRead {
+export interface ArtifactDiscussionRead {
   attachments?: ArtifactAttachment[];
   text: string;
   itemCount: number;
 }
 
-export interface ArtifactFeedbackSnapshot extends ArtifactFeedbackRead {
-  acknowledgment: ArtifactFeedbackAcknowledgment;
+export interface ArtifactDiscussionSnapshot extends ArtifactDiscussionRead {
+  acknowledgment: ArtifactDiscussionAcknowledgment;
 }
 
-export interface ArtifactFeedbackAcknowledged {
+export interface ArtifactDiscussionAcknowledged {
   acknowledgedCount: number;
 }
 
