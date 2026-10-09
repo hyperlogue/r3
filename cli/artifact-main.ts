@@ -1,20 +1,19 @@
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { ArtifactApiError, ArtifactClient } from "../shared/artifact-client.ts";
 import type { ArtifactActor } from "../shared/artifacts.ts";
 import { R3_VERSION } from "../shared/version.ts";
+import type { WorkerSubscription } from "../shared/worker-protocol.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { runArtifactCommand } from "./artifact-commands.ts";
 import { ARTIFACT_HELP, artifactGuide, artifactWelcome } from "./artifact-help.ts";
-import {
-  listenArtifactConnection,
-  localArtifactDelivery,
-  startArtifactListenerProcess,
-} from "./artifact-listener.ts";
 import { writeArtifactOutput } from "./artifact-output.ts";
 import { authCommand, configCommand } from "./artifact-settings.ts";
-import { cliProcessArgv, daemonCommand, discoverArtifactServer } from "./daemon-client.ts";
+import { daemonCommand, discoverArtifactServer } from "./daemon-client.ts";
 import { detectListener } from "./listener.ts";
+import { loginCommand } from "./login.ts";
+import { ensureWorker, workerCommand } from "./worker-client.ts";
 
 const COMMANDS = new Set([
   "create",
@@ -67,28 +66,6 @@ async function stdinText(): Promise<string> {
   }
 }
 
-async function runListener(id: string, actor: ArtifactActor, ready?: () => void): Promise<number> {
-  const location = await discoverArtifactServer();
-  const client = new ArtifactClient(location);
-  await client.checkProtocol();
-  const deliver = await localArtifactDelivery(process.env);
-  const controller = new AbortController();
-  const stop = () => controller.abort();
-  process.on("SIGTERM", stop);
-  process.on("SIGINT", stop);
-  try {
-    await listenArtifactConnection(client, id, actor, {
-      deliver,
-      ready,
-      signal: controller.signal,
-    });
-    return 0;
-  } finally {
-    process.off("SIGTERM", stop);
-    process.off("SIGINT", stop);
-  }
-}
-
 export async function artifactMain(argv = process.argv.slice(2)): Promise<number> {
   const [command, ...args] = argv;
   if (command === undefined) {
@@ -116,11 +93,25 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     await startArtifactDaemon();
     return 0;
   }
-  if (command === "__artifact_listener") {
-    const id = process.env.R3_LISTENER_ARTIFACT;
-    const sessionId = process.env.R3_LISTENER_SESSION;
-    if (!id || !sessionId) throw new ArtifactCommandError("Missing listener identity");
-    return runListener(id, { role: "agent", sessionId }, () => process.send?.({ ready: true }));
+  if (command === "__worker") {
+    const { startWorker } = await import("./worker-runtime.ts");
+    await startWorker();
+    process.exit(0);
+  }
+  if (command === "login") {
+    await loginCommand(args);
+    return 0;
+  }
+  if (command === "worker") {
+    if (args.length !== 1) throw new ArtifactCommandError("worker start|stop|status|restart");
+    await workerCommand(args[0]);
+    return 0;
+  }
+  if (command === "server") {
+    if (args.length !== 1 || !["start", "stop", "status", "restart"].includes(args[0]))
+      throw new ArtifactCommandError("server start|stop|status|restart");
+    await daemonCommand(args[0] as "start" | "stop" | "status" | "restart");
+    return 0;
   }
   if (command === "start" || command === "stop" || command === "status" || command === "restart") {
     if (args.length) throw new ArtifactCommandError(`${command} takes no arguments`);
@@ -138,13 +129,8 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     await authCommand(client, args);
     return 0;
   }
-  const localAgents = location.agentSocket
-    ? new ArtifactClient({
-        url: "http://localhost",
-        token: location.token,
-        fetch: (request) => fetch(request, { unix: location.agentSocket }),
-      })
-    : undefined;
+  let localWorker: ArtifactClient | undefined;
+  let destination: { connectionId: string; listenerId: string } | undefined;
   const registerListener = async (actor: ArtifactActor): Promise<boolean> => {
     if (actor.role !== "agent") return false;
     const detected = detectListener(process.env);
@@ -153,8 +139,8 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
         throw new ArtifactCommandError("Claude messaging token is unavailable", 5);
       return false;
     }
-    if (!localAgents)
-      throw new ArtifactCommandError("Local daemon registration is unavailable; use r3 watch", 5);
+    if (detected.target.harness === "codex" && !Bun.which("codex"))
+      throw new ArtifactCommandError("The publisher cannot run codex queue; use r3 watch", 5);
     const target =
       detected.target.harness === "codex"
         ? {
@@ -165,7 +151,20 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
               : join(homedir(), ".codex"),
           }
         : detected.target;
-    await localAgents.json("POST", "/api/local/target", { actor, target });
+    localWorker = await ensureWorker();
+    destination = await localWorker.json("POST", "/api/local/target", {
+      url: location.url,
+      actor,
+      target,
+    });
+    await client.json(
+      "POST",
+      `/api/workers/${encodeURIComponent(destination!.connectionId)}/targets`,
+      {
+        actor,
+        listenerId: destination!.listenerId,
+      },
+    );
     return true;
   };
   return runArtifactCommand(command, args, {
@@ -179,29 +178,30 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     error: (text) => {
       process.stderr.write(`${text}\n`);
     },
-    listen: async (id, actor, foreground, quiet) => {
-      if (localAgents) {
-        if (!(await registerListener(actor)))
-          throw new ArtifactCommandError("No local wake adapter is available; use r3 watch", 5);
-        await localAgents.json("POST", "/api/local/listen", { artifactId: id, actor });
-        if (!quiet) process.stdout.write(`Listening on ${id}\n`);
-        return 0;
-      }
-      if (foreground)
-        return runListener(id, actor, () => process.stderr.write(`Listening on ${id}\n`));
-      if (actor.role !== "agent")
-        throw new ArtifactCommandError("Listeners require an agent session");
-      await startArtifactListenerProcess({
-        argv: cliProcessArgv("__artifact_listener"),
-        environment: {
-          ...process.env,
-          R3_URL: location.url,
-          R3_TOKEN: location.token,
-          R3_LISTENER_ARTIFACT: id,
-          R3_LISTENER_SESSION: actor.sessionId,
-        },
-        cwd: process.cwd(),
-      });
+    publicationComplete: async (subscription) => {
+      if (localWorker && subscription.listenerId === destination?.listenerId)
+        await localWorker.json("POST", "/api/local/intent", {
+          url: location.url,
+          subscription,
+          confirmed: true,
+        });
+    },
+    listen: async (id, actor, _foreground, quiet) => {
+      if (!(await registerListener(actor)) || !destination || !localWorker)
+        throw new ArtifactCommandError("No local wake adapter is available; use r3 watch", 5);
+      const subscription: WorkerSubscription = {
+        id: randomUUID(),
+        artifactId: id,
+        actor,
+        mode: "explicit",
+        listenerId: destination.listenerId,
+      };
+      await localWorker.json("POST", "/api/local/intent", { url: location.url, subscription });
+      await client.json(
+        "POST",
+        `/api/workers/${encodeURIComponent(destination.connectionId)}/listen`,
+        subscription,
+      );
       if (!quiet) process.stdout.write(`Listening on ${id}\n`);
       return 0;
     },

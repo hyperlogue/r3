@@ -7,7 +7,7 @@ import type {
   ArtifactActor,
   ArtifactDetail,
   ArtifactKind,
-  ArtifactVersion,
+  ArtifactPublicationResponse,
   PublishArtifactBody,
 } from "../shared/artifacts.ts";
 import { type ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
@@ -122,12 +122,15 @@ export async function publishArtifactCommand(
       },
     }));
   try {
-    const version = await client.json<ArtifactVersion>(
+    const response = await client.json<ArtifactPublicationResponse>(
       "POST",
       `${artifactApiPath(artifact.id)}/versions`,
       publication,
     );
-    return { artifact, version };
+    const { url, listenerRegistered, listener, ...version } = response;
+    if (typeof url !== "string" || !/^https?:\/\//.test(url))
+      throw new Error("Backend did not return an artifact page URL");
+    return { artifact, version, url, listenerRegistered, listener };
   } catch (error) {
     ctx.error(
       `Publication was not confirmed. Artifact: ${artifact.id}; retry key: ${publication.publicationKey}; expected: ${publication.expectedSeq}. Inspect its versions before retrying.\n`,

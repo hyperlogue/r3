@@ -1,4 +1,8 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { BackendCredentials } from "../cli/backend.ts";
+import { writePrivateJson } from "../cli/private-state.ts";
+import { ensureWorker } from "../cli/worker-client.ts";
+import type { WorkerImport } from "../cli/worker-runtime.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import index from "../web/index.html";
 import { loadApplicationAssets } from "./application-assets.ts";
@@ -8,7 +12,6 @@ import { openArtifactStorage } from "./artifact-storage.ts";
 import {
   acquireDaemonLock,
   BIND,
-  daemonJsonPath,
   getToken,
   isAllowedHost,
   LOCAL_URL,
@@ -21,9 +24,9 @@ import {
   releaseDaemonLock,
   removeDaemonJson,
   stateDbPath,
+  stateDir,
   writeDaemonJson,
 } from "./config.ts";
-import { startLocalAgents } from "./local-agents.ts";
 
 // Migration occurs only after this process holds the per-user daemon lock.
 // Importing the CLI/server opens no database.
@@ -45,7 +48,6 @@ export async function startArtifactDaemon(): Promise<void> {
   }
   let storage: Awaited<ReturnType<typeof openArtifactStorage>> | undefined;
   let runtime: ReturnType<typeof startArtifactServer> | undefined;
-  let localAgents: Awaited<ReturnType<typeof startLocalAgents>> | undefined;
   try {
     const assets = await loadApplicationAssets(index);
     storage = await openArtifactStorage({
@@ -70,10 +72,7 @@ export async function startArtifactDaemon(): Promise<void> {
         trustedProxies: new Set(readConfig().trustedProxies ?? []),
       },
     });
-    const agentSocket = join(dirname(daemonJsonPath()), "agents.sock");
-    localAgents = await startLocalAgents(agentSocket, storage, runtime.api.collaboration, token);
     writeDaemonJson({
-      agentSocket,
       url: LOCAL_URL,
       port: PORT,
       pid: process.pid,
@@ -85,11 +84,27 @@ export async function startArtifactDaemon(): Promise<void> {
       exec: process.execPath,
       argv: process.argv,
     });
+    const legacy = storage.listeners.exportLocal();
+    if (legacy.length) {
+      try {
+        await new BackendCredentials().save({
+          url: normalizeBackendUrl(LOCAL_URL),
+          kind: "key",
+          accessToken: token,
+        });
+        writePrivateJson(join(stateDir(), "worker-import.json"), {
+          url: LOCAL_URL,
+          listeners: legacy,
+        } satisfies WorkerImport);
+        await ensureWorker();
+      } catch {
+        console.error("r3: saved listeners need worker setup; run r3 worker start to retry");
+      }
+    }
     let closing = false;
     const shutdown = async () => {
       if (closing) return;
       closing = true;
-      await localAgents?.stop();
       await runtime!.stop();
       storage!.close();
       if (readDaemonJson()?.pid === process.pid) removeDaemonJson();
@@ -110,7 +125,6 @@ export async function startArtifactDaemon(): Promise<void> {
         "r3: artifact schema upgraded; its database backup is retained in artifact storage",
       );
   } catch (error) {
-    await localAgents?.stop();
     await runtime?.stop();
     storage?.close();
     if (readDaemonJson()?.pid === process.pid) removeDaemonJson();

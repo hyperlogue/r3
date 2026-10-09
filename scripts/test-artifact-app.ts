@@ -34,14 +34,19 @@ const environment = {
   R3_URL: "",
   R3_TOKEN: "",
   R3_AGENT_SESSION: "binary-publisher",
+  CODEX_THREAD_ID: "",
+  CODEX_SESSION_ID: "",
+  CLAUDE_CODE_SESSION_ID: "",
+  CLAUDE_CODE_MESSAGING_SOCKET: "",
+  CLAUDE_CODE_MESSAGING_TOKEN: "",
   R3_DEV: "0",
 };
 await appPort.stop(true);
-const command = async (args: string[], override: Record<string, string> = {}) => {
+const command = async (args: string[], override: Record<string, string> = {}, input?: string) => {
   const child = Bun.spawn([binary, ...args], {
     cwd: root,
     env: { ...environment, ...override },
-    stdin: "ignore",
+    stdin: input === undefined ? "ignore" : new Blob([input]),
     stdout: "pipe",
     stderr: "pipe",
     timeout: 30_000,
@@ -142,6 +147,32 @@ try {
   browser = await openTestBrowser();
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  const frames = new Map<string, Awaited<ReturnType<typeof browser.attach>>>();
+  const renderedFrame = async (expression: string) => {
+    for (const context of page.contexts.values()) {
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
+      const frame = page.inContext(context.id);
+      try {
+        if (await frame.evaluate(expression)) return frame;
+      } catch {
+        /* Navigating. */
+      }
+    }
+    for (const target of (await browser!.send("Target.getTargets")).targetInfos) {
+      if (target.type !== "iframe" || !target.url.includes("/__r3_preview/")) continue;
+      try {
+        let frame = frames.get(target.targetId);
+        if (!frame) {
+          frame = await browser!.attach(target.targetId);
+          frames.set(target.targetId, frame);
+        }
+        if (await frame.evaluate(expression)) return frame;
+      } catch {
+        /* Navigation replaced this isolated frame. */
+      }
+    }
+    return null;
+  };
   await page.command("Page.enable");
   await page.command("Runtime.enable");
   await page.command("Emulation.setDeviceMetricsOverride", {
@@ -159,6 +190,18 @@ try {
     "compiled artifact home",
   );
   await page.command("Page.navigate", { url: `${url}/review_imported` });
+  if (process.env.R3_TEST_COMPATIBLE === "1") {
+    await eventually(
+      () =>
+        page.evaluate(
+          "[...document.querySelectorAll('button')].some(button=>button.textContent==='Accept risk and continue')",
+        ),
+      "explicit browser compatibility consent",
+    );
+    await page.evaluate(
+      "[...document.querySelectorAll('button')].find(button=>button.textContent==='Accept risk and continue').click()",
+    );
+  }
   await eventually(async () => {
     if (
       !(await page.evaluate(
@@ -166,22 +209,9 @@ try {
       ))
     )
       return false;
-    // Markdown opens rendered: retained bytes live in the opaque frame, while
-    // the migrated conversation belongs to the parent workspace.
-    for (const context of page.contexts.values()) {
-      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-      try {
-        if (
-          await page
-            .inContext(context.id)
-            .evaluate("document.body?.textContent.includes('Retained legacy content')")
-        )
-          return true;
-      } catch {
-        /* The gate can be replaced while its document is opening. */
-      }
-    }
-    return false;
+    return !!(await renderedFrame(
+      "document.body?.textContent.includes('Retained legacy content')",
+    ));
   }, "preserved review URL, rendered Markdown, and migrated conversation");
   const imported = JSON.parse(await command(["show", "review_imported", "--json"]));
   assert.deepEqual(
@@ -199,18 +229,10 @@ try {
   assert.deepEqual(backup.query("SELECT id FROM artifacts").all(), [{ id: "review_imported" }]);
   backup.close();
   await page.command("Page.navigate", { url: `${url}/${html.artifact.id}` });
-  const content = await eventually(async () => {
-    for (const context of page.contexts.values()) {
-      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-      const frame = page.inContext(context.id);
-      try {
-        if (await frame.evaluate("!!document.getElementById('send')")) return frame;
-      } catch {
-        /* Navigation replaced this context. */
-      }
-    }
-    return null;
-  }, "compiled isolated preview");
+  const content = await eventually(
+    () => renderedFrame("!!document.getElementById('send')"),
+    "compiled isolated preview",
+  );
   const offset = await page.evaluate(
     "(()=>{const r=document.querySelector('iframe').getBoundingClientRect();return {x:r.x,y:r.y}})()",
   );
@@ -243,12 +265,13 @@ try {
   const announcement = await Bun.file(join(root, "runtime/r3/daemon.json")).json();
   const remote = {
     R3_URL: url,
-    R3_TOKEN: announcement.token,
+
     R3_AGENT_SESSION: "remote-publisher",
     XDG_STATE_HOME: join(root, "publisher-state"),
     XDG_RUNTIME_DIR: join(root, "publisher-runtime"),
     XDG_CONFIG_HOME: join(root, "publisher-config"),
   };
+  await command(["login", "--api-key-stdin"], remote, announcement.token);
   await command(
     [
       "publish",
@@ -300,11 +323,16 @@ try {
     ),
   );
   assert.deepEqual(await readdir(`${environment.R3_DB}.artifacts/backups`), backups);
+  if (process.env.R3_TEST_COMPATIBLE === "1")
+    console.log(
+      "Preview mode: browser compatibility consent; complete network enforcement is not asserted.",
+    );
   console.log(
     "Compiled app: artifact upgrade and restart, retained URL and threads, lazy daemon, embedded assets, isolated preview, human utility thread, remote upload, pinned version, offline Markdown and binary reads passed.",
   );
 } finally {
   await browser?.close();
+  await command(["worker", "stop"]);
   await command(["stop"]);
   await rm(root, { recursive: true, force: true });
 }

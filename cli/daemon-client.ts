@@ -8,7 +8,9 @@ import {
   readDaemonLockOwner,
   removeDaemonJson,
 } from "../server/config.ts";
+import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
+import { BackendCredentials, selectedBackend } from "./backend.ts";
 
 interface Health {
   ok: boolean;
@@ -20,7 +22,7 @@ export const compiledCli = () => Bun.embeddedFiles.length > 0;
 export const cliProcessArgv = (command: string, ...args: string[]) =>
   compiledCli()
     ? [process.execPath, command, ...args]
-    : [process.execPath, Bun.main, command, ...args];
+    : [process.execPath, resolve(import.meta.dir, "index.ts"), command, ...args];
 
 async function probe(url: string): Promise<Health | null> {
   try {
@@ -103,41 +105,23 @@ async function spawnDaemon(): Promise<DaemonInfo> {
 }
 
 export interface ArtifactServerLocation {
-  agentSocket?: string;
+  getToken?: () => Promise<string>;
   url: string;
   token: string;
   publicUrl: string;
 }
-export function remoteArtifactLocation(
-  url: string,
-  explicitToken: string | undefined,
-  local: DaemonInfo | null,
-): ArtifactServerLocation {
-  const remote = new URL(url);
-  if (
-    !["http:", "https:"].includes(remote.protocol) ||
-    remote.username ||
-    remote.password ||
-    remote.hash ||
-    remote.search
-  )
-    throw new ArtifactCommandError(
-      "R3_URL must be an HTTP(S) application URL without credentials, query, or fragment",
-    );
-  const base = remote.href.replace(/\/+$/, "");
-  // An arbitrary remote URL never inherits this machine's daemon credential.
-  const matches = local && new URL(local.url).href.replace(/\/+$/, "") === base;
-  return {
-    url: base,
-    publicUrl: base,
-    token: explicitToken ?? (matches ? local.token : ""),
-    ...(matches && local.agentSocket ? { agentSocket: local.agentSocket } : {}),
-  };
-}
-
-export async function discoverArtifactServer(): Promise<ArtifactServerLocation> {
-  if (process.env.R3_URL)
-    return remoteArtifactLocation(process.env.R3_URL, process.env.R3_TOKEN, readDaemonJson());
+export async function discoverArtifactServer(forLogin = false): Promise<ArtifactServerLocation> {
+  const selected = selectedBackend();
+  const credentials = new BackendCredentials();
+  if (selected) {
+    if (!forLogin) await credentials.token(selected);
+    return {
+      url: selected,
+      token: "",
+      publicUrl: selected,
+      getToken: () => credentials.token(selected),
+    };
+  }
   let info = readDaemonJson();
   let health = info ? await probe(info.url) : null;
   if (!info || !health) {
@@ -152,11 +136,15 @@ export async function discoverArtifactServer(): Promise<ArtifactServerLocation> 
     process.stderr.write(
       `r3: daemon is v${health.version}; this CLI is v${R3_VERSION}. Run r3 restart to use this build.\n`,
     );
+  const url = normalizeBackendUrl(info.url);
+  const current = credentials.read(url);
+  if (!current || (current.kind === "key" && current.accessToken !== info.token))
+    await credentials.save({ url, kind: "key", accessToken: info.token });
   return {
     url: info.url,
     token: info.token,
+    getToken: () => credentials.token(url),
     publicUrl: info.publicUrl ?? info.url,
-    agentSocket: info.agentSocket,
   };
 }
 

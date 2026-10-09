@@ -643,39 +643,36 @@ notes concurrently. A conflicting live owner blocks a claim, and a successful re
 releases only its author's claim. Concurrent publication is protected separately by
 the version sequence check.
 
-One active listener receives owner handoffs. The existing local server daemon also
-runs Claude Code and Codex delivery adapters; no extra local listener process is
-started. The CLI supplies harness details through the daemon’s private Unix socket.
-Local targets and fallback/explicit registrations persist in SQLite. Public artifact
-and session reads never expose delivery credentials.
+One selected recipient receives owner handoffs: an explicit listen/watch takes
+priority over a publisher fallback. Each newly committed publication updates that
+fallback even while an explicit recipient is selected. Unsupported publishers and
+`--no-listen` clear it; publication replay changes no registration. Unlisten removes
+the caller's roles. A failed explicit send removes that registration without
+resending the same attempt; a failed fallback stays available for a later Send.
 
-Each newly committed publication replaces the fallback with its supported publisher,
-or clears it for an unsupported publisher or `--no-listen`. A replay cannot replace
-a newer fallback. Explicit listen/watch takes priority; a new explicit registration
-supersedes the previous one. Watch remains temporary and needs no caller-supplied
-identity. Registration, restart, and fallback reactivation never submit feedback.
+Local and remote modes use the same backend protocol. The server owns content,
+feedback, authentication, and recipient selection. A separate persistent worker
+owns local Claude Code/Codex delivery and opens only a private Unix socket. CLI
+reads, writes, uploads, and watch go directly to the selected backend. Each backend
+gets one outgoing worker connection carrying opaque destination IDs. Harness paths
+and credentials remain in private local worker state.
 
-Delivery is attempted without proactive liveness checks. Failure retains a fallback
-for retry but removes an explicit listener; the same attempt is not resent to another
-agent. Codex queue acceptance is reported as queued, not proof of a running session.
-Archive atomically clears both saved registrations, and restore does not revive them.
-`unlisten` removes only the caller’s registrations; a future publication can register again.
+Disconnect removes live registrations. Recovery conditionally restores saved intent
+only if neither slot is occupied; an incumbent publisher remains selected. A worker
+that held both roles restores them atomically. Conflicts stop automatic attempts
+until a fresh CLI action. Replacement and archive durably retire old identities,
+even while their worker is offline. Restore never revives them. Registration,
+restart, and fallback selection never submit pending feedback.
 
-Remote publishing retains its existing outward relay for explicit listening. Automatic
-publication registration is local-only. After printing and acknowledging new feedback, `feedback fetch`
-registers a supported calling harness as the explicit listener through the local
-daemon or existing remote relay. Setup failure warns without failing the fetch.
-History reads (`--all`) and human reads skip registration. A future local proxy may route requests to
-a remote artifact service while keeping harness delivery local; browser links would
-open the remote site. This change does not implement that proxy.
+After printing and acknowledging new feedback, `feedback fetch` registers a
+supported calling harness through the same worker/backend path. Setup failure warns
+without failing the fetch. History and human reads skip registration. Codex delivery
+reports queue acceptance, not proof of session liveness. Notifications are bounded
+and ordered per destination; a failed backend cannot block others.
 
-The remote relay receives notifications in order, with one delivery active at a
-time. Each 15-second acknowledgment deadline starts at dispatch, not while waiting
-behind an earlier notification. At most six notifications, including the active
-one, may be pending; their delivery windows fit within the server's 120-second
-request timeout. Capacity errors retain the explicit-listener failure behavior.
-Failure or disconnection rejects queued work without dispatching it. A nonblank
-archive notification waits in order on its captured connection, then closes it.
+The [remote protocol](remote-protocol.md) owns backend selection, client login,
+credential storage, wire messages, recovery, delivery limits, and migration. The
+bundled server implements that contract; it is not a separate remote product.
 
 Delivery records the owner's handoff, not a read receipt from every agent. Agent
 messages start delivered; human feedback/replies wait for handoff. Reading or

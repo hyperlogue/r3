@@ -175,6 +175,8 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(published.code).toBe(0);
     expect(JSON.parse(published.output).version.seq).toBe(2);
     expect((await run("restart")).code).toBe(0);
+    const reconnectDeadline = Date.now() + 5000;
+    while (!(await watchers()).length && Date.now() < reconnectDeadline) await Bun.sleep(50);
     expect(await watchers()).toMatchObject([{ mode: "fallback", label: "Friendly publisher" }]);
     expect(await Bun.file(queueFile).exists()).toBe(false);
     const note = await run(
@@ -234,6 +236,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect((await run("config", "set", "port", environment.R3_PORT)).code).toBe(0);
     expect((await run("config", "get", "port")).output.trim()).toBe(environment.R3_PORT);
   } finally {
+    await run("worker", "stop");
     const stopped = await run("stop");
     expect(stopped.code).toBe(0);
     await rm(root, { recursive: true, force: true });

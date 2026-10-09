@@ -1,11 +1,57 @@
 # Remote backend protocol, version 1
 
-This document defines authorization and worker extensions to `artifacts-v1`.
+r3 has one owner per backend. The backend owns artifact bytes, feedback, browser
+rendering, authentication, and recipient selection. The CLI uploads and reads
+directly. A persistent worker delivers wake notifications to local harnesses.
+Local mode uses these same contracts with an automatically started loopback server.
+
+```text
+CLI ───────── authenticated HTTP/JSON ─────── backend ← browser
+ │                                               │
+ private Unix socket                    outbound authenticated SSE
+ │                                               │
+ worker ←────────────────────────────────────────┘
+ │
+ local harness
+```
+
+This document defines the language-neutral extension to `artifacts-v1`.
 `GET /api/health` advertises `r3-worker-v1`, `r3-auth-v1`, and `publication-url`
-in its `capabilities` array.
+in its `capabilities` array. JSON uses UTF-8, camelCase names, and opaque string
+identifiers. Unknown identifiers never imply a path or executable. Existing artifact
+routes, immutable versions, feedback acknowledgment, and watch exit codes retain
+their contracts in the [API reference](../../.claude/skills/api-surface/SKILL.md).
+
+## Backend selection and transport
+
+Every CLI invocation resolves one backend, in order:
+
+1. Nonblank `R3_URL`.
+2. The nearest `.r3.json`, searching from the working directory through the Git
+   root (or filesystem root outside Git). The file contains only `backendUrl`.
+3. `backendUrl` in the user's r3 `config.json`.
+4. The lazily started local server.
+
+Malformed selected configuration is an error. Commands never search other backends
+for a missing artifact. Feedback fetch, source, and image reads have no backend
+argument. A project file can be committed; it contains a URL, never credentials.
+
+Backend identity is the complete normalized URL, including port and base path.
+Normalization uses standard URL parsing, removes trailing slashes, and rejects
+userinfo, query, fragment, encoded path separators, and non-HTTP schemes. HTTPS is
+required except on loopback. The CLI rejects redirects, including same-origin
+redirects. Bundled server deployments expose the application at the origin root;
+alternative backends can use an API base path and return their own display URLs.
+
+Private per-backend credentials live under `$XDG_CONFIG_HOME/r3/credentials/`
+(default `~/.config/r3/credentials/`), keyed by a hash of that complete URL.
+Directories are owned and mode 0700; files are mode 0600 and atomically replaced
+with fsync. Processes coordinate refresh and replacement with a private lock.
+Every request rereads current credentials. An explicitly configured URL never
+inherits a different backend's credentials. `R3_TOKEN` is not a client override.
+Automatic local discovery saves its matching local credential without a login step.
 
 ## Client authorization
-
 
 Ordinary API and stream requests accept an API key or OAuth access token in
 `Authorization: Bearer` or `X-R3-Token`. Browser cookies retain the existing
@@ -13,10 +59,11 @@ single-owner login model. Sessions used for authorship are not credentials.
 All API routes retain Host and Origin checks, including the public OAuth routes;
 opaque preview origins cannot authorize requests. Responses are `no-store`.
 
-Keys can be created, listed, and revoked with `r3 auth create-key`, `list-clients`, and
+`r3 login --api-key-stdin` verifies and privately saves a supplied key. Keys can be
+created, listed, and revoked with `r3 auth create-key`, `list-clients`, and
 `revoke-client`. Keys optionally expire. No external identity provider is involved.
 
-Client login uses the [OAuth device authorization grant](https://www.rfc-editor.org/rfc/rfc8628):
+`r3 login` uses the [OAuth device authorization grant](https://www.rfc-editor.org/rfc/rfc8628):
 
 | Route | Request | Response |
 | --- | --- | --- |
@@ -40,18 +87,25 @@ server limits authorization requests per observed source to 60/minute, with at m
 256 active device flows and a bounded source-rate map. Capacity failures return 429.
 
 Access tokens last 15 minutes; refresh tokens expire after 90 days unused and
-rotate on every refresh. Reuse revokes the authorization, following [OAuth security guidance](https://www.rfc-editor.org/rfc/rfc9700).
+rotate on every refresh. Reuse revokes the authorization and closes its worker
+connections, following [OAuth security guidance](https://www.rfc-editor.org/rfc/rfc9700).
+Refresh is serialized across CLI processes and worker; a process rereads the file
+after acquiring its lock. A failed refresh or lost refresh response may require
+`r3 login` again. A 401 pauses only the affected worker backend until successful
+login reloads it. Temporary transport/server failures retry with bounded backoff.
+
 Management routes require ordinary authentication:
 
 | Route | Contract |
 | --- | --- |
 | `GET /api/auth/clients` | Authorization IDs, kind, label, creation, expiry and revocation timestamps; no secret hashes |
 | `POST /api/auth/clients` | Optional `label`, optional future `expiresAt` in epoch milliseconds; returns `id`, one-time `token`, `expiresAt` |
-| `DELETE /api/auth/clients/:id` | Revoke that authorization |
+| `DELETE /api/auth/clients/:id` | Revoke that authorization and close its worker connections |
 | `GET /api/auth/audit` | Latest 1,000 observations, newest first |
 
 The approval transaction records server time and separate observed CLI and browser
-source addresses before any token is issued. The worker address is initially null.
+source addresses before any token is issued. The worker address is initially null;
+its later connection appends a `worker-connected` observation for the authorization.
 The server uses the actual connection peer. Only an explicitly configured immediate
 `trustedProxies` peer may supply one valid `X-Forwarded-For` address; chains are not
 guessed. A trusted proxy must overwrite the header. Audit data contains no bearer,
@@ -117,6 +171,11 @@ as a local harness address. Reusing a registration ID with different contents fa
 | `POST /api/workers/:connectionId/resume` | `subscriptions`: one or two saved roles for one artifact; conditional restoration described below |
 | `POST /api/workers/:connectionId/acknowledgments` | `nudgeId`, `ok`, optional `state: sent|queued`; settle the active delivery attempt |
 
+Fresh listen intent is saved locally before the CLI registers it directly with
+the backend. A successful publication returns its confirmed fallback subscription,
+which the worker persists. The stream also confirms registrations. A CLI never
+proxies artifact operations through the worker.
+
 ## Selection, recovery, and delivery
 
 An artifact has one publisher fallback plus one explicit listen/watch slot.
@@ -165,3 +224,10 @@ A successful `POST /api/artifacts/:id/versions` returns the version fields plus
 optional `listener` subscription. The CLI prints `url` unchanged in text and JSON.
 It does not infer a display route from the API base or artifact ID. Replay returns
 the publication without reestablishing a fallback.
+
+`cli/worker-protocol-fixture.ts` implements an independent HTTP/SSE fixture without
+importing r3 server, storage, or shared wire types. Worker tests exercise it across
+two backends, unknown destinations, reconnect, conflicts, and credential reload.
+`cli/publication-url.test.ts` separately proves an unrelated backend display route
+survives both output formats. See [verification](verification.md) for security,
+process, migration, browser approval, and compiled-binary checks.

@@ -175,7 +175,7 @@ The references are creator_session_id on artifacts, publisher_session_id on vers
 
 SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different feedback items. The server validates new-write attribution and claim ownership at the module interface.
 
-Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch/remote connections remain transient. Local delivery targets and fallback/explicit registrations persist in separate private tables.
+Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets and reconnect intent belong to the separate private worker file.
 
 Feedback also retains an internal `ever_delivered` flag. New human notes start
 false; agent notes start true. Handoff sets it true, and edits never clear it.
@@ -446,3 +446,10 @@ Replacement and archive retire saved identities transactionally, including offli
 intent. Retired records cannot return, even when a retirement event was lost.
 Artifact deletion cascades their records.
 
+The private local worker file persists backend-qualified listener IDs, harness
+configuration, and reconnect intent; the worker never opens this database. Existing
+schema-4 local listener rows are exported privately once and adopted through the
+local worker's conditional resume. Adoption validates the original artifact, actor,
+role and registration identity, then removes the legacy row and unused target.
+Old private database backups may still contain the original harness credentials.
+See [remote protocol](remote-protocol.md) for authentication and recovery semantics.

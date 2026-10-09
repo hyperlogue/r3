@@ -33,8 +33,10 @@ stale metadata; review changed associations and ambiguous-extension defaults.
 | Publication validation, atomic visibility, retries, concurrent publishers, retained rendering, deduplicated content accounting, deletion | `server/publication.test.ts`, `server/artifacts.test.ts`, `server/blobs.test.ts`, `server/artifact-schema.test.ts` |
 | Source/rendered/diff targets, explicit reply context, independent placements | `server/artifact-targets.test.ts`, `server/artifact-conversations.test.ts`, `web/src/artifact-navigation.test.ts` |
 | All bundled Shiki languages, filename metadata drift, compound extensions, escaped source and both captured diff sides | `server/highlight-languages.test.ts`, `server/artifact-source.test.ts`, `server/patch-content.test.ts` |
-| Durable local fallback, takeover, restart, delivery failure, private registration | `server/artifact-listeners.test.ts`, `server/local-agents.test.ts`, `cli/artifact-main.test.ts` |
-| Claims, owner delivery, archive races/messages, terminal watch, outward listeners | `server/artifact-collaboration.test.ts`, `server/artifact-lifecycle.test.ts`, `server/agent-connections.test.ts`, `cli/artifact-listener.test.ts`, `cli/artifact-commands.test.ts` |
+| Worker fallback/explicit selection, offline retirement, conditional recovery, isolated credentials, multiple backends and legacy adoption | `server/worker-connections.test.ts`, `cli/worker-runtime.test.ts`, `cli/worker-api.test.ts`, `cli/backend.test.ts` |
+| Device approval boundaries, polling/expiry/reuse, audit, revocation and trusted source addresses | `server/client-auth.test.ts`, `server/client-auth-api.test.ts` |
+| Automatic local setup, remote publisher without a TCP listener/store, independent backend display URL | `cli/artifact-main.test.ts`, `cli/remote.test.ts`, `cli/publication-url.test.ts` |
+| Claims, owner delivery, archive races/messages, terminal watch, outward listeners | `server/artifact-collaboration.test.ts`, `server/artifact-lifecycle.test.ts`, `server/agent-connections.test.ts`, `cli/artifact-commands.test.ts` |
 | Snapshot acknowledgment after successful stdout, failed/lost output, concurrent edits/reverts, restart, selective history | `cli/artifact-output.test.ts`, `cli/artifact-commands.test.ts`, `server/artifact-conversations.test.ts`, `server/artifact-api.test.ts`, `server/artifact-storage.test.ts` |
 | Artifact schema upgrades, imported evidence, backup, failed upgrade/retry, reopen, live-review rejection | `server/migration.test.ts`, `server/artifact-storage.test.ts` |
 | Authenticated API/SSE, full-origin checks, resource bytes/ranges, scoped preview access | `server/artifact-api.test.ts`, `server/artifact-auth.test.ts`, `server/artifact-resources.test.ts`, `server/preview-*.test.ts` |
@@ -47,12 +49,16 @@ stale metadata; review changed associations and ambiguous-extension defaults.
 ## Browser and compiled-binary acceptance
 
 Browser checks use `scripts/browser.ts` with fresh profiles and controlled local
-endpoints. Set `TEST_CHROMIUM` to a headless Chromium shell executable,
+endpoints. For `test-artifact-app.ts` on a browser that requires the compatibility
+prompt, set `R3_TEST_COMPATIBLE=1` to exercise explicit consent; this does not verify
+complete network blocking. Set `TEST_CHROMIUM` to a headless Chromium shell executable,
 `TEST_FULL_CHROMIUM` to a full Chromium executable for permission tests, and
 `TEST_UNSUPPORTED_CHROMIUM` to a browser expected to fail the preview gate.
 
 ```sh
 bun run build
+R3_TEST_BINARY="$PWD/r3" bun test cli/remote.test.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-client-login-browser.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-app.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-reading.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-file-header-actions.ts

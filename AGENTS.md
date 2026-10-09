@@ -1,7 +1,7 @@
 # r3 — Render. Review. Refine.
 
 r3 is a local-first workspace for **published artifacts and human/agent
-conversations**. A per-user daemon owns immutable content and persisted feedback;
+conversations**. A per-user server owns immutable content and persisted feedback;
 the browser, CLI, and agents use the same HTTP/JSON contract. The daemon, CLI, and
 SPA ship as one self-contained binary. Read [README.md](README.md) for usage.
 
@@ -26,8 +26,7 @@ and `web/src/artifact-api.ts`. Keep all three clients aligned.
 publisher: capture local files/git → CLI HTTP upload ─┐
 browser: fetch + authenticated event stream ──────────┼→ artifact daemon
 agent: CLI/HTTP publications, feedback, claims ───────┘    SQLite + immutable blobs
-local agent harness ← existing daemon delivery adapter
-remote publisher listener ← outward stream ← remote daemon
+local agent harness ← persistent worker ← outward stream ← selected backend
 opaque preview document → scoped version bytes + trusted r3 runtime
 ```
 
@@ -43,9 +42,13 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 - One logical agent session identifies one run. Multiple agents, including
   subagents, use distinct IDs. Sessions are attribution, not credentials, accounts,
   artifact ownership, or live presence.
-- A local daemon starts lazily and announces itself in
-  `$XDG_RUNTIME_DIR/r3/daemon.json`. `R3_URL` chooses an explicit remote server;
-  that URL never inherits a local token unless the complete normalized URL matches.
+- Local mode starts the same backend server lazily and announces it in
+  `$XDG_RUNTIME_DIR/r3/daemon.json`. Backend selection is `R3_URL`, nearest project
+  `.r3.json`, user `backendUrl`, then automatic local. Saved credentials are keyed
+  by the complete normalized URL; `r3 login` supports browser approval or an API key.
+  The separate persistent worker opens only private Unix IPC and outgoing backend
+  streams. CLI data/watch go directly to the backend. Read
+  [remote protocol](docs/artifacts/remote-protocol.md) for auth, recovery, and wire rules.
 - The loopback application listener dispatches scoped preview paths separately
   from its authenticated API. Previews use the browser's r3 address automatically;
   every rendered document has an opaque browser origin and no application
@@ -69,8 +72,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Content and rendering | `server/artifact-source.ts`, `artifact-resources.ts`, `artifact-document.ts`, `patch-content.ts`; `git.ts` is a pure patch parser/trimmer |
 | Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and per-version/view placements |
 | Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `agent-connections.ts`, `artifact-events.ts`; events, handoff, claims, designated recipient |
-| HTTP and auth | `server/artifact-api.ts`, `artifact-conversation-api.ts`, `artifact-http.ts`, `artifact-auth.ts`, `auth.ts` |
-| Local wake delivery | `server/local-agents.ts`, `artifact-listeners.ts`, `listener.ts`, `inbox.ts`; existing daemon, private registration socket, persisted targets; `cli/artifact-listener.ts` retains remote relay transport |
+| HTTP and auth | `server/artifact-api.ts`, `artifact-conversation-api.ts`, `artifact-http.ts`, `artifact-auth.ts`, `auth.ts`, `client-auth.ts`, `client-auth-api.ts`; `cli/backend.ts`, `login.ts`, `private-state.ts` |
+| Wake delivery | `cli/worker-runtime.ts`, `worker-client.ts`, `shared/worker-protocol.ts`; persistent worker, private local targets, outgoing streams; `server/worker-connections.ts`, `worker-records.ts` own opaque routing and retirement; `artifact-listeners.ts` preserves migration inputs |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
 | Markdown reading cache | `web/src/markdown-cache.ts`, `passive-markdown.ts`, `components/PassiveMarkdown.tsx`; bounded immutable bytes, invalidation, and passive reading during preview checks |
@@ -163,7 +166,10 @@ the persisted fallback; unsupported publishers and `--no-listen` clear it. Expli
 listen/watch takes priority. Failed fallback delivery retains the registration; a
 failed explicit listener is removed, without resending that attempt. Registration
 and restart never submit feedback. Archive clears saved registrations atomically.
-The existing server daemon performs local delivery; remote proxying is deferred.
+A persistent local worker delivers through the same protocol for local and remote
+backends. Disconnect removes its live registrations. Conditional reconnect preserves
+any incumbent, including a fallback, and restores both saved roles atomically when
+unoccupied. Conflict stops automatic retry; retired identities never return.
 `--session` is a display name; harness identity or `R3_AGENT_SESSION` identifies
 authored runs. Generic watch needs no supplied identity. Watch gives archive
 priority over pending feedback and timeout, including a watch begun after archive.

@@ -93,8 +93,9 @@ on the home page to archive or permanently delete them together.
 ## Local and remote access
 
 r3 runs locally by default. The CLI lazily starts a background daemon when a
-command first needs the server. The daemon serves the browser UI and stores
-artifacts and feedback. It listens only on loopback; local browser access works
+command first needs the server. The server serves the browser UI and stores
+artifacts and feedback. A separate background worker wakes local agent sessions;
+it opens only a private Unix socket. It listens only on loopback; local browser access works
 without a login unless you enable one.
 
 For remote access, use an HTTPS reverse proxy or tunnel, such as Tailscale Serve,
@@ -130,7 +131,39 @@ r3 restart
 includes each active token's `lastUsedAt` timestamp. Cookie activity is saved in
 batches once a minute and on graceful shutdown.
 
-Your agent can publish from a different machine: it uploads the artifact's files,
-so the machine running r3 does not need a copy of your project.
-See the [security model](.claude/skills/security-model/SKILL.md) for authentication
-and preview isolation details.
+To use that server from another machine, set your default backend and sign in:
+
+```sh
+r3 config set backendUrl https://reviews.example
+r3 login
+```
+
+Open the printed address in your authenticated r3 browser, check the code, and
+approve CLI access. For an API key, use `r3 login --api-key-stdin` with the key
+piped from your secret manager. Create keys on the server with
+`r3 auth create-key --label workstation`; revoke access with
+`r3 auth revoke-client <id>`.
+
+A project's `.r3.json` can override your default:
+
+```json
+{ "backendUrl": "https://reviews.example" }
+```
+
+This file can be committed. Credentials stay in your private user configuration.
+`R3_URL` overrides both project and user settings for an invocation. Every command,
+including feedback fetch, uses the selected backend. Run `r3 config unset backendUrl`
+and remove any override to return to automatic local mode.
+
+Publishing, listening, and feedback fetch work the same locally and remotely.
+The CLI talks directly to the selected server. Supported Claude Code and Codex
+sessions automatically use the persistent worker for notifications; `r3 watch`
+works without it. No inbound TCP port is opened on a remote publisher.
+Use `r3 worker status` to inspect backend connections or recovery conflicts.
+`r3 server start|stop|status|restart` manages the local server separately;
+`r3 worker start|stop|status|restart` manages notification delivery.
+
+Your agent uploads the artifact's files, so the server needs no copy of your
+project. See the [remote protocol](docs/artifacts/remote-protocol.md) for backend,
+authentication, and recovery details, and the
+[security model](.claude/skills/security-model/SKILL.md) for preview isolation.

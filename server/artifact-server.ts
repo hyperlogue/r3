@@ -3,7 +3,6 @@ import { createApplicationResponse } from "./application-assets.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactAuthPolicy, artifactRequestHostname } from "./artifact-auth.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
-import { deliverLocalAgent } from "./local-agents.ts";
 import { PREVIEW_PREFIX } from "./preview-contexts.ts";
 import { PreviewHost } from "./preview-host.ts";
 import { previewSupport } from "./preview-support.ts";
@@ -31,7 +30,7 @@ export function startArtifactServer(options: ArtifactServerOptions) {
       ...options.authentication,
       peerAddress: (request: Request) => addresses.get(request) ?? null,
     };
-    api = createArtifactApi(options.storage, policy, { previews, deliver: deliverLocalAgent });
+    api = createArtifactApi(options.storage, policy, { previews });
     const application = api;
     const assets = createApplicationResponse(options.assets, application.bootstrap);
     const server = Bun.serve({

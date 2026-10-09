@@ -7,11 +7,13 @@ import {
   writeConfig,
 } from "../server/config.ts";
 import type { ArtifactClient } from "../shared/artifact-client.ts";
+import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { normalizeGitRemote } from "../shared/git-remote.ts";
 import type { AuthTokenInfo, CreateAuthTokenResponse } from "../shared/types.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 
 const NAMES = [
+  "backendUrl",
   "trustedProxies",
   "bind",
   "port",
@@ -61,6 +63,9 @@ export function configCommand(argv: string[]): void {
     const value = raw?.trim();
     if (!value) throw new ArtifactCommandError(`Use r3 config unset ${name} to clear this setting`);
     switch (name) {
+      case "backendUrl":
+        next.backendUrl = normalizeBackendUrl(value);
+        break;
       case "trustedProxies": {
         const peers = value.split(",").map((item) => item.trim());
         if (peers.some((item) => !isIP(item)))

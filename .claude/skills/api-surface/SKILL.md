@@ -77,9 +77,10 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
   complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
   optional boolean `listen` (default true). A new commit replaces the fallback
-  using a locally registered target, or clears it when absent/disabled. Replays
-  cannot reclaim the fallback. The response adds the backend-owned artifact `url`,
-  `listenerRegistered`, and an optional worker `listener` subscription.
+  using a connected worker destination, or clears it when absent/disabled. Replays
+  cannot reclaim the fallback. The response adds a complete backend-owned `url`,
+  `listenerRegistered`, and optional worker `listener` subscription; CLI output
+  prints that URL unchanged.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
   membership, highlighted source, original bytes, rendered sparse diff, retained
@@ -164,14 +165,18 @@ flags reject cross-representation guesses. `--session` supplies a readable name;
 `R3_AGENT_SESSION` supplies stable identity for generic writers/subagents. Generic
 watch assigns its own temporary identity; no shared `agent` identity is invented.
 
-The existing local daemon owns wake delivery and persisted registrations. Its
-private Unix socket accepts `POST /api/local/target { actor, target }` and
-`POST /api/local/listen { artifactId, actor }`; neither is an application HTTP route.
-CLI create/publish first registers supported harness details there. Publication
-succeeds with a warning if setup fails. `--no-listen` clears the fallback on a new
-publication. Local `listen` returns after persistence; it starts no child process.
-The existing remote `listen` relay remains in `cli/artifact-listener.ts` and waits
-for IPC readiness. Remote proxying is deferred.
+Local and remote clients use a persistent worker with private Unix IPC and one
+outgoing stream per backend. The CLI sends only local setup through IPC; artifact
+requests and watch go directly to the backend. Supported create/publish and fetch
+register through the worker; setup failures warn after successful data operations.
+Fresh explicit listen returns after backend registration. The old per-artifact
+publisher relay is removed.
+
+The [remote protocol](../../../docs/artifacts/remote-protocol.md) owns the versioned
+`/api/workers/*` routes, OAuth device/token and browser-approval routes, client
+management/audit routes, their exact fields, and reconnect rules. Keep
+`shared/worker-protocol.ts`, CLI worker, backend, and independent protocol fixture
+aligned when changing those routes. Application HTTP never accepts harness targets.
 
 Failed fallback delivery retains its record; failed explicit delivery removes only
 that exact registration. No automatic resend goes to another recipient. Registration,
@@ -267,7 +272,7 @@ The current command families:
 | `feedback source <feedback-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
-| `auth`, `config`, `start/stop/status/restart`, `guide` | Browser login management, local configuration and daemon lifecycle |
+| `login`, `auth`, `config`, `server`, `worker`, `start/stop/status/restart`, `guide` | Saved backend access, client/browser management, configuration, server/worker lifecycle; root lifecycle aliases manage the server |
 
 Creation requires `--kind files|html|diff` before capture or artifact creation.
 Publication labels use `--version-label`; `--label` is a compatibility alias, and
@@ -283,18 +288,17 @@ including any unstaged changes. Diff `--staged` capture still reads the index.
 Use a distinct harness identity or `R3_AGENT_SESSION` per logical writing agent.
 `--session` only sets its display label; generic watch needs no supplied ID. The client
 registers that session before writes. No
-artifact owner or generic shared agent identity is inferred. `R3_URL`/`R3_TOKEN`
-select remote transport. Other local configuration resolves environment, persisted
-config, then defaults.
+artifact owner or generic shared agent identity is inferred. Backend selection is `R3_URL`, nearest project `.r3.json`, user `backendUrl`, then
+automatic local. `r3 login` saves credentials for the complete normalized URL;
+`R3_TOKEN` is not a client override.
 
-Local Claude Code/Codex create/publish makes the publisher the fallback in the
-existing daemon. `listen` explicitly takes priority; `unlisten` removes the caller’s
-registrations. Both fallback and explicit local listeners survive daemon restarts.
-A Claude target requires a socket/token; Codex needs its thread and local executable
-context. These are registered privately and used on Send, without proactive liveness
-checks. A successful Codex queue may wait for the session to resume. Unsupported
-agents can watch or poll. Remote `listen` retains its existing capability checks and
-outward relay; automatic publication registration is currently local-only.
+Claude Code/Codex create/publish makes the publisher the fallback. `listen` takes
+explicit priority; `unlisten` removes the caller's roles. A persistent local worker
+owns harness targets and eligible intent. Disconnect removes presence. Resume
+restores original roles only when no incumbent exists, preserving even a publisher
+fallback. Conflicts stop automatic attempts until fresh CLI action; archive,
+replacement and cancellation retire identities even while their worker is offline.
+Codex queue success need not mean the session is running. Other agents watch or poll.
 
 Watch exits 10 for pending feedback, 0 for archived, 2 for timeout, and 4 for a
 superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if feedback is
@@ -322,8 +326,7 @@ old acknowledgment cannot drain a newer batch. All conversation mutations and
 archive/restore advance a persisted artifact revision; claims alone do not.
 
 After successful acknowledgment, `feedback fetch` registers the calling agent as an
-explicit listener when harness detection supports it. This reuses local daemon
-registration or the remote relay, returns after registration, and keeps listener
+explicit listener when harness detection supports it. This uses the persistent worker and direct backend registration, returns after registration, and keeps listener
 output off stdout. Setup failures only warn on stderr after a successful fetch.
 Unsupported harnesses need no identity to fetch; `--human` skips registration.
 `--all` reads open history without acknowledgment or registration, and
@@ -366,15 +369,3 @@ image list, and `--clear-attachments` removes it. `feedback image <artifact-id>
 snapshot's images before output/acknowledgment, reusing only matching existing
 files. Failure leaves feedback pending. The guide requires agents to open relevant
 images with their harness's image viewer before replying.
-
-## Client authorization
-
-The [remote protocol](../../../docs/artifacts/remote-protocol.md) defines API-key
-management, OAuth device/token and browser-approval routes, and audit records.
-`r3 auth create-key`, `list-clients`, `revoke-client`, and `audit` manage client
-authorizations independently of browser login tokens.
-
-The same protocol reference defines `/api/workers/*`: authenticated connections,
-opaque destinations, explicit registration, conditional resume, and delivery
-acknowledgment. A publication can select a connected worker destination; all
-harness configuration remains local.

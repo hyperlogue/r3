@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { BackendCredentials } from "./backend.ts";
 
 import { currentHarnessSession, detectListener } from "./listener.ts";
 
@@ -55,6 +58,7 @@ test("currentHarnessSession retains the general Claude-then-Codex provenance rul
 });
 
 test("listen reports a missing publisher wake adapter before remote registration", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-listener-cli-"));
   let registered = false;
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -73,12 +77,20 @@ test("listen reports a missing publisher wake adapter before remote registration
     PATH: "",
     R3_URL: server.url.toString(),
     R3_TOKEN: randomBytes(32).toString("base64url"),
+    XDG_STATE_HOME: join(root, "state"),
+    XDG_RUNTIME_DIR: join(root, "runtime"),
+    XDG_CONFIG_HOME: join(root, "config"),
     R3_AGENT_SESSION: "publisher-test",
     CODEX_THREAD_ID: "codex-thread",
   };
   delete env.CLAUDE_CODE_MESSAGING_SOCKET;
   delete env.CLAUDE_CODE_MESSAGING_TOKEN;
   delete env.CLAUDE_CODE_SESSION_ID;
+  await new BackendCredentials(join(root, "config", "r3", "credentials")).save({
+    url: server.url.toString(),
+    kind: "key",
+    accessToken: env.R3_TOKEN!,
+  });
   try {
     const child = Bun.spawn(
       [process.execPath, "cli/index.ts", "listen", "artifact_test", "--foreground"],
@@ -98,5 +110,6 @@ test("listen reports a missing publisher wake adapter before remote registration
     expect(registered).toBe(false);
   } finally {
     server.stop(true);
+    await rm(root, { recursive: true, force: true });
   }
 });

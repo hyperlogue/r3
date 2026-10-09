@@ -112,17 +112,22 @@ fetch output. --attachments-dir downloads and
 verifies the snapshot's images before output and acknowledgment; failures leave
 feedback pending. Existing matching files are reused; different files are not overwritten.
 Text flags accept - to read stdin. --json prints structured results.
-Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential.
+Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
+Use r3 login for browser approval, or pipe an API key to r3 login --api-key-stdin.
+Credentials are saved privately per backend; R3_TOKEN is not a client override.
 
+  login [--api-key-stdin]
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
-  start | stop | status | restart
+  server start|stop|status|restart            # local storage and browser server
+  worker start|stop|status|restart            # local notification delivery
+  start | stop | status | restart            # aliases for server lifecycle
   guide [html|files|diff]                     # workflow and optional preparation guides
 
 Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
 Configuration names:
-bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
+backendUrl, bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
 trustedProxies (comma-separated immediate proxy IP addresses),
 archiveTtlDays (1..36500; default 30),
 projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
@@ -165,7 +170,7 @@ r3 reply feedback_b --version 2 --view rendered -m 'Added the missing case.'
 r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
 \`\`\`
 
-Local registrations survive daemon restarts. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
+The worker saves listener intent across restarts. Reconnect restores it only when no other recipient exists; a conflict remains visible in \`r3 worker status\`. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
 
 ## Usage and cleanup
 
@@ -201,17 +206,17 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 
 ## Receive feedback
 
-Local Claude Code and Codex publications register the publisher as fallback in the existing server daemon. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending feedback.
+Claude Code and Codex publications register the publisher as fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending feedback.
 
-\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. Local listeners are persisted and have no idle timeout. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Send failures remain visible to the human: fallback registrations remain for retry, while failed explicit listeners are removed. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch feedback.
+\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The worker persists listener intent and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Send failures remain visible to the human: fallback registrations remain for retry, while failed explicit listeners are removed. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch feedback.
 
-With an explicit remote \`R3_URL\`, publishing remains supported; automatic publication registration is local-only for now. Explicit remote \`listen\` retains its publisher-side relay, and \`watch\` works everywhere. A local proxy for remote services is deferred.
+Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect removes its live registrations. Reconnect restores saved roles only if the artifact has no incumbent recipient, including a publisher fallback. Conflicts stop automatic attempts until a fresh CLI action. Archive and superseded registrations never return. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
 
 \`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms feedback was written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the feedback snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
 
 \`r3 feedback fetch <id> [--all] [--feedback <id,id>]\` reads new feedback, replies, and status changes, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave feedback pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
 
-After acknowledgment, fetch registers the calling agent as the explicit listener when its harness supports listening, using the local daemon or remote relay. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--feedback <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
+After acknowledgment, fetch registers the calling agent as the explicit listener when its harness supports listening, using the local worker and a direct backend registration. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--feedback <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
 
 When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 feedback fetch <id>\` in your harness to feed its output into context. Copying the command leaves feedback pending until it runs. Use the existing payload when feedback was returned by watch or a harness command.
 

@@ -22,6 +22,7 @@ import type {
   Representation,
 } from "../shared/artifacts.ts";
 import { normalizeGitRemote } from "../shared/git-remote.ts";
+import type { WorkerSubscription } from "../shared/worker-protocol.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { fetchArtifactFeedback } from "./artifact-feedback.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
@@ -30,6 +31,7 @@ import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attac
 import { currentHarnessSession, detectListener } from "./listener.ts";
 
 export interface ArtifactCommandContext {
+  publicationComplete?: (subscription: WorkerSubscription) => Promise<void>;
   registerListener?: (actor: ArtifactActor) => Promise<boolean>;
   client: ArtifactClient;
   publicUrl?: string;
@@ -235,16 +237,16 @@ export async function runArtifactCommand(
     return value ?? "";
   };
   const detail = (id: string) => client.json<ArtifactDetail>("GET", artifactApiPath(id));
-  const printPublication = async (artifact: Artifact, version: ArtifactVersion) => {
+  const printPublication = async (artifact: Artifact, version: ArtifactVersion, url: string) => {
     if (args.has("json"))
       await print({
         artifact,
         version,
-        url: `${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
+        url,
       });
     else
       await print(
-        `${artifact.id} · ${artifact.kind} · version ${version.seq}${artifact.projectId ? `\nProject: ${artifact.projectId}` : ""}\n${ctx.publicUrl ?? client.url}/${encodeURIComponent(artifact.id)}`,
+        `${artifact.id} · ${artifact.kind} · version ${version.seq}${artifact.projectId ? `\nProject: ${artifact.projectId}` : ""}\n${url}`,
       );
   };
   switch (command) {
@@ -284,13 +286,28 @@ export async function runArtifactCommand(
             "Published, but automatic listening could not be configured. Run r3 listen or use r3 watch.";
         }
       }
-      const { artifact, version } = await publishArtifactCommand(command, args, {
-        ...ctx,
-        actor: author,
-        listen,
-        text,
-      });
-      await printPublication(artifact, version);
+      const { artifact, version, url, listenerRegistered, listener } = await publishArtifactCommand(
+        command,
+        args,
+        {
+          ...ctx,
+          actor: author,
+          listen,
+          text,
+        },
+      );
+      await printPublication(artifact, version, url);
+      if (listener && ctx.publicationComplete) {
+        try {
+          await ctx.publicationComplete(listener);
+        } catch {
+          listenerWarning =
+            "Published, but worker persistence could not be confirmed. Run r3 listen.";
+        }
+      }
+      if (listen && ctx.registerListener && listenerRegistered === false)
+        listenerWarning =
+          "Published, but no worker listener was registered. Run r3 listen or use r3 watch.";
       if (listenerWarning) ctx.error(listenerWarning);
       return 0;
     }

@@ -108,9 +108,9 @@ restored from the back/forward cache reloads rather than reusing its auth snapsh
 
 A proxy that rewrites Host to loopback can conceal remote exposure. Set
 `requireLogin` explicitly for such a deployment and advertise the application's
-publicUrl. Never rely on the proxy being detectable. Remote publishing uses an
-explicit R3_URL and R3_TOKEN; a different origin/path never inherits local discovery
-credentials. Both clients and probes reject redirects when carrying credentials.
+publicUrl. Never rely on the proxy being detectable. Remote clients resolve environment, project, and user backend selection, then use
+saved access from `r3 login`. A different origin/path never inherits credentials.
+Both clients and probes reject redirects when carrying credentials.
 
 Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults.
 Configuration contains no secret. Supported settings include application bind,
@@ -400,32 +400,35 @@ under an exclusive transaction, and verifies integrity. Already-imported history
 remains readable; live-review stores require an intermediate upgrade with r3 1.5.0.
 Do not use the real user store for development checks.
 
-## Local wake adapters
+## Client authorization and local wake delivery
 
-The existing server daemon runs local Claude/Codex delivery through an injected
-adapter. `server/local-agents.ts` accepts harness details only on its private
-Unix socket, in an owned 0700 directory with a 0600 socket. It requires the local
-daemon token, rejects browser Origins, bounds registration bodies, and never
-mounts those routes on the public application listener. The CLI uses this socket
-only for a daemon selected by local discovery or a complete matching local URL.
-No harness target or credential is sent to an arbitrary `R3_URL`.
+Read the [remote protocol](../../../docs/artifacts/remote-protocol.md) when changing
+backend selection, API keys, device login, token rotation, audit, or worker routing.
+It owns the language-neutral routes, limits, lifetimes, and recovery rules. Browser
+approval requires an authenticated browser and an explicit decision. API keys cannot
+approve devices on an exposed server. Public OAuth routes retain Host/Origin guards,
+bounded form parsing, polling cadence, expiry, and rate limits. Preview isolation is
+unchanged. Tokens and device secrets are hashed in backend storage.
 
-`local_agent_targets` and `artifact_listeners` persist local delivery configuration
-in the existing private SQLite store. The database and migration backups contain
-Claude messaging credentials and stay private. Public session/artifact/watcher
-responses expose identity, display label, and listener mode, never target details.
-A stored registration is not a claim that a session is alive.
+The worker opens only a private Unix socket and outgoing authenticated streams.
+Its separate IPC credential, owned 0700 directory, 0600 files/socket, and rejection
+of every Origin header keep harness details off application HTTP. Local paths,
+executables, Codex home and Claude messaging credentials remain in the private
+worker file; they never enter a backend registration. Private saved backend
+credentials are keyed by the complete normalized URL, atomically replaced, and
+refreshed under a process lock. A rejected backend pauses independently until login.
+
+Backend routing contains opaque worker/listener/registration IDs and attribution.
+A connection is bound to its authorizing credential; expiry/revocation closes it.
+Disconnect removes only that connection's registrations. Durable retirement prevents
+missed events from resurrecting cancelled, superseded or archived subscriptions.
+Conditional recovery never replaces an incumbent. A wake acknowledgment cannot
+consume feedback. Existing private migration backups may retain legacy local targets.
 
 Claude delivery validates a same-owner session socket and uses its authenticated
 messaging token. Codex uses bounded direct argv with the captured local executable
-and optional Codex home, without a shell. Send failures are mapped to useful fixed
-messages; raw harness diagnostics never enter HTTP responses or logs. Successful
-Codex queue insertion reports `queued`, not proof of a running consumer. Delivery
-never acknowledges feedback content.
-
-Explicit remote listening retains the outward publisher relay in
-`cli/artifact-listener.ts`. That remote server receives only logical identity and
-delivery results. Automatic local registration does not implement a remote proxy.
+and optional Codex home, without a shell. Raw harness errors never enter backend
+responses or logs. Queue acceptance is not proof of a running consumer.
 
 ## Limits of the trust model
 
@@ -492,13 +495,3 @@ The existing authenticated attachment route, raster validation, GC coordination,
 logout revocation and no-store response policy apply. Media snapshot plus four
 ordinary attachments are bounded by a 40 MiB message request. Snapshot provenance
 is client-supplied evidence, not a server claim of video decoder equivalence.
-
-## Client authorization
-
-The [remote protocol](../../../docs/artifacts/remote-protocol.md) owns API-key and
-OAuth device authorization limits and lifetimes. Browser approval requires an
-authenticated browser and an explicit decision; API keys cannot approve devices
-on an exposed server. Public OAuth routes retain Host/Origin guards, bounded form
-parsing, polling cadence, expiry, and rate limits. Tokens and device secrets are
-hashed in backend storage. Only an explicitly configured immediate trusted proxy
-can supply the observed source address.
