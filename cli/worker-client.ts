@@ -9,7 +9,8 @@ import type { WorkerInfo } from "./worker-runtime.ts";
 const path = () => join(dirname(daemonJsonPath()), "worker.json");
 export async function existingWorker(): Promise<ArtifactClient | null> {
   const info = readPrivateJson<WorkerInfo>(path());
-  if (!info || !isPidAlive(info.pid)) return null;
+  if (!info) return null;
+  // Authenticated IPC works across PID namespaces; a saved PID is not liveness.
   const client = new ArtifactClient({
     url: "http://localhost",
     token: info.token,
