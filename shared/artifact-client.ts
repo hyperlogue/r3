@@ -12,6 +12,7 @@ export class ArtifactApiError extends Error {
 export interface ArtifactClientOptions {
   url: string;
   token?: string;
+  getToken?: () => Promise<string>;
   fetch?: (request: Request) => Promise<Response>;
 }
 
@@ -45,7 +46,8 @@ export class ArtifactClient {
     if (!path.startsWith("/api/") || path.includes("#"))
       throw new Error("Invalid artifact API path");
     const headers = new Headers();
-    if (this.options.token) headers.set("x-r3-token", this.options.token);
+    const token = this.options.getToken ? await this.options.getToken() : this.options.token;
+    if (token) headers.set("x-r3-token", token);
     if (body !== undefined) headers.set("content-type", "application/json");
     const response = await this.send(
       new Request(`${this.url}${path}`, {
@@ -70,7 +72,9 @@ export class ArtifactClient {
     throw new ArtifactApiError(
       response.status,
       result,
-      message ?? `r3 request failed (${response.status})`,
+      response.status === 401 && this.options.getToken
+        ? "Backend access was rejected; run r3 login"
+        : (message ?? `r3 request failed (${response.status})`),
     );
   }
 
