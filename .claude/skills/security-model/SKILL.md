@@ -1,11 +1,11 @@
 ---
 name: security-model
-description: r3's Host/origin/auth guards, isolated artifact preview and closed network policy, local and remote daemon configuration, publisher-side harness credentials, byte/path guards, migration storage, and dependency cooldown. Use when changing authentication, artifact or preview routes, resource serving, exposure settings, remote transport, or reviewing security impact.
+description: r3's Host/origin/auth guards, isolated artifact preview and closed network policy, local and remote server configuration, publisher-side harness credentials, byte/path guards, migration storage, and dependency cooldown. Use when changing authentication, artifact or preview routes, resource serving, exposure settings, remote transport, or reviewing security impact.
 ---
 
 # r3's security model
 
-This file owns the security design. The daemon defends against browser-borne
+This file owns the security design. The server defends against browser-borne
 attacks and casual remote access; executable artifacts default to a verified
 closed network boundary. Unsupported browsers can use restrictive compatibility
 mode after risk acknowledgment. Only HTML artifacts can explicitly opt into broader external
@@ -395,7 +395,7 @@ Blob storage is private, immutable, content-addressed, fsynced, and hash-verifie
 Publication prepares bytes before the atomic metadata transaction. Garbage
 collection coordinates with active publication leases. Database and content paths
 are runtime configuration, never hardcoded machine paths. Migration obtains the
-daemon lock, writes a new private consistent backup, upgrades artifact schemas
+server lock, writes a new private consistent backup, upgrades artifact schemas
 under an exclusive transaction, and verifies integrity. Already-imported history
 remains readable; live-review stores require an intermediate upgrade with r3 1.5.0.
 Do not use the real user store for development checks.
@@ -421,7 +421,7 @@ refreshed under a process lock. A rejected backend pauses independently until lo
 Backend routing contains opaque worker/listener/registration IDs and attribution.
 A connection is bound to its authorizing credential; expiry/revocation closes it.
 Disconnect removes only that connection's registrations. Durable retirement prevents
-missed events from resurrecting cancelled, superseded or archived subscriptions.
+missed events from resurrecting cancelled, superseded or archived registrations.
 Conditional recovery never replaces an incumbent. A wake acknowledgment cannot
 consume feedback. Existing private migration backups may retain legacy local targets.
 

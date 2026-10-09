@@ -87,7 +87,7 @@ the file stack instead of adding a history entry.
 
 ## Publication and content ownership
 
-The publisher captures local input and sends complete bytes. The daemon owns the
+The publisher captures local input and sends complete bytes. The server owns the
 published content; ordinary reads never resolve a checkout, worktree, or publisher
 path. Projects are optional groups selected explicitly or inferred from a sanitized
 publisher-supplied Git remote. Their opaque IDs remain independent of filesystem
@@ -111,7 +111,7 @@ Publication has two distinct consistency boundaries:
 
 1. Publisher capture checks stable file membership and bytes, or captures immutable
    Git objects and verifies mutable inputs. A changing source fails capture.
-2. The daemon validates kind, paths, membership, sizes, and patch syntax, prepares
+2. The server validates kind, paths, membership, sizes, and patch syntax, prepares
    immutable blobs and retained Markdown HTML, then commits the complete version
    in one transaction before broadcasting its availability.
 
@@ -205,7 +205,7 @@ and explicit associations for common missing extensions and special filenames.
 Compound suffixes take precedence over shorter extensions. Shared extensions
 have fixed defaults (for example `.h` is C, `.m` is Objective-C, `.v` is V,
 and `.fs` is F#); detection does not inspect contents or infer dialects. Unknown
-names remain escaped plain text. Grammar loading stays on demand in the daemon,
+names remain escaped plain text. Grammar loading stays on demand in the server,
 with the existing size limit, worker timeout, and plain-text failure fallback.
 
 Publication reuses a retained Markdown rendering when source digest, path, and
@@ -633,7 +633,7 @@ removes the slide; comparison previews are released after the return transition.
 
 ## Agent collaboration and lifecycle
 
-One human owner collaborates with multiple logical agent sessions. Distinct agents,
+One backend owner collaborates with multiple logical agent sessions. Distinct agents,
 including subagents sharing a harness, use distinct session IDs. Attribution survives
 process disconnection. Sessions are neither user accounts nor artifact ownership;
 any registered agent can contribute through the owner's API.
@@ -643,8 +643,9 @@ notes concurrently. A conflicting live owner blocks a claim, and a successful re
 releases only its author's claim. Concurrent publication is protected separately by
 the version sequence check.
 
-One selected recipient receives owner handoffs: an explicit listen/watch takes
-priority over a publisher fallback. Each newly committed publication updates that
+An artifact can retain a publisher fallback and an explicit registration. Its
+selected recipient receives wake notifications: explicit listen/watch takes
+priority over the publisher fallback. Each newly committed publication updates that
 fallback even while an explicit recipient is selected. Unsupported publishers and
 `--no-listen` clear it; publication replay changes no registration. Unlisten removes
 the caller's roles. A failed explicit send removes that registration without
@@ -657,9 +658,9 @@ reads, writes, uploads, and watch go directly to the selected backend. Each back
 gets one outgoing worker connection carrying opaque destination IDs. Harness paths
 and credentials remain in private local worker state.
 
-Disconnect removes live registrations. Recovery conditionally restores saved intent
-only if neither slot is occupied; an incumbent publisher remains selected. A worker
-that held both roles restores them atomically. Conflicts stop automatic attempts
+Disconnect removes live registrations. Recovery uses saved registration intent
+to restore registrations only if neither slot is occupied; an incumbent publisher
+remains selected. A worker that held both roles restores them atomically. Conflicts stop automatic attempts
 until a fresh CLI action. Replacement and archive durably retire old identities,
 even while their worker is offline. Restore never revives them. Registration,
 restart, and fallback selection never submit pending feedback.
@@ -674,8 +675,8 @@ The [remote protocol](remote-protocol.md) owns backend selection, client login,
 credential storage, wire messages, recovery, delivery limits, and migration. The
 bundled server implements that contract; it is not a separate remote product.
 
-Delivery records the owner's handoff, not a read receipt from every agent. Agent
-messages start delivered; human feedback/replies wait for handoff. Reading or
+Feedback acknowledgment records the owner's handoff, not a read receipt from every
+agent. Agent messages start delivered; human feedback/replies wait for handoff. Reading or
 subscribing is not acknowledgment. The CLI reads `feedback/pending`, completes stdout output, then calls the explicit
 `feedback/acknowledge` endpoint with that snapshot’s required fingerprint. A persisted
 revision rejects stale snapshots even after text is edited and reverted. Failed reads
@@ -687,13 +688,14 @@ for edit and status-transition rules.
 
 Archive shelves work without implying approval. Its transaction preserves an ordered
 lifecycle event and optional message, changes state, and clears claims. The
-collaboration module captures and removes the current listener before notifications.
+collaboration module captures the selected recipient and removes both registrations
+before notifications.
 
 | Archive input | Notification | Watch result |
 | --- | --- | --- |
 | Blank message | Unregister quietly | Archived, exit 0 |
-| Nonblank message and listener | Send the saved event/message to that listener | Archived, exit 0, with message |
-| Nonblank message without listener | Retain history; no automatic agent startup | Already-archived watch returns immediately with the message |
+| Nonblank message and selected recipient | Send the saved event/message to that recipient | Archived, exit 0, with message |
+| Nonblank message without a selected recipient | Retain history; no automatic agent startup | Already-archived watch returns immediately with the message |
 
 Archive takes precedence over pending feedback and timeout. A failed notification
 preserves the committed event and reports failure; an operation-key retry does not
@@ -825,7 +827,7 @@ owns the build alias and Pages layout.
 
 Startup upgrades artifact schemas while preserving immutable publications and
 already-imported conversations and evidence. Direct upgrades from the retired
-live-review store require r3 1.5.0 first. The current daemon has no local-source
+live-review store require r3 1.5.0 first. The current server has no local-source
 capture adapter. The [migration reference](schema.md#artifact-schema-upgrades)
 owns supported upgrades, backups, and recovery.
 

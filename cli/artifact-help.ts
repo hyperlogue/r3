@@ -47,7 +47,7 @@ Cleanup: manual only. Default TTL is 30 elapsed days since the latest archive.
          shared content still in use, and reports failures (exit 1; success 0).
          --ttl accepts 1d..36500d and overrides the server default for one run.
          r3 config set archiveTtlDays 30 persists that default; restart to apply.
-         This edits the local config, even when R3_URL selects a remote daemon.
+         This edits the local config, even when R3_URL selects a remote backend.
          Restore cancels eligibility; archiving again starts a new countdown.
          Content size excludes database/filesystem overhead.
 
@@ -170,7 +170,7 @@ r3 reply feedback_b --version 2 --view rendered -m 'Added the missing case.'
 r3 reply feedback_c --version 2 --view rendered -m 'Corrected the example.'
 \`\`\`
 
-The worker saves listener intent across restarts. Reconnect restores it only when no other recipient exists; a conflict remains visible in \`r3 worker status\`. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
+The worker saves registration intent across restarts. After reconnect, the backend restores a registration only when no other recipient exists; a conflict remains visible in \`r3 worker status\`. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
 
 ## Usage and cleanup
 
@@ -208,11 +208,11 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 
 Claude Code and Codex publications register the publisher as fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending feedback.
 
-\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The worker persists listener intent and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Send failures remain visible to the human: fallback registrations remain for retry, while failed explicit listeners are removed. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch feedback.
+\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The worker persists registration intent and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Send failures remain visible to the human: fallback registrations remain for retry, while failed explicit listeners are removed. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch feedback.
 
 Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect removes its live registrations. Reconnect restores saved roles only if the artifact has no incumbent recipient, including a publisher fallback. Conflicts stop automatic attempts until a fresh CLI action. Archive and superseded registrations never return. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
 
-\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms feedback was written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the feedback snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. One designated listen/watch recipient exists per artifact.
+\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms feedback was written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the feedback snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. An artifact can retain fallback and explicit registrations with one selected recipient.
 
 \`r3 feedback fetch <id> [--all] [--feedback <id,id>]\` reads new feedback, replies, and status changes, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave feedback pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
 
@@ -350,7 +350,7 @@ r3 publish <id> --staged
 git diff main feature | r3 publish <id> --stdin-diff
 \`\`\`
 
-Git capture runs on the publisher. Changed submodule pointers are always included in the patch, regardless of Git's submodule display or ignore settings. Submodule contents are not captured recursively. The daemon stores the captured patch and context. A later publication should express the complete intended review against its chosen base. The stdin path carries the supplied patch; context outside that input is unavailable.
+Git capture runs on the publisher. Changed submodule pointers are always included in the patch, regardless of Git's submodule display or ignore settings. Submodule contents are not captured recursively. The server stores the captured patch and context. A later publication should express the complete intended review against its chosen base. The stdin path carries the supplied patch; context outside that input is unavailable.
 
 Patch text must be valid UTF-8. Invalid text bytes are rejected instead of replaced; publish non-UTF-8 files as a files artifact to preserve their original bytes. Git binary patches remain supported.
 

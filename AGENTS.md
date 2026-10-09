@@ -2,12 +2,15 @@
 
 r3 is a local-first workspace for **published artifacts and human/agent
 conversations**. A per-user server owns immutable content and persisted feedback;
-the browser, CLI, and agents use the same HTTP/JSON contract. The daemon, CLI, and
-SPA ship as one self-contained binary. Read [README.md](README.md) for usage.
+the browser, CLI, and agents use the same HTTP/JSON contract. The server, worker,
+CLI, and SPA ship as one self-contained binary. Read [README.md](README.md) for usage.
 
 Write README.md for human readers evaluating and getting started with r3. Keep
 agent instructions, protocol semantics, and exhaustive feature details in the
 agent guide or reference documentation.
+
+Use [CONTEXT.md](CONTEXT.md) for domain terminology. Backend names the service;
+server and worker name its distinct storage and local notification roles.
 
 This file, the [artifact design](docs/artifacts/design.md),
 [schema explanation](docs/artifacts/schema.md), and the deep-reference skills below
@@ -24,13 +27,13 @@ and `web/src/artifact-api.ts`. Keep all three clients aligned.
 
 ```text
 publisher: capture local files/git → CLI HTTP upload ─┐
-browser: fetch + authenticated event stream ──────────┼→ artifact daemon
+browser: fetch + authenticated event stream ──────────┼→ backend server
 agent: CLI/HTTP publications, feedback, claims ───────┘    SQLite + immutable blobs
 local agent harness ← persistent worker ← outward stream ← selected backend
 opaque preview document → scoped version bytes + trusted r3 runtime
 ```
 
-- The daemon is the only SQLite writer. Storage and domain services are explicitly
+- The server is the only SQLite writer. Storage and domain services are explicitly
   constructed and injected; importing modules must not open a database.
 - Ordinary requests use artifact/version identity. The server never resolves a
   publisher path, Git repository, worktree, or live file. Git and directory capture
@@ -71,7 +74,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Publisher capture | `cli/capture.ts`, `capture-git.ts`, `publisher-remote.ts`, `artifact-publish.ts`; bounded stable bytes, sanitized remote hints, Git process isolation, explicit retry diagnostics |
 | Content and rendering | `server/artifact-source.ts`, `artifact-resources.ts`, `artifact-document.ts`, `patch-content.ts`; `git.ts` is a pure patch parser/trimmer |
 | Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and per-version/view placements |
-| Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `agent-connections.ts`, `artifact-events.ts`; events, handoff, claims, designated recipient |
+| Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `agent-connections.ts`, `artifact-events.ts`; events, handoff, claims, selected recipient |
 | HTTP and auth | `server/artifact-api.ts`, `artifact-conversation-api.ts`, `artifact-http.ts`, `artifact-auth.ts`, `auth.ts`, `client-auth.ts`, `client-auth-api.ts`; `cli/backend.ts`, `login.ts`, `private-state.ts` |
 | Wake delivery | `cli/worker-runtime.ts`, `worker-client.ts`, `shared/worker-protocol.ts`; persistent worker, private local targets, outgoing streams; `server/worker-connections.ts`, `worker-records.ts` own opaque routing and retirement; `artifact-listeners.ts` preserves migration inputs |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
@@ -155,17 +158,19 @@ pending timestamp, so editing cannot suppress a later resolution notification.
 
 **Lifecycle events** have immutable ordered identities, actor, optional message,
 and operation key. Blank messages normalize to null. Archive changes state,
-records history, clears claims, and captures/removes the current listener before
-post-commit notifications. Push only a nonblank message to that captured listener.
+records history, clears claims, captures the selected recipient, and removes
+registrations before post-commit notifications. Push only a nonblank message to
+that captured recipient.
 A failed push preserves the event and reports failure; retry does not notify again.
 Restore permits work but never revives an old registration. Archive preserves
 feedback state, unsent content, and drafts; in-flight replies remain accepted.
 
-One active listen/watch recipient exists per artifact. Local publication replaces
-the persisted fallback; unsupported publishers and `--no-listen` clear it. Explicit
-listen/watch takes priority. Failed fallback delivery retains the registration; a
-failed explicit listener is removed, without resending that attempt. Registration
-and restart never submit feedback. Archive clears saved registrations atomically.
+An artifact can retain a publisher fallback and an explicit registration, with
+one selected recipient. A publication replaces the fallback; unsupported publishers
+and `--no-listen` clear it. Explicit listen/watch takes priority. Failed fallback
+delivery retains the registration; a failed explicit registration is removed,
+without resending that attempt. Registration and restart never submit feedback.
+Archive clears saved registrations atomically.
 A persistent local worker delivers through the same protocol for local and remote
 backends. Disconnect removes its live registrations. Conditional reconnect preserves
 any incumbent, including a fallback, and restores both saved roles atomically when
@@ -253,7 +258,7 @@ under `site/`. Its repository integration contract belongs to the
 ```sh
 bun install
 process-compose up           # isolated workspace data, application 8891
-bun run dev                 # source daemon, server watch; restart for frontend edits
+bun run dev                 # source server, server watch; restart for frontend edits
 bun cli/index.ts <command>
 bun run build               # self-contained ./r3
 bun run gen:demo
@@ -261,7 +266,7 @@ bun run build:demo
 ```
 
 Nix/direnv provides Bun and Biome. Do not read `.env`, `.envrc`, or `.env.*` files.
-The source daemon bundles its guarded SPA assets once at startup. The compiled
+The source server bundles its guarded SPA assets once at startup. The compiled
 binary embeds all application assets and works without a source checkout.
 
 Before committing, run `bun run typecheck`, `bun test`, and `biome check .`.
@@ -271,7 +276,7 @@ merely mirror implementation. Use the component showcases and isolated
 browser acceptance scripts to review UI changes.
 
 Tests inject temporary storage or use isolated XDG directories for subprocesses.
-Never open, migrate, restart, or modify the normal user daemon/database just to
+Never open, migrate, restart, or modify the normal user server/database just to
 verify a change. Browser acceptance uses fresh profiles and controlled endpoints;
 device tests use fake devices and actual browser permission denial/grant.
 

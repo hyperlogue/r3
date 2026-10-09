@@ -92,11 +92,11 @@ on the home page to archive or permanently delete them together.
 
 ## Local and remote access
 
-r3 runs locally by default. The CLI lazily starts a background daemon when a
-command first needs the server. The server serves the browser UI and stores
-artifacts and feedback. A separate background worker wakes local agent sessions;
-it opens only a private Unix socket. It listens only on loopback; local browser access works
-without a login unless you enable one.
+r3 runs locally by default. The CLI starts a background server when a command
+first needs the local backend. The server stores artifacts and feedback, serves
+the browser UI, and listens only on loopback. Local browser access works without
+a login unless you enable one. A separate worker wakes local agent sessions and
+opens only a private Unix socket.
 
 For remote access, use an HTTPS reverse proxy or tunnel, such as Tailscale Serve,
 pointing to `http://127.0.0.1:8791/`. Forward the whole application, including

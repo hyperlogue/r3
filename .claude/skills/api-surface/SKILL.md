@@ -21,7 +21,7 @@ three clients (browser, CLI, agent). When you change behavior, change
 `server/artifact-daemon.ts` opens and migrates storage before accepting requests.
 The CLI, browser, and demo all use this protocol; legacy routes are removed.
 
-- `GET /api/stat?window=daily|weekly` returns `ArtifactUsage`: current daemon-wide
+- `GET /api/stat?window=daily|weekly` returns `ArtifactUsage`: current backend-wide
   inventory, published versions, conversation counts, deduplicated content bytes,
   default-TTL GC eligibility, and activity buckets. Windows are fixed at 14 calendar
   days or four Monday-start weeks, including the current partial period, in the
@@ -79,7 +79,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   optional boolean `listen` (default true). A new commit replaces the fallback
   using a connected worker destination, or clears it when absent/disabled. Replays
   cannot reclaim the fallback. The response adds a complete backend-owned `url`,
-  `listenerRegistered`, and optional worker `listener` subscription; CLI output
+  `listenerRegistered`, and optional worker `listener` registration; CLI output
   prints that URL unchanged.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
@@ -180,7 +180,7 @@ aligned when changing those routes. Application HTTP never accepts harness targe
 
 Failed fallback delivery retains its record; failed explicit delivery removes only
 that exact registration. No automatic resend goes to another recipient. Registration,
-fallback activation, and daemon restart never announce unsent content. Archive
+fallback selection, and worker restart never announce unsent content. Archive
 atomically clears durable records; restore requires a new publication/registration.
 
 ## Preview and bootstrap routes
@@ -250,14 +250,16 @@ supported constraints and track compatibility.
 ## CLI and agent loop
 
 Bare `r3` prints a compact human welcome with quick-start commands and an explicit
-pointer to `r3 guide` for agents. It returns without contacting or starting a daemon.
+pointer to `r3 guide` for agents. It returns without contacting a backend or
+starting a server or worker.
 `r3 help`, `r3 --help`, and `r3 -h` print the full command reference.
 The welcome, help, and guides come from `cli/artifact-help.ts`; keep them accurate in
 any change to commands, flags, results, or protocol. `r3 guide` is the concise
 agent workflow, read once per session. `r3 guide html|files|diff` contains only the
 preparation details for that kind, loaded when first needed. Unknown topics and
-extra arguments fail locally without contacting or starting a daemon. Human
-administration and less frequent inspection/metadata commands stay in HELP.
+extra arguments fail locally without contacting a backend or starting a server or
+worker. Human administration and less frequent inspection/metadata commands stay
+in HELP.
 The current command families:
 
 | Commands | Contract |
@@ -268,7 +270,7 @@ The current command families:
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `feedback add/edit/delete`, `reply`, `place` | Native immutable originals, explicit reply context, separate placements; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable feedback-scoped lease |
-| `feedback fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one designated outward recipient |
+| `feedback fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
 | `feedback source <feedback-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
@@ -303,7 +305,7 @@ Codex queue success need not mean the session is running. Other agents watch or 
 Watch exits 10 for pending feedback, 0 for archived, 2 for timeout, and 4 for a
 superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if feedback is
 pending or the timeout has just elapsed. Already archived watch returns immediately.
-A nonblank archive message reaches the captured listener and remains in history;
+A nonblank archive message reaches the captured recipient and remains in history;
 blank messages produce no nudge. Restore needs a new registration. Notification
 failure never rolls back lifecycle state and an operation-key retry never re-pushes.
 

@@ -1,9 +1,11 @@
 # Remote backend protocol, version 1
 
-r3 has one owner per backend. The backend owns artifact bytes, feedback, browser
+r3 has one human owner per backend. The backend owns artifact bytes, feedback, browser
 rendering, authentication, and recipient selection. The CLI uploads and reads
 directly. A persistent worker delivers wake notifications to local harnesses.
 Local mode uses these same contracts with an automatically started loopback server.
+The [glossary](../../CONTEXT.md) defines backend, server, worker, registration, and
+selected recipient; these terms describe distinct roles.
 
 ```text
 CLI ───────── authenticated HTTP/JSON ─────── backend ← browser
@@ -119,7 +121,7 @@ Unix socket passes local setup information only. HTTP watch and all data reads
 remain between CLI and backend.
 
 The worker persists a random worker ID, backend-qualified opaque listener IDs,
-local harness targets, and eligible subscription intent in
+local harness targets, and eligible saved registration intent in
 `$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). The local IPC
 socket and discovery file reside beside `daemon.json` in the runtime directory.
 The IPC file and socket require owner-only permissions and a separate private
@@ -150,7 +152,14 @@ credentials before reconnecting. The server closes expired/revoked authorization
 streams and removes all presence belonging to that connection. A stale connection
 or acknowledgment cannot remove a newer recipient.
 
-A subscription is an object with these fields:
+The wire type `WorkerSubscription` carries a registration. Its `id` identifies
+that registration, `listenerId` identifies the notification destination, and
+`actor` identifies the authored agent session. Connections use separate `workerId`
+and `connectionId` fields for the persistent worker and one live connection.
+None of these identifiers is a client authorization or proof that an agent is
+running. Existing field and route names retain their wire spellings.
+
+A registration has these fields:
 
 | Field | Type |
 | --- | --- |
@@ -178,7 +187,8 @@ proxies artifact operations through the worker.
 
 ## Selection, recovery, and delivery
 
-An artifact has one publisher fallback plus one explicit listen/watch slot.
+An artifact can retain one publisher fallback and one explicit registration
+(listen or watch), with at most one selected recipient.
 Explicit takes precedence. A committed publication replaces the fallback even
 while an explicit recipient is selected; disabled/unsupported publication clears
 it. Publication replay does not change either slot. Fresh listen, fetch-listen,
@@ -187,7 +197,8 @@ fallback without sending anything. Unlisten removes both roles belonging to that
 caller. Failed explicit delivery removes that registration; failed fallback
 delivery retains it. The same attempt is never resent to a different recipient.
 
-Disconnection removes live registrations, while the worker retains eligible intent.
+Disconnection removes live registrations, while the worker retains eligible saved
+registration intent.
 Resume is weak: accept only if the artifact has no current fallback or explicit
 recipient, or if the exact requested registrations are already current. An
 incumbent publisher B is preserved just like an incumbent explicit listener.

@@ -4,7 +4,7 @@
 
 This reference explains the implemented storage constraints for one human owner
 and multiple agents, including remote publishers. The linked DDL is executable;
-this document records the relationships and invariants behind it. The daemon, CLI,
+this document records the relationships and invariants behind it. The server, CLI,
 browser, and static demo use the same artifact protocol.
 
 The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Feedback owns open/resolved status; Reply is a message with no status.
@@ -53,7 +53,7 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | artifact_events | seq; unique id | Ordered archive/restore history: artifact_id, operation_key, actor/session, optional archive message, created_at |
 | artifact_versions | artifact_id + seq | kind, publication_key, content_hash, label, summary, provenance_json, publisher role/session, entrypoint or patch_body, file_count, created_at, published_at |
 | version_files | artifact_id + version_seq + path | media_type, original blob_hash, optional rendered_blob_hash and renderer_revision |
-| blobs | hash | SHA-256 content address, byte_length, created_at. Bytes live in daemon-managed storage |
+| blobs | hash | SHA-256 content address, byte_length, created_at. Bytes live in server-managed storage |
 | feedback | id | Artifact ownership, author role/agent session, body, open/resolved status, immutable original target, legacy anchor evidence, delivery fields, timestamps |
 | replies | id | Feedback ownership, author role/agent session, body, explicit message context, optional fix target, legacy reference evidence, delivery time. No status |
 | feedback_placements | feedback_id + version_seq + document_path + representation | Additional native locator and anchored/unplaced/ambiguous match state |
@@ -175,7 +175,7 @@ The references are creator_session_id on artifacts, publisher_session_id on vers
 
 SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different feedback items. The server validates new-write attribution and claim ownership at the module interface.
 
-Notification routing uses one designated listener per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets and reconnect intent belong to the separate private worker file.
+Notification routing uses one selected recipient per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets and reconnect intent belong to the separate private worker file.
 
 Feedback also retains an internal `ever_delivered` flag. New human notes start
 false; agent notes start true. Handoff sets it true, and edits never clear it.
@@ -192,7 +192,7 @@ An archive message may be NULL. The server normalizes blank input to NULL; a res
 
 The collaboration transaction checks state, updates artifacts.state/archived_at, inserts the lifecycle event, and clears claims. Retrying the same operation returns the stored event; mismatched reuse conflicts. The current archive event is obtained from the ordered history, and live terminal notifications carry its explicit event ID. State/event consistency and notification routing are server transaction responsibilities rather than SQL triggers.
 
-The module captures and removes the current listener registration during the ordered transition. After commit, browser/watch clients receive the lifecycle update. If an archive message exists, the captured listener receives it; otherwise no agent nudge is sent. watch terminates either way, printing the message when present. A failed nudge leaves the saved message readable and is reported; it does not enqueue work for a future listener after Restore. Notification is not exactly-once delivery, and its success does not mark unrelated feedback delivered.
+The module captures the selected recipient and removes both registrations during the ordered transition. After commit, browser/watch clients receive the lifecycle update. If an archive message exists, the captured recipient receives it; otherwise no agent nudge is sent. watch terminates either way, printing the message when present. A failed nudge leaves the saved message readable and is reported; it does not enqueue work for a future listener after Restore. Notification is not exactly-once delivery, and its success does not mark unrelated feedback delivered.
 
 ## Atomic publication
 
@@ -272,7 +272,7 @@ sequences, including missing rounds. `legacy_json`, `legacy_anchor_json`, and
 `legacy_reference_json` retain uncertain source evidence and migration defaults.
 Treat generated notices, fallback attribution, and imported timestamps as recorded
 migration decisions, not recovered historical facts. An unavailable original target
-stays explicit; a later verified placement remains separate. The current daemon
+stays explicit; a later verified placement remains separate. The current server
 never reads an old repository, worktree, scratch directory, or live document.
 
 Schema version 3 adds `project_remotes` without changing project IDs, primary
@@ -284,7 +284,7 @@ The schema upgrade never inspects local Git repositories.
 
 Schema version 4 adds `local_agent_targets` (session-to-harness delivery details) and
 `artifact_listeners` (artifact, fallback/explicit mode, registration ID, session, time).
-These rows belong to the local daemon; public reads expose only listener identity,
+These legacy rows belong to the local server; public reads expose only listener identity,
 name, and mode. Publication and archive update registrations inside their existing
 transactions. Explicit failure deletes by registration ID, so an older failing send
 cannot remove a replacement. Fallback failures retain the saved target. SQLite and
@@ -303,7 +303,7 @@ existing artifacts without changing their delivery state. Conversation mutations
 acknowledgments that deliver content, and archive/restore increment it in the same
 transaction. Pending-read fingerprints bind artifact, selection, and revision, so
 stale acknowledgments cannot consume later content even after edit/revert cycles
-or daemon restarts. Claims do not advance it. The daemon accepts acknowledgments
+or server restarts. Claims do not advance it. The server accepts acknowledgments
 only with a matching fingerprint; reading pending data never stamps delivery.
 
 ## Required fields and historical evidence
@@ -357,7 +357,7 @@ use the same delivery rules as text changes, including edit/revert detection.
 ## Derived search index
 
 Schema version 8 adds `artifact_search_versions`, `artifact_search_documents`,
-and an external-content FTS5 index with insert/update/delete triggers. The daemon
+and an external-content FTS5 index with insert/update/delete triggers. The server
 uses its injected connection as the sole writer. Upgrade creates empty derived
 tables after the normal private backup; it preserves publications and conversations.
 
@@ -386,7 +386,7 @@ transaction. Rollback and operation-key replay cannot add activity. Deleting
 feedback or artifacts leaves counters intact. `artifact_activity_coverage`
 records the upgrade instant; backfill counts surviving rows once and never
 claims to reconstruct previously deleted activity. Fresh stores have complete
-coverage. UTC instants are bucketed in the daemon's timezone at read time, so
+coverage. UTC instants are bucketed in the server's timezone at read time, so
 calendar days and Monday-start weeks handle DST without assuming 24-hour days.
 
 Global content bytes deduplicate original files, retained Markdown renderings,
@@ -439,9 +439,10 @@ time and separate CLI, browser, and worker source addresses. No plaintext bearer
 or device secret is stored. Browser login tables and existing sessions are preserved.
 
 `worker_registrations` stores immutable registration ID, worker ID, artifact ID,
-canonical subscription body, and `active|disconnected|retired` state. It contains
-opaque listener IDs and attribution only. Startup converts active records to
-disconnected; registration presence requires an authenticated live connection.
+canonical registration body, and `active|disconnected|retired` state. It contains
+opaque notification destination IDs (`listenerId`) and attribution only. Startup
+converts active records to disconnected; registration presence requires an
+authenticated live connection.
 Replacement and archive retire saved identities transactionally, including offline
 intent. Retired records cannot return, even when a retirement event was lost.
 Artifact deletion cascades their records.

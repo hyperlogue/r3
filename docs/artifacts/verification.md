@@ -18,7 +18,7 @@ biome check .
 ```
 
 Tests inject temporary storage or isolate subprocess XDG directories. They must
-never migrate, restart, or read the normal user daemon/database for verification.
+never migrate, restart, or read the normal user server/database for verification.
 The tests and scripts are the maintained source of acceptance coverage; completed
 implementation checklists and historical test counts are kept in Git history.
 
@@ -314,7 +314,7 @@ tests reject saving an optimization after its storage generation is revoked.
   statistics/GC routes, fixed windows, JSON, and TTL input validation.
 - `bun scripts/test-artifact-library.ts` with `R3_TEST_BROWSER`: statistics window,
   Settings GC confirmation, manual delete, selection and bulk actions, in an
-  isolated daemon and fresh browser profile.
+  isolated server and fresh browser profile.
 
 ## Media targets
 
