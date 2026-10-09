@@ -32,7 +32,6 @@ const COMMANDS = new Set([
   "delete",
   "discussions",
   "comment",
-  "place",
   "claim",
   "release",
   "watch",

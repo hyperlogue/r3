@@ -31,7 +31,7 @@ stale metadata; review changed associations and ambiguous-extension defaults.
 | --- | --- |
 | Complete directory capture, stable Git inputs, binary bytes | `cli/capture.test.ts`, `cli/capture-git.test.ts`, `cli/artifact-publish.test.ts` |
 | Publication validation, atomic visibility, retries, concurrent publishers, retained rendering, deduplicated content accounting, deletion | `server/publication.test.ts`, `server/artifacts.test.ts`, `server/blobs.test.ts`, `server/artifact-schema.test.ts` |
-| Source/rendered/diff targets, explicit comment context, independent placements | `server/artifact-targets.test.ts`, `server/artifact-conversations.test.ts`, `web/src/artifact-navigation.test.ts` |
+| Source/rendered/diff targets, derived comment references, historical placements | `server/artifact-targets.test.ts`, `server/artifact-conversations.test.ts`, `web/src/artifact-navigation.test.ts` |
 | All bundled Shiki languages, filename metadata drift, compound extensions, escaped source and both captured diff sides | `server/highlight-languages.test.ts`, `server/artifact-source.test.ts`, `server/patch-content.test.ts` |
 | Retained worker subscriptions, offline replacement, credential-bound reconnect, backend restart, isolated credentials, multiple backends and destination import | `server/worker-connections.test.ts`, `cli/worker-runtime.test.ts`, `cli/worker-api.test.ts`, `cli/worker-client.test.ts`, `cli/backend.test.ts` |
 | Device approval boundaries, polling/expiry/reuse, audit, revocation and trusted source addresses | `server/client-auth.test.ts`, `server/client-auth-api.test.ts` |

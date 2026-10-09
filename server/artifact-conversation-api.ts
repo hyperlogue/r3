@@ -7,9 +7,8 @@ import type {
   ArtifactDiscussionSnapshot,
 } from "../shared/artifacts.ts";
 import { ATTACHMENT_LIMITS } from "../shared/attachments.ts";
-import { AgentConnections } from "./agent-connections.ts";
 import type { ArtifactCollaboration } from "./artifact-collaboration.ts";
-import { ARTIFACT_EVENT_HEADERS, artifactEvents } from "./artifact-events.ts";
+import { artifactEvents } from "./artifact-events.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
 import { ArtifactError, requireString } from "./artifact-validation.ts";
@@ -28,7 +27,6 @@ export function installArtifactConversations(
   detailFor: (id: string) => ArtifactDetail,
 ) {
   const { artifacts, conversations } = storage;
-  const agents = new AgentConnections(collaboration);
   const shutdown = new AbortController();
   const changed = (artifactId: string, discussionId: string | null) =>
     collaboration.broadcast(
@@ -99,11 +97,6 @@ export function installArtifactConversations(
     );
     changed(comment.artifactId, comment.discussionId);
     return c.json(comment);
-  });
-  app.put("/api/discussions/:id/placements", async (c) => {
-    const placement = await conversations.place(c.req.param("id"), await artifactJson(c.req.raw));
-    changed(placement.artifactId, placement.discussionId);
-    return c.json(placement);
   });
   app.on(["POST", "DELETE"], "/api/claims", async (c) => {
     const input = await artifactJson(c.req.raw);
@@ -191,18 +184,9 @@ export function installArtifactConversations(
     );
     return c.json(result);
   });
-  app.post("/api/artifacts/:id/listen", async (c) => {
-    const input = await artifactJson(c.req.raw);
-    const connection = agents.open(c.req.param("id"), artifacts.validateActor(input.actor));
-    return new Response(connection.stream, { headers: ARTIFACT_EVENT_HEADERS });
-  });
   app.delete("/api/artifacts/:id/listen", async (c) => {
     const input = await artifactJson(c.req.raw);
     collaboration.unlisten(c.req.param("id"), artifacts.validateActor(input.actor));
-    return c.json({ ok: true });
-  });
-  app.post("/api/connections/:id/acknowledgments", async (c) => {
-    agents.acknowledge(c.req.param("id"), await artifactJson(c.req.raw));
     return c.json({ ok: true });
   });
   app.get("/api/events", (c) => {
@@ -224,7 +208,6 @@ export function installArtifactConversations(
     close() {
       clearInterval(expiry);
       shutdown.abort();
-      agents.close();
     },
   };
 }

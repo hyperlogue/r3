@@ -536,13 +536,11 @@ diff selections use their own range gestures. Each creates a native target:
 | Diff | Patch version, path, old/new side, captured range and quote | Open that patch and native side, hydrating or expanding retained context as needed |
 
 Artifact-wide notes and whole-document/file targets are explicit variants.
-Summary targets survive only as historical evidence; new comments and placements
-cannot use them. Absence of version context never secretly means latest.
+Summary targets survive only as historical evidence; new comments cannot use them. Absence of version context never secretly means latest.
 
-Discussion's original target is immutable. Additional **placements** record a target
-and `anchored|ambiguous|unplaced` result for a version, path, and representation.
-They do not replace the original or duplicate the conversation. Source and rendered
-placements for the same file/version can coexist.
+A Discussion's original target is immutable. Use a Comment's fix target to name a
+later published location. Historical **placements** remain readable with their native
+evidence and match state, but new placement authoring is retired.
 
 Rendered Markdown discussions addresses visible content directly. For example, a note
 on a link label does not need a computed Markdown source range. Its thread appears
@@ -710,7 +708,7 @@ push again. A complete acknowledged archive notification can deliver its Comment
 a truncated one leaves delivery unconfirmed. After restore, pending artifact-level
 Comments join the ordinary snapshot handoff. Archived artifacts retain content, threads, status, unsent work, and
 drafts. Archived artifacts are read-only: publication, metadata edits, conversation
-creation/edits/deletion, comments, placements, new claims, ordinary discussions delivery,
+creation/edits/deletion, comments, new claims, ordinary discussions delivery,
 and subscriptions are closed until restore. A comment still being prepared when
 archive commits must fail rather than extend the archived conversation. Reading
 retained content, restoring the artifact, and deleting the whole artifact remain

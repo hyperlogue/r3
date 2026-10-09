@@ -169,7 +169,6 @@ export async function runArtifactCommand(
     "comment show": [],
     "comment edit": ["message", "attach", "clear-attachments"],
     comment: ["message", "attach", "frame", "key", ...targetFlags],
-    place: [...targetFlags, "state"],
     claim: [],
     release: [],
     "discussions fetch": ["all", "discussions", "attachments-dir"],
@@ -487,18 +486,6 @@ export async function runArtifactCommand(
             : {}),
           operationKey: args.value("key"),
           target: args.has("target") || args.has("file") ? commandTarget(args) : undefined,
-        }),
-      );
-      return 0;
-    }
-    case "place": {
-      if (!args.has("target") && !args.has("file"))
-        throw new ArtifactCommandError("A placement requires a document target");
-      await print(
-        await client.json("PUT", `${discussionApiPath(args.id())}/placements`, {
-          actor: await actor(),
-          target: commandTarget(args),
-          state: args.require("state"),
         }),
       );
       return 0;

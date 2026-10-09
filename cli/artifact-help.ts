@@ -73,7 +73,6 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
         [target flags] [--frame <snapshot.png>]
   comment show <comment-id> [--json]          # opening, follow-up, or archive Comment
   comment edit <comment-id> [-m <message>] [--attach <image>]... | [--clear-attachments]
-  place <discussion-id> --target <JSON document target> --state anchored|unplaced|ambiguous
   claim <discussion-id>... | release <discussion-id>...
   discussions fetch <id> [--all] [--discussions <id,id>] [--attachments-dir <directory>]
   discussions image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
@@ -233,7 +232,7 @@ Inspect original targets in their recorded version and representation. Rendered 
 
 Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 discussions source <discussion-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge discussions, claim it, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
 
-Publish changed content, then \`r3 comment <discussion-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the discussion's original target. General discussions without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified source/rendered/diff placements.
+Publish changed content, then \`r3 comment <discussion-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the discussion's original target. General discussions without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use a comment’s fix target to point to a later version.
 
 Successful comments release only your own claims. Publishing and commenting never resolve discussions; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
 
@@ -270,7 +269,7 @@ Bundle dependencies and assets locally: external requests are blocked by default
 
 Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered discussions easier to anchor and inspect.
 
-For a new rendered target, \`discussions add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence, later placements, and comment/fix context.
+For a new rendered target, \`discussions add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
 
 When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
 
@@ -361,7 +360,7 @@ Patch text must be valid UTF-8. Invalid text bytes are rejected instead of repla
 
 Read the captured patch with \`r3 patch <id> --version <seq>\`. For a new line target, \`discussions add\` accepts \`--file <path> --version <seq> --view diff --side old|new --line <start-end> --quote <captured text>\`.
 
-The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence, additional placements, and commenting with a native fix target.`;
+The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence and commenting with a native fix target.`;
 
 export function artifactGuide(args: string[]): string {
   if (args.length > 1)

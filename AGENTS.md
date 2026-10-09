@@ -75,8 +75,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Project grouping | `server/artifact-projects.ts`, `shared/git-remote.ts`; remote identities, explicit overrides, configured aliases, conditional metadata updates; terms in [CONTEXT.md](CONTEXT.md) |
 | Publisher capture | `cli/capture.ts`, `capture-git.ts`, `publisher-remote.ts`, `artifact-publish.ts`; bounded stable bytes, sanitized remote hints, Git process isolation, explicit retry diagnostics |
 | Content and rendering | `server/artifact-source.ts`, `artifact-resources.ts`, `artifact-document.ts`, `patch-content.ts`; `git.ts` is a pure patch parser/trimmer |
-| Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and per-version/view placements |
-| Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `agent-connections.ts`, `artifact-events.ts`; events, handoff, claims, selected recipient |
+| Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and historical placements |
+| Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `artifact-events.ts`; events, handoff, claims, selected recipient |
 | HTTP and auth | `server/artifact-api.ts`, `artifact-conversation-api.ts`, `artifact-http.ts`, `artifact-auth.ts`, `auth.ts`, `client-auth.ts`, `client-auth-api.ts`; `cli/backend.ts`, `login.ts`, `private-state.ts` |
 | Wake delivery | `cli/worker-runtime.ts`, `worker-client.ts`, `shared/worker-protocol.ts`; persistent worker, private local targets, outgoing streams; `server/worker-connections.ts`, `worker-records.ts` own opaque routing and retirement; `artifact-listeners.ts` preserves migration inputs |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
@@ -132,7 +132,7 @@ The selected version's summary is read-only description in the navigation info
 popup. Retired description targets remain readable; new discussions and comment fix
 targets cannot anchor to descriptions.
 
-**Placements** are separate records keyed by discussions, version, path, and
+**Placements** are historical read-only records keyed by discussions, version, path, and
 representation, with `anchored|ambiguous|unplaced` state. They never rewrite the
 original target. Locate initially returns to that original view. An unavailable
 runtime element does not make its conversation disappear.

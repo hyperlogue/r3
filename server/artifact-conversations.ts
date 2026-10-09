@@ -616,55 +616,6 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-  async place(id: string, value: unknown): Promise<ArtifactPlacement> {
-    const input = requireObject(value, "Placement");
-    this.artifacts.validateActor(input.actor);
-    const state = input.state;
-    if (state !== "anchored" && state !== "unplaced" && state !== "ambiguous")
-      throw new ArtifactError("Invalid placement state");
-    const discussions = this.row(id);
-    const target = await this.targets.target(
-      discussions.artifact_id,
-      input.target,
-      state !== "anchored",
-    );
-    if (target.kind !== "source" && target.kind !== "rendered" && target.kind !== "diff")
-      throw new ArtifactError("Placement must name a document representation");
-    if (state !== "anchored" && target.locator !== null)
-      throw new ArtifactError("Unavailable placements cannot claim a locator");
-    const time = this.clock();
-    this.db
-      .transaction(() => {
-        this.row(id);
-        this.artifacts.requireActive(discussions.artifact_id);
-        this.db
-          .query(`INSERT INTO discussion_placements(discussion_id, artifact_id, artifact_kind, version_seq,
-        document_path, representation, match_state, locator_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(discussion_id, version_seq, document_path, representation)
-        DO UPDATE SET match_state = excluded.match_state, locator_json = excluded.locator_json, updated_at = excluded.updated_at`)
-          .run(
-            id,
-            discussions.artifact_id,
-            discussions.artifact_kind,
-            target.versionSeq,
-            target.path,
-            target.kind,
-            state,
-            target.locator === null ? null : JSON.stringify(target.locator),
-            time,
-            time,
-          );
-        this.touch(discussions.artifact_id, time);
-      })
-      .immediate();
-    return this.placements(discussions.artifact_id).find(
-      (placement) =>
-        placement.discussionId === id &&
-        placement.target.versionSeq === target.versionSeq &&
-        placement.target.path === target.path &&
-        placement.target.kind === target.kind,
-    )!;
-  }
   placements(id: string): ArtifactPlacement[] {
     this.artifacts.get(id);
     type Row = {

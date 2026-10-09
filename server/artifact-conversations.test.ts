@@ -153,9 +153,6 @@ describe("artifact conversations", () => {
         target,
       }),
     ).rejects.toThrow("read-only historical evidence");
-    await expect(
-      conversations.place("description-note", { actor: agent, state: "anchored", target }),
-    ).rejects.toThrow("read-only historical evidence");
     expect(conversations.get("description-note").comments.slice(1)).toHaveLength(1);
     await conversations.addComment("description-note", {
       actor: agent,
@@ -255,33 +252,26 @@ describe("artifact conversations", () => {
     });
     expect(conversations.get(note.id).status).toBe("resolved");
   });
-  test("additional placements never replace or duplicate the original thread", async () => {
+  test("historical placements retain their evidence and original discussion", async () => {
     const note = await conversations.add(id, { actor: human, body: "Original", target: original });
-    const target = {
+    const locator = { selector: "h1", quote: "New" };
+    db.query(`INSERT INTO discussion_placements(discussion_id, artifact_id, artifact_kind,
+      version_seq, document_path, representation, match_state, locator_json, created_at, updated_at)
+      VALUES (?, ?, 'files', 2, 'index.md', 'rendered', 'anchored', ?, ?, ?)`).run(
+      note.id,
+      id,
+      JSON.stringify(locator),
+      time,
+      time,
+    );
+    expect(conversations.placements(id)[0]?.target).toEqual({
       kind: "rendered",
       versionSeq: 2,
       path: "index.md",
-      locator: { selector: "h1", quote: "New" },
-    } as const;
-    const placement = await conversations.place(note.id, {
-      actor: agent,
-      state: "anchored",
-      target,
+      locator,
     });
-    expect(placement.target).toEqual(target);
-    const unavailable = await conversations.place(note.id, {
-      actor: agent,
-      state: "unplaced",
-      target: { ...target, locator: null },
-    });
-    expect(unavailable.createdAt).toBe(placement.createdAt);
-    expect(unavailable.state).toBe("unplaced");
-    expect(conversations.placements(id)).toHaveLength(1);
     expect(conversations.list(id)).toHaveLength(1);
     expect(conversations.get(note.id).target).toEqual(original);
-    await expect(
-      conversations.place(note.id, { actor: agent, state: "ambiguous", target }),
-    ).rejects.toThrow("cannot claim a locator");
   });
   test("archive rejects a comment whose target preparation began before the transition", async () => {
     const note = await conversations.add(id, { actor: human, body: "Work", target: original });

@@ -348,29 +348,6 @@ export const artifactApi: typeof productionApi = {
     demo.changed(artifact.id);
     return copy(comment);
   },
-  place: async (id, body) => {
-    const { artifact } = demo.note(id);
-    demo.requireActive(artifact.id);
-    demo.target(artifact.id, body.target);
-    const index = artifact.placements.findIndex(
-      (item) =>
-        item.discussionId === id &&
-        item.target.kind === body.target.kind &&
-        item.target.path === body.target.path &&
-        item.target.versionSeq === body.target.versionSeq,
-    );
-    const placement = {
-      discussionId: id,
-      artifactId: artifact.id,
-      ...copy(body),
-      createdAt: index < 0 ? now() : artifact.placements[index].createdAt,
-      updatedAt: now(),
-    };
-    if (index < 0) artifact.placements.push(placement);
-    else artifact.placements[index] = placement;
-    demo.changed(artifact.id);
-    return copy(placement);
-  },
   lifecycle: async (id, body) => demo.lifecycle(id, body),
   watchers: async (id) =>
     demo.get(id).watching

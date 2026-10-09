@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ArtifactVersion } from "../shared/artifacts.ts";
 import { readEventStream } from "../shared/event-stream.ts";
+import { WORKER_PROTOCOL } from "../shared/worker-protocol.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
@@ -409,9 +410,7 @@ describe("artifact HTTP collaboration contract", () => {
       [`/api/discussions/${note.id}`, "DELETE", { actor }],
       [`/api/discussions/${note.id}/comments`, "POST", { actor, body: "Late comment", context }],
       [`/api/comments/${comment.id}`, "PATCH", { actor, body: "Changed" }],
-      [`/api/discussions/${note.id}/placements`, "PUT", { actor, target, state: "anchored" }],
       ["/api/claims", "POST", { sessionId: actor.sessionId, discussionIds: [note.id] }],
-      [`/api/artifacts/${id}/listen`, "POST", { actor }],
       [`/api/artifacts/${id}/submit`, "POST", {}],
     ];
     for (const [path, method, body] of mutations) {
@@ -615,10 +614,21 @@ describe("artifact HTTP collaboration contract", () => {
   });
   test("archive commits before listener acknowledgment, reports failed delivery, and retries never notify again", async () => {
     const id = await create();
-    const listening = await request(`/api/artifacts/${id}/listen`, "POST", { actor });
+    const listening = await request("/api/workers/connect", "POST", {
+      workerId: randomUUID(),
+      protocol: WORKER_PROTOCOL,
+    });
     const frames = readEventStream(listening.body!);
     const ready = JSON.parse((await frames.next()).value!.data);
-    expect(ready.registration.kind).toBe("listen");
+    const listenerId = randomUUID();
+    await request(`/api/workers/${ready.connectionId}/targets`, "POST", { actor, listenerId });
+    await request(`/api/workers/${ready.connectionId}/listen`, "POST", {
+      actor,
+      listenerId,
+      artifactId: id,
+      mode: "explicit",
+      id: randomUUID(),
+    });
     expect((await (await request(`/api/artifacts/${id}`)).json()).watching).toBe(true);
     const command = {
       actor: human,
@@ -629,12 +639,14 @@ describe("artifact HTTP collaboration contract", () => {
       },
     };
     const archive = request(`/api/artifacts/${id}/lifecycle`, "POST", command);
-    const nudge = JSON.parse((await frames.next()).value!.data).nudge;
+    let frame = await frames.next();
+    while (frame.value?.event !== "nudge") frame = await frames.next();
+    const nudge = JSON.parse(frame.value!.data).nudge;
     expect(nudge.comment?.body).toBe("Saved next steps");
     expect((await (await request(`/api/artifacts/${id}`)).json()).state).toBe("archived");
     expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
     const acknowledged = await request(
-      `/api/connections/${ready.registration.id}/acknowledgments`,
+      `/api/workers/${ready.connectionId}/acknowledgments`,
       "POST",
       { actor, nudgeId: nudge.id, ok: false, error: "Local harness unavailable" },
     );
@@ -642,8 +654,7 @@ describe("artifact HTTP collaboration contract", () => {
     const result = await archive;
     expect(result.status).toBe(502);
     expect((await result.json()).event.comment?.body).toBe(command.comment.body);
-    expect((await frames.next()).value?.event).toBe("closed");
-    expect((await frames.next()).done).toBe(true);
+    await frames.return(undefined);
     const retry = await request(`/api/artifacts/${id}/lifecycle`, "POST", command);
     expect((await retry.json()).notification.state).toBe("not_repeated");
     expect((await request(`/api/artifacts/${id}/submit`, "POST")).status).toBe(409);
@@ -656,6 +667,24 @@ describe("artifact HTTP collaboration contract", () => {
       operationKey: "restore-operation",
     });
     expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
+  });
+  test("retired placement and per-artifact stream routes cannot mutate state", async () => {
+    const id = await create();
+    const note = await (
+      await request(`/api/artifacts/${id}/discussions`, "POST", {
+        actor: human,
+        body: "Keep original evidence",
+        target: { kind: "artifact" },
+      })
+    ).json();
+    for (const [path, method] of [
+      [`/api/discussions/${note.id}/placements`, "PUT"],
+      [`/api/artifacts/${id}/listen`, "POST"],
+      ["/api/connections/retired/acknowledgments", "POST"],
+    ])
+      expect((await request(path!, method, { actor })).status).toBe(404);
+    expect(api.collaboration.watchers(id)).toEqual([]);
+    expect(storage.conversations.placements(id)).toEqual([]);
   });
   test("watch shutdown releases the held slot and archived terminal state precedes pending discussions", async () => {
     const id = await create();

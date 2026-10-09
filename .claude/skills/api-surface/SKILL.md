@@ -92,9 +92,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET/PUT /api/artifacts/:id/viewed` persists opaque read-progress keys with
   `{ key, viewed }`. Theme and login-token endpoints retain their response shapes.
 - `GET/POST /api/artifacts/:id/discussions`, `GET/PATCH/DELETE /api/discussions/:id`,
-  `POST /api/discussions/:id/comments`, `GET/PATCH /api/comments/:id`, and
-  `PUT /api/discussions/:id/placements` use native immutable original targets,
-  derived comment references, and separate placements. A Discussion contains one ordered
+  `POST /api/discussions/:id/comments` and `GET/PATCH /api/comments/:id` use
+  native immutable original targets and derived comment references.
+  Historical placements remain readable; new placement authoring is removed. A Discussion contains one ordered
   Comment list, including its opening Comment. The common comment read/edit endpoint
   also accepts artifact-level archive Comments; these are text-only and editable
   after restore. `r3 comment show` reads any Comment without acknowledging it;
@@ -110,7 +110,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   matching still uses the selector and native evidence. See `r3 guide html` for
   the comment example and the schema document for storage semantics.
   `artifact_summary` and `version_summary` are historical read-only targets;
-  new discussions, comment fix targets, and placements reject description anchors.
+  new discussions and comment fix targets reject description anchors.
 - `GET /api/discussions/:id/source` returns `ArtifactSourceRange` for the original
   source/diff line target: artifact, version, path, side (`null` for source),
   inclusive start/end, and complete text with LF separators. Rendered, general,
@@ -146,13 +146,12 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Archive input is `comment: { body }`; blank bodies normalize to no Comment.
   Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
-- `GET .../:id/watchers`, `POST .../:id/watch { actor, timeoutMs? }`, and
-  `POST .../:id/listen { actor }` select one explicit recipient ahead of a persisted
-  local fallback. New explicit registrations supersede previous ones.
-  `DELETE .../:id/listen { actor }` removes that actor’s registrations. Watch is
-  bounded long polling; listen is an outward SSE connection from the publisher.
-  `POST /api/connections/:id/acknowledgments` acknowledges local harness delivery.
-  These HTTP routes receive no harness socket, executable path, or harness credential.
+- `GET .../:id/watchers` reads subscriptions and `POST .../:id/watch { actor, timeoutMs? }`
+  selects one explicit recipient for a bounded long poll. `DELETE .../:id/listen { actor }`
+  removes that actor's subscriptions. Persistent listen and delivery acknowledgments
+  use the shared worker protocol below. The former per-artifact POST listen stream
+  and `/api/connections/:id/acknowledgments` are removed. Backend HTTP receives no
+  harness socket, executable path, or harness credential.
 - `GET /api/events[?artifact=<id>]` is an authenticated fetch stream of
   `ArtifactStreamEvent` invalidations. `ready` means refetch current state;
   `heartbeat` keeps the connection alive. Neither implies message delivery.
@@ -277,7 +276,7 @@ The current command families:
 | `list`, `show`, `versions`, `files`, `source`, `download`, `patch` | Read only; content reads name a version; downloads preserve original bytes |
 | `stat [--weekly] [--json]`, `gc [--dry-run] [--ttl 30d] [--json]` | Fixed activity windows; manual TTL cleanup, exit 1 on deletion/cleanup failure; no identity required |
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
-| `discussions add/edit/delete`, `comment`, `place` | Native immutable originals, derived comment references, separate placements; `--human` required for status edits |
+| `discussions add/edit/delete`, `comment` | Native immutable originals and derived comment references; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable discussions-scoped lease |
 | `discussions fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
 | `discussions source <discussions-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |

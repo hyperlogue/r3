@@ -30,7 +30,6 @@ import type {
   ArtifactLifecycleBody,
   ArtifactLifecycleResponse,
   ArtifactNotification,
-  ArtifactPlacementBody,
   ArtifactPreviewContext,
   ArtifactPreviewNetwork,
   ArtifactProject,
@@ -134,8 +133,6 @@ export const artifactApi = {
     }),
   attachment: (artifactId: string, id: string) =>
     client().request("GET", attachmentPath(artifactId, id)),
-  place: (id: string, body: Omit<ArtifactPlacementBody, "actor">) =>
-    client().json("PUT", `${discussionApiPath(id)}/placements`, { ...body, actor: HUMAN_ACTOR }),
   lifecycle: async (id: string, body: Omit<ArtifactLifecycleBody, "actor">) => {
     try {
       return await client().json<ArtifactLifecycleResponse>(

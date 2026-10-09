@@ -134,7 +134,7 @@ locator_json        NULL for a whole document or unquoted summary;
 Artifact-wide discussion has no path, version, or locator. `artifact_summary` and
 `version_summary` are historical targets only. Their original quotes and scopes
 remain intact; version-summary evidence names its recorded version. New discussions,
-comment fix targets, and placements reject both summary kinds. NULL never means latest.
+comment fix targets reject both summary kinds. NULL never means latest.
 
 Native locator examples, with artifact/version/path carried by the surrounding target:
 
@@ -176,7 +176,7 @@ with the comment; clients do not choose a second version/view. Existing historic
 contexts remain pinned as recorded, including contexts that differ from a fix target.
 A comment's own target never changes the original discussion target.
 
-discussion_placements records additional document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
+discussion_placements retains historical read-only document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
 
 ## One owner, multiple agent sessions
 

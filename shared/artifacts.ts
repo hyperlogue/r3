@@ -399,11 +399,6 @@ export interface EditArtifactCommentBody {
   actor: ArtifactActor;
   body: string;
 }
-export interface ArtifactPlacementBody {
-  actor: ArtifactActor;
-  target: ArtifactDocumentTarget;
-  state: ArtifactPlacement["state"];
-}
 export function isUnhandledArtifactDiscussion(discussions: ArtifactDiscussion): boolean {
   return discussions.status === "open" && discussions.comments.at(-1)!.author.role === "agent";
 }
@@ -502,30 +497,6 @@ export type ArtifactWatchResult =
   | {
       result: "discussions" | "timeout" | "cancelled" | "superseded" | "deleted";
     };
-export type ArtifactAgentStreamEvent =
-  | {
-      type: "ready";
-      registration: ArtifactWatcher;
-    }
-  | {
-      type: "nudge";
-      nudge: ArtifactNudge;
-    }
-  | {
-      type: "closed";
-      reason: "archived" | "superseded" | "deleted" | "disconnected";
-    }
-  | {
-      type: "heartbeat";
-    };
-export interface ArtifactNudgeAcknowledgment {
-  actor: ArtifactActor;
-  nudgeId: string;
-  ok: boolean;
-  // Older relay clients omit the state and imply sent on success.
-  state?: ArtifactDeliveryState;
-  error?: string;
-}
 export interface ArtifactDiscussionAcknowledgment {
   discussions?: string[];
   expectedFingerprint: string;
