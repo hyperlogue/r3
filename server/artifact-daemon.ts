@@ -1,4 +1,5 @@
 import { dirname, join } from "node:path";
+import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import index from "../web/index.html";
 import { loadApplicationAssets } from "./application-assets.ts";
 import { artifactAuthSettings, artifactProjectSettings } from "./artifact-config.ts";
@@ -65,6 +66,8 @@ export async function startArtifactDaemon(): Promise<void> {
         version: R3_VERSION,
         allowedHost: isAllowedHost,
         applicationOrigins: new Set([new URL(PUBLIC_URL).origin]),
+        publicUrl: normalizeBackendUrl(PUBLIC_URL),
+        trustedProxies: new Set(readConfig().trustedProxies ?? []),
       },
     });
     const agentSocket = join(dirname(daemonJsonPath()), "agents.sock");

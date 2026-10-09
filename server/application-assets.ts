@@ -14,7 +14,7 @@ export interface ApplicationAssets {
 }
 
 const isApplicationDocument = (path: string) =>
-  path === "/" || /^\/(?:artifact|review)_[\w]+\/?$/.test(path);
+  path === "/" || path === "/authorize" || /^\/(?:artifact|review)_[\w]+\/?$/.test(path);
 
 // Static assets retain immutable caching. Documents are per-request auth
 // snapshots: never reuse a validator or a personalized body after logout.

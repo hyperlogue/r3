@@ -132,6 +132,8 @@ export function stateDir(): string {
 // ---- persisted exposure config (config.json) ----
 // Written only by `r3 config set` (never auto-persisted from env). No secrets.
 export interface PersistedConfig {
+  backendUrl?: string;
+  trustedProxies?: string[];
   bind?: string;
   port?: number;
   publicUrl?: string;
@@ -162,6 +164,12 @@ export function configPath(): string {
 // string, or the number 0) would slip past a `??` check and flip the login gate.
 function sanitizeConfig(o: Record<string, unknown>): PersistedConfig {
   const out: PersistedConfig = {};
+  if (typeof o.backendUrl === "string") out.backendUrl = o.backendUrl;
+  if (
+    Array.isArray(o.trustedProxies) &&
+    o.trustedProxies.every((value) => typeof value === "string")
+  )
+    out.trustedProxies = o.trustedProxies;
   if (typeof o.bind === "string") out.bind = o.bind;
   if (typeof o.port === "number" && Number.isInteger(o.port)) out.port = o.port;
   if (typeof o.publicUrl === "string") out.publicUrl = o.publicUrl;

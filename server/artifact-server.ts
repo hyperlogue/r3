@@ -26,7 +26,11 @@ export function startArtifactServer(options: ArtifactServerOptions) {
   try {
     // Opaque preview documents send Origin:null. Keep the application's exact
     // origin guard; a shared transport hostname is not a preview principal.
-    const policy = options.authentication;
+    const addresses = new WeakMap<Request, string>();
+    const policy = {
+      ...options.authentication,
+      peerAddress: (request: Request) => addresses.get(request) ?? null,
+    };
     api = createArtifactApi(options.storage, policy, { previews, deliver: deliverLocalAgent });
     const application = api;
     const assets = createApplicationResponse(options.assets, application.bootstrap);
@@ -37,7 +41,9 @@ export function startArtifactServer(options: ArtifactServerOptions) {
       development: false,
       idleTimeout: 120,
       maxRequestBodySize: 200 * 1024 * 1024,
-      async fetch(request) {
+      async fetch(request, server) {
+        const address = server.requestIP(request)?.address;
+        if (address) addresses.set(request, address);
         const hostname = artifactRequestHostname(request);
         if (hostname === null || !policy.allowedHost(hostname))
           return new Response("Forbidden host", {

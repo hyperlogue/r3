@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { CLIENT_AUTH_SCHEMA, ClientAuth } from "./client-auth.ts";
+import { observedAddress } from "./client-auth-api.ts";
 
 let db: Database, auth: ClientAuth, now: number;
 beforeEach(() => {
@@ -64,4 +66,24 @@ test("denied and expired grants never issue credentials", () => {
   expect(() => auth.poll(expired.device_code)).toThrow("expired_token");
   expect(() => auth.decide(expired.user_code, true, null)).toThrow("unavailable");
   expect(db.query("SELECT * FROM client_access").all()).toHaveLength(0);
+});
+test("forwarded addresses require an explicitly trusted immediate peer", () => {
+  const request = new Request("https://r3.example/api/oauth/device/code", {
+    headers: { "x-forwarded-for": "192.0.2.42" },
+  });
+  const policy = {
+    token: randomBytes(32).toString("hex"),
+    requireLogin: true,
+    version: "fixture",
+    allowedHost: () => true,
+    peerAddress: () => "127.0.0.1",
+  };
+  expect(observedAddress(request, policy)).toBe("127.0.0.1");
+  expect(observedAddress(request, { ...policy, trustedProxies: new Set(["127.0.0.1"]) })).toBe(
+    "192.0.2.42",
+  );
+  const chain = new Request(request, { headers: { "x-forwarded-for": "192.0.2.42, 192.0.2.43" } });
+  expect(observedAddress(chain, { ...policy, trustedProxies: new Set(["127.0.0.1"]) })).toBe(
+    "127.0.0.1",
+  );
 });

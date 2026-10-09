@@ -4,6 +4,8 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { BootResponse } from "../shared/types.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { type AuthService, COOKIE_NAME, cookieOptions } from "./auth.ts";
+import type { ClientAuth } from "./client-auth.ts";
+import { installClientAuth } from "./client-auth-api.ts";
 
 export interface ArtifactAuthPolicy {
   token: string;
@@ -13,6 +15,9 @@ export interface ArtifactAuthPolicy {
   // Explicit application origins cover proxies that rewrite the request Host.
   // Opaque preview documents send Origin:null, which is never an app origin.
   applicationOrigins?: ReadonlySet<string>;
+  publicUrl?: string;
+  peerAddress?: (request: Request) => string | null;
+  trustedProxies?: ReadonlySet<string>;
 }
 
 export function artifactRequestHostname(request: Request): string | null {
@@ -52,6 +57,19 @@ function equalToken(candidate: string | null, expected: string): boolean {
   return bytes.length === secret.length && timingSafeEqual(bytes, secret);
 }
 
+export function artifactApiPrincipal(
+  request: Request,
+  policy: ArtifactAuthPolicy,
+  clients?: ClientAuth,
+): { id: string; expiresAt: number | null } | null {
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const header = request.headers.get("x-r3-token");
+  if (equalToken(header, policy.token) || equalToken(bearer, policy.token))
+    return { id: "local", expiresAt: null };
+  return clients?.authenticate(header) ?? clients?.authenticate(bearer) ?? null;
+}
+
 export function artifactBoot(
   authentication: AuthService,
   policy: ArtifactAuthPolicy,
@@ -68,6 +86,7 @@ export function installArtifactAuth(
   app: Hono,
   authentication: AuthService,
   policy: ArtifactAuthPolicy,
+  clients?: ClientAuth,
 ): void {
   app.use("/api/*", async (c, next) => {
     const host = artifactRequestHostname(c.req.raw);
@@ -81,17 +100,28 @@ export function installArtifactAuth(
       (c.req.method === "GET" || c.req.method === "HEAD") &&
       ["/api/health", "/api/boot"].includes(c.req.path);
     const login = c.req.method === "POST" && c.req.path === "/api/auth/login";
-    const authorization = c.req.header("authorization");
-    const bearer = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
-    const token =
-      equalToken(c.req.header("x-r3-token") ?? null, policy.token) ||
-      equalToken(bearer, policy.token);
-    if (!publicRead && !login && !token && !authentication.sessionValid(getCookie(c, COOKIE_NAME)))
+    const oauth =
+      clients &&
+      c.req.method === "POST" &&
+      ["/api/oauth/device/code", "/api/oauth/token"].includes(c.req.path);
+    const token = artifactApiPrincipal(c.req.raw, policy, clients);
+    if (
+      !publicRead &&
+      !login &&
+      !oauth &&
+      !token &&
+      !authentication.sessionValid(getCookie(c, COOKIE_NAME))
+    )
       return c.json({ error: "Authentication required" }, 401);
     await next();
   });
   app.get("/api/health", (c) =>
-    c.json({ ok: true, version: policy.version, protocol: "artifacts-v1" }),
+    c.json({
+      ok: true,
+      version: policy.version,
+      protocol: "artifacts-v1",
+      capabilities: clients ? ["r3-auth-v1"] : [],
+    }),
   );
   app.get("/api/boot", (c) => {
     const boot = artifactBoot(authentication, policy, getCookie(c, COOKIE_NAME));
@@ -136,4 +166,5 @@ export function installArtifactAuth(
       ? c.json({ ok: true })
       : c.json({ error: "Token not found" }, 404);
   });
+  if (clients) installClientAuth(app, clients, authentication, policy);
 }

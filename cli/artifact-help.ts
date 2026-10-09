@@ -114,6 +114,7 @@ feedback pending. Existing matching files are reused; different files are not ov
 Text flags accept - to read stdin. --json prints structured results.
 Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential.
 
+  auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
   start | stop | status | restart
@@ -122,6 +123,7 @@ Remote: R3_URL selects the application URL; R3_TOKEN supplies its API credential
 Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
 Configuration names:
 bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
+trustedProxies (comma-separated immediate proxy IP addresses),
 archiveTtlDays (1..36500; default 30),
 projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
 Login tokens expire after authTokenIdleDays of inactivity (default 14, positive

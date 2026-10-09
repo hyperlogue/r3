@@ -365,3 +365,10 @@ image list, and `--clear-attachments` removes it. `feedback image <artifact-id>
 snapshot's images before output/acknowledgment, reusing only matching existing
 files. Failure leaves feedback pending. The guide requires agents to open relevant
 images with their harness's image viewer before replying.
+
+## Client authorization
+
+The [remote protocol](../../../docs/artifacts/remote-protocol.md) defines API-key
+management, OAuth device/token and browser-approval routes, and audit records.
+`r3 auth create-key`, `list-clients`, `revoke-client`, and `audit` manage client
+authorizations independently of browser login tokens.

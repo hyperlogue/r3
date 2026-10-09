@@ -151,7 +151,7 @@ export function createArtifactApi(
       : c.json({ error: "Artifact request failed" }, 500),
   );
   app.notFound((c) => c.json({ error: "Not found" }, 404));
-  installArtifactAuth(app, storage.authentication, policy);
+  installArtifactAuth(app, storage.authentication, policy, storage.clientAuth);
 
   app.get("/api/stat", (c) => {
     const window = c.req.query("window") ?? "daily";

@@ -114,6 +114,14 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
 };
 
 export const api = {
+  inspectClientAuthorization: (userCode: string) =>
+    req<{ label: string | null; expiresAt: number; requestIp: string | null }>(
+      "POST",
+      "/api/oauth/device/inspect",
+      { userCode },
+    ),
+  decideClientAuthorization: (userCode: string, approved: boolean) =>
+    req<{ ok: true }>("POST", "/api/oauth/device/decision", { userCode, approved }),
   themes: () => req<ThemeOption[]>("GET", "/api/themes"),
   themeStyle: (theme?: string) => req<ThemeStyle>("GET", `/api/theme-style${qs({ theme })}`),
   // auth (quick-auth: login token -> session cookie). login() is the only call

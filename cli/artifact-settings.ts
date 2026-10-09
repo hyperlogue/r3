@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import {
   type PersistedConfig,
   parseBoolFlag,
@@ -11,6 +12,7 @@ import type { AuthTokenInfo, CreateAuthTokenResponse } from "../shared/types.ts"
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 
 const NAMES = [
+  "trustedProxies",
   "bind",
   "port",
   "publicUrl",
@@ -59,6 +61,13 @@ export function configCommand(argv: string[]): void {
     const value = raw?.trim();
     if (!value) throw new ArtifactCommandError(`Use r3 config unset ${name} to clear this setting`);
     switch (name) {
+      case "trustedProxies": {
+        const peers = value.split(",").map((item) => item.trim());
+        if (peers.some((item) => !isIP(item)))
+          throw new ArtifactCommandError("trustedProxies requires exact proxy IP addresses");
+        next.trustedProxies = peers;
+        break;
+      }
       case "archiveTtlDays": {
         const days = Number(value);
         if (!Number.isInteger(days) || days < 1 || days > 36500)
@@ -158,13 +167,43 @@ export function configCommand(argv: string[]): void {
     }
   }
   writeConfig(next);
-  console.log("Saved r3 configuration. Run r3 restart to apply it.");
+  console.log("Saved r3 configuration. Restart the server to apply server settings.");
 }
 
 export async function authCommand(client: ArtifactClient, argv: string[]): Promise<void> {
   const args = new ArtifactArgs(argv);
-  args.allow(["label", "all"]);
+  args.allow(["label", "all", "expires-days"]);
   const command = args.positional[0];
+  if (command === "create-key" && args.positional.length === 1) {
+    const days = args.has("expires-days") ? Number(args.require("expires-days")) : null;
+    if (days !== null && (!Number.isSafeInteger(days) || days < 1 || days > 36500))
+      throw new ArtifactCommandError("expires-days must be an integer from 1 to 36500");
+    const result = await client.json<{ id: string; token: string }>("POST", "/api/auth/clients", {
+      label: args.value("label"),
+      ...(days === null ? {} : { expiresAt: Date.now() + days * 86_400_000 }),
+    });
+    console.log(result.token);
+    console.error(`r3: API key created (${result.id}); retain it securely, it is shown only once`);
+    return;
+  }
+  if ((command === "list-clients" || command === "audit") && args.positional.length === 1) {
+    console.log(
+      JSON.stringify(
+        await client.json("GET", command === "audit" ? "/api/auth/audit" : "/api/auth/clients"),
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+  if (command === "revoke-client" && args.positional.length === 2) {
+    console.log(
+      JSON.stringify(
+        await client.json("DELETE", `/api/auth/clients/${encodeURIComponent(args.id(1))}`),
+      ),
+    );
+    return;
+  }
   if (command === "create-token" && args.positional.length === 1) {
     const result = await client.json<CreateAuthTokenResponse>("POST", "/api/auth/tokens", {
       label: args.value("label") ?? null,
@@ -193,6 +232,6 @@ export async function authCommand(client: ArtifactClient, argv: string[]): Promi
     return;
   }
   throw new ArtifactCommandError(
-    "auth create-token [--label L] | list-tokens [--json] | revoke-token <id> | revoke-token --all",
+    "auth create-token|list-tokens|revoke-token|create-key|list-clients|revoke-client|audit",
   );
 }

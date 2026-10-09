@@ -492,3 +492,13 @@ The existing authenticated attachment route, raster validation, GC coordination,
 logout revocation and no-store response policy apply. Media snapshot plus four
 ordinary attachments are bounded by a 40 MiB message request. Snapshot provenance
 is client-supplied evidence, not a server claim of video decoder equivalence.
+
+## Client authorization
+
+The [remote protocol](../../../docs/artifacts/remote-protocol.md) owns API-key and
+OAuth device authorization limits and lifetimes. Browser approval requires an
+authenticated browser and an explicit decision; API keys cannot approve devices
+on an exposed server. Public OAuth routes retain Host/Origin guards, bounded form
+parsing, polling cadence, expiry, and rate limits. Tokens and device secrets are
+hashed in backend storage. Only an explicitly configured immediate trusted proxy
+can supply the observed source address.

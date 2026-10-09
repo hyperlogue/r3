@@ -38,6 +38,7 @@ const VALUE = new Set([
   "diff",
   "label",
   "version-label",
+  "expires-days",
   "key",
   "expected",
   "project",
