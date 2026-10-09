@@ -16,7 +16,10 @@ const codexThreadId = (env: Environment): string | undefined =>
   value(env, "CODEX_THREAD_ID") ?? value(env, "CODEX_SESSION_ID");
 
 export function currentHarnessSession(env: Environment = process.env): string | undefined {
-  return value(env, "CLAUDE_CODE_SESSION_ID") ?? codexThreadId(env);
+  const claude = value(env, "CLAUDE_CODE_SESSION_ID");
+  if (claude) return `claude:${claude}`;
+  const codex = codexThreadId(env);
+  return codex ? `codex:${codex}` : undefined;
 }
 
 export type ListenerDetection =
@@ -30,7 +33,9 @@ export function detectListener(env: Environment = process.env): ListenerDetectio
     return {
       ok: true,
       target: { harness: "claude", socket, token },
-      sessionId: value(env, "CLAUDE_CODE_SESSION_ID"),
+      sessionId: value(env, "CLAUDE_CODE_SESSION_ID")
+        ? `claude:${value(env, "CLAUDE_CODE_SESSION_ID")}`
+        : undefined,
     };
   }
 
@@ -39,7 +44,7 @@ export function detectListener(env: Environment = process.env): ListenerDetectio
     return {
       ok: true,
       target: { harness: "codex", threadId },
-      sessionId: threadId,
+      sessionId: `codex:${threadId}`,
     };
 
   return { ok: false, reason: socket ? "missing-claude-token" : "unsupported" };

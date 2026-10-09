@@ -502,11 +502,11 @@ describe("artifact CLI over the HTTP contract", () => {
       return 0;
     };
     await command("listen", [id]);
-    expect(connected).toEqual({ role: "agent", sessionId: "codex-target" });
+    expect(connected).toEqual({ role: "agent", sessionId: "codex:codex-target" });
     await command("listen", [id, "--session", "logical-subagent"]);
-    expect(connected).toEqual({ role: "agent", sessionId: "codex-target" });
+    expect(connected).toEqual({ role: "agent", sessionId: "codex:codex-target" });
     expect(
-      storage.artifacts.sessions().find((session) => session.id === "codex-target")?.label,
+      storage.artifacts.sessions().find((session) => session.id === "codex:codex-target")?.label,
     ).toBe("logical-subagent");
     ctx.environment.R3_AGENT_SESSION = "logical-subagent";
     await command("listen", [id]);
@@ -704,7 +704,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(registrations).toEqual([
       {
         artifactId: id,
-        actor: { role: "agent", sessionId: "fetch-agent" },
+        actor: { role: "agent", sessionId: "codex:fetch-agent" },
         foreground: false,
         quiet: true,
       },
@@ -712,7 +712,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.listeners.selected(id)?.info).toMatchObject({
       mode: "explicit",
       label: "Review assistant",
-      actor: { sessionId: "fetch-agent" },
+      actor: { sessionId: "codex:fetch-agent" },
     });
     const empty = await command("discussions", ["fetch", id]);
     expect(empty.text).not.toContain("New comment");

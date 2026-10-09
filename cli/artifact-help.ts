@@ -94,7 +94,8 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          HTML fix links: set locator.label in --target JSON (see r3 guide html).
          no target flags means general artifact discussions.
          Version descriptions are read-only metadata, not discussions targets.
-Identity: R3_AGENT_SESSION overrides the harness identity for agent writes.
+Identity: Detected run IDs are qualified by harness (codex:<id> or claude:<id>).
+          R3_AGENT_SESSION supplies an explicit complete identity override.
           --session <name> sets a readable display name; it never changes identity.
           --human acts as the human owner. watch needs no supplied identity.
 Discussion fetch writes new discussions/comments to stdout, acknowledges that snapshot
@@ -210,7 +211,7 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 
 Claude Code and Codex publications register the publisher as fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending discussions.
 
-\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The worker persists registration intent and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Send failures remain visible to the human: fallback registrations remain for retry, while failed explicit listeners are removed. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch discussions.
+\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch discussions.
 
 Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect removes its live registrations. Reconnect restores saved roles only if the artifact has no incumbent recipient, including a publisher fallback. Conflicts stop automatic attempts until a fresh CLI action. Archive and superseded registrations never return. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
 

@@ -168,7 +168,8 @@ is isolated in `cli/artifact-publish.ts`: complete bytes are prepared before a
 create write, and an unconfirmed upload reports the artifact, expected sequence,
 and retry key for recovery. Source/download reads require a version. Native target
 flags reject cross-representation guesses. `--session` supplies a readable name;
-`R3_AGENT_SESSION` supplies stable identity for generic writers/subagents. Generic
+`R3_AGENT_SESSION` supplies an explicit complete identity for generic writers/subagents.
+Detected run IDs use `codex:<id>` or `claude:<id>`; raw delivery targets stay local. Generic
 watch assigns its own temporary identity; no shared `agent` identity is invented.
 
 Local and remote clients use a persistent worker with private Unix IPC and one

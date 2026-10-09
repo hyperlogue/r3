@@ -260,3 +260,14 @@ two backends, unknown destinations, retained subscriptions, reconnect, and crede
 `cli/publication-url.test.ts` separately proves an unrelated backend display route
 survives both output formats. See [verification](verification.md) for security,
 process, migration, browser approval, and compiled-binary checks.
+
+### Harness-local identity
+
+The bundled CLI namespaces detected run IDs as `codex:<run-id>` or
+`claude:<run-id>` and registers the corresponding harness metadata. Equal raw run
+IDs from different harnesses identify different sessions on the same backend.
+The local worker keeps the raw delivery target; no backend parses an attribution ID
+into a harness address. `R3_AGENT_SESSION` is an explicit complete identity override
+and stays unchanged. Existing unqualified identities and their history stay intact;
+new automatic registration uses the qualified identity. Clients of other backends
+must similarly avoid collisions in their backend's session namespace.

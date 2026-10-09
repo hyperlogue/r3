@@ -84,9 +84,9 @@ serve several without changing how clients authorize access.
 _Avoid_: Backend owner, artifact owner.
 
 **Agent session**:
-The identity of one logical agent run to which publications, messages, and claims
-remain attributed after the run ends. It grants no access and identifies neither a
-live connection nor a notification destination.
+The identity of one logical agent run, distinguished from runs in other harnesses,
+to which publications, messages, and claims remain attributed after the run ends.
+It grants no access and identifies neither a live connection nor a notification destination.
 
 **Publisher**:
 The agent responsible for a particular publication, or the user when publishing

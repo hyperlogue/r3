@@ -23,7 +23,7 @@ describe("detectListener", () => {
         socket: "/tmp/cc-socks/1.sock",
         token: "token",
       },
-      sessionId: "claude-session",
+      sessionId: "claude:claude-session",
     });
   });
 
@@ -37,7 +37,7 @@ describe("detectListener", () => {
     ).toEqual({
       ok: true,
       target: { harness: "codex", threadId: "codex-thread" },
-      sessionId: "codex-thread",
+      sessionId: "codex:codex-thread",
     });
   });
 
@@ -53,8 +53,8 @@ describe("detectListener", () => {
 test("currentHarnessSession retains the general Claude-then-Codex provenance rule", () => {
   expect(
     currentHarnessSession({ CLAUDE_CODE_SESSION_ID: "claude", CODEX_THREAD_ID: "codex" }),
-  ).toBe("claude");
-  expect(currentHarnessSession({ CODEX_SESSION_ID: "codex" })).toBe("codex");
+  ).toBe("claude:claude");
+  expect(currentHarnessSession({ CODEX_SESSION_ID: "codex" })).toBe("codex:codex");
 });
 
 test("listen reports a missing publisher wake adapter before remote registration", async () => {
@@ -112,4 +112,16 @@ test("listen reports a missing publisher wake adapter before remote registration
     server.stop(true);
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("identical harness-local IDs have distinct attribution without changing delivery targets", () => {
+  const claude = detectListener({
+    CLAUDE_CODE_SESSION_ID: "same-run",
+    CLAUDE_CODE_MESSAGING_SOCKET: "/tmp/session.sock",
+    CLAUDE_CODE_MESSAGING_TOKEN: "secret",
+  });
+  const codex = detectListener({ CODEX_THREAD_ID: "same-run" });
+  expect(claude.ok && claude.sessionId).toBe("claude:same-run");
+  expect(codex.ok && codex.sessionId).toBe("codex:same-run");
+  expect(codex.ok && codex.target).toEqual({ harness: "codex", threadId: "same-run" });
 });
