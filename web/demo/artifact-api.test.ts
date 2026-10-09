@@ -3,7 +3,6 @@ import { artifactApi } from "./artifact-api.ts";
 import { demo } from "./artifact-backend.ts";
 
 afterEach(() => demo.reset());
-
 test("demo acknowledgments reject stale snapshots after edit and revert", async () => {
   const id = demo.state.artifacts[0].id;
   const note = demo.addDiscussion(id, "Original", { kind: "artifact" });
@@ -15,22 +14,20 @@ test("demo acknowledgments reject stale snapshots after edit and revert", async 
   ).rejects.toMatchObject({
     status: 409,
   });
-  expect(demo.note(note.id).note.sentAt).toBeNull();
+  expect(demo.note(note.id).note.comments[0]!.sentAt).toBeNull();
   const updated = await artifactApi.pendingDiscussion(id);
   await artifactApi.acknowledgeDiscussion(id, updated.acknowledgment);
-  expect(demo.note(note.id).note.sentAt).not.toBeNull();
+  expect(demo.note(note.id).note.comments[0]!.sentAt).not.toBeNull();
 });
-
 test("the demo human owner can edit agent messages without making them undelivered", async () => {
   const note = demo.state.artifacts[0].discussions[0];
-  const sentAt = note.sentAt;
+  const sentAt = note.comments[0]!.sentAt;
   await artifactApi.editDiscussion(note.id, { body: "Clarified agent note" });
-  expect(demo.note(note.id).note.sentAt).toBe(sentAt);
+  expect(demo.note(note.id).note.comments[0]!.sentAt).toBe(sentAt);
   expect(demo.pending(note.artifactId)).toHaveLength(0);
   await artifactApi.deleteDiscussion(note.id);
   expect(demo.get(note.artifactId).discussions.some((item) => item.id === note.id)).toBe(false);
 });
-
 test("demo delivery acknowledges only the requested notes and emits presence updates", async () => {
   const id = demo.state.artifacts[0].id;
   const first = demo.addDiscussion(id, "First note", { kind: "artifact" });
@@ -41,8 +38,8 @@ test("demo delivery acknowledges only the requested notes and emits presence upd
   try {
     const snapshot = await artifactApi.pendingDiscussion(id, [first.id]);
     await artifactApi.acknowledgeDiscussion(id, snapshot.acknowledgment);
-    expect(demo.note(first.id).note.sentAt).not.toBeNull();
-    expect(demo.note(second.id).note.sentAt).toBeNull();
+    expect(demo.note(first.id).note.comments[0]!.sentAt).not.toBeNull();
+    expect(demo.note(second.id).note.comments[0]!.sentAt).toBeNull();
     expect(demo.note(second.id).note.claim).toBeNull();
     expect(events).toContain("presence-changed");
     expect((await artifactApi.pendingDiscussion(id)).text).toContain("Second note");
@@ -55,7 +52,6 @@ test("demo delivery acknowledges only the requested notes and emits presence upd
     demo.subscribers.delete(listener);
   }
 });
-
 test("demo status handoff survives edits to delivered notes while new resolved notes stay quiet", async () => {
   const id = demo.state.artifacts[0].id;
   const delivered = demo.addDiscussion(id, "Delivered note", { kind: "artifact" });
@@ -71,7 +67,6 @@ test("demo status handoff survives edits to delivered notes while new resolved n
   expect(demo.pending(id)).toEqual([]);
   expect(demo.note(fresh.id).note.statusUnsent).toBe(false);
 });
-
 test("demo message retry keys deduplicate concurrent saves and reject changed content", async () => {
   const id = demo.state.artifacts[0].id;
   const save = () =>
@@ -96,9 +91,8 @@ test("demo message retry keys deduplicate concurrent saves and reject changed co
     artifactApi.comment(first.id, body),
   ]);
   expect(comment.id).toBe(retried.id);
-  expect(demo.note(first.id).note.comments).toHaveLength(1);
+  expect(demo.note(first.id).note.comments.slice(1)).toHaveLength(1);
 });
-
 test("demo usage keeps past activity when artifacts are deleted", async () => {
   const id = demo.state.artifacts[0].id;
   const before = await artifactApi.stat();

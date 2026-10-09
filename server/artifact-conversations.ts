@@ -31,9 +31,10 @@ function messageBody(value: unknown, images: number): string {
     );
   return value;
 }
-
-type AuthoredRow = { author: "human" | "agent"; agent_session_id: string | null };
-
+type AuthoredRow = {
+  author: "human" | "agent";
+  agent_session_id: string | null;
+};
 type DiscussionRow = TargetColumns &
   AuthoredRow & {
     id: string;
@@ -61,13 +62,11 @@ type CommentRow = Omit<TargetColumns, "target_kind"> &
     created_at: string;
     sent_at: string | null;
   };
-
 function authorFromRow(row: AuthoredRow): ArtifactActor {
   return row.author === "human"
     ? { role: "human", sessionId: null }
     : { role: "agent", sessionId: row.agent_session_id! };
 }
-
 function commentFromRow(row: CommentRow): ArtifactComment {
   return {
     id: row.id,
@@ -91,12 +90,10 @@ function commentFromRow(row: CommentRow): ArtifactComment {
     sentAt: row.sent_at,
   };
 }
-
 // Conversation writes and delivery stamps share one store transaction. SSE and
 // wakeup transports are owned by the collaboration boundary, after commit.
 export class ArtifactConversations {
   private readonly targets: ArtifactTargets;
-
   constructor(
     private readonly db: Database,
     private readonly artifacts: ArtifactStore,
@@ -104,7 +101,6 @@ export class ArtifactConversations {
   ) {
     this.targets = new ArtifactTargets(artifacts);
   }
-
   private touch(id: string, time = this.clock()): void {
     this.db
       .query(
@@ -112,7 +108,6 @@ export class ArtifactConversations {
       )
       .run(time, id);
   }
-
   private row(id: string): DiscussionRow {
     const row = this.db
       .query<DiscussionRow, [string]>("SELECT * FROM discussions WHERE id = ?")
@@ -120,7 +115,6 @@ export class ArtifactConversations {
     if (!row) throw new ArtifactError("Discussion not found", 404);
     return row;
   }
-
   private editable(author: ArtifactActor, original: AuthoredRow): void {
     if (
       author.role === "agent" &&
@@ -129,16 +123,20 @@ export class ArtifactConversations {
       throw new ArtifactError("Agents may edit only their own messages");
     }
   }
-
   private withFrame<T extends ArtifactTarget | null>(
     target: T,
-    owner: { discussionId: string } | { commentId: string },
+    owner:
+      | {
+          discussionId: string;
+        }
+      | {
+          commentId: string;
+        },
   ): T {
     if (target?.kind !== "media") return target;
     const frame = this.artifacts.attachments.list(owner, "target")[0];
     return { ...target, locator: { ...target.locator, frame } };
   }
-
   private preparingFrame<T>(
     artifactId: string,
     target: ArtifactTarget | null,
@@ -157,65 +155,85 @@ export class ArtifactConversations {
       );
     return this.artifacts.attachments.preparing(artifactId, [input], work);
   }
-
   async source(id: string) {
     const row = this.row(id);
     return this.targets.sourceRange(row.artifact_id, targetFromColumns(row));
   }
-
   get(id: string): ArtifactDiscussion {
     const row = this.row(id);
     return {
       id: row.id,
       artifactId: row.artifact_id,
-      author: authorFromRow(row),
-      body: row.body,
-      attachments: this.artifacts.attachments.list({ discussionId: id }),
       status: row.status,
       target: this.withFrame(targetFromColumns(row), { discussionId: id }),
-      legacy: row.legacy_anchor_json === null ? null : JSON.parse(row.legacy_anchor_json),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      sentAt: row.sent_at,
       statusUnsent: !!row.status_unsent,
-      comments: this.db
-        .query<CommentRow, [string]>(
-          "SELECT * FROM comments WHERE discussion_id = ? ORDER BY created_at, rowid",
-        )
-        .all(id)
-        .map((row) => this.comment(row.id)),
       claim: this.db
         .query<ArtifactClaim, [string, string]>(`SELECT discussion_id AS discussionId,
         agent_session_id AS sessionId, claimed_at AS claimedAt, renewed_at AS renewedAt, expires_at AS expiresAt
         FROM discussion_claims WHERE discussion_id = ? AND expires_at > ?`)
         .get(id, this.clock()),
+      comments: [
+        {
+          id: `comment_${row.id}`,
+          discussionId: row.id,
+          artifactId: row.artifact_id,
+          createdAt: row.created_at,
+          context: artifactReferenceContext(
+            this.withFrame(targetFromColumns(row), { discussionId: id }),
+          ),
+          target: null,
+          author: authorFromRow(row),
+          body: row.body,
+          attachments: this.artifacts.attachments.list({ discussionId: id }),
+          sentAt: row.sent_at,
+          legacy: row.legacy_anchor_json === null ? null : JSON.parse(row.legacy_anchor_json),
+        },
+        ...this.db
+          .query<CommentRow, [string]>(
+            "SELECT * FROM comments WHERE discussion_id = ? ORDER BY created_at, rowid",
+          )
+          .all(id)
+          .map((row) => this.comment(row.id)),
+      ],
     };
   }
-
   list(id: string): ArtifactDiscussion[] {
     this.artifacts.get(id);
     return this.db
-      .query<{ id: string }, [string]>(
-        "SELECT id FROM discussions WHERE artifact_id = ? ORDER BY created_at, rowid",
-      )
+      .query<
+        {
+          id: string;
+        },
+        [string]
+      >("SELECT id FROM discussions WHERE artifact_id = ? ORDER BY created_at, rowid")
       .all(id)
       .map(({ id }) => this.get(id));
   }
-
+  private openingDiscussion(id: string): string | null {
+    if (!id.startsWith("comment_")) return null;
+    const discussionId = id.slice("comment_".length);
+    return this.db.query("SELECT 1 FROM discussions WHERE id=?").get(discussionId)
+      ? discussionId
+      : null;
+  }
   comment(id: string): ArtifactComment {
     const row = this.db.query<CommentRow, [string]>("SELECT * FROM comments WHERE id = ?").get(id);
-    if (!row) throw new ArtifactError("Comment not found", 404);
+    if (!row) {
+      const opening = this.openingDiscussion(id);
+      if (opening) return this.get(opening).comments[0]!;
+      throw new ArtifactError("Comment not found", 404);
+    }
     return {
       ...commentFromRow(row),
       target: this.withFrame(commentFromRow(row).target, { commentId: id }),
       attachments: this.artifacts.attachments.list({ commentId: id }),
     };
   }
-
   async add(id: string, value: unknown): Promise<ArtifactDiscussion> {
     const input = requireObject(value, "Discussion");
     const author = this.artifacts.validateActor(input.actor);
-
     const native = await this.targets.target(id, input.target);
     const target = targetColumns(native);
     return this.preparingFrame(id, native, input.mediaSnapshot, (frames) =>
@@ -259,7 +277,6 @@ export class ArtifactConversations {
       ),
     );
   }
-
   async update(id: string, value: unknown): Promise<ArtifactDiscussion> {
     const input = requireObject(value, "Discussion edit");
     if (input.attachments === undefined) return this.edit(id, input);
@@ -269,7 +286,6 @@ export class ArtifactConversations {
       this.edit(id, input, images),
     );
   }
-
   edit(id: string, value: unknown, images?: PreparedAttachment[]): ArtifactDiscussion {
     const input = requireObject(value, "Discussion edit");
     if (input.attachments !== undefined && !images)
@@ -313,7 +329,6 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   delete(id: string, actor: unknown): void {
     const author = this.artifacts.validateActor(actor);
     this.db
@@ -326,11 +341,9 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   async addComment(id: string, value: unknown): Promise<ArtifactComment> {
     const input = requireObject(value, "Comment");
     const author = this.artifacts.validateActor(input.actor);
-
     const original = this.row(id);
     const target =
       input.target == null ? null : await this.targets.target(original.artifact_id, input.target);
@@ -398,7 +411,6 @@ export class ArtifactConversations {
       ),
     );
   }
-
   async updateComment(id: string, value: unknown): Promise<ArtifactComment> {
     const input = requireObject(value, "Comment edit");
     if (input.attachments === undefined) return this.editComment(id, input);
@@ -411,7 +423,6 @@ export class ArtifactConversations {
       this.editComment(id, input, images),
     );
   }
-
   editComment(id: string, value: unknown, images?: PreparedAttachment[]): ArtifactComment {
     const input = requireObject(value, "Comment edit");
     const author = this.artifacts.validateActor(input.actor);
@@ -419,6 +430,9 @@ export class ArtifactConversations {
       throw new ArtifactError("Image edits require prepared attachments");
     if (input.target !== undefined || input.context !== undefined)
       throw new ArtifactError("Comment references are immutable");
+    if (input.status !== undefined) throw new ArtifactError("Status belongs to a Discussion");
+    const opening = this.openingDiscussion(id);
+    if (opening) return this.edit(opening, input, images).comments[0]!;
     return this.db
       .transaction(() => {
         const row = this.db
@@ -443,7 +457,6 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   claim(ids: string[], sessionId: string): ArtifactClaim[] {
     this.artifacts.validateActor({ role: "agent", sessionId });
     return this.db
@@ -471,7 +484,6 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   release(ids: string[], sessionId: string): void {
     this.artifacts.validateActor({ role: "agent", sessionId });
     this.db
@@ -483,13 +495,17 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   expireClaims(): string[] {
     return this.db
       .transaction(() => {
         const time = this.clock();
         const affected = this.db
-          .query<{ id: string }, [string]>(`SELECT DISTINCT f.artifact_id AS id FROM discussions f
+          .query<
+            {
+              id: string;
+            },
+            [string]
+          >(`SELECT DISTINCT f.artifact_id AS id FROM discussions f
         JOIN discussion_claims c ON c.discussion_id = f.id WHERE c.expires_at <= ?`)
           .all(time)
           .map(({ id }) => id);
@@ -498,23 +514,24 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   unsent(id: string, only?: string[]): ArtifactDiscussion[] {
     return this.list(id).filter(
       (discussions) =>
         hasUnsentArtifactDiscussion(discussions) && (!only || only.includes(discussions.id)),
     );
   }
-
   // Bind the acknowledgment to the artifact, selection, and persisted revision.
   // The revision prevents edit/revert cycles from revalidating an old snapshot.
   snapshot(id: string, only?: string[]) {
     if (this.artifacts.get(id).state !== "active")
       throw new ArtifactError("Artifact is archived", 409);
     const revision = this.db
-      .query<{ revision: number }, [string]>(
-        "SELECT discussion_revision AS revision FROM artifacts WHERE id = ?",
-      )
+      .query<
+        {
+          revision: number;
+        },
+        [string]
+      >("SELECT discussion_revision AS revision FROM artifacts WHERE id = ?")
       .get(id)!.revision;
     const discussions = only ? [...new Set(only)].sort() : undefined;
     const expectedFingerprint = createHash("sha256")
@@ -525,7 +542,6 @@ export class ArtifactConversations {
       acknowledgment: { discussions, expectedFingerprint },
     };
   }
-
   acknowledge(id: string, receipt: ArtifactDiscussionAcknowledgment): ArtifactDiscussion[] {
     return this.db
       .transaction(() => {
@@ -540,7 +556,7 @@ export class ArtifactConversations {
               "UPDATE discussions SET sent_at = COALESCE(sent_at, ?), ever_delivered = 1, status_unsent = 0 WHERE id = ?",
             )
             .run(time, item.id);
-          for (const comment of item.comments) {
+          for (const comment of item.comments.slice(1)) {
             if (comment.author.role === "human" && comment.sentAt === null)
               this.db.query("UPDATE comments SET sent_at = ? WHERE id = ?").run(time, comment.id);
           }
@@ -550,7 +566,6 @@ export class ArtifactConversations {
       })
       .immediate();
   }
-
   async place(id: string, value: unknown): Promise<ArtifactPlacement> {
     const input = requireObject(value, "Placement");
     this.artifacts.validateActor(input.actor);
@@ -600,7 +615,6 @@ export class ArtifactConversations {
         placement.target.kind === target.kind,
     )!;
   }
-
   placements(id: string): ArtifactPlacement[] {
     this.artifacts.get(id);
     type Row = {

@@ -4,6 +4,7 @@ import type {
   ArtifactDiscussion,
   ArtifactVersion,
 } from "../../shared/artifacts.ts";
+import { artifactReferenceContext } from "../../shared/artifacts.ts";
 
 const time = "2026-09-11T12:00:00.000Z";
 export const artifactFixtureVersion: ArtifactVersion = {
@@ -24,8 +25,6 @@ export const artifactFixtureVersion: ArtifactVersion = {
 export const artifactFixtureDiscussion: ArtifactDiscussion = {
   id: "discussion_example",
   artifactId: "artifact_example",
-  author: { role: "human", sessionId: null },
-  body: "Could the comparison explain which option works best for small teams?",
   status: "open",
   target: {
     kind: "rendered",
@@ -33,12 +32,28 @@ export const artifactFixtureDiscussion: ArtifactDiscussion = {
     path: "index.md",
     locator: { selector: "a", quote: "View the comparison" },
   },
-  legacy: null,
   createdAt: time,
   updatedAt: time,
-  sentAt: time,
   statusUnsent: false,
+  claim: null,
   comments: [
+    {
+      id: "discussion_example",
+      discussionId: "discussion_example",
+      artifactId: "artifact_example",
+      createdAt: time,
+      context: artifactReferenceContext({
+        kind: "rendered",
+        versionSeq: 1,
+        path: "index.md",
+        locator: { selector: "a", quote: "View the comparison" },
+      }),
+      target: null,
+      author: { role: "human", sessionId: null },
+      body: "Could the comparison explain which option works best for small teams?",
+      sentAt: time,
+      legacy: null,
+    },
     {
       id: "comment_example",
       discussionId: "discussion_example",
@@ -52,7 +67,6 @@ export const artifactFixtureDiscussion: ArtifactDiscussion = {
       sentAt: time,
     },
   ],
-  claim: null,
 };
 export const artifactFixture: ArtifactDetail = {
   id: "artifact_example",

@@ -57,7 +57,6 @@ const target = (time: number | null = 4.800123456): ArtifactMediaTarget => ({
   path: time === null ? "image.png" : "film.mp4",
   locator: { time, box: { x: 0.1, y: 0.6, width: 0.8, height: 0.2 } },
 });
-
 test("media evidence survives message edits, delivery, restart and blob collection", async () => {
   const id = await setup();
   const input = {
@@ -72,7 +71,7 @@ test("media evidence survives message edits, delivery, restart and blob collecti
   const saved = note.target as ArtifactMediaTarget;
   expect(saved.locator.time).toBe(4.800123456);
   expect(saved.locator.frame?.width).toBe(2);
-  expect(note.attachments).toEqual([]);
+  expect(note.comments[0]!.attachments).toEqual([]);
   expect(discussionAttachments([note])).toEqual([saved.locator.frame!]);
   await store.conversations.update(note.id, {
     actor: human,
@@ -108,7 +107,6 @@ test("media evidence survives message edits, delivery, restart and blob collecti
     "not found",
   );
 });
-
 test("media targets validate one instant, normalized geometry, file membership and required evidence", async () => {
   const id = await setup();
   const add = (value: unknown, snapshot: unknown = png) =>
@@ -141,7 +139,6 @@ test("media targets validate one instant, normalized geometry, file membership a
   });
   await expect(add({ ...target(null), locator: { time: 1 } })).rejects.toThrow("timestamp");
 });
-
 test("agent fix frames remain independent and authenticated reads expose the exact evidence", async () => {
   const id = await setup();
   const session = store.artifacts.registerSession({ id: "media-agent" });
@@ -184,7 +181,6 @@ test("agent fix frames remain independent and authenticated reads expose the exa
     api.close();
   }
 });
-
 test("version 9 constraint upgrade retains conversations and restores foreign keys", async () => {
   root = await mkdtemp(join(tmpdir(), "r3-media-upgrade-"));
   const db = new Database(":memory:");
@@ -239,7 +235,12 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
       mediaSnapshot: png,
     });
     const tables = db
-      .query<{ sql: string }, []>(
+      .query<
+        {
+          sql: string;
+        },
+        []
+      >(
         "SELECT sql FROM sqlite_master WHERE name IN ('discussions', 'comments', 'discussion_placements')",
       )
       .all();

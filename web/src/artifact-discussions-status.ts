@@ -12,13 +12,14 @@ import {
 } from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
 
-type StatusChange = { discussionId: string; status: ArtifactDiscussion["status"] };
+type StatusChange = {
+  discussionId: string;
+  status: ArtifactDiscussion["status"];
+};
 const statusKey = (artifactId: string) => ["discussions-status", artifactId];
-
 export function useDiscussionStatusPending(artifactId: string): boolean {
   return useIsMutating({ mutationKey: statusKey(artifactId) }) > 0;
 }
-
 // Pending human decisions are a presentation layer over the latest server data.
 // Refetches can still bring in comments and other agents' work without undoing a
 // pending click. Failed mutations simply reveal that latest authoritative state.
@@ -38,7 +39,7 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
       return {
         ...note,
         status,
-        statusUnsent: note.statusUnsent || note.sentAt !== null,
+        statusUnsent: note.statusUnsent || note.comments[0]!.sentAt !== null,
         claim: status === "resolved" ? null : note.claim,
       };
     });
@@ -51,7 +52,6 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
       : detail;
   }, [detail, pending]);
 }
-
 export function useDiscussionStatus(discussions: ArtifactDiscussion) {
   const qc = useQueryClient();
   const key = [...statusKey(discussions.artifactId), discussions.id];

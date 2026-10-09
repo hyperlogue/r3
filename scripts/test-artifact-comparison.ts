@@ -247,7 +247,7 @@ try {
     "both version-specific targets located",
   );
   assert.equal(
-    await read("document.querySelector('[data-discussions-mode]').dataset.discussionMode"),
+    await read("document.querySelector('[data-discussions-mode]').dataset.discussionsMode"),
     "expanded",
   );
   assert.equal(
@@ -306,7 +306,7 @@ try {
   await wait("!document.querySelector('[data-artifact-surface]').inert", "return to artifact");
   await Bun.sleep(550);
   assert.equal(
-    await read("document.querySelector('[data-discussions-mode]').dataset.discussionMode"),
+    await read("document.querySelector('[data-discussions-mode]').dataset.discussionsMode"),
     "floating",
   );
   assert.deepEqual(
@@ -362,7 +362,7 @@ try {
     `!!document.querySelector('[data-artifact-discussions="${note.id}"] [data-discussions-action=resolve]')`,
     "comment posted",
   );
-  assert.equal(storage.conversations.get(note.id).comments.at(-1)?.context.versionSeq, 2);
+  assert.equal(storage.conversations.get(note.id).comments.slice(1).at(-1)?.context.versionSeq, 2);
   assert.equal(storage.conversations.get(note.id).status, "open");
   await click(`[data-artifact-discussions="${note.id}"] [data-discussions-action=resolve]`);
   await wait(

@@ -19,12 +19,11 @@ test("demo diff excerpts retain and retrieve the complete native range", () => {
       locator: { side: "new", start, end, quote },
     });
     expect(backend.discussionSource(note.id).text).toBe(rows.map((row) => row.text).join("\n"));
-    expect(backend.note(note.id).note.sentAt).toBeNull();
+    expect(backend.note(note.id).note.comments[0]!.sentAt).toBeNull();
   } finally {
     backend.close();
   }
 });
-
 test("demo targets match their published source and diff, and reads retain prior versions", async () => {
   const backend = new ArtifactDemoBackend();
   try {
@@ -32,8 +31,8 @@ test("demo targets match their published source and diff, and reads retain prior
       expect(backend.pending(artifact.id)).toEqual([]);
       for (const note of artifact.discussions) {
         backend.target(artifact.id, note.target);
-        expect(note.sentAt).not.toBeNull();
-        for (const comment of note.comments) {
+        expect(note.comments[0]!.sentAt).not.toBeNull();
+        for (const comment of note.comments.slice(1)) {
           expect(comment.sentAt).not.toBeNull();
           expect(comment.context).toEqual({
             versionSeq: 1,
@@ -57,7 +56,7 @@ test("demo targets match their published source and diff, and reads retain prior
     const note = backend.addDiscussion(id, "Keep the original version available", {
       kind: "artifact",
     });
-    expect(backend.note(note.id).note.sentAt).toBeNull();
+    expect(backend.note(note.id).note.comments[0]!.sentAt).toBeNull();
     backend.handoff(id);
     expect(backend.note(note.id).note.claim).not.toBeNull();
     await Bun.sleep(1900);
@@ -69,7 +68,7 @@ test("demo targets match their published source and diff, and reads retain prior
       backend.get(id).storage.latestVersionBytes,
     );
     expect(backend.publication(id, 1)).toEqual(first);
-    expect(backend.note(note.id).note.comments[0].context.versionSeq).toBe(2);
+    expect(backend.note(note.id).note.comments.slice(1)[0].context.versionSeq).toBe(2);
     expect(backend.note(note.id).note.status).toBe("open");
     expect(backend.note(note.id).note.claim).toBeNull();
     expect(backend.get(id).watching).toBe(true);
@@ -77,7 +76,6 @@ test("demo targets match their published source and diff, and reads retain prior
     backend.close();
   }
 });
-
 test("demo reset restores the seed and drops practice messages, images and pending agent work", async () => {
   const backend = new ArtifactDemoBackend();
   try {
@@ -96,7 +94,6 @@ test("demo reset restores the seed and drops practice messages, images and pendi
     backend.close();
   }
 });
-
 test("demo archive retains unsent work and prevents in-flight comments and publication", async () => {
   const backend = new ArtifactDemoBackend();
   try {
@@ -114,8 +111,8 @@ test("demo archive retains unsent work and prevents in-flight comments and publi
     expect(backend.get(id).watching).toBe(false);
     await Bun.sleep(1900);
     expect(backend.get(id).versions).toHaveLength(1);
-    expect(backend.note(note.id).note.comments).toHaveLength(0);
-    expect(backend.note(pending.id).note.sentAt).toBeNull();
+    expect(backend.note(note.id).note.comments.slice(1)).toHaveLength(0);
+    expect(backend.note(pending.id).note.comments[0]!.sentAt).toBeNull();
     backend.lifecycle(id, { event: "restored", operationKey: "restore-demo" });
     expect(backend.get(id).watching).toBe(false);
     expect(backend.pending(id).map((note) => note.id)).toEqual([pending.id]);

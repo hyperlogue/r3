@@ -219,7 +219,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     const detail = JSON.parse((await run("show", id, "--json")).output);
     expect(detail.discussions[0].status).toBe("open");
     expect(detail.discussions[0].claim).toBeNull();
-    expect(detail.discussions[0].comments[0].context).toEqual({
+    expect(detail.discussions[0].comments[1].context).toEqual({
       versionSeq: 2,
       representation: "source",
     });

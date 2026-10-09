@@ -2,7 +2,7 @@ import type {
   Artifact,
   ArtifactDocumentTarget,
   ArtifactKind,
-  ArtifactMessageContext,
+  ArtifactReferenceContext,
   ArtifactState,
 } from "./artifacts.ts";
 
@@ -28,7 +28,7 @@ export interface ArtifactSearchMatch {
   path: string | null;
   discussionId: string | null;
   commentId: string | null;
-  context: ArtifactMessageContext;
+  context: ArtifactReferenceContext;
   target: ArtifactDocumentTarget | null;
   snippet: string;
 }

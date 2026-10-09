@@ -33,6 +33,8 @@ Neither directory kind offers a diff view.
 The desktop file panel resizes from its right divider, remembers its width across
 folding and navigation, and resets on double-click. The focused divider also accepts
 arrow keys to resize and Home to reset.
+For files artifacts with one file, the panel starts collapsed; Show files opens it.
+This automatic default does not change the saved panel preference for other artifacts.
 
 Files artifacts use the file panel's tree order throughout the content stack and
 file navigation: visit folders before files at each level, sorting siblings

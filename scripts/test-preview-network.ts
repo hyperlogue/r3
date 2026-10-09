@@ -318,7 +318,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     await click("document.querySelector('[aria-label=\"Published version\"]')");
     await click(`document.querySelector('[data-version-seq="${seq}"]')`);
   };
-
   await page.command("Page.navigate", { url: `${origin}/?artifact=${html.id}&version=1` });
   await protectedPreview(1);
   assert.equal(received.length, 0);
@@ -340,7 +339,7 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   assert.equal(await page.evaluate("!!document.querySelector('dialog[open]')"), true);
   assert.equal(await page.evaluate("new URL(location.href).searchParams.get('version')"), "1");
   assert.equal(storage.conversations.list(html.id)[0].status, "open");
-  assert.equal(storage.conversations.list(html.id)[0].sentAt, null);
+  assert.equal(storage.conversations.list(html.id)[0].comments[0]!.sentAt, null);
   for (const type of ["keyDown", "keyUp"])
     await page.command("Input.dispatchKeyEvent", {
       type,
@@ -401,7 +400,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     ),
     true,
   );
-
   // Native navigation retains this version's explicit choice and utility bridge.
   await content.evaluate("document.querySelector('a').click()");
   const other = await frame(
@@ -411,7 +409,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   assert.equal(grants.at(-1)!.id, external.id);
   await other.evaluate("document.querySelector('a').click()");
   const returned = await frame("window.networkResult==='external'");
-
   // External navigation keeps the iframe sandbox/device policy, but the new
   // document does not inherit r3's response CSP against workers/nested frames.
   await returned.evaluate(`location.href=${JSON.stringify(`${sink}/document`)}`);
@@ -441,7 +438,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     await nested.evaluate("(()=>{try{void top.document.body;return false}catch{return true}})()"),
     true,
   );
-
   const count = received.length;
   await click(button("Restore protection"));
   await protectedPreview(1);
@@ -449,7 +445,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   assert.equal(received.length, count, "protection blocks subsequent document connections");
   assert.equal(grants.at(-1)!.network, "blocked");
   assert.notEqual(grants.at(-1)!.id, initial.id);
-
   await allow();
   const beforeSwitch = grants.at(-1)!;
   await version(2);
@@ -467,7 +462,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   await page.command("Page.reload");
   await protectedPreview(1);
   assert.equal(grants.at(-1)!.network, "blocked", "page reload restores protection");
-
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,
@@ -493,7 +487,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
     "network control does not widen the phone workspace",
   );
   await page.command("Emulation.clearDeviceMetricsOverride");
-
   if (process.env.R3_TEST_CAPTURE === "1") {
     let choice = 0;
     const chooseDevices = async (camera: boolean, microphone: boolean) => {
@@ -713,7 +706,6 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
       "Device capture acceptance: browser denial/grant, live audio/video, clone/track stop, Stop sharing, navigation/version revocation, and unresponsive-page recovery passed",
     );
   }
-
   await page.command("Page.navigate", { url: `${origin}/?artifact=${files.id}&version=1` });
   await click(button("Rendered"));
   await eventually(

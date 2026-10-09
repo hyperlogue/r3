@@ -61,7 +61,10 @@ const api = createArtifactApi(storage, {
 });
 let rejectDetail = false;
 let failedDetailReads = 0;
-const pending: { request: Request; respond: (response: Response) => void }[] = [];
+const pending: {
+  request: Request;
+  respond: (response: Response) => void;
+}[] = [];
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -345,14 +348,17 @@ try {
   );
   const panel = "document.querySelector('[data-discussions-mode]')";
   const geometry = () =>
-    page.evaluate<{ x: number; y: number; width: number; height: number }>(
-      `${panel}.getBoundingClientRect().toJSON()`,
-    );
+    page.evaluate<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>(`${panel}.getBoundingClientRect().toJSON()`);
   const docked = await geometry();
   await page.evaluate(`void (window.retainedDiscussionPanel = ${panel})`);
   await page.evaluate("document.querySelector('[aria-label=\"Float discussions\"]').click()");
   await eventually(
-    () => page.evaluate(`${panel}.dataset.discussionMode === 'floating'`),
+    () => page.evaluate(`${panel}.dataset.discussionsMode === 'floating'`),
     "floating panel",
   );
   await eventually(() => page.evaluate(`${panel}.getAnimations().length > 0`), "float transition");
@@ -387,7 +393,10 @@ try {
     `${panel}.previousElementSibling.insertAdjacentHTML('beforeend', '<iframe sandbox="allow-scripts" srcdoc="<p>Preview</p>" style="position:absolute;inset:0;width:45%;height:100%;border:0"></iframe>')`,
   );
   const drag = async (selector: string, dx: number, dy: number) => {
-    const point = await page.evaluate<{ x: number; y: number }>(
+    const point = await page.evaluate<{
+      x: number;
+      y: number;
+    }>(
       `(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
     );
     await page.command("Input.dispatchMouseEvent", {
@@ -431,7 +440,10 @@ try {
   assert.ok(Math.abs(resized.height - moved.height + 180) < 2, "Corner resizing changes height");
   await drag("[data-discussions-drag]", 70, 70);
   const placed = await geometry();
-  assert.ok(Math.abs(placed.y - resized.y - 70) < 2, "A smaller floating panel moves vertically");
+  assert.ok(
+    Math.abs(placed.y - resized.y - 70) < 2,
+    `A smaller floating panel moves vertically (${JSON.stringify({ resized, placed })})`,
+  );
   assert.equal(
     await page.evaluate(`${panel}.previousElementSibling.getBoundingClientRect().width`),
     contentWidth,
@@ -439,12 +451,12 @@ try {
   );
   await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
   await eventually(
-    () => page.evaluate(`${panel}.dataset.discussionMode === 'hidden'`),
+    () => page.evaluate(`${panel}.dataset.discussionsMode === 'hidden'`),
     "hidden floating panel",
   );
   await page.evaluate("document.querySelector('[aria-label=\"Show discussions\"]').click()");
   await eventually(
-    () => page.evaluate(`${panel}.dataset.discussionMode === 'floating'`),
+    () => page.evaluate(`${panel}.dataset.discussionsMode === 'floating'`),
     "restore floating mode",
   );
   assert.deepEqual(await geometry(), placed, "Hide/show restores floating geometry");
@@ -480,7 +492,7 @@ try {
   await page.command("Emulation.setEmulatedMedia", { features: [] });
   await page.command("Page.reload");
   await eventually(
-    () => page.evaluate(`!!${panel} && ${panel}.dataset.discussionMode === 'floating'`),
+    () => page.evaluate(`!!${panel} && ${panel}.dataset.discussionsMode === 'floating'`),
     "floating panel after reload",
   );
   assert.deepEqual(await geometry(), placed, "Reload restores the saved position and size");
@@ -532,9 +544,12 @@ try {
   await openComposer("standalone file discussions composer");
   const composer = "document.querySelector('[data-floating-composer]')";
   const composerGeometry = () =>
-    page.evaluate<{ x: number; y: number; width: number; height: number }>(
-      `${composer}.getBoundingClientRect().toJSON()`,
-    );
+    page.evaluate<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>(`${composer}.getBoundingClientRect().toJSON()`);
   const composerStart = await composerGeometry();
   await page.evaluate(
     `${panel}.previousElementSibling.insertAdjacentHTML('beforeend', '<iframe sandbox="allow-scripts" srcdoc="<p>Preview</p>" style="position:absolute;inset:0;width:45%;height:100%;border:0"></iframe>')`,
@@ -593,10 +608,13 @@ try {
   assert.equal(reopenedComposer.x, 230, "Reopening positions beside the anchor again");
   await page.evaluate(`${composer}.querySelector('button[type=submit]').click()`);
   await eventually(
-    async () => storage.conversations.list(artifact.id).some((note) => note.body === grownBody),
+    async () =>
+      storage.conversations.list(artifact.id).some((note) => note.comments[0]!.body === grownBody),
     "moved discussions posts successfully",
   );
-  const posted = storage.conversations.list(artifact.id).find((note) => note.body === grownBody)!;
+  const posted = storage.conversations
+    .list(artifact.id)
+    .find((note) => note.comments[0]!.body === grownBody)!;
   assert.equal(posted.target.kind, "rendered");
   assert.equal("path" in posted.target && posted.target.path, "index.md");
   assert.equal("locator" in posted.target && posted.target.locator, null);
@@ -605,7 +623,10 @@ try {
     "posted composer closes before starting another note",
   );
   await openComposer("new composer after posting");
-  const grip = await page.evaluate<{ x: number; y: number }>(
+  const grip = await page.evaluate<{
+    x: number;
+    y: number;
+  }>(
     "(()=>{const r=document.querySelector('[aria-label=\"Move composer\"]').getBoundingClientRect();return {x:r.x+12,y:r.y+12}})()",
   );
   await page.command("Input.dispatchMouseEvent", {

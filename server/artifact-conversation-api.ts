@@ -87,6 +87,7 @@ export function installArtifactConversations(
     changed(comment.artifactId, comment.discussionId);
     return c.json(comment, 201);
   });
+  app.get("/api/comments/:id", (c) => c.json(conversations.comment(c.req.param("id"))));
   app.patch("/api/comments/:id", async (c) => {
     const comment = await conversations.updateComment(
       c.req.param("id"),

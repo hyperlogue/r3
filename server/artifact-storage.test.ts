@@ -40,7 +40,6 @@ const publication = () => ({
     ],
   },
 });
-
 describe("private artifact storage bootstrap", () => {
   test("graceful close saves deferred cookie use before restart applies inactivity expiry", async () => {
     let currentTime = time;
@@ -59,7 +58,6 @@ describe("private artifact storage bootstrap", () => {
     ]);
     expect(storage.authentication.sessionValid(session.cookieValue)).toBe(true);
   });
-
   test("restart purges revoked and overdue tokens while preserving recent sessions and last use", async () => {
     let currentTime = time;
     const settings = { ...options(), clock: () => currentTime, authTokenIdleDays: 2 };
@@ -95,7 +93,6 @@ describe("private artifact storage bootstrap", () => {
       { ...active.info, lastUsedAt: currentTime },
     ]);
   });
-
   test("a snapshot remains valid across restart but not an edit and revert after restart", async () => {
     storage = await openArtifactStorage(options());
     const id = storage.artifacts.create({ actor, kind: "files" }).id;
@@ -113,9 +110,8 @@ describe("private artifact storage bootstrap", () => {
     storage.close();
     storage = await openArtifactStorage(options());
     expect(() => storage!.conversations.acknowledge(id, receipt)).toThrow("Discussion changed");
-    expect(storage.conversations.get(note.id).sentAt).toBeNull();
+    expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
   });
-
   test("delivery history survives editing and reopening without promoting new discussions", async () => {
     storage = await openArtifactStorage(options());
     const id = storage.artifacts.create({ actor, kind: "files" }).id;
@@ -135,14 +131,13 @@ describe("private artifact storage bootstrap", () => {
     storage = await openArtifactStorage(options());
     storage.conversations.edit(delivered.id, { actor, status: "resolved" });
     storage.conversations.edit(fresh.id, { actor, status: "resolved" });
-    expect(storage.conversations.get(delivered.id).sentAt).toBeNull();
+    expect(storage.conversations.get(delivered.id).comments[0]!.sentAt).toBeNull();
     expect(storage.conversations.get(delivered.id).statusUnsent).toBe(true);
     expect(storage.conversations.get(fresh.id).statusUnsent).toBe(false);
     expect(storage.conversations.unsent(id).map((note) => note.id)).toEqual([delivered.id]);
     storage.conversations.acknowledge(id, storage.conversations.snapshot(id).acknowledgment);
     expect(storage.conversations.unsent(id)).toEqual([]);
   });
-
   test("historical Markdown HTML versions remain readable while new versions require HTML", async () => {
     const previous = publication();
     const id = await seedLegacyMarkdownArtifact(
@@ -187,7 +182,6 @@ describe("private artifact storage bootstrap", () => {
       "<article># Shared</article>",
     );
   });
-
   test("creates a private store and reopens published content without legacy source access", async () => {
     storage = await openArtifactStorage(options());
     expect(storage.migration).toBeNull();
@@ -202,7 +196,6 @@ describe("private artifact storage bootstrap", () => {
     expect((await storage.artifacts.readFile(id, 1, "index.md")).toString()).toBe("# Shared");
     expect(await readdir(join(`${options().databasePath}.artifacts`, "backups"))).toEqual([]);
   });
-
   test("whole-artifact cleanup preserves shared originals and renderings until their last reference", async () => {
     storage = await openArtifactStorage(options());
     const first = storage.artifacts.create({ actor, kind: "files" }).id;
@@ -221,14 +214,12 @@ describe("private artifact storage bootstrap", () => {
     await expect(blobs.read(file.hash)).rejects.toThrow();
     await expect(blobs.read(file.renderedHash!)).rejects.toThrow();
   });
-
   test("startup reclaims interrupted upload bytes", async () => {
     const blobs = new BlobStore(join(`${options().databasePath}.artifacts`, "blobs"));
     const orphan = await blobs.put("Abandoned before SQL commit");
     storage = await openArtifactStorage(options());
     await expect(blobs.read(orphan.hash)).rejects.toThrow();
   });
-
   test("startup refuses live-review stores without changing their schema or rows", async () => {
     const legacy = new Database(options().databasePath);
     legacy.exec(`CREATE TABLE reviews(id TEXT PRIMARY KEY, body TEXT);

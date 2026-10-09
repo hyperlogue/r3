@@ -26,7 +26,6 @@ async function setup() {
   const artifact = store.artifacts.create({ kind: "html", actor: human });
   return { store, artifact, databasePath };
 }
-
 test("image-only messages survive restart, retain immutable bytes and participate in GC", async () => {
   const { store, artifact, databasePath } = await setup();
   const note = await store.conversations.add(artifact.id, {
@@ -41,29 +40,30 @@ test("image-only messages survive restart, retain immutable bytes and participat
     context: { versionSeq: null, representation: null },
     attachments: [image],
   });
-  expect(note.attachments![0]!.hash).toBe(comment.attachments![0]!.hash);
+  expect(note.comments[0]!.attachments![0]!.hash).toBe(comment.attachments![0]!.hash);
   expect(store.artifacts.get(artifact.id).storage.attachmentBytes).toBe(
     Buffer.from(base64, "base64").length,
   );
   await store.collectBlobs();
   expect(
-    (await store.artifacts.attachments.read(artifact.id, note.attachments![0]!.id)).bytes.toString(
-      "base64",
-    ),
+    (
+      await store.artifacts.attachments.read(artifact.id, note.comments[0]!.attachments![0]!.id)
+    ).bytes.toString("base64"),
   ).toBe(base64);
   store.close();
   stores.splice(stores.indexOf(store), 1);
   const reopened = await openArtifactStorage({ databasePath });
   stores.push(reopened);
-  expect(reopened.conversations.get(note.id).attachments).toEqual(note.attachments);
+  expect(reopened.conversations.get(note.id).comments[0]!.attachments).toEqual(
+    note.comments[0]!.attachments,
+  );
   expect(reopened.conversations.comment(comment.id).attachments).toEqual(comment.attachments);
   reopened.conversations.delete(note.id, human);
   expect(await reopened.collectBlobs()).toBe(1);
   await expect(
-    reopened.artifacts.attachments.read(artifact.id, note.attachments![0]!.id),
+    reopened.artifacts.attachments.read(artifact.id, note.comments[0]!.attachments![0]!.id),
   ).rejects.toThrow("not found");
 });
-
 test("image edits are atomic, scoped to their message and invalidate delivery snapshots", async () => {
   const { store, artifact } = await setup();
   const input = {
@@ -84,9 +84,11 @@ test("image edits are atomic, scoped to their message and invalidate delivery sn
   await expect(
     store.conversations.update(note.id, { actor: human, attachments: [] }),
   ).rejects.toThrow("needs text or an image");
-  expect(store.conversations.get(note.id).attachments).toEqual(note.attachments);
+  expect(store.conversations.get(note.id).comments[0]!.attachments).toEqual(
+    note.comments[0]!.attachments,
+  );
   await store.conversations.update(note.id, { actor: human, attachments: [image] });
-  expect(store.conversations.get(note.id).sentAt).toBeNull();
+  expect(store.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
   expect(() => store.conversations.acknowledge(artifact.id, old.acknowledgment)).toThrow("changed");
   const other = await store.conversations.add(artifact.id, {
     actor: human,
@@ -96,7 +98,7 @@ test("image edits are atomic, scoped to their message and invalidate delivery sn
   await expect(
     store.conversations.update(other.id, {
       actor: human,
-      attachments: [{ id: store.conversations.get(note.id).attachments![0]!.id }],
+      attachments: [{ id: store.conversations.get(note.id).comments[0]!.attachments![0]!.id }],
     }),
   ).rejects.toThrow("does not belong");
   await expect(
@@ -108,7 +110,6 @@ test("image edits are atomic, scoped to their message and invalidate delivery sn
   ).rejects.toThrow();
   expect(store.conversations.list(artifact.id)).toHaveLength(2);
 });
-
 test("attachment HTTP reads require authentication and exact artifact membership", async () => {
   const { store, artifact } = await setup();
   const note = await store.conversations.add(artifact.id, {
@@ -125,7 +126,7 @@ test("attachment HTTP reads require authentication and exact artifact membership
     allowedHost: (host) => host === "localhost",
   });
   try {
-    const path = `/api/artifacts/${artifact.id}/attachments/${note.attachments![0]!.id}`;
+    const path = `/api/artifacts/${artifact.id}/attachments/${note.comments[0]!.attachments![0]!.id}`;
     const read = (path: string, authenticated = true, extra = {}) =>
       api.app.fetch(
         new Request(`http://localhost${path}`, {
@@ -148,7 +149,6 @@ test("attachment HTTP reads require authentication and exact artifact membership
     api.close();
   }
 });
-
 test("version 6 stores gain empty attachment membership without rewriting conversations", async () => {
   const { store, artifact, databasePath } = await setup();
   const note = await store.conversations.add(artifact.id, {
@@ -166,7 +166,6 @@ test("version 6 stores gain empty attachment membership without rewriting conver
   expect(reopened.conversations.get(note.id)).toEqual(note);
   expect(reopened.migration?.migrated).toBe(true);
 });
-
 test("image validation rejects executable, corrupt, truncated and oversized input", () => {
   const bytes = Buffer.from(base64, "base64");
   expect(prepareAttachmentImage(bytes, "image/png").width).toBe(2);

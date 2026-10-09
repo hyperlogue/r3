@@ -9,14 +9,13 @@ import { previewBridgeCall, previewLocator, previewSelectionPosition } from "./p
 import { previewThemePreference } from "./preview-theme.ts";
 
 test("full-height Markdown retains its native viewport evidence", () => {
-  const locator = { selector: "h2", viewport: { width: 800, height: 200_000 } };
+  const locator = { selector: "h2", viewport: { width: 800, height: 200000 } };
   expect(previewLocator(locator)).toEqual(locator);
-  for (const height of [Infinity, NaN, -1, 16_000_001])
+  for (const height of [Infinity, NaN, -1, 16000001])
     expect(() => previewLocator({ ...locator, viewport: { width: 800, height } })).toThrow(
       "Invalid rendered viewport",
     );
 });
-
 test("preview bridge exposes only its artifact's human conversation at the selected version", async () => {
   const context: PreviewPageContext = {
     artifactId: "artifact_fixture",
@@ -53,13 +52,18 @@ test("preview bridge exposes only its artifact's human conversation at the selec
   detail.discussions = [
     {
       ...discussions,
-      attachments: [{ id: "private-image" }] as ArtifactDiscussion["attachments"],
       comments: [
+        {
+          ...discussions.comments[0]!,
+          attachments: [{ id: "private-image" }] as ArtifactComment["attachments"],
+        },
         { id: "comment", attachments: [{ id: "private-comment-image" }] } as ArtifactComment,
       ],
     },
   ];
-  expect(await call("getThreads")).toEqual([{ id: discussions.id, comments: [{ id: "comment" }] }]);
+  expect(await call("getThreads")).toEqual([
+    { id: discussions.id, comments: [{}, { id: "comment" }] },
+  ]);
   await expect(call("createDiscussion", { body: "Spoof", attachments: [] }, true)).rejects.toThrow(
     "scope",
   );
@@ -101,7 +105,6 @@ test("preview bridge exposes only its artifact's human conversation at the selec
   await call("submit", undefined, true);
   expect(calls[2]).toEqual([context.artifactId]);
 });
-
 test("preview themes persist only a user-selected light/dark preference for their artifact", async () => {
   const values = new Map([["r3-theme", "light"]]);
   const storage = () => ({
@@ -167,7 +170,6 @@ test("preview themes persist only a user-selected light/dark preference for thei
     ),
   ).toEqual(context);
 });
-
 test("selection bounds stay finite and within the visible part of a tall frame", () => {
   const frame = { left: 200, right: 1000, top: -5000, bottom: 200000 };
   const visible = { left: 200, right: 1000, top: 80, bottom: 700 };

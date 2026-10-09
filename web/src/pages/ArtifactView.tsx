@@ -85,7 +85,6 @@ import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import { diffViewedKey, fileViewedKey } from "../viewed.ts";
 import { useVirtualPaneController, VirtualPaneProvider } from "../virtual.tsx";
-
 export interface ArtifactRenderedPaneProps {
   detail: ArtifactDetail;
   version: ArtifactVersion;
@@ -96,9 +95,18 @@ export interface ArtifactRenderedPaneProps {
   previewLabel?: string;
   onLocated?: (state: "anchored" | "ambiguous" | "unplaced") => void;
   commenting: boolean;
-  jump: { locator: RenderedLocator | null; nonce: number } | null;
-  navigation?: { route: string; nonce: number } | null;
-  targets: { discussionId: string; target: ArtifactDocumentTarget }[];
+  jump: {
+    locator: RenderedLocator | null;
+    nonce: number;
+  } | null;
+  navigation?: {
+    route: string;
+    nonce: number;
+  } | null;
+  targets: {
+    discussionId: string;
+    target: ArtifactDocumentTarget;
+  }[];
   onTarget: (target: ArtifactDocumentTarget) => void;
   onSelection?: (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => void;
   onComposerKey?: (action: "focus" | "escape") => void;
@@ -110,7 +118,6 @@ export interface ArtifactRenderedPaneProps {
   onDiscussion: (id: string) => void;
 }
 export type ArtifactRenderer = (props: ArtifactRenderedPaneProps) => ReactNode;
-
 export function ArtifactView({
   artifactId,
   renderPreview = renderPublishedPreview,
@@ -175,14 +182,12 @@ export function ArtifactView({
     />
   );
 }
-
 interface ArtifactWorkspaceProps {
   detail: ArtifactDetail;
   renderPreview: ArtifactRenderer;
   initialSearch?: string;
   onLocationChange?: (view: ArtifactLocation) => void;
 }
-
 export function ArtifactWorkspace(props: ArtifactWorkspaceProps) {
   const detail = useOptimisticArtifact(props.detail);
   return (
@@ -195,7 +200,6 @@ export function ArtifactWorkspace(props: ArtifactWorkspaceProps) {
     </NotificationProvider>
   );
 }
-
 function Workspace({
   detail,
   renderPreview,
@@ -310,7 +314,6 @@ function Workspace({
     resize.observe(toolbar);
     return () => resize.disconnect();
   }, []);
-
   // Pin the first actual publication. New versions are announced and remain an
   // explicit reader choice, including while an unanchored comment is being typed.
   useEffect(() => {
@@ -325,7 +328,6 @@ function Workspace({
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [detail.kind]);
-
   useEffect(() => {
     onLocationChange?.({
       ...view,
@@ -334,7 +336,6 @@ function Workspace({
       versionSeq: version?.seq ?? view.versionSeq,
     });
   }, [view, path, version?.seq, onLocationChange, detail.kind, fileMode]);
-
   const changeView = useCallback((patch: Partial<ArtifactLocation>) => {
     initialPath.current = null;
     setView((current) => ({ ...current, ...patch }));
@@ -518,7 +519,6 @@ function Workspace({
     },
     [version, detail.kind, detail.id, appendQuote, anchor],
   );
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: navigation cancels pending selection capture
   useEffect(() => {
     if (coarse) return;
@@ -534,10 +534,10 @@ function Workspace({
       () => false,
     );
   }, [coarse, selectText, view]);
-
-  const [mediaJump, setMediaJump] = useState<{ target: ArtifactMediaTarget; nonce: number } | null>(
-    null,
-  );
+  const [mediaJump, setMediaJump] = useState<{
+    target: ArtifactMediaTarget;
+    nonce: number;
+  } | null>(null);
   const locate = useCallback<ArtifactTargetJump>(
     (target, discussionId) => {
       comparison.close(false);
@@ -627,7 +627,7 @@ function Workspace({
     }
     const commentId = searchEntry.get("comment");
     if (commentId) {
-      const comment = discussions.comments.find((comment) => comment.id === commentId);
+      const comment = discussions.comments.slice(1).find((comment) => comment.id === commentId);
       if (!comment) setNotice("This comment is unavailable.");
       else if (comment.context.versionSeq === null)
         setNotice("This comment has no recorded publication context.");
@@ -687,7 +687,6 @@ function Workspace({
     },
     [changeView, detail.kind, fileMode],
   );
-
   const canonicalJump = useMemo(
     () =>
       jump
@@ -735,7 +734,6 @@ function Workspace({
     ready: ready && detail.kind !== "html",
     fileList: paths,
   });
-
   const currentPath = detail.kind === "html" ? path : (activePath ?? paths[0]);
   const currentFile = filesQuery.data?.find((file) => file.path === currentPath);
   const wholeFile = () => {
@@ -798,7 +796,6 @@ function Workspace({
       ? { layoutToggle: () => setDiffLayout(layout === "split" ? "unified" : "split") }
       : {}),
   });
-
   const toolbar = detail.kind !== "html" && (
     <div ref={toolbarRef} className="sticky top-0 z-20">
       <PaneToolbar
@@ -849,7 +846,7 @@ function Workspace({
         ? activeArtifactDiscussion(detail.discussions)
         : detail.discussions.filter((note) => note.status === "resolved");
     return notes.flatMap((note) =>
-      note.comments.flatMap((comment) => {
+      note.comments.slice(1).flatMap((comment) => {
         const pair = comparison.comparisons.get(comment.id);
         return pair ? [pair] : [];
       }),
@@ -899,7 +896,6 @@ function Workspace({
         : undefined,
     [canonicalJump],
   );
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ArtifactHeader
@@ -925,6 +921,7 @@ function Workspace({
         {!mobile && !comparison.active && detail.kind !== "html" && (
           <FileBrowser
             files={paths}
+            defaultCollapsed={detail.kind === "files" && paths.length === 1}
             viewed={viewedPaths}
             activePath={currentPath}
             onSelect={selectFile}

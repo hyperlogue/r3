@@ -337,7 +337,10 @@ try {
   await frame.getByRole("button", { name: "Request revision" }).click();
   await frame.getByText("Sent", { exact: true }).waitFor();
   assert.equal(grants.length, beforeForgery, "publisher cannot forge a downgrade");
-  assert.equal(storage.conversations.list(html.id)[0].body, "Compatibility discussions");
+  assert.equal(
+    storage.conversations.list(html.id)[0].comments[0]!.body,
+    "Compatibility discussions",
+  );
   await frame.getByRole("link", { name: "Other document" }).click();
   await frame.getByRole("heading", { name: "Other document" }).waitFor();
   await frame.getByRole("link", { name: "Back" }).click();
@@ -412,7 +415,6 @@ try {
     probesBeforeConsentReload,
     "version switches preserve the no-probe choice",
   );
-
   if (unsupported) {
     const second = await context.newPage();
     await second.goto(`${origin}/?artifact=${html.id}&version=1`);
@@ -457,7 +459,6 @@ try {
       await page.getByRole("button", { name: "Artifact details and actions" }).click();
     await page.locator("[data-preview-security] > button[aria-expanded]").click();
   }
-
   // A broken probe endpoint is irrelevant after acknowledgment.
   failCheck = true;
   const probesBeforeBrokenCheck = probeRequests;
@@ -499,7 +500,6 @@ try {
   assert.equal(grants.at(-1)!.network, "compatible");
   await context.close();
   assert.equal(verificationRequests, 0, "browser checks never require a server challenge exchange");
-
   if (unsupported) {
     // A readable store can still reject writes (quota/private-storage policies).
     // Consent should work for this app load without silently persisting it.

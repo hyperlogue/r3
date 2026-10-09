@@ -196,7 +196,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-mode]').dataset.discussionMode === 'hidden'",
+        "document.querySelector('[data-discussions-mode]').dataset.discussionsMode === 'hidden'",
       ),
     "idle Escape in the preview hides the desktop discussions panel",
   );
@@ -205,7 +205,6 @@ try {
   await select(content, "#selection-text");
   await waitComposer("second paragraph composer");
   await select(content, "#heading");
-
   assert.equal(await focused(), false, "selection must preserve native Copy focus");
   assert.equal(await content.evaluate("getSelection().toString()"), "Published first version");
   await page.evaluate("document.querySelector('iframe').focus()");
@@ -346,13 +345,13 @@ try {
       Promise.resolve(
         storage.conversations
           .list(files.id)
-          .some((note) => note.body === "A native Markdown target."),
+          .some((note) => note.comments[0]!.body === "A native Markdown target."),
       ),
     "posted Markdown discussions",
   );
   const posted = storage.conversations
     .list(files.id)
-    .find((note) => note.body === "A native Markdown target.")!;
+    .find((note) => note.comments[0]!.body === "A native Markdown target.")!;
   assert.equal(posted.target.kind, "rendered");
   assert.equal("versionSeq" in posted.target && posted.target.versionSeq, 1);
   assert.equal("locator" in posted.target && posted.target.locator?.quote, "Published Markdown");
@@ -433,13 +432,13 @@ try {
       Promise.resolve(
         storage.conversations
           .list(artifact.id)
-          .find((note) => note.body === "A keyboard-picked node."),
+          .find((note) => note.comments[0]!.body === "A keyboard-picked node."),
       ),
     "posted node discussions",
   );
   const nodeNote = storage.conversations
     .list(artifact.id)
-    .find((note) => note.body === "A keyboard-picked node.")!;
+    .find((note) => note.comments[0]!.body === "A keyboard-picked node.")!;
   assert.equal(nodeNote.target.kind, "rendered");
   assert.equal("locator" in nodeNote.target && nodeNote.target.locator?.selector, "#send");
   assert.equal("locator" in nodeNote.target && nodeNote.target.locator?.quote, "Request revision");

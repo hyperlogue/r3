@@ -18,7 +18,6 @@ const render = async (source: string) => ({
   html: `<article>${source}</article>`,
   revision: "migration-test",
 });
-
 async function fixture(database: Database): Promise<void> {
   database.exec("PRAGMA journal_mode = WAL");
   createArtifactTables(database);
@@ -51,7 +50,6 @@ async function fixture(database: Database): Promise<void> {
     VALUES ('discussion_retained', 'review_retained', 'files', 'human', 'Keep the thread', 'artifact', ?, ?, ?)`)
     .run(JSON.stringify({ source: { file: "unknown.md" } }), time, time);
 }
-
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-migration-"));
   db = new Database(join(root, "store.sqlite"));
@@ -65,7 +63,6 @@ afterEach(async () => {
 function options(name = "backup.sqlite") {
   return { backupPath: join(root, name), clock: () => time };
 }
-
 describe("atomic artifact schema upgrades", () => {
   test("version 11 retains evidence but retires subscriptions without an authorizing principal", async () => {
     db.exec("ALTER TABLE worker_registrations DROP COLUMN principal; PRAGMA user_version = 11");
@@ -84,7 +81,6 @@ describe("atomic artifact schema upgrades", () => {
       body: "Keep the thread",
     });
   });
-
   test("version 5 adds discussions revisions while preserving exact delivery history", async () => {
     db.exec(
       "UPDATE discussions SET ever_delivered = 0; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 5",
@@ -97,7 +93,6 @@ describe("atomic artifact schema upgrades", () => {
       { discussion_revision: 0 },
     ]);
   });
-
   test("version 4 preserves possible delivery history without inventing a delivery timestamp", async () => {
     db.exec(
       "ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 4",
@@ -117,7 +112,7 @@ describe("atomic artifact schema upgrades", () => {
     const conversations = new ArtifactConversations(db, store, () => time);
     conversations.edit("discussion_retained", { actor: human, body: "Changed after upgrade" });
     conversations.edit("discussion_retained", { actor: human, status: "resolved" });
-    expect(conversations.get("discussion_retained").sentAt).toBeNull();
+    expect(conversations.get("discussion_retained").comments[0]!.sentAt).toBeNull();
     expect(conversations.unsent("review_retained").map((note) => note.id)).toEqual([
       "discussion_retained",
     ]);
@@ -143,7 +138,6 @@ describe("atomic artifact schema upgrades", () => {
       backup.close();
     }
   });
-
   test("version 2 gains remote identities without changing project or artifact membership", async () => {
     const before = db.query("SELECT id, project_id FROM artifacts ORDER BY id").all();
     const projects = db.query("SELECT * FROM projects ORDER BY id").all();
@@ -159,7 +153,6 @@ describe("atomic artifact schema upgrades", () => {
       user_version: ARTIFACT_SCHEMA_VERSION,
     });
   });
-
   test("upgrades artifact overviews into retained evidence with a private backup", async () => {
     db.exec(
       "ALTER TABLE artifacts ADD COLUMN summary TEXT; ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 1",
@@ -191,7 +184,6 @@ describe("atomic artifact schema upgrades", () => {
     expect((await upgradeArtifactStore(db, options("unused.sqlite"))).migrated).toBe(false);
   });
 });
-
 test("version 7 gains an empty derived search index without changing publications or discussions", async () => {
   const before = db.query("SELECT * FROM artifact_versions").all();
   const discussions = db.query("SELECT * FROM discussions").all();
@@ -210,7 +202,6 @@ test("version 7 gains an empty derived search index without changing publication
     backup.close();
   }
 });
-
 test("upgrades preserve imported evidence and login state across reopen", async () => {
   const auth = new AuthService(db, () => time);
   const token = auth.createLoginToken("Upgrade test");
@@ -222,7 +213,7 @@ test("upgrades preserve imported evidence and login state across reopen", async 
   const store = new ArtifactStore(db, blobs, render, () => time);
   const conversations = new ArtifactConversations(db, store, () => time);
   expect(store.get("review_retained").legacy).toEqual({ source: { kind: "files" } });
-  expect(conversations.get("discussion_retained").legacy).toEqual({
+  expect(conversations.get("discussion_retained").comments[0]!.legacy).toEqual({
     source: { file: "unknown.md" },
   });
   expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
@@ -231,7 +222,6 @@ test("upgrades preserve imported evidence and login state across reopen", async 
     tokenId: token.info.id,
   });
 });
-
 test("failed upgrades roll back schema changes and preserve the private backup", async () => {
   db.exec("ALTER TABLE artifacts ADD COLUMN summary TEXT; PRAGMA user_version = 1");
   // An inconsistent old schema forces a failure after the overview column is removed.
@@ -246,7 +236,6 @@ test("failed upgrades roll back schema changes and preserve the private backup",
   await expect(upgradeArtifactStore(db, options())).rejects.toThrow();
   expect((await upgradeArtifactStore(db, options("retry.sqlite"))).migrated).toBe(true);
 });
-
 test("unrecognized and newer schemas are rejected before creating a backup", async () => {
   db.exec("PRAGMA user_version = 0");
   await expect(upgradeArtifactStore(db, options())).rejects.toThrow("Unrecognized store schema");

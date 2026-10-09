@@ -50,9 +50,9 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
     }));
     const discussions = new ArtifactConversations(db, store);
     const note = discussions.get("feedback_kept");
-    expect(note.body).toBe("Original feedback and replies are evidence");
-    expect(note.sentAt).toBe(time);
-    expect(note.comments[0]).toMatchObject({
+    expect(note.comments[0]!.body).toBe("Original feedback and replies are evidence");
+    expect(note.comments[0]!.sentAt).toBe(time);
+    expect(note.comments.slice(1)[0]).toMatchObject({
       id: "reply_kept",
       discussionId: "feedback_kept",
       sentAt: null,
@@ -63,7 +63,7 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
       actor: { role: "human", sessionId: null },
       body: "After upgrade",
     });
-    expect(discussions.get(note.id).comments).toHaveLength(2);
+    expect(discussions.get(note.id).comments.slice(1)).toHaveLength(2);
   } finally {
     db.close();
     await rm(root, { recursive: true, force: true });

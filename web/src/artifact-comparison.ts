@@ -4,30 +4,25 @@ import type {
   ArtifactTarget,
   RenderedLocator,
 } from "../../shared/artifacts.ts";
-
 export type ElementComparisonTarget = {
   kind: "rendered";
   versionSeq: number;
   path: string;
   locator: RenderedLocator;
 };
-
 export type ComparisonTarget = ElementComparisonTarget | ArtifactMediaTarget;
-
 export interface ArtifactComparison {
   discussionId: string;
   commentId: string;
   original: ComparisonTarget;
   proposed: ComparisonTarget;
 }
-
 function elementTarget(target: ArtifactTarget | null): target is ComparisonTarget {
   return (
     (target?.kind === "rendered" && !!target.locator?.selector.trim()) ||
     (target?.kind === "media" && !!target.locator.frame)
   );
 }
-
 // Eligibility uses recorded native evidence, never comment context, placements, or
 // the latest publication. Runtime availability is checked by each scoped preview.
 export function artifactComparisons(detail: ArtifactDetail): Map<string, ArtifactComparison> {
@@ -36,7 +31,7 @@ export function artifactComparisons(detail: ArtifactDetail): Map<string, Artifac
   for (const discussions of detail.discussions) {
     const original = discussions.target;
     if (!elementTarget(original) || !versions.has(original.versionSeq)) continue;
-    for (const comment of discussions.comments) {
+    for (const comment of discussions.comments.slice(1)) {
       const proposed = comment.target;
       if (
         comment.author.role !== "agent" ||

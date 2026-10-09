@@ -9,6 +9,12 @@ browser, and static demo use the same artifact protocol.
 
 The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Discussion owns open/resolved status; Comment is a message with no status.
 
+The public Discussion has one ordered `comments` list, starting with its opening
+Comment. Authorship, body, images, and delivery belong to each Comment. The opening
+Comment has its own stable ID and uses the same read/edit endpoint as later
+Comments. Storage keeps its fields beside Discussion state so existing evidence
+and delivery revisions retain their atomic boundary; that layout is private.
+
 ## Relationships
 
 ```mermaid
@@ -462,9 +468,16 @@ See [remote protocol](remote-protocol.md) for authentication and recovery semant
 
 ## Durable worker subscriptions
 
-Schema version 13 adds the authorizing credential principal to worker registrations.
+Schema version 12 adds the authorizing credential principal to worker registrations.
 A transport disconnect preserves the subscription; only replacement, unlisten,
 archive, or deletion retires it. The server reconstructs retained selection after
 restart, and the same worker/principal can attach a new connection. Old records
 without a saved principal are retired rather than assigned guessed authority;
 artifacts, conversation evidence, and credentials remain unchanged.
+
+## Discussion and Comment names
+
+Schema version 13 renames the former conversation tables and reference columns.
+It preserves opaque IDs, native targets, message bytes, delivery stamps, operation
+hashes, and activity history. Derived search indexes are rebuilt. The public
+contract is `artifacts-v2`; clients and servers upgrade together.

@@ -44,7 +44,6 @@ const publish = (id: string, text: string, expectedSeq = 0, extra = {}) =>
     },
     ...extra,
   });
-
 test("latest search, history, summaries and source locations use actual published membership", async () => {
   const artifact = create();
   await publish(artifact.id, "# Notes\nKeyboard focus used to disappear\n", 0, {
@@ -68,7 +67,6 @@ test("latest search, history, summaries and source locations use actual publishe
   storage = await openArtifactStorage(settings());
   expect((await search("keyboard", { history: "all" })).total).toBe(2);
 });
-
 test("conversation edits, comments, resolution, archive and deletion reconcile without delivery changes", async () => {
   const artifact = create();
   await publish(artifact.id, "Original document");
@@ -91,7 +89,7 @@ test("conversation edits, comments, resolution, archive and deletion reconcile w
     commentId: comment.id,
     discussionId: discussions.id,
   });
-  expect(storage.conversations.get(discussions.id).sentAt).toBeNull();
+  expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).toBeNull();
   await storage.conversations.editComment(comment.id, { actor: agent, body: "Pointer fix ready" });
   await storage.conversations.edit(discussions.id, {
     actor: human,
@@ -119,7 +117,6 @@ test("conversation edits, comments, resolution, archive and deletion reconcile w
   storage.artifacts.delete(artifact.id);
   expect((await search("document", { history: "all" })).total).toBe(0);
 });
-
 test("HTML indexes passive text with entities, excludes scripts and companions, and returns rendered evidence", async () => {
   const artifact = create("html");
   const files = [
@@ -155,7 +152,6 @@ test("HTML indexes passive text with entities, excludes scripts and companions, 
   ])
     expect((await search(q)).total).toBe(0);
 });
-
 test("sparse diff search retains old/new coordinates and never joins missing context", async () => {
   const artifact = create("diff");
   const patch =
@@ -177,7 +173,6 @@ test("sparse diff search retains old/new coordinates and never joins missing con
   });
   expect((await search("keyboard marker")).total).toBe(0);
 });
-
 test("project/kind filters, pagination, literal FTS operators and stale metadata", async () => {
   const project = storage.artifacts.createProject({ name: "Keyboard project" });
   for (let i = 0; i < 3; i++) {
@@ -200,7 +195,6 @@ test("project/kind filters, pagination, literal FTS operators and stale metadata
   expect(() => parseArtifactSearch(new URLSearchParams({ q: "x", limit: "5000" }))).toThrow();
   expect(() => parseArtifactSearch(new URLSearchParams({ q: "x", history: "invalid" }))).toThrow();
 });
-
 test("publication and deletion during indexing cannot leave a stale latest search snapshot", async () => {
   const artifact = create();
   await publish(artifact.id, "Previous publication");
@@ -226,7 +220,6 @@ test("publication and deletion during indexing cannot leave a stale latest searc
   };
   expect((await search("deleted")).total).toBe(0);
 });
-
 test("binary, oversized and invalid UTF-8 bytes are excluded explicitly", async () => {
   const artifact = create();
   await publish(artifact.id, "", 0, {

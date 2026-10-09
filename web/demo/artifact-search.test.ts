@@ -12,14 +12,14 @@ test("demo search uses immutable publications and current conversations", () => 
   };
   const artifact = state.artifacts[0];
   const discussions = artifact.discussions[0];
-  discussions.body = "Distinctive search wording";
+  discussions.comments[0]!.body = "Distinctive search wording";
   const found = searchDemoArtifacts(state, { q: "Distinctive", type: "conversation" });
   expect(found.matches).toHaveLength(1);
   expect(found.matches[0].discussionId).toBe(discussions.id);
   expect(found.matches[0].versionSeq).toBe(
     "versionSeq" in discussions.target ? discussions.target.versionSeq : null,
   );
-  discussions.body = "Changed after review";
+  discussions.comments[0]!.body = "Changed after review";
   expect(searchDemoArtifacts(state, { q: "Distinctive" }).total).toBe(0);
   const title = searchDemoArtifacts(state, { q: artifact.title! });
   expect(

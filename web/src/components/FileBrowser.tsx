@@ -175,11 +175,13 @@ export const FileBrowser = memo(function FileBrowser({
   viewed,
   activePath,
   onSelect,
+  defaultCollapsed = false,
 }: {
   files: string[];
   viewed: Set<string>;
   activePath: string | null;
   onSelect: (path: string) => void;
+  defaultCollapsed?: boolean;
 }) {
   const fontSize = useFontSize();
   const resize = useResizableWidth("r3-filebrowser-width", {
@@ -188,9 +190,12 @@ export const FileBrowser = memo(function FileBrowser({
     initial: 14 * fontSize,
     grow: "right",
   });
-  const [collapsed, setCollapsed] = useState(
+  const [savedCollapsed] = useState(
     () => readDisplayPreference("r3-filebrowser-collapsed") === "1",
   );
+  // The file count arrives after mount. Apply its default until the reader toggles.
+  const [collapsedOverride, setCollapsed] = useState<boolean | null>(null);
+  const collapsed = collapsedOverride ?? (defaultCollapsed || savedCollapsed);
   const setCollapsedPersist = (v: boolean) => {
     writeDisplayPreference("r3-filebrowser-collapsed", v ? "1" : "0");
     setCollapsed(v);

@@ -4,6 +4,7 @@ import type {
   ArtifactDiscussion,
   ArtifactTarget,
 } from "../../../shared/artifacts.ts";
+import { artifactReferenceContext } from "../../../shared/artifacts.ts";
 import { demo, human } from "../../demo/artifact-backend.ts";
 import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
@@ -25,7 +26,6 @@ const examples = [
   ["agent", "Agent-created discussions", filesId],
 ] as const;
 const discussionId = (key: string) => `discussion_gallery_${key}`;
-
 // Synthetic conversations use separate demo artifacts so trying their actions
 // does not change the main panel sample or its file/diff examples.
 export function seedDiscussionCardGallery() {
@@ -65,17 +65,26 @@ export function seedDiscussionCardGallery() {
     const note: ArtifactDiscussion = {
       id: discussionId(key),
       artifactId,
-      author: human,
-      body,
       status: "open",
       target,
-      legacy: null,
       createdAt: time,
       updatedAt: time,
-      sentAt: time,
       statusUnsent: false,
-      comments: [],
       claim: null,
+      comments: [
+        {
+          id: discussionId(key),
+          discussionId: discussionId(key),
+          artifactId: artifactId,
+          createdAt: time,
+          context: artifactReferenceContext(target),
+          target: null,
+          author: human,
+          body: body,
+          sentAt: time,
+          legacy: null,
+        },
+      ],
     };
     demo.get(artifactId).discussions.push(note);
     return note;
@@ -87,7 +96,7 @@ export function seedDiscussionCardGallery() {
     seq = 1,
   ) => {
     const message: ArtifactComment = {
-      id: `${note.id}_comment_${note.comments.length + 1}`,
+      id: `${note.id}_comment_${note.comments.slice(1).length + 1}`,
       discussionId: note.id,
       artifactId: note.artifactId,
       author: role === "human" ? human : agent,
@@ -101,8 +110,7 @@ export function seedDiscussionCardGallery() {
     note.comments.push(message);
     return message;
   };
-
-  add("new", "Could we make the selected version easier to spot?").sentAt = null;
+  add("new", "Could we make the selected version easier to spot?").comments[0]!.sentAt = null;
   add(
     "sent",
     "Keep the version I am reading selected when a new publication arrives. **My draft should stay where I started it**, too.",
@@ -114,7 +122,7 @@ export function seedDiscussionCardGallery() {
     sessionId: agent.sessionId,
     claimedAt: time,
     renewedAt: time,
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    expiresAt: new Date(Date.now() + 3600000).toISOString(),
   };
   const attention = add("attention", "What happens to comments when we publish an update?", {
     kind: "source",
@@ -177,11 +185,10 @@ export function seedDiscussionCardGallery() {
     versionSeq: 1,
     path: "index.md",
     locator: null,
-  }).author = agent;
+  }).comments[0]!.author = agent;
   demo.changed(filesId);
   demo.changed(diffId);
 }
-
 function CardExample({
   example: [key, label, artifactId],
   announce,
@@ -218,7 +225,6 @@ function CardExample({
     </section>
   );
 }
-
 export function DiscussionCardGallery({ announce }: { announce: (message: string) => void }) {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-2">

@@ -153,7 +153,7 @@ try {
   ];
   for (const scenario of scenarios) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    page.setDefaultTimeout(10_000);
+    page.setDefaultTimeout(10000);
     await page.addInitScript(
       (layout: string) => localStorage.setItem("r3-diff-layout", layout),
       scenario.layout ?? "unified",
@@ -266,7 +266,7 @@ try {
     assert.equal(read.status, 200);
     const fullRange = await read.json();
     assert.equal(fullRange.text, source.slice(start - 1, end).join("\n"));
-    assert.equal(storage.conversations.get(note.id).sentAt, null);
+    assert.equal(storage.conversations.get(note.id).comments[0]!.sentAt, null);
     await page.close();
   }
   console.log(

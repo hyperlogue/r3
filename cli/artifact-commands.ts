@@ -27,7 +27,6 @@ import { publishArtifactCommand } from "./artifact-publish.ts";
 import { runUsageCommand } from "./artifact-usage.ts";
 import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attachment-files.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
-
 export interface ArtifactCommandContext {
   registerListener?: (actor: ArtifactActor) => Promise<boolean>;
   client: ArtifactClient;
@@ -44,14 +43,12 @@ export interface ArtifactCommandContext {
     quiet?: boolean,
   ) => Promise<number>;
 }
-
 function representation(args: ArtifactArgs): Representation {
   const view = args.require("view");
   if (view !== "source" && view !== "rendered" && view !== "diff" && view !== "media")
     throw new ArtifactCommandError("--view must be source, rendered, diff, or media");
   return view;
 }
-
 export function commandTarget(args: ArtifactArgs): ArtifactTarget {
   if (args.has("target")) {
     try {
@@ -109,7 +106,6 @@ export function commandTarget(args: ArtifactArgs): ArtifactTarget {
   if (side !== "old" && side !== "new") throw new ArtifactCommandError("--side must be old or new");
   return { kind, path, versionSeq, locator: { ...locator, side } };
 }
-
 export async function runArtifactCommand(
   command: string,
   argv: string[],
@@ -332,11 +328,11 @@ export async function runArtifactCommand(
           );
         for (const discussions of artifact.discussions) {
           await print(
-            `\n${discussions.id} [${discussions.status}] ${artifactDiscussionTargetLabel(discussions)}${discussions.claim ? ` · working: ${discussions.claim.sessionId}` : ""}\n[${discussions.author.role}${discussions.author.sessionId ? ` ${discussions.author.sessionId}` : ""}] ${discussions.body}\nTarget: ${JSON.stringify(discussions.target)}${discussions.legacy ? `\nImported evidence: ${JSON.stringify(discussions.legacy)}` : ""}`,
+            `\n${discussions.id} [${discussions.status}] ${artifactDiscussionTargetLabel(discussions)}${discussions.claim ? ` · working: ${discussions.claim.sessionId}` : ""}\n[${discussions.comments[0]!.author.role}${discussions.comments[0]!.author.sessionId ? ` ${discussions.comments[0]!.author.sessionId}` : ""}] ${discussions.comments[0]!.body}\nTarget: ${JSON.stringify(discussions.target)}${discussions.comments[0]!.legacy ? `\nImported evidence: ${JSON.stringify(discussions.comments[0]!.legacy)}` : ""}`,
           );
-          if (discussions.attachments?.length)
-            await print(attachmentPrompt(discussions.attachments));
-          for (const comment of discussions.comments) {
+          if (discussions.comments[0]!.attachments?.length)
+            await print(attachmentPrompt(discussions.comments[0]!.attachments));
+          for (const comment of discussions.comments.slice(1)) {
             if (comment.attachments?.length) await print(attachmentPrompt(comment.attachments));
             await print(
               `  ${comment.id} [${comment.author.role}${comment.author.sessionId ? ` ${comment.author.sessionId}` : ""}] ${comment.body}\n  Context: ${JSON.stringify(comment.context)}${comment.target ? `; fix: ${JSON.stringify(comment.target)}` : ""}`,
@@ -545,7 +541,7 @@ export async function runArtifactCommand(
         try {
           result = await client.json("POST", `${artifactApiPath(args.id())}/watch`, {
             actor: author,
-            timeoutMs: Math.max(1, Math.min(55_000, remaining)),
+            timeoutMs: Math.max(1, Math.min(55000, remaining)),
           });
         } catch (error) {
           if (error instanceof ArtifactApiError && error.status === 409) return 4;

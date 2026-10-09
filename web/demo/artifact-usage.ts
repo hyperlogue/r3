@@ -9,11 +9,14 @@ import {
   usagePeriods,
 } from "../../shared/artifact-usage.ts";
 import type { ArtifactDemoState } from "./artifact-model.ts";
-
 export interface DemoActivity {
   completeSince: string;
   liveKeys: string[];
-  counts: { time: string; metric: ActivityMetric; count: number }[];
+  counts: {
+    time: string;
+    metric: ActivityMetric;
+    count: number;
+  }[];
 }
 export function syncDemoActivity(state: ArtifactDemoState): void {
   state.activity ??= {
@@ -37,7 +40,8 @@ export function syncDemoActivity(state: ArtifactDemoState): void {
       add(`${artifact.id}/${version.seq}`, version.publishedAt, "versionsPublished");
     for (const note of artifact.discussions) {
       add(note.id, note.createdAt, "threadsAdded");
-      for (const comment of note.comments) add(comment.id, comment.createdAt, "commentsAdded");
+      for (const comment of note.comments.slice(1))
+        add(comment.id, comment.createdAt, "commentsAdded");
     }
     for (const event of artifact.events) add(event.id, event.createdAt, event.event);
   }
@@ -62,7 +66,7 @@ function content(state: ArtifactDemoState, ids?: Set<string>): number {
       for (const [hash, size] of Object.entries(publication.storageBlobs)) add(hash, size);
     }
     for (const note of artifact.discussions)
-      for (const message of [note, ...note.comments])
+      for (const message of note.comments)
         for (const image of message.attachments ?? []) add(image.hash, image.byteLength);
   }
   return (
@@ -137,7 +141,7 @@ export function demoUsage(
     conversations: {
       open: notes.filter((n) => n.status === "open").length,
       resolved: notes.filter((n) => n.status === "resolved").length,
-      comments: notes.reduce((total, note) => total + note.comments.length, 0),
+      comments: notes.reduce((total, note) => total + note.comments.slice(1).length, 0),
     },
     contentBytes: content(state),
     gc: {

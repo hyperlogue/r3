@@ -92,7 +92,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET/PUT /api/artifacts/:id/viewed` persists opaque read-progress keys with
   `{ key, viewed }`. Theme and login-token endpoints retain their response shapes.
 - `GET/POST /api/artifacts/:id/discussions`, `GET/PATCH/DELETE /api/discussions/:id`,
-  `POST /api/discussions/:id/comments`, `PATCH /api/comments/:id`, and
+  `POST /api/discussions/:id/comments`, `GET/PATCH /api/comments/:id`, and
   `PUT /api/discussions/:id/placements` use native immutable original targets,
   derived comment references, and separate placements. Every message mutation names
   an `actor`; deletion takes `{ actor }`. Only human actors change discussions status.

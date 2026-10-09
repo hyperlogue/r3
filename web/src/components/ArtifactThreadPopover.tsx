@@ -3,7 +3,7 @@ import type {
   ArtifactDetail,
   ArtifactDiscussion,
   ArtifactKind,
-  ArtifactMessageContext,
+  ArtifactReferenceContext,
 } from "../../../shared/artifacts.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { suspendKeys } from "../keys.ts";
@@ -31,7 +31,7 @@ export function ArtifactThreadPopover({
 }: {
   discussions: ArtifactDiscussion;
   agentLabels?: ArtifactDetail["agentLabels"];
-  context: ArtifactMessageContext;
+  context: ArtifactReferenceContext;
   artifactKind: ArtifactKind;
   latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;

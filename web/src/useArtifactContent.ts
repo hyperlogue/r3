@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import type {
   ArtifactDetail,
   ArtifactFile,
-  ArtifactMessageContext,
+  ArtifactReferenceContext,
 } from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
 import { useArtifactViewed } from "./artifact-hooks.ts";
@@ -66,7 +66,7 @@ export function useArtifactContent(
     detail.kind === "files" && !view.path
       ? defaultFileRepresentation(path ?? "")
       : view.representation;
-  const context = useMemo<ArtifactMessageContext>(
+  const context = useMemo<ArtifactReferenceContext>(
     () =>
       version
         ? { versionSeq: version.seq, representation }

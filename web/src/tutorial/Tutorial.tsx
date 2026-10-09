@@ -60,7 +60,6 @@ r3 comment <discussion_id> --version 2 --view rendered -m "Updated the reading e
 \`\`\`
 
 Inspect the original target in its explicit version and representation. Each agent uses a distinct logical session. A successful comment releases its claim; the human controls resolution. Use \`r3 guide\` for the complete contract.`;
-
 export function resetPractice() {
   demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const detail of demo.state.artifacts) {
@@ -73,7 +72,6 @@ export function resetPractice() {
   setDiscussionMode("expanded");
   navigate("/");
 }
-
 export function TutorialGuide({
   step,
   done,
@@ -104,11 +102,9 @@ export function TutorialGuide({
     </nav>
   );
 }
-
 const renderDocument: ArtifactRenderer = (props) => (
   <TutorialDocument key={`${props.version.seq}:${props.path}`} {...props} />
 );
-
 function Practice({
   id,
   onVersion,
@@ -137,7 +133,6 @@ function Practice({
     <p className="p-6">Loading…</p>
   );
 }
-
 export function Tutorial() {
   useArtifactEvents();
   const client = useQueryClient();
@@ -154,7 +149,7 @@ export function Tutorial() {
     queryFn: () => artifactApi.detail(primary),
   });
   const note = query.data?.discussions.find(
-    (note) => note.author.role === "human" && note.target.kind === "rendered",
+    (note) => note.comments[0]!.author.role === "human" && note.target.kind === "rendered",
   );
   const done = [
     published,

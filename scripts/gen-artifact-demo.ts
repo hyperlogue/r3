@@ -15,13 +15,19 @@ import {
   type ArtifactDocumentTarget,
   type ArtifactKind,
   type ArtifactVersion,
+  artifactReferenceContext,
   isUnhandledArtifactDiscussion,
 } from "../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../web/demo/artifact-model.ts";
 import { demoStorageUsage, publicationKey } from "../web/demo/artifact-model.ts";
 
-const previews: Record<string, { contentHash: string; documents: Record<string, string> }> = {};
-
+const previews: Record<
+  string,
+  {
+    contentHash: string;
+    documents: Record<string, string>;
+  }
+> = {};
 const time = "2026-09-11T12:00:00.000Z";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
 const human = { role: "human" as const, sessionId: null };
@@ -221,13 +227,6 @@ for (const [item, content] of [
     {
       id: `discussion_${item.id}`,
       artifactId: item.id,
-      author: actor,
-      body:
-        item.kind === "html"
-          ? "Try the parameter sliders and compare the residual error. Can the approximation capture the small ripple? Send a note to see a closer starting fit in version 2."
-          : item.kind === "files"
-            ? "Start with the version behavior in index.md. Select any line to ask a question or request a change."
-            : "Does choosing the newest publication here preserve the reader’s selected version?",
       status: "open",
       target:
         item.kind === "html"
@@ -258,13 +257,58 @@ for (const [item, content] of [
                 path: "navigation.ts",
                 locator: { side: "new", start: 4, end: 4, quote: "  return latest;" },
               },
-      legacy: null,
       createdAt: time,
       updatedAt: time,
-      sentAt: time,
       statusUnsent: false,
-      comments: [],
       claim: null,
+      comments: [
+        {
+          id: `discussion_${item.id}`,
+          discussionId: `discussion_${item.id}`,
+          artifactId: item.id,
+          createdAt: time,
+          context: artifactReferenceContext(
+            item.kind === "html"
+              ? {
+                  kind: "rendered",
+                  versionSeq: 1,
+                  path: "index.html",
+                  locator: {
+                    selector: "#model-note",
+                    quote: "Can this model capture every ripple?",
+                    route: "#",
+                  },
+                }
+              : item.kind === "files"
+                ? {
+                    kind: "source",
+                    versionSeq: 1,
+                    path: "index.md",
+                    locator: {
+                      start: 8,
+                      end: 8,
+                      quote: "The user can switch between published versions.",
+                    },
+                  }
+                : {
+                    kind: "diff",
+                    versionSeq: 1,
+                    path: "navigation.ts",
+                    locator: { side: "new", start: 4, end: 4, quote: "  return latest;" },
+                  },
+          ),
+          target: null,
+          author: actor,
+          body:
+            item.kind === "html"
+              ? "Try the parameter sliders and compare the residual error. Can the approximation capture the small ripple? Send a note to see a closer starting fit in version 2."
+              : item.kind === "files"
+                ? "Start with the version behavior in index.md. Select any line to ask a question or request a change."
+                : "Does choosing the newest publication here preserve the reader’s selected version?",
+          sentAt: time,
+          legacy: null,
+        },
+      ],
     },
   ];
 }
@@ -277,38 +321,47 @@ function seedThread(
 ) {
   const id = `discussion_${item.id}_${key}`;
   const stamp = (index: number) =>
-    new Date(Date.parse(time) + (item.discussions.length * 5 + index) * 60_000).toISOString();
+    new Date(Date.parse(time) + (item.discussions.length * 5 + index) * 60000).toISOString();
   const [author, body] = messages[0];
   const updatedAt = stamp(messages.length - 1);
   item.discussions.push({
     id,
     artifactId: item.id,
-    author,
-    body,
     target,
     status,
-    legacy: null,
     createdAt: stamp(0),
     updatedAt,
-    sentAt: stamp(0),
     statusUnsent: false,
     claim: null,
-    comments: messages.slice(1).map(([author, body], index) => ({
-      id: `comment_${item.id}_${key}_${index + 1}`,
-      discussionId: id,
-      artifactId: item.id,
-      author,
-      body,
-      context: { versionSeq: target.versionSeq, representation: target.kind },
-      target: null,
-      legacy: null,
-      createdAt: stamp(index + 1),
-      sentAt: stamp(index + 1),
-    })),
+    comments: [
+      {
+        id: id,
+        discussionId: id,
+        artifactId: item.id,
+        createdAt: stamp(0),
+        context: artifactReferenceContext(target),
+        target: null,
+        author: author,
+        body: body,
+        sentAt: stamp(0),
+        legacy: null,
+      },
+      ...messages.slice(1).map(([author, body], index) => ({
+        id: `comment_${item.id}_${key}_${index + 1}`,
+        discussionId: id,
+        artifactId: item.id,
+        author,
+        body,
+        context: { versionSeq: target.versionSeq, representation: target.kind },
+        target: null,
+        legacy: null,
+        createdAt: stamp(index + 1),
+        sentAt: stamp(index + 1),
+      })),
+    ],
   });
   item.updatedAt = updatedAt;
 }
-
 seedThread(
   html,
   "residual_scale",

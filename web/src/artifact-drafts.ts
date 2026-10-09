@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { ArtifactMessageContext, ArtifactTarget } from "../../shared/artifacts.ts";
+import type { ArtifactReferenceContext, ArtifactTarget } from "../../shared/artifacts.ts";
 import { hasMessageContent } from "../../shared/attachments.ts";
 import { type DraftAttachment, draftImages } from "./attachment-drafts.ts";
 
@@ -9,7 +9,7 @@ export interface ArtifactDraft {
   operationKey?: string;
   body: string;
   target: ArtifactTarget;
-  context: ArtifactMessageContext;
+  context: ArtifactReferenceContext;
   imported?: boolean;
 }
 interface Drafts {
@@ -194,7 +194,7 @@ export class ArtifactDraftStore {
     this.update(id, { target, imported: false, mediaSnapshot: undefined });
     return true;
   }
-  beginComment(id: string, commentTo: string, context: ArtifactMessageContext): void {
+  beginComment(id: string, commentTo: string, context: ArtifactReferenceContext): void {
     if (hasMessageContent(this.get(id, commentTo))) return;
     this.update(id, { context }, commentTo);
   }

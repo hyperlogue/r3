@@ -9,7 +9,7 @@ import { artifactFixture, artifactFixtureDiscussion } from "./artifact-fixtures.
 
 test("a saved comment preserves concurrent thread changes and newer comments", () => {
   const comment: ArtifactComment = {
-    ...artifactFixtureDiscussion.comments[0],
+    ...artifactFixtureDiscussion.comments.slice(1)[0],
     id: "comment_human",
     author: { role: "human", sessionId: null },
     body: "My comment.",
@@ -17,56 +17,76 @@ test("a saved comment preserves concurrent thread changes and newer comments", (
     sentAt: null,
   };
   const updated = withSavedComment(artifactFixture, comment);
-  expect(updated.discussions[0].comments.at(-1)).toEqual(comment);
+  expect(updated.discussions[0].comments.slice(1).at(-1)).toEqual(comment);
   expect(updated.unhandledCount).toBe(0);
-  expect(artifactFixture.discussions[0].comments).toHaveLength(1);
-
+  expect(artifactFixture.discussions[0].comments.slice(1)).toHaveLength(1);
   const other = { ...artifactFixtureDiscussion, id: "discussion_other" };
   const newer = {
     ...artifactFixtureDiscussion,
-    body: "A concurrent edit.",
     comments: [
-      ...artifactFixtureDiscussion.comments,
       {
-        ...artifactFixtureDiscussion.comments[0],
+        ...artifactFixtureDiscussion.comments[0]!,
+        body: "A concurrent edit.",
+      },
+      ...artifactFixtureDiscussion.comments.slice(1),
+      {
+        ...artifactFixtureDiscussion.comments.slice(1)[0],
         id: "comment_newer",
         createdAt: "2026-09-13T00:00:00.000Z",
       },
     ],
   };
   const concurrent = withSavedComment({ ...artifactFixture, discussions: [newer, other] }, comment);
-  expect(concurrent.discussions[0].body).toBe("A concurrent edit.");
-  expect(concurrent.discussions[0].comments.map((item) => item.id)).toEqual([
+  expect(concurrent.discussions[0].comments[0]!.body).toBe("A concurrent edit.");
+  expect(concurrent.discussions[0].comments.slice(1).map((item) => item.id)).toEqual([
     "comment_example",
     "comment_human",
     "comment_newer",
   ]);
   expect(concurrent.unhandledCount).toBe(2);
   expect(concurrent.discussions[1]).toBe(other);
-
   const delivered = { ...comment, body: "A newer edit.", sentAt: "2026-09-13T00:00:00.000Z" };
   const refreshed = {
     ...updated,
-    discussions: [{ ...updated.discussions[0], comments: [delivered] }],
+    discussions: [
+      {
+        ...updated.discussions[0],
+        comments: [
+          {
+            ...updated.discussions[0].comments[0]!,
+          },
+          delivered,
+        ],
+      },
+    ],
   };
   expect(withSavedComment(refreshed, comment)).toBe(refreshed);
   const deleted = { ...artifactFixture, discussions: [], unhandledCount: 0 };
   expect(withSavedComment(deleted, comment)).toBe(deleted);
 });
-
 test("new unsent notes lead the attention queue, followed by waiting and claimed work", () => {
   const base: ArtifactDiscussion = {
     ...artifactFixtureDiscussion,
-    author: { role: "human", sessionId: null },
-    comments: [],
     status: "open",
     claim: null,
+    comments: [
+      {
+        ...artifactFixtureDiscussion.comments[0]!,
+        author: { role: "human", sessionId: null },
+      },
+    ],
   };
   const waiting = { ...base, id: "waiting", createdAt: "2026-09-12T00:00:00.000Z" };
   const attention: ArtifactDiscussion = {
     ...base,
     id: "attention",
-    author: { role: "agent", sessionId: "agent-example" },
+    comments: [
+      {
+        ...base.comments[0]!,
+        author: { role: "agent", sessionId: "agent-example" },
+      },
+      ...base.comments.slice(1),
+    ],
   };
   const claimed = {
     ...attention,
@@ -80,7 +100,17 @@ test("new unsent notes lead the attention queue, followed by waiting and claimed
     },
   };
   const done: ArtifactDiscussion = { ...attention, id: "done", status: "resolved" };
-  const fresh = { ...waiting, id: "fresh", sentAt: null };
+  const fresh = {
+    ...waiting,
+    id: "fresh",
+    comments: [
+      {
+        ...waiting.comments[0]!,
+        sentAt: null,
+      },
+      ...waiting.comments.slice(1),
+    ],
+  };
   const working = { ...waiting, id: "working", claim: claimed.claim };
   expect(
     activeArtifactDiscussion([waiting, claimed, done, attention, fresh, working]).map(
@@ -91,12 +121,17 @@ test("new unsent notes lead the attention queue, followed by waiting and claimed
     artifactNeedsAttention({
       ...attention,
       comments: [
-        { ...artifactFixtureDiscussion.comments[0], author: { role: "human", sessionId: null } },
+        {
+          ...attention.comments[0]!,
+        },
+        {
+          ...artifactFixtureDiscussion.comments.slice(1)[0],
+          author: { role: "human", sessionId: null },
+        },
       ],
     }),
   ).toBe(false);
 });
-
 test("a human comment moves a handled thread behind the next thread needing attention", () => {
   const older = { ...artifactFixtureDiscussion, id: "older" };
   const newer = {
@@ -111,9 +146,12 @@ test("a human comment moves a handled thread behind the next thread needing atte
   const handled: ArtifactDiscussion = {
     ...newer,
     comments: [
-      ...newer.comments,
       {
-        ...newer.comments[0],
+        ...newer.comments[0]!,
+      },
+      ...newer.comments.slice(1),
+      {
+        ...newer.comments.slice(1)[0],
         id: "human-followup",
         author: { role: "human", sessionId: null },
         sentAt: null,
@@ -125,13 +163,21 @@ test("a human comment moves a handled thread behind the next thread needing atte
     "newer",
   ]);
   // A later agent response needs attention again, regardless of its delivery stamp.
-  const answered = { ...handled, comments: [...handled.comments, newer.comments[0]] };
+  const answered = {
+    ...handled,
+    comments: [
+      {
+        ...handled.comments[0]!,
+      },
+      ...handled.comments.slice(1),
+      newer.comments.slice(1)[0],
+    ],
+  };
   expect(activeArtifactDiscussion([older, answered]).map((note) => note.id)).toEqual([
     "newer",
     "older",
   ]);
 });
-
 test("equal timestamps retain reverse publication order without mutating the input", () => {
   const notes = ["z", "a", "b"].map((id) => ({ ...artifactFixtureDiscussion, id }));
   expect(activeArtifactDiscussion(notes).map((note) => note.id)).toEqual(["b", "a", "z"]);

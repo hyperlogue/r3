@@ -219,7 +219,7 @@ try {
     [2],
   );
   assert.equal(imported.discussions[0].comments[0].id, retainedComment.id);
-  assert.equal(imported.discussions[0].sentAt, null);
+  assert.equal(imported.discussions[0].comments[0].sentAt, null);
   const backups = await readdir(`${environment.R3_DB}.artifacts/backups`);
   assert.equal(backups.length, 1);
   const backup = new Database(join(`${environment.R3_DB}.artifacts/backups`, backups[0]), {
@@ -257,7 +257,7 @@ try {
   );
   const detail = JSON.parse(await command(["show", html.artifact.id, "--json"]));
   assert.equal(detail.discussions[0].id, noteId);
-  assert.equal(detail.discussions[0].author.role, "human");
+  assert.equal(detail.discussions[0].comments[0].author.role, "human");
   assert.equal(detail.discussions[0].target.versionSeq, 1);
   await writeFile(join(directory, "index.html"), "<!doctype html><h1>Second published page</h1>");
   // A remote publisher has its own discovery directories and explicit server

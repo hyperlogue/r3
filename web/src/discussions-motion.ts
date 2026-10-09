@@ -28,7 +28,7 @@ export function prepareDiscussionMorph(form: HTMLFormElement | null, discussionI
   const draft = form?.closest<HTMLElement>("[data-discussions-draft]");
   const list = draft?.parentElement;
   if (!draft || !list || !draft.offsetHeight || prefersReduced()) return;
-  draft.dataset.discussionPosted = discussionId;
+  draft.dataset.discussionsPosted = discussionId;
   discussionMorphs.set(discussionId, {
     list,
     top: draft.offsetTop,
@@ -83,7 +83,7 @@ export const discussionAnimation: AutoAnimationPlugin = (element, action, before
   if (action === "remove") {
     // The animation briefly retains removed DOM; its controls are no longer live.
     if (element instanceof HTMLElement) element.inert = true;
-    if (element instanceof HTMLElement && element.dataset.discussionPosted)
+    if (element instanceof HTMLElement && element.dataset.discussionsPosted)
       return new KeyframeEffect(element, [{ opacity: 1 }, { opacity: 0 }], {
         duration: reduce ? 0 : 180,
         easing: "ease-out",

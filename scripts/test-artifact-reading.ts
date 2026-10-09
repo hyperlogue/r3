@@ -256,7 +256,7 @@ try {
       assert(Number(contentWidth) > Number(expandedWidth), "expanded reserves content space");
       assert.equal(
         await page.evaluate(
-          "document.querySelector('[data-discussions-mode]').dataset.discussionMode",
+          "document.querySelector('[data-discussions-mode]').dataset.discussionsMode",
         ),
         "floating",
       );
@@ -350,7 +350,7 @@ try {
       await eventually(
         () =>
           page.evaluate(
-            "document.querySelector('[data-discussions-mode]')?.dataset.discussionMode === 'floating'",
+            "document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === 'floating'",
           ),
         "reopening restores floating mode",
       );
@@ -464,7 +464,7 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          `document.querySelector('[data-discussions-mode]')?.dataset.discussionMode === '${mode}'`,
+          `document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === '${mode}'`,
         ),
       `select ${mode} discussions`,
     );
@@ -476,7 +476,7 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          "document.querySelector('[data-discussions-mode]')?.dataset.discussionMode === 'hidden'",
+          "document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === 'hidden'",
         ),
       "hidden mode survives reload",
     );
@@ -510,7 +510,7 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          `document.querySelector('[data-discussions-mode]')?.dataset.discussionMode === '${mode}'`,
+          `document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === '${mode}'`,
         ),
       "the navbar button restores the remembered mode",
     );
@@ -520,7 +520,7 @@ try {
       await eventually(
         () =>
           page.evaluate(
-            `document.querySelector('[data-discussions-mode]')?.dataset.discussionMode === '${expected}'`,
+            `document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === '${expected}'`,
           ),
         "keyboard toggle respects the remembered mode",
       );
@@ -528,7 +528,7 @@ try {
     await pressKey("Escape", true);
     assert.equal(
       await page.evaluate(
-        "document.querySelector('[data-discussions-mode]').dataset.discussionMode",
+        "document.querySelector('[data-discussions-mode]').dataset.discussionsMode",
       ),
       mode,
       "held Escape does not hide discussions",
@@ -537,7 +537,7 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          "document.querySelector('[data-discussions-mode]').dataset.discussionMode === 'hidden'",
+          "document.querySelector('[data-discussions-mode]').dataset.discussionsMode === 'hidden'",
         ),
       "Escape hides discussions even with a toolbar button focused",
     );
@@ -557,7 +557,7 @@ try {
     await pressKey("p");
     await pressKey("Escape");
     assert(
-      await page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionMode === '${mode}' &&
+      await page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionsMode === '${mode}' &&
         !document.activeElement?.matches('textarea[aria-label=Discussion]')`),
       "typing suspends panel shortcuts and editor Escape only blurs the draft",
     );
@@ -565,7 +565,7 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          "document.querySelector('[data-discussions-mode]').dataset.discussionMode === 'hidden'",
+          "document.querySelector('[data-discussions-mode]').dataset.discussionsMode === 'hidden'",
         ),
       "Escape hides discussions after the editor blurs",
     );
@@ -573,7 +573,7 @@ try {
     await pressKey("n");
     await eventually(
       () =>
-        page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionMode === '${mode}' &&
+        page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionsMode === '${mode}' &&
           document.activeElement?.matches('textarea[aria-label=Discussion]') &&
           document.activeElement.value === 'Keep this keyboard draft'`),
       "reopening restores the mode and retained draft",
@@ -586,7 +586,7 @@ try {
     );
     await pressKey("Escape");
     assert(
-      await page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionMode === '${mode}' &&
+      await page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionsMode === '${mode}' &&
         document.querySelector('[aria-label="Artifact details"]').hidden`),
       "Escape dismisses the open popup before the discussions panel",
     );

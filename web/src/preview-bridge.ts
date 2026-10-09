@@ -5,7 +5,6 @@ import { normalizeRenderedText } from "../../shared/rendered-text.ts";
 import type { artifactApi } from "./artifact-api.ts";
 import type { previewThemePreference } from "./preview-theme.ts";
 import type { AnchorRect } from "./selection.ts";
-
 export function previewLocator(value: unknown): RenderedLocator | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid rendered target");
@@ -18,7 +17,7 @@ export function previewLocator(value: unknown): RenderedLocator | null {
     return value;
   };
   const selector = text("selector", 4096, true)!;
-  const quote = text("quote", 16_384);
+  const quote = text("quote", 16384);
   const prefix = text("prefix", 512);
   const suffix = text("suffix", 512);
   const route = text("route", 2048);
@@ -36,7 +35,7 @@ export function previewLocator(value: unknown): RenderedLocator | null {
       !Number.isFinite(height) ||
       width <= 0 ||
       height <= 0 ||
-      width > 100_000 ||
+      width > 100000 ||
       height > MAX_RENDERED_HEIGHT
     )
       throw new Error("Invalid rendered viewport");
@@ -51,7 +50,6 @@ export function previewLocator(value: unknown): RenderedLocator | null {
     ...(viewport ? { viewport } : {}),
   };
 }
-
 // Geometry is transient UI evidence. Validate it separately from the persisted
 // locator, translate from the frame, and keep the composer in visible content.
 export function previewSelectionPosition(
@@ -77,7 +75,6 @@ export function previewSelectionPosition(
     bottom: clamp(frame.top + rect.bottom, visible.top, visible.bottom),
   };
 }
-
 export async function previewBridgeCall(
   method: string,
   value: unknown,
@@ -90,9 +87,9 @@ export async function previewBridgeCall(
   if (method === "getTheme") return theme.get();
   if (method === "getContext") return context;
   if (method === "getThreads")
-    return detail.discussions.map(({ attachments: _images, comments, ...discussions }) => ({
-      ...discussions,
-      comments: comments.map(({ attachments: _commentImages, ...comment }) => comment),
+    return detail.discussions.map(({ comments, ...discussion }) => ({
+      ...discussion,
+      comments: comments.map(({ attachments: _images, ...comment }) => comment),
     }));
   if (!["createDiscussion", "comment", "submit", "setTheme"].includes(method))
     throw new Error("Unsupported r3 preview operation");

@@ -445,7 +445,7 @@ try {
     );
     assert.equal(
       await page.evaluate(
-        "Object.values(JSON.parse(localStorage.getItem('r3-discussions-notifications') ?? '{}')).flatMap(entry=>entry.delivered?.hashes ?? []).every(hash=>/^[a-f0-9]{64}$/.test(hash))",
+        "Object.values(JSON.parse(localStorage.getItem('r3-feedback-notifications') ?? '{}')).flatMap(entry=>entry.delivered?.hashes ?? []).every(hash=>/^[a-f0-9]{64}$/.test(hash))",
       ),
       true,
       "Fallback inputs never enter persistent storage",

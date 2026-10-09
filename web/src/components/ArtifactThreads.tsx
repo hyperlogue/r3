@@ -19,7 +19,7 @@ import {
   type ArtifactDetail,
   type ArtifactDiscussion,
   type ArtifactKind,
-  type ArtifactMessageContext,
+  type ArtifactReferenceContext,
   type ArtifactTarget,
   hasUnsentArtifactDiscussion,
 } from "../../../shared/artifacts.ts";
@@ -60,11 +60,9 @@ import {
   useAttachmentInput,
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
-
-export type ArtifactRefJump = (reference: MessageRef, context: ArtifactMessageContext) => void;
+export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
 export type ArtifactTargetJump = (target: ArtifactTarget, discussionId?: string) => void;
-
-function targetContext(target: ArtifactTarget): ArtifactMessageContext {
+function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
   return "versionSeq" in target
     ? {
         versionSeq: target.versionSeq,
@@ -72,7 +70,6 @@ function targetContext(target: ArtifactTarget): ArtifactMessageContext {
       }
     : { versionSeq: null, representation: null };
 }
-
 // Compact browser labels without changing the explicit context kept in prompts,
 // targets, or Locate actions. Latest means published, not the selected version.
 function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null): string {
@@ -83,7 +80,6 @@ function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null
     target.versionSeq === latestVersionSeq ? "" : `Version ${target.versionSeq} · `,
   );
 }
-
 function fixTargetLabel(
   target: ArtifactTarget,
   latestVersionSeq: number | null,
@@ -94,7 +90,6 @@ function fixTargetLabel(
   const label = target.locator?.label ?? (target.locator ? "Page element" : "Page");
   return target.versionSeq === latestVersionSeq ? label : `Version ${target.versionSeq} · ${label}`;
 }
-
 function DiscussionQuote({ quote }: { quote: string }) {
   const element = useRef<HTMLQuoteElement>(null);
   const id = useId();
@@ -146,7 +141,6 @@ function DiscussionQuote({ quote }: { quote: string }) {
     </>
   );
 }
-
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   discussions,
   agentLabels,
@@ -165,7 +159,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
 }: {
   discussions: ArtifactDiscussion;
   agentLabels?: ArtifactDetail["agentLabels"];
-  context: ArtifactMessageContext;
+  context: ArtifactReferenceContext;
   artifactKind: ArtifactKind;
   latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
@@ -210,8 +204,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const menuTrigger = useRef<HTMLButtonElement>(null);
   usePopoverFocus(menuOpen, menu, menuTrigger);
   useEscape(menuOpen, () => setMenuOpen(false));
-  const lastComment = discussions.comments.at(-1);
-  const canEdit = (lastComment?.author ?? discussions.author).role === "human";
+  const lastComment = discussions.comments.slice(1).at(-1);
+  const canEdit = (lastComment?.author ?? discussions.comments[0]!.author).role === "human";
   const openComment = () => {
     artifactDrafts.beginComment(discussions.artifactId, discussions.id, originalContext);
     setCommenting(true);
@@ -338,7 +332,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                         body: lastComment.body,
                         attachments: lastComment.attachments ?? [],
                       }
-                    : { body: discussions.body, attachments: discussions.attachments ?? [] },
+                    : {
+                        body: discussions.comments[0]!.body,
+                        attachments: discussions.comments[0]!.attachments ?? [],
+                      },
                 );
                 setMenuOpen(false);
                 setCommenting(false);
@@ -492,38 +489,42 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <details className="mb-2 text-xs text-neutral-500">
           <summary>Imported anchor evidence</summary>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap">
-            {JSON.stringify(discussions.legacy?.source, null, 2)}
+            {JSON.stringify(discussions.comments[0]!.legacy?.source, null, 2)}
           </pre>
         </details>
       )}
       <div
-        data-message-author={discussions.author.role}
+        data-message-author={discussions.comments[0]!.author.role}
         className={cn(
-          discussions.author.role === "agent" &&
+          discussions.comments[0]!.author.role === "agent" &&
             "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
         )}
       >
-        {discussions.author.role === "agent" && (
-          <div className="mb-1 text-xs text-neutral-500" title={discussions.author.sessionId}>
-            Agent · <AgentName id={discussions.author.sessionId} labels={agentLabels} />
+        {discussions.comments[0]!.author.role === "agent" && (
+          <div
+            className="mb-1 text-xs text-neutral-500"
+            title={discussions.comments[0]!.author.sessionId}
+          >
+            Agent ·{" "}
+            <AgentName id={discussions.comments[0]!.author.sessionId} labels={agentLabels} />
           </div>
         )}
         {!readOnly && editing && !editing.commentId ? (
           editForm
         ) : (
           <MessageProse
-            source={discussions.body}
+            source={discussions.comments[0]!.body}
             onJumpRef={(ref) => onJumpRef(ref, originalContext)}
           />
         )}
         {(readOnly || !(editing && !editing.commentId)) && (
           <MessageAttachments
             artifactId={discussions.artifactId}
-            images={discussions.attachments}
+            images={discussions.comments[0]!.attachments}
           />
         )}
       </div>
-      {discussions.comments.length > 3 && (
+      {discussions.comments.slice(1).length > 3 && (
         <button
           type="button"
           className="mt-2.5 flex items-center gap-1 text-[0.6875rem] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
@@ -532,76 +533,81 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <FoldTriangle open={earlierOpen} className="size-2.5" />
           {earlierOpen
             ? "hide earlier comments"
-            : `${discussions.comments.length - 3} earlier comments`}
+            : `${discussions.comments.slice(1).length - 3} earlier comments`}
         </button>
       )}
-      {(earlierOpen ? discussions.comments : discussions.comments.slice(-3)).map((comment) => (
-        <div
-          key={comment.id}
-          data-artifact-comment={comment.id}
-          data-message-author={comment.author.role}
-          className={cn(
-            "mt-2.5",
-            comment.author.role === "agent" &&
-              "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
-          )}
-        >
-          {comment.author.role === "agent" && (
-            <div className="mb-1 text-xs text-neutral-500" title={comment.author.sessionId}>
-              Agent · <AgentName id={comment.author.sessionId} labels={agentLabels} />
-            </div>
-          )}
-          {!readOnly && editing?.commentId === comment.id ? (
-            editForm
-          ) : (
-            <MessageProse
-              source={comment.body}
-              onJumpRef={(ref) => onJumpRef(ref, comment.context)}
-            />
-          )}
-          {(readOnly || editing?.commentId !== comment.id) && (
-            <MessageAttachments artifactId={discussions.artifactId} images={comment.attachments} />
-          )}
-          {comment.target && (
-            <button
-              type="button"
-              className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
-              title={
-                artifactKind === "html" && comment.target.kind === "rendered"
-                  ? `Version ${comment.target.versionSeq} · ${comment.target.locator?.selector ?? "Page"}`
-                  : artifactTargetLabel(comment.target)
-              }
-              onClick={() => onLocate(comment.target!, discussions.id)}
-            >
-              ↳ Fix: {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
-            </button>
-          )}
-          {comment.target?.kind === "media" && comment.target.locator.frame && (
-            <MediaTargetPreview
-              image={comment.target.locator.frame}
-              box={comment.target.locator.box}
-            />
-          )}
-          {onCompare && comparisons?.has(comment.id) && (
-            <Button
-              className="ml-2 mt-2"
-              variant="primary-outline"
-              data-compare-comment={comment.id}
-              onClick={() => onCompare(comment.id)}
-            >
-              Compare
-            </Button>
-          )}
-          {comment.legacy && (
-            <details className="mt-1 text-xs text-neutral-500">
-              <summary>Imported reference evidence</summary>
-              <pre className="max-h-32 overflow-auto whitespace-pre-wrap">
-                {JSON.stringify(comment.legacy, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
-      ))}
+      {(earlierOpen ? discussions.comments.slice(1) : discussions.comments.slice(1).slice(-3)).map(
+        (comment) => (
+          <div
+            key={comment.id}
+            data-artifact-comment={comment.id}
+            data-message-author={comment.author.role}
+            className={cn(
+              "mt-2.5",
+              comment.author.role === "agent" &&
+                "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
+            )}
+          >
+            {comment.author.role === "agent" && (
+              <div className="mb-1 text-xs text-neutral-500" title={comment.author.sessionId}>
+                Agent · <AgentName id={comment.author.sessionId} labels={agentLabels} />
+              </div>
+            )}
+            {!readOnly && editing?.commentId === comment.id ? (
+              editForm
+            ) : (
+              <MessageProse
+                source={comment.body}
+                onJumpRef={(ref) => onJumpRef(ref, comment.context)}
+              />
+            )}
+            {(readOnly || editing?.commentId !== comment.id) && (
+              <MessageAttachments
+                artifactId={discussions.artifactId}
+                images={comment.attachments}
+              />
+            )}
+            {comment.target && (
+              <button
+                type="button"
+                className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
+                title={
+                  artifactKind === "html" && comment.target.kind === "rendered"
+                    ? `Version ${comment.target.versionSeq} · ${comment.target.locator?.selector ?? "Page"}`
+                    : artifactTargetLabel(comment.target)
+                }
+                onClick={() => onLocate(comment.target!, discussions.id)}
+              >
+                ↳ Fix: {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
+              </button>
+            )}
+            {comment.target?.kind === "media" && comment.target.locator.frame && (
+              <MediaTargetPreview
+                image={comment.target.locator.frame}
+                box={comment.target.locator.box}
+              />
+            )}
+            {onCompare && comparisons?.has(comment.id) && (
+              <Button
+                className="ml-2 mt-2"
+                variant="primary-outline"
+                data-compare-comment={comment.id}
+                onClick={() => onCompare(comment.id)}
+              >
+                Compare
+              </Button>
+            )}
+            {comment.legacy && (
+              <details className="mt-1 text-xs text-neutral-500">
+                <summary>Imported reference evidence</summary>
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap">
+                  {JSON.stringify(comment.legacy, null, 2)}
+                </pre>
+              </details>
+            )}
+          </div>
+        ),
+      )}
       {error && (
         <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
           {error.message}
@@ -659,9 +665,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     </article>
   );
 });
-
 export type ArtifactDiscussionTab = "active" | "resolved";
-
 // Each queue owns its scroll position and row animation. Switching tabs changes
 // only the track transform, so cards, comment editors, and the Active draft survive.
 function DiscussionQueue({
@@ -707,7 +711,6 @@ function DiscussionQueue({
     </div>
   );
 }
-
 export function ArtifactThreads({
   detail,
   context,
@@ -727,7 +730,7 @@ export function ArtifactThreads({
   onTabChange,
 }: {
   detail: ArtifactDetail;
-  context: ArtifactMessageContext;
+  context: ArtifactReferenceContext;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
   activeDiscussion?: string | null;

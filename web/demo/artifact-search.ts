@@ -188,9 +188,9 @@ export function searchDemoArtifacts(
               : { versionSeq: seq, representation: target?.kind ?? null },
         },
         target?.path ?? "",
-        note.body,
+        note.comments[0]!.body,
       );
-      for (const comment of note.comments)
+      for (const comment of note.comments.slice(1))
         add(
           {
             ...base,

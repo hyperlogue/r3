@@ -35,7 +35,6 @@ async function mediaEvidence<T extends ArtifactTarget | null | undefined>(
   const [frame] = await attachments(id, [snapshot]);
   return { ...target, locator: { ...target.locator, frame } };
 }
-
 async function attachments(
   artifactId: string,
   inputs: AttachmentInput[] | undefined,
@@ -69,7 +68,6 @@ async function attachments(
   }
   return result;
 }
-
 async function messageOperation(
   artifactId: string,
   kind: "discussions" | "comment",
@@ -103,7 +101,6 @@ async function messageOperation(
     },
   };
 }
-
 export const artifactApi: typeof productionApi = {
   stat: async (window = "daily") => copy(demoUsage(demo.state, window, now())),
   gc: async (input) => {
@@ -129,8 +126,8 @@ export const artifactApi: typeof productionApi = {
             artifact.createdBy.sessionId,
             ...artifact.versions.map((version) => version.publishedBy.sessionId),
             ...artifact.discussions.flatMap((discussions) => [
-              discussions.author.sessionId,
-              ...discussions.comments.map((comment) => comment.author.sessionId),
+              discussions.comments[0]!.author.sessionId,
+              ...discussions.comments.slice(1).map((comment) => comment.author.sessionId),
             ]),
           ])
           .filter((id): id is string => id !== null),
@@ -246,27 +243,32 @@ export const artifactApi: typeof productionApi = {
   },
   editDiscussion: async (id, body) => {
     const { artifact, note } = demo.note(id);
-    const nextImages = await attachments(artifact.id, body.attachments, note.attachments);
+    const nextImages = await attachments(
+      artifact.id,
+      body.attachments,
+      note.comments[0]!.attachments,
+    );
     demo.requireActive(artifact.id);
-    const imagesChanged = JSON.stringify(nextImages) !== JSON.stringify(note.attachments ?? []);
-    if (!(body.body ?? note.body).trim() && !nextImages.length)
+    const imagesChanged =
+      JSON.stringify(nextImages) !== JSON.stringify(note.comments[0]!.attachments ?? []);
+    if (!(body.body ?? note.comments[0]!.body).trim() && !nextImages.length)
       fail("A message needs text or an image");
-    note.attachments = nextImages;
-    const previousBody = note.body;
+    note.comments[0]!.attachments = nextImages;
+    const previousBody = note.comments[0]!.body;
     const previousStatus = note.status;
     if (body.body !== undefined) {
-      note.body = body.body;
+      note.comments[0]!.body = body.body;
     }
     if (body.status !== undefined && body.status !== note.status) {
       note.status = body.status;
       if (note.status === "resolved") note.claim = null;
     }
     if (
-      note.author.role === "human" &&
+      note.comments[0]!.author.role === "human" &&
       note.status === "open" &&
-      (note.body !== previousBody || imagesChanged)
+      (note.comments[0]!.body !== previousBody || imagesChanged)
     )
-      note.sentAt = null;
+      note.comments[0]!.sentAt = null;
     note.statusUnsent ||= note.status !== previousStatus && demo.state.everDelivered[id] === true;
     note.updatedAt = now();
     artifact.working = artifact.discussions.some((item) => item.claim !== null);
@@ -435,10 +437,12 @@ export const artifactApi: typeof productionApi = {
   renewPreview: async () => fail("Server preview contexts are unavailable in the static demo", 503),
   revokePreview: async () => ({ ok: true }),
 };
-
-export async function* artifactEventStream(
-  signal: AbortSignal,
-): AsyncGenerator<ArtifactStreamEvent | { type: "ready" }> {
+export async function* artifactEventStream(signal: AbortSignal): AsyncGenerator<
+  | ArtifactStreamEvent
+  | {
+      type: "ready";
+    }
+> {
   const queue: ArtifactStreamEvent[] = [];
   let wake: (() => void) | null = null;
   const listener = (event: ArtifactStreamEvent) => {

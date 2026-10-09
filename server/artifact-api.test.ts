@@ -92,7 +92,6 @@ function publication(expectedSeq = 0, publicationKey = "first") {
     },
   };
 }
-
 describe("artifact HTTP content contract", () => {
   test("remote grouping and conditional project backfill share the authenticated contract", async () => {
     const projectResponse = await request("/api/projects", "POST", { name: "Existing" });
@@ -133,7 +132,6 @@ describe("artifact HTTP content contract", () => {
     expect(denied.status).toBe(401);
     expect(storage.artifacts.projects()[0].remoteUrl).toBe(remoteUrl);
   });
-
   test("preview network exceptions are authenticated, explicit, and HTML-only", async () => {
     for (const kind of ["files", "html"]) {
       const id = await create(kind);
@@ -186,7 +184,6 @@ describe("artifact HTTP content contract", () => {
       ).toBe(401);
     }
   });
-
   test("full discussions source remains behind authentication and origin guards", async () => {
     const id = await create();
     await request(`/api/artifacts/${id}/versions`, "POST", publication());
@@ -205,7 +202,6 @@ describe("artifact HTTP content contract", () => {
     expect((await request(path)).status).toBe(400); // Whole-file targets do not invent a range.
     expect((await request("/api/discussions/missing/source")).status).toBe(404);
   });
-
   test("authenticated preview grants bind the application origin and revoke with the artifact", async () => {
     const id = await create();
     await request(`/api/artifacts/${id}/versions`, "POST", publication());
@@ -283,7 +279,6 @@ describe("artifact HTTP content contract", () => {
     expect((await (await request(`/api/artifacts/${id}`)).json()).storage).toEqual(usage);
     expect((await (await request("/api/artifacts")).json())[0].storage).toEqual(usage);
   });
-
   test("retry identity, concurrent publication, cache validators, and explicit grouping cross the HTTP boundary", async () => {
     const id = await create();
     const base = `/api/artifacts/${id}/versions`;
@@ -328,7 +323,6 @@ describe("artifact HTTP content contract", () => {
     await request(`/api/projects/${project.id}`, "DELETE");
     expect((await (await request(`/api/artifacts/${grouped.id}`)).json()).projectId).toBeNull();
   });
-
   test("sparse diff context never consults a repository and unsupported content has no fallback", async () => {
     const id = await create("diff");
     const base = `/api/artifacts/${id}/versions`;
@@ -355,7 +349,6 @@ describe("artifact HTTP content contract", () => {
     expect(await (await request(`${base}/1/patch`)).text()).toBe(patch);
   });
 });
-
 test("JSON input counts real streamed bytes and rejects malformed text", async () => {
   const request = (chunks: Uint8Array[]) =>
     new Request("http://localhost/api/artifacts", {
@@ -375,7 +368,6 @@ test("JSON input counts real streamed bytes and rejects malformed text", async (
     status: 400,
   });
 });
-
 describe("artifact HTTP collaboration contract", () => {
   const human = { role: "human", sessionId: null };
   test("archive rejects content mutations at the backend while reads and restore remain available", async () => {
@@ -454,7 +446,6 @@ describe("artifact HTTP collaboration contract", () => {
       ).status,
     ).toBe(201);
   });
-
   test("archive and restore invalidate a pending snapshot while history remains readable", async () => {
     const id = await create();
     await storage.conversations.add(id, {
@@ -486,7 +477,6 @@ describe("artifact HTTP collaboration contract", () => {
     ).toBe(409);
     expect(storage.conversations.unsent(id)).toHaveLength(1);
   });
-
   test("discussions acknowledgments require the exact pending snapshot, even after edit and revert", async () => {
     const id = await create();
     const discussions = await (
@@ -533,7 +523,7 @@ describe("artifact HTTP collaboration contract", () => {
         })
       ).status,
     ).toBe(409);
-    expect(storage.conversations.get(discussions.id).sentAt).toBeNull();
+    expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).toBeNull();
     const updated = await (await request(`/api/artifacts/${id}/discussions/pending`)).json();
     expect(updated.text).toContain("Original note");
     expect(
@@ -545,7 +535,7 @@ describe("artifact HTTP collaboration contract", () => {
         )
       ).status,
     ).toBe(200);
-    expect(storage.conversations.get(discussions.id).sentAt).not.toBeNull();
+    expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).not.toBeNull();
   });
   test("native threads, explicit comment context, owner delivery, and claims use the same IDs across HTTP", async () => {
     const id = await create();
@@ -576,7 +566,9 @@ describe("artifact HTTP collaboration contract", () => {
     const preview = await (await request(`/api/artifacts/${id}/discussions/pending`)).json();
     expect(preview.itemCount).toBe(1);
     expect(preview.text).toContain('"versionSeq":1');
-    expect((await (await request(`/api/discussions/${discussions.id}`)).json()).sentAt).toBeNull();
+    expect(
+      (await (await request(`/api/discussions/${discussions.id}`)).json()).comments[0].sentAt,
+    ).toBeNull();
     const delivery = await request(
       `/api/artifacts/${id}/discussions/acknowledge`,
       "POST",
@@ -621,7 +613,6 @@ describe("artifact HTTP collaboration contract", () => {
     ).toBe(200);
     await events.return(undefined);
   });
-
   test("archive commits before listener acknowledgment, reports failed delivery, and retries never notify again", async () => {
     const id = await create();
     const listening = await request(`/api/artifacts/${id}/listen`, "POST", { actor });
@@ -664,7 +655,6 @@ describe("artifact HTTP collaboration contract", () => {
     });
     expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
   });
-
   test("watch shutdown releases the held slot and archived terminal state precedes pending discussions", async () => {
     const id = await create();
     const wait = request(`/api/artifacts/${id}/watch`, "POST", { actor, timeoutMs: 5000 });
@@ -688,7 +678,6 @@ describe("artifact HTTP collaboration contract", () => {
     ).toBe("archived");
   });
 });
-
 test("session lists compress and revalidate after authenticated reads", async () => {
   for (let i = 0; i < 30; i++)
     storage.artifacts.registerSession({ id: `session-${i}`, harness: "fixture-agent" });
@@ -712,7 +701,6 @@ test("session lists compress and revalidate after authenticated reads", async ()
   );
   expect(denied.status).toBe(401);
 });
-
 test("library search requires application auth and validates bounded filters", async () => {
   const anonymous = await api.app.request(
     new Request("http://localhost/api/search?q=Original", { headers: { host: "localhost" } }),
@@ -740,7 +728,6 @@ test("library search requires application auth and validates bounded filters", a
   ])
     expect((await request(`/api/search?${query}`)).status).toBe(400);
 });
-
 test("usage and garbage collection share authentication and validate destructive input", async () => {
   const id = await create();
   for (const [path, method, body] of [

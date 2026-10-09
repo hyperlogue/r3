@@ -6,7 +6,6 @@ import type {
 } from "./artifacts.ts";
 import { type ArtifactAttachment, imagePlaceholder } from "./attachments.ts";
 import { mediaTime, wholeMediaBox } from "./media-target.ts";
-
 export function attachmentPrompt(images: ArtifactAttachment[] = [], placeholders = true): string {
   return images
     .map(
@@ -15,7 +14,6 @@ export function attachmentPrompt(images: ArtifactAttachment[] = [], placeholders
     )
     .join("\n");
 }
-
 export function discussionAttachments(
   discussions: ArtifactDiscussion[],
   unsent = false,
@@ -23,11 +21,13 @@ export function discussionAttachments(
   const frames = (target: ArtifactTarget | null) =>
     target?.kind === "media" && target.locator.frame ? [target.locator.frame] : [];
   return discussions.flatMap((item) => {
-    const followup = unsent && !(item.author.role === "human" && item.sentAt === null);
+    const followup =
+      unsent && !(item.comments[0]!.author.role === "human" && item.comments[0]!.sentAt === null);
     return [
       ...frames(item.target),
-      ...(followup ? [] : (item.attachments ?? [])),
+      ...(followup ? [] : (item.comments[0]!.attachments ?? [])),
       ...item.comments
+        .slice(1)
         .filter(
           (comment) => !followup || (comment.author.role === "human" && comment.sentAt === null),
         )
@@ -35,7 +35,6 @@ export function discussionAttachments(
     ];
   });
 }
-
 export function artifactTargetLabel(target: ArtifactTarget): string {
   if (target.kind === "artifact") return "General artifact discussions";
   if (target.kind === "artifact_summary") return "Retired artifact overview";
@@ -48,31 +47,35 @@ export function artifactTargetLabel(target: ArtifactTarget): string {
       : "";
   return `Version ${target.versionSeq} · ${target.kind} · ${target.path}${range}`;
 }
-
 function historicalTarget(discussions: ArtifactDiscussion): boolean {
-  const source = discussions.legacy?.source as { file?: unknown } | undefined;
+  const source = discussions.comments[0]!.legacy?.source as
+    | {
+        file?: unknown;
+      }
+    | undefined;
   return (
     discussions.target.kind === "artifact" && typeof source?.file === "string" && source.file !== ""
   );
 }
-
 export function artifactDiscussionTargetLabel(discussions: ArtifactDiscussion): string {
   return historicalTarget(discussions)
     ? "Historical target unavailable"
     : artifactTargetLabel(discussions.target);
 }
-
 function block(discussions: ArtifactDiscussion, unsent: boolean): string {
-  const fresh = discussions.author.role === "human" && discussions.sentAt === null;
+  const fresh =
+    discussions.comments[0]!.author.role === "human" && discussions.comments[0]!.sentAt === null;
   const followup = unsent && !fresh;
   const label = artifactDiscussionTargetLabel(discussions);
   const author =
-    discussions.author.role === "agent" ? ` [agent-authored: ${discussions.author.sessionId}]` : "";
+    discussions.comments[0]!.author.role === "agent"
+      ? ` [agent-authored: ${discussions.comments[0]!.author.sessionId}]`
+      : "";
   const lines = [
     `### ${discussions.id} — ${label} [${discussions.status}]${author}${followup ? " (follow-up)" : ""}`,
   ];
   if (historicalTarget(discussions)) {
-    const evidence = discussions.legacy!.source as Record<string, unknown>;
+    const evidence = discussions.comments[0]!.legacy!.source as Record<string, unknown>;
     lines.push(
       `Legacy anchor evidence: ${JSON.stringify({ file: evidence.file, side: evidence.side, lineStart: evidence.line_start, lineEnd: evidence.line_end, quote: evidence.quote, patchSeq: evidence.patch_seq })}`,
     );
@@ -89,14 +92,15 @@ function block(discussions: ArtifactDiscussion, unsent: boolean): string {
     );
   if (discussions.claim) lines.push(`Working agent: ${discussions.claim.sessionId}`);
   if (!followup) {
-    lines.push("", discussions.body);
-    if (discussions.attachments?.length) lines.push(attachmentPrompt(discussions.attachments));
+    lines.push("", discussions.comments[0]!.body);
+    if (discussions.comments[0]!.attachments?.length)
+      lines.push(attachmentPrompt(discussions.comments[0]!.attachments));
   }
   const comments = followup
-    ? discussions.comments.filter(
-        (comment) => comment.author.role === "human" && comment.sentAt === null,
-      )
-    : discussions.comments;
+    ? discussions.comments
+        .slice(1)
+        .filter((comment) => comment.author.role === "human" && comment.sentAt === null)
+    : discussions.comments.slice(1);
   for (const comment of comments) {
     const author = comment.author.role === "agent" ? `agent: ${comment.author.sessionId}` : "human";
     lines.push("", `[${author}] ${comment.body}`);
@@ -117,7 +121,6 @@ function block(discussions: ArtifactDiscussion, unsent: boolean): string {
   if (followup) lines.push("", `Earlier discussion: r3 show ${discussions.artifactId}`);
   return lines.join("\n");
 }
-
 // The caller selects a read-only set or the exact snapshot returned by deliver().
 // Formatting is pure and cannot acknowledge messages accidentally.
 export function buildArtifactPrompt(
@@ -137,7 +140,6 @@ export function buildArtifactPrompt(
   else lines.push(discussions.map((item) => block(item, unsent)).join("\n\n"));
   return `${lines.join("\n")}\n`;
 }
-
 export function artifactNudgeText(nudge: ArtifactNudge): string {
   const lines = [
     `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "discussions submitted"}`,

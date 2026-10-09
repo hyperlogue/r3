@@ -193,7 +193,7 @@ try {
   const discussions = storage.conversations
     .list(artifact.id)
     .find((discussions) => discussions.id === discussionId)!;
-  assert.equal(discussions.author.role, "human");
+  assert.equal(discussions.comments[0]!.author.role, "human");
   assert.deepEqual(discussions.target, {
     kind: "rendered",
     versionSeq: 1,
@@ -325,7 +325,7 @@ try {
     const renewals = previewRenewals;
     const gates = previewGates;
     const historyLength = await page.evaluate("history.length");
-    if (cause === "expiry") previewTime += 61 * 60_000;
+    if (cause === "expiry") previewTime += 61 * 60000;
     else preview.close();
     const expired = await preview.fetch(
       new Request(previousUrl, { headers: { host: `localhost:${app.port}` } }),

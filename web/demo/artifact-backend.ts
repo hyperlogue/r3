@@ -10,6 +10,7 @@ import type {
   ArtifactTarget,
 } from "../../shared/artifacts.ts";
 import {
+  artifactReferenceContext,
   hasUnsentArtifactDiscussion,
   isUnhandledArtifactDiscussion,
 } from "../../shared/artifacts.ts";
@@ -31,12 +32,17 @@ export const mint = (prefix: string) => `${prefix}_${crypto.randomUUID().replace
 export function fail(message: string, status = 400): never {
   throw new ArtifactApiError(status, null, message);
 }
-
 export class ArtifactDemoBackend {
   state: ArtifactDemoState;
   readonly subscribers = new Set<(event: ArtifactStreamEvent) => void>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
-  readonly images = new Map<string, { artifactId: string; blob: Blob }>();
+  readonly images = new Map<
+    string,
+    {
+      artifactId: string;
+      blob: Blob;
+    }
+  >();
   constructor(private fixtures: ArtifactDemoSeed = ARTIFACT_DEMO_SEED) {
     this.state = this.seed();
   }
@@ -48,7 +54,10 @@ export class ArtifactDemoBackend {
       viewed: {},
       everDelivered: Object.fromEntries(
         seed.artifacts.flatMap((artifact) =>
-          artifact.discussions.map((note) => [note.id, note.sentAt !== null || note.statusUnsent]),
+          artifact.discussions.map((note) => [
+            note.id,
+            note.comments[0]!.sentAt !== null || note.statusUnsent,
+          ]),
         ),
       ),
     };
@@ -228,7 +237,6 @@ export class ArtifactDemoBackend {
       text: lines.map((row) => row.text).join("\n"),
     };
   }
-
   addDiscussion(
     id: string,
     body: string,
@@ -239,21 +247,31 @@ export class ArtifactDemoBackend {
     this.requireActive(id);
     this.target(id, target);
     const time = now();
+    const discussionId = mint("discussion");
     const note: ArtifactDiscussion = {
-      id: mint("discussions"),
+      id: discussionId,
       artifactId: id,
-      author: human,
-      body,
       status: "open",
-      attachments,
       target: structuredClone(target),
-      legacy: null,
       createdAt: time,
       updatedAt: time,
-      sentAt: null,
       statusUnsent: false,
-      comments: [],
       claim: null,
+      comments: [
+        {
+          id: `comment_${discussionId}`,
+          discussionId,
+          artifactId: id,
+          createdAt: time,
+          context: artifactReferenceContext(structuredClone(target)),
+          target: null,
+          author: human,
+          body: body,
+          attachments: attachments,
+          sentAt: null,
+          legacy: null,
+        },
+      ],
     };
     this.get(id).discussions.push(note);
     this.state.everDelivered[note.id] = false;
@@ -295,9 +313,9 @@ export class ArtifactDemoBackend {
     const time = now();
     for (const note of notes) {
       this.state.everDelivered[note.id] = true;
-      if (note.author.role === "human") note.sentAt = time;
+      if (note.comments[0]!.author.role === "human") note.comments[0]!.sentAt = time;
       note.statusUnsent = false;
-      for (const comment of note.comments)
+      for (const comment of note.comments.slice(1))
         if (comment.author.role === "human") comment.sentAt = time;
     }
     this.changed(id);
@@ -318,7 +336,7 @@ export class ArtifactDemoBackend {
           sessionId: actor.sessionId,
           claimedAt: time,
           renewedAt: time,
-          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
         };
     artifact.working = artifact.discussions.some((note) => note.claim !== null);
     this.changed(id);
@@ -411,5 +429,4 @@ export class ArtifactDemoBackend {
     };
   }
 }
-
 export const demo = new ArtifactDemoBackend();

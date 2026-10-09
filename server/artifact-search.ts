@@ -26,7 +26,6 @@ type Document = {
   location: Location;
 };
 const decodeEntity = new MarkdownIt().utils.unescapeAll;
-
 async function htmlText(source: string): Promise<string> {
   const passive = await new HTMLRewriter()
     .on("head,script,style,template,noscript,svg,canvas,[hidden],[aria-hidden=true]", {
@@ -58,7 +57,6 @@ async function htmlText(source: string): Promise<string> {
     .filter(Boolean)
     .join("\n");
 }
-
 export function parseArtifactSearch(params: URLSearchParams): ArtifactSearchOptions {
   const q = params.get("q")?.trim() ?? "";
   if (
@@ -104,10 +102,9 @@ export function parseArtifactSearch(params: URLSearchParams): ArtifactSearchOpti
     type: choice("type", ["all", "content", "conversation"], "all"),
     attention: choice("attention", ["true", "false"], "false") === "true",
     limit: number("limit", 50, 1, 100),
-    offset: number("offset", 0, 0, 100_000),
+    offset: number("offset", 0, 0, 100000),
   };
 }
-
 function location(
   versionSeq: number | null,
   target: ArtifactDocumentTarget | null = null,
@@ -124,7 +121,6 @@ function location(
     target,
   };
 }
-
 // The daemon's injected connection is the only writer. Immutable publications
 // are indexed once, lazily (including old stores); mutable messages are reconciled
 // after asynchronous reads, immediately before the synchronous search snapshot.
@@ -135,13 +131,11 @@ export class ArtifactSearch {
     private readonly store: ArtifactStore,
     private readonly conversations: ArtifactConversations,
   ) {}
-
   search(options: ArtifactSearchOptions): Promise<ArtifactSearchResponse> {
     const task = this.pending.then(() => this.run(options));
     this.pending = task.catch(() => {});
     return task;
   }
-
   private put(doc: Document): void {
     this.db
       .query(`INSERT INTO artifact_search_documents
@@ -161,7 +155,6 @@ export class ArtifactSearch {
         JSON.stringify(doc.location),
       );
   }
-
   private async index(version: ArtifactVersion): Promise<void> {
     const id = version.artifactId,
       seq = version.seq;
@@ -278,7 +271,6 @@ export class ArtifactSearch {
       })
       .immediate();
   }
-
   private syncMessages(artifacts: Artifact[]): void {
     const names = new Map(
       this.store.projects().map((project) => [project.id, project.name ?? project.id]),
@@ -314,10 +306,10 @@ export class ArtifactSearch {
               artifactId: artifact.id,
               category: "discussions",
               name: target?.path ?? "",
-              body: discussions.body,
+              body: discussions.comments[0]!.body,
               location: { ...location(seq, target), discussionId: discussions.id },
             });
-            for (const comment of discussions.comments)
+            for (const comment of discussions.comments.slice(1))
               this.put({
                 key: comment.id,
                 artifactId: artifact.id,
@@ -336,7 +328,6 @@ export class ArtifactSearch {
       })
       .immediate();
   }
-
   private filtered(options: ArtifactSearchOptions): Artifact[] {
     return this.store
       .list({ state: options.state, kind: options.kind, projectId: options.project })
@@ -345,7 +336,6 @@ export class ArtifactSearch {
           !options.attention || (artifact.state === "active" && artifact.unhandledCount > 0),
       );
   }
-
   private async run(options: ArtifactSearchOptions): Promise<ArtifactSearchResponse> {
     const terms = artifactSearchTerms(options.q);
     if (!terms.length || options.q.length > SEARCH_QUERY_LENGTH)
@@ -387,7 +377,13 @@ export class ArtifactSearch {
     const from = `FROM artifact_search_fts JOIN artifact_search_documents d ON d.id = artifact_search_fts.rowid`;
     const counts = { all: 0, content: 0, conversation: 0 };
     for (const row of this.db
-      .query<{ category: string; n: number }, string[]>(
+      .query<
+        {
+          category: string;
+          n: number;
+        },
+        string[]
+      >(
         `SELECT d.category, COUNT(*) AS n ${from} WHERE ${clauses.join(" AND ")} GROUP BY d.category`,
       )
       .all(...args)) {
@@ -411,10 +407,8 @@ export class ArtifactSearch {
           location_json: string;
         },
         (string | number)[]
-      >(
-        `SELECT d.key, d.artifact_id, d.category, d.body, d.location_json ${from}
-       WHERE ${clauses.join(" AND ")} ORDER BY bm25(artifact_search_fts, 3, 1), d.artifact_id, d.version_seq DESC, d.key LIMIT ? OFFSET ?`,
-      )
+      >(`SELECT d.key, d.artifact_id, d.category, d.body, d.location_json ${from}
+       WHERE ${clauses.join(" AND ")} ORDER BY bm25(artifact_search_fts, 3, 1), d.artifact_id, d.version_seq DESC, d.key LIMIT ? OFFSET ?`)
       .all(...args, limit, offset);
     const matches = rows.map((row) => {
       const loc: Location = JSON.parse(row.location_json);
@@ -431,7 +425,9 @@ export class ArtifactSearch {
     const found = new Set(matches.map((match) => match.artifactId));
     const skippedFiles = this.db
       .query<
-        { n: number },
+        {
+          n: number;
+        },
         [string]
       >(`SELECT COALESCE(SUM(skipped_files), 0) AS n FROM artifact_search_versions s
       WHERE artifact_id IN (SELECT value FROM json_each(?)) ${

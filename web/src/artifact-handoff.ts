@@ -4,8 +4,14 @@ import type { ArtifactDiscussion } from "../../shared/artifacts.ts";
 // Browser receipts record successful pings, never agent acknowledgment. Persist
 // hashes only; without Web Crypto, exact inputs remain in memory for this visit.
 const storageKey = "r3-feedback-notifications";
-type Attempt = { order: number; hashes: string[] };
-type Receipt = { issued: number; delivered: Attempt | null };
+type Attempt = {
+  order: number;
+  hashes: string[];
+};
+type Receipt = {
+  issued: number;
+  delivered: Attempt | null;
+};
 type Receipts = Record<string, Receipt>;
 const isHash = (value: string) => /^[a-f0-9]{64}$/.test(value);
 function parse(raw: string | null): Receipts {
@@ -101,23 +107,28 @@ function remember(artifactId: string, attempt: Attempt) {
     merge(merge(receipts, read()), { [artifactId]: { issued: attempt.order, delivered: attempt } }),
   );
 }
-
 function pendingInputs(discussions: ArtifactDiscussion[]): string[] {
   const inputs: string[] = [];
   for (const note of discussions) {
-    if (note.author.role === "human" && note.sentAt === null && note.status === "open")
-      inputs.push(JSON.stringify(["note", note.id, note.body, note.updatedAt]));
+    if (
+      note.comments[0]!.author.role === "human" &&
+      note.comments[0]!.sentAt === null &&
+      note.status === "open"
+    )
+      inputs.push(JSON.stringify(["note", note.id, note.comments[0]!.body, note.updatedAt]));
     if (note.statusUnsent) inputs.push(JSON.stringify(["status", note.id, note.status]));
-    for (const comment of note.comments)
+    for (const comment of note.comments.slice(1))
       if (comment.author.role === "human" && comment.sentAt === null)
         inputs.push(JSON.stringify(["comment", comment.id, comment.body]));
   }
   return inputs.sort();
 }
-
 export function useDiscussionHandoffReceipt(artifactId: string, discussions: ArtifactDiscussion[]) {
   const source = useMemo(() => JSON.stringify(pendingInputs(discussions)), [discussions]);
-  const [snapshot, setSnapshot] = useState<{ source: string; hashes: string[] } | null>(null);
+  const [snapshot, setSnapshot] = useState<{
+    source: string;
+    hashes: string[];
+  } | null>(null);
   const saved = useSyncExternalStore(subscribe, get)[artifactId]?.delivered?.hashes ?? [];
   useEffect(() => {
     let cancelled = false;

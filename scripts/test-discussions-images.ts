@@ -357,12 +357,12 @@ try {
     "image-only note saved",
   );
   const note = storage.conversations.list(artifact.id)[0]!;
-  assert.equal(note.body, " [image1] ");
-  assert.equal(note.attachments?.length, 1);
-  assert.equal(note.attachments![0]!.width, 160);
+  assert.equal(note.comments[0]!.body, " [image1] ");
+  assert.equal(note.comments[0]!.attachments?.length, 1);
+  assert.equal(note.comments[0]!.attachments![0]!.width, 160);
   const drawnImage = await storage.artifacts.attachments.read(
     artifact.id,
-    note.attachments![0]!.id,
+    note.comments[0]!.attachments![0]!.id,
   );
   const savedPixels = await page.evaluate(
     `(async()=>{const bytes=Uint8Array.from(atob(${JSON.stringify(drawnImage.bytes.toString("base64"))}),x=>x.charCodeAt(0));const image=await createImageBitmap(new Blob([bytes],{type:'image/png'}));const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);image.close();return [[40,50],[100,40],[40,65]].map(([x,y])=>Array.from(ctx.getImageData(x,y,1,1).data));})()`,
@@ -424,10 +424,10 @@ try {
   );
   await page.evaluate(`${commentInput}.form.requestSubmit()`);
   await eventually(
-    () => Promise.resolve(storage.conversations.get(note.id).comments.length === 1),
+    () => Promise.resolve(storage.conversations.get(note.id).comments.slice(1).length === 1),
     "image comment saved",
   );
-  assert.equal(storage.conversations.get(note.id).comments[0]!.attachments?.length, 1);
+  assert.equal(storage.conversations.get(note.id).comments.slice(1)[0]!.attachments?.length, 1);
   // The trusted parent's display capture uses a real tab stream, never a fake image.
   await page.evaluate(
     `window.captureTracks=[];const native=navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getDisplayMedia=async options=>{const stream=await native(options);window.captureTracks.push(...stream.getTracks());return stream;}`,
@@ -490,16 +490,16 @@ try {
     "screenshot saved",
   );
   const screenshot = storage.conversations.list(artifact.id)[1]!;
-  assert.equal(screenshot.body, " [image1] ");
+  assert.equal(screenshot.comments[0]!.body, " [image1] ");
   assert.equal(screenshot.target.kind, "rendered");
-  assert.equal(screenshot.attachments![0]!.width, 100);
-  assert.equal(screenshot.attachments![0]!.height, 80);
-  assert.equal(screenshot.attachments![0]!.capture?.versionSeq, 1);
-  assert.equal(screenshot.attachments![0]!.capture?.crop.x, 10);
-  assert.equal(screenshot.attachments![0]!.capture?.crop.y, 10);
+  assert.equal(screenshot.comments[0]!.attachments![0]!.width, 100);
+  assert.equal(screenshot.comments[0]!.attachments![0]!.height, 80);
+  assert.equal(screenshot.comments[0]!.attachments![0]!.capture?.versionSeq, 1);
+  assert.equal(screenshot.comments[0]!.attachments![0]!.capture?.crop.x, 10);
+  assert.equal(screenshot.comments[0]!.attachments![0]!.capture?.crop.y, 10);
   const cropped = await storage.artifacts.attachments.read(
     artifact.id,
-    screenshot.attachments![0]!.id,
+    screenshot.comments[0]!.attachments![0]!.id,
   );
   const croppedPixel = await page.evaluate(
     `(async()=>{const bytes=Uint8Array.from(atob(${JSON.stringify(cropped.bytes.toString("base64"))}),x=>x.charCodeAt(0));const image=await createImageBitmap(new Blob([bytes],{type:'image/png'}));const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);image.close();return Array.from(ctx.getImageData(10,30,1,1).data);})()`,
@@ -520,8 +520,12 @@ try {
   const threads = await previewPage.evaluate("window.r3.getThreads()");
   assert(
     threads.every(
-      (thread: { attachments?: unknown; comments: { attachments?: unknown }[] }) =>
-        !thread.attachments && thread.comments.every((comment) => !comment.attachments),
+      (thread: {
+        attachments?: unknown;
+        comments: {
+          attachments?: unknown;
+        }[];
+      }) => !thread.attachments && thread.comments.every((comment) => !comment.attachments),
     ),
   );
   const cancelled = await page.evaluate(`(async () => {
@@ -668,7 +672,7 @@ try {
     () => Promise.resolve(storage.conversations.list(artifact.id).length === 3),
     "optimized discussions posted",
   );
-  const optimized = storage.conversations.list(artifact.id)[2]!.attachments![0]!;
+  const optimized = storage.conversations.list(artifact.id)[2]!.comments[0]!.attachments![0]!;
   assert.equal(optimized.width, 800);
   assert.equal(optimized.height, 600);
   assert.equal(optimized.mediaType, "image/png");
