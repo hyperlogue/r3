@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f8f9f5"/>
+  <path d="M70 112H1130M70 548H1130" stroke="#d9dfd4"/>
+  <text x="70" y="84" font-family="Arial,sans-serif" font-size="40" font-weight="700" fill="#202820">r3</text>
+  <text x="145" y="79" font-family="Arial,sans-serif" font-size="19" fill="#5b655b">Render. Review. Refine.</text>
+  <g font-family="Arial,sans-serif" font-size="78" font-weight="600" letter-spacing="-3">
+    <text x="70" y="248" fill="#202820">See the work.</text>
+    <text x="70" y="337" fill="#202820">Point to the change.</text>
+    <text x="70" y="426" fill="#316446">Make it better.</text>
+  </g>
+  <text x="70" y="592" font-family="Arial,sans-serif" font-size="21" fill="#5b655b">A clearer conversation with your coding agent.</text>
+</svg>
