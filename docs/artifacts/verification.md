@@ -338,3 +338,9 @@ Incremental workspace reads are covered by `server/artifact-updates.test.ts`
 (changed discussion payloads, deletion, claims, stale base rejection and full
 recovery after gaps/restart) and `scripts/test-artifact-sync.ts`
 (real browser concurrent comments, pending decisions, deletion and metadata recovery).
+
+Private local setup is covered by `server/local-bootstrap.test.ts`,
+`cli/artifact-main.test.ts`, and `scripts/test-local-browser.ts`: socket ownership,
+Origin rejection, credential-free boot, one-use ticket expiry/replay, browser cookie
+setup, logout, and automatic CLI setup. `server/client-auth-api.test.ts` and
+`cli/login.test.ts` cover OAuth errors, cache headers and the default poll interval.

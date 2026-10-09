@@ -94,21 +94,21 @@ on the home page to archive or permanently delete them together.
 
 r3 runs locally by default. The CLI starts a background server when a command
 first needs the local backend. The server stores artifacts and discussions, serves
-the browser UI, and listens only on loopback. Local browser access works without
-a login unless you enable one. A separate worker wakes local agent sessions and
-opens only a private Unix socket.
+the browser UI, and listens only on loopback. Run `r3 open` to get a one-time
+browser link. The CLI sets up its access automatically through a private Unix
+socket. A separate worker wakes local agent sessions and opens no TCP port.
 
 For remote access, use an HTTPS reverse proxy or tunnel, such as Tailscale Serve,
 pointing to `http://127.0.0.1:8791/`. Forward the whole application, including
 `/__r3_preview/`, and set `X-Forwarded-Proto: https` at the proxy. Previews use the
 same address; no wildcard DNS or separate preview port is needed.
 
-Set your public URL and explicitly require login before exposing r3. Replace the
+Set your public URL before exposing r3. Browser access requires a session in both
+local and remote mode. Replace the
 example URL below with your proxy address:
 
 ```sh
 r3 config set publicUrl https://reviews.example
-r3 config set requireLogin 1
 r3 restart
 r3 auth create-token --label browser
 ```

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chmod, copyFile, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { localBootstrap } from "../cli/local-bootstrap.ts";
 import { ArtifactConversations } from "../server/artifact-conversations.ts";
 import { renderArtifactDocument } from "../server/artifact-document.ts";
 import { createArtifactTables } from "../server/artifact-schema.ts";
@@ -181,7 +182,7 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  await page.command("Page.navigate", { url });
+  await page.command("Page.navigate", { url: (await command(["open"])).trim() });
   await eventually(
     () =>
       page.evaluate(
@@ -218,7 +219,12 @@ try {
     imported.versions.map((version: { seq: number }) => version.seq),
     [2],
   );
-  assert.equal(imported.discussions[0].comments[0].id, retainedComment.id);
+  assert.equal(
+    imported.discussions[0].comments.find(
+      (comment: { id: string }) => comment.id === retainedComment.id,
+    )?.body,
+    "Retained agent comment",
+  );
   assert.equal(imported.discussions[0].comments[0].sentAt, null);
   const backups = await readdir(`${environment.R3_DB}.artifacts/backups`);
   assert.equal(backups.length, 1);
@@ -228,9 +234,9 @@ try {
   assert.deepEqual(backup.query("PRAGMA user_version").get(), { user_version: 8 });
   assert.deepEqual(backup.query("SELECT id FROM artifacts").all(), [{ id: "review_imported" }]);
   backup.close();
-  await page.command("Page.navigate", { url: `${url}/${html.artifact.id}` });
+  await page.command("Page.navigate", { url: (await command(["open", html.artifact.id])).trim() });
   const content = await eventually(
-    () => renderedFrame("!!document.getElementById('send')"),
+    () => renderedFrame("typeof document.getElementById('send')?.onclick === 'function'"),
     "compiled isolated preview",
   );
   const offset = await page.evaluate(
@@ -271,7 +277,11 @@ try {
     XDG_RUNTIME_DIR: join(root, "publisher-runtime"),
     XDG_CONFIG_HOME: join(root, "publisher-config"),
   };
-  await command(["login", "--api-key-stdin"], remote, announcement.token);
+  const { token } = await localBootstrap<{ token: string }>(
+    announcement.bootstrapSocket,
+    "bootstrap",
+  );
+  await command(["login", "--api-key-stdin"], remote, token);
   await command(
     [
       "publish",
@@ -310,7 +320,7 @@ try {
   );
   const bytes = await fetch(
     `${url}/api/artifacts/${files.artifact.id}/versions/1/resource?path=data.bin`,
-    { headers: { "x-r3-token": announcement.token } },
+    { headers: { "x-r3-token": token } },
   );
   assert.deepEqual(new Uint8Array(await bytes.arrayBuffer()), new Uint8Array([0, 128, 255]));
   const screenshot = await page.command("Page.captureScreenshot", { format: "png" });

@@ -28,15 +28,28 @@ export let TOKEN = "";
 // section rather than offering a control that can only fail).
 export const CAN_MANAGE_TOKENS = true;
 
-// Bootstrap before first render. When the daemon isn't exposed it returns the
-// per-user token (sent as x-r3-token below); when exposed it needs a login-token
-// session and answers 401 `{ needsAuth:true }`, and the caller shows the login screen.
+// Bootstrap before first render. Local one-time links and remote login both
+// establish an HttpOnly browser session before accessing application data.
 export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   needsAuth: boolean;
   artifact?: ArtifactDetail;
   manifest?: ApplicationBootstrap["manifest"];
   preview?: ApplicationBootstrap["preview"];
 }> {
+  if (location.hash.startsWith("#r3-login=")) {
+    const ticket = location.hash.slice("#r3-login=".length);
+    // Clear the one-time fragment before any application rendering or requests.
+    history.replaceState(history.state, "", location.pathname + location.search);
+    const response = await fetch("/api/auth/local", {
+      method: "POST",
+      redirect: "error",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticket }),
+    });
+    if (!response.ok)
+      throw new Error("Local browser link expired or was already used. Run r3 open again.");
+    initial = undefined;
+  }
   if (initial) {
     const suspended = await Promise.all([
       markdownCache.authenticationSuspended(),

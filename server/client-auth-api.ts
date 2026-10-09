@@ -1,5 +1,5 @@
 import { isIP } from "node:net";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ArtifactAuthPolicy } from "./artifact-auth.ts";
 import { artifactJson } from "./artifact-http.ts";
@@ -45,8 +45,20 @@ async function form(request: Request): Promise<URLSearchParams> {
   const value = new URLSearchParams(Buffer.concat(chunks).toString("utf8"));
   for (const key of value.keys())
     if (value.getAll(key).length !== 1) throw new ArtifactError("Duplicate OAuth parameter");
-  if (value.get("client_id") !== "r3-cli") throw new ArtifactError("Unknown OAuth client");
+  if (value.get("client_id") !== "r3-cli") throw new OAuthError("invalid_client");
   return value;
+}
+
+async function oauthResponse(c: Context, action: () => Promise<Record<string, unknown>>) {
+  c.header("Pragma", "no-cache");
+  try {
+    return c.json(await action());
+  } catch (error) {
+    if (error instanceof OAuthError) return c.json({ error: error.code }, 400);
+    if (error instanceof ArtifactError && [400, 413].includes(error.status))
+      return c.json({ error: "invalid_request" }, error.status as 400 | 413);
+    throw error;
+  }
 }
 
 export function installClientAuth(
@@ -55,40 +67,40 @@ export function installClientAuth(
   browser: AuthService,
   policy: ArtifactAuthPolicy,
 ): void {
-  app.post("/api/oauth/device/code", async (c) => {
-    const body = await form(c.req.raw);
-    const result = clients.device(
-      optionalText(body.get("label"), "label", 1000),
-      observedAddress(c.req.raw, policy),
-    );
-    const base = policy.publicUrl ?? new URL(c.req.url).origin;
-    const verification = `${base}/authorize`;
-    return c.json({
-      ...result,
-      verification_uri: verification,
-      verification_uri_complete: `${verification}?code=${encodeURIComponent(result.user_code)}`,
-    });
-  });
-  app.post("/api/oauth/token", async (c) => {
-    clients.limit(observedAddress(c.req.raw, policy));
-    const body = await form(c.req.raw);
-    try {
+  app.post("/api/oauth/device/code", (c) =>
+    oauthResponse(c, async () => {
+      const body = await form(c.req.raw);
+      const result = clients.device(
+        optionalText(body.get("label"), "label", 1000),
+        observedAddress(c.req.raw, policy),
+      );
+      const base = policy.publicUrl ?? new URL(c.req.url).origin;
+      const verification = `${base}/authorize`;
+      return {
+        ...result,
+        verification_uri: verification,
+        verification_uri_complete: `${verification}?code=${encodeURIComponent(result.user_code)}`,
+      };
+    }),
+  );
+  app.post("/api/oauth/token", (c) =>
+    oauthResponse(c, async () => {
+      clients.limit(observedAddress(c.req.raw, policy));
+      const body = await form(c.req.raw);
       if (body.get("grant_type") === "urn:ietf:params:oauth:grant-type:device_code")
-        return c.json(clients.poll(requireString(body.get("device_code"), "device_code", 4096)));
+        return clients.poll(requireString(body.get("device_code"), "device_code", 4096));
       if (body.get("grant_type") === "refresh_token")
-        return c.json(
-          clients.refresh(requireString(body.get("refresh_token"), "refresh_token", 4096)),
-        );
-      return c.json({ error: "unsupported_grant_type" }, 400);
-    } catch (error) {
-      if (error instanceof OAuthError) return c.json({ error: error.code }, 400);
-      throw error;
-    }
-  });
+        return clients.refresh(requireString(body.get("refresh_token"), "refresh_token", 4096));
+      throw new OAuthError(body.has("grant_type") ? "unsupported_grant_type" : "invalid_request");
+    }),
+  );
   app.use("/api/oauth/device/*", async (c, next) => {
     // Approval belongs to the authenticated browser. Client credentials cannot
     // approve further devices on an exposed backend.
-    if (policy.requireLogin && !browser.sessionValid(getCookie(c, COOKIE_NAME)))
+    if (
+      (policy.requireLogin || policy.localAccess) &&
+      !browser.sessionValid(getCookie(c, COOKIE_NAME))
+    )
       return c.json({ error: "Approve access in an authenticated r3 browser" }, 401);
     clients.limit(observedAddress(c.req.raw, policy));
     await next();

@@ -7,8 +7,10 @@ import { artifactJson } from "./artifact-http.ts";
 import { type AuthService, COOKIE_NAME, cookieOptions } from "./auth.ts";
 import type { ClientAuth } from "./client-auth.ts";
 import { installClientAuth } from "./client-auth-api.ts";
+import type { LocalBrowserAccess } from "./local-access.ts";
 
 export interface ArtifactAuthPolicy {
+  localAccess?: LocalBrowserAccess;
   token: string;
   requireLogin: boolean;
   version: string;
@@ -76,13 +78,12 @@ export function artifactBoot(
   policy: ArtifactAuthPolicy,
   cookie: string | undefined,
 ): BootResponse {
-  if (!policy.requireLogin) return { needsAuth: false, token: policy.token };
+  if (!policy.requireLogin && !policy.localAccess) return { needsAuth: false, token: policy.token };
   return { needsAuth: !authentication.sessionValid(cookie), token: null };
 }
 
-// Authenticated fetch streams serve both browser and agent SSE, so events no
-// longer need a token-free exception. The local no-login bootstrap still has
-// r3's deliberate local-process trust boundary.
+// Authenticated fetch streams serve browser invalidations and worker delivery.
+// The shipped server uses private local setup and browser cookies on loopback too.
 export function installArtifactAuth(
   app: Hono,
   authentication: AuthService,
@@ -100,7 +101,10 @@ export function installArtifactAuth(
     const publicRead =
       (c.req.method === "GET" || c.req.method === "HEAD") &&
       ["/api/health", "/api/boot"].includes(c.req.path);
-    const login = c.req.method === "POST" && c.req.path === "/api/auth/login";
+    const login =
+      c.req.method === "POST" &&
+      (c.req.path === "/api/auth/login" ||
+        (policy.localAccess && c.req.path === "/api/auth/local"));
     const oauth =
       clients &&
       c.req.method === "POST" &&
@@ -128,6 +132,23 @@ export function installArtifactAuth(
     const boot = artifactBoot(authentication, policy, getCookie(c, COOKIE_NAME));
     return c.json(boot, boot.needsAuth ? 401 : 200);
   });
+  if (policy.localAccess)
+    app.post("/api/auth/local", async (c) => {
+      const input = await artifactJson(c.req.raw, 4096);
+      const session =
+        typeof input.ticket === "string" && input.ticket.length <= 100
+          ? policy.localAccess!.consume(input.ticket)
+          : null;
+      if (!session)
+        return c.json(
+          { error: "Local browser link expired or was already used; run r3 open again" },
+          401,
+        );
+      const https =
+        c.req.header("x-forwarded-proto") === "https" || new URL(c.req.url).protocol === "https:";
+      setCookie(c, COOKIE_NAME, session.cookieValue, cookieOptions(https, session.maxAgeSeconds));
+      return c.json({ ok: true });
+    });
   app.post("/api/auth/login", async (c) => {
     const input = await artifactJson(c.req.raw, 64 * 1024);
     if (typeof input?.token !== "string") return c.json({ error: "Missing login token" }, 400);

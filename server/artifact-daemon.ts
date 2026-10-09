@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { BackendCredentials } from "../cli/backend.ts";
 import { writePrivateJson } from "../cli/private-state.ts";
 import { ensureWorker } from "../cli/worker-client.ts";
@@ -12,6 +12,7 @@ import { openArtifactStorage } from "./artifact-storage.ts";
 import {
   acquireDaemonLock,
   BIND,
+  daemonJsonPath,
   getToken,
   isAllowedHost,
   LOCAL_URL,
@@ -27,6 +28,8 @@ import {
   stateDir,
   writeDaemonJson,
 } from "./config.ts";
+import { LocalBrowserAccess } from "./local-access.ts";
+import { startLocalBootstrap } from "./local-bootstrap.ts";
 
 // Migration occurs only after this process holds the per-user daemon lock.
 // Importing the CLI/server opens no database.
@@ -48,6 +51,7 @@ export async function startArtifactDaemon(): Promise<void> {
   }
   let storage: Awaited<ReturnType<typeof openArtifactStorage>> | undefined;
   let runtime: ReturnType<typeof startArtifactServer> | undefined;
+  let bootstrap: ReturnType<typeof startLocalBootstrap> | undefined;
   try {
     const assets = await loadApplicationAssets(index);
     storage = await openArtifactStorage({
@@ -57,6 +61,8 @@ export async function startArtifactDaemon(): Promise<void> {
       archiveTtlDays: readConfig().archiveTtlDays,
     });
     const token = getToken();
+    const localAccess = new LocalBrowserAccess(storage.authentication);
+    const bootstrapSocket = join(dirname(daemonJsonPath()), "server", "bootstrap.sock");
     runtime = startArtifactServer({
       storage,
       assets,
@@ -64,6 +70,7 @@ export async function startArtifactDaemon(): Promise<void> {
       port: PORT,
       authentication: {
         token,
+        localAccess,
         requireLogin: REQUIRE_LOGIN,
         version: R3_VERSION,
         allowedHost: isAllowedHost,
@@ -72,11 +79,18 @@ export async function startArtifactDaemon(): Promise<void> {
         trustedProxies: new Set(readConfig().trustedProxies ?? []),
       },
     });
+    bootstrap = startLocalBootstrap({
+      socket: bootstrapSocket,
+      url: LOCAL_URL,
+      publicUrl: PUBLIC_URL,
+      token,
+      browser: localAccess,
+    });
     writeDaemonJson({
       url: LOCAL_URL,
       port: PORT,
       pid: process.pid,
-      token,
+      bootstrapSocket,
       version: R3_VERSION,
       protocol: "artifacts-v2",
       publicUrl: PUBLIC_URL,
@@ -105,6 +119,7 @@ export async function startArtifactDaemon(): Promise<void> {
     const shutdown = async () => {
       if (closing) return;
       closing = true;
+      await bootstrap!.stop();
       await runtime!.stop();
       storage!.close();
       if (readDaemonJson()?.pid === process.pid) removeDaemonJson();
@@ -125,6 +140,7 @@ export async function startArtifactDaemon(): Promise<void> {
         "r3: artifact schema upgraded; its database backup is retained in artifact storage",
       );
   } catch (error) {
+    await bootstrap?.stop();
     await runtime?.stop();
     storage?.close();
     if (readDaemonJson()?.pid === process.pid) removeDaemonJson();

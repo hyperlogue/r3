@@ -66,17 +66,28 @@ Manual revocation retains its transactional session deletion, including inactive
 tokens when revoking all.
 The separate master API token is outside this login-token policy.
 
-`REQUIRE_LOGIN` defaults on when publicUrl, allowedHosts, or bind config indicates
-non-loopback access. A setting is policy, not proof of the network topology. On a
-local no-login instance, boot supplies the master token to the same-origin browser.
-With login required, boot exposes no master token: a revocable login token creates
-an HttpOnly, SameSite=Strict cookie, Secure at an HTTPS edge. The proxy must set
-X-Forwarded-Proto correctly. Individual revocation of the caller's current login
-token is refused; revoke-all is the deliberate escape hatch.
+The shipped server always authenticates browser sessions, including loopback.
+Automatic CLI setup obtains its API credential through the server's private Unix
+socket. `r3 open [artifact-id]` requests a random, one-use, 60-second browser ticket
+and prints a link carrying it in the URL fragment. The SPA removes that fragment
+before exchanging it at the guarded `/api/auth/local` endpoint for an HttpOnly,
+SameSite=Strict cookie. No reusable API/login token enters a browser link or boot.
+The socket's owned directory is 0700 and the socket is 0600. Both peers check
+ownership/types; the server rejects any Origin or Sec-Fetch-Site header. Its
+only operations are credential bootstrap and browser-ticket minting. Startup holds
+the daemon lock before replacing an owned stale socket. Application HTTP exposes
+neither private operation. Other local UIDs cannot acquire local credentials;
+processes running as the same OS user remain trusted.
+
+Ordinary login tokens continue to create revocable browser sessions, Secure at an
+HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocation
+of the caller's current token is refused; revoke-all remains the escape hatch.
+The legacy `requireLogin=false` setting no longer enables token-bearing browser
+bootstrap in the shipped server. Explicit injected no-login policies remain only
+for controlled server fixtures and the static demo.
 
 Application HTML can embed bootstrap and the addressed artifact's detail after
-the same Host/origin checks and browser-session validation as bootstrap. Local
-no-login mode retains its existing bootstrap trust boundary. The embedded detail
+the same Host/origin checks and browser-session validation as bootstrap. The embedded detail
 uses the API's complete shape and collaboration state; it seeds the browser query
 cache, while SSE ready/reconnect still reconciles current state in the background.
 The same authenticated snapshot may include the selected HTML version’s bounded
@@ -106,9 +117,8 @@ authentication optimization; a current successful bootstrap still opens the app.
 Otherwise inline bootstrap leaves cache suspension state untouched. A document
 restored from the back/forward cache reloads rather than reusing its auth snapshot.
 
-A proxy that rewrites Host to loopback can conceal remote exposure. Set
-`requireLogin` explicitly for such a deployment and advertise the application's
-publicUrl. Never rely on the proxy being detectable. Remote clients resolve environment, project, and user backend selection, then use
+Advertise the application's publicUrl when exposing it through a proxy; browser
+session checks apply even when the proxy rewrites Host to loopback. Remote clients resolve environment, project, and user backend selection, then use
 saved access from `r3 login`. A different origin/path never inherits credentials.
 Both clients and probes reject redirects when carrying credentials.
 
@@ -441,8 +451,7 @@ responses or logs. Queue acceptance is not proof of a running consumer.
 
 ## Limits of the trust model
 
-Other local processes can reach local no-login boot. Protecting against another
-local UID would require a different transport/bootstrap boundary. Logical agent IDs
+The private bootstrap boundary excludes other local UIDs but trusts the same OS user. Logical agent IDs
 are attribution inside the owner's trusted API, not separate authorization principals.
 A scoped preview context grants one version's bytes only; it confers no application
 credential or authority over other artifacts.

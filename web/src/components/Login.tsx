@@ -3,12 +3,7 @@ import { ApiError, api } from "../api.ts";
 import { Button } from "../ui.tsx";
 import { Logo } from "./Logo.tsx";
 
-// The login screen shown when login is required (server/config.ts REQUIRE_LOGIN, e.g.
-// `tailscale serve`) and there's no valid session yet. The user pastes a login token
-// minted on the host with `r3 auth create-token`; POST /api/auth/login sets an
-// HttpOnly session cookie, and we reload so boot re-runs — now authenticated — and
-// renders the app. A loopback-only daemon (no login required) never reaches this:
-// /api/boot hands the page the per-user token instead.
+// Local one-time links and reusable login tokens both establish browser sessions.
 export function Login() {
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +42,7 @@ export function Login() {
         </div>
         <h1 className="mb-1 text-sm font-semibold">Sign in</h1>
         <p className="mb-4 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-          This r3 server is reachable over the network, so it needs a login token. Create one on the
-          host with{" "}
+          Open a one-time local link with r3 open, or create a login token on the server with{" "}
           <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[0.7rem] dark:bg-neutral-800">
             r3 auth create-token
           </code>{" "}

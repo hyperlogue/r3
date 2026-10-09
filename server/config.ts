@@ -272,10 +272,11 @@ function ensureDir(dir: string): void {
 
 export interface DaemonInfo {
   agentSocket?: string;
+  bootstrapSocket?: string;
   url: string;
   port: number;
   pid: number;
-  token: string;
+  token?: string;
   version: string;
   protocol?: "artifacts-v2";
   // How this daemon was launched, recorded by the serving process itself:

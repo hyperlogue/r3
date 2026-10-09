@@ -114,13 +114,16 @@ verifies the snapshot's images before output and acknowledgment; failures leave
 discussions pending. Existing matching files are reused; different files are not overwritten.
 Text flags accept - to read stdin. --json prints structured results.
 Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
-Use r3 login for browser approval, or pipe an API key to r3 login --api-key-stdin.
+Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
+Automatic local setup uses a private Unix socket. Run r3 open for a one-time browser
+link. Browser access always requires a session, including on loopback.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
 
   login [--api-key-stdin]
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
+  open [artifact-id]                        # print a browser link; local links expire in 60s
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
   start | stop | status | restart            # aliases for server lifecycle

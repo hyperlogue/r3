@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { localBootstrap } from "./local-bootstrap.ts";
 
 test("artifact CLI lazily starts an isolated daemon and completes publication and conversation lifecycle", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-cli-runtime-"));
@@ -114,9 +115,13 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     const daemonInfo = () => Bun.file(join(root, "runtime", "r3", "daemon.json")).json();
     const request = async (path: string, method = "GET") => {
       const daemon = await daemonInfo();
+      const { token } = await localBootstrap<{ token: string }>(
+        daemon.bootstrapSocket,
+        "bootstrap",
+      );
       const result = await fetch(`${daemon.url}/api/${path}`, {
         method,
-        headers: { "x-r3-token": daemon.token },
+        headers: { "x-r3-token": token },
       });
       expect(result.ok).toBe(true);
       return result.json();

@@ -13,6 +13,7 @@ import { authCommand, configCommand } from "./artifact-settings.ts";
 import { daemonCommand, discoverArtifactServer } from "./daemon-client.ts";
 import { detectListener } from "./listener.ts";
 import { loginCommand } from "./login.ts";
+import { openCommand } from "./open.ts";
 import { ensureWorker, workerCommand } from "./worker-client.ts";
 
 const COMMANDS = new Set([
@@ -96,6 +97,10 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     const { startWorker } = await import("./worker-runtime.ts");
     await startWorker();
     process.exit(0);
+  }
+  if (command === "open") {
+    await openCommand(args);
+    return 0;
   }
   if (command === "login") {
     await loginCommand(args);

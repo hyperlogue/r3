@@ -48,7 +48,9 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   subagents, use distinct IDs. Sessions are attribution, not credentials, accounts,
   artifact ownership, or live presence.
 - Local mode starts the same backend server lazily and announces it in
-  `$XDG_RUNTIME_DIR/r3/daemon.json`. Backend selection is `R3_URL`, nearest project
+  `$XDG_RUNTIME_DIR/r3/daemon.json`. A private Unix sidecar bootstraps local CLI
+  credentials; `r3 open` supplies a one-time browser link. Browser boot never exposes
+  the API credential. Backend selection is `R3_URL`, nearest project
   `.r3.json`, user `backendUrl`, then automatic local. Saved credentials are keyed
   by the complete normalized URL; `r3 login` supports browser approval or an API key.
   The separate persistent worker opens only private Unix IPC and outgoing backend

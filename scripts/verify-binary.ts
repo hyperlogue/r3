@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { localBootstrap } from "../cli/local-bootstrap.ts";
 import { R3_VERSION } from "../shared/version.ts";
 
 export async function verifyBinary(path: string, platform: string) {
@@ -83,9 +84,10 @@ export async function verifyBinary(path: string, platform: string) {
     await cli("start");
     const daemon = JSON.parse(await readFile(join(runtime, "r3/daemon.json"), "utf8"));
     assert.equal(daemon.version, R3_VERSION);
+    const { token } = await localBootstrap<{ token: string }>(daemon.bootstrapSocket, "bootstrap");
     const request = async (path: string) => {
       const response = await fetch(`http://127.0.0.1:${port}${path}`, {
-        headers: { "x-r3-token": daemon.token },
+        headers: { "x-r3-token": token },
         signal: AbortSignal.timeout(10_000),
       });
       assert.equal(response.status, 200, `GET ${path}`);

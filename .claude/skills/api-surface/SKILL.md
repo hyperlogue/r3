@@ -209,7 +209,9 @@ subscriptions; restore requires a fresh publication or subscription.
   never application credentials. `origin` is the transport origin; rendered
   documents have opaque origins.
 - `GET /api/health` reports version and `protocol: artifacts-v2`; `GET /api/boot`
-  supplies local bootstrap or required-login state. Both remain Host/origin gated.
+  reports browser-session state without an API token in the shipped server.
+  POST `/api/auth/local` exchanges a one-time local ticket for a cookie. Private
+  setup uses Unix IPC, as specified in the remote protocol. All HTTP remains Host/origin gated.
   Authenticated application HTML may inline that bootstrap plus the current
   `ArtifactDetail`, using the same contracts to seed the initial workspace.
   For HTML artifacts it also embeds the selected version’s immutable file manifest
@@ -303,7 +305,8 @@ Use a distinct harness identity or `R3_AGENT_SESSION` per logical writing agent.
 `--session` only sets its display label; generic watch needs no supplied ID. The client
 registers that session before writes. No
 artifact owner or generic shared agent identity is inferred. Backend selection is `R3_URL`, nearest project `.r3.json`, user `backendUrl`, then
-automatic local. `r3 login` saves credentials for the complete normalized URL;
+automatic local. `r3 open [artifact-id]` prints a one-time local browser link
+or the selected remote address. `r3 login` saves credentials for the complete normalized URL;
 `R3_TOKEN` is not a client override.
 
 Claude Code/Codex create/publish makes the publisher the fallback. `listen` takes

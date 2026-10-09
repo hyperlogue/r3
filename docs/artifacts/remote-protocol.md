@@ -55,7 +55,21 @@ Directories are owned and mode 0700; files are mode 0600 and atomically replaced
 with fsync. Processes coordinate refresh and replacement with a private lock.
 Every request rereads current credentials. An explicitly configured URL never
 inherits a different backend's credentials. `R3_TOKEN` is not a client override.
-Automatic local discovery saves its matching local credential without a login step.
+Automatic local discovery uses the server's private Unix socket to save its matching
+API credential without OAuth polling. The socket path is announced in daemon.json;
+the credential itself is not. `r3 login` in automatic local mode uses that same setup.
+`r3 open [artifact-id]` prints a one-time browser link, valid for 60 seconds. The
+browser removes its fragment ticket and exchanges it for a normal HttpOnly session.
+Remote `r3 open` prints the selected backend's ordinary address. Browser boot never
+exposes the API credential in the shipped server, even with legacy requireLogin=false.
+
+The private sidecar offers only POST `/api/local/bootstrap` and
+`/api/local/browser { path?: "/" | "/artifact_<id>" | "/review_<id>" }`. The first returns the
+local service URL, public URL and API token; the second returns a browser link.
+These routes exist only on an owned 0600 socket in an owned 0700 directory and
+reject any Origin or Sec-Fetch-Site header. Network POST `/api/auth/local { ticket }`
+consumes an unexpired ticket once and sets the browser session under the usual
+Host/Origin guards. Failed, expired and replayed tickets return 401.
 
 ## Client authorization
 
@@ -86,6 +100,10 @@ Approve or Decline action. Merely opening the link does not grant access.
 
 Device grants expire after ten minutes and are consumed once. Polls start at five
 seconds; an early poll receives `slow_down` and adds five seconds to the interval.
+Malformed requests return `invalid_request`; unknown clients return `invalid_client`.
+Sensitive OAuth responses include `Cache-Control: no-store` and `Pragma: no-cache`.
+The CLI defaults an omitted polling interval to five seconds.
+
 Other OAuth errors include `authorization_pending`, `access_denied`, `expired_token`,
 `invalid_grant`, and `unsupported_grant_type`, with HTTP 400. Forms are limited to
 8 KiB, reject duplicate fields, and accept only the public `r3-cli` client. The

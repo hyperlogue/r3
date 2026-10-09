@@ -103,6 +103,7 @@ test("device approval requires a browser session and preserves Host and Origin g
     true,
   );
   expect(issued.status).toBe(200);
+  expect(issued.headers.get("pragma")).toBe("no-cache");
   const tokens = await issued.json();
   expect(storage.clientAuth.authenticate(tokens.access_token)).not.toBeNull();
   expect(JSON.stringify(storage.clientAuth.auditLog())).not.toContain(tokens.access_token);
@@ -117,4 +118,19 @@ test("OAuth public routes bound form data and reject duplicate parameters", asyn
       .status,
   ).toBe(413);
   expect((await request("/api/oauth/token", {}, {})).status).toBe(400);
+});
+
+test("malformed OAuth requests return protocol error codes", async () => {
+  for (const body of [
+    "client_id=r3-cli&grant_type=urn:ietf:params:oauth:grant-type:device_code",
+    "client_id=r3-cli&grant_type=refresh_token",
+    "client_id=r3-cli&client_id=r3-cli",
+  ]) {
+    const response = await request("/api/oauth/token", body, {}, true);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    expect(response.headers.get("pragma")).toBe("no-cache");
+  }
+  const unknown = await request("/api/oauth/device/code", "client_id=unknown", {}, true);
+  expect(await unknown.json()).toEqual({ error: "invalid_client" });
 });

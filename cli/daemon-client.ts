@@ -11,6 +11,7 @@ import {
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { BackendCredentials, selectedBackend } from "./backend.ts";
+import { localBootstrap } from "./local-bootstrap.ts";
 
 interface Health {
   ok: boolean;
@@ -137,14 +138,22 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
       `r3: daemon is v${health.version}; this CLI is v${R3_VERSION}. Run r3 restart to use this build.\n`,
     );
   const url = normalizeBackendUrl(info.url);
+  if (!info.bootstrapSocket)
+    throw new ArtifactCommandError("Restart the local server to enable private local setup");
+  const local = await localBootstrap<{ url: string; token: string; publicUrl: string }>(
+    info.bootstrapSocket,
+    "bootstrap",
+  );
+  if (normalizeBackendUrl(local.url) !== url || typeof local.token !== "string" || !local.token)
+    throw new ArtifactCommandError("Invalid local bootstrap response");
   const current = credentials.read(url);
-  if (!current || (current.kind === "key" && current.accessToken !== info.token))
-    await credentials.save({ url, kind: "key", accessToken: info.token });
+  if (!current || current.kind !== "key" || current.accessToken !== local.token)
+    await credentials.save({ url, kind: "key", accessToken: local.token });
   return {
-    url: info.url,
-    token: info.token,
+    url,
+    token: local.token,
     getToken: () => credentials.token(url),
-    publicUrl: info.publicUrl ?? info.url,
+    publicUrl: local.publicUrl,
   };
 }
 
@@ -168,7 +177,11 @@ export async function daemonCommand(
         ? `r3 daemon: ${info.publicUrl ?? info.url} · v${health.version} · ${health.protocol ?? "previous review protocol"}`
         : "r3: announced daemon is not responding",
     );
-    console.log(`login ${info.requireLogin ? "required" : "not required"}`);
+    console.log(
+      info.bootstrapSocket
+        ? "browser access: r3 open or a login token"
+        : `login ${info.requireLogin ? "required" : "not required"}`,
+    );
     return;
   }
   if (command === "start") {

@@ -1,7 +1,12 @@
 import { ArtifactClient } from "../shared/artifact-client.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
-import { BackendCredentials, credentialFromTokens, type OAuthTokens } from "./backend.ts";
+import {
+  BackendCredentials,
+  credentialFromTokens,
+  type OAuthTokens,
+  selectedBackend,
+} from "./backend.ts";
 import { discoverArtifactServer } from "./daemon-client.ts";
 import { reloadWorker } from "./worker-client.ts";
 
@@ -10,6 +15,11 @@ export async function loginCommand(args: string[]): Promise<void> {
     throw new ArtifactCommandError("login [--api-key-stdin]");
   const { url } = await discoverArtifactServer(true);
   const credentials = new BackendCredentials();
+  if (!selectedBackend() && !args.length) {
+    await reloadWorker(url);
+    console.log(`Connected to ${url}`);
+    return;
+  }
   if (args[0] === "--api-key-stdin") {
     if (process.stdin.isTTY) throw new Error("Pipe the API key to r3 login --api-key-stdin");
     const reader = Bun.stdin.stream().getReader();
@@ -44,15 +54,16 @@ export async function loginCommand(args: string[]): Promise<void> {
       user_code: string;
       verification_uri: string;
       expires_in: number;
-      interval: number;
+      interval?: number;
     };
+    const pollingSeconds = request.interval === undefined ? 5 : request.interval;
     if (
       typeof request.device_code !== "string" ||
       typeof request.user_code !== "string" ||
       !Number.isFinite(request.expires_in) ||
       request.expires_in <= 0 ||
-      !Number.isFinite(request.interval) ||
-      request.interval < 1
+      !Number.isFinite(pollingSeconds) ||
+      pollingSeconds < 1
     )
       throw new Error("Invalid device authorization response");
     const verification = new URL(request.verification_uri);
@@ -66,7 +77,7 @@ export async function loginCommand(args: string[]): Promise<void> {
       `Open ${verification.href}\nEnter code: ${request.user_code}\nApprove this request in your authenticated r3 browser.`,
     );
     const deadline = Date.now() + Math.min(request.expires_in, 1800) * 1000;
-    let interval = request.interval * 1000;
+    let interval = pollingSeconds * 1000;
     let approved = false;
     while (Date.now() < deadline) {
       await Bun.sleep(interval);
