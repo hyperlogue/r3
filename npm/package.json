@@ -1,7 +1,7 @@
 {
   "name": "@hyperlogue/r3",
   "version": "1.6.0",
-  "description": "Render. Review. Refine. — view artifacts and give precise feedback to any coding agent. Runs the matching prebuilt native r3 binary (shipped as a per-platform optional dependency); works with `bunx @hyperlogue/r3` and `npx @hyperlogue/r3`.",
+  "description": "Render. Review. Refine. — publish artifacts and discuss them with any coding agent. Runs the matching prebuilt native r3 binary (shipped as a per-platform optional dependency); works with `bunx @hyperlogue/r3` and `npx @hyperlogue/r3`.",
   "license": "MIT",
   "type": "module",
   "publishConfig": {

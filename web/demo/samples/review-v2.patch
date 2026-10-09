@@ -56,11 +56,11 @@ diff --git a/workspace.tsx b/workspace.tsx
        {renderVersion(selected)}
      </main>
    );
-diff --git a/feedback.ts b/feedback.ts
---- a/feedback.ts
-+++ b/feedback.ts
+diff --git a/discussions.ts b/discussions.ts
+--- a/discussions.ts
++++ b/discussions.ts
 @@ -1,16 +1,17 @@
- export type Feedback = {
+ export type Discussion = {
    id: string;
    body: string;
 -  target: {
@@ -72,8 +72,8 @@ diff --git a/feedback.ts b/feedback.ts
 +  }>;
  };
 
--export function locateFeedback(note: Feedback, latestVersion: number) {
-+export function locateFeedback(note: Feedback) {
+-export function locateDiscussion(note: Discussion, latestVersion: number) {
++export function locateDiscussion(note: Discussion) {
 +  // A new publication does not rewrite the evidence a conversation began with.
    return {
 -    version: latestVersion,
@@ -87,7 +87,7 @@ diff --git a/navigation.test.ts b/navigation.test.ts
 @@ -1,5 +1,6 @@
  import { expect, test } from "bun:test";
  import { selectedVersion } from "./navigation";
-+import { locateFeedback } from "./feedback";
++import { locateDiscussion } from "./discussions";
 
  test("opens the latest publication on first visit", () => {
    expect(selectedVersion([1, 2, 3], null)).toBe(3);
@@ -104,10 +104,10 @@ diff --git a/navigation.test.ts b/navigation.test.ts
 +  expect(selectedVersion([1, 3], 2)).toBe(3);
 +});
 +
-+test("locates feedback in its original publication", () => {
++test("locates discussions in its original publication", () => {
 +  const target = { version: 1, path: "navigation.ts", line: 4 };
 +  const note = { id: "note_example", body: "Keep this version pinned.", target };
-+  expect(locateFeedback(note)).toEqual(target);
++  expect(locateDiscussion(note)).toEqual(target);
 +  expect(note.target).toEqual(target);
 +});
 diff --git a/docs/version-navigation.md b/docs/version-navigation.md
@@ -128,13 +128,13 @@ diff --git a/docs/version-navigation.md b/docs/version-navigation.md
 +3. Let the reader choose **Go to the latest version**.
 +4. Keep earlier versions available in the version selector.
 
- ## Feedback
+ ## Discussion
 
 -Each conversation records the path and line where it began.
 -Locate opens that path in the latest version so the reader sees current code.
 +Each conversation records the version, path, and line where it began.
 +Locate opens that original publication, even after new content is published.
-+A reply can describe a fix in another version without changing the original target.
++A comment can describe a fix in another version without changing the original target.
 
  ## Empty state
 
