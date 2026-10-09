@@ -5,18 +5,18 @@ import type {
   ArtifactFile,
   ArtifactReferenceContext,
 } from "../../shared/artifacts.ts";
-import { artifactApi } from "./artifact-api.ts";
-import { useArtifactViewed } from "./artifact-hooks.ts";
 import {
   artifactRegions,
   defaultFileRepresentation,
   visibleArtifactTargets,
 } from "./artifact-navigation.ts";
+import { useArtifactClient } from "./artifact-ui-context.tsx";
 import { type ArtifactViewSelection, selectedArtifactVersion } from "./artifact-version.ts";
 import type { FetchContext } from "./components/DiffView.tsx";
 import { compareFilePaths } from "./file-order.ts";
 import { useSyntaxTheme } from "./settings.ts";
 import type { PatchDiff } from "./types.ts";
+import { useArtifactViewed } from "./useArtifactViewed.ts";
 import { diffViewedKey, fileViewedKey } from "./viewed.ts";
 
 const filesInTreeOrder = (files: ArtifactFile[]) =>
@@ -29,6 +29,7 @@ export function useArtifactContent(
   view: ArtifactViewSelection,
   onReadError: (message: string) => void,
 ) {
+  const artifactApi = useArtifactClient();
   const version = selectedArtifactVersion(detail.versions, view.versionSeq);
   const latest = detail.versions.at(-1);
   const theme = useSyntaxTheme();
@@ -117,7 +118,7 @@ export function useArtifactContent(
         return null;
       }
     },
-    [detail.id, version, theme, onReadError],
+    [detail.id, version, theme, onReadError, artifactApi.context],
   );
 
   return {

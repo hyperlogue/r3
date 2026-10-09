@@ -4,9 +4,9 @@ import { createPortal, flushSync } from "react-dom";
 import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
-import { artifactApi } from "../artifact-api.ts";
 import { withSavedComment } from "../artifact-discussions.ts";
 import { type ArtifactDraft, artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
+import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { draftAttachmentInputs } from "../attachment-drafts.ts";
 import { DiscussionCreationContext, prepareDiscussionMorph } from "../discussions-motion.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
@@ -36,6 +36,7 @@ export function ArtifactComposer({
   onDone?: () => void;
   floating?: { left: number; top: number; bottom: number; onClose: () => void };
 }) {
+  const artifactApi = useArtifactClient();
   const draft = useArtifactDraft(artifactId, commentTo);
   const retiredTarget =
     !commentTo &&

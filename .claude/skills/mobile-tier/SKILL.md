@@ -22,8 +22,8 @@ Mobile must not add complexity to desktop code.
   tweaks**. The one exception is `JumpToFile`'s inline
   `matchMedia("(pointer: coarse)")` probe, which suppresses autofocus on touch — it
   can't import `usePointerCoarse` without breaking the isolation rule.
-- The **single mount point** is `ArtifactView`, which swaps the side dock for
-  `MobileReviewChrome`. Panel and domain state never fork, and the same
+- The **single mount point** is `ArtifactPage` in `web/src/artifact-page.tsx`, which
+  swaps the side dock for `MobileReviewChrome`. Panel and domain state never fork, and the same
   `ArtifactThreads` renders with the same props either way.
 
 `web/src/mobile/` holds containers **only**: `useIsMobile` + `usePointerCoarse`
@@ -31,7 +31,7 @@ Mobile must not add complexity to desktop code.
 discussions sheet), and `AddDiscussionPill` (the touch selection-anchor pill).
 
 **Side-by-side diffs never render below `md`.** Two code columns don't fit a phone
-pane, so `ArtifactView` forces `layout="unified"` and the workspace toolbar hides the toggle
+pane, so `ArtifactPage` forces `layout="unified"` and the workspace toolbar hides the toggle
 (`max-md:hidden`, an inert class — desktop components still don't import from
 `mobile/`). The override deliberately does **not** write the persisted preference,
 so a split-preferring reader gets split back on a wide viewport.
@@ -83,7 +83,7 @@ below the previews, taking roughly 42% of workspace height. It cannot overlay,
 float, or hide. The Original / Proposed fix controls choose one mounted preview
 at a time. Returning restores the ordinary sheet state; drafts and conversation
 state remain shared. `MobileReviewChrome` owns this temporary geometry and
-`MobileComparisonTabs` owns the phone-only controls, both mounted by `ArtifactView`.
+`MobileComparisonTabs` owns the phone-only controls, both mounted by `ArtifactPage`.
 
 ## Navigation
 

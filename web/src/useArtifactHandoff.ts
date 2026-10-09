@@ -1,15 +1,16 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { type ArtifactDetail, hasUnsentArtifactDiscussion } from "../../shared/artifacts.ts";
-import { artifactApi } from "./artifact-api.ts";
 import { useDiscussionStatusPending } from "./artifact-discussions-status.ts";
 import { useArtifactDraftCount } from "./artifact-drafts.ts";
 import { useDiscussionHandoffReceipt } from "./artifact-handoff.ts";
+import { useArtifactClient } from "./artifact-ui-context.tsx";
 import { useCopyFlash } from "./ui.tsx";
 
 // The navbar and panel share delivery rules, receipts, and a mutation key so
 // either control can send a batch without duplicating an in-flight handoff.
 export function useArtifactHandoff(detail: ArtifactDetail) {
+  const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const mutationKey = ["artifact-handoff", detail.id];
   const isPending = useIsMutating({ mutationKey }) > 0;

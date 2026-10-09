@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import type { ArtifactPreviewNetwork } from "../../../shared/artifacts.ts";
 import { demo } from "../../demo/artifact-backend.ts";
 import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
+import { ApplicationUIProvider } from "../application-ui.tsx";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
@@ -594,8 +595,10 @@ function Showcase() {
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={client}>
-    <NotificationProvider>
-      <Showcase />
-    </NotificationProvider>
+    <ApplicationUIProvider>
+      <NotificationProvider>
+        <Showcase />
+      </NotificationProvider>
+    </ApplicationUIProvider>
   </QueryClientProvider>,
 );

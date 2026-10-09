@@ -5,6 +5,7 @@ import { ArtifactApiError } from "../../shared/artifact-client.ts";
 import { App } from "./App.tsx";
 import { ApiError, loadBoot } from "./api.ts";
 import { takeApplicationBootstrap } from "./application-bootstrap.ts";
+import { ApplicationUIProvider } from "./application-ui.tsx";
 import { ClientApproval } from "./components/ClientApproval.tsx";
 import { Login } from "./components/Login.tsx";
 import { readDisplayPreference } from "./display-storage.ts";
@@ -96,7 +97,9 @@ async function main() {
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        {location.pathname === "/authorize" ? <ClientApproval /> : <App />}
+        <ApplicationUIProvider>
+          {location.pathname === "/authorize" ? <ClientApproval /> : <App />}
+        </ApplicationUIProvider>
       </QueryClientProvider>
     </StrictMode>,
   );

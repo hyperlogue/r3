@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactMediaTarget } from "../../../shared/artifacts.ts";
-import { artifactApi } from "../artifact-api.ts";
 import type { ArtifactComparison as Comparison, ComparisonTarget } from "../artifact-comparison.ts";
+import { useArtifactClient } from "../artifact-ui-context.tsx";
 import type { ArtifactRenderer } from "../pages/ArtifactView.tsx";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { ArtifactMedia } from "./ArtifactMedia.tsx";
@@ -279,6 +279,7 @@ function MediaComparison({
   nonce: number;
   onSavedFrame: (saved: boolean) => void;
 }) {
+  const artifactApi = useArtifactClient();
   const files = useQuery({
     queryKey: ["artifact-files", artifactId, target.versionSeq],
     queryFn: () => artifactApi.files(artifactId, target.versionSeq),

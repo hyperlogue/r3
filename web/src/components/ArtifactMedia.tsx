@@ -7,8 +7,8 @@ import {
   mediaTime,
   targetableMedia,
 } from "../../../shared/media-target.ts";
-import { artifactApi } from "../artifact-api.ts";
 import { useArtifactMediaDraftFrame } from "../artifact-drafts.ts";
+import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { type DraftAttachment, saveDraftImageOutput } from "../attachment-drafts.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 import { MediaBoxOverlay, useMediaImage } from "./MediaTargetPreview.tsx";
@@ -40,6 +40,7 @@ export function ArtifactMedia({
   showTarget?: boolean;
   onSavedFrame?: (saved: boolean) => void;
 }) {
+  const artifactApi = useArtifactClient();
   const kind = targetableMedia(file.mediaType);
   const discussionLabel = kind === "video" ? "Add video discussions" : "Add image discussions";
   const currentDraftFrame = useArtifactMediaDraftFrame(artifactId);
@@ -107,7 +108,7 @@ export function ArtifactMedia({
       window.removeEventListener("r3-images-cleared", clear);
       clear();
     };
-  }, [artifactId, versionSeq, file.path, file.mediaType, kind]);
+  }, [artifactId, versionSeq, file.path, file.mediaType, kind, artifactApi.download]);
   useEffect(() => {
     onSavedFrame?.(showSaved && !!saved.url);
   }, [showSaved, saved.url, onSavedFrame]);

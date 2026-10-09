@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import type { Artifact } from "../../../shared/artifacts.ts";
-import { artifactApi } from "../artifact-api.ts";
+import { type ArtifactPageClient, useArtifactClient } from "../artifact-ui-context.tsx";
 import { Button } from "../ui.tsx";
 export type ActionArtifact = Pick<Artifact, "id" | "title" | "state">;
 export interface ArtifactActionResult {
@@ -15,7 +15,7 @@ export async function actOnArtifacts(
   action: "archive" | "delete",
   message: string,
   keys: Map<string, string>,
-  api = artifactApi,
+  api: Pick<ArtifactPageClient, "delete" | "detail" | "lifecycle">,
 ): Promise<ArtifactActionResult[]> {
   const results: ArtifactActionResult[] = [];
   for (const item of items) {
@@ -69,6 +69,7 @@ export function ArtifactActionDialog({
   onClose: () => void;
   onDone: (results: ArtifactActionResult[]) => void;
 }) {
+  const api = useArtifactClient();
   const dialog = useRef<HTMLDialogElement>(null);
   const keys = useRef(new Map<string, string>());
   const [message, setMessage] = useState("");
@@ -95,7 +96,7 @@ export function ArtifactActionDialog({
           event.preventDefault();
           if (pending) return;
           setPending(true);
-          const results = await actOnArtifacts(items, action, message, keys.current);
+          const results = await actOnArtifacts(items, action, message, keys.current, api);
           for (const key of [
             "artifacts",
             "artifact",

@@ -10,7 +10,7 @@ import {
   type ArtifactDiscussion,
   isUnhandledArtifactDiscussion,
 } from "../../shared/artifacts.ts";
-import { artifactApi } from "./artifact-api.ts";
+import { useArtifactClient } from "./artifact-ui-context.tsx";
 
 type StatusChange = {
   discussionId: string;
@@ -53,6 +53,7 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
   }, [detail, pending]);
 }
 export function useDiscussionStatus(discussions: ArtifactDiscussion) {
+  const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const key = [...statusKey(discussions.artifactId), discussions.id];
   const mutations = useMutationState({

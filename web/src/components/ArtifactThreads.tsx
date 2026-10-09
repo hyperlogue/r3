@@ -24,11 +24,11 @@ import {
   hasUnsentArtifactDiscussion,
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
-import { artifactApi } from "../artifact-api.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { activeArtifactDiscussion, artifactNeedsAttention } from "../artifact-discussions.ts";
 import { useDiscussionStatus, useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
+import { useArtifactClient } from "../artifact-ui-context.tsx";
 import {
   DiscussionCreationContext,
   discussionAnimation,
@@ -173,6 +173,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   hidden?: boolean;
   readOnly?: boolean;
 }) {
+  const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
   const [earlierOpen, setEarlierOpen] = useState(!!activeCommentId);

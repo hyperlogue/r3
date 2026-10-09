@@ -5,12 +5,10 @@ import type {
   ArtifactDetail,
   ArtifactVersion,
 } from "../../../shared/artifacts.ts";
-import { artifactApi } from "../artifact-api.ts";
 import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
-import { libraryReturnRoute } from "../artifact-library.ts";
+import { useArtifactClient, useArtifactUI } from "../artifact-ui-context.tsx";
 import { formatBytes } from "../format-bytes.ts";
 import type { MessageRef } from "../markdown.ts";
-import { navigate } from "../router.ts";
 import {
   Button,
   CopyMeta,
@@ -22,7 +20,6 @@ import {
 } from "../ui.tsx";
 import { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { AgentName } from "./AgentName.tsx";
-import { AppHeader } from "./AppHeader.tsx";
 import { ArtifactActionDialog } from "./ArtifactActionDialog.tsx";
 import { ArtifactDiscussionToggle } from "./ArtifactDiscussionToggle.tsx";
 import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
@@ -32,7 +29,7 @@ import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { MessageProse } from "./Message.tsx";
 import { Notification, type NotificationProps } from "./Notifications.tsx";
-import { SettingsDialog } from "./SettingsPopup.tsx";
+import { WorkspaceHeader } from "./WorkspaceHeader.tsx";
 
 function ArtifactSendDiscussion({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
   const handoff = useArtifactHandoff(detail);
@@ -56,6 +53,7 @@ function ArtifactHistoryComment({
   comment: ArtifactComment;
   readOnly: boolean;
 }) {
+  const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(comment.body);
@@ -133,6 +131,7 @@ export function ArtifactArchiveDialog({
     comment: { body: string };
     operationKey: string;
   } | null>(null);
+  const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   useLayoutEffect(() => {
     const node = dialog.current;
@@ -256,7 +255,9 @@ export function ArtifactHeader({
   discussionLocked?: boolean;
   onToggleDiscussion?: () => void;
 }) {
+  const { chrome } = useArtifactUI();
   detail = useOptimisticArtifact(detail);
+  const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -309,8 +310,9 @@ export function ArtifactHeader({
   });
   const error = edit.error ?? restore.error;
   const latest = detail.versions.at(-1);
-  return (
-    <AppHeader showSettings={false}>
+  const header = chrome?.header ?? ((children) => <WorkspaceHeader>{children}</WorkspaceHeader>);
+  return header(
+    <>
       <ArtifactKindIcon kind={detail.kind} />
       <div className="flex min-w-0 items-center self-stretch">
         <span
@@ -471,20 +473,22 @@ export function ArtifactHeader({
             />
           </section>
         )}
-        <Button
-          variant="ghost"
-          className="mb-2 w-full justify-between"
-          aria-haspopup="dialog"
-          onClick={() => {
-            setDetailsOpen(false);
-            setSettingsOpen(true);
-          }}
-        >
-          Settings
-          <StrokeIcon className="size-4">
-            <path d="m9 6 6 6-6 6" />
-          </StrokeIcon>
-        </Button>
+        {chrome?.settings && (
+          <Button
+            variant="ghost"
+            className="mb-2 w-full justify-between"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setDetailsOpen(false);
+              setSettingsOpen(true);
+            }}
+          >
+            Settings
+            <StrokeIcon className="size-4">
+              <path d="m9 6 6 6-6 6" />
+            </StrokeIcon>
+          </Button>
+        )}
         <ArtifactPreviewSecurity />
         <section
           aria-label="Storage used"
@@ -626,9 +630,8 @@ export function ArtifactHeader({
           }}
         />
       )}
-      {settingsOpen && (
-        <SettingsDialog onClose={() => setSettingsOpen(false)} trigger={detailsTrigger} />
-      )}
+      {settingsOpen &&
+        chrome?.settings?.({ onClose: () => setSettingsOpen(false), trigger: detailsTrigger })}
       {deleteOpen && (
         <ArtifactActionDialog
           items={[detail]}
@@ -646,7 +649,7 @@ export function ArtifactHeader({
                 message: failure.warning,
                 tone: "error",
               });
-            else navigate(libraryReturnRoute(location.search) ?? "/");
+            else chrome?.onDeleted?.();
           }}
         />
       )}
@@ -660,6 +663,6 @@ export function ArtifactHeader({
           }}
         />
       )}
-    </AppHeader>
+    </>,
   );
 }

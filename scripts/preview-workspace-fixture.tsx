@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { loadBoot } from "../web/src/api.ts";
+import { ApplicationUIProvider } from "../web/src/application-ui.tsx";
 import { artifactApi } from "../web/src/artifact-api.ts";
 import { useArtifactEvents } from "../web/src/artifact-hooks.ts";
 import { ArtifactView } from "../web/src/pages/ArtifactView.tsx";
@@ -20,7 +21,9 @@ function Fixture() {
   );
   return (
     <QueryClientProvider client={client}>
-      <Workspace />
+      <ApplicationUIProvider>
+        <Workspace />
+      </ApplicationUIProvider>
     </QueryClientProvider>
   );
 }

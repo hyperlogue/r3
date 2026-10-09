@@ -10,6 +10,29 @@ Use [the domain glossary](../../CONTEXT.md) for canonical terms,
 [API reference](../../.claude/skills/api-surface/SKILL.md) for routes and commands.
 The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 
+## Reusable workspace UI
+
+`web/src/artifact-page.tsx` exports `ArtifactPage`, the same workspace used by the
+connected application and the public website. Its host supplies an immutable
+`ArtifactDetail`, typed `data` reads, typed `actions` mutations, and a
+`renderPreview` renderer. On changes, the host supplies a new detail snapshot;
+returned mutation values and query invalidations retain the existing optimistic
+UI behavior. Optional chrome slots supply application navigation and settings.
+An optional query client lets the connected app share its cache.
+
+The page owns interaction, layout, versions, discussions, comparison, and the
+single mobile composition point. It imports no HTTP client, authentication,
+router, backend selection, or preview-session setup. `application-ui.tsx` and
+`pages/ArtifactView.tsx` own those connected concerns. Presentation components
+read the supplied client from a required context; there is no live API fallback.
+
+Hosts load `web/src/main.css` through the existing Tailwind build and mount one
+page per document: keyboard bindings, display preferences, and draft state are
+currently document-wide. Website embeds use a separate document to isolate these
+and the app stylesheet. The site's renderer is an authored React example, not a
+way to execute arbitrary published content. Production continues to supply its
+opaque preview renderer and enforce its existing security gate.
+
 ## Three kinds, one publication model
 
 | Kind | Published content | Workspace |

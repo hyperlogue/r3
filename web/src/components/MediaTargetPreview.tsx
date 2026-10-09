@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { MediaBox } from "../../../shared/artifacts.ts";
+import { useArtifactClient } from "../artifact-ui-context.tsx";
 import type { EditableImage } from "./MessageAttachments.tsx";
 import { imageBlob } from "./MessageAttachments.tsx";
 
@@ -20,6 +21,7 @@ export function MediaBoxOverlay({ box }: { box: MediaBox }) {
 }
 
 export function useMediaImage(image?: EditableImage) {
+  const artifactApi = useArtifactClient();
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
@@ -28,7 +30,7 @@ export function useMediaImage(image?: EditableImage) {
     setUrl("");
     setError("");
     if (image)
-      void imageBlob(image)
+      void imageBlob(image, artifactApi.attachment)
         .then((blob) => {
           if (!alive) return;
           held = URL.createObjectURL(blob);
@@ -47,7 +49,7 @@ export function useMediaImage(image?: EditableImage) {
       window.removeEventListener("r3-images-cleared", clear);
       clear();
     };
-  }, [image]);
+  }, [image, artifactApi]);
   return { url, error };
 }
 

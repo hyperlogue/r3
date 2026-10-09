@@ -6,7 +6,7 @@ import {
   type ArtifactFile as PublishedFile,
 } from "../../../shared/artifacts.ts";
 import { targetableMedia } from "../../../shared/media-target.ts";
-import { artifactApi } from "../artifact-api.ts";
+import { useArtifactClient } from "../artifact-ui-context.tsx";
 import type { DraftAttachment } from "../attachment-drafts.ts";
 import type { Region } from "../highlights.ts";
 import type { DiffSide } from "../types.ts";
@@ -63,6 +63,7 @@ export const ArtifactFile = memo(function ArtifactFile({
   onPickLines: (side: DiffSide, start: number, end: number, quote: string) => void;
   preview: () => ReactNode;
 }) {
+  const artifactApi = useArtifactClient();
   const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(!viewed);
   const media = artifactMediaKind(file.mediaType);

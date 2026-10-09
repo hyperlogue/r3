@@ -6,7 +6,7 @@ import {
   type AttachmentInput,
   imagePlaceholder,
 } from "../../../shared/attachments.ts";
-import { artifactApi } from "../artifact-api.ts";
+import { type ArtifactPageData, useArtifactClient } from "../artifact-ui-context.tsx";
 import {
   type DraftAttachment,
   draftAttachmentInputs,
@@ -30,11 +30,14 @@ type ChangeImages = (
   change: (images: EditableImage[]) => EditableImage[],
   insertion?: ImageInsertion,
 ) => void;
-export async function imageBlob(image: EditableImage): Promise<Blob> {
+export async function imageBlob(
+  image: EditableImage,
+  attachment: ArtifactPageData["attachment"],
+): Promise<Blob> {
   if (image.error) throw new Error(image.error);
   if (image.pending) throw new Error("Wait for the image to finish processing");
   return "hash" in image
-    ? (await artifactApi.attachment(image.artifactId, image.id)).blob()
+    ? (await attachment(image.artifactId, image.id)).blob()
     : draftImages.get(image.id);
 }
 export async function editableImageInputs(images: EditableImage[]): Promise<AttachmentInput[]> {
@@ -54,6 +57,7 @@ function AttachmentImage({
   image: EditableImage;
   onOpen: (blob: Blob) => void;
 }) {
+  const artifactApi = useArtifactClient();
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const held = useRef<Blob | null>(null);
@@ -63,7 +67,7 @@ function AttachmentImage({
     setUrl("");
     setError("");
     if (!image.pending)
-      void imageBlob(image)
+      void imageBlob(image, artifactApi.attachment)
         .then((blob) => {
           if (alive) {
             held.current = blob;
@@ -89,7 +93,7 @@ function AttachmentImage({
       held.current = null;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [image, artifactId]);
+  }, [image, artifactId, artifactApi]);
   return (
     <div className="min-w-0">
       {url ? (
@@ -127,6 +131,7 @@ export function MessageAttachments({
   onChange?: ChangeImages;
   disabled?: boolean;
 }) {
+  const artifactApi = useArtifactClient();
   const [opened, setOpened] = useState<{ image: EditableImage; blob: Blob } | null>(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
@@ -175,7 +180,7 @@ export function MessageAttachments({
                   title="Edit image"
                   disabled={disabled || image.pending || !!image.error}
                   onClick={() => {
-                    void imageBlob(image)
+                    void imageBlob(image, artifactApi.attachment)
                       .then((blob) => {
                         setOpened({ image, blob });
                         setEditing(true);
