@@ -163,8 +163,8 @@ editing canned content; generated fixtures are excluded from Biome.
 
 Explicit Submit schedules the scripted agent, claims notes, publishes a new
 version, comments with context, and leaves status for the human. Selection stays on
-the original version. Archive prevents publication and re-registration while
-allowing in-flight comments and retaining pending work. The demo implements the
+the original version. Archive prevents publication and re-registration and
+rejects in-flight comments while retaining pending work. The demo implements the
 public contract directly; its temporary state is separate from wire types.
 
 The build replaces only the default renderer used by `ArtifactView`. The demo

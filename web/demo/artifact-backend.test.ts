@@ -104,7 +104,9 @@ test("demo archive retains unsent work and prevents in-flight comments and publi
     const command = {
       event: "archived" as const,
       operationKey: "archive-demo",
-      message: "Save this history",
+      comment: {
+        body: "Save this history",
+      },
     };
     const first = backend.lifecycle(id, command);
     expect(backend.lifecycle(id, command).event).toEqual(first.event);

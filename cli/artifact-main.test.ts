@@ -176,8 +176,16 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(JSON.parse(published.output).version.seq).toBe(2);
     expect((await run("restart")).code).toBe(0);
     const reconnectDeadline = Date.now() + 5000;
-    while (!(await watchers()).length && Date.now() < reconnectDeadline) await Bun.sleep(50);
-    expect(await watchers()).toMatchObject([{ mode: "fallback", label: "Friendly publisher" }]);
+    while (
+      !(await watchers()).some(
+        (watcher: { connectionState?: string }) => watcher.connectionState === "connected",
+      ) &&
+      Date.now() < reconnectDeadline
+    )
+      await Bun.sleep(50);
+    expect(await watchers()).toMatchObject([
+      { mode: "fallback", label: "Friendly publisher", connectionState: "connected" },
+    ]);
     expect(await Bun.file(queueFile).exists()).toBe(false);
     const note = await run(
       "discussions",
@@ -232,7 +240,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "-m",
       "Keep this history",
     );
-    expect({ code: archiveResult.code, error: archiveResult.error }).toEqual({
+    expect(archiveResult).toMatchObject({
       code: 0,
       error: "",
     });
@@ -240,7 +248,23 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(archived.code).toBe(0);
     expect(archived.output).toContain("Keep this history");
     expect((await run("publish", id, "--dir", directory)).code).toBe(4);
+    const archiveComment = JSON.parse(archiveResult.output).event.comment;
+    expect((await run("comment", "show", archiveComment.id)).output.trim()).toBe(
+      "Keep this history",
+    );
+    expect(
+      (await run("comment", "edit", archiveComment.id, "--human", "-m", "Cannot edit yet")).code,
+    ).toBe(4);
     expect((await run("restore", id, "--human", "--key", "restore-once")).code).toBe(0);
+    expect(
+      (await run("comment", "edit", archiveComment.id, "--human", "-m", "Updated archive comment"))
+        .code,
+    ).toBe(0);
+    const archiveHandoff = await run("discussions", "fetch", id, "--human");
+    expect(archiveHandoff.code).toBe(0);
+    expect(archiveHandoff.output).toContain("Updated archive comment");
+    const updatedHistory = JSON.parse((await run("show", id, "--json")).output);
+    expect(updatedHistory.events[0].comment.sentAt).not.toBeNull();
     expect((await run("config", "set", "port", environment.R3_PORT)).code).toBe(0);
     expect((await run("config", "get", "port")).output.trim()).toBe(environment.R3_PORT);
   } finally {

@@ -420,7 +420,9 @@ describe("artifact CLI over the HTTP contract", () => {
           actor: human,
           event: "archived",
           operationKey: "archive-during-output",
-          message: "Stop here",
+          comment: {
+            body: "Stop here",
+          },
         });
     };
     expect((await command("watch", [id])).code).toBe(0);

@@ -60,7 +60,7 @@ test("global content and reclaimable content deduplicate across artifacts and ve
     contentBytes: 16,
     artifacts: { total: 2, active: 2 },
     versions: 3,
-    conversations: { open: 1, resolved: 0, comments: 1 },
+    conversations: { open: 1, resolved: 0, comments: 2 },
   });
   transition(first.id, "archived");
   time = "2026-11-04T12:00:00.000Z";
@@ -122,7 +122,7 @@ test("activity survives deletion and restart, while retries and rejected writes 
     context: { versionSeq: null, representation: null },
   });
   storage.conversations.edit(note.id, { actor, status: "resolved" });
-  expect(storage.usage.stat().conversations).toEqual({ open: 0, resolved: 1, comments: 1 });
+  expect(storage.usage.stat().conversations).toEqual({ open: 0, resolved: 1, comments: 2 });
   transition(artifact.id, "archived", "archive-once");
   transition(artifact.id, "archived", "archive-once");
   transition(artifact.id, "restored");
@@ -131,7 +131,7 @@ test("activity survives deletion and restart, while retries and rejected writes 
     artifactsCreated: 1,
     versionsPublished: 1,
     threadsAdded: 1,
-    commentsAdded: 1,
+    commentsAdded: 2,
     archived: 1,
     restored: 1,
   });

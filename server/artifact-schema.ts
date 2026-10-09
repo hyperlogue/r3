@@ -1,12 +1,13 @@
 import type { Database } from "bun:sqlite";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
+import { ARTIFACT_COMMENT_SCHEMA } from "./artifact-comments.ts";
 import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 13;
+export const ARTIFACT_SCHEMA_VERSION = 14;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -68,6 +69,7 @@ CREATE TABLE artifacts (
 
 -- Archive/restore history is separate from open/resolved discussions.
 -- Local delivery registrations live in separate private tables.
+${ARTIFACT_COMMENT_SCHEMA}
 CREATE TABLE artifact_events (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
@@ -77,6 +79,7 @@ CREATE TABLE artifact_events (
   actor TEXT NOT NULL CHECK (actor IN ('human', 'agent')),
   agent_session_id TEXT REFERENCES agent_sessions(id),
   message TEXT CHECK (message IS NULL OR length(trim(message)) > 0),
+  comment_id TEXT REFERENCES artifact_comments(id),
   created_at TEXT NOT NULL,
   UNIQUE (artifact_id, operation_key),
   CHECK ((actor = 'human' AND agent_session_id IS NULL) OR

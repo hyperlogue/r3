@@ -624,11 +624,13 @@ describe("artifact HTTP collaboration contract", () => {
       actor: human,
       event: "archived",
       operationKey: "archive-operation",
-      message: "Saved next steps",
+      comment: {
+        body: "Saved next steps",
+      },
     };
     const archive = request(`/api/artifacts/${id}/lifecycle`, "POST", command);
     const nudge = JSON.parse((await frames.next()).value!.data).nudge;
-    expect(nudge.message).toBe("Saved next steps");
+    expect(nudge.comment?.body).toBe("Saved next steps");
     expect((await (await request(`/api/artifacts/${id}`)).json()).state).toBe("archived");
     expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
     const acknowledged = await request(
@@ -639,7 +641,7 @@ describe("artifact HTTP collaboration contract", () => {
     expect(acknowledged.status).toBe(200);
     const result = await archive;
     expect(result.status).toBe(502);
-    expect((await result.json()).event.message).toBe(command.message);
+    expect((await result.json()).event.comment?.body).toBe(command.comment.body);
     expect((await frames.next()).value?.event).toBe("closed");
     expect((await frames.next()).done).toBe(true);
     const retry = await request(`/api/artifacts/${id}/lifecycle`, "POST", command);

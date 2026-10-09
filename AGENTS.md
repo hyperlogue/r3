@@ -158,12 +158,15 @@ A wake notification alone does not stamp delivery.
 Discussion retains whether it was ever delivered independently of the current text's
 pending timestamp, so editing cannot suppress a later resolution notification.
 
-**Lifecycle events** have immutable ordered identities, actor, optional message,
-and operation key. Blank messages normalize to null. Archive changes state,
+**Lifecycle events** have immutable ordered identities, actor, optional artifact-level Comment,
+and operation key. Blank archive comments normalize to null. Archive changes state,
 records history, clears claims, captures the selected recipient, and removes
-registrations before post-commit notifications. Push only a nonblank message to
+registrations before post-commit notifications. Push only a nonblank Comment to
 that captured recipient.
-A failed push preserves the event and reports failure; retry does not notify again.
+A failed push preserves the event and Comment and reports failure; retry does not notify again.
+Archive Comments use the common Comment read/edit API and become editable after restore.
+A full acknowledged archive notification stamps only its original Comment revision;
+late delivery cannot consume a newer edit. Other pending Comments use snapshot handoff.
 Restore permits work but never revives an old registration. Archive preserves
 discussions state, unsent content, and drafts. Archived content is read-only until
 restore: the backend rejects content mutations at commit, including late comments.

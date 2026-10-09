@@ -94,7 +94,11 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
 - `GET/POST /api/artifacts/:id/discussions`, `GET/PATCH/DELETE /api/discussions/:id`,
   `POST /api/discussions/:id/comments`, `GET/PATCH /api/comments/:id`, and
   `PUT /api/discussions/:id/placements` use native immutable original targets,
-  derived comment references, and separate placements. Every message mutation names
+  derived comment references, and separate placements. A Discussion contains one ordered
+  Comment list, including its opening Comment. The common comment read/edit endpoint
+  also accepts artifact-level archive Comments; these are text-only and editable
+  after restore. `r3 comment show` reads any Comment without acknowledging it;
+  `r3 comment edit` edits its body and supported images. Every message mutation names
   an `actor`; deletion takes `{ actor }`. Only human actors change discussions status.
   Files also accept native `media` targets with `locator: { time, box }` and a
   required `mediaSnapshot` (full-frame PNG/JPEG upload). Reads add the immutable
@@ -125,7 +129,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `POST .../:id/discussions/acknowledge` takes that `ArtifactDiscussionAcknowledgment`
   after successful consumption and returns `{ acknowledgedCount }`. Missing/invalid
   fingerprints return 400; stale revisions, changed selection, or archive return 409
-  without marking content delivered. The fingerprint binds artifact, selection, and
+  without marking content delivered. An unfiltered snapshot also includes pending
+  artifact-level Comments after restore. The fingerprint binds artifact, selection, and
   persisted conversation revision, including edit/revert and prior acknowledgment.
   `GET .../:id/discussions/history[?discussions=<ids>]` returns `ArtifactDiscussionRead`
   (`text`, `itemCount`) without acknowledgment data: open history by default, or the
@@ -137,7 +142,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
   returns `queued`; failure returns `failed` and HTTP 502. Neither drains discussions.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
-  event, replay flag, and notification result. Delivery failure is HTTP 502;
+  event (including its optional artifact-level `comment`), replay flag, and notification result.
+  Archive input is `comment: { body }`; blank bodies normalize to no Comment.
+  Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
 - `GET .../:id/watchers`, `POST .../:id/watch { actor, timeoutMs? }`, and
   `POST .../:id/listen { actor }` select one explicit recipient ahead of a persisted

@@ -14,6 +14,7 @@ import type {
 } from "../shared/artifacts.ts";
 import { artifactReferenceContext, hasUnsentArtifactDiscussion } from "../shared/artifacts.ts";
 import type { PreparedAttachment } from "./artifact-attachments.ts";
+import { artifactComment, artifactComments } from "./artifact-comments.ts";
 import {
   ArtifactTargets,
   type TargetColumns,
@@ -223,6 +224,8 @@ export class ArtifactConversations {
     if (!row) {
       const opening = this.openingDiscussion(id);
       if (opening) return this.get(opening).comments[0]!;
+      const standalone = artifactComment(this.db, id);
+      if (standalone) return standalone;
       throw new ArtifactError("Comment not found", 404);
     }
     return {
@@ -230,6 +233,34 @@ export class ArtifactConversations {
       target: this.withFrame(commentFromRow(row).target, { commentId: id }),
       attachments: this.artifacts.attachments.list({ commentId: id }),
     };
+  }
+  artifactComments(id: string): ArtifactComment[] {
+    this.artifacts.get(id);
+    return artifactComments(this.db, id);
+  }
+  pendingComments(id: string): ArtifactComment[] {
+    return this.artifactComments(id).filter(
+      (comment) => comment.author.role === "human" && comment.sentAt === null,
+    );
+  }
+  hasPending(id: string): boolean {
+    return this.unsent(id).length > 0 || this.pendingComments(id).length > 0;
+  }
+  acknowledgeArchiveComment(id: string): void {
+    this.db
+      .transaction(() => {
+        const comment = artifactComment(this.db, id);
+        if (!comment) return;
+        // Archive carried revision zero. Restore/edit during delivery must not
+        // consume a later edit, even if its text was changed back.
+        const result = this.db
+          .query(
+            "UPDATE artifact_comments SET sent_at=? WHERE id=? AND revision=0 AND sent_at IS NULL",
+          )
+          .run(this.clock(), id);
+        if (result.changes) this.touch(comment.artifactId);
+      })
+      .immediate();
   }
   async add(id: string, value: unknown): Promise<ArtifactDiscussion> {
     const input = requireObject(value, "Discussion");
@@ -435,6 +466,22 @@ export class ArtifactConversations {
     if (opening) return this.edit(opening, input, images).comments[0]!;
     return this.db
       .transaction(() => {
+        const standalone = artifactComment(this.db, id);
+        if (standalone) {
+          this.artifacts.requireActive(standalone.artifactId);
+          this.editable(author, {
+            author: standalone.author.role,
+            agent_session_id: standalone.author.sessionId,
+          });
+          if (images?.length) throw new ArtifactError("Archive Comments support text only");
+          const body = messageBody(input.body === undefined ? standalone.body : input.body, 0);
+          if (body === standalone.body) return standalone;
+          this.db
+            .query("UPDATE artifact_comments SET body=?,sent_at=?,revision=revision+1 WHERE id=?")
+            .run(body, standalone.author.role === "human" ? null : standalone.sentAt, id);
+          this.touch(standalone.artifactId);
+          return artifactComment(this.db, id)!;
+        }
         const row = this.db
           .query<CommentRow, [string]>("SELECT * FROM comments WHERE id = ?")
           .get(id);
@@ -539,6 +586,7 @@ export class ArtifactConversations {
       .digest("hex");
     return {
       discussions: this.unsent(id, discussions),
+      comments: discussions ? [] : this.pendingComments(id),
       acknowledgment: { discussions, expectedFingerprint },
     };
   }
@@ -561,7 +609,9 @@ export class ArtifactConversations {
               this.db.query("UPDATE comments SET sent_at = ? WHERE id = ?").run(time, comment.id);
           }
         }
-        if (discussions.length) this.touch(id, time);
+        for (const comment of snapshot.comments)
+          this.db.query("UPDATE artifact_comments SET sent_at=? WHERE id=?").run(time, comment.id);
+        if (discussions.length || snapshot.comments.length) this.touch(id, time);
         return discussions;
       })
       .immediate();

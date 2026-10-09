@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Ref, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ArtifactDetail, ArtifactVersion } from "../../../shared/artifacts.ts";
+import type {
+  ArtifactComment,
+  ArtifactDetail,
+  ArtifactVersion,
+} from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { libraryReturnRoute } from "../artifact-library.ts";
@@ -45,7 +49,74 @@ function ArtifactSendDiscussion({ detail, visible }: { detail: ArtifactDetail; v
     </div>
   );
 }
-
+function ArtifactHistoryComment({
+  comment,
+  readOnly,
+}: {
+  comment: ArtifactComment;
+  readOnly: boolean;
+}) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(comment.body);
+  const save = useMutation({
+    mutationFn: () => artifactApi.editComment(comment.id, body),
+    onSuccess: () => {
+      setEditing(false);
+      void qc.invalidateQueries({ queryKey: ["artifact", comment.artifactId] });
+      void qc.invalidateQueries({ queryKey: ["artifacts"] });
+    },
+  });
+  return (
+    <div data-artifact-comment={comment.id} className="mt-1">
+      {editing && !readOnly ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (body.trim()) save.mutate();
+          }}
+        >
+          <textarea
+            aria-label="Edit archive comment"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            className="w-full resize-y rounded-none border border-neutral-300 bg-transparent p-2 dark:border-neutral-700"
+          />
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={save.isPending || !body.trim()}>
+              Save comment
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={save.isPending}
+              onClick={() => setEditing(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+          {save.error && <p role="alert">{save.error.message}</p>}
+        </form>
+      ) : (
+        <>
+          <MessageProse source={comment.body} />
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setBody(comment.body);
+                save.reset();
+                setEditing(true);
+              }}
+            >
+              Edit comment
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 export function ArtifactArchiveDialog({
   artifactId,
   onCancel,
@@ -58,7 +129,10 @@ export function ArtifactArchiveDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const [message, setMessage] = useState("");
   const [operationKey] = useState(() => crypto.randomUUID());
-  const request = useRef<{ message: string; operationKey: string } | null>(null);
+  const request = useRef<{
+    comment: { body: string };
+    operationKey: string;
+  } | null>(null);
   const qc = useQueryClient();
   useLayoutEffect(() => {
     const node = dialog.current;
@@ -68,7 +142,12 @@ export function ArtifactArchiveDialog({
   const archive = useMutation({
     mutationFn: () => {
       // A lost response retries exactly the original transition and message.
-      request.current ??= { message, operationKey };
+      request.current ??= {
+        comment: {
+          body: message,
+        },
+        operationKey,
+      };
       return artifactApi.lifecycle(artifactId, { event: "archived", ...request.current });
     },
     onSuccess: (result) => {
@@ -79,15 +158,15 @@ export function ArtifactArchiveDialog({
           ? {
               title: "Archived, but agent notification failed",
               message:
-                "Your message is saved in the artifact history. Check that the agent session is still running.",
+                "Your comment is saved in the artifact history. Check that the agent session is still running.",
               tone: "warning",
               details: result.notification.error,
             }
           : {
               title: "Artifact archived",
               tone: "success",
-              message: result.event.message
-                ? "Your message is saved in the artifact history."
+              message: result.event.comment?.body
+                ? "Your comment is saved in the artifact history."
                 : undefined,
             },
       );
@@ -117,8 +196,8 @@ export function ArtifactArchiveDialog({
           available.
         </p>
         <textarea
-          aria-label="Archive message (optional)"
-          placeholder="Message for the agent (optional)…"
+          aria-label="Archive comment (optional)"
+          placeholder="Comment for the agent (optional)…"
           rows={4}
           value={message}
           disabled={archive.isPending || request.current !== null}
@@ -148,7 +227,6 @@ export function ArtifactArchiveDialog({
     </dialog>
   );
 }
-
 export function ArtifactHeader({
   detail,
   version = detail.versions.at(-1) ?? null,
@@ -488,7 +566,12 @@ export function ArtifactHeader({
                       {new Date(event.createdAt).toLocaleString()}
                     </time>
                   </div>
-                  {event.message && <MessageProse source={event.message} />}
+                  {event.comment && (
+                    <ArtifactHistoryComment
+                      comment={event.comment}
+                      readOnly={detail.state === "archived"}
+                    />
+                  )}
                 </li>
               ))}
             </ol>

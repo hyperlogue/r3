@@ -171,10 +171,10 @@ describe("artifact prompt formatting", () => {
         title: detail.title,
         event: "submitted",
         lifecycleEventId: null,
-        message: null,
+        comment: null,
       }),
     ).toBe(
-      `[r3] ${detail.id} — discussions submitted\nArtifact: Published design\nRun: r3 discussions fetch ${detail.id}`,
+      `[r3] ${detail.id} — comments submitted\nArtifact: Published design\nRun: r3 discussions fetch ${detail.id}`,
     );
   });
   test("uncertain imported targets remain historical evidence and archived nudges imply no approval", () => {
@@ -196,7 +196,10 @@ describe("artifact prompt formatting", () => {
       title: detail.title,
       event: "archived",
       lifecycleEventId: "event_example",
-      message: "Continue with the implementation",
+      comment: {
+        id: "comment_archive",
+        body: "Continue with the implementation",
+      },
     });
     expect(nudge).toContain("archived");
     expect(nudge).toContain("Continue with the implementation");
@@ -208,9 +211,12 @@ describe("artifact prompt formatting", () => {
       title: null,
       event: "archived",
       lifecycleEventId: "event_large",
-      message: "More detail. ".repeat(100000),
+      comment: {
+        id: "comment_archive",
+        body: "More detail. ".repeat(100000),
+      },
     });
     expect(large.length).toBeLessThan(9000);
-    expect(large).toContain(`Read the complete message: r3 show ${detail.id}`);
+    expect(large).toContain(`Read the complete Comment: r3 comment show comment_archive`);
   });
 });

@@ -30,8 +30,12 @@ export function installArtifactConversations(
   const { artifacts, conversations } = storage;
   const agents = new AgentConnections(collaboration);
   const shutdown = new AbortController();
-  const changed = (artifactId: string, discussionId: string) =>
-    collaboration.broadcast({ type: "discussions-updated", artifactId, discussionId });
+  const changed = (artifactId: string, discussionId: string | null) =>
+    collaboration.broadcast(
+      discussionId
+        ? { type: "discussions-updated", artifactId, discussionId }
+        : { type: "artifact-updated", artifactId },
+    );
   app.on(["GET", "HEAD"], "/api/artifacts/:id/attachments/:image", async (c) => {
     const { attachment, bytes } = await artifacts.attachments.read(
       c.req.param("id"),
@@ -120,8 +124,8 @@ export function installArtifactConversations(
     const snapshot = conversations.snapshot(id, ids(c.req.query("discussions")?.split(",")));
     c.header("cache-control", "no-store");
     return c.json({
-      text: buildArtifactPrompt(detailFor(id), snapshot.discussions, true),
-      itemCount: snapshot.discussions.length,
+      text: buildArtifactPrompt(detailFor(id), snapshot.discussions, true, snapshot.comments),
+      itemCount: snapshot.discussions.length + snapshot.comments.length,
       attachments: discussionAttachments(snapshot.discussions, true),
       acknowledgment: snapshot.acknowledgment,
     } satisfies ArtifactDiscussionSnapshot);
@@ -133,8 +137,13 @@ export function installArtifactConversations(
       only ? only.includes(discussions.id) : discussions.status === "open",
     );
     return c.json({
-      text: buildArtifactPrompt(detail, selected),
-      itemCount: selected.length,
+      text: buildArtifactPrompt(
+        detail,
+        selected,
+        false,
+        only ? [] : conversations.artifactComments(detail.id),
+      ),
+      itemCount: selected.length + (only ? 0 : conversations.artifactComments(detail.id).length),
       attachments: discussionAttachments(selected),
     } satisfies ArtifactDiscussionRead);
   });
@@ -148,12 +157,16 @@ export function installArtifactConversations(
     );
     if (!/^[a-f0-9]{64}$/.test(expectedFingerprint))
       throw new ArtifactError("Invalid discussions fingerprint");
+    const artifactCommentCount = input.discussions ? 0 : conversations.pendingComments(id).length;
     const selected = conversations.acknowledge(id, {
       discussions: ids(input.discussions),
       expectedFingerprint,
     });
-    if (selected.length) collaboration.broadcast({ type: "artifact-updated", artifactId: id });
-    return c.json({ acknowledgedCount: selected.length } satisfies ArtifactDiscussionAcknowledged);
+    if (selected.length || artifactCommentCount)
+      collaboration.broadcast({ type: "artifact-updated", artifactId: id });
+    return c.json({
+      acknowledgedCount: selected.length + artifactCommentCount,
+    } satisfies ArtifactDiscussionAcknowledged);
   });
   app.post("/api/artifacts/:id/submit", async (c) => {
     const notification = await collaboration.submit(c.req.param("id"));

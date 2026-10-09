@@ -42,7 +42,6 @@ async function next(
     .find((line) => line.startsWith("data: "));
   return JSON.parse(data!.slice(6));
 }
-
 describe("outward agent connections", () => {
   test("each serialized notification gets its delivery deadline after dispatch", async () => {
     connections.close();
@@ -67,7 +66,6 @@ describe("outward agent connections", () => {
     expect(collaboration.watchers(id)).toEqual([registration]);
     await reader.cancel();
   });
-
   test("archive waits behind an active notification and closes only after its own acknowledgment", async () => {
     const { stream, registration } = connections.open(id, actor);
     const reader = stream.getReader();
@@ -79,7 +77,9 @@ describe("outward agent connections", () => {
       actor: human,
       event: "archived",
       operationKey: "ordered-archive",
-      message: "Saved after the current notification",
+      comment: {
+        body: "Saved after the current notification",
+      },
     });
     const following = next(reader);
     expect(
@@ -102,7 +102,6 @@ describe("outward agent connections", () => {
     expect(await next(reader)).toEqual({ type: "closed", reason: "archived" });
     expect((await reader.read()).done).toBe(true);
   });
-
   test.each([
     "timeout",
     "rejection",
@@ -119,7 +118,9 @@ describe("outward agent connections", () => {
       actor: human,
       event: "archived",
       operationKey: `archive-after-${failure}`,
-      message: "Retain this even if delivery fails",
+      comment: {
+        body: "Retain this even if delivery fails",
+      },
     });
     if (failure === "rejection")
       connections.acknowledge(registration.id, {
@@ -142,12 +143,13 @@ describe("outward agent connections", () => {
     expect(await next(reader)).toEqual({ type: "closed", reason: "disconnected" });
     expect((await reader.read()).done).toBe(true);
     expect(collaboration.watchers(id)).toEqual([]);
-    expect(storage.lifecycle.events(id)[0].message).toBe("Retain this even if delivery fails");
+    expect(storage.lifecycle.events(id)[0].comment?.body).toBe(
+      "Retain this even if delivery fails",
+    );
     expect(() =>
       connections.acknowledge(registration.id, { actor, nudgeId: first.nudge.id, ok: true }),
     ).toThrow("Agent connection not found");
   });
-
   test.each([
     "cancel",
     "shutdown",
@@ -172,7 +174,6 @@ describe("outward agent connections", () => {
       expect(await next(reader)).toEqual({ type: "closed", reason: "disconnected" });
     expect((await reader.read()).done).toBe(true);
   });
-
   test("supersession rejects the old queue and leaves the replacement deliverable", async () => {
     const old = connections.open(id, actor);
     const oldReader = old.stream.getReader();
@@ -193,7 +194,6 @@ describe("outward agent connections", () => {
     expect(await submitted).toEqual({ state: "sent" });
     await currentReader.cancel();
   });
-
   test("the seventh pending notification retains the capacity failure and closes the bounded queue", async () => {
     const { stream, registration } = connections.open(id, actor);
     const reader = stream.getReader();
@@ -210,7 +210,6 @@ describe("outward agent connections", () => {
     expect((await reader.read()).done).toBe(true);
     expect(collaboration.watchers(id)).toEqual([]);
   });
-
   test("a queued acknowledgment preserves delivery state and invalid states leave it pending", async () => {
     const { stream, registration } = connections.open(id, actor);
     const reader = stream.getReader();
@@ -240,7 +239,6 @@ describe("outward agent connections", () => {
       await pending;
     }
   });
-
   test("archive retains the captured connection through local delivery acknowledgment, then closes it", async () => {
     const { stream, registration } = connections.open(id, actor);
     const reader = stream.getReader();
@@ -252,18 +250,19 @@ describe("outward agent connections", () => {
       actor: human,
       event: "archived",
       operationKey: "archive",
-      message: "Saved message",
+      comment: {
+        body: "Saved message",
+      },
     });
     const frame = await next(reader);
     if (frame.type !== "nudge") throw new Error("Missing archive nudge");
-    expect(frame.nudge).toMatchObject({ event: "archived", message: "Saved message" });
+    expect(frame.nudge).toMatchObject({ event: "archived", comment: { body: "Saved message" } });
     expect(collaboration.watchers(id)).toEqual([]);
     connections.acknowledge(registration.id, { actor, nudgeId: frame.nudge.id, ok: true });
     expect((await pending).notification).toEqual({ state: "sent" });
     expect(await next(reader)).toEqual({ type: "closed", reason: "archived" });
     expect((await reader.read()).done).toBe(true);
   });
-
   test("a local harness rejection drops presence and cannot be acknowledged by another actor", async () => {
     const { stream, registration } = connections.open(id, actor);
     const reader = stream.getReader();
@@ -284,7 +283,6 @@ describe("outward agent connections", () => {
     expect(collaboration.watchers(id)).toEqual([]);
     expect(await next(reader)).toEqual({ type: "closed", reason: "disconnected" });
   });
-
   test("timeout reports failed delivery and a same-agent reconnect supersedes only its old stream", async () => {
     connections.close();
     connections = new AgentConnections(collaboration, 5);
@@ -301,7 +299,6 @@ describe("outward agent connections", () => {
     });
     expect(collaboration.watchers(id)).toEqual([]);
   });
-
   test("registration leaves pending discussions alone until explicit submission", async () => {
     await storage.conversations.add(id, {
       actor: human,

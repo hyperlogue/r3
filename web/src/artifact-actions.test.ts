@@ -28,7 +28,6 @@ test("bulk delete continues after failure and treats already deleted artifacts a
     ["ok", "done"],
   ]);
 });
-
 test("bulk archive skips existing archives and distinguishes committed notification failures", async () => {
   const keys = new Map<string, string>();
   const sent: string[] = [];
@@ -40,7 +39,7 @@ test("bulk archive skips existing archives and distinguishes committed notificat
       state: id === "old" ? ("archived" as const) : ("active" as const),
     }),
     lifecycle: async (id: string, body: Parameters<typeof artifactApi.lifecycle>[1]) => {
-      sent.push(`${id}:${body.message}`);
+      sent.push(`${id}:${body.comment?.body}`);
       return {
         replayed: false,
         notification: { state: "failed" as const, error: "Offline" },
@@ -51,7 +50,18 @@ test("bulk archive skips existing archives and distinguishes committed notificat
           actor: { role: "human" as const, sessionId: null },
           event: "archived" as const,
           operationKey: body.operationKey,
-          message: body.message ?? null,
+          comment: {
+            id: "comment_archive",
+            artifactId: id,
+            discussionId: null,
+            author: { role: "human" as const, sessionId: null },
+            context: { versionSeq: null, representation: null },
+            target: null,
+            legacy: null,
+            createdAt: artifactFixture.createdAt,
+            sentAt: null,
+            body: body.comment?.body ?? "",
+          },
           createdAt: artifactFixture.createdAt,
         },
       };

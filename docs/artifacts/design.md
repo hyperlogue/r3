@@ -73,7 +73,7 @@ additional directory-container entity for a caller to create or manage.
 Artifacts have a title and metadata, with no overview field or overview panel.
 Optional summaries belong to immutable versions and appear as the selected version's
 description in the navigation's details popup. Descriptions have no body section or
-comment anchors. New discussions targets artifacts or documents; comment fix targets
+comment anchors. New discussions target artifacts or documents; comment fix targets
 identify documents. Retired overview and version-description targets remain readable
 historical evidence.
 Locate on an existing description thread opens that version's details popup. Saved
@@ -635,7 +635,8 @@ removes the slide; comparison previews are released after the return transition.
 
 ## Agent collaboration and lifecycle
 
-One backend owner collaborates with multiple logical agent sessions. Distinct agents,
+The bundled backend serves one human who collaborates with multiple logical agent sessions.
+Other backend implementations may serve multiple users; client authorization is opaque. Distinct agents,
 including subagents sharing a harness, use distinct session IDs. Attribution survives
 process disconnection. Sessions are neither user accounts nor artifact ownership;
 any registered agent can contribute through the owner's API.
@@ -690,19 +691,24 @@ See [delivery and status](../../.claude/skills/api-surface/SKILL.md#delivery-and
 for edit and status-transition rules.
 
 Archive shelves work without implying approval. Its transaction preserves an ordered
-lifecycle event and optional message, changes state, and clears claims. The
+lifecycle event and optional artifact-level Comment, changes state, and clears claims.
+The Comment shares the message model used by Discussions, without a resolution
+status. It remains in history and can be edited after restore through the common
+Comment API. Editing it never rewrites the lifecycle event or the original retry input. The
 collaboration module captures the selected recipient and removes both registrations
 before notifications.
 
 | Archive input | Notification | Watch result |
 | --- | --- | --- |
-| Blank message | Unregister quietly | Archived, exit 0 |
-| Nonblank message and selected recipient | Send the saved event/message to that recipient | Archived, exit 0, with message |
-| Nonblank message without a selected recipient | Retain history; no automatic agent startup | Already-archived watch returns immediately with the message |
+| Blank comment | Unregister quietly | Archived, exit 0 |
+| Nonblank comment and selected recipient | Send the saved event and Comment to that recipient | Archived, exit 0, with Comment |
+| Nonblank comment without a selected recipient | Retain history; no automatic agent startup | Already-archived watch returns immediately with the Comment |
 
 Archive takes precedence over pending discussions and timeout. A failed notification
 preserves the committed event and reports failure; an operation-key retry does not
-push again. Archived artifacts retain content, threads, status, unsent work, and
+push again. A complete acknowledged archive notification can deliver its Comment;
+a truncated one leaves delivery unconfirmed. After restore, pending artifact-level
+Comments join the ordinary snapshot handoff. Archived artifacts retain content, threads, status, unsent work, and
 drafts. Archived artifacts are read-only: publication, metadata edits, conversation
 creation/edits/deletion, comments, placements, new claims, ordinary discussions delivery,
 and subscriptions are closed until restore. A comment still being prepared when

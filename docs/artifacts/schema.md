@@ -186,7 +186,7 @@ The references are creator_session_id on artifacts, publisher_session_id on vers
 
 SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different discussions. The server validates new-write attribution and claim ownership at the module interface.
 
-Notification routing uses one selected recipient per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets and reconnect intent belong to the separate private worker file.
+Notification routing uses one selected recipient per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets belong to the separate private worker file. No reconnect intent is stored on the worker.
 
 Discussion also retains an internal `ever_delivered` flag. New human notes start
 false; agent notes start true. Handoff sets it true, and edits never clear it.
@@ -195,15 +195,34 @@ the history needed to send a later resolution or reopening. A status change on a
 new, never-delivered note does not create status work. Comments retain their own
 delivery timestamps; they do not need this discussion-status history flag.
 
-## Archive events and optional messages
+## Archive events and artifact-level Comments
 
-artifact_events stores archive/restore transitions and optional archive messages. It has a globally increasing seq for order, a stable external id, an artifact-scoped operation_key for retries, actor attribution, and a timestamp. The sequence keeps event order unambiguous even when timestamps are equal.
+`artifact_events` stores immutable archive/restore transitions: ordered sequence,
+external identity, operation key, attribution, and timestamp. Its nullable
+`comment_id` references an artifact-level Comment. The public event exposes that
+Comment as `comment`; a blank archive body produces null, and restore has no Comment.
 
-An archive message may be NULL. The server normalizes blank input to NULL; a restore event carries no archive message. Events are immutable and retained with their artifact, so Restore followed by another Archive cannot overwrite the previous message. They are separate from discussions because an archive message has no open/resolved lifecycle.
+`artifact_comments` stores those Comments independently of Discussion status. The
+archive transaction creates the Comment, records its event, changes artifact state,
+and clears claims and subscriptions together. The Comment is readable through the
+common `/api/comments/:id` endpoint and editable after restore. Archive Comments
+are text-only. Editing the Comment leaves the event's identity, actor, and time intact.
+The private event `message` column retains the original operation input solely to
+validate retries; it is not another public message. Replaying the original request
+returns the same event and its current Comment without notifying again.
 
-The collaboration transaction checks state, updates artifacts.state/archived_at, inserts the lifecycle event, and clears claims. Retrying the same operation returns the stored event; mismatched reuse conflicts. The current archive event is obtained from the ordered history, and live terminal notifications carry its explicit event ID. State/event consistency and notification routing are server transaction responsibilities rather than SQL triggers.
+A complete archive notification acknowledged by the harness stamps only the initial
+Comment revision. Restore followed by edit-and-revert cannot let a late acknowledgment
+consume new work. Failed or truncated delivery stays pending. After restore, an
+unfiltered conversation snapshot includes pending artifact-level Comments; ordinary
+snapshot fingerprints and successful stdout-before-acknowledgment protect them.
+Historical archive messages migrate to Comments without inventing a human delivery
+stamp. Publication bytes and lifecycle identities stay unchanged.
 
-The module captures the selected recipient and removes both registrations during the ordered transition. After commit, browser/watch clients receive the lifecycle update. If an archive message exists, the captured recipient receives it; otherwise no agent nudge is sent. watch terminates either way, printing the message when present. A failed nudge leaves the saved message readable and is reported; it does not enqueue work for a future listener after Restore. Notification is not exactly-once delivery, and its success does not mark unrelated discussions delivered.
+Schema version 14 adds artifact-level Comments and event references. Comment counts
+include opening, subsequent, and archive Comments. Upgrade preserves historical
+opening/subsequent counts and adds surviving archive notes; activity coverage is
+marked partial before upgrade because deleted historical archive notes are unavailable.
 
 ## Atomic publication
 

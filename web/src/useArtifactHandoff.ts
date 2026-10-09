@@ -1,5 +1,5 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type ArtifactDetail, hasUnsentArtifactDiscussion } from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
 import { useDiscussionStatusPending } from "./artifact-discussions-status.ts";
@@ -15,14 +15,20 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const isPending = useIsMutating({ mutationKey }) > 0;
   const draftCount = useArtifactDraftCount(detail.id);
   const savingStatus = useDiscussionStatusPending(detail.id);
-  const receipt = useDiscussionHandoffReceipt(detail.id, detail.discussions);
+  const comments = useMemo(
+    () => detail.events.flatMap((event) => (event.comment ? [event.comment] : [])),
+    [detail.events],
+  );
+  const receipt = useDiscussionHandoffReceipt(detail.id, detail.discussions, comments);
   const { copied: sent, flash: showSent } = useCopyFlash(3000);
   const [notice, setNotice] = useState("");
   const { data: watchers = [], isPending: loadingWatchers } = useQuery({
     queryKey: ["artifact-watchers", detail.id],
     queryFn: () => artifactApi.watchers(detail.id),
   });
-  const pending = detail.discussions.filter(hasUnsentArtifactDiscussion).length;
+  const pending =
+    detail.discussions.filter(hasUnsentArtifactDiscussion).length +
+    comments.filter((comment) => comment.author.role === "human" && comment.sentAt === null).length;
   const disabledReason =
     detail.state === "archived"
       ? "Restore the artifact to send discussions"

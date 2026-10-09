@@ -226,7 +226,9 @@ paths or credentials. The browser presents it beside the selected subscription;
 CLI data reads remain independent of worker health.
 
 A nudge contains `id`, `artifactId`, nullable `title`, `event: submitted|archived`,
-nullable `lifecycleEventId`, and nullable `message`. The worker validates the
+nullable `lifecycleEventId`, and nullable `comment: { id, body, truncated? }`. Archive
+notifications carry at most 8,000 characters and identify the persisted Comment.
+The worker validates the
 backend-qualified listener/registration/artifact mapping before invoking its local
 adapter. Unknown IDs return failed acknowledgment. Delivery is ordered per local
 destination; separate destinations/backends do not block each other. At most six
@@ -235,10 +237,14 @@ acknowledgment deadline starts at dispatch, and disconnect rejects queued work.
 
 Only the human's Send to agent action submits discussions. Setup, reconnect and
 fallback selection never send pending content. Existing lifecycle rules still
-allow an explicit nonblank archive message to reach the captured recipient after
+allow an explicit nonblank archive Comment to reach the captured recipient after
 archive commits. Delivery failure is reported to the human. `queued` means Codex
-accepted the wake, not that a session is running. A nudge acknowledgment never
-consumes discussions; snapshot fetch/output/acknowledgment remains a separate protocol.
+accepted the wake, not that a session is running. A signal-only acknowledgment never consumes pending content; snapshot
+fetch/output/acknowledgment remains separate. An acknowledged archive notification
+can stamp its Comment only when it carried the complete body and that Comment
+has not been edited. A truncated notification supplies a command to read the full
+Comment and leaves delivery unconfirmed. Failed archive delivery remains pending
+for an explicit fetch after restore; archive retry never sends again.
 
 ## Publication response and compatibility checks
 

@@ -1,9 +1,11 @@
 import { ArtifactApiError } from "../../shared/artifact-client.ts";
 import { buildArtifactPrompt, discussionAttachments } from "../../shared/artifact-prompt.ts";
 import type {
+  ArtifactComment,
   ArtifactDiscussion,
   ArtifactDiscussionSnapshot,
   ArtifactLifecycleBody,
+  ArtifactLifecycleEvent,
   ArtifactLifecycleResponse,
   ArtifactSourceRange,
   ArtifactStreamEvent,
@@ -97,6 +99,10 @@ export class ArtifactDemoBackend {
         const comment = note.comments.find((comment) => comment.id === id);
         if (comment) return { artifact, note, comment };
       }
+    for (const artifact of this.state.artifacts) {
+      const event = artifact.events.find((event) => event.comment?.id === id);
+      if (event?.comment) return { artifact, note: null, comment: event.comment };
+    }
     return fail("Comment not found", 404);
   }
   publication(id: string, seq: number) {
@@ -278,6 +284,14 @@ export class ArtifactDemoBackend {
     this.changed(id);
     return structuredClone(note);
   }
+  artifactComments(id: string): ArtifactComment[] {
+    return this.get(id).events.flatMap((event) => (event.comment ? [event.comment] : []));
+  }
+  pendingComments(id: string) {
+    return this.artifactComments(id).filter(
+      (comment) => comment.author.role === "human" && comment.sentAt === null,
+    );
+  }
   pending(id: string) {
     return this.get(id).discussions.filter(hasUnsentArtifactDiscussion);
   }
@@ -288,7 +302,8 @@ export class ArtifactDemoBackend {
     const selected = this.pending(id).filter(
       (note) => !discussions || discussions.includes(note.id),
     );
-    const text = buildArtifactPrompt(artifact, selected, true);
+    const comments = only ? [] : this.pendingComments(id);
+    const text = buildArtifactPrompt(artifact, selected, true, comments);
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(
@@ -300,7 +315,7 @@ export class ArtifactDemoBackend {
     ).join("");
     return {
       text,
-      itemCount: selected.length,
+      itemCount: selected.length + comments.length,
       attachments: discussionAttachments(selected, true),
       acknowledgment: { discussions, expectedFingerprint },
     };
@@ -318,6 +333,7 @@ export class ArtifactDemoBackend {
       for (const comment of note.comments.slice(1))
         if (comment.author.role === "human") comment.sentAt = time;
     }
+    if (!discussions) for (const comment of this.pendingComments(id)) comment.sentAt = time;
     this.changed(id);
     if (notes.length)
       this.runAgent(
@@ -391,10 +407,14 @@ export class ArtifactDemoBackend {
   }
   lifecycle(id: string, body: Omit<ArtifactLifecycleBody, "actor">): ArtifactLifecycleResponse {
     const artifact = this.get(id);
-    const message = body.message?.trim() ? body.message : null;
+    const message = body.comment?.body.trim() || null;
+    if (body.event === "restored" && message) fail("Only archive accepts a Comment");
     const previous = artifact.events.find((event) => event.operationKey === body.operationKey);
     if (previous) {
-      if (previous.event !== body.event || previous.message !== message)
+      if (
+        previous.event !== body.event ||
+        (this.state.lifecycleRequests?.[previous.id] ?? previous.comment?.body ?? null) !== message
+      )
         fail("Operation key was used for another transition", 409);
       return {
         event: structuredClone(previous),
@@ -404,13 +424,26 @@ export class ArtifactDemoBackend {
     }
     const state = body.event === "archived" ? "archived" : "active";
     if (artifact.state === state) fail("Artifact is already in that state", 409);
-    const event = {
+    const event: ArtifactLifecycleEvent = {
       id: mint("event"),
       artifactId: id,
       seq: artifact.events.length + 1,
       actor: human,
       event: body.event,
-      message,
+      comment: message
+        ? {
+            id: mint("comment"),
+            artifactId: id,
+            discussionId: null,
+            author: human,
+            context: { versionSeq: null, representation: null },
+            target: null,
+            legacy: null,
+            createdAt: now(),
+            sentAt: null,
+            body: message,
+          }
+        : null,
       operationKey: body.operationKey,
       createdAt: now(),
     };
@@ -418,6 +451,10 @@ export class ArtifactDemoBackend {
     artifact.state = state;
     artifact.archivedAt = state === "archived" ? event.createdAt : null;
     artifact.events.push(event);
+    this.state.lifecycleRequests ??= {};
+    this.state.lifecycleRequests[event.id] = message;
+    if (notify && event.comment && event.comment.body.length <= 8000)
+      event.comment.sentAt = event.createdAt;
     artifact.watching = false;
     artifact.working = false;
     for (const note of artifact.discussions) note.claim = null;

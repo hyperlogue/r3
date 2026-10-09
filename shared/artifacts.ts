@@ -251,7 +251,7 @@ export interface ArtifactClaim {
 export interface ArtifactComment {
   attachments?: ArtifactAttachment[];
   id: string;
-  discussionId: string;
+  discussionId: string | null;
   artifactId: string;
   author: ArtifactActor;
   body: string;
@@ -288,7 +288,7 @@ export interface ArtifactLifecycleEvent {
   event: "archived" | "restored";
   operationKey: string;
   actor: ArtifactActor;
-  message: string | null;
+  comment: ArtifactComment | null;
   createdAt: string;
 }
 export interface ArtifactDetail extends Artifact {
@@ -422,7 +422,7 @@ export interface ArtifactLifecycleBody {
   actor: ArtifactActor;
   operationKey: string;
   event: "archived" | "restored";
-  message?: string;
+  comment?: { body: string };
 }
 export type ArtifactStreamEvent =
   | {
@@ -478,7 +478,7 @@ export interface ArtifactNudge {
   title: string | null;
   event: "submitted" | "archived";
   lifecycleEventId: string | null;
-  message: string | null;
+  comment: (Pick<ArtifactComment, "id" | "body"> & { truncated?: boolean }) | null;
 }
 export type ArtifactDeliveryState = "sent" | "queued";
 export type ArtifactNotification =

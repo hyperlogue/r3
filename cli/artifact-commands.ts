@@ -11,6 +11,7 @@ import type { ArtifactSearchResponse } from "../shared/artifact-search.ts";
 import type {
   Artifact,
   ArtifactActor,
+  ArtifactComment,
   ArtifactDetail,
   ArtifactLifecycleResponse,
   ArtifactSource,
@@ -116,6 +117,8 @@ export async function runArtifactCommand(
   if (command === "discussions" && ["fetch", "image", "source"].includes(args.positional[0]!)) {
     command = `discussions ${args.positional.shift()}`;
   }
+  if (command === "comment" && ["show", "edit"].includes(args.positional[0]!))
+    command = `comment ${args.positional.shift()}`;
   const captureFlags = [
     "kind",
     "dir",
@@ -163,6 +166,8 @@ export async function runArtifactCommand(
         : args.positional[0] === "edit"
           ? ["message", "status", "attach", "clear-attachments"]
           : [],
+    "comment show": [],
+    "comment edit": ["message", "attach", "clear-attachments"],
     comment: ["message", "attach", "frame", "key", ...targetFlags],
     place: [...targetFlags, "state"],
     claim: [],
@@ -178,6 +183,8 @@ export async function runArtifactCommand(
     project: ["title", "remote"],
   };
   args.allow(flags[command] ?? []);
+  if (args.has("attach") && args.has("clear-attachments"))
+    throw new ArtifactCommandError("Use --attach or --clear-attachments, not both");
   const count = args.positional.length;
   const expected = ["create", "list"].includes(command)
     ? 0
@@ -341,7 +348,7 @@ export async function runArtifactCommand(
         }
         for (const event of artifact.events)
           await print(
-            `\n${event.event} · ${event.createdAt}${event.message ? `\n${event.message}` : ""}`,
+            `\n${event.event} · ${event.createdAt}${event.comment?.body ? `\n${event.comment?.body}` : ""}`,
           );
       }
       return 0;
@@ -411,8 +418,6 @@ export async function runArtifactCommand(
     case "discussions": {
       const [operation, id] = args.positional;
       if (!id) throw new ArtifactCommandError("discussions add|edit|delete <id>");
-      if (args.has("attach") && args.has("clear-attachments"))
-        throw new ArtifactCommandError("Use --attach or --clear-attachments, not both");
       const author = await actor();
       if (operation === "add")
         await print(
@@ -443,6 +448,28 @@ export async function runArtifactCommand(
       else if (operation === "delete")
         await print(await client.json("DELETE", discussionApiPath(id), { actor: author }));
       else throw new ArtifactCommandError("discussions fetch|add|edit|delete <id>");
+      return 0;
+    }
+    case "comment show": {
+      const comment = await client.json<ArtifactComment>(
+        "GET",
+        `/api/comments/${encodeURIComponent(args.id())}`,
+      );
+      await print(args.has("json") ? comment : comment.body);
+      return 0;
+    }
+    case "comment edit": {
+      await print(
+        await client.json("PATCH", `/api/comments/${encodeURIComponent(args.id())}`, {
+          actor: await actor(),
+          body: await text("message"),
+          attachments: args.has("clear-attachments")
+            ? []
+            : args.has("attach")
+              ? await readAttachmentFiles(args.values("attach"), ctx.cwd)
+              : undefined,
+        }),
+      );
       return 0;
     }
     case "comment": {
@@ -531,7 +558,7 @@ export async function runArtifactCommand(
       const archived = async (current: ArtifactDetail) => {
         if (current.state !== "archived") return false;
         const event = current.events.findLast((event) => event.event === "archived");
-        if (event?.message) await print(event.message);
+        if (event?.comment?.body) await print(event.comment?.body);
         return true;
       };
       for (;;) {
@@ -549,7 +576,7 @@ export async function runArtifactCommand(
         }
         if (result.result === "timeout") continue;
         if (result.result === "archived") {
-          if (result.event?.message) await print(result.event.message);
+          if (result.event?.comment?.body) await print(result.event.comment?.body);
           return 0;
         }
         if (result.result === "discussions") {
@@ -589,7 +616,9 @@ export async function runArtifactCommand(
           actor: await actor(),
           event: command === "archive" ? "archived" : "restored",
           operationKey: args.value("key") ?? randomUUID(),
-          message: await text("message"),
+          comment: {
+            body: await text("message"),
+          },
         });
         await print(result);
         return 0;

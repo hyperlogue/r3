@@ -328,6 +328,12 @@ export const artifactApi: typeof productionApi = {
   },
   editComment: async (id, body, inputs) => {
     const { artifact, comment } = demo.comment(id);
+    if (comment.discussionId === null && inputs?.length) fail("Archive Comments support text only");
+    const event = artifact.events.find((event) => event.comment?.id === id);
+    if (event) {
+      demo.state.lifecycleRequests ??= {};
+      demo.state.lifecycleRequests[event.id] ??= comment.body;
+    }
     const images = await attachments(artifact.id, inputs, comment.attachments);
     demo.requireActive(artifact.id);
     if (!body.trim() && !images.length) fail("A comment needs text or an image");
@@ -390,8 +396,13 @@ export const artifactApi: typeof productionApi = {
       discussions ? discussions.includes(note.id) : note.status === "open",
     );
     return {
-      text: buildArtifactPrompt(artifact, selected),
-      itemCount: selected.length,
+      text: buildArtifactPrompt(
+        artifact,
+        selected,
+        false,
+        discussions ? [] : demo.artifactComments(id),
+      ),
+      itemCount: selected.length + (discussions ? 0 : demo.artifactComments(id).length),
       attachments: discussionAttachments(selected),
     };
   },

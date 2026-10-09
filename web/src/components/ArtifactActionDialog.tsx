@@ -4,7 +4,6 @@ import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import type { Artifact } from "../../../shared/artifacts.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { Button } from "../ui.tsx";
-
 export type ActionArtifact = Pick<Artifact, "id" | "title" | "state">;
 export interface ArtifactActionResult {
   id: string;
@@ -32,7 +31,9 @@ export async function actOnArtifacts(
         const result = await api.lifecycle(item.id, {
           event: "archived",
           operationKey: keys.get(item.id)!,
-          message,
+          comment: {
+            body: message,
+          },
         });
         results.push({
           id: item.id,

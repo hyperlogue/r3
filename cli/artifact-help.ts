@@ -66,20 +66,22 @@ Create: --kind is required; --project ID --meta k=v (repeatable).
 HTML images: publish standalone assets with relative <img src> URLs; see r3 guide html.
 
   discussions add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
-  discussions edit <discussions-id> [-m <message>] [--status open|resolved --human]
+  discussions edit <discussion-id> [-m <message>] [--status open|resolved --human]
         [--attach <image>]... | [--clear-attachments]
-  discussions delete <discussions-id>
-  comment <discussions-id> [-m <message>] [--attach <image>]... [--key K]
+  discussions delete <discussion-id>
+  comment <discussion-id> [-m <message>] [--attach <image>]... [--key K]
         [target flags] [--frame <snapshot.png>]
-  place <discussions-id> --target <JSON document target> --state anchored|unplaced|ambiguous
-  claim <discussions-id>... | release <discussions-id>...
+  comment show <comment-id> [--json]          # opening, follow-up, or archive Comment
+  comment edit <comment-id> [-m <message>] [--attach <image>]... | [--clear-attachments]
+  place <discussion-id> --target <JSON document target> --state anchored|unplaced|ambiguous
+  claim <discussion-id>... | release <discussion-id>...
   discussions fetch <id> [--all] [--discussions <id,id>] [--attachments-dir <directory>]
   discussions image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
-  discussions source <discussions-id> [--json]      # full captured source/diff range
+  discussions source <discussion-id> [--json]      # full captured source/diff range
   watch <id> [--timeout <seconds>]
   listen <id>                                # explicit notification recipient
   unlisten <id>                              # remove your listener registrations
-  archive <id> [-m <archive-message>] [--key K] | restore <id> [--key K]
+  archive <id> [-m <archive-comment>] [--key K] | restore <id> [--key K]
   project list | project create [--title T] [--remote URL] | project delete <id>
   project edit <id> [--title T] [--remote URL]
 
@@ -223,15 +225,15 @@ When no agent is listening, the web UI's **Use in agent** button shows a copyabl
 
 ## Handle discussions
 
-\`r3 claim <discussions-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <discussions-id>...\` when abandoning work. A resolved-status notification needs no action.
+\`r3 claim <discussion-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <discussion-id>...\` when abandoning work. A resolved-status notification needs no action.
 
 Discussion may include images. Labels such as \`[image1]\` refer to the numbered attachment in that same note or comment. Download them with the supplied \`r3 discussions image\` command and open them with your harness's image-viewing tool before responding. A text reference does not load pixels into the model. Alternatively, \`r3 discussions fetch <id> --attachments-dir ./discussions-images\` downloads and verifies all images in the snapshot before acknowledging it. Capture context describes observed pixels; it does not establish a selector or source line. Use repeatable \`--attach <image>\` on discussions and comments to provide visual evidence.
 
 Inspect original targets in their recorded version and representation. Rendered selectors, quotes, routes, and viewports describe the published page, not source lines. Reuse matching local source when revising your own publication; retrieve published content only when needed, such as an older version or another agent's work. Inspection/download commands are in \`r3 --help\`.
 
-Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 discussions source <discussions-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge discussions, claim it, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
+Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 discussions source <discussion-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge discussions, claim it, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
 
-Publish changed content, then \`r3 comment <discussions-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the discussion's original target. General discussions without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified source/rendered/diff placements.
+Publish changed content, then \`r3 comment <discussion-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the discussion's original target. General discussions without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use \`place\` from \`r3 --help\` for additional verified source/rendered/diff placements.
 
 Successful comments release only your own claims. Publishing and commenting never resolve discussions; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
 
@@ -273,7 +275,7 @@ For a new rendered target, \`discussions add\` accepts \`--file <path> --version
 When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
 
 \`\`\`sh
-r3 comment <discussions-id> -m 'Added the storage explanation.' --version 2 --view rendered \\
+r3 comment <discussion-id> -m 'Added the storage explanation.' --version 2 --view rendered \\
   --target '{"kind":"rendered","versionSeq":2,"path":"index.html","locator":{"selector":"#storage-help","label":"Storage help button"}}'
 \`\`\``;
 

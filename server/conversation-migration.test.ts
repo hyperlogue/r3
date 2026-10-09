@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtifactConversations } from "./artifact-conversations.ts";
+import { ArtifactLifecycle } from "./artifact-lifecycle.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import { BlobStore } from "./blobs.ts";
 import { upgradeArtifactStore } from "./migration.ts";
@@ -33,6 +34,9 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
     const before = db
       .query("SELECT count FROM artifact_activity WHERE metric='repliesAdded'")
       .get();
+    db.query(`INSERT INTO artifact_events(id,artifact_id,event,operation_key,actor,message,created_at)
+      VALUES ('event_archive','artifact_kept','archived','archive-key','human','Historical archive note',?),
+        ('event_restore','artifact_kept','restored','restore-key','human',NULL,?)`).run(time, time);
     await upgradeArtifactStore(db, { backupPath: join(root, "backup.sqlite") });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(
@@ -40,7 +44,7 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
     ).toEqual([]);
     expect(
       db.query("SELECT count FROM artifact_activity WHERE metric='commentsAdded'").get(),
-    ).toEqual(before);
+    ).toEqual({ count: (before as { count: number }).count + 2 });
     expect(db.query("SELECT request_hash FROM message_operations").get()).toEqual({
       request_hash: "unchanged-hash",
     });
@@ -49,6 +53,31 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
       revision: "test",
     }));
     const discussions = new ArtifactConversations(db, store);
+    const lifecycle = new ArtifactLifecycle(db, store);
+    const archived = lifecycle.events("artifact_kept")[0]!;
+    expect(archived.comment).toMatchObject({
+      id: "comment_event_archive",
+      discussionId: null,
+      body: "Historical archive note",
+      sentAt: null,
+    });
+    await discussions.updateComment(archived.comment!.id, {
+      actor: { role: "human", sessionId: null },
+      body: "Edited after restore",
+    });
+    const replay = lifecycle.transition("artifact_kept", {
+      event: "archived",
+      operationKey: "archive-key",
+      actor: { role: "human", sessionId: null },
+      comment: { body: "Historical archive note" },
+    });
+    expect(replay.replayed).toBe(true);
+    expect(replay.event.id).toBe(archived.id);
+    expect(replay.event.comment?.body).toBe("Edited after restore");
+    expect(store.get("artifact_kept").state).toBe("active");
+    expect(() =>
+      db.exec("UPDATE artifact_events SET message='Changed history' WHERE id='event_archive'"),
+    ).toThrow("immutable");
     const note = discussions.get("feedback_kept");
     expect(note.comments[0]!.body).toBe("Original feedback and replies are evidence");
     expect(note.comments[0]!.sentAt).toBe(time);

@@ -80,7 +80,7 @@ function nudge(subscription: WorkerSubscription, listenerId = subscription.liste
       title: "Review",
       event: "submitted",
       lifecycleEventId: null,
-      message: null,
+      comment: null,
     },
   };
 }
@@ -138,7 +138,6 @@ test("credential rejection affects one backend and login reload recovers it with
   await until(() => worker.status().backends.find((value) => value.url === one)?.state === "ready");
   expect(worker.status().workerId).toBe(workerId);
 });
-
 test("a waiting CLI survives the first connection failure", async () => {
   await worker.stop();
   let attempts = 0;
@@ -181,7 +180,6 @@ test("a running worker imports local destinations without recreating old subscri
   expect(worker.status().subscriptions).toHaveLength(0);
   expect(worker.importLocal()).toBeNull();
 });
-
 test("stopping the worker cancels stalled setup requests on a backend", async () => {
   await subscribe(one);
   await worker.stop();

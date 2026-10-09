@@ -30,7 +30,6 @@ const request = (
     files: [{ path: "note.txt", mediaType: "text/plain", base64: "SGVsbG8=" }],
   },
 });
-
 async function open() {
   storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
   collaboration = new ArtifactCollaboration(
@@ -46,7 +45,6 @@ async function open() {
     },
   );
 }
-
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-durable-listeners-"));
   sent = [];
@@ -62,7 +60,6 @@ afterEach(async () => {
   storage.close();
   await rm(root, { recursive: true, force: true });
 });
-
 test("fallback and explicit listener survive restart without submitting pending discussions", async () => {
   await storage.artifacts.publish(id, request(first, 0));
   await storage.conversations.add(id, {
@@ -83,7 +80,6 @@ test("fallback and explicit listener survive restart without submitting pending 
   expect(sent).toEqual(["second-thread", "first-thread"]);
   expect(storage.conversations.unsent(id)).toHaveLength(1);
 });
-
 test("failed fallback remains; failed explicit listener yields only on the next send", async () => {
   await storage.artifacts.publish(id, request(first, 0));
   fail = true;
@@ -100,7 +96,6 @@ test("failed fallback remains; failed explicit listener yields only on the next 
   await collaboration.submit(id);
   expect(sent.at(-1)).toBe("first-thread");
 });
-
 test("publication order controls fallback, while retries and explicit listeners cannot be displaced", async () => {
   const original = request(first, 0);
   await storage.artifacts.publish(id, original);
@@ -117,7 +112,6 @@ test("publication order controls fallback, while retries and explicit listeners 
   await storage.artifacts.publish(id, { ...request(second, 4), listen: false });
   expect(collaboration.watchers(id)).toEqual([]);
 });
-
 test("archive removes both durable recipients; restore and old publication retries do not revive them", async () => {
   const original = request(first, 0);
   await storage.artifacts.publish(id, original);
@@ -126,7 +120,9 @@ test("archive removes both durable recipients; restore and old publication retri
     actor: human,
     event: "archived",
     operationKey: "archive",
-    message: "Finished",
+    comment: {
+      body: "Finished",
+    },
   });
   expect(sent).toEqual(["second-thread"]);
   storage.close();
@@ -137,7 +133,6 @@ test("archive removes both durable recipients; restore and old publication retri
   expect(collaboration.watchers(id)).toEqual([]);
   expect(sent).toEqual(["second-thread"]);
 });
-
 test("watch cancellation and daemon restart cannot leave a dead override ahead of fallback", async () => {
   await storage.artifacts.publish(id, request(first, 0));
   const controller = new AbortController();
@@ -150,7 +145,6 @@ test("watch cancellation and daemon restart cannot leave a dead override ahead o
   await open();
   expect(collaboration.watchers(id)[0]?.mode).toBe("fallback");
 });
-
 test("a stale failing send cannot remove a replacement explicit listener", async () => {
   await storage.artifacts.publish(id, request(first, 0));
   const delivery = Promise.withResolvers<"sent">();
@@ -169,7 +163,6 @@ test("a stale failing send cannot remove a replacement explicit listener", async
   expect((await sending).state).toBe("failed");
   expect(collaboration.watchers(id)[0]?.id).toBe(replacement.id);
 });
-
 test("schema 3 upgrades preserve artifacts and add durable local registrations", async () => {
   await storage.artifacts.publish(id, request(first, 0));
   storage.close();

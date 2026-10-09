@@ -660,10 +660,11 @@ try {
   await openComposer("draft before archive");
   await page.evaluate(`${composer}.querySelector('textarea').focus()`);
   await page.command("Input.insertText", { text: "Draft retained across archive" });
-  await api.collaboration.transition(artifact.id, {
+  const frozen = await api.collaboration.transition(artifact.id, {
     actor,
     event: "archived",
     operationKey: "browser-freeze",
+    comment: { body: "Archive comment to revisit" },
   });
   await eventually(
     () =>
@@ -690,7 +691,32 @@ try {
     ),
     false,
   );
-  console.log("Archive freezes conversation controls and restore preserves the draft.");
+  await page.evaluate(
+    "document.querySelector('[aria-label=\"Artifact details and actions\"]').click()",
+  );
+  await page.evaluate(
+    "Array.from(document.querySelectorAll('summary')).find(node=>node.textContent.startsWith('Lifecycle history')).parentElement.open=true",
+  );
+  const commentSelector = `[data-artifact-comment="${frozen.event.comment!.id}"]`;
+  await page.evaluate(
+    `document.querySelector(${JSON.stringify(commentSelector)}).querySelector('button').click()`,
+  );
+  await page.evaluate(
+    "const field=document.querySelector('[aria-label=\"Edit archive comment\"]');field.focus();field.select()",
+  );
+  await page.command("Input.insertText", { text: "Revised archive comment" });
+  await page.evaluate(
+    "document.querySelector('[aria-label=\"Edit archive comment\"]').form.requestSubmit()",
+  );
+  await eventually(
+    async () =>
+      storage.conversations.comment(frozen.event.comment!.id).body === "Revised archive comment",
+    "archive Comment edits through the common endpoint after restore",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Close artifact details\"]').click()");
+  console.log(
+    "Archive freezes conversation controls, restore preserves the draft, and archive Comments become editable.",
+  );
   rejectDetail = true;
   api.collaboration.broadcast({ type: "artifact-updated", artifactId: artifact.id });
   await eventually(async () => failedDetailReads > 0, "failed background detail refresh");

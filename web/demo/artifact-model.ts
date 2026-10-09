@@ -30,6 +30,7 @@ export interface ArtifactDemoSeed {
   themeStyles: Record<string, ThemeStyle>;
 }
 export interface ArtifactDemoState extends ArtifactDemoSeed {
+  lifecycleRequests?: Record<string, string | null>;
   activity?: DemoActivity;
   messageOperations?: Record<
     string,

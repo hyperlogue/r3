@@ -219,7 +219,7 @@ export class ArtifactCollaboration {
     const artifact = this.artifacts.get(id);
     if (artifact.state !== "active") throw new ArtifactError("Artifact is archived", 409);
     const held = this.recipient(id);
-    const wakesWatch = held?.info.kind === "watch" && this.conversations.unsent(id).length > 0;
+    const wakesWatch = held?.info.kind === "watch" && this.conversations.hasPending(id);
     this.broadcast({ type: "submitted", artifactId: id });
     // The synchronous broadcast completes a pending generic watch. Like a local
     // harness acknowledgment, this confirms the wake without draining discussions.
@@ -230,7 +230,7 @@ export class ArtifactCollaboration {
       title: artifact.title,
       event: "submitted",
       lifecycleEventId: null,
-      message: null,
+      comment: null,
     });
   }
 
@@ -251,15 +251,28 @@ export class ArtifactCollaboration {
     this.broadcast({ type: "presence-changed", artifactId: id });
     let notification: ArtifactNotification = { state: "none" };
     try {
-      if (result.event.message !== null)
+      if (result.event.comment !== null)
         notification = await this.notify(id, held, {
           id: randomUUID(),
           artifactId: id,
           title: this.artifacts.get(id).title,
           event: "archived",
           lifecycleEventId: result.event.id,
-          message: result.event.message,
+          comment: {
+            id: result.event.comment.id,
+            body: result.event.comment.body.slice(0, 8000),
+            truncated: result.event.comment.body.length > 8000,
+          },
         });
+      if (
+        result.event.comment &&
+        result.event.comment.body.length <= 8000 &&
+        (notification.state === "sent" || notification.state === "queued")
+      ) {
+        this.conversations.acknowledgeArchiveComment(result.event.comment.id);
+        result.event.comment = this.conversations.comment(result.event.comment.id);
+        this.broadcast({ type: "artifact-updated", artifactId: id });
+      }
       return { ...result, notification };
     } finally {
       if (held) this.close(held, "archived");
@@ -327,12 +340,12 @@ export class ArtifactCollaboration {
           if (event.type !== "submitted" && event.type !== "lifecycle") return;
           const terminal = archived();
           if (terminal) finish(terminal);
-          else if (event.type === "submitted" && this.conversations.unsent(id).length)
+          else if (event.type === "submitted" && this.conversations.hasPending(id))
             finish({ result: "discussions" });
         });
         options.signal?.addEventListener("abort", abort, { once: true });
         timer = setTimeout(() => finish(archived() ?? { result: "timeout" }), timeout);
-        if (this.conversations.unsent(id).length) finish(archived() ?? { result: "discussions" });
+        if (this.conversations.hasPending(id)) finish(archived() ?? { result: "discussions" });
       } catch (error) {
         settled = true;
         unsubscribe();

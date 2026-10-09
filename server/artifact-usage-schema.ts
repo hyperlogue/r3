@@ -18,6 +18,8 @@ export function installArtifactUsage(db: Database, completeSince: string | null)
       SELECT created_at AS occurred_at, 'artifactsCreated' AS metric FROM artifacts
       UNION ALL SELECT published_at, 'versionsPublished' FROM artifact_versions WHERE published_at IS NOT NULL
       UNION ALL SELECT created_at, 'threadsAdded' FROM discussions
+      UNION ALL SELECT created_at, 'commentsAdded' FROM discussions
+      UNION ALL SELECT created_at, 'commentsAdded' FROM artifact_comments
       UNION ALL SELECT created_at, 'commentsAdded' FROM comments
       UNION ALL SELECT created_at, event FROM artifact_events
     ) GROUP BY occurred_at, metric;`);
@@ -37,6 +39,8 @@ export function installArtifactUsage(db: Database, completeSince: string | null)
       "WHEN NEW.published_at IS NOT NULL",
     ],
     ["thread", "discussions", "NEW.created_at", "'threadsAdded'", ""],
+    ["opening_comment", "discussions", "NEW.created_at", "'commentsAdded'", ""],
+    ["artifact_comment", "artifact_comments", "NEW.created_at", "'commentsAdded'", ""],
     ["comment", "comments", "NEW.created_at", "'commentsAdded'", ""],
     ["lifecycle", "artifact_events", "NEW.created_at", "NEW.event", ""],
   ])

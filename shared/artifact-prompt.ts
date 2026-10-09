@@ -1,4 +1,5 @@
 import type {
+  ArtifactComment,
   ArtifactDetail,
   ArtifactDiscussion,
   ArtifactNudge,
@@ -127,6 +128,7 @@ export function buildArtifactPrompt(
   detail: ArtifactDetail,
   discussions: ArtifactDiscussion[],
   unsent = false,
+  comments: ArtifactComment[] = [],
 ): string {
   const latest = detail.versions.at(-1)?.seq;
   const lines = [
@@ -138,22 +140,26 @@ export function buildArtifactPrompt(
   if (!discussions.length)
     lines.push(unsent ? "No undelivered discussions." : "No selected discussions.");
   else lines.push(discussions.map((item) => block(item, unsent)).join("\n\n"));
+  if (comments.length) {
+    lines.push("", "## Artifact comments");
+    for (const comment of comments) lines.push("", `### ${comment.id}`, comment.body);
+  }
   return `${lines.join("\n")}\n`;
 }
 export function artifactNudgeText(nudge: ArtifactNudge): string {
   const lines = [
-    `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "discussions submitted"}`,
+    `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "comments submitted"}`,
   ];
   if (nudge.title) lines.push(`Artifact: ${nudge.title.slice(0, 500)}`);
   if (nudge.event === "submitted") lines.push(`Run: r3 discussions fetch ${nudge.artifactId}`);
   else {
     if (nudge.lifecycleEventId) lines.push(`Event: ${nudge.lifecycleEventId}`);
-    if (nudge.message) {
+    if (nudge.comment) {
       // Wake adapters may carry this text as one process argument. The complete
       // message remains in the lifecycle history; keep the nudge bounded.
-      lines.push("", "Archive message:", nudge.message.slice(0, 8000));
-      if (nudge.message.length > 8000)
-        lines.push(`… Read the complete message: r3 show ${nudge.artifactId}`);
+      lines.push("", "Comment:", nudge.comment.body.slice(0, 8000));
+      if (nudge.comment.truncated || nudge.comment.body.length > 8000)
+        lines.push(`… Read the complete Comment: r3 comment show ${nudge.comment.id}`);
     }
   }
   return lines.join("\n");

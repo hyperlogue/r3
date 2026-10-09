@@ -40,10 +40,14 @@ export function syncDemoActivity(state: ArtifactDemoState): void {
       add(`${artifact.id}/${version.seq}`, version.publishedAt, "versionsPublished");
     for (const note of artifact.discussions) {
       add(note.id, note.createdAt, "threadsAdded");
-      for (const comment of note.comments.slice(1))
-        add(comment.id, comment.createdAt, "commentsAdded");
+      for (const comment of note.comments)
+        add(`comment:${comment.id}`, comment.createdAt, "commentsAdded");
     }
-    for (const event of artifact.events) add(event.id, event.createdAt, event.event);
+    for (const event of artifact.events) {
+      add(event.id, event.createdAt, event.event);
+      if (event.comment)
+        add(`comment:${event.comment.id}`, event.comment.createdAt, "commentsAdded");
+    }
   }
   // Only live identities are retained for replay detection; historical counts
   // contain no artifact or message identifiers after deletion.
@@ -141,7 +145,12 @@ export function demoUsage(
     conversations: {
       open: notes.filter((n) => n.status === "open").length,
       resolved: notes.filter((n) => n.status === "resolved").length,
-      comments: notes.reduce((total, note) => total + note.comments.slice(1).length, 0),
+      comments:
+        notes.reduce((total, note) => total + note.comments.length, 0) +
+        state.artifacts.reduce(
+          (total, artifact) => total + artifact.events.filter((event) => event.comment).length,
+          0,
+        ),
     },
     contentBytes: content(state),
     gc: {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { ArtifactDiscussion } from "../../shared/artifacts.ts";
+import type { ArtifactComment, ArtifactDiscussion } from "../../shared/artifacts.ts";
 
 // Browser receipts record successful pings, never agent acknowledgment. Persist
 // hashes only; without Web Crypto, exact inputs remain in memory for this visit.
@@ -107,7 +107,7 @@ function remember(artifactId: string, attempt: Attempt) {
     merge(merge(receipts, read()), { [artifactId]: { issued: attempt.order, delivered: attempt } }),
   );
 }
-function pendingInputs(discussions: ArtifactDiscussion[]): string[] {
+function pendingInputs(discussions: ArtifactDiscussion[], comments: ArtifactComment[]): string[] {
   const inputs: string[] = [];
   for (const note of discussions) {
     if (
@@ -121,10 +121,20 @@ function pendingInputs(discussions: ArtifactDiscussion[]): string[] {
       if (comment.author.role === "human" && comment.sentAt === null)
         inputs.push(JSON.stringify(["comment", comment.id, comment.body]));
   }
+  for (const comment of comments)
+    if (comment.author.role === "human" && comment.sentAt === null)
+      inputs.push(JSON.stringify(["artifact-comment", comment.id, comment.body]));
   return inputs.sort();
 }
-export function useDiscussionHandoffReceipt(artifactId: string, discussions: ArtifactDiscussion[]) {
-  const source = useMemo(() => JSON.stringify(pendingInputs(discussions)), [discussions]);
+export function useDiscussionHandoffReceipt(
+  artifactId: string,
+  discussions: ArtifactDiscussion[],
+  comments: ArtifactComment[],
+) {
+  const source = useMemo(
+    () => JSON.stringify(pendingInputs(discussions, comments)),
+    [discussions, comments],
+  );
   const [snapshot, setSnapshot] = useState<{
     source: string;
     hashes: string[];

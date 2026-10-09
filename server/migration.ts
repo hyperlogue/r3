@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { open } from "node:fs/promises";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
+import { upgradeArtifactComments } from "./artifact-comments.ts";
 import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 import { ARTIFACT_SCHEMA_VERSION, PROJECT_REMOTE_SCHEMA } from "./artifact-schema.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
@@ -60,7 +61,7 @@ export async function upgradeArtifactStore(
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
   if (
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(schemaVersion) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(schemaVersion) ||
     !tables.includes("artifacts")
   )
     throw new Error("Unrecognized store schema; migration did not modify it");
@@ -83,6 +84,7 @@ export async function upgradeArtifactStore(
         "Artifact store changed while backing up; retry migration after stopping its writer",
       );
     renameConversations(db);
+    upgradeArtifactComments(db, (options.clock ?? nowIso)());
     if (schemaVersion === 1) {
       db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
         ALTER TABLE artifacts DROP COLUMN summary;`);

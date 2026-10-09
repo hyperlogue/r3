@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import type { ArtifactLifecycleEvent } from "../shared/artifacts.ts";
+import { artifactComment, createArtifactComment } from "./artifact-comments.ts";
 import type { ArtifactListeners } from "./artifact-listeners.ts";
 import {
   ArtifactError,
@@ -21,10 +22,11 @@ type EventRow = {
   actor: "human" | "agent";
   agent_session_id: string | null;
   message: string | null;
+  comment_id: string | null;
   created_at: string;
 };
 
-function eventFromRow(row: EventRow): ArtifactLifecycleEvent {
+function eventFromRow(db: Database, row: EventRow): ArtifactLifecycleEvent {
   return {
     id: row.id,
     seq: row.seq,
@@ -35,7 +37,7 @@ function eventFromRow(row: EventRow): ArtifactLifecycleEvent {
       row.actor === "human"
         ? { role: "human", sessionId: null }
         : { role: "agent", sessionId: row.agent_session_id! },
-    message: row.message,
+    comment: row.comment_id ? artifactComment(db, row.comment_id) : null,
     createdAt: row.created_at,
   };
 }
@@ -57,7 +59,7 @@ export class ArtifactLifecycle {
     return this.db
       .query<EventRow, [string]>("SELECT * FROM artifact_events WHERE artifact_id = ? ORDER BY seq")
       .all(id)
-      .map(eventFromRow);
+      .map((row) => eventFromRow(this.db, row));
   }
 
   transition(id: string, value: unknown): { event: ArtifactLifecycleEvent; replayed: boolean } {
@@ -67,9 +69,15 @@ export class ArtifactLifecycle {
     if (input.event !== "archived" && input.event !== "restored")
       throw new ArtifactError("Lifecycle event must be archived or restored");
     const event = input.event;
-    const message = optionalText(input.message, "Archive message")?.trim() || null;
+    if (input.message !== undefined)
+      throw new ArtifactError("Use comment.body for an archive Comment");
+    const comment =
+      input.comment === undefined ? null : requireObject(input.comment, "Archive Comment");
+    if (comment && Object.keys(comment).some((key) => key !== "body"))
+      throw new ArtifactError("Archive Comments accept only body");
+    const message = optionalText(comment?.body, "Archive Comment body")?.trim() || null;
     if (event === "restored" && message !== null)
-      throw new ArtifactError("Only archive accepts a message");
+      throw new ArtifactError("Only archive accepts a Comment");
     return this.db
       .transaction(() => {
         const artifact = this.artifacts.get(id);
@@ -90,7 +98,7 @@ export class ArtifactLifecycle {
               409,
             );
           }
-          return { event: eventFromRow(previous), replayed: true };
+          return { event: eventFromRow(this.db, previous), replayed: true };
         }
         const state = event === "archived" ? "archived" : "active";
         if (artifact.state === state) throw new ArtifactError(`Artifact is already ${state}`, 409);
@@ -101,10 +109,23 @@ export class ArtifactLifecycle {
             "UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ?, discussion_revision = discussion_revision + 1 WHERE id = ?",
           )
           .run(state, state === "archived" ? time : null, time, id);
+        const savedComment = message
+          ? createArtifactComment(this.db, `comment_${eventId}`, id, actor, message, time)
+          : null;
         this.db
-          .query(`INSERT INTO artifact_events(id, artifact_id, event, operation_key, actor, agent_session_id, message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-          .run(eventId, id, event, operationKey, actor.role, actor.sessionId, message, time);
+          .query(`INSERT INTO artifact_events(id, artifact_id, event, operation_key, actor, agent_session_id, message, created_at, comment_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(
+            eventId,
+            id,
+            event,
+            operationKey,
+            actor.role,
+            actor.sessionId,
+            message,
+            time,
+            savedComment?.id ?? null,
+          );
         if (state === "archived") {
           this.listeners?.clear(id);
           this.workerRecords?.retire(id);
@@ -117,7 +138,7 @@ export class ArtifactLifecycle {
         const stored = this.db
           .query<EventRow, [string]>("SELECT * FROM artifact_events WHERE id = ?")
           .get(eventId)!;
-        return { event: eventFromRow(stored), replayed: false };
+        return { event: eventFromRow(this.db, stored), replayed: false };
       })
       .immediate();
   }

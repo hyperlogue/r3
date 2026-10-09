@@ -101,7 +101,9 @@ export class ArtifactUsageStore {
       conversations: {
         open: count("SELECT count(*) AS n FROM discussions WHERE status='open'"),
         resolved: count("SELECT count(*) AS n FROM discussions WHERE status='resolved'"),
-        comments: count("SELECT count(*) AS n FROM comments"),
+        comments: count(
+          "SELECT (SELECT count(*) FROM comments) + (SELECT count(*) FROM discussions) + (SELECT count(*) FROM artifact_comments) AS n",
+        ),
       },
       contentBytes: this.bytes(),
       gc: {
