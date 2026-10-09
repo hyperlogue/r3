@@ -10,6 +10,7 @@ import {
 } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 import { nowIso } from "./ids.ts";
+import type { WorkerRecords } from "./worker-records.ts";
 
 type EventRow = {
   id: string;
@@ -48,6 +49,7 @@ export class ArtifactLifecycle {
     private readonly artifacts: ArtifactStore,
     private readonly clock: () => string = nowIso,
     private readonly listeners?: ArtifactListeners,
+    private readonly workerRecords?: WorkerRecords,
   ) {}
 
   events(id: string): ArtifactLifecycleEvent[] {
@@ -105,6 +107,7 @@ export class ArtifactLifecycle {
           .run(eventId, id, event, operationKey, actor.role, actor.sessionId, message, time);
         if (state === "archived") {
           this.listeners?.clear(id);
+          this.workerRecords?.retire(id);
           this.db
             .query(
               "DELETE FROM feedback_claims WHERE feedback_id IN (SELECT id FROM feedback WHERE artifact_id = ?)",

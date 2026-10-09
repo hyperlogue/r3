@@ -116,6 +116,7 @@ export async function openArtifactStorage(
       options.isWatching,
       options.projectGrouping,
       listeners,
+      workerRecords,
     );
     const conversations = new ArtifactConversations(db, artifacts, clock);
     const authentication = new AuthService(db, clock, options.authTokenIdleDays);
@@ -148,7 +149,7 @@ export async function openArtifactStorage(
       authentication,
       clientAuth: new ClientAuth(db, () => Date.parse(clock())),
       workerRecords,
-      lifecycle: new ArtifactLifecycle(db, artifacts, clock, listeners),
+      lifecycle: new ArtifactLifecycle(db, artifacts, clock, listeners, workerRecords),
       migration,
       collectBlobs,
       close() {

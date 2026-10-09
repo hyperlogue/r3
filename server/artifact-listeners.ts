@@ -116,4 +116,28 @@ export class ArtifactListeners {
   clear(id: string): void {
     this.db.query("DELETE FROM artifact_listeners WHERE artifact_id = ?").run(id);
   }
+
+  // One-time export to a private local worker file during the process split.
+  // This method is never exposed by the HTTP interface.
+  exportLocal() {
+    return this.db
+      .query<
+        {
+          id: string;
+          artifactId: string;
+          sessionId: string;
+          mode: "fallback" | "explicit";
+          target: string;
+        },
+        []
+      >(`SELECT l.id,l.artifact_id AS artifactId,l.session_id AS sessionId,l.mode,t.target_json AS target
+      FROM artifact_listeners l JOIN local_agent_targets t ON t.session_id=l.session_id
+      JOIN artifacts a ON a.id=l.artifact_id WHERE a.state='active'`)
+      .all()
+      .map(({ sessionId, target, ...value }) => ({
+        ...value,
+        actor: { role: "agent" as const, sessionId },
+        target: JSON.parse(target) as ListenerTarget,
+      }));
+  }
 }

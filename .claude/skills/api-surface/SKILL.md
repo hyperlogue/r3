@@ -78,7 +78,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
   optional boolean `listen` (default true). A new commit replaces the fallback
   using a locally registered target, or clears it when absent/disabled. Replays
-  cannot reclaim the fallback.
+  cannot reclaim the fallback. The response adds the backend-owned artifact `url`,
+  `listenerRegistered`, and an optional worker `listener` subscription.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
   membership, highlighted source, original bytes, rendered sparse diff, retained
@@ -372,3 +373,8 @@ The [remote protocol](../../../docs/artifacts/remote-protocol.md) defines API-ke
 management, OAuth device/token and browser-approval routes, and audit records.
 `r3 auth create-key`, `list-clients`, `revoke-client`, and `audit` manage client
 authorizations independently of browser login tokens.
+
+The same protocol reference defines `/api/workers/*`: authenticated connections,
+opaque destinations, explicit registration, conditional resume, and delivery
+acknowledgment. A publication can select a connected worker destination; all
+harness configuration remains local.

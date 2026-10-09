@@ -8,6 +8,7 @@ import {
 } from "../shared/artifacts.ts";
 import { PREVIEW_RESUME_COOKIE, previewResumeKeys } from "../shared/preview-resume.ts";
 import type { ApplicationBootstrap } from "../shared/types.ts";
+import type { WorkerSubscription } from "../shared/worker-protocol.ts";
 import {
   type ArtifactAuthPolicy,
   artifactBoot,
@@ -27,6 +28,7 @@ import { COOKIE_NAME } from "./auth.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
 import { renderStoredPatch, storedPatchContext } from "./patch-content.ts";
 import type { PreviewHost } from "./preview-host.ts";
+import { WorkerConnections } from "./worker-connections.ts";
 
 export function artifactDetail(storage: ArtifactStorage, id: string): ArtifactDetail {
   const detail: ArtifactDetail = {
@@ -61,7 +63,9 @@ export function createArtifactApi(
     undefined,
     storage.listeners,
     options.deliver,
+    storage.workerRecords,
   );
+  const workers = new WorkerConnections(storage, collaboration, policy);
   const detail = (id: string): ArtifactDetail => ({
     ...artifactDetail(storage, id),
     watching: collaboration.watching(id),
@@ -152,6 +156,7 @@ export function createArtifactApi(
   );
   app.notFound((c) => c.json({ error: "Not found" }, 404));
   installArtifactAuth(app, storage.authentication, policy, storage.clientAuth);
+  workers.install(app);
 
   app.get("/api/stat", (c) => {
     const window = c.req.query("window") ?? "daily";
@@ -261,18 +266,30 @@ export function createArtifactApi(
   });
   app.get("/api/artifacts/:id/versions", (c) => c.json(artifacts.versions(c.req.param("id"))));
   app.post("/api/artifacts/:id/versions", async (c) => {
+    let listener: WorkerSubscription | undefined;
     // Base64, JSON escaping of paths/patches, and metadata fit above the stricter
     // decoded publication limits. Server maxRequestBodySize must match this cap.
     const version = await artifacts.publish(
       c.req.param("id"),
       await artifactJson(c.req.raw, 200 * 1024 * 1024),
+      (actor, enabled) => {
+        listener = workers.published(c.req.param("id"), actor, enabled);
+      },
     );
     collaboration.broadcast({
       type: "version-published",
       artifactId: version.artifactId,
       seq: version.seq,
     });
-    return c.json(version, 201);
+    return c.json(
+      {
+        ...version,
+        url: `${policy.publicUrl ?? new URL(c.req.url).origin}/${encodeURIComponent(version.artifactId)}`,
+        listenerRegistered: !!collaboration.registration(version.artifactId, "fallback"),
+        ...(listener ? { listener } : {}),
+      },
+      201,
+    );
   });
   app.get("/api/artifacts/:id/versions/:seq", (c) =>
     c.json(artifacts.version(c.req.param("id"), artifactSequence(c.req.param("seq")))),
@@ -358,5 +375,14 @@ export function createArtifactApi(
     return c.json({ ok: true });
   });
   const conversations = installArtifactConversations(app, storage, collaboration, detail);
-  return { app, bootstrap, collaboration, close: conversations.close };
+  return {
+    app,
+    bootstrap,
+    collaboration,
+    workers,
+    close() {
+      workers.close();
+      conversations.close();
+    },
+  };
 }

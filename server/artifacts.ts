@@ -33,6 +33,7 @@ import {
   type ValidatedPublication,
   validatePublication,
 } from "./publication.ts";
+import type { WorkerRecords } from "./worker-records.ts";
 
 type ArtifactRow = {
   id: string;
@@ -128,6 +129,7 @@ export class ArtifactStore {
     private readonly isWatching: (id: string) => boolean = () => false,
     projectGrouping: ProjectGroupingOptions = {},
     private readonly listeners?: ArtifactListeners,
+    private readonly workerRecords?: WorkerRecords,
   ) {
     this.attachments = new ArtifactAttachments(db, blobs, clock);
     this.projectStore = new ArtifactProjects(db, clock, projectGrouping);
@@ -457,11 +459,19 @@ export class ArtifactStore {
     return artifact;
   }
 
-  async publish(id: string, value: unknown): Promise<ArtifactVersion> {
-    return this.blobs.publishing(() => this.publishHeld(id, value));
+  async publish(
+    id: string,
+    value: unknown,
+    published?: (actor: ArtifactActor, enabled: boolean) => void,
+  ): Promise<ArtifactVersion> {
+    return this.blobs.publishing(() => this.publishHeld(id, value, published));
   }
 
-  private async publishHeld(id: string, value: unknown): Promise<ArtifactVersion> {
+  private async publishHeld(
+    id: string,
+    value: unknown,
+    published?: (actor: ArtifactActor, enabled: boolean) => void,
+  ): Promise<ArtifactVersion> {
     const publication = validatePublication(value);
     this.validateActor(publication.actor);
     this.get(id);
@@ -482,7 +492,8 @@ export class ArtifactStore {
           AND v.published_at IS NOT NULL LIMIT 1`)
           .get(hash, path, revision),
     );
-    return this.db
+    let committed = false;
+    const result = this.db
       .transaction(() => {
         // State and expected sequence may have changed during preparation. A retry
         // also may have completed while this upload was rendering its documents.
@@ -545,9 +556,13 @@ export class ArtifactStore {
           .query("UPDATE artifact_versions SET published_at = ? WHERE artifact_id = ? AND seq = ?")
           .run(time, id, seq);
         this.listeners?.published(id, publication.actor, publication.listen);
+        this.workerRecords?.retire(id, "fallback");
+        committed = true;
         return this.version(id, seq);
       })
       .immediate();
+    if (committed) published?.(publication.actor, publication.listen);
+    return result;
   }
 
   files(id: string, seq: number): ArtifactFile[] {

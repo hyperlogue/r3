@@ -16,6 +16,7 @@ import type { ArtifactListeners } from "./artifact-listeners.ts";
 import { ArtifactError } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 import { nowIso } from "./ids.ts";
+import type { WorkerRecords } from "./worker-records.ts";
 
 export type LocalAgentDelivery = (
   target: ListenerTarget,
@@ -33,6 +34,7 @@ interface Registration {
 // artifact. Every other registered agent can still read, publish, claim or reply.
 export class ArtifactCollaboration {
   private readonly registrations = new Map<string, Registration>();
+  private readonly fallbacks = new Map<string, Registration>();
   private readonly subscribers = new Set<(event: ArtifactStreamEvent) => void>();
   constructor(
     private readonly artifacts: ArtifactStore,
@@ -41,6 +43,7 @@ export class ArtifactCollaboration {
     private readonly clock: () => string = nowIso,
     private readonly listeners?: ArtifactListeners,
     private readonly deliver?: LocalAgentDelivery,
+    private readonly workerRecords?: WorkerRecords,
   ) {}
 
   subscribe(listener: (event: ArtifactStreamEvent) => void): () => void {
@@ -70,7 +73,7 @@ export class ArtifactCollaboration {
   }
 
   private recipient(id: string): Registration | undefined {
-    const live = this.registrations.get(id);
+    const live = this.registrations.get(id) ?? this.fallbacks.get(id);
     if (live) return live;
     const stored = this.deliver && this.listeners?.selected(id);
     if (!stored) return undefined;
@@ -98,9 +101,16 @@ export class ArtifactCollaboration {
     actor = this.artifacts.validateActor(actor);
     this.artifacts.get(id);
     this.listeners?.remove(id, actor);
+    if (actor.role === "agent") this.workerRecords?.retire(id, null, actor);
     const held = this.registrations.get(id);
     if (held?.info.actor.role === actor.role && held.info.actor.sessionId === actor.sessionId)
       this.unregister(id, held.info.id);
+    const fallback = this.fallbacks.get(id);
+    if (
+      fallback?.info.actor.role === actor.role &&
+      fallback.info.actor.sessionId === actor.sessionId
+    )
+      this.unregister(id, fallback.info.id);
     this.broadcast({ type: "presence-changed", artifactId: id });
   }
 
@@ -117,32 +127,52 @@ export class ArtifactCollaboration {
     actor: ArtifactActor,
     close: Registration["close"],
     push?: Registration["push"],
+    options: { mode?: "fallback" | "explicit"; id?: string; listenerId?: string } = {},
   ): ArtifactWatcher {
     actor = this.artifacts.validateActor(actor);
     if (push && actor.role !== "agent")
       throw new ArtifactError("Listeners require an agent session");
     if (this.artifacts.get(id).state !== "active")
       throw new ArtifactError("Artifact is archived", 409);
-    const held = this.registrations.get(id);
-    this.listeners?.clearExplicit(id);
+    const map = options.mode === "fallback" ? this.fallbacks : this.registrations;
+    const held = map.get(id);
+    if (options.mode !== "fallback") this.listeners?.clearExplicit(id);
+    this.workerRecords?.retire(id, options.mode ?? "explicit", null, options.id);
     const info: ArtifactWatcher = {
-      id: randomUUID(),
+      id: options.id ?? randomUUID(),
       kind: push ? "listen" : "watch",
       actor,
       connectedAt: this.clock(),
+      ...(options.mode ? { mode: options.mode } : {}),
+      ...(options.listenerId ? { listenerId: options.listenerId } : {}),
+      ...(options.mode && actor.role === "agent"
+        ? { label: this.artifacts.sessionLabels([actor.sessionId])[actor.sessionId] ?? null }
+        : {}),
     };
-    this.registrations.set(id, { info, close, push });
+    map.set(id, { info, close, push });
     if (held) this.close(held, "superseded");
     this.broadcast({ type: "presence-changed", artifactId: id });
     return info;
   }
 
   unregister(id: string, registrationId: string): void {
-    const held = this.registrations.get(id);
+    const map =
+      this.fallbacks.get(id)?.info.id === registrationId ? this.fallbacks : this.registrations;
+    const held = map.get(id);
     if (held?.info.id !== registrationId) return;
-    this.registrations.delete(id);
+    map.delete(id);
     this.close(held, "disconnected");
     this.broadcast({ type: "presence-changed", artifactId: id });
+  }
+
+  clearFallback(id: string): void {
+    const held = this.fallbacks.get(id);
+    this.fallbacks.delete(id);
+    if (held) this.close(held, "superseded");
+  }
+
+  registration(id: string, mode: "fallback" | "explicit"): ArtifactWatcher | undefined {
+    return (mode === "fallback" ? this.fallbacks : this.registrations).get(id)?.info;
   }
 
   private async notify(
@@ -155,7 +185,7 @@ export class ArtifactCollaboration {
       const state = await held.push(nudge);
       return { state: state ?? "sent" };
     } catch (error) {
-      this.unregister(id, held.info.id);
+      if (held.info.mode !== "fallback") this.unregister(id, held.info.id);
       this.listeners?.failed(held.info.id);
       this.broadcast({ type: "presence-changed", artifactId: id });
       return {
@@ -190,7 +220,12 @@ export class ArtifactCollaboration {
     // A retry must neither evict a newer registration nor repeat notification.
     const result = this.lifecycle.transition(id, value);
     if (result.replayed) return { ...result, notification: { state: "not_repeated" } };
-    if (result.event.event === "archived") this.registrations.delete(id);
+    if (result.event.event === "archived") {
+      const fallback = this.fallbacks.get(id);
+      this.fallbacks.delete(id);
+      this.registrations.delete(id);
+      if (fallback && fallback !== held) this.close(fallback, "archived");
+    }
     this.broadcast({ type: "lifecycle", artifactId: id, event: result.event });
     if (result.event.event !== "archived") return { ...result, notification: { state: "none" } };
     this.broadcast({ type: "presence-changed", artifactId: id });
@@ -214,8 +249,11 @@ export class ArtifactCollaboration {
   deleted(id: string): void {
     const held = this.registrations.get(id);
     this.registrations.delete(id);
+    const fallback = this.fallbacks.get(id);
+    this.fallbacks.delete(id);
     this.broadcast({ type: "artifact-deleted", artifactId: id });
     if (held) this.close(held, "deleted");
+    if (fallback) this.close(fallback, "deleted");
   }
 
   watch(

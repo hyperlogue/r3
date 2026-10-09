@@ -120,7 +120,7 @@ export function installArtifactAuth(
       ok: true,
       version: policy.version,
       protocol: "artifacts-v1",
-      capabilities: clients ? ["r3-auth-v1"] : [],
+      capabilities: clients ? ["r3-worker-v1", "r3-auth-v1", "publication-url"] : [],
     }),
   );
   app.get("/api/boot", (c) => {

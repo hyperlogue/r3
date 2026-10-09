@@ -6,6 +6,7 @@ export type {
 } from "./artifact-usage.ts";
 
 import type { ArtifactAttachment, AttachmentInput } from "./attachments.ts";
+import type { WorkerSubscription } from "./worker-protocol.ts";
 
 export type {
   ArtifactSearchMatch,
@@ -97,6 +98,12 @@ export type ArtifactVersion = VersionMetadata &
     | { kind: "html"; entrypoint: "index.html" | "index.md"; fileCount: number }
     | { kind: "diff"; entrypoint: null; fileCount: null }
   );
+
+export type ArtifactPublicationResponse = ArtifactVersion & {
+  url: string;
+  listenerRegistered: boolean;
+  listener?: WorkerSubscription;
+};
 
 export interface ArtifactFile {
   path: string;
@@ -401,6 +408,7 @@ export type ArtifactStreamEvent =
 export const ARTIFACT_WATCH_EXIT = { archived: 0, feedback: 10, timeout: 2, busy: 4 } as const;
 
 export interface ArtifactWatcher {
+  listenerId?: string;
   id: string;
   kind: "watch" | "listen";
   actor: ArtifactActor;
