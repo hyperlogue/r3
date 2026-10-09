@@ -44,6 +44,9 @@ try {
     );
   };
   const screenshot = async (name: string) => {
+    await page.evaluate(
+      "Promise.all(document.getAnimations().map(animation => animation.finished))",
+    );
     const { data } = await page.command("Page.captureScreenshot", { format: "png" });
     await Bun.write(join(images, name), Buffer.from(data, "base64"));
   };

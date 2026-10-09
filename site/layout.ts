@@ -35,7 +35,7 @@ export function shell(
 <a href="/docs/"${page.path.startsWith("/docs/") ? ' aria-current="page"' : ""}>Docs</a>
 <a href="/demo/">Live demo <span aria-hidden="true">↗</span>
 </a>`;
-  const themeScript = `try{const t=localStorage.getItem('r3-site-theme');document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch{}`;
+  const themeScript = `(()=>{let t=new URLSearchParams(location.search).get('theme');try{t||=localStorage.getItem('r3-site-theme')}catch{}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'})()`;
   const toc = headings.length
     ? `<nav class="toc" aria-label="On this page">
 <p>On this page</p>${headings.map((h) => `<a href="#${h.id}">${escapeHTML(h.text)}</a>`).join("")}</nav>`
@@ -70,6 +70,7 @@ export function shell(
 <meta property="og:image" content="${escapeHTML(origin)}/assets/social.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/r3-theme.css">
 <link rel="stylesheet" href="/assets/site.css">
 <script>${themeScript}</script>
 <script type="module" src="/assets/site.js">
@@ -95,7 +96,10 @@ export function shell(
 <span>Search</span>
 <kbd>/</kbd>
 </a>
-<button class="theme-toggle js-control" type="button" aria-label="Switch color theme" title="Switch color theme">◐</button>
+<button class="theme-toggle js-control" type="button" aria-label="Switch color theme" title="Switch color theme">
+<svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+<svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z"/></svg>
+</button>
 <a class="button small header-start" href="/docs/get-started/">Get started <span aria-hidden="true">↗</span>
 </a>
 <details class="mobile-menu">

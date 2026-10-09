@@ -13,9 +13,9 @@ export async function validateLinks(directory: string, pages: Map<string, string
           ids.add(id);
         },
       })
-      .on("[href], [src], [data-markdown]", {
+      .on("[href], [src], [data-markdown], [action]", {
         element(el) {
-          for (const attr of ["href", "src", "data-markdown"]) {
+          for (const attr of ["href", "src", "data-markdown", "action"]) {
             const value = el.getAttribute(attr);
             if (value) links.push(value);
           }

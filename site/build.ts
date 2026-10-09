@@ -16,6 +16,7 @@ import {
   normalizeBase,
   publicURL,
 } from "./render.ts";
+import { frontendTheme } from "./theme.ts";
 import { validateLinks } from "./validate.ts";
 
 export const siteDirectory = import.meta.dir;
@@ -69,6 +70,7 @@ export async function buildSite() {
     console.log("Using example.test for preview metadata; set R3_SITE_URL for deployment.");
   await rm(outputDirectory, { recursive: true, force: true });
   await mkdir(join(outputDirectory, "assets"), { recursive: true });
+  await Bun.write(join(outputDirectory, "assets/r3-theme.css"), await frontendTheme());
   const renderer = await createRenderer();
   const htmlPages = new Map<string, string>();
   const exports: { page: Page; text: string }[] = [];

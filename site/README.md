@@ -34,14 +34,25 @@ builds the existing demo, indexes only the authored website pages with Pagefind,
 and validates internal destinations and anchors. A root 404 page restores demo
 deep links while retaining a useful missing-page experience elsewhere.
 
+To publish the built text and layouts as an r3 HTML artifact, run
+`bun --no-env-file site/package-artifact.ts`, then publish `dist/site-artifact/`.
+Use the same `R3_SITE_BASE` as the preceding build. Packaging uses relative asset
+URLs and explicit document filenames, with no dependency on server directory
+redirects. Search runs without a worker in the opaque preview. The live demo
+opens separately because its own nested previews are unavailable inside an r3
+artifact; `R3_SITE_DEMO_URL` defaults to the running local preview's demo URL.
+Set it to the deployed demo URL when sharing beyond the local machine.
+
 ## Author content
 
 - `catalog.ts` owns page metadata and documentation order.
 - `content/` contains articles and the five Example Fieldwork walkthroughs.
 - `landing.ts` authors the homepage and directory pages directly in HTML.
 - `layout.ts` owns the shared shell, documentation navigation, and article layout.
-- `style.css` owns design tokens, responsive layouts, and source scanning for
-  Tailwind. Raw HTML in Markdown can use these classes or utilities.
+- `theme.ts` reads the palette, font stacks, and overlay tokens directly from
+  `web/src/main.css` at build time. `style.css` maps them to site surfaces and
+  controls, owns responsive layouts, and scans content for Tailwind utilities.
+  Raw HTML in Markdown can use these classes or utilities.
 - `client.ts` owns progressive enhancements: theme preference, code/Markdown
   copying, keyboard access to search, and Pagefind results.
 
