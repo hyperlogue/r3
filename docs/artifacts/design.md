@@ -700,8 +700,17 @@ before notifications.
 Archive takes precedence over pending feedback and timeout. A failed notification
 preserves the committed event and reports failure; an operation-key retry does not
 push again. Archived artifacts retain content, threads, status, unsent work, and
-drafts. Publication, new claims, and ordinary handoff are blocked, while in-flight
-replies are accepted. Restore allows work again and requires fresh registration.
+drafts. Archived artifacts are read-only: publication, metadata edits, conversation
+creation/edits/deletion, replies, placements, new claims, ordinary feedback delivery,
+and subscriptions are closed until restore. A reply still being prepared when
+archive commits must fail rather than extend the archived conversation. Reading
+retained content, restoring the artifact, and deleting the whole artifact remain
+available. Restore allows work again and requires a fresh subscription.
+
+Implementation gap: the current server still accepts conversation and metadata
+mutations after archive, including late replies. The read-only rule above records
+the accepted requirement from the glossary review; enforcing it in the server,
+browser, and demo remains outstanding.
 
 ## Preview and communication boundary
 

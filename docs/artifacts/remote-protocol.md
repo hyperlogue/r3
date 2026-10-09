@@ -4,8 +4,10 @@ r3 has one human owner per backend. The backend owns artifact bytes, feedback, b
 rendering, authentication, and recipient selection. The CLI uploads and reads
 directly. A persistent worker delivers wake notifications to local harnesses.
 Local mode uses these same contracts with an automatically started loopback server.
-The [glossary](../../CONTEXT.md) defines backend, server, worker, registration, and
-selected recipient; these terms describe distinct roles.
+The [glossary](../../CONTEXT.md) defines backend, server, notification worker,
+subscription, and selected subscription. The existing wire spellings
+`registration`, `registered`, and `registrationId` still refer to subscriptions;
+the terminology review does not rename protocol fields.
 
 ```text
 CLI ───────── authenticated HTTP/JSON ─────── backend ← browser

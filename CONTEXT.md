@@ -8,17 +8,18 @@ Feedback is optional; an artifact can be useful without a review conversation.
 ### Backends and access
 
 **Backend**:
-The r3 service selected for a body of work, owning its artifacts, conversations,
-access grants, and notification routing. It may run locally or remotely.
+The entity that owns artifacts, conversations, access grants, and notification
+routing for one user.
 _Avoid_: Project, daemon.
 
 **Server**:
-The process providing a backend's storage, API, and browser workspace.
-_Avoid_: Worker, daemon when naming this role.
+The process providing a backend's storage and browser workspace, running on the
+same machine as the CLI or on another machine.
+_Avoid_: Notification worker, daemon when naming this role.
 
-**Worker**:
-The local service that receives backend wake notifications and delivers them to
-agent harnesses. One worker can serve several backends.
+**Notification worker**:
+The service on an agent's machine that delivers artifact notifications from
+backends to local agent harnesses. One notification worker can serve several backends.
 _Avoid_: Server, proxy, daemon when naming this role.
 
 **Client authorization**:
@@ -30,7 +31,8 @@ _Avoid_: Agent session, browser session.
 
 **Artifact**:
 A continuing work product with its own identity, kind, versions, and conversations.
-Its title and conversations can change while its published versions remain immutable.
+While active, its title and conversations can change; its published versions remain
+immutable.
 _Avoid_: Review (for the artifact itself).
 
 **Version**:
@@ -65,8 +67,9 @@ The most recently published version of an artifact.
 _Avoid_: Current version.
 
 **Artifact state**:
-Whether an artifact is active or archived; an archived artifact is set aside with
-its versions and conversations retained, without implying approval or resolution.
+Whether an artifact is active for ongoing work or archived for reference.
+An archived artifact retains its versions and conversations, with further
+publication, conversation changes, metadata edits, and subscriptions closed until restore.
 
 **Review**:
 The activity of examining and discussing an artifact, rather than a separate work
@@ -74,12 +77,10 @@ product or an approval state.
 
 ### Participants
 
-**Human**:
-The person using published artifacts and controlling whether feedback is resolved.
-
-**Backend owner**:
-The single human who controls a backend's access and artifact workspace.
-_Avoid_: Publisher, claim owner, artifact owner.
+**User**:
+The person who uses published artifacts, controls backend access, and decides when
+feedback is resolved. Each backend serves one human user.
+_Avoid_: Backend owner, artifact owner.
 
 **Agent session**:
 The identity of one logical agent run to which publications, messages, and claims
@@ -87,22 +88,22 @@ remain attributed after the run ends. It grants no access and identifies neither
 live connection nor a notification destination.
 
 **Publisher**:
-The human or agent responsible for a particular publication; later versions may
-have different publishers.
+The agent responsible for a particular publication, or the user when publishing
+directly. Later versions may have different publishers.
 _Avoid_: Artifact owner.
 
 ### Conversations and locations
 
 **Feedback**:
 A conversation about an artifact, consisting of an opening message, replies, an
-original target, and human-controlled resolution status.
+original target, and user-controlled resolution status.
 
 **Reply**:
 A message continuing a feedback conversation, optionally carrying message context
 and a fix target.
 
 **Feedback status**:
-The human's classification of a conversation as open or resolved; resolved means
+The user's classification of a conversation as open or resolved; resolved means
 the conversation needs no further attention, whether or not content changed.
 
 **Original target**:
@@ -125,57 +126,52 @@ version or view from the message context or original target.
 One agent session's temporary reservation to handle particular open feedback.
 It coordinates responsibility without granting exclusive rights to publish or reply.
 
-**Registration**:
-An artifact's routing choice for a publisher fallback or explicit recipient.
-A registration is distinct from the agent session it names and from whether it is
-currently selected.
-_Avoid_: Listener (for routing state), subscription (except in the wire format).
+**Subscription**:
+An agent's arrangement to receive notifications about an artifact, either as its
+publisher fallback or by explicitly subscribing. It is separate from the agent's
+identity and may remain unselected while another subscription takes priority.
+_Avoid_: Registration, listener (for the subscription itself).
 
 **Publisher fallback**:
-The registration established by a publication to receive notifications when no
-explicit registration is present.
+The subscription established by a publication to receive notifications when no
+explicit subscription is present.
 _Avoid_: Fallback listener, artifact owner.
 
-**Explicit registration**:
-A registration established by listening or watching that takes precedence over
+**Explicit subscription**:
+A subscription established by listening or watching that takes precedence over
 the publisher fallback.
 
-**Selected recipient**:
-The recipient currently chosen for an artifact through its explicit registration,
-or through its publisher fallback when no explicit registration is present.
-_Avoid_: Designated listener, owner.
+**Selected subscription**:
+The subscription currently chosen to receive an artifact's notifications: its
+explicit subscription when present, otherwise its publisher fallback.
+_Avoid_: Selected recipient, designated listener, owner.
 
 **Notification destination**:
-The local harness destination a worker uses to wake an agent, separate from the
-agent session used for authorship. Its details remain private to the worker.
-_Avoid_: Agent session, registration.
-
-**Saved registration intent**:
-A worker's retained intent to restore a registration when the backend permits it.
-It does not establish live presence or entitlement to displace another recipient.
-_Avoid_: Active listener, offline subscription.
+The local harness destination a notification worker uses to reach an agent,
+separate from the agent session used for authorship.
+_Avoid_: Agent session, subscription.
 
 **Watch**:
-A CLI wait for pending feedback or archive that acts as an explicit registration
-for the duration of the request.
+A wait for pending feedback or archive, with an explicit subscription for its
+duration.
 
-**Wake notification**:
-A prompt to an agent that feedback is ready to fetch, or that an artifact was
-archived. Delivery or queue acceptance does not acknowledge feedback content.
-_Avoid_: Handoff, feedback delivery.
+**Artifact notification**:
+A message to an agent that feedback is ready to collect or that an artifact was
+archived. Receiving the notification does not confirm receipt of the feedback itself.
+_Avoid_: Wake notification, comment notification, feedback delivery.
 
-**Handoff**:
-The passing of a pending feedback snapshot to an agent, completed when its output
-succeeds and the backend accepts acknowledgment of that snapshot. A wake
-notification or copied command alone does not complete it.
+**Feedback delivery**:
+The confirmed transfer of pending user messages and status changes to an agent.
+It is separate from the artifact notification that prompts the agent to collect them.
+_Avoid_: Handoff, notification delivery.
 
 **Unsent feedback**:
-Human messages or status changes awaiting handoff to an agent.
+User messages or status changes awaiting feedback delivery to an agent.
 _Avoid_: Unread.
 
 **Unhandled feedback**:
 Open feedback whose latest message is from an agent, indicating attention is due
-from the human regardless of whether the message has been read.
+from the user regardless of whether the message has been read.
 _Avoid_: Unread.
 
 ### Project grouping
@@ -185,7 +181,7 @@ An optional group of artifacts within one backend, with an identity that remains
 stable when its repositories move or its display name changes.
 _Avoid_: Repository, backend.
 
-**Project backend override**:
+**Directory backend override**:
 A working directory's setting that selects the backend for CLI operations.
 It is independent of the Project groups stored by that backend.
 

@@ -9,8 +9,10 @@ Write README.md for human readers evaluating and getting started with r3. Keep
 agent instructions, protocol semantics, and exhaustive feature details in the
 agent guide or reference documentation.
 
-Use [CONTEXT.md](CONTEXT.md) for domain terminology. Backend names the service;
-server and worker name its distinct storage and local notification roles.
+Use [CONTEXT.md](CONTEXT.md) for domain terminology. Backend names the entity;
+server and notification worker name its storage and local notification roles.
+Subscription names notification routing state; selected subscription names the
+one currently chosen. Existing protocol fields retain their wire spellings.
 
 This file, the [artifact design](docs/artifacts/design.md),
 [schema explanation](docs/artifacts/schema.md), and the deep-reference skills below
@@ -163,14 +165,16 @@ registrations before post-commit notifications. Push only a nonblank message to
 that captured recipient.
 A failed push preserves the event and reports failure; retry does not notify again.
 Restore permits work but never revives an old registration. Archive preserves
-feedback state, unsent content, and drafts; in-flight replies remain accepted.
+feedback state, unsent content, and drafts. The accepted archive requirement is
+read-only content until restore, including rejection of late replies; the current
+enforcement gap is recorded in [artifact design](docs/artifacts/design.md).
 
-An artifact can retain a publisher fallback and an explicit registration, with
-one selected recipient. A publication replaces the fallback; unsupported publishers
+An artifact can retain a publisher fallback and an explicit subscription, with
+one selected subscription. A publication replaces the fallback; unsupported publishers
 and `--no-listen` clear it. Explicit listen/watch takes priority. Failed fallback
-delivery retains the registration; a failed explicit registration is removed,
-without resending that attempt. Registration and restart never submit feedback.
-Archive clears saved registrations atomically.
+delivery retains the subscription; a failed explicit subscription is removed,
+without resending that attempt. Subscribing and restarting never submit feedback.
+Archive clears saved subscriptions atomically.
 A persistent local worker delivers through the same protocol for local and remote
 backends. Disconnect removes its live registrations. Conditional reconnect preserves
 any incumbent, including a fallback, and restores both saved roles atomically when
