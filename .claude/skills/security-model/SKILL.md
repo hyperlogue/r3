@@ -134,6 +134,13 @@ revocation or artifact deletion invalidates the whole context. These unguessable
 URLs grant one version's resources, never application or other-artifact authority.
 They are scoped bearer capabilities and must not be placed in logs or referrers.
 
+Mounted previews renew periodically and when the tab becomes visible, with one
+renewal in flight per preview. A renewal 404 after expiry or server restart starts
+fresh authenticated setup for the selected version and current document. Recovery
+stops capture, clears device consent, and repeats the gate or checks remembered
+compatibility consent before admitting the replacement. Other renewal failures
+remain visible for explicit retry; context creation failures stop recovery.
+
 Each document has `sandbox allow-scripts` in both the iframe and response CSP.
 The browser assigns a fresh opaque origin on every navigation, even when two
 previews share a transport hostname. The iframe is also credentialless, avoiding

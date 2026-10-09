@@ -391,6 +391,7 @@ try {
   await page.goto(`${base}/${markdownPage.id}?version=1`);
   await ready();
   const beforeExpiry = markdownReads;
+  const expiredUrl = await page.locator('iframe[aria-hidden="false"]').getAttribute("src");
   preview.close();
   const expiredRenewal = page.waitForResponse(
     (response: any) =>
@@ -399,7 +400,10 @@ try {
   );
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   assert.equal((await expiredRenewal).status(), 404);
-  await page.getByRole("button", { name: "Retry preview", exact: true }).click();
+  await page.waitForFunction((previous: string) => {
+    const frame = document.querySelector<HTMLIFrameElement>('iframe[aria-hidden="false"]');
+    return frame && frame.src !== previous;
+  }, expiredUrl);
   await ready();
   assert.equal(
     markdownReads,

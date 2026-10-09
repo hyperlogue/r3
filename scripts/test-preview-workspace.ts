@@ -59,7 +59,12 @@ for (const seq of [1, 2])
       ],
     },
   });
-const preview = new PreviewHost(storage.artifacts, previewSupport);
+let previewTime = Date.now();
+const preview = new PreviewHost(storage.artifacts, previewSupport, () => previewTime);
+let previewCreations = 0;
+let previewRenewals = 0;
+let previewGates = 0;
+let renewalFailure = 0;
 const api = createArtifactApi(
   storage,
   {
@@ -75,6 +80,13 @@ const app = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    if (path.endsWith("/r3/gate")) previewGates++;
+    if (request.method === "POST" && path.endsWith("/previews")) previewCreations++;
+    if (request.method === "PATCH" && path.startsWith("/api/previews/")) {
+      previewRenewals++;
+      if (renewalFailure)
+        return Response.json({ error: "Renewal denied by fixture" }, { status: renewalFailure });
+    }
     if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
     if (path.startsWith("/api/")) return api.app.fetch(request);
     const asset = assets.get(path.slice(1));
@@ -298,6 +310,52 @@ try {
       "Traversal adds no entries",
     );
   }
+  const visiblePreview = () =>
+    page.evaluate<string | null>(
+      "document.querySelector('[data-artifact-preview] iframe:not([inert])')?.src ?? null",
+    );
+  const resume = () =>
+    page.evaluate(
+      "(()=>{for(let i=0;i<3;i++) document.dispatchEvent(new Event('visibilitychange'))})()",
+    );
+  assert.equal(await page.evaluate("document.visibilityState"), "visible");
+  for (const cause of ["expiry", "server restart"] as const) {
+    const previousUrl = await eventually(visiblePreview, "preview before suspension");
+    const creations = previewCreations;
+    const renewals = previewRenewals;
+    const gates = previewGates;
+    const historyLength = await page.evaluate("history.length");
+    if (cause === "expiry") previewTime += 61 * 60_000;
+    else preview.close();
+    const expired = await preview.fetch(
+      new Request(previousUrl, { headers: { host: `localhost:${app.port}` } }),
+    );
+    assert.equal(await expired.text(), "Preview context expired or unavailable");
+    await resume();
+    const replacement = await eventually(async () => {
+      const url = await visiblePreview();
+      return url && url !== previousUrl ? url : null;
+    }, `automatic preview recovery after ${cause}`);
+    assert.equal(new URL(replacement).pathname.endsWith("/files/other.html"), true);
+    assert.equal(previewCreations, creations + 1, "Recovery creates one replacement context");
+    assert.ok(
+      previewRenewals > renewals && previewRenewals <= renewals + 2,
+      "Wake events share one renewal, with at most one extra check of a retained context",
+    );
+    assert.equal(previewGates, gates + 1, "The replacement repeats the capability gate");
+    assert.equal(await page.evaluate("history.length"), historyLength);
+    assert.equal(await page.evaluate("new URL(location.href).searchParams.get('version')"), "1");
+    assert.equal(
+      await page.evaluate("new URL(location.href).searchParams.get('file')"),
+      "other.html",
+    );
+    assert.equal(
+      await page.evaluate(
+        "document.body.textContent.includes('Preview context expired or unavailable')",
+      ),
+      false,
+    );
+  }
   // Explicit version choices use that publication's root page, including
   // after native navigation to a companion document in the preceding version.
   for (const [seq, path, text] of [
@@ -343,13 +401,30 @@ try {
       return false;
     }, "selected version returns to its published root page");
   }
+  for (const status of [401, 403, 500]) {
+    await eventually(visiblePreview, "preview before renewal failure");
+    const creations = previewCreations;
+    renewalFailure = status;
+    await resume();
+    await eventually(
+      () => page.evaluate("document.body.textContent.includes('Renewal denied by fixture')"),
+      `renewal ${status} stays visible without recreating the context`,
+    );
+    assert.equal(previewCreations, creations);
+    assert.equal(await visiblePreview(), null);
+    renewalFailure = 0;
+    await page.evaluate(
+      "[...document.querySelectorAll('button')].find(button=>button.textContent==='Retry preview').click()",
+    );
+  }
+  await eventually(visiblePreview, "manual recovery after renewal failure");
   const screenshot = process.env.R3_TEST_SCREENSHOT;
   if (screenshot) {
     const image = await page.command("Page.captureScreenshot", { format: "png" });
     await Bun.write(screenshot, Buffer.from(image.data, "base64"));
   }
   console.log(
-    "Preview workspace acceptance: isolated render, human utility, shared thread, version switching, native Locate, and document navigation passed",
+    "Preview workspace acceptance: isolated render, human utility, shared thread, version switching, native Locate, document navigation, and context recovery passed",
   );
 } finally {
   await browser?.close();

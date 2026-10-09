@@ -298,6 +298,7 @@ function PreviewSession(
   useEffect(() => {
     let closed = false;
     let grant: ArtifactPreviewContext | null = null;
+    let renewing = false;
     let timer: ReturnType<typeof setInterval>;
     setContext(null);
     setSrc("");
@@ -308,19 +309,29 @@ function PreviewSession(
     current.current.onVerification("checking");
     admitted.current = false;
     const renew = async () => {
-      if (!grant || closed) return;
+      if (!grant || closed || renewing) return;
+      renewing = true;
       try {
         grant = await artifactApi.renewPreview(grant.id);
       } catch (error) {
+        if (closed) return;
         // A missing context can mean expiry or restart, not artifact deletion.
         forgetDeniedMarkdown(error);
-        if (!closed) {
-          capture.close();
-          current.current.onDevicesReset();
-          current.current.onVerification("error");
-          setError(error instanceof Error ? error.message : "Preview expired");
-          setSrc("");
+        capture.close();
+        current.current.onDevicesReset();
+        if (error instanceof ArtifactApiError && error.status === 404) {
+          // Remount through normal setup so the current document gets a fresh
+          // context and repeats admission before connecting its new bridge.
+          closed = true;
+          clearInterval(timer);
+          current.current.onRetry();
+          return;
         }
+        current.current.onVerification("error");
+        setError(error instanceof Error ? error.message : "Preview expired");
+        setSrc("");
+      } finally {
+        renewing = false;
       }
     };
     void previewSessions
