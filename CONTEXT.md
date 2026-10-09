@@ -1,7 +1,7 @@
 # r3 language
 
 r3 presents published artifacts for people to read, use, and discuss with agents.
-Feedback is optional; an artifact can be useful without a review conversation.
+Discussion is optional; an artifact can be useful without a review conversation.
 
 ## Language
 
@@ -9,7 +9,7 @@ Feedback is optional; an artifact can be useful without a review conversation.
 
 **Backend**:
 The entity that owns artifacts, conversations, access grants, and notification
-routing for one user.
+routing under its own access policy.
 _Avoid_: Project, daemon.
 
 **Server**:
@@ -18,7 +18,7 @@ same machine as the CLI or on another machine.
 _Avoid_: Notification worker, daemon when naming this role.
 
 **Notification worker**:
-The service on an agent's machine that delivers artifact notifications from
+The service on an agent's machine that delivers comment notifications from
 backends to local agent harnesses. One notification worker can serve several backends.
 _Avoid_: Server, proxy, daemon when naming this role.
 
@@ -78,8 +78,9 @@ product or an approval state.
 ### Participants
 
 **User**:
-The person who uses published artifacts, controls backend access, and decides when
-feedback is resolved. Each backend serves one human user.
+A person who uses published artifacts and participates in discussions under the
+backend's access policy. The bundled r3 backend serves one user; other backends may
+serve several without changing how clients authorize access.
 _Avoid_: Backend owner, artifact owner.
 
 **Agent session**:
@@ -94,42 +95,41 @@ _Avoid_: Artifact owner.
 
 ### Conversations and locations
 
-**Feedback**:
-A conversation about an artifact, consisting of an opening message, replies, an
-original target, and user-controlled resolution status.
+**Discussion**:
+A conversation about an artifact, with an opening comment, subsequent comments, an
+immutable original target, and user-controlled resolution status.
+_Avoid_: Feedback (for the conversation), comment (for the whole conversation).
 
-**Reply**:
-A message continuing a feedback conversation, optionally carrying message context
-and a fix target.
+**Comment**:
+An authored message belonging to a discussion or directly to an artifact. It may
+point to a published location. A reply continues a discussion; an archive comment
+stands in the artifact history without its own resolution status.
+_Avoid_: Feedback (for a message), reply (as a separate message entity).
 
-**Feedback status**:
-The user's classification of a conversation as open or resolved; resolved means
-the conversation needs no further attention, whether or not content changed.
+**Discussion status**:
+The user's classification of a discussion as open or resolved; resolved means
+the discussion needs no further attention, whether or not content changed.
 
 **Original target**:
-The immutable subject of feedback when it was opened: the artifact as a whole, or
-a page, file, media instant and region, or code change as it appeared in a specific
-version and view. A media target retains the full saved frame as its visual evidence.
-
-**Message context**:
-The published version a reply is talking about and, when needed, the view used
-for its references.
-A reference such as `plan.md` points into that version, independently of any fix target.
+The immutable subject of a discussion when it was opened: the artifact as a whole,
+or a page, file, media instant and region, or code change in a specific version and
+view. A media target retains the full saved frame as its visual evidence.
 
 **Fix target**:
-A published location that a reply points to as its fix, potentially in a different
-version or view from the message context or original target.
+A published location that a comment points to as its fix, potentially in a different
+version or view from the discussion's original target.
 
 ### Coordination and attention
 
 **Claim**:
-One agent session's temporary reservation to handle particular open feedback.
-It coordinates responsibility without granting exclusive rights to publish or reply.
+One agent session's temporary reservation to handle a particular open discussion.
+It coordinates responsibility without granting exclusive rights to publish or comment.
 
 **Subscription**:
 An agent's arrangement to receive notifications about an artifact, either as its
 publisher fallback or by explicitly subscribing. It is separate from the agent's
 identity and may remain unselected while another subscription takes priority.
+A notification worker losing its connection does not end its subscription.
 _Avoid_: Registration, listener (for the subscription itself).
 
 **Publisher fallback**:
@@ -152,27 +152,29 @@ separate from the agent session used for authorship.
 _Avoid_: Agent session, subscription.
 
 **Watch**:
-A wait for pending feedback or archive, with an explicit subscription for its
+A wait for pending comments or archive, with an explicit subscription for its
 duration.
 
-**Artifact notification**:
-A message to an agent that feedback is ready to collect or that an artifact was
-archived. Receiving the notification does not confirm receipt of the feedback itself.
-_Avoid_: Wake notification, comment notification, feedback delivery.
+**Comment notification**:
+A message prompting an agent to collect pending comments or discussion status
+changes, or carrying an artifact's archive comment. A signal alone does not
+confirm delivery of the comments it announces.
+_Avoid_: Wake notification, artifact notification, comment delivery.
 
-**Feedback delivery**:
-The confirmed transfer of pending user messages and status changes to an agent.
-It is separate from the artifact notification that prompts the agent to collect them.
-_Avoid_: Handoff, notification delivery.
+**Comment delivery**:
+The confirmed transfer of pending user comments and discussion status changes to
+an agent. A notification carrying a complete archive comment can also deliver it;
+a notification that only prompts collection does not.
+_Avoid_: Handoff, feedback delivery, notification delivery.
 
-**Unsent feedback**:
-User messages or status changes awaiting feedback delivery to an agent.
-_Avoid_: Unread.
+**Unsent comments**:
+User comments or discussion status changes awaiting delivery to an agent.
+_Avoid_: Unread, unsent feedback.
 
-**Unhandled feedback**:
-Open feedback whose latest message is from an agent, indicating attention is due
-from the user regardless of whether the message has been read.
-_Avoid_: Unread.
+**Unhandled discussion**:
+An open discussion whose latest comment is from an agent, indicating attention is
+due from the user regardless of whether the comment has been read.
+_Avoid_: Unread, unhandled feedback.
 
 ### Project grouping
 
