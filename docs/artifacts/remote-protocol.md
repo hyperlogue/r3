@@ -59,6 +59,19 @@ refresh, device, cookie, or harness secrets. Addresses are observations, not ide
 
 ## Worker connection
 
+One worker serves all configured backends independently. It opens no TCP listener,
+reads no artifact database, and caches no artifact/feedback content. Its private
+Unix socket passes local setup information only. HTTP watch and all data reads
+remain between CLI and backend.
+
+The worker persists a random worker ID, backend-qualified opaque listener IDs,
+local harness targets, and eligible subscription intent in
+`$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). The local IPC
+socket and discovery file reside beside `daemon.json` in the runtime directory.
+The IPC file and socket require owner-only permissions and a separate private
+credential; requests carrying any Origin header are rejected. Paths, executables,
+Codex home, Claude sockets, and harness credentials never enter backend requests.
+
 `POST /api/workers/connect` accepts `workerId` and `protocol: "r3-worker-v1"`.
 It returns `text/event-stream`; the first frame is `ready` with `protocol` and
 `connectionId`. A new connection for the same worker closes the previous one.
