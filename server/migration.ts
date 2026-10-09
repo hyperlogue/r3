@@ -58,7 +58,7 @@ export async function upgradeArtifactStore(
   }
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(schemaVersion) || !tables.includes("artifacts"))
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(schemaVersion) || !tables.includes("artifacts"))
     throw new Error("Unrecognized store schema; migration did not modify it");
   db.exec("PRAGMA foreign_keys = ON");
   const beforeBackup = dataVersion(db);
@@ -86,6 +86,18 @@ export async function upgradeArtifactStore(
     db.exec(ARTIFACT_LISTENER_SCHEMA);
     db.exec(CLIENT_AUTH_SCHEMA);
     db.exec(WORKER_SCHEMA);
+    if (
+      !db
+        .query<{ name: string }, []>("PRAGMA table_info(worker_registrations)")
+        .all()
+        .some((column) => column.name === "principal")
+    ) {
+      // Earlier records did not retain the credential that authorized them.
+      // Never guess ownership when upgrading to durable subscriptions.
+      db.exec(
+        "ALTER TABLE worker_registrations ADD COLUMN principal TEXT NOT NULL DEFAULT ''; UPDATE worker_registrations SET state='retired'",
+      );
+    }
     // Older edits erased sent_at, so a null stamp cannot prove no delivery.
     // Prefer an extra future status notification over silently dropping one.
     if (schemaVersion < 5)

@@ -21,7 +21,6 @@ import type {
   Representation,
 } from "../shared/artifacts.ts";
 import { normalizeGitRemote } from "../shared/git-remote.ts";
-import type { WorkerSubscription } from "../shared/worker-protocol.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { fetchArtifactFeedback } from "./artifact-feedback.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
@@ -30,7 +29,6 @@ import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attac
 import { currentHarnessSession, detectListener } from "./listener.ts";
 
 export interface ArtifactCommandContext {
-  publicationComplete?: (subscription: WorkerSubscription) => Promise<void>;
   registerListener?: (actor: ArtifactActor) => Promise<boolean>;
   client: ArtifactClient;
   publicUrl?: string;
@@ -285,7 +283,7 @@ export async function runArtifactCommand(
             "Published, but automatic listening could not be configured. Run r3 listen or use r3 watch.";
         }
       }
-      const { artifact, version, url, listenerRegistered, listener } = await publishArtifactCommand(
+      const { artifact, version, url, listenerRegistered } = await publishArtifactCommand(
         command,
         args,
         {
@@ -296,14 +294,6 @@ export async function runArtifactCommand(
         },
       );
       await printPublication(artifact, version, url);
-      if (listener && ctx.publicationComplete) {
-        try {
-          await ctx.publicationComplete(listener);
-        } catch {
-          listenerWarning =
-            "Published, but worker persistence could not be confirmed. Run r3 listen.";
-        }
-      }
       if (listen && ctx.registerListener && listenerRegistered === false)
         listenerWarning =
           "Published, but no worker listener was registered. Run r3 listen or use r3 watch.";

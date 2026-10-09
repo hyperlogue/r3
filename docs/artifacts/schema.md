@@ -459,3 +459,12 @@ local worker's conditional resume. Adoption validates the original artifact, act
 role and registration identity, then removes the legacy row and unused target.
 Old private database backups may still contain the original harness credentials.
 See [remote protocol](remote-protocol.md) for authentication and recovery semantics.
+
+## Durable worker subscriptions
+
+Schema version 12 adds the authorizing credential principal to worker registrations.
+A transport disconnect preserves the subscription; only replacement, unlisten,
+archive, or deletion retires it. The server reconstructs retained selection after
+restart, and the same worker/principal can attach a new connection. Old records
+without a saved principal are retired rather than assigned guessed authority;
+artifacts, conversation evidence, and credentials remain unchanged.

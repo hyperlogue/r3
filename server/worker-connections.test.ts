@@ -132,23 +132,29 @@ async function send(connection: Connection, ok: boolean) {
   });
   return { result: await result, nudge };
 }
-test("opaque IDs preserve fallback selection and failed explicit sends never resend", async () => {
+test("delivery failure retains the selected subscription and never resends to the fallback", async () => {
   const connection = await connect();
-  const fallback = await target(connection, publisher),
-    explicit = await target(connection, helper);
+  await target(connection, publisher);
+  const explicit = await target(connection, helper);
   const publication = await publish();
   expect(publication.url).toBe(`https://review.example/workspace/${id}`);
-  await listen(connection, helper, explicit);
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(helper);
+  const subscription = await listen(connection, helper, explicit);
   const failed = await send(connection, false);
   expect(failed.nudge.listenerId).toBe(explicit);
   expect(failed.result.notification.state).toBe("failed");
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(publisher);
-  const resumed = await send(connection, true);
-  expect(resumed.nudge.listenerId).toBe(fallback);
-  expect(resumed.result.notification.state).toBe("queued");
-  await send(connection, false);
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(publisher);
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    id: subscription.id,
+    actor: helper,
+    connectionState: "failed",
+  });
+  expect(api.collaboration.watchers(id)[0].error).toContain("failed");
+  const retried = await send(connection, true);
+  expect(retried.nudge.listenerId).toBe(explicit);
+  expect(retried.result.notification.state).toBe("queued");
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    connectionState: "connected",
+    error: null,
+  });
 });
 test("publication updates the fallback under a watch; ending the watch selects it", async () => {
   const connection = await connect();
@@ -165,40 +171,35 @@ test("publication updates the fallback under a watch; ending the watch selects i
   await watching;
   expect(api.collaboration.watchers(id)[0].actor).toEqual(helper);
 });
-test("disconnect removes both roles; reconnect restores both atomically and preserves any incumbent", async () => {
+test("disconnect retains selection, reconnect attaches transport, and a fresh listener stays selected", async () => {
   const first = await connect();
   await target(first, publisher);
   const explicit = await target(first, helper);
   const fallback = (await publish()).listener!;
   const listening = await listen(first, helper, explicit);
   await first.events.return(undefined);
-  expect(api.collaboration.watchers(id)).toEqual([]);
-  const next = await connect(first.workerId);
-  for (const subscription of [fallback, listening])
-    await client.json("POST", `/api/workers/${next.connectionId}/targets`, {
-      actor: subscription.actor,
-      listenerId: subscription.listenerId,
-    });
-  await client.json("POST", `/api/workers/${next.connectionId}/resume`, {
-    subscriptions: [fallback, listening],
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    id: listening.id,
+    connectionState: "disconnected",
   });
-  expect(api.collaboration.registration(id, "fallback")?.actor).toEqual(publisher);
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(helper);
+  await expect(client.json("POST", `/api/artifacts/${id}/submit`)).rejects.toMatchObject({
+    status: 502,
+  });
+  expect(api.collaboration.watchers(id)[0].id).toBe(listening.id);
+  const next = await connect(first.workerId);
+  expect(api.collaboration.registration(id, "fallback")?.id).toBe(fallback.id);
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    id: listening.id,
+    connectionState: "connected",
+  });
+  expect((await send(next, true)).nudge.registrationId).toBe(listening.id);
   await next.events.return(undefined);
   const other = await connect();
-  await target(other, publisher);
-  await publish(publisher, 1);
+  const replacement = await listen(other, publisher, await target(other, publisher));
   const reconnect = await connect(first.workerId);
-  await client.json("POST", `/api/workers/${reconnect.connectionId}/targets`, {
-    actor: helper,
-    listenerId: listening.listenerId,
-  });
-  await expect(
-    client.json("POST", `/api/workers/${reconnect.connectionId}/resume`, {
-      subscriptions: [listening],
-    }),
-  ).rejects.toThrow("already has a recipient");
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(publisher);
+  expect(api.collaboration.watchers(id)[0].id).toBe(replacement.id);
+  expect(storage.workerRecords.get(listening.id)?.state).toBe("retired");
+  await reconnect.events.return(undefined);
 });
 test("unlisten and archive retire subscriptions so lost retirement events cannot revive them", async () => {
   const connection = await connect();
@@ -219,13 +220,18 @@ test("unlisten and archive retire subscriptions so lost retirement events cannot
     event: "restored",
     operationKey: randomUUID(),
   });
+  await connection.events.return(undefined);
+  const reconnected = await connect(connection.workerId);
+  await client.json("POST", `/api/workers/${reconnected.connectionId}/targets`, {
+    actor: helper,
+    listenerId: listening.listenerId,
+  });
+  expect(api.collaboration.watchers(id)).toEqual([]);
   await expect(
-    client.json("POST", `/api/workers/${connection.connectionId}/resume`, {
-      subscriptions: [fallback, listening],
-    }),
-  ).rejects.toThrow("no longer eligible");
+    client.json("POST", `/api/workers/${reconnected.connectionId}/listen`, listening),
+  ).rejects.toThrow("ended");
 });
-test("client revocation closes only its connections and cannot remove another client's fallback", async () => {
+test("client revocation retains a visible failure without switching to another client's fallback", async () => {
   const firstKey = storage.clientAuth.createKey(null),
     secondKey = storage.clientAuth.createKey(null);
   const first = await connect(randomUUID(), makeClient(firstKey.token));
@@ -235,7 +241,11 @@ test("client revocation closes only its connections and cannot remove another cl
   const explicit = await target(second, helper);
   await listen(second, helper, explicit);
   storage.clientAuth.revoke(secondKey.id);
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(publisher);
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    actor: helper,
+    connectionState: "disconnected",
+  });
+  expect(api.collaboration.watchers(id)[0].error).toContain("access ended");
   expect(((await event(second, "closed")) as { reason: string }).reason).toBe(
     "authorization-revoked",
   );
@@ -247,51 +257,41 @@ test("client revocation closes only its connections and cannot remove another cl
   ).rejects.toThrow();
 });
 
-test("local migration adopts both saved roles once and preserves browser access and artifact bytes", async () => {
-  storage.listeners.setTarget(publisher.sessionId!, {
-    harness: "codex",
-    threadId: "fixture-publisher",
+test("backend restart retains subscriptions and binds only the authorizing credential", async () => {
+  const key = storage.clientAuth.createKey(null);
+  const first = await connect(randomUUID(), makeClient(key.token));
+  const listening = await listen(first, helper, await target(first, helper));
+  api.close();
+  storage.close();
+  storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+  api = createArtifactApi(storage, {
+    token,
+    requireLogin: true,
+    version: "fixture",
+    allowedHost: () => true,
   });
-  storage.listeners.setTarget(helper.sessionId!, { harness: "codex", threadId: "fixture-helper" });
-  await storage.artifacts.publish(id, {
-    actor: publisher,
-    expectedSeq: 0,
-    publicationKey: randomUUID(),
-    content: {
-      kind: "files",
-      files: [
-        {
-          path: "note.txt",
-          mediaType: "text/plain",
-          base64: Buffer.from("Retained").toString("base64"),
-        },
-      ],
-    },
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    id: listening.id,
+    connectionState: "disconnected",
   });
-  storage.listeners.register(id, helper, "explicit");
-  const login = storage.authentication.createLoginToken(null);
-  const legacy = storage.listeners.exportLocal();
-  expect(legacy).toHaveLength(2);
-  const connection = await connect();
-  const subscriptions: WorkerSubscription[] = [];
-  for (const { target: _target, ...subscription } of legacy)
-    subscriptions.push({
-      ...subscription,
-      listenerId: await target(connection, subscription.actor),
-    });
-  await client.json("POST", `/api/workers/${connection.connectionId}/resume`, { subscriptions });
-  expect(storage.listeners.exportLocal()).toEqual([]);
-  expect(api.collaboration.registration(id, "fallback")?.actor).toEqual(publisher);
-  expect(api.collaboration.watchers(id)[0].actor).toEqual(helper);
-  expect(storage.authentication.verifyLogin(login.token)).not.toBeNull();
-  expect(
-    await (
-      await client.request("GET", `/api/artifacts/${id}/versions/1/resource?path=note.txt`)
-    ).text(),
-  ).toBe("Retained");
+  const unrelated = await connect(first.workerId);
+  expect(api.collaboration.watchers(id)[0].connectionState).toBe("disconnected");
+  await unrelated.client.json("POST", `/api/workers/${unrelated.connectionId}/targets`, {
+    actor: helper,
+    listenerId: listening.listenerId,
+  });
+  await expect(
+    unrelated.client.json("POST", `/api/workers/${unrelated.connectionId}/listen`, listening),
+  ).rejects.toThrow("identity was already used");
+  const owner = await connect(first.workerId, makeClient(key.token));
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    id: listening.id,
+    connectionState: "connected",
+  });
+  expect((await send(owner, true)).nudge.registrationId).toBe(listening.id);
 });
 
-test("archive and replacement retire offline intent even if no worker receives the event", async () => {
+test("archive and replacement end offline subscriptions even without a connected worker", async () => {
   const original = await connect();
   await target(original, publisher);
   const saved = (await publish()).listener!;
@@ -311,15 +311,17 @@ test("archive and replacement retire offline intent even if no worker receives t
     actor: publisher,
     listenerId: saved.listenerId,
   });
-  await expect(
-    client.json("POST", `/api/workers/${resumed.connectionId}/resume`, { subscriptions: [saved] }),
-  ).rejects.toThrow("no longer eligible");
+  expect(api.collaboration.watchers(id)).toEqual([]);
+  expect(storage.workerRecords.get(saved.id)?.state).toBe("retired");
   const replacement = (await publish(publisher, 1)).listener!;
   await resumed.events.return(undefined);
   const newer = await connect();
   await target(newer, helper);
   await publish(helper, 2);
   await newer.events.return(undefined);
-  expect(api.collaboration.watchers(id)).toEqual([]);
+  expect(api.collaboration.watchers(id)[0]).toMatchObject({
+    actor: helper,
+    connectionState: "disconnected",
+  });
   expect(storage.workerRecords.get(replacement.id)?.state).toBe("retired");
 });

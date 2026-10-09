@@ -6,7 +6,7 @@ import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 11;
+export const ARTIFACT_SCHEMA_VERSION = 12;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (

@@ -29,7 +29,7 @@ test("private worker API rejects missing credentials and every browser Origin", 
           body: JSON.stringify({ url: "https://backend.example", subscription: {} }),
         })
       ).status,
-    ).toBe(400);
+    ).toBe(404);
   } finally {
     await runtime.stop();
     await rm(root, { recursive: true, force: true });

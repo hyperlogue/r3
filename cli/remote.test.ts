@@ -116,10 +116,20 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
     expect((await api.collaboration.submit(id)).state).toBe("queued");
     expect(await Bun.file(queue).text()).toContain(`r3 feedback fetch ${id}`);
     expect((await run(["worker", "stop"])).code).toBe(0);
-    for (let i = 0; i < 100 && api.collaboration.watching(id); i++) await Bun.sleep(20);
-    expect(api.collaboration.watchers(id)).toEqual([]);
+    for (
+      let i = 0;
+      i < 100 && api.collaboration.watchers(id)[0]?.connectionState !== "disconnected";
+      i++
+    )
+      await Bun.sleep(20);
+    expect(api.collaboration.watchers(id)[0]?.connectionState).toBe("disconnected");
     expect((await run(["worker", "start"])).code).toBe(0);
-    for (let i = 0; i < 100 && !api.collaboration.watching(id); i++) await Bun.sleep(20);
+    for (
+      let i = 0;
+      i < 100 && api.collaboration.watchers(id)[0]?.connectionState !== "connected";
+      i++
+    )
+      await Bun.sleep(20);
     expect(api.collaboration.watchers(id)[0]?.actor.sessionId).toBe("remote-publisher");
     expect((await run(["unlisten", id])).code).toBe(0);
     expect(api.collaboration.watchers(id)).toEqual([]);

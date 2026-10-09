@@ -67,6 +67,24 @@ function options(name = "backup.sqlite") {
 }
 
 describe("atomic artifact schema upgrades", () => {
+  test("version 11 retains evidence but retires subscriptions without an authorizing principal", async () => {
+    db.exec("ALTER TABLE worker_registrations DROP COLUMN principal; PRAGMA user_version = 11");
+    db.query("INSERT INTO worker_registrations VALUES (?, ?, ?, ?, 'disconnected')").run(
+      "old-subscription",
+      "worker",
+      "review_retained",
+      JSON.stringify({ id: "old-subscription" }),
+    );
+    await upgradeArtifactStore(db, options("artifact-v11.sqlite"));
+    expect(db.query("SELECT state, principal FROM worker_registrations").get()).toEqual({
+      state: "retired",
+      principal: "",
+    });
+    expect(db.query("SELECT body FROM feedback WHERE id='feedback_retained'").get()).toEqual({
+      body: "Keep the thread",
+    });
+  });
+
   test("version 5 adds feedback revisions while preserving exact delivery history", async () => {
     db.exec(
       "UPDATE feedback SET ever_delivered = 0; ALTER TABLE artifacts DROP COLUMN feedback_revision; PRAGMA user_version = 5",

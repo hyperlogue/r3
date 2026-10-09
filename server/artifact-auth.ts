@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { BootResponse } from "../shared/types.ts";
+import { WORKER_PROTOCOL } from "../shared/worker-protocol.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { type AuthService, COOKIE_NAME, cookieOptions } from "./auth.ts";
 import type { ClientAuth } from "./client-auth.ts";
@@ -120,7 +121,7 @@ export function installArtifactAuth(
       ok: true,
       version: policy.version,
       protocol: "artifacts-v1",
-      capabilities: clients ? ["r3-worker-v1", "r3-auth-v1", "publication-url"] : [],
+      capabilities: clients ? [WORKER_PROTOCOL, "r3-auth-v1", "publication-url"] : [],
     }),
   );
   app.get("/api/boot", (c) => {

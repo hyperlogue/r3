@@ -6,8 +6,8 @@ export class WorkerProtocolFixture {
     {
       token: string;
       connects: number;
-      resumes: number;
-      conflict: boolean;
+      subscriptions: Map<string, Record<string, unknown>>;
+      requests: string[];
       stream?: ReadableStreamDefaultController<Uint8Array>;
       acknowledgments: Record<string, unknown>[];
     }
@@ -16,12 +16,23 @@ export class WorkerProtocolFixture {
     this.backends.set(url, {
       token,
       connects: 0,
-      resumes: 0,
-      conflict: false,
+      subscriptions: new Map(),
+      requests: [],
       acknowledgments: [],
     });
   }
   send(url: string, event: unknown): void {
+    const message = event as {
+      type: string;
+      subscription?: Record<string, unknown>;
+      registrationId?: string;
+    };
+    if (message.type === "registered" && message.subscription)
+      this.backends
+        .get(url)!
+        .subscriptions.set(String(message.subscription.id), message.subscription);
+    if (message.type === "retired")
+      this.backends.get(url)!.subscriptions.delete(message.registrationId!);
     this.backends
       .get(url)!
       .stream!.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
@@ -36,9 +47,10 @@ export class WorkerProtocolFixture {
     if (request.headers.get("x-r3-token") !== backend.token)
       return Response.json({ error: "Authentication required" }, { status: 401 });
     const path = request.url.slice(url.length);
+    backend.requests.push(path);
     const body = (await request.json()) as Record<string, unknown>;
     if (path === "/api/workers/connect") {
-      if (body.protocol !== "r3-worker-v1")
+      if (body.protocol !== "r3-worker-v2")
         return Response.json({ error: "Protocol mismatch" }, { status: 409 });
       backend.connects++;
       let abort = () => {};
@@ -56,22 +68,27 @@ export class WorkerProtocolFixture {
             request.signal.addEventListener("abort", abort, { once: true });
             this.send(url, {
               type: "ready",
-              protocol: "r3-worker-v1",
+              protocol: "r3-worker-v2",
               connectionId: `connection-${backend.connects}`,
             });
+            for (const subscription of backend.subscriptions.values())
+              this.send(url, {
+                type: "registered",
+                subscription,
+                registration: { id: subscription.id },
+              });
           },
           cancel: () => request.signal.removeEventListener("abort", abort),
         }),
         { headers: { "content-type": "text/event-stream" } },
       );
     }
-    if (path.endsWith("/resume")) {
-      backend.resumes++;
-      if (backend.conflict)
-        return Response.json({ error: "Artifact already has a recipient" }, { status: 409 });
-      for (const subscription of body.subscriptions as Record<string, unknown>[])
-        this.send(url, { type: "registered", subscription, registration: { id: subscription.id } });
-    }
+    if (
+      path !== "/api/sessions" &&
+      !path.endsWith("/targets") &&
+      !path.endsWith("/acknowledgments")
+    )
+      return Response.json({ error: "Unknown route" }, { status: 404 });
     if (path.endsWith("/acknowledgments")) backend.acknowledgments.push(body);
     return Response.json({ ok: true });
   };

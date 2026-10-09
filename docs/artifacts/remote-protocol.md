@@ -1,7 +1,9 @@
-# Remote backend protocol, version 1
+# Remote backend protocol, version 2
 
-r3 has one human owner per backend. The backend owns artifact bytes, feedback, browser
-rendering, authentication, and recipient selection. The CLI uploads and reads
+The bundled r3 backend serves one human user. Third-party backends may serve several;
+the CLI and notification worker treat authorization as opaque and leave user identity,
+workspace scope, and access policy to the backend. The backend owns artifact bytes,
+conversations, browser rendering, authentication, and subscription selection. The CLI uploads and reads
 directly. A persistent worker delivers wake notifications to local harnesses.
 Local mode uses these same contracts with an automatically started loopback server.
 The [glossary](../../CONTEXT.md) defines backend, server, notification worker,
@@ -20,7 +22,7 @@ CLI ───────── authenticated HTTP/JSON ─────── ba
 ```
 
 This document defines the language-neutral extension to `artifacts-v1`.
-`GET /api/health` advertises `r3-worker-v1`, `r3-auth-v1`, and `publication-url`
+`GET /api/health` advertises `r3-worker-v2`, `r3-auth-v1`, and `publication-url`
 in its `capabilities` array. JSON uses UTF-8, camelCase names, and opaque string
 identifiers. Unknown identifiers never imply a path or executable. Existing artifact
 routes, immutable versions, feedback acknowledgment, and watch exit codes retain
@@ -123,16 +125,20 @@ Unix socket passes local setup information only. HTTP watch and all data reads
 remain between CLI and backend.
 
 The worker persists a random worker ID, backend-qualified opaque listener IDs,
-local harness targets, and eligible saved registration intent in
+and local harness targets in
 `$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). The local IPC
 socket and discovery file reside beside `daemon.json` in the runtime directory.
-The IPC file and socket require owner-only permissions and a separate private
+Authenticated IPC, rather than a PID check, establishes that an existing worker is
+alive, including across PID namespaces. The IPC file and socket require owner-only permissions and a separate private
 credential; requests carrying any Origin header are rejected. Paths, executables,
 Codex home, Claude sockets, and harness credentials never enter backend requests.
 
-`POST /api/workers/connect` accepts `workerId` and `protocol: "r3-worker-v1"`.
+`POST /api/workers/connect` accepts `workerId` and `protocol: "r3-worker-v2"`.
 It returns `text/event-stream`; the first frame is `ready` with `protocol` and
-`connectionId`. A new connection for the same worker closes the previous one.
+`connectionId`. A new connection for the same worker and credential principal closes the previous one.
+The backend retains each subscription with that principal; a different grant cannot
+attach to it by supplying the same worker ID. After ready, the backend sends registered
+frames for its retained subscriptions. Reconnection changes transport, not selection.
 The credential principal that created a connection must authorize subsequent
 requests addressed to it. Browser cookies alone cannot create a worker connection.
 The bundled server caps simultaneous worker connections at 128.
@@ -144,15 +150,16 @@ SSE frames contain a JSON `data` object whose `type` matches the event name:
 | `ready` | `protocol`, opaque `connectionId` |
 | `heartbeat` | Liveness only; sent every ten seconds |
 | `registered` | `subscription` and public `registration` watcher snapshot |
-| `retired` | `registrationId`, `reason`; permanently discard that saved intent |
+| `retired` | `registrationId`, `reason`; discard that stream’s routing snapshot |
 | `nudge` | `registrationId`, `listenerId`, `nudge` |
-| `closed` | `reason`; drop presence and reconnect when eligible |
+| `closed` | `reason`; reconnect transport when eligible; retain backend subscription selection |
 
 No SSE replay cursor or offline notification queue exists. The worker aborts a
 silent stream after 35 seconds, retries from 500 ms up to 30 seconds, and refreshes
 credentials before reconnecting. The server closes expired/revoked authorization
-streams and removes all presence belonging to that connection. A stale connection
-or acknowledgment cannot remove a newer recipient.
+streams while retaining their subscriptions and exposing a disconnected/error state.
+A stale connection or acknowledgment cannot remove a newer subscription. The browser
+shows the selected subscription’s connectionState and error from the watchers response.
 
 The wire type `WorkerSubscription` carries a registration. Its `id` identifies
 that registration, `listenerId` identifies the notification destination, and
@@ -179,41 +186,44 @@ as a local harness address. Reusing a registration ID with different contents fa
 | --- | --- |
 | `POST /api/workers/:connectionId/targets` | `actor`, `listenerId`; bind an opaque destination on this connection (limit 4,096) |
 | `POST /api/workers/:connectionId/listen` | An `explicit` subscription; replace the explicit slot |
-| `POST /api/workers/:connectionId/resume` | `subscriptions`: one or two saved roles for one artifact; conditional restoration described below |
 | `POST /api/workers/:connectionId/acknowledgments` | `nudgeId`, `ok`, optional `state: sent|queued`; settle the active delivery attempt |
 
-Fresh listen intent is saved locally before the CLI registers it directly with
-the backend. A successful publication returns its confirmed fallback subscription,
-which the worker persists. The stream also confirms registrations. A CLI never
-proxies artifact operations through the worker.
+The CLI saves its local harness destination with the worker, then registers directly
+with the backend. A successful publication returns its confirmed fallback subscription.
+The worker keeps registered frames only as an in-memory validation map for that stream;
+it persists no subscription intent. A CLI never proxies artifact operations through it.
 
-## Selection, recovery, and delivery
+## Selection, connection, and delivery
 
-An artifact can retain one publisher fallback and one explicit registration
-(listen or watch), with at most one selected recipient.
-Explicit takes precedence. A committed publication replaces the fallback even
-while an explicit recipient is selected; disabled/unsupported publication clears
-it. Publication replay does not change either slot. Fresh listen, fetch-listen,
-and watch replace only the explicit slot. Ending explicit presence selects the
-fallback without sending anything. Unlisten removes both roles belonging to that
-caller. Failed explicit delivery removes that registration; failed fallback
-delivery retains it. The same attempt is never resent to a different recipient.
+An artifact can retain one publisher fallback and one explicit subscription, with
+at most one selected subscription. Explicit takes precedence. A committed publication
+replaces the fallback even while an explicit subscription is selected; disabled or
+unsupported publication clears it. Publication replay changes neither slot. Fresh
+listen, fetch-listen, and watch replace only the explicit slot. Unlisten ends both
+roles belonging to that caller. A generic watch still lasts only for its HTTP request.
 
-Disconnection removes live registrations, while the worker retains eligible saved
-registration intent.
-Resume is weak: accept only if the artifact has no current fallback or explicit
-recipient, or if the exact requested registrations are already current. An
-incumbent publisher B is preserved just like an incumbent explicit listener.
-Restore the original role; when one worker held both, restore them atomically.
-The backend validates saved operation identity and rejects unknown or retired IDs.
-Conflict/archived/missing responses stop automatic attempts for that artifact;
-`r3 worker status` reports the conflict until a fresh CLI action registers again.
+Losing a worker connection leaves both backend subscriptions intact. The selected
+subscription becomes disconnected, and Send to agent reports failure immediately;
+there is no offline delivery queue or automatic resend. The same worker and credential
+can reconnect and use the retained subscriptions without any resume request or
+competition for a vacant slot. A new agent’s explicit listen replaces the old slot;
+reconnecting the older worker never takes it back. A local delivery failure also
+retains selection, records a visible error, and never retries on another recipient.
+A later successful send clears that error. Manual listen from the same agent refreshes
+its local connection information, while listening from another agent changes selection.
 
-Retirement is durable even if the worker misses the event. Replacement, unlisten,
-archive and deletion prevent old registrations from returning. Publication and
-archive retire prior saved identities inside their database transactions. Restore
-never revives pre-archive intent. Existing local registrations migrate once through
-a private export into the worker, using these same resume checks.
+The backend persists subscription identity, worker identity, and authorizing principal.
+Backend restart reconstructs retained selection as disconnected until transport returns.
+Replacement, unlisten, archive, and deletion end subscriptions permanently. Restore
+never revives pre-archive subscriptions. Worker state version 2 retains local destinations
+but discards old recovery intents. Schema 12 retires older subscription records whose
+credential principal was not saved; those require a fresh listen or publication after
+upgrade. Local legacy destinations can still be imported without recreating subscriptions.
+
+A watcher may include `connectionState: connected|disconnected|failed` and nullable
+`error`. Error text describes backend delivery state and contains no local harness
+paths or credentials. The browser presents it beside the selected subscription;
+CLI data reads remain independent of worker health.
 
 A nudge contains `id`, `artifactId`, nullable `title`, `event: submitted|archived`,
 nullable `lifecycleEventId`, and nullable `message`. The worker validates the
@@ -240,7 +250,7 @@ the publication without reestablishing a fallback.
 
 `cli/worker-protocol-fixture.ts` implements an independent HTTP/SSE fixture without
 importing r3 server, storage, or shared wire types. Worker tests exercise it across
-two backends, unknown destinations, reconnect, conflicts, and credential reload.
+two backends, unknown destinations, retained subscriptions, reconnect, and credential reload.
 `cli/publication-url.test.ts` separately proves an unrelated backend display route
 survives both output formats. See [verification](verification.md) for security,
 process, migration, browser approval, and compiled-binary checks.

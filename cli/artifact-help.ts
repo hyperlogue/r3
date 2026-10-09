@@ -169,7 +169,7 @@ r3 reply feedback_b -m 'Added the missing case.'
 r3 reply feedback_c -m 'Corrected the example.'
 \`\`\`
 
-The worker saves registration intent across restarts. After reconnect, the backend restores a registration only when no other recipient exists; a conflict remains visible in \`r3 worker status\`. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
+The backend keeps subscriptions across a temporary disconnect and displays delivery errors in the browser. The persistent worker reconnects without changing selection or submitting feedback. A fresh \`r3 listen\` from the same or another agent replaces the explicit subscription. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged feedback on stdout: process it directly.
 
 Archived artifacts remain readable. Content changes, comments, and subscriptions return a conflict until you restore the artifact. A reply still in preparation when archive commits is rejected; keep its text and restore before retrying.
 

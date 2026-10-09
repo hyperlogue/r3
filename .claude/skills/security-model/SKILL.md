@@ -426,11 +426,13 @@ credentials are keyed by the complete normalized URL, atomically replaced, and
 refreshed under a process lock. A rejected backend pauses independently until login.
 
 Backend routing contains opaque worker/listener/registration IDs and attribution.
-A connection is bound to its authorizing credential; expiry/revocation closes it.
-Disconnect removes only that connection's registrations. Durable retirement prevents
-missed events from resurrecting cancelled, superseded or archived registrations.
-Conditional recovery never replaces an incumbent. A wake acknowledgment cannot
-consume feedback. Existing private migration backups may retain legacy local targets.
+A connection and retained subscription are bound to their authorizing credential
+principal. Expiry/revocation closes transport and leaves a visible unavailable
+subscription. Reconnect requires the same worker and principal; a different grant
+cannot attach by guessing the worker ID. Replacement, unlisten, archive, and deletion
+end subscriptions permanently. An old connection or acknowledgment cannot displace a
+new selection. A notification acknowledgment cannot consume conversation content.
+Existing private migration backups may retain legacy local targets.
 
 Claude delivery validates a same-owner session socket and uses its authenticated
 messaging token. Codex uses bounded direct argv with the captured local executable

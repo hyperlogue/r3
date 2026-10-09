@@ -25,6 +25,7 @@ export type LocalAgentDelivery = (
 
 type CloseReason = "archived" | "superseded" | "deleted" | "disconnected";
 interface Registration {
+  retainOnFailure?: boolean;
   info: ArtifactWatcher;
   close: (reason: CloseReason) => void;
   push?: (nudge: ArtifactNudge) => Promise<void> | Promise<"sent" | "queued">;
@@ -127,7 +128,12 @@ export class ArtifactCollaboration {
     actor: ArtifactActor,
     close: Registration["close"],
     push?: Registration["push"],
-    options: { mode?: "fallback" | "explicit"; id?: string; listenerId?: string } = {},
+    options: {
+      mode?: "fallback" | "explicit";
+      id?: string;
+      listenerId?: string;
+      retainOnFailure?: boolean;
+    } = {},
   ): ArtifactWatcher {
     actor = this.artifacts.validateActor(actor);
     if (push && actor.role !== "agent")
@@ -149,7 +155,7 @@ export class ArtifactCollaboration {
         ? { label: this.artifacts.sessionLabels([actor.sessionId])[actor.sessionId] ?? null }
         : {}),
     };
-    map.set(id, { info, close, push });
+    map.set(id, { info, close, push, retainOnFailure: options.retainOnFailure });
     if (held) this.close(held, "superseded");
     this.broadcast({ type: "presence-changed", artifactId: id });
     return info;
@@ -162,6 +168,20 @@ export class ArtifactCollaboration {
     if (held?.info.id !== registrationId) return;
     map.delete(id);
     this.close(held, "disconnected");
+    this.broadcast({ type: "presence-changed", artifactId: id });
+  }
+
+  connectionState(
+    id: string,
+    subscriptionId: string,
+    state: NonNullable<ArtifactWatcher["connectionState"]>,
+    error: string | null = null,
+  ): void {
+    const held = [this.registrations.get(id), this.fallbacks.get(id)].find(
+      (value) => value?.info.id === subscriptionId,
+    );
+    if (!held) return;
+    held.info = { ...held.info, connectionState: state, error };
     this.broadcast({ type: "presence-changed", artifactId: id });
   }
 
@@ -185,7 +205,7 @@ export class ArtifactCollaboration {
       const state = await held.push(nudge);
       return { state: state ?? "sent" };
     } catch (error) {
-      if (held.info.mode !== "fallback") this.unregister(id, held.info.id);
+      if (!held.retainOnFailure && held.info.mode !== "fallback") this.unregister(id, held.info.id);
       this.listeners?.failed(held.info.id);
       this.broadcast({ type: "presence-changed", artifactId: id });
       return {

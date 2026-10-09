@@ -40,13 +40,12 @@ interface Target {
 }
 interface Subscription extends WorkerSubscription {
   url: string;
-  status: "pending" | "active" | "conflict";
+  status: "active";
 }
 interface State {
-  version: 1;
+  version: 2;
   workerId: string;
   targets: Target[];
-  subscriptions: Subscription[];
 }
 export interface WorkerImport {
   url: string;
@@ -74,6 +73,7 @@ const wait = (milliseconds: number, signal: AbortSignal) =>
 // One writer owns this private file. Artifacts and feedback are never cached here.
 export class WorkerRuntime {
   private state: State;
+  private subscriptions: Subscription[] = [];
   private readonly backends = new Map<string, Backend>();
   private stopping = false;
   constructor(
@@ -82,18 +82,14 @@ export class WorkerRuntime {
     private readonly delivery = deliverLocalAgent,
     private readonly send: (request: Request) => Promise<Response> = (request) => fetch(request),
   ) {
-    this.state = readPrivateJson<State>(path) ?? {
-      version: 1,
-      workerId: randomUUID(),
-      targets: [],
-      subscriptions: [],
-    };
-    if (
-      this.state.version !== 1 ||
-      !Array.isArray(this.state.targets) ||
-      !Array.isArray(this.state.subscriptions)
-    )
+    const saved = readPrivateJson<State & { version: number }>(path);
+    if (saved && (![1, 2].includes(saved.version) || !Array.isArray(saved.targets)))
       throw new Error("Unsupported worker state format");
+    this.state = {
+      version: 2,
+      workerId: saved?.workerId ?? randomUUID(),
+      targets: saved?.targets ?? [],
+    };
     this.importLocal();
     this.save();
   }
@@ -110,17 +106,6 @@ export class WorkerRuntime {
           destination = { id: randomUUID(), url, actor: subscription.actor, target };
           this.state.targets.push(destination);
         }
-        if (
-          !this.state.subscriptions.some(
-            (value) => value.url === url && value.id === subscription.id,
-          )
-        )
-          this.state.subscriptions.push({
-            ...subscription,
-            listenerId: destination.id,
-            url,
-            status: "pending",
-          });
       }
       this.save();
       rmSync(importPath);
@@ -139,12 +124,7 @@ export class WorkerRuntime {
     });
   }
   start(): void {
-    for (const url of new Set(
-      this.state.subscriptions
-        .filter((value) => value.status !== "conflict")
-        .map((value) => value.url),
-    ))
-      this.connect(url);
+    for (const url of new Set(this.state.targets.map((value) => value.url))) this.connect(url);
   }
   private connect(url: string): Backend {
     const previous = this.backends.get(url);
@@ -218,33 +198,6 @@ export class WorkerRuntime {
                 attempt.signal,
               );
             }
-            const groups = new Map<string, Subscription[]>();
-            for (const subscription of this.state.subscriptions.filter(
-              (value) => value.url === url && value.status !== "conflict",
-            ))
-              groups.set(subscription.artifactId, [
-                ...(groups.get(subscription.artifactId) ?? []),
-                subscription,
-              ]);
-            for (const subscriptions of groups.values()) {
-              try {
-                await client.json(
-                  "POST",
-                  `/api/workers/${encodeURIComponent(event.connectionId)}/resume`,
-                  {
-                    subscriptions: subscriptions.map(
-                      ({ url: _url, status: _status, ...value }) => value,
-                    ),
-                  },
-                  attempt.signal,
-                );
-              } catch (error) {
-                if (!(error instanceof ArtifactApiError) || ![404, 409].includes(error.status))
-                  throw error;
-                for (const subscription of subscriptions) subscription.status = "conflict";
-                this.save();
-              }
-            }
             backend.status = "ready";
             backend.ready.resolve(event.connectionId);
             connected = true;
@@ -257,13 +210,11 @@ export class WorkerRuntime {
                 value.id === event.subscription.listenerId &&
                 value.actor.sessionId === event.subscription.actor.sessionId,
             );
-            if (!target) throw new Error("Backend registered an unknown local destination");
-            this.remember(url, event.subscription, "active");
+            if (target) this.remember(url, event.subscription);
           } else if (event.type === "retired") {
-            this.state.subscriptions = this.state.subscriptions.filter(
+            this.subscriptions = this.subscriptions.filter(
               (value) => value.url !== url || value.id !== event.registrationId,
             );
-            this.save();
           } else if (event.type === "nudge") {
             // Delivery is independent for every destination; do not block stream
             // processing, heartbeat handling, or another backend on a harness.
@@ -285,6 +236,7 @@ export class WorkerRuntime {
         clearTimeout(heartbeat);
         signal.removeEventListener("abort", aborted);
         backend.connectionId = undefined;
+        this.subscriptions = this.subscriptions.filter((value) => value.url !== url);
       }
       if (signal.aborted || this.stopping) break;
       backend.status = "retrying";
@@ -303,9 +255,8 @@ export class WorkerRuntime {
     signal: AbortSignal,
   ): Promise<void> {
     if (signal.aborted) return;
-    const subscription = this.state.subscriptions.find(
-      (value) =>
-        value.url === url && value.id === event.registrationId && value.status !== "conflict",
+    const subscription = this.subscriptions.find(
+      (value) => value.url === url && value.id === event.registrationId,
     );
     const target = this.state.targets.find(
       (value) => value.url === url && value.id === event.listenerId,
@@ -334,7 +285,7 @@ export class WorkerRuntime {
       signal,
     );
   }
-  remember(url: string, subscription: WorkerSubscription, status: Subscription["status"]): void {
+  private remember(url: string, subscription: WorkerSubscription): void {
     if (
       !this.state.targets.some(
         (value) =>
@@ -344,14 +295,13 @@ export class WorkerRuntime {
       )
     )
       throw new ArtifactError("Unknown local listener");
-    this.state.subscriptions = this.state.subscriptions.filter(
+    this.subscriptions = this.subscriptions.filter(
       (value) =>
         value.url !== url ||
         value.artifactId !== subscription.artifactId ||
         value.mode !== subscription.mode,
     );
-    this.state.subscriptions.push({ ...subscription, url, status });
-    this.save();
+    this.subscriptions.push({ ...subscription, url, status: "active" });
   }
   async target(url: string, actor: ArtifactActor, target: ListenerTarget) {
     if (actor.role !== "agent") throw new ArtifactError("Listeners require an agent session");
@@ -397,7 +347,7 @@ export class WorkerRuntime {
     return {
       workerId: this.state.workerId,
       backends: [...this.backends].map(([url, value]) => ({ url, state: value.status })),
-      subscriptions: this.state.subscriptions.map(({ url, artifactId, mode, status }) => ({
+      subscriptions: this.subscriptions.map(({ url, artifactId, mode, status }) => ({
         url,
         artifactId,
         mode,
@@ -497,23 +447,6 @@ export function workerApi(runtime: WorkerRuntime, token: string) {
         target.target,
       ),
     );
-  });
-  app.post("/api/local/intent", async (c) => {
-    const body = await artifactJson(c.req.raw, 32 * 1024);
-    const subscription = body.subscription as WorkerSubscription;
-    if (
-      !subscription ||
-      !["fallback", "explicit"].includes(subscription.mode) ||
-      !subscription.id ||
-      !subscription.artifactId
-    )
-      throw new ArtifactError("Invalid subscription");
-    runtime.remember(
-      normalizeBackendUrl(requireString(body.url, "url", 4096)),
-      subscription,
-      body.confirmed === true ? "active" : "pending",
-    );
-    return c.json({ ok: true });
   });
   app.post("/api/local/reload", async (c) => {
     const body = await artifactJson(c.req.raw, 8192);

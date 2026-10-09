@@ -18,6 +18,7 @@ import {
   requireString,
 } from "./artifact-validation.ts";
 import { observedAddress } from "./client-auth-api.ts";
+import type { WorkerRecord } from "./worker-records.ts";
 
 interface Connection {
   id: string;
@@ -44,6 +45,7 @@ export class WorkerConnections {
     private readonly deliveryTimeout = 15_000,
   ) {
     storage.workerRecords.startup();
+    for (const record of storage.workerRecords.retained()) this.retain(record);
     this.unsubscribe = storage.clientAuth.onRevoked((id) => {
       for (const connection of this.connections.values())
         if (connection.principal === id) connection.close("authorization-revoked");
@@ -54,7 +56,8 @@ export class WorkerConnections {
     const principal = artifactApiPrincipal(request, this.policy, this.storage.clientAuth);
     if (!principal) throw new ArtifactError("Worker requires a client credential", 401);
     for (const existing of this.connections.values())
-      if (existing.workerId === workerId) existing.close("reconnected");
+      if (existing.workerId === workerId && existing.principal === principal.id)
+        existing.close("reconnected");
     if (this.connections.size >= 128)
       throw new ArtifactError("Worker connection limit reached", 429);
     let controller!: ReadableStreamDefaultController<Uint8Array>;
@@ -91,8 +94,17 @@ export class WorkerConnections {
         this.connections.delete(id);
         for (const [session, target] of this.targets)
           if (target.connection === connection) this.targets.delete(session);
-        for (const subscription of [...connection.subscriptions.values()])
-          this.collaboration.unregister(subscription.artifactId, subscription.id);
+        for (const subscription of connection.subscriptions.values()) {
+          this.storage.workerRecords.state(subscription.id, "disconnected");
+          this.collaboration.connectionState(
+            subscription.artifactId,
+            subscription.id,
+            "disconnected",
+            reason === "authorization-revoked" || reason === "authorization-expired"
+              ? "Worker access ended; sign in and listen again."
+              : "Notification worker is disconnected. It will reconnect automatically.",
+          );
+        }
         for (const settle of [...connection.pending.values()]) settle(false);
       },
     };
@@ -105,6 +117,10 @@ export class WorkerConnections {
     this.connections.set(id, connection);
     this.storage.clientAuth.observeWorker(principal.id, observedAddress(request, this.policy));
     connection.send({ type: "ready", protocol: WORKER_PROTOCOL, connectionId: id });
+    for (const record of this.storage.workerRecords.retained()) {
+      if (record.workerId !== workerId || record.principal !== principal.id) continue;
+      this.attach(connection, record.subscription);
+    }
     heartbeat = setInterval(() => {
       try {
         connection.send({ type: "heartbeat" });
@@ -149,6 +165,83 @@ export class WorkerConnections {
       mode: input.mode,
     };
   }
+  private current(record: Pick<WorkerRecord, "workerId" | "principal">): Connection | undefined {
+    return [...this.connections.values()].find(
+      (connection) =>
+        !connection.closed &&
+        connection.workerId === record.workerId &&
+        connection.principal === record.principal,
+    );
+  }
+  private attach(connection: Connection, subscription: WorkerSubscription): void {
+    const registration = this.collaboration.registration(
+      subscription.artifactId,
+      subscription.mode,
+    );
+    if (registration?.id !== subscription.id) return;
+    connection.subscriptions.set(subscription.id, subscription);
+    this.storage.workerRecords.state(subscription.id, "active");
+    this.collaboration.connectionState(subscription.artifactId, subscription.id, "connected");
+    connection.send({
+      type: "registered",
+      subscription,
+      registration: { ...registration, connectionState: "connected", error: null },
+    });
+  }
+  private retain(record: WorkerRecord) {
+    const { subscription } = record;
+    const registration = this.collaboration.register(
+      subscription.artifactId,
+      subscription.actor,
+      (reason) => {
+        this.storage.workerRecords.state(subscription.id, "retired");
+        const connection = this.current(record);
+        if (connection) {
+          connection.subscriptions.delete(subscription.id);
+          connection.send({ type: "retired", registrationId: subscription.id, reason });
+        }
+      },
+      async (nudge) => {
+        const connection = this.current(record);
+        if (!connection)
+          throw new Error(
+            "Notification worker is disconnected; try again after it reconnects or listen from another agent.",
+          );
+        try {
+          const result = await this.push(connection, subscription, nudge);
+          if (this.current(record) === connection)
+            this.collaboration.connectionState(
+              subscription.artifactId,
+              subscription.id,
+              "connected",
+            );
+          return result;
+        } catch (error) {
+          if (this.current(record) === connection)
+            this.collaboration.connectionState(
+              subscription.artifactId,
+              subscription.id,
+              "failed",
+              "Notification delivery failed. Try again or listen from another agent.",
+            );
+          throw error;
+        }
+      },
+      {
+        mode: subscription.mode,
+        id: subscription.id,
+        listenerId: subscription.listenerId,
+        retainOnFailure: true,
+      },
+    );
+    this.collaboration.connectionState(
+      subscription.artifactId,
+      subscription.id,
+      "disconnected",
+      "Notification worker is disconnected. It will reconnect automatically.",
+    );
+    return registration;
+  }
   private register(connection: Connection, subscription: WorkerSubscription) {
     const actor = connection.targets.get(subscription.listenerId);
     if (!actor || actor.sessionId !== subscription.actor.sessionId)
@@ -158,30 +251,21 @@ export class WorkerConnections {
     if (
       previous &&
       (previous.workerId !== connection.workerId ||
+        previous.principal !== connection.principal ||
         canonicalJson(previous.subscription) !== canonicalJson(subscription))
     )
       throw new ArtifactError("Registration identity was already used", 409);
     const live = this.collaboration.registration(subscription.artifactId, subscription.mode);
     if (live?.id === subscription.id) return live;
-    this.storage.workerRecords.save(connection.workerId, subscription);
-    const registration = this.collaboration.register(
-      subscription.artifactId,
-      subscription.actor,
-      (reason) => {
-        connection.subscriptions.delete(subscription.id);
-        this.storage.workerRecords.state(
-          subscription.id,
-          connection.closed ? "disconnected" : "retired",
-        );
-        if (!connection.closed)
-          connection.send({ type: "retired", registrationId: subscription.id, reason });
-      },
-      (nudge) => this.push(connection, subscription, nudge),
-      { mode: subscription.mode, id: subscription.id, listenerId: subscription.listenerId },
-    );
-    connection.subscriptions.set(subscription.id, subscription);
-    connection.send({ type: "registered", subscription, registration });
-    return registration;
+    this.storage.workerRecords.save(connection.workerId, connection.principal, subscription);
+    this.retain({
+      workerId: connection.workerId,
+      principal: connection.principal,
+      subscription,
+      state: "active",
+    });
+    this.attach(connection, subscription);
+    return this.collaboration.registration(subscription.artifactId, subscription.mode)!;
   }
   private push(
     connection: Connection,
@@ -274,50 +358,6 @@ export class WorkerConnections {
       if (subscription.mode !== "explicit")
         throw new ArtifactError("Fallback registration belongs to publication");
       return c.json(this.register(connection, subscription));
-    });
-    app.post("/api/workers/:id/resume", async (c) => {
-      const connection = this.connection(c.req.raw, c.req.param("id"));
-      const body = await artifactJson(c.req.raw, 16 * 1024);
-      if (
-        !Array.isArray(body.subscriptions) ||
-        !body.subscriptions.length ||
-        body.subscriptions.length > 2
-      )
-        throw new ArtifactError("Resume requires one artifact's saved roles");
-      const subscriptions = body.subscriptions.map((value) => this.subscription(value));
-      const id = subscriptions[0].artifactId;
-      if (
-        subscriptions.some((value) => value.artifactId !== id) ||
-        new Set(subscriptions.map((value) => value.mode)).size !== subscriptions.length
-      )
-        throw new ArtifactError("Resume requires distinct roles on one artifact");
-      for (const subscription of subscriptions) {
-        if (!this.storage.workerRecords.get(subscription.id) && connection.principal === "local")
-          this.storage.workerRecords.adoptLocal(connection.workerId, subscription);
-        const record = this.storage.workerRecords.get(subscription.id);
-        if (
-          !record ||
-          record.workerId !== connection.workerId ||
-          record.state === "retired" ||
-          canonicalJson(record.subscription) !== canonicalJson(subscription)
-        )
-          throw new ArtifactError("Saved registration is no longer eligible", 409);
-        if (
-          connection.targets.get(subscription.listenerId)?.sessionId !==
-          subscription.actor.sessionId
-        )
-          throw new ArtifactError("Saved listener is unavailable", 409);
-      }
-      const already = subscriptions.every(
-        (value) => this.collaboration.registration(id, value.mode)?.id === value.id,
-      );
-      if (!already && this.collaboration.watching(id))
-        throw new ArtifactError("Artifact already has a recipient", 409);
-      return c.json(
-        this.storage.workerRecords.atomic(() =>
-          subscriptions.map((value) => this.register(connection, value)),
-        ),
-      );
     });
     app.post("/api/workers/:id/acknowledgments", async (c) => {
       const connection = this.connection(c.req.raw, c.req.param("id"));

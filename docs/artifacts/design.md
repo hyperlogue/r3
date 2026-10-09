@@ -648,8 +648,8 @@ selected recipient receives wake notifications: explicit listen/watch takes
 priority over the publisher fallback. Each newly committed publication updates that
 fallback even while an explicit recipient is selected. Unsupported publishers and
 `--no-listen` clear it; publication replay changes no registration. Unlisten removes
-the caller's roles. A failed explicit send removes that registration without
-resending the same attempt; a failed fallback stays available for a later Send.
+the caller's roles. A failed worker send retains the selected subscription with a
+visible error; the same attempt is never resent to another recipient.
 
 Local and remote modes use the same backend protocol. The server owns content,
 feedback, authentication, and recipient selection. A separate persistent worker
@@ -658,12 +658,13 @@ reads, writes, uploads, and watch go directly to the selected backend. Each back
 gets one outgoing worker connection carrying opaque destination IDs. Harness paths
 and credentials remain in private local worker state.
 
-Disconnect removes live registrations. Recovery uses saved registration intent
-to restore registrations only if neither slot is occupied; an incumbent publisher
-remains selected. A worker that held both roles restores them atomically. Conflicts stop automatic attempts
-until a fresh CLI action. Replacement and archive durably retire old identities,
-even while their worker is offline. Restore never revives them. Registration,
-restart, and fallback selection never submit pending feedback.
+Disconnect leaves backend subscriptions selected and reports unavailable delivery.
+The persistent worker reconnects transport under the same credential principal,
+without a saved recovery intent or a conditional resume request. Fresh listen can
+replace the explicit subscription; an older worker cannot take it back on reconnect.
+Backend restart preserves the same subscription identities. Archive, unlisten, and
+replacement end those identities permanently, including while a worker is offline.
+Setup, restart, and fallback selection never submit pending feedback.
 
 After printing and acknowledging new feedback, `feedback fetch` registers a
 supported calling harness through the same worker/backend path. Setup failure warns

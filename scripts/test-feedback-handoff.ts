@@ -516,6 +516,31 @@ try {
   );
   assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
   assert.equal(feedbackReadRequests, feedbackReadRequestsBeforeCopy);
+  const subscription = api.collaboration.register(
+    artifact.id,
+    listener,
+    () => {},
+    async () => "queued",
+    { mode: "explicit", retainOnFailure: true },
+  );
+  api.collaboration.connectionState(
+    artifact.id,
+    subscription.id,
+    "disconnected",
+    "Notification worker is disconnected.",
+  );
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.querySelector('[data-subscription-error]')?.textContent.includes('disconnected')",
+      ),
+    "selected subscription error appears on the page",
+  );
+  api.collaboration.connectionState(artifact.id, subscription.id, "connected");
+  await eventually(
+    () => page.evaluate("!document.querySelector('[data-subscription-error]')"),
+    "reconnection clears the visible error",
+  );
   console.log(
     "Notification delivery and command copying preserve pending feedback; command popovers work on desktop and mobile.",
   );

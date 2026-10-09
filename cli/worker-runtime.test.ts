@@ -59,7 +59,6 @@ async function subscribe(url: string) {
     listenerId: target.listenerId,
     mode: "explicit",
   };
-  worker.remember(url, subscription, "pending");
   fixture.send(url, { type: "registered", subscription, registration: { id: subscription.id } });
   await until(() =>
     worker
@@ -105,22 +104,24 @@ test("an independent backend can deliver through an opaque ID; unknown and cross
   expect(delivered).toHaveLength(1);
   expect(fixture.backends.get(two)!.acknowledgments[0].ok).toBe(false);
 });
-test("worker restart restores saved subscriptions and a conflict permanently stops automatic attempts", async () => {
+test("worker restart reconnects without saving or restoring subscription intent", async () => {
   const subscription = await subscribe(one);
+  const saved = await Bun.file(join(root, "worker-state.json")).json();
+  expect(saved.version).toBe(2);
+  expect(saved.subscriptions).toBeUndefined();
   await worker.stop();
   worker = runtime();
   worker.start();
-  await until(
-    () => fixture.backends.get(one)!.resumes === 1 && worker.status().backends[0].state === "ready",
+  await until(() =>
+    worker.status().subscriptions.some((value) => value.artifactId === subscription.artifactId),
   );
-  fixture.backends.get(one)!.conflict = true;
+  fixture.send(one, nudge(subscription));
+  await until(() => delivered.length === 1);
   fixture.disconnect(one);
-  await until(() => worker.status().subscriptions[0].status === "conflict");
-  const attempts = fixture.backends.get(one)!.resumes;
-  fixture.disconnect(one);
-  await until(() => fixture.backends.get(one)!.connects >= 4);
-  expect(fixture.backends.get(one)!.resumes).toBe(attempts);
-  expect(worker.status().subscriptions[0].artifactId).toBe(subscription.artifactId);
+  await until(
+    () => fixture.backends.get(one)!.connects >= 3 && worker.status().backends[0].state === "ready",
+  );
+  expect(fixture.backends.get(one)!.requests.some((path) => path.endsWith("/resume"))).toBe(false);
 });
 test("credential rejection affects one backend and login reload recovers it without restarting the worker", async () => {
   await subscribe(one);
@@ -155,7 +156,7 @@ test("a waiting CLI survives the first connection failure", async () => {
   expect(result.connectionId).toBeDefined();
   expect(attempts).toBe(2);
 });
-test("a running worker imports legacy intent once without replacing saved identities", async () => {
+test("a running worker imports local destinations without recreating old subscriptions", async () => {
   const { writePrivateJson } = await import("./private-state.ts");
   const id = randomUUID(),
     artifactId = randomUUID();
@@ -174,10 +175,10 @@ test("a running worker imports legacy intent once without replacing saved identi
   writePrivateJson(join(root, "worker-import.json"), imported);
   expect(worker.importLocal()).toBe(one);
   worker.start();
-  await until(() => worker.status().subscriptions[0]?.status === "active");
+  await until(() => worker.status().backends[0]?.state === "ready");
   writePrivateJson(join(root, "worker-import.json"), imported);
   expect(worker.importLocal()).toBe(one);
-  expect(worker.status().subscriptions).toHaveLength(1);
+  expect(worker.status().subscriptions).toHaveLength(0);
   expect(worker.importLocal()).toBeNull();
 });
 

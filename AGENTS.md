@@ -171,14 +171,14 @@ The browser retains drafts while disabling mutation controls.
 
 An artifact can retain a publisher fallback and an explicit subscription, with
 one selected subscription. A publication replaces the fallback; unsupported publishers
-and `--no-listen` clear it. Explicit listen/watch takes priority. Failed fallback
-delivery retains the subscription; a failed explicit subscription is removed,
-without resending that attempt. Subscribing and restarting never submit feedback.
-Archive clears saved subscriptions atomically.
-A persistent local worker delivers through the same protocol for local and remote
-backends. Disconnect removes its live registrations. Conditional reconnect preserves
-any incumbent, including a fallback, and restores both saved roles atomically when
-unoccupied. Conflict stops automatic retry; retired identities never return.
+and `--no-listen` clear it. Explicit listen/watch takes priority. Worker delivery
+failure retains the selected subscription and reports an error without resending
+that attempt. Archive ends subscriptions atomically. A persistent local worker
+uses the same protocol for local and remote backends. Disconnect retains backend
+subscriptions and marks them unavailable; reconnect binds the same worker and
+credential principal to those records without changing selection. Fresh listen
+can replace a subscription; ended identities never return. The worker saves local
+destinations, not recovery intents. Generic watch remains scoped to its request.
 `--session` is a display name; harness identity or `R3_AGENT_SESSION` identifies
 authored runs. Generic watch needs no supplied identity. Watch gives archive
 priority over pending feedback and timeout, including a watch begun after archive.

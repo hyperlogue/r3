@@ -178,14 +178,6 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     error: (text) => {
       process.stderr.write(`${text}\n`);
     },
-    publicationComplete: async (subscription) => {
-      if (localWorker && subscription.listenerId === destination?.listenerId)
-        await localWorker.json("POST", "/api/local/intent", {
-          url: location.url,
-          subscription,
-          confirmed: true,
-        });
-    },
     listen: async (id, actor, _foreground, quiet) => {
       if (!(await registerListener(actor)) || !destination || !localWorker)
         throw new ArtifactCommandError("No local wake adapter is available; use r3 watch", 5);
@@ -196,7 +188,6 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
         mode: "explicit",
         listenerId: destination.listenerId,
       };
-      await localWorker.json("POST", "/api/local/intent", { url: location.url, subscription });
       await client.json(
         "POST",
         `/api/workers/${encodeURIComponent(destination.connectionId)}/listen`,

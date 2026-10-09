@@ -5,7 +5,7 @@ import type {
   ArtifactWatcher,
 } from "./artifacts.ts";
 
-export const WORKER_PROTOCOL = "r3-worker-v1";
+export const WORKER_PROTOCOL = "r3-worker-v2";
 export type ListenerRole = "fallback" | "explicit";
 export interface WorkerSubscription {
   id: string;

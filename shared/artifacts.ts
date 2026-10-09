@@ -421,6 +421,8 @@ export type ArtifactStreamEvent =
 export const ARTIFACT_WATCH_EXIT = { archived: 0, feedback: 10, timeout: 2, busy: 4 } as const;
 
 export interface ArtifactWatcher {
+  connectionState?: "connected" | "disconnected" | "failed";
+  error?: string | null;
   listenerId?: string;
   id: string;
   kind: "watch" | "listen";

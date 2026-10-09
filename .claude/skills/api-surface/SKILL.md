@@ -173,15 +173,17 @@ Fresh explicit listen returns after backend registration. The old per-artifact
 publisher relay is removed.
 
 The [remote protocol](../../../docs/artifacts/remote-protocol.md) owns the versioned
-`/api/workers/*` routes, OAuth device/token and browser-approval routes, client
+`r3-worker-v2` `/api/workers/*` routes, OAuth device/token and browser-approval routes, client
 management/audit routes, their exact fields, and reconnect rules. Keep
 `shared/worker-protocol.ts`, CLI worker, backend, and independent protocol fixture
 aligned when changing those routes. Application HTTP never accepts harness targets.
 
-Failed fallback delivery retains its record; failed explicit delivery removes only
-that exact registration. No automatic resend goes to another recipient. Registration,
-fallback selection, and worker restart never announce unsent content. Archive
-atomically clears durable records; restore requires a new publication/registration.
+Worker delivery failure retains the selected subscription with a visible error;
+no automatic resend goes to another recipient. Disconnect retains backend-owned
+selection, and reconnect attaches transport under the same credential principal.
+There is no saved worker intent or resume operation. Subscription setup, fallback
+selection, and restart never submit unsent content. Archive atomically ends durable
+subscriptions; restore requires a fresh publication or subscription.
 
 ## Preview and bootstrap routes
 

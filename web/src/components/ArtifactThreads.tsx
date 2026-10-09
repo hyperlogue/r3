@@ -894,6 +894,15 @@ export function ArtifactThreads({
             <ArtifactHandoffButton handoff={handoff} active={keysActive} />
           </div>
         </div>
+        {watchers[0]?.error && (
+          <p
+            role="status"
+            data-subscription-error
+            className="text-xs text-warning-700 dark:text-warning-300"
+          >
+            {watchers[0].error}
+          </p>
+        )}
         <div className="flex items-center justify-between gap-2">
           <div
             ref={indicator.ref}
