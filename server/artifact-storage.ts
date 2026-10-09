@@ -14,9 +14,11 @@ import { ArtifactUsageStore } from "./artifact-usage.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
 import { BlobStore } from "./blobs.ts";
+import { ClientAuth } from "./client-auth.ts";
 import { nowIso } from "./ids.ts";
 import { type ArtifactMigrationResult, upgradeArtifactStore } from "./migration.ts";
 import type { DocumentRenderer } from "./publication.ts";
+import { WorkerRecords } from "./worker-records.ts";
 
 export interface ArtifactStorageOptions {
   databasePath: string;
@@ -38,6 +40,8 @@ export interface ArtifactStorage {
   conversations: ArtifactConversations;
   lifecycle: ArtifactLifecycle;
   authentication: AuthService;
+  clientAuth: ClientAuth;
+  workerRecords: WorkerRecords;
   migration: ArtifactMigrationResult | null;
   collectBlobs(): Promise<number>;
   // The caller stops accepting requests before closing storage.
@@ -103,6 +107,7 @@ export async function openArtifactStorage(
       });
     }
     const listeners = new ArtifactListeners(db, clock);
+    const workerRecords = new WorkerRecords(db);
     const artifacts = new ArtifactStore(
       db,
       blobs,
@@ -141,6 +146,8 @@ export async function openArtifactStorage(
       artifacts,
       conversations,
       authentication,
+      clientAuth: new ClientAuth(db, () => Date.parse(clock())),
+      workerRecords,
       lifecycle: new ArtifactLifecycle(db, artifacts, clock, listeners),
       migration,
       collectBlobs,

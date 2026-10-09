@@ -255,7 +255,7 @@ All connections must enable foreign keys. STRICT tables constrain storage types,
 
 ## Artifact schema upgrades
 
-Startup upgrades artifact schema versions 1–9 to the current schema before serving
+Startup upgrades artifact schema versions 1–10 to the current schema before serving
 requests. Live-review stores are rejected without changing their schema or rows;
 upgrade them with r3 1.5.0 before opening them with a newer release.
 
@@ -427,3 +427,22 @@ retain target evidence. Existing blob accounting and GC cover both purposes.
 The upgrade backs up the database, rebuilds the constrained conversation tables
 in one transaction, preserves all rows/indexes/triggers, adds the purpose column,
 and checks foreign keys and integrity before enabling service.
+
+## Schema 11: backend authorization and worker recovery
+
+`client_authorizations` stores API-key hashes and OAuth authorization metadata,
+current refresh hash, expiry, and revocation. `client_access` stores expiring access
+hashes. `client_refresh_history` retains consumed refresh hashes to detect reuse.
+`client_devices` holds hashed device/user codes, expiry, decision, and polling
+cadence. `client_audit` records approval and connection observations with server
+time and separate CLI, browser, and worker source addresses. No plaintext bearer
+or device secret is stored. Browser login tables and existing sessions are preserved.
+
+`worker_registrations` stores immutable registration ID, worker ID, artifact ID,
+canonical subscription body, and `active|disconnected|retired` state. It contains
+opaque listener IDs and attribution only. Startup converts active records to
+disconnected; registration presence requires an authenticated live connection.
+Replacement and archive retire saved identities transactionally, including offline
+intent. Retired records cannot return, even when a retirement event was lost.
+Artifact deletion cascades their records.
+

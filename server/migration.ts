@@ -5,7 +5,9 @@ import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 import { ARTIFACT_SCHEMA_VERSION, PROJECT_REMOTE_SCHEMA } from "./artifact-schema.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
+import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { nowIso } from "./ids.ts";
+import { WORKER_SCHEMA } from "./worker-records.ts";
 
 export interface ArtifactMigrationOptions {
   // Must be a new file in an owner-only directory supplied by store bootstrap.
@@ -56,7 +58,7 @@ export async function upgradeArtifactStore(
   }
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(schemaVersion) || !tables.includes("artifacts"))
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(schemaVersion) || !tables.includes("artifacts"))
     throw new Error("Unrecognized store schema; migration did not modify it");
   db.exec("PRAGMA foreign_keys = ON");
   const beforeBackup = dataVersion(db);
@@ -82,6 +84,8 @@ export async function upgradeArtifactStore(
     }
     db.exec(PROJECT_REMOTE_SCHEMA);
     db.exec(ARTIFACT_LISTENER_SCHEMA);
+    db.exec(CLIENT_AUTH_SCHEMA);
+    db.exec(WORKER_SCHEMA);
     // Older edits erased sent_at, so a null stamp cannot prove no delivery.
     // Prefer an extra future status notification over silently dropping one.
     if (schemaVersion < 5)
