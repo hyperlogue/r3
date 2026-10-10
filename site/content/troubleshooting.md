@@ -1,4 +1,4 @@
-Start with `r3 status` to identify the instance and URL you are using. Then follow the symptom below.
+Use `r3 server status` to inspect the local server and its URL, or `r3 worker status` to inspect notification connections to backends. Then follow the symptom below.
 
 ## The agent did not receive my feedback
 

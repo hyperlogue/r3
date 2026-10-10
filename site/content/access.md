@@ -3,8 +3,8 @@ r3 runs locally by default. A server stores published content and conversations 
 ## Use the local workspace
 
 ```sh
-r3 start
-r3 status
+r3 server start
+r3 server status
 ```
 
 Use the URL printed by these commands. The default listener is on loopback. Local browser access works without login unless you enable it.
@@ -20,7 +20,7 @@ Set the public URL and require login before exposing the instance. Replace the e
 ```sh
 r3 config set publicUrl https://reviews.example
 r3 config set requireLogin 1
-r3 restart
+r3 server restart
 r3 auth create-token --label browser
 ```
 
@@ -67,6 +67,6 @@ Publishing and comment fetch work the same locally and remotely. The CLI reads a
 r3 worker status
 ```
 
-Use this command to inspect backend connections and reported delivery problems. `r3 worker start|stop|restart` manages notification delivery; `r3 server start|stop|status|restart` manages the local storage server. The shorter `r3 start`, `stop`, `status`, and `restart` commands remain server aliases.
+Use this command to inspect backend connections and reported delivery problems. `r3 worker start|stop|restart` manages notification delivery; `r3 server start|stop|status|restart` manages the local storage server. The top-level `r3 start`, `r3 stop`, `r3 status`, and `r3 restart` aliases warn that they are deprecated and will be removed in a future release.
 
 Agents without a supported notification adapter can use `r3 watch` or fetch comments on demand. See the [agent workflow](/docs/agents/) for subscription priority, reconnect behavior, and exit codes.

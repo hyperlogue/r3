@@ -4,7 +4,7 @@ Use `r3 config` to inspect or change local server settings. Restart the local se
 r3 config show
 r3 config get archiveTtlDays
 r3 config set archiveTtlDays 30
-r3 restart
+r3 server restart
 ```
 
 `r3 config unset` removes a persisted override. Environment values take precedence over persisted configuration, then defaults apply. Configuration commands edit the local configuration even when `R3_URL` selects a remote server for other commands.
@@ -29,7 +29,7 @@ r3 restart
 
 ```sh
 r3 config set authTokenIdleDays 30
-r3 restart
+r3 server restart
 ```
 
 Successful login or cookie-authenticated requests refresh token activity. Cookie activity is persisted in batches once a minute and at graceful shutdown. Expiry invalidates the associated browser sessions; startup removes inactive or revoked rows.

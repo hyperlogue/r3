@@ -119,6 +119,9 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
   }
   if (command === "start" || command === "stop" || command === "status" || command === "restart") {
     if (args.length) throw new ArtifactCommandError(`${command} takes no arguments`);
+    console.error(
+      `r3: warning: \`r3 ${command}\` is deprecated and will be removed in a future release. Use \`r3 server ${command}\` instead.`,
+    );
     await daemonCommand(command);
     return 0;
   }

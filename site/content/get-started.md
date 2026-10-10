@@ -27,7 +27,7 @@ The agent can use any coding harness that runs commands. Supported harnesses rec
 Open the artifact link the agent gives you. To open the whole library, run:
 
 ```sh
-r3 start
+r3 server start
 ```
 
 The command prints your workspace URL. A local server starts lazily when a command first needs it. Bare `r3` prints a welcome and quick-start commands; it does not start the server.
@@ -46,10 +46,10 @@ The command prints your workspace URL. A local server starts lazily when a comma
 
 | Command | When you need it |
 | --- | --- |
-| `r3 start` | Start the local workspace and see its URL. |
-| `r3 status` | Check whether it is running and find the URL again. |
-| `r3 restart` | Apply local server configuration changes. |
-| `r3 stop` | Stop the local server. |
+| `r3 server start` | Start the local workspace and see its URL. |
+| `r3 server status` | Check whether it is running and find the URL again. |
+| `r3 server restart` | Apply local server configuration changes. |
+| `r3 server stop` | Stop the local server. |
 | `r3 list` | Find your artifacts from the terminal. |
 | `r3 --help` | See the complete command reference. |
 | `r3 guide` | Give your agent its working instructions. |

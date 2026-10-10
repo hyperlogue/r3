@@ -131,11 +131,11 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
   }
   if (health?.protocol !== "artifacts-v3")
     throw new ArtifactCommandError(
-      "The running daemon uses the previous review protocol. Run r3 restart to migrate it before using artifact commands.",
+      "The running daemon uses the previous review protocol. Run r3 server restart to migrate it before using artifact commands.",
     );
   if (health.version !== R3_VERSION)
     process.stderr.write(
-      `r3: daemon is v${health.version}; this CLI is v${R3_VERSION}. Run r3 restart to use this build.\n`,
+      `r3: daemon is v${health.version}; this CLI is v${R3_VERSION}. Run r3 server restart to use this build.\n`,
     );
   const url = normalizeBackendUrl(info.url);
   if (!info.bootstrapSocket)

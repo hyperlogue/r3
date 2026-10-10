@@ -296,7 +296,12 @@ The current command families:
 | `thread source <thread-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
-| `login`, `auth`, `config`, `server`, `worker`, `start/stop/status/restart`, `guide` | Saved backend access, client/browser management, configuration, server/worker lifecycle; root lifecycle aliases manage the server |
+| `login`, `auth`, `config`, `server`, `worker`, `guide` | Saved backend access, client/browser management, configuration, local server/worker lifecycle |
+
+Top-level `start`, `stop`, `status`, and `restart` are deprecated aliases for
+`server <command>`, retained until a future release. Valid invocations warn on
+stderr with the replacement command, then preserve the server command's stdout,
+behavior, and exit code. Recommend explicit `server` commands in help and diagnostics.
 
 Creation requires `--kind files|html|diff` before capture or artifact creation.
 Publication labels use `--version-label`; `--label` is a compatibility alias, and

@@ -8,10 +8,10 @@ export function artifactWelcome(): string {
 
   Review files, pages, and code changes with your agent.
 
-  ${styleText("cyan", "r3 start")}     Start the workspace and show its URL
-  ${styleText("cyan", "r3 status")}    Show workspace status and URL
-  ${styleText("cyan", "r3 list")}      List your artifacts
-  ${styleText("cyan", "r3 --help")}    All commands and options
+  ${styleText("cyan", "r3 server start")}     Start the local server and show its URL
+  ${styleText("cyan", "r3 server status")}    Show local server status and URL
+  ${styleText("cyan", "r3 list")}             List your artifacts
+  ${styleText("cyan", "r3 --help")}           All commands and options
 
   ${styleText("bold", "Agents:")} run ${styleText("cyan", "r3 guide")} before publishing or handling threads.
 `;
@@ -127,8 +127,11 @@ Credentials are saved privately per backend; R3_TOKEN is not a client override.
   open [artifact-id]                        # print a browser link; local links expire in 60s
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
-  start | stop | status | restart            # aliases for server lifecycle
+  start | stop | status | restart            # deprecated aliases; use server <command>
   guide [html|files|diff]                     # workflow and optional preparation guides
+
+The top-level start/stop/status/restart aliases warn on stderr and will be removed
+in a future release. Use r3 server <command> to manage the local server.
 
 Worker startup warns on stderr when sandbox environment markers are detected.
 For reliable notifications, run r3 worker restart from a terminal outside the sandbox.
