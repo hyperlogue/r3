@@ -203,6 +203,23 @@ try {
     () => page.evaluate("document.body.textContent.includes('Agent · Review assistant')"),
     "agent comments display the readable session name",
   );
+  assert.equal(
+    await page.evaluate(`(async () => {
+      const { token } = await fetch('/api/boot').then(response => response.json());
+      return (await fetch('/api/sessions', {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-r3-token': token },
+        body: JSON.stringify({ id: 'handoff-agent', label: 'Renamed assistant' }),
+      })).status;
+    })()`),
+    200,
+  );
+  for (const tab of [page, other])
+    await eventually(
+      () =>
+        tab.evaluate(`document.body.textContent.includes('Agent · Renamed assistant') &&
+        !!document.querySelector('[data-discussion-header] [title="Renamed assistant"]')`),
+      "session rename updates existing comments and subscription labels in both tabs",
+    );
   assert.equal(await page.evaluate("!!document.querySelector('[data-threads-attention]')"), true);
   assert.equal(
     await page.evaluate(`(${button}).disabled`),

@@ -42,7 +42,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   and publication-coordinated blob collection. Both routes require normal API auth
   and origin guards and return `no-store`. GC is manual, never a startup timer.
 - `GET/POST /api/sessions` lists/registers explicit agent identities; labels are
-  mutable display names and never identity or delivery addresses;
+  mutable display names and never identity or delivery addresses. Label changes
+  invalidate each referencing artifact, refresh its complete label map, and update
+  both selected and fallback subscription labels. Unchanged labels emit no event;
   `GET/POST /api/projects` and `PATCH/DELETE /api/projects/:id` manage optional grouping.
   PATCH accepts `EditArtifactProjectBody` (name, remoteUrl, optional expectedRemoteUrl).
   Remote backfill can require the current field to be null; concurrent changes conflict.

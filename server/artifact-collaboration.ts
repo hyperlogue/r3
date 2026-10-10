@@ -54,6 +54,18 @@ export class ArtifactCollaboration {
     }
   }
 
+  sessionLabelChanged(sessionId: string, label: string | null): void {
+    const affected = new Set(this.artifacts.artifactsForSession(sessionId));
+    for (const [id, held] of [...this.registrations, ...this.fallbacks]) {
+      if (held.info.actor.sessionId !== sessionId) continue;
+      held.info = { ...held.info, label };
+      affected.add(id);
+    }
+    // A full snapshot refreshes labels for unchanged publications and comments,
+    // which are intentionally absent from ordinary conversation deltas.
+    for (const artifactId of affected) this.broadcast({ type: "artifact-updated", artifactId });
+  }
+
   watching(id: string): boolean {
     return !!this.recipient(id);
   }

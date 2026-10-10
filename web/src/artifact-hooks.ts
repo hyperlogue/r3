@@ -105,6 +105,7 @@ export function useArtifactEvents(): boolean {
               void queryClient.invalidateQueries({ queryKey: ["artifact-search"] });
               void queryClient.invalidateQueries({ queryKey: ["artifact", event.artifactId] });
               if (
+                event.type === "artifact-updated" ||
                 event.type === "presence-changed" ||
                 event.type === "lifecycle" ||
                 event.type === "version-published"

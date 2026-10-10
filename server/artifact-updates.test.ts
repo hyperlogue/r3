@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ArtifactDelta, mergeArtifactUpdate } from "../shared/artifact-updates.ts";
-import type { ArtifactDetail } from "../shared/artifacts.ts";
+import type { ArtifactDetail, ArtifactStreamEvent } from "../shared/artifacts.ts";
 import { artifactDetail, createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
 import { ArtifactUpdates } from "./artifact-updates.ts";
@@ -111,5 +111,90 @@ test("stale bases fail; gaps, restart, metadata and lifecycle recover with compl
     expect("delta" in (await delta(current))).toBe(false);
   } finally {
     journal.close();
+  }
+});
+
+test("session renames invalidate every referenced role and refresh unchanged content and subscription labels", async () => {
+  const roles = [
+    "creator",
+    "publisher",
+    "opening",
+    "comment",
+    "claim",
+    "lifecycle",
+    "fallback",
+    "explicit",
+  ];
+  const agent = (sessionId: string) => ({ role: "agent", sessionId }) as const;
+  for (const session of [...roles, "unrelated"])
+    await request("/api/sessions", "POST", { id: session, label: `Original ${session}` });
+  id = storage.artifacts.create({ kind: "files", actor: agent("creator") }).id;
+  const other = storage.artifacts.create({ kind: "files", actor: agent("creator") }).id;
+  await storage.artifacts.publish(id, {
+    actor: agent("publisher"),
+    expectedSeq: 0,
+    publicationKey: "first",
+    content: {
+      kind: "files",
+      files: [
+        {
+          path: "note.txt",
+          mediaType: "text/plain",
+          base64: Buffer.from("Review").toString("base64"),
+        },
+      ],
+    },
+  });
+  const thread = await storage.conversations.add(id, {
+    actor: agent("opening"),
+    body: "Original note",
+    target: { kind: "artifact" },
+  });
+  await storage.conversations.addComment(thread.id, {
+    actor: agent("comment"),
+    body: "Original reply",
+    context: { versionSeq: null, representation: null },
+  });
+  for (const event of ["archived", "restored"])
+    storage.lifecycle.transition(id, { actor: agent("lifecycle"), event, operationKey: event });
+  storage.conversations.claim([thread.id], "claim");
+  for (const mode of ["fallback", "explicit"] as const)
+    api.collaboration.register(
+      id,
+      agent(mode),
+      () => {},
+      async () => "sent",
+      { mode },
+    );
+  const events: ArtifactStreamEvent[] = [];
+  const unsubscribe = api.collaboration.subscribe((event) => events.push(event));
+  try {
+    for (const session of roles) {
+      const before = await detail();
+      events.length = 0;
+      await request("/api/sessions", "POST", { id: session, label: `Updated ${session}` });
+      expect(events.map((event) => event.artifactId).sort()).toEqual(
+        (session === "creator" ? [id, other] : [id]).sort(),
+      );
+      const update = await delta(before);
+      expect("delta" in update).toBe(false);
+      const merged = mergeArtifactUpdate(before, update);
+      expect(merged).toEqual(await detail());
+      if (session !== "explicit" && session !== "fallback")
+        expect(merged.agentLabels?.[session]).toBe(`Updated ${session}`);
+    }
+    expect(api.collaboration.watchers(id)[0]?.label).toBe("Updated explicit");
+    api.collaboration.unlisten(id, agent("explicit"));
+    expect(api.collaboration.watchers(id)[0]?.label).toBe("Updated fallback");
+    const before = await detail();
+    await request("/api/sessions", "POST", { id: "creator", label: null });
+    expect(mergeArtifactUpdate(before, await delta(before)).agentLabels?.creator).toBeNull();
+    events.length = 0;
+    await request("/api/sessions", "POST", { id: "creator", label: null });
+    await request("/api/sessions", "POST", { id: "publisher" });
+    await request("/api/sessions", "POST", { id: "unrelated", label: "Updated unrelated" });
+    expect(events).toEqual([]);
+  } finally {
+    unsubscribe();
   }
 });

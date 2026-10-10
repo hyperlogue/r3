@@ -179,6 +179,21 @@ export class ArtifactStore {
     return Object.fromEntries(ids.map((id) => [id, query.get(id)?.label ?? null]));
   }
 
+  artifactsForSession(sessionId: string): string[] {
+    return this.db
+      .query<{ id: string }, [string]>(`
+      SELECT id FROM artifacts WHERE creator_session_id = ?1
+      UNION SELECT artifact_id FROM artifact_versions WHERE publisher_session_id = ?1
+      UNION SELECT artifact_id FROM threads WHERE agent_session_id = ?1
+      UNION SELECT artifact_id FROM comments WHERE agent_session_id = ?1
+      UNION SELECT artifact_id FROM artifact_events WHERE agent_session_id = ?1
+      UNION SELECT t.artifact_id FROM thread_claims c JOIN threads t ON t.id = c.thread_id
+        WHERE c.agent_session_id = ?1
+    `)
+      .all(sessionId)
+      .map((row) => row.id);
+  }
+
   projects(): ArtifactProject[] {
     return this.projectStore.list();
   }

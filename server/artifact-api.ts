@@ -184,9 +184,14 @@ export function createArtifactApi(
   });
 
   app.get("/api/sessions", (c) => artifactJsonResponse(c.req.raw, artifacts.sessions()));
-  app.post("/api/sessions", async (c) =>
-    c.json(artifacts.registerSession(await artifactJson(c.req.raw))),
-  );
+  app.post("/api/sessions", async (c) => {
+    const input = await artifactJson(c.req.raw);
+    const previous =
+      typeof input.id === "string" ? artifacts.sessionLabels([input.id])[input.id] : null;
+    const session = artifacts.registerSession(input);
+    if (session.label !== previous) collaboration.sessionLabelChanged(session.id, session.label);
+    return c.json(session);
+  });
   app.get("/api/projects", (c) => c.json(artifacts.projects()));
   app.post("/api/projects", async (c) =>
     c.json(artifacts.createProject(await artifactJson(c.req.raw)), 201),
