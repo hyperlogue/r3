@@ -4,6 +4,32 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-10-10
+
+### Added
+
+- **Use r3 with a remote backend.** Keep artifacts and discussions in one place while
+  your agents run across multiple machines. Sign in with browser approval or an
+  API key. You can configure a default backend and override it with `.r3.json` or
+  `R3_URL`.
+
+### Changed
+
+- **Optimized network transfers.** Routine workspace updates fetch data only
+  when things change.
+- **Archived artifacts are read-only.**
+- **Manage the server and worker separately.** Remote mode separates the server,
+  which stores artifacts and serves the browser workspace, from the worker
+  that delivers notifications to local agents. Use `r3 server restart` on the server's machine
+  and `r3 worker restart` on each agent machine; both also support `start`,
+  `stop`, and `status`. The top-level `r3 start`, `stop`, `status`, and `restart`
+  aliases are deprecated and will be removed in a future release.
+
+### Fixed
+
+- **Previews recover after a suspended tab or server restart.** Expired preview
+  sessions are recreated automatically, preserving the selected document and navigation.
+
 ## [1.6.0] - 2026-10-08
 
 ### Added
@@ -638,6 +664,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.0.0]: https://github.com/hyperlogue/r3/compare/v1.6.0...v2.0.0
 [1.6.0]: https://github.com/hyperlogue/r3/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/hyperlogue/r3/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/hyperlogue/r3/compare/v1.3.0...v1.4.0
