@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { parse as parseCookie } from "hono/utils/cookie";
 import type { BootResponse } from "../shared/types.ts";
 import { WORKER_PROTOCOL } from "../shared/worker-protocol.ts";
 import { artifactJson } from "./artifact-http.ts";
@@ -82,6 +83,22 @@ export function artifactBoot(
   return { needsAuth: !authentication.sessionValid(cookie), token: null };
 }
 
+// Shared by request admission and long-lived event streams. A successful
+// handshake must not outlive the credential that authorized it.
+export function artifactAuthenticated(
+  request: Request,
+  authentication: AuthService,
+  policy: ArtifactAuthPolicy,
+  clients?: ClientAuth,
+): boolean {
+  return (
+    artifactApiPrincipal(request, policy, clients) !== null ||
+    authentication.sessionValid(
+      parseCookie(request.headers.get("cookie") ?? "", COOKIE_NAME)[COOKIE_NAME],
+    )
+  );
+}
+
 // Authenticated fetch streams serve browser invalidations and worker delivery.
 // The shipped server uses private local setup and browser cookies on loopback too.
 export function installArtifactAuth(
@@ -109,13 +126,11 @@ export function installArtifactAuth(
       clients &&
       c.req.method === "POST" &&
       ["/api/oauth/device/code", "/api/oauth/token"].includes(c.req.path);
-    const token = artifactApiPrincipal(c.req.raw, policy, clients);
     if (
       !publicRead &&
       !login &&
       !oauth &&
-      !token &&
-      !authentication.sessionValid(getCookie(c, COOKIE_NAME))
+      !artifactAuthenticated(c.req.raw, authentication, policy, clients)
     )
       return c.json({ error: "Authentication required" }, 401);
     await next();

@@ -380,7 +380,7 @@ export function createArtifactApi(
     artifacts.setViewed(c.req.param("id"), await artifactJson(c.req.raw));
     return c.json({ ok: true });
   });
-  const conversations = installArtifactConversations(app, storage, collaboration, detail);
+  const conversations = installArtifactConversations(app, storage, collaboration, detail, policy);
   return {
     app,
     bootstrap,

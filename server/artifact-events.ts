@@ -12,6 +12,7 @@ export const ARTIFACT_EVENT_HEADERS = {
 export function artifactEvents(
   collaboration: ArtifactCollaboration,
   signal: AbortSignal,
+  authenticated: () => boolean,
   artifactId?: string,
 ) {
   let close = () => {};
@@ -34,7 +35,7 @@ export function artifactEvents(
       };
       const send = (event: string, value: unknown) => {
         if (closed) return;
-        if ((controller.desiredSize ?? 0) < -128) {
+        if (!authenticated() || (controller.desiredSize ?? 0) < -128) {
           close();
           return;
         }
@@ -49,11 +50,11 @@ export function artifactEvents(
       unsubscribe = collaboration.subscribe((event) => {
         if (!artifactId || event.artifactId === artifactId) send(event.type, event);
       });
-      send("ready", {});
       timer = setInterval(() => send("heartbeat", {}), 20_000);
       timer.unref();
       signal.addEventListener("abort", close, { once: true });
       if (signal.aborted) close();
+      send("ready", {});
     },
     cancel() {
       close();

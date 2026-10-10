@@ -33,6 +33,8 @@ Every application data route, including event streams, requires an API credentia
 Browser and agent streams use authenticated fetch, with no token-free SSE exception. GET/HEAD health and same-origin boot, and POST login,
 retain narrow bootstrap roles. Token comparisons are constant-time; reads carry
 private cache policies. JSON bodies are bounded while streaming after auth.
+Artifact event streams recheck their credentials before every event and heartbeat;
+revocation, logout, or expiry closes the stream before any further data is sent.
 
 Application resource downloads are attachments with restrictive CSP, `nosniff`,
 no-referrer, and same-origin resource policy. Shell and assets are explicitly

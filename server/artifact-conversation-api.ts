@@ -7,6 +7,7 @@ import type {
   ArtifactDetail,
 } from "../shared/artifacts.ts";
 import { ATTACHMENT_LIMITS } from "../shared/attachments.ts";
+import { type ArtifactAuthPolicy, artifactAuthenticated } from "./artifact-auth.ts";
 import type { ArtifactCollaboration } from "./artifact-collaboration.ts";
 import { artifactEvents } from "./artifact-events.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
@@ -25,6 +26,7 @@ export function installArtifactConversations(
   storage: ArtifactStorage,
   collaboration: ArtifactCollaboration,
   detailFor: (id: string) => ArtifactDetail,
+  policy: ArtifactAuthPolicy,
 ) {
   const { artifacts, conversations } = storage;
   const shutdown = new AbortController();
@@ -192,7 +194,12 @@ export function installArtifactConversations(
   app.get("/api/events", (c) => {
     const id = c.req.query("artifact");
     if (id) artifacts.get(id);
-    return artifactEvents(collaboration, AbortSignal.any([c.req.raw.signal, shutdown.signal]), id);
+    return artifactEvents(
+      collaboration,
+      AbortSignal.any([c.req.raw.signal, shutdown.signal]),
+      () => artifactAuthenticated(c.req.raw, storage.authentication, policy, storage.clientAuth),
+      id,
+    );
   });
   const expiry = setInterval(() => {
     for (const artifactId of conversations.expireClaims())

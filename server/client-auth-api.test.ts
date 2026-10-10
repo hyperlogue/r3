@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
+import { COOKIE_NAME } from "./auth.ts";
 
 let root: string, storage: ArtifactStorage, api: ReturnType<typeof createArtifactApi>, now: number;
 beforeEach(async () => {
@@ -134,3 +135,81 @@ test("malformed OAuth requests return protocol error codes", async () => {
   const unknown = await request("/api/oauth/device/code", "client_id=unknown", {}, true);
   expect(await unknown.json()).toEqual({ error: "invalid_client" });
 });
+
+for (const ended of [
+  "key-revoked",
+  "key-expired",
+  "oauth-revoked",
+  "oauth-expired",
+  "logout",
+  "browser-revoked",
+  "browser-expired",
+]) {
+  test(`an open event stream stops before disclosing an archive comment after ${ended}`, async () => {
+    let headers: HeadersInit;
+    let invalidate: () => void;
+    if (ended.startsWith("key")) {
+      const key = storage.clientAuth.createKey(null, now + 1000);
+      headers = { authorization: `Bearer ${key.token}` };
+      invalidate = () => {
+        if (ended.endsWith("revoked")) storage.clientAuth.revoke(key.id);
+        else now += 1001;
+      };
+    } else if (ended.startsWith("oauth")) {
+      const device = storage.clientAuth.device(null, null);
+      storage.clientAuth.decide(device.user_code, true, null);
+      now += 5000;
+      const tokens = storage.clientAuth.poll(device.device_code);
+      const principal = storage.clientAuth.authenticate(tokens.access_token)!;
+      headers = { "x-r3-token": tokens.access_token };
+      invalidate = () => {
+        if (ended.endsWith("revoked")) storage.clientAuth.revoke(principal.id);
+        else now += 900_001;
+      };
+    } else {
+      const login = storage.authentication.createLoginToken(null);
+      const session = storage.authentication.mintSession(login.info.id);
+      headers = { cookie: `${COOKIE_NAME}=${session.cookieValue}` };
+      invalidate = () => {
+        if (ended === "logout") storage.authentication.destroySession(session.cookieValue);
+        else if (ended === "browser-revoked") storage.authentication.revokeToken(login.info.id);
+        else now += 100 * 86_400_000;
+      };
+    }
+    const owner = storage.clientAuth.createKey(null);
+    const ownerHeaders = { "x-r3-token": owner.token };
+    const created = await request(
+      "/api/artifacts",
+      { kind: "files", title: "Review", actor: { role: "human", sessionId: null } },
+      ownerHeaders,
+    );
+    expect(created.status).toBe(201);
+    const artifact = await created.json();
+    const stream = () =>
+      api.app.request(
+        new Request("https://r3.example/api/events", {
+          headers: { host: "r3.example", ...headers },
+        }),
+      );
+    const response = await stream();
+    expect(response.status).toBe(200);
+    const reader = response.body!.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain("event: ready");
+    api.collaboration.broadcast({ type: "artifact-updated", artifactId: artifact.id });
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain(artifact.id);
+    invalidate();
+    expect((await stream()).status).toBe(401);
+    const archived = await request(
+      `/api/artifacts/${artifact.id}/lifecycle`,
+      {
+        event: "archived",
+        actor: { role: "human", sessionId: null },
+        operationKey: "archive",
+        comment: { body: "Private archive comment" },
+      },
+      ownerHeaders,
+    );
+    expect(archived.status).toBe(200);
+    expect(await reader.read()).toEqual({ done: true, value: undefined });
+  });
+}
