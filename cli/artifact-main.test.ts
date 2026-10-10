@@ -43,6 +43,9 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     CODEX_HOME: join(root, "codex-home"),
     CODEX_THREAD_ID: "publisher-thread",
     CODEX_SESSION_ID: "",
+    CODEX_PERMISSION_PROFILE: "workspace-write",
+    CODEX_SANDBOX: "",
+    CODEX_SANDBOX_NETWORK_DISABLED: "0",
     CLAUDE_CODE_SESSION_ID: "",
     CLAUDE_CODE_MESSAGING_SOCKET: "",
     CLAUDE_CODE_MESSAGING_TOKEN: "",
@@ -107,7 +110,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "Friendly publisher",
       "--json",
     );
-    expect(created.error).toBe("");
+    expect(created.error).toContain("sandbox environment detected while starting the r3 worker");
     expect(created.code).toBe(0);
     const first = JSON.parse(created.output);
     const id = first.artifact.id as string;

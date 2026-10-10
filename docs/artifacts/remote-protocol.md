@@ -142,6 +142,15 @@ reads no artifact database, and caches no artifact/discussions content. Its priv
 Unix socket passes local setup information only. HTTP watch and all data reads
 remain between CLI and backend.
 
+Worker startup inherits the launching CLI's environment and OS restrictions;
+detaching does not escape a sandbox. Before spawning a new worker, the CLI warns
+on stderr when it recognizes `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED=1`,
+or a `read-only` / `workspace-write` `CODEX_PERMISSION_PROFILE`. This is advisory:
+markers can survive an approved command outside a sandbox, and other sandboxes
+may expose no recognized marker. Startup continues with the same permissions and
+exit behavior. Reusing an existing worker produces no startup warning. To replace
+a sandboxed worker, run `r3 worker restart` from a terminal outside the sandbox.
+
 The worker persists a random worker ID, backend-qualified opaque listener IDs,
 and local harness targets in
 `$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). The local IPC

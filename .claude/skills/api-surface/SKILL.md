@@ -181,6 +181,10 @@ requests and watch go directly to the backend. Supported create/publish and fetc
 register through the worker; setup failures warn after successful data operations.
 Fresh explicit listen returns after backend registration. The old per-artifact
 publisher relay is removed.
+Before spawning a new worker, recognized sandbox environment markers produce an
+advisory warning on stderr with an outside-sandbox restart command. Existing worker
+reuse is quiet; output data and exit codes retain their normal meaning. Detection
+limits and recovery belong to the remote protocol's worker connection section.
 
 The [remote protocol](../../../docs/artifacts/remote-protocol.md) owns the versioned
 `r3-worker-v2` `/api/workers/*` routes, OAuth device/token and browser-approval routes, client

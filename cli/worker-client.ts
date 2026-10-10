@@ -7,6 +7,26 @@ import { readPrivateJson } from "./private-state.ts";
 import type { WorkerInfo } from "./worker-runtime.ts";
 
 const path = () => join(dirname(daemonJsonPath()), "worker.json");
+
+export function workerSandboxWarning(env: NodeJS.ProcessEnv): string | null {
+  // Environment markers are advisory: they can outlive an approved sandbox escape,
+  // and an unrecognized sandbox may expose none. Session identity alone is not evidence.
+  const profile = env.CODEX_PERMISSION_PROFILE;
+  if (
+    !env.CODEX_SANDBOX?.trim() &&
+    env.CODEX_SANDBOX_NETWORK_DISABLED !== "1" &&
+    profile !== "read-only" &&
+    profile !== "workspace-write"
+  )
+    return null;
+  return [
+    "Warning: sandbox environment detected while starting the r3 worker.",
+    "The worker inherits this CLI's permissions; detaching does not escape the sandbox.",
+    "Agent notifications may fail even if this command succeeds.",
+    "If this CLI is sandboxed, run `r3 worker restart` from a terminal outside the sandbox.",
+  ].join("\n");
+}
+
 export async function existingWorker(): Promise<ArtifactClient | null> {
   const info = readPrivateJson<WorkerInfo>(path());
   if (!info) return null;
@@ -29,6 +49,8 @@ export async function ensureWorker(): Promise<ArtifactClient> {
     await current.json("POST", "/api/local/import", {});
     return current;
   }
+  const warning = workerSandboxWarning(process.env);
+  if (warning) console.error(warning);
   const child = Bun.spawn(cliProcessArgv("__worker"), {
     env: { ...process.env, R3_DETACHED: "1" },
     stdin: "ignore",

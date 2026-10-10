@@ -130,6 +130,9 @@ Credentials are saved privately per backend; R3_TOKEN is not a client override.
   start | stop | status | restart            # aliases for server lifecycle
   guide [html|files|diff]                     # workflow and optional preparation guides
 
+Worker startup warns on stderr when sandbox environment markers are detected.
+For reliable notifications, run r3 worker restart from a terminal outside the sandbox.
+
 Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
 Configuration names:
 backendUrl, bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
@@ -214,6 +217,8 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 ## Receive discussions
 
 Claude Code and Codex publications register the publisher as fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending discussions.
+
+The worker inherits the permissions of the CLI that starts it. On new worker startup, recognized sandbox environment markers produce a warning on stderr: notifications may fail even when the command succeeds. Detection is best effort; reusing a running worker stays quiet. If the worker was started inside a sandbox, run \`r3 worker restart\` from a terminal outside it.
 
 \`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch discussions.
 

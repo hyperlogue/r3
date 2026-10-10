@@ -46,6 +46,9 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
     CODEX_THREAD_ID: "fixture-thread",
     CODEX_SESSION_ID: "",
     CODEX_HOME: join(root, "codex-home"),
+    CODEX_PERMISSION_PROFILE: "workspace-write",
+    CODEX_SANDBOX: "",
+    CODEX_SANDBOX_NETWORK_DISABLED: "0",
     CLAUDE_CODE_SESSION_ID: "",
     CLAUDE_CODE_MESSAGING_SOCKET: "",
     CLAUDE_CODE_MESSAGING_TOKEN: "",
@@ -104,10 +107,19 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
       "--json",
     ]);
     expect(created.code).toBe(0);
+    expect(created.error).toBe("");
     const id = JSON.parse(created.output).artifact.id;
-    expect((await run(["watch", id, "--timeout", "1"])).code).toBe(2);
+    const watched = await run(["watch", id, "--timeout", "1"]);
+    expect(watched.code).toBe(2);
+    expect(watched.error).toBe("");
     expect(await Bun.file(join(root, "runtime", "r3", "worker.json")).exists()).toBe(false);
-    expect((await run(["listen", id])).code).toBe(0);
+    const listened = await run(["listen", id]);
+    expect(listened.code).toBe(0);
+    expect(listened.error).toContain("sandbox environment detected while starting the r3 worker");
+    expect(listened.output).not.toContain("Warning:");
+    const reused = await run(["worker", "start"]);
+    expect(reused.code).toBe(0);
+    expect(reused.error).toBe("");
     const info = await Bun.file(join(root, "runtime", "r3", "worker.json")).json();
     expect(info.socket.endsWith("worker.sock")).toBe(true);
     expect(info.port).toBeUndefined();
@@ -123,7 +135,10 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
     )
       await Bun.sleep(20);
     expect(api.collaboration.watchers(id)[0]?.connectionState).toBe("disconnected");
-    expect((await run(["worker", "start"])).code).toBe(0);
+    env.CODEX_PERMISSION_PROFILE = "danger-full-access";
+    const restarted = await run(["worker", "start"]);
+    expect(restarted.code).toBe(0);
+    expect(restarted.error).toBe("");
     for (
       let i = 0;
       i < 100 && api.collaboration.watchers(id)[0]?.connectionState !== "connected";
