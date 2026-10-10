@@ -20,7 +20,7 @@ Give the agent a task and ask it to read the built-in guide:
 
 > Read `r3 guide`. Make an interactive prototype of Example Fieldwork’s project-creation flow and publish it to r3. Include a project name, optional description, and visibility choice. Share the artifact URL so I can review it.
 
-The agent can use any coding harness that runs commands. Supported harnesses receive comment notifications through a local worker, with either a local or remote backend. Other agents can wait with `r3 watch` or fetch discussions when asked. You do not need to type the publication commands yourself.
+The agent can use any coding harness that runs commands. Supported harnesses receive comment notifications through a local worker, with either a local or remote backend. Other agents can wait with `r3 watch` or fetch comments when asked. You do not need to type the publication commands yourself.
 
 ## Open the workspace
 

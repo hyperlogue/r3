@@ -27,14 +27,14 @@ export function workflowExample() {
 ${["light", "dark"]
   .map(
     (theme) => `<div class="workspace-${theme}">
-<img class="workspace-desktop" src="/assets/fieldwork-${theme}.png" width="1240" height="740" loading="lazy" alt="The real r3 workspace showing Example Fieldwork’s project form and a discussion about who can access a project.">
+<img class="workspace-desktop" src="/assets/fieldwork-${theme}.png" width="1240" height="740" loading="lazy" alt="The real r3 workspace showing Example Fieldwork’s project form and a thread about who can access a project.">
 <img class="workspace-mobile" src="/assets/fieldwork-mobile-${theme}.png" width="390" height="740" loading="lazy" alt="The real r3 phone layout showing the same Example Fieldwork review.">
 </div>`,
   )
   .join("")}
 </a>
 </div>
-<figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the discussion.</figcaption>
+<figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the thread.</figcaption>
 </figure>`;
 }
 

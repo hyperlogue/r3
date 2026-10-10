@@ -2,7 +2,7 @@ Archive finished reviews to keep active work easier to find. Decide separately w
 
 ## Archive and restore
 
-Archiving preserves versions, conversations, discussion status, pending human content, and drafts. It closes new publications and conversation changes, clears claims and subscriptions, and keeps the work readable. You can include a short archive comment for the selected subscription.
+Archiving preserves versions, conversations, thread status, pending human content, and drafts. It closes new publications and conversation changes, clears claims and subscriptions, and keeps the work readable. You can include a short archive comment for the selected subscription.
 
 A failed notification does not undo the archive. The recorded lifecycle event is authoritative; retrying the same operation does not send a second notification.
 

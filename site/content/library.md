@@ -2,7 +2,7 @@ The library is where you return to work after the first review. Search by conten
 
 ## Find something you remember
 
-Search for a phrase from a proposal, a code identifier, or the words used in a discussion. Multiword queries match all words as prefixes. Queries support up to 16 words and 256 characters.
+Search for a phrase from a proposal, a code identifier, or the words used in a thread. Multiword queries match all words as prefixes. Queries support up to 16 words and 256 characters.
 
 By default, content search uses the latest publication. Turn on **Include history** to search older versions. Conversation matches keep the version context recorded with the message.
 

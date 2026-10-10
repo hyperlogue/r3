@@ -1,4 +1,8 @@
-Good feedback combines a precise target with a clear request. r3 keeps both alongside the original publication so your agent has something concrete to act on.
+A useful comment combines a precise target with a clear request. r3 keeps both alongside the original publication so your agent has something concrete to act on.
+
+The **Discussion** panel gathers the conversation around an artifact. Each concern
+has its own **thread**, made up of **comments**. Reply within a thread to continue
+the same topic, and resolve the thread when it no longer needs attention.
 
 ## Choose a target
 
@@ -8,7 +12,7 @@ Good feedback combines a precise target with a clear request. r3 keeps both alon
 | A document | A rendered passage, source lines, or the whole file. |
 | A patch | Old or new lines in the captured diff. |
 | An image or video | A saved frame and, optionally, a region. |
-| The overall work | General artifact feedback. |
+| The overall work | A general comment about the artifact. |
 
 Use comment mode for rendered elements. A source or diff selection keeps its native line information. Rendered evidence is never reverse-mapped into source lines.
 
@@ -32,12 +36,12 @@ Drafts retain their target and version as you switch views. They persist after a
 
 Add several comments and then use **Send to agent**. The active recipient is notified and fetches the pending batch. A queued notification may wait until the agent’s session resumes.
 
-Without an agent subscription, choose **Use in agent** and run the copied `r3 comment fetch` command in your harness. The browser does not acknowledge feedback simply because you copied the command.
+Without an agent subscription, choose **Use in agent** and run the copied `r3 comment fetch` command in your harness. The browser does not acknowledge comments simply because you copied the command.
 
-The fetch command acknowledges only after successfully writing the snapshot to stdout. A failed read or output leaves the feedback pending. A conflicting edit or failed acknowledgment can mean repeated output on retry; it does not discard the newer edit.
+The fetch command acknowledges only after successfully writing the snapshot to stdout. A failed read or output leaves the comments pending. A conflicting edit or failed acknowledgment can mean repeated output on retry; it does not discard the newer edit.
 
 ## Continue the conversation
 
-Reply in the same discussion when you are discussing the same concern. You can edit or delete comments from their available actions. Editing an open human message makes the updated content pending again. Editing a resolved discussion does not reopen it automatically.
+Reply in the same thread when you are discussing the same concern. You can edit or delete comments from their available actions. Editing an open human message makes the updated content pending again. Editing a resolved thread does not reopen it automatically.
 
 The human controls open/resolved status. Agent claims indicate work in progress, not resolution. Use [Revisions & resolution](/docs/revisions/) to finish the loop.

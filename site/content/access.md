@@ -61,7 +61,7 @@ Browser-approved CLI access refreshes automatically when possible. If credential
 
 ## Inspect notification delivery
 
-Publishing and discussion fetch work the same locally and remotely. The CLI reads and writes directly to the backend. Supported local harnesses use the persistent worker to receive notifications through an outgoing connection; no inbound TCP port is opened on the publisher’s machine.
+Publishing and comment fetch work the same locally and remotely. The CLI reads and writes directly to the backend. Supported local harnesses use the persistent worker to receive notifications through an outgoing connection; no inbound TCP port is opened on the publisher’s machine.
 
 ```sh
 r3 worker status
@@ -69,4 +69,4 @@ r3 worker status
 
 Use this command to inspect backend connections and reported delivery problems. `r3 worker start|stop|restart` manages notification delivery; `r3 server start|stop|status|restart` manages the local storage server. The shorter `r3 start`, `stop`, `status`, and `restart` commands remain server aliases.
 
-Agents without a supported notification adapter can use `r3 watch` or fetch discussions on demand. See the [agent workflow](/docs/agents/) for subscription priority, reconnect behavior, and exit codes.
+Agents without a supported notification adapter can use `r3 watch` or fetch comments on demand. See the [agent workflow](/docs/agents/) for subscription priority, reconnect behavior, and exit codes.

@@ -24,14 +24,14 @@ If no agent is subscribed, **Use in agent** gives you a command to run in your h
 
 ## 4. Inspect the revision
 
-The agent publishes a new version and replies to individual discussions. When it can identify the fix precisely, its reply links to that location.
+The agent publishes a new version and replies to individual threads. When it can identify the fix precisely, its reply links to that location.
 
 Your selected version stays pinned when another arrives. Use **Go to the latest version** when you are ready. This lets you finish examining the original without the page changing underneath you.
 
 ## 5. Decide what is done
 
-Open the proposed fix and check the behavior or explanation. Reply if more work is needed. Resolve the discussion when you are satisfied; reopen it if the concern returns.
+Open the proposed fix and check the behavior or explanation. Reply if more work is needed. Resolve the thread when you are satisfied; reopen it if the concern returns.
 
-Publishing and replying do not resolve discussions automatically. Resolution belongs to the human reviewer.
+Publishing and replying do not resolve threads automatically. Resolution belongs to the human reviewer.
 
 When the work is finished, [archive the artifact](/docs/cleanup/). Its versions and conversations remain readable, and its subscriptions are cleared.

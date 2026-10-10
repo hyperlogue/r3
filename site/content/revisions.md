@@ -22,12 +22,12 @@ Check the behavior too. An explanation can be clearer while the control is still
 
 ## Resolve or keep talking
 
-Resolve the discussion when your concern is addressed. Reopen it when more work is needed. A new version, an agent reply, or a released claim does not resolve anything automatically.
+Resolve the thread when your concern is addressed. Reopen it when more work is needed. A new version, an agent reply, or a released claim does not resolve anything automatically.
 
-Use the Active and Resolved queues to move between ongoing and completed discussions. Pending human feedback and agent work are separate signals; a claim is a renewable 60-minute lease, not an approval state.
+Use the Active and Resolved queues to move between ongoing and completed threads. Pending human feedback and agent work are separate signals; a claim is a renewable 60-minute lease, not an approval state.
 
 ## Finish the artifact
 
-Archive work that no longer needs active review. Archiving retains its versions, conversations, discussion status, and drafts. It clears subscriptions and closes publications and conversation changes until restored.
+Archive work that no longer needs active review. Archiving retains its versions, conversations, thread status, and drafts. It clears subscriptions and closes publications and conversation changes until restored.
 
 Restoring makes the artifact available for work again. The agent needs a new publication or explicit subscription to resume notifications. See [Archive, usage & cleanup](/docs/cleanup/) before permanently removing anything.

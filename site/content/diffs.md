@@ -12,7 +12,7 @@ Select the relevant lines and explain the behavior you are questioning. A diff t
 
 > This prevents a second click while the request is running, but what happens after a failed request? The button needs to become usable again.
 
-The short quote shown in a thread may only be an excerpt. The complete selected range is retained; agents can retrieve it with `r3 discussions source`.
+The short quote shown in a thread may only be an excerpt. The complete selected range is retained; agents can retrieve it with `r3 thread source`.
 
 ## Understand a new round
 
