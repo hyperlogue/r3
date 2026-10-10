@@ -116,6 +116,8 @@ comments pending. Existing matching files are reused; different files are not ov
 Text flags accept - to read stdin. --json prints structured results.
 Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
 Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
+The worker retries temporary connection/refresh failures, including rate limits.
+Rejected credentials require r3 login again.
 Automatic local setup uses a private Unix socket. Run r3 open for a one-time browser
 link. Browser access always requires a session, including on loopback.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.

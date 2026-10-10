@@ -155,6 +155,36 @@ test("a waiting CLI survives the first connection failure", async () => {
   expect(result.connectionId).toBeDefined();
   expect(attempts).toBe(2);
 });
+
+test("a rate-limited OAuth refresh retries without requiring login", async () => {
+  await worker.stop();
+  let refreshes = 0;
+  credentials = new BackendCredentials(join(root, "credentials"), (async (
+    _url: unknown,
+    _options: RequestInit,
+  ) => {
+    if (++refreshes === 1) return new Response(null, { status: 429 });
+    return Response.json({
+      access_token: fixture.backends.get(one)!.token,
+      refresh_token: randomBytes(32).toString("hex"),
+      expires_in: 900,
+      token_type: "Bearer",
+    });
+  }) as typeof fetch);
+  await credentials.save({
+    url: one,
+    kind: "oauth",
+    accessToken: "expired",
+    refreshToken: randomBytes(32).toString("hex"),
+    expiresAt: 0,
+  });
+  worker = runtime();
+  const subscription = await subscribe(one);
+  expect(refreshes).toBe(2);
+  expect(worker.status().backends[0]?.state).toBe("ready");
+  fixture.send(one, nudge(subscription));
+  await until(() => delivered.length === 1);
+});
 for (const malformed of [false, true]) {
   test(`worker discards a legacy import without changing current destinations (malformed: ${malformed})`, async () => {
     const subscription = await subscribe(one);

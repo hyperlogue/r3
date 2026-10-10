@@ -127,6 +127,8 @@ Refresh is serialized across CLI processes and worker; a process rereads the fil
 after acquiring its lock. A failed refresh or lost refresh response may require
 `r3 login` again. A 401 pauses only the affected worker backend until successful
 login reloads it. Temporary transport/server failures retry with bounded backoff.
+Refresh responses with HTTP 408 or 429 also retry; they preserve saved credentials
+and do not put the worker into the login-required state.
 
 Management routes require ordinary authentication:
 

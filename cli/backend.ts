@@ -113,8 +113,11 @@ export class BackendCredentials {
         }),
       });
       if (!response.ok) {
-        if (response.status < 500) throw new Error("Backend access was rejected; run r3 login");
-        throw new Error("Backend credential refresh is temporarily unavailable");
+        if (response.status === 408 || response.status === 429 || response.status >= 500)
+          throw new Error(
+            `Backend credential refresh is temporarily unavailable (HTTP ${response.status}); try again`,
+          );
+        throw new Error("Backend access was rejected; run r3 login");
       }
       const result = (await response.json()) as OAuthTokens;
       const next = credentialFromTokens(url, result);

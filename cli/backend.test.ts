@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
-import { BackendCredentials, selectedBackend } from "./backend.ts";
+import { type BackendCredential, BackendCredentials, selectedBackend } from "./backend.ts";
 
 let root: string;
 beforeEach(() => {
@@ -78,3 +78,29 @@ test("two credential readers coordinate a single refresh and keep endpoint crede
   expect(first.read("https://other.example/app")).toBeNull();
   await expect(first.token("https://other.example/app")).rejects.toThrow("run r3 login");
 });
+
+for (const status of [400, 401, 408, 429, 503]) {
+  test(`refresh HTTP ${status} preserves credentials and distinguishes temporary failure from rejection`, async () => {
+    const url = "https://r3.example";
+    const original: BackendCredential = {
+      url,
+      kind: "oauth",
+      accessToken: randomBytes(32).toString("hex"),
+      refreshToken: randomBytes(32).toString("hex"),
+      expiresAt: 0,
+    };
+    const credentials = new BackendCredentials(join(root, "credentials"), (async (
+      _url: unknown,
+      _options: RequestInit,
+    ) =>
+      Response.json(
+        { error: status === 400 ? "invalid_grant" : "Request failed" },
+        { status },
+      )) as typeof fetch);
+    await credentials.save(original);
+    await expect(credentials.token(url)).rejects.toThrow(
+      status === 400 || status === 401 ? "run r3 login" : "temporarily unavailable",
+    );
+    expect(credentials.read(url)).toEqual(original);
+  });
+}
