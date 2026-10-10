@@ -30,8 +30,8 @@ _Avoid_: Agent session, browser session.
 ### Artifacts and publication
 
 **Artifact**:
-A continuing work product with its own identity, kind, versions, and conversations.
-While active, its title and conversations can change; its published versions remain
+A continuing work product with its own identity, kind, versions, and discussion.
+While active, its title and discussion can change; its published versions remain
 immutable.
 _Avoid_: Review (for the artifact itself).
 
@@ -96,33 +96,38 @@ _Avoid_: Artifact owner.
 ### Conversations and locations
 
 **Discussion**:
-A conversation about an artifact, with an opening comment, subsequent comments, an
-immutable original target, and user-controlled resolution status.
-_Avoid_: Feedback (for the conversation), comment (for the whole conversation).
+The overall conversation around one artifact, containing its threads and
+artifact-level comments.
+_Avoid_: Thread (for the whole discussion), feedback.
+
+**Thread**:
+A resolvable topic within an artifact's discussion, with an immutable original
+target and an ordered list of comments beginning with its opening comment.
+_Avoid_: Discussion (for one topic), comment (for the whole thread), feedback.
 
 **Comment**:
-An authored message belonging to a discussion or directly to an artifact. It may
-point to a published location. A reply continues a discussion; an archive comment
-stands in the artifact history without its own resolution status.
+An authored message in a thread or directly in an artifact's discussion, optionally
+pointing to a published location. A reply continues a thread; an archive comment
+belongs to the discussion without creating a resolvable thread.
 _Avoid_: Feedback (for a message), reply (as a separate message entity).
 
-**Discussion status**:
-The user's classification of a discussion as open or resolved; resolved means
-the discussion needs no further attention, whether or not content changed.
+**Thread status**:
+The user's classification of a thread as open or resolved; resolved means
+the topic needs no further attention, whether or not content changed.
 
 **Original target**:
-The immutable subject of a discussion when it was opened: the artifact as a whole,
+The immutable subject of a thread when it was opened: the artifact as a whole,
 or a page, file, media instant and region, or code change in a specific version and
 view. A media target retains the full saved frame as its visual evidence.
 
 **Fix target**:
 A published location that a comment points to as its fix, potentially in a different
-version or view from the discussion's original target.
+version or view from the thread's original target.
 
 ### Coordination and attention
 
 **Claim**:
-One agent session's temporary reservation to handle a particular open discussion.
+One agent session's temporary reservation to handle a particular open thread.
 It coordinates responsibility without granting exclusive rights to publish or comment.
 
 **Subscription**:
@@ -156,23 +161,23 @@ A wait for pending comments or archive, with an explicit subscription for its
 duration.
 
 **Comment notification**:
-A message prompting an agent to collect pending comments or discussion status
+A message prompting an agent to collect pending comments or thread status
 changes, or carrying an artifact's archive comment. A signal alone does not
 confirm delivery of the comments it announces.
 _Avoid_: Wake notification, artifact notification, comment delivery.
 
 **Comment delivery**:
-The confirmed transfer of pending user comments and discussion status changes to
+The confirmed transfer of pending user comments and thread status changes to
 an agent. A notification carrying a complete archive comment can also deliver it;
 a notification that only prompts collection does not.
 _Avoid_: Handoff, feedback delivery, notification delivery.
 
 **Unsent comments**:
-User comments or discussion status changes awaiting delivery to an agent.
+User comments or thread status changes awaiting delivery to an agent.
 _Avoid_: Unread, unsent feedback.
 
-**Unhandled discussion**:
-An open discussion whose latest comment is from an agent, indicating attention is
+**Unhandled thread**:
+An open thread whose latest comment is from an agent, indicating attention is
 due from the user regardless of whether the comment has been read.
 _Avoid_: Unread, unhandled feedback.
 
