@@ -131,7 +131,6 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     );
   const location = await discoverArtifactServer();
   const client = new ArtifactClient(location);
-  await client.checkProtocol();
   if (command === "auth") {
     await authCommand(client, args);
     return 0;

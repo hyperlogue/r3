@@ -8,6 +8,7 @@ import {
   readDaemonLockOwner,
   removeDaemonJson,
 } from "../server/config.ts";
+import { ArtifactClient } from "../shared/artifact-client.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { BackendCredentials, selectedBackend } from "./backend.ts";
@@ -18,6 +19,21 @@ interface Health {
   version: string;
   protocol?: string;
 }
+
+function checkServerCompatibility(health: Health | null, url: string, local: boolean): void {
+  if (!health) throw new ArtifactCommandError(`The server at ${url} is not responding`);
+  const versions = `Server at ${url}: v${health.version ?? "unknown"} (${health.protocol ?? "unknown protocol"}); CLI: v${R3_VERSION} (artifacts-v3).`;
+  const recovery = local
+    ? "Run r3 server restart to use this CLI's build."
+    : "Update r3 on the CLI or server machine, then run r3 server restart on the server's machine.";
+  if (health.protocol !== "artifacts-v3")
+    throw new ArtifactCommandError(`Incompatible backend protocol. ${versions} ${recovery}`);
+  if (health.version && health.version !== R3_VERSION)
+    process.stderr.write(
+      `r3: warning: Version mismatch. ${versions} The protocol is compatible; continuing. ${recovery}\n`,
+    );
+}
+
 const sleep = (milliseconds: number) => Bun.sleep(milliseconds);
 export const compiledCli = () => Bun.embeddedFiles.length > 0;
 export const cliProcessArgv = (command: string, ...args: string[]) =>
@@ -115,13 +131,17 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
   const selected = selectedBackend();
   const credentials = new BackendCredentials();
   if (selected) {
-    if (!forLogin) await credentials.token(selected);
-    return {
+    const location = {
       url: selected,
       token: "",
       publicUrl: selected,
       getToken: () => credentials.token(selected),
     };
+    if (!forLogin) {
+      const health = await new ArtifactClient(location).json<Health>("GET", "/api/health");
+      checkServerCompatibility(health, selected, false);
+    }
+    return location;
   }
   let info = readDaemonJson();
   let health = info ? await probe(info.url) : null;
@@ -129,14 +149,7 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
     info = await spawnDaemon();
     health = await probe(info.url);
   }
-  if (health?.protocol !== "artifacts-v3")
-    throw new ArtifactCommandError(
-      "The running daemon uses the previous review protocol. Run r3 server restart to migrate it before using artifact commands.",
-    );
-  if (health.version !== R3_VERSION)
-    process.stderr.write(
-      `r3: daemon is v${health.version}; this CLI is v${R3_VERSION}. Run r3 server restart to use this build.\n`,
-    );
+  checkServerCompatibility(health, info.url, true);
   const url = normalizeBackendUrl(info.url);
   if (!info.bootstrapSocket)
     throw new ArtifactCommandError("Restart the local server to enable private local setup");

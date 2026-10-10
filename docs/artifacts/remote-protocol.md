@@ -50,6 +50,15 @@ required except on loopback. The CLI rejects redirects, including same-origin
 redirects. Bundled server deployments expose the application at the origin root;
 alternative backends can use an API base path and return their own display URLs.
 
+Before artifact or authentication-management commands, the CLI checks the selected
+backend's `/api/health`. An incompatible or missing artifact protocol fails before
+the requested operation. Diagnostics include the backend URL, reported server
+version and protocol, CLI version and expected protocol, and restart guidance.
+Different release versions with the same protocol warn on stderr and continue,
+preserving stdout and command exit codes. Remote guidance locates `r3 server restart`
+on the server's machine. Automatic local discovery checks compatibility before
+credential bootstrap; remote login remains available to obtain credentials first.
+
 Private per-backend credentials live under `$XDG_CONFIG_HOME/r3/credentials/`
 (default `~/.config/r3/credentials/`), keyed by a hash of that complete URL.
 Directories are owned and mode 0700; files are mode 0600 and atomically replaced

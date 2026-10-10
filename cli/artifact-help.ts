@@ -119,6 +119,8 @@ Use r3 login for remote browser approval, or pipe an API key to r3 login --api-k
 Automatic local setup uses a private Unix socket. Run r3 open for a one-time browser
 link. Browser access always requires a session, including on loopback.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
+Incompatible backend protocols fail with the server URL, both versions, and restart
+guidance. Different release versions with a compatible protocol only warn on stderr.
 
   login [--api-key-stdin]
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit

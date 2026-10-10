@@ -18,7 +18,20 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
     version: R3_VERSION,
     allowedHost: (host) => host === "127.0.0.1",
   });
-  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: api.app.fetch });
+  let healthOverride: { version: string; protocol?: string } | undefined;
+  const compatibilityRequests: string[] = [];
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (request) => {
+      if (healthOverride) {
+        const path = new URL(request.url).pathname;
+        compatibilityRequests.push(path);
+        if (path === "/api/health") return Response.json({ ok: true, ...healthOverride });
+      }
+      return api.app.fetch(request);
+    },
+  });
   const cwd = join(root, "publisher"),
     bin = join(root, "bin"),
     queue = join(root, "queue.txt");
@@ -82,6 +95,42 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
     expect((await run(["list"])).error).toContain("r3 login");
     const key = storage.clientAuth.createKey(null);
     expect((await run(["login", "--api-key-stdin"], key.token)).code).toBe(0);
+    for (const version of ["0.0.0", "9999.0.0"]) {
+      healthOverride = { version, protocol: "artifacts-v3" };
+      const compatible = await run(["list", "--json"]);
+      expect(compatible.code).toBe(0);
+      expect(JSON.parse(compatible.output)).toEqual([]);
+      expect(compatible.error).toContain("warning: Version mismatch");
+      expect(compatible.error).toContain(`v${version} (artifacts-v3)`);
+      expect(compatible.error).toContain(`CLI: v${R3_VERSION}`);
+      expect(compatible.error).toContain("protocol is compatible; continuing");
+    }
+    for (const protocol of [undefined, "artifacts-v2", "artifacts-v9999"]) {
+      healthOverride = { version: R3_VERSION, protocol };
+      compatibilityRequests.length = 0;
+      const incompatible = await run([
+        "create",
+        "--kind",
+        "files",
+        "--dir",
+        ".",
+        "--file",
+        "note.txt",
+        "--no-listen",
+        "--json",
+      ]);
+      expect(incompatible.code).toBe(1);
+      expect(incompatible.output).toBe("");
+      expect(incompatible.error).toContain("Incompatible backend protocol");
+      expect(incompatible.error).toContain(`Server at http://127.0.0.1:${server.port}`);
+      expect(incompatible.error).toContain(`(${protocol ?? "unknown protocol"})`);
+      expect(incompatible.error).toContain(`CLI: v${R3_VERSION} (artifacts-v3)`);
+      expect(incompatible.error).toContain("r3 server restart on the server's machine");
+      expect(compatibilityRequests).toEqual(["/api/health"]);
+    }
+    healthOverride = undefined;
+    expect(await Bun.file(join(root, "runtime", "r3", "daemon.json")).exists()).toBe(false);
+    expect(await Bun.file(join(root, "runtime", "r3", "worker.json")).exists()).toBe(false);
     const createdKey = await run([
       "auth",
       "create-key",
