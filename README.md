@@ -117,8 +117,7 @@ if it overwrites `X-Forwarded-For`.
 
 ### Connect the CLI to a remote server
 
-To use an existing remote r3 server, install r3 on your **CLI or agent machine**
-and set `backendUrl` to that server's HTTPS address:
+On your **local machine**, set `backendUrl` to the remote r3 server's HTTPS address:
 
 ```sh
 r3 config set backendUrl https://reviews.example
