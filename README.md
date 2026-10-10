@@ -94,11 +94,12 @@ on the home page to archive or permanently delete them together.
 
 r3 starts a local server automatically when needed. Run `r3 open` for a browser link.
 
-For remote access with [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve),
-install r3 on both machines and connect them to your tailnet. Replace
-`https://reviews.example` below with the server's Tailscale HTTPS address.
+### Expose an r3 server
 
-**On the server**, as the user running r3:
+To access an r3 server from another device, put it behind an HTTPS reverse proxy.
+For [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve),
+connect the server and accessing devices to your tailnet. Run these commands on
+the **server**, replacing `https://reviews.example` with its Tailscale HTTPS address:
 
 ```sh
 r3 config set publicUrl https://reviews.example
@@ -110,15 +111,22 @@ r3 auth create-token --label browser
 
 Open the HTTPS address in your browser and sign in with the generated token.
 
-**On each machine running your agents:**
+For another proxy, forward the whole application to `http://127.0.0.1:8791/`
+and set `X-Forwarded-Proto: https`. Set `trustedProxies` to its connection IP only
+if it overwrites `X-Forwarded-For`.
+
+### Connect the CLI to a remote server
+
+To use an existing remote r3 server, install r3 on your **CLI or agent machine**
+and set `backendUrl` to that server's HTTPS address:
 
 ```sh
 r3 config set backendUrl https://reviews.example
 r3 login
 ```
 
-Open the printed address in the browser where you signed in, confirm that its
-code matches your terminal, and approve CLI access. Then check the connection:
+Open the printed address, sign in to r3 if needed, confirm that the code matches
+your terminal, and approve CLI access. Then check the connection:
 
 ```sh
 r3 list
