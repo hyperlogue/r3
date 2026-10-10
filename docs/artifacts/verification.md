@@ -174,13 +174,12 @@ Native iOS touch ergonomics remain the separate device-validation item tracked i
 ## Demo and distribution
 
 ```sh
-R3_DEMO_BASE=/r3/demo bun run build:demo
-bun run stage:pages
+R3_SITE_BASE=/r3 R3_SITE_URL=https://example.test/r3 bun site/build.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-artifact-demo.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-demo-preview.ts
 ```
 
-The demo acceptance script serves the staged Pages output at `/r3/demo/`. It checks
+The demo acceptance script serves the website's Pages output at `/r3/demo/`. It checks
 home → files → threads with a pasted image → Submit → scripted publication/comment,
 retained version selection, and a deep-link reload that resets practice state and
 discards unsent drafts. Regenerate fixtures with `bun run gen:demo` after changing

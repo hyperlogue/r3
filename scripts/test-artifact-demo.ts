@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { resolve, sep } from "node:path";
 import { eventually, openTestBrowser } from "./browser.ts";
 
-// Build with R3_DEMO_BASE=/r3/demo, then run stage:pages before this check.
+// Build with R3_SITE_BASE=/r3 bun site/build.ts before this check.
 const root = resolve("dist/pages");
 const server = Bun.serve({
   hostname: "127.0.0.1",
@@ -11,7 +11,7 @@ const server = Bun.serve({
     const pathname = new URL(request.url).pathname.replace(/^\/r3(?=\/|$)/, "");
     const path = resolve(root, `.${pathname}`);
     if (path !== root && !path.startsWith(root + sep)) return new Response(null, { status: 404 });
-    const file = Bun.file(path);
+    const file = Bun.file(pathname.endsWith("/") ? resolve(path, "index.html") : path);
     return path !== root && (await file.exists())
       ? new Response(file)
       : new Response(Bun.file(resolve(root, "404.html")));
@@ -33,7 +33,9 @@ try {
   await page.command("Page.navigate", { url: new URL("/r3/demo/", server.url).href });
   await eventually(
     () =>
-      page.evaluate("document.body?.textContent.includes('Keep threads on its original version')"),
+      page.evaluate(
+        "document.body?.textContent.includes('Keep each thread on its original version')",
+      ),
     "demo artifact home",
   );
   await page.evaluate(
@@ -44,7 +46,7 @@ try {
   );
   assert(await page.evaluate("document.body.textContent.includes('Curve lab — a little closer')"));
   await page.evaluate(
-    "Array.from(document.querySelectorAll('a')).find(a=>a.textContent.includes('Keep threads on its original version')).click()",
+    "Array.from(document.querySelectorAll('a')).find(a=>a.textContent.includes('Keep each thread on its original version')).click()",
   );
   await eventually(
     () =>

@@ -1,8 +1,7 @@
 name: Deploy website to Pages
 
 # Publish the static website and frontend-only demo as one Pages artifact.
-# site/build.ts owns the complete build when present. Until it lands, preserve
-# the existing demo deployment (in-memory state and a scripted agent).
+# site/build.ts owns the complete website and demo build.
 #
 # One-time setup: repo Settings → Pages → Source = "GitHub Actions".
 
@@ -54,10 +53,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Retained for the demo-only fallback. The website builder owns its demo
-    # integration and derives paths from R3_SITE_BASE.
-    env:
-      DEMO_SUBDIR: demo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,16 +73,8 @@ jobs:
         env:
           R3_SITE_BASE: ${{ steps.pages.outputs.base_path }}
           R3_SITE_URL: ${{ steps.pages.outputs.base_url }}
-          R3_DEMO_BASE: ${{ steps.pages.outputs.base_path }}/${{ env.DEMO_SUBDIR }}
-          R3_DEMO_SUBDIR: ${{ env.DEMO_SUBDIR }}
         run: |
-          if [ -f site/build.ts ]; then
-            bun site/build.ts
-          else
-            bun run gen:demo
-            bun run build:demo
-            bun run stage:pages
-          fi
+          bun site/build.ts
           test -s dist/pages/index.html
           test -s dist/pages/404.html
 

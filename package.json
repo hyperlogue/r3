@@ -15,7 +15,6 @@
     "cli": "bun cli/index.ts",
     "gen:demo": "bun scripts/gen-artifact-demo.ts",
     "build:demo": "bun scripts/build-demo.ts",
-    "stage:pages": "bun scripts/stage-pages.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

@@ -1,6 +1,6 @@
 ---
 name: build-and-distribution
-description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the public website and frontend-only demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, wait-for-npm-packages, build-demo, stage-pages, gen-artifact-demo), npm/, web/demo/, site/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/site/demo build.
+description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the public website and frontend-only demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, wait-for-npm-packages, build-demo, gen-artifact-demo), npm/, web/demo/, site/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/site/demo build.
 ---
 
 # Building and shipping r3
@@ -203,7 +203,7 @@ and capture verification require hydrated image bytes; follow `site/README.md`
 for checkout setup. Keep LFS enabled in the CI build and Pages checkout steps.
 Binary-only jobs do not need these website assets.
 
-The Pages workflow uses `bun site/build.ts` when that entrypoint exists. This
+The Pages workflow uses `bun site/build.ts`. This
 single command owns the complete deployable output, including the demo:
 
 - `R3_SITE_BASE` is the mount path from `configure-pages`, such as `/r3` or an
@@ -219,29 +219,12 @@ single command owns the complete deployable output, including the demo:
   honors only the site-root `404.html`; directory-level fallback files do not
   handle requests independently.
 
-Before `site/build.ts` is added, Pages retains the demo-only build below. A present
-website builder that fails must fail deployment, without falling back to the demo.
-Both paths verify the output entrypoints before upload. CI runs a present website
-builder with both a project mount and a root mount; it performs no deployment.
+Pages requires a successful website build and verifies the output entrypoints
+before upload. CI runs the same builder with both a project mount and a root
+mount; it performs no deployment.
 The workflow path filter includes website content and product sources used by
 documentation and fixture generation. The compiled product build remains separate;
 `site/` is outside the Nix binary's source fileset.
-
-### Demo-only Pages layout
-
-The fallback in `.github/workflows/pages.yml` builds the demo on push to `main`,
-mounting it at `<base_path>/demo/`. A project page uses `/r3` as its base path;
-a custom domain can use the root.
-
-`R3_DEMO_BASE=<base_path>/demo` (base_path from `configure-pages`) bakes that prefix
-into the router (`hrefFor`/`__R3_BASE__`) and asset `publicPath`. Then
-`scripts/stage-pages.ts` lays out `dist/pages`:
-
-- the build under `demo/`,
-- a root→demo redirect,
-- and — because **Pages honors only a single site-root `404.html`** (subdirectory
-  ones are ignored) — the SPA copied to the site-root `404.html`, so a deep-link
-  reload of `/r3/demo/artifact_x` still boots it (its asset URLs are absolute).
 
 Local `build:demo` defaults to a root base, so `bunx serve -s dist/demo` just works.
 
