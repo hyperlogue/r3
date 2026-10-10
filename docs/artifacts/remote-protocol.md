@@ -161,6 +161,19 @@ alive, including across PID namespaces. The IPC file and socket require owner-on
 credential; requests carrying any Origin header are rejected. Paths, executables,
 Codex home, Claude sockets, and harness credentials never enter backend requests.
 
+`r3 worker stop` and `restart` request shutdown through authenticated private IPC
+(`POST /api/local/stop`) and wait for the worker to withdraw its discovery record.
+The worker retains its lock until shutdown finishes. A saved PID is relative to
+the worker's PID namespace and must not be used to signal an unrelated host process.
+When IPC is unreachable, stop checks both the discovery PID and lock owner for a
+same-user process with the exact `__worker` command argument. It first sends SIGTERM,
+then SIGKILL if needed, and clears the inspected records only once those workers
+have exited. Dead or unrelated PID records can be cleared without signaling them;
+changed records are preserved. An older reachable worker without IPC shutdown uses
+the same verified process fallback; if its process cannot be identified, stop fails
+and instructs the caller to stop it from its original environment. These operations
+preserve saved destinations, worker identity, credentials, and backend subscriptions.
+
 `POST /api/workers/connect` accepts `workerId` and `protocol: "r3-worker-v2"`.
 It returns `text/event-stream`; the first frame is `ready` with `protocol` and
 `connectionId`. A new connection for the same worker and credential principal closes the previous one.

@@ -9,7 +9,10 @@ test("private worker API rejects missing credentials and every browser Origin", 
   const root = await mkdtemp(join(tmpdir(), "r3-worker-api-"));
   const runtime = new WorkerRuntime(join(root, "worker-state.json"));
   const token = randomBytes(32).toString("hex");
-  const app = workerApi(runtime, token);
+  let stopped = false;
+  const app = workerApi(runtime, token, () => {
+    stopped = true;
+  });
   try {
     expect((await app.request("/api/local/status")).status).toBe(403);
     for (const origin of ["", "null", "http://localhost"]) {
@@ -17,7 +20,28 @@ test("private worker API rejects missing credentials and every browser Origin", 
         (await app.request("/api/local/status", { headers: { "x-r3-token": token, origin } }))
           .status,
       ).toBe(403);
+      expect(
+        (
+          await app.request("/api/local/stop", {
+            method: "POST",
+            headers: { "x-r3-token": token, origin },
+          })
+        ).status,
+      ).toBe(403);
     }
+    expect((await app.request("/api/local/stop", { method: "POST" })).status).toBe(403);
+    await Bun.sleep(10);
+    expect(stopped).toBe(false);
+    expect(
+      (
+        await app.request("/api/local/stop", {
+          method: "POST",
+          headers: { "x-r3-token": token },
+        })
+      ).status,
+    ).toBe(200);
+    await Bun.sleep(10);
+    expect(stopped).toBe(true);
     expect(
       (await app.request("/api/local/status", { headers: { "x-r3-token": token } })).status,
     ).toBe(200);

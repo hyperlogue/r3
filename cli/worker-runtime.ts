@@ -375,7 +375,11 @@ export async function startWorker(): Promise<void> {
     }
     const token = randomBytes(32).toString("base64url");
     const runtime = new WorkerRuntime();
-    const app = workerApi(runtime, token);
+    let stop!: () => void;
+    const stopped = new Promise<void>((resolve) => {
+      stop = resolve;
+    });
+    const app = workerApi(runtime, token, stop);
     const server = Bun.serve({
       unix: socket,
       fetch: app.fetch,
@@ -385,10 +389,6 @@ export async function startWorker(): Promise<void> {
     chmodSync(socket, 0o600);
     writePrivateJson(workerInfoPath(), { pid: process.pid, socket, token } satisfies WorkerInfo);
     runtime.start();
-    let stop!: () => void;
-    const stopped = new Promise<void>((resolve) => {
-      stop = resolve;
-    });
     process.on("SIGTERM", stop);
     process.on("SIGINT", stop);
     try {
@@ -403,7 +403,7 @@ export async function startWorker(): Promise<void> {
   });
 }
 
-export function workerApi(runtime: WorkerRuntime, token: string) {
+export function workerApi(runtime: WorkerRuntime, token: string, stop: () => void) {
   const app = new Hono();
   app.use("*", async (c, next) => {
     const supplied = Buffer.from(c.req.header("x-r3-token") ?? "");
@@ -428,6 +428,11 @@ export function workerApi(runtime: WorkerRuntime, token: string) {
     ),
   );
   app.get("/api/local/status", (c) => c.json(runtime.status()));
+  app.post("/api/local/stop", (c) => {
+    // Let the HTTP acknowledgment flush before closing the socket.
+    setTimeout(stop, 0);
+    return c.json({ ok: true });
+  });
   app.post("/api/local/import", async (c) => {
     const url = runtime.importLocal();
     if (url) {
