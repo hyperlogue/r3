@@ -13,7 +13,6 @@ import {
   Button,
   CopyMeta,
   MoreActionsButton,
-  Pill,
   StrokeIcon,
   useEscape,
   usePopoverFocus,
@@ -337,7 +336,11 @@ export function ArtifactHeader({
           </div>
         )}
       </div>
-      {detail.state === "archived" && <Pill>Archived</Pill>}
+      {detail.state === "archived" && (
+        <span className="shrink-0 rounded border border-warning-600/30 bg-warning-50 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-800 dark:border-warning-400/30 dark:bg-warning-400/10 dark:text-warning-300">
+          Archived
+        </span>
+      )}
       <div className="min-w-0 flex-1" />
       {onToggleDiscussion && (
         <div className="flex shrink-0 items-center max-md:hidden">
