@@ -85,15 +85,10 @@ describe("source and diff language detection", () => {
     expect(langForPath("app.bib")).toBe("bibtex");
   });
 
-  test.each([
-    "",
-    "src/",
-    "README",
-    "a.txt",
-    "a.unknown",
-    "a.__proto__",
-    "a.constructor",
-  ])("unrecognized path %s stays plain text", (path) => expect(langForPath(path)).toBeNull());
+  test.each(["", "src/", "README", "a.txt", "a.unknown", "a.__proto__", "a.constructor"])(
+    "unrecognized path %s stays plain text",
+    (path) => expect(langForPath(path)).toBeNull(),
+  );
 
   test("source associations do not change retained Markdown fence selection", () => {
     expect(langForFence("ts title=example.ts")).toBe("ts");

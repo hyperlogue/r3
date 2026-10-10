@@ -25,21 +25,21 @@ afterEach(async () => {
 });
 
 describe("publisher git capture", () => {
-  test.each([
-    "tracked",
-    "untracked",
-  ])("rejects invalid UTF-8 in %s text diffs without replacing bytes", async (membership) => {
-    let base = originalTree;
-    if (membership === "tracked") {
-      await writeFile(join(root, "legacy.txt"), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]));
-      await git("add", "--", "legacy.txt");
-      base = await git("write-tree");
-    }
-    await writeFile(join(root, "legacy.txt"), Buffer.from([0x63, 0x61, 0x66, 0xe8, 0x0a]));
-    await expect(captureGitDiff(root, base, "WORKING")).rejects.toThrow(
-      "Git patch must contain valid UTF-8",
-    );
-  });
+  test.each(["tracked", "untracked"])(
+    "rejects invalid UTF-8 in %s text diffs without replacing bytes",
+    async (membership) => {
+      let base = originalTree;
+      if (membership === "tracked") {
+        await writeFile(join(root, "legacy.txt"), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]));
+        await git("add", "--", "legacy.txt");
+        base = await git("write-tree");
+      }
+      await writeFile(join(root, "legacy.txt"), Buffer.from([0x63, 0x61, 0x66, 0xe8, 0x0a]));
+      await expect(captureGitDiff(root, base, "WORKING")).rejects.toThrow(
+        "Git patch must contain valid UTF-8",
+      );
+    },
+  );
 
   test("preserves valid Unicode patch text including an authored replacement character", async () => {
     await writeFile(join(root, "readme.md"), "# caf\uFFFD → café\n");
@@ -73,42 +73,42 @@ describe("publisher git capture", () => {
     ).toEqual([`Subproject commit ${oldPointer}`, `Subproject commit ${newPointer}`]);
   });
 
-  test.each([
-    "diff.mnemonicPrefix",
-    "diff.noprefix",
-  ])("capture preserves paths and binary/mode changes with %s enabled", async (setting) => {
-    await mkdir(join(root, "b"));
-    await writeFile(join(root, "b", "nested.txt"), "before\n");
-    await writeFile(join(root, "script.sh"), "echo unchanged\n");
-    await chmod(join(root, "script.sh"), 0o644);
-    await git("add", "--", "b/nested.txt", "script.sh");
-    const base = await git("write-tree");
-    await writeFile(join(root, "b", "nested.txt"), "after\n");
-    await chmod(join(root, "script.sh"), 0o755);
-    await writeFile(join(root, "data.bin"), Buffer.from([0, 255, 42, 0]));
-    await writeFile(join(root, "untracked.bin"), Buffer.from([0, 42, 128, 0]));
-    await git("config", setting, "true");
+  test.each(["diff.mnemonicPrefix", "diff.noprefix"])(
+    "capture preserves paths and binary/mode changes with %s enabled",
+    async (setting) => {
+      await mkdir(join(root, "b"));
+      await writeFile(join(root, "b", "nested.txt"), "before\n");
+      await writeFile(join(root, "script.sh"), "echo unchanged\n");
+      await chmod(join(root, "script.sh"), 0o644);
+      await git("add", "--", "b/nested.txt", "script.sh");
+      const base = await git("write-tree");
+      await writeFile(join(root, "b", "nested.txt"), "after\n");
+      await chmod(join(root, "script.sh"), 0o755);
+      await writeFile(join(root, "data.bin"), Buffer.from([0, 255, 42, 0]));
+      await writeFile(join(root, "untracked.bin"), Buffer.from([0, 42, 128, 0]));
+      await git("config", setting, "true");
 
-    const patch = await captureGitDiff(root, base, "WORKING");
-    const files = validateStoredPatch(patch);
-    expect(files.map((file) => file.path).sort()).toEqual([
-      "b/nested.txt",
-      "data.bin",
-      "script.sh",
-      "untracked.bin",
-    ]);
-    expect(files.find((file) => file.path === "b/nested.txt")).toMatchObject({
-      oldPath: "b/nested.txt",
-      newPath: "b/nested.txt",
-      additions: 1,
-      deletions: 1,
-    });
-    expect(files.filter((file) => file.binary).map((file) => file.path)).toEqual([
-      "data.bin",
-      "untracked.bin",
-    ]);
-    expect(patch).toContain("old mode 100644\nnew mode 100755");
-  });
+      const patch = await captureGitDiff(root, base, "WORKING");
+      const files = validateStoredPatch(patch);
+      expect(files.map((file) => file.path).sort()).toEqual([
+        "b/nested.txt",
+        "data.bin",
+        "script.sh",
+        "untracked.bin",
+      ]);
+      expect(files.find((file) => file.path === "b/nested.txt")).toMatchObject({
+        oldPath: "b/nested.txt",
+        newPath: "b/nested.txt",
+        additions: 1,
+        deletions: 1,
+      });
+      expect(files.filter((file) => file.binary).map((file) => file.path)).toEqual([
+        "data.bin",
+        "untracked.bin",
+      ]);
+      expect(patch).toContain("old mode 100644\nnew mode 100755");
+    },
+  );
   test("working capture from a subdirectory keeps complete repository paths", async () => {
     await mkdir(join(root, "sub"));
     await writeFile(join(root, "sub", "tracked.ts"), "before\n");

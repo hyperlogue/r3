@@ -139,51 +139,51 @@ test("the workspace gate checks browser capabilities without a server challenge"
   ).toBe(404);
 });
 
-test.each([
-  true,
-  false,
-])("gate probes overlap while reachability remains mandatory: %s", async (ok) => {
-  const html = await (await read("/r3/gate")).text();
-  const script = /<script>([\s\S]*)<\/script>/.exec(html)![1];
-  const calls: string[] = [];
-  const reports: { state: string; reason?: string }[] = [];
-  let finish!: (response: { ok: boolean }) => void;
-  const control = new Promise<{ ok: boolean }>((resolve) => {
-    finish = resolve;
-  });
-  runInNewContext(script, {
-    origin: "null",
-    isSecureContext: true,
-    TypeError,
-    AbortSignal,
-    setTimeout,
-    clearTimeout,
-    document: { querySelector: () => ({ textContent: "" }) },
-    parent: { postMessage: (message: { state: string }) => reports.push(message) },
-    fetch: (url: string) => {
-      calls.push(url.endsWith("/outside/check") ? "blocked" : "allowed");
-      return url.endsWith("/outside/check") ? Promise.reject(new TypeError("Blocked")) : control;
-    },
-    RTCPeerConnection: class {
-      iceConnectionState = "failed";
-      createDataChannel() {
-        calls.push("rtc");
-      }
-      async createOffer() {
-        return {};
-      }
-      async setLocalDescription() {}
-      close() {}
-    },
-  });
-  await Bun.sleep(0);
-  expect(calls).toEqual(["allowed", "blocked", "rtc"]);
-  expect(reports).toHaveLength(0);
-  finish({ ok });
-  await Bun.sleep(0);
-  expect(reports[0]?.state).toBe(ok ? "ready" : "error");
-  expect(reports[0]?.reason).toBeUndefined();
-});
+test.each([true, false])(
+  "gate probes overlap while reachability remains mandatory: %s",
+  async (ok) => {
+    const html = await (await read("/r3/gate")).text();
+    const script = /<script>([\s\S]*)<\/script>/.exec(html)![1];
+    const calls: string[] = [];
+    const reports: { state: string; reason?: string }[] = [];
+    let finish!: (response: { ok: boolean }) => void;
+    const control = new Promise<{ ok: boolean }>((resolve) => {
+      finish = resolve;
+    });
+    runInNewContext(script, {
+      origin: "null",
+      isSecureContext: true,
+      TypeError,
+      AbortSignal,
+      setTimeout,
+      clearTimeout,
+      document: { querySelector: () => ({ textContent: "" }) },
+      parent: { postMessage: (message: { state: string }) => reports.push(message) },
+      fetch: (url: string) => {
+        calls.push(url.endsWith("/outside/check") ? "blocked" : "allowed");
+        return url.endsWith("/outside/check") ? Promise.reject(new TypeError("Blocked")) : control;
+      },
+      RTCPeerConnection: class {
+        iceConnectionState = "failed";
+        createDataChannel() {
+          calls.push("rtc");
+        }
+        async createOffer() {
+          return {};
+        }
+        async setLocalDescription() {}
+        close() {}
+      },
+    });
+    await Bun.sleep(0);
+    expect(calls).toEqual(["allowed", "blocked", "rtc"]);
+    expect(reports).toHaveLength(0);
+    finish({ ok });
+    await Bun.sleep(0);
+    expect(reports[0]?.state).toBe(ok ? "ready" : "error");
+    expect(reports[0]?.reason).toBeUndefined();
+  },
+);
 
 test("published resources retain bytes, native MIME, private validators, and ranges", async () => {
   const file = await read("/files/data.bin");

@@ -84,24 +84,24 @@ describe("injected authentication store", () => {
     ]);
   });
 
-  test.each([
-    "single",
-    "all",
-  ])("%s revocation discards deferred use without restoring access", (mode) => {
-    const issued = auth.createLoginToken(null);
-    const session = auth.mintSession(issued.info.id);
-    time = "2026-09-01T00:00:30.000Z";
-    expect(auth.sessionValid(session.cookieValue)).toBe(true);
-    if (mode === "single") expect(auth.revokeToken(issued.info.id)).toBe(true);
-    else expect(auth.revokeAllTokens()).toBe(1);
-    auth.flushLastUsed();
-    expect(auth.sessionValid(session.cookieValue)).toBe(false);
-    expect(auth.verifyLogin(issued.token)).toBeNull();
-    expect(db.query("SELECT last_used_at, revoked_at FROM auth_tokens").get()).toEqual({
-      last_used_at: issued.info.createdAt,
-      revoked_at: time,
-    });
-  });
+  test.each(["single", "all"])(
+    "%s revocation discards deferred use without restoring access",
+    (mode) => {
+      const issued = auth.createLoginToken(null);
+      const session = auth.mintSession(issued.info.id);
+      time = "2026-09-01T00:00:30.000Z";
+      expect(auth.sessionValid(session.cookieValue)).toBe(true);
+      if (mode === "single") expect(auth.revokeToken(issued.info.id)).toBe(true);
+      else expect(auth.revokeAllTokens()).toBe(1);
+      auth.flushLastUsed();
+      expect(auth.sessionValid(session.cookieValue)).toBe(false);
+      expect(auth.verifyLogin(issued.token)).toBeNull();
+      expect(db.query("SELECT last_used_at, revoked_at FROM auth_tokens").get()).toEqual({
+        last_used_at: issued.info.createdAt,
+        revoked_at: time,
+      });
+    },
+  );
 
   test("login and session values are generated once and only their digests are persisted", () => {
     const issued = auth.createLoginToken("Test access");

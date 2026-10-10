@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>r3 — Render. Review. Refine. A clearer conversation with your coding agent.</title>
   <rect width="1200" height="630" fill="#ffffff"/>
   <path d="M70 112H1130M70 548H1130" stroke="#e5e5e5"/>
   <text x="70" y="84" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="700" fill="#171717">r3</text>

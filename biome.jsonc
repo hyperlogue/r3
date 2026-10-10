@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -20,7 +20,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       // r3 renders server-generated, trusted highlighted HTML and exposes
       // text-selection / clickable code-line surfaces; the CLI/HTTP-boundary
       // JSON helpers are deliberately `any`; `!` is idiomatic after a

@@ -7,45 +7,45 @@ import { ArtifactClient } from "../shared/artifact-client.ts";
 import { ArtifactArgs } from "./artifact-args.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
 
-test.each([
-  "invalid UTF-8",
-  "oversized",
-])("publication rejects %s Markdown before creating an artifact", async (input) => {
-  const root = await mkdtemp(join(tmpdir(), "r3-publish-command-"));
-  const calls: string[] = [];
-  const client = new ArtifactClient({
-    url: "http://localhost",
-    fetch: async (request) => {
-      calls.push(new URL(request.url).pathname);
-      throw new Error("Unexpected request before Markdown validation");
-    },
-  });
-  try {
-    await writeFile(
-      join(root, "notes.md"),
-      input === "invalid UTF-8"
-        ? Buffer.from([0xff])
-        : Buffer.alloc(PUBLICATION_LIMITS.markdownBytes + 1, "a"),
-    );
-    await expect(
-      publishArtifactCommand("create", new ArtifactArgs(["--kind", "files", "--dir", "."]), {
-        client,
-        actor: { role: "human", sessionId: null },
-        cwd: root,
-        stdin: async () => "",
-        text: async () => undefined,
-        error: () => {},
-      }),
-    ).rejects.toThrow(
-      input === "invalid UTF-8"
-        ? "Markdown must contain valid UTF-8"
-        : "Markdown exceeds the rendering size limit",
-    );
-    expect(calls).toEqual([]);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
+test.each(["invalid UTF-8", "oversized"])(
+  "publication rejects %s Markdown before creating an artifact",
+  async (input) => {
+    const root = await mkdtemp(join(tmpdir(), "r3-publish-command-"));
+    const calls: string[] = [];
+    const client = new ArtifactClient({
+      url: "http://localhost",
+      fetch: async (request) => {
+        calls.push(new URL(request.url).pathname);
+        throw new Error("Unexpected request before Markdown validation");
+      },
+    });
+    try {
+      await writeFile(
+        join(root, "notes.md"),
+        input === "invalid UTF-8"
+          ? Buffer.from([0xff])
+          : Buffer.alloc(PUBLICATION_LIMITS.markdownBytes + 1, "a"),
+      );
+      await expect(
+        publishArtifactCommand("create", new ArtifactArgs(["--kind", "files", "--dir", "."]), {
+          client,
+          actor: { role: "human", sessionId: null },
+          cwd: root,
+          stdin: async () => "",
+          text: async () => undefined,
+          error: () => {},
+        }),
+      ).rejects.toThrow(
+        input === "invalid UTF-8"
+          ? "Markdown must contain valid UTF-8"
+          : "Markdown exceeds the rendering size limit",
+      );
+      expect(calls).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test("publication validates capture before create and preserves recovery identity on a lost response", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-publish-command-"));

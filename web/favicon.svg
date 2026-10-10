@@ -17,6 +17,7 @@
      README's <img> both point here, and the Logo component inlines the same
      asset. Edit only here. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>r3</title>
   <rect width="100" height="100" rx="22" fill="#f1f5f9"/>
   <g transform="translate(50 61.04) scale(.92)">
     <g class="arms">
