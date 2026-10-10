@@ -12,6 +12,7 @@ on:
     # Include the website, demo, and the product sources used to generate docs
     # and fixtures. Deployment must follow content changes as well as UI changes.
     paths:
+      - .gitattributes
       - site/**
       - web/**
       - shared/**
@@ -60,6 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          lfs: true
           persist-credentials: false # nothing here pushes
 
       # Pin Bun to the dev-shell version so the demo bundles identically to local.

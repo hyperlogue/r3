@@ -198,6 +198,11 @@ from the root package; Pagefind is a development dependency for static search.
 Root TypeScript checking includes `site/`; the existing test and Biome commands
 discover its files. Keep generated output under the ignored `dist/` directory.
 
+Fieldwork PNG captures use Git LFS because shared UI changes regenerate them.
+Website builds and capture verification require hydrated image bytes; follow
+`site/README.md` for checkout setup. Keep LFS enabled in the CI build and Pages
+checkout steps. Binary-only jobs do not need these website assets.
+
 The Pages workflow uses `bun site/build.ts` when that entrypoint exists. This
 single command owns the complete deployable output, including the demo:
 

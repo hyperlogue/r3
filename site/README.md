@@ -11,9 +11,17 @@ small browser script. The homepage embeds the real React workspace under
 Run from the repository root with the pinned toolchain available:
 
 ```sh
+git lfs install
+git lfs pull
 bun --no-env-file site/build.ts
 bun --no-env-file site/serve.ts
 ```
+
+The Fieldwork PNG captures use Git LFS. Install Git LFS before cloning, or run
+the setup commands above in an existing checkout before building the site.
+The capture verifier needs the image bytes, not LFS pointer files. CI and Pages
+download them during checkout. The small social image and SVG sources remain
+ordinary Git files.
 
 The preview server binds to loopback and defaults to port 4173. Override it with
 `R3_SITE_PORT`. Rebuild after changing content; the preview serves `dist/pages/`.
