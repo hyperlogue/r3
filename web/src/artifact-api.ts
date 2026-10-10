@@ -41,6 +41,7 @@ import type {
   ArtifactVersion,
   ArtifactWatcher,
   CreateArtifactCommentBody,
+  EditArtifactBody,
   EditArtifactProjectBody,
   EditArtifactThreadBody,
 } from "../../shared/artifacts.ts";
@@ -104,7 +105,7 @@ export const artifactApi = {
       "GET",
       `${versionPath(id, seq)}/diff-context${query({ path, start, end, theme })}`,
     ),
-  edit: (id: string, body: { title?: string; summary?: string }) =>
+  edit: (id: string, body: EditArtifactBody) =>
     client().json<Artifact>("PATCH", artifactApiPath(id), body),
   delete: (id: string) => client().json<{ ok: boolean }>("DELETE", artifactApiPath(id)),
   addThread: (
