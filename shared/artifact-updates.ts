@@ -2,7 +2,7 @@ import type {
   Artifact,
   ArtifactClaim,
   ArtifactDetail,
-  ArtifactDiscussion,
+  ArtifactThread,
   ArtifactWatcher,
 } from "./artifacts.ts";
 import { artifactAgentIds } from "./artifacts.ts";
@@ -12,8 +12,8 @@ export interface ArtifactDelta {
   baseCursor: string;
   syncCursor: string;
   artifact: Artifact;
-  discussions: ArtifactDiscussion[];
-  removedDiscussionIds: string[];
+  threads: ArtifactThread[];
+  removedThreadIds: string[];
   claims: ArtifactClaim[];
   watchers: ArtifactWatcher[];
   agentLabels: Record<string, string | null>;
@@ -30,22 +30,22 @@ export function mergeArtifactUpdate(
   if (!current || current.id !== update.artifact.id)
     throw new Error("Artifact update needs its snapshot");
   if (current.syncCursor !== update.baseCursor) throw new Error("Artifact update has a stale base");
-  const removed = new Set(update.removedDiscussionIds);
-  const changed = new Map(update.discussions.map((discussion) => [discussion.id, discussion]));
-  const claims = new Map(update.claims.map((claim) => [claim.discussionId, claim]));
-  const discussions = current.discussions
-    .filter((discussion) => !removed.has(discussion.id))
-    .map((discussion) => {
-      const next = changed.get(discussion.id) ?? discussion;
-      changed.delete(discussion.id);
+  const removed = new Set(update.removedThreadIds);
+  const changed = new Map(update.threads.map((thread) => [thread.id, thread]));
+  const claims = new Map(update.claims.map((claim) => [claim.threadId, claim]));
+  const threads = current.threads
+    .filter((thread) => !removed.has(thread.id))
+    .map((thread) => {
+      const next = changed.get(thread.id) ?? thread;
+      changed.delete(thread.id);
       return { ...next, claim: claims.get(next.id) ?? null };
     });
-  discussions.push(...changed.values());
+  threads.push(...changed.values());
   const next = {
     ...current,
     ...update.artifact,
     syncCursor: update.syncCursor,
-    discussions,
+    threads,
     agentLabels: { ...current.agentLabels, ...update.agentLabels },
   };
   next.agentLabels = Object.fromEntries(

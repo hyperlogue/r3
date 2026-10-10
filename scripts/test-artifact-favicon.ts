@@ -76,7 +76,7 @@ try {
   const page = await browser.attach(targetId);
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/${artifact.id}` });
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-discussions-mode]')"),
+    () => page.evaluate("!!document.querySelector('[data-discussion-mode]')"),
     "artifact workspace",
   );
   const icon = "document.querySelector('link[rel=icon]').href";
@@ -84,9 +84,9 @@ try {
   const changed = async () => (await page.evaluate(icon)) !== original;
   const notify = () =>
     api.collaboration.broadcast({
-      type: "discussions-updated",
+      type: "threads-updated",
       artifactId: artifact.id,
-      discussionId: note.id,
+      threadId: note.id,
     });
   await storage.conversations.addComment(note.id, {
     actor: { role: "agent", sessionId: "favicon-agent" },
@@ -95,10 +95,10 @@ try {
   });
   notify();
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-discussions-attention]')"),
+    () => page.evaluate("!!document.querySelector('[data-threads-attention]')"),
     "agent comment reaches the panel attention indicator",
   );
-  await eventually(changed, "unhandled agent discussions adds the favicon notification dot");
+  await eventually(changed, "unhandled agent threads adds the favicon notification dot");
   const pixel = await page.evaluate<number[]>(`new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
@@ -134,8 +134,8 @@ try {
   );
   await page.evaluate(`document.querySelector('a[href="/${artifact.id}"]').click()`);
   await eventually(changed, "reopening an artifact retains its unhandled attention");
-  await page.evaluate("document.querySelector('[data-discussions-action=resolve]').click()");
-  await eventually(async () => !(await changed()), "resolving discussions clears the favicon dot");
+  await page.evaluate("document.querySelector('[data-thread-action=resolve]').click()");
+  await eventually(async () => !(await changed()), "resolving threads clears the favicon dot");
   console.log(
     "Favicon acceptance passed: blue agent-attention dot, human comments, resolution, and navigation cleanup.",
   );

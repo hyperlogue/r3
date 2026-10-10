@@ -15,7 +15,7 @@ const build = await Bun.build({
   define: { "process.env.NODE_ENV": '"production"' },
   plugins: [await browserLoweredCssPlugin()],
 });
-if (!build.success) throw new Error("Discussion acceptance workspace failed to build");
+if (!build.success) throw new Error("Thread acceptance workspace failed to build");
 const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
 const js = build.outputs
   .find((output) => output.path.endsWith(".js"))!
@@ -25,7 +25,7 @@ const css = build.outputs
   .find((output) => output.path.endsWith(".css"))
   ?.path.split("/")
   .at(-1);
-const root = await mkdtemp(join(tmpdir(), "r3-discussions-acceptance-"));
+const root = await mkdtemp(join(tmpdir(), "r3-threads-acceptance-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({
@@ -36,7 +36,7 @@ const artifact = storage.artifacts.create({
 await storage.artifacts.publish(artifact.id, {
   actor,
   expectedSeq: 0,
-  publicationKey: "discussions-interactions",
+  publicationKey: "threads-interactions",
   content: {
     kind: "files",
     files: [
@@ -71,7 +71,7 @@ const app = Bun.serve({
   idleTimeout: 60,
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (request.method === "PATCH" && /^\/api\/discussions\/[^/]+$/.test(path))
+    if (request.method === "PATCH" && /^\/api\/threads\/[^/]+$/.test(path))
       return new Promise<Response>((respond) => pending.push({ request, respond }));
     if (path.startsWith("/api/")) {
       const response = await api.app.fetch(request);
@@ -108,17 +108,17 @@ try {
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const card = (id: string) =>
-    `document.querySelector('[data-artifact-discussions="${id}"]:not([inert]):not([inert] *)')`;
-  await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "discussions cards");
+    `document.querySelector('[data-artifact-thread="${id}"]:not([inert]):not([inert] *)')`;
+  await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "threads cards");
   // Keep the HTTP mutation pending. The user should see resolution immediately,
   // rather than paying for the mutation plus a subsequent artifact refetch.
   await page.evaluate(
-    `${card(notes[0].id)}.querySelector('[data-discussions-action="resolve"]').click()`,
+    `${card(notes[0].id)}.querySelector('[data-thread-action="resolve"]').click()`,
   );
   await eventually(async () => pending.length === 1, "held status mutation");
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.equal(
-    await page.evaluate("document.querySelector('[data-discussions-tab=active]').textContent"),
+    await page.evaluate("document.querySelector('[data-discussion-tab=active]').textContent"),
     "Active 1",
     "Resolve must update the queue before its HTTP response",
   );
@@ -128,27 +128,27 @@ try {
     context: { versionSeq: 1, representation: "source" },
   });
   api.collaboration.broadcast({
-    type: "discussions-updated",
+    type: "threads-updated",
     artifactId: artifact.id,
-    discussionId: notes[1].id,
+    threadId: notes[1].id,
   });
   await eventually(
     () => page.evaluate("document.body.textContent.includes('A comment arrived while saving')"),
     "concurrent comment is refetched",
   );
   assert.equal(
-    await page.evaluate("document.querySelector('[data-discussions-tab=active]').textContent"),
+    await page.evaluate("document.querySelector('[data-discussion-tab=active]').textContent"),
     "Active 1",
     "Refetching a comment must preserve the pending resolution",
   );
   await page.evaluate(
-    `${card(notes[1].id)}.querySelector('[data-discussions-action="resolve"]').click()`,
+    `${card(notes[1].id)}.querySelector('[data-thread-action="resolve"]').click()`,
   );
   await eventually(async () => pending.length === 2, "two independent status mutations");
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-tab=active]').textContent === 'Active 0'",
+        "document.querySelector('[data-discussion-tab=active]').textContent === 'Active 0'",
       ),
     "both decisions are optimistic",
   );
@@ -162,7 +162,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-tab=active]').textContent === 'Active 1'",
+        "document.querySelector('[data-discussion-tab=active]').textContent === 'Active 1'",
       ),
     "failed resolution restores the thread",
   );
@@ -188,16 +188,13 @@ try {
   assert.ok(fullReads > fullBefore, "Metadata changes recover through full detail");
   storage.conversations.delete(notes[0].id, actor);
   api.collaboration.broadcast({
-    type: "discussions-updated",
+    type: "threads-updated",
     artifactId: artifact.id,
-    discussionId: notes[0].id,
+    threadId: notes[0].id,
   });
-  await eventually(
-    () => page.evaluate(`!${card(notes[0].id)}`),
-    "deleted discussion leaves the cache",
-  );
+  await eventually(() => page.evaluate(`!${card(notes[0].id)}`), "deleted thread leaves the cache");
   console.log(
-    "Incremental discussion reads preserve pending decisions, show concurrent comments, remove deleted discussions, and recover metadata with a full snapshot.",
+    "Incremental thread reads preserve pending decisions, show concurrent comments, remove deleted threads, and recover metadata with a full snapshot.",
   );
 } finally {
   for (const request of pending) request.respond(new Response(null, { status: 503 }));

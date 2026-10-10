@@ -17,12 +17,12 @@ import { prepareAttachmentImage } from "./attachment-image.ts";
 import { type BlobStore, hashBytes } from "./blobs.ts";
 
 export const ATTACHMENT_SCHEMA = `
-CREATE UNIQUE INDEX IF NOT EXISTS discussion_attachment_owner ON discussions(id, artifact_id);
+CREATE UNIQUE INDEX IF NOT EXISTS thread_attachment_owner ON threads(id, artifact_id);
 CREATE UNIQUE INDEX IF NOT EXISTS comment_attachment_owner ON comments(id, artifact_id);
 CREATE TABLE IF NOT EXISTS message_attachments (
   id TEXT PRIMARY KEY NOT NULL,
   artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
-  discussion_id TEXT,
+  thread_id TEXT,
   comment_id TEXT,
   purpose TEXT NOT NULL DEFAULT 'message' CHECK (purpose IN ('message', 'target')),
   position INTEGER NOT NULL CHECK (position >= 0 AND position < 4),
@@ -31,26 +31,26 @@ CREATE TABLE IF NOT EXISTS message_attachments (
   width INTEGER NOT NULL CHECK (width > 0),
   height INTEGER NOT NULL CHECK (height > 0 AND width * height <= 20000000),
   capture_json TEXT CHECK (capture_json IS NULL OR json_valid(capture_json)),
-  CHECK ((discussion_id IS NULL) != (comment_id IS NULL)),
-  FOREIGN KEY (discussion_id, artifact_id) REFERENCES discussions(id, artifact_id) ON DELETE CASCADE,
+  CHECK ((thread_id IS NULL) != (comment_id IS NULL)),
+  FOREIGN KEY (thread_id, artifact_id) REFERENCES threads(id, artifact_id) ON DELETE CASCADE,
   FOREIGN KEY (comment_id, artifact_id) REFERENCES comments(id, artifact_id) ON DELETE CASCADE
 ) STRICT;
 CREATE TRIGGER IF NOT EXISTS immutable_message_attachment
-BEFORE UPDATE OF id, artifact_id, discussion_id, comment_id, blob_hash, media_type, width, height, capture_json, purpose
+BEFORE UPDATE OF id, artifact_id, thread_id, comment_id, blob_hash, media_type, width, height, capture_json, purpose
 ON message_attachments BEGIN SELECT RAISE(ABORT, 'Attachment evidence is immutable'); END;
-CREATE UNIQUE INDEX IF NOT EXISTS target_frame_discussions ON message_attachments(discussion_id) WHERE purpose = 'target';
+CREATE UNIQUE INDEX IF NOT EXISTS target_frame_threads ON message_attachments(thread_id) WHERE purpose = 'target';
 CREATE UNIQUE INDEX IF NOT EXISTS target_frame_comment ON message_attachments(comment_id) WHERE purpose = 'target';
-CREATE INDEX IF NOT EXISTS attachments_discussions ON message_attachments(discussion_id);
+CREATE INDEX IF NOT EXISTS attachments_threads ON message_attachments(thread_id);
 CREATE INDEX IF NOT EXISTS attachments_comment ON message_attachments(comment_id);
 CREATE TABLE IF NOT EXISTS message_operations (
   artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
   operation_key TEXT NOT NULL,
   request_hash TEXT NOT NULL,
-  discussion_id TEXT,
+  thread_id TEXT,
   comment_id TEXT,
   PRIMARY KEY (artifact_id, operation_key),
-  CHECK ((discussion_id IS NULL) != (comment_id IS NULL)),
-  FOREIGN KEY (discussion_id, artifact_id) REFERENCES discussions(id, artifact_id) ON DELETE CASCADE,
+  CHECK ((thread_id IS NULL) != (comment_id IS NULL)),
+  FOREIGN KEY (thread_id, artifact_id) REFERENCES threads(id, artifact_id) ON DELETE CASCADE,
   FOREIGN KEY (comment_id, artifact_id) REFERENCES comments(id, artifact_id) ON DELETE CASCADE
 ) STRICT;
 `;
@@ -59,9 +59,9 @@ type ImageRow = ArtifactAttachment & { captureJson: string | null };
 export type PreparedAttachment =
   | { existing: string }
   | Omit<ArtifactAttachment, "id" | "artifactId">;
-type Owner = { discussionId: string } | { commentId: string };
-const ownerColumn = (owner: Owner) => ("discussionId" in owner ? "discussion_id" : "comment_id");
-const ownerId = (owner: Owner) => ("discussionId" in owner ? owner.discussionId : owner.commentId);
+type Owner = { threadId: string } | { commentId: string };
+const ownerColumn = (owner: Owner) => ("threadId" in owner ? "thread_id" : "comment_id");
+const ownerId = (owner: Owner) => ("threadId" in owner ? owner.threadId : owner.commentId);
 const select = `SELECT a.id, a.artifact_id AS artifactId, a.blob_hash AS hash,
   a.media_type AS mediaType, a.width, a.height, b.byte_length AS byteLength,
   a.capture_json AS captureJson FROM message_attachments a JOIN blobs b ON b.hash = a.blob_hash`;
@@ -180,12 +180,12 @@ export class ArtifactAttachments {
         .run(image.hash, image.byteLength, this.clock());
       this.db
         .query(
-          `INSERT INTO message_attachments(id, artifact_id, discussion_id, comment_id, position, blob_hash, media_type, width, height, capture_json, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO message_attachments(id, artifact_id, thread_id, comment_id, position, blob_hash, media_type, width, height, capture_json, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           `image_${randomUUID().replaceAll("-", "")}`,
           artifactId,
-          "discussionId" in owner ? owner.discussionId : null,
+          "threadId" in owner ? owner.threadId : null,
           "commentId" in owner ? owner.commentId : null,
           position,
           image.hash,
@@ -202,35 +202,35 @@ export class ArtifactAttachments {
   operation(
     artifactId: string,
     input: Record<string, unknown>,
-    kind: "discussions" | "comment",
+    kind: "threads" | "comment",
     parentId: string,
   ) {
     if (input.operationKey === undefined) return { replay: null, save: (_owner: Owner) => {} };
     const key = requireString(input.operationKey, "Operation key", 200);
     // Keep the original hashing namespace so retries survive the terminology upgrade.
     const hash = hashBytes(
-      canonicalJson({ kind: kind === "discussions" ? "feedback" : "reply", parentId, input }),
+      canonicalJson({ kind: kind === "threads" ? "feedback" : "reply", parentId, input }),
     );
     const row = this.db
       .query<
-        { request_hash: string; discussion_id: string | null; comment_id: string | null },
+        { request_hash: string; thread_id: string | null; comment_id: string | null },
         [string, string]
       >("SELECT * FROM message_operations WHERE artifact_id = ? AND operation_key = ?")
       .get(artifactId, key);
     if (row && row.request_hash !== hash)
       throw new ArtifactError("Operation key was used for a different message", 409);
     return {
-      replay: row ? (row.comment_id ?? row.discussion_id) : null,
+      replay: row ? (row.comment_id ?? row.thread_id) : null,
       save: (owner: Owner) =>
         this.db
           .query(
-            "INSERT INTO message_operations(artifact_id, operation_key, request_hash, discussion_id, comment_id) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO message_operations(artifact_id, operation_key, request_hash, thread_id, comment_id) VALUES (?, ?, ?, ?, ?)",
           )
           .run(
             artifactId,
             key,
             hash,
-            "discussionId" in owner ? owner.discussionId : null,
+            "threadId" in owner ? owner.threadId : null,
             "commentId" in owner ? owner.commentId : null,
           ),
     };

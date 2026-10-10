@@ -132,7 +132,7 @@ export interface SourceLocator {
   // Exact excerpt from within the captured range; it need not cover every line.
   quote: string;
 }
-// Complete captured lines for a discussion target, fetched only on demand.
+// Complete captured lines for a thread target, fetched only on demand.
 export interface ArtifactSourceRange {
   artifactId: string;
   versionSeq: number;
@@ -228,7 +228,7 @@ export type ArtifactReferenceContext =
       versionSeq: number;
       representation: Representation | null;
     };
-// References inherit the discussion's original evidence unless the comment
+// References inherit the thread's original evidence unless the comment
 // identifies a different published location. Existing saved contexts stay pinned.
 export function artifactReferenceContext(
   target: ArtifactTarget | null | undefined,
@@ -242,7 +242,7 @@ export function artifactReferenceContext(
   };
 }
 export interface ArtifactClaim {
-  discussionId: string;
+  threadId: string;
   sessionId: string;
   claimedAt: string;
   renewedAt: string;
@@ -251,7 +251,7 @@ export interface ArtifactClaim {
 export interface ArtifactComment {
   attachments?: ArtifactAttachment[];
   id: string;
-  discussionId: string | null;
+  threadId: string | null;
   artifactId: string;
   author: ArtifactActor;
   body: string;
@@ -261,7 +261,7 @@ export interface ArtifactComment {
   createdAt: string;
   sentAt: string | null;
 }
-export interface ArtifactDiscussion {
+export interface ArtifactThread {
   id: string;
   artifactId: string;
   status: "open" | "resolved";
@@ -274,7 +274,7 @@ export interface ArtifactDiscussion {
   claim: ArtifactClaim | null;
 }
 export interface ArtifactPlacement {
-  discussionId: string;
+  threadId: string;
   artifactId: string;
   target: ArtifactDocumentTarget;
   state: "anchored" | "unplaced" | "ambiguous";
@@ -295,7 +295,7 @@ export interface ArtifactDetail extends Artifact {
   // Optional cursor for bounded incremental reads; invalid after server restart.
   syncCursor?: string;
   versions: ArtifactVersion[];
-  discussions: ArtifactDiscussion[];
+  threads: ArtifactThread[];
   placements: ArtifactPlacement[];
   events: ArtifactLifecycleEvent[];
   // Current labels only for sessions referenced by this artifact. Older saved
@@ -309,10 +309,10 @@ export function artifactAgentIds(detail: ArtifactDetail): string[] {
         detail.createdBy.sessionId,
         ...detail.versions.map((version) => version.publishedBy.sessionId),
         ...detail.events.map((event) => event.actor.sessionId),
-        ...detail.discussions.flatMap((discussions) => [
-          discussions.comments[0]!.author.sessionId,
-          discussions.claim?.sessionId,
-          ...discussions.comments.slice(1).map((comment) => comment.author.sessionId),
+        ...detail.threads.flatMap((threads) => [
+          threads.comments[0]!.author.sessionId,
+          threads.claim?.sessionId,
+          ...threads.comments.slice(1).map((comment) => comment.author.sessionId),
         ]),
       ].filter((id): id is string => typeof id === "string"),
     ),
@@ -374,7 +374,7 @@ export interface PublishArtifactBody {
         patch: string;
       };
 }
-export interface CreateArtifactDiscussionBody {
+export interface CreateArtifactThreadBody {
   mediaSnapshot?: AttachmentInput;
   operationKey?: string;
   attachments?: AttachmentInput[];
@@ -390,7 +390,7 @@ export interface CreateArtifactCommentBody {
   body: string;
   target?: ArtifactVersionTarget | null;
 }
-export interface EditArtifactDiscussionBody {
+export interface EditArtifactThreadBody {
   attachments?: AttachmentInput[];
   actor: ArtifactActor;
   body?: string;
@@ -401,16 +401,16 @@ export interface EditArtifactCommentBody {
   actor: ArtifactActor;
   body: string;
 }
-export function isUnhandledArtifactDiscussion(discussions: ArtifactDiscussion): boolean {
-  return discussions.status === "open" && discussions.comments.at(-1)!.author.role === "agent";
+export function isUnhandledArtifactThread(thread: ArtifactThread): boolean {
+  return thread.status === "open" && thread.comments.at(-1)!.author.role === "agent";
 }
-export function hasUnsentArtifactDiscussion(discussions: ArtifactDiscussion): boolean {
+export function hasUnsentArtifactThread(thread: ArtifactThread): boolean {
   return (
-    (discussions.comments[0]!.author.role === "human" &&
-      discussions.comments[0]!.sentAt === null &&
-      discussions.status === "open") ||
-    discussions.statusUnsent ||
-    discussions.comments
+    (thread.comments[0]!.author.role === "human" &&
+      thread.comments[0]!.sentAt === null &&
+      thread.status === "open") ||
+    thread.statusUnsent ||
+    thread.comments
       .slice(1)
       .some((comment) => comment.author.role === "human" && comment.sentAt === null)
   );
@@ -436,9 +436,9 @@ export type ArtifactStreamEvent =
       seq: number;
     }
   | {
-      type: "discussions-updated";
+      type: "threads-updated";
       artifactId: string;
-      discussionId: string;
+      threadId: string;
     }
   | {
       type: "presence-changed";
@@ -457,7 +457,7 @@ export type ArtifactStreamEvent =
       type: "superseded";
       artifactId: string;
     };
-export const ARTIFACT_WATCH_EXIT = { archived: 0, discussions: 10, timeout: 2, busy: 4 } as const;
+export const ARTIFACT_WATCH_EXIT = { archived: 0, comments: 10, timeout: 2, busy: 4 } as const;
 export interface ArtifactWatcher {
   connectionState?: "connected" | "disconnected" | "failed";
   error?: string | null;
@@ -497,21 +497,21 @@ export type ArtifactWatchResult =
       event: ArtifactLifecycleEvent | null;
     }
   | {
-      result: "discussions" | "timeout" | "cancelled" | "superseded" | "deleted";
+      result: "comments" | "timeout" | "cancelled" | "superseded" | "deleted";
     };
-export interface ArtifactDiscussionAcknowledgment {
-  discussions?: string[];
+export interface ArtifactCommentAcknowledgment {
+  threads?: string[];
   expectedFingerprint: string;
 }
-export interface ArtifactDiscussionRead {
+export interface ArtifactCommentRead {
   attachments?: ArtifactAttachment[];
   text: string;
   itemCount: number;
 }
-export interface ArtifactDiscussionSnapshot extends ArtifactDiscussionRead {
-  acknowledgment: ArtifactDiscussionAcknowledgment;
+export interface ArtifactCommentSnapshot extends ArtifactCommentRead {
+  acknowledgment: ArtifactCommentAcknowledgment;
 }
-export interface ArtifactDiscussionAcknowledged {
+export interface ArtifactCommentAcknowledged {
   acknowledgedCount: number;
 }
 // Compatible retains restrictive headers without requiring verified network

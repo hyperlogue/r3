@@ -18,7 +18,7 @@ export function useArtifactComparison(
   if (commentId && commentId !== retainedId) setRetainedId(commentId);
   const remember = useCallback(() => {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    scroll.current = [...document.querySelectorAll<HTMLElement>("[data-discussions-queue]")].map(
+    scroll.current = [...document.querySelectorAll<HTMLElement>("[data-discussion-queue]")].map(
       (node) => ({ node, top: node.scrollTop }),
     );
   }, []);

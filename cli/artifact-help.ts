@@ -13,7 +13,7 @@ export function artifactWelcome(): string {
   ${styleText("cyan", "r3 list")}      List your artifacts
   ${styleText("cyan", "r3 --help")}    All commands and options
 
-  ${styleText("bold", "Agents:")} run ${styleText("cyan", "r3 guide")} before publishing or handling discussions.
+  ${styleText("bold", "Agents:")} run ${styleText("cyan", "r3 guide")} before publishing or handling threads.
 `;
 }
 
@@ -65,18 +65,18 @@ Publication: --version-label L --summary S --key K --no-listen
 Create: --kind is required; --project ID --meta k=v (repeatable).
 HTML images: publish standalone assets with relative <img src> URLs; see r3 guide html.
 
-  discussions add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
-  discussions edit <discussion-id> [-m <message>] [--status open|resolved --human]
+  thread add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
+  thread edit <thread-id> [-m <message>] [--status open|resolved --human]
         [--attach <image>]... | [--clear-attachments]
-  discussions delete <discussion-id>
-  comment <discussion-id> [-m <message>] [--attach <image>]... [--key K]
+  thread delete <thread-id>
+  comment <thread-id> [-m <message>] [--attach <image>]... [--key K]
         [target flags] [--frame <snapshot.png>]
-  comment fetch <artifact-id> [--all] [--discussions <id,id>] [--attachments-dir <directory>]
+  comment fetch <artifact-id> [--all] [--threads <id,id>] [--attachments-dir <directory>]
   comment show <comment-id> [--json]          # opening, follow-up, or archive Comment
   comment edit <comment-id> [-m <message>] [--attach <image>]... | [--clear-attachments]
-  claim <discussion-id>... | release <discussion-id>...
-  discussions image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
-  discussions source <discussion-id> [--json]      # full captured source/diff range
+  claim <thread-id>... | release <thread-id>...
+  comment image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
+  thread source <thread-id> [--json]      # full captured source/diff range
   watch <id> [--timeout <seconds>]
   listen <id>                                # explicit notification recipient
   unlisten <id>                              # remove your listener registrations
@@ -92,18 +92,18 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          plus --frame <snapshot.png|jpg>. time is seconds (null for images); box is
          normalized {x,y,width,height}, default full frame. Snapshots stay immutable.
          HTML fix links: set locator.label in --target JSON (see r3 guide html).
-         no target flags means general artifact discussions.
-         Version descriptions are read-only metadata, not discussions targets.
+         no target flags means general artifact threads.
+         Version descriptions are read-only metadata, not thread targets.
 Identity: Detected run IDs are qualified by harness (codex:<id> or claude:<id>).
           R3_AGENT_SESSION supplies an explicit complete identity override.
           --session <name> sets a readable display name; it never changes identity.
           --human acts as the human owner. watch needs no supplied identity.
-Comment fetch writes pending comments and discussion status changes to stdout,
+Comment fetch writes pending comments and thread status changes to stdout,
 acknowledges that snapshot only after output succeeds, then registers the calling
 agent when supported.
 Listener failure only warns on stderr. A failed acknowledgment can repeat output
 on retry; concurrent edits remain pending. --human skips listener registration.
-Use ! r3 comment fetch <id> in your harness to load discussions into its context.
+Use ! r3 comment fetch <id> in your harness to load comments into its context.
 --all reads history without acknowledgment or listener registration.
 Images: static PNG/JPEG, at most four per message, 5 MiB and 20 megapixels each.
 A message needs text or an image. Editing with --attach replaces all images;
@@ -112,7 +112,7 @@ Use the same --key to retry an unchanged add/comment after an uncertain response
 Image references are numbered [image1], [image2], etc. within each message in
 fetch output. --attachments-dir downloads and
 verifies the snapshot's images before output and acknowledgment; failures leave
-discussions pending. Existing matching files are reused; different files are not overwritten.
+comments pending. Existing matching files are reused; different files are not overwritten.
 Text flags accept - to read stdin. --json prints structured results.
 Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
 Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
@@ -152,33 +152,33 @@ credentials, and sends it for project grouping. Ambiguous remotes stay ungrouped
 Later versions retain their artifact's project; --project overrides creation.
 `;
 
-export const ARTIFACT_GUIDE = `# r3 — publish artifacts and respond to discussions
+export const ARTIFACT_GUIDE = `# r3 — publish artifacts and respond to threads
 
-r3 lets agents publish immutable versions of artifacts for humans to review and optionally leave discussions. Run \`r3\` as a subprocess from your harness.
+r3 lets agents publish immutable versions of artifacts for humans to review and discuss. Each artifact has one discussion containing resolvable threads and authored comments. A reply is a comment in a thread; an archive comment belongs directly to the discussion. Run \`r3\` as a subprocess from your harness.
 
 ## A typical review
 
-Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the discussions IDs from the human's submission; the IDs below are examples.
+Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the thread IDs from the human's submission; the IDs below are examples.
 
 \`\`\`sh
 r3 create --kind files --dir ./prepared --title 'Design review'
 artifact_id=artifact_example
 # Share the printed URL. Local Claude Code/Codex publications register automatically.
 
-# When a discussion-submitted notification arrives:
+# When a comments-submitted notification arrives:
 r3 comment fetch "$artifact_id"
-r3 claim discussion_a discussion_b discussion_c
+r3 claim thread_a thread_b thread_c
 
 # Inspect the recorded targets and revise the prepared files.
 r3 publish "$artifact_id" --dir ./prepared --expected 1
 # Suppose publication returned version 2, discussed in rendered view:
-r3 comment discussion_a -m 'Clarified ownership.' \\
+r3 comment thread_a -m 'Clarified ownership.' \\
   --target '{"kind":"rendered","versionSeq":2,"path":"plan.md","locator":{"selector":"#ownership"}}'
-r3 comment discussion_b -m 'Added the missing case.'
-r3 comment discussion_c -m 'Corrected the example.'
+r3 comment thread_b -m 'Added the missing case.'
+r3 comment thread_c -m 'Corrected the example.'
 \`\`\`
 
-The backend keeps subscriptions across a temporary disconnect and displays delivery errors in the browser. The persistent worker reconnects without changing selection or submitting discussions. A fresh \`r3 listen\` from the same or another agent replaces the explicit subscription. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged discussions on stdout: process it directly.
+The backend keeps subscriptions across a temporary disconnect and displays delivery errors in the browser. The persistent worker reconnects without changing selection or submitting comments. A fresh \`r3 listen\` from the same or another agent replaces the explicit subscription. If \`listen\` exits **5**, its harness wake adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged comments on stdout: process it directly.
 
 Archived artifacts remain readable. Content changes, comments, and subscriptions return a conflict until you restore the artifact. A comment still in preparation when archive commits is rejected; keep its text and restore before retrying.
 
@@ -210,41 +210,41 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 
 \`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 
-Search retained work with \`r3 search "keyboard focus" --history all --json\`. Matches carry explicit publication, document/line or rendered-text evidence, and discussions/comment identity. Use \`--type conversation\` for messages or \`--attention\` for active artifacts awaiting human review. Search never acknowledges discussions or claims work.
+Search retained work with \`r3 search "keyboard focus" --history all --json\`. Matches carry explicit publication, document/line or rendered-text evidence, and thread/comment identity. Use \`--type conversation\` for messages or \`--attention\` for active artifacts awaiting human review. Search never acknowledges comments or claims work.
 
 Optional \`--version-label\` names the published version; \`--summary\` describes it. The CLI detects the Git remote for server-configured project grouping. Explicit \`--project\` overrides inference; details and artifact metadata flags are in \`r3 --help\`.
 
-## Receive discussions
+## Receive comments
 
-Claude Code and Codex publications register the publisher as fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending discussions.
+Claude Code and Codex publications register the publisher as fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if listener setup fails, with a warning. Registration and restart do not send pending comments.
 
 The worker inherits the permissions of the CLI that starts it. On new worker startup, recognized sandbox environment markers produce a warning on stderr: notifications may fail even when the command succeeds. Detection is best effort; reusing a running worker stays quiet. If the worker was started inside a sandbox, run \`r3 worker restart\` from a terminal outside it.
 
-\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch discussions.
+\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch comments.
 
 Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect removes its live registrations. Reconnect restores saved roles only if the artifact has no incumbent recipient, including a publisher fallback. Conflicts stop automatic attempts until a fresh CLI action. Archive and superseded registrations never return. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
 
-\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms discussions were written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the discussions snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. An artifact can retain fallback and explicit registrations with one selected recipient.
+\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms comments were written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the comment snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. An artifact can retain fallback and explicit registrations with one selected recipient.
 
-\`r3 comment fetch <id> [--all] [--discussions <id,id>]\` reads pending comments and discussion status changes with their conversation context, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave discussions pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
+\`r3 comment fetch <id> [--all] [--threads <id,id>]\` reads pending comments and thread status changes with their conversation context, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave comments pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
 
-After acknowledgment, fetch registers the calling agent as the explicit listener when its harness supports listening, using the local worker and a direct backend registration. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--discussions <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
+After acknowledgment, fetch registers the calling agent as the explicit listener when its harness supports listening, using the local worker and a direct backend registration. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--threads <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
 
-When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 comment fetch <id>\` in your harness to feed its output into context. Copying the command leaves discussions pending until it runs. Use the existing payload when discussions were returned by watch or a harness command.
+When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 comment fetch <id>\` in your harness to feed its output into context. Copying the command leaves comments pending until it runs. Use the existing payload when comments were returned by watch or a harness command.
 
-## Handle discussions
+## Handle threads
 
-\`r3 claim <discussion-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <discussion-id>...\` when abandoning work. A resolved-status notification needs no action.
+\`r3 claim <thread-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <thread-id>...\` when abandoning work. A resolved-status notification needs no action.
 
-Discussion may include images. Labels such as \`[image1]\` refer to the numbered attachment in that same note or comment. Download them with the supplied \`r3 discussions image\` command and open them with your harness's image-viewing tool before responding. A text reference does not load pixels into the model. Alternatively, \`r3 comment fetch <id> --attachments-dir ./discussions-images\` downloads and verifies all images in the snapshot before acknowledging it. Capture context describes observed pixels; it does not establish a selector or source line. Use repeatable \`--attach <image>\` on discussions and comments to provide visual evidence.
+Comments may include images. Labels such as \`[image1]\` refer to the numbered attachment in that same note or comment. Download them with the supplied \`r3 comment image\` command and open them with your harness's image-viewing tool before responding. A text reference does not load pixels into the model. Alternatively, \`r3 comment fetch <id> --attachments-dir ./comment-images\` downloads and verifies all images in the snapshot before acknowledging it. Capture context describes observed pixels; it does not establish a selector or source line. Use repeatable \`--attach <image>\` on threads and comments to provide visual evidence.
 
 Inspect original targets in their recorded version and representation. Rendered selectors, quotes, routes, and viewports describe the published page, not source lines. Reuse matching local source when revising your own publication; retrieve published content only when needed, such as an older version or another agent's work. Inspection/download commands are in \`r3 --help\`.
 
-Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 discussions source <discussion-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge discussions, claim it, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
+Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 thread source <thread-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge comments, claim a thread, or register a listener. Rendered, general, and whole-file targets have no captured line range and return an error.
 
-Publish changed content, then \`r3 comment <discussion-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the discussion's original target. General discussions without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use a comment’s fix target to point to a later version.
+Publish changed content, then \`r3 comment <thread-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the thread's original target. General threads without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use a comment’s fix target to point to a later version.
 
-Successful comments release only your own claims. Publishing and commenting never resolve discussions; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
+Successful comments release only your own claims. Publishing and commenting never resolve threads; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and removes all saved registrations; restore requires fresh registration.`;
 
 const HTML_GUIDE = `# HTML artifacts
 
@@ -273,18 +273,18 @@ Keep large images in standalone files and reference them with native HTML:
 
 Extract large embedded base64/data-URL images into files, and reuse the same path where an image repeats. Relative URLs resolve from the document; a leading slash addresses the preview origin. The preview also supplies a version-root URL for constructed asset URLs. Use hash routes or published document paths for navigation.
 
-## Preview and rendered discussions
+## Preview and rendered threads
 
 Bundle dependencies and assets locally: external requests are blocked by default. If the page requires external services or device access, explain that requirement to the human.
 
-Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered discussions easier to anchor and inspect.
+Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered threads easier to anchor and inspect.
 
-For a new rendered target, \`discussions add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
+For a new rendered target, \`thread add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
 
 When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
 
 \`\`\`sh
-r3 comment <discussion-id> -m 'Added the storage explanation.' --version 2 --view rendered \\
+r3 comment <thread-id> -m 'Added the storage explanation.' --version 2 --view rendered \\
   --target '{"kind":"rendered","versionSeq":2,"path":"index.html","locator":{"selector":"#storage-help","label":"Storage help button"}}'
 \`\`\``;
 
@@ -314,29 +314,29 @@ r3 publish <id> --dir . --file docs/plan.md --file src
 
 Directory capture includes hidden files. Prepare the intended publication directory or select explicit relative paths. Materialize symlinks into ordinary files before capture; symlinks and special files are rejected. Publish stable content: capture fails if files or membership change during the read.
 
-## Source and rendered discussions
+## Source and rendered threads
 
-For a new source target, \`discussions add\` accepts \`--file <path> --version <seq> --view source --line <start-end> --quote <captured text>\`. Omit line and quote for a whole-file target.
+For a new source target, \`thread add\` accepts \`--file <path> --version <seq> --view source --line <start-end> --quote <captured text>\`. Omit line and quote for a whole-file target.
 
-For image/video discussions, use a native \`media\` target and supply the full unannotated
+For image/video threads, use a native \`media\` target and supply the full unannotated
 PNG/JPEG snapshot with \`--frame\`. The locator is \`{time, box}\`: time is one instant in
 seconds without rounding, or null for a still image; box is normalized
 \`{x,y,width,height}\` within the intrinsic frame, defaulting to the full frame.
 The saved frame is authoritative; video seeking may show a neighboring frame.
 PNG, JPEG, static WebP and browser-decodable video are supported. Animated images
-remain whole-file discussions. For example:
+remain whole-file threads. For example:
 
-\`r3 comment discussion_a --version 2 --view media -m 'Improved caption contrast.' --target '{"kind":"media","versionSeq":2,"path":"clip.mp4","locator":{"time":6.3,"box":{"x":0.1,"y":0.7,"width":0.8,"height":0.2}}}' --frame ./fixed-frame.png\`
+\`r3 comment thread_a --version 2 --view media -m 'Improved caption contrast.' --target '{"kind":"media","versionSeq":2,"path":"clip.mp4","locator":{"time":6.3,"box":{"x":0.1,"y":0.7,"width":0.8,"height":0.2}}}' --frame ./fixed-frame.png\`
 
-\`r3 comment fetch <id> --attachments-dir ./discussions-images\` also downloads the
-original and fix snapshots; \`r3 discussions image\` retrieves an individual frame.
+\`r3 comment fetch <id> --attachments-dir ./comment-images\` also downloads the
+original and fix snapshots; \`r3 comment image\` retrieves an individual frame.
 Inspect those saved pixels and the normalized box instead of reconstructing the
 original by seeking. Only agent comments with explicit media fix targets qualify
 for media Compare; commenting leaves resolution to the human.
 
 For rendered HTML/Markdown, use \`--view rendered\` with \`--selector <CSS>\` and optional \`--quote <text>\` and \`--route <query/hash>\`, or the recorded JSON target. Keep any companion assets in the publication and use relative document URLs. Rendered previews remain isolated; files artifacts do not receive the HTML-artifact external-access grant.
 
-The main guide covers the discussions loop and native evidence. Use \`r3 --help\` for inspection and placement command details.`;
+The main guide covers the discussion loop and native evidence. Use \`r3 --help\` for inspection and placement command details.`;
 
 const DIFF_GUIDE = `# Diff artifacts
 
@@ -368,7 +368,7 @@ Patch text must be valid UTF-8. Invalid text bytes are rejected instead of repla
 
 ## Diff targets
 
-Read the captured patch with \`r3 patch <id> --version <seq>\`. For a new line target, \`discussions add\` accepts \`--file <path> --version <seq> --view diff --side old|new --line <start-end> --quote <captured text>\`.
+Read the captured patch with \`r3 patch <id> --version <seq>\`. For a new line target, \`thread add\` accepts \`--file <path> --version <seq> --view diff --side old|new --line <start-end> --quote <captured text>\`.
 
 The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence and commenting with a native fix target.`;
 

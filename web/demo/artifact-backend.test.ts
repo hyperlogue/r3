@@ -12,13 +12,13 @@ test("demo diff excerpts retain and retrieve the complete native range", () => {
     const start = rows[0].newLine!;
     const end = rows.at(-1)!.newLine!;
     const quote = rows.find((row) => row.text.trim())!.text;
-    const note = backend.addDiscussion(artifact.id, "Full range", {
+    const note = backend.addThread(artifact.id, "Full range", {
       kind: "diff",
       versionSeq: 1,
       path: file.path,
       locator: { side: "new", start, end, quote },
     });
-    expect(backend.discussionSource(note.id).text).toBe(rows.map((row) => row.text).join("\n"));
+    expect(backend.threadSource(note.id).text).toBe(rows.map((row) => row.text).join("\n"));
     expect(backend.note(note.id).note.comments[0]!.sentAt).toBeNull();
   } finally {
     backend.close();
@@ -29,7 +29,7 @@ test("demo targets match their published source and diff, and reads retain prior
   try {
     for (const artifact of backend.state.artifacts) {
       expect(backend.pending(artifact.id)).toEqual([]);
-      for (const note of artifact.discussions) {
+      for (const note of artifact.threads) {
         backend.target(artifact.id, note.target);
         expect(note.comments[0]!.sentAt).not.toBeNull();
         for (const comment of note.comments.slice(1)) {
@@ -47,13 +47,13 @@ test("demo targets match their published source and diff, and reads retain prior
     expect(firstStorage.totalBytes).toBeGreaterThan(0);
     expect(firstStorage.latestVersionBytes).toBe(firstStorage.totalBytes);
     expect(() =>
-      backend.addDiscussion(id, "Description note", {
+      backend.addThread(id, "Description note", {
         kind: "version_summary",
         versionSeq: 1,
         locator: null,
       }),
     ).toThrow("read-only historical evidence");
-    const note = backend.addDiscussion(id, "Keep the original version available", {
+    const note = backend.addThread(id, "Keep the original version available", {
       kind: "artifact",
     });
     expect(backend.note(note.id).note.comments[0]!.sentAt).toBeNull();
@@ -81,7 +81,7 @@ test("demo reset restores the seed and drops practice messages, images and pendi
   try {
     const id = backend.state.artifacts[0].id;
     const original = structuredClone(backend.state);
-    backend.addDiscussion(id, "Temporary practice note", { kind: "artifact" });
+    backend.addThread(id, "Temporary practice note", { kind: "artifact" });
     backend.images.set("practice-image", { artifactId: id, blob: new Blob(["practice"]) });
     backend.handoff(id);
     backend.reset();
@@ -98,9 +98,9 @@ test("demo archive retains unsent work and prevents in-flight comments and publi
   const backend = new ArtifactDemoBackend();
   try {
     const id = backend.state.artifacts[0].id;
-    const note = backend.addDiscussion(id, "Explain this", { kind: "artifact" });
+    const note = backend.addThread(id, "Explain this", { kind: "artifact" });
     backend.handoff(id);
-    const pending = backend.addDiscussion(id, "Keep this for later", { kind: "artifact" });
+    const pending = backend.addThread(id, "Keep this for later", { kind: "artifact" });
     const command = {
       event: "archived" as const,
       operationKey: "archive-demo",

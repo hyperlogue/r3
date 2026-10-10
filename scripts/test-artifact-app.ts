@@ -111,7 +111,7 @@ try {
   previous.close();
   await writeFile(
     join(directory, "index.html"),
-    '<!doctype html><html><body><h1 id="title">First published page</h1><button id="send">Discuss this heading</button><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{const note=await r3.createDiscussion({body:"Please explain the heading",locator:{selector:"#title",quote:title.textContent}});window.createdNote=note.id;};</script></body></html>',
+    '<!doctype html><html><body><h1 id="title">First published page</h1><button id="send">Discuss this heading</button><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{const note=await r3.createThread({body:"Please explain the heading",locator:{selector:"#title",quote:title.textContent}});window.createdNote=note.id;};</script></body></html>',
   );
   await writeFile(
     join(directory, "index.md"),
@@ -144,7 +144,7 @@ try {
       "--json",
     ]),
   );
-  assert((await command(["status"])).includes("artifacts-v2"));
+  assert((await command(["status"])).includes("artifacts-v3"));
   browser = await openTestBrowser();
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
@@ -220,12 +220,12 @@ try {
     [2],
   );
   assert.equal(
-    imported.discussions[0].comments.find(
+    imported.threads[0].comments.find(
       (comment: { id: string }) => comment.id === retainedComment.id,
     )?.body,
     "Retained agent comment",
   );
-  assert.equal(imported.discussions[0].comments[0].sentAt, null);
+  assert.equal(imported.threads[0].comments[0].sentAt, null);
   const backups = await readdir(`${environment.R3_DB}.artifacts/backups`);
   assert.equal(backups.length, 1);
   const backup = new Database(join(`${environment.R3_DB}.artifacts/backups`, backups[0]), {
@@ -255,16 +255,16 @@ try {
     });
   const noteId = await eventually(
     () => content.evaluate("window.createdNote"),
-    "compiled human utility discussions",
+    "compiled human utility threads",
   );
   await eventually(
     () => page.evaluate("document.body.textContent.includes('Please explain the heading')"),
     "compiled conversation panel",
   );
   const detail = JSON.parse(await command(["show", html.artifact.id, "--json"]));
-  assert.equal(detail.discussions[0].id, noteId);
-  assert.equal(detail.discussions[0].comments[0].author.role, "human");
-  assert.equal(detail.discussions[0].target.versionSeq, 1);
+  assert.equal(detail.threads[0].id, noteId);
+  assert.equal(detail.threads[0].comments[0].author.role, "human");
+  assert.equal(detail.threads[0].target.versionSeq, 1);
   await writeFile(join(directory, "index.html"), "<!doctype html><h1>Second published page</h1>");
   // A remote publisher has its own discovery directories and explicit server
   // credential; it uploads bytes without exposing any local path to the daemon.

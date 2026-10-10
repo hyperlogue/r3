@@ -51,7 +51,7 @@ export function FileCard({
   wrapHeader = false,
   viewed,
   onToggleViewed,
-  onFileDiscussion,
+  onFileThread,
   autoFold = false,
   current = false,
   foldSignal,
@@ -71,9 +71,9 @@ export function FileCard({
   viewed: boolean;
   // Omit when this surface does not offer read-progress controls.
   onToggleViewed?: () => void;
-  // Open the discussions composer anchored to this whole file (no line span). Absent
-  // ⇒ no button (a view where whole-file discussions doesn't apply).
-  onFileDiscussion?: () => void;
+  // Open the comment composer anchored to this whole file (no line span). Absent
+  // ⇒ no button (a view where whole-file threads don't apply).
+  onFileThread?: () => void;
   autoFold?: boolean;
   // This is the file the scroll-spy calls current — the one a per-file keyboard
   // shortcut (`z` fold, `x` viewed, `a` note) would act on. The per-file bindings
@@ -259,14 +259,14 @@ export function FileCard({
               <span className="max-md:sr-only">Viewed</span>
             </button>
           )}
-          {onFileDiscussion && (
+          {onFileThread && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onFileDiscussion();
+                onFileThread();
               }}
-              title="Leave discussions on this file"
+              title="Leave a comment on this file"
               // Match the sibling "Viewed" pill's height (same py-0.5; the size-3.5
               // icon ≈ the pill's text/checkbox line-box) so the two per-file
               // controls read as one matched cluster — the same reason the markdown

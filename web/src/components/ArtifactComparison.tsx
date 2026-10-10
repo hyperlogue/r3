@@ -140,7 +140,7 @@ export function ArtifactComparison({
         </div>
       ) : (
         <p role="status" className="p-6 text-sm text-neutral-500">
-          This comparison is no longer available. Return to the artifact to read its discussions.
+          This comparison is no longer available. Return to the artifact to read its threads.
         </p>
       )}
     </section>
@@ -248,7 +248,7 @@ function ComparisonPreview({
               targets: [],
               onTarget: () => {},
               onDocument: setPath,
-              onDiscussion: () => {},
+              onThread: () => {},
               active,
               highlightLocated: targets,
               onLocated: setState,

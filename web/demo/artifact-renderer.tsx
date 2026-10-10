@@ -80,9 +80,9 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
         replaceLocateRoute: props.independentReading,
         noteHasText: props.noteHasText,
         composerVisible: props.composerVisible,
-        targets: props.targets.flatMap(({ discussionId, target }) =>
+        targets: props.targets.flatMap(({ threadId, target }) =>
           target.kind === "rendered" && target.path === path && target.versionSeq === seq
-            ? [{ discussionId, locator: target.locator }]
+            ? [{ threadId, locator: target.locator }]
             : [],
         ),
         jump: !fitContent || measured.current ? props.jump : null,
@@ -186,12 +186,12 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
             (message.action === "focus" || message.action === "escape")
           )
             props.onComposerKey?.(message.action);
-        } else if (message.type === "r3-preview-discussions") {
+        } else if (message.type === "r3-preview-threads") {
           if (
             props.active !== false &&
-            props.targets.some((target) => target.discussionId === message.discussionId)
+            props.targets.some((target) => target.threadId === message.threadId)
           )
-            props.onDiscussion(message.discussionId);
+            props.onThread(message.threadId);
         } else if (message.type === "r3-preview-located" && message.nonce === props.jump?.nonce) {
           if (["anchored", "ambiguous", "unplaced"].includes(message.state))
             props.onLocated?.(message.state);

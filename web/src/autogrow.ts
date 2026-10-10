@@ -1,4 +1,4 @@
-// Auto-growing textareas — the discussions composer and comment box start short and
+// Auto-growing textareas — the comment composer and comment box start short and
 // grow with their content up to a line cap, then scroll.
 //
 // Two paths to the same box. Where the browser can size a control to its own

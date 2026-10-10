@@ -17,8 +17,8 @@ export function installArtifactUsage(db: Database, completeSince: string | null)
     db.exec(`INSERT INTO artifact_activity SELECT occurred_at, metric, count(*) FROM (
       SELECT created_at AS occurred_at, 'artifactsCreated' AS metric FROM artifacts
       UNION ALL SELECT published_at, 'versionsPublished' FROM artifact_versions WHERE published_at IS NOT NULL
-      UNION ALL SELECT created_at, 'threadsAdded' FROM discussions
-      UNION ALL SELECT created_at, 'commentsAdded' FROM discussions
+      UNION ALL SELECT created_at, 'threadsAdded' FROM threads
+      UNION ALL SELECT created_at, 'commentsAdded' FROM threads
       UNION ALL SELECT created_at, 'commentsAdded' FROM artifact_comments
       UNION ALL SELECT created_at, 'commentsAdded' FROM comments
       UNION ALL SELECT created_at, event FROM artifact_events
@@ -38,8 +38,8 @@ export function installArtifactUsage(db: Database, completeSince: string | null)
       "'versionsPublished'",
       "WHEN NEW.published_at IS NOT NULL",
     ],
-    ["thread", "discussions", "NEW.created_at", "'threadsAdded'", ""],
-    ["opening_comment", "discussions", "NEW.created_at", "'commentsAdded'", ""],
+    ["thread", "threads", "NEW.created_at", "'threadsAdded'", ""],
+    ["opening_comment", "threads", "NEW.created_at", "'commentsAdded'", ""],
     ["artifact_comment", "artifact_comments", "NEW.created_at", "'commentsAdded'", ""],
     ["comment", "comments", "NEW.created_at", "'commentsAdded'", ""],
     ["lifecycle", "artifact_events", "NEW.created_at", "NEW.event", ""],

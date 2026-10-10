@@ -31,8 +31,8 @@ const SEQUENCE = `sequenceDiagram
     A->>S: [1] r3 create — opens a review
     loop until you Approve or Abandon
         A->>S: [2] r3 watch
-        U->>S: [3] leave discussions + Submit
-        S-->>A: watch prints discussions
+        U->>S: [3] leave threads + Submit
+        S-->>A: watch prints threads
     end
 `;
 

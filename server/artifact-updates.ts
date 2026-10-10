@@ -45,9 +45,7 @@ export class ArtifactUpdates {
     if (
       events.some(
         (event) =>
-          !["discussions-updated", "presence-changed", "submitted", "superseded"].includes(
-            event.type,
-          ),
+          !["threads-updated", "presence-changed", "submitted", "superseded"].includes(event.type),
       )
     )
       return this.snapshot(id);
@@ -57,14 +55,12 @@ export class ArtifactUpdates {
     };
     const changed = [
       ...new Set(
-        events.flatMap((event) =>
-          event.type === "discussions-updated" ? [event.discussionId] : [],
-        ),
+        events.flatMap((event) => (event.type === "threads-updated" ? [event.threadId] : [])),
       ),
     ];
-    const discussions = changed.map((discussionId) => {
+    const threads = changed.map((threadId) => {
       try {
-        return this.storage.conversations.get(discussionId);
+        return this.storage.conversations.get(threadId);
       } catch (error) {
         if (error instanceof ArtifactError && error.status === 404) return null;
         throw error;
@@ -72,8 +68,8 @@ export class ArtifactUpdates {
     });
     const claims = this.storage.conversations.claims(id);
     const authors = [
-      ...discussions.flatMap(
-        (discussion) => discussion?.comments.map((comment) => comment.author.sessionId) ?? [],
+      ...threads.flatMap(
+        (thread) => thread?.comments.map((comment) => comment.author.sessionId) ?? [],
       ),
       ...claims.map((claim) => claim.sessionId),
     ];
@@ -82,8 +78,8 @@ export class ArtifactUpdates {
       baseCursor: since!,
       syncCursor: this.cursor,
       artifact,
-      discussions: discussions.filter((discussion) => discussion !== null),
-      removedDiscussionIds: changed.filter((_, index) => discussions[index] === null),
+      threads: threads.filter((thread) => thread !== null),
+      removedThreadIds: changed.filter((_, index) => threads[index] === null),
       claims,
       watchers: this.collaboration.watchers(id),
       agentLabels: this.storage.artifacts.sessionLabels(authors.filter((id) => id !== null)),

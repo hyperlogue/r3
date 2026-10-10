@@ -112,7 +112,7 @@ function location(
   return {
     versionSeq,
     path: target?.path ?? null,
-    discussionId: null,
+    threadId: null,
     commentId: null,
     context:
       versionSeq === null
@@ -139,7 +139,7 @@ export class ArtifactSearch {
   private put(doc: Document): void {
     this.db
       .query(`INSERT INTO artifact_search_documents
-      (key, artifact_id, version_seq, discussion_id, comment_id, category, name, body, location_json)
+      (key, artifact_id, version_seq, thread_id, comment_id, category, name, body, location_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET
         name = excluded.name, body = excluded.body, location_json = excluded.location_json
       WHERE name <> excluded.name OR body <> excluded.body OR location_json <> excluded.location_json`)
@@ -147,7 +147,7 @@ export class ArtifactSearch {
         doc.key,
         doc.artifactId,
         doc.location.versionSeq,
-        doc.location.discussionId,
+        doc.location.threadId,
         doc.location.commentId,
         doc.category,
         doc.name,
@@ -294,22 +294,22 @@ export class ArtifactSearch {
             body: artifact.title ?? artifact.id,
             location: location(null),
           });
-          for (const discussions of this.conversations.list(artifact.id)) {
-            const original = discussions.target;
+          for (const threads of this.conversations.list(artifact.id)) {
+            const original = threads.target;
             const seq = "versionSeq" in original ? original.versionSeq : null;
             const target =
               original.kind === "source" || original.kind === "rendered" || original.kind === "diff"
                 ? original
                 : null;
             this.put({
-              key: discussions.id,
+              key: threads.id,
               artifactId: artifact.id,
-              category: "discussions",
+              category: "thread",
               name: target?.path ?? "",
-              body: discussions.comments[0]!.body,
-              location: { ...location(seq, target), discussionId: discussions.id },
+              body: threads.comments[0]!.body,
+              location: { ...location(seq, target), threadId: threads.id },
             });
-            for (const comment of discussions.comments.slice(1))
+            for (const comment of threads.comments.slice(1))
               this.put({
                 key: comment.id,
                 artifactId: artifact.id,
@@ -319,7 +319,7 @@ export class ArtifactSearch {
                 location: {
                   ...location(comment.context.versionSeq),
                   context: comment.context,
-                  discussionId: discussions.id,
+                  threadId: threads.id,
                   commentId: comment.id,
                 },
               });
@@ -372,7 +372,7 @@ export class ArtifactSearch {
     ];
     const args = [terms.map((term) => `"${term}"*`).join(" AND "), ids];
     if (options.history !== "all")
-      clauses.push(`(d.category IN ('artifact','discussions','comment') OR d.version_seq = (
+      clauses.push(`(d.category IN ('artifact','thread','comment') OR d.version_seq = (
       SELECT MAX(seq) FROM artifact_versions v WHERE v.artifact_id = d.artifact_id AND v.published_at IS NOT NULL))`);
     const from = `FROM artifact_search_fts JOIN artifact_search_documents d ON d.id = artifact_search_fts.rowid`;
     const counts = { all: 0, content: 0, conversation: 0 };
@@ -389,11 +389,11 @@ export class ArtifactSearch {
       .all(...args)) {
       counts.all += row.n;
       counts[
-        row.category === "discussions" || row.category === "comment" ? "conversation" : "content"
+        row.category === "thread" || row.category === "comment" ? "conversation" : "content"
       ] += row.n;
     }
-    if (options.type === "conversation") clauses.push("d.category IN ('discussions','comment')");
-    if (options.type === "content") clauses.push("d.category NOT IN ('discussions','comment')");
+    if (options.type === "conversation") clauses.push("d.category IN ('thread','comment')");
+    if (options.type === "content") clauses.push("d.category NOT IN ('thread','comment')");
     const total = counts[options.type ?? "all"];
     const limit = options.limit ?? 50,
       offset = options.offset ?? 0;

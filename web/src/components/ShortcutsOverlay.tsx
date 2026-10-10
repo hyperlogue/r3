@@ -5,7 +5,7 @@ import { cn, useEscape, usePopoverFocus } from "../ui.tsx";
 // `?` cheat sheet, rendered from KEYMAP. Owns `help`; suspends every other
 // binding while open so `j` doesn't walk the list behind the sheet.
 
-const GROUPS = ["Review", "Discussion", "Files", "View"] as const;
+const GROUPS = ["Review", "Thread", "Files", "View"] as const;
 
 function Key({ chord }: { chord: string }) {
   return (
@@ -92,8 +92,8 @@ export function ShortcutsOverlay() {
             line range stays a mouse gesture by design, and someone hunting the map
             for it should find the answer here rather than concluding it's missing. */}
         <p className="mt-1 border-t border-neutral-200 pt-3 text-[0.6875rem] leading-relaxed text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-          Anchoring discussions to a line range is a mouse gesture — drag in the code, or
-          click-and-drag the line numbers. Shortcuts stand down while you're typing.
+          Anchoring threads to a line range is a mouse gesture — drag in the code, or click-and-drag
+          the line numbers. Shortcuts stand down while you're typing.
         </p>
       </div>
     </div>

@@ -15,7 +15,7 @@ const build = await Bun.build({
   define: { "process.env.NODE_ENV": '"production"' },
   plugins: [await browserLoweredCssPlugin()],
 });
-if (!build.success) throw new Error("Discussion acceptance workspace failed to build");
+if (!build.success) throw new Error("Thread acceptance workspace failed to build");
 const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
 const js = build.outputs
   .find((output) => output.path.endsWith(".js"))!
@@ -25,7 +25,7 @@ const css = build.outputs
   .find((output) => output.path.endsWith(".css"))
   ?.path.split("/")
   .at(-1);
-const root = await mkdtemp(join(tmpdir(), "r3-discussions-acceptance-"));
+const root = await mkdtemp(join(tmpdir(), "r3-threads-acceptance-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({
@@ -36,7 +36,7 @@ const artifact = storage.artifacts.create({
 await storage.artifacts.publish(artifact.id, {
   actor,
   expectedSeq: 0,
-  publicationKey: "discussions-interactions",
+  publicationKey: "threads-interactions",
   content: {
     kind: "files",
     files: [
@@ -71,7 +71,7 @@ const app = Bun.serve({
   idleTimeout: 60,
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (request.method === "PATCH" && /^\/api\/discussions\/[^/]+$/.test(path))
+    if (request.method === "PATCH" && /^\/api\/threads\/[^/]+$/.test(path))
       return new Promise<Response>((respond) => pending.push({ request, respond }));
     if (rejectDetail && request.method === "GET" && path === `/api/artifacts/${artifact.id}`) {
       failedDetailReads++;
@@ -99,17 +99,17 @@ try {
   });
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const card = (id: string) =>
-    `document.querySelector('[data-artifact-discussions="${id}"]:not([inert]):not([inert] *)')`;
-  await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "discussions cards");
+    `document.querySelector('[data-artifact-thread="${id}"]:not([inert]):not([inert] *)')`;
+  await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "threads cards");
   // Keep the HTTP mutation pending. The user should see resolution immediately,
   // rather than paying for the mutation plus a subsequent artifact refetch.
   await page.evaluate(
-    `${card(notes[0].id)}.querySelector('[data-discussions-action="resolve"]').click()`,
+    `${card(notes[0].id)}.querySelector('[data-thread-action="resolve"]').click()`,
   );
   await eventually(async () => pending.length === 1, "held status mutation");
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.equal(
-    await page.evaluate("document.querySelector('[data-discussions-tab=active]').textContent"),
+    await page.evaluate("document.querySelector('[data-discussion-tab=active]').textContent"),
     "Active 1",
     "Resolve must update the queue before its HTTP response",
   );
@@ -119,27 +119,27 @@ try {
     context: { versionSeq: 1, representation: "source" },
   });
   api.collaboration.broadcast({
-    type: "discussions-updated",
+    type: "threads-updated",
     artifactId: artifact.id,
-    discussionId: notes[1].id,
+    threadId: notes[1].id,
   });
   await eventually(
     () => page.evaluate("document.body.textContent.includes('A comment arrived while saving')"),
     "concurrent comment is refetched",
   );
   assert.equal(
-    await page.evaluate("document.querySelector('[data-discussions-tab=active]').textContent"),
+    await page.evaluate("document.querySelector('[data-discussion-tab=active]').textContent"),
     "Active 1",
     "Refetching a comment must preserve the pending resolution",
   );
   await page.evaluate(
-    `${card(notes[1].id)}.querySelector('[data-discussions-action="resolve"]').click()`,
+    `${card(notes[1].id)}.querySelector('[data-thread-action="resolve"]').click()`,
   );
   await eventually(async () => pending.length === 2, "two independent status mutations");
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-tab=active]').textContent === 'Active 0'",
+        "document.querySelector('[data-discussion-tab=active]').textContent === 'Active 0'",
       ),
     "both decisions are optimistic",
   );
@@ -153,7 +153,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-tab=active]').textContent === 'Active 1'",
+        "document.querySelector('[data-discussion-tab=active]').textContent === 'Active 1'",
       ),
     "failed resolution restores the thread",
   );
@@ -168,14 +168,14 @@ try {
     async () => storage.conversations.list(artifact.id)[1].status === "resolved",
     "other resolution persists independently",
   );
-  await page.evaluate("document.querySelector('[data-discussions-tab=resolved]').click()");
-  const indicator = "document.querySelector('[data-discussions-tab-indicator]')";
+  await page.evaluate("document.querySelector('[data-discussion-tab=resolved]').click()");
+  const indicator = "document.querySelector('[data-discussion-tab-indicator]')";
   const badge = await page.evaluate(`(() => {
     const indicator = ${indicator};
     const animation = indicator.getAnimations()[0];
     animation.pause(); animation.currentTime = 190;
-    const active = document.querySelector('[data-discussions-tab=active]');
-    const resolved = document.querySelector('[data-discussions-tab=resolved]');
+    const active = document.querySelector('[data-discussion-tab=active]');
+    const resolved = document.querySelector('[data-discussion-tab=resolved]');
     return {
       duration: animation.effect.getTiming().duration,
       bounds: indicator.getBoundingClientRect().toJSON(),
@@ -188,7 +188,7 @@ try {
   assert(Math.abs(badge.bounds.width - badge.width * 1.18) < 0.2, "The badge stretches midway");
   assert(Math.abs(badge.bounds.height - badge.height * 0.85) < 0.2, "The badge flattens midway");
   assert(Math.abs(badge.label.height - badge.height) < 1, "The label keeps its normal height");
-  const track = "document.querySelector('[data-discussions-track]')";
+  const track = "document.querySelector('[data-discussion-track]')";
   await eventually(() => page.evaluate(`${track}.getAnimations().length > 0`), "queue slide");
   const slide = await page.evaluate(`(() => {
     const track = ${track};
@@ -197,7 +197,7 @@ try {
     return {x: new DOMMatrix(getComputedStyle(track).transform).m41, width: track.offsetWidth};
   })()`);
   assert(slide.x < 0 && slide.x > -slide.width, "Resolved enters from the right");
-  await page.evaluate("document.querySelector('[data-discussions-tab=active]').click()");
+  await page.evaluate("document.querySelector('[data-discussion-tab=active]').click()");
   const reversedBadge = await page.evaluate(`(() => {
     const indicator = ${indicator};
     const animation = indicator.getAnimations()[0];
@@ -205,7 +205,7 @@ try {
     const bounds = indicator.getBoundingClientRect().toJSON();
     animation.finish();
     return {bounds, settled: indicator.getBoundingClientRect().toJSON(),
-      target: document.querySelector('[data-discussions-tab=active]').getBoundingClientRect().toJSON()};
+      target: document.querySelector('[data-discussion-tab=active]').getBoundingClientRect().toJSON()};
   })()`);
   for (const key of ["x", "y", "width", "height"] as const) {
     assert(
@@ -219,7 +219,7 @@ try {
   }
   await page.evaluate(`Promise.all(${track}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
   assert.equal(await page.evaluate(`new DOMMatrix(getComputedStyle(${track}).transform).m41`), 0);
-  await page.evaluate("document.querySelector('[data-discussions-tab=resolved]').click()");
+  await page.evaluate("document.querySelector('[data-discussion-tab=resolved]').click()");
   await eventually(
     () =>
       page.evaluate(`${card(notes[1].id)}?.textContent.includes('A comment arrived while saving')`),
@@ -228,18 +228,18 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        `!${card(notes[1].id)}.querySelector('[data-discussions-action="resolve"]').disabled`,
+        `!${card(notes[1].id)}.querySelector('[data-thread-action="resolve"]').disabled`,
       ),
     "saved decision can be reopened",
   );
   await page.evaluate(
-    `${card(notes[1].id)}.querySelector('[data-discussions-action="resolve"]').click()`,
+    `${card(notes[1].id)}.querySelector('[data-thread-action="resolve"]').click()`,
   );
   await eventually(async () => pending.length === 1, "held reopen mutation");
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-tab=resolved]').textContent === 'Resolved 0'",
+        "document.querySelector('[data-discussion-tab=resolved]').textContent === 'Resolved 0'",
       ),
     "Reopen also updates immediately",
   );
@@ -249,48 +249,46 @@ try {
     async () => storage.conversations.list(artifact.id)[1].status === "open",
     "reopen persists",
   );
-  await page.evaluate("document.querySelector('[data-discussions-tab=active]').click()");
+  await page.evaluate("document.querySelector('[data-discussion-tab=active]').click()");
   await page.evaluate(
     "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
   await eventually(
-    () => page.evaluate("!!document.querySelector('[aria-label=\"Discussion\"]')"),
-    "pending discussions composer",
+    () => page.evaluate("!!document.querySelector('[aria-label=\"Comment\"]')"),
+    "pending comments composer",
   );
   assert.equal(
     await page.evaluate(
-      "!!document.querySelector('[data-artifact-composer]').closest('[data-discussions-list]')",
+      "!!document.querySelector('[data-artifact-composer]').closest('[data-discussion-list]')",
     ),
     true,
-    "The composer belongs to the discussions list like a pending card",
+    "The composer belongs to the threads list like a pending card",
   );
   await page.evaluate(
     "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
   );
   const composerTop = await page.evaluate<number>(
-    "document.querySelector('[aria-label=\"Discussion\"]').getBoundingClientRect().top",
+    "document.querySelector('[aria-label=\"Comment\"]').getBoundingClientRect().top",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Discussion\"]').focus()");
+  await page.evaluate("document.querySelector('[aria-label=\"Comment\"]').focus()");
   await page.command("Input.insertText", { text: "A pending card" });
-  await page.evaluate("document.querySelector('[data-discussions-tab=resolved]').click()");
+  await page.evaluate("document.querySelector('[data-discussion-tab=resolved]').click()");
   assert.equal(
-    await page.evaluate(
-      "!!document.querySelector('[aria-label=\"Discussion\"]').closest('[inert]')",
-    ),
+    await page.evaluate("!!document.querySelector('[aria-label=\"Comment\"]').closest('[inert]')"),
     true,
     "The new-note draft belongs to the inactive Active queue",
   );
-  await page.evaluate("document.querySelector('[data-discussions-tab=active]').click()");
+  await page.evaluate("document.querySelector('[data-discussion-tab=active]').click()");
   await page.evaluate(`Promise.all(${track}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
   assert.equal(
-    await page.evaluate("document.querySelector('[aria-label=\"Discussion\"]').value"),
+    await page.evaluate("document.querySelector('[aria-label=\"Comment\"]').value"),
     "A pending card",
   );
   await page.evaluate("new Promise(requestAnimationFrame)");
   assert.equal(
     await page.evaluate(
-      "document.querySelector('[aria-label=\"Discussion\"]').getBoundingClientRect().top",
+      "document.querySelector('[aria-label=\"Comment\"]').getBoundingClientRect().top",
     ),
     composerTop,
     "Typing must not add a header row above the composer",
@@ -303,7 +301,7 @@ try {
       page.evaluate(
         `${card(notes[0].id)}?.getAnimations().some(animation=>animation.effect.getKeyframes().some(frame=>frame.transform?.includes('translate')))`,
       ),
-    "discard animates the remaining discussions cards",
+    "discard animates the remaining threads cards",
   );
   await eventually(
     () => page.evaluate("!document.querySelector('[data-artifact-composer]')"),
@@ -312,7 +310,7 @@ try {
   await page.evaluate(
     "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer]')"),
     "empty pending card",
@@ -328,14 +326,14 @@ try {
       page.evaluate(
         `${card(notes[0].id)}?.getAnimations().some(animation=>animation.effect.getKeyframes().some(frame=>frame.transform?.includes('translate')))`,
       ),
-    "cancel animates the remaining discussions cards",
+    "cancel animates the remaining threads cards",
   );
   assert.equal(
-    await page.evaluate("!!document.querySelector('[data-discussions-draft][inert] textarea')"),
+    await page.evaluate("!!document.querySelector('[data-discussion-draft][inert] textarea')"),
     true,
     "The exiting composer remains mounted during its animation",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
   await eventually(
     () =>
       page.evaluate(
@@ -346,7 +344,7 @@ try {
   await page.evaluate(
     "[...document.querySelectorAll('[data-artifact-composer]:not([inert] *) button')].find(button=>button.textContent==='Cancel').click()",
   );
-  const panel = "document.querySelector('[data-discussions-mode]')";
+  const panel = "document.querySelector('[data-discussion-mode]')";
   const geometry = () =>
     page.evaluate<{
       x: number;
@@ -356,9 +354,9 @@ try {
     }>(`${panel}.getBoundingClientRect().toJSON()`);
   const docked = await geometry();
   await page.evaluate(`void (window.retainedDiscussionPanel = ${panel})`);
-  await page.evaluate("document.querySelector('[aria-label=\"Float discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Float discussion\"]').click()");
   await eventually(
-    () => page.evaluate(`${panel}.dataset.discussionsMode === 'floating'`),
+    () => page.evaluate(`${panel}.dataset.discussionMode === 'floating'`),
     "floating panel",
   );
   await eventually(() => page.evaluate(`${panel}.getAnimations().length > 0`), "float transition");
@@ -366,7 +364,7 @@ try {
     `(() => { const animation = ${panel}.getAnimations()[0]; animation.pause(); animation.currentTime = 180; })()`,
   );
   const halfway = await geometry();
-  await page.evaluate("document.querySelector('[aria-label=\"Dock discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Dock discussion\"]').click()");
   await page.evaluate(
     `(() => { const animation = ${panel}.getAnimations()[0]; animation.pause(); animation.currentTime = 0; })()`,
   );
@@ -381,7 +379,7 @@ try {
     await page.evaluate(`${panel} === window.retainedDiscussionPanel`),
     "Mode changes retain the panel DOM",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Float discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Float discussion\"]').click()");
   await page.evaluate(`Promise.all(${panel}.getAnimations().map(a=>a.finished.catch(()=>{})))`);
   const initial = await geometry();
   const contentWidth = await page.evaluate<number>(
@@ -423,7 +421,7 @@ try {
     });
     await page.evaluate("new Promise(requestAnimationFrame)");
   };
-  await drag("[data-discussions-drag]", -600, 0);
+  await drag("[data-discussion-drag]", -600, 0);
   const moved = await geometry();
   assert.ok(
     Math.abs(moved.x - initial.x + 600) < 2,
@@ -434,11 +432,11 @@ try {
     "",
     "Drag release clears body styling",
   );
-  await drag("[data-discussions-resize=se]", 60, -180);
+  await drag("[data-discussion-resize=se]", 60, -180);
   const resized = await geometry();
   assert.ok(Math.abs(resized.width - moved.width - 60) < 2, "Corner resizing changes width");
   assert.ok(Math.abs(resized.height - moved.height + 180) < 2, "Corner resizing changes height");
-  await drag("[data-discussions-drag]", 70, 70);
+  await drag("[data-discussion-drag]", 70, 70);
   const placed = await geometry();
   assert.ok(
     Math.abs(placed.y - resized.y - 70) < 2,
@@ -449,18 +447,18 @@ try {
     contentWidth,
     "Floating interactions do not shift content",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
   await eventually(
-    () => page.evaluate(`${panel}.dataset.discussionsMode === 'hidden'`),
+    () => page.evaluate(`${panel}.dataset.discussionMode === 'hidden'`),
     "hidden floating panel",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Show discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Show discussion\"]').click()");
   await eventually(
-    () => page.evaluate(`${panel}.dataset.discussionsMode === 'floating'`),
+    () => page.evaluate(`${panel}.dataset.discussionMode === 'floating'`),
     "restore floating mode",
   );
   assert.deepEqual(await geometry(), placed, "Hide/show restores floating geometry");
-  await page.evaluate("document.querySelector('[aria-label=\"Dock discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Dock discussion\"]').click()");
   await page.evaluate(
     "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
   );
@@ -472,7 +470,7 @@ try {
   await page.command("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
-  await page.evaluate("document.querySelector('[data-discussions-tab=resolved]').click()");
+  await page.evaluate("document.querySelector('[data-discussion-tab=resolved]').click()");
   assert.equal(
     await page.evaluate(`${indicator}.getAnimations().length`),
     0,
@@ -483,7 +481,7 @@ try {
     0,
     "Reduced motion switches queues immediately",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Float discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Float discussion\"]').click()");
   assert.equal(
     await page.evaluate(`${panel}.getAnimations().length`),
     0,
@@ -492,7 +490,7 @@ try {
   await page.command("Emulation.setEmulatedMedia", { features: [] });
   await page.command("Page.reload");
   await eventually(
-    () => page.evaluate(`!!${panel} && ${panel}.dataset.discussionsMode === 'floating'`),
+    () => page.evaluate(`!!${panel} && ${panel}.dataset.discussionMode === 'floating'`),
     "floating panel after reload",
   );
   assert.deepEqual(await geometry(), placed, "Reload restores the saved position and size");
@@ -510,7 +508,7 @@ try {
     "floating controls stay within a smaller workspace",
   );
   const beforeKey = await geometry();
-  await page.evaluate("document.querySelector('[data-discussions-resize=se]').focus()");
+  await page.evaluate("document.querySelector('[data-discussion-resize=se]').focus()");
   await page.command("Input.dispatchKeyEvent", {
     type: "keyDown",
     key: "ArrowLeft",
@@ -523,7 +521,7 @@ try {
     "Resize handle supports keyboard input",
   );
   console.log(
-    "Floating discussions: drag across an opaque frame, resize, independent docking, hide/show, reload, viewport clamping and keyboard resizing passed.",
+    "Floating discussion panel: drag across an opaque frame, resize, independent docking, hide/show, reload, viewport clamping and keyboard resizing passed.",
   );
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 1400,
@@ -531,7 +529,7 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
   const openComposer = async (description: string) => {
     await page.evaluate("document.activeElement?.blur()");
     await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA" });
@@ -541,7 +539,7 @@ try {
       description,
     );
   };
-  await openComposer("standalone file discussions composer");
+  await openComposer("standalone file comment composer");
   const composer = "document.querySelector('[data-floating-composer]')";
   const composerGeometry = () =>
     page.evaluate<{
@@ -610,7 +608,7 @@ try {
   await eventually(
     async () =>
       storage.conversations.list(artifact.id).some((note) => note.comments[0]!.body === grownBody),
-    "moved discussions posts successfully",
+    "moved threads posts successfully",
   );
   const posted = storage.conversations
     .list(artifact.id)
@@ -669,7 +667,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        `document.querySelector('[aria-label="Add general discussions"]').disabled && !document.querySelector('[data-discussions-action]') && !${composer}`,
+        `document.querySelector('[aria-label="Add comment"]').disabled && !document.querySelector('[data-thread-action]') && !${composer}`,
       ),
     "archive disables conversation actions and hides the composer",
   );
@@ -686,9 +684,7 @@ try {
     "restore recovers the saved draft",
   );
   assert.equal(
-    await page.evaluate(
-      "document.querySelector('[aria-label=\"Add general discussions\"]').disabled",
-    ),
+    await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').disabled"),
     false,
   );
   await page.evaluate(
@@ -734,7 +730,7 @@ try {
     "a definitive deletion replaces cached content with an unavailable state",
   );
   console.log(
-    "Discussion decisions update immediately with safe rollback; the composer shares the list, typing stays stable, and Cancel/Discard animate surrounding cards.",
+    "Thread decisions update immediately with safe rollback; the composer shares the list, typing stays stable, and Cancel/Discard animate surrounding cards.",
   );
 } finally {
   for (const request of pending) request.respond(new Response(null, { status: 503 }));

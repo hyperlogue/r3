@@ -131,7 +131,7 @@ export class ArtifactLifecycle {
           this.workerRecords?.retire(id);
           this.db
             .query(
-              "DELETE FROM discussion_claims WHERE discussion_id IN (SELECT id FROM discussions WHERE artifact_id = ?)",
+              "DELETE FROM thread_claims WHERE thread_id IN (SELECT id FROM threads WHERE artifact_id = ?)",
             )
             .run(id);
         }

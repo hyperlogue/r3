@@ -10,7 +10,7 @@ test("stdout completion waits for the stream callback and rejects asynchronous w
     },
   });
   let completed = false;
-  const writing = writeArtifactOutput("Buffered discussions", stream).then(() => {
+  const writing = writeArtifactOutput("Buffered threads", stream).then(() => {
     completed = true;
   });
   const callback = await entered.promise;
@@ -23,5 +23,5 @@ test("stdout completion waits for the stream callback and rejects asynchronous w
       queueMicrotask(() => done(new Error("Broken pipe")));
     },
   });
-  await expect(writeArtifactOutput("Discussion", broken)).rejects.toThrow("Broken pipe");
+  await expect(writeArtifactOutput("Thread", broken)).rejects.toThrow("Broken pipe");
 });

@@ -66,7 +66,7 @@ test("listen reports a missing publisher wake adapter before remote registration
     async fetch(request) {
       const url = new URL(request.url);
       if (url.pathname === "/api/health")
-        return Response.json({ ok: true, version: "test", protocol: "artifacts-v2" });
+        return Response.json({ ok: true, version: "test", protocol: "artifacts-v3" });
       if (url.pathname === "/api/sessions") return Response.json(await request.json());
       if (url.pathname.endsWith("/listen")) registered = true;
       return new Response("not found", { status: 404 });

@@ -1,9 +1,9 @@
 import type { ArtifactDetail, ArtifactVersion } from "../../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../../web/demo/artifact-model.ts";
-import { artifactFixture, artifactFixtureDiscussion } from "../../web/src/artifact-fixtures.ts";
+import { artifactFixture, artifactFixtureThread } from "../../web/src/artifact-fixtures.ts";
 
 export const FIELDWORK_ID = "artifact_example_fieldwork";
-export const VISIBILITY_DISCUSSION = "discussion_fieldwork_visibility";
+export const VISIBILITY_THREAD = "thread_fieldwork_visibility";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
 const time = "2026-09-11T12:00:00.000Z";
 
@@ -47,25 +47,25 @@ export function fieldworkSeed(
     watching: true,
     agentLabels: { "demo-agent": "Example agent" },
     versions,
-    discussions: [
+    threads: [
       {
-        ...structuredClone(artifactFixtureDiscussion),
-        id: VISIBILITY_DISCUSSION,
+        ...structuredClone(artifactFixtureThread),
+        id: VISIBILITY_THREAD,
         artifactId: FIELDWORK_ID,
         target: target(1),
         comments: [
           {
-            ...artifactFixtureDiscussion.comments[0]!,
+            ...artifactFixtureThread.comments[0]!,
             id: "comment_fieldwork_question",
-            discussionId: VISIBILITY_DISCUSSION,
+            threadId: VISIBILITY_THREAD,
             artifactId: FIELDWORK_ID,
             body: "Who can see a workspace project? Explain this before I create it.",
             context: { versionSeq: 1, representation: "rendered" },
           },
           {
-            ...artifactFixtureDiscussion.comments[1]!,
+            ...artifactFixtureThread.comments[1]!,
             id: "comment_fieldwork_fix",
-            discussionId: VISIBILITY_DISCUSSION,
+            threadId: VISIBILITY_THREAD,
             artifactId: FIELDWORK_ID,
             author: actor,
             body: "Added an explanation beneath the visibility setting. Your choice stays editable.",

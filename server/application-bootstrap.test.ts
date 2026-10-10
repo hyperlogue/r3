@@ -273,7 +273,7 @@ test("artifact labels include every referenced role, omit unrelated sessions, an
   });
   const note = await storage.conversations.add(artifactId, {
     actor: agent("commenter"),
-    body: "Discussion",
+    body: "Thread",
     target: { kind: "artifact" },
   });
   await storage.conversations.addComment(note.id, {

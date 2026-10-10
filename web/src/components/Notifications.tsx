@@ -58,7 +58,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 }
 
 // Registration follows the originating component's lifetime, while presentation
-// escapes clipped panes and hidden discussions containers through one shared portal.
+// escapes clipped panes and hidden threads containers through one shared portal.
 export function Notification({
   title,
   message,

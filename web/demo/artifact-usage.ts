@@ -38,7 +38,7 @@ export function syncDemoActivity(state: ArtifactDemoState): void {
     add(artifact.id, artifact.createdAt, "artifactsCreated");
     for (const version of artifact.versions)
       add(`${artifact.id}/${version.seq}`, version.publishedAt, "versionsPublished");
-    for (const note of artifact.discussions) {
+    for (const note of artifact.threads) {
       add(note.id, note.createdAt, "threadsAdded");
       for (const comment of note.comments)
         add(`comment:${comment.id}`, comment.createdAt, "commentsAdded");
@@ -69,7 +69,7 @@ function content(state: ArtifactDemoState, ids?: Set<string>): number {
       if (selected) patches += publication.patchBytes;
       for (const [hash, size] of Object.entries(publication.storageBlobs)) add(hash, size);
     }
-    for (const note of artifact.discussions)
+    for (const note of artifact.threads)
       for (const message of note.comments)
         for (const image of message.attachments ?? []) add(image.hash, image.byteLength);
   }
@@ -125,7 +125,7 @@ export function demoUsage(
     if (period) period[row.metric] += row.count;
   }
   const items = state.artifacts,
-    notes = items.flatMap((artifact) => artifact.discussions);
+    notes = items.flatMap((artifact) => artifact.threads);
   const gc = demoGcPreview(state, { dryRun: true }, asOf);
   return {
     asOf,

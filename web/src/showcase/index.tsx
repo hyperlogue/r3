@@ -19,7 +19,7 @@ import {
   ArtifactPreviewSecuritySource,
 } from "../components/ArtifactPreviewSecurity.tsx";
 import { ArtifactThreadPopover } from "../components/ArtifactThreadPopover.tsx";
-import { type ArtifactDiscussionTab, ArtifactThreads } from "../components/ArtifactThreads.tsx";
+import { ArtifactThreads, type ArtifactThreadTab } from "../components/ArtifactThreads.tsx";
 import { DiffView } from "../components/DiffView.tsx";
 import { FileBrowser } from "../components/FileBrowser.tsx";
 import { FileCard, type FoldSignal } from "../components/FileCard.tsx";
@@ -40,8 +40,8 @@ import { Button, Pill } from "../ui.tsx";
 import { useScrollSpy } from "../useScrollSpy.ts";
 import { useSyntaxPalette } from "../useSyntaxPalette.ts";
 import { ComparisonSampleDocument } from "./ComparisonSampleDocument.tsx";
-import { DiscussionCardGallery, seedDiscussionCardGallery } from "./DiscussionCardGallery.tsx";
 import { OverlayContrastPreview } from "./OverlayContrastPreview.tsx";
+import { seedThreadCardGallery, ThreadCardGallery } from "./ThreadCardGallery.tsx";
 import "./forms.ts";
 import "../main.css";
 
@@ -49,10 +49,10 @@ import "../main.css";
 function resetSamples() {
   demo.reset(ARTIFACT_WORKSHOP_SEED);
   demo.get("artifact_documents").watching = true;
-  demo.addDiscussion("artifact_documents", "Could we make the target label easier to scan?", {
+  demo.addThread("artifact_documents", "Could we make the target label easier to scan?", {
     kind: "artifact",
   });
-  demo.addDiscussion("artifact_documents", "Keep the spacing comfortable when a comment wraps.", {
+  demo.addThread("artifact_documents", "Keep the spacing comfortable when a comment wraps.", {
     kind: "artifact",
   });
   for (const detail of demo.state.artifacts) {
@@ -65,10 +65,10 @@ function resetSamples() {
     }
   }
   const comparisonArtifact = demo.get("artifact_weekend");
-  const note = comparisonArtifact.discussions[0];
+  const note = comparisonArtifact.threads[0];
   note.comments.push({
     id: "comment_showcase_comparison",
-    discussionId: note.id,
+    threadId: note.id,
     artifactId: comparisonArtifact.id,
     author: { role: "agent", sessionId: "demo-agent" },
     body: "Adjusted the starting fit. Compare the original and proposed model notes.",
@@ -85,11 +85,11 @@ function resetSamples() {
   });
 }
 resetSamples();
-seedDiscussionCardGallery();
+seedThreadCardGallery();
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const sections = [
-  ["discussions", "Discussion & artifact header"],
-  ["discussions-cards", "Discussion card gallery"],
+  ["threads", "Thread & artifact header"],
+  ["threads-cards", "Thread card gallery"],
   ["comparison", "Compare proposed fixes"],
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
@@ -126,10 +126,10 @@ function Section({ id, children }: { id: (typeof sections)[number][0]; children:
   );
 }
 
-function Discussion({ announce }: { announce: (text: string) => void }) {
+function Thread({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
-  const [discussionTab, setDiscussionTab] = useState<ArtifactDiscussionTab>("active");
+  const [threadTab, setThreadTab] = useState<ArtifactThreadTab>("active");
   const [versionSeq, setVersionSeq] = useState<number | null>(1);
   const mode = useDiscussionMode();
   const collapsed = mode === "hidden";
@@ -149,7 +149,7 @@ function Discussion({ announce }: { announce: (text: string) => void }) {
       <p className="text-sm text-neutral-500">
         Try floating and docking the panel, then switch between Active and Resolved. Start a draft
         in Active to see it slide with that queue and stay intact when you return. These are sample
-        conversations; use r3’s outer comment mode for your UI discussions.
+        conversations; use r3’s outer comment mode for your UI threads.
       </p>
       <div className="border border-neutral-300 dark:border-neutral-700">
         <ArtifactHeader
@@ -167,16 +167,16 @@ function Discussion({ announce }: { announce: (text: string) => void }) {
           <div className="relative isolate min-w-0 flex-1">
             <div className="max-w-sm space-y-3 p-5 text-sm text-neutral-500">
               <p>
-                The discussions panel has three states: hidden, expanded beside the content, or
+                The discussion panel has three states: hidden, expanded beside the content, or
                 floating over it. Use the navbar button to hide or show it, and its panel control to
-                switch modes. Hidden anchors open one conversation at a time. Showing discussions
+                switch modes. Hidden anchors open one conversation at a time. Showing threads
                 restores the last expanded or floating mode. Drag the floating header to move it, or
                 its edges to resize it.
               </p>
               <Button
                 onClick={() => {
                   changeMode("expanded");
-                  setDiscussionTab("active");
+                  setThreadTab("active");
                   artifactDrafts.anchor(id, { kind: "artifact" });
                 }}
               >
@@ -193,7 +193,7 @@ function Discussion({ announce }: { announce: (text: string) => void }) {
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={() =>
-                    demo.addDiscussion(
+                    demo.addThread(
                       id,
                       "A new sample thread for reviewing the entrance animation.",
                       { kind: "artifact" },
@@ -203,31 +203,31 @@ function Discussion({ announce }: { announce: (text: string) => void }) {
                   Insert sample card
                 </Button>
                 <Button
-                  disabled={!data.discussions.length}
+                  disabled={!data.threads.length}
                   onClick={() => {
-                    const last = demo.get(id).discussions.at(-1);
-                    if (last) void artifactApi.deleteDiscussion(last.id);
+                    const last = demo.get(id).threads.at(-1);
+                    if (last) void artifactApi.deleteThread(last.id);
                   }}
                 >
                   Remove sample card
                 </Button>
                 <Button
-                  disabled={data.discussions.length < 2}
+                  disabled={data.threads.length < 2}
                   onClick={() => {
                     const artifact = demo.get(id);
-                    const note = artifact.discussions[0];
+                    const note = artifact.threads[0];
                     if (!note) return;
                     const now = new Date().toISOString();
                     note.claim = note.claim
                       ? null
                       : {
-                          discussionId: note.id,
+                          threadId: note.id,
                           sessionId: "showcase-agent",
                           claimedAt: now,
                           renewedAt: now,
                           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
                         };
-                    artifact.working = artifact.discussions.some((item) => item.claim !== null);
+                    artifact.working = artifact.threads.some((item) => item.claim !== null);
                     demo.changed(id);
                   }}
                 >
@@ -236,7 +236,7 @@ function Discussion({ announce }: { announce: (text: string) => void }) {
               </div>
               <p>
                 Use the sample panel to explore spacing and interaction. Real review comments belong
-                to this showcase artifact’s own discussions panel.
+                to this showcase artifact’s own discussion panel.
               </p>
             </div>
           </div>
@@ -250,17 +250,17 @@ function Discussion({ announce }: { announce: (text: string) => void }) {
                 }
                 onJumpRef={() => announce("Sample file reference selected")}
                 keysActive={false}
-                tab={discussionTab}
-                onTabChange={setDiscussionTab}
+                tab={threadTab}
+                onTabChange={setThreadTab}
                 panelControls={controls}
               />
             )}
           </ArtifactDiscussionPanel>
-          {collapsed && threadOpen && data.discussions[0] && (
+          {collapsed && threadOpen && data.threads[0] && (
             <div className="pointer-events-none absolute right-2 top-2 bottom-2 flex w-[440px] max-w-[calc(100%-1rem)] flex-col [&>*]:pointer-events-auto">
               <ArtifactThreadPopover
                 artifactKind={data.kind}
-                discussions={data.discussions[0]}
+                thread={data.threads[0]}
                 latestVersionSeq={data.versions.at(-1)?.seq ?? null}
                 context={{ versionSeq: 1, representation: "source" }}
                 onLocate={() => announce("Sample target selected")}
@@ -351,7 +351,7 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
                   current={active === path}
                   viewed={viewed.has(path)}
                   onToggleViewed={() => toggle(path)}
-                  onFileDiscussion={() => announce(`Sample whole-file target: ${path}`)}
+                  onFileThread={() => announce(`Sample whole-file target: ${path}`)}
                   foldSignal={fold}
                 >
                   <SourceCode
@@ -496,7 +496,7 @@ function Showcase() {
           </div>
           <p className="max-w-3xl text-sm text-neutral-500">
             Current r3 components, ready for polishing. Turn on r3’s comment mode and select any
-            element to leave discussions. Sample interactions reset when the page reloads.
+            element to leave a comment. Sample interactions reset when the page reloads.
           </p>
           <OverlayContrastPreview />
           <nav
@@ -510,16 +510,16 @@ function Showcase() {
             ))}
           </nav>
         </header>
-        <Section id="discussions">
-          <Discussion announce={setNotice} />
+        <Section id="threads">
+          <Thread announce={setNotice} />
         </Section>
-        <Section id="discussions-cards">
+        <Section id="threads-cards">
           <p className="max-w-3xl text-sm text-neutral-500">
-            Ten examples of the current discussions card. Try commenting, editing, resolving,
-            expanding quotes, and opening earlier comments. Sample actions stay inside this gallery
-            and reset on reload. Use r3’s outer comment mode to leave your design discussions.
+            Ten examples of the current threads card. Try commenting, editing, resolving, expanding
+            quotes, and opening earlier comments. Sample actions stay inside this gallery and reset
+            on reload. Use r3’s outer comment mode to leave your design threads.
           </p>
-          <DiscussionCardGallery announce={setNotice} />
+          <ThreadCardGallery announce={setNotice} />
         </Section>
         <Section id="comparison">
           <p className="text-sm text-neutral-500">
@@ -571,7 +571,7 @@ function Showcase() {
           <div className="max-w-2xl border border-neutral-300 p-3 dark:border-neutral-700">
             <MessageProse
               source={
-                "### Markdown typography\n\nBody text with **emphasis**, *secondary emphasis*, and `inline code`.\n\n- Keep discussions anchored to its original version.\n- Open the latest publication when you are ready.\n\n> A short quotation from the design discussion.\n\n```ts\nconst version = artifact.versions.at(-1);\n```"
+                "### Markdown typography\n\nBody text with **emphasis**, *secondary emphasis*, and `inline code`.\n\n- Keep threads anchored to their original versions.\n- Open the latest publication when you are ready.\n\n> A short quotation from the design thread.\n\n```ts\nconst version = artifact.versions.at(-1);\n```"
               }
               onJumpRef={() => setNotice("Sample reference selected")}
             />

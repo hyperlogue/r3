@@ -99,10 +99,10 @@ export class ArtifactUsageStore {
       artifacts,
       versions: count("SELECT count(*) AS n FROM artifact_versions WHERE published_at IS NOT NULL"),
       conversations: {
-        open: count("SELECT count(*) AS n FROM discussions WHERE status='open'"),
-        resolved: count("SELECT count(*) AS n FROM discussions WHERE status='resolved'"),
+        open: count("SELECT count(*) AS n FROM threads WHERE status='open'"),
+        resolved: count("SELECT count(*) AS n FROM threads WHERE status='resolved'"),
         comments: count(
-          "SELECT (SELECT count(*) FROM comments) + (SELECT count(*) FROM discussions) + (SELECT count(*) FROM artifact_comments) AS n",
+          "SELECT (SELECT count(*) FROM comments) + (SELECT count(*) FROM threads) + (SELECT count(*) FROM artifact_comments) AS n",
         ),
       },
       contentBytes: this.bytes(),

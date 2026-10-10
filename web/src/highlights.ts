@@ -14,7 +14,7 @@ export interface Region {
   side?: DiffSide | null;
 }
 
-// The narrowest region covering a line, so clicking a line that several discussionss
+// The narrowest region covering a line, so clicking a line that several threadss
 // overlap jumps to the most specific one.
 export function tightest(regions: Region[]): Region {
   return regions.reduce((a, b) => (b.end - b.start < a.end - a.start ? b : a));
@@ -28,7 +28,7 @@ export function regionAt(
   side?: DiffSide | null,
 ): Region | undefined {
   // Called per rendered row, so the common shape — a review with no open
-  // discussions — must not allocate a filtered array per row to find nothing.
+  // threads — must not allocate a filtered array per row to find nothing.
   if (regions.length === 0) return undefined;
   const cover = regions.filter(
     (r) => line >= r.start && line <= r.end && (r.side == null || r.side === side),

@@ -52,16 +52,16 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
       html: "",
       revision: "test",
     }));
-    const discussions = new ArtifactConversations(db, store);
+    const threads = new ArtifactConversations(db, store);
     const lifecycle = new ArtifactLifecycle(db, store);
     const archived = lifecycle.events("artifact_kept")[0]!;
     expect(archived.comment).toMatchObject({
       id: "comment_event_archive",
-      discussionId: null,
+      threadId: null,
       body: "Historical archive note",
       sentAt: null,
     });
-    await discussions.updateComment(archived.comment!.id, {
+    await threads.updateComment(archived.comment!.id, {
       actor: { role: "human", sessionId: null },
       body: "Edited after restore",
     });
@@ -78,21 +78,21 @@ test("schema 12 upgrades conversation names without rewriting evidence or delive
     expect(() =>
       db.exec("UPDATE artifact_events SET message='Changed history' WHERE id='event_archive'"),
     ).toThrow("immutable");
-    const note = discussions.get("feedback_kept");
+    const note = threads.get("feedback_kept");
     expect(note.comments[0]!.body).toBe("Original feedback and replies are evidence");
     expect(note.comments[0]!.sentAt).toBe(time);
     expect(note.comments.slice(1)[0]).toMatchObject({
       id: "reply_kept",
-      discussionId: "feedback_kept",
+      threadId: "feedback_kept",
       sentAt: null,
       body: "Unsent follow-up",
     });
-    expect(discussions.snapshot("artifact_kept").discussions).toHaveLength(1);
-    await discussions.addComment(note.id, {
+    expect(threads.snapshot("artifact_kept").threads).toHaveLength(1);
+    await threads.addComment(note.id, {
       actor: { role: "human", sessionId: null },
       body: "After upgrade",
     });
-    expect(discussions.get(note.id).comments.slice(1)).toHaveLength(2);
+    expect(threads.get(note.id).comments.slice(1)).toHaveLength(2);
   } finally {
     db.close();
     await rm(root, { recursive: true, force: true });

@@ -129,7 +129,7 @@ describe("artifact CLI over the HTTP contract", () => {
       ),
     ).toEqual(bytes);
   });
-  test("discussions source reads full original ranges on demand without delivery side effects", async () => {
+  test("threads source reads full original ranges on demand without delivery side effects", async () => {
     const human = { role: "human" as const, sessionId: null };
     const lines = ["first", "  second", "third", "fourth", "fifth", "sixth  ", ""];
     for (const kind of ["files", "diff"] as const) {
@@ -195,10 +195,10 @@ describe("artifact CLI over the HTTP contract", () => {
           },
         });
       const snapshot = storage.conversations.snapshot(artifact.id);
-      const result = await command("discussions", ["source", note.id]);
+      const result = await command("thread", ["source", note.id]);
       expect(result.code).toBe(0);
       expect(result.text).toBe(lines.map((line, i) => `${i + 1}\t${line}\n`).join(""));
-      const json = JSON.parse((await command("discussions", ["source", note.id, "--json"])).text);
+      const json = JSON.parse((await command("thread", ["source", note.id, "--json"])).text);
       expect(json).toEqual({
         artifactId: artifact.id,
         versionSeq: 1,
@@ -211,18 +211,18 @@ describe("artifact CLI over the HTTP contract", () => {
       expect(storage.conversations.snapshot(artifact.id)).toEqual(snapshot);
       expect(storage.conversations.get(note.id).claim).toBeNull();
       expect((await command("comment", ["fetch", artifact.id, "--all"])).text).toContain(
-        `r3 discussions source ${note.id}`,
+        `r3 thread source ${note.id}`,
       );
       const general = await storage.conversations.add(artifact.id, {
         actor: human,
         body: "General",
         target: { kind: "artifact" },
       });
-      await expect(command("discussions", ["source", general.id])).rejects.toThrow("no captured");
+      await expect(command("thread", ["source", general.id])).rejects.toThrow("no captured");
     }
-    await expect(command("discussions", ["source", "missing"])).rejects.toThrow("not found");
+    await expect(command("thread", ["source", "missing"])).rejects.toThrow("not found");
   });
-  test("image-only discussions uploads, downloads, retries and acknowledges only after image delivery", async () => {
+  test("image-only threads uploads, downloads, retries and acknowledges only after image delivery", async () => {
     const id = await create();
     const bytes = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGP4HyD3H4QZYAwAV6YJsVhH600AAAAASUVORK5CYII=",
@@ -230,10 +230,10 @@ describe("artifact CLI over the HTTP contract", () => {
     );
     await writeFile(join(ctx.cwd, "screen.png"), bytes);
     const args = ["add", id, "--human", "--attach", "screen.png", "--key", "image-note"];
-    const note = JSON.parse((await command("discussions", args)).text);
-    expect(JSON.parse((await command("discussions", args)).text).id).toBe(note.id);
+    const note = JSON.parse((await command("thread", args)).text);
+    expect(JSON.parse((await command("thread", args)).text).id).toBe(note.id);
     const image = note.comments[0].attachments[0];
-    expect((await command("discussions", ["image", id, "--image", image.id])).bytes).toEqual(bytes);
+    expect((await command("comment", ["image", id, "--image", image.id])).bytes).toEqual(bytes);
     await writeFile(join(ctx.cwd, "blocked"), "not a directory");
     await expect(
       command("comment", ["fetch", id, "--attachments-dir", "blocked"]),
@@ -241,7 +241,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
     const fetched = await command("comment", ["fetch", id, "--attachments-dir", "images"]);
     expect(fetched.text).toContain(`images/${image.id}.png`);
-    expect(fetched.text).toContain(`r3 discussions image ${id}`);
+    expect(fetched.text).toContain(`r3 comment image ${id}`);
     expect(await Bun.file(join(ctx.cwd, "images", `${image.id}.png`)).bytes()).toEqual(
       new Uint8Array(bytes),
     );
@@ -249,7 +249,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(
       (await command("comment", ["fetch", id, "--all", "--attachments-dir", "images"])).code,
     ).toBe(0);
-    await command("discussions", [
+    await command("thread", [
       "edit",
       note.id,
       "--human",
@@ -302,7 +302,7 @@ describe("artifact CLI over the HTTP contract", () => {
       );
       expect(storage.conversations.comment(comment.id).sentAt).toBeNull();
     });
-    test(`${name} preserves pending discussions when stdout fails`, async () => {
+    test(`${name} preserves pending comments when stdout fails`, async () => {
       const id = await create();
       const note = await storage.conversations.add(id, {
         actor: { role: "human", sessionId: null },
@@ -319,7 +319,7 @@ describe("artifact CLI over the HTTP contract", () => {
       expect(storage.conversations.unsent(id).map((item) => item.id)).toEqual([note.id]);
     });
   }
-  test("lost snapshot responses leave discussions pending, and failed acknowledgments never register listeners", async () => {
+  test("lost snapshot responses leave comments pending, and failed acknowledgments never register listeners", async () => {
     const id = await create();
     const note = await storage.conversations.add(id, {
       actor: { role: "human", sessionId: null },
@@ -329,31 +329,30 @@ describe("artifact CLI over the HTTP contract", () => {
     const request = ctx.client.request.bind(ctx.client);
     ctx.client.request = async (...args) => {
       const response = await request(...args);
-      if (args[1].includes("/discussions/pending")) throw new Error("Lost read response");
+      if (args[1].includes("/comments/pending")) throw new Error("Lost read response");
       return response;
     };
     await expect(command("comment", ["fetch", id])).rejects.toThrow("Lost read response");
     expect(output).toEqual([]);
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
     let registrations = 0;
-    ctx.environment.CODEX_THREAD_ID = "discussions-caller";
+    ctx.environment.CODEX_THREAD_ID = "threads-caller";
     ctx.listen = async () => {
       registrations++;
       return 0;
     };
     ctx.client.request = async (...args) => {
-      if (args[1].endsWith("/discussions/acknowledge"))
-        throw new Error("Acknowledgment unavailable");
+      if (args[1].endsWith("/comments/acknowledge")) throw new Error("Acknowledgment unavailable");
       return request(...args);
     };
     await expect(command("comment", ["fetch", id])).rejects.toThrow(
-      "Discussion was printed, but acknowledgment was not confirmed",
+      "Comments were printed, but acknowledgment was not confirmed",
     );
     expect(Buffer.concat(output).toString()).toContain("Unread output");
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
     expect(registrations).toBe(0);
   });
-  test("new discussions during output conflicts instead of acknowledging unseen work", async () => {
+  test("new threads during output conflicts instead of acknowledging unseen work", async () => {
     const id = await create();
     const human = { role: "human" as const, sessionId: null };
     const note = await storage.conversations.add(id, {
@@ -372,7 +371,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
     expect(storage.conversations.get(note.id).comments.slice(1)[0].sentAt).toBeNull();
   });
-  test("a lost acknowledgment response leaves later discussions for the next fetch", async () => {
+  test("a lost acknowledgment response leaves later threads for the next fetch", async () => {
     const id = await create();
     const human = { role: "human" as const, sessionId: null };
     const note = await storage.conversations.add(id, {
@@ -383,7 +382,7 @@ describe("artifact CLI over the HTTP contract", () => {
     const request = ctx.client.request.bind(ctx.client);
     ctx.client.request = async (...args) => {
       const response = await request(...args);
-      if (args[1].endsWith("/discussions/acknowledge")) {
+      if (args[1].endsWith("/comments/acknowledge")) {
         await storage.conversations.add(id, {
           actor: human,
           body: "Arrived after acknowledgment",
@@ -405,7 +404,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(retry.text).not.toContain("Already printed");
     expect(storage.conversations.unsent(id)).toHaveLength(0);
   });
-  test("watch gives archive priority when it happens during output and preserves pending discussions", async () => {
+  test("watch gives archive priority when it happens during output and preserves pending comments", async () => {
     const id = await create();
     const human = { role: "human" as const, sessionId: null };
     const note = await storage.conversations.add(id, {
@@ -560,9 +559,9 @@ describe("artifact CLI over the HTTP contract", () => {
   });
   test("native targets and inherited comment references survive independent agent sessions", async () => {
     const id = await create();
-    const discussions = JSON.parse(
+    const threads = JSON.parse(
       (
-        await command("discussions", [
+        await command("thread", [
           "add",
           id,
           "--human",
@@ -583,17 +582,17 @@ describe("artifact CLI over the HTTP contract", () => {
         ])
       ).text,
     );
-    expect(discussions.target.locator).toMatchObject({ selector: "h1", route: "#intro" });
-    await command("claim", [discussions.id]);
+    expect(threads.target.locator).toMatchObject({ selector: "h1", route: "#intro" });
+    await command("claim", [threads.id]);
     ctx.environment.R3_AGENT_SESSION = "second-agent";
     await command("comment", [
-      discussions.id,
+      threads.id,
       "--session",
       "second-agent",
       "-m",
       "I also inspected it",
     ]);
-    expect(storage.conversations.get(discussions.id).claim?.sessionId).toBe(agent.sessionId);
+    expect(storage.conversations.get(threads.id).claim?.sessionId).toBe(agent.sessionId);
     ctx.environment.R3_AGENT_SESSION = agent.sessionId;
     const fix = {
       kind: "rendered" as const,
@@ -604,7 +603,7 @@ describe("artifact CLI over the HTTP contract", () => {
     const comment = JSON.parse(
       (
         await command("comment", [
-          discussions.id,
+          threads.id,
           "-m",
           "Working on the heading",
           "--target",
@@ -618,27 +617,27 @@ describe("artifact CLI over the HTTP contract", () => {
     );
     expect(comment.context).toEqual({ versionSeq: 1, representation: "rendered" });
     expect(comment.target).toEqual(fix);
-    expect(storage.conversations.get(discussions.id).comments.slice(1).at(-1)?.target).toEqual(fix);
+    expect(storage.conversations.get(threads.id).comments.slice(1).at(-1)?.target).toEqual(fix);
     expect((await command("comment", ["fetch", id, "--all"])).text).toContain(JSON.stringify(fix));
-    expect(storage.conversations.get(discussions.id).claim).toBeNull();
-    expect(storage.conversations.get(discussions.id).status).toBe("open");
+    expect(storage.conversations.get(threads.id).claim).toBeNull();
+    expect(storage.conversations.get(threads.id).status).toBe("open");
     await expect(
-      command("discussions", ["edit", discussions.id, "--status", "resolved"]),
+      command("thread", ["edit", threads.id, "--status", "resolved"]),
     ).rejects.toMatchObject({ status: 400 });
-    await command("discussions", ["edit", discussions.id, "--human", "--status", "resolved"]);
-    expect(storage.conversations.get(discussions.id).status).toBe("resolved");
+    await command("thread", ["edit", threads.id, "--human", "--status", "resolved"]);
+    expect(storage.conversations.get(threads.id).status).toBe("resolved");
   });
   test("history reads and watch exits preserve owner handoff and archive terminal precedence", async () => {
     const id = await create();
-    const discussions = JSON.parse(
-      (await command("discussions", ["add", id, "--human", "-m", "Human note"])).text,
+    const threads = JSON.parse(
+      (await command("thread", ["add", id, "--human", "-m", "Human note"])).text,
     );
     expect((await command("comment", ["fetch", id, "--all"])).text).toContain("Human note");
-    expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).toBeNull();
+    expect(storage.conversations.get(threads.id).comments[0]!.sentAt).toBeNull();
     expect((await command("watch", [id])).code).toBe(10);
-    expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).not.toBeNull();
+    expect(storage.conversations.get(threads.id).comments[0]!.sentAt).not.toBeNull();
     expect((await command("watch", [id, "--timeout", "0.01"])).code).toBe(2);
-    await command("discussions", ["add", id, "--human", "-m", "Still pending"]);
+    await command("thread", ["add", id, "--human", "-m", "Still pending"]);
     await command("archive", [id, "--human", "-m", "Saved archive message", "--key", "terminal"]);
     const result = await command("watch", [id]);
     expect(result.code).toBe(0);
@@ -652,20 +651,20 @@ describe("artifact CLI over the HTTP contract", () => {
   test("comment fetch preserves selective delivery and resolved history semantics", async () => {
     const id = await create();
     const first = JSON.parse(
-      (await command("discussions", ["add", id, "--human", "-m", "First note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "First note"])).text,
     );
     const second = JSON.parse(
-      (await command("discussions", ["add", id, "--human", "-m", "Second note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "Second note"])).text,
     );
     expect((await command("comment", ["fetch", id, "--all"])).text).toContain("First note");
     expect(storage.conversations.unsent(id)).toHaveLength(2);
-    const selected = await command("comment", ["fetch", id, "--discussions", first.id]);
+    const selected = await command("comment", ["fetch", id, "--threads", first.id]);
     expect(selected.text).toContain("First note");
     expect(selected.text).not.toContain("Second note");
     expect(storage.conversations.get(first.id).comments[0]!.sentAt).not.toBeNull();
     expect(storage.conversations.get(second.id).comments[0]!.sentAt).toBeNull();
-    await command("discussions", ["edit", first.id, "--human", "--status", "resolved"]);
-    const history = await command("comment", ["fetch", id, "--all", "--discussions", first.id]);
+    await command("thread", ["edit", first.id, "--human", "--status", "resolved"]);
+    const history = await command("comment", ["fetch", id, "--all", "--threads", first.id]);
     expect(history.text).toContain("[resolved]");
     expect(history.text).toContain("First note");
     expect(storage.conversations.get(first.id).statusUnsent).toBe(true);
@@ -680,11 +679,11 @@ describe("artifact CLI over the HTTP contract", () => {
   test("comment fetch drains new notes and comments and registers the calling harness quietly", async () => {
     const id = await create();
     const first = JSON.parse(
-      (await command("discussions", ["add", id, "--human", "-m", "First note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "First note"])).text,
     );
     await command("comment", ["fetch", id]);
     await command("comment", [first.id, "--human", "-m", "New comment"]);
-    await command("discussions", ["add", id, "--human", "-m", "New note"]);
+    await command("thread", ["add", id, "--human", "-m", "New note"]);
     ctx.environment = { CODEX_THREAD_ID: "fetch-agent" };
     const registrations: unknown[] = [];
     ctx.listen = async (artifactId, actor, foreground, quiet) => {
@@ -717,9 +716,9 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(empty.text).not.toContain("New note");
     expect(registrations).toHaveLength(2);
   });
-  test("discussions history, human reads, and unsupported harnesses leave listeners alone", async () => {
+  test("threads history, human reads, and unsupported harnesses leave listeners alone", async () => {
     const id = await create();
-    await command("discussions", ["add", id, "--human", "-m", "Pending note"]);
+    await command("thread", ["add", id, "--human", "-m", "Pending note"]);
     let registrations = 0;
     ctx.listen = async () => {
       registrations++;
@@ -734,9 +733,9 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(registrations).toBe(0);
     expect(errors).toEqual([]);
   });
-  test("automatic listen failures preserve fetched discussions, but failed fetches never register", async () => {
+  test("automatic listen failures preserve fetched threads, but failed fetches never register", async () => {
     const id = await create();
-    await command("discussions", ["add", id, "--human", "-m", "Pending note"]);
+    await command("thread", ["add", id, "--human", "-m", "Pending note"]);
     ctx.environment = { CODEX_THREAD_ID: "fetch-agent", R3_AGENT_SESSION: "logical-agent" };
     let registrations = 0;
     ctx.listen = async (_id, actor) => {
@@ -764,7 +763,7 @@ describe("artifact CLI over the HTTP contract", () => {
     ).rejects.toThrow("Unknown option");
     expect(storage.artifacts.list()).toEqual([]);
     await expect(
-      command("comment", ["discussion_missing", "-m", "test", "--file", "index.html"]),
+      command("comment", ["thread_missing", "-m", "test", "--file", "index.html"]),
     ).rejects.toThrow("--view is required");
     ctx.environment = {};
     await expect(command("create", ["--dir", "."])).rejects.toThrow("stable agent ID");
@@ -797,9 +796,9 @@ describe("artifact CLI over the HTTP contract", () => {
     );
     expect(result.artifact.kind).toBe("diff");
     expect((await command("patch", [result.artifact.id, "--version", "1"])).text).toBe(patch);
-    const discussions = JSON.parse(
+    const threads = JSON.parse(
       (
-        await command("discussions", [
+        await command("thread", [
           "add",
           result.artifact.id,
           "-m",
@@ -819,7 +818,7 @@ describe("artifact CLI over the HTTP contract", () => {
         ])
       ).text,
     );
-    expect(discussions.target.locator.side).toBe("old");
+    expect(threads.target.locator.side).toBe("old");
   });
 });
 test("search exposes pinned publication matches and pagination without an agent identity", async () => {

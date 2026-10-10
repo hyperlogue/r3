@@ -216,7 +216,7 @@ export class ArtifactTargets {
 
   async sourceRange(id: string, target: ArtifactTarget): Promise<ArtifactSourceRange> {
     if ((target.kind !== "source" && target.kind !== "diff") || !target.locator)
-      throw new ArtifactError("Discussion has no captured source or diff line range");
+      throw new ArtifactError("Thread has no captured source or diff line range");
     const versionSeq = requireSequence(target.versionSeq);
     const version = this.artifacts.version(id, versionSeq);
     requireRepresentation(version.kind, target.kind);
@@ -245,7 +245,7 @@ export class ArtifactTargets {
         source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         if (source.includes("\0")) throw new Error("Binary source");
       } catch {
-        throw new ArtifactError("Binary files support whole-file discussions only");
+        throw new ArtifactError("Binary files support whole-file threads only");
       }
       const all = source.replaceAll("\r\n", "\n").split("\n");
       if (source.endsWith("\n")) all.pop();

@@ -16,7 +16,7 @@ details come directly from their product sources during the build.
 | General, whole-file, rendered, source, diff, and media feedback | `/docs/feedback/` |
 | Quotes, message images, crop/annotation, image limits, image-only messages | `/docs/feedback/`, `/docs/media/` |
 | Draft persistence and view-independent targets | `/docs/feedback/`, `/docs/navigation/` |
-| Send/Use in agent, pending edits, discussion fetch acknowledgment and retries | `/docs/feedback/`, `/docs/agents/` |
+| Send/Use in agent, pending edits, thread fetch acknowledgment and retries | `/docs/feedback/`, `/docs/agents/` |
 | Reply, edit/delete messages, resolve/reopen, Active/Resolved queues | `/docs/feedback/`, `/docs/revisions/` |
 | Pinned versions, labels/summaries, Locate, fix targets, Compare | `/docs/revisions/` |
 | Claims, expiry, comment delivery, listen/watch priority and exit codes | `/docs/agents/` |
@@ -37,7 +37,7 @@ details come directly from their product sources during the build.
 | Dock modes, floating composer, file navigation, folding, viewed marks | `/docs/navigation/` |
 | Mobile sheet, touch review, appearance and source themes | `/docs/navigation/` |
 | Full current keyboard map | `/docs/keyboard/` |
-| Full CLI command surface, inspection/downloads, discussion placement | `/docs/cli/` |
+| Full CLI command surface, inspection/downloads, thread placement | `/docs/cli/` |
 | Source-range retrieval, attachment download, native target JSON | `/docs/agents/`, `/docs/agents/files/`, `/docs/cli/` |
 | Stable agent identity, distinct runs, display names | `/docs/agents/`, `/docs/configuration/` |
 | Publication conflicts, idempotent retries, capture limitations | `/docs/agents/`, `/docs/troubleshooting/` |

@@ -12,7 +12,7 @@ export type ElementComparisonTarget = {
 };
 export type ComparisonTarget = ElementComparisonTarget | ArtifactMediaTarget;
 export interface ArtifactComparison {
-  discussionId: string;
+  threadId: string;
   commentId: string;
   original: ComparisonTarget;
   proposed: ComparisonTarget;
@@ -28,10 +28,10 @@ function elementTarget(target: ArtifactTarget | null): target is ComparisonTarge
 export function artifactComparisons(detail: ArtifactDetail): Map<string, ArtifactComparison> {
   const versions = new Set(detail.versions.map((version) => version.seq));
   const comparisons = new Map<string, ArtifactComparison>();
-  for (const discussions of detail.discussions) {
-    const original = discussions.target;
+  for (const threads of detail.threads) {
+    const original = threads.target;
     if (!elementTarget(original) || !versions.has(original.versionSeq)) continue;
-    for (const comment of discussions.comments.slice(1)) {
+    for (const comment of threads.comments.slice(1)) {
       const proposed = comment.target;
       if (
         comment.author.role !== "agent" ||
@@ -41,7 +41,7 @@ export function artifactComparisons(detail: ArtifactDetail): Map<string, Artifac
       )
         continue;
       comparisons.set(comment.id, {
-        discussionId: discussions.id,
+        threadId: threads.id,
         commentId: comment.id,
         original,
         proposed,

@@ -12,7 +12,7 @@ import { openArtifactStorage } from "../server/artifact-storage.ts";
 const { chromium, firefox } = await import(process.env.R3_TEST_PLAYWRIGHT!);
 const engine = process.env.R3_TEST_ENGINE === "firefox" ? firefox : chromium;
 const assets = await loadApplicationAssets({ index: join(import.meta.dir, "../web/index.html") });
-const root = await mkdtemp(join(tmpdir(), "r3-source-discussions-"));
+const root = await mkdtemp(join(tmpdir(), "r3-source-threads-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "files", actor, title: "Source range fixture" });
@@ -236,9 +236,9 @@ try {
     const posted = page.waitForResponse(
       (response: any) =>
         response.request().method() === "POST" &&
-        new URL(response.url()).pathname.endsWith("/discussions"),
+        new URL(response.url()).pathname.endsWith("/threads"),
     );
-    await composer.getByRole("button", { name: "Add discussions", exact: true }).click();
+    await composer.getByRole("button", { name: "Add comment", exact: true }).click();
     const response = await posted;
     assert.equal(response.status(), 201, await response.text());
     const note = await response.json();
@@ -260,7 +260,7 @@ try {
       end,
       quote: scenario.quote ?? selected.slice(0, 4).join("\n").trim(),
     });
-    const read = await fetch(`http://localhost:${app.port}/api/discussions/${note.id}/source`, {
+    const read = await fetch(`http://localhost:${app.port}/api/threads/${note.id}/source`, {
       headers: { "x-r3-token": token },
     });
     assert.equal(read.status, 200);
@@ -270,7 +270,7 @@ try {
     await page.close();
   }
   console.log(
-    "Source/diff discussions: compact excerpts retain full ranges, retrievable without acknowledgment.",
+    "Source/diff threads: compact excerpts retain full ranges, retrievable without acknowledgment.",
   );
 } finally {
   await browser.close();

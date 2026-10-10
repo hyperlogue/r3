@@ -45,7 +45,7 @@ test("comment links preserve the comment context independently of the original c
     context: { versionSeq: 2, representation: "rendered" },
     path: null,
     target: null,
-    discussionId: "discussion_original",
+    threadId: "thread_original",
     commentId: "comment_match",
     snippet: "Keyboard fix",
   });

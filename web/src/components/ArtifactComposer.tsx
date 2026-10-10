@@ -4,12 +4,12 @@ import { createPortal, flushSync } from "react-dom";
 import { artifactTargetLabel } from "../../../shared/artifact-prompt.ts";
 import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
-import { withSavedComment } from "../artifact-discussions.ts";
 import { type ArtifactDraft, artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
+import { withSavedComment } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { draftAttachmentInputs } from "../attachment-drafts.ts";
-import { DiscussionCreationContext, prepareDiscussionMorph } from "../discussions-motion.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
+import { prepareThreadMorph, ThreadCreationContext } from "../thread-motion.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { useFloatingComposer } from "../useFloatingComposer.ts";
 import { MediaTargetPreview } from "./MediaTargetPreview.tsx";
@@ -45,7 +45,7 @@ export function ArtifactComposer({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const floatingComposer = useFloatingComposer(floating);
   const qc = useQueryClient();
-  const showCreated = useContext(DiscussionCreationContext);
+  const showCreated = useContext(ThreadCreationContext);
   const post = useMutation({
     mutationFn: async (submitted: ArtifactDraft) => {
       const attachments = await editableImageInputs(submitted.attachments ?? []);
@@ -56,7 +56,7 @@ export function ArtifactComposer({
           operationKey: submitted.operationKey,
         });
       else
-        return artifactApi.addDiscussion(artifactId, submitted.body, submitted.target, {
+        return artifactApi.addThread(artifactId, submitted.body, submitted.target, {
           attachments,
           operationKey: submitted.operationKey,
           mediaSnapshot:
@@ -70,7 +70,7 @@ export function ArtifactComposer({
       let cleared = false;
       // Do not let an older in-flight read replace the acknowledged note.
       await qc.cancelQueries({ queryKey: ["artifact", artifactId], exact: true });
-      if ("discussionId" in saved) {
+      if ("threadId" in saved) {
         flushSync(() => {
           qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
             current ? withSavedComment(current, saved) : current,
@@ -79,13 +79,13 @@ export function ArtifactComposer({
         });
       } else {
         const current = artifactDrafts.get(artifactId) === submitted;
-        if (current) prepareDiscussionMorph(formElement.current, saved.id);
+        if (current) prepareThreadMorph(formElement.current, saved.id);
         flushSync(() => {
           if (current) release = showCreated?.(saved);
           qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
-            !current || current.discussions.some((note) => note.id === saved.id)
+            !current || current.threads.some((note) => note.id === saved.id)
               ? current
-              : { ...current, discussions: [...current.discussions, saved] },
+              : { ...current, threads: [...current.threads, saved] },
           );
           cleared = artifactDrafts.clearIfCurrent(artifactId, submitted);
         });
@@ -215,8 +215,8 @@ export function ArtifactComposer({
       )}
       {retiredTarget && (
         <p className="px-3 text-xs text-amber-700 dark:text-amber-400">
-          Description anchoring is no longer supported. Clear the target to post this draft as
-          general discussions.
+          Description anchoring is no longer supported. Clear the target to post this draft as a
+          general comment.
         </p>
       )}
       {draft &&
@@ -233,8 +233,8 @@ export function ArtifactComposer({
       )}
       <MessageInput
         inputRef={textarea}
-        aria-label={commentTo ? "Comment" : "Discussion"}
-        placeholder={commentTo ? "Write a comment…" : "Write discussions…"}
+        aria-label={commentTo ? "Reply" : "Comment"}
+        placeholder={commentTo ? "Write a reply…" : "Write a comment…"}
         disabled={post.isPending}
         value={draft?.body ?? ""}
         onChange={(event) =>
@@ -292,7 +292,7 @@ export function ArtifactComposer({
             !hasMessageContent(draft) || attachments.unfinished || post.isPending || retiredTarget
           }
         >
-          {post.isPending ? "Posting…" : commentTo ? "Comment" : "Add discussions"}
+          {post.isPending ? "Posting…" : commentTo ? "Comment" : "Add comment"}
         </Button>
       </div>
     </form>

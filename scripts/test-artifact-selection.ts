@@ -33,7 +33,7 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Selection workspace" });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><p id="selection-text">A second selectable paragraph for quoting.</p><input id="input" value="Editable input"><div id="editor" contenteditable>Editable region</div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createDiscussion({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastDiscussion=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><p id="selection-text">A second selectable paragraph for quoting.</p><input id="input" value="Editable input"><div id="editor" contenteditable>Editable region</div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createThread({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastThread=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -162,10 +162,10 @@ try {
       }
       return null;
     }, "rendered document");
-  const discussionField =
+  const threadField =
     "document.querySelector('[data-artifact-composer]:not([data-comment-to]) textarea')";
-  const hasComposer = () => page.evaluate(`!!${discussionField}`);
-  const focused = () => page.evaluate(`document.activeElement === ${discussionField}`);
+  const hasComposer = () => page.evaluate(`!!${threadField}`);
+  const focused = () => page.evaluate(`document.activeElement === ${threadField}`);
   const click = async (label: string) => {
     await page.evaluate(
       `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim() === ${JSON.stringify(label)} || b.getAttribute('aria-label') === ${JSON.stringify(label)})?.click()`,
@@ -196,12 +196,12 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-discussions-mode]').dataset.discussionsMode === 'hidden'",
+        "document.querySelector('[data-discussion-mode]').dataset.discussionMode === 'hidden'",
       ),
-    "idle Escape in the preview hides the desktop discussions panel",
+    "idle Escape in the preview hides the desktop discussion panel",
   );
   assert(await hasComposer(), "hiding the panel preserves its empty preview note");
-  await click("Show discussions");
+  await click("Show discussion");
   await select(content, "#selection-text");
   await waitComposer("second paragraph composer");
   await select(content, "#heading");
@@ -213,7 +213,7 @@ try {
   await page.command("Input.insertText", { text: "Keep this note." });
   await key("Escape", "Escape");
   assert.equal(await focused(), false);
-  assert.equal(await page.evaluate(`${discussionField}.value`), "Keep this note.");
+  assert.equal(await page.evaluate(`${threadField}.value`), "Keep this note.");
   await key("Tab", "Tab");
   await eventually(focused, "explicit composer focus");
   await select(content, "#selection-text");
@@ -266,7 +266,7 @@ try {
   };
   await tapAction("Quote in note");
   await eventually(
-    () => page.evaluate(`${discussionField}.value.includes('> A second selectable paragraph')`),
+    () => page.evaluate(`${threadField}.value.includes('> A second selectable paragraph')`),
     "quoted selection",
   );
   await eventually(focused, "explicit composer focus");
@@ -339,7 +339,7 @@ try {
   await key("Tab", "Tab");
   await eventually(focused, "Markdown Tab focus");
   await page.command("Input.insertText", { text: "A native Markdown target." });
-  await click("Add discussions");
+  await click("Add comment");
   await eventually(
     () =>
       Promise.resolve(
@@ -347,7 +347,7 @@ try {
           .list(files.id)
           .some((note) => note.comments[0]!.body === "A native Markdown target."),
       ),
-    "posted Markdown discussions",
+    "posted Markdown threads",
   );
   const posted = storage.conversations
     .list(files.id)
@@ -366,11 +366,11 @@ try {
   content = await frame("Published first version");
   await content.evaluate("getSelection().removeAllRanges()");
   await select(content, "#heading", true);
-  await eventually(() => action("Add discussions"), "touch Add discussions action");
+  await eventually(() => action("Add comment"), "touch Add comment action");
   assert.equal(await hasComposer(), false, "touch selection waits for an explicit action");
-  await tapAction("Add discussions", content);
+  await tapAction("Add comment", content);
   await waitComposer("touch selection composer");
-  assert.equal(await focused(), false, "touch Add discussions opens without the keyboard");
+  assert.equal(await focused(), false, "touch Add comment opens without the keyboard");
   await click("Cancel");
   await eventually(async () => !(await hasComposer()), "clear the touch draft before navigation");
   // Start node-keyboard checks in a fresh desktop document so earlier gestures
@@ -404,7 +404,7 @@ try {
   await page.evaluate(
     "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
   );
-  // A selected page button must become a native discussions target, not activate.
+  // A selected page button must become a native threads target, not activate.
   await content.evaluate(
     "getSelection().removeAllRanges();document.querySelector('#send').focus();document.querySelector('#send').click()",
   );
@@ -421,12 +421,12 @@ try {
   await key(" ", "Space");
   await eventually(focused, "Space comments on the picked node and focuses its editor");
   assert.equal(
-    await content.evaluate("window.lastDiscussion"),
+    await content.evaluate("window.lastThread"),
     undefined,
     "the page button stays inactive",
   );
   await page.command("Input.insertText", { text: "A keyboard-picked node." });
-  await click("Add discussions");
+  await click("Add comment");
   await eventually(
     () =>
       Promise.resolve(
@@ -434,7 +434,7 @@ try {
           .list(artifact.id)
           .find((note) => note.comments[0]!.body === "A keyboard-picked node."),
       ),
-    "posted node discussions",
+    "posted node threads",
   );
   const nodeNote = storage.conversations
     .list(artifact.id)

@@ -1,17 +1,13 @@
-import type {
-  ArtifactComment,
-  ArtifactDetail,
-  ArtifactDiscussion,
-} from "../../shared/artifacts.ts";
-import { isUnhandledArtifactDiscussion as artifactNeedsAttention } from "../../shared/artifacts.ts";
+import type { ArtifactComment, ArtifactDetail, ArtifactThread } from "../../shared/artifacts.ts";
+import { isUnhandledArtifactThread as artifactNeedsAttention } from "../../shared/artifacts.ts";
 
 export { artifactNeedsAttention };
 export function withSavedComment(detail: ArtifactDetail, comment: ArtifactComment): ArtifactDetail {
   let changed = false;
-  const discussions = detail.discussions.map((note) => {
+  const threads = detail.threads.map((note) => {
     // A refetch may already include this comment with a newer edit or delivery stamp.
     if (
-      note.id !== comment.discussionId ||
+      note.id !== comment.threadId ||
       note.comments.slice(1).some((saved) => saved.id === comment.id)
     )
       return note;
@@ -29,12 +25,12 @@ export function withSavedComment(detail: ArtifactDetail, comment: ArtifactCommen
     };
   });
   return changed
-    ? { ...detail, discussions, unhandledCount: discussions.filter(artifactNeedsAttention).length }
+    ? { ...detail, threads, unhandledCount: threads.filter(artifactNeedsAttention).length }
     : detail;
 }
 // Keep freshly posted notes beside the composer until handed off. A human comment
 // yields to threads that still need attention, even while that comment is unsent.
-function attentionRank(note: ArtifactDiscussion): number {
+function attentionRank(note: ArtifactThread): number {
   if (
     note.comments[0]!.author.role === "human" &&
     note.comments[0]!.sentAt === null &&
@@ -47,8 +43,8 @@ function attentionRank(note: ArtifactDiscussion): number {
 }
 // Newest first within each group; reverse server insertion order breaks equal
 // creation-time ties without sorting random IDs or mutating the input.
-export function activeArtifactDiscussion(discussions: ArtifactDiscussion[]): ArtifactDiscussion[] {
-  return discussions
+export function activeArtifactThreads(threads: ArtifactThread[]): ArtifactThread[] {
+  return threads
     .filter((note) => note.status === "open")
     .reverse()
     .sort((a, b) => attentionRank(a) - attentionRank(b) || b.createdAt.localeCompare(a.createdAt));

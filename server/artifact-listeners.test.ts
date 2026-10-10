@@ -60,7 +60,7 @@ afterEach(async () => {
   storage.close();
   await rm(root, { recursive: true, force: true });
 });
-test("fallback and explicit listener survive restart without submitting pending discussions", async () => {
+test("fallback and explicit listener survive restart without submitting pending comments", async () => {
   await storage.artifacts.publish(id, request(first, 0));
   await storage.conversations.add(id, {
     actor: human,
@@ -168,7 +168,7 @@ test("schema 3 upgrades preserve artifacts and add durable local registrations",
   storage.close();
   const old = new Database(join(root, "store.sqlite"));
   old.exec(
-    "DROP TABLE artifact_listeners; DROP TABLE local_agent_targets; ALTER TABLE discussions DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 3",
+    "DROP TABLE artifact_listeners; DROP TABLE local_agent_targets; ALTER TABLE threads DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 3",
   );
   old.close();
   await open();

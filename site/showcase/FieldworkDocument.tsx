@@ -79,14 +79,14 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
               </button>
             )}
             {!props.commenting &&
-              props.targets.map(({ discussionId, target: anchor }) =>
+              props.targets.map(({ threadId, target: anchor }) =>
                 anchor.kind === "rendered" && anchor.locator?.selector === "#visibility" ? (
                   <button
-                    key={discussionId}
+                    key={threadId}
                     type="button"
                     className="fieldwork-pin"
-                    aria-label="Open visibility discussion"
-                    onClick={() => props.onDiscussion(discussionId)}
+                    aria-label="Open visibility thread"
+                    onClick={() => props.onThread(threadId)}
                   >
                     1
                   </button>

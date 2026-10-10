@@ -34,7 +34,7 @@ export interface ArtifactDemoState extends ArtifactDemoSeed {
   activity?: DemoActivity;
   messageOperations?: Record<
     string,
-    { hash: string; id: string; kind: "discussions" | "comment"; artifactId: string }
+    { hash: string; id: string; kind: "threads" | "comment"; artifactId: string }
   >;
   viewed: Record<string, string[]>;
   discussionRevisions: Record<string, number>;

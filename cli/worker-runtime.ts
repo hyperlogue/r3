@@ -70,7 +70,7 @@ const wait = (milliseconds: number, signal: AbortSignal) =>
     if (signal.aborted) finish();
   });
 
-// One writer owns this private file. Artifacts and discussions are never cached here.
+// One writer owns this private file. Artifacts and threads are never cached here.
 export class WorkerRuntime {
   private state: State;
   private subscriptions: Subscription[] = [];

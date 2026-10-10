@@ -36,7 +36,7 @@ try {
       url: `${server.url.origin}${base}/example/index.html?theme=${theme}&embedded=1`,
     });
     await waitFor(
-      "!!document.querySelector('[data-artifact-discussions]') && !!document.querySelector('.fieldwork-help')",
+      "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help')",
       "real workspace and latest revision",
     );
     await page.evaluate("document.fonts.ready");
@@ -73,7 +73,7 @@ try {
   await open();
 
   // The host changes its immutable detail snapshot when fake mutations finish.
-  await click('[data-discussions-action="resolve"]');
+  await click('[data-thread-action="resolve"]');
   await waitFor(
     "[...document.querySelectorAll('[role=tab]')].some(el => el.textContent.includes('Resolved 1'))",
     "resolve through injected action",
@@ -82,26 +82,23 @@ try {
     "[...document.querySelectorAll('[role=tab]')].find(el=>el.textContent.includes('Resolved')).click()",
   );
   await waitFor(
-    "!!document.querySelector('[data-discussions-queue=resolved] [data-artifact-discussions]')",
+    "!!document.querySelector('[data-discussion-queue=resolved] [data-artifact-thread]')",
     "resolved queue",
   );
   await page.evaluate("document.querySelector('.example-banner button').click()");
   await waitFor(
-    "!!document.querySelector('[data-discussions-queue=active] [data-artifact-discussions]')",
+    "!!document.querySelector('[data-discussion-queue=active] [data-artifact-thread]')",
     "reset fixture",
   );
-  await click('[data-discussions-action="comment"]');
-  await waitFor(
-    "!!document.querySelector('textarea[aria-label=Comment]')",
-    "real comment composer",
-  );
-  await page.evaluate("document.querySelector('textarea[aria-label=Comment]').focus()");
+  await click('[data-thread-action="comment"]');
+  await waitFor("!!document.querySelector('textarea[aria-label=Reply]')", "real comment composer");
+  await page.evaluate("document.querySelector('textarea[aria-label=Reply]').focus()");
   await page.command("Input.insertText", { text: "The visibility explanation is clear now." });
   await page.evaluate(
-    "document.querySelector('textarea[aria-label=Comment]').form.querySelector('button[type=submit]').click()",
+    "document.querySelector('textarea[aria-label=Reply]').form.querySelector('button[type=submit]').click()",
   );
   await waitFor(
-    "document.querySelector('[data-discussions-list]').textContent.includes('The visibility explanation is clear now.')",
+    "document.querySelector('[data-discussion-list]').textContent.includes('The visibility explanation is clear now.')",
     "comment through injected handler",
   );
   await page.evaluate(
@@ -118,10 +115,7 @@ try {
     await page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
     "mobile fits viewport",
   );
-  await waitFor(
-    "!!document.querySelector('[data-artifact-discussions]')",
-    "shared mobile discussion UI",
-  );
+  await waitFor("!!document.querySelector('[data-artifact-thread]')", "shared mobile thread UI");
   await screenshot("fieldwork-mobile.png");
   assert.deepEqual(failures, [], "no browser exceptions");
   assert.deepEqual(

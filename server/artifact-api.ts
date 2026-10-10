@@ -35,7 +35,7 @@ export function artifactDetail(storage: ArtifactStorage, id: string): ArtifactDe
   const detail: ArtifactDetail = {
     ...storage.artifacts.get(id),
     versions: storage.artifacts.versions(id),
-    discussions: storage.conversations.list(id),
+    threads: storage.conversations.list(id),
     placements: storage.conversations.placements(id),
     events: storage.lifecycle.events(id),
   };

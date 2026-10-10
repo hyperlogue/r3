@@ -80,18 +80,18 @@ export async function previewBridgeCall(
   value: unknown,
   context: PreviewPageContext,
   detail: ArtifactDetail,
-  api: Pick<typeof artifactApi, "addDiscussion" | "comment" | "submit">,
+  api: Pick<typeof artifactApi, "addThread" | "comment" | "submit">,
   userActivated: boolean,
   theme: ReturnType<typeof previewThemePreference>,
 ): Promise<unknown> {
   if (method === "getTheme") return theme.get();
   if (method === "getContext") return context;
   if (method === "getThreads")
-    return detail.discussions.map(({ comments, ...discussion }) => ({
-      ...discussion,
+    return detail.threads.map(({ comments, ...thread }) => ({
+      ...thread,
       comments: comments.map(({ attachments: _images, ...comment }) => comment),
     }));
-  if (!["createDiscussion", "comment", "submit", "setTheme"].includes(method))
+  if (!["createThread", "comment", "submit", "setTheme"].includes(method))
     throw new Error("Unsupported r3 preview operation");
   // Browser user activation propagates from the preview to its parent. Loading
   // a page or receiving an agent comment cannot silently start another handoff.
@@ -103,26 +103,32 @@ export async function previewBridgeCall(
   if (method === "submit") return api.submit(context.artifactId);
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Invalid r3 message");
-  const input = value as Record<string, unknown>;
-  const allowed = method === "comment" ? ["body", "discussionId"] : ["body", "locator"];
+  let input = value as Record<string, unknown>;
+  // Older published documents address replies with discussionId. Normalize
+  // only that spelling; ambiguous scope and extra fields still fail validation.
+  if (method === "comment" && "discussionId" in input && !("threadId" in input)) {
+    const { discussionId, ...rest } = input;
+    input = { ...rest, threadId: discussionId };
+  }
+  const allowed = method === "comment" ? ["body", "threadId"] : ["body", "locator"];
   if (Object.keys(input).some((key) => !allowed.includes(key)))
     throw new Error("Preview messages cannot change actor, publication, or scope");
   if (typeof input.body !== "string" || !input.body.trim() || input.body.length > 1024 * 1024)
     throw new Error("Message must contain between 1 and 1048576 characters");
   if (method === "comment") {
     if (
-      typeof input.discussionId !== "string" ||
-      !detail.discussions.some((discussions) => discussions.id === input.discussionId)
+      typeof input.threadId !== "string" ||
+      !detail.threads.some((threads) => threads.id === input.threadId)
     )
       throw new Error("Thread is not part of this artifact");
-    return api.comment(input.discussionId, {
+    return api.comment(input.threadId, {
       body: input.body,
     });
   }
   const locator = previewLocator(input.locator);
   if (context.representation === "source" && locator)
-    throw new Error("Media previews support whole-file discussions");
-  return api.addDiscussion(
+    throw new Error("Media previews support whole-file threads");
+  return api.addThread(
     context.artifactId,
     input.body,
     context.representation === "source"

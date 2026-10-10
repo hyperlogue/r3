@@ -80,7 +80,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(removed.code).toBe(1);
     expect(removed.error).toContain("Unknown command: prompt");
     for (const [args, heading] of [
-      [[], "# r3 — publish artifacts and respond to discussions"],
+      [[], "# r3 — publish artifacts and respond to threads"],
       [["html"], "# HTML artifacts"],
       [["files"], "# Files artifacts"],
       [["diff"], "# Diff artifacts"],
@@ -163,7 +163,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect((await run("unlisten", id)).code).toBe(0);
     expect((await run("comment", "fetch", id, "--all")).code).toBe(0);
     expect(await watchers()).toEqual([]);
-    expect((await run("status")).output).toContain("artifacts-v2");
+    expect((await run("status")).output).toContain("artifacts-v3");
     await writeFile(join(directory, "page.md"), "# After\n");
     expect(
       JSON.parse((await run("source", id, "--version", "1", "--file", "page.md", "--json")).output)
@@ -196,7 +196,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     ]);
     expect(await Bun.file(queueFile).exists()).toBe(false);
     const note = await run(
-      "discussions",
+      "thread",
       "add",
       id,
       "--human",
@@ -214,14 +214,14 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "# Before",
     );
     expect(note.code).toBe(0);
-    const discussions = JSON.parse(note.output);
+    const threads = JSON.parse(note.output);
     const watch = await run("watch", id, "--timeout", "1");
     expect(watch.code).toBe(10);
-    expect(watch.output).toContain(discussions.id);
-    expect((await run("claim", discussions.id)).code).toBe(0);
+    expect(watch.output).toContain(threads.id);
+    expect((await run("claim", threads.id)).code).toBe(0);
     const commentResult = await run(
       "comment",
-      discussions.id,
+      threads.id,
       "-m",
       "Updated in version two",
       "--file",
@@ -233,9 +233,9 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     );
     expect(commentResult).toMatchObject({ code: 0, error: "" });
     const detail = JSON.parse((await run("show", id, "--json")).output);
-    expect(detail.discussions[0].status).toBe("open");
-    expect(detail.discussions[0].claim).toBeNull();
-    expect(detail.discussions[0].comments[1].context).toEqual({
+    expect(detail.threads[0].status).toBe("open");
+    expect(detail.threads[0].claim).toBeNull();
+    expect(detail.threads[0].comments[1].context).toEqual({
       versionSeq: 2,
       representation: "source",
     });

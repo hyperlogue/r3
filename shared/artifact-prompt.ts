@@ -1,9 +1,9 @@
 import type {
   ArtifactComment,
   ArtifactDetail,
-  ArtifactDiscussion,
   ArtifactNudge,
   ArtifactTarget,
+  ArtifactThread,
 } from "./artifacts.ts";
 import { type ArtifactAttachment, imagePlaceholder } from "./attachments.ts";
 import { mediaTime, wholeMediaBox } from "./media-target.ts";
@@ -11,17 +11,17 @@ export function attachmentPrompt(images: ArtifactAttachment[] = [], placeholders
   return images
     .map(
       (image, index) =>
-        `${placeholders ? `${imagePlaceholder(index + 1)} ` : ""}Image ${image.id} (${image.mediaType}, ${image.width}×${image.height}, ${image.byteLength} bytes)${image.capture ? `\nCapture context: ${JSON.stringify(image.capture)}` : ""}\nDownload: r3 discussions image ${image.artifactId} --image ${image.id} --output ${image.id}.${image.mediaType === "image/png" ? "png" : "jpg"}`,
+        `${placeholders ? `${imagePlaceholder(index + 1)} ` : ""}Image ${image.id} (${image.mediaType}, ${image.width}×${image.height}, ${image.byteLength} bytes)${image.capture ? `\nCapture context: ${JSON.stringify(image.capture)}` : ""}\nDownload: r3 comment image ${image.artifactId} --image ${image.id} --output ${image.id}.${image.mediaType === "image/png" ? "png" : "jpg"}`,
     )
     .join("\n");
 }
-export function discussionAttachments(
-  discussions: ArtifactDiscussion[],
+export function commentAttachments(
+  threads: ArtifactThread[],
   unsent = false,
 ): ArtifactAttachment[] {
   const frames = (target: ArtifactTarget | null) =>
     target?.kind === "media" && target.locator.frame ? [target.locator.frame] : [];
-  return discussions.flatMap((item) => {
+  return threads.flatMap((item) => {
     const followup =
       unsent && !(item.comments[0]!.author.role === "human" && item.comments[0]!.sentAt === null);
     return [
@@ -37,7 +37,7 @@ export function discussionAttachments(
   });
 }
 export function artifactTargetLabel(target: ArtifactTarget): string {
-  if (target.kind === "artifact") return "General artifact discussions";
+  if (target.kind === "artifact") return "General artifact";
   if (target.kind === "artifact_summary") return "Retired artifact overview";
   if (target.kind === "version_summary") return `Version ${target.versionSeq} summary`;
   if (target.kind === "media")
@@ -48,60 +48,56 @@ export function artifactTargetLabel(target: ArtifactTarget): string {
       : "";
   return `Version ${target.versionSeq} · ${target.kind} · ${target.path}${range}`;
 }
-function historicalTarget(discussions: ArtifactDiscussion): boolean {
-  const source = discussions.comments[0]!.legacy?.source as
+function historicalTarget(thread: ArtifactThread): boolean {
+  const source = thread.comments[0]!.legacy?.source as
     | {
         file?: unknown;
       }
     | undefined;
   return (
-    discussions.target.kind === "artifact" && typeof source?.file === "string" && source.file !== ""
+    thread.target.kind === "artifact" && typeof source?.file === "string" && source.file !== ""
   );
 }
-export function artifactDiscussionTargetLabel(discussions: ArtifactDiscussion): string {
-  return historicalTarget(discussions)
+export function artifactThreadTargetLabel(thread: ArtifactThread): string {
+  return historicalTarget(thread)
     ? "Historical target unavailable"
-    : artifactTargetLabel(discussions.target);
+    : artifactTargetLabel(thread.target);
 }
-function block(discussions: ArtifactDiscussion, unsent: boolean): string {
-  const fresh =
-    discussions.comments[0]!.author.role === "human" && discussions.comments[0]!.sentAt === null;
+function block(thread: ArtifactThread, unsent: boolean): string {
+  const fresh = thread.comments[0]!.author.role === "human" && thread.comments[0]!.sentAt === null;
   const followup = unsent && !fresh;
-  const label = artifactDiscussionTargetLabel(discussions);
+  const label = artifactThreadTargetLabel(thread);
   const author =
-    discussions.comments[0]!.author.role === "agent"
-      ? ` [agent-authored: ${discussions.comments[0]!.author.sessionId}]`
+    thread.comments[0]!.author.role === "agent"
+      ? ` [agent-authored: ${thread.comments[0]!.author.sessionId}]`
       : "";
   const lines = [
-    `### ${discussions.id} — ${label} [${discussions.status}]${author}${followup ? " (follow-up)" : ""}`,
+    `### ${thread.id} — ${label} [${thread.status}]${author}${followup ? " (follow-up)" : ""}`,
   ];
-  if (historicalTarget(discussions)) {
-    const evidence = discussions.comments[0]!.legacy!.source as Record<string, unknown>;
+  if (historicalTarget(thread)) {
+    const evidence = thread.comments[0]!.legacy!.source as Record<string, unknown>;
     lines.push(
       `Legacy anchor evidence: ${JSON.stringify({ file: evidence.file, side: evidence.side, lineStart: evidence.line_start, lineEnd: evidence.line_end, quote: evidence.quote, patchSeq: evidence.patch_seq })}`,
     );
-  } else lines.push(`Original target: ${JSON.stringify(discussions.target)}`);
-  if (
-    (discussions.target.kind === "source" || discussions.target.kind === "diff") &&
-    discussions.target.locator
-  )
-    lines.push(`Full captured range: r3 discussions source ${discussions.id}`);
-  if (discussions.target.kind === "media" && discussions.target.locator.frame)
+  } else lines.push(`Original target: ${JSON.stringify(thread.target)}`);
+  if ((thread.target.kind === "source" || thread.target.kind === "diff") && thread.target.locator)
+    lines.push(`Full captured range: r3 thread source ${thread.id}`);
+  if (thread.target.kind === "media" && thread.target.locator.frame)
     lines.push(
       "Saved full frame (authoritative; video seeking is approximate):",
-      attachmentPrompt([discussions.target.locator.frame], false),
+      attachmentPrompt([thread.target.locator.frame], false),
     );
-  if (discussions.claim) lines.push(`Working agent: ${discussions.claim.sessionId}`);
+  if (thread.claim) lines.push(`Working agent: ${thread.claim.sessionId}`);
   if (!followup) {
-    lines.push("", discussions.comments[0]!.body);
-    if (discussions.comments[0]!.attachments?.length)
-      lines.push(attachmentPrompt(discussions.comments[0]!.attachments));
+    lines.push("", thread.comments[0]!.body);
+    if (thread.comments[0]!.attachments?.length)
+      lines.push(attachmentPrompt(thread.comments[0]!.attachments));
   }
   const comments = followup
-    ? discussions.comments
+    ? thread.comments
         .slice(1)
         .filter((comment) => comment.author.role === "human" && comment.sentAt === null)
-    : discussions.comments.slice(1);
+    : thread.comments.slice(1);
   for (const comment of comments) {
     const author = comment.author.role === "agent" ? `agent: ${comment.author.sessionId}` : "human";
     lines.push("", `[${author}] ${comment.body}`);
@@ -112,21 +108,21 @@ function block(discussions: ArtifactDiscussion, unsent: boolean): string {
       lines.push("Saved fix frame:", attachmentPrompt([comment.target.locator.frame], false));
     if (comment.target) lines.push(`Fix target: ${JSON.stringify(comment.target)}`);
   }
-  if (discussions.statusUnsent)
+  if (thread.statusUnsent)
     lines.push(
       "",
-      discussions.status === "resolved"
+      thread.status === "resolved"
         ? "The human marked this resolved; no further action is requested."
-        : "The human reopened this discussion.",
+        : "The human reopened this thread.",
     );
-  if (followup) lines.push("", `Earlier discussion: r3 show ${discussions.artifactId}`);
+  if (followup) lines.push("", `Earlier thread: r3 show ${thread.artifactId}`);
   return lines.join("\n");
 }
 // The caller selects a read-only set or the exact snapshot returned by deliver().
 // Formatting is pure and cannot acknowledge messages accidentally.
 export function buildArtifactPrompt(
   detail: ArtifactDetail,
-  discussions: ArtifactDiscussion[],
+  threads: ArtifactThread[],
   unsent = false,
   comments: ArtifactComment[] = [],
 ): string {
@@ -134,12 +130,11 @@ export function buildArtifactPrompt(
   const lines = [
     `Artifact ${detail.id}${detail.title ? ` — ${detail.title}` : ""}`,
     `Kind: ${detail.kind}. State: ${detail.state}. Latest published version: ${latest ?? "none"}.`,
-    `${discussions.length} discussion${discussions.length === 1 ? "" : "s"}.`,
+    `${threads.length} thread${threads.length === 1 ? "" : "s"}.`,
     "",
   ];
-  if (!discussions.length)
-    lines.push(unsent ? "No undelivered discussions." : "No selected discussions.");
-  else lines.push(discussions.map((item) => block(item, unsent)).join("\n\n"));
+  if (!threads.length) lines.push(unsent ? "No undelivered threads." : "No selected threads.");
+  else lines.push(threads.map((item) => block(item, unsent)).join("\n\n"));
   if (comments.length) {
     lines.push("", "## Artifact comments");
     for (const comment of comments) lines.push("", `### ${comment.id}`, comment.body);

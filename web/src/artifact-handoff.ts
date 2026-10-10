@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { ArtifactComment, ArtifactDiscussion } from "../../shared/artifacts.ts";
+import type { ArtifactComment, ArtifactThread } from "../../shared/artifacts.ts";
 
 // Browser receipts record successful pings, never agent acknowledgment. Persist
 // hashes only; without Web Crypto, exact inputs remain in memory for this visit.
@@ -107,9 +107,9 @@ function remember(artifactId: string, attempt: Attempt) {
     merge(merge(receipts, read()), { [artifactId]: { issued: attempt.order, delivered: attempt } }),
   );
 }
-function pendingInputs(discussions: ArtifactDiscussion[], comments: ArtifactComment[]): string[] {
+function pendingInputs(threads: ArtifactThread[], comments: ArtifactComment[]): string[] {
   const inputs: string[] = [];
-  for (const note of discussions) {
+  for (const note of threads) {
     if (
       note.comments[0]!.author.role === "human" &&
       note.comments[0]!.sentAt === null &&
@@ -128,12 +128,12 @@ function pendingInputs(discussions: ArtifactDiscussion[], comments: ArtifactComm
 }
 export function useDiscussionHandoffReceipt(
   artifactId: string,
-  discussions: ArtifactDiscussion[],
+  threads: ArtifactThread[],
   comments: ArtifactComment[],
 ) {
   const source = useMemo(
-    () => JSON.stringify(pendingInputs(discussions, comments)),
-    [discussions, comments],
+    () => JSON.stringify(pendingInputs(threads, comments)),
+    [threads, comments],
   );
   const [snapshot, setSnapshot] = useState<{
     source: string;
@@ -168,7 +168,7 @@ export function useDiscussionHandoffReceipt(
     remember: (attempt: Attempt) => remember(artifactId, attempt),
   };
 }
-export function discussionFetchCommand(artifactId: string): string {
+export function commentFetchCommand(artifactId: string): string {
   const argument = /^[a-zA-Z0-9_-]+$/.test(artifactId)
     ? artifactId
     : `'${artifactId.replaceAll("'", "'\\''")}'`;

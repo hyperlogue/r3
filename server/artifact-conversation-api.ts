@@ -1,10 +1,10 @@
 import type { Hono } from "hono";
-import { buildArtifactPrompt, discussionAttachments } from "../shared/artifact-prompt.ts";
+import { buildArtifactPrompt, commentAttachments } from "../shared/artifact-prompt.ts";
 import type {
+  ArtifactCommentAcknowledged,
+  ArtifactCommentRead,
+  ArtifactCommentSnapshot,
   ArtifactDetail,
-  ArtifactDiscussionAcknowledged,
-  ArtifactDiscussionRead,
-  ArtifactDiscussionSnapshot,
 } from "../shared/artifacts.ts";
 import { ATTACHMENT_LIMITS } from "../shared/attachments.ts";
 import type { ArtifactCollaboration } from "./artifact-collaboration.ts";
@@ -16,8 +16,8 @@ import { ArtifactError, requireString } from "./artifact-validation.ts";
 function ids(value: unknown, required = false): string[] | undefined {
   if (value === undefined && !required) return undefined;
   if (!Array.isArray(value) || !value.length || value.length > 1000)
-    throw new ArtifactError("Expected between 1 and 1000 discussions IDs");
-  return [...new Set(value.map((id) => requireString(id, "Discussion ID", 200)))];
+    throw new ArtifactError("Expected between 1 and 1000 thread IDs");
+  return [...new Set(value.map((id) => requireString(id, "Thread ID", 200)))];
 }
 
 export function installArtifactConversations(
@@ -28,10 +28,10 @@ export function installArtifactConversations(
 ) {
   const { artifacts, conversations } = storage;
   const shutdown = new AbortController();
-  const changed = (artifactId: string, discussionId: string | null) =>
+  const changed = (artifactId: string, threadId: string | null) =>
     collaboration.broadcast(
-      discussionId
-        ? { type: "discussions-updated", artifactId, discussionId }
+      threadId
+        ? { type: "threads-updated", artifactId, threadId }
         : { type: "artifact-updated", artifactId },
     );
   app.on(["GET", "HEAD"], "/api/artifacts/:id/attachments/:image", async (c) => {
@@ -51,42 +51,42 @@ export function installArtifactConversations(
       },
     });
   });
-  app.get("/api/artifacts/:id/discussions", (c) =>
+  app.get("/api/artifacts/:id/threads", (c) =>
     artifactJsonResponse(c.req.raw, conversations.list(c.req.param("id"))),
   );
-  app.post("/api/artifacts/:id/discussions", async (c) => {
-    const discussions = await conversations.add(
+  app.post("/api/artifacts/:id/threads", async (c) => {
+    const threads = await conversations.add(
       c.req.param("id"),
       await artifactJson(c.req.raw, ATTACHMENT_LIMITS.requestBytes),
     );
-    changed(discussions.artifactId, discussions.id);
-    return c.json(discussions, 201);
+    changed(threads.artifactId, threads.id);
+    return c.json(threads, 201);
   });
-  app.get("/api/discussions/:id", (c) => c.json(conversations.get(c.req.param("id"))));
-  app.get("/api/discussions/:id/source", async (c) =>
+  app.get("/api/threads/:id", (c) => c.json(conversations.get(c.req.param("id"))));
+  app.get("/api/threads/:id/source", async (c) =>
     artifactJsonResponse(c.req.raw, await conversations.source(c.req.param("id"))),
   );
-  app.patch("/api/discussions/:id", async (c) => {
-    const discussions = await conversations.update(
+  app.patch("/api/threads/:id", async (c) => {
+    const threads = await conversations.update(
       c.req.param("id"),
       await artifactJson(c.req.raw, ATTACHMENT_LIMITS.requestBytes),
     );
-    changed(discussions.artifactId, discussions.id);
-    return c.json(discussions);
+    changed(threads.artifactId, threads.id);
+    return c.json(threads);
   });
-  app.delete("/api/discussions/:id", async (c) => {
+  app.delete("/api/threads/:id", async (c) => {
     const input = await artifactJson(c.req.raw);
-    const discussions = conversations.get(c.req.param("id"));
-    conversations.delete(discussions.id, input.actor);
-    changed(discussions.artifactId, discussions.id);
+    const threads = conversations.get(c.req.param("id"));
+    conversations.delete(threads.id, input.actor);
+    changed(threads.artifactId, threads.id);
     return c.json({ ok: true });
   });
-  app.post("/api/discussions/:id/comments", async (c) => {
+  app.post("/api/threads/:id/comments", async (c) => {
     const comment = await conversations.addComment(
       c.req.param("id"),
       await artifactJson(c.req.raw, ATTACHMENT_LIMITS.requestBytes),
     );
-    changed(comment.artifactId, comment.discussionId);
+    changed(comment.artifactId, comment.threadId);
     return c.json(comment, 201);
   });
   app.get("/api/comments/:id", (c) => c.json(conversations.comment(c.req.param("id"))));
@@ -95,39 +95,39 @@ export function installArtifactConversations(
       c.req.param("id"),
       await artifactJson(c.req.raw, ATTACHMENT_LIMITS.requestBytes),
     );
-    changed(comment.artifactId, comment.discussionId);
+    changed(comment.artifactId, comment.threadId);
     return c.json(comment);
   });
   app.on(["POST", "DELETE"], "/api/claims", async (c) => {
     const input = await artifactJson(c.req.raw);
     const sessionId = requireString(input.sessionId, "Agent session ID", 200);
-    const discussionIds = ids(input.discussionIds, true)!;
-    const affected = new Set(discussionIds.map((id) => conversations.get(id).artifactId));
+    const threadIds = ids(input.threadIds, true)!;
+    const affected = new Set(threadIds.map((id) => conversations.get(id).artifactId));
     const result =
       c.req.method === "POST"
-        ? conversations.claim(discussionIds, sessionId)
-        : conversations.release(discussionIds, sessionId);
+        ? conversations.claim(threadIds, sessionId)
+        : conversations.release(threadIds, sessionId);
     for (const artifactId of affected)
       collaboration.broadcast({ type: "presence-changed", artifactId });
     return c.json(result ?? { ok: true });
   });
 
-  app.get("/api/artifacts/:id/discussions/pending", (c) => {
+  app.get("/api/artifacts/:id/comments/pending", (c) => {
     const id = c.req.param("id");
-    const snapshot = conversations.snapshot(id, ids(c.req.query("discussions")?.split(",")));
+    const snapshot = conversations.snapshot(id, ids(c.req.query("threads")?.split(",")));
     c.header("cache-control", "no-store");
     return c.json({
-      text: buildArtifactPrompt(detailFor(id), snapshot.discussions, true, snapshot.comments),
-      itemCount: snapshot.discussions.length + snapshot.comments.length,
-      attachments: discussionAttachments(snapshot.discussions, true),
+      text: buildArtifactPrompt(detailFor(id), snapshot.threads, true, snapshot.comments),
+      itemCount: snapshot.threads.length + snapshot.comments.length,
+      attachments: commentAttachments(snapshot.threads, true),
       acknowledgment: snapshot.acknowledgment,
-    } satisfies ArtifactDiscussionSnapshot);
+    } satisfies ArtifactCommentSnapshot);
   });
-  app.get("/api/artifacts/:id/discussions/history", (c) => {
+  app.get("/api/artifacts/:id/comments/history", (c) => {
     const detail = detailFor(c.req.param("id"));
-    const only = ids(c.req.query("discussions")?.split(","));
-    const selected = detail.discussions.filter((discussions) =>
-      only ? only.includes(discussions.id) : discussions.status === "open",
+    const only = ids(c.req.query("threads")?.split(","));
+    const selected = detail.threads.filter((threads) =>
+      only ? only.includes(threads.id) : threads.status === "open",
     );
     return c.json({
       text: buildArtifactPrompt(
@@ -137,29 +137,29 @@ export function installArtifactConversations(
         only ? [] : conversations.artifactComments(detail.id),
       ),
       itemCount: selected.length + (only ? 0 : conversations.artifactComments(detail.id).length),
-      attachments: discussionAttachments(selected),
-    } satisfies ArtifactDiscussionRead);
+      attachments: commentAttachments(selected),
+    } satisfies ArtifactCommentRead);
   });
-  app.post("/api/artifacts/:id/discussions/acknowledge", async (c) => {
+  app.post("/api/artifacts/:id/comments/acknowledge", async (c) => {
     const id = c.req.param("id");
     const input = await artifactJson(c.req.raw);
     const expectedFingerprint = requireString(
       input.expectedFingerprint,
-      "Expected discussions fingerprint",
+      "Expected comment fingerprint",
       64,
     );
     if (!/^[a-f0-9]{64}$/.test(expectedFingerprint))
-      throw new ArtifactError("Invalid discussions fingerprint");
-    const artifactCommentCount = input.discussions ? 0 : conversations.pendingComments(id).length;
+      throw new ArtifactError("Invalid comment fingerprint");
+    const artifactCommentCount = input.threads ? 0 : conversations.pendingComments(id).length;
     const selected = conversations.acknowledge(id, {
-      discussions: ids(input.discussions),
+      threads: ids(input.threads),
       expectedFingerprint,
     });
     if (selected.length || artifactCommentCount)
       collaboration.broadcast({ type: "artifact-updated", artifactId: id });
     return c.json({
       acknowledgedCount: selected.length + artifactCommentCount,
-    } satisfies ArtifactDiscussionAcknowledged);
+    } satisfies ArtifactCommentAcknowledged);
   });
   app.post("/api/artifacts/:id/submit", async (c) => {
     const notification = await collaboration.submit(c.req.param("id"));

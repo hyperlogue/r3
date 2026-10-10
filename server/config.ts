@@ -278,7 +278,7 @@ export interface DaemonInfo {
   pid: number;
   token?: string;
   version: string;
-  protocol?: "artifacts-v2";
+  protocol?: "artifacts-v3";
   // How this daemon was launched, recorded by the serving process itself:
   // `exec` is its binary/interpreter (process.execPath — the compiled r3 binary,
   // or the bun that ran the script), `argv` the full command line

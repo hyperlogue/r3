@@ -1,7 +1,9 @@
 # Artifact design
 
-r3's implemented model is **Artifact → Version → Content**, with discussions and
-comments attached to the artifact. Reviewing is an activity on that work product.
+r3's implemented model is **Artifact → Version → Content**, with threads and
+comments grouped into its **Discussion**. A Thread is one resolvable topic; a
+Comment is one message. Archive comments belong directly to the discussion.
+Reviewing is an activity on that work product.
 This document explains the product boundaries and the reasons behind them.
 
 Use [the domain glossary](../../CONTEXT.md) for canonical terms,
@@ -20,7 +22,7 @@ returned mutation values and query invalidations retain the existing optimistic
 UI behavior. Optional chrome slots supply application navigation and settings.
 An optional query client lets the connected app share its cache.
 
-The page owns interaction, layout, versions, discussions, comparison, and the
+The page owns interaction, layout, versions, threads, comparison, and the
 single mobile composition point. It imports no HTTP client, authentication,
 router, backend selection, or preview-session setup. `application-ui.tsx` and
 `pages/ArtifactView.tsx` own those connected concerns. Presentation components
@@ -38,7 +40,7 @@ opaque preview renderer and enforce its existing security gate.
 | Kind | Published content | Workspace |
 | --- | --- | --- |
 | `files` | A complete directory with at least one file | All files in one scrolling pane with foldable headers and a synchronized file browser; Markdown opens rendered, other text opens as source, with per-file HTML/Markdown view switching, media previews, and downloads |
-| `html` | A complete directory with a root `index.html` | Rendered entrypoint and discussions panel; no file browser or source toggle |
+| `html` | A complete directory with a root `index.html` | Rendered entrypoint and discussion panel; no file browser or source toggle |
 | `diff` | An independent unified patch | Captured old/new lines, split or unified layout, and expandable retained context |
 
 Kind stays fixed for an artifact. CLI creation requires an explicit `--kind`;
@@ -96,7 +98,7 @@ additional directory-container entity for a caller to create or manage.
 Artifacts have a title and metadata, with no overview field or overview panel.
 Optional summaries belong to immutable versions and appear as the selected version's
 description in the navigation's details popup. Descriptions have no body section or
-comment anchors. New discussions target artifacts or documents; comment fix targets
+comment anchors. New threads target artifacts or documents; comment fix targets
 identify documents. Retired overview and version-description targets remain readable
 historical evidence.
 Locate on an existing description thread opens that version's details popup. Saved
@@ -217,7 +219,7 @@ retain their native behavior.
 The browser pins the displayed version. A new publication is announced with an
 **Go to the latest version** action; it does not replace the content being read. Version switches
 and representation toggles preserve a draft's original target and message context.
-Artifact links can include `version`, `file`, `view`, and `discussions` query parameters.
+Artifact links can include `version`, `file`, `view`, and `threads` query parameters.
 
 Rendered Markdown follows r3’s selected light/dark appearance, including its syntax
 palette. Trusted preview support applies explicit text/background colors and adapts
@@ -274,7 +276,7 @@ After ordinary application authentication, a warm Markdown visit first displays
 a passive local reading view while preview checks run. It preserves formatting,
 theme, and scroll, but strips navigation/resource attributes and active elements.
 An opaque iframe's restrictive CSP permits only a trusted layout/scroll helper;
-publisher scripts, images, network requests, links, and discussions actions are absent.
+publisher scripts, images, network requests, links, and comment actions are absent.
 The normal interactive document replaces it after admission and layout are ready.
 There is no additional login check and no display before application bootstrap.
 Authenticated application HTML carries bootstrap and the addressed artifact's
@@ -352,11 +354,11 @@ compact elevation; floating conversations/composers and dialogs use broader shad
 Shared overlay tokens provide strong border contrast and rim lighting in both themes.
 Transient delivery, lifecycle, workspace, preview, and capture notices share one
 stack at the bottom right of the viewport. A portal keeps the stack outside pane
-clipping and hidden discussions containers; each notice disappears when its originating
+clipping and hidden discussion containers; each notice disappears when its originating
 component unmounts. Notices use a semantic icon, a short title, optional supporting
 text, and a visible dismiss control. Successful notices dismiss after five seconds,
 paused while hovered or focused; warnings and errors remain until dismissed. On
-phones the stack clears the discussions bar and respects safe areas. Capture hides the
+phones the stack clears the discussion bar and respects safe areas. Capture hides the
 stack from captured pixels. Field validation and persistent navigation actions stay
 with their controls.
 Mobile sheets cast upward and retain their intentional rounded top corners. The
@@ -394,9 +396,9 @@ While an older or unavailable version is selected, **Go to the latest version** 
 top navigation immediately right of the version selector, with an amber outline. On narrow screens it
 shares the version section in the three-dot menu. Opening latest closes that menu,
 and the button disappears on the latest version. The desktop
-discussions-panel toggle precedes comment mode and the three-dot menu on the right.
+discussion-panel toggle precedes comment mode and the three-dot menu on the right.
 HTML artifacts have no empty content toolbar. File-tab headers contain reading and
-discussions controls. Narrow headers show source/rendered icons and the Viewed checkbox
+discussion controls. Narrow headers show source/rendered icons and the Viewed checkbox
 with accessible names, preserving space for filenames. Enabled reading controls
 remain legible; touch hit areas grow within the compact header rows. Binary and oversized source placeholders offer **Download file**
 in the content body.
@@ -414,15 +416,15 @@ Comment controls stay inside the visible part of a tall frame, clear of sticky
 file headers, and follow the outer scroll position. Rendered Locate waits for file
 hydration, header alignment, and initial Markdown sizing before jumping to its target.
 
-The discussions dock retains the compact **Active / Resolved** tabs. Its Add general
-discussions button shares the bubble-plus icon with whole-file discussions. Resolve has
+The discussion dock retains the compact **Active / Resolved** tabs. Its **Add comment**
+button shares the bubble-plus icon with whole-file comments. Resolve has
 neutral text and no visible outline at rest; hover adds a green border, text, and tint.
 The status tabs and their sliding highlight use the same corner radius as buttons.
 Active and Resolved are persistent adjacent queues. A 220 ms horizontal slide puts
 Resolved to the right of Active; reversing a switch reverses the movement. Each
 queue keeps its scroll position and editors. Inactive content is inert and hidden
-from accessibility APIs. The new-discussions composer belongs to Active and moves
-with it; an anchor gesture or Add general discussions opens Active. Reduced motion
+from accessibility APIs. The new-comment composer belongs to Active and moves
+with it; an anchor gesture or Add comment opens Active. Reduced motion
 switches immediately. Row insert/delete/reorder animations stay within each queue.
 Transient background read failures retain the loaded workspace. Definitive missing
 artifact or access errors replace it with an error state.
@@ -437,48 +439,48 @@ server insertion order. This keeps a new card beside its composer until handoff,
 while commenting moves a handled card below threads still needing attention. The
 existing reorder animation shows that move without automatic scrolling. Unhandled
 means an open thread whose latest message is from an agent; a posted human comment or
-resolution clears it. Opening the panel does not. The navbar discussions button shows
+resolution clears it. Opening the panel does not. The navbar discussion button shows
 one primary-color dot only when there are unhandled agent messages. Draft and unsent
 counts stay in its tooltip and accessible description without lighting the dot.
 The browser tab favicon adds a blue dot for the current artifact's same unhandled
-agent discussions. Viewing the tab does not clear it; a human comment or resolution does.
+agent threads. Viewing the tab does not clear it; a human comment or resolution does.
 Leaving the artifact restores the ordinary icon, including if its badge asset is
 still loading.
 Unsent human input shows a desktop navbar handoff button immediately before
-the discussions toggle, available while the panel is hidden. Both navbar handoff
+the discussion toggle, available while the panel is hidden. Both navbar handoff
 variants disappear while the dock is expanded or floating, leaving the panel's
-control. Hiding the navbar action fades it right toward the discussions toggle and
+control. Hiding the navbar action fades it right toward the discussion toggle and
 collapses its space; showing it reverses that transition. Hidden controls are inert,
 and reduced-motion preferences disable the transition. With no listener/watcher,
-**Use in agent** opens a small command popover, even without pending discussions.
+**Use in agent** opens a small command popover, even without pending comments.
 It shows `r3 comment fetch <id>` and a copy icon, with instructions to run it using
-`!` in the agent harness. Copying leaves discussions pending until the CLI runs.
+`!` in the agent harness. Copying leaves comments pending until the CLI runs.
 The panel retains the same control, including on mobile. Command popovers support
 Escape, outside dismissal, and focus return; their top layer avoids pane clipping.
 Both send controls share the in-flight request guard and delivery receipts.
 Handoff errors appear in the shared corner stack with guidance to check that the
 agent session is running and listening, a copyable fetch command, and expandable
-delivery details. Posting adds discussions to
+delivery details. Posting adds threads to
 r3; **Send to agent · N** notifies the registered recipient. Successful notification
 delivery, including Codex queue acceptance, shows **Sent** for three seconds and
 the same **Agent notified** notice. This confirms adapter acceptance, never that
-the agent read or processed discussions. It then hides the navbar action and keeps
+the agent read or processed threads. It then hides the navbar action and keeps
 the panel button disabled until new human inputs are pending. A browser receipt covers exactly the inputs present when
 the ping began; concurrent edits remain eligible. Agent comments, claims, and body
 edits do not invalidate that receipt. Receipts synchronize across tabs and retain the latest successful request, so
 older completions cannot overwrite newer input and historical values can be sent again. A bounded cache persists hashes; if Web Crypto is unavailable,
 exact inputs stay in memory for the current visit. This confirmation never stamps
-server discussions as read. Failed or absent delivery remains retryable. Disabled handoff
+server threads as read. Failed or absent delivery remains retryable. Disabled handoff
 reasons remain in the button tooltip. The draft badge shares the filter row, so
 typing does not add a row or shift the composer. General notes open on demand as
-the first pending card in the same scrolling list as discussions. After the server
+the first pending card in the same scrolling list as threads. After the server
 confirms a new note, its returned record enters the cache immediately and replaces
 the composer at the top. The outgoing composer crossfades into the saved card while
 its height eases to fit; Cancel and Discard keep the ordinary removal animation.
 Reduced motion skips the transition. Failed saves retain the draft. Event-stream
 reads that arrive before the POST response cannot duplicate or overwrite the note.
 Agent messages keep their attribution inside tinted bubbles; human messages omit
-the redundant author label. General discussion has no location heading. Card target
+the redundant author label. General thread has no location heading. Card target
 and fix labels omit the version only for the latest publication;
 older versions remain explicit. These labels omit representation words, retaining
 paths, line ranges, and diff sides. HTML comment fix links instead show the agent's
@@ -493,13 +495,13 @@ Long conversations fold earlier comments. Nonempty drafts block handoff until po
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 
-Within one browser origin, tabs share one new-discussions draft per artifact and one
+Within one browser origin, tabs share one new-comment draft per artifact and one
 comment draft per thread. Edits persist after a 400 ms debounce and update other
 tabs through storage events. The latest saved edit wins when tabs edit the same
 draft; independent drafts use separate storage keys. Clearing a draft also
 propagates. Older browser drafts remain readable until replaced or discarded.
 
-The desktop discussions panel has three persisted display states:
+The desktop discussion panel has three persisted display states:
 
 - **Hidden:** the content fills the workspace; anchors can open individual threads.
 - **Expanded** (default): the original side panel reserves space beside the content.
@@ -511,13 +513,13 @@ The desktop discussions panel has three persisted display states:
 
 Hidden and floating reserve no content space, so switching between them or resizing
 the floating panel never changes content or preview width. Expanded reserves the
-panel's width and resizes content with it. Visible panels offer **Float discussions** / **Dock discussions** and **Hide discussions**. Hide uses a right chevron when docked and a close icon when floating. The desktop navbar button or `p` hides the panel or
+panel's width and resizes content with it. Visible panels offer **Float discussion** / **Dock discussion** and **Hide discussion**. Hide uses a right chevron when docked and a close icon when floating. The desktop navbar button or `p` hides the panel or
 restores the last visible mode. That choice persists across reloads. All states keep
 the panel mounted to preserve UI state and drafts. Existing folded preferences become
 hidden and reopen expanded if no visible-mode preference was saved.
 `Esc` hides either visible desktop mode while preserving drafts. Editors and open
 popups handle Escape first. With the panel open, `n` opens Active and focuses general
-discussions, retaining any populated draft's existing target.
+threads, retaining any populated draft's existing target.
 These shortcuts stand down during text entry, modal overlays, and key repeat.
 Float/dock changes animate the existing panel shell for 360 ms from its current
 visual position and size, including corners and shadow. Content takes its final
@@ -527,17 +529,17 @@ the hidden panel is inert and reserves no space. A floating hide that interrupts
 change fades from its current visual position instead of jumping to the dock. Direct drag/resize,
 viewport resize, and reduced motion end the transition; saved geometry remains
 independent of these temporary visual transforms.
-The default discussions width is 38.2% of the workspace (the golden-ratio split),
+The default discussion width is 38.2% of the workspace (the golden-ratio split),
 within the 300–700 px resize limits. Double-clicking the divider clears the saved
 width and recalculates this proportion for the current workspace in either visible mode.
 
 With the panel hidden, selecting an existing source/diff anchor or rendered
 comment marker opens only that conversation in a floating card. Comment and status
 actions reuse the same thread component and draft store. Closing the card keeps
-drafts; **Open all discussions** restores the full panel in its last visible mode. Changing version or view
-closes the card. Mobile continues to use its shared discussions sheet.
+drafts; **Open discussion** restores the full panel in its last visible mode. Changing version or view
+closes the card. Mobile continues to use its shared discussion sheet.
 
-Discussion cards retain their original motion: a quick fade with a 250 ms rise on
+Thread cards retain their original motion: a quick fade with a 250 ms rise on
 insertion, a 200 ms fade/slide to the right on removal, and a 200 ms move between
 positions when reordered. The Active/Resolved fill eases in and out between measured
 tab boxes over 380 ms, stretching to 118% width and flattening to 85% height at the
@@ -548,7 +550,7 @@ Reduced-motion preferences disable these animations.
 Rendered comment mode intercepts element picks before page handlers and supports
 selecting a parent element. `c` toggles comment mode from the workspace or a focused
 document preview. With a node picked, `Space` invokes **Comment here** and opens the
-discussions editor for that node. Text entry, modifiers, IME, overlays, and held keys
+thread editor for that node. Text entry, modifiers, IME, overlays, and held keys
 do not trigger these actions. Normal mode preserves page interaction. Source and
 diff selections use their own range gestures. Each creates a native target:
 
@@ -561,11 +563,11 @@ diff selections use their own range gestures. Each creates a native target:
 Artifact-wide notes and whole-document/file targets are explicit variants.
 Summary targets survive only as historical evidence; new comments cannot use them. Absence of version context never secretly means latest.
 
-A Discussion's original target is immutable. Use a Comment's fix target to name a
+A Thread's original target is immutable. Use a Comment's fix target to name a
 later published location. Historical **placements** remain readable with their native
 evidence and match state, but new placement authoring is retired.
 
-Rendered Markdown discussions addresses visible content directly. For example, a note
+Rendered Markdown thread addresses visible content directly. For example, a note
 on a link label does not need a computed Markdown source range. Its thread appears
 in both views, and Locate returns to the rendered view where it began. Source notes
 work symmetrically. Exact cross-representation matching is not required.
@@ -579,15 +581,15 @@ units, trimming surrounding whitespace. Native text capture excludes gutters,
 diff signs, and blank-row display placeholders. The server verifies that the
 complete range exists and that the nonblank quote occurs within its captured
 bytes; the quote need not cover every line. Version, file, diff side, contiguous
-capture, and target limits remain mandatory. `r3 discussions source <discussions-id>`
+capture, and target limits remain mandatory. `r3 thread source <thread-id>`
 reads the complete original source/diff range on demand without acknowledging
-discussions. Existing saved quotes remain immutable.
+threads. Existing saved quotes remain immutable.
 Space or forward Tab focuses the visible new-note composer at the end;
 Shift+Tab, editable fields, keyboard-focused controls, IME, modifiers, and overlays
 retain their own keys. Keyboard text selection shares native capture with a 275 ms
-debounce. Whole-file/general discussions buttons and explicit quote actions focus.
+debounce. Whole-file/general comment buttons and explicit quote actions focus.
 In a focused editor, Escape cancels an empty note or blurs a populated one without
-losing text. Outside the editor, Escape hides a visible desktop discussions panel;
+losing text. Outside the editor, Escape hides a visible desktop discussion panel;
 when the panel is hidden, it cancels an empty standalone note.
 Scrolling or collapsing the selection dismisses transient quote actions, not drafts.
 The standalone desktop composer has a grip to drag it. Its chosen position lasts while the
@@ -596,12 +598,12 @@ within the viewport when moved, when its contents grow, and when the window
 resizes; a new opening starts beside the selected content again.
 An empty note can retarget; a populated note offers **Quote in note**. Selection in
 an agent message offers **Quote in comment** only for that message's own thread.
-On coarse pointers, selection first offers **Add discussions**, or **Quote in note**
+On coarse pointers, selection first offers **Add comment**, or **Quote in note**
 for a populated note. The action captures its range before tapping can clear the
 native selection. Preview controls use the visible part of their iframe, including
 full-height Markdown; the parent translates bounded geometry for the composer.
 Focus and draft actions travel only on the current document's port while its frame
-has focus. They do not send discussions; publication and conversation mutations retain
+has focus. They do not send threads; publication and conversation mutations retain
 their existing explicit actions and guards.
 
 Rendered selection and Locate share text normalization. A dynamic element may no
@@ -610,14 +612,14 @@ readable, and unavailable or ambiguous placement is explicit. Published bytes do
 not freeze runtime form values, modals, or device frames.
 
 A comment's inline references use its own target's published version and view when
-present, otherwise the discussion's original target. A general discussion stays
+present, otherwise the thread's original target. A general thread stays
 unbound until a comment supplies a version target; it never silently means latest.
 There is no separately chosen message context. Historical comments retain their
 recorded reference context.
 
 ### Comparing proposed fixes
 
-An agent comment offers **Compare** when both the discussions's immutable original
+An agent comment offers **Compare** when both the thread's immutable original
 target and that comment's explicit fix target are both rendered element locators
 or both media targets with saved frames in retained publications. General, whole-document, source/diff, and unavailable
 publication targets do not qualify. Comment context and placements never substitute
@@ -638,15 +640,15 @@ Original and fix can use different timestamps, dimensions and filenames. Playbac
 and seeking are independent; **Return to targets** restores both saved frames.
 The saved-frame icon is in each file header. Compare has no region creation tools.
 
-The navbar and discussions panel remain shared with the artifact workspace. Comparison
+The navbar and discussion panel remain shared with the artifact workspace. Comparison
 adds a badge by Discussion and filters its Active/Resolved queues to eligible
 conversations. The panel is temporarily docked and cannot float or hide; phone
-discussion is in flow beneath the previews. Comments, resolution, undo, handoff, and
+thread is in flow beneath the previews. Comments, resolution, undo, handoff, and
 draft storage use their ordinary behavior. New comparison comments default to the
 explicit fix version; existing draft context remains pinned.
 
 Returning reverses the slide and restores the previous panel mode, floating
-geometry, discussions tab, scroll, and focus. The main document stays mounted and
+geometry, discussion tab, scroll, and focus. The main document stays mounted and
 inert during comparison, preserving its page state and selected publication.
 Comparison scroll does not replace its saved reading position. Offscreen previews
 cannot invoke workspace actions or use human activation to mutate conversations.
@@ -662,7 +664,7 @@ including subagents sharing a harness, use distinct session IDs. Attribution sur
 process disconnection. Sessions are neither user accounts nor artifact ownership;
 any registered agent can contribute through the owner's API.
 
-Claims are renewable, discussions-scoped leases. Different agents can handle different
+Claims are renewable, thread-scoped leases. Different agents can handle different
 notes concurrently. A conflicting live owner blocks a claim, and a successful comment
 releases only its author's claim. Concurrent publication is protected separately by
 the version sequence check.
@@ -676,7 +678,7 @@ the caller's roles. A failed worker send retains the selected subscription with 
 visible error; the same attempt is never resent to another recipient.
 
 Local and remote modes use the same backend protocol. The server owns content,
-discussions, authentication, and recipient selection. A separate persistent worker
+threads, authentication, and recipient selection. A separate persistent worker
 owns local Claude Code/Codex delivery and opens only a private Unix socket. CLI
 reads, writes, uploads, and watch go directly to the selected backend. Each backend
 gets one outgoing worker connection carrying opaque destination IDs. Harness paths
@@ -688,9 +690,9 @@ without a saved recovery intent or a conditional resume request. Fresh listen ca
 replace the explicit subscription; an older worker cannot take it back on reconnect.
 Backend restart preserves the same subscription identities. Archive, unlisten, and
 replacement end those identities permanently, including while a worker is offline.
-Setup, restart, and fallback selection never submit pending discussions.
+Setup, restart, and fallback selection never submit pending comments.
 
-After printing and acknowledging new discussions, `comment fetch` registers a
+After printing and acknowledging pending comments, `comment fetch` registers a
 supported calling harness through the same worker/backend path. Setup failure warns
 without failing the fetch. History and human reads skip registration. Codex delivery
 reports queue acceptance, not proof of session liveness. Notifications are bounded
@@ -700,20 +702,20 @@ The [remote protocol](remote-protocol.md) owns backend selection, client login,
 credential storage, wire messages, recovery, delivery limits, and migration. The
 bundled server implements that contract; it is not a separate remote product.
 
-Discussion acknowledgment records the owner's handoff, not a read receipt from every
-agent. Agent messages start delivered; human discussions/comments wait for handoff. Reading or
-subscribing is not acknowledgment. The CLI reads `discussions/pending`, completes stdout output, then calls the explicit
-`discussions/acknowledge` endpoint with that snapshot’s required fingerprint. A persisted
+Comment acknowledgment records the owner's handoff, not a read receipt from every
+agent. Agent messages start delivered; human comments wait for handoff. Reading or
+subscribing is not acknowledgment. The CLI reads `comments/pending`, completes stdout output, then calls the explicit
+`comments/acknowledge` endpoint with that snapshot’s required fingerprint. A persisted
 revision rejects stale snapshots even after text is edited and reverted. Failed reads
 or output leave content pending; an acknowledgment failure may repeat already printed
-content on retry. `discussions/history` provides read-only history for `--all`. The browser
+content on retry. `comments/history` provides read-only history for `--all`. The browser
 copies the command without acknowledging content.
 See [delivery and status](../../.claude/skills/api-surface/SKILL.md#delivery-and-status)
 for edit and status-transition rules.
 
 Archive shelves work without implying approval. Its transaction preserves an ordered
 lifecycle event and optional artifact-level Comment, changes state, and clears claims.
-The Comment shares the message model used by Discussions, without a resolution
+The Comment shares the message model used by Threads, without a resolution
 status. It remains in history and can be edited after restore through the common
 Comment API. Editing it never rewrites the lifecycle event or the original retry input. The
 collaboration module captures the selected recipient and removes both registrations
@@ -725,13 +727,13 @@ before notifications.
 | Nonblank comment and selected recipient | Send the saved event and Comment to that recipient | Archived, exit 0, with Comment |
 | Nonblank comment without a selected recipient | Retain history; no automatic agent startup | Already-archived watch returns immediately with the Comment |
 
-Archive takes precedence over pending discussions and timeout. A failed notification
+Archive takes precedence over pending comments and timeout. A failed notification
 preserves the committed event and reports failure; an operation-key retry does not
 push again. A complete acknowledged archive notification can deliver its Comment;
 a truncated one leaves delivery unconfirmed. After restore, pending artifact-level
 Comments join the ordinary snapshot handoff. Archived artifacts retain content, threads, status, unsent work, and
 drafts. Archived artifacts are read-only: publication, metadata edits, conversation
-creation/edits/deletion, comments, new claims, ordinary discussions delivery,
+creation/edits/deletion, comments, new claims, ordinary threads delivery,
 and subscriptions are closed until restore. A comment still being prepared when
 archive commits must fail rather than extend the archived conversation. Reading
 retained content, restoring the artifact, and deleting the whole artifact remain
@@ -834,7 +836,7 @@ owns enforcement details; [verification](verification.md) owns browser evidence.
 
 Pages may import `/r3/utility.js` to use the narrow
 [ArtifactUtility interface](../../shared/preview-protocol.ts): context, threads,
-discussions creation, comments, explicit Submit, change subscriptions, theme preference, and device capture. These use
+thread creation, comments, explicit Submit, change subscriptions, theme preference, and device capture. These use
 the same conversations and handoff as the built-in panel. Human mutations require
 user activation. The bridge validates the exact iframe window, opaque origin,
 context, and document scope before accepting a transferred MessagePort. Comments
@@ -881,7 +883,7 @@ this feature. Local operation and remote publishing use the same artifact model.
 
 ## Images in conversations
 
-Discussion and comments accept up to four static PNG/JPEG attachments, each at most
+Thread and comments accept up to four static PNG/JPEG attachments, each at most
 5 MiB and 20 megapixels. Text may be empty when an image is present. An attachment
 belongs to its message, independently of the immutable original target or comment
 fix target. A screenshot's version/path/route/viewport/crop is observed context,
@@ -928,9 +930,9 @@ leaves paste/upload available. The browser decides which capture APIs are presen
 there is no assumption of universal desktop or mobile capture support. Crop can
 be selected by dragging or by entering numeric coordinates and dimensions.
 
-Agents receive image IDs and download commands in discussions output. Fetch with
+Agents receive image IDs and download commands in comment output. Fetch with
 `--attachments-dir` writes and verifies all selected immutable image bytes before
-stdout and acknowledgment. Download or output failure leaves discussions pending.
+stdout and acknowledgment. Download or output failure leaves comments pending.
 Fetching references acknowledges handoff, not proof that a model viewed pixels.
 
 The image editor combines crop with pen, arrow, and rectangle drawings. Color and
@@ -975,7 +977,7 @@ active artifacts awaiting human review before agent presence and other work;
 archived artifacts follow. Needs you includes active artifacts with unhandled
 agent messages, independently of delivery or claims.
 
-Search spans artifact metadata, version labels/summaries, published text, discussions,
+Search spans artifact metadata, version labels/summaries, published text, threads,
 and comments. Content defaults to the latest committed publication; Include history
 adds earlier publications. Conversations always retain their recorded version
 context, including resolved conversations. Comments open their message context,
@@ -994,7 +996,7 @@ The API returns counts by result type and bounded pages. Binary/invalid UTF-8
 files and text files above 4 MiB are counted as excluded; no partial file is
 silently treated as complete. The first search lazily indexes selected publications
 from immutable blobs. Search does not fetch publisher paths, execute documents,
-acknowledge discussions, or register a listener.
+acknowledge comments, or register a listener.
 
 Query, project, view, kind, result type, history, sorting, and page are encoded in
 the library URL. The header’s r3 link preserves this state; same-tab return
@@ -1026,13 +1028,13 @@ archived items are skipped without changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.
 Notification failure is reported separately from a committed archive.
 
-## Media discussion targets
+## Media thread targets
 
 Files artifacts support native targets for video and static PNG, JPEG and WebP.
-GIF, APNG, animated WebP and other image formats retain whole-file discussions.
-The file header has an **Add image discussions** or **Add video discussions** action
-separate from whole-file discussions.
-This single media-discussions button freezes the frame and enables targeting. Click
+GIF, APNG, animated WebP and other image formats retain whole-file threads.
+The file header has an **Add image comment** or **Add video comment** action
+separate from whole-file threads.
+This single media-comment button freezes the frame and enables targeting. Click
 the frame (or press Enter) to accept the full frame, or drag one region to accept
 that rectangle. The gesture opens the composer with its saved snapshot; Escape
 or toggling the button cancels targeting. A temporary hint explains click versus
@@ -1049,7 +1051,7 @@ Zoom in, zoom out, and reset use a quick 150 ms ease-out transition, disabled fo
 reduced-motion preferences. Drag panning follows the pointer immediately. Starting
 a pan or region gesture finishes any zoom transition before reading coordinates.
 Media tools wrap within the header when space is limited; Viewed and whole-file
-discussions remain together at the far right, after the media tools. Playback controls stay
+threads remain together at the far right, after the media tools. Playback controls stay
 outside the transformed frame and show the displayed video's timestamp; file and
 comparison headers omit it. Zoom and pan are local to each viewer, including
 each comparison pane, and never crop or change saved evidence or intrinsic region
@@ -1057,7 +1059,7 @@ coordinates. Reset zoom, Locate, and Return to targets restore a centered fitted
 view. Legacy image previews retain their isolated iframe inside the same view
 transform; audio controls have no visual zoom.
 The default is the entire intrinsic frame. A region is one normalized rectangle,
-excluding player controls and letterboxing. Activating media discussion freezes the
+excluding player controls and letterboxing. Activating media thread freezes the
 visible pixels; completing the click or drag accepts them into the persisted draft.
 Seeking, view changes and reload do not retarget the accepted draft. A populated
 draft must be posted or discarded before accepting another target.
@@ -1066,13 +1068,13 @@ Capture pauses video and synchronously copies its decoded pixels to canvas befor
 encoding. The full unannotated PNG is stored with the accepted target and is what
 the agent downloads. The exact unrounded browser time is retained for navigation;
 the display rounds to milliseconds. Seeking alone is not an exact-frame guarantee.
-Snapshot limits match discussions images: 5 MiB and 20 megapixels. Frame evidence has
+Snapshot limits match comment images: 5 MiB and 20 megapixels. Frame evidence has
 no edit/remove action; clearing the draft target removes its draft reference.
 
 Only native raster/video decoding runs in the trusted app, using authenticated
 published bytes and revocable local blob URLs. Executable documents, SVG and other
 media continue through their existing isolated previews. Saved frames use the
-existing authenticated discussions-image endpoint. The server checks publication and
+existing authenticated attachment endpoint. The server checks publication and
 media membership, still-image animation, timestamp shape, rectangle bounds, and
 snapshot raster structure; it does not claim to prove a submitted snapshot was
 decoded from that video. The recorded snapshot is the accepted evidence.

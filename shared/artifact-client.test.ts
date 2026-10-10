@@ -3,11 +3,13 @@ import { randomBytes } from "node:crypto";
 import { ArtifactClient } from "./artifact-client.ts";
 
 test("artifact clients reject a previous protocol and preserve committed lifecycle errors", async () => {
-  const old = new ArtifactClient({
-    url: "http://localhost",
-    fetch: async () => Response.json({ ok: true, version: "previous" }),
-  });
-  await expect(old.checkProtocol()).rejects.toThrow("previous review protocol");
+  for (const protocol of [undefined, "artifacts-v2"]) {
+    const old = new ArtifactClient({
+      url: "http://localhost",
+      fetch: async () => Response.json({ ok: true, protocol, version: "previous" }),
+    });
+    await expect(old.checkProtocol()).rejects.toThrow("different artifact protocol");
+  }
   const result = {
     event: { event: "archived", message: "Saved" },
     notification: { state: "failed", error: "Harness unavailable" },

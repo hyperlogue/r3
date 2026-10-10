@@ -4,9 +4,9 @@ import {
   ArtifactApiError,
   type ArtifactClient,
   artifactApiPath,
-  discussionApiPath,
+  threadApiPath,
 } from "../shared/artifact-client.ts";
-import { artifactDiscussionTargetLabel, attachmentPrompt } from "../shared/artifact-prompt.ts";
+import { artifactThreadTargetLabel, attachmentPrompt } from "../shared/artifact-prompt.ts";
 import type { ArtifactSearchResponse } from "../shared/artifact-search.ts";
 import type {
   Artifact,
@@ -23,7 +23,7 @@ import type {
 } from "../shared/artifacts.ts";
 import { normalizeGitRemote } from "../shared/git-remote.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
-import { fetchArtifactDiscussion } from "./artifact-discussions.ts";
+import { fetchArtifactComments } from "./artifact-comments.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
 import { runUsageCommand } from "./artifact-usage.ts";
 import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attachment-files.ts";
@@ -114,10 +114,10 @@ export async function runArtifactCommand(
 ): Promise<number> {
   if (command === "stat" || command === "gc") return runUsageCommand(command, argv, ctx);
   const args = new ArtifactArgs(argv);
-  if (command === "discussions" && ["image", "source"].includes(args.positional[0]!)) {
-    command = `discussions ${args.positional.shift()}`;
+  if (command === "thread" && ["source"].includes(args.positional[0]!)) {
+    command = `thread ${args.positional.shift()}`;
   }
-  if (command === "comment" && ["fetch", "show", "edit"].includes(args.positional[0]!))
+  if (command === "comment" && ["fetch", "show", "edit", "image"].includes(args.positional[0]!))
     command = `comment ${args.positional.shift()}`;
   const captureFlags = [
     "kind",
@@ -160,20 +160,20 @@ export async function runArtifactCommand(
     patch: ["version"],
     edit: ["title", "meta"],
     delete: [],
-    discussions:
+    thread:
       args.positional[0] === "add"
         ? ["message", "attach", "frame", "key", ...targetFlags]
         : args.positional[0] === "edit"
           ? ["message", "status", "attach", "clear-attachments"]
           : [],
-    "comment fetch": ["all", "discussions", "attachments-dir"],
+    "comment fetch": ["all", "threads", "attachments-dir"],
     "comment show": [],
     "comment edit": ["message", "attach", "clear-attachments"],
     comment: ["message", "attach", "frame", "key", ...targetFlags],
     claim: [],
     release: [],
-    "discussions image": ["image", "output"],
-    "discussions source": [],
+    "comment image": ["image", "output"],
+    "thread source": [],
     watch: ["timeout"],
     listen: ["foreground"],
     unlisten: [],
@@ -187,7 +187,7 @@ export async function runArtifactCommand(
   const count = args.positional.length;
   const expected = ["create", "list"].includes(command)
     ? 0
-    : command === "discussions"
+    : command === "thread"
       ? 2
       : command === "project"
         ? ["delete", "edit"].includes(args.positional[0])
@@ -264,7 +264,7 @@ export async function runArtifactCommand(
         for (const match of result.matches) {
           const artifact = result.artifacts.find((item) => item.id === match.artifactId)!;
           await print(
-            `${artifact.title ?? artifact.id} · ${match.category}${match.versionSeq === null ? "" : ` · v${match.versionSeq}`}${match.path ? ` · ${match.path}` : ""}\n  ${match.artifactId}${match.discussionId ? ` · ${match.discussionId}` : ""}${match.commentId ? ` · ${match.commentId}` : ""}\n  ${match.snippet}`,
+            `${artifact.title ?? artifact.id} · ${match.category}${match.versionSeq === null ? "" : ` · v${match.versionSeq}`}${match.path ? ` · ${match.path}` : ""}\n  ${match.artifactId}${match.threadId ? ` · ${match.threadId}` : ""}${match.commentId ? ` · ${match.commentId}` : ""}\n  ${match.snippet}`,
           );
         }
         if (result.nextOffset !== null)
@@ -335,13 +335,13 @@ export async function runArtifactCommand(
           await print(
             `Version ${version.seq}${version.label ? ` · ${version.label}` : ""} · ${version.publishedAt}`,
           );
-        for (const discussions of artifact.discussions) {
+        for (const threads of artifact.threads) {
           await print(
-            `\n${discussions.id} [${discussions.status}] ${artifactDiscussionTargetLabel(discussions)}${discussions.claim ? ` · working: ${discussions.claim.sessionId}` : ""}\n[${discussions.comments[0]!.author.role}${discussions.comments[0]!.author.sessionId ? ` ${discussions.comments[0]!.author.sessionId}` : ""}] ${discussions.comments[0]!.body}\nTarget: ${JSON.stringify(discussions.target)}${discussions.comments[0]!.legacy ? `\nImported evidence: ${JSON.stringify(discussions.comments[0]!.legacy)}` : ""}`,
+            `\n${threads.id} [${threads.status}] ${artifactThreadTargetLabel(threads)}${threads.claim ? ` · working: ${threads.claim.sessionId}` : ""}\n[${threads.comments[0]!.author.role}${threads.comments[0]!.author.sessionId ? ` ${threads.comments[0]!.author.sessionId}` : ""}] ${threads.comments[0]!.body}\nTarget: ${JSON.stringify(threads.target)}${threads.comments[0]!.legacy ? `\nImported evidence: ${JSON.stringify(threads.comments[0]!.legacy)}` : ""}`,
           );
-          if (discussions.comments[0]!.attachments?.length)
-            await print(attachmentPrompt(discussions.comments[0]!.attachments));
-          for (const comment of discussions.comments.slice(1)) {
+          if (threads.comments[0]!.attachments?.length)
+            await print(attachmentPrompt(threads.comments[0]!.attachments));
+          for (const comment of threads.comments.slice(1)) {
             if (comment.attachments?.length) await print(attachmentPrompt(comment.attachments));
             await print(
               `  ${comment.id} [${comment.author.role}${comment.author.sessionId ? ` ${comment.author.sessionId}` : ""}] ${comment.body}\n  Context: ${JSON.stringify(comment.context)}${comment.target ? `; fix: ${JSON.stringify(comment.target)}` : ""}`,
@@ -363,10 +363,10 @@ export async function runArtifactCommand(
         await client.json("GET", `${artifactApiPath(args.id())}/versions/${args.sequence()}/files`),
       );
       return 0;
-    case "discussions source": {
+    case "thread source": {
       const source = await client.json<ArtifactSourceRange>(
         "GET",
-        `${discussionApiPath(args.id())}/source`,
+        `${threadApiPath(args.id())}/source`,
       );
       if (args.has("json")) await print(source);
       else
@@ -417,13 +417,13 @@ export async function runArtifactCommand(
     case "delete":
       await print(await client.json("DELETE", artifactApiPath(args.id())));
       return 0;
-    case "discussions": {
+    case "thread": {
       const [operation, id] = args.positional;
-      if (!id) throw new ArtifactCommandError("discussions add|edit|delete <id>");
+      if (!id) throw new ArtifactCommandError("thread add|edit|delete <id>");
       const author = await actor();
       if (operation === "add")
         await print(
-          await client.json("POST", `${artifactApiPath(id)}/discussions`, {
+          await client.json("POST", `${artifactApiPath(id)}/threads`, {
             actor: author,
             body: await message(),
             target: commandTarget(args),
@@ -436,7 +436,7 @@ export async function runArtifactCommand(
         );
       else if (operation === "edit")
         await print(
-          await client.json("PATCH", discussionApiPath(id), {
+          await client.json("PATCH", threadApiPath(id), {
             actor: author,
             body: await text("message"),
             status: args.value("status"),
@@ -448,8 +448,8 @@ export async function runArtifactCommand(
           }),
         );
       else if (operation === "delete")
-        await print(await client.json("DELETE", discussionApiPath(id), { actor: author }));
-      else throw new ArtifactCommandError("discussions add|edit|delete <id>");
+        await print(await client.json("DELETE", threadApiPath(id), { actor: author }));
+      else throw new ArtifactCommandError("thread add|edit|delete <id>");
       return 0;
     }
     case "comment show": {
@@ -477,10 +477,10 @@ export async function runArtifactCommand(
     case "comment": {
       if ((args.has("version") || args.has("view")) && !args.has("target") && !args.has("file"))
         throw new ArtifactCommandError(
-          "References inherit the discussion target; use --target or --file for a different published location",
+          "References inherit the thread target; use --target or --file for a different published location",
         );
       await print(
-        await client.json("POST", `${discussionApiPath(args.id())}/comments`, {
+        await client.json("POST", `${threadApiPath(args.id())}/comments`, {
           actor: await actor(),
           body: await message(),
           attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd),
@@ -502,21 +502,21 @@ export async function runArtifactCommand(
       await print(
         await client.json(command === "claim" ? "POST" : "DELETE", "/api/claims", {
           sessionId: author.sessionId,
-          discussionIds: args.positional,
+          threadIds: args.positional,
         }),
       );
       return 0;
     }
-    case "discussions image": {
+    case "comment image": {
       const bytes = await downloadAttachment(client, args.id(), args.require("image"));
       if (args.has("output")) await saveAttachment(resolve(ctx.cwd, args.require("output")), bytes);
       else await ctx.write(bytes);
       return 0;
     }
     case "comment fetch": {
-      await fetchArtifactDiscussion(client, args.id(), ctx.write, {
+      await fetchArtifactComments(client, args.id(), ctx.write, {
         all: args.has("all"),
-        discussions: args.value("discussions"),
+        threads: args.value("threads"),
         attachmentsDir: args.has("attachments-dir")
           ? resolve(ctx.cwd, args.require("attachments-dir"))
           : undefined,
@@ -569,9 +569,9 @@ export async function runArtifactCommand(
           if (result.event?.comment?.body) await print(result.event.comment?.body);
           return 0;
         }
-        if (result.result === "discussions") {
+        if (result.result === "comments") {
           try {
-            await fetchArtifactDiscussion(client, args.id(), ctx.write);
+            await fetchArtifactComments(client, args.id(), ctx.write);
           } catch (error) {
             if (
               error instanceof ArtifactApiError &&

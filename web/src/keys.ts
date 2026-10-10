@@ -32,7 +32,7 @@ export interface Binding {
   // is the shifted key, and that is load-bearing (see the handOff note).
   keys: string[];
   label: string;
-  group: "Review" | "Discussion" | "Files" | "View";
+  group: "Review" | "Thread" | "Files" | "View";
   // Opt in to OS key repeat. Off by default because most of this map MUTATES and
   // repeat fires ~30×/s: a leaned-on `e` walks the whole list resolving items
   // (each resolve advances focus to the next card, which the next repeat then
@@ -43,7 +43,7 @@ export interface Binding {
 
 export const KEYMAP: readonly Binding[] = [
   { id: "help", keys: ["?"], label: "Keyboard shortcuts", group: "Review" },
-  { id: "generalNote", keys: ["n"], label: "New general discussions", group: "Review" },
+  { id: "generalNote", keys: ["n"], label: "New general comment", group: "Review" },
   { id: "commentModeToggle", keys: ["c"], label: "Toggle comment mode", group: "Review" },
   // Shifted on purpose: the only binding that sends data out of the app, with no
   // keyboard undo once the agent has it. Everything else in this map is locally
@@ -58,23 +58,23 @@ export const KEYMAP: readonly Binding[] = [
   {
     id: "fbNext",
     keys: ["j", "ctrl+n"],
-    label: "Next discussions",
-    group: "Discussion",
+    label: "Next thread",
+    group: "Thread",
     repeatable: true,
   },
   {
     id: "fbPrev",
     keys: ["k", "ctrl+p"],
-    label: "Previous discussions",
-    group: "Discussion",
+    label: "Previous thread",
+    group: "Thread",
     repeatable: true,
   },
   // `o`, not Enter: a focused button already activates on Enter natively, so a
   // global Enter binding would fight it or double-fire depending on where focus
   // sits. Enter stays unbound everywhere.
-  { id: "fbLocate", keys: ["o"], label: "Jump to its anchor", group: "Discussion" },
-  { id: "fbComment", keys: ["r"], label: "Comment", group: "Discussion" },
-  { id: "fbResolve", keys: ["e"], label: "Resolve / reopen", group: "Discussion" },
+  { id: "fbLocate", keys: ["o"], label: "Jump to its anchor", group: "Thread" },
+  { id: "fbComment", keys: ["r"], label: "Reply", group: "Thread" },
+  { id: "fbResolve", keys: ["e"], label: "Resolve / reopen", group: "Thread" },
 
   { id: "fileNext", keys: ["]"], label: "Next file", group: "Files", repeatable: true },
   { id: "filePrev", keys: ["["], label: "Previous file", group: "Files", repeatable: true },
@@ -82,14 +82,14 @@ export const KEYMAP: readonly Binding[] = [
   { id: "fileFold", keys: ["z"], label: "Fold / unfold current file", group: "Files" },
   { id: "foldAll", keys: ["Z"], label: "Fold / unfold all files", group: "Files" },
   { id: "fileViewed", keys: ["x"], label: "Mark current file viewed", group: "Files" },
-  { id: "fileNote", keys: ["a"], label: "Discussion on current file", group: "Files" },
+  { id: "fileNote", keys: ["a"], label: "Comment on current file", group: "Files" },
 
   { id: "versionNext", keys: [">"], label: "Next diff round / version", group: "View" },
   { id: "versionPrev", keys: ["<"], label: "Previous diff round / version", group: "View" },
   { id: "layoutToggle", keys: ["\\"], label: "Unified / side-by-side", group: "View" },
-  // ArtifactView toggles the desktop dock or the mobile discussions sheet.
-  { id: "panelToggle", keys: ["p"], label: "Show / hide discussions panel", group: "View" },
-  { id: "panelHide", keys: ["Escape"], label: "Hide discussions panel", group: "View" },
+  // ArtifactView toggles the desktop dock or the mobile discussion sheet.
+  { id: "panelToggle", keys: ["p"], label: "Show / hide discussion panel", group: "View" },
+  { id: "panelHide", keys: ["Escape"], label: "Hide discussion panel", group: "View" },
 ];
 
 const CHORDS = new Map<string, KeyId>();
@@ -137,7 +137,7 @@ function chordOf(e: KeyboardEvent): string | null {
 const handlers = new Map<KeyId, () => void>();
 
 // While a modal owns the screen (the shortcuts overlay), everything but `help`
-// stands down — otherwise `j` would be quietly walking the discussions list behind
+// stands down — otherwise `j` would be quietly walking the threads list behind
 // the sheet. A counter, not a boolean, so overlapping suspensions can't leave the
 // map dead.
 let suspended = 0;

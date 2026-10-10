@@ -56,7 +56,7 @@ await storage.artifacts.publish(files.id, {
   },
 });
 const diff = storage.artifacts.create({ kind: "diff", actor, title: "Published diff" });
-const discussions = await storage.conversations.add(files.id, {
+const threads = await storage.conversations.add(files.id, {
   actor,
   body: "Keep the original reading controls.",
   target: {
@@ -67,7 +67,7 @@ const discussions = await storage.conversations.add(files.id, {
   },
 });
 storage.artifacts.registerSession({ id: "reading-agent", harness: "acceptance" });
-const discussion = await storage.conversations.add(files.id, {
+const thread = await storage.conversations.add(files.id, {
   actor,
   body: "Keep the file list synchronized with the content pane.",
   target: { kind: "source", versionSeq: 1, path: "source.ts", locator: null },
@@ -78,7 +78,7 @@ for (const body of [
   "Each publication keeps all its files.",
   "The file list now follows your scroll position. Please check the restored reading controls.",
 ]) {
-  await storage.conversations.addComment(discussion.id, {
+  await storage.conversations.addComment(thread.id, {
     actor: { role: "agent", sessionId: "reading-agent" },
     body,
     context: { versionSeq: 1, representation: "source" },
@@ -213,26 +213,24 @@ try {
     );
     if (artifact.id === files.id) {
       assert.equal(
-        await page.evaluate("!!document.querySelector('[aria-label=\"Discussion\"]')"),
+        await page.evaluate("!!document.querySelector('[aria-label=\"Comment\"]')"),
         false,
         "composer opens on demand",
       );
-      await page.evaluate(
-        "document.querySelector('[aria-label=\"Add general discussions\"]').click()",
-      );
+      await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
       await eventually(
-        () => page.evaluate("!!document.querySelector('[aria-label=\"Discussion\"]')"),
+        () => page.evaluate("!!document.querySelector('[aria-label=\"Comment\"]')"),
         "general composer",
       );
       assert(
         await page.evaluate(`(() => {
         const composer = document.querySelector('[data-artifact-composer]');
-        const list = document.querySelector('[data-discussions-list]');
+        const list = document.querySelector('[data-discussion-list]');
         return list.firstElementChild.contains(composer);
       })()`),
         "composer is the first pending card in the thread list",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Discussion\"]').focus()");
+      await page.evaluate("document.querySelector('[aria-label=\"Comment\"]').focus()");
       await page.command("Input.insertText", { text: "A draft stays in this browser" });
       assert(
         await page.evaluate(
@@ -244,23 +242,23 @@ try {
         "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Discard').click()",
       );
       await page.evaluate(
-        `document.querySelector('[data-artifact-discussions="${discussions.id}"] button').click()`,
+        `document.querySelector('[data-artifact-thread="${threads.id}"] button').click()`,
       );
       const expandedWidth = await page.evaluate(
         "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Float discussions\"]').click()");
+      await page.evaluate("document.querySelector('[aria-label=\"Float discussion\"]').click()");
       const contentWidth = await page.evaluate(
         "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
       );
       assert(Number(contentWidth) > Number(expandedWidth), "expanded reserves content space");
       assert.equal(
         await page.evaluate(
-          "document.querySelector('[data-discussions-mode]').dataset.discussionsMode",
+          "document.querySelector('[data-discussion-mode]').dataset.discussionMode",
         ),
         "floating",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
+      await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
       assert.equal(
         await page.evaluate(
           "document.querySelector('[data-artifact-content]').getBoundingClientRect().width",
@@ -268,19 +266,17 @@ try {
         contentWidth,
         "floating and hidden preserve the same content width",
       );
-      await page.evaluate(
-        `document.querySelector('[data-fb-id="${discussions.id}"] code').click()`,
-      );
+      await page.evaluate(`document.querySelector('[data-fb-id="${threads.id}"] code').click()`);
       await eventually(
         () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
         "anchor opens one floating thread",
       );
       assert(
-        await page.evaluate("!!document.querySelector('[aria-label=\"Show discussions\"]')"),
+        await page.evaluate("!!document.querySelector('[aria-label=\"Show discussion\"]')"),
         "thread leaves the full panel folded",
       );
       await page.evaluate(
-        "document.querySelector('[data-artifact-thread-popover] [data-discussions-action=comment]').click()",
+        "document.querySelector('[data-artifact-thread-popover] [data-thread-action=comment]').click()",
       );
       await eventually(
         () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover] textarea')"),
@@ -291,15 +287,13 @@ try {
       );
       await page.command("Input.insertText", { text: "Retain the popover draft" });
       await page.evaluate("document.querySelector('[aria-label=\"Close thread\"]').click()");
-      await page.evaluate(
-        `document.querySelector('[data-fb-id="${discussions.id}"] code').click()`,
-      );
+      await page.evaluate(`document.querySelector('[data-fb-id="${threads.id}"] code').click()`);
       await eventually(
         () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
         "reopen anchored thread",
       );
       await page.evaluate(
-        "document.querySelector('[data-artifact-thread-popover] [data-discussions-action=comment]').click()",
+        "document.querySelector('[data-artifact-thread-popover] [data-thread-action=comment]').click()",
       );
       await eventually(
         () =>
@@ -314,9 +308,9 @@ try {
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await Bun.sleep(200);
       assert.equal(
-        storage.conversations.get(discussions.id).status,
+        storage.conversations.get(threads.id).status,
         "open",
-        "folded discussion has no invisible resolve shortcut",
+        "folded thread has no invisible resolve shortcut",
       );
       await page.command("Emulation.setDeviceMetricsOverride", {
         width: 390,
@@ -325,14 +319,14 @@ try {
         mobile: true,
       });
       await eventually(
-        () => page.evaluate("!document.querySelector('[aria-label=\"Show discussions\"]')"),
+        () => page.evaluate("!document.querySelector('[aria-label=\"Show discussion\"]')"),
         "mobile closed sheet",
       );
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await Bun.sleep(200);
       assert.equal(
-        storage.conversations.get(discussions.id).status,
+        storage.conversations.get(threads.id).status,
         "open",
         "closed mobile sheet has no invisible resolve shortcut",
       );
@@ -343,18 +337,18 @@ try {
         mobile: false,
       });
       await eventually(
-        () => page.evaluate("!!document.querySelector('[aria-label=\"Show discussions\"]')"),
+        () => page.evaluate("!!document.querySelector('[aria-label=\"Show discussion\"]')"),
         "desktop dock restored",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Show discussions\"]').click()");
+      await page.evaluate("document.querySelector('[aria-label=\"Show discussion\"]').click()");
       await eventually(
         () =>
           page.evaluate(
-            "document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === 'floating'",
+            "document.querySelector('[data-discussion-mode]')?.dataset.discussionMode === 'floating'",
           ),
         "reopening restores floating mode",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Dock discussions\"]').click()");
+      await page.evaluate("document.querySelector('[aria-label=\"Dock discussion\"]').click()");
       await eventually(
         async () =>
           Number(
@@ -367,13 +361,13 @@ try {
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await eventually(
-        async () => storage.conversations.get(discussions.id).status === "resolved",
+        async () => storage.conversations.get(threads.id).status === "resolved",
         "visible resolve shortcut",
       );
       await eventually(
         () =>
           page.evaluate(
-            `!document.querySelector('[data-discussions-queue="active"] [data-artifact-discussions="${discussions.id}"]') && [...document.querySelectorAll('[role=tab]')].some(b=>b.textContent==='Resolved 1')`,
+            `!document.querySelector('[data-discussion-queue="active"] [data-artifact-thread="${threads.id}"]') && [...document.querySelectorAll('[role=tab]')].some(b=>b.textContent==='Resolved 1')`,
           ),
         "active queue advances after resolve",
       );
@@ -383,7 +377,7 @@ try {
       await eventually(
         () =>
           page.evaluate(
-            `!!document.querySelector('[data-discussions-queue="resolved"]:not([inert]) [data-artifact-discussions="${discussions.id}"]')`,
+            `!!document.querySelector('[data-discussion-queue="resolved"]:not([inert]) [data-artifact-thread="${threads.id}"]')`,
           ),
         "resolved tab retains the thread",
       );
@@ -459,16 +453,16 @@ try {
     "late hydration cannot steal a newer file selection",
   );
   for (const mode of ["floating", "expanded"] as const) {
-    const control = mode === "floating" ? "Float discussions" : "Dock discussions";
+    const control = mode === "floating" ? "Float discussion" : "Dock discussion";
     await page.evaluate(`document.querySelector('[aria-label="${control}"]')?.click()`);
     await eventually(
       () =>
         page.evaluate(
-          `document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === '${mode}'`,
+          `document.querySelector('[data-discussion-mode]')?.dataset.discussionMode === '${mode}'`,
         ),
-      `select ${mode} discussions`,
+      `select ${mode} threads`,
     );
-    await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
+    await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
     // Reload through about:blank so no assertion can observe the old document.
     const url = await page.evaluate<string>("location.href");
     await page.command("Page.navigate", { url: "about:blank" });
@@ -476,23 +470,23 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          "document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === 'hidden'",
+          "document.querySelector('[data-discussion-mode]')?.dataset.discussionMode === 'hidden'",
         ),
       "hidden mode survives reload",
     );
     assert(
       await page.evaluate(`(() => {
-        const panel = document.querySelector('[data-discussions-mode]');
-        const toggle = document.querySelector('[data-app-header] [aria-label="Show discussions"]');
+        const panel = document.querySelector('[data-discussion-mode]');
+        const toggle = document.querySelector('[data-app-header] [aria-label="Show discussion"]');
         const content = document.querySelector('[data-artifact-content-view]').getBoundingClientRect();
         const workspace = panel.parentElement.getBoundingClientRect();
         return panel.getBoundingClientRect().width === 0 && content.right === workspace.right &&
-          !!toggle && !panel.querySelector('[aria-label="Show discussions"]');
+          !!toggle && !panel.querySelector('[aria-label="Show discussion"]');
       })()`),
-      "hidden discussions leaves no rail or reserved gutter and is controlled by the navbar",
+      "hidden threads leaves no rail or reserved gutter and is controlled by the navbar",
     );
     const point = await page.evaluate<{ x: number; y: number }>(`(() => {
-      const bounds = document.querySelector('[aria-label="Show discussions"]').getBoundingClientRect();
+      const bounds = document.querySelector('[aria-label="Show discussion"]').getBoundingClientRect();
       return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
     })()`);
     await page.command("Input.dispatchMouseEvent", {
@@ -510,7 +504,7 @@ try {
     await eventually(
       () =>
         page.evaluate(
-          `document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === '${mode}'`,
+          `document.querySelector('[data-discussion-mode]')?.dataset.discussionMode === '${mode}'`,
         ),
       "the navbar button restores the remembered mode",
     );
@@ -520,7 +514,7 @@ try {
       await eventually(
         () =>
           page.evaluate(
-            `document.querySelector('[data-discussions-mode]')?.dataset.discussionsMode === '${expected}'`,
+            `document.querySelector('[data-discussion-mode]')?.dataset.discussionMode === '${expected}'`,
           ),
         "keyboard toggle respects the remembered mode",
       );
@@ -528,53 +522,53 @@ try {
     await pressKey("Escape", true);
     assert.equal(
       await page.evaluate(
-        "document.querySelector('[data-discussions-mode]').dataset.discussionsMode",
+        "document.querySelector('[data-discussion-mode]').dataset.discussionMode",
       ),
       mode,
-      "held Escape does not hide discussions",
+      "held Escape does not hide threads",
     );
     await pressKey("Escape");
     await eventually(
       () =>
         page.evaluate(
-          "document.querySelector('[data-discussions-mode]').dataset.discussionsMode === 'hidden'",
+          "document.querySelector('[data-discussion-mode]').dataset.discussionMode === 'hidden'",
         ),
-      "Escape hides discussions even with a toolbar button focused",
+      "Escape hides threads even with a toolbar button focused",
     );
     await pressKey("n");
     assert.equal(
-      await page.evaluate("!!document.querySelector('textarea[aria-label=Discussion]')"),
+      await page.evaluate("!!document.querySelector('textarea[aria-label=Comment]')"),
       false,
-      "new general discussion is unavailable while the panel is hidden",
+      "new general thread is unavailable while the panel is hidden",
     );
     await pressKey("p");
     await pressKey("n");
     await eventually(
-      () => page.evaluate("document.activeElement?.matches('textarea[aria-label=Discussion]')"),
-      "general discussions shortcut opens and focuses the composer",
+      () => page.evaluate("document.activeElement?.matches('textarea[aria-label=Comment]')"),
+      "general threads shortcut opens and focuses the composer",
     );
     await page.command("Input.insertText", { text: "Keep this keyboard draft" });
     await pressKey("p");
     await pressKey("Escape");
     assert(
-      await page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionsMode === '${mode}' &&
-        !document.activeElement?.matches('textarea[aria-label=Discussion]')`),
+      await page.evaluate(`document.querySelector('[data-discussion-mode]').dataset.discussionMode === '${mode}' &&
+        !document.activeElement?.matches('textarea[aria-label=Comment]')`),
       "typing suspends panel shortcuts and editor Escape only blurs the draft",
     );
     await pressKey("Escape");
     await eventually(
       () =>
         page.evaluate(
-          "document.querySelector('[data-discussions-mode]').dataset.discussionsMode === 'hidden'",
+          "document.querySelector('[data-discussion-mode]').dataset.discussionMode === 'hidden'",
         ),
-      "Escape hides discussions after the editor blurs",
+      "Escape hides threads after the editor blurs",
     );
     await pressKey("p");
     await pressKey("n");
     await eventually(
       () =>
-        page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionsMode === '${mode}' &&
-          document.activeElement?.matches('textarea[aria-label=Discussion]') &&
+        page.evaluate(`document.querySelector('[data-discussion-mode]').dataset.discussionMode === '${mode}' &&
+          document.activeElement?.matches('textarea[aria-label=Comment]') &&
           document.activeElement.value === 'Keep this keyboard draft'`),
       "reopening restores the mode and retained draft",
     );
@@ -586,9 +580,9 @@ try {
     );
     await pressKey("Escape");
     assert(
-      await page.evaluate(`document.querySelector('[data-discussions-mode]').dataset.discussionsMode === '${mode}' &&
+      await page.evaluate(`document.querySelector('[data-discussion-mode]').dataset.discussionMode === '${mode}' &&
         document.querySelector('[aria-label="Artifact details"]').hidden`),
-      "Escape dismisses the open popup before the discussions panel",
+      "Escape dismisses the open popup before the discussion panel",
     );
   }
   console.log(

@@ -329,7 +329,7 @@ export function ProgressiveFile({
     // away the reserve above — the whole point of which is holding the scroll
     // height still. What the containment buys is that an unmounted-body shell
     // stops being walked when something elsewhere on the page repaints; a
-    // keystroke in the discussions composer was re-recording all 200 of them.
+    // keystroke in the comment composer was re-recording all 200 of them.
     style = { height: open ? bodyHeight : FOLDED_HEIGHT, contain: "content" };
   } else if (enabled && !hydrated) {
     style = { minHeight: open ? bodyHeight : FOLDED_HEIGHT };

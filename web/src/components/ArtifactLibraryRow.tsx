@@ -53,7 +53,7 @@ const matchLabels = {
   artifact: "Artifact",
   summary: "Publication summary",
   content: "Published content",
-  discussions: "Discussion",
+  thread: "Thread",
   comment: "Comment",
 };
 export function ArtifactLibraryRow({

@@ -1,20 +1,20 @@
 import { ArtifactApiError } from "../../shared/artifact-client.ts";
-import { buildArtifactPrompt, discussionAttachments } from "../../shared/artifact-prompt.ts";
+import { buildArtifactPrompt, commentAttachments } from "../../shared/artifact-prompt.ts";
 import type {
   ArtifactComment,
-  ArtifactDiscussion,
-  ArtifactDiscussionSnapshot,
+  ArtifactCommentSnapshot,
   ArtifactLifecycleBody,
   ArtifactLifecycleEvent,
   ArtifactLifecycleResponse,
   ArtifactSourceRange,
   ArtifactStreamEvent,
   ArtifactTarget,
+  ArtifactThread,
 } from "../../shared/artifacts.ts";
 import {
   artifactReferenceContext,
-  hasUnsentArtifactDiscussion,
-  isUnhandledArtifactDiscussion,
+  hasUnsentArtifactThread,
+  isUnhandledArtifactThread,
 } from "../../shared/artifacts.ts";
 import type { ArtifactAttachment } from "../../shared/attachments.ts";
 import { animatedImage, targetableMedia } from "../../shared/media-target.ts";
@@ -56,7 +56,7 @@ export class ArtifactDemoBackend {
       viewed: {},
       everDelivered: Object.fromEntries(
         seed.artifacts.flatMap((artifact) =>
-          artifact.discussions.map((note) => [
+          artifact.threads.map((note) => [
             note.id,
             note.comments[0]!.sentAt !== null || note.statusUnsent,
           ]),
@@ -88,14 +88,14 @@ export class ArtifactDemoBackend {
   }
   note(id: string) {
     for (const artifact of this.state.artifacts) {
-      const note = artifact.discussions.find((note) => note.id === id);
+      const note = artifact.threads.find((note) => note.id === id);
       if (note) return { artifact, note };
     }
-    return fail("Discussion not found", 404);
+    return fail("Thread not found", 404);
   }
   comment(id: string) {
     for (const artifact of this.state.artifacts)
-      for (const note of artifact.discussions) {
+      for (const note of artifact.threads) {
         const comment = note.comments.find((comment) => comment.id === id);
         if (comment) return { artifact, note, comment };
       }
@@ -120,7 +120,7 @@ export class ArtifactDemoBackend {
     const artifact = this.get(id);
     artifact.updatedAt = now();
     this.state.discussionRevisions[id] = (this.state.discussionRevisions[id] ?? 0) + 1;
-    artifact.unhandledCount = artifact.discussions.filter(isUnhandledArtifactDiscussion).length;
+    artifact.unhandledCount = artifact.threads.filter(isUnhandledArtifactThread).length;
     artifact.storage = this.storageUsage(id);
     syncDemoActivity(this.state);
     for (const listener of this.subscribers) {
@@ -214,11 +214,11 @@ export class ArtifactDemoBackend {
       }
     }
   }
-  discussionSource(id: string): ArtifactSourceRange {
+  threadSource(id: string): ArtifactSourceRange {
     const { artifact, note } = this.note(id);
     const target = note.target;
     if ((target.kind !== "source" && target.kind !== "diff") || !target.locator)
-      fail("Discussion has no captured source or diff line range");
+      fail("Thread has no captured source or diff line range");
     this.target(artifact.id, target);
     const { versionSeq, path, locator } = target;
     const { start, end } = locator;
@@ -243,19 +243,19 @@ export class ArtifactDemoBackend {
       text: lines.map((row) => row.text).join("\n"),
     };
   }
-  addDiscussion(
+  addThread(
     id: string,
     body: string,
     target: ArtifactTarget,
     attachments: ArtifactAttachment[] = [],
-  ): ArtifactDiscussion {
-    if (!body.trim() && !attachments.length) fail("Discussion needs text or an image");
+  ): ArtifactThread {
+    if (!body.trim() && !attachments.length) fail("Thread needs text or an image");
     this.requireActive(id);
     this.target(id, target);
     const time = now();
-    const discussionId = mint("discussion");
-    const note: ArtifactDiscussion = {
-      id: discussionId,
+    const threadId = mint("thread");
+    const note: ArtifactThread = {
+      id: threadId,
       artifactId: id,
       status: "open",
       target: structuredClone(target),
@@ -265,8 +265,8 @@ export class ArtifactDemoBackend {
       claim: null,
       comments: [
         {
-          id: `comment_${discussionId}`,
-          discussionId,
+          id: `comment_${threadId}`,
+          threadId,
           artifactId: id,
           createdAt: time,
           context: artifactReferenceContext(structuredClone(target)),
@@ -279,7 +279,7 @@ export class ArtifactDemoBackend {
         },
       ],
     };
-    this.get(id).discussions.push(note);
+    this.get(id).threads.push(note);
     this.state.everDelivered[note.id] = false;
     this.changed(id);
     return structuredClone(note);
@@ -293,21 +293,19 @@ export class ArtifactDemoBackend {
     );
   }
   pending(id: string) {
-    return this.get(id).discussions.filter(hasUnsentArtifactDiscussion);
+    return this.get(id).threads.filter(hasUnsentArtifactThread);
   }
-  async snapshot(id: string, only?: string[]): Promise<ArtifactDiscussionSnapshot> {
+  async snapshot(id: string, only?: string[]): Promise<ArtifactCommentSnapshot> {
     const artifact = this.get(id);
     if (artifact.state !== "active") fail("Artifact is archived", 409);
-    const discussions = only ? [...new Set(only)].sort() : undefined;
-    const selected = this.pending(id).filter(
-      (note) => !discussions || discussions.includes(note.id),
-    );
+    const threads = only ? [...new Set(only)].sort() : undefined;
+    const selected = this.pending(id).filter((note) => !threads || threads.includes(note.id));
     const comments = only ? [] : this.pendingComments(id);
     const text = buildArtifactPrompt(artifact, selected, true, comments);
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(
-        JSON.stringify([id, this.state.discussionRevisions[id] ?? 0, discussions ?? null]),
+        JSON.stringify([id, this.state.discussionRevisions[id] ?? 0, threads ?? null]),
       ),
     );
     const expectedFingerprint = Array.from(new Uint8Array(digest), (byte) =>
@@ -316,15 +314,14 @@ export class ArtifactDemoBackend {
     return {
       text,
       itemCount: selected.length + comments.length,
-      attachments: discussionAttachments(selected, true),
-      acknowledgment: { discussions, expectedFingerprint },
+      attachments: commentAttachments(selected, true),
+      acknowledgment: { threads, expectedFingerprint },
     };
   }
-  handoff(id: string, discussions?: string[]) {
+  handoff(id: string, threads?: string[]) {
     const artifact = this.get(id);
-    if (artifact.state === "archived")
-      fail("Restore the artifact before submitting discussions", 409);
-    const notes = this.pending(id).filter((note) => !discussions || discussions.includes(note.id));
+    if (artifact.state === "archived") fail("Restore the artifact before submitting comments", 409);
+    const notes = this.pending(id).filter((note) => !threads || threads.includes(note.id));
     const time = now();
     for (const note of notes) {
       this.state.everDelivered[note.id] = true;
@@ -333,7 +330,7 @@ export class ArtifactDemoBackend {
       for (const comment of note.comments.slice(1))
         if (comment.author.role === "human") comment.sentAt = time;
     }
-    if (!discussions) for (const comment of this.pendingComments(id)) comment.sentAt = time;
+    if (!threads) for (const comment of this.pendingComments(id)) comment.sentAt = time;
     this.changed(id);
     if (notes.length)
       this.runAgent(
@@ -345,16 +342,16 @@ export class ArtifactDemoBackend {
     const artifact = this.get(id);
     artifact.watching = false;
     const time = now();
-    for (const note of artifact.discussions)
+    for (const note of artifact.threads)
       if (ids.includes(note.id) && note.status === "open")
         note.claim = {
-          discussionId: note.id,
+          threadId: note.id,
           sessionId: actor.sessionId,
           claimedAt: time,
           renewedAt: time,
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
         };
-    artifact.working = artifact.discussions.some((note) => note.claim !== null);
+    artifact.working = artifact.threads.some((note) => note.claim !== null);
     this.changed(id);
     // Each explicit handoff schedules its own response, so a second submission
     // cannot cancel the first batch. Archive closes all further conversation writes.
@@ -375,12 +372,12 @@ export class ArtifactDemoBackend {
           delete this.state.pending[id];
         }
         const latest = current.versions.at(-1)!;
-        for (const note of current.discussions)
+        for (const note of current.threads)
           if (ids.includes(note.id)) {
             note.comments.push({
               id: mint("comment"),
               artifactId: id,
-              discussionId: note.id,
+              threadId: note.id,
               author: actor,
               body: `This is a scripted demo comment. I reviewed your note${pending && current.state === "active" ? ` and published version ${latest.seq}` : ""}. You can keep reading the original version, inspect the publication, and resolve the thread when you are satisfied.`,
               context: {
@@ -399,7 +396,7 @@ export class ArtifactDemoBackend {
             });
             note.claim = null;
           }
-        current.working = current.discussions.some((note) => note.claim !== null);
+        current.working = current.threads.some((note) => note.claim !== null);
         if (current.state === "active" && !current.working) current.watching = true;
         this.changed(id, { type: "version-published", artifactId: id, seq: latest.seq });
       }, 1800),
@@ -434,7 +431,7 @@ export class ArtifactDemoBackend {
         ? {
             id: mint("comment"),
             artifactId: id,
-            discussionId: null,
+            threadId: null,
             author: human,
             context: { versionSeq: null, representation: null },
             target: null,
@@ -457,7 +454,7 @@ export class ArtifactDemoBackend {
       event.comment.sentAt = event.createdAt;
     artifact.watching = false;
     artifact.working = false;
-    for (const note of artifact.discussions) note.claim = null;
+    for (const note of artifact.threads) note.claim = null;
     this.changed(id, { type: "lifecycle", artifactId: id, event });
     return {
       event: structuredClone(event),

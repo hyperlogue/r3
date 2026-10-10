@@ -1,21 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import type {
-  ArtifactComment,
-  ArtifactDiscussion,
-  ArtifactTarget,
-} from "../../../shared/artifacts.ts";
+import type { ArtifactComment, ArtifactTarget, ArtifactThread } from "../../../shared/artifacts.ts";
 import { artifactReferenceContext } from "../../../shared/artifacts.ts";
 import { demo, human } from "../../demo/artifact-backend.ts";
 import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
-import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
+import { useOptimisticArtifact } from "../artifact-thread-status.ts";
 import { ArtifactThreadCard } from "../components/ArtifactThreads.tsx";
 
 const filesId = "artifact_gallery_files";
 const diffId = "artifact_gallery_diff";
 const examples = [
-  ["new", "New discussions · not sent", filesId],
-  ["sent", "Sent discussions · waiting for the agent", filesId],
+  ["new", "New comment · not sent", filesId],
+  ["sent", "Sent comment · waiting for the agent", filesId],
   ["working", "Agent working", filesId],
   ["attention", "Agent replied · needs your attention", filesId],
   ["followup", "Human follow-up · waiting for the agent", filesId],
@@ -23,12 +19,12 @@ const examples = [
   ["rendered", "Rendered anchor · long quotation", filesId],
   ["diff", "Diff anchor · code in the message", diffId],
   ["history", "Long conversation · earlier comments", filesId],
-  ["agent", "Agent-created discussions", filesId],
+  ["agent", "Agent-created threads", filesId],
 ] as const;
-const discussionId = (key: string) => `discussion_gallery_${key}`;
+const threadId = (key: string) => `thread_gallery_${key}`;
 // Synthetic conversations use separate demo artifacts so trying their actions
 // does not change the main panel sample or its file/diff examples.
-export function seedDiscussionCardGallery() {
+export function seedThreadCardGallery() {
   if (!demo.state.artifacts.some((item) => item.id === "artifact_documents"))
     demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const [sourceId, id] of [
@@ -41,8 +37,8 @@ export function seedDiscussionCardGallery() {
     const pending = demo.state.pending[sourceId];
     if (pending) publications.push(pending);
     detail.id = id;
-    detail.title = "Discussion card examples";
-    detail.discussions = [];
+    detail.title = "Thread card examples";
+    detail.threads = [];
     detail.placements = [];
     detail.events = [];
     detail.versions = publications.map((publication) => {
@@ -57,13 +53,13 @@ export function seedDiscussionCardGallery() {
   }
   const time = new Date().toISOString();
   const agent = { role: "agent" as const, sessionId: "sample-agent" };
-  const sourceTarget = structuredClone(demo.get("artifact_documents").discussions[0]!.target);
-  const diffTarget = structuredClone(demo.get("artifact_code").discussions[0]!.target);
+  const sourceTarget = structuredClone(demo.get("artifact_documents").threads[0]!.target);
+  const diffTarget = structuredClone(demo.get("artifact_code").threads[0]!.target);
   if (sourceTarget.kind !== "source") throw new Error("The gallery needs a source anchor sample");
   const add = (key: string, body: string, target: ArtifactTarget = { kind: "artifact" }) => {
     const artifactId = key === "diff" ? diffId : filesId;
-    const note: ArtifactDiscussion = {
-      id: discussionId(key),
+    const note: ArtifactThread = {
+      id: threadId(key),
       artifactId,
       status: "open",
       target,
@@ -73,8 +69,8 @@ export function seedDiscussionCardGallery() {
       claim: null,
       comments: [
         {
-          id: discussionId(key),
-          discussionId: discussionId(key),
+          id: threadId(key),
+          threadId: threadId(key),
           artifactId: artifactId,
           createdAt: time,
           context: artifactReferenceContext(target),
@@ -86,18 +82,18 @@ export function seedDiscussionCardGallery() {
         },
       ],
     };
-    demo.get(artifactId).discussions.push(note);
+    demo.get(artifactId).threads.push(note);
     return note;
   };
   const comment = (
-    note: ArtifactDiscussion,
+    note: ArtifactThread,
     body: string,
     role: "agent" | "human" = "agent",
     seq = 1,
   ) => {
     const message: ArtifactComment = {
       id: `${note.id}_comment_${note.comments.slice(1).length + 1}`,
-      discussionId: note.id,
+      threadId: note.id,
       artifactId: note.artifactId,
       author: role === "human" ? human : agent,
       body,
@@ -118,7 +114,7 @@ export function seedDiscussionCardGallery() {
   );
   const working = add("working", "Please keep the version selector visible when I scroll.");
   working.claim = {
-    discussionId: working.id,
+    threadId: working.id,
     sessionId: agent.sessionId,
     claimedAt: time,
     renewedAt: time,
@@ -201,7 +197,7 @@ function CardExample({
     queryFn: () => artifactApi.detail(artifactId),
   });
   const detail = useOptimisticArtifact(data);
-  const note = detail.discussions.find((item) => item.id === discussionId(key));
+  const note = detail.threads.find((item) => item.id === threadId(key));
   return (
     <section data-card-example={key} className="min-w-0 space-y-2">
       <h3 className="text-sm font-medium">{label}</h3>
@@ -210,7 +206,7 @@ function CardExample({
           <ArtifactThreadCard
             agentLabels={detail.agentLabels}
             artifactKind={detail.kind}
-            discussions={note}
+            thread={note}
             latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
             context={{ versionSeq: 2, representation: key === "diff" ? "diff" : "source" }}
             onLocate={() =>
@@ -225,7 +221,7 @@ function CardExample({
     </section>
   );
 }
-export function DiscussionCardGallery({ announce }: { announce: (message: string) => void }) {
+export function ThreadCardGallery({ announce }: { announce: (message: string) => void }) {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-2">
       {examples.map((example) => (

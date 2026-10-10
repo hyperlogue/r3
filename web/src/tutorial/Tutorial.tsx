@@ -24,12 +24,12 @@ const lessons = [
     "An agent publishes a complete directory. Click Publish sample to begin with version 1.",
   ],
   [
-    "Anchor your discussions",
-    "In the workspace navbar, enable comment mode. Click “5 min read”, choose Comment here, then write and save your discussions.",
+    "Anchor your comment",
+    "In the workspace navbar, enable comment mode. Click “5 min read”, choose Comment here, then write and save your comment.",
   ],
   [
     "Bring in an agent",
-    "Use Send to agent at the top of the discussions panel. The practice agent will claim your note, publish version 2, and comment.",
+    "Use Send to agent at the top of the discussion panel. The practice agent will claim your note, publish version 2, and comment.",
   ],
   [
     "Review the new version",
@@ -37,7 +37,7 @@ const lessons = [
   ],
   [
     "Resolve the thread",
-    "Click Resolve on your discussions card. Use the Resolved filter to find it again. The agent’s comment leaves this decision to you.",
+    "Click Resolve on your thread. Use the Resolved filter to find it again. The agent’s comment leaves this decision to you.",
   ],
   [
     "Explore all three kinds",
@@ -53,17 +53,17 @@ r3 create --kind html --dir ./artifact --title "Weekend guide"
 r3 listen <artifact_id>
 # Generic agents can use r3 watch <artifact_id> instead.
 r3 comment fetch <artifact_id>
-r3 claim <discussion_id>
+r3 claim <thread_id>
 # Edit locally, then publish the complete directory.
 r3 publish <artifact_id> --dir ./artifact
-r3 comment <discussion_id> --version 2 --view rendered -m "Updated the reading estimate."
+r3 comment <thread_id> --version 2 --view rendered -m "Updated the reading estimate."
 \`\`\`
 
 Inspect the original target in its explicit version and representation. Each agent uses a distinct logical session. A successful comment releases its claim; the human controls resolution. Use \`r3 guide\` for the complete contract.`;
 export function resetPractice() {
   demo.reset(ARTIFACT_WORKSHOP_SEED);
   for (const detail of demo.state.artifacts) {
-    detail.discussions = [];
+    detail.threads = [];
     detail.watching = true;
     detail.unhandledCount = 0;
     artifactDrafts.clear(detail.id);
@@ -148,7 +148,7 @@ export function Tutorial() {
     queryKey: ["artifact", primary],
     queryFn: () => artifactApi.detail(primary),
   });
-  const note = query.data?.discussions.find(
+  const note = query.data?.threads.find(
     (note) => note.comments[0]!.author.role === "human" && note.target.kind === "rendered",
   );
   const done = [

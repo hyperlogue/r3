@@ -215,14 +215,14 @@ try {
     "Unfolding Markdown must not reload its document",
   );
   const narrowHeight = await markdown.evaluate<number>("innerHeight");
-  await page.evaluate("document.querySelector('[aria-label=\"Hide discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
   await eventually(
     async () =>
       (await fullHeight()) && (await markdown.evaluate<number>("innerHeight")) < narrowHeight,
     "widening Markdown shrinks its frame without a blank tail",
   );
   const wideHeight = await markdown.evaluate<number>("innerHeight");
-  await page.evaluate("document.querySelector('[aria-label=\"Show discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Show discussion\"]').click()");
   await Bun.sleep(250);
   await eventually(
     async () =>
@@ -303,12 +303,12 @@ try {
   await page.evaluate("document.querySelector('[aria-label=\"Exit comment mode\"]').click()");
   await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop = 0");
   await page.evaluate(
-    `document.querySelector('[data-artifact-discussions="${lastSection.id}"] button').click()`,
+    `document.querySelector('[data-artifact-thread="${lastSection.id}"] button').click()`,
   );
   await Bun.sleep(300);
   assert.ok(
     await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop > 1000"),
-    "discussions Locate must keep the deep Markdown target visible after header alignment settles",
+    "threads Locate must keep the deep Markdown target visible after header alignment settles",
   );
   await page.evaluate("document.querySelector('[data-artifact-content]').scrollTop = 0");
   // Release over the opaque preview, where uncaptured parent pointer listeners
@@ -405,7 +405,7 @@ try {
   );
   await Bun.sleep(100);
   await page.evaluate(
-    `document.querySelector('[data-artifact-discussions="${lastSection.id}"] button').click()`,
+    `document.querySelector('[data-artifact-thread="${lastSection.id}"] button').click()`,
   );
   const reopened = await eventually(async () => {
     for (const context of page.contexts.values()) {

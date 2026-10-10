@@ -37,10 +37,10 @@ const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({
   kind: "html",
   actor,
-  title: "Image discussions acceptance",
+  title: "Image threads acceptance",
 });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createDiscussion({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastDiscussion=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{await r3.setTheme("dark");const note=await r3.createThread({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastThread=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -85,7 +85,7 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
-    if (failNextPost && request.method === "POST" && path.endsWith("/discussions")) {
+    if (failNextPost && request.method === "POST" && path.endsWith("/threads")) {
       failNextPost = false;
       return Response.json({ error: "Image save failed; retry" }, { status: 503 });
     }
@@ -128,12 +128,12 @@ try {
     ),
     "Comment mode",
   );
-  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
   await eventually(() => page.evaluate(`!!(${input})`), "composer");
   const paste = async (selector: string, plainText = "") =>
     page.evaluate(`(() => {
     const canvas=document.createElement('canvas'); canvas.width=160;canvas.height=90;
-    const ctx=canvas.getContext('2d');ctx.fillStyle='#f05020';ctx.fillRect(0,0,160,90);ctx.fillStyle='#ffffff';ctx.fillText('Image discussions',10,30);
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#f05020';ctx.fillRect(0,0,160,90);ctx.fillStyle='#ffffff';ctx.fillText('Image threads',10,30);
     return new Promise(resolve=>canvas.toBlob(blob=>{
       const data=new DataTransfer();data.items.add(new File([blob],'image.png',{type:'image/png'}));
       if (${JSON.stringify(plainText)}) data.setData('text/plain', ${JSON.stringify(plainText)});
@@ -294,7 +294,7 @@ try {
       page.evaluate(
         "innerWidth === 390 && !!Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('· 0 open'))",
       ),
-    "phone discussions sheet",
+    "phone discussion sheet",
   );
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('· 0 open')).click();document.documentElement.classList.add('dark')",
@@ -352,7 +352,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "!!document.querySelector('[data-artifact-discussions] img') && !document.querySelector('[data-artifact-composer]')",
+        "!!document.querySelector('[data-artifact-thread] img') && !document.querySelector('[data-artifact-composer]')",
       ),
     "image-only note saved",
   );
@@ -377,7 +377,7 @@ try {
     "posted PNG contains flattened arrow, rectangle and pen",
   );
   await page.evaluate(
-    "document.querySelector('[data-artifact-discussions] [data-discussions-action=comment]').click()",
+    "document.querySelector('[data-artifact-thread] [data-thread-action=comment]').click()",
   );
   const commentInput = "document.querySelector('[data-comment-to] textarea')";
   // Opening a comment moves the caret on the next animation frame. Wait for that
@@ -388,7 +388,7 @@ try {
   );
   assert.equal(
     await page.evaluate(
-      "!!document.querySelector('[data-comment-to] [data-discussions-action=resolve], [data-comment-to] [aria-label=\"More actions\"]')",
+      "!!document.querySelector('[data-comment-to] [data-thread-action=resolve], [data-comment-to] [aria-label=\"More actions\"]')",
     ),
     false,
   );
@@ -578,7 +578,7 @@ try {
   assert.equal(cancelled.retryStopped, true);
   // A compact photo can become an oversized lossless PNG. Queue both imports,
   // cancel one, then accept only the exact resized preview of the other.
-  await page.evaluate("document.querySelector('[aria-label=\"Add general discussions\"]').click()");
+  await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
   await eventually(() => page.evaluate(`!!(${input})`), "optimization composer");
   const photoBytes = await page.evaluate(`(async()=>{
     const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1200;
@@ -670,7 +670,7 @@ try {
   await page.evaluate(`${input}.form.requestSubmit()`);
   await eventually(
     () => Promise.resolve(storage.conversations.list(artifact.id).length === 3),
-    "optimized discussions posted",
+    "optimized threads posted",
   );
   const optimized = storage.conversations.list(artifact.id)[2]!.comments[0]!.attachments![0]!;
   assert.equal(optimized.width, 800);
@@ -685,7 +685,7 @@ try {
   });
   assert.equal(await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), true);
   console.log(
-    "Discussion images: paste, reload, retry, comment, real tab capture, crop, drawing, undo/redo, optimization preview, exact saved bytes, cancellation, scoped bridge, and narrow layout passed",
+    "Thread images: paste, reload, retry, comment, real tab capture, crop, drawing, undo/redo, optimization preview, exact saved bytes, cancellation, scoped bridge, and narrow layout passed",
   );
 } finally {
   await browser?.close();

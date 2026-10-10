@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ArtifactDetail, ArtifactTarget } from "../../shared/artifacts.ts";
 import { artifactComparisons } from "./artifact-comparison.ts";
-import { artifactFixture, artifactFixtureDiscussion } from "./artifact-fixtures.ts";
+import { artifactFixture, artifactFixtureThread } from "./artifact-fixtures.ts";
 
 const original = {
   kind: "rendered",
@@ -14,16 +14,16 @@ function fixture(): ArtifactDetail {
   return {
     ...artifactFixture,
     versions: [artifactFixture.versions[0], { ...artifactFixture.versions[0], seq: 2 }],
-    discussions: [
+    threads: [
       {
-        ...artifactFixtureDiscussion,
+        ...artifactFixtureThread,
         target: original,
         comments: [
           {
-            ...artifactFixtureDiscussion.comments[0]!,
+            ...artifactFixtureThread.comments[0]!,
           },
           {
-            ...artifactFixtureDiscussion.comments.slice(1)[0],
+            ...artifactFixtureThread.comments.slice(1)[0],
             context: { versionSeq: 1, representation: "source" },
             target: proposed,
           },
@@ -37,7 +37,7 @@ test("comparison uses the immutable original and explicit fix independently of c
   detail.placements = [
     {
       artifactId: detail.id,
-      discussionId: detail.discussions[0].id,
+      threadId: detail.threads[0].id,
       target: proposed,
       state: "anchored",
       createdAt: detail.createdAt,
@@ -47,11 +47,11 @@ test("comparison uses the immutable original and explicit fix independently of c
   const pair = [...artifactComparisons(detail).values()][0];
   expect(pair.original).toEqual(original);
   expect(pair.proposed).toEqual(proposed);
-  detail.discussions[0].status = "resolved";
+  detail.threads[0].status = "resolved";
   detail.state = "archived";
   expect(artifactComparisons(detail).size).toBe(1);
-  detail.discussions[0].comments.push({
-    ...detail.discussions[0].comments.slice(1)[0],
+  detail.threads[0].comments.push({
+    ...detail.threads[0].comments.slice(1)[0],
     id: "another-fix",
     target: original,
   });
@@ -73,18 +73,18 @@ test("comparison excludes general, whole-document, source, unknown and missing-p
   ];
   for (const target of invalid) {
     const detail = fixture();
-    detail.discussions[0].target = target;
+    detail.threads[0].target = target;
     expect(artifactComparisons(detail).size).toBe(0);
     if (target.kind === "artifact" || target.kind === "artifact_summary") continue;
-    detail.discussions[0].target = original;
-    detail.discussions[0].comments.slice(1)[0].target = target;
+    detail.threads[0].target = original;
+    detail.threads[0].comments.slice(1)[0].target = target;
     expect(artifactComparisons(detail).size).toBe(0);
   }
   const detail = fixture();
-  detail.discussions[0].comments.slice(1)[0].target = null;
+  detail.threads[0].comments.slice(1)[0].target = null;
   expect(artifactComparisons(detail).size).toBe(0);
-  detail.discussions[0].comments.slice(1)[0].target = proposed;
-  detail.discussions[0].comments.slice(1)[0].author = { role: "human", sessionId: null };
+  detail.threads[0].comments.slice(1)[0].target = proposed;
+  detail.threads[0].comments.slice(1)[0].author = { role: "human", sessionId: null };
   expect(artifactComparisons(detail).size).toBe(0);
 });
 test("media Compare requires saved original and agent fix frames with independent times", () => {
@@ -104,18 +104,18 @@ test("media Compare requires saved original and agent fix frames with independen
     path: "clip.mp4",
     locator: { time: 4.8123456, box: { x: 0, y: 0, width: 1, height: 1 }, frame },
   };
-  detail.discussions[0].target = media;
-  detail.discussions[0].comments.slice(1)[0].target = {
+  detail.threads[0].target = media;
+  detail.threads[0].comments.slice(1)[0].target = {
     ...media,
     versionSeq: 2,
     locator: { ...media.locator, time: 6.3 },
   };
   const comparison = [...artifactComparisons(detail).values()][0]!;
   expect(comparison.original).toEqual(media);
-  expect(comparison.proposed).toMatchObject(detail.discussions[0].comments[1].target!);
-  detail.discussions[0].comments.slice(1)[0].author = { role: "human", sessionId: null };
+  expect(comparison.proposed).toMatchObject(detail.threads[0].comments[1].target!);
+  detail.threads[0].comments.slice(1)[0].author = { role: "human", sessionId: null };
   expect(artifactComparisons(detail).size).toBe(0);
-  detail.discussions[0].comments.slice(1)[0].author = { role: "agent", sessionId: "design-agent" };
-  detail.discussions[0].target = { ...media, locator: { ...media.locator, frame: undefined } };
+  detail.threads[0].comments.slice(1)[0].author = { role: "agent", sessionId: "design-agent" };
+  detail.threads[0].target = { ...media, locator: { ...media.locator, frame: undefined } };
   expect(artifactComparisons(detail).size).toBe(0);
 });

@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import type {
-  ArtifactComment,
-  ArtifactDetail,
-  ArtifactDiscussion,
-} from "../../shared/artifacts.ts";
+import type { ArtifactComment, ArtifactDetail, ArtifactThread } from "../../shared/artifacts.ts";
 import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
 import { previewBridgeCall, previewLocator, previewSelectionPosition } from "./preview-bridge.ts";
 import { previewThemePreference } from "./preview-theme.ts";
@@ -25,13 +21,13 @@ test("preview bridge exposes only its artifact's human conversation at the selec
     resourceRoot: "https://preview.example/files/",
     state: "active",
   };
-  const discussions = { id: "discussion_fixture", comments: [] } as unknown as ArtifactDiscussion;
-  const detail = { discussions: [discussions] } as ArtifactDetail;
+  const threads = { id: "thread_fixture", comments: [] } as unknown as ArtifactThread;
+  const detail = { threads: [threads] } as ArtifactDetail;
   const calls: unknown[] = [];
   const api = {
-    addDiscussion: async (...args: unknown[]) => {
+    addThread: async (...args: unknown[]) => {
       calls.push(args);
-      return discussions;
+      return threads;
     },
     comment: async (...args: unknown[]) => {
       calls.push(args);
@@ -48,45 +44,43 @@ test("preview bridge exposes only its artifact's human conversation at the selec
       set: () => {},
     });
   expect(await call("getContext")).toEqual(context);
-  expect(await call("getThreads")).toEqual([discussions]);
-  detail.discussions = [
+  expect(await call("getThreads")).toEqual([threads]);
+  detail.threads = [
     {
-      ...discussions,
+      ...threads,
       comments: [
         {
-          ...discussions.comments[0]!,
+          ...threads.comments[0]!,
           attachments: [{ id: "private-image" }] as ArtifactComment["attachments"],
         },
         { id: "comment", attachments: [{ id: "private-comment-image" }] } as ArtifactComment,
       ],
     },
   ];
-  expect(await call("getThreads")).toEqual([
-    { id: discussions.id, comments: [{}, { id: "comment" }] },
-  ]);
-  await expect(call("createDiscussion", { body: "Spoof", attachments: [] }, true)).rejects.toThrow(
+  expect(await call("getThreads")).toEqual([{ id: threads.id, comments: [{}, { id: "comment" }] }]);
+  await expect(call("createThread", { body: "Spoof", attachments: [] }, true)).rejects.toThrow(
     "scope",
   );
   for (const method of ["publish", "archive", "claim", "fetch", "exec", "createSession"])
     await expect(call(method, {}, true)).rejects.toThrow("Unsupported");
-  for (const method of ["createDiscussion", "comment", "submit"])
+  for (const method of ["createThread", "comment", "submit"])
     await expect(call(method)).rejects.toThrow("user action");
   await expect(
-    call("comment", { discussionId: "discussion_other", body: "Another artifact" }, true),
+    call("comment", { threadId: "thread_other", body: "Another artifact" }, true),
   ).rejects.toThrow("not part");
   await expect(
-    call("createDiscussion", { body: "Spoof", actor: { role: "agent" } }, true),
+    call("createThread", { body: "Spoof", actor: { role: "agent" } }, true),
   ).rejects.toThrow("scope");
   await expect(
     call(
-      "createDiscussion",
+      "createThread",
       { body: "Navigate", locator: { selector: "h1", route: "https://outside.example" } },
       true,
     ),
   ).rejects.toThrow("document");
   expect(calls).toHaveLength(0);
   await call(
-    "createDiscussion",
+    "createThread",
     { body: "Revise", locator: { selector: "#heading", quote: "Visible\n text" } },
     true,
   );
@@ -100,10 +94,19 @@ test("preview bridge exposes only its artifact's human conversation at the selec
       locator: { selector: "#heading", quote: "Visible text" },
     },
   ]);
-  await call("comment", { discussionId: discussions.id, body: "About version two" }, true);
-  expect(calls[1]).toEqual([discussions.id, { body: "About version two" }]);
+  await call("comment", { threadId: threads.id, body: "About version two" }, true);
+  expect(calls[1]).toEqual([threads.id, { body: "About version two" }]);
   await call("submit", undefined, true);
   expect(calls[2]).toEqual([context.artifactId]);
+  await call("comment", { discussionId: threads.id, body: "From an older publication" }, true);
+  expect(calls[3]).toEqual([threads.id, { body: "From an older publication" }]);
+  for (const extra of [{ actor: { role: "agent" } }, { threadId: threads.id }])
+    await expect(
+      call("comment", { discussionId: threads.id, body: "Spoof", ...extra }, true),
+    ).rejects.toThrow("scope");
+  await expect(
+    call("comment", { discussionId: "thread_other", body: "Another artifact" }, true),
+  ).rejects.toThrow("not part");
 });
 test("preview themes persist only a user-selected light/dark preference for their artifact", async () => {
   const values = new Map([["r3-theme", "light"]]);
@@ -129,8 +132,8 @@ test("preview themes persist only a user-selected light/dark preference for thei
       method,
       value,
       scope,
-      { discussions: [] } as unknown as ArtifactDetail,
-      { addDiscussion: unavailable, comment: unavailable, submit: unavailable },
+      { threads: [] } as unknown as ArtifactDetail,
+      { addThread: unavailable, comment: unavailable, submit: unavailable },
       activated,
       previewThemePreference(storage, scope.artifactId),
     );
@@ -164,7 +167,7 @@ test("preview themes persist only a user-selected light/dark preference for thei
       undefined,
       context,
       {} as ArtifactDetail,
-      { addDiscussion: unavailable, comment: unavailable, submit: unavailable },
+      { addThread: unavailable, comment: unavailable, submit: unavailable },
       false,
       blocked,
     ),

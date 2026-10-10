@@ -41,7 +41,7 @@ try {
         await eventually(
           () =>
             page.evaluate(
-              "!!document.querySelector('[data-artifact-discussions]') && !!document.querySelector('.fieldwork-help')",
+              "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help')",
             ),
           "real workspace and latest revision",
         );

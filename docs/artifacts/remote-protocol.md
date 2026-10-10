@@ -9,7 +9,8 @@ Local mode uses these same contracts with an automatically started loopback serv
 The [glossary](../../CONTEXT.md) defines backend, server, notification worker,
 subscription, and selected subscription. The existing wire spellings
 `registration`, `registered`, and `registrationId` still refer to subscriptions;
-the terminology review does not rename protocol fields.
+worker routing keeps those established protocol fields. Thread and comment names
+in artifact data belong to the `artifacts-v3` contract.
 
 ```text
 CLI ───────── authenticated HTTP/JSON ─────── backend ← browser
@@ -21,11 +22,11 @@ CLI ───────── authenticated HTTP/JSON ─────── ba
  local harness
 ```
 
-This document defines the language-neutral extension to `artifacts-v2`.
+This document defines the language-neutral extension to `artifacts-v3`.
 `GET /api/health` advertises `r3-worker-v2`, `r3-auth-v1`, and `publication-url`
 in its `capabilities` array. JSON uses UTF-8, camelCase names, and opaque string
 identifiers. Unknown identifiers never imply a path or executable. Existing artifact
-routes, immutable versions, discussions acknowledgment, and watch exit codes retain
+routes, immutable versions, comment acknowledgment, and watch exit codes retain
 their contracts in the [API reference](../../.claude/skills/api-surface/SKILL.md).
 
 ## Backend selection and transport
@@ -39,7 +40,7 @@ Every CLI invocation resolves one backend, in order:
 4. The lazily started local server.
 
 Malformed selected configuration is an error. Commands never search other backends
-for a missing artifact. `comment fetch`, `discussions source`, and `discussions image`
+for a missing artifact. `comment fetch`, `thread source`, and `comment image`
 have no backend argument. A project file can be committed; it contains a URL, never credentials.
 
 Backend identity is the complete normalized URL, including port and base path.
@@ -138,7 +139,7 @@ refresh, device, cookie, or harness secrets. Addresses are observations, not ide
 ## Worker connection
 
 One worker serves all configured backends independently. It opens no TCP listener,
-reads no artifact database, and caches no artifact/discussions content. Its private
+reads no artifact database, and caches no artifact/threads content. Its private
 Unix socket passes local setup information only. HTTP watch and all data reads
 remain between CLI and backend.
 
@@ -262,7 +263,7 @@ destination; separate destinations/backends do not block each other. At most six
 notifications, including the active one, are queued per destination. The 15-second
 acknowledgment deadline starts at dispatch, and disconnect rejects queued work.
 
-Only the human's Send to agent action submits discussions. Setup, reconnect and
+Only the human's Send to agent action submits comments. Setup, reconnect and
 fallback selection never send pending content. Existing lifecycle rules still
 allow an explicit nonblank archive Comment to reach the captured recipient after
 archive commits. Delivery failure is reported to the human. `queued` means Codex
@@ -303,8 +304,8 @@ must similarly avoid collisions in their backend's session namespace.
 
 Artifact detail includes an optional `syncCursor`. `GET /api/artifacts/:id?since=<cursor>`
 returns either full detail or an `ArtifactDelta` with `delta:true`, the exact
-`baseCursor`, a new `syncCursor`, artifact summary, changed discussions, removed
-Discussion IDs, current claims/subscriptions, and labels needed by those changes.
+`baseCursor`, a new `syncCursor`, artifact summary, changed threads, removed
+Thread IDs, current claims/subscriptions, and labels needed by those changes.
 The client applies a delta only to its exact base. Original publications, targets,
 placements and unrelated conversations stay in the cached snapshot. Cursors are
 opaque, process-scoped and not delivery acknowledgments.

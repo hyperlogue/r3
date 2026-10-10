@@ -70,30 +70,30 @@ test("latest search, history, summaries and source locations use actual publishe
 test("conversation edits, comments, resolution, archive and deletion reconcile without delivery changes", async () => {
   const artifact = create();
   await publish(artifact.id, "Original document");
-  const discussions = await storage.conversations.add(artifact.id, {
+  const threads = await storage.conversations.add(artifact.id, {
     actor: human,
-    body: "Keyboard discussions",
+    body: "Keyboard threads",
     target: { kind: "source", versionSeq: 1, path: "notes.md", locator: null },
   });
   await publish(artifact.id, "Replacement document", 1);
-  const comment = await storage.conversations.addComment(discussions.id, {
+  const comment = await storage.conversations.addComment(threads.id, {
     actor: agent,
     body: "Keyboard fix ready",
     target: { kind: "source", versionSeq: 2, path: "notes.md", locator: null },
   });
   const found = await search("keyboard", { type: "conversation", attention: true });
   expect(found.total).toBe(2);
-  expect(found.matches.find((m) => m.category === "discussions")?.versionSeq).toBe(1);
+  expect(found.matches.find((m) => m.category === "thread")?.versionSeq).toBe(1);
   expect(found.matches.find((m) => m.category === "comment")).toMatchObject({
     versionSeq: 2,
     commentId: comment.id,
-    discussionId: discussions.id,
+    threadId: threads.id,
   });
-  expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).toBeNull();
+  expect(storage.conversations.get(threads.id).comments[0]!.sentAt).toBeNull();
   await storage.conversations.editComment(comment.id, { actor: agent, body: "Pointer fix ready" });
-  await storage.conversations.edit(discussions.id, {
+  await storage.conversations.edit(threads.id, {
     actor: human,
-    body: "Pointer discussions",
+    body: "Pointer threads",
     status: "resolved",
   });
   expect((await search("keyboard")).total).toBe(0);
@@ -106,13 +106,13 @@ test("conversation edits, comments, resolution, archive and deletion reconcile w
   });
   expect((await search("pointer", { state: "active" })).total).toBe(0);
   expect((await search("pointer", { state: "archived" })).total).toBe(2);
-  expect(() => storage.conversations.delete(discussions.id, human)).toThrow("archived");
+  expect(() => storage.conversations.delete(threads.id, human)).toThrow("archived");
   storage.lifecycle.transition(artifact.id, {
     actor: human,
     event: "restored",
     operationKey: "restore",
   });
-  storage.conversations.delete(discussions.id, human);
+  storage.conversations.delete(threads.id, human);
   expect((await search("pointer")).total).toBe(0);
   storage.artifacts.delete(artifact.id);
   expect((await search("document", { history: "all" })).total).toBe(0);

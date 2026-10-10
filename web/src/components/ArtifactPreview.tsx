@@ -433,11 +433,11 @@ function PreviewSession(
         replaceLocateRoute: props.independentReading,
         commenting:
           props.active !== false && props.commenting && context.presentation === "document",
-        targets: props.targets.flatMap(({ discussionId, target }) =>
+        targets: props.targets.flatMap(({ threadId, target }) =>
           target.kind === "rendered" &&
           target.versionSeq === seq &&
           target.path === currentPath.current
-            ? [{ discussionId, locator: target.locator }]
+            ? [{ threadId, locator: target.locator }]
             : [],
         ),
         jump:
@@ -706,14 +706,12 @@ function PreviewSession(
           } catch (error) {
             setNotice(error instanceof Error ? error.message : "Unable to capture this element");
           }
-        } else if (message.type === "r3-preview-discussions") {
+        } else if (message.type === "r3-preview-threads") {
           if (
             current.current.active !== false &&
-            current.current.detail.discussions.some(
-              (discussions) => discussions.id === message.discussionId,
-            )
+            current.current.detail.threads.some((threads) => threads.id === message.threadId)
           )
-            current.current.onDiscussion(message.discussionId);
+            current.current.onThread(message.threadId);
         } else if (
           message.type === "r3-preview-located" &&
           message.nonce === current.current.jump?.nonce
@@ -764,7 +762,7 @@ function PreviewSession(
           )
             .then((value) => {
               if (!closed) comment({ type: "r3-preview-result", id: message.id, value });
-              if (["createDiscussion", "comment", "submit"].includes(message.method))
+              if (["createThread", "comment", "submit"].includes(message.method))
                 void qc.invalidateQueries({ queryKey: ["artifact", id] });
             })
             .catch((error) => {
@@ -834,9 +832,9 @@ function PreviewSession(
       highlightLocated: props.highlightLocated,
       replaceLocateRoute: props.independentReading,
       commenting: props.active !== false && props.commenting && context.presentation === "document",
-      targets: props.targets.flatMap(({ discussionId, target }) =>
+      targets: props.targets.flatMap(({ threadId, target }) =>
         target.kind === "rendered" && target.versionSeq === seq && target.path === props.path
-          ? [{ discussionId, locator: target.locator }]
+          ? [{ threadId, locator: target.locator }]
           : [],
       ),
       jump:

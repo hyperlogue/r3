@@ -89,7 +89,7 @@ for (const artifact of [html, files]) {
               Buffer.from(`<!doctype html><html><head><script src="http://localhost:${outside.port}/script.js"></script></head><body>
 <h1>Version ${seq}</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a>
 <script type="module">import r3 from '/r3/utility.js';window.r3=r3;
-document.querySelector('#send').onclick=async()=>{await r3.createDiscussion({body:'Compatibility discussions',locator:{selector:'h1',quote:document.querySelector('h1').textContent}});document.querySelector('#output').textContent='Sent'};
+document.querySelector('#send').onclick=async()=>{await r3.createThread({body:'Compatibility threads',locator:{selector:'h1',quote:document.querySelector('h1').textContent}});document.querySelector('#output').textContent='Sent'};
 window.localData=await fetch('./data.txt').then(r=>r.text());
 try {await fetch('http://localhost:${outside.port}/capture');window.fetchBlocked=false}catch{window.fetchBlocked=true}
 </script></body></html>`).toString("base64"),
@@ -306,7 +306,7 @@ try {
     steps: 8,
   });
   await page.mouse.up();
-  const selectionComposer = page.getByRole("textbox", { name: "Discussion", exact: true });
+  const selectionComposer = page.getByRole("textbox", { name: "Thread", exact: true });
   await selectionComposer.waitFor();
   assert.equal(
     await selectionComposer.evaluate((node: HTMLElement) => document.activeElement === node),
@@ -315,7 +315,7 @@ try {
   assert.equal(await publishedFrame.evaluate(() => getSelection()?.toString()), "Version 1");
   await page.keyboard.press("Tab");
   await page.waitForFunction(
-    () => document.activeElement?.getAttribute("aria-label") === "Discussion",
+    () => document.activeElement?.getAttribute("aria-label") === "Comment",
   );
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await selectionComposer.waitFor({ state: "hidden" });
@@ -337,10 +337,7 @@ try {
   await frame.getByRole("button", { name: "Request revision" }).click();
   await frame.getByText("Sent", { exact: true }).waitFor();
   assert.equal(grants.length, beforeForgery, "publisher cannot forge a downgrade");
-  assert.equal(
-    storage.conversations.list(html.id)[0].comments[0]!.body,
-    "Compatibility discussions",
-  );
+  assert.equal(storage.conversations.list(html.id)[0].comments[0]!.body, "Compatibility threads");
   await frame.getByRole("link", { name: "Other document" }).click();
   await frame.getByRole("heading", { name: "Other document" }).waitFor();
   await frame.getByRole("link", { name: "Back" }).click();
@@ -521,7 +518,7 @@ try {
     await ephemeral.close();
   }
   console.log(
-    `Compatibility acceptance: ${engine} ${browser.version()}; saved consent skips probes, first-use verification, isolation, revocation, interaction, discussions, navigation, and versions passed`,
+    `Compatibility acceptance: ${engine} ${browser.version()}; saved consent skips probes, first-use verification, isolation, revocation, interaction, threads, navigation, and versions passed`,
   );
 } finally {
   await browser?.close();

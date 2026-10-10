@@ -16,7 +16,7 @@ export function TutorialDocument(props: ArtifactRenderedPaneProps) {
     top: number;
   } | null>(null);
   const [packed, setPacked] = useState(false);
-  const { path, version, commenting, onTarget, onDiscussion, targets, jump } = props;
+  const { path, version, commenting, onTarget, onThread, targets, jump } = props;
   useEffect(() => {
     if (!commenting) setPicked(null);
   }, [commenting]);
@@ -97,11 +97,11 @@ export function TutorialDocument(props: ArtifactRenderedPaneProps) {
                   target.versionSeq === version.seq &&
                   target.path === path,
               )
-              .map(({ discussionId }) => (
+              .map(({ threadId }) => (
                 <Button
-                  key={discussionId}
-                  aria-label="Open reading estimate discussions"
-                  onClick={() => onDiscussion(discussionId)}
+                  key={threadId}
+                  aria-label="Open reading estimate thread"
+                  onClick={() => onThread(threadId)}
                 >
                   ●
                 </Button>

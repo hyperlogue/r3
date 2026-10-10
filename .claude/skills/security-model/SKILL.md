@@ -328,7 +328,7 @@ The parent accepts a bridge connection only from its exact iframe window,
 `Origin:null`, context id, and a published path, after gate readiness or remembered
 compatibility consent. Each document transfers a MessagePort to the exact application origin. Comments stay on that
 port, so navigation cannot deliver a pending result to a replacement document.
-The bridge exposes context, same-artifact conversations, human discussions/comments,
+The bridge exposes context, same-artifact conversations, human comments,
 explicit Submit, change notifications, and an artifact-scoped light/dark preference. It has no generic HTTP or host-command
 operation and accepts no actor or version override. Mutations require browser
 user activation. Published membership is checked before dispatch; comment ids must
@@ -475,7 +475,7 @@ cooldown to land a dependency**; if a needed version is younger than 21 days, st
 and say so.
 
 
-## Discussion image isolation
+## Thread image isolation
 
 Image reads use application authentication and artifact/message membership, never
 a blob hash capability or the preview resource allowlist. Raster responses deny

@@ -56,7 +56,7 @@ export function searchDemoArtifacts(
       artifactId: artifact.id,
       path: null,
       target: null,
-      discussionId: null,
+      threadId: null,
       commentId: null,
     };
     add(
@@ -168,7 +168,7 @@ export function searchDemoArtifacts(
           });
         }
     }
-    for (const note of artifact.discussions) {
+    for (const note of artifact.threads) {
       const target = ["source", "rendered", "diff"].includes(note.target.kind)
         ? (note.target as ArtifactDocumentTarget)
         : null;
@@ -177,9 +177,9 @@ export function searchDemoArtifacts(
         {
           ...base,
           id: note.id,
-          category: "discussions",
+          category: "thread",
           versionSeq: seq,
-          discussionId: note.id,
+          threadId: note.id,
           path: target?.path ?? null,
           target,
           context:
@@ -197,7 +197,7 @@ export function searchDemoArtifacts(
             id: comment.id,
             category: "comment",
             versionSeq: comment.context.versionSeq,
-            discussionId: note.id,
+            threadId: note.id,
             commentId: comment.id,
             context: comment.context,
           },
@@ -213,7 +213,7 @@ export function searchDemoArtifacts(
       a.id.localeCompare(b.id),
   );
   const conversation = (m: ArtifactSearchMatch) =>
-    m.category === "discussions" || m.category === "comment";
+    m.category === "thread" || m.category === "comment";
   const counts = {
     all: matches.length,
     conversation: matches.filter(conversation).length,

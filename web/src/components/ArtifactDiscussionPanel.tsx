@@ -61,13 +61,13 @@ export function ArtifactDiscussionPanel({
       {floating && (
         <button
           type="button"
-          aria-label="Move discussions"
+          aria-label="Move discussion"
           title="Drag to move; arrow keys move, Shift moves faster"
           onKeyDown={(event) => {
             motion.cancel();
             pane.key(event);
           }}
-          data-discussions-drag
+          data-discussion-drag
           className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
         >
           <StrokeIcon className="size-4">
@@ -85,12 +85,12 @@ export function ArtifactDiscussionPanel({
   return (
     <aside
       ref={setPanel}
-      data-discussions-mode={mode}
+      data-discussion-mode={mode}
       inert={hidden}
       className={cn(
         "border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
         floating
-          ? "absolute z-20 rounded-lg border r3-floating [&_[data-discussions-header]]:cursor-grab [&_[data-discussions-header]]:touch-none"
+          ? "absolute z-20 rounded-lg border r3-floating [&_[data-discussion-header]]:cursor-grab [&_[data-discussion-header]]:touch-none"
           : hidden
             ? "absolute inset-y-0 right-0 pointer-events-none overflow-hidden"
             : "relative shrink-0 border-l",
@@ -112,8 +112,8 @@ export function ArtifactDiscussionPanel({
       onPointerDown={(event) => {
         const target = event.target as Element;
         if (
-          target.closest("[data-discussions-drag]") ||
-          (target.closest("[data-discussions-header]") &&
+          target.closest("[data-discussion-drag]") ||
+          (target.closest("[data-discussion-header]") &&
             !target.closest("button, a, input, textarea, select, [role=tab]"))
         ) {
           motion.cancel();
@@ -125,7 +125,7 @@ export function ArtifactDiscussionPanel({
         // biome-ignore lint/a11y/useSemanticElements: interactive adjustable separator, not a thematic break
         <div
           role="separator"
-          aria-label="Resize discussions"
+          aria-label="Resize discussion"
           aria-orientation="vertical"
           aria-valuemin={300}
           aria-valuemax={700}
@@ -161,13 +161,13 @@ export function ArtifactDiscussionPanel({
             key={edge}
             type="button"
             tabIndex={edge === "se" ? 0 : -1}
-            aria-label={`Resize discussions ${edge}`}
+            aria-label={`Resize discussion ${edge}`}
             title={
               edge === "se"
                 ? "Drag to resize; arrow keys resize, Shift resizes faster"
                 : "Drag to resize; double-click to reset width"
             }
-            data-discussions-resize={edge}
+            data-discussion-resize={edge}
             onPointerDown={(event) => {
               motion.cancel();
               pane.start(event, edge);

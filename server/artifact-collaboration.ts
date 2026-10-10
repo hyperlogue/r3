@@ -222,7 +222,7 @@ export class ArtifactCollaboration {
     const wakesWatch = held?.info.kind === "watch" && this.conversations.hasPending(id);
     this.broadcast({ type: "submitted", artifactId: id });
     // The synchronous broadcast completes a pending generic watch. Like a local
-    // harness acknowledgment, this confirms the wake without draining discussions.
+    // harness acknowledgment, this confirms the wake without draining threads.
     if (wakesWatch) return { state: "sent" };
     return this.notify(id, held, {
       id: randomUUID(),
@@ -341,11 +341,11 @@ export class ArtifactCollaboration {
           const terminal = archived();
           if (terminal) finish(terminal);
           else if (event.type === "submitted" && this.conversations.hasPending(id))
-            finish({ result: "discussions" });
+            finish({ result: "comments" });
         });
         options.signal?.addEventListener("abort", abort, { once: true });
         timer = setTimeout(() => finish(archived() ?? { result: "timeout" }), timeout);
-        if (this.conversations.hasPending(id)) finish(archived() ?? { result: "discussions" });
+        if (this.conversations.hasPending(id)) finish(archived() ?? { result: "comments" });
       } catch (error) {
         settled = true;
         unsubscribe();

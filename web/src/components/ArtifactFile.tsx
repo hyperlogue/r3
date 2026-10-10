@@ -31,7 +31,7 @@ export const ArtifactFile = memo(function ArtifactFile({
   current,
   viewed,
   onViewed,
-  onFileDiscussion,
+  onFileThread,
   onMediaTarget,
   mediaJump,
   mediaActive,
@@ -52,7 +52,7 @@ export const ArtifactFile = memo(function ArtifactFile({
   current: boolean;
   viewed: boolean;
   onViewed: () => void;
-  onFileDiscussion: () => void;
+  onFileThread: () => void;
   onMediaTarget: (target: ArtifactMediaTarget, snapshot: DraftAttachment) => boolean;
   mediaJump?: { target: ArtifactMediaTarget; nonce: number } | null;
   mediaActive?: boolean;
@@ -124,7 +124,7 @@ export const ArtifactFile = memo(function ArtifactFile({
         current={current}
         viewed={viewed}
         onToggleViewed={onViewed}
-        onFileDiscussion={onFileDiscussion}
+        onFileThread={onFileThread}
         foldSignal={fold}
         onOpenChange={setOpen}
         wrapHeader={media === "image" || media === "video"}

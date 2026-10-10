@@ -39,45 +39,45 @@ const detail = () => request(`/api/artifacts/${id}`) as Promise<ArtifactDetail>;
 const delta = (snapshot: ArtifactDetail) =>
   request(`/api/artifacts/${id}?since=${snapshot.syncCursor}`) as Promise<ArtifactDelta>;
 const add = (body: string) =>
-  request(`/api/artifacts/${id}/discussions`, "POST", {
+  request(`/api/artifacts/${id}/threads`, "POST", {
     actor,
     body,
     target: { kind: "artifact" },
   });
 
-test("small edits transfer one discussion and preserve the complete snapshot", async () => {
+test("small edits transfer one thread and preserve the complete snapshot", async () => {
   for (let index = 0; index < 50; index++) await add(`Note ${index}: ${"evidence ".repeat(100)}`);
   const before = await detail();
-  const selected = before.discussions[0]!;
-  await request(`/api/discussions/${selected.id}`, "PATCH", { actor, body: "Small edit" });
+  const selected = before.threads[0]!;
+  await request(`/api/threads/${selected.id}`, "PATCH", { actor, body: "Small edit" });
   const update = await delta(before);
   expect(update.delta).toBe(true);
-  expect(update.discussions).toHaveLength(1);
-  expect(update.discussions[0]?.comments[0]?.body).toBe("Small edit");
+  expect(update.threads).toHaveLength(1);
+  expect(update.threads[0]?.comments[0]?.body).toBe("Small edit");
   expect(JSON.stringify(update).length).toBeLessThan(JSON.stringify(before).length / 10);
   expect(mergeArtifactUpdate(before, update)).toEqual(await detail());
   const empty = await delta(mergeArtifactUpdate(before, update));
-  expect(empty.discussions).toEqual([]);
+  expect(empty.threads).toEqual([]);
   expect("versions" in empty).toBe(false);
 });
 
-test("deletions and claim changes merge without resending other discussions", async () => {
+test("deletions and claim changes merge without resending other threads", async () => {
   const first = await add("Claim me"),
     second = await add("Delete me");
   let snapshot = await detail();
   await request("/api/sessions", "POST", { id: "codex:run", harness: "codex", label: "Helper" });
-  await request("/api/claims", "POST", { sessionId: "codex:run", discussionIds: [first.id] });
+  await request("/api/claims", "POST", { sessionId: "codex:run", threadIds: [first.id] });
   let update = await delta(snapshot);
-  expect(update.discussions).toEqual([]);
+  expect(update.threads).toEqual([]);
   expect(update.claims).toHaveLength(1);
   snapshot = mergeArtifactUpdate(snapshot, update);
   expect(snapshot).toEqual(await detail());
-  await request(`/api/discussions/${second.id}`, "DELETE", { actor });
+  await request(`/api/threads/${second.id}`, "DELETE", { actor });
   update = await delta(snapshot);
-  expect(update.removedDiscussionIds).toEqual([second.id]);
+  expect(update.removedThreadIds).toEqual([second.id]);
   snapshot = mergeArtifactUpdate(snapshot, update);
   expect(snapshot).toEqual(await detail());
-  await request("/api/claims", "DELETE", { sessionId: "codex:run", discussionIds: [first.id] });
+  await request("/api/claims", "DELETE", { sessionId: "codex:run", threadIds: [first.id] });
   expect(mergeArtifactUpdate(snapshot, await delta(snapshot))).toEqual(await detail());
 });
 

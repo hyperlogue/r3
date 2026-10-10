@@ -53,7 +53,7 @@ test("bulk archive skips existing archives and distinguishes committed notificat
           comment: {
             id: "comment_archive",
             artifactId: id,
-            discussionId: null,
+            threadId: null,
             author: { role: "human" as const, sessionId: null },
             context: { versionSeq: null, representation: null },
             target: null,

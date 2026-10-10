@@ -148,7 +148,7 @@ export function JumpToFileList({
       ?.querySelector<HTMLElement>(`[data-jtf-row="${cursorIdx}"]`)
       ?.scrollIntoView({ block: "nearest" });
   }, [cursorIdx]);
-  // ↑/↓ and their Ctrl-p/Ctrl-n aliases (the same pair the discussions list takes,
+  // ↑/↓ and their Ctrl-p/Ctrl-n aliases (the same pair the threads list takes,
   // for the same reason — your hand is already on the home row). Clamped, not
   // wrapping, like every other list step in the app.
   //

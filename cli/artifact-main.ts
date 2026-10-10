@@ -31,7 +31,7 @@ const COMMANDS = new Set([
   "patch",
   "edit",
   "delete",
-  "discussions",
+  "thread",
   "comment",
   "claim",
   "release",

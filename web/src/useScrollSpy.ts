@@ -190,7 +190,7 @@ export function useScrollSpy(input: {
     // and a fold/unfold restacks everything below it. Without a resize signal the
     // marker would keep whatever it computed against the stubs — the reported "the
     // first file isn't marked on open". The pane's OWN box is worth watching too:
-    // its height is the 15% denominator, so a discussion-panel drag or a window
+    // its height is the 15% denominator, so a thread-panel drag or a window
     // resize changes the answer. Observe the file blocks themselves: the artifact
     // pane's first child is its header, whose size does not change as source loads.
     // A restack can also add or drop blocks, so rescan on membership changes.

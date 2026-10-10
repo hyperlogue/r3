@@ -13,6 +13,10 @@ update it here when the surface changes. The wire *shapes* live in
 three clients (browser, CLI, agent). When you change behavior, change
 `shared/artifacts.ts` and keep server + CLI + web in sync.
 
+The conversation hierarchy is **Discussion → Thread → Comment**. Discussion is the
+artifact-wide grouping; Threads own targets, claims, and resolution; Comments are
+authored messages, including archive messages directly in the discussion.
+
 ## HTTP API
 
 ### Artifact API
@@ -52,7 +56,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   a bounded delta or a full snapshot on a gap. `?view=summary` reads only its Artifact
   projection. See [incremental reads](../../../docs/artifacts/remote-protocol.md#incremental-browser-reads).
   Artifact detail includes `agentLabels`, current display labels keyed by the
-  sessions referenced in its creator, versions, discussions, comments, claims, and
+  sessions referenced in its creator, versions, threads, comments, claims, and
   lifecycle events. Unnamed entries are null; unrelated sessions are omitted.
   The browser uses these labels without fetching the global session list.
   Artifact reads include computed `unhandledCount`: open threads whose latest
@@ -71,11 +75,11 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Queries contain 1–16 Unicode word prefixes, at most 256 characters, combined with AND;
   punctuation is a separator and FTS syntax is never executed. Latest scope limits
   publications; conversation matches retain each message’s recorded context. Results
-  contain plain-text snippets, native targets, discussions/comment IDs, per-type counts,
+  contain plain-text snippets, native targets, thread/comment IDs, per-type counts,
   and `nextOffset`. `skippedFiles` reports excluded binary, invalid UTF-8, or >4 MiB
   text files in the selected scope. HTML searches static entrypoint text without
   executing scripts or searching companion source. Same authentication/origin guards
-  as artifact reads; no discussions acknowledgment, claim, listener, or delivery effect.
+  as artifact reads; no comment acknowledgment, claim, listener, or delivery effect.
   CLI: `r3 search "words"` with corresponding flags, `--attention`, and `--json`.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
   complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
@@ -94,56 +98,56 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   different version or the filesystem. Executable rendering belongs to preview.
 - `GET/PUT /api/artifacts/:id/viewed` persists opaque read-progress keys with
   `{ key, viewed }`. Theme and login-token endpoints retain their response shapes.
-- `GET/POST /api/artifacts/:id/discussions`, `GET/PATCH/DELETE /api/discussions/:id`,
-  `POST /api/discussions/:id/comments` and `GET/PATCH /api/comments/:id` use
+- `GET/POST /api/artifacts/:id/threads`, `GET/PATCH/DELETE /api/threads/:id`,
+  `POST /api/threads/:id/comments` and `GET/PATCH /api/comments/:id` use
   native immutable original targets and derived comment references.
-  Historical placements remain readable; new placement authoring is removed. A Discussion contains one ordered
+  Historical placements remain readable; new placement authoring is removed. A Thread contains one ordered
   Comment list, including its opening Comment. The common comment read/edit endpoint
   also accepts artifact-level archive Comments; these are text-only and editable
   after restore. `r3 comment show` reads any Comment without acknowledging it;
   `r3 comment edit` edits its body and supported images. Every message mutation names
-  an `actor`; deletion takes `{ actor }`. Only human actors change discussions status.
+  an `actor`; deletion takes `{ actor }`. Only human actors change thread status.
   Files also accept native `media` targets with `locator: { time, box }` and a
   required `mediaSnapshot` (full-frame PNG/JPEG upload). Reads add the immutable
   `locator.frame` descriptor; bytes use the attachment route. Snapshot evidence
-  is separate from editable message attachments. CLI discussions add/comment accept
+  is separate from editable message attachments. CLI thread add/comment accept
   `--frame <path>` with a media `--target`; media targets accept `--view media`.
   Comment fetch manifests include target frames, including follow-up originals.
   Rendered locators accept an optional plain-text `label` for named HTML fix links;
   matching still uses the selector and native evidence. See `r3 guide html` for
   the comment example and the schema document for storage semantics.
   `artifact_summary` and `version_summary` are historical read-only targets;
-  new discussions and comment fix targets reject description anchors.
-- `GET /api/discussions/:id/source` returns `ArtifactSourceRange` for the original
+  new threads and comment fix targets reject description anchors.
+- `GET /api/threads/:id/source` returns `ArtifactSourceRange` for the original
   source/diff line target: artifact, version, path, side (`null` for source),
   inclusive start/end, and complete text with LF separators. Rendered, general,
-  and whole-file targets return 400; missing discussions returns 404. The normal
-  authentication and origin guards apply. This read never acknowledges discussions,
-  claims it, or registers a listener. Source/diff quotes may be nonblank exact
+  and whole-file targets return 400; missing threads return 404. The normal
+  authentication and origin guards apply. This read never acknowledges comments,
+  claims a thread, or registers a listener. Source/diff quotes may be nonblank exact
   excerpts within the complete captured range; range existence, version/file/side,
   diff gaps, and input limits remain validated. Browser excerpts are capped at
   four lines and 2,048 UTF-16 code units; existing saved quotes are unchanged.
-- `POST/DELETE /api/claims { sessionId, discussionIds }` claims/releases as the
+- `POST/DELETE /api/claims { sessionId, threadIds }` claims/releases as the
   named registered agent. Claims change presence, not owner delivery.
-- `GET .../:id/discussions/pending[?discussions=<ids>]` returns an
-  `ArtifactDiscussionSnapshot`: formatted `text`, `itemCount`, and an `acknowledgment`
+- `GET .../:id/comments/pending[?threads=<ids>]` returns an
+  `ArtifactCommentSnapshot`: formatted `text`, `itemCount`, and an `acknowledgment`
   containing the selection and required `expectedFingerprint`. It is read-only and
   uncached; archived artifacts return 409.
-  `POST .../:id/discussions/acknowledge` takes that `ArtifactDiscussionAcknowledgment`
+  `POST .../:id/comments/acknowledge` takes that `ArtifactCommentAcknowledgment`
   after successful consumption and returns `{ acknowledgedCount }`. Missing/invalid
   fingerprints return 400; stale revisions, changed selection, or archive return 409
   without marking content delivered. An unfiltered snapshot also includes pending
   artifact-level Comments after restore. The fingerprint binds artifact, selection, and
   persisted conversation revision, including edit/revert and prior acknowledgment.
-  `GET .../:id/discussions/history[?discussions=<ids>]` returns `ArtifactDiscussionRead`
+  `GET .../:id/comments/history[?threads=<ids>]` returns `ArtifactCommentRead`
   (`text`, `itemCount`) without acknowledgment data: open history by default, or the
   specified threads including resolved ones. History remains readable after archive.
-  The browser copies only the CLI command and makes no discussions-read or acknowledgment
+  The browser copies only the CLI command and makes no comment-read or acknowledgment
   request. The former `/prompt` routes and CLI alias are removed.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
-  delivery acknowledgment or a generic watch woken for pending discussions. An absent
+  delivery acknowledgment or a generic watch woken for pending comments. An absent
   recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
-  returns `queued`; failure returns `failed` and HTTP 502. Neither drains discussions.
+  returns `queued`; failure returns `failed` and HTTP 502. Neither acknowledges comments.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event (including its optional artifact-level `comment`), replay flag, and notification result.
   Archive input is `comment: { body }`; blank bodies normalize to no Comment.
@@ -212,7 +216,7 @@ subscriptions; restore requires a fresh publication or subscription.
   plus an optional non-authorizing `resumeKey` for authenticated HTML navigation,
   never application credentials. `origin` is the transport origin; rendered
   documents have opaque origins.
-- `GET /api/health` reports version and `protocol: artifacts-v2`; `GET /api/boot`
+- `GET /api/health` reports version and `protocol: artifacts-v3`; `GET /api/boot`
   reports browser-session state without an API token in the shipped server.
   POST `/api/auth/local` exchanges a one-time local ticket for a cookie. Private
   setup uses Unix IPC, as specified in the remote protocol. All HTTP remains Host/origin gated.
@@ -286,10 +290,10 @@ The current command families:
 | `list`, `show`, `versions`, `files`, `source`, `download`, `patch` | Read only; content reads name a version; downloads preserve original bytes |
 | `stat [--weekly] [--json]`, `gc [--dry-run] [--ttl 30d] [--json]` | Fixed activity windows; manual TTL cleanup, exit 1 on deletion/cleanup failure; no identity required |
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
-| `discussions add/edit/delete`, `comment` | Native immutable originals and derived comment references; `--human` required for status edits |
-| `claim`, `release` | Registered session owns a renewable discussions-scoped lease |
+| `thread add/edit/delete`, `comment` | Native immutable originals and derived comment references; `--human` required for status edits |
+| `claim`, `release` | Registered session owns a renewable thread-scoped lease |
 | `comment fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
-| `discussions source <discussions-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
+| `thread source <thread-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
 | `login`, `auth`, `config`, `server`, `worker`, `start/stop/status/restart`, `guide` | Saved backend access, client/browser management, configuration, server/worker lifecycle; root lifecycle aliases manage the server |
@@ -321,8 +325,8 @@ fallback. Conflicts stop automatic attempts until fresh CLI action; archive,
 replacement and cancellation retire identities even while their worker is offline.
 Codex queue success need not mean the session is running. Other agents watch or poll.
 
-Watch exits 10 for pending discussions, 0 for archived, 2 for timeout, and 4 for a
-superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if discussion is
+Watch exits 10 for pending comments, 0 for archived, 2 for timeout, and 4 for a
+superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if thread is
 pending or the timeout has just elapsed. Already archived watch returns immediately.
 A nonblank archive message reaches the captured recipient and remains in history;
 blank messages produce no nudge. Restore needs a new registration. Notification
@@ -331,14 +335,14 @@ failure never rolls back lifecycle state and an operation-key retry never re-pus
 ## Delivery and status
 
 Delivery is the owner's artifact-level handoff, not a receipt from every agent.
-Agent messages start delivered. New human discussions/comments start pending; editing
+Agent messages start delivered. New human comments start pending; editing
 an open human note clears its delivery timestamp. Editing a resolved note does not
 reopen it. The private `ever_delivered` flag survives edits, so a subsequent human
 status change still sets `statusUnsent` after any earlier delivery; resolving a
 never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
-`comment fetch` and `watch` read pending discussions, await successful stdout
+`comment fetch` and `watch` read pending comments, await successful stdout
 completion, then explicitly acknowledge that exact snapshot. Reads and failed output
 leave content pending. A failed acknowledgment returns an error and may repeat output
 on retry; concurrent conversation changes remain pending. This is at-least-once
@@ -351,16 +355,16 @@ explicit listener when harness detection supports it. This uses the persistent w
 output off stdout. Setup failures only warn on stderr after a successful fetch.
 Unsupported harnesses need no identity to fetch; `--human` skips registration.
 `--all` reads open history without acknowledgment or registration, and
-`--all --discussions` can read specific resolved threads too.
+`--all --threads` can read specific resolved threads too.
 Wake notifications use the preferred `r3 comment fetch` spelling. Fetch and watch
 share a data-only formatter; workflow instructions live in the guide. Original
 targets, claims, comment/fix context, status changes, and history pointers remain in
 the payload. Without a listener/watcher, the browser offers **Use in agent** with a
 copyable fetch command for `! <command>` in the harness. Opening/copying never
-acknowledges discussions. Claims, publication, notifications, and event-stream reads
-do not acknowledge discussions.
+acknowledges comments. Claims, publication, notifications, and event-stream reads
+do not acknowledge comments.
 
-Discussion status is human-controlled. Comments carry no status or resolve action;
+Thread status is human-controlled. Comments carry no status or resolve action;
 they release only the matching author's claim. Archive preserves unsent content
 and rejects content mutations, including in-flight comments, with 409 until restore.
 The backend checks at commit after any asynchronous preparation; reads remain available. Thread originals stay readable even when a placement is unavailable.
@@ -382,11 +386,11 @@ same-origin resource policy, and no CORS capability. Pending/history responses
 include the attachment manifest for the same messages represented in their text.
 Preview `getThreads()` projects conversation text without attachment descriptors.
 
-`discussions add` and `comment` accept repeatable `--attach <image>` and optional retry
-`--key`; image-only messages may omit `-m`. `discussions edit --attach` replaces the
-image list, and `--clear-attachments` removes it. `discussions image <artifact-id>
+`thread add` and `comment` accept repeatable `--attach <image>` and optional retry
+`--key`; image-only messages may omit `-m`. `thread edit --attach` replaces the
+image list, and `--clear-attachments` removes it. `comment image <artifact-id>
 --image <image-id> [--output <file>]` downloads bytes; omitted output writes stdout.
 `comment fetch --attachments-dir <directory>` downloads and hash-verifies the
 snapshot's images before output/acknowledgment, reusing only matching existing
-files. Failure leaves discussions pending. The guide requires agents to open relevant
+files. Failure leaves comments pending. The guide requires agents to open relevant
 images with their harness's image viewer before commenting.

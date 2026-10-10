@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import type { ArtifactActor, ArtifactComment } from "../shared/artifacts.ts";
 
 // Archive creates an artifact-level Comment in its transition transaction.
-// It has no Discussion status or native target; edits still require active.
+// It has no Thread status or native target; edits still require active.
 export const ARTIFACT_COMMENT_SCHEMA = `
 CREATE TABLE IF NOT EXISTS artifact_comments (
   id TEXT PRIMARY KEY NOT NULL,
@@ -35,7 +35,7 @@ export function artifactComment(db: Database, id: string): ArtifactComment | nul
     ? {
         id: row.id,
         artifactId: row.artifact_id,
-        discussionId: null,
+        threadId: null,
         author:
           row.author === "human"
             ? { role: "human", sessionId: null }

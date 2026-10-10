@@ -271,17 +271,17 @@ try {
     y: offset.y + text.y,
   });
   await eventually(
-    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Discussion\"]')"),
+    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Comment\"]')"),
     "rendered selection composer",
   );
-  await page.evaluate("void document.querySelector('textarea[aria-label=\"Discussion\"]').focus()");
+  await page.evaluate("void document.querySelector('textarea[aria-label=\"Comment\"]').focus()");
   await page.command("Input.insertText", { text: "Explain the remaining error." });
   await page.evaluate(
-    "void document.querySelector('textarea[aria-label=\"Discussion\"]').form.requestSubmit()",
+    "void document.querySelector('textarea[aria-label=\"Comment\"]').form.requestSubmit()",
   );
   const readNote =
-    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').discussions.find(n=>n.body==='Explain the remaining error.')";
-  const note = await eventually(() => page.evaluate(readNote), "saved native discussions");
+    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.body==='Explain the remaining error.')";
+  const note = await eventually(() => page.evaluate(readNote), "saved native threads");
   assert.equal(note.target.kind, "rendered");
   assert.equal(note.target.versionSeq, 1);
   assert.equal(note.target.path, "index.html");
@@ -367,20 +367,20 @@ try {
       y: (control[1] + control[5]) / 2 + (frame.command === page.command ? 0 : frameOffset.y),
     });
   await eventually(
-    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Discussion\"]')"),
+    () => page.evaluate("!!document.querySelector('textarea[aria-label=\"Comment\"]')"),
     "element composer",
   );
-  await page.evaluate("void document.querySelector('textarea[aria-label=\"Discussion\"]').focus()");
+  await page.evaluate("void document.querySelector('textarea[aria-label=\"Comment\"]').focus()");
   await page.command("Input.insertText", { text: "Keep this explanation heading." });
   await page.evaluate(
-    "void document.querySelector('textarea[aria-label=\"Discussion\"]').form.requestSubmit()",
+    "void document.querySelector('textarea[aria-label=\"Comment\"]').form.requestSubmit()",
   );
   const elementNote = await eventually(
     () =>
       page.evaluate(
-        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').discussions.find(n=>n.body==='Keep this explanation heading.')",
+        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.body==='Keep this explanation heading.')",
       ),
-    "saved element discussions",
+    "saved element threads",
   );
   assert.equal(elementNote.target.path, "details.html");
   assert.equal(elementNote.target.locator.quote, "Behind the curves.");
@@ -391,16 +391,16 @@ try {
     "The small cosine ripple is outside this model; a close fit still has residual error.",
   );
   await page.evaluate(
-    `void document.querySelector('[data-artifact-discussions="${elementNote.id}"] button[title]').click()`,
+    `void document.querySelector('[data-artifact-thread="${elementNote.id}"] button[title]').click()`,
   );
   await preview("Behind the curves.");
   await page.evaluate(
-    `void document.querySelector('[data-artifact-discussions="${elementNote.id}"] [data-discussions-action="resolve"]').click()`,
+    `void document.querySelector('[data-artifact-thread="${elementNote.id}"] [data-thread-action="resolve"]').click()`,
   );
   await eventually(
     () =>
       page.evaluate(
-        `window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').discussions.find(n=>n.id==='${elementNote.id}').status==='resolved'`,
+        `window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.id==='${elementNote.id}').status==='resolved'`,
       ),
     "human resolution",
   );

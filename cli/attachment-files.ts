@@ -107,7 +107,7 @@ export async function saveAttachment(path: string, bytes: Uint8Array) {
   }
 }
 
-export async function downloadDiscussionImages(
+export async function downloadCommentImages(
   client: ArtifactClient,
   images: ArtifactAttachment[],
   directory: string,
@@ -139,7 +139,7 @@ export async function downloadDiscussionImages(
       if (!matches(existing)) throw new Error("Attachment output differs from the snapshot");
     } else {
       const bytes = await downloadAttachment(client, image.artifactId, image.id);
-      if (!matches(bytes)) throw new Error("Attachment bytes differ from the discussions snapshot");
+      if (!matches(bytes)) throw new Error("Attachment bytes differ from the comment snapshot");
       await saveAttachment(path, bytes);
     }
     saved.push(path);

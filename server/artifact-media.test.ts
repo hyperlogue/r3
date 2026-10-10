@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discussionAttachments } from "../shared/artifact-prompt.ts";
+import { commentAttachments } from "../shared/artifact-prompt.ts";
 import type { ArtifactMediaTarget } from "../shared/artifacts.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
@@ -72,7 +72,7 @@ test("media evidence survives message edits, delivery, restart and blob collecti
   expect(saved.locator.time).toBe(4.800123456);
   expect(saved.locator.frame?.width).toBe(2);
   expect(note.comments[0]!.attachments).toEqual([]);
-  expect(discussionAttachments([note])).toEqual([saved.locator.frame!]);
+  expect(commentAttachments([note])).toEqual([saved.locator.frame!]);
   await store.conversations.update(note.id, {
     actor: human,
     body: "Changed text",
@@ -99,7 +99,7 @@ test("media evidence survives message edits, delivery, restart and blob collecti
   expect(store.conversations.get(note.id).target).toEqual(saved);
   const snapshot = store.conversations.snapshot(id);
   store.conversations.acknowledge(id, snapshot.acknowledgment);
-  expect(discussionAttachments([store.conversations.get(note.id)], true)).toContainEqual(
+  expect(commentAttachments([store.conversations.get(note.id)], true)).toContainEqual(
     saved.locator.frame!,
   );
   store.conversations.delete(note.id, human);
@@ -216,7 +216,7 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
     const before = conversations.get(note.id);
     const activity = db.query("SELECT * FROM artifact_activity ORDER BY occurred_at, metric").all();
     db.exec(
-      "DROP INDEX target_frame_discussions; DROP INDEX target_frame_comment; DROP TRIGGER immutable_message_attachment; ALTER TABLE message_attachments DROP COLUMN purpose; PRAGMA user_version = 9",
+      "DROP INDEX target_frame_threads; DROP INDEX target_frame_comment; DROP TRIGGER immutable_message_attachment; ALTER TABLE message_attachments DROP COLUMN purpose; PRAGMA user_version = 9",
     );
     await upgradeArtifactStore(db, { backupPath: join(root, "backup.sqlite") });
     expect(db.query("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
@@ -240,9 +240,7 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
           sql: string;
         },
         []
-      >(
-        "SELECT sql FROM sqlite_master WHERE name IN ('discussions', 'comments', 'discussion_placements')",
-      )
+      >("SELECT sql FROM sqlite_master WHERE name IN ('threads', 'comments', 'thread_placements')")
       .all();
     expect(tables.every((table) => table.sql.includes("'media'"))).toBe(true);
   } finally {

@@ -36,7 +36,7 @@ const LineRow = memo(function LineRow({
       // follow (unlike DiffView's two-column new-side pin).
       className={cn(
         "grid min-w-full grid-cols-[3.5rem_1fr] font-mono text-xs max-md:grid-cols-[2.5rem_1fr]",
-        fbId && "r3-discussions-region",
+        fbId && "r3-threads-region",
       )}
       data-line={ln.lineNo}
       data-side="new"

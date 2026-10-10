@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
-import type { ArtifactComment, ArtifactDiscussion } from "../../shared/artifacts.ts";
+import type { ArtifactComment, ArtifactThread } from "../../shared/artifacts.ts";
+import { artifactFixture, artifactFixtureThread } from "./artifact-fixtures.ts";
 import {
-  activeArtifactDiscussion,
+  activeArtifactThreads,
   artifactNeedsAttention,
   withSavedComment,
-} from "./artifact-discussions.ts";
-import { artifactFixture, artifactFixtureDiscussion } from "./artifact-fixtures.ts";
+} from "./artifact-threads.ts";
 
 test("a saved comment preserves concurrent thread changes and newer comments", () => {
   const comment: ArtifactComment = {
-    ...artifactFixtureDiscussion.comments.slice(1)[0],
+    ...artifactFixtureThread.comments.slice(1)[0],
     id: "comment_human",
     author: { role: "human", sessionId: null },
     body: "My comment.",
@@ -17,43 +17,43 @@ test("a saved comment preserves concurrent thread changes and newer comments", (
     sentAt: null,
   };
   const updated = withSavedComment(artifactFixture, comment);
-  expect(updated.discussions[0].comments.slice(1).at(-1)).toEqual(comment);
+  expect(updated.threads[0].comments.slice(1).at(-1)).toEqual(comment);
   expect(updated.unhandledCount).toBe(0);
-  expect(artifactFixture.discussions[0].comments.slice(1)).toHaveLength(1);
-  const other = { ...artifactFixtureDiscussion, id: "discussion_other" };
+  expect(artifactFixture.threads[0].comments.slice(1)).toHaveLength(1);
+  const other = { ...artifactFixtureThread, id: "thread_other" };
   const newer = {
-    ...artifactFixtureDiscussion,
+    ...artifactFixtureThread,
     comments: [
       {
-        ...artifactFixtureDiscussion.comments[0]!,
+        ...artifactFixtureThread.comments[0]!,
         body: "A concurrent edit.",
       },
-      ...artifactFixtureDiscussion.comments.slice(1),
+      ...artifactFixtureThread.comments.slice(1),
       {
-        ...artifactFixtureDiscussion.comments.slice(1)[0],
+        ...artifactFixtureThread.comments.slice(1)[0],
         id: "comment_newer",
         createdAt: "2026-09-13T00:00:00.000Z",
       },
     ],
   };
-  const concurrent = withSavedComment({ ...artifactFixture, discussions: [newer, other] }, comment);
-  expect(concurrent.discussions[0].comments[0]!.body).toBe("A concurrent edit.");
-  expect(concurrent.discussions[0].comments.slice(1).map((item) => item.id)).toEqual([
+  const concurrent = withSavedComment({ ...artifactFixture, threads: [newer, other] }, comment);
+  expect(concurrent.threads[0].comments[0]!.body).toBe("A concurrent edit.");
+  expect(concurrent.threads[0].comments.slice(1).map((item) => item.id)).toEqual([
     "comment_example",
     "comment_human",
     "comment_newer",
   ]);
   expect(concurrent.unhandledCount).toBe(2);
-  expect(concurrent.discussions[1]).toBe(other);
+  expect(concurrent.threads[1]).toBe(other);
   const delivered = { ...comment, body: "A newer edit.", sentAt: "2026-09-13T00:00:00.000Z" };
   const refreshed = {
     ...updated,
-    discussions: [
+    threads: [
       {
-        ...updated.discussions[0],
+        ...updated.threads[0],
         comments: [
           {
-            ...updated.discussions[0].comments[0]!,
+            ...updated.threads[0].comments[0]!,
           },
           delivered,
         ],
@@ -61,23 +61,23 @@ test("a saved comment preserves concurrent thread changes and newer comments", (
     ],
   };
   expect(withSavedComment(refreshed, comment)).toBe(refreshed);
-  const deleted = { ...artifactFixture, discussions: [], unhandledCount: 0 };
+  const deleted = { ...artifactFixture, threads: [], unhandledCount: 0 };
   expect(withSavedComment(deleted, comment)).toBe(deleted);
 });
 test("new unsent notes lead the attention queue, followed by waiting and claimed work", () => {
-  const base: ArtifactDiscussion = {
-    ...artifactFixtureDiscussion,
+  const base: ArtifactThread = {
+    ...artifactFixtureThread,
     status: "open",
     claim: null,
     comments: [
       {
-        ...artifactFixtureDiscussion.comments[0]!,
+        ...artifactFixtureThread.comments[0]!,
         author: { role: "human", sessionId: null },
       },
     ],
   };
   const waiting = { ...base, id: "waiting", createdAt: "2026-09-12T00:00:00.000Z" };
-  const attention: ArtifactDiscussion = {
+  const attention: ArtifactThread = {
     ...base,
     id: "attention",
     comments: [
@@ -92,14 +92,14 @@ test("new unsent notes lead the attention queue, followed by waiting and claimed
     ...attention,
     id: "claimed",
     claim: {
-      discussionId: "claimed",
+      threadId: "claimed",
       sessionId: "agent-example",
       claimedAt: "2026-09-12T00:00:00Z",
       renewedAt: "2026-09-12T00:00:00Z",
       expiresAt: "2026-09-12T01:00:00Z",
     },
   };
-  const done: ArtifactDiscussion = { ...attention, id: "done", status: "resolved" };
+  const done: ArtifactThread = { ...attention, id: "done", status: "resolved" };
   const fresh = {
     ...waiting,
     id: "fresh",
@@ -113,7 +113,7 @@ test("new unsent notes lead the attention queue, followed by waiting and claimed
   };
   const working = { ...waiting, id: "working", claim: claimed.claim };
   expect(
-    activeArtifactDiscussion([waiting, claimed, done, attention, fresh, working]).map(
+    activeArtifactThreads([waiting, claimed, done, attention, fresh, working]).map(
       (note) => note.id,
     ),
   ).toEqual(["fresh", "attention", "claimed", "waiting", "working"]);
@@ -125,7 +125,7 @@ test("new unsent notes lead the attention queue, followed by waiting and claimed
           ...attention.comments[0]!,
         },
         {
-          ...artifactFixtureDiscussion.comments.slice(1)[0],
+          ...artifactFixtureThread.comments.slice(1)[0],
           author: { role: "human", sessionId: null },
         },
       ],
@@ -133,17 +133,14 @@ test("new unsent notes lead the attention queue, followed by waiting and claimed
   ).toBe(false);
 });
 test("a human comment moves a handled thread behind the next thread needing attention", () => {
-  const older = { ...artifactFixtureDiscussion, id: "older" };
+  const older = { ...artifactFixtureThread, id: "older" };
   const newer = {
-    ...artifactFixtureDiscussion,
+    ...artifactFixtureThread,
     id: "newer",
     createdAt: "2026-09-12T00:00:00.000Z",
   };
-  expect(activeArtifactDiscussion([older, newer]).map((note) => note.id)).toEqual([
-    "newer",
-    "older",
-  ]);
-  const handled: ArtifactDiscussion = {
+  expect(activeArtifactThreads([older, newer]).map((note) => note.id)).toEqual(["newer", "older"]);
+  const handled: ArtifactThread = {
     ...newer,
     comments: [
       {
@@ -158,7 +155,7 @@ test("a human comment moves a handled thread behind the next thread needing atte
       },
     ],
   };
-  expect(activeArtifactDiscussion([older, handled]).map((note) => note.id)).toEqual([
+  expect(activeArtifactThreads([older, handled]).map((note) => note.id)).toEqual([
     "older",
     "newer",
   ]);
@@ -173,13 +170,13 @@ test("a human comment moves a handled thread behind the next thread needing atte
       newer.comments.slice(1)[0],
     ],
   };
-  expect(activeArtifactDiscussion([older, answered]).map((note) => note.id)).toEqual([
+  expect(activeArtifactThreads([older, answered]).map((note) => note.id)).toEqual([
     "newer",
     "older",
   ]);
 });
 test("equal timestamps retain reverse publication order without mutating the input", () => {
-  const notes = ["z", "a", "b"].map((id) => ({ ...artifactFixtureDiscussion, id }));
-  expect(activeArtifactDiscussion(notes).map((note) => note.id)).toEqual(["b", "a", "z"]);
+  const notes = ["z", "a", "b"].map((id) => ({ ...artifactFixtureThread, id }));
+  expect(activeArtifactThreads(notes).map((note) => note.id)).toEqual(["b", "a", "z"]);
   expect(notes.map((note) => note.id)).toEqual(["z", "a", "b"]);
 });

@@ -137,11 +137,9 @@ export class ArtifactDraftStore {
               : "";
             drafts.note = { ...blank(), body: parts.join("\n\n") + evidence, imported: true };
           }
-          for (const [discussionId, body] of Object.entries(
-            legacy.comments ?? legacy.replies ?? {},
-          ))
+          for (const [threadId, body] of Object.entries(legacy.comments ?? legacy.replies ?? {}))
             if (typeof body === "string" && body.trim())
-              Object.defineProperty(drafts.comments, discussionId, {
+              Object.defineProperty(drafts.comments, threadId, {
                 value: { ...blank(), body, imported: true },
                 enumerable: true,
                 configurable: true,
@@ -208,9 +206,9 @@ export class ArtifactDraftStore {
     this.clear(id, commentTo);
     return true;
   }
-  pruneComments(id: string, discussionIds: ReadonlySet<string>): void {
-    for (const discussionId of Object.keys(this.load(id).comments))
-      if (!discussionIds.has(discussionId)) this.clear(id, discussionId);
+  pruneComments(id: string, threadIds: ReadonlySet<string>): void {
+    for (const threadId of Object.keys(this.load(id).comments))
+      if (!threadIds.has(threadId)) this.clear(id, threadId);
   }
   private commit(id: string, draft: ArtifactDraft | null, commentTo: Slot): void {
     this.cache.set(id, withDraft(this.load(id), commentTo, draft));

@@ -50,11 +50,11 @@ diff --git a/workspace.tsx b/workspace.tsx
 +    </main>
 +  );
  }
-diff --git a/discussions.ts b/discussions.ts
---- a/discussions.ts
-+++ b/discussions.ts
+diff --git a/threads.ts b/threads.ts
+--- a/threads.ts
++++ b/threads.ts
 @@ -1,5 +1,17 @@
- export type Discussion = {
+ export type Thread = {
 +  id: string;
    body: string;
 -  path: string;
@@ -66,7 +66,7 @@ diff --git a/discussions.ts b/discussions.ts
 +  };
  };
 +
-+export function locateDiscussion(note: Discussion, latestVersion: number) {
++export function locateThread(note: Thread, latestVersion: number) {
 +  return {
 +    version: latestVersion,
 +    path: note.target.path,

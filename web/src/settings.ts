@@ -61,7 +61,7 @@ export function setFontSize(px: number): void {
   font.set(clampFont(px));
 }
 
-// ---- discussions panel mode (desktop) ----
+// ---- discussion panel mode (desktop) ----
 
 // Expanded reserves content space; floating overlays it; hidden reserves no space.
 // Keep the existing storage key to retain old collapsed preferences ("1").

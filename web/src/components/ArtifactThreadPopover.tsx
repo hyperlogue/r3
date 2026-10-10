@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import type {
   ArtifactDetail,
-  ArtifactDiscussion,
   ArtifactKind,
   ArtifactReferenceContext,
+  ArtifactThread,
 } from "../../../shared/artifacts.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { suspendKeys } from "../keys.ts";
@@ -15,9 +15,9 @@ import {
 } from "./ArtifactThreads.tsx";
 
 // One conversation uses the same card, server mutations, and draft store as the
-// full panel. Its container owns only focus and dismissal, never discussions state.
+// full panel. Its container owns only focus and dismissal, never discussion state.
 export function ArtifactThreadPopover({
-  discussions,
+  thread,
   agentLabels,
   context,
   artifactKind,
@@ -29,7 +29,7 @@ export function ArtifactThreadPopover({
   onExpand,
   onClose,
 }: {
-  discussions: ArtifactDiscussion;
+  thread: ArtifactThread;
   agentLabels?: ArtifactDetail["agentLabels"];
   context: ArtifactReferenceContext;
   artifactKind: ArtifactKind;
@@ -56,7 +56,7 @@ export function ArtifactThreadPopover({
     <div
       ref={root}
       role="dialog"
-      aria-label="Discussion thread"
+      aria-label="Thread"
       tabIndex={-1}
       data-artifact-thread-popover
       onKeyDown={(event) => {
@@ -70,7 +70,7 @@ export function ArtifactThreadPopover({
       <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
         <span className="flex-1 text-sm font-semibold">Thread</span>
         <Button variant="ghost" onClick={onExpand}>
-          Open all discussions
+          Open discussion
         </Button>
         <Button variant="ghost" aria-label="Close thread" onClick={onClose}>
           ×
@@ -78,7 +78,7 @@ export function ArtifactThreadPopover({
       </div>
       <div className="min-h-0 overflow-y-auto">
         <ArtifactThreadCard
-          discussions={discussions}
+          thread={thread}
           agentLabels={agentLabels}
           context={context}
           artifactKind={artifactKind}

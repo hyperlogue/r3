@@ -191,8 +191,7 @@ export function installPreviewRuntime(
         button.title = "Open comment";
         button.setAttribute("aria-label", "Open comment");
         button.style.marginLeft = `${(count - 1) * 24}px`;
-        button.onclick = () =>
-          send("r3-preview-discussions", { discussionId: target.discussionId });
+        button.onclick = () => send("r3-preview-threads", { threadId: target.threadId });
         markers.append(button);
         marked.push({ button, element: match.element });
       }
@@ -212,7 +211,7 @@ export function installPreviewRuntime(
     controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
     selectionAction.hidden =
       !pendingSelection || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
-    selectionAction.textContent = display.noteHasText ? "Quote in note" : "Add discussions";
+    selectionAction.textContent = display.noteHasText ? "Quote in note" : "Add comment";
     if (pendingSelection) {
       const rect = pendingSelection.rect;
       selectionAction.style.maxWidth = `${Math.max(0, bounds.right - bounds.left - 16)}px`;

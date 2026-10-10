@@ -7,17 +7,17 @@ import {
 import { useMemo } from "react";
 import {
   type ArtifactDetail,
-  type ArtifactDiscussion,
-  isUnhandledArtifactDiscussion,
+  type ArtifactThread,
+  isUnhandledArtifactThread,
 } from "../../shared/artifacts.ts";
 import { useArtifactClient } from "./artifact-ui-context.tsx";
 
 type StatusChange = {
-  discussionId: string;
-  status: ArtifactDiscussion["status"];
+  threadId: string;
+  status: ArtifactThread["status"];
 };
-const statusKey = (artifactId: string) => ["discussions-status", artifactId];
-export function useDiscussionStatusPending(artifactId: string): boolean {
+const statusKey = (artifactId: string) => ["threads-status", artifactId];
+export function useThreadStatusPending(artifactId: string): boolean {
   return useIsMutating({ mutationKey: statusKey(artifactId) }) > 0;
 }
 // Pending human decisions are a presentation layer over the latest server data.
@@ -30,9 +30,9 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
   });
   return useMemo(() => {
     if (!pending.length) return detail;
-    const statuses = new Map(pending.map((change) => [change.discussionId, change.status]));
+    const statuses = new Map(pending.map((change) => [change.threadId, change.status]));
     let changed = false;
-    const discussions = detail.discussions.map((note) => {
+    const threads = detail.threads.map((note) => {
       const status = statuses.get(note.id);
       if (!status || status === note.status) return note;
       changed = true;
@@ -46,16 +46,16 @@ export function useOptimisticArtifact(detail: ArtifactDetail): ArtifactDetail {
     return changed
       ? {
           ...detail,
-          discussions,
-          unhandledCount: discussions.filter(isUnhandledArtifactDiscussion).length,
+          threads,
+          unhandledCount: threads.filter(isUnhandledArtifactThread).length,
         }
       : detail;
   }, [detail, pending]);
 }
-export function useDiscussionStatus(discussions: ArtifactDiscussion) {
+export function useThreadStatus(threads: ArtifactThread) {
   const artifactApi = useArtifactClient();
   const qc = useQueryClient();
-  const key = [...statusKey(discussions.artifactId), discussions.id];
+  const key = [...statusKey(threads.artifactId), threads.id];
   const mutations = useMutationState({
     filters: { mutationKey: key, exact: true },
     select: (mutation) => ({ status: mutation.state.status, error: mutation.state.error }),
@@ -64,13 +64,13 @@ export function useDiscussionStatus(discussions: ArtifactDiscussion) {
   const mutation = useMutation({
     mutationKey: key,
     mutationFn: (change: StatusChange) =>
-      artifactApi.editDiscussion(change.discussionId, { status: change.status }),
+      artifactApi.editThread(change.threadId, { status: change.status }),
     onSuccess: (saved) => {
       // Patch only status-owned fields. A concurrent comment or body edit may be
       // newer than this mutation's response and must survive its completion.
-      qc.setQueryData<ArtifactDetail>(["artifact", discussions.artifactId], (current) => {
+      qc.setQueryData<ArtifactDetail>(["artifact", threads.artifactId], (current) => {
         if (!current) return current;
-        const notes = current.discussions.map((note) =>
+        const notes = current.threads.map((note) =>
           note.id === saved.id
             ? {
                 ...note,
@@ -83,23 +83,23 @@ export function useDiscussionStatus(discussions: ArtifactDiscussion) {
         );
         return {
           ...current,
-          discussions: notes,
-          unhandledCount: notes.filter(isUnhandledArtifactDiscussion).length,
+          threads: notes,
+          unhandledCount: notes.filter(isUnhandledArtifactThread).length,
         };
       });
     },
     onSettled: () =>
       Promise.all([
-        qc.invalidateQueries({ queryKey: ["artifact", discussions.artifactId] }),
+        qc.invalidateQueries({ queryKey: ["artifact", threads.artifactId] }),
         qc.invalidateQueries({ queryKey: ["artifacts"] }),
       ]),
   });
   return {
     isPending: latest?.status === "pending",
     error: latest?.status === "error" ? latest.error : null,
-    change: (status: ArtifactDiscussion["status"]) => {
+    change: (status: ArtifactThread["status"]) => {
       if (!qc.isMutating({ mutationKey: key, exact: true }))
-        mutation.mutate({ discussionId: discussions.id, status });
+        mutation.mutate({ threadId: threads.id, status });
     },
   };
 }

@@ -32,8 +32,8 @@ Pages can import `/r3/utility.js` to use the
 
 - `getContext()` returns this artifact, version, document path, and resource root.
 - `getThreads()` reads this artifact's conversations.
-- `createDiscussion({ body, locator })`, `comment({ discussionId, body })`, and `submit()`
-  use the same threads and explicit handoff as the discussions panel. Human mutations
+- `createThread({ body, locator })`, `comment({ threadId, body })`, and `submit()`
+  use the same threads and explicit handoff as the discussion panel. Human mutations
   require user activation.
 - `subscribe(callback)` observes changes and returns an unsubscribe function.
 - `getTheme()` and `setTheme(theme)` read and save a `"light"` or `"dark"` preference
@@ -91,3 +91,8 @@ recording work. Track `stop()`/`clone()` and stream `clone()` keep source lifeti
 coordinated; bypassing those methods or cloning a separately constructed stream
 is outside this adapter's contract. r3's Stop sharing always stops physical
 devices independently of the page's track bookkeeping.
+
+Older published HTML can still call `createDiscussion` and send a comment with
+`discussionId`; the preview adapter translates these legacy spellings through the
+same activation, scope, and author guards. New publications use `createThread` and
+`threadId`.

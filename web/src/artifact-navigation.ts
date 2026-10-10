@@ -22,7 +22,7 @@ export function artifactRepresentation(
 }
 
 export interface ArtifactLocation extends ArtifactViewSelection {
-  discussionId: string | null;
+  threadId: string | null;
 }
 
 export function readArtifactLocation(kind: ArtifactKind, search: string): ArtifactLocation {
@@ -36,31 +36,33 @@ export function readArtifactLocation(kind: ArtifactKind, search: string): Artifa
       kind,
       params.get("view") ?? defaultFileRepresentation(params.get("file") ?? ""),
     ),
-    discussionId: params.get("discussions") || null,
+    // Existing saved links keep pointing to the same opaque thread identity.
+    threadId: params.get("thread") || params.get("discussions") || null,
   };
 }
 
 export function artifactLocationSearch(
   view: ArtifactViewSelection,
-  discussionId?: string | null,
+  threadId?: string | null,
 ): string {
   const params = new URLSearchParams();
   if (view.versionSeq !== null) params.set("version", String(view.versionSeq));
   if (view.path) params.set("file", view.path);
   params.set("view", view.representation);
-  if (discussionId) params.set("discussions", discussionId);
+  if (threadId) params.set("thread", threadId);
   return `?${params}`;
 }
 
 // Keep a search entry reproducible on reload until the reader changes its view.
 // The library return state survives subsequent navigation inside the artifact.
 export function artifactWorkspaceSearch(view: ArtifactLocation, previousSearch: string): string {
-  const params = new URLSearchParams(artifactLocationSearch(view, view.discussionId));
+  const params = new URLSearchParams(artifactLocationSearch(view, view.threadId));
   const previous = new URLSearchParams(previousSearch);
   if (previous.has("compare")) params.set("compare", previous.get("compare")!);
   if (previous.has("library")) params.set("library", previous.get("library")!);
   if (
-    ["version", "file", "discussions"].every((key) => params.get(key) === previous.get(key)) &&
+    ["version", "file"].every((key) => params.get(key) === previous.get(key)) &&
+    params.get("thread") === (previous.get("thread") ?? previous.get("discussions")) &&
     (!previous.has("view") || params.get("view") === previous.get("view"))
   ) {
     for (const key of ["line", "side", "text", "summary", "comment"])
@@ -84,24 +86,24 @@ export function visibleArtifactTargets(
   detail: ArtifactDetail,
   seq: number,
   representation: Representation,
-): { discussionId: string; target: ArtifactDocumentTarget }[] {
-  return detail.discussions.flatMap((discussions) => {
-    const original = discussions.target;
+): { threadId: string; target: ArtifactDocumentTarget }[] {
+  return detail.threads.flatMap((threads) => {
+    const original = threads.target;
     if (
       isArtifactDocumentTarget(original) &&
       original.versionSeq === seq &&
       original.kind === representation
     )
-      return [{ discussionId: discussions.id, target: original }];
+      return [{ threadId: threads.id, target: original }];
     return detail.placements
       .filter(
         (placement) =>
-          placement.discussionId === discussions.id &&
+          placement.threadId === threads.id &&
           placement.state === "anchored" &&
           placement.target.versionSeq === seq &&
           placement.target.kind === representation,
       )
-      .map((placement) => ({ discussionId: discussions.id, target: placement.target }));
+      .map((placement) => ({ threadId: threads.id, target: placement.target }));
   });
 }
 
@@ -111,13 +113,11 @@ export function artifactRegions(
   representation: Representation,
 ): Region[] {
   const open = new Set(
-    detail.discussions
-      .filter((discussions) => discussions.status === "open")
-      .map((discussions) => discussions.id),
+    detail.threads.filter((threads) => threads.status === "open").map((threads) => threads.id),
   );
-  return visibleArtifactTargets(detail, seq, representation).flatMap(({ discussionId, target }) => {
+  return visibleArtifactTargets(detail, seq, representation).flatMap(({ threadId, target }) => {
     if (
-      !open.has(discussionId) ||
+      !open.has(threadId) ||
       target.kind === "rendered" ||
       target.kind === "media" ||
       !target.locator
@@ -125,7 +125,7 @@ export function artifactRegions(
       return [];
     return [
       {
-        id: discussionId,
+        id: threadId,
         file: target.path,
         start: target.locator.start,
         end: target.locator.end,

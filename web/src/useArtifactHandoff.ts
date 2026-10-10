@@ -1,9 +1,9 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { type ArtifactDetail, hasUnsentArtifactDiscussion } from "../../shared/artifacts.ts";
-import { useDiscussionStatusPending } from "./artifact-discussions-status.ts";
+import { type ArtifactDetail, hasUnsentArtifactThread } from "../../shared/artifacts.ts";
 import { useArtifactDraftCount } from "./artifact-drafts.ts";
 import { useDiscussionHandoffReceipt } from "./artifact-handoff.ts";
+import { useThreadStatusPending } from "./artifact-thread-status.ts";
 import { useArtifactClient } from "./artifact-ui-context.tsx";
 import { useCopyFlash } from "./ui.tsx";
 
@@ -15,12 +15,12 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const mutationKey = ["artifact-handoff", detail.id];
   const isPending = useIsMutating({ mutationKey }) > 0;
   const draftCount = useArtifactDraftCount(detail.id);
-  const savingStatus = useDiscussionStatusPending(detail.id);
+  const savingStatus = useThreadStatusPending(detail.id);
   const comments = useMemo(
     () => detail.events.flatMap((event) => (event.comment ? [event.comment] : [])),
     [detail.events],
   );
-  const receipt = useDiscussionHandoffReceipt(detail.id, detail.discussions, comments);
+  const receipt = useDiscussionHandoffReceipt(detail.id, detail.threads, comments);
   const { copied: sent, flash: showSent } = useCopyFlash(3000);
   const [notice, setNotice] = useState("");
   const { data: watchers = [], isPending: loadingWatchers } = useQuery({
@@ -28,25 +28,25 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
     queryFn: () => artifactApi.watchers(detail.id),
   });
   const pending =
-    detail.discussions.filter(hasUnsentArtifactDiscussion).length +
+    detail.threads.filter(hasUnsentArtifactThread).length +
     comments.filter((comment) => comment.author.role === "human" && comment.sentAt === null).length;
   const disabledReason =
     detail.state === "archived"
-      ? "Restore the artifact to send discussions"
+      ? "Restore the artifact to send comments"
       : loadingWatchers
         ? "Checking for an agent"
         : !watchers.length
           ? null
           : savingStatus
-            ? "Saving discussions status"
+            ? "Saving thread status"
             : draftCount
-              ? "Post or discard drafts before sending discussions"
+              ? "Post or discard drafts before sending comments"
               : !pending
-                ? "No new discussions to send"
+                ? "No new comments or status changes to send"
                 : receipt.hashes === null
-                  ? "Checking pending discussions"
+                  ? "Checking pending comments"
                   : receipt.covered
-                    ? "Already sent. Add or update discussions to send again."
+                    ? "Already sent. Add or update a comment to send again."
                     : null;
   const mutation = useMutation({
     mutationKey,
@@ -54,7 +54,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
       setNotice("");
       if (watchers.length) {
         const snapshot = receipt.begin();
-        if (!snapshot) throw new Error("Pending discussion is still loading. Try again.");
+        if (!snapshot) throw new Error("Pending comments are still loading. Try again.");
         const result = await artifactApi.submit(detail.id);
         if (result.notification.state !== "sent" && result.notification.state !== "queued")
           throw new Error(
@@ -63,7 +63,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
               : "No agent accepted the notification.",
           );
         receipt.remember(snapshot);
-        setNotice("Your discussion is ready for the agent to fetch.");
+        setNotice("Your thread is ready for the agent to fetch.");
         showSent();
       }
     },

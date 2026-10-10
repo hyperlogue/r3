@@ -64,9 +64,9 @@ function finalize(id: string, seq: number) {
   run("UPDATE artifact_versions SET published_at=? WHERE artifact_id=? AND seq=?", time, id, seq);
 }
 
-function discussions(id: string, owner: string, seq = 1) {
+function threads(id: string, owner: string, seq = 1) {
   run(
-    `INSERT INTO discussions(id,artifact_id,artifact_kind,author,body,target_kind,
+    `INSERT INTO threads(id,artifact_id,artifact_kind,author,body,target_kind,
       target_version_seq,target_path,created_at,updated_at)
      VALUES (?,?,'files','human','Please revise this','rendered',?,'notes.md',?,?)`,
     id,
@@ -170,14 +170,14 @@ describe("artifact schema", () => {
       ),
     ).toThrow();
     run(
-      `INSERT INTO discussions(id,artifact_id,artifact_kind,author,body,target_kind,created_at,updated_at)
+      `INSERT INTO threads(id,artifact_id,artifact_kind,author,body,target_kind,created_at,updated_at)
        VALUES ('human-note','files','files','human','message','artifact',?,?)`,
       time,
       time,
     );
     expect(() =>
       run(
-        `INSERT INTO discussions(id,artifact_id,artifact_kind,author,body,target_kind,created_at,updated_at)
+        `INSERT INTO threads(id,artifact_id,artifact_kind,author,body,target_kind,created_at,updated_at)
          VALUES ('missing-session','files','files','agent','message','artifact',?,?)`,
         time,
         time,
@@ -185,7 +185,7 @@ describe("artifact schema", () => {
     ).toThrow();
     expect(() =>
       run(
-        `INSERT INTO comments(id,discussion_id,artifact_id,artifact_kind,author,body,created_at)
+        `INSERT INTO comments(id,thread_id,artifact_id,artifact_kind,author,body,created_at)
          VALUES ('missing-session','human-note','files','files','agent','message',?)`,
         time,
       ),
@@ -205,9 +205,9 @@ describe("artifact schema", () => {
       file("files", seq);
       finalize("files", seq);
     }
-    discussions("note", "files");
+    threads("note", "files");
     run(
-      `INSERT INTO comments(id,discussion_id,artifact_id,artifact_kind,author,agent_session_id,
+      `INSERT INTO comments(id,thread_id,artifact_id,artifact_kind,author,agent_session_id,
         body,context_version_seq,context_representation,target_kind,target_version_seq,
         target_path,created_at)
        VALUES ('comment','note','files','files','agent','agent-one','Updated',1,'rendered',
@@ -216,7 +216,7 @@ describe("artifact schema", () => {
     );
     for (const representation of ["source", "rendered"]) {
       run(
-        `INSERT INTO discussion_placements(discussion_id,artifact_id,artifact_kind,version_seq,
+        `INSERT INTO thread_placements(thread_id,artifact_id,artifact_kind,version_seq,
           document_path,representation,match_state,created_at,updated_at)
          VALUES ('note','files','files',2,'notes.md',?,'unplaced',?,?)`,
         representation,
@@ -224,10 +224,10 @@ describe("artifact schema", () => {
         time,
       );
     }
-    expect(db.query("SELECT count(*) AS n FROM discussion_placements").get()).toEqual({ n: 2 });
-    expect(() => run("UPDATE discussions SET target_version_seq=2")).toThrow();
+    expect(db.query("SELECT count(*) AS n FROM thread_placements").get()).toEqual({ n: 2 });
+    expect(() => run("UPDATE threads SET target_version_seq=2")).toThrow();
     expect(() => run("UPDATE comments SET context_version_seq=2")).toThrow();
-    expect(() => discussions("other", "html")).toThrow();
+    expect(() => threads("other", "html")).toThrow();
     db.transaction(() => run("DELETE FROM artifacts WHERE id='files'"))();
     expect(db.query("SELECT count(*) AS n FROM comments").get()).toEqual({ n: 0 });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);

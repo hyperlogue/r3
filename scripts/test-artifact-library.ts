@@ -75,7 +75,7 @@ await publish(
 await publish("The workspace has a clear next step.\nThe primary action is now visible.", 1);
 const note = await storage.conversations.add(notes.id, {
   actor,
-  body: "Keyboard focus discussions",
+  body: "Keyboard focus threads",
   target: {
     kind: "source",
     versionSeq: 1,

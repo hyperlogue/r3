@@ -7,7 +7,7 @@ import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 14;
+export const ARTIFACT_SCHEMA_VERSION = 15;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -67,7 +67,7 @@ CREATE TABLE artifacts (
          (state = 'archived' AND archived_at IS NOT NULL))
 ) STRICT;
 
--- Archive/restore history is separate from open/resolved discussions.
+-- Archive/restore history is separate from open/resolved threads.
 -- Local delivery registrations live in separate private tables.
 ${ARTIFACT_COMMENT_SCHEMA}
 CREATE TABLE artifact_events (
@@ -153,7 +153,7 @@ CREATE TABLE version_files (
 
 -- target_kind also identifies the representation. NULL locator = whole
 -- document/summary; object locator = a native range, quote, or element selector.
-CREATE TABLE discussions (
+CREATE TABLE threads (
   id TEXT PRIMARY KEY NOT NULL,
   artifact_id TEXT NOT NULL,
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
@@ -202,7 +202,7 @@ CREATE TABLE discussions (
 
 CREATE TABLE comments (
   id TEXT PRIMARY KEY NOT NULL,
-  discussion_id TEXT NOT NULL,
+  thread_id TEXT NOT NULL,
   artifact_id TEXT NOT NULL,
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
   author TEXT NOT NULL CHECK (author IN ('human', 'agent')),
@@ -223,8 +223,8 @@ CREATE TABLE comments (
   sent_at TEXT,
   CHECK ((author = 'human' AND agent_session_id IS NULL) OR
          (author = 'agent' AND agent_session_id IS NOT NULL)),
-  FOREIGN KEY (discussion_id, artifact_id, artifact_kind)
-    REFERENCES discussions(id, artifact_id, artifact_kind) ON DELETE CASCADE,
+  FOREIGN KEY (thread_id, artifact_id, artifact_kind)
+    REFERENCES threads(id, artifact_id, artifact_kind) ON DELETE CASCADE,
   FOREIGN KEY (artifact_id, context_version_seq)
     REFERENCES artifact_versions(artifact_id, seq) DEFERRABLE INITIALLY DEFERRED,
   FOREIGN KEY (artifact_id, target_version_seq)
@@ -251,10 +251,10 @@ CREATE TABLE comments (
   )
 ) STRICT;
 
--- Native original targets remain on discussions. This table is for additional
+-- Native original targets remain on threads. This table is for additional
 -- document placements; artifact/summary notes do not need a document placement.
-CREATE TABLE discussion_placements (
-  discussion_id TEXT NOT NULL,
+CREATE TABLE thread_placements (
+  thread_id TEXT NOT NULL,
   artifact_id TEXT NOT NULL,
   artifact_kind TEXT NOT NULL CHECK (artifact_kind IN ('files', 'html', 'diff')),
   version_seq INTEGER NOT NULL,
@@ -266,9 +266,9 @@ CREATE TABLE discussion_placements (
       CASE WHEN json_valid(locator_json) THEN json_type(locator_json) = 'object' ELSE 0 END),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (discussion_id, version_seq, document_path, representation),
-  FOREIGN KEY (discussion_id, artifact_id, artifact_kind)
-    REFERENCES discussions(id, artifact_id, artifact_kind) ON DELETE CASCADE,
+  PRIMARY KEY (thread_id, version_seq, document_path, representation),
+  FOREIGN KEY (thread_id, artifact_id, artifact_kind)
+    REFERENCES threads(id, artifact_id, artifact_kind) ON DELETE CASCADE,
   FOREIGN KEY (artifact_id, version_seq)
     REFERENCES artifact_versions(artifact_id, seq) DEFERRABLE INITIALLY DEFERRED,
   CHECK (match_state = 'anchored' OR locator_json IS NULL),
@@ -279,8 +279,8 @@ CREATE TABLE discussion_placements (
   )
 ) STRICT;
 
-CREATE TABLE discussion_claims (
-  discussion_id TEXT PRIMARY KEY NOT NULL REFERENCES discussions(id) ON DELETE CASCADE,
+CREATE TABLE thread_claims (
+  thread_id TEXT PRIMARY KEY NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
   agent_session_id TEXT NOT NULL REFERENCES agent_sessions(id),
   claimed_at TEXT NOT NULL,
   renewed_at TEXT NOT NULL,
@@ -324,16 +324,16 @@ CREATE INDEX versions_by_sequence
 CREATE INDEX versions_by_publisher ON artifact_versions(publisher_session_id);
 CREATE INDEX files_by_blob ON version_files(blob_hash);
 CREATE INDEX files_by_rendered_blob ON version_files(rendered_blob_hash);
-CREATE INDEX discussion_by_artifact ON discussions(artifact_id, status, created_at);
-CREATE INDEX discussion_by_version ON discussions(artifact_id, target_version_seq);
-CREATE INDEX discussion_by_agent ON discussions(agent_session_id);
-CREATE INDEX comments_by_discussions ON comments(discussion_id, created_at);
+CREATE INDEX thread_by_artifact ON threads(artifact_id, status, created_at);
+CREATE INDEX thread_by_version ON threads(artifact_id, target_version_seq);
+CREATE INDEX thread_by_agent ON threads(agent_session_id);
+CREATE INDEX comments_by_threads ON comments(thread_id, created_at);
 CREATE INDEX comments_by_agent ON comments(agent_session_id);
 CREATE INDEX comments_by_context ON comments(artifact_id, context_version_seq);
 CREATE INDEX comments_by_target ON comments(artifact_id, target_version_seq);
-CREATE INDEX placements_by_version ON discussion_placements(artifact_id, version_seq);
-CREATE INDEX claims_by_expiry ON discussion_claims(expires_at);
-CREATE INDEX claims_by_agent ON discussion_claims(agent_session_id);
+CREATE INDEX placements_by_version ON thread_placements(artifact_id, version_seq);
+CREATE INDEX claims_by_expiry ON thread_claims(expires_at);
+CREATE INDEX claims_by_agent ON thread_claims(agent_session_id);
 CREATE INDEX sessions_by_token ON auth_sessions(token_id);
 
 CREATE TRIGGER artifact_kind_is_immutable
@@ -425,25 +425,25 @@ BEFORE DELETE ON version_files WHEN EXISTS (
   SELECT RAISE(ABORT, 'version files are retained with the artifact');
 END;
 
-CREATE TRIGGER discussion_original_target_is_immutable
+CREATE TRIGGER thread_original_target_is_immutable
 BEFORE UPDATE OF artifact_id, artifact_kind, author, agent_session_id, target_kind, target_version_seq,
-  target_path, locator_json, legacy_anchor_json ON discussions BEGIN
+  target_path, locator_json, legacy_anchor_json ON threads BEGIN
   SELECT RAISE(ABORT, 'record a placement instead of changing the original target');
 END;
 
 CREATE TRIGGER comment_references_are_immutable
-BEFORE UPDATE OF discussion_id, artifact_id, artifact_kind, author, agent_session_id,
+BEFORE UPDATE OF thread_id, artifact_id, artifact_kind, author, agent_session_id,
   context_version_seq, context_representation, target_kind, target_version_seq,
   target_path, locator_json, legacy_reference_json ON comments BEGIN
   SELECT RAISE(ABORT, 'comment reference context is immutable');
 END;
 
-CREATE TRIGGER discussion_references_published_content
-BEFORE INSERT ON discussions WHEN NEW.target_version_seq IS NOT NULL BEGIN
+CREATE TRIGGER thread_references_published_content
+BEFORE INSERT ON threads WHEN NEW.target_version_seq IS NOT NULL BEGIN
   SELECT CASE WHEN NOT EXISTS (
     SELECT 1 FROM artifact_versions WHERE artifact_id = NEW.artifact_id
       AND seq = NEW.target_version_seq AND published_at IS NOT NULL
-  ) THEN RAISE(ABORT, 'discussions target must name a published version') END;
+  ) THEN RAISE(ABORT, 'threads target must name a published version') END;
 END;
 
 CREATE TRIGGER comment_references_published_content
@@ -459,7 +459,7 @@ BEFORE INSERT ON comments BEGIN
 END;
 
 CREATE TRIGGER placement_references_published_content
-BEFORE INSERT ON discussion_placements BEGIN
+BEFORE INSERT ON thread_placements BEGIN
   SELECT CASE WHEN NOT EXISTS (
     SELECT 1 FROM artifact_versions WHERE artifact_id = NEW.artifact_id
       AND seq = NEW.version_seq AND published_at IS NOT NULL
@@ -467,8 +467,8 @@ BEFORE INSERT ON discussion_placements BEGIN
 END;
 
 CREATE TRIGGER placement_identity_is_immutable
-BEFORE UPDATE OF discussion_id, artifact_id, artifact_kind, version_seq,
-  document_path, representation ON discussion_placements BEGIN
+BEFORE UPDATE OF thread_id, artifact_id, artifact_kind, version_seq,
+  document_path, representation ON thread_placements BEGIN
   SELECT RAISE(ABORT, 'replace a placement instead of changing its identity');
 END;
 

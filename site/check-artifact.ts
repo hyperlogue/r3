@@ -194,20 +194,20 @@ try {
     "opaque comparison",
   );
   await doc.evaluate(`document.querySelector('[aria-label="Return to artifact"]').click()`);
-  await doc.evaluate('document.querySelector("[data-discussions-action=comment]").click()');
+  await doc.evaluate('document.querySelector("[data-thread-action=comment]").click()');
   await eventually(
-    () => doc.evaluate('!!document.querySelector("textarea[aria-label=Comment]")'),
+    () => doc.evaluate('!!document.querySelector("textarea[aria-label=Reply]")'),
     "opaque composer",
   );
-  await doc.evaluate('document.querySelector("textarea[aria-label=Comment]").focus()');
+  await doc.evaluate('document.querySelector("textarea[aria-label=Reply]").focus()');
   await doc.command("Input.insertText", { text: "A comment from the opaque artifact preview." });
   await doc.evaluate(
-    'document.querySelector("textarea[aria-label=Comment]").form.querySelector("button[type=submit]").click()',
+    'document.querySelector("textarea[aria-label=Reply]").form.querySelector("button[type=submit]").click()',
   );
   await eventually(
     () =>
       doc.evaluate(
-        'document.querySelector("[data-discussions-list]").textContent.includes("A comment from the opaque artifact preview.")',
+        'document.querySelector("[data-discussion-list]").textContent.includes("A comment from the opaque artifact preview.")',
       ),
     "opaque local mutation",
   );

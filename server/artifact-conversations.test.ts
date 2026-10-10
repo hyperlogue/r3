@@ -66,13 +66,13 @@ afterEach(async () => {
 });
 
 test("opening and subsequent comments share identity, editing and attribution rules", async () => {
-  const discussion = await conversations.add(id, {
+  const thread = await conversations.add(id, {
     actor: agent,
     body: "Opening",
     target: original,
   });
-  const opening = discussion.comments[0]!;
-  expect(opening.id).not.toBe(discussion.id);
+  const opening = thread.comments[0]!;
+  expect(opening.id).not.toBe(thread.id);
   expect(conversations.comment(opening.id)).toEqual(opening);
   expect(opening.context).toEqual({ versionSeq: 1, representation: "source" });
   await expect(
@@ -82,11 +82,11 @@ test("opening and subsequent comments share identity, editing and attribution ru
     conversations.updateComment(opening.id, { actor: human, status: "resolved" }),
   ).rejects.toThrow("Status belongs");
   await conversations.updateComment(opening.id, { actor: agent, body: "Edited opening" });
-  const followup = await conversations.addComment(discussion.id, {
+  const followup = await conversations.addComment(thread.id, {
     actor: human,
     body: "Continue",
   });
-  const saved = conversations.get(discussion.id);
+  const saved = conversations.get(thread.id);
   expect(saved.comments.map((comment) => comment.id)).toEqual([opening.id, followup.id]);
   expect(saved.comments[0]!.body).toBe("Edited opening");
   expect(saved.status).toBe("open");
@@ -126,12 +126,12 @@ describe("artifact conversations", () => {
       conversations.add(id, { actor: human, body: "New description note", target }),
     ).rejects.toThrow("read-only historical evidence");
     expect(conversations.list(id)).toHaveLength(0);
-    // An existing database can retain description discussions and fix targets.
-    db.query(`INSERT INTO discussions(id, artifact_id, artifact_kind, author, body,
+    // An existing database can retain description threads and fix targets.
+    db.query(`INSERT INTO threads(id, artifact_id, artifact_kind, author, body,
       target_kind, target_version_seq, locator_json, created_at, updated_at)
       VALUES ('description-note', ?, 'files', 'human', 'Existing description note',
       'version_summary', 1, ?, ?, ?)`).run(id, JSON.stringify(target.locator), time, time);
-    db.query(`INSERT INTO comments(id, discussion_id, artifact_id, artifact_kind, author, body,
+    db.query(`INSERT INTO comments(id, thread_id, artifact_id, artifact_kind, author, body,
       context_version_seq, target_kind, target_version_seq, created_at)
       VALUES ('description-comment', 'description-note', ?, 'files', 'human', 'Existing fix',
       1, 'version_summary', 2, ?)`).run(id, time);
@@ -164,7 +164,7 @@ describe("artifact conversations", () => {
     expect(resolved.comments.slice(1)).toHaveLength(2);
     expect(resolved.status).toBe("resolved");
   });
-  test("comment references derive from their own target or the original discussion target", async () => {
+  test("comment references derive from their own target or the original thread target", async () => {
     const note = await conversations.add(id, {
       actor: human,
       body: "Please revise this",
@@ -196,7 +196,7 @@ describe("artifact conversations", () => {
     expect(inherited.context).toEqual({ versionSeq: 1, representation: "source" });
     const general = await conversations.add(id, {
       actor: human,
-      body: "General discussion",
+      body: "General thread",
       target: { kind: "artifact" },
     });
     expect(
@@ -252,10 +252,10 @@ describe("artifact conversations", () => {
     });
     expect(conversations.get(note.id).status).toBe("resolved");
   });
-  test("historical placements retain their evidence and original discussion", async () => {
+  test("historical placements retain their evidence and original thread", async () => {
     const note = await conversations.add(id, { actor: human, body: "Original", target: original });
     const locator = { selector: "h1", quote: "New" };
-    db.query(`INSERT INTO discussion_placements(discussion_id, artifact_id, artifact_kind,
+    db.query(`INSERT INTO thread_placements(thread_id, artifact_id, artifact_kind,
       version_seq, document_path, representation, match_state, locator_json, created_at, updated_at)
       VALUES (?, ?, 'files', 2, 'index.md', 'rendered', 'anchored', ?, ?, ?)`).run(
       note.id,
@@ -307,21 +307,21 @@ describe("agent session claims", () => {
     expect(conversations.get(a.id).claim?.sessionId).toBe(agent.sessionId);
   });
   test("only a successful comment from the claim owner releases it", async () => {
-    const discussions = await note();
-    conversations.claim([discussions.id], agent.sessionId);
+    const threads = await note();
+    conversations.claim([threads.id], agent.sessionId);
     await expect(
-      conversations.addComment(discussions.id, { actor: agent, body: "", context }),
+      conversations.addComment(threads.id, { actor: agent, body: "", context }),
     ).rejects.toThrow();
-    await conversations.addComment(discussions.id, { actor: human, body: "More detail", context });
-    await conversations.addComment(discussions.id, {
+    await conversations.addComment(threads.id, { actor: human, body: "More detail", context });
+    await conversations.addComment(threads.id, {
       actor: other,
       body: "An observation",
       context,
     });
-    expect(conversations.get(discussions.id).claim?.sessionId).toBe(agent.sessionId);
-    await conversations.addComment(discussions.id, { actor: agent, body: "Handled", context });
-    expect(conversations.get(discussions.id).claim).toBeNull();
-    expect(conversations.get(discussions.id).status).toBe("open");
+    expect(conversations.get(threads.id).claim?.sessionId).toBe(agent.sessionId);
+    await conversations.addComment(threads.id, { actor: agent, body: "Handled", context });
+    expect(conversations.get(threads.id).claim).toBeNull();
+    expect(conversations.get(threads.id).status).toBe("open");
   });
   test("batch conflicts roll back all new claims and expiry allows a fresh owner", async () => {
     const a = await note();
@@ -339,14 +339,14 @@ describe("agent session claims", () => {
     expect(conversations.expireClaims()).toEqual([]);
   });
   test("resolution clears the lease and resolved or archived work cannot be claimed", async () => {
-    const discussions = await note();
-    conversations.claim([discussions.id], agent.sessionId);
-    conversations.edit(discussions.id, { actor: human, status: "resolved" });
-    expect(conversations.get(discussions.id).claim).toBeNull();
-    expect(() => conversations.claim([discussions.id], agent.sessionId)).toThrow("Resolved");
-    conversations.edit(discussions.id, { actor: human, status: "open" });
+    const threads = await note();
+    conversations.claim([threads.id], agent.sessionId);
+    conversations.edit(threads.id, { actor: human, status: "resolved" });
+    expect(conversations.get(threads.id).claim).toBeNull();
+    expect(() => conversations.claim([threads.id], agent.sessionId)).toThrow("Resolved");
+    conversations.edit(threads.id, { actor: human, status: "open" });
     db.query("UPDATE artifacts SET state = 'archived', archived_at = ? WHERE id = ?").run(time, id);
-    expect(() => conversations.claim([discussions.id], agent.sessionId)).toThrow("archived");
+    expect(() => conversations.claim([threads.id], agent.sessionId)).toThrow("archived");
   });
 });
 describe("owner handoff delivery", () => {
@@ -355,7 +355,7 @@ describe("owner handoff delivery", () => {
     const first = conversations.snapshot(id);
     conversations.edit(note.id, { actor: human, body: "Temporary" });
     conversations.edit(note.id, { actor: human, body: "Original" });
-    expect(() => conversations.acknowledge(id, first.acknowledgment)).toThrow("Discussion changed");
+    expect(() => conversations.acknowledge(id, first.acknowledgment)).toThrow("Thread changed");
     const comment = await conversations.addComment(note.id, {
       actor: human,
       body: "Comment",
@@ -365,19 +365,17 @@ describe("owner handoff delivery", () => {
     conversations.editComment(comment.id, { actor: human, body: "Temporary comment" });
     conversations.editComment(comment.id, { actor: human, body: "Comment" });
     expect(() => conversations.acknowledge(id, beforeCommentEdit.acknowledgment)).toThrow(
-      "Discussion changed",
+      "Thread changed",
     );
     const selected = conversations.snapshot(id, [note.id]);
     expect(() =>
       conversations.acknowledge(id, {
         expectedFingerprint: selected.acknowledgment.expectedFingerprint,
       }),
-    ).toThrow("Discussion changed");
+    ).toThrow("Thread changed");
     conversations.acknowledge(id, selected.acknowledgment);
     conversations.edit(note.id, { actor: human, body: "New pending body" });
-    expect(() => conversations.acknowledge(id, selected.acknowledgment)).toThrow(
-      "Discussion changed",
-    );
+    expect(() => conversations.acknowledge(id, selected.acknowledgment)).toThrow("Thread changed");
     expect(conversations.get(note.id).comments[0]!.sentAt).toBeNull();
   });
   test("reads preserve pending work and a selected handoff stamps only its captured threads", async () => {

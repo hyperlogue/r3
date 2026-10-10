@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
 import type { ArtifactTarget } from "../../shared/artifacts.ts";
-import { artifactFixture, artifactFixtureDiscussion } from "./artifact-fixtures.ts";
+import { artifactFixture, artifactFixtureThread } from "./artifact-fixtures.ts";
 import {
   artifactLocationSearch,
   artifactRegions,
+  artifactWorkspaceSearch,
   defaultFileRepresentation,
   readArtifactLocation,
   visibleArtifactTargets,
@@ -21,11 +22,25 @@ test("Markdown defaults to rendered while explicit source links retain their nat
     expect(defaultFileRepresentation(path)).toBe("source");
 });
 
+test("saved discussion links retain their opaque thread and comment context", () => {
+  const search =
+    "?version=3&file=notes.md&view=rendered&discussions=discussion_kept&comment=comment_kept";
+  const view = readArtifactLocation("files", search);
+  expect(view.threadId).toBe("discussion_kept");
+  const next = new URLSearchParams(artifactWorkspaceSearch(view, search));
+  expect(next.get("thread")).toBe("discussion_kept");
+  expect(next.has("discussions")).toBe(false);
+  expect(next.get("comment")).toBe("comment_kept");
+  expect(
+    readArtifactLocation("files", "?thread=thread_new&discussions=discussion_kept").threadId,
+  ).toBe("thread_new");
+});
+
 test("artifact links retain native view and unusual path characters, while fixed kinds cannot switch representations", () => {
   const location = { versionSeq: 7, path: "notes/a # b?.md", representation: "rendered" as const };
-  expect(
-    readArtifactLocation("files", artifactLocationSearch(location, "discussion_example")),
-  ).toEqual({ ...location, discussionId: "discussion_example" });
+  expect(readArtifactLocation("files", artifactLocationSearch(location, "thread_example"))).toEqual(
+    { ...location, threadId: "thread_example" },
+  );
   expect(readArtifactLocation("html", "?view=source").representation).toBe("rendered");
   expect(readArtifactLocation("diff", "?view=rendered").representation).toBe("diff");
   expect(readArtifactLocation("files", "?version=9007199254740992").versionSeq).toBeNull();
@@ -39,7 +54,7 @@ test("rendered threads gain source highlights only through an explicit anchored 
     ...artifactFixture,
     placements: [
       {
-        discussionId: artifactFixtureDiscussion.id,
+        threadId: artifactFixtureThread.id,
         artifactId: artifactFixture.id,
         target: {
           kind: "source" as const,
@@ -55,7 +70,7 @@ test("rendered threads gain source highlights only through an explicit anchored 
   };
   expect(artifactRegions(placed, 2, "source")).toEqual([
     {
-      id: artifactFixtureDiscussion.id,
+      id: artifactFixtureThread.id,
       file: "index.md",
       start: 4,
       end: 4,
@@ -65,7 +80,7 @@ test("rendered threads gain source highlights only through an explicit anchored 
   ]);
   expect(artifactRegions(placed, 1, "source")).toEqual([]);
   expect(visibleArtifactTargets(placed, 1, "rendered")[0].target as ArtifactTarget).toBe(
-    artifactFixtureDiscussion.target,
+    artifactFixtureThread.target,
   );
   expect(
     artifactRegions(
@@ -85,7 +100,7 @@ test("search entry locations survive reload but clear on an explicit view change
     versionSeq: 2,
     path: "notes.txt",
     representation: "source" as const,
-    discussionId: null,
+    threadId: null,
   };
   const original = "?version=2&file=notes.txt&view=source&line=81&library=%3Fq%3Dkeyboard";
   const retained = new URLSearchParams(artifactWorkspaceSearch(view, original));

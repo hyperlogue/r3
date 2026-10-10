@@ -58,13 +58,13 @@ export function createArtifactUtility(
     }
     pending.clear();
   });
-  return Object.freeze({
+  const utility = {
     getUserMedia,
     getTheme: () => call("getTheme"),
     setTheme: (theme) => call("setTheme", theme),
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),
-    createDiscussion: (input) => call("createDiscussion", input),
+    createThread: (input) => call("createThread", input),
     comment: (input) => call("comment", input),
     submit: () => call("submit"),
     subscribe: (listener) => {
@@ -73,5 +73,8 @@ export function createArtifactUtility(
         subscribers.delete(listener);
       };
     },
-  } satisfies ArtifactUtility);
+  } satisfies ArtifactUtility;
+  // Published HTML is immutable. Keep its former entrypoint at the boundary;
+  // new documents and the bridge use the canonical Thread operation.
+  return Object.freeze({ ...utility, createDiscussion: utility.createThread });
 }

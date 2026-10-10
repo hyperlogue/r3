@@ -11,32 +11,25 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  artifactDiscussionTargetLabel,
-  artifactTargetLabel,
-} from "../../../shared/artifact-prompt.ts";
+import { artifactTargetLabel, artifactThreadTargetLabel } from "../../../shared/artifact-prompt.ts";
 import {
   type ArtifactDetail,
-  type ArtifactDiscussion,
   type ArtifactKind,
   type ArtifactReferenceContext,
   type ArtifactTarget,
-  hasUnsentArtifactDiscussion,
+  type ArtifactThread,
+  hasUnsentArtifactThread,
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
-import { activeArtifactDiscussion, artifactNeedsAttention } from "../artifact-discussions.ts";
-import { useDiscussionStatus, useOptimisticArtifact } from "../artifact-discussions-status.ts";
 import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
+import { useOptimisticArtifact, useThreadStatus } from "../artifact-thread-status.ts";
+import { activeArtifactThreads, artifactNeedsAttention } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
-import {
-  DiscussionCreationContext,
-  discussionAnimation,
-  useDiscussionTabIndicator,
-} from "../discussions-motion.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
+import { ThreadCreationContext, threadAnimation, useThreadTabIndicator } from "../thread-motion.ts";
 import {
   Button,
   CommentPlusIcon,
@@ -61,7 +54,7 @@ import {
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
-export type ArtifactTargetJump = (target: ArtifactTarget, discussionId?: string) => void;
+export type ArtifactTargetJump = (target: ArtifactTarget, threadId?: string) => void;
 function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
   return "versionSeq" in target
     ? {
@@ -90,7 +83,7 @@ function fixTargetLabel(
   const label = target.locator?.label ?? (target.locator ? "Page element" : "Page");
   return target.versionSeq === latestVersionSeq ? label : `Version ${target.versionSeq} · ${label}`;
 }
-function DiscussionQuote({ quote }: { quote: string }) {
+function ThreadQuote({ quote }: { quote: string }) {
   const element = useRef<HTMLQuoteElement>(null);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -142,7 +135,7 @@ function DiscussionQuote({ quote }: { quote: string }) {
   );
 }
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
-  discussions,
+  thread,
   agentLabels,
   artifactKind,
   latestVersionSeq,
@@ -157,7 +150,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   hidden = false,
   readOnly = false,
 }: {
-  discussions: ArtifactDiscussion;
+  thread: ArtifactThread;
   agentLabels?: ArtifactDetail["agentLabels"];
   context: ArtifactReferenceContext;
   artifactKind: ArtifactKind;
@@ -205,10 +198,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   const menuTrigger = useRef<HTMLButtonElement>(null);
   usePopoverFocus(menuOpen, menu, menuTrigger);
   useEscape(menuOpen, () => setMenuOpen(false));
-  const lastComment = discussions.comments.slice(1).at(-1);
-  const canEdit = (lastComment?.author ?? discussions.comments[0]!.author).role === "human";
+  const lastComment = thread.comments.slice(1).at(-1);
+  const canEdit = (lastComment?.author ?? thread.comments[0]!.author).role === "human";
   const openComment = () => {
-    artifactDrafts.beginComment(discussions.artifactId, discussions.id, originalContext);
+    artifactDrafts.beginComment(thread.artifactId, thread.id, originalContext);
     setCommenting(true);
     requestAnimationFrame(() => {
       const input = element.current?.querySelector<HTMLTextAreaElement>(
@@ -231,14 +224,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       bubble.hide();
     }
   }, [visible, bubble.hide]);
-  const refresh = () => qc.invalidateQueries({ queryKey: ["artifact", discussions.artifactId] });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["artifact", thread.artifactId] });
   const edit = useMutation({
     mutationFn: async () => {
       if (!editing) return;
       const attachments = await editableImageInputs(editing.attachments);
       if (editing.commentId)
         await artifactApi.editComment(editing.commentId, editing.body, attachments);
-      else await artifactApi.editDiscussion(discussions.id, { body: editing.body, attachments });
+      else await artifactApi.editThread(thread.id, { body: editing.body, attachments });
     },
     onSuccess: () => {
       setEditing(null);
@@ -260,41 +253,38 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       };
     });
   const attachmentInput = useAttachmentInput(
-    discussions.artifactId,
+    thread.artifactId,
     editing?.attachments ?? [],
     changeImages,
     edit.isPending,
     editTextarea,
   );
-  const status = useDiscussionStatus(discussions);
+  const status = useThreadStatus(thread);
   const remove = useMutation({
-    mutationFn: () => artifactApi.deleteDiscussion(discussions.id),
+    mutationFn: () => artifactApi.deleteThread(thread.id),
     onSuccess: refresh,
   });
-  const unavailable =
-    artifactDiscussionTargetLabel(discussions) === "Historical target unavailable";
-  const hasTarget = unavailable || discussions.target.kind !== "artifact";
-  const originalContext = targetContext(discussions.target);
+  const unavailable = artifactThreadTargetLabel(thread) === "Historical target unavailable";
+  const hasTarget = unavailable || thread.target.kind !== "artifact";
+  const originalContext = targetContext(thread.target);
   const quote =
-    "locator" in discussions.target &&
-    discussions.target.locator &&
-    "quote" in discussions.target.locator
-      ? discussions.target.locator.quote
+    "locator" in thread.target && thread.target.locator && "quote" in thread.target.locator
+      ? thread.target.locator.quote
       : null;
   const error = edit.error ?? status.error ?? remove.error;
   const resolveButton = (
     <Button
       type="button"
-      data-discussions-action="resolve"
-      variant={discussions.status === "open" ? "success-outline" : "ghost"}
+      data-thread-action="resolve"
+      variant={thread.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
-      className={discussions.status === "resolved" ? "text-neutral-400" : undefined}
+      className={thread.status === "resolved" ? "text-neutral-400" : undefined}
       onClick={() => {
-        status.change(discussions.status === "open" ? "resolved" : "open");
-        if (discussions.status === "open") onResolved?.(discussions.id);
+        status.change(thread.status === "open" ? "resolved" : "open");
+        if (thread.status === "open") onResolved?.(thread.id);
       }}
     >
-      {discussions.status === "open" ? "✓ Resolve" : "Reopen"}
+      {thread.status === "open" ? "✓ Resolve" : "Reopen"}
     </Button>
   );
   const moreMenu = (
@@ -317,7 +307,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <div
             ref={menu}
             role="dialog"
-            aria-label="Discussion actions"
+            aria-label="Thread actions"
             className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
           >
             <button
@@ -334,8 +324,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                         attachments: lastComment.attachments ?? [],
                       }
                     : {
-                        body: discussions.comments[0]!.body,
-                        attachments: discussions.comments[0]!.attachments ?? [],
+                        body: thread.comments[0]!.body,
+                        attachments: thread.comments[0]!.attachments ?? [],
                       },
                 );
                 setMenuOpen(false);
@@ -389,7 +379,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       />
       <div className="px-3">
         <MessageAttachments
-          artifactId={discussions.artifactId}
+          artifactId={thread.artifactId}
           images={editing.attachments}
           onChange={changeImages}
           disabled={edit.isPending}
@@ -418,28 +408,28 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   return (
     <article
       ref={element}
-      data-artifact-discussions={discussions.id}
+      data-artifact-thread={thread.id}
       hidden={hidden}
       inert={hidden}
       className={cn(
         "relative border-b border-neutral-200 px-3 py-3 text-sm dark:border-neutral-800",
-        discussions.status === "resolved"
+        thread.status === "resolved"
           ? "bg-success-50/60 dark:bg-success-950/20"
           : "bg-white dark:bg-neutral-950",
-        discussions.claim && "bg-neutral-100/70 dark:bg-neutral-900/70",
+        thread.claim && "bg-neutral-100/70 dark:bg-neutral-900/70",
         active &&
           "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-warning-500",
       )}
     >
-      {discussions.claim && (
+      {thread.claim && (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 bg-neutral-500/10"
         />
       )}
-      {(hasTarget || artifactNeedsAttention(discussions) || discussions.status === "resolved") && (
+      {(hasTarget || artifactNeedsAttention(thread) || thread.status === "resolved") && (
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
-          {artifactNeedsAttention(discussions) && (
+          {artifactNeedsAttention(thread) && (
             <span
               title="Unhandled agent response"
               className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
@@ -453,79 +443,75 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             <button
               type="button"
               className="min-w-0 flex-1 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
-              title={artifactDiscussionTargetLabel(discussions)}
-              onClick={() => onLocate(discussions.target, discussions.id)}
+              title={artifactThreadTargetLabel(thread)}
+              onClick={() => onLocate(thread.target, thread.id)}
             >
-              {cardTargetLabel(discussions.target, latestVersionSeq)}
+              {cardTargetLabel(thread.target, latestVersionSeq)}
             </button>
           ) : null}
-          {discussions.status === "resolved" && (
+          {thread.status === "resolved" && (
             <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
               ✓ resolved
             </span>
           )}
         </div>
       )}
-      {discussions.target.kind === "media" && discussions.target.locator.frame && (
-        <MediaTargetPreview
-          image={discussions.target.locator.frame}
-          box={discussions.target.locator.box}
-        />
+      {thread.target.kind === "media" && thread.target.locator.frame && (
+        <MediaTargetPreview image={thread.target.locator.frame} box={thread.target.locator.box} />
       )}
-      {(hasUnsentArtifactDiscussion(discussions) || discussions.claim) && (
+      {(hasUnsentArtifactThread(thread) || thread.claim) && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          {hasUnsentArtifactDiscussion(discussions) && <span>Not sent</span>}
-          {discussions.claim && (
+          {hasUnsentArtifactThread(thread) && <span>Not sent</span>}
+          {thread.claim && (
             <span
               className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
-              title={`Working agent: ${discussions.claim.sessionId}`}
+              title={`Working agent: ${thread.claim.sessionId}`}
             >
-              Working · <AgentName id={discussions.claim.sessionId} labels={agentLabels} />
+              Working · <AgentName id={thread.claim.sessionId} labels={agentLabels} />
             </span>
           )}
         </div>
       )}
-      {quote && <DiscussionQuote quote={quote} />}
+      {quote && <ThreadQuote quote={quote} />}
       {unavailable && (
         <details className="mb-2 text-xs text-neutral-500">
           <summary>Imported anchor evidence</summary>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap">
-            {JSON.stringify(discussions.comments[0]!.legacy?.source, null, 2)}
+            {JSON.stringify(thread.comments[0]!.legacy?.source, null, 2)}
           </pre>
         </details>
       )}
       <div
-        data-message-author={discussions.comments[0]!.author.role}
+        data-message-author={thread.comments[0]!.author.role}
         className={cn(
-          discussions.comments[0]!.author.role === "agent" &&
+          thread.comments[0]!.author.role === "agent" &&
             "rounded-md bg-primary-100/60 px-2.5 py-1.5 dark:bg-primary-500/15",
         )}
       >
-        {discussions.comments[0]!.author.role === "agent" && (
+        {thread.comments[0]!.author.role === "agent" && (
           <div
             className="mb-1 text-xs text-neutral-500"
-            title={discussions.comments[0]!.author.sessionId}
+            title={thread.comments[0]!.author.sessionId}
           >
-            Agent ·{" "}
-            <AgentName id={discussions.comments[0]!.author.sessionId} labels={agentLabels} />
+            Agent · <AgentName id={thread.comments[0]!.author.sessionId} labels={agentLabels} />
           </div>
         )}
         {!readOnly && editing && !editing.commentId ? (
           editForm
         ) : (
           <MessageProse
-            source={discussions.comments[0]!.body}
+            source={thread.comments[0]!.body}
             onJumpRef={(ref) => onJumpRef(ref, originalContext)}
           />
         )}
         {(readOnly || !(editing && !editing.commentId)) && (
           <MessageAttachments
-            artifactId={discussions.artifactId}
-            images={discussions.comments[0]!.attachments}
+            artifactId={thread.artifactId}
+            images={thread.comments[0]!.attachments}
           />
         )}
       </div>
-      {discussions.comments.slice(1).length > 3 && (
+      {thread.comments.slice(1).length > 3 && (
         <button
           type="button"
           className="mt-2.5 flex items-center gap-1 text-[0.6875rem] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
@@ -534,10 +520,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <FoldTriangle open={earlierOpen} className="size-2.5" />
           {earlierOpen
             ? "hide earlier comments"
-            : `${discussions.comments.slice(1).length - 3} earlier comments`}
+            : `${thread.comments.slice(1).length - 3} earlier comments`}
         </button>
       )}
-      {(earlierOpen ? discussions.comments.slice(1) : discussions.comments.slice(1).slice(-3)).map(
+      {(earlierOpen ? thread.comments.slice(1) : thread.comments.slice(1).slice(-3)).map(
         (comment) => (
           <div
             key={comment.id}
@@ -563,10 +549,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               />
             )}
             {(readOnly || editing?.commentId !== comment.id) && (
-              <MessageAttachments
-                artifactId={discussions.artifactId}
-                images={comment.attachments}
-              />
+              <MessageAttachments artifactId={thread.artifactId} images={comment.attachments} />
             )}
             {comment.target && (
               <button
@@ -577,7 +560,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                     ? `Version ${comment.target.versionSeq} · ${comment.target.locator?.selector ?? "Page"}`
                     : artifactTargetLabel(comment.target)
                 }
-                onClick={() => onLocate(comment.target!, discussions.id)}
+                onClick={() => onLocate(comment.target!, thread.id)}
               >
                 ↳ Fix: {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
               </button>
@@ -618,8 +601,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <div className="mt-3 flex items-center gap-1 text-[0.6875rem]">
           {resolveButton}
           {moreMenu}
-          <Button className="ml-auto" data-discussions-action="comment" onClick={openComment}>
-            Comment
+          <Button className="ml-auto" data-thread-action="comment" onClick={openComment}>
+            Reply
           </Button>
         </div>
       )}
@@ -635,8 +618,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       {!readOnly && commenting && (
         <div className="-mx-3 mt-3">
           <ArtifactComposer
-            artifactId={discussions.artifactId}
-            commentTo={discussions.id}
+            artifactId={thread.artifactId}
+            commentTo={thread.id}
             onDone={() => setCommenting(false)}
           />
         </div>
@@ -647,17 +630,17 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           label="Quote in comment"
           onQuote={(text) => {
             openComment();
-            const draft = artifactDrafts.get(discussions.artifactId, discussions.id);
+            const draft = artifactDrafts.get(thread.artifactId, thread.id);
             const body = draft?.body ?? "";
             artifactDrafts.update(
-              discussions.artifactId,
+              thread.artifactId,
               {
                 body: `${body.trim() ? `${body}\n\n` : ""}${text
                   .split("\n")
                   .map((line) => `> ${line}`)
                   .join("\n")}\n\n`,
               },
-              discussions.id,
+              thread.id,
             );
             bubble.hide();
           }}
@@ -666,23 +649,23 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     </article>
   );
 });
-export type ArtifactDiscussionTab = "active" | "resolved";
+export type ArtifactThreadTab = "active" | "resolved";
 // Each queue owns its scroll position and row animation. Switching tabs changes
 // only the track transform, so cards, comment editors, and the Active draft survive.
-function DiscussionQueue({
+function ThreadQueue({
   tab,
   selected,
   tabsId,
   empty,
   children,
 }: {
-  tab: ArtifactDiscussionTab;
+  tab: ArtifactThreadTab;
   selected: boolean;
   tabsId: string;
   empty: boolean;
   children: ReactNode;
 }) {
-  const [listAnimation] = useAutoAnimate<HTMLDivElement>(discussionAnimation);
+  const [listAnimation] = useAutoAnimate<HTMLDivElement>(threadAnimation);
   return (
     <div
       role="tabpanel"
@@ -690,7 +673,7 @@ function DiscussionQueue({
       aria-labelledby={`${tabsId}-${tab}`}
       aria-hidden={!selected}
       inert={!selected}
-      data-discussions-queue={tab}
+      data-discussion-queue={tab}
       className="h-full min-w-0 w-full shrink-0 overflow-x-hidden overflow-y-auto"
     >
       <div className="relative min-h-full">
@@ -702,10 +685,10 @@ function DiscussionQueue({
           )}
         >
           {tab === "resolved"
-            ? "No resolved discussions."
-            : "Select content to leave discussions, or add a general note."}
+            ? "No resolved threads."
+            : "Select content to leave a comment, or add a general note."}
         </p>
-        <div ref={listAnimation} data-discussions-list>
+        <div ref={listAnimation} data-discussion-list>
           {children}
         </div>
       </div>
@@ -717,11 +700,11 @@ export function ArtifactThreads({
   context,
   onLocate,
   onJumpRef,
-  activeDiscussion,
+  activeThread,
   activeCommentId,
   composer,
   panelControls,
-  onFocusDiscussion,
+  onFocusThread,
   onNewNote,
   comparisons,
   onCompare,
@@ -734,59 +717,58 @@ export function ArtifactThreads({
   context: ArtifactReferenceContext;
   onLocate: ArtifactTargetJump;
   onJumpRef: ArtifactRefJump;
-  activeDiscussion?: string | null;
+  activeThread?: string | null;
   activeCommentId?: string | null;
   composer?: ReactNode;
   panelControls?: ReactNode;
-  onFocusDiscussion?: (id: string) => void;
+  onFocusThread?: (id: string) => void;
   onNewNote?: () => void;
   comparisons?: ReadonlyMap<string, ArtifactComparison>;
   onCompare?: (commentId: string) => void;
   comparisonMode?: boolean;
   keysActive?: boolean;
-  tab?: ArtifactDiscussionTab;
-  onTabChange?: (tab: ArtifactDiscussionTab) => void;
+  tab?: ArtifactThreadTab;
+  onTabChange?: (tab: ArtifactThreadTab) => void;
 }) {
   detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
-  const [localTab, setLocalTab] = useState<ArtifactDiscussionTab>("active");
+  const [localTab, setLocalTab] = useState<ArtifactThreadTab>("active");
   const tab = controlledTab ?? localTab;
   const setTab = onTabChange ?? setLocalTab;
   const tabsId = useId();
-  const [created, setCreated] = useState<ArtifactDiscussion | null>(null);
+  const [created, setCreated] = useState<ArtifactThread | null>(null);
   const showCreated = useCallback(
-    (discussions: ArtifactDiscussion) => {
-      setCreated(discussions);
+    (threads: ArtifactThread) => {
+      setCreated(threads);
       setTab("active");
-      return () => setCreated((current) => (current?.id === discussions.id ? null : current));
+      return () => setCreated((current) => (current?.id === threads.id ? null : current));
     },
     [setTab],
   );
   const notes = useMemo(
     () =>
-      created?.artifactId === detail.id &&
-      !detail.discussions.some((note) => note.id === created.id)
-        ? [...detail.discussions, created]
-        : detail.discussions,
-    [created, detail.id, detail.discussions],
+      created?.artifactId === detail.id && !detail.threads.some((note) => note.id === created.id)
+        ? [...detail.threads, created]
+        : detail.threads,
+    [created, detail.id, detail.threads],
   );
-  const indicator = useDiscussionTabIndicator(tab);
+  const indicator = useThreadTabIndicator(tab);
   useEffect(() => {
     // Deleted threads have no comment destination. Reap only missing membership;
     // resolved and archived conversations keep their drafts.
-    artifactDrafts.pruneComments(detail.id, new Set(detail.discussions.map((note) => note.id)));
-  }, [detail.id, detail.discussions]);
+    artifactDrafts.pruneComments(detail.id, new Set(detail.threads.map((note) => note.id)));
+  }, [detail.id, detail.threads]);
   const selected = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (!activeDiscussion || selected.current === activeDiscussion) return;
-    selected.current = activeDiscussion;
+    if (!activeThread || selected.current === activeThread) return;
+    selected.current = activeThread;
     setTab(
-      detail.discussions.find((note) => note.id === activeDiscussion)?.status === "resolved"
+      detail.threads.find((note) => note.id === activeThread)?.status === "resolved"
         ? "resolved"
         : "active",
     );
-  }, [activeDiscussion, detail.discussions, setTab]);
-  const handoff = useArtifactHandoff({ ...detail, discussions: notes });
+  }, [activeThread, detail.threads, setTab]);
+  const handoff = useArtifactHandoff({ ...detail, threads: notes });
   const { draftCount, watchers, pending } = handoff;
   const noteOpen = useArtifactNoteOpen(detail.id);
   const wasNoteOpen = useRef(noteOpen);
@@ -795,50 +777,50 @@ export function ArtifactThreads({
     wasNoteOpen.current = noteOpen;
   }, [noteOpen, setTab]);
   const comparable = useMemo(
-    () => new Set([...(comparisons?.values() ?? [])].map((pair) => pair.discussionId)),
+    () => new Set([...(comparisons?.values() ?? [])].map((pair) => pair.threadId)),
     [comparisons],
   );
-  const included = (note: ArtifactDiscussion) => !comparisonMode || comparable.has(note.id);
+  const included = (note: ArtifactThread) => !comparisonMode || comparable.has(note.id);
   const queues = useMemo(
     () => ({
-      active: activeArtifactDiscussion(notes),
+      active: activeArtifactThreads(notes),
       resolved: notes.filter((note) => note.status === "resolved"),
     }),
     [notes],
   );
   const { active, resolved } = useMemo(() => {
-    const included = (note: ArtifactDiscussion) => !comparisonMode || comparable.has(note.id);
+    const included = (note: ArtifactThread) => !comparisonMode || comparable.has(note.id);
     return { active: queues.active.filter(included), resolved: queues.resolved.filter(included) };
   }, [queues, comparable, comparisonMode]);
   const ordered = tab === "active" ? active : resolved;
   const locate = useCallback<ArtifactTargetJump>(
-    (target, discussionId) => onLocate(target, discussionId),
+    (target, threadId) => onLocate(target, threadId),
     [onLocate],
   );
   const afterResolve = useCallback(
     (id: string) => {
-      if (activeDiscussion !== id) return;
+      if (activeThread !== id) return;
       const at = active.findIndex((note) => note.id === id);
       const next = active[at + 1] ?? active[at - 1];
-      if (next) onFocusDiscussion?.(next.id);
+      if (next) onFocusThread?.(next.id);
     },
-    [active, activeDiscussion, onFocusDiscussion],
+    [active, activeThread, onFocusThread],
   );
   const move = (direction: -1 | 1) => {
-    const at = ordered.findIndex((note) => note.id === activeDiscussion);
+    const at = ordered.findIndex((note) => note.id === activeThread);
     const next =
       at < 0
         ? direction > 0
           ? 0
           : ordered.length - 1
         : Math.max(0, Math.min(ordered.length - 1, at + direction));
-    if (ordered[next]) onFocusDiscussion?.(ordered[next].id);
+    if (ordered[next]) onFocusThread?.(ordered[next].id);
   };
   const action = (name: "comment" | "resolve") => {
-    if (!activeDiscussion) return;
+    if (!activeThread) return;
     if (name === "comment") {
       const editor = panel.current?.querySelector<HTMLTextAreaElement>(
-        `[data-artifact-discussions="${CSS.escape(activeDiscussion)}"] [data-comment-to] textarea:not([inert] *)`,
+        `[data-artifact-thread="${CSS.escape(activeThread)}"] [data-comment-to] textarea:not([inert] *)`,
       );
       if (editor) {
         editor.focus();
@@ -847,7 +829,7 @@ export function ArtifactThreads({
     }
     panel.current
       ?.querySelector<HTMLButtonElement>(
-        `[data-artifact-discussions="${CSS.escape(activeDiscussion)}"] [data-discussions-action="${name}"]:not([inert] *)`,
+        `[data-artifact-thread="${CSS.escape(activeThread)}"] [data-thread-action="${name}"]:not([inert] *)`,
       )
       ?.click();
   };
@@ -875,7 +857,7 @@ export function ArtifactThreads({
           fbNext: () => move(1),
           fbPrev: () => move(-1),
           fbLocate: () => {
-            const note = detail.discussions.find((note) => note.id === activeDiscussion);
+            const note = detail.threads.find((note) => note.id === activeThread);
             if (note) locate(note.target, note.id);
           },
           fbComment: () => action("comment"),
@@ -887,10 +869,10 @@ export function ArtifactThreads({
     <section
       ref={panel}
       className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950"
-      aria-label="Artifact discussions"
+      aria-label="Artifact discussion"
     >
       <div
-        data-discussions-header
+        data-discussion-header
         className="flex shrink-0 flex-col gap-2 border-b border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -906,8 +888,8 @@ export function ArtifactThreads({
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
               variant="ghost"
-              aria-label="Add general discussions"
-              title="Add general discussions (n)"
+              aria-label="Add comment"
+              title="Add comment (n)"
               onClick={newNote}
               disabled={detail.state !== "active"}
             >
@@ -929,13 +911,13 @@ export function ArtifactThreads({
           <div
             ref={indicator.ref}
             role="tablist"
-            aria-label="Discussion status"
+            aria-label="Thread status"
             className="relative flex items-center gap-1"
           >
             <span
               ref={indicator.indicatorRef}
               aria-hidden="true"
-              data-discussions-tab-indicator
+              data-discussion-tab-indicator
               className={cn(
                 "pointer-events-none absolute left-0 rounded-md will-change-transform",
                 tab === "resolved"
@@ -948,7 +930,7 @@ export function ArtifactThreads({
                 key={value}
                 type="button"
                 role="tab"
-                data-discussions-tab={value}
+                data-discussion-tab={value}
                 id={`${tabsId}-${value}`}
                 aria-controls={`${tabsId}-${value}-panel`}
                 aria-selected={tab === value}
@@ -1010,13 +992,13 @@ export function ArtifactThreads({
       </div>
       <div className="min-h-0 flex-1 overflow-clip">
         <div
-          data-discussions-track
+          data-discussion-track
           className="flex h-full transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
           style={{ transform: tab === "active" ? "translateX(0)" : "translateX(-100%)" }}
         >
-          <DiscussionCreationContext.Provider value={showCreated}>
+          <ThreadCreationContext.Provider value={showCreated}>
             {(["active", "resolved"] as const).map((queue) => (
-              <DiscussionQueue
+              <ThreadQueue
                 key={queue}
                 tab={queue}
                 tabsId={tabsId}
@@ -1026,7 +1008,7 @@ export function ArtifactThreads({
                 }
               >
                 {queue === "active" && noteOpen && (
-                  <div key="composer" data-discussions-draft>
+                  <div key="composer" data-discussion-draft>
                     {composer ?? (
                       <ArtifactComposer
                         artifactId={detail.id}
@@ -1035,10 +1017,10 @@ export function ArtifactThreads({
                     )}
                   </div>
                 )}
-                {(queue === "active" ? queues.active : queues.resolved).map((discussions) => (
+                {(queue === "active" ? queues.active : queues.resolved).map((threads) => (
                   <ArtifactThreadCard
-                    key={discussions.id}
-                    discussions={discussions}
+                    key={threads.id}
+                    thread={threads}
                     readOnly={detail.state !== "active"}
                     agentLabels={detail.agentLabels}
                     context={context}
@@ -1046,18 +1028,18 @@ export function ArtifactThreads({
                     latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
                     onLocate={locate}
                     onJumpRef={onJumpRef}
-                    visible={tab === queue && included(discussions)}
-                    hidden={!included(discussions)}
+                    visible={tab === queue && included(threads)}
+                    hidden={!included(threads)}
                     comparisons={comparisons}
                     onCompare={onCompare}
-                    active={tab === queue && activeDiscussion === discussions.id}
-                    activeCommentId={activeDiscussion === discussions.id ? activeCommentId : null}
+                    active={tab === queue && activeThread === threads.id}
+                    activeCommentId={activeThread === threads.id ? activeCommentId : null}
                     onResolved={afterResolve}
                   />
                 ))}
-              </DiscussionQueue>
+              </ThreadQueue>
             ))}
-          </DiscussionCreationContext.Provider>
+          </ThreadCreationContext.Provider>
         </div>
       </div>
       <ArtifactHandoffNotice handoff={handoff} />

@@ -141,7 +141,7 @@ export function useQuoteBubble(
   subRef.current.isEligible = isEligible;
   subRef.current.setPos = setPos;
   useEffect(() => retainQuoteSub(subRef.current), []);
-  // The global dismiss listeners attach only while a bubble is up: every discussions
+  // The global dismiss listeners attach only while a bubble is up: every threads
   // card runs this hook, so idle cards must cost zero document/scroll listeners
   // (N cards would otherwise each re-check the selection on every caret move).
   useEffect(() => {

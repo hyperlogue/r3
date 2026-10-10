@@ -216,7 +216,7 @@ test("invalid cleanup input never deletes anything and configured TTL controls d
   expect(storage.usage.stat().gc).toMatchObject({ ttlDays: 5, eligibleArtifacts: 1 });
 });
 
-test("one blob namespace covers discussions images and files, while patches count per publication", async () => {
+test("one blob namespace covers threads images and files, while patches count per publication", async () => {
   const image = {
     mediaType: "image/png",
     base64:

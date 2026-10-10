@@ -76,7 +76,7 @@ describe("artifact collaboration ordering", () => {
     const pending = collaboration.transition(id, request);
     const event = storage.lifecycle.events(id)[0]!;
     const comment = event.comment!;
-    expect(comment.discussionId).toBeNull();
+    expect(comment.threadId).toBeNull();
     expect(storage.conversations.comment(comment.id)).toEqual(comment);
     await expect(
       storage.conversations.updateComment(comment.id, { actor: human, body: "Too late" }),
@@ -182,7 +182,7 @@ describe("artifact collaboration ordering", () => {
     expect(collaboration.watchers(id)).toEqual([current]);
   });
 
-  test("watch always ends on archive and terminal state precedes already pending discussions", async () => {
+  test("watch always ends on archive and terminal state precedes already pending comments", async () => {
     const waiting = collaboration.watch(id, first);
     await storage.conversations.add(id, {
       actor: human,
@@ -210,7 +210,7 @@ describe("artifact collaboration ordering", () => {
     });
     expect(collaboration.watchers(id)).toHaveLength(1);
     expect(await collaboration.submit(id)).toEqual({ state: "sent" });
-    expect(await waiting).toEqual({ result: "discussions" });
+    expect(await waiting).toEqual({ result: "comments" });
     expect(storage.conversations.unsent(id)).toHaveLength(1);
     expect(collaboration.watchers(id)).toEqual([]);
   });

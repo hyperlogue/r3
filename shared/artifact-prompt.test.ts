@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { artifactNudgeText, buildArtifactPrompt } from "./artifact-prompt.ts";
-import type { ArtifactDetail, ArtifactDiscussion } from "./artifacts.ts";
+import type { ArtifactDetail, ArtifactThread } from "./artifacts.ts";
 import { artifactReferenceContext } from "./artifacts.ts";
 import type { ArtifactAttachment } from "./attachments.ts";
 
@@ -24,13 +24,13 @@ const detail: ArtifactDetail = {
   storage: { totalBytes: 0, latestVersionBytes: 0 },
   legacy: null,
   versions: [],
-  discussions: [],
+  threads: [],
   placements: [],
   events: [],
 };
-function note(): ArtifactDiscussion {
+function note(): ArtifactThread {
   return {
-    id: "discussion_example",
+    id: "thread_example",
     artifactId: detail.id,
     status: "open",
     target: {
@@ -50,8 +50,8 @@ function note(): ArtifactDiscussion {
     claim: null,
     comments: [
       {
-        id: "discussion_example",
-        discussionId: "discussion_example",
+        id: "thread_example",
+        threadId: "thread_example",
         artifactId: detail.id,
         createdAt: time,
         context: artifactReferenceContext({
@@ -85,15 +85,15 @@ describe("artifact prompt formatting", () => {
       width: 10,
       height: 10,
     });
-    const discussions = note();
-    discussions.comments[0]!.body = "Compare [image1] and [image2]";
-    discussions.comments[0]!.attachments = [image("first"), image("second")];
-    discussions.comments = [
-      discussions.comments[0]!,
+    const threads = note();
+    threads.comments[0]!.body = "Compare [image1] and [image2]";
+    threads.comments[0]!.attachments = [image("first"), image("second")];
+    threads.comments = [
+      threads.comments[0]!,
       {
         id: "comment_images",
         artifactId: detail.id,
-        discussionId: discussions.id,
+        threadId: threads.id,
         author: human,
         body: "Try [image1]",
         attachments: [image("comment_image")],
@@ -104,15 +104,15 @@ describe("artifact prompt formatting", () => {
         legacy: null,
       },
     ];
-    const prompt = buildArtifactPrompt(detail, [discussions]);
+    const prompt = buildArtifactPrompt(detail, [threads]);
     expect(prompt).toContain("[image1] Image first");
     expect(prompt).toContain("[image2] Image second");
     expect(prompt).toContain("[image1] Image comment_image");
     expect(prompt).not.toContain("[image3]");
   });
   test("preserves native version, representation and rendered evidence without changing delivery state", () => {
-    const discussions = note();
-    const prompt = buildArtifactPrompt(detail, [discussions], true);
+    const threads = note();
+    const prompt = buildArtifactPrompt(detail, [threads], true);
     expect(prompt).toContain("Version 2 · rendered · index.md");
     expect(prompt).toContain('"selector":"h1"');
     expect(prompt).toContain('"route":"#overview"');
@@ -120,19 +120,19 @@ describe("artifact prompt formatting", () => {
     expect(prompt).not.toContain("r3 claim");
     expect(prompt).not.toContain("r3 publish");
     expect(prompt).not.toContain("r3 comment");
-    expect(discussions.comments[0]!.sentAt).toBeNull();
+    expect(threads.comments[0]!.sentAt).toBeNull();
   });
   test("follow-ups include only newly delivered human messages and explicit status changes", () => {
-    const discussions = note();
-    discussions.comments[0]!.sentAt = time;
-    discussions.status = "resolved";
-    discussions.statusUnsent = true;
-    discussions.comments = [
-      discussions.comments[0]!,
+    const threads = note();
+    threads.comments[0]!.sentAt = time;
+    threads.status = "resolved";
+    threads.statusUnsent = true;
+    threads.comments = [
+      threads.comments[0]!,
       {
         id: "comment_old",
         artifactId: detail.id,
-        discussionId: discussions.id,
+        threadId: threads.id,
         author: { role: "agent", sessionId: "previous-agent" },
         body: "Already delivered answer",
         context: { versionSeq: 2, representation: "rendered" },
@@ -144,7 +144,7 @@ describe("artifact prompt formatting", () => {
       {
         id: "comment_new",
         artifactId: detail.id,
-        discussionId: discussions.id,
+        threadId: threads.id,
         author: human,
         body: "New owner response",
         context: { versionSeq: 2, representation: "rendered" },
@@ -154,14 +154,14 @@ describe("artifact prompt formatting", () => {
         legacy: null,
       },
     ];
-    const prompt = buildArtifactPrompt(detail, [discussions], true);
+    const prompt = buildArtifactPrompt(detail, [threads], true);
     expect(prompt).toContain("(follow-up)");
     expect(prompt).toContain("New owner response");
     expect(prompt).not.toContain("Already delivered answer");
     expect(prompt).toContain("The human marked this resolved");
     expect(prompt).toContain('Reference context: {"versionSeq":2,"representation":"rendered"}');
-    expect(prompt).toContain(`Earlier discussion: r3 show ${detail.id}`);
-    expect(buildArtifactPrompt(detail, [discussions])).toContain("Already delivered answer");
+    expect(prompt).toContain(`Earlier thread: r3 show ${detail.id}`);
+    expect(buildArtifactPrompt(detail, [threads])).toContain("Already delivered answer");
   });
   test("submission nudges use the preferred comment fetch command", () => {
     expect(
@@ -178,17 +178,17 @@ describe("artifact prompt formatting", () => {
     );
   });
   test("uncertain imported targets remain historical evidence and archived nudges imply no approval", () => {
-    const discussions = note();
-    discussions.target = { kind: "artifact" };
-    discussions.comments[0]!.legacy = {
+    const threads = note();
+    threads.target = { kind: "artifact" };
+    threads.comments[0]!.legacy = {
       source: { file: "notes.md", quote: "Original title", line_start: 3 },
     };
     const prompt = buildArtifactPrompt({ ...detail, state: "archived", archivedAt: time }, [
-      discussions,
+      threads,
     ]);
     expect(prompt).toContain("Historical target unavailable");
     expect(prompt).toContain('"file":"notes.md"');
-    expect(prompt).not.toContain("General artifact discussions");
+    expect(prompt).not.toContain("General artifact");
     expect(prompt).not.toContain("Publish the complete updated directory");
     const nudge = artifactNudgeText({
       id: "nudge_example",

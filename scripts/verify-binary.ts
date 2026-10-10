@@ -95,7 +95,7 @@ export async function verifyBinary(path: string, platform: string) {
     };
     const health = await (await request("/api/health")).json();
     assert.equal(health.version, R3_VERSION);
-    assert.equal(health.protocol, "artifacts-v2");
+    assert.equal(health.protocol, "artifacts-v3");
     const html = await (await request("/")).text();
     const assets = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)].map((m) => m[1]!);
     assert(

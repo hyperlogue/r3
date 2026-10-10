@@ -7,12 +7,12 @@ and multiple agents, including remote publishers. The linked DDL is executable;
 this document records the relationships and invariants behind it. The server, CLI,
 browser, and static demo use the same artifact protocol.
 
-The central relationship is **Artifact → Version → Content**. Files and HTML share file storage. Diff stores its unified patch directly on the version. Discussion owns open/resolved status; Comment is a message with no status.
+The content relationship is **Artifact → Version → Content**. Files and HTML share file storage; diff stores its unified patch directly on the version. The conversation hierarchy is **Discussion → Thread → Comment**. Discussion groups an artifact's threads and artifact-level comments under the artifact's identity. A Thread owns open/resolved status; a Comment is an authored message with no status. Discussion has no separate table, ID, or lifecycle.
 
-The public Discussion has one ordered `comments` list, starting with its opening
+The public Thread has one ordered `comments` list, starting with its opening
 Comment. Authorship, body, images, and delivery belong to each Comment. The opening
 Comment has its own stable ID and uses the same read/edit endpoint as later
-Comments. Storage keeps its fields beside Discussion state so existing evidence
+Comments. Storage keeps its fields beside Thread state so existing evidence
 and delivery revisions retain their atomic boundary; that layout is private.
 
 ## Relationships
@@ -28,10 +28,11 @@ flowchart LR
 ```mermaid
 flowchart LR
   A[artifacts] -->|many lifecycle events| E[artifact_events]
-  A -->|many notes| F[discussions]
+  A -->|many threads| F[threads]
+  A -->|artifact-level messages| AC[artifact_comments]
   F -->|many messages| R[comments]
-  F -->|zero or one lease| C[discussion_claims]
-  F -->|many placements| P[discussion_placements]
+  F -->|zero or one lease| C[thread_claims]
+  F -->|many placements| P[thread_placements]
   F -->|original target| V[artifact_versions]
   R -->|context and optional fix target| V
   P -->|destination version| V
@@ -41,12 +42,12 @@ flowchart LR
 flowchart LR
   S[agent_sessions] -->|creator| A[artifacts]
   S -->|publisher| V[artifact_versions]
-  S -->|author| F[discussions]
+  S -->|author| F[threads]
   S -->|author| R[comments]
-  S -->|claim owner| C[discussion_claims]
+  S -->|claim owner| C[thread_claims]
 ```
 
-Every version reference includes artifact identity. A sequence such as 2 is meaningful only within its artifact. Composite foreign keys also prevent a comment or placement from attaching to discussions owned by another artifact.
+Every version reference includes artifact identity. A sequence such as 2 is meaningful only within its artifact. Composite foreign keys also prevent a comment or placement from attaching to threads owned by another artifact.
 
 ## Tables
 
@@ -60,10 +61,11 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | artifact_versions | artifact_id + seq | kind, publication_key, content_hash, label, summary, provenance_json, publisher role/session, entrypoint or patch_body, file_count, created_at, published_at |
 | version_files | artifact_id + version_seq + path | media_type, original blob_hash, optional rendered_blob_hash and renderer_revision |
 | blobs | hash | SHA-256 content address, byte_length, created_at. Bytes live in server-managed storage |
-| discussions | id | Artifact ownership, author role/agent session, body, open/resolved status, immutable original target, legacy anchor evidence, delivery fields, timestamps |
-| comments | id | Discussion ownership, author role/agent session, body, derived reference context, optional fix target, legacy reference evidence, delivery time. No status |
-| discussion_placements | discussion_id + version_seq + document_path + representation | Additional native locator and anchored/unplaced/ambiguous match state |
-| discussion_claims | discussion_id | One renewable agent_session_id-owned lease: claimed_at, renewed_at, expires_at |
+| threads | id | Artifact ownership, author role/agent session, body, open/resolved status, immutable original target, legacy anchor evidence, delivery fields, timestamps |
+| comments | id | Thread ownership, author role/agent session, body, derived reference context, optional fix target, legacy reference evidence, delivery time. No status |
+| artifact_comments | id | Messages directly in the artifact's discussion, including archive comments; author, body, delivery time, and edit revision. No thread or resolution status |
+| thread_placements | thread_id + version_seq + document_path + representation | Additional native locator and anchored/unplaced/ambiguous match state |
+| thread_claims | thread_id | One renewable agent_session_id-owned lease: claimed_at, renewed_at, expires_at |
 | viewed_marks | artifact_id + key | Existing read-progress identity, including representation when needed |
 | auth_tokens / auth_sessions | id | Existing authentication records and hashed secret values; independent of artifact content |
 
@@ -120,7 +122,7 @@ reported total does not predict disk space reclaimed by its deletion.
 
 ## Original target, message context, and placement
 
-Discussion's original target is stored as queryable fields plus a native locator:
+Thread's original target is stored as queryable fields plus a native locator:
 
 ```text
 target_kind         artifact | artifact_summary | version_summary |
@@ -131,9 +133,9 @@ locator_json        NULL for a whole document or unquoted summary;
                     otherwise a native locator/quote object
 ```
 
-Artifact-wide discussion has no path, version, or locator. `artifact_summary` and
+Artifact-wide thread has no path, version, or locator. `artifact_summary` and
 `version_summary` are historical targets only. Their original quotes and scopes
-remain intact; version-summary evidence names its recorded version. New discussions,
+remain intact; version-summary evidence names its recorded version. New threads,
 comment fix targets reject both summary kinds. NULL never means latest.
 
 Native locator examples, with artifact/version/path carried by the surrounding target:
@@ -158,7 +160,7 @@ lines to exist in the explicit version/file/side, contiguous diff capture, and a
 nonblank quote contained within those lines. The existing 100-line range and
 16,384-character input-quote limits still apply. The browser submits at most four
 lines and 2,048 UTF-16 code units, without storing display ellipses as source.
-`GET /api/discussions/:id/source` returns `ArtifactSourceRange` from immutable bytes
+`GET /api/threads/:id/source` returns `ArtifactSourceRange` from immutable bytes
 on demand; it stores no expanded copy and changes no delivery or claim state.
 
 A rendered locator may also carry `label`, a nonempty plain-text location name of
@@ -167,33 +169,33 @@ agent-chosen name instead of a filename. It is presentation metadata and never
 participates in matching. It is retained in `locator_json`; older locators need
 no migration.
 
-Files accepts source, rendered and media targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. General artifact discussions works across all three kinds. Version summaries remain immutable descriptive metadata displayed in the navigation's details popup.
+Files accepts source, rendered and media targets. HTML accepts rendered targets. Diff accepts diff targets with native old/new semantics. General artifact threads works across all three kinds. Version summaries remain immutable descriptive metadata displayed in the navigation's details popup.
 
 New comments derive context_version_seq/context_representation from their own target
-when present, otherwise from the discussion's original target. General discussions
+when present, otherwise from the thread's original target. General threads
 without a version remain unbound. The server saves that derived reference context
 with the comment; clients do not choose a second version/view. Existing historical
 contexts remain pinned as recorded, including contexts that differ from a fix target.
-A comment's own target never changes the original discussion target.
+A comment's own target never changes the original thread target.
 
-discussion_placements retains historical read-only document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
+thread_placements retains historical read-only document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
 
 ## One owner, multiple agent sessions
 
 agent_sessions identifies logical agent runs. It has no user account, permissions, notification credential, or machine-path fields. Register distinct IDs for concurrent agents and subagents; an optional harness and display label help the owner recognize them. A session row can outlive its process so attribution remains meaningful.
 
-The references are creator_session_id on artifacts, publisher_session_id on versions, and agent_session_id on discussions, comments, claims, and lifecycle events. A human/agent role remains separate from session identity. The CLI is a transport, not a third author role. New agent writes supply an established agent session; new human writes do not. Actor roles are required in SQL. The schema requires an agent session when the role is agent and forbids an agent session when the role is human. Migration fills missing required attribution with explicit defaults before insertion; legacy gaps do not make these fields optional.
+The references are creator_session_id on artifacts, publisher_session_id on versions, and agent_session_id on threads, comments, claims, and lifecycle events. A human/agent role remains separate from session identity. The CLI is a transport, not a third author role. New agent writes supply an established agent session; new human writes do not. Actor roles are required in SQL. The schema requires an agent session when the role is agent and forbids an agent session when the role is human. Migration fills missing required attribution with explicit defaults before insertion; legacy gaps do not make these fields optional.
 
-SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different discussions. The server validates new-write attribution and claim ownership at the module interface.
+SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different threads. The server validates new-write attribution and claim ownership at the module interface.
 
 Notification routing uses one selected recipient per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets belong to the separate private worker file. No reconnect intent is stored on the worker.
 
-Discussion also retains an internal `ever_delivered` flag. New human notes start
+Thread also retains an internal `ever_delivered` flag. New human notes start
 false; agent notes start true. Handoff sets it true, and edits never clear it.
 Editing an open human note can clear `sent_at` for the current text while retaining
 the history needed to send a later resolution or reopening. A status change on a
 new, never-delivered note does not create status work. Comments retain their own
-delivery timestamps; they do not need this discussion-status history flag.
+delivery timestamps; they do not need this thread-status history flag.
 
 ## Archive events and artifact-level Comments
 
@@ -202,7 +204,7 @@ external identity, operation key, attribution, and timestamp. Its nullable
 `comment_id` references an artifact-level Comment. The public event exposes that
 Comment as `comment`; a blank archive body produces null, and restore has no Comment.
 
-`artifact_comments` stores those Comments independently of Discussion status. The
+`artifact_comments` stores those Comments independently of Thread status. The
 archive transaction creates the Comment, records its event, changes artifact state,
 and clears claims and subscriptions together. The Comment is readable through the
 common `/api/comments/:id` endpoint and editable after restore. Archive Comments
@@ -269,7 +271,7 @@ outputs independently, so retries remain stable across renderer upgrades.
 | Fixed artifact kind and valid kind-specific version payload | Authorization, upload limits, safe paths and symlink handling |
 | Version ownership and same-artifact message references | Target path membership, native locator validation, dynamic DOM evidence |
 | Complete declared file count and HTML entrypoint membership at finalization | Actual byte availability and integrity, complete rendering preparation, canonical publication digest |
-| Immutable version payload, file rows, original discussions target, and comment context/fix target | Expected-sequence transaction, retry behavior, no committed assembly rows |
+| Immutable version payload, file rows, original threads target, and comment context/fix target | Expected-sequence transaction, retry behavior, no committed assembly rows |
 | No additional files after publication; no individual version/file deletion | Archive/event atomicity, optional message notification, cleanup of leases/listeners, and unconditional watch termination |
 | Nondecreasing sequence counter; unique publication and lifecycle operation keys | Retry behavior, claim ownership/expiry, human-controlled status, agent comment releasing only its matching claim |
 | Typed states, JSON-object shape, required target fields, agent-session foreign keys | New-write actor/session validation, sent_at/status_unsent delivery rules and activity timestamps |
@@ -279,13 +281,13 @@ These rules belong behind the publication, content, targeting, and collaboration
 
 Versions are append-only and remain visible until whole-artifact deletion. There is no withdrawn_at field, withdrawal command, visibility filter, or individual version deletion. SQL prevents deleting a version or its file membership while its artifact exists. Corrections are new publications.
 
-Deleting an artifact cascades through versions, files, discussions, comments, placements, claims, lifecycle events, and read progress. Shared blobs remain until garbage collection proves they have no original or rendered references. Agent-session records can also outlive an artifact and cannot be deleted while referenced elsewhere. Deleting a project only detaches its artifacts. Archiving preserves content and discussions status; the collaboration transaction clears claims and presence without implying resolution.
+Deleting an artifact cascades through versions, files, threads, comments, placements, claims, lifecycle events, and read progress. Shared blobs remain until garbage collection proves they have no original or rendered references. Agent-session records can also outlive an artifact and cannot be deleted while referenced elsewhere. Deleting a project only detaches its artifacts. Archiving preserves content and thread status; the collaboration transaction clears claims and presence without implying resolution.
 
 All connections must enable foreign keys. STRICT tables constrain storage types, and explicit NULL checks prevent required variant fields from slipping through SQL's nullable CHECK semantics. Times are canonical UTC ISO-8601 strings supplied by the server. [SQLite STRICT tables](https://www.sqlite.org/stricttables.html), [SQLite CHECK constraints](https://www.sqlite.org/lang_createtable.html#check_constraints)
 
 ## Artifact schema upgrades
 
-Startup upgrades artifact schema versions 1–10 to the current schema before serving
+Startup upgrades artifact schema versions 1–14 to schema 15 before serving
 requests. Live-review stores are rejected without changing their schema or rows;
 upgrade them with r3 1.5.0 before opening them with a newer release.
 
@@ -321,7 +323,7 @@ cannot remove a replacement. Fallback failures retain the saved target. SQLite a
 its backups are private and now contain local harness credentials. Session labels
 are mutable display names; internal IDs and authored attribution remain stable.
 
-Schema version 5 adds `discussions.ever_delivered`. Previous schemas could erase the
+Schema version 5 adds `threads.ever_delivered`. Previous schemas could erase the
 only delivery timestamp during an edit, so the upgrade conservatively sets this
 flag for all existing notes. It preserves existing timestamps, pending flags, and
 messages. A later status change can therefore cause an extra notification for an
@@ -338,7 +340,7 @@ only with a matching fingerprint; reading pending data never stamps delivery.
 
 ## Required fields and historical evidence
 
-created_by, published_by, and artifact_events.actor are NOT NULL. Agent-authored artifacts, versions, events, discussions, and comments must reference an agent session; human-authored rows must have no agent session. Ordinary write requests supply required attribution explicitly. There is no blanket SQL default that would silently convert a malformed new agent request into human authorship.
+created_by, published_by, and artifact_events.actor are NOT NULL. Agent-authored artifacts, versions, events, threads, and comments must reference an agent session; human-authored rows must have no agent session. Ordinary write requests supply required attribution explicitly. There is no blanket SQL default that would silently convert a malformed new agent request into human authorship.
 
 NULL remains where absence is a supported state: no project grouping, no optional archive message, no fix target, no version context for a general message, no agent session for a human, a kind-inapplicable payload column, or a publication being assembled inside its transaction. These are product or transaction semantics, not concessions to legacy data.
 
@@ -355,7 +357,7 @@ See [acceptance checks](verification.md) for browser and distribution verificati
 Schema revision 2 removes `artifacts.summary`. Upgrading revision 1 first writes
 an owner-only consistent backup, then retains existing text in
 `legacy_json.retiredOverview` and drops the column in one transaction. Original
-`artifact_summary` discussions targets stay unchanged and readable, but are rejected
+`artifact_summary` thread targets stay unchanged and readable, but are rejected
 for new comments. Previously imported live-review overviews remain in the
 original review provenance. Version summaries are unaffected.
 
@@ -363,7 +365,7 @@ original review provenance. Version summaries are unaffected.
 ## Conversation attachments
 
 `message_attachments` owns an opaque image ID, artifact identity, exactly one
-discussions/comment owner, ordering, content-addressed blob hash, validated raster media
+thread/comment owner, ordering, content-addressed blob hash, validated raster media
 type/dimensions, and optional capture-context JSON. Composite foreign keys prevent
 cross-artifact ownership. Original targets and published version membership are
 unaffected. Old messages have empty attachment lists; schema version 7 adds these
@@ -411,16 +413,16 @@ database space is overhead and is excluded from published-content storage totals
 Schema revision 9 adds `artifact_activity` counters keyed by UTC instant and
 metric, with no artifact/session identity, foreign key, path, title, or message
 body. Insert/commit triggers count artifact creation, committed publications,
-new discussions, new comments, and archive/restore events in the originating
+new threads, new comments, and archive/restore events in the originating
 transaction. Rollback and operation-key replay cannot add activity. Deleting
-discussions or artifacts leaves counters intact. `artifact_activity_coverage`
+threads or artifacts leaves counters intact. `artifact_activity_coverage`
 records the upgrade instant; backfill counts surviving rows once and never
 claims to reconstruct previously deleted activity. Fresh stores have complete
 coverage. UTC instants are bucketed in the server's timezone at read time, so
 calendar days and Monday-start weeks handle DST without assuming 24-hour days.
 
 Global content bytes deduplicate original files, retained Markdown renderings,
-and discussions images together across all published artifacts. Each published
+and comment images together across all published artifacts. Each published
 patch contributes its UTF-8 length separately. Unreferenced blobs and disk
 metadata, indexes, WAL files, and backups are excluded. Reclaimable content
 counts only hashes whose every reference belongs to the selected expired set,
@@ -499,4 +501,21 @@ artifacts, conversation evidence, and credentials remain unchanged.
 Schema version 13 renames the former conversation tables and reference columns.
 It preserves opaque IDs, native targets, message bytes, delivery stamps, operation
 hashes, and activity history. Derived search indexes are rebuilt. The public
-contract is `artifacts-v2`; clients and servers upgrade together.
+contract at that point was `artifacts-v2`.
+
+Schema version 14 adds artifact-level archive Comments while keeping the immutable
+lifecycle event and its original retry evidence separate from the editable message.
+
+## Schema 15: Discussion, Thread, and Comment
+
+The former `discussions` table becomes `threads`; its claim and placement tables
+and `discussion_id` references become `thread_claims`, `thread_placements`, and
+`thread_id`. Existing opaque IDs, comment bodies, targets, timestamps, claims,
+retry hashes, credentials, and activity counters remain unchanged. The artifact's
+`discussion_revision` still covers the whole discussion, including archive comments.
+Derived search data is rebuilt with thread categories and locations.
+
+The public contract is now `artifacts-v3`: artifact reads contain `threads`,
+comments and claims name `threadId`, and thread operations use `/api/threads`.
+Pending/history/acknowledgment reads use the artifact's `/comments` routes.
+Clients and servers check the protocol before CLI data operations and upgrade together.

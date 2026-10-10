@@ -1,9 +1,9 @@
-import { buildArtifactPrompt, discussionAttachments } from "../../shared/artifact-prompt.ts";
+import { buildArtifactPrompt, commentAttachments } from "../../shared/artifact-prompt.ts";
 import {
   type ArtifactComment,
-  type ArtifactDiscussion,
   type ArtifactStreamEvent,
   type ArtifactTarget,
+  type ArtifactThread,
   artifactAgentIds,
   artifactReferenceContext,
 } from "../../shared/artifacts.ts";
@@ -70,7 +70,7 @@ async function attachments(
 }
 async function messageOperation(
   artifactId: string,
-  kind: "discussions" | "comment",
+  kind: "threads" | "comment",
   key: string | undefined,
   input: unknown,
 ) {
@@ -89,7 +89,7 @@ async function messageOperation(
       if (!saved) return null;
       if (saved.hash !== hash || saved.kind !== kind)
         fail("Operation key was used for a different message", 409);
-      return saved.kind === "discussions"
+      return saved.kind === "threads"
         ? copy(demo.note(saved.id).note)
         : copy(demo.comment(saved.id).comment);
     },
@@ -117,7 +117,7 @@ export const artifactApi: typeof productionApi = {
     return result;
   },
   search: async (options) => copy(searchDemoArtifacts(demo.state, options)),
-  discussionSource: async (id) => demo.discussionSource(id),
+  threadSource: async (id) => demo.threadSource(id),
   sessions: async () =>
     [
       ...new Set(
@@ -125,9 +125,9 @@ export const artifactApi: typeof productionApi = {
           .flatMap((artifact) => [
             artifact.createdBy.sessionId,
             ...artifact.versions.map((version) => version.publishedBy.sessionId),
-            ...artifact.discussions.flatMap((discussions) => [
-              discussions.comments[0]!.author.sessionId,
-              ...discussions.comments.slice(1).map((comment) => comment.author.sessionId),
+            ...artifact.threads.flatMap((threads) => [
+              threads.comments[0]!.author.sessionId,
+              ...threads.comments.slice(1).map((comment) => comment.author.sessionId),
             ]),
           ])
           .filter((id): id is string => id !== null),
@@ -206,7 +206,7 @@ export const artifactApi: typeof productionApi = {
     return copy(demo.get(id));
   },
   delete: async (id) => {
-    for (const note of demo.get(id).discussions) delete demo.state.everDelivered[note.id];
+    for (const note of demo.get(id).threads) delete demo.state.everDelivered[note.id];
     delete demo.state.discussionRevisions[id];
     demo.state.artifacts = demo.state.artifacts.filter((item) => item.id !== id);
     for (const key of Object.keys(demo.state.publications))
@@ -220,30 +220,30 @@ export const artifactApi: typeof productionApi = {
     for (const listener of demo.subscribers) listener({ type: "artifact-deleted", artifactId: id });
     return { ok: true };
   },
-  addDiscussion: async (id, body, target, options = {}) => {
+  addThread: async (id, body, target, options = {}) => {
     demo.target(id, target);
-    const operation = await messageOperation(id, "discussions", options.operationKey, {
+    const operation = await messageOperation(id, "threads", options.operationKey, {
       body,
       target,
       attachments: options.attachments,
       mediaSnapshot: options.mediaSnapshot,
     });
     const replay = operation.replay();
-    if (replay) return replay as ArtifactDiscussion;
+    if (replay) return replay as ArtifactThread;
     const images = await attachments(id, options.attachments);
     const accepted = await mediaEvidence(id, target, options.mediaSnapshot);
     const concurrent = operation.replay();
-    if (concurrent) return concurrent as ArtifactDiscussion;
-    const note = demo.addDiscussion(id, body, accepted!, images);
+    if (concurrent) return concurrent as ArtifactThread;
+    const note = demo.addThread(id, body, accepted!, images);
     operation.save(note.id);
     return note;
   },
   attachment: async (artifactId, id) => {
-    const images = discussionAttachments(demo.get(artifactId).discussions);
+    const images = commentAttachments(demo.get(artifactId).threads);
     if (!images.some((image) => image.id === id)) fail("Attachment not found", 404);
     return new Response(demo.images.get(id)?.blob ?? fail("Attachment not found", 404));
   },
-  editDiscussion: async (id, body) => {
+  editThread: async (id, body) => {
     const { artifact, note } = demo.note(id);
     const nextImages = await attachments(
       artifact.id,
@@ -273,25 +273,25 @@ export const artifactApi: typeof productionApi = {
       note.comments[0]!.sentAt = null;
     note.statusUnsent ||= note.status !== previousStatus && demo.state.everDelivered[id] === true;
     note.updatedAt = now();
-    artifact.working = artifact.discussions.some((item) => item.claim !== null);
+    artifact.working = artifact.threads.some((item) => item.claim !== null);
     demo.changed(artifact.id);
     return copy(note);
   },
-  deleteDiscussion: async (id) => {
+  deleteThread: async (id) => {
     const { artifact } = demo.note(id);
     demo.requireActive(artifact.id);
     delete demo.state.everDelivered[id];
     for (const [key, operation] of Object.entries(demo.state.messageOperations ?? {}))
       if (
         operation.id === id ||
-        artifact.discussions
+        artifact.threads
           .find((note) => note.id === id)
           ?.comments.some((comment) => comment.id === operation.id)
       )
         delete demo.state.messageOperations![key];
-    artifact.discussions = artifact.discussions.filter((item) => item.id !== id);
-    artifact.placements = artifact.placements.filter((item) => item.discussionId !== id);
-    artifact.working = artifact.discussions.some((item) => item.claim !== null);
+    artifact.threads = artifact.threads.filter((item) => item.id !== id);
+    artifact.placements = artifact.placements.filter((item) => item.threadId !== id);
+    artifact.working = artifact.threads.some((item) => item.claim !== null);
     demo.changed(artifact.id);
     return { ok: true };
   },
@@ -313,7 +313,7 @@ export const artifactApi: typeof productionApi = {
     const comment = {
       id: mint("comment"),
       artifactId: artifact.id,
-      discussionId: id,
+      threadId: id,
       author: human,
       body: body.body,
       attachments: images,
@@ -330,7 +330,7 @@ export const artifactApi: typeof productionApi = {
   },
   editComment: async (id, body, inputs) => {
     const { artifact, comment } = demo.comment(id);
-    if (comment.discussionId === null && inputs?.length) fail("Archive Comments support text only");
+    if (comment.threadId === null && inputs?.length) fail("Archive Comments support text only");
     const event = artifact.events.find((event) => event.comment?.id === id);
     if (event) {
       demo.state.lifecycleRequests ??= {};
@@ -368,34 +368,33 @@ export const artifactApi: typeof productionApi = {
     demo.handoff(id);
     return { notification: { state: "sent" } };
   },
-  pendingDiscussion: (id, discussions) => demo.snapshot(id, discussions),
-  discussionHistory: async (id, discussions) => {
+  pendingComments: (id, threads) => demo.snapshot(id, threads),
+  commentHistory: async (id, threads) => {
     const artifact = demo.get(id);
-    const selected = artifact.discussions.filter((note) =>
-      discussions ? discussions.includes(note.id) : note.status === "open",
+    const selected = artifact.threads.filter((note) =>
+      threads ? threads.includes(note.id) : note.status === "open",
     );
     return {
       text: buildArtifactPrompt(
         artifact,
         selected,
         false,
-        discussions ? [] : demo.artifactComments(id),
+        threads ? [] : demo.artifactComments(id),
       ),
-      itemCount: selected.length + (discussions ? 0 : demo.artifactComments(id).length),
-      attachments: discussionAttachments(selected),
+      itemCount: selected.length + (threads ? 0 : demo.artifactComments(id).length),
+      attachments: commentAttachments(selected),
     };
   },
-  acknowledgeDiscussion: async (id, body) => {
-    if (!/^[a-f0-9]{64}$/.test(body.expectedFingerprint ?? ""))
-      fail("Invalid discussions fingerprint");
+  acknowledgeComments: async (id, body) => {
+    if (!/^[a-f0-9]{64}$/.test(body.expectedFingerprint ?? "")) fail("Invalid comment fingerprint");
     const revision = demo.state.discussionRevisions[id];
-    const snapshot = await demo.snapshot(id, body.discussions);
+    const snapshot = await demo.snapshot(id, body.threads);
     if (
       revision !== demo.state.discussionRevisions[id] ||
       body.expectedFingerprint !== snapshot.acknowledgment.expectedFingerprint
     )
-      fail("Discussion changed; fetch it again before acknowledging", 409);
-    demo.handoff(id, body.discussions);
+      fail("Thread changed; fetch it again before acknowledging", 409);
+    demo.handoff(id, body.threads);
     return { acknowledgedCount: snapshot.itemCount };
   },
   viewed: async (id) => {

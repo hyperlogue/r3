@@ -174,7 +174,7 @@ bundled publication; localStorage cannot provide executable document or asset
 bytes. CSS and images are embedded from the same bundle, and links resolve only
 to that publication's documents and fragments. Query routes, external links,
 arbitrary publication uploads, and the publisher utility/device API are outside this demo.
-Discussion paste/upload and crop use the shared image controls; message retry keys
+Comment paste/upload and crop use the shared image controls; message retry keys
 last for the page visit and image reads verify membership in the selected artifact.
 
 The shared selection/Locate runtime and Markdown theme/height adapters run on a

@@ -15,11 +15,11 @@ for (const operation of ["upload", "reuse"]) {
         [
           process.execPath,
           "-e",
-          `const { readAttachmentFiles, downloadDiscussionImages } = await import("./attachment-files.ts");
+          `const { readAttachmentFiles, downloadCommentImages } = await import("./attachment-files.ts");
            const [operation, directory, id] = process.argv.slice(1);
            try {
              if (operation === "upload") await readAttachmentFiles([id + ".png"], directory);
-             else await downloadDiscussionImages({ request() { throw new Error("Unexpected download"); } },
+             else await downloadCommentImages({ request() { throw new Error("Unexpected download"); } },
                [{id, hash: "0".repeat(64), mediaType: "image/png", byteLength: 1}], directory);
              process.exit(1);
            } catch (error) {

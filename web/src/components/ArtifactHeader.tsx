@@ -5,7 +5,7 @@ import type {
   ArtifactDetail,
   ArtifactVersion,
 } from "../../../shared/artifacts.ts";
-import { useOptimisticArtifact } from "../artifact-discussions-status.ts";
+import { useOptimisticArtifact } from "../artifact-thread-status.ts";
 import { useArtifactClient, useArtifactUI } from "../artifact-ui-context.tsx";
 import { formatBytes } from "../format-bytes.ts";
 import type { MessageRef } from "../markdown.ts";
@@ -31,7 +31,7 @@ import { MessageProse } from "./Message.tsx";
 import { Notification, type NotificationProps } from "./Notifications.tsx";
 import { WorkspaceHeader } from "./WorkspaceHeader.tsx";
 
-function ArtifactSendDiscussion({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
+function ArtifactSendComments({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
   const handoff = useArtifactHandoff(detail);
   return (
     <div className="r3-nav-handoff relative shrink-0" aria-hidden={!visible} inert={!visible}>
@@ -341,11 +341,11 @@ export function ArtifactHeader({
       <div className="min-w-0 flex-1" />
       {onToggleDiscussion && (
         <div className="flex shrink-0 items-center max-md:hidden">
-          <ArtifactSendDiscussion detail={detail} visible={!discussionVisible} />
+          <ArtifactSendComments detail={detail} visible={!discussionVisible} />
           <ArtifactDiscussionToggle
             disabled={discussionLocked}
             artifactId={detail.id}
-            discussions={detail.discussions}
+            threads={detail.threads}
             visible={!!discussionVisible}
             onToggle={onToggleDiscussion}
           />

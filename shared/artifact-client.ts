@@ -84,12 +84,12 @@ export class ArtifactClient {
 
   async checkProtocol(): Promise<void> {
     const health = await this.json<{ protocol?: string }>("GET", "/api/health");
-    if (health.protocol !== "artifacts-v2")
+    if (health.protocol !== "artifacts-v3")
       throw new Error(
-        "This server uses the previous review protocol. Upgrade and restart r3 before publishing artifacts.",
+        "This server uses a different artifact protocol. Upgrade and restart r3 so client and server use the same protocol.",
       );
   }
 }
 
 export const artifactApiPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`;
-export const discussionApiPath = (id: string) => `/api/discussions/${encodeURIComponent(id)}`;
+export const threadApiPath = (id: string) => `/api/threads/${encodeURIComponent(id)}`;

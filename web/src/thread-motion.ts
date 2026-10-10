@@ -1,15 +1,15 @@
 import { type AutoAnimationPlugin, getTransitionSizes } from "@formkit/auto-animate";
 import { createContext, useLayoutEffect, useRef } from "react";
-import type { ArtifactDiscussion } from "../../shared/artifacts.ts";
+import type { ArtifactThread } from "../../shared/artifacts.ts";
 import { prefersReduced } from "./ui.tsx";
 
 // Keep the confirmed card and the departing composer in one React commit, even
 // before the query observer delivers its next snapshot. Release after refetch.
-export const DiscussionCreationContext = createContext<
-  ((discussions: ArtifactDiscussion) => () => void) | null
+export const ThreadCreationContext = createContext<
+  ((threads: ArtifactThread) => () => void) | null
 >(null);
 
-const discussionMorphs = new Map<
+const threadMorphs = new Map<
   string,
   {
     list: HTMLElement;
@@ -24,31 +24,31 @@ const discussionMorphs = new Map<
 // Capture once, after the server confirms the new note. Only an inline new-note
 // composer shares a list slot with the card; floating composers and comments keep
 // their existing behavior. An early event-stream read may already contain the ID.
-export function prepareDiscussionMorph(form: HTMLFormElement | null, discussionId: string): void {
-  const draft = form?.closest<HTMLElement>("[data-discussions-draft]");
+export function prepareThreadMorph(form: HTMLFormElement | null, threadId: string): void {
+  const draft = form?.closest<HTMLElement>("[data-discussion-draft]");
   const list = draft?.parentElement;
   if (!draft || !list || !draft.offsetHeight || prefersReduced()) return;
-  draft.dataset.discussionsPosted = discussionId;
-  discussionMorphs.set(discussionId, {
+  draft.dataset.commentsPosted = threadId;
+  threadMorphs.set(threadId, {
     list,
     top: draft.offsetTop,
     left: draft.offsetLeft,
     width: draft.offsetWidth,
     height: draft.offsetHeight,
     // A closed/navigated panel must not retain a detached DOM tree.
-    expiry: setTimeout(() => discussionMorphs.delete(discussionId), 1000),
+    expiry: setTimeout(() => threadMorphs.delete(threadId), 1000),
   });
 }
 
-// Restore the original discussions panel's motion: rise/fade on entry, exit right,
+// Restore the original discussion panel's motion: rise/fade on entry, exit right,
 // and translate between measured positions when the working queue reorders.
-export const discussionAnimation: AutoAnimationPlugin = (element, action, before, after) => {
-  const reduce = prefersReduced() || !!element.closest("[data-discussions-queue][inert]");
-  const id = element instanceof HTMLElement ? element.dataset.artifactDiscussion : undefined;
-  const morph = id && discussionMorphs.get(id);
+export const threadAnimation: AutoAnimationPlugin = (element, action, before, after) => {
+  const reduce = prefersReduced() || !!element.closest("[data-discussion-queue][inert]");
+  const id = element instanceof HTMLElement ? element.dataset.artifactThread : undefined;
+  const morph = id && threadMorphs.get(id);
   const destination = action === "add" ? before : after;
   if (morph && destination && action !== "remove" && element.parentElement === morph.list) {
-    discussionMorphs.delete(id!);
+    threadMorphs.delete(id!);
     clearTimeout(morph.expiry);
     const [, , heightFrom, heightTo] = getTransitionSizes(
       element,
@@ -83,7 +83,7 @@ export const discussionAnimation: AutoAnimationPlugin = (element, action, before
   if (action === "remove") {
     // The animation briefly retains removed DOM; its controls are no longer live.
     if (element instanceof HTMLElement) element.inert = true;
-    if (element instanceof HTMLElement && element.dataset.discussionsPosted)
+    if (element instanceof HTMLElement && element.dataset.commentsPosted)
       return new KeyframeEffect(element, [{ opacity: 1 }, { opacity: 0 }], {
         duration: reduce ? 0 : 180,
         easing: "ease-out",
@@ -106,7 +106,7 @@ export const discussionAnimation: AutoAnimationPlugin = (element, action, before
   );
 };
 
-export function useDiscussionTabIndicator(selected: string) {
+export function useThreadTabIndicator(selected: string) {
   const ref = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const animation = useRef<Animation | null>(null);
@@ -123,7 +123,7 @@ export function useDiscussionTabIndicator(selected: string) {
   useLayoutEffect(() => {
     const root = ref.current;
     const indicator = indicatorRef.current;
-    const button = root?.querySelector<HTMLElement>(`[data-discussions-tab="${selected}"]`);
+    const button = root?.querySelector<HTMLElement>(`[data-discussion-tab="${selected}"]`);
     if (!root || !indicator || !button) return;
     const measure = () => {
       const next = {
@@ -197,7 +197,7 @@ export function useDiscussionTabIndicator(selected: string) {
     reduced.addEventListener("change", stop);
     const resize = new ResizeObserver(measure);
     resize.observe(root);
-    for (const tab of root.querySelectorAll("[data-discussions-tab]")) resize.observe(tab);
+    for (const tab of root.querySelectorAll("[data-discussion-tab]")) resize.observe(tab);
     measure();
     return () => {
       resize.disconnect();

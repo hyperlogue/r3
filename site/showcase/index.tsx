@@ -8,7 +8,7 @@ import { ArtifactPage } from "../../web/src/artifact-page.tsx";
 import { setDiscussionMode } from "../../web/src/settings.ts";
 import "../../web/src/showcase/forms.ts";
 import { FieldworkDocument } from "./FieldworkDocument.tsx";
-import { FIELDWORK_ID, fieldworkSeed, VISIBILITY_DISCUSSION } from "./fixture.ts";
+import { FIELDWORK_ID, fieldworkSeed, VISIBILITY_THREAD } from "./fixture.ts";
 
 // A normal ArtifactPage host: fixture data, fake handlers, one renderer. There
 // are no bundler aliases, API routes, authentication, or server bootstrap here.
@@ -79,7 +79,7 @@ function Example() {
           detail={detail}
           data={data}
           actions={artifactApi}
-          initialSearch={`?version=2&discussions=${VISIBILITY_DISCUSSION}&comment=comment_fieldwork_fix`}
+          initialSearch={`?version=2&thread=${VISIBILITY_THREAD}&comment=comment_fieldwork_fix`}
           renderPreview={(props) => <FieldworkDocument {...props} />}
         />
       ) : (

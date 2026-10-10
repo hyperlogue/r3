@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn, StrokeIcon } from "../ui.tsx";
 
 // The phone-tier review chrome (see the mobile-tier skill): a persistent bottom
-// bar summarizing the discussions state, and a bottom sheet hosting the one
+// bar summarizing the discussion state, and a bottom sheet hosting the one
 // ArtifactThreads instance. Three discrete states — closed, "peek" (short sheet:
 // the composer, which the panel auto-scrolls into view, over the code being
 // annotated), "full" (browse/comment/resolve) — every transition a tap, no drag
@@ -32,9 +32,9 @@ export function MobileReviewChrome({
     <>
       {/* The bar is in-flow at the bottom of ArtifactView's column (not fixed), so
           it never overlaps the last code line; safe-area padding clears the home
-          indicator. It wears the discussions surface (panel-header white/near-black)
+          indicator. It wears the discussion surface (panel-header white/near-black)
           behind a 2px rule — the desktop dock's border weight — so it reads as
-          the discussions panel's edge, not another file-header strip. The whole bar
+          the discussion panel's edge, not another file-header strip. The whole bar
           is one expand/collapse button — no other controls live here (watcher
           presence shows inside the panel, where Submit is). */}
       <div
@@ -43,7 +43,7 @@ export function MobileReviewChrome({
       >
         <button
           type="button"
-          data-mobile-discussions-toggle
+          data-mobile-discussion-toggle
           onClick={() => onSetSheet(sheet === "closed" ? "full" : "closed")}
           className="flex min-h-11 w-full items-center gap-2 px-3 text-sm font-semibold"
         >
@@ -66,13 +66,13 @@ export function MobileReviewChrome({
       {!docked && sheet === "full" && (
         <button
           type="button"
-          aria-label="Close discussions"
+          aria-label="Close discussion"
           onClick={() => onSetSheet("closed")}
           className="fixed inset-0 z-40 cursor-default bg-black/30"
         />
       )}
       <div
-        data-mobile-discussions={docked ? "docked" : "sheet"}
+        data-mobile-discussion={docked ? "docked" : "sheet"}
         inert={!docked && sheet === "closed"}
         className={cn(
           docked
@@ -103,7 +103,7 @@ export function MobileReviewChrome({
           </button>
           <button
             type="button"
-            aria-label="Close discussions"
+            aria-label="Close discussion"
             onClick={() => onSetSheet("closed")}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-neutral-500"
           >

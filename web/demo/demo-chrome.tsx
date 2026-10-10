@@ -32,7 +32,7 @@ export function DemoChrome() {
   function reset() {
     if (
       !confirm(
-        "Reset the demo? This clears discussions, comments, and publications back to the original artifacts.",
+        "Reset the demo? This clears threads, comments, and publications back to the original artifacts.",
       )
     )
       return;
@@ -96,11 +96,11 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
                 just a demo
               </span>{" "}
               — the whole thing runs in your browser. There's no server: the artifacts and your
-              discussions live in this tab. Reloading starts a fresh demo.
+              threads live in this tab. Reloading starts a fresh demo.
             </p>
             <p>
               Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file
-              diff. Leave discussions on text or an element, then click{" "}
+              diff. Leave threads on text or an element, then click{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
                 Send to agent
               </span>{" "}
