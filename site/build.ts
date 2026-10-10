@@ -17,6 +17,7 @@ import {
   publicURL,
 } from "./render.ts";
 import { buildShowcase } from "./showcase/build.ts";
+import { captureSpecs, showcaseHash, verifyCaptures } from "./showcase/captures.ts";
 import { frontendTheme } from "./theme.ts";
 import { validateLinks } from "./validate.ts";
 
@@ -129,11 +130,12 @@ export async function buildSite() {
   await cp(join(siteDirectory, "assets/social.png"), join(outputDirectory, "assets/social.png"));
 
   await buildShowcase(join(outputDirectory, "example"));
-  for (const theme of ["light", "dark"]) {
-    await cp(
-      join(siteDirectory, `assets/fieldwork-${theme}.png`),
-      join(outputDirectory, `assets/fieldwork-${theme}.png`),
-    );
+  await verifyCaptures(
+    await showcaseHash(join(outputDirectory, "example")),
+    join(siteDirectory, "assets"),
+  );
+  for (const { file } of captureSpecs) {
+    await cp(join(siteDirectory, "assets", file), join(outputDirectory, "assets", file));
   }
 
   // Reuse the current real demo. This content/layout pass does not replace its

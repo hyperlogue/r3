@@ -54,7 +54,7 @@ try {
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 1440,
     height: 960,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: 2,
     mobile: false,
   });
   await page.command("Page.navigate", { url: server.url.href });
@@ -79,6 +79,28 @@ try {
     }, heading);
   }
   let doc = await content("See the work.");
+  async function sharpCapture(mobile = false) {
+    await doc.evaluate(
+      'document.querySelector(".workspace-example").scrollIntoView({behavior:"instant",block:"center"})',
+    );
+    const image = await eventually(
+      () =>
+        doc.evaluate(`(() => {
+      const img = [...document.querySelectorAll('.workspace-fallback img')].find(el => el.getBoundingClientRect().width > 0);
+      if (!img?.complete || !img.naturalWidth) return null;
+      return { pixels: img.naturalWidth, width: img.getBoundingClientRect().width, mobile: img.classList.contains('workspace-mobile') };
+    })()`),
+      "visible workspace capture loaded",
+    );
+    // Opaque child targets may report a different DPR from their emulated host.
+    const required = Math.ceil(image.width * 3);
+    assert(
+      image.pixels >= required,
+      `Workspace screenshot has ${image.pixels}px; needs at least ${required}px for a 3× display`,
+    );
+    assert.equal(image.mobile, mobile, "use the actual phone layout on narrow screens");
+  }
+  await sharpCapture();
   assert.equal(
     await doc.evaluate("getComputedStyle(document.body).fontFamily"),
     'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
@@ -89,6 +111,7 @@ try {
   );
   await doc.evaluate('document.querySelector(".theme-toggle").click()');
   await doc.evaluate("Promise.all(document.getAnimations().map(a=>a.finished))");
+  await sharpCapture();
   assert.equal(
     await doc.evaluate('getComputedStyle(document.querySelector(".button.primary")).color'),
     "rgb(255, 255, 255)",
@@ -98,6 +121,29 @@ try {
     join(import.meta.dir, "../dist/site-review/artifact-dark.png"),
     Buffer.from(data, "base64"),
   );
+  for (const width of [390, 320]) {
+    await page.command("Emulation.setDeviceMetricsOverride", {
+      width,
+      height: 844,
+      deviceScaleFactor: 3,
+      mobile: false,
+    });
+    await sharpCapture(true);
+  }
+  await doc.evaluate('document.querySelector(".theme-toggle").click()');
+  await sharpCapture(true);
+  const mobileCapture = await page.command("Page.captureScreenshot", { format: "png" });
+  await Bun.write(
+    join(import.meta.dir, "../dist/site-review/artifact-mobile.png"),
+    Buffer.from(mobileCapture.data, "base64"),
+  );
+  await doc.evaluate('document.querySelector(".theme-toggle").click()');
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 960,
+    deviceScaleFactor: 2,
+    mobile: false,
+  });
   await doc.evaluate('document.querySelector(".header-start").click()');
   doc = await content("Get started");
   assert.equal(await doc.evaluate("document.documentElement.dataset.theme"), "dark");

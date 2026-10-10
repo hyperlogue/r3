@@ -1,0 +1,37 @@
+{
+  "bundleHash": "ea201989c29fb8e3e3cc908afef1a2b297fa93e6e5c5a9b0d34f28cdfa878891",
+  "captures": [
+    {
+      "file": "fieldwork-light.png",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "916e0ebaeb9478d126185e8b43e0204d3e5ce590e2faf62b7029054a7fe38a61"
+    },
+    {
+      "file": "fieldwork-dark.png",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "caa0f5e441c67ec35a4dd37b8a8f15b9dbf42d9c3ae1d0dbae446ab9a5f6cca4"
+    },
+    {
+      "file": "fieldwork-mobile-light.png",
+      "theme": "light",
+      "width": 390,
+      "height": 740,
+      "scale": 3,
+      "sha256": "b7a991ee017bba583f1f9a8aaaa727b73b841c05528daff788caffa4b0c49816"
+    },
+    {
+      "file": "fieldwork-mobile-dark.png",
+      "theme": "dark",
+      "width": 390,
+      "height": 740,
+      "scale": 3,
+      "sha256": "e72b9ec95abc8c40b93061eff4f2617fe54a647359dc77dbb2265ef907b20220"
+    }
+  ]
+}

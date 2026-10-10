@@ -24,8 +24,14 @@ export function workflowExample() {
 <div class="illustration-caption"><span><span class="status-dot"></span> A review in Example Fieldwork</span><a href="/example/index.html">Open the workspace ↗</a></div>
 <div class="workspace-example" data-workspace-example>
 <a class="workspace-fallback" href="/example/index.html" aria-label="Explore Example Fieldwork in the real r3 workspace">
-<img class="workspace-light" src="/assets/fieldwork-light.png" width="1200" height="740" alt="The r3 workspace showing Example Fieldwork’s project form and a discussion about who can access a project.">
-<img class="workspace-dark" src="/assets/fieldwork-dark.png" width="1200" height="740" alt="The same r3 workspace in dark mode.">
+${["light", "dark"]
+  .map(
+    (theme) => `<div class="workspace-${theme}">
+<img class="workspace-desktop" src="/assets/fieldwork-${theme}.png" width="1240" height="740" loading="lazy" alt="The real r3 workspace showing Example Fieldwork’s project form and a discussion about who can access a project.">
+<img class="workspace-mobile" src="/assets/fieldwork-mobile-${theme}.png" width="390" height="740" loading="lazy" alt="The real r3 phone layout showing the same Example Fieldwork review.">
+</div>`,
+  )
+  .join("")}
 </a>
 </div>
 <figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the discussion.</figcaption>

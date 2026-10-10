@@ -14,8 +14,7 @@ browser.listen((event) => {
   if (event.method === "Runtime.exceptionThrown") failures.push(event.params.exceptionDetails.text);
   if (event.method === "Network.requestWillBeSent") requests.push(event.params.request.url);
 });
-const capture = process.argv.includes("--capture");
-const images = join(import.meta.dir, capture ? "assets" : "../dist/site-review");
+const images = join(import.meta.dir, "../dist/site-review");
 await mkdir(images, { recursive: true });
 try {
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
@@ -66,7 +65,7 @@ try {
       "document.body.innerText.includes('Everyone in your workspace can find and open this project.')",
     ),
   );
-  if (!capture) await screenshot("fieldwork-comparison.png");
+  await screenshot("fieldwork-comparison.png");
   await open();
 
   // The host changes its immutable detail snapshot when fake mutations finish.
@@ -119,7 +118,7 @@ try {
     "!!document.querySelector('[data-artifact-discussions]')",
     "shared mobile discussion UI",
   );
-  if (!capture) await screenshot("fieldwork-mobile.png");
+  await screenshot("fieldwork-mobile.png");
   assert.deepEqual(failures, [], "no browser exceptions");
   assert.deepEqual(
     requests.filter((value) => {

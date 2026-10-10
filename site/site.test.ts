@@ -3,12 +3,27 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRenderer, markdownExport, mountHTML, normalizeBase, publicURL } from "./render.ts";
+import { verifyCaptures } from "./showcase/captures.ts";
 import { validateLinks } from "./validate.ts";
 
 const temporary: string[] = [];
 afterEach(async () => {
   for (const directory of temporary.splice(0))
     await rm(directory, { recursive: true, force: true });
+});
+
+test("workspace captures must match the shipped bundle and recorded image bytes", async () => {
+  const source = join(import.meta.dir, "assets");
+  const manifest = await Bun.file(join(source, "fieldwork-captures.json")).json();
+  await verifyCaptures(manifest.bundleHash, source);
+  await expect(verifyCaptures("changed-workspace-bundle", source)).rejects.toThrow("stale");
+
+  const directory = await mkdtemp(join(tmpdir(), "r3-site-captures-"));
+  temporary.push(directory);
+  await Bun.write(join(directory, "fieldwork-captures.json"), JSON.stringify(manifest));
+  await expect(verifyCaptures(manifest.bundleHash, directory)).rejects.toThrow("stale");
+  await Bun.write(join(directory, "fieldwork-light.png"), "replaced capture");
+  await expect(verifyCaptures(manifest.bundleHash, directory)).rejects.toThrow("stale");
 });
 
 test("deployment URL and mount agree for project Pages and custom domains", () => {

@@ -23,8 +23,6 @@
     0 8px 24px var(--r3-overlay-cast);
   color-scheme: light;
   font-family: var(--font-sans);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
 }
 :root[data-theme="dark"] {
   --bg: var(--color-neutral-950);
@@ -345,6 +343,19 @@ kbd {
 }
 .workspace-fallback img {
   height: auto;
+}
+.workspace-fallback .workspace-mobile {
+  display: none;
+  max-width: 390px;
+  margin-inline: auto;
+}
+@media (max-width: 767px) {
+  .workspace-fallback .workspace-desktop {
+    display: none;
+  }
+  .workspace-fallback .workspace-mobile {
+    display: block;
+  }
 }
 .workspace-fallback .workspace-dark {
   display: none;
