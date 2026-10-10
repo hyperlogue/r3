@@ -2,11 +2,13 @@ Archive finished reviews to keep active work easier to find. Decide separately w
 
 ## Archive and restore
 
-Archiving preserves versions, conversations, thread status, pending human content, and drafts. It closes new publications and conversation changes, clears claims and subscriptions, and keeps the work readable. You can include a short archive comment for the selected subscription.
+Archiving preserves versions, conversations, thread status, pending human content, and drafts. The artifact becomes read-only: publication, title and metadata changes, comments, and thread status changes require a restore. Archiving also clears claims and ends subscriptions.
+
+You can include an archive comment explaining why the review is finished. It belongs to the artifact’s discussion and remains available in its history. A nonblank comment is also sent to the selected agent. Restore the artifact before editing that comment.
 
 A failed notification does not undo the archive. The recorded lifecycle event is authoritative; retrying the same operation does not send a second notification.
 
-Restore an artifact when it needs more work. Restore does not revive an old listener: ask the agent to register again or publish a new version.
+Restore an artifact when it needs more work. Restore does not revive an old subscription: ask the agent to run `r3 listen <artifact-id>` or publish a new version.
 
 ## Inspect usage
 
@@ -39,7 +41,7 @@ r3 gc
 
 This permanently removes eligible artifacts and conversations without a terminal prompt. The web Settings panel offers cleanup with a confirmation. Content shared by surviving publications is retained.
 
-Use `--ttl 7d` to override the threshold for one run. Set the local server default with `r3 config set archiveTtlDays 30`, then restart. The accepted range is 1 to 36,500 days.
+Use `--ttl 7d` to override the threshold for one run. Set the server default on its host machine with `r3 config set archiveTtlDays 30`, then run `r3 server restart`. The accepted range is 1 to 36,500 days.
 
 ## Delete selected work
 

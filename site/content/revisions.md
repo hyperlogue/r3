@@ -10,11 +10,11 @@ Version labels help distinguish rounds. The selected version’s summary is read
 
 Use **Locate** to return to the original target. For source and diffs, r3 opens the relevant file and brings the captured lines into view. Rendered targets refer to the published element, text, and route.
 
-An element may be absent in a later publication, or its placement may be ambiguous. The thread still exists. A later placement is additional information; it never rewrites what you originally selected.
+An element may be absent in a later publication or depend on the page’s interaction state. The thread and its original evidence still exist. Threads do not automatically move to a new version; use the agent’s fix link to inspect the revision.
 
 ## Open the agent’s fix
 
-A reply may carry a fix link that names a published element, line range, file, or media frame. This target is independent of the version used as the reply’s general context.
+A reply may carry a fix link that names a published element, line range, file, or media frame. That fix target also determines the version and view used by inline file references in the comment. Without a fix target, references use the thread’s original target; a general thread with no version stays unbound.
 
 For supported rendered-element pairs and media-frame pairs, **Compare** shows the recorded original against the agent’s explicit fix target. Both publications must still exist. General comments, whole-file targets, source lines, and diff lines do not get a guessed visual comparison.
 
@@ -28,6 +28,6 @@ Use the Active and Resolved queues to move between ongoing and completed threads
 
 ## Finish the artifact
 
-Archive work that no longer needs active review. Archiving retains its versions, conversations, thread status, and drafts. It clears subscriptions and closes publications and conversation changes until restored.
+Archive work that no longer needs active review. Archiving retains its versions, conversations, thread status, and drafts. It ends subscriptions and makes the artifact read-only: restore it before publishing, editing its metadata, commenting, or changing thread status.
 
 Restoring makes the artifact available for work again. The agent needs a new publication or explicit subscription to resume notifications. See [Archive, usage & cleanup](/docs/cleanup/) before permanently removing anything.

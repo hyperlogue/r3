@@ -14,6 +14,8 @@ bun add -g @hyperlogue/r3
 
 Prefer to try it without a global install? Run `npx @hyperlogue/r3@latest`. When using that route, substitute `npx @hyperlogue/r3@latest` for `r3` in later commands. Global installation makes the shorter command available to your agent too.
 
+By default, the workspace runs on your machine. To use an existing remote server, [select its backend and sign in](/docs/access/#select-a-backend-and-sign-in) before asking your agent to publish. The review workflow is the same in either setup.
+
 ## Ask your agent to publish
 
 Give the agent a task and ask it to read the built-in guide:
@@ -24,13 +26,15 @@ The agent can use any coding harness that runs commands. Supported harnesses rec
 
 ## Open the workspace
 
-Open the artifact link the agent gives you. To open the whole library, run:
+Open the artifact link the agent gives you. For your first local browser sign-in, or to open the whole library, run:
 
 ```sh
-r3 server start
+r3 open
 ```
 
-The command prints your workspace URL. A local server starts lazily when a command first needs it. Bare `r3` prints a welcome and quick-start commands; it does not start the server.
+In local mode, the command prints a one-time sign-in link to open in your browser. The link expires after 60 seconds; run it again if needed. Use `r3 open <artifact-id>` for a specific review. For a remote backend, it prints that server’s URL, where you sign in with a browser login token.
+
+A local server starts lazily when a command first needs it. Bare `r3` prints a welcome and quick-start commands; it does not start the server.
 
 ## Make your first review
 
@@ -46,7 +50,8 @@ The command prints your workspace URL. A local server starts lazily when a comma
 
 | Command | When you need it |
 | --- | --- |
-| `r3 server start` | Start the local workspace and see its URL. |
+| `r3 open [artifact-id]` | Open the library or a review; sign in automatically in local mode. |
+| `r3 server start` | Start the local server explicitly. |
 | `r3 server status` | Check whether it is running and find the URL again. |
 | `r3 server restart` | Apply local server configuration changes. |
 | `r3 server stop` | Stop the local server. |
@@ -55,5 +60,7 @@ The command prints your workspace URL. A local server starts lazily when a comma
 | `r3 guide` | Give your agent its working instructions. |
 | `r3 login` | Authorize the CLI for a selected remote backend. |
 | `r3 worker status` | Check the notification worker’s backend connections. |
+
+Server and worker commands always manage the local machine, even when artifact commands use a remote backend. See [Local & remote access](/docs/access/) for the complete setup.
 
 Next, learn [the complete review loop](/docs/review-loop/) or work through the [project-creation example](/use-cases/prototype/).

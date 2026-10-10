@@ -8,9 +8,13 @@ For a supported still image, target the whole image or the region that needs att
 
 PNG, JPEG, and static WebP are supported for region feedback. Animated images remain whole-file feedback.
 
+## Inspect details with zoom
+
+Use the zoom controls on images and videos to inspect details at up to 800%. Drag to pan, or focus the pan surface and use the arrow keys. **Reset zoom** returns to fit. Zoom changes the view, not the saved pixels or region coordinates.
+
 ## Keep the exact video evidence
 
-Pause browser-decodable video at the moment you want to discuss, then target the frame or a region. The timestamp and saved frame travel with the comment.
+Native video previews start muted; use the playback controls when you want sound. Pause browser-decodable video at the moment you want to discuss, then target the frame or a region. The timestamp and saved frame travel with the comment.
 
 A video seek can land on a neighboring frame. The saved snapshot is the authoritative evidence for the review. Agents should inspect those saved pixels, not reconstruct the original solely by seeking to the timestamp.
 
@@ -18,13 +22,15 @@ For audio, use playback to inspect the file and add whole-file feedback. Include
 
 ## Add visual evidence to a message
 
-Paste or upload PNG/JPEG images into notes and replies. Use the image controls to crop or annotate supporting evidence when that makes the request clearer. A message can contain images without text.
+Paste or upload PNG/JPEG images into comments. Use the image controls to crop or annotate supporting evidence when that makes the request clearer. A comment can contain images without text.
 
 Each message accepts up to four images, each at most 5 MiB and 20 megapixels. Message attachments are separate from the immutable snapshot recorded by a native media target. Editing an attachment does not rewrite that original evidence.
 
 ## Compare the proposed fix
 
 An agent can reply with an explicit media fix target and a saved frame from the new publication. Supported original/fix pairs offer **Compare**, so you can assess both regions without losing their individual versions or timestamps.
+
+Comparison panes have independent zoom and playback. Return to the saved frames to check the exact evidence after exploring the videos.
 
 A plain reply that says “fixed” does not establish a comparison target. Ask the agent to link the relevant published frame when a visual check matters.
 

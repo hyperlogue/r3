@@ -30,6 +30,8 @@ When the composer is empty, an anchoring gesture starts a note. When it already 
 
 Paste or attach images when a visual explanation helps. Image references are numbered within each message. Your agent must download and open the images to inspect their contents; a textual attachment reference does not load the pixels into its context.
 
+In supported browsers, **Capture area** lets you share the current tab and capture the preview, then crop or draw on the image before attaching it. This adds visual evidence to your comment; it does not turn the screenshot into a source-line or element target. You can also paste a screenshot from another tool.
+
 Drafts retain their target and version as you switch views. They persist after a short debounce. Give the save a moment before closing the page, and heed any warning that an image is only available in memory.
 
 ## Send when you are ready
@@ -42,6 +44,8 @@ The fetch command acknowledges only after successfully writing the snapshot to s
 
 ## Continue the conversation
 
-Reply in the same thread when you are discussing the same concern. You can edit or delete comments from their available actions. Editing an open human message makes the updated content pending again. Editing a resolved thread does not reopen it automatically.
+Reply in the same thread when you are discussing the same concern. The thread menu lets you edit your latest comment while it is the last message; after an agent replies, add a new comment instead. **Delete** removes the whole thread and its comments.
+
+Editing an open human comment makes the updated content pending again. Editing a resolved thread does not reopen it automatically. Archived artifacts must be restored before any of these changes.
 
 The human controls open/resolved status. Agent claims indicate work in progress, not resolution. Use [Revisions & resolution](/docs/revisions/) to finish the loop.

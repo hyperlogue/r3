@@ -30,6 +30,12 @@ Device access is scoped to the current document. Navigation resets device choice
 
 The relay is for supported camera/microphone capture, not screen sharing or arbitrary device enumeration. The page may need to adapt to the supported track behavior.
 
+## Return after a suspended tab or server restart
+
+r3 recreates expired preview sessions automatically, preserving your selected publication, document, and navigation. Preview checks run again unless you have remembered compatibility consent. Device capture ends and device permission must be granted again for the new context.
+
+If recovery fails, use the displayed retry action. You do not need a new publication just to renew the preview session.
+
 ## What the public demo demonstrates
 
 The static demo uses bundled content and sandboxed previews. It demonstrates review interactions with a scripted agent. It does not run the server’s capability gate or simulate production preview protection.

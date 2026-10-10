@@ -23,6 +23,13 @@ export const docs: Page[] = [
     source: "review-loop",
   },
   {
+    path: "/docs/access/",
+    title: "Local & remote access",
+    description: "Open your local workspace or connect agents to your own server.",
+    group: "Start here",
+    source: "access",
+  },
+  {
     path: "/docs/html/",
     title: "Interactive pages",
     description: "Use prototypes, explanations, and tools right inside a review.",
@@ -98,13 +105,6 @@ export const docs: Page[] = [
     description: "Put finished work away and choose what to keep.",
     group: "Manage work",
     source: "cleanup",
-  },
-  {
-    path: "/docs/access/",
-    title: "Local & remote access",
-    description: "Run locally or use a protected remote instance.",
-    group: "Operate r3",
-    source: "access",
   },
   {
     path: "/docs/permissions/",

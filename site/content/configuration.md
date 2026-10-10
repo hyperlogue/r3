@@ -1,4 +1,4 @@
-Use `r3 config` to inspect or change local server settings. Restart the local server after changing a setting that the server reads at startup.
+Use `r3 config` to inspect or change settings on this machine. Restart the local server after changing a setting that the server reads at startup.
 
 ```sh
 r3 config show
@@ -9,6 +9,8 @@ r3 server restart
 
 `r3 config unset` removes a persisted override. Environment values take precedence over persisted configuration, then defaults apply. Configuration commands edit the local configuration even when `R3_URL` selects a remote server for other commands.
 
+The CLI’s `backendUrl` setting takes effect on the next command without a server restart. To change a remote server’s settings, run configuration commands on the machine hosting that server.
+
 ## Available settings
 
 | Setting | Purpose |
@@ -18,7 +20,7 @@ r3 server restart
 | `port` | Application listener port. |
 | `publicUrl` | Public application URL behind a proxy or tunnel. |
 | `allowedHosts` | Explicit permitted application hostnames. |
-| `requireLogin` | Require a browser login, including for local access. |
+| `requireLogin` | Legacy setting; browser authentication is always required, even when this is false. Use `r3 open` for local sign-in. |
 | `trustedProxies` | Comma-separated immediate proxy addresses permitted to report a client source address; configure only the proxy you operate. |
 | `authTokenIdleDays` | Positive whole days of inactivity before a login token expires; default 14. |
 | `archiveTtlDays` | Days since archive before manual cleanup eligibility; default 30, range 1–36,500. |
@@ -36,13 +38,13 @@ Successful login or cookie-authenticated requests refresh token activity. Cookie
 
 `R3_AUTH_TOKEN_IDLE_DAYS` overrides the setting. `r3 auth list-tokens --json` exposes each active token’s last-use timestamp without returning its secret value.
 
-## Publisher environment
+## Environment overrides
 
 | Variable | Purpose |
 | --- | --- |
 | `R3_URL` | Select an explicit application server URL. |
 | `R3_AGENT_SESSION` | Give a generic writing agent a distinct, stable run identity. |
-| `R3_PROJECT_GROUPING` | Override the server’s project grouping policy. |
+| `R3_PROJECT_GROUPING` | Override project grouping in the server’s environment. |
 
 The nearest project `.r3.json` can select a `backendUrl` between the environment override and user default. This directory setting is separate from a Project group stored by the backend. Credentials come from `r3 login` and private per-backend storage, not `R3_TOKEN`.
 

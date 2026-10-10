@@ -22,6 +22,6 @@ Use the page’s own controls to explore an HTML artifact, then switch to commen
 
 ## Appearance and keyboard controls
 
-Use the workspace’s appearance controls for light/dark presentation and source highlighting themes. A published page can supply its own design, so its colors need not match the surrounding workspace.
+Use the workspace’s appearance controls for light/dark presentation, font size, and source highlighting themes. A published page can supply its own design, so its colors need not match the surrounding workspace.
 
 Open the visible keyboard-shortcuts control, or press `?`, to see the current bindings. Shortcuts stand down in text fields and overlays, and hidden discussion controls do not keep invisible actions active. See the [generated keyboard reference](/docs/keyboard/) for the complete map.

@@ -227,7 +227,7 @@ The worker inherits the permissions of the CLI that starts it. On new worker sta
 
 \`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` removes your registrations; a later publication can register again. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms registration, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch comments.
 
-Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect removes its live registrations. Reconnect restores saved roles only if the artifact has no incumbent recipient, including a publisher fallback. Conflicts stop automatic attempts until a fresh CLI action. Archive and superseded registrations never return. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
+Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect retains backend subscriptions and marks the selected recipient unavailable. The same worker and authorizing credential reconnect without changing selection; a newer explicit listener is never displaced. Failed notifications are not queued for automatic resend. Replacement, unlisten, archive, and deletion end subscriptions permanently; restore requires a fresh registration. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
 
 \`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms comments were written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the comment snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. An artifact can retain fallback and explicit registrations with one selected recipient.
 
@@ -289,7 +289,7 @@ For a new rendered target, \`thread add\` accepts \`--file <path> --version <seq
 When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
 
 \`\`\`sh
-r3 comment <thread-id> -m 'Added the storage explanation.' --version 2 --view rendered \\
+r3 comment <thread-id> -m 'Added the storage explanation.' \\
   --target '{"kind":"rendered","versionSeq":2,"path":"index.html","locator":{"selector":"#storage-help","label":"Storage help button"}}'
 \`\`\``;
 
@@ -331,7 +331,7 @@ The saved frame is authoritative; video seeking may show a neighboring frame.
 PNG, JPEG, static WebP and browser-decodable video are supported. Animated images
 remain whole-file threads. For example:
 
-\`r3 comment thread_a --version 2 --view media -m 'Improved caption contrast.' --target '{"kind":"media","versionSeq":2,"path":"clip.mp4","locator":{"time":6.3,"box":{"x":0.1,"y":0.7,"width":0.8,"height":0.2}}}' --frame ./fixed-frame.png\`
+\`r3 comment thread_a -m 'Improved caption contrast.' --target '{"kind":"media","versionSeq":2,"path":"clip.mp4","locator":{"time":6.3,"box":{"x":0.1,"y":0.7,"width":0.8,"height":0.2}}}' --frame ./fixed-frame.png\`
 
 \`r3 comment fetch <id> --attachments-dir ./comment-images\` also downloads the
 original and fix snapshots; \`r3 comment image\` retrieves an individual frame.
@@ -341,7 +341,7 @@ for media Compare; commenting leaves resolution to the human.
 
 For rendered HTML/Markdown, use \`--view rendered\` with \`--selector <CSS>\` and optional \`--quote <text>\` and \`--route <query/hash>\`, or the recorded JSON target. Keep any companion assets in the publication and use relative document URLs. Rendered previews remain isolated; files artifacts do not receive the HTML-artifact external-access grant.
 
-The main guide covers the discussion loop and native evidence. Use \`r3 --help\` for inspection and placement command details.`;
+The main guide covers the discussion loop and native evidence. Use \`r3 --help\` for inspection and download commands.`;
 
 const DIFF_GUIDE = `# Diff artifacts
 

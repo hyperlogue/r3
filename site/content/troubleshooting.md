@@ -8,6 +8,21 @@ A successful queue notification can wait for the agent session to resume. A fail
 
 Supported publications establish a publisher fallback through the local worker and selected backend. Explicit listen/watch takes priority. Use `r3 worker status` to inspect connection or delivery problems, and `r3 login` if that backend needs renewed authorization. An unsupported agent can use `r3 watch`. The [agent guide](/docs/agents/) explains subscription behavior and exit codes.
 
+Temporary disconnections retain the selected subscription. Reconnection does not resend a failed notification: send again or fetch the pending comments directly. If you want to change the receiving agent, ask it to run `r3 listen <artifact-id>`.
+
+## The worker warns about a sandbox
+
+The worker inherits the permissions of whichever process starts it. A successful publication does not prove that a worker started inside an agent sandbox can reach the local harness.
+
+From a regular terminal outside the sandbox, run:
+
+```sh
+r3 worker restart
+r3 worker status
+```
+
+This restarts notification delivery without restarting the storage server. If delivery still fails, inspect the reported backend or harness error and fetch comments directly to continue the review.
+
 ## The page did not update after a revision
 
 The selected version stays pinned. Choose **Go to the latest version** or use the version selector. Local file changes do not affect a published version until the agent publishes again.
@@ -21,6 +36,8 @@ Read the preview protection message. A browser that cannot verify the default ne
 External fonts, scripts, and API calls are blocked by default. Prefer a self-contained publication. Do not move a protected endpoint outside its guards to make a preview load.
 
 For remote instances, check the public URL, allowed hostnames, HTTPS forwarding, and proxy coverage of `/__r3_preview/`.
+
+If the tab was suspended or the server restarted, r3 automatically recreates an expired preview session while keeping the selected publication and navigation. Use the retry action if recovery fails. Device capture stops and needs fresh permission; republishing the artifact is unnecessary.
 
 ## Locate cannot find an element
 
@@ -38,13 +55,21 @@ Another version or lifecycle change may have arrived while the agent was prepari
 
 ## Login stopped working
 
+Local browser access requires authentication too. Run `r3 open` and open the printed link; it is single-use and expires after 60 seconds. The old `requireLogin=false` setting no longer bypasses browser sign-in.
+
 Browser login tokens expire after the configured inactivity period or can be revoked. Obtain a fresh browser token through your authorized administration path. For CLI access, run `r3 login` against the intended backend. API keys and browser-approved CLI grants are separate from browser login tokens.
 
 Check `R3_URL`, the nearest `.r3.json`, and the user `backendUrl` setting. A remote URL does not inherit credentials from another backend. The CLI reports malformed selected configuration rather than silently choosing a different instance.
 
-## A comment conflicts after archive
+## A change conflicts after archive
 
-Archived artifacts remain readable, but further conversation changes are closed until restore. Keep the prepared comment text, restore the artifact when continued work is intended, and try again. Restore does not revive the old subscription automatically.
+Archived artifacts are read-only, including their metadata, publications, comments, and thread status. Even a comment already being prepared is rejected if archive finishes first. Keep the prepared text, restore the artifact when continued work is intended, and try again. Drafts remain available. Restore does not revive the old subscription automatically.
+
+## Upgrade the CLI and server together
+
+The v2.0 API requires a matching CLI and server. Update r3 on the server’s host and on each machine running agents, then restart the server on its host with `r3 server restart`. Restart local notification workers with `r3 worker restart` from a regular terminal outside the agent sandbox.
+
+Existing artifact workspaces migrate automatically, preserving publications, conversations, and IDs. Older notification subscriptions without the required credential identity are retired during migration; ask your agent to listen again or publish a new version. For integrations, use `r3 thread` for targeted topics and `r3 comment fetch` for incoming messages. The [command reference](/docs/cli/) lists the current syntax.
 
 ## An old installation will not upgrade
 

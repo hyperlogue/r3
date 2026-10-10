@@ -18,7 +18,7 @@ Drafts stay with their targets when you switch views. Submitted comments are ret
 
 ## 3. Send the batch
 
-**Send to agent** notifies the agent through the selected subscription. The agent fetches the pending notes, replies, and status changes. A notification is a prompt to read the feedback; it is not itself acknowledgment that the content was read.
+**Send to agent** notifies the agent through the selected subscription. The agent fetches pending comments and thread status changes. A notification prompts the agent to fetch; delivery is recorded only after the CLI successfully outputs and acknowledges that batch. Neither step proves that a model has processed it.
 
 If no agent is subscribed, **Use in agent** gives you a command to run in your harness. You can bring the review to a new agent this way too.
 

@@ -55,7 +55,7 @@ export function home() {
 </a>
 <a class="text-link" href="/docs/get-started/">Get started →</a>
 </div>
-<p class="hero-footnote">Works with any agent that can run a command.<br>Runs locally. Yours to explore.</p>
+<p class="hero-footnote">Works with any agent that can run a command.<br>Local by default. <a href="/docs/access/">Connect to your own server ↗</a></p>
 </div>
 </div>${workflowExample()}</section>
 <section class="loop-section container" aria-labelledby="loop-heading">

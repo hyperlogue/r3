@@ -57,4 +57,6 @@ r3 create --kind html --dir ./fieldwork-prototype \
 
 After making the change, it publishes the complete directory to the returned artifact ID. The [HTML guide](/docs/agents/html/) covers stable targets and named fix links.
 
-For immediate practice with r3’s review controls, [open the live demo](/demo/). Its bundled curve lab uses the same publish, comment, and scripted-revision pattern.
+For immediate practice, [open the Example Fieldwork workspace](/example/index.html). It starts on the revised form with the agent’s fix selected. Use **Compare** or the version selector to inspect the original, then try commenting and resolving the thread in the real r3 interface. The data and agent replies are fictional; reset returns to the sample.
+
+The separate [live demo](/demo/) includes a curve lab and code review with scripted agent replies.
