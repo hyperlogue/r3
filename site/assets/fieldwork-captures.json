@@ -1,5 +1,5 @@
 {
-  "bundleHash": "7b3bf31c5f8c89b28232b9bf87492a83524948202bac0225745999cf3602f400",
+  "bundleHash": "7098f3d78289cafa52b9ec083613a99e2301d99edfaac457017c144f850e4c05",
   "captures": [
     {
       "file": "fieldwork-light.png",
@@ -23,7 +23,7 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "07578bbe503f539a31bdce9df3c5c943e08b0eba4ccd3359d8fafe2fd61a0f8c"
+      "sha256": "20fa58c17f22d9e225c2aa8c1833f9aeaf9dadf11cb432c48a16e8f44f851c3c"
     },
     {
       "file": "fieldwork-mobile-dark.png",
@@ -31,7 +31,7 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "b3b7e0aaa13837dbdc4dd0b10cbcc424428ffc944e6dfbc3223fd93f7eebb937"
+      "sha256": "ad75630501ac83deaf8cf242c1135bc9f14bf3e6ceb3d3851a37f0fc1723babc"
     }
   ]
 }
