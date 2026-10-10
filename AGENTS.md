@@ -154,7 +154,7 @@ The CLI writes it successfully to stdout before calling the explicit discussions
 acknowledgment endpoint with its required fingerprint. Persisted revisions prevent
 stale snapshots from acknowledging edits, including edit-and-revert cycles. Failed
 reads/output leave content pending; retries after acknowledgment failure may repeat
-output. The web UI copies a `r3 discussions fetch` command without acknowledging it.
+output. The web UI copies a `r3 comment fetch` command without acknowledging it.
 Successful fetch registers the caller as listener when its harness supports it.
 A wake notification alone does not stamp delivery.
 Discussion retains whether it was ever delivered independently of the current text's
@@ -189,7 +189,7 @@ authored runs. Generic watch needs no supplied identity. Watch gives archive
 priority over pending discussions and timeout, including a watch begun after archive.
 Exit codes: archived `0`, pending `10`, timeout `2`, occupied/superseded or snapshot conflict `4`.
 Explicit listen adapter unavailability is `5`; automatic setup failure only warns
-after successful publication or discussions fetch. Generic agents can watch or poll.
+after successful publication or comment fetch. Generic agents can watch or poll.
 Use `cli/artifact-help.ts` as the exact command/help/agent-guide text.
 
 ## Browser design

@@ -40,7 +40,7 @@ function Fixture() {
             title="Agent notification failed"
             message="Check that the agent session is running."
             tone="error"
-            command="r3 discussions fetch artifact_example"
+            command="r3 comment fetch artifact_example"
             onDismiss={() => setFailure(false)}
           />
         )}

@@ -148,7 +148,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect(await watchers()).toMatchObject([{ mode: "explicit" }]);
     expect((await run("unlisten", id)).code).toBe(0);
     expect(await watchers()).toEqual([]);
-    const fetched = await run("discussions", "fetch", id);
+    const fetched = await run("comment", "fetch", id);
     expect(fetched.code).toBe(0);
     expect(fetched.error).toBe("");
     expect(fetched.output).not.toContain("Listening on");
@@ -158,7 +158,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     expect((await daemonInfo()).pid).toBe(daemonPid);
     expect(await Bun.file(queueFile).exists()).toBe(false);
     expect((await run("unlisten", id)).code).toBe(0);
-    expect((await run("discussions", "fetch", id, "--all")).code).toBe(0);
+    expect((await run("comment", "fetch", id, "--all")).code).toBe(0);
     expect(await watchers()).toEqual([]);
     expect((await run("status")).output).toContain("artifacts-v2");
     await writeFile(join(directory, "page.md"), "# After\n");
@@ -265,7 +265,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       (await run("comment", "edit", archiveComment.id, "--human", "-m", "Updated archive comment"))
         .code,
     ).toBe(0);
-    const archiveHandoff = await run("discussions", "fetch", id, "--human");
+    const archiveHandoff = await run("comment", "fetch", id, "--human");
     expect(archiveHandoff.code).toBe(0);
     expect(archiveHandoff.output).toContain("Updated archive comment");
     const updatedHistory = JSON.parse((await run("show", id, "--json")).output);

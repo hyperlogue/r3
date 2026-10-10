@@ -108,7 +108,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `locator.frame` descriptor; bytes use the attachment route. Snapshot evidence
   is separate from editable message attachments. CLI discussions add/comment accept
   `--frame <path>` with a media `--target`; media targets accept `--view media`.
-  Discussion fetch manifests include target frames, including follow-up originals.
+  Comment fetch manifests include target frames, including follow-up originals.
   Rendered locators accept an optional plain-text `label` for named HTML fix links;
   matching still uses the selector and native evidence. See `r3 guide html` for
   the comment example and the schema document for storage semantics.
@@ -284,7 +284,7 @@ The current command families:
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `discussions add/edit/delete`, `comment` | Native immutable originals and derived comment references; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable discussions-scoped lease |
-| `discussions fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
+| `comment fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
 | `discussions source <discussions-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
@@ -334,7 +334,7 @@ status change still sets `statusUnsent` after any earlier delivery; resolving a
 never-sent note does not create agent work. Agent messages remain born delivered
 even if the human owner edits them.
 
-`discussions fetch` and `watch` read pending discussions, await successful stdout
+`comment fetch` and `watch` read pending discussions, await successful stdout
 completion, then explicitly acknowledge that exact snapshot. Reads and failed output
 leave content pending. A failed acknowledgment returns an error and may repeat output
 on retry; concurrent conversation changes remain pending. This is at-least-once
@@ -342,13 +342,13 @@ handoff to stdout, not proof that the harness/model processed the content. Reusi
 old acknowledgment cannot drain a newer batch. All conversation mutations and
 archive/restore advance a persisted artifact revision; claims alone do not.
 
-After successful acknowledgment, `discussions fetch` registers the calling agent as an
+After successful acknowledgment, `comment fetch` registers the calling agent as an
 explicit listener when harness detection supports it. This uses the persistent worker and direct backend registration, returns after registration, and keeps listener
 output off stdout. Setup failures only warn on stderr after a successful fetch.
 Unsupported harnesses need no identity to fetch; `--human` skips registration.
 `--all` reads open history without acknowledgment or registration, and
 `--all --discussions` can read specific resolved threads too.
-Wake notifications use the preferred `r3 discussions fetch` spelling. Fetch and watch
+Wake notifications use the preferred `r3 comment fetch` spelling. Fetch and watch
 share a data-only formatter; workflow instructions live in the guide. Original
 targets, claims, comment/fix context, status changes, and history pointers remain in
 the payload. Without a listener/watcher, the browser offers **Use in agent** with a
@@ -382,7 +382,7 @@ Preview `getThreads()` projects conversation text without attachment descriptors
 `--key`; image-only messages may omit `-m`. `discussions edit --attach` replaces the
 image list, and `--clear-attachments` removes it. `discussions image <artifact-id>
 --image <image-id> [--output <file>]` downloads bytes; omitted output writes stdout.
-`discussions fetch --attachments-dir <directory>` downloads and hash-verifies the
+`comment fetch --attachments-dir <directory>` downloads and hash-verifies the
 snapshot's images before output/acknowledgment, reusing only matching existing
 files. Failure leaves discussions pending. The guide requires agents to open relevant
 images with their harness's image viewer before commenting.

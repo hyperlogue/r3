@@ -364,7 +364,7 @@ export const artifactApi: typeof productionApi = {
       : [],
   submit: async (id) => {
     if (!demo.get(id).watching)
-      fail("No listener is registered; run r3 discussions fetch in your agent", 409);
+      fail("No listener is registered; run r3 comment fetch in your agent", 409);
     demo.handoff(id);
     return { notification: { state: "sent" } };
   },

@@ -71,10 +71,10 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
   discussions delete <discussion-id>
   comment <discussion-id> [-m <message>] [--attach <image>]... [--key K]
         [target flags] [--frame <snapshot.png>]
+  comment fetch <artifact-id> [--all] [--discussions <id,id>] [--attachments-dir <directory>]
   comment show <comment-id> [--json]          # opening, follow-up, or archive Comment
   comment edit <comment-id> [-m <message>] [--attach <image>]... | [--clear-attachments]
   claim <discussion-id>... | release <discussion-id>...
-  discussions fetch <id> [--all] [--discussions <id,id>] [--attachments-dir <directory>]
   discussions image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
   discussions source <discussion-id> [--json]      # full captured source/diff range
   watch <id> [--timeout <seconds>]
@@ -98,11 +98,12 @@ Identity: Detected run IDs are qualified by harness (codex:<id> or claude:<id>).
           R3_AGENT_SESSION supplies an explicit complete identity override.
           --session <name> sets a readable display name; it never changes identity.
           --human acts as the human owner. watch needs no supplied identity.
-Discussion fetch writes new discussions/comments to stdout, acknowledges that snapshot
-only after output succeeds, then registers the calling agent when supported.
+Comment fetch writes pending comments and discussion status changes to stdout,
+acknowledges that snapshot only after output succeeds, then registers the calling
+agent when supported.
 Listener failure only warns on stderr. A failed acknowledgment can repeat output
 on retry; concurrent edits remain pending. --human skips listener registration.
-Use ! r3 discussions fetch <id> in your harness to load discussions into its context.
+Use ! r3 comment fetch <id> in your harness to load discussions into its context.
 --all reads history without acknowledgment or listener registration.
 Images: static PNG/JPEG, at most four per message, 5 MiB and 20 megapixels each.
 A message needs text or an image. Editing with --attach replaces all images;
@@ -162,7 +163,7 @@ artifact_id=artifact_example
 # Share the printed URL. Local Claude Code/Codex publications register automatically.
 
 # When a discussion-submitted notification arrives:
-r3 discussions fetch "$artifact_id"
+r3 comment fetch "$artifact_id"
 r3 claim discussion_a discussion_b discussion_c
 
 # Inspect the recorded targets and revise the prepared files.
@@ -220,17 +221,17 @@ Local and remote modes share the same backend contract. The CLI reads and writes
 
 \`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms discussions were written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another recipient superseded the request or the discussions snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. An artifact can retain fallback and explicit registrations with one selected recipient.
 
-\`r3 discussions fetch <id> [--all] [--discussions <id,id>]\` reads new discussions, comments, and status changes, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave discussions pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
+\`r3 comment fetch <id> [--all] [--discussions <id,id>]\` reads pending comments and discussion status changes with their conversation context, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave discussions pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records handoff, not proof that a model processed the output.
 
 After acknowledgment, fetch registers the calling agent as the explicit listener when its harness supports listening, using the local worker and a direct backend registration. Listener setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips registration. \`--all\` reads open history without acknowledgment or listener registration; add \`--discussions <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
 
-When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 discussions fetch <id>\` in your harness to feed its output into context. Copying the command leaves discussions pending until it runs. Use the existing payload when discussions were returned by watch or a harness command.
+When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 comment fetch <id>\` in your harness to feed its output into context. Copying the command leaves discussions pending until it runs. Use the existing payload when discussions were returned by watch or a harness command.
 
 ## Handle discussions
 
 \`r3 claim <discussion-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <discussion-id>...\` when abandoning work. A resolved-status notification needs no action.
 
-Discussion may include images. Labels such as \`[image1]\` refer to the numbered attachment in that same note or comment. Download them with the supplied \`r3 discussions image\` command and open them with your harness's image-viewing tool before responding. A text reference does not load pixels into the model. Alternatively, \`r3 discussions fetch <id> --attachments-dir ./discussions-images\` downloads and verifies all images in the snapshot before acknowledging it. Capture context describes observed pixels; it does not establish a selector or source line. Use repeatable \`--attach <image>\` on discussions and comments to provide visual evidence.
+Discussion may include images. Labels such as \`[image1]\` refer to the numbered attachment in that same note or comment. Download them with the supplied \`r3 discussions image\` command and open them with your harness's image-viewing tool before responding. A text reference does not load pixels into the model. Alternatively, \`r3 comment fetch <id> --attachments-dir ./discussions-images\` downloads and verifies all images in the snapshot before acknowledging it. Capture context describes observed pixels; it does not establish a selector or source line. Use repeatable \`--attach <image>\` on discussions and comments to provide visual evidence.
 
 Inspect original targets in their recorded version and representation. Rendered selectors, quotes, routes, and viewports describe the published page, not source lines. Reuse matching local source when revising your own publication; retrieve published content only when needed, such as an older version or another agent's work. Inspection/download commands are in \`r3 --help\`.
 
@@ -322,7 +323,7 @@ remain whole-file discussions. For example:
 
 \`r3 comment discussion_a --version 2 --view media -m 'Improved caption contrast.' --target '{"kind":"media","versionSeq":2,"path":"clip.mp4","locator":{"time":6.3,"box":{"x":0.1,"y":0.7,"width":0.8,"height":0.2}}}' --frame ./fixed-frame.png\`
 
-\`r3 discussions fetch <id> --attachments-dir ./discussions-images\` also downloads the
+\`r3 comment fetch <id> --attachments-dir ./discussions-images\` also downloads the
 original and fix snapshots; \`r3 discussions image\` retrieves an individual frame.
 Inspect those saved pixels and the normalized box instead of reconstructing the
 original by seeking. Only agent comments with explicit media fix targets qualify

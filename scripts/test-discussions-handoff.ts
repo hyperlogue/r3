@@ -472,7 +472,7 @@ try {
   await eventually(() => page.evaluate(`!!${popup}`), "command popover");
   assert.equal(
     await page.evaluate(`(${popup}).querySelector('div > code').textContent`),
-    `r3 discussions fetch ${artifact.id}`,
+    `r3 comment fetch ${artifact.id}`,
   );
   assert.equal(
     await page.evaluate("document.activeElement.getAttribute('aria-label')"),
@@ -489,7 +489,7 @@ try {
       ),
     "copy confirmation",
   );
-  assert.equal(await page.evaluate("window.copiedCommand"), `r3 discussions fetch ${artifact.id}`);
+  assert.equal(await page.evaluate("window.copiedCommand"), `r3 comment fetch ${artifact.id}`);
   assert.deepEqual(storage.conversations.unsent(artifact.id), pendingBeforeCopy);
   assert.equal(
     discussionReadRequests,

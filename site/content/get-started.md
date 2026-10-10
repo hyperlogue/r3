@@ -40,7 +40,7 @@ The command prints your workspace URL. A local server starts lazily when a comma
 4. Use **Send to agent**, or **Use in agent** when no listener is available.
 5. Read the reply and open the new publication. Resolve the thread once you have checked the change.
 
-**Use in agent** copies a `r3 discussions fetch` command. Run it in the agent’s harness so the returned feedback becomes part of its context. Copying alone does not deliver your feedback.
+**Use in agent** copies a `r3 comment fetch` command. Run it in the agent’s harness so the returned feedback becomes part of its context. Copying alone does not deliver your feedback.
 
 ## The commands worth knowing
 

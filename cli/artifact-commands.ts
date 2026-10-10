@@ -114,10 +114,10 @@ export async function runArtifactCommand(
 ): Promise<number> {
   if (command === "stat" || command === "gc") return runUsageCommand(command, argv, ctx);
   const args = new ArtifactArgs(argv);
-  if (command === "discussions" && ["fetch", "image", "source"].includes(args.positional[0]!)) {
+  if (command === "discussions" && ["image", "source"].includes(args.positional[0]!)) {
     command = `discussions ${args.positional.shift()}`;
   }
-  if (command === "comment" && ["show", "edit"].includes(args.positional[0]!))
+  if (command === "comment" && ["fetch", "show", "edit"].includes(args.positional[0]!))
     command = `comment ${args.positional.shift()}`;
   const captureFlags = [
     "kind",
@@ -166,12 +166,12 @@ export async function runArtifactCommand(
         : args.positional[0] === "edit"
           ? ["message", "status", "attach", "clear-attachments"]
           : [],
+    "comment fetch": ["all", "discussions", "attachments-dir"],
     "comment show": [],
     "comment edit": ["message", "attach", "clear-attachments"],
     comment: ["message", "attach", "frame", "key", ...targetFlags],
     claim: [],
     release: [],
-    "discussions fetch": ["all", "discussions", "attachments-dir"],
     "discussions image": ["image", "output"],
     "discussions source": [],
     watch: ["timeout"],
@@ -449,7 +449,7 @@ export async function runArtifactCommand(
         );
       else if (operation === "delete")
         await print(await client.json("DELETE", discussionApiPath(id), { actor: author }));
-      else throw new ArtifactCommandError("discussions fetch|add|edit|delete <id>");
+      else throw new ArtifactCommandError("discussions add|edit|delete <id>");
       return 0;
     }
     case "comment show": {
@@ -513,7 +513,7 @@ export async function runArtifactCommand(
       else await ctx.write(bytes);
       return 0;
     }
-    case "discussions fetch": {
+    case "comment fetch": {
       await fetchArtifactDiscussion(client, args.id(), ctx.write, {
         all: args.has("all"),
         discussions: args.value("discussions"),
@@ -533,7 +533,7 @@ export async function runArtifactCommand(
           if (result !== 0) throw new Error("Listener registration failed");
         } catch {
           ctx.error(
-            "Discussion fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
+            "Comments fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
           );
         }
       }

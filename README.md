@@ -152,10 +152,10 @@ A project's `.r3.json` can override your default:
 
 This file can be committed. Credentials stay in your private user configuration.
 `R3_URL` overrides both project and user settings for an invocation. Every command,
-including discussions fetch, uses the selected backend. Run `r3 config unset backendUrl`
+including `r3 comment fetch`, uses the selected backend. Run `r3 config unset backendUrl`
 and remove any override to return to automatic local mode.
 
-Publishing, listening, and discussions fetch work the same locally and remotely.
+Publishing, listening, and fetching comments work the same locally and remotely.
 The CLI talks directly to the selected server. Supported Claude Code and Codex
 sessions automatically use the persistent worker for notifications; `r3 watch`
 works without it. No inbound TCP port is opened on a remote publisher.

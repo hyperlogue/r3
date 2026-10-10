@@ -451,7 +451,7 @@ control. Hiding the navbar action fades it right toward the discussions toggle a
 collapses its space; showing it reverses that transition. Hidden controls are inert,
 and reduced-motion preferences disable the transition. With no listener/watcher,
 **Use in agent** opens a small command popover, even without pending discussions.
-It shows `r3 discussions fetch <id>` and a copy icon, with instructions to run it using
+It shows `r3 comment fetch <id>` and a copy icon, with instructions to run it using
 `!` in the agent harness. Copying leaves discussions pending until the CLI runs.
 The panel retains the same control, including on mobile. Command popovers support
 Escape, outside dismissal, and focus return; their top layer avoids pane clipping.
@@ -690,7 +690,7 @@ Backend restart preserves the same subscription identities. Archive, unlisten, a
 replacement end those identities permanently, including while a worker is offline.
 Setup, restart, and fallback selection never submit pending discussions.
 
-After printing and acknowledging new discussions, `discussions fetch` registers a
+After printing and acknowledging new discussions, `comment fetch` registers a
 supported calling harness through the same worker/backend path. Setup failure warns
 without failing the fetch. History and human reads skip registration. Codex delivery
 reports queue acceptance, not proof of session liveness. Notifications are bounded

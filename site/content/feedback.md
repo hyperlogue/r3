@@ -32,7 +32,7 @@ Drafts retain their target and version as you switch views. They persist after a
 
 Add several comments and then use **Send to agent**. The active recipient is notified and fetches the pending batch. A queued notification may wait until the agent’s session resumes.
 
-Without an agent subscription, choose **Use in agent** and run the copied `r3 discussions fetch` command in your harness. The browser does not acknowledge feedback simply because you copied the command.
+Without an agent subscription, choose **Use in agent** and run the copied `r3 comment fetch` command in your harness. The browser does not acknowledge feedback simply because you copied the command.
 
 The fetch command acknowledges only after successfully writing the snapshot to stdout. A failed read or output leaves the feedback pending. A conflicting edit or failed acknowledgment can mean repeated output on retry; it does not discard the newer edit.
 

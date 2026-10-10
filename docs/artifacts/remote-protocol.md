@@ -39,8 +39,8 @@ Every CLI invocation resolves one backend, in order:
 4. The lazily started local server.
 
 Malformed selected configuration is an error. Commands never search other backends
-for a missing artifact. Discussion fetch, source, and image reads have no backend
-argument. A project file can be committed; it contains a URL, never credentials.
+for a missing artifact. `comment fetch`, `discussions source`, and `discussions image`
+have no backend argument. A project file can be committed; it contains a URL, never credentials.
 
 Backend identity is the complete normalized URL, including port and base path.
 Normalization uses standard URL parsing, removes trailing slashes, and rejects

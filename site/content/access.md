@@ -51,7 +51,7 @@ Each command chooses its backend in this order: `R3_URL`, the nearest project `.
 
 Credentials stay in private user configuration and are keyed by the complete normalized URL, including its port and base path. A remote address does not inherit another backend’s credentials. `R3_TOKEN` is not a client override.
 
-Every command, including `r3 discussions fetch`, uses the selected backend. If an artifact cannot be found, check the backend choice; the CLI does not search other instances. Unset `backendUrl` and remove directory or environment overrides to return to automatic local mode.
+Every command, including `r3 comment fetch`, uses the selected backend. If an artifact cannot be found, check the backend choice; the CLI does not search other instances. Unset `backendUrl` and remove directory or environment overrides to return to automatic local mode.
 
 ## Manage client access
 

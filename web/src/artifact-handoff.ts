@@ -172,5 +172,5 @@ export function discussionFetchCommand(artifactId: string): string {
   const argument = /^[a-zA-Z0-9_-]+$/.test(artifactId)
     ? artifactId
     : `'${artifactId.replaceAll("'", "'\\''")}'`;
-  return `r3 discussions fetch ${argument}`;
+  return `r3 comment fetch ${argument}`;
 }

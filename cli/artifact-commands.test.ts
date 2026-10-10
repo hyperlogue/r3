@@ -74,7 +74,7 @@ async function create() {
   return JSON.parse(result.text).artifact.id as string;
 }
 describe("artifact CLI over the HTTP contract", () => {
-  test("media fixes upload snapshots and discussions fetch downloads authoritative frames", async () => {
+  test("media fixes upload snapshots and comment fetch downloads authoritative frames", async () => {
     const human = { role: "human", sessionId: null } as const;
     const artifact = storage.artifacts.create({ kind: "files", actor: human });
     const bytes = Buffer.from(
@@ -112,7 +112,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(result.code).toBe(0);
     const comment = JSON.parse(result.text);
     expect(comment.target.locator.box).toEqual({ x: 0, y: 0, width: 1, height: 1 });
-    const fetched = await command("discussions", [
+    const fetched = await command("comment", [
       "fetch",
       artifact.id,
       "--all",
@@ -210,7 +210,7 @@ describe("artifact CLI over the HTTP contract", () => {
       });
       expect(storage.conversations.snapshot(artifact.id)).toEqual(snapshot);
       expect(storage.conversations.get(note.id).claim).toBeNull();
-      expect((await command("discussions", ["fetch", artifact.id, "--all"])).text).toContain(
+      expect((await command("comment", ["fetch", artifact.id, "--all"])).text).toContain(
         `r3 discussions source ${note.id}`,
       );
       const general = await storage.conversations.add(artifact.id, {
@@ -236,10 +236,10 @@ describe("artifact CLI over the HTTP contract", () => {
     expect((await command("discussions", ["image", id, "--image", image.id])).bytes).toEqual(bytes);
     await writeFile(join(ctx.cwd, "blocked"), "not a directory");
     await expect(
-      command("discussions", ["fetch", id, "--attachments-dir", "blocked"]),
+      command("comment", ["fetch", id, "--attachments-dir", "blocked"]),
     ).rejects.toThrow();
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
-    const fetched = await command("discussions", ["fetch", id, "--attachments-dir", "images"]);
+    const fetched = await command("comment", ["fetch", id, "--attachments-dir", "images"]);
     expect(fetched.text).toContain(`images/${image.id}.png`);
     expect(fetched.text).toContain(`r3 discussions image ${id}`);
     expect(await Bun.file(join(ctx.cwd, "images", `${image.id}.png`)).bytes()).toEqual(
@@ -247,7 +247,7 @@ describe("artifact CLI over the HTTP contract", () => {
     );
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).not.toBeNull();
     expect(
-      (await command("discussions", ["fetch", id, "--all", "--attachments-dir", "images"])).code,
+      (await command("comment", ["fetch", id, "--all", "--attachments-dir", "images"])).code,
     ).toBe(0);
     await command("discussions", [
       "edit",
@@ -259,7 +259,7 @@ describe("artifact CLI over the HTTP contract", () => {
     ]);
     expect(storage.conversations.get(note.id).comments[0]!.attachments).toEqual([]);
   });
-  for (const name of ["discussions", "watch"]) {
+  for (const name of ["comment", "watch"]) {
     test(`${name} waits for stdout completion before acknowledgment`, async () => {
       const id = await create();
       const note = await storage.conversations.add(id, {
@@ -273,7 +273,7 @@ describe("artifact CLI over the HTTP contract", () => {
         entered.resolve();
         await written.promise;
       };
-      const running = command(name, name === "discussions" ? ["fetch", id] : [id]);
+      const running = command(name, name === "comment" ? ["fetch", id] : [id]);
       await entered.promise;
       expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
       written.resolve();
@@ -287,7 +287,7 @@ describe("artifact CLI over the HTTP contract", () => {
         body: "Original",
         target: { kind: "artifact" },
       });
-      await command("discussions", ["fetch", id]);
+      await command("comment", ["fetch", id]);
       const comment = await storage.conversations.addComment(note.id, {
         actor: { role: "human", sessionId: null },
         body: "New comment",
@@ -297,7 +297,7 @@ describe("artifact CLI over the HTTP contract", () => {
         await Promise.resolve();
         throw new Error("Broken pipe");
       };
-      await expect(command(name, name === "discussions" ? ["fetch", id] : [id])).rejects.toThrow(
+      await expect(command(name, name === "comment" ? ["fetch", id] : [id])).rejects.toThrow(
         "Broken pipe",
       );
       expect(storage.conversations.comment(comment.id).sentAt).toBeNull();
@@ -312,7 +312,7 @@ describe("artifact CLI over the HTTP contract", () => {
       ctx.write = () => {
         throw new Error("Output failed");
       };
-      await expect(command(name, name === "discussions" ? ["fetch", id] : [id])).rejects.toThrow(
+      await expect(command(name, name === "comment" ? ["fetch", id] : [id])).rejects.toThrow(
         "Output failed",
       );
       expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
@@ -332,7 +332,7 @@ describe("artifact CLI over the HTTP contract", () => {
       if (args[1].includes("/discussions/pending")) throw new Error("Lost read response");
       return response;
     };
-    await expect(command("discussions", ["fetch", id])).rejects.toThrow("Lost read response");
+    await expect(command("comment", ["fetch", id])).rejects.toThrow("Lost read response");
     expect(output).toEqual([]);
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
     let registrations = 0;
@@ -346,7 +346,7 @@ describe("artifact CLI over the HTTP contract", () => {
         throw new Error("Acknowledgment unavailable");
       return request(...args);
     };
-    await expect(command("discussions", ["fetch", id])).rejects.toThrow(
+    await expect(command("comment", ["fetch", id])).rejects.toThrow(
       "Discussion was printed, but acknowledgment was not confirmed",
     );
     expect(Buffer.concat(output).toString()).toContain("Unread output");
@@ -368,7 +368,7 @@ describe("artifact CLI over the HTTP contract", () => {
         context: { versionSeq: null, representation: null },
       });
     };
-    await expect(command("discussions", ["fetch", id])).rejects.toMatchObject({ status: 409 });
+    await expect(command("comment", ["fetch", id])).rejects.toMatchObject({ status: 409 });
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).toBeNull();
     expect(storage.conversations.get(note.id).comments.slice(1)[0].sentAt).toBeNull();
   });
@@ -393,14 +393,14 @@ describe("artifact CLI over the HTTP contract", () => {
       }
       return response;
     };
-    await expect(command("discussions", ["fetch", id])).rejects.toThrow(
+    await expect(command("comment", ["fetch", id])).rejects.toThrow(
       "acknowledgment was not confirmed",
     );
     expect(Buffer.concat(output).toString()).toContain("Already printed");
     expect(storage.conversations.get(note.id).comments[0]!.sentAt).not.toBeNull();
     expect(storage.conversations.unsent(id)).toHaveLength(1);
     ctx.client.request = request;
-    const retry = await command("discussions", ["fetch", id]);
+    const retry = await command("comment", ["fetch", id]);
     expect(retry.text).toContain("Arrived after acknowledgment");
     expect(retry.text).not.toContain("Already printed");
     expect(storage.conversations.unsent(id)).toHaveLength(0);
@@ -619,9 +619,7 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(comment.context).toEqual({ versionSeq: 1, representation: "rendered" });
     expect(comment.target).toEqual(fix);
     expect(storage.conversations.get(discussions.id).comments.slice(1).at(-1)?.target).toEqual(fix);
-    expect((await command("discussions", ["fetch", id, "--all"])).text).toContain(
-      JSON.stringify(fix),
-    );
+    expect((await command("comment", ["fetch", id, "--all"])).text).toContain(JSON.stringify(fix));
     expect(storage.conversations.get(discussions.id).claim).toBeNull();
     expect(storage.conversations.get(discussions.id).status).toBe("open");
     await expect(
@@ -635,7 +633,7 @@ describe("artifact CLI over the HTTP contract", () => {
     const discussions = JSON.parse(
       (await command("discussions", ["add", id, "--human", "-m", "Human note"])).text,
     );
-    expect((await command("discussions", ["fetch", id, "--all"])).text).toContain("Human note");
+    expect((await command("comment", ["fetch", id, "--all"])).text).toContain("Human note");
     expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).toBeNull();
     expect((await command("watch", [id])).code).toBe(10);
     expect(storage.conversations.get(discussions.id).comments[0]!.sentAt).not.toBeNull();
@@ -651,7 +649,7 @@ describe("artifact CLI over the HTTP contract", () => {
     await command("restore", [id, "--human", "--key", "restore"]);
     expect(storage.conversations.unsent(id)).toHaveLength(1);
   });
-  test("discussions fetch preserves selective delivery and resolved history semantics", async () => {
+  test("comment fetch preserves selective delivery and resolved history semantics", async () => {
     const id = await create();
     const first = JSON.parse(
       (await command("discussions", ["add", id, "--human", "-m", "First note"])).text,
@@ -659,32 +657,32 @@ describe("artifact CLI over the HTTP contract", () => {
     const second = JSON.parse(
       (await command("discussions", ["add", id, "--human", "-m", "Second note"])).text,
     );
-    expect((await command("discussions", ["fetch", id, "--all"])).text).toContain("First note");
+    expect((await command("comment", ["fetch", id, "--all"])).text).toContain("First note");
     expect(storage.conversations.unsent(id)).toHaveLength(2);
-    const selected = await command("discussions", ["fetch", id, "--discussions", first.id]);
+    const selected = await command("comment", ["fetch", id, "--discussions", first.id]);
     expect(selected.text).toContain("First note");
     expect(selected.text).not.toContain("Second note");
     expect(storage.conversations.get(first.id).comments[0]!.sentAt).not.toBeNull();
     expect(storage.conversations.get(second.id).comments[0]!.sentAt).toBeNull();
     await command("discussions", ["edit", first.id, "--human", "--status", "resolved"]);
-    const history = await command("discussions", ["fetch", id, "--all", "--discussions", first.id]);
+    const history = await command("comment", ["fetch", id, "--all", "--discussions", first.id]);
     expect(history.text).toContain("[resolved]");
     expect(history.text).toContain("First note");
     expect(storage.conversations.get(first.id).statusUnsent).toBe(true);
-    expect((await command("discussions", ["fetch", id, "--all"])).text).not.toContain("First note");
-    await expect(command("discussions", ["fetch", id, "extra"])).rejects.toThrow("expects 1");
+    expect((await command("comment", ["fetch", id, "--all"])).text).not.toContain("First note");
+    await expect(command("comment", ["fetch", id, "extra"])).rejects.toThrow("expects 1");
     expect(storage.conversations.unsent(id)).toHaveLength(2);
-    expect((await command("discussions", ["fetch", id])).text).toContain(
+    expect((await command("comment", ["fetch", id])).text).toContain(
       "The human marked this resolved",
     );
     expect(storage.conversations.unsent(id)).toHaveLength(0);
   });
-  test("discussions fetch drains new notes and comments and registers the calling harness quietly", async () => {
+  test("comment fetch drains new notes and comments and registers the calling harness quietly", async () => {
     const id = await create();
     const first = JSON.parse(
       (await command("discussions", ["add", id, "--human", "-m", "First note"])).text,
     );
-    await command("discussions", ["fetch", id]);
+    await command("comment", ["fetch", id]);
     await command("comment", [first.id, "--human", "-m", "New comment"]);
     await command("discussions", ["add", id, "--human", "-m", "New note"]);
     ctx.environment = { CODEX_THREAD_ID: "fetch-agent" };
@@ -695,7 +693,7 @@ describe("artifact CLI over the HTTP contract", () => {
       storage.listeners.register(artifactId, actor, "explicit");
       return 0;
     };
-    const fetched = await command("discussions", ["fetch", id, "--session", "Review assistant"]);
+    const fetched = await command("comment", ["fetch", id, "--session", "Review assistant"]);
     expect(fetched.code).toBe(0);
     expect(fetched.text).toContain("New comment");
     expect(fetched.text).toContain("New note");
@@ -714,7 +712,7 @@ describe("artifact CLI over the HTTP contract", () => {
       label: "Review assistant",
       actor: { sessionId: "codex:fetch-agent" },
     });
-    const empty = await command("discussions", ["fetch", id]);
+    const empty = await command("comment", ["fetch", id]);
     expect(empty.text).not.toContain("New comment");
     expect(empty.text).not.toContain("New note");
     expect(registrations).toHaveLength(2);
@@ -728,11 +726,11 @@ describe("artifact CLI over the HTTP contract", () => {
       return 0;
     };
     ctx.environment = { CODEX_THREAD_ID: "fetch-agent" };
-    await command("discussions", ["fetch", id, "--all"]);
+    await command("comment", ["fetch", id, "--all"]);
     expect(storage.conversations.unsent(id)).toHaveLength(1);
-    await command("discussions", ["fetch", id, "--human"]);
+    await command("comment", ["fetch", id, "--human"]);
     ctx.environment = {};
-    expect((await command("discussions", ["fetch", id])).code).toBe(0);
+    expect((await command("comment", ["fetch", id])).code).toBe(0);
     expect(registrations).toBe(0);
     expect(errors).toEqual([]);
   });
@@ -746,15 +744,15 @@ describe("artifact CLI over the HTTP contract", () => {
       registrations++;
       throw new Error("Adapter unavailable");
     };
-    const fetched = await command("discussions", ["fetch", id]);
+    const fetched = await command("comment", ["fetch", id]);
     expect(fetched.code).toBe(0);
     expect(fetched.text).toContain("Pending note");
     expect(storage.conversations.unsent(id)).toHaveLength(0);
     expect(errors).toEqual([
-      "Discussion fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
+      "Comments fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
     ]);
     await command("archive", [id, "--human"]);
-    await expect(command("discussions", ["fetch", id])).rejects.toThrow();
+    await expect(command("comment", ["fetch", id])).rejects.toThrow();
     expect(registrations).toBe(1);
   });
   test("invalid capture and target flags fail before changing artifact state", async () => {

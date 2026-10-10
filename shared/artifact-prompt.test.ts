@@ -163,7 +163,7 @@ describe("artifact prompt formatting", () => {
     expect(prompt).toContain(`Earlier discussion: r3 show ${detail.id}`);
     expect(buildArtifactPrompt(detail, [discussions])).toContain("Already delivered answer");
   });
-  test("submission nudges use the preferred discussions fetch command", () => {
+  test("submission nudges use the preferred comment fetch command", () => {
     expect(
       artifactNudgeText({
         id: "nudge_example",
@@ -174,7 +174,7 @@ describe("artifact prompt formatting", () => {
         comment: null,
       }),
     ).toBe(
-      `[r3] ${detail.id} — comments submitted\nArtifact: Published design\nRun: r3 discussions fetch ${detail.id}`,
+      `[r3] ${detail.id} — comments submitted\nArtifact: Published design\nRun: r3 comment fetch ${detail.id}`,
     );
   });
   test("uncertain imported targets remain historical evidence and archived nudges imply no approval", () => {
