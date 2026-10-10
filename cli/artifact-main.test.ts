@@ -98,6 +98,14 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       expect(invalid.error).toContain("guide");
     }
     expect(await Bun.file(join(root, "store.sqlite")).exists()).toBe(false);
+    const legacyImport = join(environment.XDG_STATE_HOME, "r3", "worker-import.json");
+    await mkdir(join(environment.XDG_STATE_HOME, "r3"), { recursive: true });
+    await writeFile(legacyImport, "invalid obsolete import");
+    const listed = await run("list", "--json");
+    expect(listed.code).toBe(0);
+    expect(JSON.parse(listed.output)).toEqual([]);
+    expect(await Bun.file(legacyImport).exists()).toBe(false);
+    expect(await Bun.file(join(root, "runtime", "r3", "worker.json")).exists()).toBe(false);
     const created = await run(
       "create",
       "--kind",

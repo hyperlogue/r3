@@ -1,13 +1,12 @@
 import type { Database } from "bun:sqlite";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
 import { ARTIFACT_COMMENT_SCHEMA } from "./artifact-comments.ts";
-import { ARTIFACT_LISTENER_SCHEMA } from "./artifact-listeners.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 15;
+export const ARTIFACT_SCHEMA_VERSION = 16;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -68,7 +67,7 @@ CREATE TABLE artifacts (
 ) STRICT;
 
 -- Archive/restore history is separate from open/resolved threads.
--- Local delivery registrations live in separate private tables.
+-- Notification subscriptions live in separate backend tables.
 ${ARTIFACT_COMMENT_SCHEMA}
 CREATE TABLE artifact_events (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -476,7 +475,6 @@ END;
 
 export function createArtifactTables(db: Database): void {
   db.exec(ARTIFACT_SCHEMA);
-  db.exec(ARTIFACT_LISTENER_SCHEMA);
   db.exec(CLIENT_AUTH_SCHEMA);
   db.exec(WORKER_SCHEMA);
   db.exec(ATTACHMENT_SCHEMA);

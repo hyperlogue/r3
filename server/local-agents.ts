@@ -1,7 +1,10 @@
-import type { LocalAgentDelivery } from "./artifact-collaboration.ts";
+import type { ListenerTarget } from "../shared/types.ts";
 import { pushToListener } from "./listener.ts";
 
-export const deliverLocalAgent: LocalAgentDelivery = async (target, text) => {
+export async function deliverLocalAgent(
+  target: ListenerTarget,
+  text: string,
+): Promise<"sent" | "queued"> {
   try {
     await pushToListener(target, text);
     return target.harness === "codex" ? "queued" : "sent";
@@ -13,4 +16,4 @@ export const deliverLocalAgent: LocalAgentDelivery = async (target, text) => {
         : "Claude Code could not receive the notification. Resume the session and register it again.",
     );
   }
-};
+}

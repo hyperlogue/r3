@@ -2,8 +2,8 @@
 //
 // Claude Code accepts an authenticated write to a per-session Unix socket (see
 // inbox.ts). Codex CLI 0.149+ exposes `codex queue`, which addresses a persisted
-// thread and wakes it when idle. These adapters run only in the publisher-side
-// listener for remote transport, or in the existing local artifact daemon.
+// thread and wakes it when idle. The local notification worker runs these
+// adapters for both local and remote backends.
 
 import { isAbsolute } from "node:path";
 import type { CodexListenerTarget, ListenerTarget } from "../shared/types.ts";

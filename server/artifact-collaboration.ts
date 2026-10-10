@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { artifactNudgeText } from "../shared/artifact-prompt.ts";
 import type {
   ArtifactActor,
   ArtifactLifecycleResponse,
@@ -9,19 +8,12 @@ import type {
   ArtifactWatcher,
   ArtifactWatchResult,
 } from "../shared/artifacts.ts";
-import type { ListenerTarget } from "../shared/types.ts";
 import type { ArtifactConversations } from "./artifact-conversations.ts";
 import type { ArtifactLifecycle } from "./artifact-lifecycle.ts";
-import type { ArtifactListeners } from "./artifact-listeners.ts";
 import { ArtifactError } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 import { nowIso } from "./ids.ts";
 import type { WorkerRecords } from "./worker-records.ts";
-
-export type LocalAgentDelivery = (
-  target: ListenerTarget,
-  text: string,
-) => Promise<"sent" | "queued">;
 
 type CloseReason = "archived" | "superseded" | "deleted" | "disconnected";
 interface Registration {
@@ -42,8 +34,6 @@ export class ArtifactCollaboration {
     private readonly conversations: ArtifactConversations,
     private readonly lifecycle: ArtifactLifecycle,
     private readonly clock: () => string = nowIso,
-    private readonly listeners?: ArtifactListeners,
-    private readonly deliver?: LocalAgentDelivery,
     private readonly workerRecords?: WorkerRecords,
   ) {}
 
@@ -74,34 +64,12 @@ export class ArtifactCollaboration {
   }
 
   private recipient(id: string): Registration | undefined {
-    const live = this.registrations.get(id) ?? this.fallbacks.get(id);
-    if (live) return live;
-    const stored = this.deliver && this.listeners?.selected(id);
-    if (!stored) return undefined;
-    return {
-      info: stored.info,
-      close: () => {},
-      push: (nudge) => this.deliver!(stored.target, artifactNudgeText(nudge)),
-    };
-  }
-
-  listen(id: string, actor: ArtifactActor): ArtifactWatcher {
-    actor = this.artifacts.validateActor(actor);
-    if (this.artifacts.get(id).state !== "active")
-      throw new ArtifactError("Artifact is archived", 409);
-    if (!this.deliver || !this.listeners?.register(id, actor, "explicit"))
-      throw new ArtifactError("No local wake adapter is registered; use r3 watch", 409);
-    const held = this.registrations.get(id);
-    this.registrations.delete(id);
-    if (held) this.close(held, "superseded");
-    this.broadcast({ type: "presence-changed", artifactId: id });
-    return this.listeners.selected(id)!.info;
+    return this.registrations.get(id) ?? this.fallbacks.get(id);
   }
 
   unlisten(id: string, actor: ArtifactActor): void {
     actor = this.artifacts.validateActor(actor);
     this.artifacts.get(id);
-    this.listeners?.remove(id, actor);
     if (actor.role === "agent") this.workerRecords?.retire(id, null, actor);
     const held = this.registrations.get(id);
     if (held?.info.actor.role === actor.role && held.info.actor.sessionId === actor.sessionId)
@@ -142,7 +110,6 @@ export class ArtifactCollaboration {
       throw new ArtifactError("Artifact is archived", 409);
     const map = options.mode === "fallback" ? this.fallbacks : this.registrations;
     const held = map.get(id);
-    if (options.mode !== "fallback") this.listeners?.clearExplicit(id);
     this.workerRecords?.retire(id, options.mode ?? "explicit", null, options.id);
     const info: ArtifactWatcher = {
       id: options.id ?? randomUUID(),
@@ -206,7 +173,6 @@ export class ArtifactCollaboration {
       return { state: state ?? "sent" };
     } catch (error) {
       if (!held.retainOnFailure && held.info.mode !== "fallback") this.unregister(id, held.info.id);
-      this.listeners?.failed(held.info.id);
       this.broadcast({ type: "presence-changed", artifactId: id });
       return {
         state: "failed",

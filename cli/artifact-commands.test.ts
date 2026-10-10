@@ -688,8 +688,16 @@ describe("artifact CLI over the HTTP contract", () => {
     const registrations: unknown[] = [];
     ctx.listen = async (artifactId, actor, foreground, quiet) => {
       registrations.push({ artifactId, actor, foreground, quiet });
-      storage.listeners.setTarget(actor.sessionId!, { harness: "codex", threadId: "fetch-agent" });
-      storage.listeners.register(artifactId, actor, "explicit");
+      api.collaboration.register(
+        artifactId,
+        actor,
+        () => {},
+        async () => "queued",
+        {
+          mode: "explicit",
+          retainOnFailure: true,
+        },
+      );
       return 0;
     };
     const fetched = await command("comment", ["fetch", id, "--session", "Review assistant"]);
@@ -706,7 +714,7 @@ describe("artifact CLI over the HTTP contract", () => {
         quiet: true,
       },
     ]);
-    expect(storage.listeners.selected(id)?.info).toMatchObject({
+    expect(api.collaboration.watchers(id)[0]).toMatchObject({
       mode: "explicit",
       label: "Review assistant",
       actor: { sessionId: "codex:fetch-agent" },

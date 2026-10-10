@@ -47,10 +47,7 @@ export async function existingWorker(
 }
 export async function ensureWorker(): Promise<ArtifactClient> {
   const current = await existingWorker();
-  if (current) {
-    await current.json("POST", "/api/local/import", {});
-    return current;
-  }
+  if (current) return current;
   const warning = workerSandboxWarning(process.env);
   if (warning) console.error(warning);
   const child = Bun.spawn(cliProcessArgv("__worker"), {

@@ -2,7 +2,6 @@ import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import type { ArtifactLifecycleEvent } from "../shared/artifacts.ts";
 import { artifactComment, createArtifactComment } from "./artifact-comments.ts";
-import type { ArtifactListeners } from "./artifact-listeners.ts";
 import {
   ArtifactError,
   optionalText,
@@ -50,7 +49,6 @@ export class ArtifactLifecycle {
     private readonly db: Database,
     private readonly artifacts: ArtifactStore,
     private readonly clock: () => string = nowIso,
-    private readonly listeners?: ArtifactListeners,
     private readonly workerRecords?: WorkerRecords,
   ) {}
 
@@ -127,7 +125,6 @@ export class ArtifactLifecycle {
             savedComment?.id ?? null,
           );
         if (state === "archived") {
-          this.listeners?.clear(id);
           this.workerRecords?.retire(id);
           this.db
             .query(

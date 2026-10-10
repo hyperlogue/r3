@@ -12,7 +12,6 @@ import type {
   ArtifactVersion,
 } from "../shared/artifacts.ts";
 import { ArtifactAttachments } from "./artifact-attachments.ts";
-import type { ArtifactListeners } from "./artifact-listeners.ts";
 import { ArtifactProjects, type ProjectGroupingOptions } from "./artifact-projects.ts";
 import {
   ArtifactError,
@@ -128,7 +127,6 @@ export class ArtifactStore {
     private readonly clock: () => string = nowIso,
     private readonly isWatching: (id: string) => boolean = () => false,
     projectGrouping: ProjectGroupingOptions = {},
-    private readonly listeners?: ArtifactListeners,
     private readonly workerRecords?: WorkerRecords,
   ) {
     this.attachments = new ArtifactAttachments(db, blobs, clock);
@@ -561,7 +559,6 @@ export class ArtifactStore {
         this.db
           .query("UPDATE artifact_versions SET published_at = ? WHERE artifact_id = ? AND seq = ?")
           .run(time, id, seq);
-        this.listeners?.published(id, publication.actor, publication.listen);
         this.workerRecords?.retire(id, "fallback");
         committed = true;
         return this.version(id, seq);

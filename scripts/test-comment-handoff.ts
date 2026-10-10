@@ -57,25 +57,27 @@ const deliveries: {
   accept: (state?: "sent" | "queued") => void;
   reject: (error: Error) => void;
 }[] = [];
-const api = createArtifactApi(
-  storage,
-  {
-    token: randomBytes(32).toString("base64url"),
-    requireLogin: false,
-    version: "acceptance",
-    allowedHost: (host) => host === "localhost",
-  },
-  {
-    deliver: () =>
+const api = createArtifactApi(storage, {
+  token: randomBytes(32).toString("base64url"),
+  requireLogin: false,
+  version: "acceptance",
+  allowedHost: (host) => host === "localhost",
+});
+const listener = { role: "agent" as const, sessionId: "handoff-agent" };
+storage.artifacts.registerSession({ id: listener.sessionId, label: "Review assistant" });
+function subscribe(mode: "fallback" | "explicit") {
+  return api.collaboration.register(
+    artifact.id,
+    listener,
+    () => {},
+    () =>
       new Promise<"sent" | "queued">((resolve, reject) =>
         deliveries.push({ accept: (state = "sent") => resolve(state), reject }),
       ),
-  },
-);
-const listener = { role: "agent" as const, sessionId: "handoff-agent" };
-storage.artifacts.registerSession({ id: listener.sessionId, label: "Review assistant" });
-storage.listeners.setTarget(listener.sessionId, { harness: "codex", threadId: "handoff-thread" });
-storage.listeners.register(artifact.id, listener, "fallback");
+    { mode, retainOnFailure: true },
+  );
+}
+subscribe("fallback");
 let completed = 0;
 let commentReadRequests = 0;
 const app = Bun.serve({
@@ -251,7 +253,7 @@ try {
     "fallback",
     "A failed fallback remains registered for retry",
   );
-  api.collaboration.listen(artifact.id, listener);
+  subscribe("explicit");
   await eventually(
     () =>
       page.evaluate(`(${button}).textContent.startsWith('Send to agent') && !(${button}).disabled`),
@@ -336,7 +338,7 @@ try {
   );
   assert.equal(storage.conversations.unsent(artifact.id).length, 1);
 
-  api.collaboration.listen(artifact.id, listener);
+  subscribe("explicit");
   const agentNote = await storage.conversations.add(artifact.id, {
     actor: listener,
     body: "Agent-authored note",

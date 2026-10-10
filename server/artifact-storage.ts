@@ -6,7 +6,6 @@ import { dirname, join } from "node:path";
 import { ArtifactConversations } from "./artifact-conversations.ts";
 import { renderArtifactDocument } from "./artifact-document.ts";
 import { ArtifactLifecycle } from "./artifact-lifecycle.ts";
-import { ArtifactListeners } from "./artifact-listeners.ts";
 import type { ProjectGroupingOptions } from "./artifact-projects.ts";
 import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema.ts";
 import { ArtifactSearch } from "./artifact-search.ts";
@@ -35,7 +34,6 @@ export interface ArtifactStorageOptions {
 export interface ArtifactStorage {
   usage: ArtifactUsageStore;
   search: ArtifactSearch;
-  listeners: ArtifactListeners;
   artifacts: ArtifactStore;
   conversations: ArtifactConversations;
   lifecycle: ArtifactLifecycle;
@@ -106,7 +104,6 @@ export async function openArtifactStorage(
         clock,
       });
     }
-    const listeners = new ArtifactListeners(db, clock);
     const workerRecords = new WorkerRecords(db);
     const artifacts = new ArtifactStore(
       db,
@@ -115,7 +112,6 @@ export async function openArtifactStorage(
       clock,
       options.isWatching,
       options.projectGrouping,
-      listeners,
       workerRecords,
     );
     const conversations = new ArtifactConversations(db, artifacts, clock);
@@ -143,13 +139,12 @@ export async function openArtifactStorage(
     return {
       usage: new ArtifactUsageStore(db, artifacts, clock, options.archiveTtlDays, options.timezone),
       search: new ArtifactSearch(db, artifacts, conversations),
-      listeners,
       artifacts,
       conversations,
       authentication,
       clientAuth: new ClientAuth(db, () => Date.parse(clock())),
       workerRecords,
-      lifecycle: new ArtifactLifecycle(db, artifacts, clock, listeners, workerRecords),
+      lifecycle: new ArtifactLifecycle(db, artifacts, clock, workerRecords),
       migration,
       collectBlobs,
       close() {

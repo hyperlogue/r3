@@ -47,10 +47,6 @@ interface State {
   workerId: string;
   targets: Target[];
 }
-export interface WorkerImport {
-  url: string;
-  listeners: (Omit<WorkerSubscription, "listenerId"> & { target: ListenerTarget })[];
-}
 interface Backend {
   controller: AbortController;
   connectionId?: string;
@@ -90,28 +86,9 @@ export class WorkerRuntime {
       workerId: saved?.workerId ?? randomUUID(),
       targets: saved?.targets ?? [],
     };
-    this.importLocal();
+    // Discard obsolete transfer files without reading their harness credentials.
+    rmSync(join(dirname(this.path), "worker-import.json"), { force: true });
     this.save();
-  }
-  importLocal(): string | null {
-    const importPath = join(dirname(this.path), "worker-import.json");
-    const imported = readPrivateJson<WorkerImport>(importPath);
-    if (imported) {
-      const url = normalizeBackendUrl(imported.url);
-      for (const { target, ...subscription } of imported.listeners) {
-        let destination = this.state.targets.find(
-          (value) => value.url === url && value.actor.sessionId === subscription.actor.sessionId,
-        );
-        if (!destination) {
-          destination = { id: randomUUID(), url, actor: subscription.actor, target };
-          this.state.targets.push(destination);
-        }
-      }
-      this.save();
-      rmSync(importPath);
-      return url;
-    }
-    return null;
   }
   private save(): void {
     writePrivateJson(this.path, this.state);
@@ -431,14 +408,6 @@ export function workerApi(runtime: WorkerRuntime, token: string, stop: () => voi
   app.post("/api/local/stop", (c) => {
     // Let the HTTP acknowledgment flush before closing the socket.
     setTimeout(stop, 0);
-    return c.json({ ok: true });
-  });
-  app.post("/api/local/import", async (c) => {
-    const url = runtime.importLocal();
-    if (url) {
-      await runtime.reload(url);
-      runtime.start();
-    }
     return c.json({ ok: true });
   });
   app.post("/api/local/target", async (c) => {

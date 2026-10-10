@@ -119,6 +119,8 @@ Use r3 login for remote browser approval, or pipe an API key to r3 login --api-k
 Automatic local setup uses a private Unix socket. Run r3 open for a one-time browser
 link. Browser access always requires a session, including on loopback.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
+Upgrades discard legacy server-local notification subscriptions and destinations.
+Run r3 listen <id> to subscribe again; current worker subscriptions are preserved.
 Incompatible backend protocols fail with the server URL, both versions, and restart
 guidance. Different release versions with a compatible protocol only warn on stderr.
 
@@ -222,6 +224,8 @@ Search retained work with \`r3 search "keyboard focus" --history all --json\`. M
 Optional \`--version-label\` names the published version; \`--summary\` describes it. The CLI detects the Git remote for server-configured project grouping. Explicit \`--project\` overrides inference; details and artifact metadata flags are in \`r3 --help\`.
 
 ## Receive comments
+
+Upgrades discard legacy server-local notification subscriptions and destinations. Run \`r3 listen <id>\` to subscribe again. Current worker subscriptions remain intact.
 
 Claude Code and Codex publications establish the publisher fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if subscription setup fails, with a warning. Subscription setup and restart do not send pending comments.
 

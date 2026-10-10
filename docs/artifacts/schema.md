@@ -320,8 +320,8 @@ At that version, these rows belonged to the local server; public reads exposed o
 identity, name, and mode. Publication and archive updated them transactionally.
 Explicit failure deleted by registration ID, so an older failing send could not
 remove a replacement. Fallback failures retained the saved target. The current
-subscription model supersedes those rules; the tables remain as legacy import
-inputs. SQLite and its backups are private and may retain local harness credentials.
+subscription model supersedes those rules; schema 16 drops these tables.
+Private database backups may retain their original local harness credentials.
 Session labels are mutable display names; internal IDs and authored attribution
 remain stable.
 
@@ -489,11 +489,7 @@ artifacts, conversation evidence, and credentials remain unchanged.
 
 The version-2 private worker file saves backend-qualified notification destinations
 and harness configuration, discarding old recovery intents. The worker never opens
-SQLite. Legacy schema-4 destinations can be exported through `worker-import.json`
-and saved locally without recreating subscriptions; a fresh listen or publication
-is required. Import removes the transfer file but currently leaves the legacy SQL
-rows in place, so a later server start can export them again. Private database
-backups may also retain the original harness credentials.
+SQLite. Legacy destinations are discarded as described under schema 16 below.
 See [remote protocol](remote-protocol.md) for authentication and reconnect semantics.
 
 ## Discussion and Comment names
@@ -519,3 +515,18 @@ The public contract is now `artifacts-v3`: artifact reads contain `threads`,
 comments and claims name `threadId`, and thread operations use `/api/threads`.
 Pending/history/acknowledgment reads use the artifact's `/comments` routes.
 Clients and servers check the protocol before CLI data operations and upgrade together.
+
+## Schema 16: discard legacy notification routes
+
+The upgrade drops `artifact_listeners` and `local_agent_targets` in the existing
+backup-protected migration transaction. These obsolete notification routes are
+disposable: running `r3 listen <artifact-id>` establishes a fresh subscription.
+There is no export, worker adoption, or recovery acknowledgment to coordinate.
+Fresh stores omit both tables. Server and worker startup also delete any leftover
+`worker-import.json` without reading or adopting its destinations.
+
+Artifacts, versions, conversations, agent attribution, access credentials, and
+current `worker_registrations` remain intact, as do destinations already saved in
+the current worker state. Existing private migration backups remain unchanged and
+may contain legacy harness credentials. A failed database upgrade rolls back the
+table removal with the rest of the migration.

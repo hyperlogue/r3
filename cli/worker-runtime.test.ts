@@ -155,31 +155,43 @@ test("a waiting CLI survives the first connection failure", async () => {
   expect(result.connectionId).toBeDefined();
   expect(attempts).toBe(2);
 });
-test("a running worker imports local destinations without recreating old subscriptions", async () => {
-  const { writePrivateJson } = await import("./private-state.ts");
-  const id = randomUUID(),
-    artifactId = randomUUID();
-  const imported = {
-    url: one,
-    listeners: [
-      {
-        id,
-        artifactId,
-        actor,
-        mode: "fallback",
-        target: { harness: "codex", threadId: "fixture-thread" },
-      },
-    ],
-  };
-  writePrivateJson(join(root, "worker-import.json"), imported);
-  expect(worker.importLocal()).toBe(one);
-  worker.start();
-  await until(() => worker.status().backends[0]?.state === "ready");
-  writePrivateJson(join(root, "worker-import.json"), imported);
-  expect(worker.importLocal()).toBe(one);
-  expect(worker.status().subscriptions).toHaveLength(0);
-  expect(worker.importLocal()).toBeNull();
-});
+for (const malformed of [false, true]) {
+  test(`worker discards a legacy import without changing current destinations (malformed: ${malformed})`, async () => {
+    const subscription = await subscribe(one);
+    const path = join(root, "worker-state.json");
+    const saved = await Bun.file(path).json();
+    const importPath = join(root, "worker-import.json");
+    await worker.stop();
+    await Bun.write(
+      importPath,
+      malformed
+        ? "invalid legacy JSON"
+        : JSON.stringify({
+            url: two,
+            listeners: [
+              {
+                id: "legacy-subscription",
+                artifactId: "legacy-artifact",
+                actor: { role: "agent", sessionId: "legacy-agent" },
+                mode: "fallback",
+                target: { harness: "codex", threadId: "legacy-thread" },
+              },
+            ],
+          }),
+    );
+    worker = runtime();
+    expect(await Bun.file(importPath).exists()).toBe(false);
+    expect(await Bun.file(path).json()).toEqual(saved);
+    worker.start();
+    await until(() => worker.status().backends[0]?.state === "ready");
+    expect(fixture.backends.get(two)!.connects).toBe(0);
+    fixture.send(one, nudge(subscription));
+    await until(() => delivered.length === 1);
+    const fresh = await subscribe(two);
+    fixture.send(two, nudge(fresh));
+    await until(() => delivered.length === 2);
+  });
+}
 test("stopping the worker cancels stalled setup requests on a backend", async () => {
   await subscribe(one);
   await worker.stop();

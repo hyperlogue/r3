@@ -8,7 +8,9 @@ import { ARTIFACT_SCHEMA_VERSION, createArtifactTables } from "./artifact-schema
 import { ArtifactStore } from "./artifacts.ts";
 import { AuthService } from "./auth.ts";
 import { BlobStore } from "./blobs.ts";
+import { ClientAuth } from "./client-auth.ts";
 import { upgradeArtifactStore } from "./migration.ts";
+import { WorkerRecords } from "./worker-records.ts";
 
 let root: string;
 let db: Database;
@@ -63,7 +65,77 @@ afterEach(async () => {
 function options(name = "backup.sqlite") {
   return { backupPath: join(root, name), clock: () => time };
 }
+function legacyNotifications() {
+  db.exec(`CREATE TABLE local_agent_targets (
+    session_id TEXT PRIMARY KEY REFERENCES agent_sessions(id) ON DELETE CASCADE,
+    target_json TEXT NOT NULL CHECK (json_valid(target_json))
+  ) STRICT;
+  CREATE TABLE artifact_listeners (
+    artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+    mode TEXT NOT NULL CHECK (mode IN ('fallback', 'explicit')),
+    id TEXT NOT NULL UNIQUE,
+    session_id TEXT NOT NULL REFERENCES local_agent_targets(session_id) ON DELETE CASCADE,
+    registered_at TEXT NOT NULL,
+    PRIMARY KEY (artifact_id, mode)
+  ) STRICT;
+  INSERT INTO agent_sessions VALUES ('legacy-agent', 'codex', 'Legacy agent', '${time}');
+  INSERT INTO local_agent_targets VALUES ('legacy-agent', '{"harness":"codex","threadId":"legacy-thread"}');
+  INSERT INTO artifact_listeners VALUES ('review_retained', 'fallback', 'legacy-fallback', 'legacy-agent', '${time}');
+  INSERT INTO artifact_listeners VALUES ('review_retained', 'explicit', 'legacy-explicit', 'legacy-agent', '${time}');`);
+}
 describe("atomic artifact schema upgrades", () => {
+  test("version 15 discards legacy destinations while preserving content, access, and worker subscriptions", async () => {
+    legacyNotifications();
+    const auth = new AuthService(db, () => time);
+    const login = auth.createLoginToken("Retained browser access");
+    const session = auth.mintSession(login.info.id);
+    const clients = new ClientAuth(db, () => Date.parse(time));
+    const key = clients.createKey("Retained worker access");
+    const subscription = {
+      id: "current-subscription",
+      artifactId: "review_retained",
+      listenerId: "current-destination",
+      actor: { role: "agent" as const, sessionId: "legacy-agent" },
+      mode: "explicit" as const,
+    };
+    new WorkerRecords(db).save("current-worker", key.id, subscription);
+    const retainedTables = [
+      "artifacts",
+      "artifact_versions",
+      "version_files",
+      "threads",
+      "comments",
+      "agent_sessions",
+      "worker_registrations",
+    ];
+    const before = retainedTables.map((table) => db.query(`SELECT * FROM ${table}`).all());
+    db.exec("PRAGMA user_version = 15");
+    const result = await upgradeArtifactStore(db, options());
+    expect(result.migrated).toBe(true);
+    expect(retainedTables.map((table) => db.query(`SELECT * FROM ${table}`).all())).toEqual(before);
+    expect(auth.sessionValid(session.cookieValue)).toBe(true);
+    expect(clients.authenticate(key.token)?.id).toBe(key.id);
+    expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    const backup = new Database(result.backupPath!, { readonly: true });
+    try {
+      expect(backup.query("SELECT count(*) AS n FROM artifact_listeners").get()).toEqual({ n: 2 });
+    } finally {
+      backup.close();
+    }
+    db.close();
+    db = new Database(join(root, "store.sqlite"));
+    expect((await upgradeArtifactStore(db, options("unused.sqlite"))).migrated).toBe(false);
+    expect(
+      db
+        .query(
+          "SELECT name FROM sqlite_master WHERE name IN ('artifact_listeners', 'local_agent_targets')",
+        )
+        .all(),
+    ).toEqual([]);
+    expect(new WorkerRecords(db).get(subscription.id)?.subscription).toEqual(subscription);
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
+  });
   test("version 11 retains evidence but retires subscriptions without an authorizing principal", async () => {
     db.exec("ALTER TABLE worker_registrations DROP COLUMN principal; PRAGMA user_version = 11");
     db.query("INSERT INTO worker_registrations VALUES (?, ?, ?, ?, 'disconnected')").run(
@@ -93,49 +165,51 @@ describe("atomic artifact schema upgrades", () => {
       { discussion_revision: 0 },
     ]);
   });
-  test("version 4 preserves possible delivery history without inventing a delivery timestamp", async () => {
-    db.exec(
-      "ALTER TABLE threads DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = 4",
-    );
-    const store = new ArtifactStore(db, blobs, render, () => time);
-    const human = { role: "human" as const, sessionId: null };
-    const before = db
-      .query("SELECT sent_at, status_unsent FROM threads WHERE id = 'thread_retained'")
-      .get();
-    const result = await upgradeArtifactStore(db, options("artifact-v4.sqlite"));
-    expect(result.migrated).toBe(true);
-    expect(
-      db.query("SELECT sent_at, status_unsent FROM threads WHERE id = 'thread_retained'").get(),
-    ).toEqual(before);
-    const conversations = new ArtifactConversations(db, store, () => time);
-    conversations.edit("thread_retained", { actor: human, body: "Changed after upgrade" });
-    conversations.edit("thread_retained", { actor: human, status: "resolved" });
-    expect(conversations.get("thread_retained").comments[0]!.sentAt).toBeNull();
-    expect(conversations.unsent("review_retained").map((note) => note.id)).toEqual([
-      "thread_retained",
-    ]);
-    const fresh = await conversations.add("review_retained", {
-      actor: human,
-      body: "New after upgrade",
-      target: { kind: "artifact" },
-    });
-    conversations.edit(fresh.id, { actor: human, status: "resolved" });
-    expect(conversations.get(fresh.id).statusUnsent).toBe(false);
-    expect((await upgradeArtifactStore(db, options("unused-v5.sqlite"))).migrated).toBe(false);
-    expect(conversations.get(fresh.id).statusUnsent).toBe(false);
-    const backup = new Database(result.backupPath!, { readonly: true });
-    try {
-      expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 4 });
+  for (const version of [3, 4]) {
+    test(`version ${version} preserves possible delivery history without inventing a delivery timestamp`, async () => {
+      db.exec(
+        `ALTER TABLE threads DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision; PRAGMA user_version = ${version}`,
+      );
+      const store = new ArtifactStore(db, blobs, render, () => time);
+      const human = { role: "human" as const, sessionId: null };
+      const before = db
+        .query("SELECT sent_at, status_unsent FROM threads WHERE id = 'thread_retained'")
+        .get();
+      const result = await upgradeArtifactStore(db, options("artifact-v4.sqlite"));
+      expect(result.migrated).toBe(true);
       expect(
-        backup
-          .query("PRAGMA table_info(threads)")
-          .all()
-          .some((column: any) => column.name === "ever_delivered"),
-      ).toBe(false);
-    } finally {
-      backup.close();
-    }
-  });
+        db.query("SELECT sent_at, status_unsent FROM threads WHERE id = 'thread_retained'").get(),
+      ).toEqual(before);
+      const conversations = new ArtifactConversations(db, store, () => time);
+      conversations.edit("thread_retained", { actor: human, body: "Changed after upgrade" });
+      conversations.edit("thread_retained", { actor: human, status: "resolved" });
+      expect(conversations.get("thread_retained").comments[0]!.sentAt).toBeNull();
+      expect(conversations.unsent("review_retained").map((note) => note.id)).toEqual([
+        "thread_retained",
+      ]);
+      const fresh = await conversations.add("review_retained", {
+        actor: human,
+        body: "New after upgrade",
+        target: { kind: "artifact" },
+      });
+      conversations.edit(fresh.id, { actor: human, status: "resolved" });
+      expect(conversations.get(fresh.id).statusUnsent).toBe(false);
+      expect((await upgradeArtifactStore(db, options("unused-v5.sqlite"))).migrated).toBe(false);
+      expect(conversations.get(fresh.id).statusUnsent).toBe(false);
+      const backup = new Database(result.backupPath!, { readonly: true });
+      try {
+        expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: version });
+        expect(
+          backup
+            .query("PRAGMA table_info(threads)")
+            .all()
+            .some((column: any) => column.name === "ever_delivered"),
+        ).toBe(false);
+      } finally {
+        backup.close();
+      }
+    });
+  }
   test("version 2 gains remote identities without changing project or artifact membership", async () => {
     const before = db.query("SELECT id, project_id FROM artifacts ORDER BY id").all();
     const projects = db.query("SELECT * FROM projects ORDER BY id").all();
@@ -221,12 +295,15 @@ test("upgrades preserve imported evidence and login state across reopen", async 
   });
 });
 test("failed upgrades roll back schema changes and preserve the private backup", async () => {
+  legacyNotifications();
   db.exec("ALTER TABLE artifacts ADD COLUMN summary TEXT; PRAGMA user_version = 1");
   // An inconsistent old schema forces a failure after the overview column is removed.
   await expect(upgradeArtifactStore(db, options())).rejects.toThrow();
   expect(db.inTransaction).toBe(false);
   expect(db.query("SELECT summary FROM artifacts").all()).toEqual([{ summary: null }]);
   expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
+  expect(db.query("SELECT count(*) AS n FROM artifact_listeners").get()).toEqual({ n: 2 });
+  expect(db.query("SELECT count(*) AS n FROM local_agent_targets").get()).toEqual({ n: 1 });
   expect((await stat(options().backupPath)).mode & 0o777).toBe(0o600);
   db.exec(
     "ALTER TABLE threads DROP COLUMN ever_delivered; ALTER TABLE artifacts DROP COLUMN discussion_revision",

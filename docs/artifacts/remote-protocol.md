@@ -269,7 +269,9 @@ Replacement, unlisten, archive, and deletion end subscriptions permanently. Rest
 never revives pre-archive subscriptions. Worker state version 2 retains local destinations
 but discards old recovery intents. Schema 12 retires older subscription records whose
 credential principal was not saved; those require a fresh listen or publication after
-upgrade. Local legacy destinations can still be imported without recreating subscriptions.
+upgrade. Schema 16 discards legacy server-local destinations and subscriptions;
+startup deletes obsolete import files. Run `r3 listen <artifact-id>` to subscribe
+again. Current worker destinations and credential-bound subscriptions are preserved.
 
 A watcher may include `connectionState: connected|disconnected|failed` and nullable
 `error`. Error text describes backend delivery state and contains no local harness

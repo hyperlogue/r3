@@ -1,8 +1,5 @@
+import { rmSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { BackendCredentials } from "../cli/backend.ts";
-import { writePrivateJson } from "../cli/private-state.ts";
-import { ensureWorker } from "../cli/worker-client.ts";
-import type { WorkerImport } from "../cli/worker-runtime.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import index from "../web/index.html";
 import { loadApplicationAssets } from "./application-assets.ts";
@@ -60,6 +57,8 @@ export async function startArtifactDaemon(): Promise<void> {
       ...artifactAuthSettings(process.env, readConfig()),
       archiveTtlDays: readConfig().archiveTtlDays,
     });
+    // Legacy notification routes are disposable; fresh listen establishes a subscription.
+    rmSync(join(stateDir(), "worker-import.json"), { force: true });
     const token = getToken();
     const localAccess = new LocalBrowserAccess(storage.authentication);
     const bootstrapSocket = join(dirname(daemonJsonPath()), "server", "bootstrap.sock");
@@ -98,25 +97,6 @@ export async function startArtifactDaemon(): Promise<void> {
       exec: process.execPath,
       argv: process.argv,
     });
-    const legacy = storage.listeners.exportLocal();
-    if (legacy.length) {
-      try {
-        await new BackendCredentials().save({
-          url: normalizeBackendUrl(LOCAL_URL),
-          kind: "key",
-          accessToken: token,
-        });
-        writePrivateJson(join(stateDir(), "worker-import.json"), {
-          url: LOCAL_URL,
-          listeners: legacy,
-        } satisfies WorkerImport);
-        await ensureWorker();
-      } catch {
-        console.error(
-          "r3: legacy notification destinations need worker setup; run r3 worker start to retry",
-        );
-      }
-    }
     let closing = false;
     const shutdown = async () => {
       if (closing) return;

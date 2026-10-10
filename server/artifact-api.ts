@@ -16,7 +16,7 @@ import {
   artifactSameOrigin,
   installArtifactAuth,
 } from "./artifact-auth.ts";
-import { ArtifactCollaboration, type LocalAgentDelivery } from "./artifact-collaboration.ts";
+import { ArtifactCollaboration } from "./artifact-collaboration.ts";
 import { installArtifactConversations } from "./artifact-conversation-api.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import { artifactResourceResponse } from "./artifact-resources.ts";
@@ -53,7 +53,7 @@ export function artifactSequence(value: string | undefined): number {
 export function createArtifactApi(
   storage: ArtifactStorage,
   policy: ArtifactAuthPolicy,
-  options: { previews?: PreviewHost; deliver?: LocalAgentDelivery } = {},
+  options: { previews?: PreviewHost } = {},
 ) {
   const app = new Hono();
   const { artifacts } = storage;
@@ -62,8 +62,6 @@ export function createArtifactApi(
     storage.conversations,
     storage.lifecycle,
     undefined,
-    storage.listeners,
-    options.deliver,
     storage.workerRecords,
   );
   const workers = new WorkerConnections(storage, collaboration, policy);
