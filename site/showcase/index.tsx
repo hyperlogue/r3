@@ -79,7 +79,7 @@ function Example() {
           detail={detail}
           data={data}
           actions={artifactApi}
-          initialSearch={`?version=1&discussions=${VISIBILITY_DISCUSSION}`}
+          initialSearch={`?version=2&discussions=${VISIBILITY_DISCUSSION}&comment=comment_fieldwork_fix`}
           renderPreview={(props) => <FieldworkDocument {...props} />}
         />
       ) : (

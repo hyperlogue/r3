@@ -36,10 +36,14 @@ try {
       url: `${server.url.origin}${base}/example/index.html?theme=${theme}&embedded=1`,
     });
     await waitFor(
-      "!!document.querySelector('[data-artifact-discussions]') && !!document.querySelector('.fieldwork-located')",
-      "real workspace and original target",
+      "!!document.querySelector('[data-artifact-discussions]') && !!document.querySelector('.fieldwork-help')",
+      "real workspace and latest revision",
     );
     await page.evaluate("document.fonts.ready");
+    assert(
+      !(await page.evaluate("document.body.innerText.includes('Go to the latest version')")),
+      "the initial scene already shows the latest publication",
+    );
   };
   const screenshot = async (name: string) => {
     await page.evaluate(

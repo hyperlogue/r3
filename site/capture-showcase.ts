@@ -41,9 +41,9 @@ try {
         await eventually(
           () =>
             page.evaluate(
-              "!!document.querySelector('[data-artifact-discussions]') && !!document.querySelector('.fieldwork-located')",
+              "!!document.querySelector('[data-artifact-discussions]') && !!document.querySelector('.fieldwork-help')",
             ),
-          "real workspace and original target",
+          "real workspace and latest revision",
         );
         await page.evaluate("document.fonts.ready");
         await page.evaluate(
