@@ -65,7 +65,13 @@ async function connect(workerId = randomUUID(), via = client) {
     { type: "ready" }
   >;
   expect(ready.type).toBe("ready");
-  return { workerId, connectionId: ready.connectionId, events, client: via };
+  return {
+    workerId,
+    connectionId: ready.connectionId,
+    listenerIds: ready.listenerIds,
+    events,
+    client: via,
+  };
 }
 type Connection = Awaited<ReturnType<typeof connect>>;
 async function target(connection: Connection, actor: ArtifactActor) {
@@ -187,6 +193,7 @@ test("disconnect retains selection, reconnect attaches transport, and a fresh li
   });
   expect(api.collaboration.watchers(id)[0].id).toBe(listening.id);
   const next = await connect(first.workerId);
+  expect(next.listenerIds?.sort()).toEqual([fallback.listenerId, listening.listenerId].sort());
   expect(api.collaboration.registration(id, "fallback")?.id).toBe(fallback.id);
   expect(api.collaboration.watchers(id)[0]).toMatchObject({
     id: listening.id,
@@ -200,6 +207,24 @@ test("disconnect retains selection, reconnect attaches transport, and a fresh li
   expect(api.collaboration.watchers(id)[0].id).toBe(replacement.id);
   expect(storage.workerRecords.get(listening.id)?.state).toBe("retired");
   await reconnect.events.return(undefined);
+});
+
+test("unused destination bindings cannot exhaust a long-lived connection", async () => {
+  const connection = await connect();
+  const fallbackTarget = await target(connection, publisher);
+  const explicitTarget = await target(connection, helper);
+  await publish();
+  await listen(connection, helper, explicitTarget);
+  for (let index = 0; index < 4096; index++)
+    await client.json("POST", `/api/workers/${connection.connectionId}/targets`, {
+      actor: publisher,
+      listenerId: `unused-${index}`,
+    });
+  // Both selected and unselected subscriptions still deliver after eviction.
+  expect((await send(connection, true)).nudge.listenerId).toBe(explicitTarget);
+  await client.json("DELETE", `/api/artifacts/${id}/listen`, { actor: helper });
+  expect((await send(connection, true)).nudge.listenerId).toBe(fallbackTarget);
+  await connection.events.return(undefined);
 });
 test("unlisten and archive retire subscriptions so lost retirement events cannot revive them", async () => {
   const connection = await connect();

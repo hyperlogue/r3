@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import type { ArtifactActor, ArtifactDeliveryState, ArtifactNudge } from "../shared/artifacts.ts";
 import {
+  WORKER_DESTINATION_LIMIT,
   WORKER_PROTOCOL,
   type WorkerEvent,
   type WorkerSubscription,
@@ -116,9 +117,16 @@ export class WorkerConnections {
     });
     this.connections.set(id, connection);
     this.storage.clientAuth.observeWorker(principal.id, observedAddress(request, this.policy));
-    connection.send({ type: "ready", protocol: WORKER_PROTOCOL, connectionId: id });
-    for (const record of this.storage.workerRecords.retained()) {
-      if (record.workerId !== workerId || record.principal !== principal.id) continue;
+    const retained = this.storage.workerRecords
+      .retained()
+      .filter((record) => record.workerId === workerId && record.principal === principal.id);
+    connection.send({
+      type: "ready",
+      protocol: WORKER_PROTOCOL,
+      connectionId: id,
+      listenerIds: [...new Set(retained.map((record) => record.subscription.listenerId))],
+    });
+    for (const record of retained) {
       this.attach(connection, record.subscription);
     }
     heartbeat = setInterval(() => {
@@ -346,8 +354,22 @@ export class WorkerConnections {
       const body = await artifactJson(c.req.raw, 8192);
       const actor = this.actor(body.actor);
       const listenerId = requireString(body.listenerId, "listenerId", 200);
-      if (connection.targets.size >= 4096 && !connection.targets.has(listenerId))
-        throw new ArtifactError("Listener limit reached", 429);
+      if (
+        connection.targets.size >= WORKER_DESTINATION_LIMIT &&
+        !connection.targets.has(listenerId)
+      ) {
+        const subscribed = new Set(
+          [...connection.subscriptions.values()].map((value) => value.listenerId),
+        );
+        const unused = [...connection.targets.keys()].find((id) => !subscribed.has(id));
+        if (!unused) throw new ArtifactError("Listener limit reached", 429);
+        connection.targets.delete(unused);
+        for (const [session, target] of this.targets)
+          if (target.connection === connection && target.listenerId === unused)
+            this.targets.delete(session);
+      }
+      // Keep recent CLI setup at the end; only unused bindings may be evicted.
+      connection.targets.delete(listenerId);
       connection.targets.set(listenerId, actor);
       this.targets.set(actor.sessionId!, { connection, listenerId });
       return c.json({ ok: true });

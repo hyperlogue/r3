@@ -6,6 +6,7 @@ import type {
 } from "./artifacts.ts";
 
 export const WORKER_PROTOCOL = "r3-worker-v2";
+export const WORKER_DESTINATION_LIMIT = 4096;
 export type ListenerRole = "fallback" | "explicit";
 export interface WorkerSubscription {
   id: string;
@@ -15,7 +16,12 @@ export interface WorkerSubscription {
   mode: ListenerRole;
 }
 export type WorkerEvent =
-  | { type: "ready"; protocol: typeof WORKER_PROTOCOL; connectionId: string }
+  | {
+      type: "ready";
+      protocol: typeof WORKER_PROTOCOL;
+      connectionId: string;
+      listenerIds?: string[];
+    }
   | { type: "heartbeat" }
   | { type: "registered"; subscription: WorkerSubscription; registration: ArtifactWatcher }
   | { type: "retired"; registrationId: string; reason: string }

@@ -186,8 +186,9 @@ and instructs the caller to stop it from its original environment. These operati
 preserve saved destinations, worker identity, credentials, and backend subscriptions.
 
 `POST /api/workers/connect` accepts `workerId` and `protocol: "r3-worker-v2"`.
-It returns `text/event-stream`; the first frame is `ready` with `protocol` and
-`connectionId`. A new connection for the same worker and credential principal closes the previous one.
+It returns `text/event-stream`; the first frame is `ready` with `protocol`,
+`connectionId`, and `listenerIds` for all retained subscriptions, including unselected
+fallbacks. A new connection for the same worker and credential principal closes the previous one.
 The backend retains each subscription with that principal; a different grant cannot
 attach to it by supplying the same worker ID. After ready, the backend sends registered
 frames for its retained subscriptions. Reconnection changes transport, not selection.
@@ -199,7 +200,7 @@ SSE frames contain a JSON `data` object whose `type` matches the event name:
 
 | Type | Fields and meaning |
 | --- | --- |
-| `ready` | `protocol`, opaque `connectionId` |
+| `ready` | `protocol`, opaque `connectionId`, retained destination IDs in `listenerIds` |
 | `heartbeat` | Liveness only; sent every ten seconds |
 | `registered` | `subscription` and public `registration` watcher snapshot |
 | `retired` | `registrationId`, `reason`; discard that stream’s routing snapshot |
@@ -212,6 +213,15 @@ credentials before reconnecting. The server closes expired/revoked authorization
 streams while retaining their subscriptions and exposing a disconnected/error state.
 A stale connection or acknowledgment cannot remove a newer subscription. The browser
 shows the selected subscription’s connectionState and error from the watchers response.
+
+Reconnect reads the retained subscriptions from the stream without replaying session
+or destination setup requests. The CLI binds a destination for each new listen or
+publication. After an authoritative `listenerIds` snapshot, the worker keeps every
+subscribed destination and at most 4,096 recently used, unsubscribed destinations
+per backend. Count-based cleanup allows a CLI to finish a slow publication without
+its destination expiring. Heartbeats run the same cleanup. Older servers that omit the
+snapshot preserve local destinations until upgraded. A disconnected or unavailable
+backend cannot cause its saved destinations to be discarded.
 
 The wire type `WorkerSubscription` carries a subscription. Its `id` identifies
 that subscription, `listenerId` identifies the notification destination, and
@@ -237,7 +247,7 @@ different contents fails.
 
 | Route | JSON body / effect |
 | --- | --- |
-| `POST /api/workers/:connectionId/targets` | `actor`, `listenerId`; bind an opaque destination on this connection (limit 4,096) |
+| `POST /api/workers/:connectionId/targets` | `actor`, `listenerId`; bind an opaque destination on this connection (limit 4,096; evict the oldest unused binding at capacity, or return 429 when all are subscribed) |
 | `POST /api/workers/:connectionId/listen` | An `explicit` subscription; replace the explicit slot |
 | `POST /api/workers/:connectionId/acknowledgments` | `nudgeId`, `ok`, optional `state: sent|queued`; settle the active delivery attempt |
 

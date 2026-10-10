@@ -1,6 +1,7 @@
 // An independent backend fixture: deliberately imports no r3 contracts, server,
 // database, or delivery implementation. Compatibility is exercised over HTTP.
 export class WorkerProtocolFixture {
+  destinationSnapshot = true;
   readonly backends = new Map<
     string,
     {
@@ -70,6 +71,9 @@ export class WorkerProtocolFixture {
               type: "ready",
               protocol: "r3-worker-v2",
               connectionId: `connection-${backend.connects}`,
+              listenerIds: this.destinationSnapshot
+                ? [...new Set([...backend.subscriptions.values()].map((value) => value.listenerId))]
+                : undefined,
             });
             for (const subscription of backend.subscriptions.values())
               this.send(url, {

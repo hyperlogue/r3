@@ -14,6 +14,7 @@ import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { readEventStream } from "../shared/event-stream.ts";
 import type { ListenerTarget } from "../shared/types.ts";
 import {
+  WORKER_DESTINATION_LIMIT,
   WORKER_PROTOCOL,
   type WorkerEvent,
   type WorkerSubscription,
@@ -50,6 +51,7 @@ interface State {
 interface Backend {
   controller: AbortController;
   connectionId?: string;
+  listenerIds?: Set<string>;
   status: "connecting" | "ready" | "login-required" | "retrying";
   task: Promise<void>;
   ready: ReturnType<typeof Promise.withResolvers<string>>;
@@ -92,6 +94,25 @@ export class WorkerRuntime {
   }
   private save(): void {
     writePrivateJson(this.path, this.state);
+  }
+  private prune(url: string): void {
+    const backend = this.backends.get(url);
+    const retained = backend?.listenerIds;
+    // Older servers omit the snapshot. Preserve destinations until the backend
+    // can tell us which subscriptions still need them.
+    if (!retained || backend.status !== "ready") return;
+    let unused = 0;
+    const targets = this.state.targets
+      .toReversed()
+      .filter((target) => {
+        if (target.url !== url || retained.has(target.id)) return true;
+        unused++;
+        return unused <= WORKER_DESTINATION_LIMIT;
+      })
+      .reverse();
+    if (targets.length === this.state.targets.length) return;
+    this.state.targets = targets;
+    this.save();
   }
   private client(url: string): ArtifactClient {
     return new ArtifactClient({
@@ -156,31 +177,23 @@ export class WorkerRuntime {
             if (
               ready ||
               event.protocol !== WORKER_PROTOCOL ||
-              typeof event.connectionId !== "string"
+              typeof event.connectionId !== "string" ||
+              (event.listenerIds !== undefined &&
+                (!Array.isArray(event.listenerIds) ||
+                  event.listenerIds.some((id) => typeof id !== "string")))
             )
               throw new Error("Invalid worker handshake");
             ready = true;
             backend.connectionId = event.connectionId;
-            for (const target of this.state.targets.filter((value) => value.url === url)) {
-              await client.json(
-                "POST",
-                "/api/sessions",
-                { id: target.actor.sessionId },
-                attempt.signal,
-              );
-              await client.json(
-                "POST",
-                `/api/workers/${encodeURIComponent(event.connectionId)}/targets`,
-                { actor: target.actor, listenerId: target.id },
-                attempt.signal,
-              );
-            }
+            backend.listenerIds = event.listenerIds ? new Set(event.listenerIds) : undefined;
             backend.status = "ready";
+            this.prune(url);
             backend.ready.resolve(event.connectionId);
             connected = true;
             delay = 500;
           } else if (!ready) throw new Error("Worker stream did not start with ready");
           else if (event.type === "registered") {
+            backend.listenerIds?.add(event.subscription.listenerId);
             const target = this.state.targets.find(
               (value) =>
                 value.url === url &&
@@ -189,15 +202,35 @@ export class WorkerRuntime {
             );
             if (target) this.remember(url, event.subscription);
           } else if (event.type === "retired") {
+            const retiring = this.subscriptions.find(
+              (value) => value.url === url && value.id === event.registrationId,
+            );
+            const target = this.state.targets.find(
+              (value) => value.url === url && value.id === retiring?.listenerId,
+            );
+            // A replacement may reuse this destination in the next frame.
+            if (target) {
+              this.state.targets = this.state.targets.filter((value) => value !== target);
+              this.state.targets.push(target);
+              this.save();
+            }
             this.subscriptions = this.subscriptions.filter(
               (value) => value.url !== url || value.id !== event.registrationId,
             );
+            if (backend.listenerIds)
+              backend.listenerIds = new Set(
+                this.subscriptions
+                  .filter((value) => value.url === url)
+                  .map((value) => value.listenerId),
+              );
+            this.prune(url);
           } else if (event.type === "nudge") {
             // Delivery is independent for every destination; do not block stream
             // processing, heartbeat handling, or another backend on a harness.
             void this.nudge(url, backend.connectionId!, event, attempt.signal).catch(() => {});
           } else if (event.type === "closed") break;
-          else if (event.type !== "heartbeat") throw new Error("Unknown worker event");
+          else if (event.type === "heartbeat") this.prune(url);
+          else throw new Error("Unknown worker event");
         }
       } catch (error) {
         const auth =
@@ -287,8 +320,12 @@ export class WorkerRuntime {
     );
     if (!saved) {
       saved = { id: randomUUID(), url, actor, target };
-      this.state.targets.push(saved);
     } else saved.target = target;
+    // Recent setup may belong to a CLI still preparing a publication. Bound
+    // unused destinations by count, without expiring an in-progress command.
+    this.state.targets = this.state.targets.filter((value) => value !== saved);
+    this.state.targets.push(saved);
+    this.prune(url);
     this.save();
     const backend = this.connect(url);
     if (backend.status === "login-required")

@@ -222,7 +222,7 @@ for (const malformed of [false, true]) {
     await until(() => delivered.length === 2);
   });
 }
-test("stopping the worker cancels stalled setup requests on a backend", async () => {
+test("stopping the worker cancels a stalled backend connection", async () => {
   await subscribe(one);
   await worker.stop();
   let stalled = false;
@@ -231,7 +231,7 @@ test("stopping the worker cancels stalled setup requests on a backend", async ()
     credentials,
     async () => "queued",
     (request) => {
-      if (!request.url.endsWith("/targets")) return fixture.fetch(request);
+      if (!request.url.endsWith("/connect")) return fixture.fetch(request);
       stalled = true;
       return new Promise<Response>((_resolve, reject) => {
         const abort = () => reject(new DOMException("Aborted", "AbortError"));
@@ -243,4 +243,80 @@ test("stopping the worker cancels stalled setup requests on a backend", async ()
   worker.start();
   await until(() => stalled);
   await worker.stop();
+});
+
+test("reconnect prunes thousands of stale destinations without setup replay and preserves every subscribed role", async () => {
+  await worker.stop();
+  const path = join(root, "worker-state.json");
+  const saved = await Bun.file(path).json();
+  const targets = Array.from({ length: 5000 }, (_, index) => ({
+    id: `destination-${index}`,
+    url: one,
+    actor: { role: "agent" as const, sessionId: `agent-${index}` },
+    target: { harness: "codex", threadId: `thread-${index}` },
+  }));
+  const retained: WorkerSubscription[] = (["explicit", "fallback", "explicit"] as const).map(
+    (mode, index) => ({
+      id: `subscription-${index}`,
+      artifactId: index === 2 ? "another-artifact" : "artifact",
+      listenerId: targets[index % 2]!.id,
+      actor: targets[index % 2]!.actor,
+      mode,
+    }),
+  );
+  for (const subscription of retained)
+    fixture.backends.get(one)!.subscriptions.set(subscription.id, { ...subscription });
+  await Bun.write(
+    path,
+    JSON.stringify({ ...saved, targets: [...targets, { ...targets[0], url: two }] }),
+  );
+  worker = runtime();
+  const fresh = await worker.target(one, actor, { harness: "codex", threadId: "fresh" });
+  await until(() => worker.status().subscriptions.length === 3);
+  expect(fixture.backends.get(one)!.requests).toEqual(["/api/workers/connect"]);
+  const destinations = async () =>
+    (await Bun.file(path).json()).targets as { id: string; url: string }[];
+  let local = (await destinations()).filter((value) => value.url === one);
+  expect(local).toHaveLength(4098);
+  expect(local.map((value) => value.id)).toEqual(
+    expect.arrayContaining(["destination-0", "destination-1", fresh.listenerId]),
+  );
+  expect(local.some((value) => value.id === "destination-2")).toBe(false);
+  for (const subscription of retained) fixture.send(one, nudge(subscription));
+  await until(() => delivered.length === 3);
+  fixture.send(one, { type: "retired", registrationId: retained[0]!.id });
+  await until(() => worker.status().subscriptions.length === 2);
+  fixture.send(one, { type: "heartbeat" });
+  fixture.send(one, nudge(retained[2]!));
+  await until(() => delivered.length === 4);
+  fixture.send(one, { type: "retired", registrationId: retained[2]!.id });
+  await until(() => worker.status().subscriptions.length === 1);
+  fixture.send(one, { type: "heartbeat" });
+  fixture.send(one, nudge(retained[1]!));
+  await until(() => delivered.length === 5);
+  local = (await destinations()).filter((value) => value.url === one);
+  expect(local).toHaveLength(4097);
+  expect(local.map((value) => value.id)).toEqual(
+    expect.arrayContaining(["destination-1", fresh.listenerId]),
+  );
+  expect((await destinations()).filter((value) => value.url === two)).toEqual([
+    expect.objectContaining({ id: "destination-0", url: two }),
+  ]);
+});
+
+test("an older backend without a destination snapshot preserves saved destinations", async () => {
+  const subscription = await subscribe(one);
+  await worker.stop();
+  const path = join(root, "worker-state.json");
+  const saved = await Bun.file(path).json();
+  for (let index = 0; index < 5000; index++)
+    saved.targets.push({ ...saved.targets[0], id: `unused-${index}` });
+  await Bun.write(path, JSON.stringify(saved));
+  fixture.destinationSnapshot = false;
+  worker = runtime();
+  worker.start();
+  await until(() => worker.status().subscriptions.length === 1);
+  expect((await Bun.file(path).json()).targets).toHaveLength(5001);
+  fixture.send(one, nudge(subscription));
+  await until(() => delivered.length === 1);
 });
