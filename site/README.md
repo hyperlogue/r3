@@ -17,11 +17,11 @@ bun --no-env-file site/build.ts
 bun --no-env-file site/serve.ts
 ```
 
-The Fieldwork PNG captures use Git LFS. Install Git LFS before cloning, or run
-the setup commands above in an existing checkout before building the site.
-The capture verifier needs the image bytes, not LFS pointer files. CI and Pages
-download them during checkout. The small social image and SVG sources remain
-ordinary Git files.
+The Fieldwork PNG captures and social preview PNG use Git LFS. Install Git LFS
+before cloning, or run the setup commands above in an existing checkout before
+building the site. Builds and capture verification need the image bytes, not
+LFS pointer files. CI and Pages download them during checkout. SVG sources
+remain ordinary Git files.
 
 The preview server binds to loopback and defaults to port 4173. Override it with
 `R3_SITE_PORT`. Rebuild after changing content; the preview serves `dist/pages/`.
