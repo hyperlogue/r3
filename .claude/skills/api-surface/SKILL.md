@@ -79,14 +79,14 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   and `nextOffset`. `skippedFiles` reports excluded binary, invalid UTF-8, or >4 MiB
   text files in the selected scope. HTML searches static entrypoint text without
   executing scripts or searching companion source. Same authentication/origin guards
-  as artifact reads; no comment acknowledgment, claim, listener, or delivery effect.
+  as artifact reads; no comment acknowledgment, claim, subscription, or delivery effect.
   CLI: `r3 search "words"` with corresponding flags, `--attention`, and `--json`.
 - `GET/POST /api/artifacts/:id/versions` lists retained versions or publishes a
   complete version with `expectedSeq`, `publicationKey`, explicit `actor`, and
   optional boolean `listen` (default true). A new commit replaces the fallback
   using a connected worker destination, or clears it when absent/disabled. Replays
   cannot reclaim the fallback. The response adds a complete backend-owned `url`,
-  `listenerRegistered`, and optional worker `listener` registration; CLI output
+  `listenerRegistered`, and optional worker `listener` subscription; CLI output
   prints that URL unchanged.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
@@ -123,7 +123,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   inclusive start/end, and complete text with LF separators. Rendered, general,
   and whole-file targets return 400; missing threads return 404. The normal
   authentication and origin guards apply. This read never acknowledges comments,
-  claims a thread, or registers a listener. Source/diff quotes may be nonblank exact
+  claims a thread, or establishes a subscription. Source/diff quotes may be nonblank exact
   excerpts within the complete captured range; range existence, version/file/side,
   diff gaps, and input limits remain validated. Browser excerpts are capped at
   four lines and 2,048 UTF-16 code units; existing saved quotes are unchanged.
@@ -146,7 +146,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   request. The former `/prompt` routes and CLI alias are removed.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
   delivery acknowledgment or a generic watch woken for pending comments. An absent
-  recipient (or a watch with no pending work) returns `none`. Local Codex acceptance
+  selected subscription (or a watch with no pending work) returns `none`. Local Codex acceptance
   returns `queued`; failure returns `failed` and HTTP 502. Neither acknowledges comments.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event (including its optional artifact-level `comment`), replay flag, and notification result.
@@ -154,7 +154,7 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
 - `GET .../:id/watchers` reads subscriptions and `POST .../:id/watch { actor, timeoutMs? }`
-  selects one explicit recipient for a bounded long poll. `DELETE .../:id/listen { actor }`
+  establishes an explicit subscription for a bounded long poll. `DELETE .../:id/listen { actor }`
   removes that actor's subscriptions. Persistent listen and delivery acknowledgments
   use the shared worker protocol below. The former per-artifact POST listen stream
   and `/api/connections/:id/acknowledgments` are removed. Backend HTTP receives no
@@ -182,9 +182,9 @@ watch assigns its own temporary identity; no shared `agent` identity is invented
 Local and remote clients use a persistent worker with private Unix IPC and one
 outgoing stream per backend. The CLI sends only local setup through IPC; artifact
 requests and watch go directly to the backend. Supported create/publish and fetch
-register through the worker; setup failures warn after successful data operations.
-Fresh explicit listen returns after backend registration. The old per-artifact
-publisher relay is removed.
+establish subscriptions directly after local worker setup; setup failures warn
+after successful data operations. Fresh explicit listen returns after backend
+subscription setup. The old per-artifact publisher relay is removed.
 Before spawning a new worker, recognized sandbox environment markers produce an
 advisory warning on stderr with an outside-sandbox restart command. Existing worker
 reuse is quiet; output data and exit codes retain their normal meaning. Detection
@@ -197,7 +197,7 @@ management/audit routes, their exact fields, and reconnect rules. Keep
 aligned when changing those routes. Application HTTP never accepts harness targets.
 
 Worker delivery failure retains the selected subscription with a visible error;
-no automatic resend goes to another recipient. Disconnect retains backend-owned
+no automatic resend goes to another subscription. Disconnect retains backend-owned
 selection, and reconnect attaches transport under the same credential principal.
 There is no saved worker intent or resume operation. Subscription setup, fallback
 selection, and restart never submit unsent content. Archive atomically ends durable
@@ -292,7 +292,7 @@ The current command families:
 | `edit`, `delete` | Artifact metadata or whole-artifact deletion; no individual version mutation |
 | `thread add/edit/delete`, `comment` | Native immutable originals and derived comment references; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable thread-scoped lease |
-| `comment fetch`, `watch`, `listen`, `unlisten` | Owner handoff and one selected recipient |
+| `comment fetch`, `watch`, `listen`, `unlisten` | Comment delivery and one selected subscription |
 | `thread source <thread-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |
@@ -324,22 +324,22 @@ or the selected remote address. `r3 login` saves credentials for the complete no
 
 Claude Code/Codex create/publish makes the publisher the fallback. `listen` takes
 explicit priority; `unlisten` removes the caller's roles. A persistent local worker
-owns harness targets and eligible intent. Disconnect removes presence. Resume
-restores original roles only when no incumbent exists, preserving even a publisher
-fallback. Conflicts stop automatic attempts until fresh CLI action; archive,
-replacement and cancellation retire identities even while their worker is offline.
+owns local notification destinations. Disconnect retains backend subscriptions
+and marks them unavailable. Reconnect binds the same worker and credential principal
+without changing selection. Fresh listen can replace the explicit subscription;
+archive, replacement, and unlisten end subscriptions even while the worker is offline.
 Codex queue success need not mean the session is running. Other agents watch or poll.
 
 Watch exits 10 for pending comments, 0 for archived, 2 for timeout, and 4 for a
-superseded recipient or a snapshot conflict before acknowledgment. Archive takes precedence even if thread is
+superseded subscription or a snapshot conflict before acknowledgment. Archive takes precedence even if thread is
 pending or the timeout has just elapsed. Already archived watch returns immediately.
-A nonblank archive message reaches the captured recipient and remains in history;
-blank messages produce no nudge. Restore needs a new registration. Notification
+A nonblank archive message reaches the captured notification destination and remains in history;
+blank messages produce no nudge. Restore needs a new subscription. Notification
 failure never rolls back lifecycle state and an operation-key retry never re-pushes.
 
 ## Delivery and status
 
-Delivery is the owner's artifact-level handoff, not a receipt from every agent.
+Comment delivery confirms transfer to an agent, not a receipt from every agent.
 Agent messages start delivered. New human comments start pending; editing
 an open human note clears its delivery timestamp. Editing a resolved note does not
 reopen it. The private `ever_delivered` flag survives edits, so a subsequent human
@@ -351,20 +351,21 @@ even if the human owner edits them.
 completion, then explicitly acknowledge that exact snapshot. Reads and failed output
 leave content pending. A failed acknowledgment returns an error and may repeat output
 on retry; concurrent conversation changes remain pending. This is at-least-once
-handoff to stdout, not proof that the harness/model processed the content. Reusing an
+delivery to stdout, not proof that the harness/model processed the content. Reusing an
 old acknowledgment cannot drain a newer batch. All conversation mutations and
 archive/restore advance a persisted artifact revision; claims alone do not.
 
-After successful acknowledgment, `comment fetch` registers the calling agent as an
-explicit listener when harness detection supports it. This uses the persistent worker and direct backend registration, returns after registration, and keeps listener
+After successful acknowledgment, `comment fetch` establishes an explicit
+subscription when harness detection supports it. This uses the persistent worker
+and a direct backend request, returns after subscription setup, and keeps setup
 output off stdout. Setup failures only warn on stderr after a successful fetch.
-Unsupported harnesses need no identity to fetch; `--human` skips registration.
-`--all` reads open history without acknowledgment or registration, and
+Unsupported harnesses need no identity to fetch; `--human` skips subscription setup.
+`--all` reads open history without acknowledgment or subscription setup, and
 `--all --threads` can read specific resolved threads too.
-Wake notifications use the preferred `r3 comment fetch` spelling. Fetch and watch
+Comment notifications use the preferred `r3 comment fetch` spelling. Fetch and watch
 share a data-only formatter; workflow instructions live in the guide. Original
 targets, claims, comment/fix context, status changes, and history pointers remain in
-the payload. Without a listener/watcher, the browser offers **Use in agent** with a
+the payload. Without a selected subscription, the browser offers **Use in agent** with a
 copyable fetch command for `! <command>` in the harness. Opening/copying never
 acknowledges comments. Claims, publication, notifications, and event-stream reads
 do not acknowledge comments.

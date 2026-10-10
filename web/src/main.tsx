@@ -111,7 +111,7 @@ function renderBootError(err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
   createRoot(document.getElementById("root")!).render(
     <div className="mx-auto mt-[15vh] max-w-lg px-6 text-sm">
-      <p className="mb-2 font-semibold">Couldn’t reach the r3 daemon.</p>
+      <p className="mb-2 font-semibold">Couldn’t reach the r3 server.</p>
       <p className="mb-4 break-words font-mono text-xs text-neutral-500">{message}</p>
       <button
         type="button"

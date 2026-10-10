@@ -112,7 +112,9 @@ export async function startArtifactDaemon(): Promise<void> {
         } satisfies WorkerImport);
         await ensureWorker();
       } catch {
-        console.error("r3: saved listeners need worker setup; run r3 worker start to retry");
+        console.error(
+          "r3: legacy notification destinations need worker setup; run r3 worker start to retry",
+        );
       }
     }
     let closing = false;
@@ -134,7 +136,7 @@ export async function startArtifactDaemon(): Promise<void> {
     });
     process.on("SIGHUP", () => {});
     process.on("unhandledRejection", () => console.error("r3: a background operation failed"));
-    console.log(`r3 artifact daemon on ${PUBLIC_URL}/ (v${R3_VERSION})`);
+    console.log(`r3 server on ${PUBLIC_URL}/ (v${R3_VERSION})`);
     if (storage.migration?.migrated)
       console.log(
         "r3: artifact schema upgraded; its database backup is retained in artifact storage",

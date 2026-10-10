@@ -69,7 +69,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 
 | Area | Modules and responsibility |
 | --- | --- |
-| Public contracts | `shared/artifacts.ts`, `artifact-client.ts`, `artifact-prompt.ts`, `preview-protocol.ts`, `event-stream.ts`; `shared/types.ts` adds renderer, bootstrap, and publisher wake shapes |
+| Public contracts | `shared/artifacts.ts`, `artifact-client.ts`, `artifact-prompt.ts`, `preview-protocol.ts`, `event-stream.ts`; `shared/types.ts` adds renderer, bootstrap, and publisher notification shapes |
 | Entrypoints | `cli/index.ts` → `artifact-main.ts`; `server/index.ts` → `artifact-daemon.ts`; `web/src/App.tsx` → `ArtifactHome` / `ArtifactView` |
 | Bootstrap and exposure | `server/config.ts`, `artifact-config.ts`, `artifact-daemon.ts`, `artifact-server.ts`, `application-assets.ts`; `cli/daemon-client.ts`, `artifact-settings.ts` |
 | Store and upgrade | `server/artifact-storage.ts`, `artifact-schema.ts`, `blobs.ts`, `migration.ts`; private backup, atomic migration, recovery, coordinated garbage collection |
@@ -78,14 +78,14 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Publisher capture | `cli/capture.ts`, `capture-git.ts`, `publisher-remote.ts`, `artifact-publish.ts`; bounded stable bytes, sanitized remote hints, Git process isolation, explicit retry diagnostics |
 | Content and rendering | `server/artifact-source.ts`, `artifact-resources.ts`, `artifact-document.ts`, `patch-content.ts`; `git.ts` is a pure patch parser/trimmer |
 | Native targeting | `server/artifact-targets.ts`, `artifact-conversations.ts`; original targets and historical placements |
-| Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `artifact-events.ts`; events, handoff, claims, selected recipient |
+| Collaboration | `server/artifact-lifecycle.ts`, `artifact-collaboration.ts`, `artifact-events.ts`; events, comment delivery, claims, selected subscription |
 | HTTP and auth | `server/artifact-api.ts`, `artifact-conversation-api.ts`, `artifact-http.ts`, `artifact-auth.ts`, `auth.ts`, `client-auth.ts`, `client-auth-api.ts`; `cli/backend.ts`, `login.ts`, `private-state.ts` |
-| Wake delivery | `cli/worker-runtime.ts`, `worker-client.ts`, `shared/worker-protocol.ts`; persistent worker, private local targets, outgoing streams; `server/worker-connections.ts`, `worker-records.ts` own opaque routing and retirement; `artifact-listeners.ts` preserves migration inputs |
+| Notification delivery | `cli/worker-runtime.ts`, `worker-client.ts`, `shared/worker-protocol.ts`; persistent worker, private local targets, outgoing streams; `server/worker-connections.ts`, `worker-records.ts` own opaque routing and retirement; `artifact-listeners.ts` preserves migration inputs |
 | Preview server | `server/preview-contexts.ts`, `preview-host.ts`, `preview-gate.ts`, `preview-support.ts`; scoped URL capabilities, opaque sandbox, capability gate, closed network policy |
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
 | Markdown reading cache | `web/src/markdown-cache.ts`, `passive-markdown.ts`, `components/PassiveMarkdown.tsx`; bounded immutable bytes, invalidation, and passive reading during preview checks |
 | Workspace | `web/src/artifact-page.tsx` is the UI-only page; `artifact-ui-context.tsx` injects reads/actions; `application-ui.tsx` and `pages/ArtifactView.tsx` connect it to the app; `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
-| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-threads.ts`, `useArtifactHandoff.ts`; stable message props, Active/Resolved queues, independently subscribed drafts, shared navbar/panel handoff |
+| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-threads.ts`, `useArtifactHandoff.ts`; stable message props, Active/Resolved queues, independently subscribed drafts, shared navbar/panel Send to agent action |
 | Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
 | Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `viewed.ts`, `pane.ts` |
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mermaid.ts`, `patch-hunks.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
@@ -151,28 +151,28 @@ only that same agent's claim.
 conflicts. Resolve, archive, deletion, and expiry clear claims. Claim presence is
 separate from status, activity ordering, and owner delivery.
 
-**Owner handoff** retains the existing distinction between unsent human content and
+**Comment delivery** retains the existing distinction between unsent human content and
 agent messages born delivered. Pending reads return a snapshot without acknowledgment.
 The CLI writes it successfully to stdout before calling the explicit comments
 acknowledgment endpoint with its required fingerprint. Persisted revisions prevent
 stale snapshots from acknowledging edits, including edit-and-revert cycles. Failed
 reads/output leave content pending; retries after acknowledgment failure may repeat
 output. The web UI copies a `r3 comment fetch` command without acknowledging it.
-Successful fetch registers the caller as listener when its harness supports it.
-A wake notification alone does not stamp delivery.
+Successful fetch establishes an explicit subscription when the caller’s harness supports it.
+A signal-only comment notification does not stamp delivery.
 Thread retains whether it was ever delivered independently of the current text's
 pending timestamp, so editing cannot suppress a later resolution notification.
 
 **Lifecycle events** have immutable ordered identities, actor, optional artifact-level Comment,
 and operation key. Blank archive comments normalize to null. Archive changes state,
-records history, clears claims, captures the selected recipient, and removes
-registrations before post-commit notifications. Push only a nonblank Comment to
-that captured recipient.
+records history, clears claims, captures the selected subscription, and ends
+subscriptions before post-commit notifications. Push only a nonblank Comment to
+the captured notification destination.
 A failed push preserves the event and Comment and reports failure; retry does not notify again.
 Archive Comments use the common Comment read/edit API and become editable after restore.
 A full acknowledged archive notification stamps only its original Comment revision;
-late delivery cannot consume a newer edit. Other pending Comments use snapshot handoff.
-Restore permits work but never revives an old registration. Archive preserves
+late delivery cannot consume a newer edit. Other pending Comments use snapshot acknowledgment.
+Restore permits work but never revives an old subscription. Archive preserves
 threads state, unsent content, and drafts. Archived content is read-only until
 restore: the backend rejects content mutations at commit, including late comments.
 The browser retains drafts while disabling mutation controls.

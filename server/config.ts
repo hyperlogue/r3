@@ -1,4 +1,4 @@
-// Daemon configuration + discovery. Dependency-light and free of *mutating* side
+// Server configuration + discovery. Dependency-light and free of *mutating* side
 // effects at import (config.json is read-only here), so the CLI can import path/IO
 // helpers without pulling in the server.
 
@@ -23,7 +23,7 @@ export { R3_VERSION };
 const DEFAULT_PORT = 8791;
 // The persisted exposure config (config.json), read once at import. It sits
 // *below env* in every resolution below (`env ?? PERSISTED ?? default`), so it's
-// the durable memory of how the daemon was last configured to serve — surviving a
+// the durable memory of how the server was last configured to serve — surviving a
 // restart / lazy-spawn from a shell that never exported the R3_* vars — while a
 // one-off `R3_X=… r3 …` still wins for that run. `readConfig`/`writeConfig` are
 // defined with the other XDG helpers below (hoisted, so callable here).
@@ -40,7 +40,7 @@ export const PORT =
 // an explicit opt-in that also requires a Host allowlist.
 export const BIND = process.env.R3_BIND?.trim() || PERSISTED.bind || "127.0.0.1";
 
-// The on-box URL the daemon advertises to the local CLI + uses for self-health.
+// The on-box URL the server advertises to the local CLI + uses for self-health.
 // Loopback for a loopback/all-interfaces bind (also what an `ssh -L
 // <PORT>:localhost:<PORT>` forward targets); the bind address itself when bound
 // to a specific non-loopback interface (still local to the box, so reachable).
@@ -62,9 +62,8 @@ function hostnameOf(url: string): string | null {
   }
 }
 
-// Loopback host names — always trusted (a loopback bind, or an `ssh -L` forward,
-// is already access-controlled). The allowlist seeds from these, and `REQUIRE_LOGIN`
-// (below) uses them to default the login policy.
+// Loopback host names seed the Host allowlist; this does not grant API or browser
+// access. The legacy REQUIRE_LOGIN default below also uses this set.
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 export function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname);
@@ -107,8 +106,8 @@ export function isAllowedHost(hostname: string): boolean {
   return ALLOWED_HOSTS.has(hostname);
 }
 
-// Login policy, not detection (proxies can forge Host). Defaults on iff any
-// non-loopback access is configured; R3_REQUIRE_LOGIN=1|0 forces either way.
+// Legacy login policy, retained for configuration compatibility and controlled
+// fixtures. The shipped server always requires a browser session, even when false.
 // Parse a boolean-ish flag (1/true/yes → true, 0/false/no → false, else null).
 // Shared with `r3 config set requireLogin` so env and persisted paths agree.
 export function parseBoolFlag(v: string | undefined): boolean | null {
@@ -123,7 +122,8 @@ export const REQUIRE_LOGIN =
   (!isLoopbackHost(BIND) || [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)));
 
 // $XDG_STATE_HOME/r3 (default ~/.local/state/r3): the persistent home for the
-// global sqlite, the per-user token, and the fallback daemon.json.
+// artifact database and content, private server token, worker state, and fallback
+// runtime discovery files.
 export function stateDir(): string {
   const base = process.env.XDG_STATE_HOME?.trim() || join(homedir(), ".local", "state");
   return join(base, "r3");
@@ -279,18 +279,16 @@ export interface DaemonInfo {
   token?: string;
   version: string;
   protocol?: "artifacts-v3";
-  // How this daemon was launched, recorded by the serving process itself:
+  // How this server was launched, recorded by the serving process itself:
   // `exec` is its binary/interpreter (process.execPath — the compiled r3 binary,
   // or the bun that ran the script), `argv` the full command line
-  // (process.argv). Surfaced by `r3 status` so you can see which binary is
-  // actually serving. Optional: a daemon started before this field existed omits
-  // them.
+  // (process.argv). Used to identify the process before stopping it. Older
+  // announcements may omit these fields.
   exec?: string;
   argv?: string[];
-  // The exposure posture this daemon actually resolved at startup (its own
-  // env+config.json), so `r3 status` can report whether it's serving remotely and
-  // whether login is required — even when the querying shell has different env.
-  // Optional: a daemon predating these fields omits them.
+  // The URL and legacy login policy resolved from the serving process's own
+  // env+config.json. Current browser access always requires a session; older
+  // announcements may omit these fields.
   publicUrl?: string;
   requireLogin?: boolean;
 }
@@ -335,7 +333,7 @@ export function removeDaemonJson(): void {
 // The one state this can't resolve by itself is a lock held by a pid that is
 // ALIVE but no longer serving (a wedged event loop). Liveness says "held", so
 // every spawn steps aside forever. Nothing here can tell the difference — it's
-// sync and can't probe — so `r3 stop` owns that recovery: it kills the process
+// sync and can't probe — so `r3 server stop` owns that recovery: it kills the process
 // and clears the lock (see stopProcess in cli/daemon-client.ts).
 
 // Colocate the lock with daemon.json (same volatile dir) so their lifetimes
@@ -359,7 +357,7 @@ export function isPidAlive(pid: number): boolean {
 
 // Who holds the start lock, or null if it's free/unreadable. This is the SECOND
 // record of who is serving, and it outlives daemon.json — a daemon that stopped
-// answering can have its announcement cleared while it keeps the lock. `r3 stop`
+// answering can have its announcement cleared while it keeps the lock. `r3 server stop`
 // reads it to find such a process, which daemon.json alone can no longer name.
 export function readDaemonLockOwner(): number | null {
   try {
@@ -370,7 +368,7 @@ export function readDaemonLockOwner(): number | null {
   }
 }
 
-// Drop the lock regardless of owner. Only for `r3 stop` after it has killed the
+// Drop the lock regardless of owner. Only for `r3 server stop` after it has killed the
 // owning process: a killed daemon never runs releaseDaemonLock(), and while the
 // lock names a pid the OS may later recycle, every spawn risks losing to a
 // stranger. (acquireDaemonLock steals a dead owner's lock on its own, so this is
@@ -410,10 +408,10 @@ export function releaseDaemonLock(): void {
   } catch {}
 }
 
-// The per-user token: one secret gating all of the single user's
-// repos, persisted in XDG (mode 0600) so it survives a restart — keeping
-// injected-into-the-page browser sessions and bookmarked URLs valid. `R3_TOKEN`
-// overrides. Lazily generated so importing this module has no side effects.
+// The server's master API token, persisted privately (mode 0600) across restarts.
+// Automatic local CLI setup obtains it through private Unix IPC. Browser access
+// uses session cookies; reusable credentials never enter browser boot or links.
+// R3_TOKEN overrides it. Generation is lazy, with no import-time writes.
 export function getToken(): string {
   if (process.env.R3_TOKEN) return process.env.R3_TOKEN;
   const f = join(stateDir(), "token");

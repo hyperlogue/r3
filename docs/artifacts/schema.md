@@ -188,10 +188,10 @@ The references are creator_session_id on artifacts, publisher_session_id on vers
 
 SQL verifies session existence and the role/session pairing, and prevents later edits to publication/message attribution. Claims require a session. No column assigns the entire artifact to one agent, so two agents can publish or discuss the same artifact and claim different threads. The server validates new-write attribution and claim ownership at the module interface.
 
-Notification routing uses one selected recipient per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record the owner's artifact-level handoff; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker registration identities and retirement history persist in SQLite; local harness targets belong to the separate private worker file. No reconnect intent is stored on the worker.
+Notification routing uses one selected subscription per artifact. Assignment and fan-out are outside the current model. sent_at/status_unsent record artifact-level comment delivery; they do not become per-agent read receipts. If fan-out is later implemented, add explicit per-recipient delivery records rather than treating one timestamp as acknowledgement by all agents. Live watch and worker connections remain transient. Backend worker subscription identities and retirement history persist in SQLite; local harness targets belong to the separate private worker file. No reconnect intent is stored on the worker.
 
 Thread also retains an internal `ever_delivered` flag. New human notes start
-false; agent notes start true. Handoff sets it true, and edits never clear it.
+false; agent notes start true. Comment delivery sets it true, and edits never clear it.
 Editing an open human note can clear `sent_at` for the current text while retaining
 the history needed to send a later resolution or reopening. A status change on a
 new, never-delivered note does not create status work. Comments retain their own
@@ -272,7 +272,7 @@ outputs independently, so retries remain stable across renderer upgrades.
 | Version ownership and same-artifact message references | Target path membership, native locator validation, dynamic DOM evidence |
 | Complete declared file count and HTML entrypoint membership at finalization | Actual byte availability and integrity, complete rendering preparation, canonical publication digest |
 | Immutable version payload, file rows, original threads target, and comment context/fix target | Expected-sequence transaction, retry behavior, no committed assembly rows |
-| No additional files after publication; no individual version/file deletion | Archive/event atomicity, optional message notification, cleanup of leases/listeners, and unconditional watch termination |
+| No additional files after publication; no individual version/file deletion | Archive/event atomicity, optional message notification, cleanup of claims/subscriptions, and unconditional watch termination |
 | Nondecreasing sequence counter; unique publication and lifecycle operation keys | Retry behavior, claim ownership/expiry, human-controlled status, agent comment releasing only its matching claim |
 | Typed states, JSON-object shape, required target fields, agent-session foreign keys | New-write actor/session validation, sent_at/status_unsent delivery rules and activity timestamps |
 | Foreign-key cascades on whole-artifact deletion | SSE after commit, byte-store garbage collection, browser isolation |
@@ -314,14 +314,16 @@ require explicit selection or configuration. Backfilling missing primary remotes
 uses authenticated project updates, optionally requiring `expectedRemoteUrl: null`.
 The schema upgrade never inspects local Git repositories.
 
-Schema version 4 adds `local_agent_targets` (session-to-harness delivery details) and
+Schema version 4 added `local_agent_targets` (session-to-harness delivery details) and
 `artifact_listeners` (artifact, fallback/explicit mode, registration ID, session, time).
-These legacy rows belong to the local server; public reads expose only listener identity,
-name, and mode. Publication and archive update registrations inside their existing
-transactions. Explicit failure deletes by registration ID, so an older failing send
-cannot remove a replacement. Fallback failures retain the saved target. SQLite and
-its backups are private and now contain local harness credentials. Session labels
-are mutable display names; internal IDs and authored attribution remain stable.
+At that version, these rows belonged to the local server; public reads exposed only
+identity, name, and mode. Publication and archive updated them transactionally.
+Explicit failure deleted by registration ID, so an older failing send could not
+remove a replacement. Fallback failures retained the saved target. The current
+subscription model supersedes those rules; the tables remain as legacy import
+inputs. SQLite and its backups are private and may retain local harness credentials.
+Session labels are mutable display names; internal IDs and authored attribution
+remain stable.
 
 Schema version 5 adds `threads.ever_delivered`. Previous schemas could erase the
 only delivery timestamp during an edit, so the upgrade conservatively sets this
@@ -470,22 +472,11 @@ cadence. `client_audit` records approval and connection observations with server
 time and separate CLI, browser, and worker source addresses. No plaintext bearer
 or device secret is stored. Browser login tables and existing sessions are preserved.
 
-`worker_registrations` stores immutable registration ID, worker ID, artifact ID,
-canonical registration body, and `active|disconnected|retired` state. It contains
-opaque notification destination IDs (`listenerId`) and attribution only. Startup
-converts active records to disconnected; registration presence requires an
-authenticated live connection.
-Replacement and archive retire saved identities transactionally, including offline
-intent. Retired records cannot return, even when a retirement event was lost.
-Artifact deletion cascades their records.
-
-The private local worker file persists backend-qualified listener IDs, harness
-configuration, and reconnect intent; the worker never opens this database. Existing
-schema-4 local listener rows are exported privately once and adopted through the
-local worker's conditional resume. Adoption validates the original artifact, actor,
-role and registration identity, then removes the legacy row and unused target.
-Old private database backups may still contain the original harness credentials.
-See [remote protocol](remote-protocol.md) for authentication and recovery semantics.
+Schema 11 introduced `worker_registrations` with immutable subscription ID, worker ID,
+artifact ID, canonical subscription body, and `active|disconnected|retired` state.
+The body contains opaque notification destination IDs (`listenerId`) and attribution.
+Its original reconnect model depended on worker-saved recovery intent and conditional
+resume. Schema 12 supersedes that model with backend-owned durable subscriptions.
 
 ## Durable worker subscriptions
 
@@ -495,6 +486,15 @@ archive, or deletion retires it. The server reconstructs retained selection afte
 restart, and the same worker/principal can attach a new connection. Old records
 without a saved principal are retired rather than assigned guessed authority;
 artifacts, conversation evidence, and credentials remain unchanged.
+
+The version-2 private worker file saves backend-qualified notification destinations
+and harness configuration, discarding old recovery intents. The worker never opens
+SQLite. Legacy schema-4 destinations can be exported through `worker-import.json`
+and saved locally without recreating subscriptions; a fresh listen or publication
+is required. Import removes the transfer file but currently leaves the legacy SQL
+rows in place, so a later server start can export them again. Private database
+backups may also retain the original harness credentials.
+See [remote protocol](remote-protocol.md) for authentication and reconnect semantics.
 
 ## Discussion and Comment names
 

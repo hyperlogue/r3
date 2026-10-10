@@ -301,7 +301,7 @@ export async function runArtifactCommand(
       await printPublication(artifact, version, url);
       if (listen && ctx.registerListener && listenerRegistered === false)
         listenerWarning =
-          "Published, but no worker listener was registered. Run r3 listen or use r3 watch.";
+          "Published, but no publisher fallback was established. Run r3 listen or use r3 watch.";
       if (listenerWarning) ctx.error(listenerWarning);
       return 0;
     }
@@ -530,7 +530,7 @@ export async function runArtifactCommand(
       ) {
         try {
           const result = await ctx.listen(args.id(), await actor(), false, true);
-          if (result !== 0) throw new Error("Listener registration failed");
+          if (result !== 0) throw new Error("Subscription setup failed");
         } catch {
           ctx.error(
             "Comments fetched, but automatic listening could not be configured. Run r3 listen or use r3 watch.",
@@ -588,7 +588,7 @@ export async function runArtifactCommand(
     }
     case "listen": {
       if (!ctx.listen)
-        throw new ArtifactCommandError("This harness has no wake adapter; use r3 watch", 5);
+        throw new ArtifactCommandError("This harness has no notification adapter; use r3 watch", 5);
       return ctx.listen(args.id(), await actor(), args.has("foreground"));
     }
     case "unlisten": {
@@ -618,7 +618,7 @@ export async function runArtifactCommand(
           if (result?.event?.artifactId === args.id() && result.notification?.state === "failed") {
             await print(result);
             ctx.error(
-              "The lifecycle change was saved, but the listener notification failed. The operation key in the event identifies this committed change.",
+              "The lifecycle change was saved, but the comment notification failed. The operation key in the event identifies this committed change.",
             );
             return 1;
           }

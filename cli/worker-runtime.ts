@@ -294,7 +294,7 @@ export class WorkerRuntime {
           value.actor.sessionId === subscription.actor.sessionId,
       )
     )
-      throw new ArtifactError("Unknown local listener");
+      throw new ArtifactError("Unknown local notification destination");
     this.subscriptions = this.subscriptions.filter(
       (value) =>
         value.url !== url ||

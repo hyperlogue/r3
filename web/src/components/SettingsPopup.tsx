@@ -240,16 +240,14 @@ export function SettingsDialog({
           </Button>
         </Section>
 
-        {/* Login tokens for reaching r3 when it's exposed beyond loopback —
-                absent in the browser demo, which has no daemon to expose. */}
+        {/* Browser login tokens are available on local and remote servers. */}
         {CAN_MANAGE_TOKENS && (
           <Section label="Access">
             <TokenManager />
           </Section>
         )}
 
-        {/* Sign out — only an exposed (cookie) session can; a non-exposed one
-                holds the token (TOKEN != "") and has nothing to sign out of. */}
+        {/* Local and remote cookie sessions can sign out. Token-bearing fixtures cannot. */}
         {CAN_MANAGE_TOKENS && TOKEN === "" && (
           <Section label="Session">
             <Button

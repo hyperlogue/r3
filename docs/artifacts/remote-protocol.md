@@ -4,7 +4,7 @@ The bundled r3 backend serves one human user. Third-party backends may serve sev
 the CLI and notification worker treat authorization as opaque and leave user identity,
 workspace scope, and access policy to the backend. The backend owns artifact bytes,
 conversations, browser rendering, authentication, and subscription selection. The CLI uploads and reads
-directly. A persistent worker delivers wake notifications to local harnesses.
+directly. A persistent worker delivers comment notifications to local harnesses.
 Local mode uses these same contracts with an automatically started loopback server.
 The [glossary](../../CONTEXT.md) defines backend, server, notification worker,
 subscription, and selected subscription. The existing wire spellings
@@ -161,7 +161,7 @@ may expose no recognized marker. Startup continues with the same permissions and
 exit behavior. Reusing an existing worker produces no startup warning. To replace
 a sandboxed worker, run `r3 worker restart` from a terminal outside the sandbox.
 
-The worker persists a random worker ID, backend-qualified opaque listener IDs,
+The worker persists a random worker ID, backend-qualified opaque destination IDs,
 and local harness targets in
 `$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). The local IPC
 socket and discovery file reside beside `daemon.json` in the runtime directory.
@@ -211,26 +211,27 @@ streams while retaining their subscriptions and exposing a disconnected/error st
 A stale connection or acknowledgment cannot remove a newer subscription. The browser
 shows the selected subscription’s connectionState and error from the watchers response.
 
-The wire type `WorkerSubscription` carries a registration. Its `id` identifies
-that registration, `listenerId` identifies the notification destination, and
+The wire type `WorkerSubscription` carries a subscription. Its `id` identifies
+that subscription, `listenerId` identifies the notification destination, and
 `actor` identifies the authored agent session. Connections use separate `workerId`
 and `connectionId` fields for the persistent worker and one live connection.
 None of these identifiers is a client authorization or proof that an agent is
 running. Existing field and route names retain their wire spellings.
 
-A registration has these fields:
+A subscription has these fields:
 
 | Field | Type |
 | --- | --- |
-| `id` | Opaque registration ID, unique across its lifetime |
+| `id` | Opaque subscription ID, unique across its lifetime |
 | `artifactId` | Existing active artifact ID |
 | `listenerId` | Opaque local destination ID, scoped to this backend |
 | `actor` | `{ role: "agent", sessionId: string }`, an existing attribution session |
 | `mode` | `fallback` or `explicit` |
 
-The actor and listener ID are distinct. The backend stores the listener ID verbatim
-and routes it only through its current owning connection. It cannot interpret it
-as a local harness address. Reusing a registration ID with different contents fails.
+The actor and destination ID (`listenerId`) are distinct. The backend stores the
+destination ID verbatim and routes it only through its current owning connection.
+It cannot interpret it as a local harness address. Reusing a subscription ID with
+different contents fails.
 
 | Route | JSON body / effect |
 | --- | --- |
@@ -258,7 +259,7 @@ there is no offline delivery queue or automatic resend. The same worker and cred
 can reconnect and use the retained subscriptions without any resume request or
 competition for a vacant slot. A new agent’s explicit listen replaces the old slot;
 reconnecting the older worker never takes it back. A local delivery failure also
-retains selection, records a visible error, and never retries on another recipient.
+retains selection, records a visible error, and never retries on another subscription.
 A later successful send clears that error. Manual listen from the same agent refreshes
 its local connection information, while listening from another agent changes selection.
 
@@ -279,7 +280,7 @@ A nudge contains `id`, `artifactId`, nullable `title`, `event: submitted|archive
 nullable `lifecycleEventId`, and nullable `comment: { id, body, truncated? }`. Archive
 notifications carry at most 8,000 characters and identify the persisted Comment.
 The worker validates the
-backend-qualified listener/registration/artifact mapping before invoking its local
+backend-qualified destination/subscription/artifact mapping before invoking its local
 adapter. Unknown IDs return failed acknowledgment. Delivery is ordered per local
 destination; separate destinations/backends do not block each other. At most six
 notifications, including the active one, are queued per destination. The 15-second
@@ -287,9 +288,10 @@ acknowledgment deadline starts at dispatch, and disconnect rejects queued work.
 
 Only the human's Send to agent action submits comments. Setup, reconnect and
 fallback selection never send pending content. Existing lifecycle rules still
-allow an explicit nonblank archive Comment to reach the captured recipient after
-archive commits. Delivery failure is reported to the human. `queued` means Codex
-accepted the wake, not that a session is running. A signal-only acknowledgment never consumes pending content; snapshot
+allow an explicit nonblank archive Comment to reach the captured notification
+destination after archive commits. Delivery failure is reported to the human.
+`queued` means Codex accepted the notification, not that a session is running.
+A signal-only acknowledgment never consumes pending content; snapshot
 fetch/output/acknowledgment remains separate. An acknowledged archive notification
 can stamp its Comment only when it carried the complete body and that Comment
 has not been edited. A truncated notification supplies a command to read the full
@@ -318,8 +320,8 @@ The bundled CLI namespaces detected run IDs as `codex:<run-id>` or
 IDs from different harnesses identify different sessions on the same backend.
 The local worker keeps the raw delivery target; no backend parses an attribution ID
 into a harness address. `R3_AGENT_SESSION` is an explicit complete identity override
-and stays unchanged. Existing unqualified identities and their history stay intact;
-new automatic registration uses the qualified identity. Clients of other backends
+and stays unchanged. Existing unqualified identities and their history stay intact.
+New automatic subscriptions use the qualified identity. Clients of other backends
 must similarly avoid collisions in their backend's session namespace.
 
 ### Incremental browser reads

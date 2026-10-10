@@ -84,12 +84,12 @@ async function stopProcess(pid: number): Promise<void> {
     try {
       process.kill(pid, "SIGKILL");
     } catch {
-      /* The daemon may already have exited. */
+      /* The server may already have exited. */
     }
     for (let attempt = 0; attempt < 40 && isPidAlive(pid); attempt++) await sleep(50);
   }
   if (isPidAlive(pid))
-    throw new ArtifactCommandError("The daemon could not be stopped; its start lock was retained");
+    throw new ArtifactCommandError("The server could not be stopped; its start lock was retained");
   if (readDaemonLockOwner() === pid) forceReleaseDaemonLock();
   if (readDaemonJson()?.pid === pid) removeDaemonJson();
 }
@@ -117,7 +117,7 @@ async function spawnDaemon(): Promise<DaemonInfo> {
     }
   }
   throw new ArtifactCommandError(
-    "Daemon did not become ready. Run r3 __daemon in a terminal to see the startup error; check the state directory and migration backup if migration failed.",
+    "Server did not become ready. Run r3 __daemon in a terminal to see the startup error; check the state directory and migration backup if migration failed.",
   );
 }
 
@@ -181,14 +181,14 @@ export async function daemonCommand(
   const info = readDaemonJson();
   if (command === "status") {
     if (!info) {
-      console.log("r3: no daemon announced");
+      console.log("r3: no server announced");
       return;
     }
     const health = await probe(info.url);
     console.log(
       health
-        ? `r3 daemon: ${info.publicUrl ?? info.url} · v${health.version} · ${health.protocol ?? "previous review protocol"}`
-        : "r3: announced daemon is not responding",
+        ? `r3 server: ${info.publicUrl ?? info.url} · v${health.version} · ${health.protocol ?? "previous review protocol"}`
+        : "r3: announced server is not responding",
     );
     console.log(
       info.bootstrapSocket
@@ -199,20 +199,20 @@ export async function daemonCommand(
   }
   if (command === "start") {
     if (info && (await probe(info.url))) {
-      console.log(`r3 daemon already running: ${info.publicUrl ?? info.url}`);
+      console.log(`r3 server already running: ${info.publicUrl ?? info.url}`);
       return;
     }
     const started = await spawnDaemon();
-    console.log(`r3 daemon started: ${started.publicUrl ?? started.url}`);
+    console.log(`r3 server started: ${started.publicUrl ?? started.url}`);
     return;
   }
   const pid = info?.pid ?? readDaemonLockOwner();
   if (pid && daemonProcess(pid, info ?? undefined)) {
     await stopProcess(pid);
-    console.log("r3 daemon stopped");
+    console.log("r3 server stopped");
   } else {
     if (pid && readDaemonJson()?.pid === pid) removeDaemonJson();
     if (pid && readDaemonLockOwner() === pid) forceReleaseDaemonLock();
-    console.log("r3: no live daemon");
+    console.log("r3: no live server");
   }
 }

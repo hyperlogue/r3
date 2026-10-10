@@ -91,7 +91,7 @@ Git capture uses stable path prefixes and the short submodule format, including
 changed submodule pointers regardless of display or ignore preferences. It does
 not recursively capture submodule contents. Git binary patches remain supported.
 
-All kinds share version identity, conversations, claims, owner handoff, and
+All kinds share version identity, conversations, claims, comment delivery, and
 active/archived lifecycle. Files and HTML own their members directly; there is no
 additional directory-container entity for a caller to create or manage.
 
@@ -431,11 +431,11 @@ artifact or access errors replace it with an error state.
 Resolve and Reopen update the queue immediately while the server saves. Pending
 decisions are applied over refreshed server state, so incoming comments remain visible.
 A failed save restores that thread and shows its error without rolling back other
-decisions. Handoff waits for pending status saves; only the server persists status.
+decisions. Sending waits for pending status saves; only the server persists status.
 Active threads prioritize freshly posted human notes (unsent, with no comments or
 claim), then unhandled threads, then waiting threads, then claimed work. Each
 group sorts by creation time, newest first; equal timestamps preserve reverse
-server insertion order. This keeps a new card beside its composer until handoff,
+server insertion order. This keeps a new card beside its composer until sending,
 while commenting moves a handled card below threads still needing attention. The
 existing reorder animation shows that move without automatic scrolling. Unhandled
 means an open thread whose latest message is from an agent; a posted human comment or
@@ -446,22 +446,22 @@ The browser tab favicon adds a blue dot for the current artifact's same unhandle
 agent threads. Viewing the tab does not clear it; a human comment or resolution does.
 Leaving the artifact restores the ordinary icon, including if its badge asset is
 still loading.
-Unsent human input shows a desktop navbar handoff button immediately before
-the discussion toggle, available while the panel is hidden. Both navbar handoff
+Unsent human input shows a desktop navbar Send to agent button immediately before
+the discussion toggle, available while the panel is hidden. Both navbar send
 variants disappear while the dock is expanded or floating, leaving the panel's
 control. Hiding the navbar action fades it right toward the discussion toggle and
 collapses its space; showing it reverses that transition. Hidden controls are inert,
-and reduced-motion preferences disable the transition. With no listener/watcher,
+and reduced-motion preferences disable the transition. With no selected subscription,
 **Use in agent** opens a small command popover, even without pending comments.
 It shows `r3 comment fetch <id>` and a copy icon, with instructions to run it using
 `!` in the agent harness. Copying leaves comments pending until the CLI runs.
 The panel retains the same control, including on mobile. Command popovers support
 Escape, outside dismissal, and focus return; their top layer avoids pane clipping.
 Both send controls share the in-flight request guard and delivery receipts.
-Handoff errors appear in the shared corner stack with guidance to check that the
+Notification errors appear in the shared corner stack with guidance to check that the
 agent session is running and listening, a copyable fetch command, and expandable
 delivery details. Posting adds threads to
-r3; **Send to agent · N** notifies the registered recipient. Successful notification
+r3; **Send to agent · N** notifies the selected subscription’s destination. Successful notification
 delivery, including Codex queue acceptance, shows **Sent** for three seconds and
 the same **Agent notified** notice. This confirms adapter acceptance, never that
 the agent read or processed threads. It then hides the navbar action and keeps
@@ -470,7 +470,7 @@ the ping began; concurrent edits remain eligible. Agent comments, claims, and bo
 edits do not invalidate that receipt. Receipts synchronize across tabs and retain the latest successful request, so
 older completions cannot overwrite newer input and historical values can be sent again. A bounded cache persists hashes; if Web Crypto is unavailable,
 exact inputs stay in memory for the current visit. This confirmation never stamps
-server threads as read. Failed or absent delivery remains retryable. Disabled handoff
+server threads as read. Failed or absent delivery remains retryable. Disabled send
 reasons remain in the button tooltip. The draft badge shares the filter row, so
 typing does not add a row or shift the composer. General notes open on demand as
 the first pending card in the same scrolling list as threads. After the server
@@ -491,7 +491,7 @@ Comments omit a separate context label; their saved context still pins inline fi
 references, and explicit fix links remain visible.
 Quoted targets offer expansion only when the text exceeds the three-line preview;
 the control rechecks clipping when the panel resizes.
-Long conversations fold earlier comments. Nonempty drafts block handoff until posted or discarded. Drafts
+Long conversations fold earlier comments. Nonempty drafts block sending until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 
@@ -643,7 +643,7 @@ The saved-frame icon is in each file header. Compare has no region creation tool
 The navbar and discussion panel remain shared with the artifact workspace. Comparison
 adds a badge by Discussion and filters its Active/Resolved queues to eligible
 conversations. The panel is temporarily docked and cannot float or hide; phone
-thread is in flow beneath the previews. Comments, resolution, undo, handoff, and
+thread is in flow beneath the previews. Comments, resolution, undo, sending, and
 draft storage use their ordinary behavior. New comparison comments default to the
 explicit fix version; existing draft context remains pinned.
 
@@ -669,16 +669,17 @@ notes concurrently. A conflicting live owner blocks a claim, and a successful co
 releases only its author's claim. Concurrent publication is protected separately by
 the version sequence check.
 
-An artifact can retain a publisher fallback and an explicit registration. Its
-selected recipient receives wake notifications: explicit listen/watch takes
-priority over the publisher fallback. Each newly committed publication updates that
-fallback even while an explicit recipient is selected. Unsupported publishers and
-`--no-listen` clear it; publication replay changes no registration. Unlisten removes
-the caller's roles. A failed worker send retains the selected subscription with a
-visible error; the same attempt is never resent to another recipient.
+An artifact can retain a publisher fallback and an explicit subscription. The
+selected subscription routes comment notifications to its destination: explicit
+listen/watch takes priority over the publisher fallback. Each newly committed
+publication updates that fallback even while an explicit subscription is selected.
+Unsupported publishers and `--no-listen` clear it; publication replay changes
+neither subscription. Unlisten ends the caller’s subscriptions. A failed worker
+send retains the selected subscription with a visible error; the same attempt is
+never resent to another subscription.
 
 Local and remote modes use the same backend protocol. The server owns content,
-threads, authentication, and recipient selection. A separate persistent worker
+threads, authentication, and subscription selection. A separate persistent worker
 owns local Claude Code/Codex delivery and opens only a private Unix socket. CLI
 reads, writes, uploads, and watch go directly to the selected backend. Each backend
 gets one outgoing worker connection carrying opaque destination IDs. Harness paths
@@ -692,18 +693,18 @@ Backend restart preserves the same subscription identities. Archive, unlisten, a
 replacement end those identities permanently, including while a worker is offline.
 Setup, restart, and fallback selection never submit pending comments.
 
-After printing and acknowledging pending comments, `comment fetch` registers a
-supported calling harness through the same worker/backend path. Setup failure warns
-without failing the fetch. History and human reads skip registration. Codex delivery
-reports queue acceptance, not proof of session liveness. Notifications are bounded
+After printing and acknowledging pending comments, `comment fetch` establishes an
+explicit subscription for a supported harness through the same worker/backend path.
+Setup failure warns without failing the fetch. History and human reads skip
+subscription setup. Codex delivery reports queue acceptance, not proof of session liveness. Notifications are bounded
 and ordered per destination; a failed backend cannot block others.
 
 The [remote protocol](remote-protocol.md) owns backend selection, client login,
 credential storage, wire messages, recovery, delivery limits, and migration. The
 bundled server implements that contract; it is not a separate remote product.
 
-Comment acknowledgment records the owner's handoff, not a read receipt from every
-agent. Agent messages start delivered; human comments wait for handoff. Reading or
+Comment acknowledgment records delivery to an agent, not a read receipt from every
+agent. Agent messages start delivered; human comments wait for delivery. Reading or
 subscribing is not acknowledgment. The CLI reads `comments/pending`, completes stdout output, then calls the explicit
 `comments/acknowledge` endpoint with that snapshot’s required fingerprint. A persisted
 revision rejects stale snapshots even after text is edited and reverted. Failed reads
@@ -718,21 +719,21 @@ lifecycle event and optional artifact-level Comment, changes state, and clears c
 The Comment shares the message model used by Threads, without a resolution
 status. It remains in history and can be edited after restore through the common
 Comment API. Editing it never rewrites the lifecycle event or the original retry input. The
-collaboration module captures the selected recipient and removes both registrations
+collaboration module captures the selected subscription and ends both subscriptions
 before notifications.
 
 | Archive input | Notification | Watch result |
 | --- | --- | --- |
-| Blank comment | Unregister quietly | Archived, exit 0 |
-| Nonblank comment and selected recipient | Send the saved event and Comment to that recipient | Archived, exit 0, with Comment |
-| Nonblank comment without a selected recipient | Retain history; no automatic agent startup | Already-archived watch returns immediately with the Comment |
+| Blank comment | End subscriptions quietly | Archived, exit 0 |
+| Nonblank comment and selected subscription | Send the saved event and Comment to its destination | Archived, exit 0, with Comment |
+| Nonblank comment without a selected subscription | Retain history; no automatic agent startup | Already-archived watch returns immediately with the Comment |
 
 Archive takes precedence over pending comments and timeout. A failed notification
 preserves the committed event and reports failure; an operation-key retry does not
 push again. A complete acknowledged archive notification can deliver its Comment;
 a truncated one leaves delivery unconfirmed. After restore, pending artifact-level
-Comments join the ordinary snapshot handoff. Archived artifacts retain content, threads, status, unsent work, and
-drafts. Archived artifacts are read-only: publication, metadata edits, conversation
+Comments join ordinary snapshot delivery. Archived artifacts retain content,
+threads, status, unsent work, and drafts. Archived artifacts are read-only: publication, metadata edits, conversation
 creation/edits/deletion, comments, new claims, ordinary threads delivery,
 and subscriptions are closed until restore. A comment still being prepared when
 archive commits must fail rather than extend the archived conversation. Reading
@@ -837,7 +838,7 @@ owns enforcement details; [verification](verification.md) owns browser evidence.
 Pages may import `/r3/utility.js` to use the narrow
 [ArtifactUtility interface](../../shared/preview-protocol.ts): context, threads,
 thread creation, comments, explicit Submit, change subscriptions, theme preference, and device capture. These use
-the same conversations and handoff as the built-in panel. Human mutations require
+the same conversations and comment delivery as the built-in panel. Human mutations require
 user activation. The bridge validates the exact iframe window, opaque origin,
 context, and document scope before accepting a transferred MessagePort. Comments
 stay on that document's port across navigation; it exposes no generic API, actor override, publication, lifecycle, or host
@@ -933,7 +934,7 @@ be selected by dragging or by entering numeric coordinates and dimensions.
 Agents receive image IDs and download commands in comment output. Fetch with
 `--attachments-dir` writes and verifies all selected immutable image bytes before
 stdout and acknowledgment. Download or output failure leaves comments pending.
-Fetching references acknowledges handoff, not proof that a model viewed pixels.
+Fetching references acknowledges comment delivery, not proof that a model viewed pixels.
 
 The image editor combines crop with pen, arrow, and rectangle drawings. Color and
 stroke width apply to the next drawing. Pointer input uses original image pixel
@@ -996,7 +997,7 @@ The API returns counts by result type and bounded pages. Binary/invalid UTF-8
 files and text files above 4 MiB are counted as excluded; no partial file is
 silently treated as complete. The first search lazily indexes selected publications
 from immutable blobs. Search does not fetch publisher paths, execute documents,
-acknowledge comments, or register a listener.
+acknowledge comments, or establish a subscription.
 
 Query, project, view, kind, result type, history, sorting, and page are encoded in
 the library URL. The header’s r3 link preserves this state; same-tab return
@@ -1023,7 +1024,7 @@ remove content immediately after confirmation, independently of TTL.
 Home selection uses artifact identity, so repeated search matches share a
 checkbox state. **Select page** covers unique artifacts on the visible page.
 Changing filters or page also clears selection. **Archive selected** confirms the
-selection and offers one optional message for each current listener; already
+selection and offers one optional message for each artifact’s selected subscription; already
 archived items are skipped without changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.
 Notification failure is reported separately from a committed archive.

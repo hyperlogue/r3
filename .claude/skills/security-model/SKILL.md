@@ -28,9 +28,9 @@ preview origins must never enter that set. No-Origin CLI requests are allowed, b
 cross-origin Fetch Metadata does not acquire that exemption. No cross-origin
 access headers are emitted.
 
-Every application data route, including event streams, requires the master API token or a
-valid browser cookie. Browser and agent streams use authenticated fetch, with no
-token-free SSE exception. GET/HEAD health and same-origin boot, and POST login,
+Every application data route, including event streams, requires an API credential
+(master token, API key, or OAuth access token) or a valid browser session cookie.
+Browser and agent streams use authenticated fetch, with no token-free SSE exception. GET/HEAD health and same-origin boot, and POST login,
 retain narrow bootstrap roles. Token comparisons are constant-time; reads carry
 private cache policies. JSON bodies are bounded while streaming after auth.
 
@@ -75,7 +75,7 @@ SameSite=Strict cookie. No reusable API/login token enters a browser link or boo
 The socket's owned directory is 0700 and the socket is 0600. Both peers check
 ownership/types; the server rejects any Origin or Sec-Fetch-Site header. Its
 only operations are credential bootstrap and browser-ticket minting. Startup holds
-the daemon lock before replacing an owned stale socket. Application HTTP exposes
+the server start lock before replacing an owned stale socket. Application HTTP exposes
 neither private operation. Other local UIDs cannot acquire local credentials;
 processes running as the same OS user remain trusted.
 
@@ -104,7 +104,7 @@ is needed. External access is never prepared. HEAD and invalid explicit versions
 prepare nothing. Capacity/configuration failures omit setup and leave the ordinary
 API fallback available. Agent labels carry no credentials.
 Application documents are `private, no-store`, have no reusable validator, and
-escape `<` in embedded JSON. Static bundles retain immutable caching. Remote
+escape `<` in embedded JSON. Static bundles retain immutable caching. Application
 snapshots contain no API token. Cross-site/opaque requests and missing or revoked
 sessions receive only the generic shell, followed by same-origin `/api/boot`.
 This preserves Strict-cookie entry without widening cookie policy or API access.
@@ -125,8 +125,8 @@ Both clients and probes reject redirects when carrying credentials.
 Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults.
 Configuration contains no secret. Supported settings include application bind,
 port, publicUrl, allowedHosts, requireLogin and authTokenIdleDays.
-Changes take effect at restart. The authenticated
-preview-creation request chooses the browser's application origin and the existing
+Server settings take effect at restart; client backend selection applies to the
+next CLI invocation. The authenticated preview-creation request chooses the browser's application origin and the existing
 listener dispatches `/__r3_preview/` through the preview module after the Host
 guard. No second port, wildcard DNS, or Tailscale Serve change is needed.
 

@@ -16,16 +16,13 @@ import type {
   ThemeStyle,
 } from "./types.ts";
 
-// Populated by loadBoot() before the app renders (main.tsx awaits it). A
-// module-level live binding, so `req()` below reads the real token at call time.
-// Empty when the browser authenticates by session cookie alone (any remote login),
-// so the master token never leaves the box — `req()` then relies on the cookie.
+// Populated by loadBoot() before rendering. Shipped local and remote servers use
+// HttpOnly session cookies and leave this empty. Token-bearing bootstrap remains
+// supported only for controlled fixtures and the static demo.
 export let TOKEN = "";
 
-// Whether this build can mint login tokens for remote access. Always true against
-// a daemon; the browser demo aliases this module and sets it false (there is no
-// daemon to expose beyond loopback, so the settings popup drops the whole "Access"
-// section rather than offering a control that can only fail).
+// The server supports browser login-token management. The static demo aliases
+// this module and disables its Access controls because it has no server.
 export const CAN_MANAGE_TOKENS = true;
 
 // Bootstrap before first render. Local one-time links and remote login both
@@ -70,7 +67,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   const cacheEpoch = await markdownCache.authenticationEpoch();
   const imageEpoch = await draftImages.epoch();
   const r = await fetch("/api/boot");
-  // 401 = a remote origin with no valid session. Not an error — the signal to log in.
+  // 401 means no valid browser session, locally or remotely: show login.
   if (r.status === 401) {
     await markdownCache.suspend();
     await draftImages.clear();
@@ -104,9 +101,8 @@ export class ApiError extends Error {
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  // Loopback boot hands us the token; a remote session authenticates by the
-  // HttpOnly cookie (sent automatically same-origin), so only add the header when we
-  // actually hold a token — an empty x-r3-token would just fail the constant-time compare.
+  // Normal browser requests use the same-origin HttpOnly cookie. Only controlled
+  // token-bearing bootstraps need this compatibility header.
   if (TOKEN) headers["x-r3-token"] = TOKEN;
   const r = await fetch(path, {
     method,
@@ -137,9 +133,8 @@ export const api = {
     req<{ ok: true }>("POST", "/api/oauth/device/decision", { userCode, approved }),
   themes: () => req<ThemeOption[]>("GET", "/api/themes"),
   themeStyle: (theme?: string) => req<ThemeStyle>("GET", `/api/theme-style${qs({ theme })}`),
-  // auth (quick-auth: login token -> session cookie). login() is the only call
-  // that runs before a session exists; the rest manage login tokens and require auth
-  // (the per-user token, or a valid session cookie).
+  // Browser login exchanges a login token for a session cookie. Management calls
+  // require authentication; local ticket exchange is handled by loadBoot().
   login: (token: string) =>
     req<{ ok: true }>("POST", "/api/auth/login", { token } satisfies LoginBody),
   logout: async () => {
