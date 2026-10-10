@@ -92,20 +92,13 @@ on the home page to archive or permanently delete them together.
 
 ## Local and remote access
 
-r3 runs locally by default. The CLI starts a background server when a command
-first needs the local backend. The server stores artifacts and their discussions, serves
-the browser UI, and listens only on loopback. Run `r3 open` to get a one-time
-browser link. The CLI sets up its access automatically through a private Unix
-socket. A separate worker wakes local agent sessions and opens no TCP port.
+r3 starts a local server automatically when needed. Run `r3 open` for a browser link.
 
-For remote access, install r3 on both the server and each machine running your
-agents. The steps below use [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve);
-connect the server and clients to your tailnet first. Replace
-`https://reviews.example` throughout with the server's Tailscale HTTPS address.
+For remote access with [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve),
+install r3 on both machines and connect them to your tailnet. Replace
+`https://reviews.example` below with the server's Tailscale HTTPS address.
 
-### Set up the server
-
-Run these commands on the **server machine**, as the user running r3:
+**On the server**, as the user running r3:
 
 ```sh
 r3 config set publicUrl https://reviews.example
@@ -116,29 +109,8 @@ r3 auth create-token --label browser
 ```
 
 Open the HTTPS address in your browser and sign in with the generated token.
-Browser access requires a session in both local and remote mode. r3 is a
-single-owner tool: a valid login grants access to all artifacts on that instance,
-with no per-artifact sharing permissions.
 
-`trustedProxies` lets r3 read the original client address from `X-Forwarded-For`.
-Tailscale Serve connects from `127.0.0.1` and overwrites that header. Without this
-setting, CLI approval shows the proxy's loopback address; with it, a new login
-request shows the CLI machine's Tailscale IP. This setting belongs on the server
-and takes effect after restart.
-
-Proxy trust is opt-in: loopback connections can also come from other local
-programs. Only trust a proxy that overwrites `X-Forwarded-For`, and use its exact
-connection IP. Multiple addresses are comma-separated, for example
-`r3 config set trustedProxies 127.0.0.1,::1` if the proxy also connects over IPv6.
-
-Another HTTPS reverse proxy or tunnel can replace Tailscale Serve. Keep r3 on
-loopback, forward the whole application, including `/__r3_preview/`, and set
-`X-Forwarded-Proto: https` at the proxy. Previews use the same address; no wildcard
-DNS or separate preview port is needed.
-
-### Connect a client
-
-On **each machine running your agents**, select the remote backend and sign in:
+**On each machine running your agents:**
 
 ```sh
 r3 config set backendUrl https://reviews.example
@@ -152,53 +124,5 @@ code matches your terminal, and approve CLI access. Then check the connection:
 r3 list
 ```
 
-Ask your agent to run `r3 guide` and publish as usual. Its artifacts and
-discussions now live on the remote backend. `publicUrl` advertises the server's
-browser address; `backendUrl` selects which backend a client's commands use.
-
-A project's `.r3.json` can override your default:
-
-```json
-{ "backendUrl": "https://reviews.example" }
-```
-
-This file can be committed. Credentials stay in your private user configuration.
-`R3_URL` overrides both project and user settings for an invocation. Every command,
-including `r3 comment fetch`, uses the selected backend. Run `r3 config unset backendUrl`
-and remove any override to return to automatic local mode.
-
-Publishing, listening, and fetching comments work the same locally and remotely.
-The CLI talks directly to the selected server. Supported Claude Code and Codex
-sessions automatically use the persistent worker for notifications; `r3 watch`
-works without it. No inbound TCP port is opened on a remote publisher.
-Use `r3 worker status` to inspect backend connections or recovery conflicts.
-`r3 server start|stop|status|restart` manages the local server separately;
-`r3 worker start|stop|status|restart` manages notification delivery.
-
-### Manage access
-
-Browser sessions and login tokens are revocable. Login tokens expire after 14 days
-without a successful login or cookie-authenticated request. Never-used tokens age
-from creation. Expiry invalidates their browser sessions; inactive or revoked token
-rows and their sessions are removed on server startup. To change the inactivity
-period, run on the server (a positive whole number of days):
-
-```sh
-r3 config set authTokenIdleDays 30
-r3 server restart
-```
-
-`R3_AUTH_TOKEN_IDLE_DAYS` overrides this setting. `r3 auth list-tokens --json`
-includes each active token's `lastUsedAt` timestamp. Cookie activity is saved in
-batches once a minute and on graceful shutdown.
-
-For an API key instead of browser approval, create one on the server with
-`r3 auth create-key --label workstation`. On the client, use
-`r3 login --api-key-stdin` with the key piped from your secret manager.
-Use `r3 auth list-clients` to find a CLI authorization and
-`r3 auth revoke-client <id>` to revoke it.
-
-Your agent uploads the artifact's files, so the server needs no copy of your
-project. See the [remote protocol](docs/artifacts/remote-protocol.md) for backend,
-authentication, and recovery details, and the
-[security model](.claude/skills/security-model/SKILL.md) for preview isolation.
+Ask your agent to run `r3 guide` and publish as usual. See the
+[remote backend reference](docs/artifacts/remote-protocol.md) for more options.
