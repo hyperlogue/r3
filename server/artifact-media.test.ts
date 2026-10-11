@@ -195,7 +195,11 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
       revision: "test",
     }));
     const conversations = new ArtifactConversations(db, artifacts);
-    const artifact = artifacts.create({ kind: "files", actor: human });
+    // Historical stores predate the persisted compact-ID allocator.
+    const artifact = { id: "artifact_0123456789abcdef0123456789abcdef" };
+    const time = new Date().toISOString();
+    db.query(`INSERT INTO artifacts(id, kind, created_by, created_at, updated_at)
+      VALUES (?, 'files', 'human', ?, ?)`).run(artifact.id, time, time);
     await artifacts.publish(artifact.id, {
       actor: human,
       expectedSeq: 0,

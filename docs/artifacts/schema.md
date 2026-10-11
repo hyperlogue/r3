@@ -56,6 +56,7 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | projects | id | Optional grouping: name, remote_url, created_at. The generated id is identity; a URL or local path is not |
 | project_remotes | remote_key | Unique normalized repository identity mapped to one project; project_id is also unique and cascades on project deletion |
 | artifacts | id | kind, active/archived state, optional project_id, title, meta_json, next_seq, creator role/session, creation/activity/archive times, legacy_json |
+| artifact_id_state | singleton | Durable last allocated 64-bit artifact ID suffix, stored as fixed-width lowercase hex |
 | agent_sessions | id | One logical agent run: optional harness/label and created_at; attribution, not a user account or live connection |
 | artifact_events | seq; unique id | Ordered archive/restore history: artifact_id, operation_key, actor/session, optional archive message, created_at |
 | artifact_versions | artifact_id + seq | kind, publication_key, content_hash, label, summary, provenance_json, publisher role/session, entrypoint or patch_body, file_count, created_at, published_at |
@@ -287,7 +288,7 @@ All connections must enable foreign keys. STRICT tables constrain storage types,
 
 ## Artifact schema upgrades
 
-Startup upgrades artifact schema versions 1–14 to schema 15 before serving
+Startup upgrades artifact schema versions 1–16 to schema 17 before serving
 requests. Live-review stores are rejected without changing their schema or rows;
 upgrade them with r3 1.5.0 before opening them with a newer release.
 
@@ -530,3 +531,25 @@ current `worker_registrations` remain intact, as do destinations already saved i
 the current worker state. Existing private migration backups remain unchanged and
 may contain legacy harness credentials. A failed database upgrade rolls back the
 table removal with the rest of the migration.
+
+## Schema 17: compact ordered artifact IDs
+
+New artifacts use `artifact_<16 lowercase hex digits>` (25 characters). The
+64-bit suffix combines a 48-bit Unix millisecond timestamp with a 16-bit counter.
+Allocation takes the greater of the current timestamp shifted by 16 bits and the
+last allocated value plus one. Counter overflow advances the logical timestamp;
+it never wraps. `created_at` continues to record the actual server clock.
+
+The singleton `artifact_id_state` row is updated in the same immediate transaction
+as artifact creation. IDs strictly increase in committed creation order within
+one backend, including same-millisecond creation, clock rollback, and restart.
+Deleting artifacts never resets the counter or reuses their IDs. Failed creation
+rolls back allocation with the artifact. These IDs are backend-local identities,
+not credentials, random secrets, or UUIDs; the normal authentication and preview
+capability boundaries still authorize access.
+
+The backup-protected upgrade adds the allocator and seeds it above any retained
+compact IDs without rewriting artifacts, versions, threads, or links. Existing
+UUID-based `artifact_` and imported `review_` IDs remain valid and do not have
+creation-order sorting guarantees. Clients must use `createdAt` for chronological
+ordering across historical formats and must not infer timestamps from IDs.

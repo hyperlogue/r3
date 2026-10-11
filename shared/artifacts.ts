@@ -59,6 +59,8 @@ export interface ArtifactStorageUsage {
 export interface Artifact {
   // A list projection of the latest committed publication; never nextSeq - 1.
   latestVersion?: Pick<ArtifactVersion, "seq" | "label" | "summary" | "publishedAt"> | null;
+  // Opaque backend-local identity. New IDs sort by creation order; historical
+  // formats remain valid, so chronological clients must still use createdAt.
   id: string;
   kind: ArtifactKind;
   state: ArtifactState;

@@ -84,6 +84,43 @@ function legacyNotifications() {
   INSERT INTO artifact_listeners VALUES ('review_retained', 'explicit', 'legacy-explicit', 'legacy-agent', '${time}');`);
 }
 describe("atomic artifact schema upgrades", () => {
+  test("version 16 preserves historical IDs and seeds durable compact ID allocation", async () => {
+    const retained = ["artifact_ffffffffffffffffffffffffffffffff", "artifact_0300000000000000"];
+    for (const id of retained)
+      db.query(`INSERT INTO artifacts(id, kind, created_by, created_at, updated_at)
+        VALUES (?, 'files', 'human', ?, ?)`).run(id, time, time);
+    db.exec("DROP TABLE artifact_id_state; PRAGMA user_version = 16");
+    const before = db.query("SELECT * FROM artifacts ORDER BY id").all();
+    const result = await upgradeArtifactStore(db, options());
+    expect(result.migrated).toBe(true);
+    expect(db.query("SELECT * FROM artifacts ORDER BY id").all()).toEqual(before);
+    expect(db.query("PRAGMA user_version").get()).toEqual({
+      user_version: ARTIFACT_SCHEMA_VERSION,
+    });
+    const backup = new Database(result.backupPath!, { readonly: true });
+    try {
+      expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 16 });
+      expect(backup.query("SELECT * FROM artifacts ORDER BY id").all()).toEqual(before);
+      expect(
+        backup.query("SELECT name FROM sqlite_master WHERE name = 'artifact_id_state'").get(),
+      ).toBeNull();
+    } finally {
+      backup.close();
+    }
+    const store = new ArtifactStore(db, blobs, render, () => time);
+    expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
+    const first = store.create({ kind: "files", actor: { role: "human", sessionId: null } });
+    expect(first.id).toMatch(/^artifact_[0-9a-f]{16}$/);
+    expect(first.id > retained[1]!).toBe(true);
+    db.close();
+    db = new Database(join(root, "store.sqlite"));
+    expect((await upgradeArtifactStore(db, options("unused.sqlite"))).migrated).toBe(false);
+    const reopened = new ArtifactStore(db, blobs, render, () => time);
+    expect(
+      reopened.create({ kind: "files", actor: { role: "human", sessionId: null } }).id > first.id,
+    ).toBe(true);
+  });
+
   test("version 15 discards legacy destinations while preserving content, access, and worker subscriptions", async () => {
     legacyNotifications();
     const auth = new AuthService(db, () => time);

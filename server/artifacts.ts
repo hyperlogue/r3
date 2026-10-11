@@ -12,6 +12,7 @@ import type {
   ArtifactVersion,
 } from "../shared/artifacts.ts";
 import { ArtifactAttachments } from "./artifact-attachments.ts";
+import { allocateArtifactId } from "./artifact-ids.ts";
 import { ArtifactProjects, type ProjectGroupingOptions } from "./artifact-projects.ts";
 import {
   ArtifactError,
@@ -258,10 +259,10 @@ export class ArtifactStore {
     if (Object.values(meta).some((value) => typeof value !== "string")) {
       throw new ArtifactError("Artifact metadata values must be strings");
     }
-    const id = `artifact_${randomUUID().replaceAll("-", "")}`;
     const time = this.clock();
     return this.db
       .transaction(() => {
+        const id = allocateArtifactId(this.db, time);
         const projectId = this.projectStore.resolve(body);
         this.db
           .query(`INSERT INTO artifacts

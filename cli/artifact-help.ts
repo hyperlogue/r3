@@ -63,6 +63,8 @@ Search: quote multiword queries; all words match as prefixes (up to 16 words / 2
 Publication: --version-label L --summary S --key K --no-listen
              --label remains a publication-only alias; do not supply both spellings.
 Create: --kind is required; --project ID --meta k=v (repeatable).
+        New IDs use artifact_<16 hex> and sort by creation order within one backend.
+        Existing IDs remain valid; use createdAt to order mixed historical formats.
 HTML images: publish standalone assets with relative <img src> URLs; see r3 guide html.
 
   thread add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
@@ -170,6 +172,8 @@ r3 lets agents publish immutable versions of artifacts for humans to review and 
 ## A typical review
 
 Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the thread IDs from the human's submission; the IDs below are examples.
+
+New artifact IDs use \`artifact_<16 hex>\` and sort by creation order within one backend. Existing IDs remain valid; treat IDs as opaque and use \`createdAt\` when ordering mixed historical formats.
 
 \`\`\`sh
 r3 create --kind files --dir ./prepared --title 'Design review'

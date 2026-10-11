@@ -54,6 +54,64 @@ function directory(
   };
 }
 
+describe("artifact identity", () => {
+  test("compact IDs follow creation order across clock changes and database connections", () => {
+    let milliseconds = Date.parse(clock());
+    const currentClock = () => new Date(milliseconds).toISOString();
+    store = new ArtifactStore(db, blobs, renderer, currentClock);
+    const otherDb = new Database(join(root, "test.sqlite"));
+    try {
+      const otherStore = new ArtifactStore(otherDb, blobs, renderer, currentClock);
+      const ids: string[] = [];
+      for (let index = 0; index < 40; index++) {
+        if (index === 20) milliseconds += 1;
+        if (index === 30) milliseconds -= 60_000;
+        const artifact = (index % 2 ? store : otherStore).create({ kind: "files", actor: human });
+        expect(artifact.id).toMatch(/^artifact_[0-9a-f]{16}$/);
+        expect(artifact.createdAt).toBe(currentClock());
+        ids.push(artifact.id);
+      }
+      expect(new Set(ids).size).toBe(ids.length);
+      expect([...ids].sort()).toEqual(ids);
+    } finally {
+      otherDb.close();
+    }
+  });
+
+  test("deleting every artifact and restarting with an earlier clock never reuses an ID", () => {
+    const ids = Array.from({ length: 3 }, () => store.create({ kind: "files", actor: human }).id);
+    for (const id of ids) store.delete(id);
+    db.close();
+    db = new Database(join(root, "test.sqlite"));
+    store = new ArtifactStore(db, blobs, renderer, () => "2026-08-01T00:00:00.000Z");
+    expect(store.list()).toEqual([]);
+    const next = store.create({ kind: "files", actor: human });
+    expect(next.id > ids.at(-1)!).toBe(true);
+    expect(next.createdAt).toBe("2026-08-01T00:00:00.000Z");
+    for (const id of ids) expect(() => store.get(id)).toThrow("Artifact not found");
+  });
+
+  test("failed artifact creation rolls back ID allocation", () => {
+    const state = () => db.query("SELECT * FROM artifact_id_state").get();
+    const before = state();
+    expect(() => store.create({ kind: "files", actor: human, projectId: "missing" })).toThrow();
+    expect(state()).toEqual(before);
+    expect(store.list()).toEqual([]);
+    expect(store.create({ kind: "files", actor: human }).id).toMatch(/^artifact_[0-9a-f]{16}$/);
+  });
+
+  test("counter overflow carries forward and exhausted IDs fail without wrapping", () => {
+    const boundary = `${Date.parse(clock()).toString(16).padStart(12, "0")}ffff`;
+    db.query("UPDATE artifact_id_state SET last_value = ?").run(boundary);
+    const artifact = store.create({ kind: "files", actor: human });
+    expect(artifact.id > `artifact_${boundary}`).toBe(true);
+    expect(artifact.id).toMatch(/^artifact_[0-9a-f]{16}$/);
+    db.query("UPDATE artifact_id_state SET last_value = 'ffffffffffffffff'").run();
+    expect(() => store.create({ kind: "files", actor: human })).toThrow("ID space is exhausted");
+    expect(store.list().map((item) => item.id)).toEqual([artifact.id]);
+  });
+});
+
 describe("artifact publications", () => {
   test("storage counts distinct published bytes across paths and versions", async () => {
     const id = store.create({ kind: "files", actor: human }).id;
