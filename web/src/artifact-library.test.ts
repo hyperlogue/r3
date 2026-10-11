@@ -10,7 +10,7 @@ import {
 
 test("library query round trips filters and rejects unsafe return routes", () => {
   const state = readLibraryState(
-    "?q=keyboard&project=project_one&kind=files&view=attention&history=all&type=conversation&sort=title&offset=50",
+    "?q=keyboard&project=project_one&kind=files&view=archived&history=all&type=conversation&sort=title&offset=50",
   );
   expect(readLibraryState(librarySearch(state))).toEqual(state);
   expect(libraryReturnRoute(`?library=${encodeURIComponent(librarySearch(state))}`)).toBe(
@@ -18,9 +18,12 @@ test("library query round trips filters and rejects unsafe return routes", () =>
   );
   expect(libraryReturnRoute("?library=https%3A%2F%2Fexample.com")).toBe("/");
   expect(readLibraryState("?offset=Infinity&kind=unknown").offset).toBe(0);
+  expect(readLibraryState("").view).toBe("active");
+  expect(readLibraryState("?view=attention").view).toBe("active");
+  expect(librarySearch(readLibraryState("?view=all"))).toBe("?view=all");
 });
 
-test("attention excludes archived artifacts and outranks live presence", () => {
+test("library defaults to active artifacts and attention sorting outranks live presence", () => {
   const archived = { ...artifactFixture, id: "archived", state: "archived" as const };
   const working = { ...artifactFixture, id: "working", unhandledCount: 0, working: true };
   const attention = { ...artifactFixture, id: "attention" };
@@ -28,12 +31,17 @@ test("attention excludes archived artifacts and outranks live presence", () => {
     filterLibrary([working, archived, attention], readLibraryState("?sort=attention")).map(
       (a) => a.id,
     ),
-  ).toEqual(["attention", "working", "archived"]);
+  ).toEqual(["attention", "working"]);
   expect(
-    filterLibrary([working, archived, attention], readLibraryState("?view=attention")).map(
+    filterLibrary([working, archived, attention], readLibraryState("?view=archived")).map(
       (a) => a.id,
     ),
-  ).toEqual(["attention"]);
+  ).toEqual(["archived"]);
+  expect(
+    filterLibrary([working, archived, attention], readLibraryState("?view=all&sort=attention")).map(
+      (a) => a.id,
+    ),
+  ).toEqual(["attention", "working", "archived"]);
 });
 
 test("comment links preserve the comment context independently of the original concern", () => {

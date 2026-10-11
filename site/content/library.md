@@ -14,7 +14,7 @@ HTML search uses the static entrypoint text, excluding scripts. It does not exec
 
 ## Narrow the list
 
-Filter by active or archived state, artifact kind, or project. The attention filter finds artifacts with open threads whose latest comment is from an agent. Reply or resolve the thread to clear that review signal. Reading a comment, fetching it, or claiming the thread does not clear it.
+The library opens on **Active**. Switch between **Active**, **Archived**, and **All**, or narrow the list by artifact kind or project. **Attention first** sorts active artifacts with open threads whose latest comment is from an agent to the top. Reply or resolve the thread to clear that review signal. Reading a comment, fetching it, or claiming the thread does not clear it.
 
 Attention is separate from unsent human comments and from an agent being subscribed or currently claiming a thread.
 

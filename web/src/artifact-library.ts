@@ -3,7 +3,7 @@ import type { Artifact, ArtifactKind } from "../../shared/artifacts.ts";
 
 export interface ArtifactLibraryState {
   q: string;
-  view: "all" | "attention" | "active" | "archived";
+  view: "active" | "archived" | "all";
   project: string;
   kind: ArtifactKind | "all";
   history: "latest" | "all";
@@ -13,7 +13,7 @@ export interface ArtifactLibraryState {
 }
 export const libraryDefaults: ArtifactLibraryState = {
   q: "",
-  view: "all",
+  view: "active",
   project: "",
   kind: "all",
   history: "latest",
@@ -30,7 +30,7 @@ export function readLibraryState(search: string): ArtifactLibraryState {
   const rawOffset = params.get("offset") ?? "0";
   return {
     q: (params.get("q") ?? "").slice(0, 256),
-    view: choice("view", ["all", "attention", "active", "archived"], "all"),
+    view: choice("view", ["active", "archived", "all"], libraryDefaults.view),
     project: (params.get("project") ?? "").slice(0, 200),
     kind: choice("kind", ["all", "files", "html", "diff"], "all"),
     history: choice("history", ["latest", "all"], "latest"),
@@ -54,7 +54,6 @@ export function librarySearchOptions(state: ArtifactLibraryState): ArtifactSearc
     offset: state.offset,
     kind: state.kind === "all" ? undefined : state.kind,
     project: state.project || undefined,
-    attention: state.view === "attention",
     state: state.view === "active" || state.view === "archived" ? state.view : undefined,
   };
 }
@@ -72,10 +71,7 @@ export function filterLibrary(artifacts: Artifact[], state: ArtifactLibraryState
       (artifact) =>
         (!state.project || artifact.projectId === state.project) &&
         (state.kind === "all" || artifact.kind === state.kind) &&
-        (state.view === "all" ||
-          (state.view === "attention"
-            ? artifact.state === "active" && artifact.unhandledCount > 0
-            : artifact.state === state.view)),
+        (state.view === "all" || artifact.state === state.view),
     )
     .sort(
       (a, b) =>

@@ -215,12 +215,25 @@ try {
     );
   await page.command("Page.navigate", { url: origin });
   await ready();
-  assert.equal(await page.evaluate("document.querySelectorAll('[data-library-row]').length"), 15);
+  assert.equal(await page.evaluate("document.querySelectorAll('[data-library-row]').length"), 13);
+  assert.deepEqual(
+    await page.evaluate(
+      `Array.from(document.querySelectorAll('[aria-label="Library views"] button'), button => button.querySelector('span').textContent)`,
+    ),
+    ["Active", "Archived", "All"],
+  );
+  assert.equal(
+    await page.evaluate(
+      `document.querySelector('[aria-label="Library views"] [aria-current="page"] span').textContent`,
+    ),
+    "Active",
+  );
   assert.equal(
     await page.evaluate("document.querySelector('[aria-label=\"Sort artifacts\"]').value"),
     "recent",
   );
   await screenshot("library-recent");
+  await select('[aria-label="Library view"]', "all");
   await select('[aria-label="Sort artifacts"]', "attention");
   const groupIds = (name: string) =>
     page.evaluate<string[]>(`(() => {
@@ -350,9 +363,9 @@ try {
     })()`);
   const { overflowing, ...fullGeometry } = await libraryGeometry();
   assert.equal(overflowing, true, "full library scrolls");
-  await select('[aria-label="Library view"]', "attention");
+  await select('[aria-label="Library view"]', "archived");
   await eventually(
-    () => page.evaluate("document.querySelectorAll('[data-library-row]').length===1"),
+    () => page.evaluate("document.querySelectorAll('[data-library-row]').length===2"),
     "short library",
   );
   const { overflowing: shortOverflow, ...shortGeometry } = await libraryGeometry();
@@ -443,9 +456,15 @@ try {
     mobile: true,
   });
   await select('[aria-label="Project"]', signal.id);
-  await select('[aria-label="Library view"]', "attention");
+  assert.deepEqual(
+    await page.evaluate(
+      `Array.from(document.querySelector('[aria-label="Library view"]').options, option => option.textContent)`,
+    ),
+    ["Active", "Archived", "All"],
+  );
+  await select('[aria-label="Library view"]', "active");
   await eventually(
-    () => page.evaluate("document.querySelectorAll('[data-library-row]').length===1"),
+    () => page.evaluate("document.querySelectorAll('[data-library-row]').length===7"),
     "mobile combined filters",
   );
   await screenshot("library-mobile");
@@ -465,7 +484,7 @@ try {
     "reduced motion disables selection transitions",
   );
   await click('[aria-label="Select all artifacts on this page"]');
-  assert.equal((await selectionState()).checked, 1);
+  assert.equal((await selectionState()).checked, 7);
   await screenshot("library-selection-mobile");
   await noOverflow();
   await click(selectionToggle);
@@ -485,7 +504,7 @@ try {
   );
   assert.equal(
     await page.evaluate("document.querySelector('[aria-label=\"Library view\"]').value"),
-    "attention",
+    "active",
   );
   // Exercise usage and destructive controls against this test store only.
   await page.command("Emulation.setDeviceMetricsOverride", {
@@ -565,6 +584,8 @@ try {
     () => page.evaluate('!document.querySelector("dialog[open]")'),
     "bulk archive finished",
   );
+  await select('[aria-label="Library view"]', "archived");
+  await ready();
   for (const item of batch) await click(`[aria-label="Select ${item.title}"]`);
   await clickText("Delete selected");
   await eventually(

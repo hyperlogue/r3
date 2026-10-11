@@ -46,17 +46,14 @@ function LibrarySelect({ className = "", ...props }: ComponentProps<"select">) {
 }
 
 const views = [
-  ["all", "All artifacts"],
-  ["attention", "Needs you"],
   ["active", "Active"],
   ["archived", "Archived"],
+  ["all", "All"],
 ] as const;
 function LibraryIcon({ kind }: { kind: string }) {
   return (
     <StrokeIcon className="size-4 shrink-0">
-      {kind === "attention" ? (
-        <path d="M4 4h16v16H4zM4 14h5l2 3h2l2-3h5" />
-      ) : kind === "archived" ? (
+      {kind === "archived" ? (
         <path d="M4 7h16v13H4zM3 3h18v4H3zM9 11h6" />
       ) : kind === "active" ? (
         <>
@@ -159,8 +156,6 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const counts = useMemo(
     () => ({
       all: artifacts.data?.length ?? 0,
-      attention:
-        artifacts.data?.filter((a) => a.state === "active" && a.unhandledCount > 0).length ?? 0,
       active: artifacts.data?.filter((a) => a.state === "active").length ?? 0,
       archived: artifacts.data?.filter((a) => a.state === "archived").length ?? 0,
     }),
@@ -227,13 +222,11 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   };
   const title = state.project
     ? (names.get(state.project) ?? state.project)
-    : state.view === "attention"
-      ? "Needs you"
-      : state.view === "archived"
-        ? "Archived artifacts"
-        : state.view === "active"
-          ? "Active artifacts"
-          : "Artifacts";
+    : state.view === "archived"
+      ? "Archived artifacts"
+      : state.view === "active"
+        ? "Active artifacts"
+        : "Artifacts";
   const navClass = (selected: boolean) =>
     `flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs ${
       selected
@@ -323,11 +316,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   {title}
                 </h1>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  {state.view === "attention"
-                    ? "Agent comments waiting for your review."
-                    : state.view === "archived"
-                      ? "Every version and conversation, retained."
-                      : "Pick up where the conversation left off."}
+                  {state.view === "archived"
+                    ? "Every version and conversation, retained."
+                    : "Pick up where the conversation left off."}
                 </p>
               </div>
               <span className="shrink-0 text-[0.7rem] text-neutral-500 max-sm:hidden">

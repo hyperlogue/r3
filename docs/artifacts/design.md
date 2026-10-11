@@ -972,11 +972,12 @@ and checkbox columns into or out of view, respecting reduced motion; hidden
 controls are inert. Leaving selection mode clears the selection.
 Rows open the artifact directly. The list reserves its scrollbar space so filtering
 does not shift the content horizontally. Desktop navigation holds the library views and
-projects; mobile exposes those filters above the list. Recently updated is the
+projects; mobile exposes those filters above the list. Both offer Active, Archived,
+and All, in that order, with Active selected by default. Recently updated is the
 default sort, showing the most recently changed artifacts first. Attention first orders
 active artifacts awaiting human review before agent presence and other work;
-archived artifacts follow. Needs you includes active artifacts with unhandled
-agent messages, independently of delivery or claims.
+archived artifacts follow. Review attention reflects unhandled agent messages,
+independently of delivery or claims.
 
 Search spans artifact metadata, version labels/summaries, published text, threads,
 and comments. Content defaults to the latest committed publication; Include history
