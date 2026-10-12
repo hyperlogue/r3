@@ -8,7 +8,7 @@ function submit(form: HTMLFormElement, submitter?: HTMLButtonElement) {
 document.addEventListener("click", (event) => {
   if (event.defaultPrevented || !(event.target instanceof Element)) return;
   const button = event.target.closest("button");
-  if (!button || button.type !== "submit" || !button.form || button.disabled) return;
+  if (button?.type !== "submit" || !button.form || button.disabled) return;
   event.preventDefault();
   submit(button.form, button);
 });

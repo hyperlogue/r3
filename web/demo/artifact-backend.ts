@@ -361,7 +361,7 @@ export class ArtifactDemoBackend {
       setTimeout(() => {
         this.timers.delete(key);
         const current = this.state.artifacts.find((item) => item.id === id);
-        if (!current || current.state !== "active") return;
+        if (current?.state !== "active") return;
         const pending = this.state.pending[id];
         if (pending && current.state === "active") {
           const publication = structuredClone(pending);

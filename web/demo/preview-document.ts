@@ -26,7 +26,7 @@ export function prepareDemoDocument(
   };
   for (const link of document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')) {
     const file = asset(link.getAttribute("href") ?? "");
-    if (!file || file.mediaType !== "text/css") throw new Error("Unbundled demo stylesheet");
+    if (file?.mediaType !== "text/css") throw new Error("Unbundled demo stylesheet");
     const style = document.createElement("style");
     style.textContent = new TextDecoder().decode(
       Uint8Array.from(atob(bundled.publication.resources[file.path]), (c) => c.charCodeAt(0)),
