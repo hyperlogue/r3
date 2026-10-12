@@ -31,6 +31,8 @@ export function configCommand(argv: string[]): void {
     console.log(JSON.stringify(readConfig(), null, 2));
     return;
   }
+  if (!["show", "get", "set", "unset"].includes(command))
+    throw new ArtifactCommandError("config show|get|set|unset");
   if (!NAMES.includes(key as (typeof NAMES)[number]))
     throw new ArtifactCommandError(`Config name must be one of: ${NAMES.join(", ")}`);
   const name = key as (typeof NAMES)[number];
