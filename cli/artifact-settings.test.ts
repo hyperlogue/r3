@@ -3,6 +3,31 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+test("an unknown config subcommand reports usage, not a config-name error", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-config-usage-"));
+  try {
+    const child = Bun.spawn(
+      [process.execPath, join(import.meta.dir, "index.ts"), "config", "lsit"],
+      {
+        env: {
+          ...process.env,
+          XDG_CONFIG_HOME: join(root, "config"),
+          XDG_STATE_HOME: join(root, "state"),
+          XDG_RUNTIME_DIR: join(root, "runtime"),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [error, code] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+    expect(code).toBe(1);
+    expect(error).toContain("config show|get|set|unset");
+    expect(error).not.toContain("Config name must be one of");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("token inactivity config round-trips, validates days and sanitizes hand-edited values", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-auth-config-"));
   const configHome = join(root, "config");
