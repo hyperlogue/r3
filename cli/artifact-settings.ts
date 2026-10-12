@@ -74,14 +74,14 @@ export function configCommand(argv: string[]): void {
         break;
       }
       case "archiveTtlDays": {
-        const days = Number(value);
+        const days = /^\d+$/.test(value) ? Number(value) : Number.NaN;
         if (!Number.isInteger(days) || days < 1 || days > 36500)
           throw new ArtifactCommandError("archiveTtlDays must be an integer from 1 to 36500");
         next.archiveTtlDays = days;
         break;
       }
       case "authTokenIdleDays": {
-        const days = Number(value);
+        const days = /^\d+$/.test(value) ? Number(value) : Number.NaN;
         if (!Number.isSafeInteger(days) || days < 1)
           throw new ArtifactCommandError("authTokenIdleDays must be a positive integer");
         next.authTokenIdleDays = days;

@@ -32,7 +32,16 @@ test("token inactivity config round-trips, validates days and sanitizes hand-edi
     expect((await run("set", "authTokenIdleDays", "30")).code).toBe(0);
     expect((await run("get", "authTokenIdleDays")).output.trim()).toBe("30");
     expect(await Bun.file(file).json()).toEqual({ authTokenIdleDays: 30 });
-    for (const invalid of ["0", "-1", "1.5", "NaN", "Infinity", "9007199254740992"]) {
+    for (const invalid of [
+      "0",
+      "-1",
+      "1.5",
+      "NaN",
+      "Infinity",
+      "9007199254740992",
+      "3e1",
+      "0x1e",
+    ]) {
       const result = await run("set", "authTokenIdleDays", invalid);
       expect(result.code).toBe(1);
       expect(result.error).toContain("positive integer");
@@ -72,7 +81,7 @@ test("archive TTL persists independently and rejects unsafe values", async () =>
   try {
     expect((await run("set", "archiveTtlDays", "7")).code).toBe(0);
     expect((await run("get", "archiveTtlDays")).output.trim()).toBe("7");
-    for (const invalid of ["0", "-1", "1.5", "36501", "7d", "Infinity"])
+    for (const invalid of ["0", "-1", "1.5", "36501", "7d", "Infinity", "1e2", "0x10", "+7"])
       expect((await run("set", "archiveTtlDays", invalid)).code).toBe(1);
     expect((await run("get", "archiveTtlDays")).output.trim()).toBe("7");
     expect((await run("unset", "archiveTtlDays")).code).toBe(0);
