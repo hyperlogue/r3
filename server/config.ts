@@ -229,8 +229,11 @@ export function readConfigForWrite(): PersistedConfig {
   let text: string;
   try {
     text = readFileSync(configPath(), "utf8");
-  } catch {
-    return {}; // absent → start fresh
+  } catch (error) {
+    // Only a missing file means "start fresh"; any other read failure (EACCES,
+    // EISDIR, …) must propagate so the merge-then-write can't clobber the file.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {}; // absent → start fresh
+    throw error;
   }
   return parseConfig(text); // a JSON syntax error propagates to the caller
 }

@@ -55,7 +55,7 @@ export function configCommand(argv: string[]): void {
     next = { ...readConfigForWrite() };
   } catch {
     throw new ArtifactCommandError(
-      "The persisted config is invalid JSON; repair it before changing settings",
+      "The persisted config is unreadable or invalid JSON; repair it before changing settings",
     );
   }
   if (command === "unset") delete next[name];
