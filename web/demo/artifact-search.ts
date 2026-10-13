@@ -155,7 +155,7 @@ export function searchDemoArtifacts(
             continue;
           }
           const source = publication.sources[file.path];
-          if (source?.kind !== "text") {
+          if (!source || source.kind !== "text") {
             skippedFiles++;
             continue;
           }
