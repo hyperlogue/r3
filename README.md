@@ -53,10 +53,11 @@ Then ask your agent:
 
 > Publish this project's README to r3 so I can review it.
 
-The skill chooses `npx`, `bunx`, or the Nix flake on NixOS and loads the
-executable's agent guide; no global r3 installation is required. Open the artifact
-link your agent returns, leave comments, and use **Send to agent** to request
-revisions. The local server starts automatically when needed.
+The skill uses an available `r3` executable or runs it through `npx`, `bunx`, or
+the Nix flake on NixOS, then loads its agent guide. No global r3 installation is
+required. Open the artifact link your agent returns, leave comments, and use
+**Send to agent** to request revisions. The local server starts automatically when
+needed.
 
 You can also ask your agent to read the guide directly:
 

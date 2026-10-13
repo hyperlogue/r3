@@ -296,11 +296,8 @@ starting a server or worker.
 `r3 help`, `r3 --help`, and `r3 -h` print the full command reference.
 The welcome, help, and guides come from `cli/artifact-help.ts`; keep them accurate in
 any change to commands, flags, results, or protocol. `r3 guide` is the concise
-agent workflow, read once per session. It documents running the latest published
-executable with `npx --yes @hyperlogue/r3@latest` or
-`bunx --bun @hyperlogue/r3@latest`, preferring the default-branch Nix flake on
-NixOS. It treats `r3` in examples and feedback commands as shorthand for the
-selected runner. `r3 guide html|files|diff` contains only the
+agent workflow, read once per session. Executable discovery belongs to
+`skills/r3/SKILL.md`. `r3 guide html|files|diff` contains only the
 preparation details for that kind, loaded when first needed. Unknown topics and
 extra arguments fail locally without contacting a backend or starting a server or
 worker. Human administration and less frequent inspection/metadata commands stay

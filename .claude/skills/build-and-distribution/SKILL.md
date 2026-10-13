@@ -124,12 +124,11 @@ must set `metadata.internal: true` so the skills CLI excludes it from normal
 discovery, including a bare `npx skills add hyperlogue/r3`. Keep these instructions
 available locally for repository work. `INSTALL_INTERNAL_SKILLS=1` opts into
 discovering them with the installer.
-The public skill prefers `nix run github:hyperlogue/r3#r3 --` on NixOS, using the
-flake's default-branch source and Nix-compatible binary. Other systems bootstrap
-the latest npm executable with `npx` or `bunx`. It then loads `r3 guide` and the
-needed preparation guide. Keep workflow details in
-`cli/artifact-help.ts` so they match the executable. Skill installation needs no
-separate npm package or global r3 installation.
+The public skill first tries `r3 guide` using the executable on `PATH`. When it
+is unavailable, the skill lists the latest npm executable through `npx` or `bunx`,
+then the Nix flake for NixOS. Keep executable discovery in the skill and workflow
+details in `cli/artifact-help.ts` so they match the executable. Skill installation
+needs no separate npm package or global r3 installation.
 
 ## `package.json` overrides `bun` → `empty-npm-package`
 
