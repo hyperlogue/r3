@@ -72,6 +72,10 @@ Only the homepage workspace figure uses the wider 1240px container. Keep the
 homepage focused on the review loop and concrete use cases; supported formats
 and their details belong in the documentation.
 
+Primary installation actions lead to the publishing skill in the getting-started
+guide. Pair the homepage action with a link to its alternative installation
+section; keep direct CLI and runner instructions there.
+
 Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.
 Use repository-relative paths and fictional example data in content.

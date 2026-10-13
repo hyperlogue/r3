@@ -518,6 +518,9 @@ figcaption {
   color: var(--muted);
   margin-bottom: 26px;
 }
+.start-section > div {
+  min-width: 0;
+}
 .terminal {
   background: var(--surface);
   border: 1px solid var(--border);

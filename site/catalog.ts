@@ -11,7 +11,8 @@ export const docs: Page[] = [
   {
     path: "/docs/get-started/",
     title: "Get started",
-    description: "Install r3, ask your agent to publish, and make your first review.",
+    description:
+      "Install the publishing skill, ask your agent to publish, and make your first review.",
     group: "Start here",
     source: "get-started",
   },

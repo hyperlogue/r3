@@ -52,11 +52,11 @@ export function home() {
 <div class="hero-aside">
 <p>Your agent can build more than a chat response. Open the page, read the proposal, inspect the code. Give feedback exactly where it belongs.</p>
 <div class="actions">
-<a class="button primary" href="/demo/">Try the live demo <span aria-hidden="true">↗</span>
+<a class="button primary" href="/docs/get-started/#install-the-skill">Install the skill <span aria-hidden="true">→</span>
 </a>
-<a class="text-link" href="/docs/get-started/">Get started →</a>
+<a class="text-link" href="/docs/get-started/#other-installation-methods">Other ways to install →</a>
 </div>
-<p class="hero-footnote">Works with any agent that can run a command.<br>Local by default. <a href="/docs/access/">Connect to your own server ↗</a></p>
+<p class="hero-footnote">Works with any agent that can run a command.<br><a href="/demo/">Try the live demo ↗</a> · Local by default.</p>
 </div>
 </div></div>${workflowExample()}</section>
 <section class="loop-section container" aria-labelledby="loop-heading">
@@ -105,21 +105,26 @@ export function home() {
 <div>
 <p class="eyebrow">Your next review starts here</p>
 <h2>Give your agent<br>a place to show its work.</h2>
-<p>Install r3, then ask your agent to read <code>r3 guide</code>.<br>You bring the judgment. Your agent handles the commands.</p>
-<a class="button primary" href="/docs/get-started/">Start your first review <span aria-hidden="true">↗</span>
+<p>Install the publishing skill and ask your agent to share its work on r3. The skill handles setup; you bring the judgment.</p>
+<div class="actions">
+<a class="button primary" href="/docs/get-started/#install-the-skill">Install the skill <span aria-hidden="true">→</span>
 </a>
+<a class="text-link" href="/docs/get-started/#other-installation-methods">Other ways to install →</a>
+</div>
 </div>
 <div class="terminal">
 <div class="terminal-top">
-<span>Install once</span>
+<span>Install the skill</span>
 <span>macOS / Linux</span>
 </div>
 <pre>
-<code>npm install -g @hyperlogue/r3</code>
+<code>npx skills add hyperlogue/r3 \\
+  --skill publish-artifacts-to-r3 \\
+  --global</code>
 </pre>
 <div class="terminal-prompt">
 <span>Then ask your agent</span>
-<p>“Read r3 guide. Build a prototype of our project-creation flow and publish it for review.”</p>
+<p>“Build a prototype of our project-creation flow and publish it to r3 for review.”</p>
 </div>
 </div>
 </section>
@@ -160,7 +165,7 @@ export function docsIndex() {
 </h1>
 <p class="lede">Start with the workflow. Look up the details when you need them. Your agent can read the same docs.</p>
 <div class="actions">
-<a class="button primary" href="/docs/get-started/">Get started →</a>
+<a class="button primary" href="/docs/get-started/#install-the-skill">Install the skill →</a>
 <a class="text-link" href="/docs/agents/">Set up your agent ↗</a>
 </div>
 </header>

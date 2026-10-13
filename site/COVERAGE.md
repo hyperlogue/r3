@@ -6,7 +6,7 @@ details come directly from their product sources during the build.
 
 | Capability | Primary destination |
 | --- | --- |
-| Install, welcome, open, explicit server lifecycle commands, help | `/docs/get-started/` |
+| Publishing skill, alternative CLI installation, welcome, open, explicit server lifecycle commands, help | `/docs/get-started/` |
 | Human review and agent publication loop | `/docs/review-loop/` |
 | Interactive HTML, navigation, required entrypoint, stable targets | `/docs/html/`, `/docs/agents/html/` |
 | Markdown, Mermaid fallback, highlighted source, rendered/source toggle | `/docs/files/` |

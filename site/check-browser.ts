@@ -82,7 +82,7 @@ try {
   );
   assert.equal(
     await page.evaluate("navigator.clipboard.readText()"),
-    "npm install -g @hyperlogue/r3\n",
+    "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\n",
   );
   await page.evaluate("document.querySelector('[data-markdown]').click()");
   await eventually(
