@@ -173,7 +173,9 @@ r3 lets agents publish immutable versions of artifacts for humans to review and 
 
 Use \`npx --yes @hyperlogue/r3@latest guide\` or \`bunx --bun @hyperlogue/r3@latest guide\` to run the latest published executable and read its guide. The Bun form also runs the package launcher with Bun, so Node is not required.
 
-This guide and feedback notifications use \`r3\` as shorthand. When using a package runner, replace that command with \`npx --yes @hyperlogue/r3@latest\` or \`bunx --bun @hyperlogue/r3@latest\` for every invocation, including preparation guides and copied comment-fetch commands. Preserve the arguments, working directory, and harness environment. An installed \`r3\` remains supported.
+On NixOS, prefer \`nix run github:hyperlogue/r3#r3 -- guide\` for a binary built for its loader environment. The flake currently supports \`x86_64-linux\` on NixOS, follows the repository's default branch, and may build r3 on first use.
+
+This guide and feedback notifications use \`r3\` as shorthand. Replace that command with your chosen runner prefix for every invocation, including preparation guides and copied comment-fetch commands. Preserve the arguments, working directory, and harness environment; keep the \`--\` separator when using Nix. An installed \`r3\` remains supported.
 
 ## A typical review
 

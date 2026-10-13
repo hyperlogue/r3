@@ -47,8 +47,8 @@ npx skills add hyperlogue/r3 --skill r3 --global
 ```
 
 Then ask your agent to publish a document, page, or code changes to r3. The skill
-runs the latest r3 executable through `npx` or `bunx` and loads its agent guide;
-no global r3 installation is required.
+chooses `npx`, `bunx`, or the Nix flake on NixOS and loads the executable's agent
+guide; no global r3 installation is required.
 
 You can also ask your agent to read the guide directly:
 
@@ -61,7 +61,8 @@ The guide explains how to publish, listen for comments, and comment. Open the
 artifact URL from your agent. The local server starts automatically when needed.
 
 The examples below use `r3` as shorthand for `npx --yes @hyperlogue/r3@latest`
-or `bunx --bun @hyperlogue/r3@latest`.
+or `bunx --bun @hyperlogue/r3@latest`. On NixOS, use
+`nix run github:hyperlogue/r3#r3 --`.
 
 ## Artifact types
 

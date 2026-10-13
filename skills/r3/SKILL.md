@@ -5,10 +5,20 @@ description: Publish HTML pages, documents, files, or code changes to r3 for hum
 
 # r3 — Render. Review. Refine.
 
-Use the latest published r3 executable through a package runner. No global r3
-installation or source checkout is needed.
+Run r3 without a global installation or source checkout. Choose the runner for
+the current system and read the agent guide once per session.
 
-Read the agent guide once per session with an available runner:
+On NixOS (`ID=nixos` in `/etc/os-release`), prefer the repository's Nix flake:
+
+```sh
+nix run github:hyperlogue/r3#r3 -- guide
+```
+
+The flake currently supports `x86_64-linux` on NixOS and supplies a binary built
+for its loader environment. This command follows the repository's default branch
+and may build r3 on first use.
+
+On other systems, use the latest published npm release with an available runner:
 
 ```sh
 npx --yes @hyperlogue/r3@latest guide
@@ -23,11 +33,12 @@ bunx --bun @hyperlogue/r3@latest guide
 The Bun command runs the package launcher with Bun, so Node is not required.
 Keep using the chosen runner for subsequent commands. Wherever the guide,
 notifications, or copied feedback commands say `r3`, substitute
-`npx --yes @hyperlogue/r3@latest` or `bunx --bun @hyperlogue/r3@latest`, preserving
-the arguments, working directory, and harness environment. For example:
+`nix run github:hyperlogue/r3#r3 --`, `npx --yes @hyperlogue/r3@latest`, or
+`bunx --bun @hyperlogue/r3@latest`, preserving the arguments, working directory,
+and harness environment. Keep the `--` separator when using Nix. For example:
 
 ```sh
-npx --yes @hyperlogue/r3@latest comment fetch <artifact-id>
+nix run github:hyperlogue/r3#r3 -- comment fetch <artifact-id>
 ```
 
 Follow the executable's guide for publication and the feedback workflow. Before

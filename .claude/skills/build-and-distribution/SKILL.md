@@ -118,8 +118,10 @@ GitHub Release exists, npm retries skip that artifact and work after it expires.
 `skills/r3/SKILL.md` is the user-facing skill distributed from this repository with
 `npx skills add hyperlogue/r3 --skill r3 --global`. Selecting `r3` keeps onboarding
 scoped to that skill; `.claude/skills/` contains repository development guidance.
-The public skill bootstraps the latest npm executable with `npx` or `bunx`, then
-loads `r3 guide` and the needed preparation guide. Keep workflow details in
+The public skill prefers `nix run github:hyperlogue/r3#r3 --` on NixOS, using the
+flake's default-branch source and Nix-compatible binary. Other systems bootstrap
+the latest npm executable with `npx` or `bunx`. It then loads `r3 guide` and the
+needed preparation guide. Keep workflow details in
 `cli/artifact-help.ts` so they match the executable. Skill installation needs no
 separate npm package or global r3 installation.
 
