@@ -113,6 +113,16 @@ The build artifact's `retention-days: 7` bounds how long initial approval may
 idle. Past that, re-run the workflow so `build` can compile again. Once the
 GitHub Release exists, npm retries skip that artifact and work after it expires.
 
+## Public agent skill
+
+`skills/r3/SKILL.md` is the user-facing skill distributed from this repository with
+`npx skills add hyperlogue/r3 --skill r3 --global`. Selecting `r3` keeps onboarding
+scoped to that skill; `.claude/skills/` contains repository development guidance.
+The public skill bootstraps the latest npm executable with `npx` or `bunx`, then
+loads `r3 guide` and the needed preparation guide. Keep workflow details in
+`cli/artifact-help.ts` so they match the executable. Skill installation needs no
+separate npm package or global r3 installation.
+
 ## `package.json` overrides `bun` → `empty-npm-package`
 
 `bun-plugin-tailwind` peer-depends on the `bun` npm package, which would pull

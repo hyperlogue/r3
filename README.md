@@ -40,22 +40,28 @@ use the same search with `r3 search "keyboard focus" --history all --json`.
 
 ## Get started
 
-Install globally to make the `r3` command available on your PATH:
+Install the r3 skill for your coding agent:
 
 ```sh
-npm install -g @hyperlogue/r3
-# Or: bun add -g @hyperlogue/r3
+npx skills add hyperlogue/r3 --skill r3 --global
 ```
 
-Or run it without installing `r3` on your PATH:
+Then ask your agent to publish a document, page, or code changes to r3. The skill
+runs the latest r3 executable through `npx` or `bunx` and loads its agent guide;
+no global r3 installation is required.
+
+You can also ask your agent to read the guide directly:
 
 ```sh
-npx @hyperlogue/r3@latest
+npx --yes @hyperlogue/r3@latest guide
+# Or: bunx --bun @hyperlogue/r3@latest guide
 ```
 
-Ask your agent to run `r3 guide` and publish an artifact. The guide explains how
-to publish, listen for comments, and comment. Open the artifact URL from your agent, or visit
-`http://127.0.0.1:8791/` for the full list.
+The guide explains how to publish, listen for comments, and comment. Open the
+artifact URL from your agent. The local server starts automatically when needed.
+
+The examples below use `r3` as shorthand for `npx --yes @hyperlogue/r3@latest`
+or `bunx --bun @hyperlogue/r3@latest`.
 
 ## Artifact types
 

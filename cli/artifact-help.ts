@@ -169,6 +169,12 @@ export const ARTIFACT_GUIDE = `# r3 — publish artifacts and respond to threads
 
 r3 lets agents publish immutable versions of artifacts for humans to review and discuss. Each artifact has one discussion containing resolvable threads and authored comments. A reply is a comment in a thread; an archive comment belongs directly to the discussion. Run \`r3\` as a subprocess from your harness.
 
+## Run without a global install
+
+Use \`npx --yes @hyperlogue/r3@latest guide\` or \`bunx --bun @hyperlogue/r3@latest guide\` to run the latest published executable and read its guide. The Bun form also runs the package launcher with Bun, so Node is not required.
+
+This guide and feedback notifications use \`r3\` as shorthand. When using a package runner, replace that command with \`npx --yes @hyperlogue/r3@latest\` or \`bunx --bun @hyperlogue/r3@latest\` for every invocation, including preparation guides and copied comment-fetch commands. Preserve the arguments, working directory, and harness environment. An installed \`r3\` remains supported.
+
 ## A typical review
 
 Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the thread IDs from the human's submission; the IDs below are examples.
