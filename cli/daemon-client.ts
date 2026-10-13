@@ -160,7 +160,7 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
   if (normalizeBackendUrl(local.url) !== url || typeof local.token !== "string" || !local.token)
     throw new ArtifactCommandError("Invalid local bootstrap response");
   const current = credentials.read(url);
-  if (!current || current.kind !== "key" || current.accessToken !== local.token)
+  if (current?.kind !== "key" || current.accessToken !== local.token)
     await credentials.save({ url, kind: "key", accessToken: local.token });
   return {
     url,
