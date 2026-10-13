@@ -3,6 +3,31 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+test("an unknown config subcommand reports usage, not a config-name error", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-config-usage-"));
+  try {
+    const child = Bun.spawn(
+      [process.execPath, join(import.meta.dir, "index.ts"), "config", "lsit"],
+      {
+        env: {
+          ...process.env,
+          XDG_CONFIG_HOME: join(root, "config"),
+          XDG_STATE_HOME: join(root, "state"),
+          XDG_RUNTIME_DIR: join(root, "runtime"),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [error, code] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+    expect(code).toBe(1);
+    expect(error).toContain("config show|get|set|unset");
+    expect(error).not.toContain("Config name must be one of");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("token inactivity config round-trips, validates days and sanitizes hand-edited values", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-auth-config-"));
   const configHome = join(root, "config");
@@ -32,7 +57,16 @@ test("token inactivity config round-trips, validates days and sanitizes hand-edi
     expect((await run("set", "authTokenIdleDays", "30")).code).toBe(0);
     expect((await run("get", "authTokenIdleDays")).output.trim()).toBe("30");
     expect(await Bun.file(file).json()).toEqual({ authTokenIdleDays: 30 });
-    for (const invalid of ["0", "-1", "1.5", "NaN", "Infinity", "9007199254740992"]) {
+    for (const invalid of [
+      "0",
+      "-1",
+      "1.5",
+      "NaN",
+      "Infinity",
+      "9007199254740992",
+      "3e1",
+      "0x1e",
+    ]) {
       const result = await run("set", "authTokenIdleDays", invalid);
       expect(result.code).toBe(1);
       expect(result.error).toContain("positive integer");
@@ -72,7 +106,7 @@ test("archive TTL persists independently and rejects unsafe values", async () =>
   try {
     expect((await run("set", "archiveTtlDays", "7")).code).toBe(0);
     expect((await run("get", "archiveTtlDays")).output.trim()).toBe("7");
-    for (const invalid of ["0", "-1", "1.5", "36501", "7d", "Infinity"])
+    for (const invalid of ["0", "-1", "1.5", "36501", "7d", "Infinity", "1e2", "0x10", "+7"])
       expect((await run("set", "archiveTtlDays", invalid)).code).toBe(1);
     expect((await run("get", "archiveTtlDays")).output.trim()).toBe("7");
     expect((await run("unset", "archiveTtlDays")).code).toBe(0);

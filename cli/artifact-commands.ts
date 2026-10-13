@@ -21,6 +21,7 @@ import type {
   ArtifactWatchResult,
   Representation,
 } from "../shared/artifacts.ts";
+import { ARTIFACT_WATCH_EXIT } from "../shared/artifacts.ts";
 import { normalizeGitRemote } from "../shared/git-remote.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { fetchArtifactComments } from "./artifact-comments.ts";
@@ -553,7 +554,10 @@ export async function runArtifactCommand(
       };
       for (;;) {
         const remaining = deadline - Date.now();
-        if (remaining <= 0) return (await archived(await detail(args.id()))) ? 0 : 2;
+        if (remaining <= 0)
+          return (await archived(await detail(args.id())))
+            ? ARTIFACT_WATCH_EXIT.archived
+            : ARTIFACT_WATCH_EXIT.timeout;
         let result: ArtifactWatchResult;
         try {
           result = await client.json("POST", `${artifactApiPath(args.id())}/watch`, {
@@ -561,13 +565,14 @@ export async function runArtifactCommand(
             timeoutMs: Math.max(1, Math.min(55000, remaining)),
           });
         } catch (error) {
-          if (error instanceof ArtifactApiError && error.status === 409) return 4;
+          if (error instanceof ArtifactApiError && error.status === 409)
+            return ARTIFACT_WATCH_EXIT.busy;
           throw error;
         }
         if (result.result === "timeout") continue;
         if (result.result === "archived") {
           if (result.event?.comment?.body) await print(result.event.comment?.body);
-          return 0;
+          return ARTIFACT_WATCH_EXIT.archived;
         }
         if (result.result === "comments") {
           try {
@@ -578,12 +583,14 @@ export async function runArtifactCommand(
               error.status === 409 &&
               (await archived(await detail(args.id())))
             )
-              return 0;
+              return ARTIFACT_WATCH_EXIT.archived;
             throw error;
           }
-          return 10;
+          return ARTIFACT_WATCH_EXIT.comments;
         }
-        return result.result === "superseded" ? 4 : 2;
+        return result.result === "superseded"
+          ? ARTIFACT_WATCH_EXIT.busy
+          : ARTIFACT_WATCH_EXIT.timeout;
       }
     }
     case "listen": {

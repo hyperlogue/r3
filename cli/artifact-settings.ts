@@ -31,6 +31,8 @@ export function configCommand(argv: string[]): void {
     console.log(JSON.stringify(readConfig(), null, 2));
     return;
   }
+  if (!["show", "get", "set", "unset"].includes(command))
+    throw new ArtifactCommandError("config show|get|set|unset");
   if (!NAMES.includes(key as (typeof NAMES)[number]))
     throw new ArtifactCommandError(`Config name must be one of: ${NAMES.join(", ")}`);
   const name = key as (typeof NAMES)[number];
@@ -74,14 +76,14 @@ export function configCommand(argv: string[]): void {
         break;
       }
       case "archiveTtlDays": {
-        const days = Number(value);
+        const days = /^\d+$/.test(value) ? Number(value) : Number.NaN;
         if (!Number.isInteger(days) || days < 1 || days > 36500)
           throw new ArtifactCommandError("archiveTtlDays must be an integer from 1 to 36500");
         next.archiveTtlDays = days;
         break;
       }
       case "authTokenIdleDays": {
-        const days = Number(value);
+        const days = /^\d+$/.test(value) ? Number(value) : Number.NaN;
         if (!Number.isSafeInteger(days) || days < 1)
           throw new ArtifactCommandError("authTokenIdleDays must be a positive integer");
         next.authTokenIdleDays = days;
