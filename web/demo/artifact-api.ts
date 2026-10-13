@@ -1,5 +1,8 @@
+import { ArtifactApiError } from "../../shared/artifact-client.ts";
 import { buildArtifactPrompt, commentAttachments } from "../../shared/artifact-prompt.ts";
 import {
+  ARTIFACT_BULK_ARCHIVE_LIMIT,
+  type ArtifactBulkArchiveResult,
   type ArtifactComment,
   type ArtifactStreamEvent,
   type ArtifactTarget,
@@ -349,6 +352,39 @@ export const artifactApi: typeof productionApi = {
     }
     demo.changed(artifact.id);
     return copy(comment);
+  },
+  bulkArchive: async ({ items, comment }) => {
+    if (!items.length || items.length > ARTIFACT_BULK_ARCHIVE_LIMIT)
+      fail(`Expected between 1 and ${ARTIFACT_BULK_ARCHIVE_LIMIT} artifacts`);
+    if (new Set(items.map((item) => item.id)).size !== items.length)
+      fail("Artifact IDs must be unique");
+    return {
+      results: items.map(({ id, operationKey }): ArtifactBulkArchiveResult => {
+        try {
+          const artifact = demo.get(id);
+          if (
+            artifact.state === "archived" &&
+            !artifact.events.some((event) => event.operationKey === operationKey)
+          )
+            return { id, state: "skipped", reason: "already_archived" };
+          const result = demo.lifecycle(id, { event: "archived", operationKey, comment });
+          return {
+            id,
+            state: "archived",
+            eventId: result.event.id,
+            replayed: result.replayed,
+            notification: result.notification,
+          };
+        } catch (error) {
+          return {
+            id,
+            state: "failed",
+            status: error instanceof ArtifactApiError ? error.status : 500,
+            error: error instanceof Error ? error.message : "Artifact archive failed",
+          };
+        }
+      }),
+    };
   },
   lifecycle: async (id, body) => demo.lifecycle(id, body),
   watchers: async (id) =>

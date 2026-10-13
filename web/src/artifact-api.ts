@@ -20,6 +20,8 @@ import type {
   AgentSession,
   Artifact,
   ArtifactActor,
+  ArtifactBulkArchiveBody,
+  ArtifactBulkArchiveResponse,
   ArtifactComment,
   ArtifactCommentAcknowledged,
   ArtifactCommentAcknowledgment,
@@ -144,6 +146,11 @@ export const artifactApi = {
     }),
   attachment: (artifactId: string, id: string) =>
     client().request("GET", attachmentPath(artifactId, id)),
+  bulkArchive: (body: Omit<ArtifactBulkArchiveBody, "actor">) =>
+    client().json<ArtifactBulkArchiveResponse>("POST", "/api/artifacts/archive", {
+      ...body,
+      actor: HUMAN_ACTOR,
+    }),
   lifecycle: async (id: string, body: Omit<ArtifactLifecycleBody, "actor">) => {
     try {
       return await client().json<ArtifactLifecycleResponse>(

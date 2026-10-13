@@ -22,6 +22,7 @@ export type ArtifactPageActions = Pick<
   | "edit"
   | "delete"
   | "lifecycle"
+  | "bulkArchive"
   | "addThread"
   | "editThread"
   | "deleteThread"

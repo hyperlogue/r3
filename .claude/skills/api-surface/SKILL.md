@@ -155,6 +155,21 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Archive input is `comment: { body }`; blank bodies normalize to no Comment.
   Delivery failure is HTTP 502;
   the committed archive remains authoritative. Replays do not notify twice.
+- `POST /api/artifacts/archive` takes `ArtifactBulkArchiveBody`: explicit `actor`,
+  1–100 unique `items: [{ id, operationKey }]`, and optional shared `comment: { body }`.
+  Validate the whole envelope before writes; malformed requests fail as a whole.
+  A valid batch returns HTTP 200 and `ArtifactBulkArchiveResponse.results` in input
+  order. Each item independently uses the lifecycle transaction: `archived` includes
+  `eventId`, `replayed`, and `notification`; `skipped` has reason `already_archived`;
+  `failed` includes HTTP-equivalent `status` and `error`. Missing artifacts fail with
+  404; conflicting operation keys fail with 409. Other artifacts still proceed.
+  Matching operation keys replay before the already-archived check, including after
+  restore, without another transition or notification. Fresh keys skip existing
+  archives without changing timestamps. Notification failure remains an `archived`
+  result with `notification.state: failed`, not a batch HTTP 502. Claims, subscriptions,
+  Comments, and invalidations follow the single-artifact lifecycle rules. Requests
+  retain the ordinary 2 MiB streamed body limit, auth/origin guards, and no-store
+  responses. The home page chunks larger selections and keeps each item's retry key.
 - `GET .../:id/watchers` reads subscriptions and `POST .../:id/watch { actor, timeoutMs? }`
   establishes an explicit subscription for a bounded long poll. `DELETE .../:id/listen { actor }`
   removes that actor's subscriptions. Persistent listen and delivery acknowledgments

@@ -1,16 +1,23 @@
 import { randomUUID } from "node:crypto";
-import type {
-  ArtifactActor,
-  ArtifactLifecycleResponse,
-  ArtifactNotification,
-  ArtifactNudge,
-  ArtifactStreamEvent,
-  ArtifactWatcher,
-  ArtifactWatchResult,
+import {
+  ARTIFACT_BULK_ARCHIVE_LIMIT,
+  type ArtifactActor,
+  type ArtifactBulkArchiveResponse,
+  type ArtifactBulkArchiveResult,
+  type ArtifactLifecycleResponse,
+  type ArtifactNotification,
+  type ArtifactNudge,
+  type ArtifactStreamEvent,
+  type ArtifactWatcher,
+  type ArtifactWatchResult,
 } from "../shared/artifacts.ts";
 import type { ArtifactConversations } from "./artifact-conversations.ts";
-import type { ArtifactLifecycle } from "./artifact-lifecycle.ts";
-import { ArtifactError } from "./artifact-validation.ts";
+import {
+  ArtifactAlreadyArchivedError,
+  type ArtifactLifecycle,
+  archiveCommentBody,
+} from "./artifact-lifecycle.ts";
+import { ArtifactError, requireObject, requireString } from "./artifact-validation.ts";
 import type { ArtifactStore } from "./artifacts.ts";
 import { nowIso } from "./ids.ts";
 import type { WorkerRecords } from "./worker-records.ts";
@@ -210,6 +217,59 @@ export class ArtifactCollaboration {
       lifecycleEventId: null,
       comment: null,
     });
+  }
+
+  async bulkArchive(value: unknown): Promise<ArtifactBulkArchiveResponse> {
+    const input = requireObject(value, "Bulk archive");
+    const actor = this.artifacts.validateActor(input.actor);
+    if (input.message !== undefined)
+      throw new ArtifactError("Use comment.body for an archive Comment");
+    const message = archiveCommentBody(input.comment);
+    if (
+      !Array.isArray(input.items) ||
+      !input.items.length ||
+      input.items.length > ARTIFACT_BULK_ARCHIVE_LIMIT
+    )
+      throw new ArtifactError(`Expected between 1 and ${ARTIFACT_BULK_ARCHIVE_LIMIT} artifacts`);
+    // Validate the complete envelope before any transition can commit.
+    const items = input.items.map((value) => {
+      const item = requireObject(value, "Archive item");
+      return {
+        id: requireString(item.id, "Artifact ID", 200),
+        operationKey: requireString(item.operationKey, "operationKey", 200),
+      };
+    });
+    if (new Set(items.map((item) => item.id)).size !== items.length)
+      throw new ArtifactError("Artifact IDs must be unique");
+    const results = await Promise.all(
+      items.map(async ({ id, operationKey }): Promise<ArtifactBulkArchiveResult> => {
+        try {
+          const result = await this.transition(id, {
+            actor,
+            event: "archived",
+            operationKey,
+            ...(message === null ? {} : { comment: { body: message } }),
+          });
+          return {
+            id,
+            state: "archived",
+            eventId: result.event.id,
+            replayed: result.replayed,
+            notification: result.notification,
+          };
+        } catch (error) {
+          if (error instanceof ArtifactAlreadyArchivedError)
+            return { id, state: "skipped", reason: "already_archived" };
+          return {
+            id,
+            state: "failed",
+            status: error instanceof ArtifactError ? error.status : 500,
+            error: error instanceof ArtifactError ? error.message : "Artifact archive failed",
+          };
+        }
+      }),
+    );
+    return { results };
   }
 
   async transition(id: string, value: unknown): Promise<ArtifactLifecycleResponse> {

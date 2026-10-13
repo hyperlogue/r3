@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArtifactApiError } from "../../../shared/artifact-client.ts";
-import type { Artifact } from "../../../shared/artifacts.ts";
+import { ARTIFACT_BULK_ARCHIVE_LIMIT, type Artifact } from "../../../shared/artifacts.ts";
 import { type ArtifactPageClient, useArtifactClient } from "../artifact-ui-context.tsx";
 import { Button } from "../ui.tsx";
 export type ActionArtifact = Pick<Artifact, "id" | "title" | "state">;
@@ -15,38 +15,48 @@ export async function actOnArtifacts(
   action: "archive" | "delete",
   message: string,
   keys: Map<string, string>,
-  api: Pick<ArtifactPageClient, "delete" | "detail" | "lifecycle">,
+  api: Pick<ArtifactPageClient, "delete" | "bulkArchive">,
 ): Promise<ArtifactActionResult[]> {
   const results: ArtifactActionResult[] = [];
+  if (action === "archive") {
+    for (let start = 0; start < items.length; start += ARTIFACT_BULK_ARCHIVE_LIMIT) {
+      const batch = items.slice(start, start + ARTIFACT_BULK_ARCHIVE_LIMIT);
+      for (const item of batch) if (!keys.has(item.id)) keys.set(item.id, crypto.randomUUID());
+      try {
+        const response = await api.bulkArchive({
+          items: batch.map(({ id }) => ({ id, operationKey: keys.get(id)! })),
+          comment: { body: message },
+        });
+        for (const result of response.results) {
+          if (result.state === "failed")
+            results.push({ id: result.id, state: "failed", warning: result.error });
+          else if (result.state === "skipped") results.push({ id: result.id, state: "skipped" });
+          else
+            results.push({
+              id: result.id,
+              state: "done",
+              ...(result.notification.state === "failed"
+                ? { warning: "Archived, but agent notification failed" }
+                : {}),
+            });
+        }
+      } catch (error) {
+        for (const item of batch)
+          results.push({
+            id: item.id,
+            state: "failed",
+            warning: error instanceof Error ? error.message : "Action failed",
+          });
+      }
+    }
+    return results;
+  }
   for (const item of items) {
     try {
-      if (action === "delete") await api.delete(item.id);
-      else {
-        const current = await api.detail(item.id);
-        if (current.state === "archived" && !keys.has(item.id)) {
-          results.push({ id: item.id, state: "skipped" });
-          continue;
-        }
-        if (!keys.has(item.id)) keys.set(item.id, crypto.randomUUID());
-        const result = await api.lifecycle(item.id, {
-          event: "archived",
-          operationKey: keys.get(item.id)!,
-          comment: {
-            body: message,
-          },
-        });
-        results.push({
-          id: item.id,
-          state: "done",
-          ...(result.notification.state === "failed"
-            ? { warning: "Archived, but agent notification failed" }
-            : {}),
-        });
-        continue;
-      }
+      await api.delete(item.id);
       results.push({ id: item.id, state: "done" });
     } catch (error) {
-      if (action === "delete" && error instanceof ArtifactApiError && error.status === 404)
+      if (error instanceof ArtifactApiError && error.status === 404)
         results.push({ id: item.id, state: "skipped" });
       else
         results.push({

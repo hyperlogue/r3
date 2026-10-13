@@ -167,6 +167,11 @@ export function installArtifactConversations(
     const notification = await collaboration.submit(c.req.param("id"));
     return c.json({ notification }, notification.state === "failed" ? 502 : 200);
   });
+  app.post("/api/artifacts/archive", async (c) => {
+    const result = await collaboration.bulkArchive(await artifactJson(c.req.raw));
+    c.header("Cache-Control", "no-store");
+    return c.json(result);
+  });
   app.post("/api/artifacts/:id/lifecycle", async (c) => {
     const result = await collaboration.transition(c.req.param("id"), await artifactJson(c.req.raw));
     return c.json(result, result.notification.state === "failed" ? 502 : 200);

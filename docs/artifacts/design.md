@@ -1040,6 +1040,13 @@ each artifact’s selected subscription; already archived items are skipped with
 changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.
 Notification failure is reported separately from a committed archive.
+Archive selections use the bounded bulk archive endpoint, which returns an ordered
+result for each artifact and shares the single-artifact lifecycle rules. Validation
+of the full request precedes any writes; valid items commit independently so a missing
+artifact or failed transition does not prevent other archives. Each item carries
+its own operation key for retries. The browser sends larger selections in batches
+without fetching individual artifact details first. The
+[API reference](../../.claude/skills/api-surface/SKILL.md) owns the wire contract.
 
 ## Media thread targets
 

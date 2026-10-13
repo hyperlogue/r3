@@ -3,6 +3,32 @@ import { artifactApi } from "./artifact-api.ts";
 import { demo } from "./artifact-backend.ts";
 
 afterEach(() => demo.reset());
+test("demo bulk archives preserve mixed results and lifecycle replay semantics", async () => {
+  const [first, second] = demo.state.artifacts;
+  await artifactApi.lifecycle(second.id, { event: "archived", operationKey: "old" });
+  const timestamp = demo.get(second.id).archivedAt;
+  const body = {
+    items: [first.id, "missing", second.id].map((id) => ({ id, operationKey: "batch" })),
+    comment: { body: "Finished" },
+  };
+  const response = await artifactApi.bulkArchive(body);
+  expect(response.results).toMatchObject([
+    { id: first.id, state: "archived", replayed: false },
+    { id: "missing", state: "failed", status: 404 },
+    { id: second.id, state: "skipped" },
+  ]);
+  expect(demo.get(second.id).archivedAt).toBe(timestamp);
+  await artifactApi.lifecycle(first.id, { event: "restored", operationKey: "restore" });
+  expect((await artifactApi.bulkArchive(body)).results[0]).toMatchObject({
+    state: "archived",
+    replayed: true,
+    notification: { state: "not_repeated" },
+  });
+  expect(demo.get(first.id).state).toBe("active");
+  expect(
+    (await artifactApi.bulkArchive({ ...body, comment: { body: "Changed" } })).results[0],
+  ).toMatchObject({ state: "failed", status: 409 });
+});
 test("demo acknowledgments reject stale snapshots after edit and revert", async () => {
   const id = demo.state.artifacts[0].id;
   const note = demo.addThread(id, "Original", { kind: "artifact" });

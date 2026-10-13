@@ -1,9 +1,15 @@
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ArtifactVersion } from "../shared/artifacts.ts";
+import {
+  ARTIFACT_BULK_ARCHIVE_LIMIT,
+  type ArtifactBulkArchiveResponse,
+  type ArtifactStreamEvent,
+  type ArtifactVersion,
+} from "../shared/artifacts.ts";
 import { readEventStream } from "../shared/event-stream.ts";
 import { WORKER_PROTOCOL } from "../shared/worker-protocol.ts";
 import { createArtifactApi } from "./artifact-api.ts";
@@ -17,7 +23,7 @@ let storage: ArtifactStorage;
 let api: ReturnType<typeof createArtifactApi>;
 let token: string;
 let previews: PreviewHost;
-const actor = { role: "agent", sessionId: "publisher-session" };
+const actor = { role: "agent", sessionId: "publisher-session" } as const;
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-artifact-api-"));
   storage = await openArtifactStorage({
@@ -93,6 +99,166 @@ function publication(expectedSeq = 0, publicationKey = "first") {
     },
   };
 }
+describe("bulk archive HTTP contract", () => {
+  const path = "/api/artifacts/archive";
+  test("mixed results preserve lifecycle effects, skip archives, and replay without notifying twice", async () => {
+    const first = await create();
+    const old = await create();
+    const last = await create();
+    const human = { role: "human", sessionId: null } as const;
+    await api.collaboration.transition(old, { actor, event: "archived", operationKey: "old" });
+    const oldTimestamp = storage.artifacts.get(old).archivedAt;
+    const note = await storage.conversations.add(first, {
+      actor: human,
+      body: "Pending",
+      target: { kind: "artifact" },
+    });
+    storage.conversations.claim([note.id], actor.sessionId);
+    const pushes: string[] = [];
+    const closes: string[] = [];
+    for (const id of [first, last]) {
+      api.collaboration.register(
+        id,
+        actor,
+        () => closes.push(id),
+        async () => {
+          expect(storage.artifacts.get(id).state).toBe("archived");
+          expect(api.collaboration.watchers(id)).toEqual([]);
+          pushes.push(id);
+          if (id === first) throw new Error("Offline");
+        },
+      );
+    }
+    const events: ArtifactStreamEvent[] = [];
+    api.collaboration.subscribe((event) => events.push(event));
+    const body = {
+      actor: human,
+      items: [first, old, "missing", last].map((id) => ({ id, operationKey: "batch" })),
+      comment: { body: "  Finished review  " },
+    };
+    const response = await request(path, "POST", body);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const { results } = (await response.json()) as ArtifactBulkArchiveResponse;
+    expect(results).toMatchObject([
+      { id: first, state: "archived", replayed: false, notification: { state: "failed" } },
+      { id: old, state: "skipped", reason: "already_archived" },
+      { id: "missing", state: "failed", status: 404 },
+      { id: last, state: "archived", replayed: false, notification: { state: "sent" } },
+    ]);
+    expect(pushes).toEqual([first, last]);
+    expect(closes).toEqual([first, last]);
+    expect(storage.conversations.get(note.id)).toMatchObject({
+      claim: null,
+      status: "open",
+      comments: [{ body: "Pending", sentAt: null }],
+    });
+    expect(storage.lifecycle.events(first)[0]).toMatchObject({
+      actor: human,
+      comment: { body: "Finished review", sentAt: null },
+    });
+    expect(storage.lifecycle.events(last)[0].comment?.sentAt).not.toBeNull();
+    expect(storage.artifacts.get(old).archivedAt).toBe(oldTimestamp);
+    expect(storage.lifecycle.events(old)).toHaveLength(1);
+    expect(
+      events.filter((event) => event.type === "lifecycle").map((event) => event.artifactId),
+    ).toEqual([first, last]);
+
+    await api.collaboration.transition(first, {
+      actor,
+      event: "restored",
+      operationKey: "restore",
+    });
+    api.collaboration.register(first, actor, () => closes.push("new"));
+    const retry = (await (await request(path, "POST", body)).json()) as ArtifactBulkArchiveResponse;
+    expect(retry.results[0]).toMatchObject({
+      ...results[0],
+      replayed: true,
+      notification: { state: "not_repeated" },
+    });
+    expect(pushes).toEqual([first, last]);
+    expect(closes).not.toContain("new");
+    expect(storage.artifacts.get(first).state).toBe("active");
+    expect(api.collaboration.watchers(first)).toHaveLength(1);
+    const conflict = await (
+      await request(path, "POST", { ...body, comment: { body: "Changed" } })
+    ).json();
+    expect(conflict.results[0]).toMatchObject({ state: "failed", status: 409 });
+    expect(conflict.results[3]).toMatchObject({ state: "failed", status: 409 });
+  });
+  test("validates the entire bounded request before any mutation and enforces auth and origin", async () => {
+    const id = await create();
+    const item = { id, operationKey: "batch" };
+    const valid = { actor, items: [item] };
+    for (const body of [
+      { ...valid, items: [] },
+      { ...valid, items: "all" },
+      { ...valid, items: [item, { id: "other" }] },
+      { ...valid, items: [item, { id: " ", operationKey: "key" }] },
+      { ...valid, items: [item, { ...item, operationKey: "other" }] },
+      {
+        ...valid,
+        items: Array.from({ length: ARTIFACT_BULK_ARCHIVE_LIMIT + 1 }, (_, i) => ({
+          id: `${i}`,
+          operationKey: "key",
+        })),
+      },
+      { ...valid, actor: { role: "human" } },
+      { ...valid, actor: { role: "agent", sessionId: "unknown" } },
+      { ...valid, comment: { body: 123 } },
+      { ...valid, comment: { body: "Message", attachments: [] } },
+      { ...valid, message: "Wrong field" },
+    ]) {
+      const response = await request(path, "POST", body);
+      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(response.status).toBeLessThan(500);
+      expect(storage.artifacts.get(id).state).toBe("active");
+      expect(storage.lifecycle.events(id)).toEqual([]);
+    }
+    const denied = await api.app.request(
+      new Request(`http://localhost${path}`, {
+        method: "POST",
+        headers: { host: "localhost", "content-type": "application/json" },
+        body: JSON.stringify(valid),
+      }),
+    );
+    expect(denied.status).toBe(401);
+    expect((await request(path, "POST", valid, { origin: "https://foreign.example" })).status).toBe(
+      403,
+    );
+    expect(
+      (await request(path, "POST", { ...valid, comment: { body: "x".repeat(2 * 1024 * 1024) } }))
+        .status,
+    ).toBe(413);
+    expect(storage.artifacts.get(id).state).toBe("active");
+    expect((await request(path, "POST", { ...valid, comment: { body: " \n " } })).status).toBe(200);
+    expect(storage.lifecycle.events(id)[0].comment).toBeNull();
+  });
+  test("a persistence failure rolls back only its artifact and allows later items to archive", async () => {
+    const first = await create();
+    const last = await create();
+    const db = new Database(join(root, "store.sqlite"));
+    try {
+      db.exec(
+        `CREATE TRIGGER fail_bulk_archive BEFORE INSERT ON artifact_events WHEN NEW.artifact_id = '${first}' BEGIN SELECT RAISE(ABORT, 'internal failure'); END`,
+      );
+    } finally {
+      db.close();
+    }
+    const response = await request(path, "POST", {
+      actor,
+      items: [first, last].map((id) => ({ id, operationKey: "batch" })),
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).results).toMatchObject([
+      { id: first, state: "failed", status: 500, error: "Artifact archive failed" },
+      { id: last, state: "archived" },
+    ]);
+    expect(storage.artifacts.get(first).state).toBe("active");
+    expect(storage.lifecycle.events(first)).toEqual([]);
+    expect(storage.artifacts.get(last).state).toBe("archived");
+  });
+});
 describe("artifact HTTP content contract", () => {
   test("remote grouping and conditional project backfill share the authenticated contract", async () => {
     const projectResponse = await request("/api/projects", "POST", { name: "Existing" });

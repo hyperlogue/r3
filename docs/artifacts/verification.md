@@ -314,6 +314,12 @@ tests reject saving an optimization after its storage generation is revoked.
   and server calendar buckets across DST.
 - `bun test server/artifact-api.test.ts cli/artifact-commands.test.ts`: authenticated
   statistics/GC routes, fixed windows, JSON, and TTL input validation.
+- `server/artifact-api.test.ts`: bulk archive auth/origin and request bounds,
+  validation before writes, ordered partial outcomes, archive timestamp preservation,
+  claims and pending comments, notification failure, transactional rollback, and
+  operation-key replay after restore. `web/src/artifact-actions.test.ts` checks
+  batched requests, partial outcomes, transport failures, and stable retry keys;
+  `web/demo/artifact-api.test.ts` checks the same demo lifecycle behavior.
 - `bun scripts/test-artifact-library.ts` with `R3_TEST_BROWSER`: statistics window,
   Settings GC confirmation, manual delete, selection and bulk actions, in an
   isolated server and fresh browser profile.

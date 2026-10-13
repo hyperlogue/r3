@@ -25,6 +25,19 @@ type EventRow = {
   created_at: string;
 };
 
+export class ArtifactAlreadyArchivedError extends ArtifactError {
+  constructor() {
+    super("Artifact is already archived", 409);
+  }
+}
+
+export function archiveCommentBody(value: unknown): string | null {
+  const comment = value === undefined ? null : requireObject(value, "Archive Comment");
+  if (comment && Object.keys(comment).some((key) => key !== "body"))
+    throw new ArtifactError("Archive Comments accept only body");
+  return optionalText(comment?.body, "Archive Comment body")?.trim() || null;
+}
+
 function eventFromRow(db: Database, row: EventRow): ArtifactLifecycleEvent {
   return {
     id: row.id,
@@ -69,11 +82,7 @@ export class ArtifactLifecycle {
     const event = input.event;
     if (input.message !== undefined)
       throw new ArtifactError("Use comment.body for an archive Comment");
-    const comment =
-      input.comment === undefined ? null : requireObject(input.comment, "Archive Comment");
-    if (comment && Object.keys(comment).some((key) => key !== "body"))
-      throw new ArtifactError("Archive Comments accept only body");
-    const message = optionalText(comment?.body, "Archive Comment body")?.trim() || null;
+    const message = archiveCommentBody(input.comment);
     if (event === "restored" && message !== null)
       throw new ArtifactError("Only archive accepts a Comment");
     return this.db
@@ -99,7 +108,10 @@ export class ArtifactLifecycle {
           return { event: eventFromRow(this.db, previous), replayed: true };
         }
         const state = event === "archived" ? "archived" : "active";
-        if (artifact.state === state) throw new ArtifactError(`Artifact is already ${state}`, 409);
+        if (artifact.state === state) {
+          if (state === "archived") throw new ArtifactAlreadyArchivedError();
+          throw new ArtifactError(`Artifact is already ${state}`, 409);
+        }
         const time = this.clock();
         const eventId = `event_${randomUUID().replaceAll("-", "")}`;
         this.db

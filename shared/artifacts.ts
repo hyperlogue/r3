@@ -423,6 +423,25 @@ export interface ArtifactLifecycleBody {
   event: "archived" | "restored";
   comment?: { body: string };
 }
+export const ARTIFACT_BULK_ARCHIVE_LIMIT = 100;
+export interface ArtifactBulkArchiveBody {
+  actor: ArtifactActor;
+  items: { id: string; operationKey: string }[];
+  comment?: { body: string };
+}
+export type ArtifactBulkArchiveResult =
+  | {
+      id: string;
+      state: "archived";
+      eventId: string;
+      replayed: boolean;
+      notification: ArtifactNotification;
+    }
+  | { id: string; state: "skipped"; reason: "already_archived" }
+  | { id: string; state: "failed"; status: number; error: string };
+export interface ArtifactBulkArchiveResponse {
+  results: ArtifactBulkArchiveResult[];
+}
 export type ArtifactStreamEvent =
   | {
       type: "artifact-updated";
