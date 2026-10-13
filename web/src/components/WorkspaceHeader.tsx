@@ -1,5 +1,19 @@
-import { type ReactNode, useRef } from "react";
+import { type ComponentPropsWithRef, type ReactNode, useRef } from "react";
+import { cn } from "../ui.tsx";
 import { Logo, type LogoHandle } from "./Logo.tsx";
+
+export function HeaderIconButton({ className, ...props }: ComponentPropsWithRef<"button">) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 aria-expanded:bg-neutral-100 aria-expanded:text-neutral-900 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 dark:aria-expanded:bg-neutral-800 dark:aria-expanded:text-neutral-100",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
 
 // Shared visual header; navigation and application-level tools belong to its host.
 export function WorkspaceHeader({

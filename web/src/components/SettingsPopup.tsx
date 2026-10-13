@@ -15,6 +15,7 @@ import type { ThemeOption } from "../types.ts";
 import { Button, cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { ArtifactGcDialog } from "./ArtifactGcDialog.tsx";
 import { TokenManager } from "./TokenManager.tsx";
+import { HeaderIconButton } from "./WorkspaceHeader.tsx";
 
 // Group theme options by their `group` field, preserving first-seen order.
 function groupThemes(options: ThemeOption[]): { name: string; items: ThemeOption[] }[] {
@@ -107,29 +108,23 @@ export function SettingsPopup() {
   const trigger = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="relative self-stretch">
-      <button
+    <>
+      <HeaderIconButton
         ref={trigger}
-        type="button"
         onClick={() => setOpen((o) => !o)}
         title="Settings"
+        aria-label="Settings"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={cn(
-          "flex h-full cursor-pointer items-center justify-center pr-4 transition-colors",
-          open
-            ? "text-neutral-900 dark:text-neutral-100"
-            : "text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100",
-        )}
       >
         <StrokeIcon className="size-5">
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
           <circle cx="12" cy="12" r="3" />
         </StrokeIcon>
-      </button>
+      </HeaderIconButton>
 
       {open && <SettingsDialog onClose={() => setOpen(false)} trigger={trigger} />}
-    </div>
+    </>
   );
 }
 

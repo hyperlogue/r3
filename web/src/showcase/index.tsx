@@ -9,6 +9,7 @@ import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
+import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactDiscussionPanel } from "../components/ArtifactDiscussionPanel.tsx";
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
@@ -483,6 +484,7 @@ function Showcase() {
   const [notice, setNotice] = useState("");
   return (
     <main className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <AppHeader showUsage returnRoute={null} />
       <div className="mx-auto max-w-[1500px] px-4 py-8 md:px-8">
         <header className="space-y-4 pb-8">
           <div className="flex items-start justify-between gap-4">

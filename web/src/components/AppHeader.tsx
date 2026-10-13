@@ -25,8 +25,12 @@ export function AppHeader({
       tools={
         <>
           <DemoChrome />
-          {showUsage && <ArtifactUsagePopup />}
-          {showSettings && <SettingsPopup />}
+          {(showUsage || showSettings) && (
+            <div className="flex items-center gap-1 pr-2">
+              {showUsage && <ArtifactUsagePopup />}
+              {showSettings && <SettingsPopup />}
+            </div>
+          )}
         </>
       }
     >

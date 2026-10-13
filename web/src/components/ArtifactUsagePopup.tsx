@@ -8,6 +8,7 @@ import {
 import { artifactApi } from "../artifact-api.ts";
 import { formatBytes } from "../format-bytes.ts";
 import { Button, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
+import { HeaderIconButton } from "./WorkspaceHeader.tsx";
 
 export function ArtifactUsagePanel({ stats }: { stats: ArtifactUsage }) {
   const a = stats.artifacts,
@@ -164,20 +165,18 @@ export function ArtifactUsagePopup() {
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <Button
+      <HeaderIconButton
         ref={trigger}
         title="Usage statistics"
         aria-label="Usage statistics"
         aria-haspopup="dialog"
         aria-expanded={open}
-        variant="nav"
-        className="size-7 justify-center p-0! max-md:size-9"
         onClick={() => setOpen(!open)}
       >
-        <StrokeIcon className="size-4">
-          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+        <StrokeIcon className="size-5">
+          <path d="M5 20V10M12 20V4M19 20v-7M3 20h18" />
         </StrokeIcon>
-      </Button>
+      </HeaderIconButton>
       {open && <UsageDialog trigger={trigger} onClose={() => setOpen(false)} />}
     </>
   );
