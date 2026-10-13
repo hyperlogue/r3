@@ -42,49 +42,47 @@ export function home() {
   return `<div data-pagefind-body>
 <section class="home-hero" id="intro">
 <div class="container">
-<p class="eyebrow">
-<span class="status-dot">
-</span> A workspace for you and your coding agent</p>
 <div class="hero-grid">
-<h1 data-pagefind-meta="title">See the work.<br>Point to the change.<br>
-<em>Make it better.</em>
-</h1>
-<div class="hero-aside">
-<p>Your agent can build more than a chat response. Open the page, read the proposal, inspect the code. Give feedback exactly where it belongs.</p>
-<div class="actions">
-<a class="button primary" href="/docs/get-started/#install-the-skill">Install the skill <span aria-hidden="true">→</span>
-</a>
-<a class="text-link" href="/docs/get-started/#other-installation-methods">Other ways to install →</a>
-</div>
-<p class="hero-footnote">Works with any agent that can run a command.<br><a href="/demo/">Try the live demo ↗</a> · Local by default.</p>
-</div>
-</div></div>${workflowExample()}</section>
-<section class="loop-section container" aria-labelledby="loop-heading">
-<div class="section-intro">
+<div>
 <p class="eyebrow">Render. Review. Refine.</p>
-<h2 id="loop-heading">A short loop.<br>A much clearer conversation.</h2>
+<h1 data-pagefind-meta="title">See the work.<br><em>Make it better.</em></h1>
+</div>
+<div class="hero-aside">
+<p>A shared workspace for you<br>and your coding agent.</p>
+<p>Open the page, read the proposal, inspect the code. Point to what needs changing and keep the conversation with the work.</p>
+</div>
+</div>
+${skillInstall("skill-install")}
+<p class="hero-footnote">Local first. Open source. <a href="/demo/">Try the live demo ↗</a></p>
+</div>${workflowExample()}</section>
+<section class="loop-section container" aria-labelledby="loop-heading">
+<div class="section-heading">
+<div>
+<p class="eyebrow">How it works</p>
+<h2 id="loop-heading">Less guessing.<br>A clearer review loop.</h2>
+</div>
 <a class="text-link" href="/docs/review-loop/">How the review loop works →</a>
 </div>
 <ol class="loop-steps">
 <li>
-<span>01</span>
+<span>01 / Render</span>
 <div>
-<h3>Ask for something you can use.</h3>
-<p>A working prototype. An interactive explanation. A document worth reading. Your agent publishes it to r3 and shares a link.</p>
+<h3>See the actual work.</h3>
+<p>A working prototype, an interactive explanation, a document worth reading. Your agent publishes it and shares a link.</p>
 </div>
 </li>
 <li>
-<span>02</span>
+<span>02 / Review</span>
 <div>
-<h3>Put the feedback on the work.</h3>
-<p>Select the element, passage, code line, or image region. Add your thought, then send the batch to your agent.</p>
+<h3>Point to the change.</h3>
+<p>Select an element, passage, code line, or image region. Add your feedback, then send the batch to your agent.</p>
 </div>
 </li>
 <li>
-<span>03</span>
+<span>03 / Refine</span>
 <div>
-<h3>See what changed. Keep the context.</h3>
-<p>Open the new version and follow the agent’s replies to the fix. The original comment stays attached to what you actually reviewed.</p>
+<h3>Keep the context.</h3>
+<p>Open the next version and follow the agent’s replies to the fix. Your original comments stay with the work you reviewed.</p>
 </div>
 </li>
 </ol>
@@ -98,36 +96,28 @@ export function home() {
 </div>
 <a class="text-link" href="/use-cases/">Explore all use cases →</a>
 </div>
-<div class="story-grid">${storyCards()}</div>
+<div class="story-grid home-stories">${storyCards()}</div>
 </div>
 </section>
-<section class="start-section container">
-<div>
+<section class="start-section container" aria-labelledby="start-heading">
+<img src="/assets/favicon.svg" width="56" height="56" alt="">
 <p class="eyebrow">Your next review starts here</p>
-<h2>Give your agent<br>a place to show its work.</h2>
+<h2 id="start-heading">Give your agent<br>a place to show its work.</h2>
 <p>Install the publishing skill and ask your agent to share its work on r3. The skill handles setup; you bring the judgment.</p>
-<div class="actions">
-<a class="button primary" href="/docs/get-started/#install-the-skill">Install the skill <span aria-hidden="true">→</span>
-</a>
-<a class="text-link" href="/docs/get-started/#other-installation-methods">Other ways to install →</a>
-</div>
-</div>
-<div class="terminal">
-<div class="terminal-top">
-<span>Install the skill</span>
-<span>macOS / Linux</span>
-</div>
-<pre>
-<code>npx skills add hyperlogue/r3 \\
-  --skill publish-artifacts-to-r3 \\
-  --global</code>
-</pre>
-<div class="terminal-prompt">
-<span>Then ask your agent</span>
-<p>“Build a prototype of our project-creation flow and publish it to r3 for review.”</p>
-</div>
-</div>
+${skillInstall("start-install")}
+<p class="start-prompt">Then ask your agent: <q>Build a prototype of our project-creation flow and publish it to r3 for review.</q></p>
 </section>
+</div>`;
+}
+
+function skillInstall(id: string) {
+  return `<div class="install-block" id="${id}">
+<p class="install-label">Install the publishing skill</p>
+<pre class="install-command"><code>npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global</code></pre>
+<div class="install-links">
+<a href="/docs/get-started/#install-the-skill">Setup guide →</a>
+<a href="/docs/get-started/#other-installation-methods">Other ways to install →</a>
+</div>
 </div>`;
 }
 

@@ -64,6 +64,32 @@ function notify(message: string) {
   setTimeout(() => toast.classList.remove("visible"), 3500);
 }
 
+async function copyText(text: string) {
+  if (!artifact && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Some browsers only permit copying from a selected field.
+    }
+  }
+  // This user-initiated fallback also works in the opaque artifact preview,
+  // where the native Clipboard API is unavailable.
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.readOnly = true;
+  field.style.cssText = "position:fixed;left:-9999px;top:0";
+  const focused = document.activeElement;
+  document.body.append(field);
+  try {
+    field.select();
+    if (!document.execCommand("copy")) throw new Error("Copy unavailable");
+  } finally {
+    field.remove();
+    if (focused instanceof HTMLElement) focused.focus({ preventScroll: true });
+  }
+}
+
 document.querySelector(".theme-toggle")?.addEventListener("click", () => {
   const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
@@ -78,17 +104,32 @@ document.querySelector(".theme-toggle")?.addEventListener("click", () => {
 });
 
 for (const pre of document.querySelectorAll("pre")) {
+  const install = pre.classList.contains("install-command");
+  let reset: ReturnType<typeof setTimeout> | undefined;
   const button = document.createElement("button");
   button.type = "button";
   button.className = "copy-code";
   button.textContent = "Copy";
-  button.setAttribute("aria-label", "Copy code");
+  button.setAttribute("aria-label", install ? "Copy install command" : "Copy code");
   button.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(pre.querySelector("code")?.textContent || "");
-      notify("Code copied");
+      await copyText(pre.querySelector("code")?.textContent || "");
+      clearTimeout(reset);
+      button.textContent = "Copied!";
+      reset = setTimeout(() => {
+        button.textContent = "Copy";
+      }, 2500);
+      notify(install ? "Install command copied" : "Code copied");
     } catch {
-      notify("Could not copy. Select the code and copy it manually.");
+      const code = pre.querySelector("code");
+      if (code) {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
+      notify("Copy is unavailable. The command is selected so you can copy it manually.");
     }
   });
   pre.append(button);
@@ -101,7 +142,7 @@ document
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error("Markdown unavailable");
-      await navigator.clipboard.writeText(await response.text());
+      await copyText(await response.text());
       notify("Page copied as Markdown");
     } catch {
       notify("Could not copy. Use View Markdown to open the text.");

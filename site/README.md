@@ -72,9 +72,11 @@ Only the homepage workspace figure uses the wider 1240px container. Keep the
 homepage focused on the review loop and concrete use cases; supported formats
 and their details belong in the documentation.
 
-Primary installation actions lead to the publishing skill in the getting-started
-guide. Pair the homepage action with a link to its alternative installation
-section; keep direct CLI and runner instructions there.
+The homepage centers a copyable publishing-skill command below its opening and
+repeats it at the close. Keep the setup guide and alternative installation links
+beside it; direct CLI and runner instructions belong in the getting-started guide.
+Code copying uses a selected-field fallback inside opaque previews and selects
+the visible code for manual copying when the browser declines both methods.
 
 Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.

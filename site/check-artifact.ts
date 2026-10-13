@@ -79,6 +79,23 @@ try {
     }, heading);
   }
   let doc = await content("See the work.");
+  await browser.send("Browser.grantPermissions", {
+    origin: server.url.origin,
+    permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
+  });
+  await doc.command("Runtime.evaluate", {
+    expression: 'document.querySelector("#skill-install .copy-code").click()',
+    userGesture: true,
+  });
+  await eventually(
+    () => doc.evaluate('document.querySelector(".toast").textContent==="Install command copied"'),
+    "copy from the opaque preview",
+  );
+  assert.equal(
+    await page.evaluate("navigator.clipboard.readText()"),
+    "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
+    "opaque preview copies the exact install command",
+  );
   async function sharpCapture(mobile = false) {
     await doc.evaluate(
       'document.querySelector(".workspace-example").scrollIntoView({behavior:"instant",block:"center"})',
@@ -216,7 +233,7 @@ try {
   assert(requests.every((p) => p.startsWith(prefix)));
   assert.deepEqual(exceptions, []);
   console.log(
-    "Artifact sandbox checks passed: relative pages/assets, theme, search, and real React page comparison/commenting inside an opaque preview.",
+    "Artifact sandbox checks passed: command copy, relative pages/assets, theme, search, and real React page comparison/commenting inside an opaque preview.",
   );
 } catch (e) {
   console.log("requests", requests);

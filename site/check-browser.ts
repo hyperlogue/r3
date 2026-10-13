@@ -60,6 +60,19 @@ try {
   await open("/", "See the work.");
   await noOverflow();
   await screenshot("home-desktop.png");
+  await browser.send("Browser.grantPermissions", {
+    origin: server.url.origin,
+    permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
+  });
+  await page.evaluate("document.querySelector('#skill-install .copy-code').click()");
+  await eventually(
+    () => page.evaluate("document.querySelector('.toast').textContent==='Install command copied'"),
+    "install command copy",
+  );
+  assert.equal(
+    await page.evaluate("navigator.clipboard.readText()"),
+    "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
+  );
   const theme = await page.evaluate("document.documentElement.dataset.theme");
   await page.evaluate("document.querySelector('.theme-toggle').click()");
   assert.notEqual(await page.evaluate("document.documentElement.dataset.theme"), theme);
@@ -71,10 +84,6 @@ try {
     "theme persists across navigation",
   );
   await page.evaluate("document.querySelector('.theme-toggle').click()");
-  await browser.send("Browser.grantPermissions", {
-    origin: server.url.origin,
-    permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
-  });
   await page.evaluate("document.querySelector('.copy-code').click()");
   await eventually(
     () => page.evaluate("document.querySelector('.toast').textContent==='Code copied'"),
@@ -143,6 +152,13 @@ try {
   await noOverflow();
 
   await page.command("Emulation.setScriptExecutionDisabled", { value: true });
+  await open("/", "See the work.");
+  assert.equal(
+    await page.evaluate("document.querySelector('#skill-install code').textContent"),
+    "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
+    "installation remains readable without JavaScript",
+  );
+  await noOverflow();
   await open("/docs/get-started/", "Get started");
   assert(await page.evaluate("document.body.textContent.includes('Ask your agent to publish')"));
   assert.equal(
