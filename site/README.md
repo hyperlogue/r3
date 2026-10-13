@@ -67,6 +67,11 @@ Set it to the deployed demo URL when sharing beyond the local machine.
 - `client.ts` owns progressive enhancements: theme preference, code/Markdown
   copying, keyboard access to search, and Pagefind results.
 
+Text sections share an 880px maximum width; article prose is limited to 65ch.
+Only the homepage workspace figure uses the wider 1240px container. Keep the
+homepage focused on the review loop and concrete use cases; supported formats
+and their details belong in the documentation.
+
 Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.
 Use repository-relative paths and fictional example data in content.

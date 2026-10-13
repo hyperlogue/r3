@@ -20,7 +20,7 @@ export function storyCards() {
 }
 
 export function workflowExample() {
-  return `<figure class="workflow-figure" id="fieldwork-workspace">
+  return `<figure class="workflow-figure container container-wide" id="fieldwork-workspace">
 <div class="illustration-caption"><span><span class="status-dot"></span> A review in Example Fieldwork</span><a href="/example/index.html">Open the workspace ↗</a></div>
 <div class="workspace-example" data-workspace-example>
 <a class="workspace-fallback" href="/example/index.html" aria-label="Explore Example Fieldwork in the real r3 workspace">
@@ -40,7 +40,8 @@ ${["light", "dark"]
 
 export function home() {
   return `<div data-pagefind-body>
-<section class="home-hero container">
+<section class="home-hero" id="intro">
+<div class="container">
 <p class="eyebrow">
 <span class="status-dot">
 </span> A workspace for you and your coding agent</p>
@@ -57,7 +58,7 @@ export function home() {
 </div>
 <p class="hero-footnote">Works with any agent that can run a command.<br>Local by default. <a href="/docs/access/">Connect to your own server ↗</a></p>
 </div>
-</div>${workflowExample()}</section>
+</div></div>${workflowExample()}</section>
 <section class="loop-section container" aria-labelledby="loop-heading">
 <div class="section-intro">
 <p class="eyebrow">Render. Review. Refine.</p>
@@ -88,57 +89,16 @@ export function home() {
 </li>
 </ol>
 </section>
-<section class="possibilities-section">
+<section class="possibilities-section" id="use-cases" aria-labelledby="use-cases-heading">
 <div class="container">
 <div class="section-heading">
 <div>
 <p class="eyebrow">One fictional project. Real ways to work.</p>
-<h2>What will you make clearer?</h2>
+<h2 id="use-cases-heading">What will you make clearer?</h2>
 </div>
 <a class="text-link" href="/use-cases/">Explore all use cases →</a>
 </div>
 <div class="story-grid">${storyCards()}</div>
-</div>
-</section>
-<section class="surfaces-section container">
-<div class="section-intro">
-<p class="eyebrow">Different work. The same conversation.</p>
-<h2>More than a preview.</h2>
-<p>Use the representation that makes the work understandable. r3 keeps your feedback in that context.</p>
-</div>
-<div class="surface-list">
-<a href="/docs/html/">
-<span class="surface-icon">&lt;/&gt;</span>
-<div>
-<h3>Pages you can interact with</h3>
-<p>Prototypes, dashboards, visual explanations, and small tools.</p>
-</div>
-<span aria-hidden="true">↗</span>
-</a>
-<a href="/docs/files/">
-<span class="surface-icon">Aa</span>
-<div>
-<h3>Documents with room for detail</h3>
-<p>Rendered Markdown, highlighted source, and supporting files.</p>
-</div>
-<span aria-hidden="true">↗</span>
-</a>
-<a href="/docs/diffs/">
-<span class="surface-icon">±</span>
-<div>
-<h3>Code with the right context</h3>
-<p>Old and new lines, captured context, and conversations on the patch.</p>
-</div>
-<span aria-hidden="true">↗</span>
-</a>
-<a href="/docs/media/">
-<span class="surface-icon">▧</span>
-<div>
-<h3>Feedback on what you see</h3>
-<p>Images, saved video frames, regions, and visual fix comparisons.</p>
-</div>
-<span aria-hidden="true">↗</span>
-</a>
 </div>
 </section>
 <section class="start-section container">
