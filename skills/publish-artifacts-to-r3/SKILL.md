@@ -1,10 +1,11 @@
 ---
-name: r3
+name: publish-artifacts-to-r3
 description: Publish HTML pages, documents, files, or code changes to r3 for human review, and respond to feedback on existing r3 artifacts. Use when the user asks to use r3 or supplies an r3 artifact or feedback command.
 ---
 
-First run `r3 guide` to try the executable on `PATH` and read the agent guide
-once per session. If it succeeds, keep using that executable.
+Run `r3 guide` once per session to get instructions for publishing artifacts and
+responding to feedback. This tries the executable on `PATH`; if it succeeds,
+use that executable for subsequent commands.
 
 If `r3` is unavailable, run the latest published release with npm:
 
@@ -29,6 +30,6 @@ preparing an artifact kind for the first time in a session, read its preparation
 guide using the `guide html`, `guide files`, or `guide diff` subcommand.
 Use `--help` for command details.
 
-Complete the requested publication or feedback work and share the returned artifact
-URL. Revisions belong to the existing artifact; the guide describes how to publish
-a new version and reply to its threads.
+Share the returned artifact URL. When responding to feedback, publish changes as
+a new version under the same artifact ID and reply to its threads. This keeps the
+comments and version history together.

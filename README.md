@@ -40,10 +40,10 @@ use the same search with `r3 search "keyboard focus" --history all --json`.
 
 ## Get started
 
-Install the [r3 skill](skills/r3/SKILL.md) from your terminal:
+Install the [r3 publishing skill](skills/publish-artifacts-to-r3/SKILL.md) from your terminal:
 
 ```sh
-npx skills add hyperlogue/r3 --skill r3 --global
+npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global
 ```
 
 Choose the coding agents you use when prompted. `--global` makes the skill

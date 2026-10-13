@@ -117,9 +117,10 @@ GitHub Release exists, npm retries skip that artifact and work after it expires.
 
 ## Public agent skill
 
-`skills/r3/SKILL.md` is the user-facing skill distributed from this repository with
-`npx skills add hyperlogue/r3 --skill r3 --global`. Selecting `r3` keeps onboarding
-scoped to that skill. Every repository development skill in `.claude/skills/`
+`skills/publish-artifacts-to-r3/SKILL.md` is the user-facing skill distributed with
+`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global`.
+Selecting `publish-artifacts-to-r3` keeps onboarding scoped to that skill.
+Every repository development skill in `.claude/skills/`
 must set `metadata.internal: true` so the skills CLI excludes it from normal
 discovery, including a bare `npx skills add hyperlogue/r3`. Keep these instructions
 available locally for repository work. `INSTALL_INTERNAL_SKILLS=1` opts into

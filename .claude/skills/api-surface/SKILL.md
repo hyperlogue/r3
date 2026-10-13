@@ -297,7 +297,7 @@ starting a server or worker.
 The welcome, help, and guides come from `cli/artifact-help.ts`; keep them accurate in
 any change to commands, flags, results, or protocol. `r3 guide` is the concise
 agent workflow, read once per session. Executable discovery belongs to
-`skills/r3/SKILL.md`. `r3 guide html|files|diff` contains only the
+`skills/publish-artifacts-to-r3/SKILL.md`. `r3 guide html|files|diff` contains only the
 preparation details for that kind, loaded when first needed. Unknown topics and
 extra arguments fail locally without contacting a backend or starting a server or
 worker. Human administration and less frequent inspection/metadata commands stay
