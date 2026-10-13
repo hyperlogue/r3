@@ -4,6 +4,43 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-10-13
+
+### Added
+
+- **Installable skill.** Install `publish-artifacts-to-r3` to guide your
+  agent through publishing artifacts and responding to feedback. It can use an
+  existing r3 executable, npm or Bun, or the Nix flake on NixOS; no global r3
+  installation is required.
+
+  ```sh
+  npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global
+  ```
+
+- **Select and archive a range of artifacts.** Shift-click a checkbox in the
+  library to select a range while keeping earlier selections, then archive or
+  delete the selected artifacts together.
+
+### Changed
+
+- **The library opens on active artifacts.** Switch to Archived or All when you
+  need to revisit completed work.
+
+### Fixed
+
+- **Usage statistics work with ad-blocking extensions.** The old `/api/stat`
+  route matched tracking filters; usage requests now use `/api/library-summary`.
+- **Library controls stay visible while scrolling.** Search, filters, and
+  selection controls remain above the artifact list.
+- **Safer configuration updates.** Unreadable settings files no longer get
+  replaced with defaults when changing a setting. Day counts require plain
+  digits, and unknown config subcommands show the supported commands.
+
+### Removed
+
+- **The separate Needs attention library view.** The library now offers Active,
+  Archived, and All views. The CLI's `--attention` search filter remains available.
+
 ## [2.0.0] - 2026-10-10
 
 ### Added
@@ -664,6 +701,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.1.0]: https://github.com/hyperlogue/r3/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/hyperlogue/r3/compare/v1.6.0...v2.0.0
 [1.6.0]: https://github.com/hyperlogue/r3/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/hyperlogue/r3/compare/v1.4.0...v1.5.0
