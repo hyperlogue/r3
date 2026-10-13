@@ -115,3 +115,31 @@ test("archive TTL persists independently and rejects unsafe values", async () =>
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("config set refuses to overwrite a config.json it cannot read", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-unreadable-config-"));
+  const configHome = join(root, "config");
+  // A directory where config.json should be: readFileSync fails with EISDIR,
+  // which must not be mistaken for "absent".
+  await mkdir(join(configHome, "r3", "config.json"), { recursive: true });
+  try {
+    const child = Bun.spawn(
+      [process.execPath, join(import.meta.dir, "index.ts"), "config", "set", "archiveTtlDays", "7"],
+      {
+        env: {
+          ...process.env,
+          XDG_CONFIG_HOME: configHome,
+          XDG_STATE_HOME: join(root, "state"),
+          XDG_RUNTIME_DIR: join(root, "runtime"),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [error, code] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+    expect(code).toBe(1);
+    expect(error).toContain("unreadable or invalid JSON");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
