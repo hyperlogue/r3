@@ -67,10 +67,6 @@ npx --yes @hyperlogue/r3@latest guide
 # On NixOS: nix run github:hyperlogue/r3#r3 -- guide
 ```
 
-The examples below use `r3` as shorthand for `npx --yes @hyperlogue/r3@latest`
-or `bunx --bun @hyperlogue/r3@latest`. On NixOS, use
-`nix run github:hyperlogue/r3#r3 --`.
-
 ## Artifact types
 
 r3 supports three kinds of artifacts:
