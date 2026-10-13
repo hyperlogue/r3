@@ -215,6 +215,10 @@ and capture verification require hydrated image bytes; follow `site/README.md`
 for checkout setup. Keep LFS enabled in the CI build and Pages checkout steps.
 Binary-only jobs do not need these website assets.
 
+Capture validation checks image integrity and dimensions. Refresh screenshots
+when their rendered appearance changes; bundle byte changes alone must not
+require recapture or block builds.
+
 The Pages workflow uses `bun site/build.ts`. This
 single command owns the complete deployable output, including the demo:
 

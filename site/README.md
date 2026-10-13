@@ -104,19 +104,19 @@ per document isolates r3's stylesheet, keyboard bindings, and display preference
 The sample renderer uses ordinary React controls; it does not run uploaded HTML
 or emulate the production preview security boundary.
 
-After changing the sample or shared UI, run
+When the sample's appearance changes, run
 `bun --no-env-file site/capture-showcase.ts` with `R3_TEST_BROWSER` set, then build
 the site. The capture command builds the same React page independently and records
 light/dark desktop and phone views at 3× pixel density. Phone readers see the real
 mobile layout; the desktop capture covers the site's maximum content width.
 
-`assets/fieldwork-captures.json` binds those PNGs and viewport settings to a hash
-of the actual bundled JavaScript, CSS, and document. A normal build needs no
-browser, but fails if the captures are missing, modified, or stale after any
-bundled UI, fixture, style, or dependency change. Commit regenerated captures and
-the manifest together. They serve no-JavaScript readers and packaged HTML
-previews; the normal website embeds the same interactive page. System fonts use
-the product's own stack, so their precise appearance still follows the platform.
+`assets/fieldwork-captures.json` records the PNG hashes and viewport settings.
+A normal build needs no browser and checks image integrity and dimensions.
+Screenshot freshness is maintained by visual review; changes to bundled code or
+dependencies do not require a refresh. Commit regenerated captures and the
+manifest together. They serve no-JavaScript readers and packaged HTML previews;
+the normal website embeds the same interactive page. System fonts use the
+product's own stack, so their precise appearance still follows the platform.
 
 ## Dependencies
 

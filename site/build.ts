@@ -17,7 +17,7 @@ import {
   publicURL,
 } from "./render.ts";
 import { buildShowcase } from "./showcase/build.ts";
-import { captureSpecs, showcaseHash, verifyCaptures } from "./showcase/captures.ts";
+import { captureSpecs, verifyCaptures } from "./showcase/captures.ts";
 import { frontendTheme } from "./theme.ts";
 import { validateLinks } from "./validate.ts";
 
@@ -130,10 +130,7 @@ export async function buildSite() {
   await cp(join(siteDirectory, "assets/social.png"), join(outputDirectory, "assets/social.png"));
 
   await buildShowcase(join(outputDirectory, "example"));
-  await verifyCaptures(
-    await showcaseHash(join(outputDirectory, "example")),
-    join(siteDirectory, "assets"),
-  );
+  await verifyCaptures(join(siteDirectory, "assets"));
   for (const { file } of captureSpecs) {
     await cp(join(siteDirectory, "assets", file), join(outputDirectory, "assets", file));
   }

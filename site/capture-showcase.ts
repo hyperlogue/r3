@@ -4,22 +4,15 @@ import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { serveSite } from "./serve.ts";
 import { buildShowcase } from "./showcase/build.ts";
-import {
-  type CaptureManifest,
-  captureSpecs,
-  sha256,
-  showcaseHash,
-  verifyCaptures,
-} from "./showcase/captures.ts";
+import { type CaptureManifest, captureSpecs, sha256, verifyCaptures } from "./showcase/captures.ts";
 
-// Build independently so stale captures cannot prevent their own regeneration.
+// Build independently so missing captures cannot prevent their own regeneration.
 const directory = await mkdtemp(join(tmpdir(), "r3-site-capture-"));
 const assets = join(import.meta.dir, "assets");
 try {
   await buildShowcase(join(directory, "example"));
   await Bun.write(join(directory, "404.html"), "<!doctype html><title>Not found</title>");
   const manifest: CaptureManifest = {
-    bundleHash: await showcaseHash(join(directory, "example")),
     captures: [],
   };
   const server = serveSite(directory, { port: 0 });
@@ -61,7 +54,7 @@ try {
         join(assets, "fieldwork-captures.json"),
         `${JSON.stringify(manifest, null, 2)}\n`,
       );
-      await verifyCaptures(manifest.bundleHash, assets);
+      await verifyCaptures(assets);
     } finally {
       await browser.close();
     }

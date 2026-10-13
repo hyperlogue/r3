@@ -10,33 +10,17 @@ export const captureSpecs = [
 
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
-// Fingerprint the actual shipped JS, CSS and document, including transitive
-// product components and dependencies. Build paths and mount points are absent.
-export async function showcaseHash(directory: string) {
-  const files = await Array.fromAsync(
-    new Bun.Glob("**/*").scan({ cwd: directory, onlyFiles: true }),
-  );
-  const hash = createHash("sha256");
-  for (const file of files.sort()) {
-    hash.update(file).update("\0");
-    hash.update(sha256(await Bun.file(join(directory, file)).bytes())).update("\0");
-  }
-  return hash.digest("hex");
-}
-
 export interface CaptureManifest {
-  bundleHash: string;
   captures: Array<(typeof captureSpecs)[number] & { sha256: string }>;
 }
 
-export async function verifyCaptures(bundleHash: string, assets: string) {
+export async function verifyCaptures(assets: string) {
   const refresh =
     "Run bun --no-env-file site/capture-showcase.ts with R3_TEST_BROWSER set, then rebuild.";
   try {
     const manifest: CaptureManifest = await Bun.file(
       join(assets, "fieldwork-captures.json"),
     ).json();
-    if (manifest.bundleHash !== bundleHash) throw new Error("The real workspace bundle changed");
     if (manifest.captures.length !== captureSpecs.length) throw new Error("Incomplete capture set");
     for (const spec of captureSpecs) {
       const captured = manifest.captures.find((capture) => capture.file === spec.file);
@@ -55,6 +39,6 @@ export async function verifyCaptures(bundleHash: string, assets: string) {
         throw new Error(`Incorrect capture resolution: ${spec.file}`);
     }
   } catch (error) {
-    throw new Error(`Workspace captures are missing or stale. ${refresh}`, { cause: error });
+    throw new Error(`Workspace captures are missing or invalid. ${refresh}`, { cause: error });
   }
 }
