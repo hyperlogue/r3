@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
+import { promptExamples } from "./prompt-examples.ts";
 import { normalizeBase } from "./render.ts";
 import { serveSite } from "./serve.ts";
 
@@ -73,10 +74,77 @@ try {
     await page.evaluate("navigator.clipboard.readText()"),
     "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
   );
+  assert(
+    await page.evaluate(
+      "getComputedStyle(document.querySelector('#skill-install .copy-check')).display !== 'none' && getComputedStyle(document.querySelector('#skill-install .copy-icon')).display === 'none'",
+    ),
+    "successful copy shows the check icon",
+  );
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.querySelector('#skill-install .copy-code').getAttribute('aria-label') === 'Copy install command' && getComputedStyle(document.querySelector('#skill-install .copy-icon')).display !== 'none'",
+      ),
+    "copy icon resets after the confirmation",
+  );
   const theme = await page.evaluate("document.documentElement.dataset.theme");
   await page.evaluate("document.querySelector('.theme-toggle').click()");
   assert.notEqual(await page.evaluate("document.documentElement.dataset.theme"), theme);
   await screenshot("home-dark.png");
+  await page.evaluate(
+    "document.querySelector('#agent-prompt').scrollIntoView({behavior:'instant',block:'center'})",
+  );
+  await page.evaluate(
+    "document.querySelector('[data-prompt-choice=\"0\"]').click(); document.querySelector('[data-prompt-play]').click()",
+  );
+  for (const index of [0, 1, 2]) {
+    await eventually(
+      () =>
+        page.evaluate(
+          `document.querySelector('[data-prompt-demo]').dataset.example === '${index}' && document.querySelector('[data-prompt-demo]').dataset.phase === 'ready'`,
+        ),
+      `animated prompt ${index}`,
+    );
+    assert.equal(
+      await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+      promptExamples[index]!.prompt,
+    );
+  }
+  await page.evaluate("document.querySelector('[data-prompt-play]').click()");
+  await page.evaluate("new Promise(resolve => setTimeout(resolve, 7000))");
+  assert.equal(
+    await page.evaluate("document.querySelector('[data-prompt-demo]').dataset.example"),
+    "2",
+    "pause holds the current example beyond the normal cycle",
+  );
+  await page.evaluate("document.querySelector('[data-prompt-choice=\"0\"]').click()");
+  assert.equal(
+    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    promptExamples[0].prompt,
+  );
+  await page.command("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  await open("/", "See the work.");
+  await page.evaluate(
+    "document.querySelector('#agent-prompt').scrollIntoView({behavior:'instant',block:'center'})",
+  );
+  assert.equal(
+    await page.evaluate("document.querySelector('[data-prompt-demo]').dataset.paused"),
+    "true",
+    "reduced motion starts with a static prompt",
+  );
+  assert.equal(
+    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    promptExamples[0].prompt,
+  );
+  await page.evaluate("document.querySelector('[data-prompt-choice=\"2\"]').click()");
+  assert.equal(
+    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    promptExamples[2].prompt,
+    "reduced motion retains manual selection",
+  );
+  await page.command("Emulation.setEmulatedMedia", { features: [] });
   await open("/docs/get-started/", "Get started");
   assert.notEqual(
     await page.evaluate("document.documentElement.dataset.theme"),
@@ -157,6 +225,11 @@ try {
     await page.evaluate("document.querySelector('#skill-install code').textContent"),
     "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
     "installation remains readable without JavaScript",
+  );
+  assert.equal(
+    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    promptExamples[0].prompt,
+    "the complete example prompt remains readable without JavaScript",
   );
   await noOverflow();
   await open("/docs/get-started/", "Get started");

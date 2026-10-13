@@ -73,10 +73,18 @@ homepage focused on the review loop and concrete use cases; supported formats
 and their details belong in the documentation.
 
 The homepage centers a copyable publishing-skill command below its opening and
-repeats it at the close. Keep the setup guide and alternative installation links
-beside it; direct CLI and runner instructions belong in the getting-started guide.
+repeats it at the close. A prominent heading and green outline identify the install
+step; the icon changes to a green check after a successful copy. Keep alternative
+installation links at the close and direct CLI instructions in the getting-started
+guide, so the opening leads straight into example prompts.
 Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
+
+The hero crops the real workspace capture to its discussion panel: feedback,
+agent reply, and linked fix. Keep its CSS crop aligned when refreshing captures.
+The Claude Code terminal is an illustrative animation, with prompts from
+`prompt-examples.ts`. It cycles only while visible, supports pause and manual
+selection, and stays still with reduced motion or without JavaScript.
 
 Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.

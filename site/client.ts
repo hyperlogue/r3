@@ -1,3 +1,5 @@
+import { startPromptDemo } from "./prompt-demo.ts";
+
 const root = new URL("../", import.meta.url);
 const artifact = document.body.dataset.artifact === "true";
 function siteURL(path: string) {
@@ -109,15 +111,24 @@ for (const pre of document.querySelectorAll("pre")) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "copy-code";
-  button.textContent = "Copy";
+  if (install)
+    button.innerHTML = `<svg class="copy-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><svg class="copy-check" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`;
+  else button.textContent = "Copy";
   button.setAttribute("aria-label", install ? "Copy install command" : "Copy code");
+  button.title = install ? "Copy install command" : "Copy code";
   button.addEventListener("click", async () => {
     try {
       await copyText(pre.querySelector("code")?.textContent || "");
       clearTimeout(reset);
-      button.textContent = "Copied!";
+      button.dataset.copied = "true";
+      button.setAttribute("aria-label", "Copied");
+      button.title = "Copied";
+      if (!install) button.textContent = "Copied!";
       reset = setTimeout(() => {
-        button.textContent = "Copy";
+        delete button.dataset.copied;
+        button.setAttribute("aria-label", install ? "Copy install command" : "Copy code");
+        button.title = install ? "Copy install command" : "Copy code";
+        if (!install) button.textContent = "Copy";
       }, 2500);
       notify(install ? "Install command copied" : "Code copied");
     } catch {
@@ -129,11 +140,14 @@ for (const pre of document.querySelectorAll("pre")) {
         selection?.removeAllRanges();
         selection?.addRange(range);
       }
-      notify("Copy is unavailable. The command is selected so you can copy it manually.");
+      notify("Copy is unavailable. The code is selected so you can copy it manually.");
     }
   });
   pre.append(button);
 }
+
+for (const demo of document.querySelectorAll<HTMLElement>("[data-prompt-demo]"))
+  startPromptDemo(demo);
 
 document
   .querySelector<HTMLButtonElement>("[data-markdown]")

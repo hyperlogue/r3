@@ -1,4 +1,5 @@
 import { docs, groups, stories } from "./catalog.ts";
+import { promptExamples } from "./prompt-examples.ts";
 import { escapeHTML } from "./render.ts";
 
 export function storyCards() {
@@ -46,14 +47,12 @@ export function home() {
 <div>
 <p class="eyebrow">Render. Review. Refine.</p>
 <h1 data-pagefind-meta="title">See the work.<br><em>Make it better.</em></h1>
+<p class="hero-description">Point to a detail.<br>Give your agent a clear next step.</p>
 </div>
-<div class="hero-aside">
-<p>A shared workspace for you<br>and your coding agent.</p>
-<p>Open the page, read the proposal, inspect the code. Point to what needs changing and keep the conversation with the work.</p>
-</div>
+${reviewDetail()}
 </div>
 ${skillInstall("skill-install")}
-<p class="hero-footnote">Local first. Open source. <a href="/demo/">Try the live demo ↗</a></p>
+${promptDemo()}
 </div>${workflowExample()}</section>
 <section class="loop-section container" aria-labelledby="loop-heading">
 <div class="section-heading">
@@ -105,20 +104,53 @@ ${skillInstall("skill-install")}
 <h2 id="start-heading">Give your agent<br>a place to show its work.</h2>
 <p>Install the publishing skill and ask your agent to share its work on r3. The skill handles setup; you bring the judgment.</p>
 ${skillInstall("start-install")}
-<p class="start-prompt">Then ask your agent: <q>Build a prototype of our project-creation flow and publish it to r3 for review.</q></p>
+<p class="install-alternative"><a href="/docs/get-started/#other-installation-methods">Other ways to install →</a></p>
 </section>
 </div>`;
 }
 
 function skillInstall(id: string) {
   return `<div class="install-block" id="${id}">
-<p class="install-label">Install the publishing skill</p>
+<h2 class="install-label">Install the publishing skill</h2>
 <pre class="install-command"><code>npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global</code></pre>
-<div class="install-links">
-<a href="/docs/get-started/#install-the-skill">Setup guide →</a>
-<a href="/docs/get-started/#other-installation-methods">Other ways to install →</a>
-</div>
 </div>`;
+}
+
+function reviewDetail() {
+  return `<figure class="hero-review" id="review-detail">
+<a class="hero-review-crop" href="/example/index.html" aria-label="Open the r3 workspace to follow this feedback and its linked fix">
+${["light", "dark"]
+  .map(
+    (theme) =>
+      `<img class="review-${theme}" src="/assets/fieldwork-${theme}.png" width="3720" height="2220" alt="r3’s Discussion panel: a comment asks who can see a project; the agent replies with a linked fix and a Compare action.">`,
+  )
+  .join("")}
+</a>
+<figcaption>Feedback. A reply. A fix you can inspect.</figcaption>
+</figure>`;
+}
+
+function promptDemo() {
+  const first = promptExamples[0];
+  return `<section class="prompt-example" id="agent-prompt" aria-labelledby="prompt-heading" data-prompt-demo>
+<h3 id="prompt-heading">Then ask your agent to make something.</h3>
+<div class="claude-terminal">
+<div class="claude-terminal-bar"><span>Claude Code</span><span>Illustrative session</span></div>
+<div class="claude-session">
+<div class="claude-welcome"><span class="claude-mark" aria-hidden="true">✳</span><div><strong>Claude Code</strong><span>~/fieldwork</span></div></div>
+<div class="prompt-scene" data-prompt-scene>
+<div class="claude-prompt"><span aria-hidden="true">❯</span><p class="prompt-words"><span aria-hidden="true"><span data-typed-prompt>${first.prompt}</span><span class="prompt-cursor"></span></span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.prompt}</span>`).join("")}<span class="sr-only" data-readable-prompt>${first.prompt}</span></p></div>
+<div class="claude-response"><span aria-hidden="true">●</span><p class="prompt-words"><span data-prompt-response>${first.response}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.response}</span>`).join("")}</p></div>
+<div class="claude-publication"><span aria-hidden="true">↳</span><span data-prompt-title>${first.title}</span><span class="publication-ready">Ready for review</span></div>
+</div>
+<div class="claude-hint">? for shortcuts</div>
+</div>
+</div>
+<div class="prompt-controls js-control" role="group" aria-label="Example prompts">
+<div>${promptExamples.map((example, index) => `<button type="button" data-prompt-choice="${index}" aria-pressed="${index === 0}">${example.label}</button>`).join("")}</div>
+<button class="prompt-play" type="button" data-prompt-play aria-label="Pause prompt animation" title="Pause animation"><svg class="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg><svg class="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7 4 14 8-14 8z"/></svg></button>
+</div>
+</section>`;
 }
 
 export function useCases() {

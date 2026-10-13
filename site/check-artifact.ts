@@ -96,6 +96,23 @@ try {
     "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
     "opaque preview copies the exact install command",
   );
+  assert(
+    await doc.evaluate(
+      'getComputedStyle(document.querySelector("#skill-install .copy-check")).display !== "none"',
+    ),
+    "opaque copy shows the success icon",
+  );
+  await doc.evaluate(
+    'document.querySelector("#agent-prompt").scrollIntoView({behavior:"instant",block:"center"})',
+  );
+  await eventually(
+    () =>
+      doc.evaluate(
+        'document.querySelector("[data-prompt-demo]").dataset.example === "1" && document.querySelector("[data-prompt-demo]").dataset.phase === "ready"',
+      ),
+    "prompt examples animate inside the opaque preview",
+  );
+  await doc.evaluate('document.querySelector("[data-prompt-play]").click()');
   async function sharpCapture(mobile = false) {
     await doc.evaluate(
       'document.querySelector(".workspace-example").scrollIntoView({behavior:"instant",block:"center"})',
