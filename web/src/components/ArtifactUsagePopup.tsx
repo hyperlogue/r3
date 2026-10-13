@@ -173,7 +173,7 @@ export function ArtifactUsagePopup() {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <StrokeIcon className="size-5">
+        <StrokeIcon className="size-4">
           <path d="M5 20V10M12 20V4M19 20v-7M3 20h18" />
         </StrokeIcon>
       </HeaderIconButton>

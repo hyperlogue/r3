@@ -26,7 +26,7 @@ export function AppHeader({
         <>
           <DemoChrome />
           {(showUsage || showSettings) && (
-            <div className="flex items-center gap-1 pr-2">
+            <div className="flex items-center gap-2 pr-2 max-md:gap-1">
               {showUsage && <ArtifactUsagePopup />}
               {showSettings && <SettingsPopup />}
             </div>
