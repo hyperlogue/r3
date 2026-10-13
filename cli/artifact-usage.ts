@@ -19,7 +19,7 @@ export async function runUsageCommand(
   if (command === "stat") {
     const stats = await ctx.client.json<ArtifactUsage>(
       "GET",
-      `/api/stat?window=${args.has("weekly") ? "weekly" : "daily"}`,
+      `/api/library-summary?window=${args.has("weekly") ? "weekly" : "daily"}`,
     );
     if (args.has("json")) await ctx.write(`${JSON.stringify(stats, null, 2)}\n`);
     else {

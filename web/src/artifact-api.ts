@@ -65,7 +65,7 @@ const query = (values: Record<string, string | number | undefined>) => {
 // components use exactly these artifact/version/native-target shapes.
 export const artifactApi = {
   stat: (window: UsageWindow = "daily") =>
-    client().json<ArtifactUsage>("GET", `/api/stat?window=${window}`),
+    client().json<ArtifactUsage>("GET", `/api/library-summary?window=${window}`),
   gc: (body: ArtifactGcRequest) => client().json<ArtifactGcResult>("POST", "/api/gc", body),
   search: (options: ArtifactSearchOptions, signal?: AbortSignal) =>
     client().json<ArtifactSearchResponse>(

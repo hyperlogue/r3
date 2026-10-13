@@ -746,7 +746,7 @@ test("library search requires application auth and validates bounded filters", a
 test("usage and garbage collection share authentication and validate destructive input", async () => {
   const id = await create();
   for (const [path, method, body] of [
-    ["/api/stat", "GET", undefined],
+    ["/api/library-summary", "GET", undefined],
     ["/api/gc", "POST", {}],
   ] as const) {
     const denied = await api.app.request(
@@ -758,13 +758,13 @@ test("usage and garbage collection share authentication and validate destructive
     );
     expect(denied.status).toBe(401);
   }
-  const response = await request("/api/stat?window=weekly");
+  const response = await request("/api/library-summary?window=weekly");
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(await response.json()).toMatchObject({
     window: "weekly",
     artifacts: { total: 1, active: 1 },
   });
-  expect((await request("/api/stat?window=monthly")).status).toBe(400);
+  expect((await request("/api/library-summary?window=monthly")).status).toBe(400);
   expect((await request("/api/gc", "POST", { ttlDays: 0 })).status).toBe(400);
   expect((await request("/api/gc", "POST", { dryRun: "false" })).status).toBe(400);
   const preview = await request("/api/gc", "POST", { dryRun: true });

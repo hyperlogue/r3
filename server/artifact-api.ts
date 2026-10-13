@@ -158,7 +158,7 @@ export function createArtifactApi(
   installArtifactAuth(app, storage.authentication, policy, storage.clientAuth);
   workers.install(app);
 
-  app.get("/api/stat", (c) => {
+  app.get("/api/library-summary", (c) => {
     const window = c.req.query("window") ?? "daily";
     if (window !== "daily" && window !== "weekly")
       throw new ArtifactError("window must be daily or weekly");

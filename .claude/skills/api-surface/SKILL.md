@@ -25,7 +25,7 @@ authored messages, including archive messages directly in the discussion.
 `server/artifact-daemon.ts` opens and migrates storage before accepting requests.
 The CLI, browser, and demo all use this protocol; legacy routes are removed.
 
-- `GET /api/stat?window=daily|weekly` returns `ArtifactUsage`: current backend-wide
+- `GET /api/library-summary?window=daily|weekly` returns `ArtifactUsage`: current backend-wide
   inventory, published versions, conversation counts, deduplicated content bytes,
   default-TTL GC eligibility, and activity buckets. Windows are fixed at 14 calendar
   days or four Monday-start weeks, including the current partial period, in the
