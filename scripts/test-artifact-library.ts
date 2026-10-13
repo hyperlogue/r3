@@ -213,6 +213,35 @@ try {
       await page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
       "no horizontal overflow",
     );
+  const scrollList = async () => {
+    await page.evaluate("document.querySelector('[data-library-pane]').scrollTop = 0");
+    const geometry = () =>
+      page.evaluate(`(() => {
+        const pane = document.querySelector('[data-library-pane]');
+        const rect = (node) => {
+          const { top, bottom, left, right } = node.getBoundingClientRect();
+          return { top, bottom, left, right };
+        };
+        return {
+          controls: [...document.querySelectorAll('[data-app-header], [data-library-header], h1, input[type="search"], [aria-label="Artifact kind"], [aria-label="Search result types"], #library-selection-actions')].map(rect),
+          rowTop: document.querySelector('[data-library-row]').getBoundingClientRect().top,
+          scrollTop: pane.scrollTop,
+          listHeight: pane.clientHeight,
+          documentTop: document.scrollingElement.scrollTop,
+        };
+      })()`);
+    const before = await geometry();
+    assert.ok(before.listHeight > 0, "fixed controls leave room for the list");
+    await page.evaluate("document.querySelector('[data-library-pane]').scrollTop = 200");
+    const after = await eventually(async () => {
+      const next = await geometry();
+      return next.scrollTop > 0 && next;
+    }, "list scrolls beneath fixed controls");
+    assert.deepEqual(after.controls, before.controls, "library controls remain fixed");
+    assert.equal(after.documentTop, 0, "the document does not scroll");
+    assert.equal(after.rowTop, before.rowTop - after.scrollTop, "only list rows move");
+    return after.scrollTop;
+  };
   await page.command("Page.navigate", { url: origin });
   await ready();
   assert.equal(await page.evaluate("document.querySelectorAll('[data-library-row]').length"), 13);
@@ -273,7 +302,20 @@ try {
     "document.querySelector('[data-library-row]').getBoundingClientRect().height",
   );
   assert.ok(height >= 52 && height <= 82, `compact rows retain spacing (${height}px)`);
+  const savedScroll = await scrollList();
   await screenshot("library-desktop");
+  await click(`[data-library-row][href^="/${archivedIds[0]}?"]`);
+  await eventually(
+    () => page.evaluate('!!document.querySelector("[aria-label=\\"Published version\\"]")'),
+    "artifact opened from scrolled library",
+  );
+  await click('[data-app-header] a[title="Artifact library"]');
+  await ready();
+  await eventually(
+    () =>
+      page.evaluate(`document.querySelector('[data-library-pane]').scrollTop === ${savedScroll}`),
+    "return restores the list scroll position",
+  );
   await noOverflow();
   const selectionToggle = '[aria-controls="library-selection-actions"]';
   const selectionState = () =>
@@ -331,6 +373,7 @@ try {
   );
   await click('section input[type="checkbox"]');
   assert.equal((await selectionState()).checked, 1);
+  await scrollList();
   await screenshot("library-selection-desktop");
   await page.evaluate(`document.querySelector('${selectionToggle}').focus()`);
   await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: " ", code: "Space" });
@@ -435,8 +478,8 @@ try {
   const libraryGeometry = () =>
     page.evaluate(`(() => {
       const pane = document.querySelector('[data-library-pane]');
-      const content = pane.firstElementChild.getBoundingClientRect();
-      const input = pane.querySelector('input[type="search"]').getBoundingClientRect();
+      const content = pane.querySelector('section').getBoundingClientRect();
+      const input = document.querySelector('input[type="search"]').getBoundingClientRect();
       return {
         overflowing: pane.scrollHeight > pane.clientHeight,
         width: pane.clientWidth,
@@ -484,6 +527,20 @@ try {
     () => page.evaluate("!!document.querySelector('[data-library-row][href*=\"line=81\"]')"),
     "historical source result",
   );
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 600,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await scrollList();
+  await screenshot("library-search-scrolled");
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
   await click(selectionToggle);
   await eventually(
     async () => (await selectionState()).checkboxWidth === expanded.checkboxWidth,
@@ -578,6 +635,7 @@ try {
     () => page.evaluate("document.querySelectorAll('[data-library-row]').length===7"),
     "mobile combined filters",
   );
+  await scrollList();
   await screenshot("library-mobile");
   await noOverflow();
   await page.command("Emulation.setEmulatedMedia", {
@@ -596,6 +654,7 @@ try {
   );
   await click('[aria-label="Select all artifacts on this page"]');
   assert.equal((await selectionState()).checked, 7);
+  await scrollList();
   await screenshot("library-selection-mobile");
   await noOverflow();
   await click(selectionToggle);

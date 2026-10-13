@@ -970,8 +970,11 @@ there is no separate count row. Selection starts off, keeping bulk actions and
 row checkboxes hidden without reserving space. Toggling slides the bulk toolbar
 and checkbox columns into or out of view, respecting reduced motion; hidden
 controls are inert. Leaving selection mode clears the selection.
-Rows open the artifact directly. The list reserves its scrollbar space so filtering
-does not shift the content horizontally. Desktop navigation holds the library views and
+The heading, search, filters, search result tabs, and selection toolbar stay above
+the scrolling list. Only the rows and their result feedback and pagination scroll;
+returning from an artifact restores the list position. The header and list reserve
+matching scrollbar space so filtering does not shift their horizontal alignment.
+Rows open the artifact directly. Desktop navigation holds the library views and
 projects; mobile exposes those filters above the list. Both offer Active, Archived,
 and All, in that order, with Active selected by default. Recently updated is the
 default sort, showing the most recently changed artifacts first. Attention first orders

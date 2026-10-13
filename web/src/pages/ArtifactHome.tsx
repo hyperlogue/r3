@@ -328,12 +328,8 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
           )}
         </nav>
       </aside>
-      <div
-        ref={pane}
-        data-library-pane
-        className="min-w-0 flex-1 overflow-y-auto bg-white [scrollbar-gutter:stable] dark:bg-neutral-950"
-      >
-        <div className="w-full">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-950">
+        <div data-library-header className="shrink-0 overflow-hidden [scrollbar-gutter:stable]">
           <div className="border-b border-neutral-200 dark:border-neutral-800">
             <div className="flex items-baseline gap-3 px-5 pb-4 pt-6 max-md:px-4 max-md:pt-5">
               <div className="min-w-0 flex-1">
@@ -529,6 +525,62 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               ))}
             </fieldset>
           )}
+          <div id="library-selection-actions">
+            <Collapse open={selectionMode}>
+              <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-2 text-xs dark:border-neutral-800">
+                <label className="flex min-h-8 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all artifacts on this page"
+                    checked={visible.length > 0 && selected.length === visible.length}
+                    disabled={!visible.length}
+                    ref={(node) => {
+                      if (node)
+                        node.indeterminate =
+                          selected.length > 0 && selected.length < visible.length;
+                    }}
+                    onChange={() =>
+                      setSelection({
+                        scope: search,
+                        anchor: null,
+                        ids: new Set(
+                          selected.length === visible.length
+                            ? []
+                            : visible.map((artifact) => artifact.id),
+                        ),
+                      })
+                    }
+                    className="size-4 accent-primary-600"
+                  />{" "}
+                  Select page
+                </label>
+                <span aria-live="polite">
+                  {selected.length} {selected.length === 1 ? "artifact" : "artifacts"} selected
+                </span>
+                <span className="text-neutral-500 max-md:hidden">
+                  Shift-click to select a range
+                </span>
+                <Button
+                  disabled={!selected.length}
+                  onClick={() => setAction({ kind: "archive", items: selected })}
+                >
+                  Archive selected
+                </Button>
+                <Button
+                  disabled={!selected.length}
+                  onClick={() => setAction({ kind: "delete", items: selected })}
+                >
+                  Delete selected
+                </Button>
+              </div>
+            </Collapse>
+          </div>
+        </div>
+        <div
+          ref={pane}
+          data-library-pane
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+        >
           {error && (
             <p role="alert" className="px-5 py-4 text-sm text-danger-600">
               {error.message}{" "}
@@ -587,56 +639,6 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 </div>
               </div>
             )}
-          <div id="library-selection-actions">
-            <Collapse open={selectionMode}>
-              <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-2 text-xs dark:border-neutral-800">
-                <label className="flex min-h-8 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all artifacts on this page"
-                    checked={visible.length > 0 && selected.length === visible.length}
-                    disabled={!visible.length}
-                    ref={(node) => {
-                      if (node)
-                        node.indeterminate =
-                          selected.length > 0 && selected.length < visible.length;
-                    }}
-                    onChange={() =>
-                      setSelection({
-                        scope: search,
-                        anchor: null,
-                        ids: new Set(
-                          selected.length === visible.length
-                            ? []
-                            : visible.map((artifact) => artifact.id),
-                        ),
-                      })
-                    }
-                    className="size-4 accent-primary-600"
-                  />{" "}
-                  Select page
-                </label>
-                <span aria-live="polite">
-                  {selected.length} {selected.length === 1 ? "artifact" : "artifacts"} selected
-                </span>
-                <span className="text-neutral-500 max-md:hidden">
-                  Shift-click to select a range
-                </span>
-                <Button
-                  disabled={!selected.length}
-                  onClick={() => setAction({ kind: "archive", items: selected })}
-                >
-                  Archive selected
-                </Button>
-                <Button
-                  disabled={!selected.length}
-                  onClick={() => setAction({ kind: "delete", items: selected })}
-                >
-                  Delete selected
-                </Button>
-              </div>
-            </Collapse>
-          </div>
           {actionResults.length > 0 && (
             <div
               role="status"

@@ -299,7 +299,8 @@ tests reject saving an optimization after its storage generation is revoked.
   dark, and phone layouts, collapsed selection controls, animated selection mode,
   inert hidden checkboxes, selection clearing on exit, Shift-click ranges in both
   directions, label and keyboard activation, anchor resets and disappearance,
-  repeated search matches, reduced motion, source locations, version pinning, earlier comments,
+  repeated search matches, fixed library controls while rows scroll, scrollbar alignment,
+  list scroll restoration, reduced motion, source locations, version pinning, earlier comments,
   native Back, return filters, no-result recovery, and archive/restore moving items
   out of/into review attention without changing retained threads. Set `R3_TEST_SCREENSHOTS`
   to a temporary directory for visual evidence.
