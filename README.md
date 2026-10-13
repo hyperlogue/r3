@@ -40,25 +40,31 @@ use the same search with `r3 search "keyboard focus" --history all --json`.
 
 ## Get started
 
-Install the r3 skill for your coding agent:
+Install the [r3 skill](skills/r3/SKILL.md) from your terminal:
 
 ```sh
 npx skills add hyperlogue/r3 --skill r3 --global
 ```
 
-Then ask your agent to publish a document, page, or code changes to r3. The skill
-chooses `npx`, `bunx`, or the Nix flake on NixOS and loads the executable's agent
-guide; no global r3 installation is required.
+Choose the coding agents you use when prompted. `--global` makes the skill
+available across your projects; omit it to install only in the current project.
+
+Then ask your agent:
+
+> Publish this project's README to r3 so I can review it.
+
+The skill chooses `npx`, `bunx`, or the Nix flake on NixOS and loads the
+executable's agent guide; no global r3 installation is required. Open the artifact
+link your agent returns, leave comments, and use **Send to agent** to request
+revisions. The local server starts automatically when needed.
 
 You can also ask your agent to read the guide directly:
 
 ```sh
 npx --yes @hyperlogue/r3@latest guide
 # Or: bunx --bun @hyperlogue/r3@latest guide
+# On NixOS: nix run github:hyperlogue/r3#r3 -- guide
 ```
-
-The guide explains how to publish, listen for comments, and comment. Open the
-artifact URL from your agent. The local server starts automatically when needed.
 
 The examples below use `r3` as shorthand for `npx --yes @hyperlogue/r3@latest`
 or `bunx --bun @hyperlogue/r3@latest`. On NixOS, use
