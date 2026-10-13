@@ -1,5 +1,7 @@
 ---
 name: api-surface
+metadata:
+  internal: true
 description: r3's full HTTP/JSON route catalog and CLI command reference — every /api endpoint with its shape and gating, the r3 CLI usage block, the watch/submit review loop with its exit codes, and the delivery-tracking (sent_at / status_unsent) rules. Use when adding, renaming, or changing an HTTP route or CLI command/flag, wiring the CLI or web client to the server, checking what an endpoint returns, or keeping shared/artifacts.ts + server + CLI + web in sync.
 ---
 

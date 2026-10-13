@@ -1,5 +1,7 @@
 ---
 name: release
+metadata:
+  internal: true
 description: Cut an r3 release — draft the CHANGELOG entry, bump every version string in lockstep, commit, then cut the annotated `vX.Y.Z` tag on that commit (the release CI lifts the changelog section into the GitHub release notes). Use when the user wants to release a new version, bump the version, write or update the changelog, or tag a release.
 ---
 

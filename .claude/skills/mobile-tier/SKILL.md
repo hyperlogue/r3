@@ -1,6 +1,9 @@
 ---
 name: mobile-tier
-description: r3's phone-tier (below Tailwind md/768px) design — the isolate-don't-interleave rule, web/src/mobile/ containers, the bottom bar + 3-state discussion sheet, sticky toolbar/--pane-sticky-h mechanics, touch selection anchoring via AddCommentPill and usePointerCoarse, and the compact-target/16px-font ergonomics. Use when changing anything that renders below md, touching web/src/mobile/, adding max-md:/pointer-coarse: classes, working on touch selection or the mobile sheet, or debugging a phone/tablet layout.
+metadata:
+  internal: true
+description: >-
+  r3's phone-tier (below Tailwind md/768px) design — the isolate-don't-interleave rule, web/src/mobile/ containers, the bottom bar + 3-state discussion sheet, sticky toolbar/--pane-sticky-h mechanics, touch selection anchoring via AddCommentPill and usePointerCoarse, and the compact-target/16px-font ergonomics. Use when changing anything that renders below md, touching web/src/mobile/, adding max-md:/pointer-coarse: classes, working on touch selection or the mobile sheet, or debugging a phone/tablet layout.
 ---
 
 # The phone tier

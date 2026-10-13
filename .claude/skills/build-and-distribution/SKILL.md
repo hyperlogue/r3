@@ -1,5 +1,7 @@
 ---
 name: build-and-distribution
+metadata:
+  internal: true
 description: How r3 is built and shipped — the single-file Bun.build --compile binary and its browser-target Tailwind CSS pre-pass, the two release channels (GitHub Releases + the npm launcher with per-platform optional-dependency packages), the `bun` → empty-npm-package override, and the public website and frontend-only demo deployed to GitHub Pages. Use when touching scripts/ (compile, spa-css, release-binaries, stage-npm-packages, wait-for-npm-packages, build-demo, gen-artifact-demo), npm/, web/demo/, site/, bunfig.toml, the nix build, the Pages or release workflows, or debugging a broken binary/site/demo build.
 ---
 
@@ -117,7 +119,11 @@ GitHub Release exists, npm retries skip that artifact and work after it expires.
 
 `skills/r3/SKILL.md` is the user-facing skill distributed from this repository with
 `npx skills add hyperlogue/r3 --skill r3 --global`. Selecting `r3` keeps onboarding
-scoped to that skill; `.claude/skills/` contains repository development guidance.
+scoped to that skill. Every repository development skill in `.claude/skills/`
+must set `metadata.internal: true` so the skills CLI excludes it from normal
+discovery, including a bare `npx skills add hyperlogue/r3`. Keep these instructions
+available locally for repository work. `INSTALL_INTERNAL_SKILLS=1` opts into
+discovering them with the installer.
 The public skill prefers `nix run github:hyperlogue/r3#r3 --` on NixOS, using the
 flake's default-branch source and Nix-compatible binary. Other systems bootstrap
 the latest npm executable with `npx` or `bunx`. It then loads `r3 guide` and the

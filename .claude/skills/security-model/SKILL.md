@@ -1,5 +1,7 @@
 ---
 name: security-model
+metadata:
+  internal: true
 description: r3's Host/origin/auth guards, isolated artifact preview and closed network policy, local and remote server configuration, publisher-side harness credentials, byte/path guards, migration storage, and dependency cooldown. Use when changing authentication, artifact or preview routes, resource serving, exposure settings, remote transport, or reviewing security impact.
 ---
 
