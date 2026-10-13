@@ -70,9 +70,14 @@ function LibraryIcon({ kind }: { kind: string }) {
 export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const [state, setState] = useState(() => readLibraryState(initialSearch ?? location.search));
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({
+  const [selection, setSelection] = useState<{
+    scope: string;
+    ids: Set<string>;
+    anchor: string | null;
+  }>({
     scope: "",
     ids: new Set(),
+    anchor: null,
   });
   const [action, setAction] = useState<{
     kind: "archive" | "delete";
@@ -135,7 +140,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   }, []);
   const search = librarySearch(state);
   useEffect(() => {
-    setSelection({ scope: search, ids: new Set() });
+    setSelection({ scope: search, ids: new Set(), anchor: null });
   }, [search]);
   useEffect(() => {
     if (initialSearch === undefined)
@@ -186,24 +191,43 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const selected =
     selection.scope === search ? visible.filter((artifact) => selection.ids.has(artifact.id)) : [];
   const selectedIds = new Set(selected.map((artifact) => artifact.id));
-  const toggleSelection = (id: string) =>
-    setSelection(() => {
-      const ids = new Set(selectedIds);
-      if (ids.has(id)) ids.delete(id);
+  // Search can show an artifact more than once: anchor to the clicked row,
+  // while keeping the selected artifacts unique.
+  const selectionRows = searching
+    ? (searchData?.matches ?? [])
+        .filter((match) => searchArtifacts.has(match.artifactId))
+        .map((match) => ({ key: match.id, id: match.artifactId }))
+    : visible.map((artifact) => ({ key: artifact.id, id: artifact.id }));
+  const toggleSelection = (id: string, rowKey: string, shiftKey: boolean) =>
+    setSelection((current) => {
+      const sameScope = current.scope === search;
+      const ids = new Set(
+        visible
+          .filter((artifact) => sameScope && current.ids.has(artifact.id))
+          .map((artifact) => artifact.id),
+      );
+      const anchor = sameScope ? selectionRows.findIndex((row) => row.key === current.anchor) : -1;
+      const end = selectionRows.findIndex((row) => row.key === rowKey);
+      if (shiftKey && anchor >= 0 && end >= 0) {
+        for (const row of selectionRows.slice(Math.min(anchor, end), Math.max(anchor, end) + 1))
+          ids.add(row.id);
+      } else if (ids.has(id)) ids.delete(id);
       else ids.add(id);
-      return { scope: search, ids };
+      return { scope: search, ids, anchor: rowKey };
     });
-  const selectBox = (artifact: Artifact) => (
+  const selectBox = (artifact: Artifact, rowKey = artifact.id) => (
     <div
       inert={!selectionMode}
       className={`flex shrink-0 overflow-hidden border-b border-neutral-200 transition-[width,opacity] duration-200 ease-in-out motion-reduce:transition-none dark:border-neutral-800 ${selectionMode ? "w-10 opacity-100" : "w-0 opacity-0"}`}
     >
-      <label className="flex w-10 shrink-0 items-center justify-center">
+      <label className="flex w-10 shrink-0 select-none items-center justify-center">
         <input
           type="checkbox"
           aria-label={`Select ${artifact.title ?? artifact.id}`}
           checked={selectedIds.has(artifact.id)}
-          onChange={() => toggleSelection(artifact.id)}
+          onChange={(event) =>
+            toggleSelection(artifact.id, rowKey, (event.nativeEvent as MouseEvent).shiftKey)
+          }
           className="size-4 accent-primary-600"
         />
       </label>
@@ -247,6 +271,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
             setActionResults(results);
             setSelection({
               scope: search,
+              anchor: null,
               ids: new Set(
                 results.filter((result) => result.state === "failed").map((result) => result.id),
               ),
@@ -402,7 +427,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   className="mr-2 shrink-0 focus-visible:outline-2 focus-visible:outline-primary-500"
                   onClick={() => {
                     setSelectionMode(!selectionMode);
-                    setSelection({ scope: search, ids: new Set() });
+                    setSelection({ scope: search, ids: new Set(), anchor: null });
                   }}
                 >
                   <StrokeIcon className="size-3.5 max-sm:hidden">
@@ -579,6 +604,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                     onChange={() =>
                       setSelection({
                         scope: search,
+                        anchor: null,
                         ids: new Set(
                           selected.length === visible.length
                             ? []
@@ -592,6 +618,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 </label>
                 <span aria-live="polite">
                   {selected.length} {selected.length === 1 ? "artifact" : "artifacts"} selected
+                </span>
+                <span className="text-neutral-500 max-md:hidden">
+                  Shift-click to select a range
                 </span>
                 <Button
                   disabled={!selected.length}
@@ -687,7 +716,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 return (
                   artifact && (
                     <div key={match.id} className="flex [&>[data-library-row]]:flex-1">
-                      {selectBox(artifact)}
+                      {selectBox(artifact, match.id)}
                       <ArtifactLibraryRow
                         artifact={artifact}
                         match={match}

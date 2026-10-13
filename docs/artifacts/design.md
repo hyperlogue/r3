@@ -1024,9 +1024,17 @@ remove content immediately after confirmation, independently of TTL.
 
 Home selection uses artifact identity, so repeated search matches share a
 checkbox state. **Select page** covers unique artifacts on the visible page.
-Changing filters or page also clears selection. **Archive selected** confirms the
-selection and offers one optional message for each artifact’s selected subscription; already
-archived items are skipped without changing their timestamp. Both bulk actions
+In selection mode, Shift-click adds the inclusive range between the last clicked
+checkbox and the current checkbox in either direction, preserving other selections.
+Each checkbox click (including deselection and Shift-click) becomes the next range
+anchor. Ranges follow the current displayed row order, including repeated search
+matches, and select each artifact only once. A missing anchor falls back to a
+single-checkbox toggle; Shift-click on the anchor keeps it selected. **Select page**
+and completed bulk actions reset the anchor. Changing filters, sorting, or page,
+or leaving selection mode, clears both selection and anchor.
+**Archive selected** confirms the selection and offers one optional message for
+each artifact’s selected subscription; already archived items are skipped without
+changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.
 Notification failure is reported separately from a committed archive.
 

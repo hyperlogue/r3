@@ -249,11 +249,11 @@ try {
   assert.deepEqual(await groupIds("Needs your review"), [notes.id]);
   assert.deepEqual(new Set(await groupIds("Archived")), new Set(archivedIds));
   for (const id of archivedIds) assert.equal(storage.artifacts.get(id).unhandledCount, 1);
-  const transition = async (event: "archived" | "restored") => {
+  const transition = async (event: "archived" | "restored", operationKey = `library-${event}`) => {
     const response = await fetch(`${origin}/api/artifacts/${notes.id}/lifecycle`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ actor, event, operationKey: `library-${event}` }),
+      body: JSON.stringify({ actor, event, operationKey }),
     });
     assert.equal(response.status, 200);
   };
@@ -347,6 +347,91 @@ try {
   })()`),
     "hidden checkboxes cannot receive focus",
   );
+  const selectRow = async (index: number, shift = false, label = false) => {
+    const point = await page.evaluate(`(() => {
+      const input = document.querySelectorAll('section input[type="checkbox"]')[${index}];
+      const target = ${label} ? input.parentElement : input;
+      target.scrollIntoView({ block: 'center' });
+      const rect = target.getBoundingClientRect();
+      return { x: ${label} ? rect.left + 2 : rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`);
+    for (const type of ["mousePressed", "mouseReleased"])
+      await page.command("Input.dispatchMouseEvent", {
+        type,
+        button: "left",
+        clickCount: 1,
+        modifiers: shift ? 8 : 0,
+        ...point,
+      });
+  };
+  const checkedRows = () =>
+    page.evaluate<number[]>(
+      `[...document.querySelectorAll('section input[type="checkbox"]')].flatMap((input, index) => input.checked ? [index] : [])`,
+    );
+  const clearPage = async () => {
+    await click('[aria-label="Select all artifacts on this page"]');
+    await click('[aria-label="Select all artifacts on this page"]');
+    assert.deepEqual(await checkedRows(), []);
+  };
+  await click(selectionToggle);
+  await eventually(
+    async () => (await selectionState()).checkboxWidth === expanded.checkboxWidth,
+    "range controls",
+  );
+  await selectRow(6, true);
+  assert.deepEqual(await checkedRows(), [6], "first Shift-click selects only its row");
+  await selectRow(1);
+  await selectRow(3, true, true);
+  assert.deepEqual(await checkedRows(), [1, 2, 3, 6], "label Shift-click adds an inclusive range");
+  await selectRow(1, true);
+  await selectRow(0, true);
+  assert.deepEqual(await checkedRows(), [0, 1, 2, 3, 6], "reverse ranges keep other selections");
+  await selectRow(2);
+  await selectRow(0, true);
+  assert.deepEqual(await checkedRows(), [0, 1, 2, 3, 6], "deselection establishes a new anchor");
+  await selectRow(0, true);
+  assert.deepEqual(await checkedRows(), [0, 1, 2, 3, 6], "same-row Shift-click stays selected");
+  await clearPage();
+  await selectRow(4, true);
+  assert.deepEqual(await checkedRows(), [4], "Select page clears the previous anchor");
+  await clearPage();
+  await page.evaluate("document.querySelectorAll('section input[type=checkbox]')[4].focus()");
+  await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: " ", code: "Space" });
+  await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: " ", code: "Space" });
+  await selectRow(1, true);
+  assert.deepEqual(await checkedRows(), [1, 2, 3, 4], "keyboard toggles also establish an anchor");
+  await select('[aria-label="Sort artifacts"]', "title");
+  assert.deepEqual(await checkedRows(), [], "sorting clears selection and its anchor");
+  await selectRow(3, true);
+  assert.deepEqual(await checkedRows(), [3]);
+  await select('[aria-label="Sort artifacts"]', "attention");
+  await select('[aria-label="Library view"]', "active");
+  await selectRow(0);
+  await transition("archived", "range-archive");
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-library-row]').length === 12"),
+    "selected anchor disappears after archive",
+  );
+  assert.deepEqual(await checkedRows(), []);
+  await selectRow(3, true);
+  assert.deepEqual(await checkedRows(), [3], "a removed anchor falls back to a single toggle");
+  await transition("restored", "range-restore");
+  await eventually(
+    () => page.evaluate("document.querySelectorAll('[data-library-row]').length === 13"),
+    "archived anchor restored",
+  );
+  await select('[aria-label="Library view"]', "all");
+  await click(selectionToggle);
+  await click(selectionToggle);
+  await eventually(
+    async () => (await selectionState()).checkboxWidth === expanded.checkboxWidth,
+    "selection mode reentered",
+  );
+  await selectRow(5, true);
+  assert.deepEqual(await checkedRows(), [5], "reentering selection mode starts without an anchor");
+  await click(selectionToggle);
+  await eventually(async () => (await selectionState()).checkboxWidth === 0, "range mode exit");
+  await page.evaluate("document.querySelector('[data-library-pane]').scrollTop = 0");
   const libraryGeometry = () =>
     page.evaluate(`(() => {
       const pane = document.querySelector('[data-library-pane]');
@@ -399,6 +484,32 @@ try {
     () => page.evaluate("!!document.querySelector('[data-library-row][href*=\"line=81\"]')"),
     "historical source result",
   );
+  await click(selectionToggle);
+  await eventually(
+    async () => (await selectionState()).checkboxWidth === expanded.checkboxWidth,
+    "search selection",
+  );
+  const searchRows = await page.evaluate<string[]>(
+    `[...document.querySelectorAll('[data-library-row]')].map(row => new URL(row.href).pathname)`,
+  );
+  const repeated = searchRows.findIndex((id, index) => searchRows.indexOf(id) < index);
+  assert.ok(repeated > 0, "search fixture contains repeated artifact matches");
+  await selectRow(repeated);
+  const rangeEnd = Math.min(repeated + 1, searchRows.length - 1);
+  await selectRow(rangeEnd, true);
+  const rangeIds = new Set(searchRows.slice(repeated, rangeEnd + 1));
+  assert.deepEqual(
+    await checkedRows(),
+    searchRows.flatMap((id, index) => (rangeIds.has(id) ? [index] : [])),
+    "search ranges start at the clicked match and share artifact checkbox state",
+  );
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('#library-selection-actions [aria-live]').textContent",
+    ),
+    `${rangeIds.size} ${rangeIds.size === 1 ? "artifact" : "artifacts"} selected`,
+  );
+  await click(selectionToggle);
   await screenshot("search-desktop");
   await click('[data-library-row][href*="line=81"]');
   await eventually(
@@ -643,7 +754,7 @@ try {
   await clickText("Done", "dialog[open]");
   assert.deepEqual(errors, []);
   console.log(
-    "Library browser acceptance passed: compact rows, desktop/dark/mobile, animated selection mode, keyboard toggle, inert hidden controls, reduced motion, archive-aware review attention, history, source locations, earlier comments, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
+    "Library browser acceptance passed: compact rows, desktop/dark/mobile, animated selection mode, Shift-click ranges and anchor resets, repeated search matches, keyboard toggle, inert hidden controls, reduced motion, archive-aware review attention, history, source locations, earlier comments, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
   );
 } finally {
   await browser?.close();
