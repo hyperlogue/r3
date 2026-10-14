@@ -22,7 +22,7 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "4a64c8ce7bc32248f6cb94b5398a4c5248fc9f82fec7b4fb7537985074f5789f"
+      "sha256": "20b6d7a42bfb3546d922e069dee20e21e8019931a5d128b6726273a224ae65f5"
     },
     {
       "file": "fieldwork-mobile-dark.png",
@@ -30,25 +30,25 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "3af0ba98598b08260bf6c3d59660d1ec3c4680a6455925cec22ee0382c49465d"
+      "sha256": "7c06a04f1fc47d25ad24cb0252e8efff919dcdad010d7cb4f2f9303b49cc4260"
     },
     {
       "file": "fieldwork-comment-light.png",
       "theme": "light",
-      "width": 520,
-      "height": 440,
+      "width": 710,
+      "height": 490,
       "scale": 3,
       "scene": "components",
-      "sha256": "480f91aba1c148123a1ee723f25bcf846bafae61d1270f5b37067845402b13f2"
+      "sha256": "8af44763a565e0e688b900854afb21e34d75df2e4d6e9cf20a51b83f0531b996"
     },
     {
       "file": "fieldwork-comment-dark.png",
       "theme": "dark",
-      "width": 520,
-      "height": 440,
+      "width": 710,
+      "height": 490,
       "scale": 3,
       "scene": "components",
-      "sha256": "91d663d6daba52dfb9640084c23b4a78f7437802cfd56a203f77358c09517287"
+      "sha256": "cd06ac6231094c5675e3b4f7f96074697f3c19da0c3676297c57a0e1776b08fa"
     }
   ]
 }

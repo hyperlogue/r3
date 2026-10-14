@@ -172,8 +172,9 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background: var(--color-neutral-100);
-  color: var(--color-neutral-900);
+  background: #f3ebdc;
+  color: #174e48;
+  font-family: Georgia, "Times New Roman", serif;
 }
 .component-board {
   width: min(384px, calc(100% - 48px));
@@ -181,42 +182,54 @@ body {
 }
 .component-category {
   margin-bottom: 16px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font:
+    10px / 1.5 system-ui,
+    sans-serif;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-neutral-500);
+  color: #926340;
 }
 .component-card {
-  padding: 20px;
-  border: 1px solid var(--color-neutral-300);
-  background: white;
+  position: relative;
+  padding: 24px;
+  border: 1px solid #ddcdb5;
+  border-radius: 20px;
+  background: #fffaf0;
+  box-shadow: 0 8px 24px #77582a0a;
 }
 .component-card h1 {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.3;
+  max-width: 190px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
 }
 .component-card p {
-  margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-neutral-500);
+  max-width: 190px;
+  margin-top: 12px;
+  font:
+    12px / 1.6 system-ui,
+    sans-serif;
+  color: #68746a;
 }
 .component-action {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-top: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 5px;
-  background: var(--color-neutral-50);
-  font-size: 12px;
+  padding: 10px 16px;
+  border: 1px solid #174e48;
+  border-radius: 24px;
+  background: #174e48;
+  color: #fffaf0;
+  font:
+    12px / 1.5 system-ui,
+    sans-serif;
   cursor: pointer;
 }
 .component-action:hover {
-  background: var(--color-neutral-100);
+  background: #24685f;
 }
 .component-commenting .component-action {
   cursor: crosshair;
@@ -225,22 +238,20 @@ body {
   outline: 2px solid var(--color-primary-500);
   outline-offset: 4px;
 }
-.dark .component-document {
-  background: var(--color-neutral-900);
-  color: var(--color-neutral-100);
-}
-.dark .component-card {
-  border-color: var(--color-neutral-700);
-  background: var(--color-neutral-950);
-}
-.dark .component-card p,
-.dark .component-category {
-  color: var(--color-neutral-400);
-}
-.dark .component-action {
-  border-color: var(--color-neutral-700);
-  background: var(--color-neutral-900);
-}
-.dark .component-action:hover {
-  background: var(--color-neutral-800);
+.component-pin {
+  position: absolute;
+  right: 12px;
+  bottom: 20px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--color-primary-500);
+  color: white;
+  font:
+    600 11px / 1 system-ui,
+    sans-serif;
+  cursor: pointer;
 }

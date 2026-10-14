@@ -17,10 +17,10 @@ try {
   };
   const server = serveSite(directory, { port: 0 });
   try {
-    const browser = await openTestBrowser();
-    try {
-      for (const spec of captureSpecs) {
-        // Separate surfaces avoid stale composited text when switching themes.
+    for (const spec of captureSpecs) {
+      // Each capture gets an independent browser profile and rendering surface.
+      const browser = await openTestBrowser();
+      try {
         const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
         const page = await browser.attach(targetId);
         const comment = "scene" in spec;
@@ -45,32 +45,39 @@ try {
         await page.evaluate("document.fonts.ready");
         if (comment) {
           await page.evaluate(`document.querySelector('[aria-label="Hide discussion"]').click()`);
-          await page.evaluate(`document.querySelector('[aria-label="Comment mode"]').click()`);
           await eventually(
-            () => page.evaluate("!!document.querySelector('.component-action')"),
-            "comment mode",
+            () => page.evaluate("!!document.querySelector('.component-pin')"),
+            "existing component target",
           );
-          await page.evaluate("document.querySelector('.component-action').click()");
+          await page.evaluate("document.querySelector('.component-pin').click()");
           await eventually(
-            () => page.evaluate("!!document.querySelector('[data-floating-composer] textarea')"),
-            "floating composer",
+            () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
+            "existing thread popover",
           );
           await page.evaluate(
-            "document.querySelector('[data-floating-composer] textarea').focus()",
-          );
-          await page.command("Input.insertText", {
-            text: "Increase the margin above this button to 16px.",
-          });
-          await page.evaluate(
-            "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+            "document.querySelector('[data-artifact-thread-popover] [data-thread-action=comment]').click()",
           );
           await eventually(
             () =>
+              page.evaluate("!!document.querySelector('[data-artifact-thread-popover] textarea')"),
+            "thread reply composer",
+          );
+          await page.evaluate(
+            "document.querySelector('[data-artifact-thread-popover] textarea').focus()",
+          );
+          await page.command("Input.insertText", {
+            text: "Please decrease the margin back to 8px.",
+          });
+          await eventually(
+            () =>
               page.evaluate(`(() => {
-              const composer = document.querySelector('[data-floating-composer]');
-              return !composer.querySelector('button[type=submit]').disabled && composer.getBoundingClientRect().top > document.querySelector('.component-action').getBoundingClientRect().bottom;
+              const thread = document.querySelector('[data-artifact-thread-popover]');
+              return thread.querySelector('[data-artifact-comment=comment_components_fix]') &&
+                thread.textContent.includes('Increase the margin above this button to 16px.') &&
+                !thread.querySelector('button[type=submit]').disabled &&
+                thread.querySelector('textarea').value === 'Please decrease the margin back to 8px.';
             })()`),
-            "draft ready to send below the selected region",
+            "thread history and unsent reply",
           );
         }
         await page.evaluate(
@@ -84,7 +91,7 @@ try {
         const { data } = await page.command("Page.captureScreenshot", {
           format: "png",
           ...(comment
-            ? { clip: { x: 240, y: 80, width: spec.width, height: spec.height, scale: 1 } }
+            ? { clip: { x: 290, y: 40, width: spec.width, height: spec.height, scale: 1 } }
             : {}),
         });
         const bytes = Buffer.from(data, "base64");
@@ -94,15 +101,15 @@ try {
           `Captured ${spec.file}: ${spec.width * spec.scale} × ${spec.height * spec.scale}`,
         );
         await browser.send("Target.closeTarget", { targetId });
+      } finally {
+        await browser.close();
       }
-      await Bun.write(
-        join(assets, "fieldwork-captures.json"),
-        `${JSON.stringify(manifest, null, 2)}\n`,
-      );
-      await verifyCaptures(assets);
-    } finally {
-      await browser.close();
     }
+    await Bun.write(
+      join(assets, "fieldwork-captures.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    await verifyCaptures(assets);
   } finally {
     server.stop(true);
   }

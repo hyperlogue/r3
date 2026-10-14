@@ -73,14 +73,16 @@ followed by concrete use cases. Format details belong in the documentation.
 
 The homepage centers a copyable publishing-skill command below its opening and
 repeats it at the close. A prominent heading and green outline identify the install
-step; the icon changes to a green check after a successful copy. A quiet alternative-installation link sits beneath each command; direct CLI
+step; an outlined copy button changes to a green check after a successful copy. A quiet alternative-installation link sits beneath each command; direct CLI
 instructions stay in the getting-started guide. Command highlights preserve the
 exact plain text used by the copy action.
 Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
-The hero uses a UI component showcase: a card’s button is selected, and the real
-floating composer asks to increase its top margin to 16px. It has no caption.
+The hero shows a cream-and-teal component showcase with large headings
+and rounded controls, distinct from r3. A real floating thread contains the human’s
+request to increase a button margin, the agent’s reply, and a pending draft asking
+to restore the previous margin. It has no caption.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has a separate demo button.
 The terminal is illustrative, with prompts from `prompt-examples.ts`. Only the
@@ -123,9 +125,10 @@ or emulate the production preview security boundary.
 When the sample's appearance changes, run
 `bun --no-env-file site/capture-showcase.ts` with `R3_TEST_BROWSER` set, then build
 the site. The capture command builds the same React page independently and records
-light/dark desktop, phone, and floating-composer region views at 3× pixel density.
-The composer scene uses the real comment-mode control and draft input. The
-renderer supplies the card’s position so the composer opens just beneath it.
+light/dark desktop, phone, and floating-thread region views at 3× pixel density.
+The thread scene opens an existing target’s real popover and types into its reply
+composer without submitting. The two component versions have 8px and 16px button
+margins, matching the conversation.
 Phone readers see the real mobile layout; the desktop capture covers the site's maximum content width.
 
 `assets/fieldwork-captures.json` records the PNG hashes and viewport settings.

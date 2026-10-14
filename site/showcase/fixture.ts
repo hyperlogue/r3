@@ -2,6 +2,7 @@ import type { ArtifactDetail, ArtifactVersion } from "../../shared/artifacts.ts"
 import type { ArtifactDemoSeed, DemoPublication } from "../../web/demo/artifact-model.ts";
 import { artifactFixture, artifactFixtureThread } from "../../web/src/artifact-fixtures.ts";
 
+export const COMPONENT_THREAD = "thread_components_margin";
 export const COMPONENTS_ID = "artifact_example_components";
 export const FIELDWORK_ID = "artifact_example_fieldwork";
 export const VISIBILITY_THREAD = "thread_fieldwork_visibility";
@@ -127,13 +128,16 @@ function htmlPublications(versions: ArtifactVersion[]) {
 export function componentsSeed(
   palette: Pick<ArtifactDemoSeed, "themes" | "themeStyles">,
 ): ArtifactDemoSeed {
-  const version: ArtifactVersion = {
+  const versions: ArtifactVersion[] = [1, 2].map((seq) => ({
     artifactId: COMPONENTS_ID,
-    seq: 1,
-    publicationKey: "components-1",
-    contentHash: "components-content-1",
-    label: "UI components",
-    summary: "A card component ready for a spacing review.",
+    seq,
+    publicationKey: `components-${seq}`,
+    contentHash: `components-content-${seq}`,
+    label: seq === 1 ? "Card component" : "Increase button margin",
+    summary:
+      seq === 1
+        ? "A card with an 8px button margin."
+        : "Increased the button’s top margin to 16px.",
     publishedBy: actor,
     provenance: {},
     createdAt: time,
@@ -141,7 +145,13 @@ export function componentsSeed(
     kind: "html",
     entrypoint: "index.html",
     fileCount: 1,
-  };
+  }));
+  const target = (versionSeq: number) => ({
+    kind: "rendered" as const,
+    versionSeq,
+    path: "index.html",
+    locator: { selector: "#component-action", label: "Button spacing" },
+  });
   return {
     artifacts: [
       {
@@ -150,16 +160,53 @@ export function componentsSeed(
         title: "UI component showcase",
         kind: "html",
         createdBy: actor,
-        nextSeq: 2,
-        storage: { totalBytes: 1024, latestVersionBytes: 1024 },
+        nextSeq: 3,
+        storage: { totalBytes: 2048, latestVersionBytes: 1024 },
         watching: true,
         agentLabels: { "demo-agent": "Example agent" },
-        versions: [version],
-        threads: [],
+        versions,
+        placements: [
+          {
+            threadId: COMPONENT_THREAD,
+            artifactId: COMPONENTS_ID,
+            target: target(2),
+            state: "anchored",
+            createdAt: time,
+            updatedAt: time,
+          },
+        ],
+        threads: [
+          {
+            ...structuredClone(artifactFixtureThread),
+            id: COMPONENT_THREAD,
+            artifactId: COMPONENTS_ID,
+            target: target(1),
+            comments: [
+              {
+                ...artifactFixtureThread.comments[0]!,
+                id: "comment_components_request",
+                threadId: COMPONENT_THREAD,
+                artifactId: COMPONENTS_ID,
+                body: "Increase the margin above this button to 16px.",
+                context: { versionSeq: 1, representation: "rendered" },
+              },
+              {
+                ...artifactFixtureThread.comments[1]!,
+                id: "comment_components_fix",
+                threadId: COMPONENT_THREAD,
+                artifactId: COMPONENTS_ID,
+                author: actor,
+                body: "Increased the top margin from 8px to 16px.",
+                context: { versionSeq: 2, representation: "rendered" },
+                target: target(2),
+              },
+            ],
+          },
+        ],
       },
     ],
     projects: [],
-    publications: htmlPublications([version]),
+    publications: htmlPublications(versions),
     pending: {},
     themes: palette.themes,
     themeStyles: palette.themeStyles,

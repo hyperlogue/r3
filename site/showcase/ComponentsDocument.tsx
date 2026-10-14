@@ -16,7 +16,7 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
   return (
     <div className={`component-document ${props.commenting ? "component-commenting" : ""}`}>
       <div className="component-board">
-        <p className="component-category">Component showcase / Cards</p>
+        <p className="component-category">Gather / Components</p>
         <div className="component-card" ref={card}>
           <h1>Keep everyone in sync</h1>
           <p>A quick look at what’s happening across your team’s projects.</p>
@@ -24,6 +24,7 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
             ref={action}
             type="button"
             id="component-action"
+            style={{ marginTop: props.version.seq > 1 ? 16 : 8 }}
             className={`component-action ${(props.commenting && selected) || (props.jump && props.highlightLocated !== false) ? "component-selected" : ""}`}
             onClick={() => {
               if (!props.commenting) {
@@ -49,6 +50,20 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
           >
             View activity <span aria-hidden="true">→</span>
           </button>
+          {!props.commenting &&
+            props.targets.map(({ threadId, target }) =>
+              target.kind === "rendered" && target.locator?.selector === "#component-action" ? (
+                <button
+                  key={threadId}
+                  type="button"
+                  className="component-pin"
+                  aria-label="Open button spacing thread"
+                  onClick={() => props.onThread(threadId)}
+                >
+                  1
+                </button>
+              ) : null,
+            )}
           {opened && (
             <p className="component-status" role="status">
               You’re all caught up.

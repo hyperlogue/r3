@@ -84,7 +84,7 @@ function Example() {
           actions={artifactApi}
           initialSearch={
             componentScene
-              ? "?version=1"
+              ? "?version=2"
               : `?version=2&thread=${VISIBILITY_THREAD}&comment=comment_fieldwork_fix`
           }
           renderPreview={(props) =>

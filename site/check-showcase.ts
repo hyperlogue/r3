@@ -121,32 +121,50 @@ try {
   await click("#component-action");
   await waitFor("document.body.innerText.includes('You’re all caught up.')", "component action");
   await click('[aria-label="Hide discussion"]');
-  await click('[aria-label="Comment mode"]');
-  await click("#component-action");
+  await click(".component-pin");
   await waitFor(
-    "!!document.querySelector('[data-floating-composer] textarea')",
-    "component floating composer",
+    "!!document.querySelector('[data-artifact-thread-popover]')",
+    "existing component thread popover",
   );
-  await page.evaluate("document.querySelector('[data-floating-composer] textarea').focus()");
+  const popover = "[data-artifact-thread-popover]";
+  assert.equal(
+    await page.evaluate(
+      `document.querySelector('${popover}').querySelectorAll('[data-artifact-comment]').length`,
+    ),
+    1,
+  );
+  assert.equal(
+    await page.evaluate("getComputedStyle(document.querySelector('#component-action')).marginTop"),
+    "16px",
+  );
+  await click(`${popover} [data-thread-action="comment"]`);
+  await waitFor(`!!document.querySelector('${popover} textarea')`, "existing thread reply");
+  await page.evaluate(`document.querySelector('${popover} textarea').focus()`);
   await page.command("Input.insertText", {
-    text: "Increase the margin above this button to 16px.",
+    text: "Please decrease the margin back to 8px.",
   });
   await waitFor(
-    "!document.querySelector('[data-floating-composer] button[type=submit]').disabled",
-    "component draft ready",
+    `!document.querySelector('${popover} button[type=submit]').disabled`,
+    "component reply ready",
   );
-  await click("[data-floating-composer] button[type=submit]");
-  await waitFor("!document.querySelector('[data-floating-composer]')", "component comment saved");
-  await click('[aria-label="Exit comment mode"]');
-  await click('[aria-label="Show discussion"]');
+  await screenshot("component-thread-reply.png");
+  await click(`${popover} button[type=submit]`);
+  await waitFor(`!document.querySelector('${popover} textarea')`, "component reply saved");
   await waitFor(
-    "document.querySelector('[data-artifact-thread]')?.textContent.includes('Increase the margin above this button to 16px.')",
-    "component comment in discussion",
+    `document.querySelector('${popover}').querySelectorAll('[data-artifact-comment]').length === 2`,
+    "reply extends the existing thread",
   );
-  await page.evaluate("document.querySelector('[data-artifact-thread] button[title]').click()");
+  await click(`${popover} [data-compare-comment="comment_components_fix"]`);
   await waitFor(
-    "document.querySelector('#component-action').classList.contains('component-selected')",
-    "locate saved component target",
+    "document.querySelectorAll('[data-artifact-comparison] .component-action').length === 2",
+    "component versions compared",
+  );
+  assert.deepEqual(
+    await page.evaluate(
+      "[...document.querySelectorAll('[data-artifact-comparison] .component-action')].map(button => getComputedStyle(button).marginTop)",
+    ),
+    ["8px", "16px"],
+    "the two publications match the spacing conversation",
   );
 
   await viewport(390, 844);

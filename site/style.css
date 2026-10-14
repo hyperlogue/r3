@@ -1084,7 +1084,7 @@ figcaption {
   width: 44px;
   height: 44px;
   color: var(--text);
-  border: 0;
+  border: 1px solid var(--control-border);
   background: transparent;
 }
 .install-command .copy-code:hover {
