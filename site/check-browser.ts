@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
-import { promptExamples } from "./prompt-examples.ts";
+import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { normalizeBase } from "./render.ts";
 import { serveSite } from "./serve.ts";
 
@@ -58,7 +58,7 @@ try {
     );
 
   await viewport(1440);
-  await open("/", "See the work.");
+  await open("/", "Give your agent a place to show its work.");
   await noOverflow();
   await screenshot("home-desktop.png");
   await browser.send("Browser.grantPermissions", {
@@ -106,9 +106,29 @@ try {
       `animated prompt ${index}`,
     );
     assert.equal(
-      await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+      await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
       promptExamples[index]!.prompt,
     );
+    assert.deepEqual(
+      await page.evaluate(
+        "[...document.querySelectorAll('[data-prompt-common]')].map(el => el.textContent)",
+      ),
+      [commonPrompt, commonResponse],
+      "shared prompt and response remain unchanged",
+    );
+    if (index < 2) {
+      await eventually(
+        () =>
+          page.evaluate("document.querySelector('[data-prompt-demo]').dataset.phase === 'leaving'"),
+        "example fades out",
+      );
+      assert(
+        await page.evaluate(
+          "[...document.querySelectorAll('[data-prompt-common], .prompt-scene')].every(el => getComputedStyle(el).opacity === '1')",
+        ),
+        "common lines and their container do not fade",
+      );
+    }
   }
   await page.evaluate("document.querySelector('[data-prompt-play]').click()");
   await page.evaluate("new Promise(resolve => setTimeout(resolve, 7000))");
@@ -119,13 +139,13 @@ try {
   );
   await page.evaluate("document.querySelector('[data-prompt-choice=\"0\"]').click()");
   assert.equal(
-    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
     promptExamples[0].prompt,
   );
   await page.command("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
-  await open("/", "See the work.");
+  await open("/", "Give your agent a place to show its work.");
   await page.evaluate(
     "document.querySelector('#agent-prompt').scrollIntoView({behavior:'instant',block:'center'})",
   );
@@ -135,12 +155,12 @@ try {
     "reduced motion starts with a static prompt",
   );
   assert.equal(
-    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
     promptExamples[0].prompt,
   );
   await page.evaluate("document.querySelector('[data-prompt-choice=\"2\"]').click()");
   assert.equal(
-    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
     promptExamples[2].prompt,
     "reduced motion retains manual selection",
   );
@@ -201,7 +221,7 @@ try {
   });
 
   await viewport(390, 844);
-  await open("/", "See the work.");
+  await open("/", "Give your agent a place to show its work.");
   await noOverflow();
   await screenshot("home-mobile.png");
   await page.evaluate("document.querySelector('.mobile-menu summary').click()");
@@ -220,14 +240,14 @@ try {
   await noOverflow();
 
   await page.command("Emulation.setScriptExecutionDisabled", { value: true });
-  await open("/", "See the work.");
+  await open("/", "Give your agent a place to show its work.");
   assert.equal(
     await page.evaluate("document.querySelector('#skill-install code').textContent"),
     "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",
     "installation remains readable without JavaScript",
   );
   assert.equal(
-    await page.evaluate("document.querySelector('[data-typed-prompt]').textContent"),
+    await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
     promptExamples[0].prompt,
     "the complete example prompt remains readable without JavaScript",
   );

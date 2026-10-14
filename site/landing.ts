@@ -1,5 +1,6 @@
-import { docs, groups, stories } from "./catalog.ts";
-import { promptExamples } from "./prompt-examples.ts";
+import { docs, groups, homeDescription, homeTitle, stories } from "./catalog.ts";
+import { featureHighlights } from "./features.ts";
+import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { escapeHTML } from "./render.ts";
 
 export function storyCards() {
@@ -22,9 +23,8 @@ export function storyCards() {
 
 export function workflowExample() {
   return `<figure class="workflow-figure container container-wide" id="fieldwork-workspace">
-<div class="illustration-caption"><span><span class="status-dot"></span> A review in Example Fieldwork</span><a href="/example/index.html">Open the workspace ↗</a></div>
 <div class="workspace-example" data-workspace-example>
-<a class="workspace-fallback" href="/example/index.html" aria-label="Explore Example Fieldwork in the real r3 workspace">
+<div class="workspace-fallback">
 ${["light", "dark"]
   .map(
     (theme) => `<div class="workspace-${theme}">
@@ -33,9 +33,9 @@ ${["light", "dark"]
 </div>`,
   )
   .join("")}
-</a>
 </div>
-<figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the thread.</figcaption>
+</div>
+<figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the thread.<br><a class="button workspace-demo" href="/example/index.html">Try the demo →</a></figcaption>
 </figure>`;
 }
 
@@ -45,53 +45,21 @@ export function home() {
 <div class="container">
 <div class="hero-grid">
 <div>
-<p class="eyebrow">Render. Review. Refine.</p>
-<h1 data-pagefind-meta="title">See the work.<br><em>Make it better.</em></h1>
-<p class="hero-description">Point to a detail.<br>Give your agent a clear next step.</p>
+<h1 data-pagefind-meta="title">${homeTitle}</h1>
+<p class="hero-description">${homeDescription}</p>
 </div>
 ${reviewDetail()}
 </div>
 ${skillInstall("skill-install")}
 ${promptDemo()}
 </div>${workflowExample()}</section>
-<section class="loop-section container" aria-labelledby="loop-heading">
-<div class="section-heading">
-<div>
-<p class="eyebrow">How it works</p>
-<h2 id="loop-heading">Less guessing.<br>A clearer review loop.</h2>
-</div>
-<a class="text-link" href="/docs/review-loop/">How the review loop works →</a>
-</div>
-<ol class="loop-steps">
-<li>
-<span>01 / Render</span>
-<div>
-<h3>See the actual work.</h3>
-<p>A working prototype, an interactive explanation, a document worth reading. Your agent publishes it and shares a link.</p>
-</div>
-</li>
-<li>
-<span>02 / Review</span>
-<div>
-<h3>Point to the change.</h3>
-<p>Select an element, passage, code line, or image region. Add your feedback, then send the batch to your agent.</p>
-</div>
-</li>
-<li>
-<span>03 / Refine</span>
-<div>
-<h3>Keep the context.</h3>
-<p>Open the next version and follow the agent’s replies to the fix. Your original comments stay with the work you reviewed.</p>
-</div>
-</li>
-</ol>
-</section>
+${featureHighlights()}
 <section class="possibilities-section" id="use-cases" aria-labelledby="use-cases-heading">
 <div class="container">
 <div class="section-heading">
 <div>
 <p class="eyebrow">One fictional project. Real ways to work.</p>
-<h2 id="use-cases-heading">What will you make clearer?</h2>
+<h2 id="use-cases-heading">What can you make with r3?</h2>
 </div>
 <a class="text-link" href="/use-cases/">Explore all use cases →</a>
 </div>
@@ -101,10 +69,9 @@ ${promptDemo()}
 <section class="start-section container" aria-labelledby="start-heading">
 <img src="/assets/favicon.svg" width="56" height="56" alt="">
 <p class="eyebrow">Your next review starts here</p>
-<h2 id="start-heading">Give your agent<br>a place to show its work.</h2>
-<p>Install the publishing skill and ask your agent to share its work on r3. The skill handles setup; you bring the judgment.</p>
+<h2 id="start-heading">${homeTitle}</h2>
+<p>${homeDescription}</p>
 ${skillInstall("start-install")}
-<p class="install-alternative"><a href="/docs/get-started/#other-installation-methods">Other ways to install →</a></p>
 </section>
 </div>`;
 }
@@ -112,21 +79,17 @@ ${skillInstall("start-install")}
 function skillInstall(id: string) {
   return `<div class="install-block" id="${id}">
 <h2 class="install-label">Install the publishing skill</h2>
-<pre class="install-command"><code>npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global</code></pre>
+<pre class="install-command"><code><span class="command-runner">npx</span> skills add <span class="command-package">hyperlogue/r3</span> <span class="command-flag">--skill</span> <span class="command-skill">publish-artifacts-to-r3</span> <span class="command-flag">--global</span></code></pre>
+<p class="install-alternative"><a href="/docs/get-started/#other-installation-methods">Other ways to install →</a></p>
 </div>`;
 }
 
 function reviewDetail() {
   return `<figure class="hero-review" id="review-detail">
-<a class="hero-review-crop" href="/example/index.html" aria-label="Open the r3 workspace to follow this feedback and its linked fix">
-${["light", "dark"]
-  .map(
-    (theme) =>
-      `<img class="review-${theme}" src="/assets/fieldwork-${theme}.png" width="3720" height="2220" alt="r3’s Discussion panel: a comment asks who can see a project; the agent replies with a linked fix and a Compare action.">`,
-  )
-  .join("")}
-</a>
-<figcaption>Feedback. A reply. A fix you can inspect.</figcaption>
+<div class="hero-review-crop">
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="520" height="410" alt="A selected Visibility field in an HTML artifact, with r3’s floating composer ready to add the comment: Explain who can see this project before I create it.">`).join("")}
+</div>
+<figcaption>Point to a detail. Tell your agent what to change.</figcaption>
 </figure>`;
 }
 
@@ -135,15 +98,11 @@ function promptDemo() {
   return `<section class="prompt-example" id="agent-prompt" aria-labelledby="prompt-heading" data-prompt-demo>
 <h3 id="prompt-heading">Then ask your agent to make something.</h3>
 <div class="claude-terminal">
-<div class="claude-terminal-bar"><span>Claude Code</span><span>Illustrative session</span></div>
 <div class="claude-session">
-<div class="claude-welcome"><span class="claude-mark" aria-hidden="true">✳</span><div><strong>Claude Code</strong><span>~/fieldwork</span></div></div>
 <div class="prompt-scene" data-prompt-scene>
-<div class="claude-prompt"><span aria-hidden="true">❯</span><p class="prompt-words"><span aria-hidden="true"><span data-typed-prompt>${first.prompt}</span><span class="prompt-cursor"></span></span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.prompt}</span>`).join("")}<span class="sr-only" data-readable-prompt>${first.prompt}</span></p></div>
-<div class="claude-response"><span aria-hidden="true">●</span><p class="prompt-words"><span data-prompt-response>${first.response}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.response}</span>`).join("")}</p></div>
-<div class="claude-publication"><span aria-hidden="true">↳</span><span data-prompt-title>${first.title}</span><span class="publication-ready">Ready for review</span></div>
+<div class="claude-prompt"><span aria-hidden="true">❯</span><div><p class="prompt-words"><span data-prompt-variable data-prompt-text>${first.prompt}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.prompt}</span>`).join("")}</p><p class="prompt-common" data-prompt-common>${commonPrompt}</p></div></div>
+<div class="claude-response"><span aria-hidden="true">●</span><div><p class="prompt-words"><span data-prompt-variable data-prompt-response>${first.response}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.response}</span>`).join("")}</p><p class="prompt-common" data-prompt-common>${commonResponse}</p></div></div>
 </div>
-<div class="claude-hint">? for shortcuts</div>
 </div>
 </div>
 <div class="prompt-controls js-control" role="group" aria-label="Example prompts">

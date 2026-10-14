@@ -78,7 +78,7 @@ try {
       return null;
     }, heading);
   }
-  let doc = await content("See the work.");
+  let doc = await content("Give your agent a place to show its work.");
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
     permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
@@ -207,12 +207,12 @@ try {
   doc = await content(heading);
   assert.equal(await doc.evaluate("document.documentElement.dataset.theme"), "dark");
   await doc.evaluate(`location.href=${JSON.stringify(`${prefix}index.html?theme=dark`)}`);
-  doc = await content("See the work.");
+  doc = await content("Give your agent a place to show its work.");
   assert.equal(
     await doc.evaluate('document.querySelectorAll(".workspace-example iframe").length'),
     0,
   );
-  await doc.evaluate('document.querySelector(".workspace-fallback").click()');
+  await doc.evaluate('document.querySelector(".workspace-demo").click()');
   doc = await content("Start something good.");
   await eventually(
     () => doc.evaluate('!!document.querySelector("[data-compare-comment]")'),
@@ -246,7 +246,7 @@ try {
     "opaque local mutation",
   );
   await doc.evaluate('document.querySelector(".example-actions a").click()');
-  doc = await content("See the work.");
+  doc = await content("Give your agent a place to show its work.");
   assert(requests.every((p) => p.startsWith(prefix)));
   assert.deepEqual(exceptions, []);
   console.log(

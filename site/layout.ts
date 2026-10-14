@@ -80,7 +80,6 @@ export function shell(
 <a class="brand" href="/" aria-label="r3 home">
 <img src="/assets/favicon.svg" width="32" height="32" alt="">
 <span>r3</span>
-<span class="brand-meaning">Render. Review. Refine.</span>
 </a>
 <nav class="desktop-nav" aria-label="Main navigation">${links}</nav>
 <div class="header-actions">

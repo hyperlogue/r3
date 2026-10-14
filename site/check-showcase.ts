@@ -31,9 +31,9 @@ try {
     eventually(() => page.evaluate(expression), description);
   const click = (selector: string) =>
     page.evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
-  const open = async (theme = "light") => {
+  const open = async (theme = "light", embedded = true) => {
     await page.command("Page.navigate", {
-      url: `${server.url.origin}${base}/example/index.html?theme=${theme}&embedded=1`,
+      url: `${server.url.origin}${base}/example/index.html?theme=${theme}${embedded ? "&embedded=1" : ""}`,
     });
     await waitFor(
       "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help')",
@@ -54,6 +54,10 @@ try {
   };
   await viewport(1200);
   await open();
+  assert(
+    await page.evaluate("!document.querySelector('.example-banner')"),
+    "embedded workspace omits the sample header",
+  );
   await screenshot("fieldwork-light.png");
   await open("dark");
   await screenshot("fieldwork-dark.png");
@@ -70,7 +74,7 @@ try {
     ),
   );
   await screenshot("fieldwork-comparison.png");
-  await open();
+  await open("light", false);
 
   // The host changes its immutable detail snapshot when fake mutations finish.
   await click('[data-thread-action="resolve"]');

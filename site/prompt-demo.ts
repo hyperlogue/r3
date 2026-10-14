@@ -1,10 +1,8 @@
 import { promptExamples } from "./prompt-examples.ts";
 
 export function startPromptDemo(root: HTMLElement) {
-  const typed = root.querySelector<HTMLElement>("[data-typed-prompt]")!;
-  const readable = root.querySelector<HTMLElement>("[data-readable-prompt]")!;
+  const prompt = root.querySelector<HTMLElement>("[data-prompt-text]")!;
   const response = root.querySelector<HTMLElement>("[data-prompt-response]")!;
-  const title = root.querySelector<HTMLElement>("[data-prompt-title]")!;
   const play = root.querySelector<HTMLButtonElement>("[data-prompt-play]")!;
   const choices = root.querySelectorAll<HTMLButtonElement>("[data-prompt-choice]");
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -13,68 +11,53 @@ export function startPromptDemo(root: HTMLElement) {
   let paused = motion.matches;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  function render(animate: boolean) {
+  function render() {
     clearTimeout(timer);
     const example = promptExamples[index]!;
     root.dataset.example = String(index);
     root.dataset.paused = String(paused);
     root.dataset.phase = "ready";
-    typed.textContent = example.prompt;
-    readable.textContent = example.prompt;
+    prompt.textContent = example.prompt;
     response.textContent = example.response;
-    title.textContent = example.title;
     play.setAttribute("aria-label", `${paused ? "Play" : "Pause"} prompt animation`);
     play.title = `${paused ? "Play" : "Pause"} animation`;
     for (const choice of choices)
       choice.setAttribute("aria-pressed", String(Number(choice.dataset.promptChoice) === index));
-    if (!animate || paused || motion.matches || !visible || document.hidden) return;
-
-    let characters = 0;
-    typed.textContent = "";
-    root.dataset.phase = "typing";
-    const type = () => {
-      characters = Math.min(characters + 2, example.prompt.length);
-      typed.textContent = example.prompt.slice(0, characters);
-      if (characters < example.prompt.length) timer = setTimeout(type, 30);
-      else {
-        root.dataset.phase = "ready";
-        timer = setTimeout(() => {
-          root.dataset.phase = "leaving";
-          timer = setTimeout(() => {
-            index = (index + 1) % promptExamples.length;
-            render(true);
-          }, 200);
-        }, 4600);
-      }
-    };
-    timer = setTimeout(type, 300);
+    if (paused || motion.matches || !visible || document.hidden) return;
+    timer = setTimeout(() => {
+      root.dataset.phase = "leaving";
+      timer = setTimeout(() => {
+        index = (index + 1) % promptExamples.length;
+        render();
+      }, 280);
+    }, 5200);
   }
 
   play.addEventListener("click", () => {
     paused = !paused;
-    render(true);
+    render();
   });
   for (const choice of choices)
     choice.addEventListener("click", () => {
       index = Number(choice.dataset.promptChoice);
-      // Keep a chosen prompt still long enough to read or select its text.
+      // A manually selected example stays still for reading and copying.
       paused = true;
-      render(false);
+      render();
     });
   motion.addEventListener("change", () => {
     if (motion.matches) paused = true;
-    render(true);
+    render();
   });
-  document.addEventListener("visibilitychange", () => render(true));
+  document.addEventListener("visibilitychange", render);
   const observer = new IntersectionObserver(
     (entries) => {
       visible = entries.some((entry) => entry.isIntersecting);
-      render(true);
+      render();
     },
     { threshold: 0.25 },
   );
   observer.observe(root);
-  render(false);
+  render();
   window.addEventListener("pagehide", () => clearTimeout(timer));
-  window.addEventListener("pageshow", () => render(true));
+  window.addEventListener("pageshow", render);
 }

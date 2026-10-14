@@ -6,6 +6,22 @@ export const captureSpecs = [
   { file: "fieldwork-dark.png", theme: "dark", width: 1240, height: 740, scale: 3 },
   { file: "fieldwork-mobile-light.png", theme: "light", width: 390, height: 740, scale: 3 },
   { file: "fieldwork-mobile-dark.png", theme: "dark", width: 390, height: 740, scale: 3 },
+  {
+    file: "fieldwork-comment-light.png",
+    theme: "light",
+    width: 520,
+    height: 410,
+    scale: 3,
+    scene: "comment",
+  },
+  {
+    file: "fieldwork-comment-dark.png",
+    theme: "dark",
+    width: 520,
+    height: 410,
+    scale: 3,
+    scene: "comment",
+  },
 ] as const;
 
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");

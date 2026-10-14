@@ -6,7 +6,7 @@
       "width": 1240,
       "height": 740,
       "scale": 3,
-      "sha256": "6264b7911ed8a10b0da964766c1f81a5a197eb28164b6721961c42a5e281b7b5"
+      "sha256": "4128625e3c02e81b06a3acbf310d109147b33497e8076f5f31db262a16305ae4"
     },
     {
       "file": "fieldwork-dark.png",
@@ -14,7 +14,7 @@
       "width": 1240,
       "height": 740,
       "scale": 3,
-      "sha256": "a077f916289a9c1ecdc4089bae17de6eaea5e2c71bf81504c10ad5821d54b2cc"
+      "sha256": "f7f117a412da727b11208777ec7b5bab475bc680798cd87b3b13dfc90e30f3a4"
     },
     {
       "file": "fieldwork-mobile-light.png",
@@ -22,7 +22,7 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "20fa58c17f22d9e225c2aa8c1833f9aeaf9dadf11cb432c48a16e8f44f851c3c"
+      "sha256": "20b6d7a42bfb3546d922e069dee20e21e8019931a5d128b6726273a224ae65f5"
     },
     {
       "file": "fieldwork-mobile-dark.png",
@@ -30,7 +30,25 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "452c88c7738c9026e7e14fc63f9c52d606280470099daa598528b561f8fa4e26"
+      "sha256": "3af0ba98598b08260bf6c3d59660d1ec3c4680a6455925cec22ee0382c49465d"
+    },
+    {
+      "file": "fieldwork-comment-light.png",
+      "theme": "light",
+      "width": 520,
+      "height": 410,
+      "scale": 3,
+      "scene": "comment",
+      "sha256": "5f5bb1c9d81788168a3af8f8ddd8c8261244484dc1b98140a6b7907ca4bc262e"
+    },
+    {
+      "file": "fieldwork-comment-dark.png",
+      "theme": "dark",
+      "width": 520,
+      "height": 410,
+      "scale": 3,
+      "scene": "comment",
+      "sha256": "4b3e3d6cdd65bdeeb9440b0437a1ece63786677357c2bbd0ff8d842d9bbdf26e"
     }
   ]
 }

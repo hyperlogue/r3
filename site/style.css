@@ -159,12 +159,6 @@ svg {
   letter-spacing: -0.025em;
   line-height: 1;
 }
-.brand-meaning {
-  margin-left: 10px;
-  font-size: 12px;
-  letter-spacing: 0.01em;
-  color: var(--muted);
-}
 .desktop-nav {
   display: flex;
   align-items: center;
@@ -294,8 +288,8 @@ kbd {
   align-items: center;
 }
 .hero-grid h1 {
-  margin-top: 20px;
-  font-size: clamp(40px, 4.2vw, 58px);
+  margin-top: 0;
+  font-size: clamp(40px, 4vw, 50px);
   line-height: 1.08;
   letter-spacing: -0.035em;
 }
@@ -309,21 +303,13 @@ kbd {
   margin: 0;
 }
 .hero-review-crop {
-  display: block;
-  position: relative;
-  aspect-ratio: 473 / 364;
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--surface);
 }
 .hero-review-crop img {
-  position: absolute;
-  /* The actual discussion panel, cropped from the 1240 × 740 workspace. */
-  width: calc(100% * 1240 / 473);
-  max-width: none;
+  width: 100%;
   height: auto;
-  left: calc(-100% * 767 / 473);
-  top: calc(-100% * 74 / 364);
 }
 .review-dark,
 [data-theme="dark"] .review-light {
@@ -367,12 +353,27 @@ kbd {
 .workflow-figure {
   margin-top: 64px;
 }
-.illustration-caption {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
+.workspace-demo {
+  margin-top: 20px;
+}
+.install-alternative {
+  margin-top: 12px;
+  color: var(--color-neutral-400);
+  font-size: 12px;
+}
+.install-alternative a:hover {
   color: var(--muted);
-  margin-bottom: 13px;
+}
+.command-runner,
+.command-package {
+  color: var(--accent);
+}
+.command-skill {
+  color: var(--success);
+  font-weight: 600;
+}
+.command-flag {
+  color: var(--muted);
 }
 .workspace-example {
   position: relative;
@@ -439,7 +440,7 @@ figcaption {
   font-size: 11px;
   padding-top: 12px;
 }
-.loop-section {
+.features-section {
   padding-block: 104px;
 }
 .section-heading h2,
@@ -450,34 +451,209 @@ figcaption {
   letter-spacing: -0.025em;
   margin: 14px 0 0;
 }
-.loop-steps {
+.feature-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: 0.9fr 1.15fr;
+  gap: 56px;
+  align-items: center;
+  padding-block: 44px;
+  border-bottom: 1px solid var(--border);
 }
-.loop-steps li {
-  padding: 24px;
+.feature-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.feature-copy h3 {
+  font-size: 27px;
+  line-height: 1.22;
+  letter-spacing: -0.025em;
+  margin: 12px 0 16px;
+}
+.feature-copy p {
+  font-size: 15px;
+  color: var(--muted);
+}
+.feature-number {
+  font: 11px var(--font-mono);
+  color: var(--accent);
+}
+.feature-video {
+  min-width: 0;
+  border: 1px solid var(--border);
   background: var(--soft);
+  overflow: hidden;
+}
+.mock-scene {
+  display: grid;
+  align-items: center;
+  min-height: 235px;
+  padding: 26px;
+  font-size: 12px;
+}
+.mock-label {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-bottom: 18px;
+}
+.mock-selection {
+  padding: 12px;
+  outline: 1px solid var(--accent);
+  background: var(--bg);
+  margin-inline: 10px;
+}
+.mock-selection strong,
+.mock-compare strong {
+  display: block;
+  border: 1px solid var(--control-border);
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-weight: 400;
+}
+.mock-comment {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--control-border);
+  background: var(--bg);
+}
+.mock-comment > span {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.mock-comment b,
+.mock-reply b {
+  color: var(--accent);
+}
+.mock-versions > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 12px;
+  background: var(--bg);
   border: 1px solid var(--border);
 }
-.loop-steps :where(li) > span {
+.mock-versions > :where(div) + div {
+  margin-top: 12px;
+}
+.mock-versions small {
   display: block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--accent);
-  margin-bottom: 24px;
-}
-.loop-steps h3 {
-  font-size: 18px;
-  margin-bottom: 7px;
-  letter-spacing: -0.015em;
-}
-.loop-steps p {
-  font-size: 14px;
+  font-size: 10px;
   color: var(--muted);
+  margin-top: 4px;
+}
+.mock-versions > :where(div) > span {
+  font: 11px var(--font-mono);
+  color: var(--accent);
+}
+.mock-versions .mock-current {
+  border-color: var(--accent);
+}
+.mock-versions i,
+.mock-handoff i {
+  margin-left: auto;
+  color: var(--success);
+  font-style: normal;
+}
+.mock-compare .mock-label {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.mock-compare > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.mock-compare p {
+  padding: 10px;
+  font-size: 10px;
+}
+.mock-compare :where(p) + p {
+  border-left: 1px solid var(--border);
+}
+.mock-compare small {
+  display: block;
+  padding: 6px;
+  margin-top: 8px;
+  color: var(--success);
+  background: color-mix(in oklab, var(--success) 8%, transparent);
+  font-size: 9px;
+}
+.mock-reply {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 9px;
+  margin-top: 14px;
+}
+.mock-handoff p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.mock-handoff :where(p) > span {
+  color: var(--muted);
+  font: 9px var(--font-mono);
+}
+.mock-handoff > strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 9px 12px;
+  color: var(--on-button);
+  background: var(--button);
+  font-size: 10px;
+  font-weight: 500;
+}
+.mock-surfaces > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.mock-surfaces :where(div) > span {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 12px;
+  font-size: 10px;
+}
+.mock-surfaces b {
+  display: block;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.mock-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font: 9px var(--font-mono);
+}
+.mock-play {
+  font-size: 11px;
+}
+.mock-timeline {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+}
+.mock-timeline::before {
+  content: "";
+  display: block;
+  width: 28%;
+  height: 100%;
+  background: var(--accent);
 }
 .possibilities-section {
   padding-bottom: 104px;
@@ -589,9 +765,9 @@ figcaption {
   font-size: 16px;
   color: var(--muted);
 }
-.start-section > .install-alternative {
-  font-size: 13px;
-  margin-top: 20px;
+.start-section > h2 {
+  max-width: 620px;
+  margin-inline: auto;
 }
 .story-principle h2 {
   margin: 18px 0 24px;
@@ -945,45 +1121,23 @@ figcaption {
   border: 1px solid #3b3b39;
   font: 13px / 1.6 var(--font-mono);
 }
-.claude-terminal-bar {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 20px;
-  border-bottom: 1px solid #333331;
-  color: #aaa8a2;
-  font-size: 11px;
-}
 .claude-session {
-  padding: 20px 24px 12px;
+  padding: 8px 24px;
 }
-.claude-welcome {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 24px;
+[data-prompt-variable] {
+  transition: opacity 280ms ease;
 }
-.claude-mark {
-  font-size: 38px;
-  line-height: 1;
-  color: #de977c;
-}
-.claude-welcome :where(strong),
-.claude-welcome :where(div) > :where(span) {
-  display: block;
-}
-.claude-welcome :where(div) > :where(span) {
-  font-size: 11px;
-  color: #aaa8a2;
-}
-.prompt-scene {
-  transition:
-    opacity 180ms,
-    transform 180ms;
-}
-[data-phase="leaving"] .prompt-scene {
+[data-phase="leaving"] [data-prompt-variable] {
   opacity: 0;
-  transform: translateY(-4px);
+}
+.prompt-common {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.claude-prompt > div,
+.claude-response > div {
+  min-width: 0;
+  flex: 1;
 }
 .claude-prompt,
 .claude-response {
@@ -992,7 +1146,7 @@ figcaption {
   gap: 12px;
 }
 .claude-prompt {
-  border-block: 1px solid #55534f;
+  border-bottom: 1px solid #55534f;
   padding: 16px 0;
 }
 .prompt-words {
@@ -1005,43 +1159,12 @@ figcaption {
 .prompt-measure {
   visibility: hidden;
 }
-.prompt-cursor {
-  display: none;
-  width: 7px;
-  height: 1em;
-  background: #de977c;
-  vertical-align: -2px;
-  margin-left: 2px;
-}
-[data-phase="typing"] .prompt-cursor {
-  display: inline-block;
-}
 .claude-response {
   padding-block: 18px;
   color: #d0cec8;
 }
 .claude-response > :where(span) {
   color: #de977c;
-}
-.claude-publication {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0 10px;
-  padding-left: 24px;
-  min-height: 24px;
-}
-.publication-ready {
-  color: #8ccaa7;
-  font-size: 11px;
-}
-[data-phase="typing"] :is(.claude-response, .claude-publication) {
-  visibility: hidden;
-}
-.claude-hint {
-  margin-top: 12px;
-  color: #aaa8a2;
-  font-size: 10px;
 }
 .has-js .prompt-controls.js-control {
   display: flex;
@@ -1298,9 +1421,6 @@ figcaption {
   background-color: var(--shiki-dark-bg);
 }
 @media (max-width: 1250px) {
-  .brand-meaning {
-    display: none;
-  }
   .docs-shell {
     grid-template-columns: 215px minmax(0, 640px);
     gap: 40px;
@@ -1335,7 +1455,6 @@ figcaption {
   .story-card h3 {
     font-size: 22px;
   }
-  .loop-steps li,
   .home-stories .story-card {
     padding: 20px;
   }
@@ -1446,9 +1565,6 @@ figcaption {
   .claude-session {
     padding: 18px 16px 12px;
   }
-  .claude-publication {
-    min-height: 44px;
-  }
   .prompt-controls button {
     padding-inline: 8px;
     min-height: 44px;
@@ -1456,13 +1572,6 @@ figcaption {
   }
   .workflow-figure {
     margin-top: 36px;
-  }
-  .illustration-caption {
-    font-size: 9px;
-    gap: 10px;
-  }
-  .illustration-caption .status-dot {
-    display: none;
   }
   .workspace-example[data-interactive] {
     height: 680px;
@@ -1472,7 +1581,7 @@ figcaption {
     max-width: 300px;
     margin-inline: auto;
   }
-  .loop-section {
+  .features-section {
     padding-block: 64px;
   }
   .section-heading h2,
@@ -1480,12 +1589,16 @@ figcaption {
   .story-principle h2 {
     font-size: 33px;
   }
-  .loop-steps {
+  .feature-row {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 24px;
+    padding-block: 32px;
   }
-  .loop-steps :where(li) > span {
-    margin-bottom: 16px;
+  .feature-copy h3 {
+    font-size: 26px;
+  }
+  .mock-scene {
+    padding: 20px;
   }
   .section-heading {
     display: block;
@@ -1644,7 +1757,7 @@ figcaption {
   }
   .toast,
   .button,
-  .prompt-scene {
+  [data-prompt-variable] {
     transition: none;
   }
   .prompt-controls .prompt-play {

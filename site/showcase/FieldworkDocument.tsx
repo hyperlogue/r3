@@ -8,6 +8,7 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
   const [name, setName] = useState("Autumn launch");
   const [access, setAccess] = useState("Workspace");
   const [created, setCreated] = useState(false);
+  const [selected, setSelected] = useState(false);
   const revised = props.version.seq > 1;
   useEffect(() => {
     if (props.active === false || !props.jump) return;
@@ -15,13 +16,15 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
     if (found) visibility.current?.scrollIntoView({ block: "nearest" });
     props.onLocated?.(found ? "anchored" : "unplaced");
   }, [props.active, props.jump, props.onLocated]);
-  const target = () =>
+  const target = () => {
+    setSelected(true);
     props.onTarget({
       kind: "rendered",
       versionSeq: props.version.seq,
       path: props.path,
       locator: { selector: "#visibility", label: "Project visibility" },
     });
+  };
   return (
     <div className="fieldwork-document">
       <div className="fieldwork-brand">
@@ -56,7 +59,7 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
           <div
             ref={visibility}
             id="visibility"
-            className={`fieldwork-visibility ${props.jump && props.highlightLocated !== false ? "fieldwork-located" : ""}`}
+            className={`fieldwork-visibility ${(props.jump && props.highlightLocated !== false) || (props.commenting && selected) ? "fieldwork-located" : ""}`}
           >
             <label>
               Visibility

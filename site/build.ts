@@ -5,10 +5,11 @@ import * as pagefind from "pagefind";
 import { ARTIFACT_HELP, artifactGuide } from "../cli/artifact-help.ts";
 import { buildDemo } from "../scripts/build-demo.ts";
 import { KEYMAP } from "../web/src/keys.ts";
-import { cases, docs, landingPages, type Page, pages } from "./catalog.ts";
+import { cases, docs, homeTitle, landingPages, type Page, pages } from "./catalog.ts";
+import { features } from "./features.ts";
 import { docsIndex, home, searchPage, useCases } from "./landing.ts";
 import { shell } from "./layout.ts";
-import { promptExamples } from "./prompt-examples.ts";
+import { commonPrompt, promptExamples } from "./prompt-examples.ts";
 import {
   createRenderer,
   escapeHTML,
@@ -63,7 +64,7 @@ function landingMarkdown(page: Page) {
     return `# Documentation\n\n${page.description}\n\n${docs.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n`;
   if (page.path === "/use-cases/")
     return `# Example Fieldwork\n\n${page.description}\n\n${cases.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n\nThe separate [live demo](/demo/) uses a curve lab and a code review with scripted agent replies.\n`;
-  return `# r3 — Render. Review. Refine.\n\nSee the work. Point to the change. Make it better.\n\n${page.description}\n\nLocal by default. [Connect to your own server](/docs/access/) to keep artifacts on a remote backend while agents run on your machine.\n\n## A clearer review loop\n\n1. Ask your agent to publish an interactive page, document, file collection, or code diff.\n2. Select the element, passage, line, or media region you want to discuss. Send precise feedback.\n3. Follow the agent’s reply to a new publication and its verified fix. You decide when to resolve the thread.\n\n## Start a review\n\nInstall the publishing skill with \`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\`, choose your coding agents, then ask an agent to publish its work to r3. No global r3 installation is required.\n\n## Then ask your agent\n\nThe homepage illustrates these prompts in a Claude Code terminal. Choose a prompt or pause the animation.\n\n${promptExamples.map((example) => `- **${example.label}:** ${example.prompt}`).join("\n")}\n\n[Install the skill](/docs/get-started/#install-the-skill) · [Other installation methods](/docs/get-started/#other-installation-methods) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
+  return `# r3 — ${homeTitle}\n\n${page.description}\n\nLocal by default. [Connect to your own server](/docs/access/) to keep artifacts on a remote backend while agents run on your machine.\n\n## Features\n\n${features.map((feature) => `### ${feature.title}\n\n${feature.description}`).join("\n\n")}\n\nThe homepage pairs these five features with video mockups; recordings are not yet available.\n\n## Start a review\n\nInstall the publishing skill with \`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\`, choose your coding agents, then ask an agent to publish its work to r3. No global r3 installation is required.\n\n## Then ask your agent\n\nThe homepage illustrates these prompts in a terminal. The shared publishing instruction stays in place while examples fade. Choose a prompt or pause the animation.\n\n${promptExamples.map((example) => `- **${example.label}:** ${example.prompt} ${commonPrompt}`).join("\n")}\n\n[Install the skill](/docs/get-started/#install-the-skill) · [Other installation methods](/docs/get-started/#other-installation-methods) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
 }
 
 export async function buildSite() {
@@ -141,10 +142,9 @@ export async function buildSite() {
   await buildDemo({ directory: join(outputDirectory, "demo"), base: `${base}/demo/` });
   const demoPath = `${base}/demo/`;
   const restoreRoute = `<script>try{const p=new URLSearchParams(location.search).get('r3-route');if(p&&p.startsWith(${JSON.stringify(demoPath)})){const u=new URL(p,location.origin);if(u.origin===location.origin)history.replaceState(null,'',u.pathname+u.search+u.hash)}}catch{}</script>`;
-  const demoIndex = (await Bun.file(join(outputDirectory, "demo/index.html")).text()).replace(
-    "<head>",
-    `<head>${restoreRoute}`,
-  );
+  const demoIndex = (await Bun.file(join(outputDirectory, "demo/index.html")).text())
+    .replace("<head>", `<head>${restoreRoute}`)
+    .replace(/<title>.*?<\/title>/, "<title>r3 — Demo</title>");
   await Bun.write(join(outputDirectory, "demo/index.html"), demoIndex);
   await rm(join(outputDirectory, "demo/404.html"));
 
@@ -172,7 +172,7 @@ export async function buildSite() {
   );
   htmlPages.set("404.html", missingHTML);
 
-  const indexText = `# r3\n\n> Render. Review. Refine. A local-first workspace for published artifacts and human/agent conversations.\n\nCurrent documentation. The built-in \`r3 guide\` is the agent workflow source. All example IDs and Example Fieldwork scenarios are illustrative.\n\n## Start here\n\n- [Get started](${origin}/docs/get-started/index.md)\n- [Agent workflow](${origin}/docs/agents/index.md)\n- [Complete documentation text](${origin}/llms-full.txt)\n\n## Pages\n\n${exports.map(({ page }) => `- [${page.title}](${origin}${page.path}index.md): ${page.description}`).join("\n")}\n`;
+  const indexText = `# r3\n\n> ${homeTitle} A local-first workspace for published artifacts and human/agent conversations.\n\nCurrent documentation. The built-in \`r3 guide\` is the agent workflow source. All example IDs and Example Fieldwork scenarios are illustrative.\n\n## Start here\n\n- [Get started](${origin}/docs/get-started/index.md)\n- [Agent workflow](${origin}/docs/agents/index.md)\n- [Complete documentation text](${origin}/llms-full.txt)\n\n## Pages\n\n${exports.map(({ page }) => `- [${page.title}](${origin}${page.path}index.md): ${page.description}`).join("\n")}\n`;
   await Bun.write(join(outputDirectory, "llms.txt"), indexText);
   await Bun.write(
     join(outputDirectory, "llms-full.txt"),

@@ -1,3 +1,7 @@
+export const homeTitle = "Give your agent a place to show its work.";
+export const homeDescription =
+  "Create pages, documents, and tools through a conversation with your coding agent. Point to changes, review each revision, and shape the result together.";
+
 export interface Page {
   path: string;
   title: string;
@@ -233,9 +237,8 @@ export const groups = [...new Set(docs.map((page) => page.group))];
 export const landingPages: Page[] = [
   {
     path: "/",
-    title: "Render. Review. Refine.",
-    description:
-      "Give your agent something better than another chat message. Review interactive pages, documents, code, and media with precise feedback.",
+    title: homeTitle,
+    description: homeDescription,
     group: "Home",
   },
   {

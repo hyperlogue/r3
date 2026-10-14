@@ -49,7 +49,7 @@ Use the same `R3_SITE_BASE` as the preceding build. Packaging uses relative asse
 URLs and explicit document filenames, with no dependency on server directory
 redirects. Search runs without a worker in the opaque preview. The live demo
 opens separately because its own nested previews are unavailable inside an r3
-artifact. The homepage uses an actual workspace capture linking to the same
+artifact. The homepage uses an actual workspace capture and a separate demo button opening the same
 interactive React page within the artifact; its authored React document needs no
 nested preview frame. `R3_SITE_DEMO_URL` defaults to the running local preview's demo URL.
 Set it to the deployed demo URL when sharing beyond the local machine.
@@ -68,22 +68,23 @@ Set it to the deployed demo URL when sharing beyond the local machine.
   copying, keyboard access to search, and Pagefind results.
 
 Text sections share an 880px maximum width; article prose is limited to 65ch.
-Only the homepage workspace figure uses the wider 1240px container. Keep the
-homepage focused on the review loop and concrete use cases; supported formats
-and their details belong in the documentation.
+Only the homepage workspace figure uses the wider 1240px container. The homepage pairs five feature highlights with video mockups in two columns,
+followed by concrete use cases. Format details belong in the documentation.
 
 The homepage centers a copyable publishing-skill command below its opening and
 repeats it at the close. A prominent heading and green outline identify the install
-step; the icon changes to a green check after a successful copy. Keep alternative
-installation links at the close and direct CLI instructions in the getting-started
-guide, so the opening leads straight into example prompts.
+step; the icon changes to a green check after a successful copy. A quiet alternative-installation link sits beneath each command; direct CLI
+instructions stay in the getting-started guide. Command highlights preserve the
+exact plain text used by the copy action.
 Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
-The hero crops the real workspace capture to its discussion panel: feedback,
-agent reply, and linked fix. Keep its CSS crop aligned when refreshing captures.
-The Claude Code terminal is an illustrative animation, with prompts from
-`prompt-examples.ts`. It cycles only while visible, supports pause and manual
+The hero uses a region capture of the real floating composer below a selected
+HTML element, with a draft ready to send. Full workspace captures omit the sample
+banner; the standalone example retains its reset and homepage controls. Captures
+are not links; the workspace figure has a separate demo button.
+The terminal is illustrative, with prompts from `prompt-examples.ts`. Only the
+changing task and response fade; the publishing instruction and sample URL stay still. It cycles only while visible, supports pause and manual
 selection, and stays still with reduced motion or without JavaScript.
 
 Internal authored links start at `/`; the build adds the mount. Headings receive
@@ -121,7 +122,9 @@ or emulate the production preview security boundary.
 When the sample's appearance changes, run
 `bun --no-env-file site/capture-showcase.ts` with `R3_TEST_BROWSER` set, then build
 the site. The capture command builds the same React page independently and records
-light/dark desktop and phone views at 3× pixel density. Phone readers see the real
+light/dark desktop, phone, and floating-composer region views at 3× pixel density.
+The composer scene uses the real comment-mode control, draft input, and drag handle
+to keep the selected element visible above the note. Phone readers see the real
 mobile layout; the desktop capture covers the site's maximum content width.
 
 `assets/fieldwork-captures.json` records the PNG hashes and viewport settings.
@@ -169,6 +172,6 @@ the captions identify the sample data and scripted agent. The full demo retains
 its curve-lab and code-review fixtures. The five Example Fieldwork articles are
 guided reproduction instructions, not five scripted demo scenarios.
 
-Video production remains follow-up work. There are no empty video players or
-claims that those recordings already exist. The capability map is in
+The five feature rows use static, explicitly labeled video mockups with
+decorative player controls. Actual recordings remain follow-up work. The capability map is in
 [COVERAGE.md](COVERAGE.md).

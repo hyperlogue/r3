@@ -52,34 +52,38 @@ function Example() {
   };
   return (
     <>
-      <aside className="example-banner" aria-label="About this example">
-        <span>
-          <strong>Example Fieldwork</strong>
-          <span className="example-explainer">
-            {" "}
-            · Real r3 interface. Fictional data and scripted agent.
+      {!parameters.has("embedded") && (
+        <aside className="example-banner" aria-label="About this example">
+          <span>
+            <strong>Example Fieldwork</strong>
+            <span className="example-explainer">
+              {" "}
+              · Real r3 interface. Fictional data and scripted agent.
+            </span>
           </span>
-        </span>
-        <span className="example-actions">
-          {!parameters.has("embedded") && (
+          <span className="example-actions">
             <a
               href={`../index.html?theme=${parameters.get("theme") === "dark" ? "dark" : "light"}`}
             >
               ← Homepage
             </a>
-          )}
-          <button type="button" onClick={reset}>
-            Reset example
-          </button>
-        </span>
-      </aside>
+            <button type="button" onClick={reset}>
+              Reset example
+            </button>
+          </span>
+        </aside>
+      )}
       {detail ? (
         <ArtifactPage
           key={generation}
           detail={detail}
           data={data}
           actions={artifactApi}
-          initialSearch={`?version=2&thread=${VISIBILITY_THREAD}&comment=comment_fieldwork_fix`}
+          initialSearch={
+            parameters.get("scene") === "comment"
+              ? "?version=1"
+              : `?version=2&thread=${VISIBILITY_THREAD}&comment=comment_fieldwork_fix`
+          }
           renderPreview={(props) => <FieldworkDocument {...props} />}
         />
       ) : (

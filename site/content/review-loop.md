@@ -1,6 +1,6 @@
 An artifact is one piece of work with a conversation around it. A version is a complete, immutable publication of that work. You can keep reviewing the same artifact through several revisions without losing what a comment originally referred to.
 
-## 1. Render the work
+## 1. Publish the work
 
 Ask your agent for the form that makes the idea easiest to inspect. A page can demonstrate behavior; a document can explain a decision; a diff can show exactly which code changes.
 
