@@ -1,6 +1,18 @@
 @import "../../web/src/main.css";
 @source "./";
 
+/* Keep example typography reproducible on capture hosts with minimal fonts. */
+@font-face {
+  font-family: "r3 Example Sans";
+  src: url("../assets/fonts/Roboto.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+}
+:root {
+  --font-sans: "r3 Example Sans", sans-serif;
+}
+
 #root {
   display: flex;
   flex-direction: column;
@@ -177,14 +189,12 @@ body {
   font-family: Georgia, "Times New Roman", serif;
 }
 .component-board {
-  width: min(384px, calc(100% - 48px));
-  margin: 56px auto;
+  width: min(280px, calc(100% - 48px));
+  margin: 56px 0 56px max(24px, calc(50% - 250px));
 }
 .component-category {
   margin-bottom: 16px;
-  font:
-    10px / 1.5 system-ui,
-    sans-serif;
+  font: 10px / 1.5 var(--font-sans);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #926340;
@@ -198,7 +208,7 @@ body {
   box-shadow: 0 8px 24px #77582a0a;
 }
 .component-card h1 {
-  max-width: 190px;
+  max-width: 230px;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 28px;
   font-weight: 400;
@@ -206,11 +216,9 @@ body {
   letter-spacing: -0.03em;
 }
 .component-card p {
-  max-width: 190px;
+  max-width: 230px;
   margin-top: 12px;
-  font:
-    12px / 1.6 system-ui,
-    sans-serif;
+  font: 12px / 1.6 var(--font-sans);
   color: #68746a;
 }
 .component-action {
@@ -223,9 +231,7 @@ body {
   border-radius: 24px;
   background: #174e48;
   color: #fffaf0;
-  font:
-    12px / 1.5 system-ui,
-    sans-serif;
+  font: 12px / 1.5 var(--font-sans);
   cursor: pointer;
 }
 .component-action:hover {
@@ -250,8 +256,6 @@ body {
   border-radius: 50%;
   background: var(--color-primary-500);
   color: white;
-  font:
-    600 11px / 1 system-ui,
-    sans-serif;
+  font: 600 11px / 1 var(--font-sans);
   cursor: pointer;
 }

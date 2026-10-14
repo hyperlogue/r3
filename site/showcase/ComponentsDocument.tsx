@@ -25,7 +25,7 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
             type="button"
             id="component-action"
             style={{ marginTop: props.version.seq > 1 ? 16 : 8 }}
-            className={`component-action ${(props.commenting && selected) || (props.jump && props.highlightLocated !== false) ? "component-selected" : ""}`}
+            className={`component-action ${selected || (props.jump && props.highlightLocated !== false) ? "component-selected" : ""}`}
             onClick={() => {
               if (!props.commenting) {
                 setOpened(true);
@@ -58,7 +58,10 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
                   type="button"
                   className="component-pin"
                   aria-label="Open button spacing thread"
-                  onClick={() => props.onThread(threadId)}
+                  onClick={() => {
+                    setSelected(true);
+                    props.onThread(threadId);
+                  }}
                 >
                   1
                 </button>

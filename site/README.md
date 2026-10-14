@@ -80,12 +80,14 @@ Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
 The hero shows a cream-and-teal component showcase with large headings
-and rounded controls, distinct from r3. A real floating thread contains the human’s
+and rounded controls, distinct from r3. Its highlighted button and numbered pin
+remain visible beside the thread. A real floating thread contains the human’s
 request to increase a button margin, the agent’s reply, and a pending draft asking
 to restore the previous margin. It has no caption.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has a separate demo button.
-The terminal is illustrative, with prompts from `prompt-examples.ts`. Only the
+The terminal is illustrative, with prompts from `prompt-examples.ts`. The user
+message has a lighter background, matching the supplied Claude Code reference. Only the
 changing task and response fade; the publishing instruction and sample URL stay still. It cycles only while visible, supports pause and manual
 selection, and stays still with reduced motion or without JavaScript.
 
@@ -136,8 +138,11 @@ A normal build needs no browser and checks image integrity and dimensions.
 Screenshot freshness is maintained by visual review; changes to bundled code or
 dependencies do not require a refresh. Commit regenerated captures and the
 manifest together. They serve no-JavaScript readers and packaged HTML previews;
-the normal website embeds the same interactive page. System fonts use the
-product's own stack, so their precise appearance still follows the platform.
+the normal website embeds the same interactive page. The example host bundles
+Roboto 3.015 and waits for it before capture. This avoids
+DejaVu fallback metrics on minimal Linux hosts, which placed button text too high.
+The host changes only the example’s font family; product button layout stays shared.
+Font provenance and license are in `assets/fonts/`.
 
 ## Dependencies
 

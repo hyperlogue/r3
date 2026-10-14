@@ -41,6 +41,12 @@ try {
     );
     await page.evaluate("document.fonts.ready");
     assert(
+      await page.evaluate(
+        "[...document.fonts].some(font => font.family === 'r3 Example Sans' && font.status === 'loaded')",
+      ),
+      "examples load the bundled font instead of a host fallback",
+    );
+    assert(
       !(await page.evaluate("document.body.innerText.includes('Go to the latest version')")),
       "the initial scene already shows the latest publication",
     );
@@ -127,6 +133,17 @@ try {
     "existing component thread popover",
   );
   const popover = "[data-artifact-thread-popover]";
+  assert(
+    await page.evaluate(`(() => {
+    const button = document.querySelector('.component-action');
+    const pin = document.querySelector('.component-pin');
+    const thread = document.querySelector('${popover}');
+    return button.classList.contains('component-selected') &&
+      button.getBoundingClientRect().right < thread.getBoundingClientRect().left &&
+      pin.getBoundingClientRect().right < thread.getBoundingClientRect().left;
+  })()`),
+    "the pinned element is highlighted and unobscured",
+  );
   assert.equal(
     await page.evaluate(
       `document.querySelector('${popover}').querySelectorAll('[data-artifact-comment]').length`,

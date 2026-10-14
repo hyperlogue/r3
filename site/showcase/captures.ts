@@ -9,7 +9,7 @@ export const captureSpecs = [
   {
     file: "fieldwork-comment-light.png",
     theme: "light",
-    width: 710,
+    width: 770,
     height: 490,
     scale: 3,
     scene: "components",
@@ -17,7 +17,7 @@ export const captureSpecs = [
   {
     file: "fieldwork-comment-dark.png",
     theme: "dark",
-    width: 710,
+    width: 770,
     height: 490,
     scale: 3,
     scene: "components",

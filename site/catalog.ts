@@ -1,4 +1,5 @@
-export const homeTitle = "Give your agent a place to show its work.";
+export const homeTitle =
+  "Give your agent a place to show its work and receive precise feedback from you.";
 export const homeDescription =
   "Create pages, documents, and tools through a conversation with your coding agent. Point to changes, review each revision, and shape the result together.";
 

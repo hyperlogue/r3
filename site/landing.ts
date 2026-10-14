@@ -87,7 +87,7 @@ function skillInstall(id: string) {
 function reviewDetail() {
   return `<figure class="hero-review" id="review-detail">
 <div class="hero-review-crop">
-${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="710" height="490" alt="A cream-and-teal card behind an r3 thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="770" height="490" alt="A highlighted button with a numbered pin beside its r3 thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}
 </div>
 </figure>`;
 }

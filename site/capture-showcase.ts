@@ -43,6 +43,14 @@ try {
           "real workspace and latest revision",
         );
         await page.evaluate("document.fonts.ready");
+        if (
+          !(await page.evaluate(
+            "[...document.fonts].some(font => font.family === 'r3 Example Sans' && font.status === 'loaded')",
+          ))
+        )
+          throw new Error(
+            "The bundled example font did not load; refusing a fallback-font capture",
+          );
         if (comment) {
           await page.evaluate(`document.querySelector('[aria-label="Hide discussion"]').click()`);
           await eventually(
@@ -53,6 +61,18 @@ try {
           await eventually(
             () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
             "existing thread popover",
+          );
+          await eventually(
+            () =>
+              page.evaluate(`(() => {
+            const action = document.querySelector('.component-action');
+            const pin = document.querySelector('.component-pin');
+            const thread = document.querySelector('[data-artifact-thread-popover]');
+            return action.classList.contains('component-selected') &&
+              action.getBoundingClientRect().right < thread.getBoundingClientRect().left &&
+              pin.getBoundingClientRect().right < thread.getBoundingClientRect().left;
+          })()`),
+            "selected button and pin remain visible beside the thread",
           );
           await page.evaluate(
             "document.querySelector('[data-artifact-thread-popover] [data-thread-action=comment]').click()",
@@ -91,7 +111,7 @@ try {
         const { data } = await page.command("Page.captureScreenshot", {
           format: "png",
           ...(comment
-            ? { clip: { x: 290, y: 40, width: spec.width, height: spec.height, scale: 1 } }
+            ? { clip: { x: 230, y: 40, width: spec.width, height: spec.height, scale: 1 } }
             : {}),
         });
         const bytes = Buffer.from(data, "base64");
