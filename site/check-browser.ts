@@ -60,32 +60,6 @@ try {
   await viewport(1440);
   await open("/", "Your agent creates. You shape the result.");
   await noOverflow();
-  const hero = await page.evaluate(
-    "document.querySelector('#review-detail').getBoundingClientRect().toJSON()",
-  );
-  const rest = await page.evaluate(
-    "getComputedStyle(document.querySelector('[data-preview-tilt]')).transform",
-  );
-  await page.command("Input.dispatchMouseEvent", {
-    type: "mouseMoved",
-    x: hero.x + hero.width * 0.8,
-    y: hero.y + hero.height * 0.2,
-  });
-  await eventually(
-    () => page.evaluate("document.querySelector('[data-preview-tilt]').dataset.hovered === 'true'"),
-    "hero responds to pointer movement",
-  );
-  assert.notEqual(
-    await page.evaluate(
-      "getComputedStyle(document.querySelector('[data-preview-tilt]')).transform",
-    ),
-    rest,
-  );
-  await page.command("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5 });
-  await eventually(
-    () => page.evaluate("!document.querySelector('[data-preview-tilt]').dataset.hovered"),
-    "hero resets after pointer leave",
-  );
   await screenshot("home-desktop.png");
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
@@ -203,13 +177,6 @@ try {
     await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
     promptExamples[2].prompt,
     "reduced motion retains manual selection",
-  );
-  assert.equal(
-    await page.evaluate(
-      "getComputedStyle(document.querySelector('[data-preview-tilt]')).transform",
-    ),
-    "none",
-    "reduced motion disables the perspective effect",
   );
   assert.equal(
     await page.evaluate(

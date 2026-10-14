@@ -86,8 +86,10 @@ The hero shows a cream-and-teal component showcase with large headings
 and rounded controls, distinct from r3. Its highlighted button and numbered pin
 remain visible beside the thread. A real floating thread contains the human’s
 request to increase a button margin, the agent’s reply, and a pending draft asking
-to restore the previous margin. It has no caption. A browser outline frames the image, with gentle perspective
-and pointer-driven tilt; touch and reduced-motion users get a stationary view.
+to restore the previous margin. It has no caption. A stationary Chrome-style
+frame surrounds the image, with an active tab, window controls, navigation
+icons, and a rounded address bar. The same frame is shared by the full
+workspace preview.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has only a separate demo button beneath its
 browser frame. The screenshot, browser label, and demo destination follow the

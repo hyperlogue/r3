@@ -24,7 +24,21 @@ ${storyIllustration(story.slug)}
 }
 
 function browserBar(label: string) {
-  return `<div class="browser-bar" aria-hidden="true"><span class="browser-dots"><i></i><i></i><i></i></span><span class="browser-address">localhost:8891 / ${label}</span><span class="browser-menu">···</span></div>`;
+  const icon = (path: string, className = "") =>
+    `<svg class="${className}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  return `<div class="browser-chrome" aria-hidden="true">
+<div class="browser-tabs">
+<span class="browser-window-controls"><i></i><i></i><i></i></span>
+<div class="browser-tab"><img src="/assets/favicon.svg" width="15" height="15" alt=""><span>${label} · r3</span>${icon('<path d="m8 8 8 8m0-8-8 8"/>', "browser-tab-close")}</div>
+${icon('<path d="M12 5v14M5 12h14"/>', "browser-new-tab")}
+<span class="browser-tab-search">${icon('<path d="m8 10 4 4 4-4"/>')}</span>
+</div>
+<div class="browser-toolbar">
+<span class="browser-navigation">${icon('<path d="m12 5-7 7 7 7M5 12h14"/>')}${icon('<path d="m12 5 7 7-7 7M5 12h14"/>', "browser-forward")}${icon('<path d="M20 7v5h-5M19 8a8 8 0 1 0 1 7"/>')}</span>
+<div class="browser-address">${icon('<path d="M4 7h8m6 0h2M4 17h2m6 0h8"/><circle cx="15" cy="7" r="3"/><circle cx="9" cy="17" r="3"/>', "browser-site-controls")}<span>localhost:8891<span class="browser-url-path">/artifact_example</span></span>${icon('<path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4L12 17.5l-5.7 3.1 1.1-6.4-4.6-4.5 6.4-.9Z"/>', "browser-bookmark")}</div>
+${icon('<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>', "browser-menu")}
+</div>
+</div>`;
 }
 
 export function workflowExample() {
@@ -103,7 +117,7 @@ function skillInstall(id: string) {
 
 function reviewDetail() {
   return `<figure class="hero-review" id="review-detail">
-<div class="browser-frame hero-browser" data-preview-tilt>
+<div class="browser-frame hero-browser">
 ${browserBar("UI component showcase")}
 <div class="hero-review-crop">
 ${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="770" height="490" alt="A highlighted button with a numbered pin beside its r3 thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}

@@ -1,4 +1,3 @@
-import { startPreviewTilt } from "./preview-tilt.ts";
 import { startPromptDemo } from "./prompt-demo.ts";
 import { promptExamples } from "./prompt-examples.ts";
 
@@ -44,8 +43,6 @@ function selectWorkspace(index: number) {
       `example/index.html?scene=${example.scene}&theme=${document.documentElement.dataset.theme || "light"}`,
     );
 }
-for (const preview of document.querySelectorAll<HTMLElement>("[data-preview-tilt]"))
-  startPreviewTilt(preview);
 
 function notify(message: string) {
   const toast = document.querySelector<HTMLElement>(".toast");
