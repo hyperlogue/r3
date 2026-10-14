@@ -7,24 +7,27 @@ import { artifactDrafts } from "../../web/src/artifact-drafts.ts";
 import { ArtifactPage } from "../../web/src/artifact-page.tsx";
 import { setDiscussionMode } from "../../web/src/settings.ts";
 import "../../web/src/showcase/forms.ts";
+import { ComponentsDocument } from "./ComponentsDocument.tsx";
 import { FieldworkDocument } from "./FieldworkDocument.tsx";
-import { FIELDWORK_ID, fieldworkSeed, VISIBILITY_THREAD } from "./fixture.ts";
+import { componentsSeed, fieldworkSeed, VISIBILITY_THREAD } from "./fixture.ts";
 
 // A normal ArtifactPage host: fixture data, fake handlers, one renderer. There
 // are no bundler aliases, API routes, authentication, or server bootstrap here.
-const seed = fieldworkSeed(demo.state);
 const parameters = new URLSearchParams(location.search);
+const componentScene = parameters.get("scene") === "components";
+const seed = componentScene ? componentsSeed(demo.state) : fieldworkSeed(demo.state);
+const artifactId = seed.artifacts[0]!.id;
 function clearDrafts() {
-  artifactDrafts.clear(FIELDWORK_ID);
-  artifactDrafts.pruneComments(FIELDWORK_ID, new Set());
+  artifactDrafts.clear(artifactId);
+  artifactDrafts.pruneComments(artifactId, new Set());
 }
 clearDrafts();
 demo.reset(seed);
 setDiscussionMode("expanded");
-let snapshot: ArtifactDetail | null = structuredClone(demo.get(FIELDWORK_ID));
+let snapshot: ArtifactDetail | null = structuredClone(demo.get(artifactId));
 const listeners = new Set<() => void>();
 function refresh() {
-  const value = demo.state.artifacts.find((item) => item.id === FIELDWORK_ID);
+  const value = demo.state.artifacts.find((item) => item.id === artifactId);
   snapshot = value ? structuredClone(value) : null;
   for (const listener of listeners) listener();
 }
@@ -55,7 +58,7 @@ function Example() {
       {!parameters.has("embedded") && (
         <aside className="example-banner" aria-label="About this example">
           <span>
-            <strong>Example Fieldwork</strong>
+            <strong>{componentScene ? "UI component showcase" : "Example Fieldwork"}</strong>
             <span className="example-explainer">
               {" "}
               · Real r3 interface. Fictional data and scripted agent.
@@ -80,11 +83,13 @@ function Example() {
           data={data}
           actions={artifactApi}
           initialSearch={
-            parameters.get("scene") === "comment"
+            componentScene
               ? "?version=1"
               : `?version=2&thread=${VISIBILITY_THREAD}&comment=comment_fieldwork_fix`
           }
-          renderPreview={(props) => <FieldworkDocument {...props} />}
+          renderPreview={(props) =>
+            componentScene ? <ComponentsDocument {...props} /> : <FieldworkDocument {...props} />
+          }
         />
       ) : (
         <main className="example-deleted">

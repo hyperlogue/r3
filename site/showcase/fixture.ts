@@ -2,6 +2,7 @@ import type { ArtifactDetail, ArtifactVersion } from "../../shared/artifacts.ts"
 import type { ArtifactDemoSeed, DemoPublication } from "../../web/demo/artifact-model.ts";
 import { artifactFixture, artifactFixtureThread } from "../../web/src/artifact-fixtures.ts";
 
+export const COMPONENTS_ID = "artifact_example_components";
 export const FIELDWORK_ID = "artifact_example_fieldwork";
 export const VISIBILITY_THREAD = "thread_fieldwork_visibility";
 const actor = { role: "agent" as const, sessionId: "demo-agent" };
@@ -76,7 +77,18 @@ export function fieldworkSeed(
       },
     ],
   };
-  const publications = Object.fromEntries(
+  return {
+    artifacts: [detail],
+    projects: [],
+    publications: htmlPublications(versions),
+    pending: {},
+    themes: palette.themes,
+    themeStyles: palette.themeStyles,
+  };
+}
+
+function htmlPublications(versions: ArtifactVersion[]) {
+  return Object.fromEntries(
     versions.map((version) => {
       const file = {
         path: "index.html",
@@ -89,20 +101,65 @@ export function fieldworkSeed(
       const publication: DemoPublication = {
         version,
         files: [file],
-        sources: {},
+        // React supplies the document; the demo still needs source membership
+        // to validate native rendered targets when a new comment is saved.
+        sources: {
+          "index.html": {
+            ...file,
+            artifactId: version.artifactId,
+            versionSeq: version.seq,
+            kind: "text",
+            language: "html",
+            lines: [],
+          },
+        },
         resources: {},
         diff: [],
         fullDiff: [],
         storageBlobs: { [version.contentHash]: file.byteLength },
         patchBytes: 0,
       };
-      return [`${FIELDWORK_ID}/${version.seq}`, publication];
+      return [`${version.artifactId}/${version.seq}`, publication];
     }),
   );
+}
+
+export function componentsSeed(
+  palette: Pick<ArtifactDemoSeed, "themes" | "themeStyles">,
+): ArtifactDemoSeed {
+  const version: ArtifactVersion = {
+    artifactId: COMPONENTS_ID,
+    seq: 1,
+    publicationKey: "components-1",
+    contentHash: "components-content-1",
+    label: "UI components",
+    summary: "A card component ready for a spacing review.",
+    publishedBy: actor,
+    provenance: {},
+    createdAt: time,
+    publishedAt: time,
+    kind: "html",
+    entrypoint: "index.html",
+    fileCount: 1,
+  };
   return {
-    artifacts: [detail],
+    artifacts: [
+      {
+        ...structuredClone(artifactFixture),
+        id: COMPONENTS_ID,
+        title: "UI component showcase",
+        kind: "html",
+        createdBy: actor,
+        nextSeq: 2,
+        storage: { totalBytes: 1024, latestVersionBytes: 1024 },
+        watching: true,
+        agentLabels: { "demo-agent": "Example agent" },
+        versions: [version],
+        threads: [],
+      },
+    ],
     projects: [],
-    publications,
+    publications: htmlPublications([version]),
     pending: {},
     themes: palette.themes,
     themeStyles: palette.themeStyles,

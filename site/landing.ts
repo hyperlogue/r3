@@ -87,9 +87,8 @@ function skillInstall(id: string) {
 function reviewDetail() {
   return `<figure class="hero-review" id="review-detail">
 <div class="hero-review-crop">
-${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="520" height="410" alt="A selected Visibility field in an HTML artifact, with r3’s floating composer ready to add the comment: Explain who can see this project before I create it.">`).join("")}
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="520" height="440" alt="A card in a UI component showcase, with its button selected and r3’s floating composer ready to add the comment: Increase the margin above this button to 16px.">`).join("")}
 </div>
-<figcaption>Point to a detail. Tell your agent what to change.</figcaption>
 </figure>`;
 }
 

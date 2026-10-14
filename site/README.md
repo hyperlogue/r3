@@ -79,9 +79,9 @@ exact plain text used by the copy action.
 Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
-The hero uses a region capture of the real floating composer below a selected
-HTML element, with a draft ready to send. Full workspace captures omit the sample
-banner; the standalone example retains its reset and homepage controls. Captures
+The hero uses a UI component showcase: a card’s button is selected, and the real
+floating composer asks to increase its top margin to 16px. It has no caption.
+Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has a separate demo button.
 The terminal is illustrative, with prompts from `prompt-examples.ts`. Only the
 changing task and response fade; the publishing instruction and sample URL stay still. It cycles only while visible, supports pause and manual
@@ -109,8 +109,9 @@ site build.
 `showcase/index.tsx` mounts `ArtifactPage` from `web/src/artifact-page.tsx`, exactly
 as the connected r3 app does. It supplies a detail snapshot, reads, mutation
 handlers from the existing in-memory demo backend, and the authored
-`FieldworkDocument` renderer. No API aliases, authentication, or server bootstrap
-are involved. The build rejects runtime imports of connected application modules.
+`FieldworkDocument` renderer. The hero capture selects a separate component
+fixture and `ComponentsDocument` renderer through `?scene=components`. No API
+aliases, authentication, or server bootstrap are involved. The build rejects runtime imports of connected application modules.
 
 `showcase/fixture.ts` owns the fictional versions and conversation. Comments,
 resolution, version selection, comparison, and scripted agent replies use real
@@ -123,9 +124,9 @@ When the sample's appearance changes, run
 `bun --no-env-file site/capture-showcase.ts` with `R3_TEST_BROWSER` set, then build
 the site. The capture command builds the same React page independently and records
 light/dark desktop, phone, and floating-composer region views at 3× pixel density.
-The composer scene uses the real comment-mode control, draft input, and drag handle
-to keep the selected element visible above the note. Phone readers see the real
-mobile layout; the desktop capture covers the site's maximum content width.
+The composer scene uses the real comment-mode control and draft input. The
+renderer supplies the card’s position so the composer opens just beneath it.
+Phone readers see the real mobile layout; the desktop capture covers the site's maximum content width.
 
 `assets/fieldwork-captures.json` records the PNG hashes and viewport settings.
 A normal build needs no browser and checks image integrity and dimensions.

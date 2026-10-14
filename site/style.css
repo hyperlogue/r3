@@ -436,10 +436,6 @@ figcaption {
   max-width: var(--prose-width);
   margin-inline: auto;
 }
-.hero-review figcaption {
-  font-size: 11px;
-  padding-top: 12px;
-}
 .features-section {
   padding-block: 104px;
 }

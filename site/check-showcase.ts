@@ -113,6 +113,42 @@ try {
     "scripted agent response",
   );
 
+  // The hero uses the same workspace with a separate component-review fixture.
+  await page.command("Page.navigate", {
+    url: `${server.url.origin}${base}/example/index.html?theme=light&embedded=1&scene=components`,
+  });
+  await waitFor("!!document.querySelector('#component-action')", "component showcase");
+  await click("#component-action");
+  await waitFor("document.body.innerText.includes('You’re all caught up.')", "component action");
+  await click('[aria-label="Hide discussion"]');
+  await click('[aria-label="Comment mode"]');
+  await click("#component-action");
+  await waitFor(
+    "!!document.querySelector('[data-floating-composer] textarea')",
+    "component floating composer",
+  );
+  await page.evaluate("document.querySelector('[data-floating-composer] textarea').focus()");
+  await page.command("Input.insertText", {
+    text: "Increase the margin above this button to 16px.",
+  });
+  await waitFor(
+    "!document.querySelector('[data-floating-composer] button[type=submit]').disabled",
+    "component draft ready",
+  );
+  await click("[data-floating-composer] button[type=submit]");
+  await waitFor("!document.querySelector('[data-floating-composer]')", "component comment saved");
+  await click('[aria-label="Exit comment mode"]');
+  await click('[aria-label="Show discussion"]');
+  await waitFor(
+    "document.querySelector('[data-artifact-thread]')?.textContent.includes('Increase the margin above this button to 16px.')",
+    "component comment in discussion",
+  );
+  await page.evaluate("document.querySelector('[data-artifact-thread] button[title]').click()");
+  await waitFor(
+    "document.querySelector('#component-action').classList.contains('component-selected')",
+    "locate saved component target",
+  );
+
   await viewport(390, 844);
   await open();
   assert(

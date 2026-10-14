@@ -10,17 +10,17 @@ export const captureSpecs = [
     file: "fieldwork-comment-light.png",
     theme: "light",
     width: 520,
-    height: 410,
+    height: 440,
     scale: 3,
-    scene: "comment",
+    scene: "components",
   },
   {
     file: "fieldwork-comment-dark.png",
     theme: "dark",
     width: 520,
-    height: 410,
+    height: 440,
     scale: 3,
-    scene: "comment",
+    scene: "components",
   },
 ] as const;
 
