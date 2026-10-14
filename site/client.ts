@@ -1,4 +1,6 @@
+import { startPreviewTilt } from "./preview-tilt.ts";
 import { startPromptDemo } from "./prompt-demo.ts";
+import { promptExamples } from "./prompt-examples.ts";
 
 const root = new URL("../", import.meta.url);
 const artifact = document.body.dataset.artifact === "true";
@@ -28,35 +30,22 @@ function retainArtifactTheme() {
 }
 retainArtifactTheme();
 
-// Each workspace gets its own document for the app's CSS and keyboard bindings.
-// An r3 artifact cannot nest preview frames; its captured product image links to
-// the same React page as a native document instead.
-const example = document.querySelector<HTMLElement>("[data-workspace-example]");
-let workspace: HTMLIFrameElement | undefined;
-function syncWorkspaceTheme() {
-  workspace?.contentWindow?.postMessage(
-    {
-      type: "r3-site-theme",
-      theme: document.documentElement.dataset.theme,
-    },
-    location.origin,
-  );
+// Captures and the demo link follow the same prompt selection in both the
+// public site and opaque artifact previews. The interactive app opens separately.
+function selectWorkspace(index: number) {
+  const example = promptExamples[index]!;
+  for (const frame of document.querySelectorAll<HTMLElement>("[data-workspace-scene]"))
+    frame.hidden = frame.dataset.workspaceScene !== example.scene;
+  const label = document.querySelector("[data-workspace-label]");
+  if (label) label.textContent = example.label;
+  const link = document.querySelector<HTMLAnchorElement>(".workspace-demo");
+  if (link)
+    link.href = siteURL(
+      `example/index.html?scene=${example.scene}&theme=${document.documentElement.dataset.theme || "light"}`,
+    );
 }
-if (example && !artifact) {
-  workspace = document.createElement("iframe");
-  workspace.title = "Example Fieldwork — interactive r3 workspace";
-  const url = new URL("example/index.html", root);
-  url.searchParams.set("theme", document.documentElement.dataset.theme || "light");
-  url.searchParams.set("embedded", "1");
-  workspace.src = url.href;
-  workspace.loading = "lazy";
-  example.dataset.interactive = "true";
-  workspace.addEventListener("load", () => {
-    example.dataset.loaded = "true";
-    syncWorkspaceTheme();
-  });
-  example.append(workspace);
-}
+for (const preview of document.querySelectorAll<HTMLElement>("[data-preview-tilt]"))
+  startPreviewTilt(preview);
 
 function notify(message: string) {
   const toast = document.querySelector<HTMLElement>(".toast");
@@ -95,8 +84,13 @@ async function copyText(text: string) {
 document.querySelector(".theme-toggle")?.addEventListener("click", () => {
   const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
-  syncWorkspaceTheme();
   retainArtifactTheme();
+  const demoLink = document.querySelector<HTMLAnchorElement>(".workspace-demo");
+  if (demoLink) {
+    const url = new URL(demoLink.href);
+    url.searchParams.set("theme", theme);
+    demoLink.href = url.href;
+  }
   try {
     localStorage.setItem("r3-site-theme", theme);
   } catch {
@@ -147,7 +141,7 @@ for (const pre of document.querySelectorAll("pre")) {
 }
 
 for (const demo of document.querySelectorAll<HTMLElement>("[data-prompt-demo]"))
-  startPromptDemo(demo);
+  startPromptDemo(demo, selectWorkspace);
 
 document
   .querySelector<HTMLButtonElement>("[data-markdown]")

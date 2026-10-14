@@ -1,6 +1,7 @@
 import type { ArtifactDetail, ArtifactVersion } from "../../shared/artifacts.ts";
 import type { ArtifactDemoSeed, DemoPublication } from "../../web/demo/artifact-model.ts";
 import { artifactFixture, artifactFixtureThread } from "../../web/src/artifact-fixtures.ts";
+import type { PromptScene } from "../prompt-examples.ts";
 
 export const COMPONENT_THREAD = "thread_components_margin";
 export const COMPONENTS_ID = "artifact_example_components";
@@ -13,17 +14,57 @@ const time = "2026-09-11T12:00:00.000Z";
 // Nothing in this fixture is loaded from a user's workspace.
 export function fieldworkSeed(
   palette: Pick<ArtifactDemoSeed, "themes" | "themeStyles">,
+  scene: PromptScene = "prototype",
 ): ArtifactDemoSeed {
+  const scenario = {
+    prototype: {
+      title: "Example Fieldwork · Project creation",
+      selector: "#visibility",
+      target: "Project visibility",
+      labels: ["Project creation", "Explain project visibility"],
+      summaries: [
+        "A project creation form for Example Fieldwork. Review the visibility setting.",
+        "Added an explanation of who can access a workspace project, before creation.",
+      ],
+      question: "Who can see a workspace project? Explain this before I create it.",
+      reply: "Added an explanation beneath the visibility setting. Your choice stays editable.",
+    },
+    explainer: {
+      title: "Example Fieldwork · Search ranking",
+      selector: "#ranking-signals",
+      target: "Ranking signals",
+      labels: ["Search ranking lab", "Explain the ranking signals"],
+      summaries: [
+        "An interactive explanation of search ranking.",
+        "Added a plain-language explanation beside the adjustable relevance and freshness weights.",
+      ],
+      question: "What does freshness change? Let me compare it with relevance.",
+      reply:
+        "Added both sliders and explained the weighted score. Try moving freshness to see the results reorder.",
+    },
+    brief: {
+      title: "Example Fieldwork · Onboarding brief",
+      selector: "#onboarding-tradeoffs",
+      target: "Onboarding tradeoffs",
+      labels: ["Onboarding options", "Compare the tradeoffs"],
+      summaries: [
+        "Three possible onboarding flows for Fieldwork.",
+        "Compared setup effort, first value, and risks, with a recommendation for a small team.",
+      ],
+      question: "Show the tradeoffs side by side. Which flow suits a small team?",
+      reply:
+        "Compared three flows and recommended a starter project for small teams. The main risk is making sample content feel like real work.",
+    },
+  }[scene];
+  const id = scene === "prototype" ? FIELDWORK_ID : `artifact_example_${scene}`;
+  const thread = scene === "prototype" ? VISIBILITY_THREAD : `thread_${scene}_feedback`;
   const versions: ArtifactVersion[] = [1, 2].map((seq) => ({
-    artifactId: FIELDWORK_ID,
+    artifactId: id,
     seq,
-    publicationKey: `fieldwork-${seq}`,
-    contentHash: `fieldwork-content-${seq}`,
-    label: seq === 1 ? "Project creation" : "Explain project visibility",
-    summary:
-      seq === 1
-        ? "A project creation form for Example Fieldwork. Review the visibility setting."
-        : "Added an explanation of who can access a workspace project, before creation.",
+    publicationKey: `${scene}-${seq}`,
+    contentHash: `${scene}-content-${seq}`,
+    label: scenario.labels[seq - 1]!,
+    summary: scenario.summaries[seq - 1]!,
     publishedBy: actor,
     provenance: {},
     createdAt: time,
@@ -36,12 +77,12 @@ export function fieldworkSeed(
     kind: "rendered" as const,
     versionSeq,
     path: "index.html",
-    locator: { selector: "#visibility", label: "Project visibility" },
+    locator: { selector: scenario.selector, label: scenario.target },
   });
   const detail: ArtifactDetail = {
     ...structuredClone(artifactFixture),
-    id: FIELDWORK_ID,
-    title: "Example Fieldwork · Project creation",
+    id,
+    title: scenario.title,
     kind: "html",
     createdBy: actor,
     nextSeq: 3,
@@ -52,25 +93,25 @@ export function fieldworkSeed(
     threads: [
       {
         ...structuredClone(artifactFixtureThread),
-        id: VISIBILITY_THREAD,
-        artifactId: FIELDWORK_ID,
+        id: thread,
+        artifactId: id,
         target: target(1),
         comments: [
           {
             ...artifactFixtureThread.comments[0]!,
             id: "comment_fieldwork_question",
-            threadId: VISIBILITY_THREAD,
-            artifactId: FIELDWORK_ID,
-            body: "Who can see a workspace project? Explain this before I create it.",
+            threadId: thread,
+            artifactId: id,
+            body: scenario.question,
             context: { versionSeq: 1, representation: "rendered" },
           },
           {
             ...artifactFixtureThread.comments[1]!,
             id: "comment_fieldwork_fix",
-            threadId: VISIBILITY_THREAD,
-            artifactId: FIELDWORK_ID,
+            threadId: thread,
+            artifactId: id,
             author: actor,
-            body: "Added an explanation beneath the visibility setting. Your choice stays editable.",
+            body: scenario.reply,
             context: { versionSeq: 2, representation: "rendered" },
             target: target(2),
           },

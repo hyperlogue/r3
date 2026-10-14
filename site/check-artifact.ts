@@ -78,7 +78,7 @@ try {
       return null;
     }, heading);
   }
-  let doc = await content("Give your agent a place to show its work.");
+  let doc = await content("Your agent creates. You shape the result.");
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
     permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
@@ -133,6 +133,26 @@ try {
       `Workspace screenshot has ${image.pixels}px; needs at least ${required}px for a 3× display`,
     );
     assert.equal(image.mobile, mobile, "use the actual phone layout on narrow screens");
+  }
+  for (const [index, scene] of [
+    [0, "prototype"],
+    [1, "explainer"],
+    [2, "brief"],
+  ] as const) {
+    await doc.evaluate(`document.querySelector('[data-prompt-choice="${index}"]').click()`);
+    assert.equal(
+      await doc.evaluate(
+        "document.querySelector('[data-workspace-scene]:not([hidden])').dataset.workspaceScene",
+      ),
+      scene,
+    );
+    assert.equal(
+      await doc.evaluate(
+        "new URL(document.querySelector('.workspace-demo').href).searchParams.get('scene')",
+      ),
+      scene,
+    );
+    await sharpCapture();
   }
   await sharpCapture();
   assert.equal(
@@ -207,7 +227,7 @@ try {
   doc = await content(heading);
   assert.equal(await doc.evaluate("document.documentElement.dataset.theme"), "dark");
   await doc.evaluate(`location.href=${JSON.stringify(`${prefix}index.html?theme=dark`)}`);
-  doc = await content("Give your agent a place to show its work.");
+  doc = await content("Your agent creates. You shape the result.");
   assert.equal(
     await doc.evaluate('document.querySelectorAll(".workspace-example iframe").length'),
     0,
@@ -246,7 +266,7 @@ try {
     "opaque local mutation",
   );
   await doc.evaluate('document.querySelector(".example-actions a").click()');
-  doc = await content("Give your agent a place to show its work.");
+  doc = await content("Your agent creates. You shape the result.");
   assert(requests.every((p) => p.startsWith(prefix)));
   assert.deepEqual(exceptions, []);
   console.log(

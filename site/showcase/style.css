@@ -259,3 +259,177 @@ body {
   font: 600 11px / 1 var(--font-sans);
   cursor: pointer;
 }
+
+/* Uppercase badges need breathing room around Roboto's cap height. */
+[aria-label="Latest version"] {
+  line-height: 1.45;
+}
+.prompt-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #f8f5ee;
+  color: #243b3c;
+  font-size: 13px;
+}
+.prompt-document-brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 21px 26px;
+  border-bottom: 1px solid #dcdace;
+  font-size: 11px;
+}
+.prompt-document-brand strong {
+  font-size: 17px;
+}
+.prompt-document-body {
+  max-width: 680px;
+  margin: auto;
+  padding: 34px 32px;
+}
+.prompt-document-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #687976;
+}
+.prompt-document h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 10px 0;
+}
+.prompt-document-intro {
+  color: #687976;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+.prompt-document-target {
+  position: relative;
+}
+.ranking-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 22px;
+  background: #fffdf7;
+  border: 1px solid #dcdace;
+  border-radius: 8px;
+}
+.ranking-controls label {
+  font-weight: 600;
+}
+.ranking-controls output {
+  float: right;
+  font-weight: 400;
+  color: #657672;
+}
+.ranking-controls input {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  accent-color: #266c64;
+  cursor: pointer;
+}
+.prompt-document-note {
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 16px 0;
+  color: #657672;
+}
+.ranking-results {
+  margin-top: 10px;
+}
+.ranking-results > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 17px 0;
+  border-bottom: 1px solid #dcdace;
+}
+.ranking-results strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+.ranking-results small {
+  display: block;
+  color: #657672;
+  font-size: 10px;
+  margin-top: 5px;
+}
+.ranking-results b {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: #e2ebe2;
+  color: #266c64;
+  font-size: 13px;
+  font-weight: 500;
+}
+.onboarding-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.onboarding-options article {
+  padding: 16px 14px;
+  border: 1px solid #dcdace;
+  border-radius: 6px;
+  background: #fffdf7;
+}
+.onboarding-options small {
+  display: block;
+  color: #657672;
+  font-size: 9px;
+}
+.onboarding-options h2 {
+  margin: 12px 0 10px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.onboarding-options p {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.onboarding-options .onboarding-recommended {
+  border-color: #266c64;
+  background: #edf2e9;
+}
+.onboarding-risk {
+  border-top: 1px solid #dcdace;
+  padding-top: 14px;
+  margin-top: 18px;
+  color: #657672;
+}
+.onboarding-risk strong {
+  display: block;
+  font-size: 9px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.prompt-document-footer {
+  margin-top: 24px;
+  color: #687976;
+  font-size: 10px;
+}
+@media (max-width: 767px) {
+  .prompt-document-body {
+    padding: 26px 22px;
+  }
+  .prompt-document-brand {
+    padding-inline: 22px;
+  }
+  .prompt-document-brand span {
+    max-width: 130px;
+    text-align: right;
+  }
+}

@@ -3,8 +3,8 @@
 The website implementation lives in this folder. It uses Bun and shared HTML
 templates, with optional Markdown that permits authored HTML. Custom CSS and
 Tailwind utilities share one stylesheet. Ordinary pages ship static HTML and a
-small browser script. The homepage embeds the real React workspace under
-`/example/index.html`; the existing full demo stays under `/demo/`.
+small browser script. The homepage shows captures of the real React workspace and links to the selected
+interactive example under `/example/index.html`; the existing full demo stays under `/demo/`.
 
 ## Build and preview
 
@@ -68,8 +68,11 @@ Set it to the deployed demo URL when sharing beyond the local machine.
   copying, keyboard access to search, and Pagefind results.
 
 Text sections share an 880px maximum width; article prose is limited to 65ch.
-Only the homepage workspace figure uses the wider 1240px container. The homepage pairs five feature highlights with video mockups in two columns,
-followed by concrete use cases. Format details belong in the documentation.
+The hero uses a wider 1240px container to give its screenshot room. The full
+workspace preview stays within 880px. The homepage pairs five feature highlights with video mockups in two columns,
+followed by concrete use cases. Feature and use-case headings have no number
+prefixes; each use-case card starts with a decorative vector UI mockup from
+`story-illustrations.ts`. Format details belong in the documentation.
 
 The homepage centers a copyable publishing-skill command below its opening and
 repeats it at the close. A prominent heading and green outline identify the install
@@ -83,12 +86,16 @@ The hero shows a cream-and-teal component showcase with large headings
 and rounded controls, distinct from r3. Its highlighted button and numbered pin
 remain visible beside the thread. A real floating thread contains the human’s
 request to increase a button margin, the agent’s reply, and a pending draft asking
-to restore the previous margin. It has no caption.
+to restore the previous margin. It has no caption. A browser outline frames the image, with gentle perspective
+and pointer-driven tilt; touch and reduced-motion users get a stationary view.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
-are not links; the workspace figure has a separate demo button.
+are not links; the workspace figure has only a separate demo button beneath its
+browser frame. The screenshot, browser label, and demo destination follow the
+selected Prototype, Explainer, or Brief prompt. Both public and packaged pages
+use the captures; the selected real workspace opens through the demo button.
 The terminal is illustrative, with prompts from `prompt-examples.ts`. The user
-message has a lighter background, matching the supplied Claude Code reference. Only the
-changing task and response fade; the publishing instruction and sample URL stay still. It cycles only while visible, supports pause and manual
+message has a lighter background, matching the supplied Claude Code reference. The inner rows fill the terminal width. Only the
+changing task and response fade over 420ms; the publishing instruction and sample URL stay still. It cycles only while visible, supports pause and manual
 selection, and stays still with reduced motion or without JavaScript.
 
 Internal authored links start at `/`; the build adds the mount. Headings receive
@@ -113,7 +120,8 @@ site build.
 `showcase/index.tsx` mounts `ArtifactPage` from `web/src/artifact-page.tsx`, exactly
 as the connected r3 app does. It supplies a detail snapshot, reads, mutation
 handlers from the existing in-memory demo backend, and the authored
-`FieldworkDocument` renderer. The hero capture selects a separate component
+`FieldworkDocument` renderer or `PromptDocument` for the search explainer and
+onboarding brief. The hero capture selects a separate component
 fixture and `ComponentsDocument` renderer through `?scene=components`. No API
 aliases, authentication, or server bootstrap are involved. The build rejects runtime imports of connected application modules.
 
@@ -131,17 +139,19 @@ light/dark desktop, phone, and floating-thread region views at 3× pixel density
 The thread scene opens an existing target’s real popover and types into its reply
 composer without submitting. The two component versions have 8px and 16px button
 margins, matching the conversation.
-Phone readers see the real mobile layout; the desktop capture covers the site's maximum content width.
+Phone readers see the real mobile layout; the desktop capture is downsized within the narrower workspace frame.
 
 `assets/fieldwork-captures.json` records the PNG hashes and viewport settings.
 A normal build needs no browser and checks image integrity and dimensions.
 Screenshot freshness is maintained by visual review; changes to bundled code or
 dependencies do not require a refresh. Commit regenerated captures and the
 manifest together. They serve no-JavaScript readers and packaged HTML previews;
-the normal website embeds the same interactive page. The example host bundles
-Roboto 3.015 and waits for it before capture. This avoids
+the demo button opens the same interactive page. The example host bundles
+Roboto 3.015 and verifies via Chromium’s actual glyph-font data that the visible
+Latest badge uses it before capture. The example stylesheet gives that uppercase
+badge additional line height so its lettering has room inside the outline. This avoids
 DejaVu fallback metrics on minimal Linux hosts, which placed button text too high.
-The host changes only the example’s font family; product button layout stays shared.
+Other product control layouts stay shared.
 Font provenance and license are in `assets/fonts/`.
 
 ## Dependencies

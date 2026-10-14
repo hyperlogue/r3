@@ -58,8 +58,34 @@ try {
     );
 
   await viewport(1440);
-  await open("/", "Give your agent a place to show its work.");
+  await open("/", "Your agent creates. You shape the result.");
   await noOverflow();
+  const hero = await page.evaluate(
+    "document.querySelector('#review-detail').getBoundingClientRect().toJSON()",
+  );
+  const rest = await page.evaluate(
+    "getComputedStyle(document.querySelector('[data-preview-tilt]')).transform",
+  );
+  await page.command("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: hero.x + hero.width * 0.8,
+    y: hero.y + hero.height * 0.2,
+  });
+  await eventually(
+    () => page.evaluate("document.querySelector('[data-preview-tilt]').dataset.hovered === 'true'"),
+    "hero responds to pointer movement",
+  );
+  assert.notEqual(
+    await page.evaluate(
+      "getComputedStyle(document.querySelector('[data-preview-tilt]')).transform",
+    ),
+    rest,
+  );
+  await page.command("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5 });
+  await eventually(
+    () => page.evaluate("!document.querySelector('[data-preview-tilt]').dataset.hovered"),
+    "hero resets after pointer leave",
+  );
   await screenshot("home-desktop.png");
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
@@ -109,6 +135,20 @@ try {
       await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
       promptExamples[index]!.prompt,
     );
+    assert.equal(
+      await page.evaluate(
+        "document.querySelector('[data-workspace-scene]:not([hidden])').dataset.workspaceScene",
+      ),
+      promptExamples[index]!.scene,
+      "capture follows the active prompt",
+    );
+    assert.equal(
+      await page.evaluate(
+        "new URL(document.querySelector('.workspace-demo').href).searchParams.get('scene')",
+      ),
+      promptExamples[index]!.scene,
+      "demo opens the selected example",
+    );
     assert.deepEqual(
       await page.evaluate(
         "[...document.querySelectorAll('[data-prompt-common]')].map(el => el.textContent)",
@@ -145,7 +185,7 @@ try {
   await page.command("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
-  await open("/", "Give your agent a place to show its work.");
+  await open("/", "Your agent creates. You shape the result.");
   await page.evaluate(
     "document.querySelector('#agent-prompt').scrollIntoView({behavior:'instant',block:'center'})",
   );
@@ -163,6 +203,20 @@ try {
     await page.evaluate("document.querySelector('[data-prompt-text]').textContent"),
     promptExamples[2].prompt,
     "reduced motion retains manual selection",
+  );
+  assert.equal(
+    await page.evaluate(
+      "getComputedStyle(document.querySelector('[data-preview-tilt]')).transform",
+    ),
+    "none",
+    "reduced motion disables the perspective effect",
+  );
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-workspace-scene]:not([hidden])').dataset.workspaceScene",
+    ),
+    "brief",
+    "manual selection updates the capture with reduced motion",
   );
   await page.command("Emulation.setEmulatedMedia", { features: [] });
   await open("/docs/get-started/", "Get started");
@@ -221,7 +275,7 @@ try {
   });
 
   await viewport(390, 844);
-  await open("/", "Give your agent a place to show its work.");
+  await open("/", "Your agent creates. You shape the result.");
   await noOverflow();
   await screenshot("home-mobile.png");
   await page.evaluate("document.querySelector('.mobile-menu summary').click()");
@@ -240,7 +294,7 @@ try {
   await noOverflow();
 
   await page.command("Emulation.setScriptExecutionDisabled", { value: true });
-  await open("/", "Give your agent a place to show its work.");
+  await open("/", "Your agent creates. You shape the result.");
   assert.equal(
     await page.evaluate("document.querySelector('#skill-install code').textContent"),
     "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",

@@ -1,6 +1,6 @@
 import { promptExamples } from "./prompt-examples.ts";
 
-export function startPromptDemo(root: HTMLElement) {
+export function startPromptDemo(root: HTMLElement, onChange: (index: number) => void) {
   const prompt = root.querySelector<HTMLElement>("[data-prompt-text]")!;
   const response = root.querySelector<HTMLElement>("[data-prompt-response]")!;
   const play = root.querySelector<HTMLButtonElement>("[data-prompt-play]")!;
@@ -17,6 +17,7 @@ export function startPromptDemo(root: HTMLElement) {
     root.dataset.example = String(index);
     root.dataset.paused = String(paused);
     root.dataset.phase = "ready";
+    onChange(index);
     prompt.textContent = example.prompt;
     response.textContent = example.response;
     play.setAttribute("aria-label", `${paused ? "Play" : "Pause"} prompt animation`);
@@ -29,7 +30,7 @@ export function startPromptDemo(root: HTMLElement) {
       timer = setTimeout(() => {
         index = (index + 1) % promptExamples.length;
         render();
-      }, 280);
+      }, 420);
     }, 5200);
   }
 

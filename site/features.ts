@@ -41,8 +41,8 @@ export function featureHighlights() {
 <div class="section-heading"><div><p class="eyebrow">Made for working together</p><h2 id="features-heading">A clearer conversation.<br>From first draft to finished work.</h2></div></div>
 <div class="feature-list">${features
     .map(
-      (feature, index) => `<article class="feature-row" id="${feature.id}">
-<div class="feature-copy"><span class="feature-number">0${index + 1}</span><h3>${feature.title}</h3><p>${feature.description}</p></div>
+      (feature) => `<article class="feature-row" id="${feature.id}">
+<div class="feature-copy"><h3>${feature.title}</h3><p>${feature.description}</p></div>
 <div class="feature-video" role="img" aria-label="Video mockup: ${feature.title}">
 <div class="mock-scene" aria-hidden="true">${feature.scene}</div>
 <div class="mock-player" aria-hidden="true"><span class="mock-play">▶</span><span class="mock-timeline"></span><span>Video mockup</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor"><path d="M6 2H2v4m8-4h4v4M2 10v4h4m8-4v4h-4"/></svg></div>

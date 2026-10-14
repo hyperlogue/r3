@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <title>r3 — Give your agent a place to show its work and receive precise feedback from you.</title>
+  <title>r3 — Your agent creates. You shape the result.</title>
   <rect width="1200" height="630" fill="#ffffff"/>
   <path d="M70 112H1130M70 548H1130" stroke="#e5e5e5"/>
   <text x="70" y="84" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="700" fill="#171717">r3</text>
   <text x="145" y="79" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="19" fill="#525252">A workspace for your coding agent’s work.</text>
   <g font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="66" font-weight="600" letter-spacing="-2">
-    <text x="70" y="218" fill="#171717">Give your agent a place</text>
-    <text x="70" y="294" fill="#171717">to show its work and</text>
-    <text x="70" y="370" fill="#6164ff">receive precise</text>
-    <text x="70" y="446" fill="#6164ff">feedback from you.</text>
+    <text x="70" y="274" fill="#171717">Your agent creates.</text>
+    <text x="70" y="370" fill="#6164ff">You shape the result.</text>
   </g>
   <text x="70" y="592" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="21" fill="#525252">Create together. Point to changes. Shape the result.</text>
 </svg>

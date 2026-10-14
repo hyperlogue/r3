@@ -1,7 +1,6 @@
-export const homeTitle =
-  "Give your agent a place to show its work and receive precise feedback from you.";
+export const homeTitle = "Your agent creates. You shape the result.";
 export const homeDescription =
-  "Create pages, documents, and tools through a conversation with your coding agent. Point to changes, review each revision, and shape the result together.";
+  "Explore design docs, interactive tutorials, and diffs from your agent. Comment exactly where something needs attention. Review each revision and shape the result together, visually.";
 
 export interface Page {
   path: string;

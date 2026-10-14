@@ -2,14 +2,16 @@ import { docs, groups, homeDescription, homeTitle, stories } from "./catalog.ts"
 import { featureHighlights } from "./features.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { escapeHTML } from "./render.ts";
+import { storyIllustration } from "./story-illustrations.ts";
 
 export function storyCards() {
   return stories
     .map(
       (story) =>
         `<a class="story-card story-${story.slug}" href="/use-cases/${story.slug}/">
+${storyIllustration(story.slug)}
 <div class="story-card-top">
-<span>${story.number} / ${story.category}</span>
+<span>${story.category}</span>
 <span aria-hidden="true">↗</span>
 </div>
 <h3>${story.title}</h3>
@@ -21,35 +23,50 @@ export function storyCards() {
     .join("");
 }
 
+function browserBar(label: string) {
+  return `<div class="browser-bar" aria-hidden="true"><span class="browser-dots"><i></i><i></i><i></i></span><span class="browser-address">localhost:8891 / ${label}</span><span class="browser-menu">···</span></div>`;
+}
+
 export function workflowExample() {
-  return `<figure class="workflow-figure container container-wide" id="fieldwork-workspace">
+  return `<figure class="workflow-figure container" id="fieldwork-workspace">
+<div class="browser-frame">
+${browserBar("<span data-workspace-label>Prototype</span>")}
 <div class="workspace-example" data-workspace-example>
-<div class="workspace-fallback">
-${["light", "dark"]
+${promptExamples
   .map(
-    (theme) => `<div class="workspace-${theme}">
-<img class="workspace-desktop" src="/assets/fieldwork-${theme}.png" width="1240" height="740" loading="lazy" alt="The real r3 workspace showing Example Fieldwork’s project form and a thread about who can access a project.">
-<img class="workspace-mobile" src="/assets/fieldwork-mobile-${theme}.png" width="390" height="740" loading="lazy" alt="The real r3 phone layout showing the same Example Fieldwork review.">
+    (
+      { scene, label },
+      index,
+    ) => `<div class="workspace-fallback" data-workspace-scene="${scene}" ${index ? "hidden" : ""}>
+${["light", "dark"]
+  .map((theme) => {
+    const prefix = scene === "prototype" ? "fieldwork" : `fieldwork-${scene}`;
+    return `<div class="workspace-${theme}">
+<img class="workspace-desktop" src="/assets/${prefix}-${theme}.png" width="1240" height="740" loading="lazy" alt="${label} in the real r3 workspace, with the agent’s revision and a linked feedback thread.">
+<img class="workspace-mobile" src="/assets/${prefix}-mobile-${theme}.png" width="390" height="740" loading="lazy" alt="${label} in the real r3 phone layout.">
+</div>`;
+  })
+  .join("")}
 </div>`,
   )
   .join("")}
 </div>
 </div>
-<figcaption>The real r3 interface, with fictional data. Compare the proposed fix, leave a comment, or resolve the thread.<br><a class="button workspace-demo" href="/example/index.html">Try the demo →</a></figcaption>
+<figcaption><a class="button workspace-demo" href="/example/index.html?scene=prototype">Try the demo →</a></figcaption>
 </figure>`;
 }
 
 export function home() {
   return `<div data-pagefind-body>
 <section class="home-hero" id="intro">
-<div class="container">
-<div class="hero-grid">
+<div class="container container-wide hero-grid">
 <div>
 <h1 data-pagefind-meta="title">${homeTitle}</h1>
 <p class="hero-description">${homeDescription}</p>
 </div>
 ${reviewDetail()}
 </div>
+<div class="container">
 ${skillInstall("skill-install")}
 ${promptDemo()}
 </div>${workflowExample()}</section>
@@ -86,8 +103,11 @@ function skillInstall(id: string) {
 
 function reviewDetail() {
   return `<figure class="hero-review" id="review-detail">
+<div class="browser-frame hero-browser" data-preview-tilt>
+${browserBar("UI component showcase")}
 <div class="hero-review-crop">
 ${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="770" height="490" alt="A highlighted button with a numbered pin beside its r3 thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}
+</div>
 </div>
 </figure>`;
 }

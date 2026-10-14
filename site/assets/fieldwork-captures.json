@@ -6,7 +6,7 @@
       "width": 1240,
       "height": 740,
       "scale": 3,
-      "sha256": "14fc9f2ab1d98e0f1ac2d28dac06aa1084398ae819defc8a76f5c91f7923f2db"
+      "sha256": "104981248d1c8cc0d9e4f48d6ef848c5623b8bd1bc256b4cc759c4d2a67c8191"
     },
     {
       "file": "fieldwork-dark.png",
@@ -14,7 +14,7 @@
       "width": 1240,
       "height": 740,
       "scale": 3,
-      "sha256": "6b151971e997abccba7dbdab6bb5f885fb609a4156e95d54c99d88a78b77ddf0"
+      "sha256": "5c3d882884621455448617c70c75c38de5ffc1ce9fdf3f69de61fd1f9979f6ec"
     },
     {
       "file": "fieldwork-mobile-light.png",
@@ -22,7 +22,7 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "f84eeb2c6e0a94c37e047cdf3c2c06500ce15f08a73b58d06b7cfffab8f214fe"
+      "sha256": "244f6753066702719ea97dbe61199cdc93deeed52d313ed1df5730f333ad4fe3"
     },
     {
       "file": "fieldwork-mobile-dark.png",
@@ -30,7 +30,79 @@
       "width": 390,
       "height": 740,
       "scale": 3,
-      "sha256": "54ad766e0cf193c98b4cbf8eefa475c5c5258543bdbd54bfea0b9c9638c9f147"
+      "sha256": "5bab79bb8371f2fc95703d08fad7f1fe1372974e6277a066ff1eae731ff128bc"
+    },
+    {
+      "file": "fieldwork-explainer-light.png",
+      "scene": "explainer",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "8b5cc3bce0e054fe33950a28e3405ee42c60eb3326b747a3ece5314cdfdd99b2"
+    },
+    {
+      "file": "fieldwork-explainer-mobile-light.png",
+      "scene": "explainer",
+      "theme": "light",
+      "width": 390,
+      "height": 740,
+      "scale": 3,
+      "sha256": "7dada1bd719a486dc064f98c15f8839d3943418967a3ebd60e1022dec6b60269"
+    },
+    {
+      "file": "fieldwork-explainer-dark.png",
+      "scene": "explainer",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "a5cda6d0ddfcf2df13b683268bd01bb33839f5d1f986b2e0e79b0e7262e8ae71"
+    },
+    {
+      "file": "fieldwork-explainer-mobile-dark.png",
+      "scene": "explainer",
+      "theme": "dark",
+      "width": 390,
+      "height": 740,
+      "scale": 3,
+      "sha256": "5c47e92a53a000687981d0545fb68cd5316e3e0460a0db1744ab05cb2e0354f1"
+    },
+    {
+      "file": "fieldwork-brief-light.png",
+      "scene": "brief",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "c2509532c705ed126b5baf5835d356b71e0465542300adb8889940a4c3dc101e"
+    },
+    {
+      "file": "fieldwork-brief-mobile-light.png",
+      "scene": "brief",
+      "theme": "light",
+      "width": 390,
+      "height": 740,
+      "scale": 3,
+      "sha256": "0be2665d761eef02a0a264b9b7d750dc931ceec3eb2643c0815ea8ab2c8305ae"
+    },
+    {
+      "file": "fieldwork-brief-dark.png",
+      "scene": "brief",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "3a4c0dbb9f26da83796f0d92a98a8f631414412919cd4c718f9374f01fd409d2"
+    },
+    {
+      "file": "fieldwork-brief-mobile-dark.png",
+      "scene": "brief",
+      "theme": "dark",
+      "width": 390,
+      "height": 740,
+      "scale": 3,
+      "sha256": "485c85590c6eced5a8ceef7a580132877c3bb5f7f791ee0ab6a447a6b33bb325"
     },
     {
       "file": "fieldwork-comment-light.png",

@@ -5,6 +5,7 @@ import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { serveSite } from "./serve.ts";
 import { buildShowcase } from "./showcase/build.ts";
 import { type CaptureManifest, captureSpecs, sha256, verifyCaptures } from "./showcase/captures.ts";
+import { verifyWorkspaceFont } from "./showcase/font-check.ts";
 
 // Build independently so missing captures cannot prevent their own regeneration.
 const directory = await mkdtemp(join(tmpdir(), "r3-site-capture-"));
@@ -23,7 +24,8 @@ try {
       try {
         const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
         const page = await browser.attach(targetId);
-        const comment = "scene" in spec;
+        const scene = "scene" in spec ? spec.scene : "prototype";
+        const comment = scene === "components";
         await page.command("Emulation.setDeviceMetricsOverride", {
           width: comment ? 1000 : spec.width,
           height: comment ? 850 : spec.height,
@@ -31,26 +33,18 @@ try {
           mobile: false,
         });
         await page.command("Page.navigate", {
-          url: `${server.url.origin}/example/index.html?theme=${spec.theme}&embedded=1${comment ? "&scene=components" : ""}`,
+          url: `${server.url.origin}/example/index.html?theme=${spec.theme}&embedded=1&scene=${scene}`,
         });
         await eventually(
           () =>
             page.evaluate(
               comment
                 ? "!!document.querySelector('.component-card')"
-                : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help')",
+                : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
             ),
           "real workspace and latest revision",
         );
-        await page.evaluate("document.fonts.ready");
-        if (
-          !(await page.evaluate(
-            "[...document.fonts].some(font => font.family === 'r3 Example Sans' && font.status === 'loaded')",
-          ))
-        )
-          throw new Error(
-            "The bundled example font did not load; refusing a fallback-font capture",
-          );
+        await verifyWorkspaceFont(page);
         if (comment) {
           await page.evaluate(`document.querySelector('[aria-label="Hide discussion"]').click()`);
           await eventually(

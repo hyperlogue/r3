@@ -5,17 +5,22 @@ export const commonResponse =
 export const promptExamples = [
   {
     label: "Prototype",
+    scene: "prototype",
     prompt: "Build a project-creation form so I can review the visibility settings.",
     response: "Created a working prototype with project details and visibility controls.",
   },
   {
     label: "Explainer",
+    scene: "explainer",
     prompt: "Explain how search ranking works with interactive sliders I can try.",
     response: "Created an interactive explainer with adjustable ranking signals.",
   },
   {
     label: "Brief",
+    scene: "brief",
     prompt: "Compare three onboarding flows and show their tradeoffs side by side.",
     response: "Created a comparison brief covering each flow’s strengths and tradeoffs.",
   },
 ] as const;
+
+export type PromptScene = (typeof promptExamples)[number]["scene"];

@@ -9,13 +9,16 @@ import { setDiscussionMode } from "../../web/src/settings.ts";
 import "../../web/src/showcase/forms.ts";
 import { ComponentsDocument } from "./ComponentsDocument.tsx";
 import { FieldworkDocument } from "./FieldworkDocument.tsx";
-import { componentsSeed, fieldworkSeed, VISIBILITY_THREAD } from "./fixture.ts";
+import { componentsSeed, fieldworkSeed } from "./fixture.ts";
+import { PromptDocument } from "./PromptDocument.tsx";
 
 // A normal ArtifactPage host: fixture data, fake handlers, one renderer. There
 // are no bundler aliases, API routes, authentication, or server bootstrap here.
 const parameters = new URLSearchParams(location.search);
-const componentScene = parameters.get("scene") === "components";
-const seed = componentScene ? componentsSeed(demo.state) : fieldworkSeed(demo.state);
+const scene = parameters.get("scene");
+const promptScene = scene === "explainer" || scene === "brief" ? scene : "prototype";
+const componentScene = scene === "components";
+const seed = componentScene ? componentsSeed(demo.state) : fieldworkSeed(demo.state, promptScene);
 const artifactId = seed.artifacts[0]!.id;
 function clearDrafts() {
   artifactDrafts.clear(artifactId);
@@ -85,10 +88,16 @@ function Example() {
           initialSearch={
             componentScene
               ? "?version=2"
-              : `?version=2&thread=${VISIBILITY_THREAD}&comment=comment_fieldwork_fix`
+              : `?version=2&thread=${seed.artifacts[0]!.threads[0]!.id}&comment=comment_fieldwork_fix`
           }
           renderPreview={(props) =>
-            componentScene ? <ComponentsDocument {...props} /> : <FieldworkDocument {...props} />
+            componentScene ? (
+              <ComponentsDocument {...props} />
+            ) : promptScene === "prototype" ? (
+              <FieldworkDocument {...props} />
+            ) : (
+              <PromptDocument {...props} scene={promptScene} />
+            )
           }
         />
       ) : (

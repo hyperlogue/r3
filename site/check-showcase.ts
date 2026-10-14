@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { normalizeBase } from "./render.ts";
 import { serveSite } from "./serve.ts";
+import { verifyWorkspaceFont } from "./showcase/font-check.ts";
 
 const base = normalizeBase(process.env.R3_SITE_BASE);
 const server = serveSite(join(import.meta.dir, "../dist/pages"), { base, port: 0 });
@@ -39,13 +40,7 @@ try {
       "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help')",
       "real workspace and latest revision",
     );
-    await page.evaluate("document.fonts.ready");
-    assert(
-      await page.evaluate(
-        "[...document.fonts].some(font => font.family === 'r3 Example Sans' && font.status === 'loaded')",
-      ),
-      "examples load the bundled font instead of a host fallback",
-    );
+    await verifyWorkspaceFont(page);
     assert(
       !(await page.evaluate("document.body.innerText.includes('Go to the latest version')")),
       "the initial scene already shows the latest publication",
@@ -183,6 +178,59 @@ try {
     ["8px", "16px"],
     "the two publications match the spacing conversation",
   );
+
+  // Every prompt links to an actual review, including functional authored content.
+  await viewport(1240);
+  for (const scene of ["explainer", "brief"]) {
+    await page.command("Page.navigate", {
+      url: `${server.url.origin}${base}/example/index.html?scene=${scene}&embedded=1`,
+    });
+    await waitFor(
+      "!!document.querySelector('.prompt-document-note') && !!document.querySelector('[data-compare-comment]')",
+      `${scene} review`,
+    );
+    await verifyWorkspaceFont(page);
+    if (scene === "explainer") {
+      const first = await page.evaluate(
+        "document.querySelector('.ranking-results strong').textContent",
+      );
+      await page.evaluate("document.querySelector('[aria-label=\"Freshness weight\"]').focus()");
+      await page.command("Input.dispatchKeyEvent", {
+        type: "keyDown",
+        key: "End",
+        code: "End",
+        windowsVirtualKeyCode: 35,
+      });
+      await page.command("Input.dispatchKeyEvent", {
+        type: "keyUp",
+        key: "End",
+        code: "End",
+        windowsVirtualKeyCode: 35,
+      });
+      await waitFor(
+        "document.querySelector('[aria-label=\"Freshness weight\"]').value === '100'",
+        "freshness slider changes",
+      );
+      assert.notEqual(
+        await page.evaluate("document.querySelector('.ranking-results strong').textContent"),
+        first,
+        "freshness changes the top result",
+      );
+    }
+    await screenshot(`prompt-${scene}.png`);
+    await click('[data-compare-comment="comment_fieldwork_fix"]');
+    await waitFor(
+      "document.querySelectorAll('[data-artifact-comparison] .prompt-document').length === 2",
+      `${scene} comparison`,
+    );
+    assert.equal(
+      await page.evaluate(
+        "document.querySelectorAll('[data-artifact-comparison] .prompt-document-note').length",
+      ),
+      1,
+      "the explanation belongs to the revised publication",
+    );
+  }
 
   await viewport(390, 844);
   await open();

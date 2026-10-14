@@ -6,6 +6,19 @@ export const captureSpecs = [
   { file: "fieldwork-dark.png", theme: "dark", width: 1240, height: 740, scale: 3 },
   { file: "fieldwork-mobile-light.png", theme: "light", width: 390, height: 740, scale: 3 },
   { file: "fieldwork-mobile-dark.png", theme: "dark", width: 390, height: 740, scale: 3 },
+  ...(["explainer", "brief"] as const).flatMap((scene) =>
+    (["light", "dark"] as const).flatMap((theme) => [
+      { file: `fieldwork-${scene}-${theme}.png`, scene, theme, width: 1240, height: 740, scale: 3 },
+      {
+        file: `fieldwork-${scene}-mobile-${theme}.png`,
+        scene,
+        theme,
+        width: 390,
+        height: 740,
+        scale: 3,
+      },
+    ]),
+  ),
   {
     file: "fieldwork-comment-light.png",
     theme: "light",
