@@ -1,7 +1,7 @@
 // One flat KEYMAP + one window listener. KEYMAP is the source for both the
 // dispatcher and the `?` overlay. Handlers register per-component.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 export type KeyId =
   | "help"
@@ -159,11 +159,23 @@ export function keysSuspended(): boolean {
   return suspended > 0;
 }
 
-// Whether anything currently owns `id`. The `?` sheet greys the rest, so a key
-// that doesn't apply to the view on screen reads as unavailable instead of
-// looking live and silently doing nothing.
-export function isBound(id: KeyId): boolean {
-  return handlers.has(id);
+let boundKeys: readonly KeyId[] = [];
+const bindingListeners = new Set<() => void>();
+function subscribeBindings(listener: () => void) {
+  bindingListeners.add(listener);
+  return () => bindingListeners.delete(listener);
+}
+function notifyBindings() {
+  const next = [...handlers.keys()].sort();
+  if (next.join(",") === boundKeys.join(",")) return;
+  boundKeys = next;
+  for (const listener of bindingListeners) listener();
+}
+
+// Hint surfaces follow mounted actions, including panels kept mounted but inert.
+// Handler closure updates do not notify or make typing rerender these surfaces.
+export function useBoundKeys(): readonly KeyId[] {
+  return useSyncExternalStore(subscribeBindings, () => boundKeys);
 }
 
 let attached = false;
@@ -214,10 +226,12 @@ export function useKeyBindings(map: KeyHandlers): void {
       handlers.set(id, fn);
       return [id, fn] as const;
     });
+    notifyBindings();
     return () => {
       // Only drop our own entry: a component unmounting after another registered
       // the same id (a remount overlapping its predecessor) must not clear theirs.
       for (const [id, fn] of mine) if (handlers.get(id) === fn) handlers.delete(id);
+      notifyBindings();
     };
   }, [idsKey]);
 }

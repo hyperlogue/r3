@@ -49,7 +49,7 @@ import { JumpToFile } from "./components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos } from "./components/Message.tsx";
 import { Notification, NotificationProvider } from "./components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "./components/PaneToolbar.tsx";
-import { ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
+import { ShortcutBar, ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
 import { keysSuspended, useKeyBindings } from "./keys.ts";
 import { AddCommentPill } from "./mobile/AddCommentPill.tsx";
 // This page is the artifact workspace's single mobile container mount point.
@@ -177,6 +177,7 @@ function Workspace({
   onLocationChange,
 }: ArtifactWorkspaceProps) {
   const [view, setView] = useState(() => readArtifactLocation(detail.kind, initialSearch));
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const comparison = useArtifactComparison(detail, initialSearch, !!onLocationChange);
   const [comparisonTab, setComparisonTab] = useState<ArtifactThreadTab>("active");
   const [comparisonSide, setComparisonSide] = useState<ComparisonSide>("proposed");
@@ -884,6 +885,7 @@ function Workspace({
         onToggleCommenting={toggleCommenting}
         commentingLocked={comparison.active || detail.state !== "active"}
         captureRef={setCaptureContainer}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
       />
       <main ref={splitRef} className="relative flex min-h-0 flex-1">
         {!mobile && !comparison.active && detail.kind !== "html" && (
@@ -1178,6 +1180,16 @@ function Workspace({
           </div>
         )}
       </main>
+      <ShortcutBar
+        onOpen={() => setShortcutsOpen(true)}
+        threadSelected={detail.threads.some(
+          (thread) =>
+            thread.id === (comparison.active ? comparison.selected?.threadId : view.threadId) &&
+            thread.status ===
+              ((comparison.active ? comparisonTab : threadTab) === "active" ? "open" : "resolved"),
+        )}
+        readOnly={detail.state !== "active"}
+      />
       {mobile && (
         <MobileReviewChrome
           openCount={detail.threads.filter((threads) => threads.status === "open").length}
@@ -1192,7 +1204,7 @@ function Workspace({
         <AddCommentPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
       {quote && <QuoteBubble pos={quote} label="Quote in note" onQuote={appendQuote} />}
-      <ShortcutsOverlay />
+      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }

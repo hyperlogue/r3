@@ -30,7 +30,7 @@ export function DiffLayoutToggle() {
   return (
     <button
       type="button"
-      title={split ? "Switch to unified diff" : "Switch to side-by-side diff"}
+      title={split ? "Switch to unified diff (\\)" : "Switch to side-by-side diff (\\)"}
       aria-pressed={split}
       className={cn(TOOLBAR_BTN, split && "text-neutral-700 dark:text-neutral-200")}
       onClick={() => setDiffLayout(split ? "unified" : "split")}
@@ -77,13 +77,18 @@ export function PaneToolbar({
         <div className="flex items-center max-md:h-8">
           <button
             type="button"
-            title="Previous file"
+            title="Previous file ([)"
             className={TOOLBAR_BTN}
             onClick={() => onJump(-1)}
           >
             <ToolbarIcon d={["m18 15-6-6-6 6"]} />
           </button>
-          <button type="button" title="Next file" className={TOOLBAR_BTN} onClick={() => onJump(1)}>
+          <button
+            type="button"
+            title="Next file (])"
+            className={TOOLBAR_BTN}
+            onClick={() => onJump(1)}
+          >
             <ToolbarIcon d={["m6 9 6 6 6-6"]} />
           </button>
           <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
