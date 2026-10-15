@@ -94,9 +94,8 @@ ${featureHighlights()}
 </section>
 <section class="start-section container" aria-labelledby="start-heading">
 <img src="/assets/favicon.svg" width="56" height="56" alt="">
-<p class="eyebrow">Start iterating with your agent</p>
+<p class="eyebrow">Start iterating visually with your agent</p>
 <h2 id="start-heading">${homeTitle}</h2>
-<p>${homeDescription}</p>
 ${skillInstall("start-install")}
 </section>
 </div>`;
