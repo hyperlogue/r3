@@ -58,7 +58,9 @@ Set it to the deployed demo URL when sharing beyond the local machine.
 
 - `catalog.ts` owns page metadata and documentation order.
 - `content/` contains articles and the five Example Fieldwork walkthroughs.
-- `landing.ts` authors the homepage and directory pages directly in HTML.
+- `landing.ts` authors the homepage, use-case index, and search page in HTML.
+- `doc-visuals.ts` expands article visual markers into real workspace captures
+  and captioned concept diagrams. `doc-style.css` owns their responsive styles.
 - `layout.ts` owns the shared shell, documentation navigation, and article layout.
 - `theme.ts` reads the palette, font stacks, and overlay tokens directly from
   `web/src/main.css` at build time. `style.css` maps them to site surfaces and
@@ -117,9 +119,13 @@ Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.
 Use repository-relative paths and fictional example data in content.
 
-The CLI reference and agent guides are generated from `cli/artifact-help.ts`.
-The keyboard reference is generated from the product keymap. Edit the source
-that owns behavior when changing product instructions; this site consumes it.
+Docs opens directly into Get started with the shared documentation navigation.
+The older `/docs/get-started/` address remains available. Human articles focus on
+browser tasks, with short instructions and visual examples. Agent and command
+reference URLs point readers to `r3 guide` and `r3 --help`; they are outside the
+main sidebar. The short keyboard table uses the product keymap, with the full
+map available in the workspace. Product protocol details remain in the built-in
+guide and repository reference documentation.
 Each article has `index.md`, and the build writes `llms.txt` and `llms-full.txt`.
 Markdown exports preserve fenced code and turn internal links into public URLs.
 The exporter converts the simple HTML prose layouts used here; give a new custom
@@ -202,6 +208,8 @@ After a build, set `R3_TEST_BROWSER` to an installed Chromium executable and run
 fresh profile and an ephemeral loopback static server. It checks desktop/mobile
 layout, theme persistence, clipboard actions, search and empty results, no-JS
 reading, and demo deep links. Screenshots go to ignored `dist/site-review/`.
+Run `bun --no-env-file site/check-docs.ts` for direct Docs entry, every human
+article in both themes at desktop and phone widths, and loaded screenshots.
 Run `bun --no-env-file site/check-showcase.ts` to exercise injected mutations,
 comparison, mobile layout, and the absence of backend requests. Run the
 repository-wide tests before committing.

@@ -121,6 +121,26 @@
       "scale": 3,
       "scene": "components",
       "sha256": "184638318c9affd1fccbfa85aca8a1564d7ea1bd26b127e23b4e54136870d432"
+    },
+    {
+      "file": "fieldwork-comparison-light.png",
+      "theme": "light",
+      "width": 1240,
+      "height": 480,
+      "scale": 3,
+      "scene": "components",
+      "comparison": true,
+      "sha256": "55a92b9b240b859274b23ef4b4ac6d28a6b24b0dcff7edabff0e4a348f1fb06b"
+    },
+    {
+      "file": "fieldwork-comparison-dark.png",
+      "theme": "dark",
+      "width": 1240,
+      "height": 480,
+      "scale": 3,
+      "scene": "components",
+      "comparison": true,
+      "sha256": "13b616ed1091a83ffa67498f2ed73591bd9b108699d4cdfd756ca93ee549e017"
     }
   ]
 }

@@ -35,6 +35,15 @@ export const captureSpecs = [
     scale: 3,
     scene: "components",
   },
+  ...(["light", "dark"] as const).map((theme) => ({
+    file: `fieldwork-comparison-${theme}.png`,
+    theme,
+    width: 1240,
+    height: 480,
+    scale: 3,
+    scene: "components" as const,
+    comparison: true,
+  })),
 ] as const;
 
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");

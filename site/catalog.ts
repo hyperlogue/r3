@@ -9,6 +9,8 @@ export interface Page {
   group: string;
   source?: string;
   guide?: "main" | "html" | "files" | "diff" | "cli" | "keys";
+  navigation?: boolean;
+  canonicalPath?: string;
 }
 
 export const docs: Page[] = [
@@ -86,7 +88,7 @@ export const docs: Page[] = [
   {
     path: "/docs/keyboard/",
     title: "Keyboard shortcuts",
-    description: "The keyboard map, generated from the product’s current bindings.",
+    description: "A few useful keys, with the full map inside the workspace.",
     group: "Review work",
     guide: "keys",
   },
@@ -115,28 +117,29 @@ export const docs: Page[] = [
     path: "/docs/permissions/",
     title: "Preview permissions",
     description: "Understand page isolation, external access, and device permissions.",
-    group: "Operate r3",
+    group: "Settings & help",
     source: "permissions",
   },
   {
     path: "/docs/configuration/",
     title: "Configuration",
-    description: "Server settings, authentication lifetime, and project grouping.",
-    group: "Operate r3",
+    description: "A few settings you may want to change.",
+    group: "Settings & help",
     source: "configuration",
   },
   {
     path: "/docs/troubleshooting/",
     title: "Troubleshooting",
     description: "Recover from a missed handoff, missing content, or a blocked preview.",
-    group: "Operate r3",
+    group: "Settings & help",
     source: "troubleshooting",
   },
   {
     path: "/docs/agents/",
     title: "Agent workflow",
-    description: "Publish complete artifacts, receive feedback, and reply with verified fixes.",
+    description: "Give your agent the built-in guide.",
     group: "Agent reference",
+    navigation: false,
     guide: "main",
   },
   {
@@ -144,6 +147,7 @@ export const docs: Page[] = [
     title: "Publish HTML",
     description: "Prepare self-contained pages with useful navigation and stable targets.",
     group: "Agent reference",
+    navigation: false,
     guide: "html",
   },
   {
@@ -151,6 +155,7 @@ export const docs: Page[] = [
     title: "Publish files",
     description: "Capture complete directories, documents, source, and media.",
     group: "Agent reference",
+    navigation: false,
     guide: "files",
   },
   {
@@ -158,13 +163,15 @@ export const docs: Page[] = [
     title: "Publish diffs",
     description: "Choose a Git capture mode and preserve native line targets.",
     group: "Agent reference",
+    navigation: false,
     guide: "diff",
   },
   {
     path: "/docs/cli/",
     title: "Command reference",
-    description: "Every command and option, generated from r3’s built-in help.",
+    description: "Find exact syntax in r3’s built-in help.",
     group: "Agent reference",
+    navigation: false,
     guide: "cli",
   },
 ];
@@ -233,7 +240,13 @@ export const cases: Page[] = stories.map((story) => ({
   group: "Example Fieldwork",
   source: story.source,
 }));
-export const groups = [...new Set(docs.map((page) => page.group))];
+export const navigationDocs = docs.filter((page) => page.navigation !== false);
+export const groups = [...new Set(navigationDocs.map((page) => page.group))];
+export const docsStart: Page = {
+  ...docs[0]!,
+  path: "/docs/",
+  canonicalPath: docs[0]!.path,
+};
 export const landingPages: Page[] = [
   {
     path: "/",
@@ -249,17 +262,10 @@ export const landingPages: Page[] = [
     group: "Use cases",
   },
   {
-    path: "/docs/",
-    title: "A little context. A better review.",
-    description:
-      "Learn the review loop, explore every review surface, and connect your coding agent.",
-    group: "Documentation",
-  },
-  {
     path: "/search/",
     title: "Search the docs",
     description: "Find a workflow, feature, or command. Search runs in your browser.",
     group: "Search",
   },
 ];
-export const pages = [...landingPages, ...cases, ...docs];
+export const pages = [...landingPages, docsStart, ...cases, ...docs];

@@ -1,50 +1,13 @@
-Archive finished reviews to keep active work easier to find. Decide separately when the retained content should be permanently removed.
+<!-- visual: cleanup -->
 
-## Archive and restore
+## Put finished work away
 
-Archiving preserves versions, conversations, thread status, pending human content, and drafts. The artifact becomes read-only: publication, title and metadata changes, comments, and thread status changes require a restore. Archiving also clears claims and ends subscriptions.
+**Archive** removes a review from the active list while keeping versions, conversations, and drafts. Add a closing comment if useful. Archived work is read-only and stops notifying the agent.
 
-You can include an archive comment explaining why the review is finished. It belongs to the artifact’s discussion and remains available in its history. A nonblank comment is also sent to the selected agent. Restore the artifact before editing that comment.
+**Restore** to continue reviewing. Ask your agent to reconnect before sending more feedback.
 
-A failed notification does not undo the archive. The recorded lifecycle event is authoritative; retrying the same operation does not send a second notification.
+## Check storage before deleting
 
-Restore an artifact when it needs more work. Restore does not revive an old subscription: ask the agent to run `r3 listen <artifact-id>` or publish a new version.
+Open usage information to see retained content and recent activity. Settings offers cleanup for old archives, with confirmation. The default age is 30 days since archive; cleanup is manual.
 
-## Inspect usage
-
-Open usage information in the workspace or run:
-
-```sh
-r3 stat
-r3 stat --weekly
-```
-
-Daily activity covers the last 14 calendar days; weekly activity covers four Monday-start weeks. Both include the current partial period and use the displayed server timezone. Add `--json` for structured output.
-
-Activity counts survive artifact deletion. Older, pre-upgrade history covers surviving records only. Content size describes retained content bytes, excluding database and filesystem overhead.
-
-## Preview a cleanup
-
-Cleanup is manual. The default threshold is 30 elapsed days since the artifact’s most recent archive.
-
-```sh
-r3 gc --dry-run
-```
-
-Review the eligible artifacts before deleting them. Restore cancels eligibility. Archiving again starts a new countdown.
-
-## Remove expired archives
-
-```sh
-r3 gc
-```
-
-This permanently removes eligible artifacts and conversations without a terminal prompt. The web Settings panel offers cleanup with a confirmation. Content shared by surviving publications is retained.
-
-Use `--ttl 7d` to override the threshold for one run. Set the server default on its host machine with `r3 config set archiveTtlDays 30`, then run `r3 server restart`. The accepted range is 1 to 36,500 days.
-
-## Delete selected work
-
-You can permanently delete one artifact or select several in the library. Deletion removes the whole artifact and its history; individual versions cannot be deleted or edited. A project deletion, by contrast, preserves its artifacts.
-
-The `gc` command reports failures with exit code 1. Review the result before assuming every eligible item was removed.
+**Delete** permanently removes an artifact and its whole history. Individual versions cannot be deleted. You can also select several artifacts in the library.
