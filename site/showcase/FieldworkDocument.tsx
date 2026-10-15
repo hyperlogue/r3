@@ -28,13 +28,23 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
   return (
     <div className="fieldwork-document">
       <div className="fieldwork-brand">
-        <strong>▧ Fieldwork</strong>
-        <span>Workspace / Projects</span>
+        <strong>
+          <span className="fieldwork-mark" aria-hidden="true">
+            F
+          </span>{" "}
+          Fieldwork
+        </strong>
+        <span>
+          Acme workspace{" "}
+          <span className="fieldwork-avatar" aria-hidden="true">
+            A
+          </span>
+        </span>
       </div>
       <div className="fieldwork-body">
-        <p className="fieldwork-eyebrow">A little room for your next big idea</p>
-        <h1>Start something good.</h1>
-        <p className="fieldwork-intro">Bring your people, plans, and progress together.</p>
+        <p className="fieldwork-eyebrow">Your workspace, one project at a time</p>
+        <h1>Create a project</h1>
+        <p className="fieldwork-intro">Give your next idea a place to take shape.</p>
         <form
           onSubmit={(event) => {
             event.preventDefault();

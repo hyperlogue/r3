@@ -136,15 +136,18 @@ site build.
 as the connected r3 app does. It supplies a detail snapshot, reads, mutation
 handlers from the existing in-memory demo backend, and the authored
 `FieldworkDocument` renderer or `PromptDocument` for the search explainer and
-onboarding brief. The hero capture selects a separate component
-fixture and `ComponentsDocument` renderer through `?scene=components`. No API
+project-visibility design proposal. The prototype uses a violet app layout, the
+explainer a dark canvas with colored ranking signals, and the proposal a white
+document with metadata, access rules, tradeoffs, and rollout notes. The hero
+capture selects a separate component fixture and `ComponentsDocument` renderer
+through `?scene=components`. No API
 aliases, authentication, or server bootstrap are involved. The build rejects runtime imports of connected application modules.
 
 `showcase/fixture.ts` owns the fictional versions and conversation. Comments,
 resolution, version selection, comparison, and scripted agent replies use real
 product components. Reset restores the fixture and clears sample drafts. One page
 per document isolates r3's stylesheet, keyboard bindings, and display preferences.
-The prototype, explainer, and brief use ordinary React controls. The component
+The prototype, explainer, and design doc use ordinary React controls. The component
 scene runs bundled authored HTML in an opaque iframe with the shared
 `installPreviewRuntime`: its blue rectangular highlight, dot marker, picking,
 and Locate behavior are actual product code. Its local message adapter connects
@@ -161,7 +164,9 @@ component capture includes the real r3 navbar above the document and floating th
 The thread scene locates the agent's fix, opens the runtime's dot marker, and types into its real popover reply
 composer without submitting. The two component versions have 8px and 16px button
 margins, matching the conversation.
-Phone readers see the real mobile layout; the desktop capture is downsized within the narrower workspace frame.
+Phone captures close the discussion sheet to show the authored document with the
+real mobile navigation and discussion bar. Desktop captures show the document
+beside its review conversation.
 
 `assets/fieldwork-captures.json` records the PNG hashes and viewport settings.
 A normal build needs no browser and checks image integrity and dimensions.

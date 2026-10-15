@@ -48,6 +48,14 @@ try {
           "real workspace and latest revision",
         );
         await verifyWorkspaceFont(page);
+        if (spec.width < 768) {
+          // Show the authored example instead of covering it with the phone sheet.
+          await page.evaluate(`document.querySelector('[aria-label="Close discussion"]').click()`);
+          await eventually(
+            () => page.evaluate(`document.querySelector('[data-mobile-discussion="sheet"]').inert`),
+            "mobile discussion closes before capturing the document",
+          );
+        }
         if (comment) {
           const [frame] = await componentFrames(browser, page);
           await verifyWorkspaceFont(frame!);
