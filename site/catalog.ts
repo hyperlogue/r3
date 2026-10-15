@@ -1,4 +1,4 @@
-export const homeTitle = "See what your agent drafted. Point to what’s next.";
+export const homeTitle = "See your agent’s work. Steer what’s next.";
 export const homeDescription =
   "Explore UI prototypes, interactive explainers, and design docs from your agent. Click directly on what needs attention, leave anchored notes, and refine the result together.";
 
