@@ -111,9 +111,11 @@ label, and demo destination follow the
 selected UI Prototype, Explainer, or Design doc prompt. Both public and packaged pages
 use the captures; the selected real workspace opens through the demo button.
 The terminal is illustrative, with prompts from `prompt-examples.ts`. The user
-message has a lighter background, matching the supplied Claude Code reference. The inner rows fill the terminal width. Only the
-changing task and response fade over 420ms; the publishing instruction and sample URL stay still. It cycles only while visible, supports pause and manual
-selection, and stays still with reduced motion or without JavaScript.
+message has a lighter background, matching the supplied Claude Code reference.
+The inner rows fill the terminal width. The changing task, response, and workspace
+screenshot fade together over 420ms; the publishing instruction and sample URL
+stay still. It cycles only while visible, supports pause and manual selection,
+and stays still with reduced motion or without JavaScript.
 
 Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.

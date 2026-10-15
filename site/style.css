@@ -1314,10 +1314,12 @@ figcaption {
 .claude-session {
   padding: 20px 0;
 }
-[data-prompt-variable] {
+[data-prompt-variable],
+[data-workspace-example] {
   transition: opacity 420ms ease;
 }
-[data-phase="leaving"] [data-prompt-variable] {
+[data-phase="leaving"] [data-prompt-variable],
+.home-hero:has([data-prompt-demo][data-phase="leaving"]) [data-workspace-example] {
   opacity: 0;
 }
 .prompt-common {
@@ -1926,7 +1928,8 @@ figcaption {
   .story-card,
   .story-illustration svg,
   .site-logo-mark,
-  [data-prompt-variable] {
+  [data-prompt-variable],
+  [data-workspace-example] {
     transition: none;
   }
   .prompt-controls .prompt-play {
