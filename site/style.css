@@ -322,15 +322,26 @@ kbd {
 }
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 40px;
   align-items: center;
 }
+.hero-copy {
+  min-width: 0;
+  container-type: inline-size;
+}
 .hero-grid h1 {
   margin-top: 0;
-  font-size: clamp(40px, 4vw, 54px);
-  line-height: 1.08;
+  font-size: min(54px, 9cqi);
+  line-height: 1.12;
   letter-spacing: -0.035em;
+}
+.hero-title-line {
+  display: block;
+  white-space: nowrap;
+}
+.hero-title-line + .hero-title-line {
+  color: var(--accent);
 }
 .hero-description {
   font-size: 17px;
@@ -1720,9 +1731,6 @@ figcaption {
   .hero-grid {
     grid-template-columns: 1fr;
     gap: 24px;
-  }
-  .hero-grid h1 {
-    font-size: clamp(38px, 10vw, 58px);
   }
   .install-block {
     margin-top: 32px;
