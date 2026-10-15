@@ -38,7 +38,7 @@ export const features = [
 
 export function featureHighlights() {
   return `<section class="features-section container" id="features" aria-labelledby="features-heading">
-<div class="section-heading"><div><h2 id="features-heading">A clearer conversation.<br>From first draft to finished work.</h2></div></div>
+<div class="section-heading"><div><h2 id="features-heading">A clearer conversation.<br>From first version to finished work.</h2></div></div>
 <div class="feature-list">${features
     .map(
       (feature) => `<article class="feature-row" id="${feature.id}">

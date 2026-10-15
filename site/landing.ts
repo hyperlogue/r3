@@ -124,7 +124,7 @@ ${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fi
 function promptDemo() {
   const first = promptExamples[0];
   return `<section class="prompt-example" id="agent-prompt" aria-labelledby="prompt-heading" data-prompt-demo>
-<h3 id="prompt-heading">Ask your agent to draft something.</h3>
+<h3 id="prompt-heading">Ask your agent to make something.</h3>
 <div class="claude-terminal">
 <div class="claude-session">
 <div class="prompt-scene" data-prompt-scene>
