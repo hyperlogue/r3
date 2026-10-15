@@ -4,6 +4,15 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] - 2026-10-15
+
+### Fixed
+
+- **Keyboard shortcuts are easier to find.** Open the shortcuts sheet from the
+  keyboard icon in the workspace navbar. Hover over common buttons to see their
+  shortcuts, including file navigation, adding comments, replying, and resolving
+  threads.
+
 ## [2.1.0] - 2026-10-13
 
 ### Added
@@ -701,6 +710,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.1.1]: https://github.com/hyperlogue/r3/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/hyperlogue/r3/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/hyperlogue/r3/compare/v1.6.0...v2.0.0
 [1.6.0]: https://github.com/hyperlogue/r3/compare/v1.5.0...v1.6.0
