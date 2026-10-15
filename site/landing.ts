@@ -104,7 +104,7 @@ ${skillInstall("start-install")}
 
 function skillInstall(id: string) {
   return `<div class="install-block" id="${id}">
-<h2 class="install-label">Install the publishing skill to try it yourself</h2>
+<h2 class="install-label">Install the skill to try it with your agent</h2>
 <pre class="install-command"><code><span class="command-runner">npx</span> skills add <span class="command-package">hyperlogue/r3</span> <span class="command-flag">--skill</span> <span class="command-skill">publish-artifacts-to-r3</span> <span class="command-flag">--global</span></code></pre>
 <p class="install-alternative"><a href="/docs/get-started/#other-installation-methods">Other ways to install →</a></p>
 </div>`;
