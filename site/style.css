@@ -671,31 +671,6 @@ figcaption {
 .mock-reply b {
   color: var(--accent);
 }
-.mock-versions > div {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 15px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-.mock-versions > :where(div) + div {
-  margin-top: 12px;
-}
-.mock-versions small {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 4px;
-}
-.mock-versions > :where(div) > span {
-  font: 11px var(--font-mono);
-  color: var(--accent);
-}
-.mock-versions .mock-current {
-  border-color: var(--accent);
-}
-.mock-versions i,
 .mock-handoff i {
   margin-left: auto;
   color: var(--success);
@@ -756,23 +731,67 @@ figcaption {
   font-size: 10px;
   font-weight: 500;
 }
-.mock-surfaces > div {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.mock-surfaces :where(div) > span {
-  background: var(--bg);
+.mock-attachment {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 10px;
   border: 1px solid var(--border);
-  padding: 12px;
+  background: var(--soft);
+}
+.mock-attachment svg {
+  width: 40%;
+  flex-shrink: 0;
+}
+.mock-attachment > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 10px;
 }
-.mock-surfaces b {
+.mock-attachment small {
   display: block;
-  font-size: 24px;
-  font-weight: 400;
-  color: var(--accent);
-  margin-bottom: 4px;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.mock-video-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  padding: 20px 20px 38px;
+  background: #d8e8e3;
+  color: #234e42;
+}
+.mock-frame-heading {
+  position: relative;
+  padding: 8px 16px;
+  border: 2px solid #3b82f6;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.mock-frame-heading i {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  right: -6px;
+  top: -6px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+.mock-frame-time {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  padding: 2px 6px;
+  background: #234e42;
+  color: white;
+  font: 9px / 1.6 var(--font-mono);
 }
 .mock-player {
   display: flex;
