@@ -9,8 +9,8 @@ export function PromptDocument(
   const [relevance, setRelevance] = useState(70);
   const [freshness, setFreshness] = useState(30);
   const explainer = props.scene === "explainer";
-  const id = explainer ? "ranking-signals" : "onboarding-tradeoffs";
-  const label = explainer ? "Ranking signals" : "Onboarding tradeoffs";
+  const id = explainer ? "ranking-signals" : "access-rules";
+  const label = explainer ? "Ranking signals" : "Access rules";
   const revised = props.version.seq > 1;
   useEffect(() => {
     if (props.active === false || !props.jump) return;
@@ -48,21 +48,48 @@ export function PromptDocument(
   return (
     <div className={`prompt-document prompt-document-${props.scene}`}>
       <div className="prompt-document-brand">
-        <strong>▧ Fieldwork</strong>
-        <span>{explainer ? "Learning lab / Search" : "Product notes / Onboarding"}</span>
+        <strong>{explainer ? "∿ Search lab" : "Fieldwork / Engineering"}</strong>
+        <span>{explainer ? "Interactive lesson 03" : "Design proposals / RFC 014"}</span>
       </div>
       <main className="prompt-document-body">
         <p className="prompt-document-eyebrow">
-          {explainer ? "An explainer you can try" : "A decision, made clearer"}
+          {explainer ? "Turn the signals. See the difference." : "RFC 014 · Design proposal"}
         </p>
-        <h1>{explainer ? "What rises to the top?" : "A good first five minutes."}</h1>
+        <h1>{explainer ? "What rises to the top?" : "Project visibility & access"}</h1>
         <p className="prompt-document-intro">
           {explainer
             ? revised
               ? "Search is a balance. Move the signals and watch the order change."
               : "Search balances close matches with recent updates."
-            : "Three ways to help a new team find its footing in Fieldwork."}
+            : "A predictable access model for shared and private work."}
         </p>
+        {!explainer && (
+          <>
+            <dl className="design-doc-meta">
+              <div>
+                <dt>Status</dt>
+                <dd>
+                  <span>In review</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Owner</dt>
+                <dd>Product engineering</dd>
+              </div>
+              <div>
+                <dt>Updated</dt>
+                <dd>11 Sep 2026</dd>
+              </div>
+            </dl>
+            <section className="design-doc-section">
+              <h2>Context</h2>
+              <p>
+                Teams need a shared place to work, but early plans often need a smaller audience.
+                Today, project access is implicit. People cannot tell who can discover their work.
+              </p>
+            </section>
+          </>
+        )}
         <div
           ref={anchor}
           id={id}
@@ -70,10 +97,16 @@ export function PromptDocument(
         >
           {explainer ? (
             <>
+              <div className="ranking-query">
+                <span>Search query</span>
+                <code>product launch</code>
+                <span aria-hidden="true">↵</span>
+              </div>
               {revised && (
                 <div className="ranking-controls">
                   <label>
-                    Relevance <output>{relevance}%</output>
+                    <span className="ranking-signal ranking-signal-relevance">Relevance</span>{" "}
+                    <output>{relevance}%</output>
                     <input
                       aria-label="Relevance weight"
                       type="range"
@@ -84,7 +117,8 @@ export function PromptDocument(
                     />
                   </label>
                   <label>
-                    Freshness <output>{freshness}%</output>
+                    <span className="ranking-signal ranking-signal-freshness">Freshness</span>{" "}
+                    <output>{freshness}%</output>
                     <input
                       aria-label="Freshness weight"
                       type="range"
@@ -102,12 +136,29 @@ export function PromptDocument(
                   the weighted average of the two signals.
                 </p>
               )}
+              <div className="ranking-results-heading">
+                <span>Live results</span>
+                <span>Score / 100</span>
+              </div>
               <div className="ranking-results" aria-live="polite">
-                {results.map((result) => (
+                {results.map((result, index) => (
                   <div key={result.name}>
-                    <span>
+                    <span className="ranking-position">0{index + 1}</span>
+                    <span className="ranking-result-detail">
                       <strong>{result.name}</strong>
                       <small>{result.detail}</small>
+                      <span className="ranking-bar" aria-hidden="true">
+                        <i
+                          style={{
+                            width: `${(result.match * relevance) / Math.max(1, relevance + freshness)}%`,
+                          }}
+                        />
+                        <i
+                          style={{
+                            width: `${(result.age * freshness) / Math.max(1, relevance + freshness)}%`,
+                          }}
+                        />
+                      </span>
                     </span>
                     <b>{result.score}</b>
                   </div>
@@ -115,48 +166,21 @@ export function PromptDocument(
               </div>
             </>
           ) : (
-            <>
-              <div className="onboarding-options">
-                {[
-                  {
-                    name: "Blank canvas",
-                    tag: "Maximum freedom",
-                    benefit: "No setup steps. Start with your own work.",
-                    risk: "An empty workspace asks the team to invent its own structure.",
-                  },
-                  {
-                    name: "Guided tour",
-                    tag: "Clear instructions",
-                    benefit: "Learn the controls in a short walkthrough.",
-                    risk: "A tour delays the first useful action and is easy to skip.",
-                  },
-                  {
-                    name: "Starter project",
-                    tag: "Recommended",
-                    benefit: "A useful example becomes the team’s first plan.",
-                    risk: "Sample content needs clear labels and an easy way to start fresh.",
-                  },
-                ].map((flow, index) => (
-                  <article key={flow.name} className={index === 2 ? "onboarding-recommended" : ""}>
-                    <small>{flow.tag}</small>
-                    <h2>{flow.name}</h2>
-                    <p>{flow.benefit}</p>
-                    {revised && (
-                      <p className="onboarding-risk">
-                        <strong>Tradeoff</strong>
-                        {flow.risk}
-                      </p>
-                    )}
-                  </article>
-                ))}
-              </div>
+            <section className="design-doc-section design-doc-decision">
+              <h2>Proposed access model</h2>
+              <p>
+                Offer two visibility settings at creation: <strong>Workspace</strong> for shared
+                work and <strong>Private</strong> for invited members only. Show the audience beside
+                the setting before the project is created.
+              </p>
               {revised && (
                 <p className="prompt-document-note">
-                  <strong>For a small team:</strong> choose a starter project. Help them reach a
-                  useful first plan before introducing every feature.
+                  <strong>When visibility changes.</strong> Invited members keep access. Switching
+                  to private immediately removes access for everyone else, including through
+                  existing shared links. Check permissions on every request.
                 </p>
               )}
-            </>
+            </section>
           )}
           {props.commenting && (
             <button
@@ -190,10 +214,48 @@ export function PromptDocument(
               ) : null,
             )}
         </div>
+        {!explainer && (
+          <>
+            <section className="design-doc-section">
+              <h2>Alternatives & tradeoffs</h2>
+              <table className="design-doc-table">
+                <thead>
+                  <tr>
+                    <th>Approach</th>
+                    <th>Tradeoff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      Workspace or private <span>Proposed</span>
+                    </td>
+                    <td>Clear audience; no custom roles in v1.</td>
+                  </tr>
+                  <tr>
+                    <td>Per-person permissions</td>
+                    <td>More control, more setup and maintenance.</td>
+                  </tr>
+                  <tr>
+                    <td>Anyone with a link</td>
+                    <td>Easy sharing, unpredictable audience.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+            <section className="design-doc-section">
+              <h2>Rollout & open questions</h2>
+              <p>
+                Keep existing projects workspace-visible. Trial the setting with five teams before
+                general release. Confirm whether guests need access in the first iteration.
+              </p>
+            </section>
+          </>
+        )}
         <p className="prompt-document-footer">
           {explainer
             ? "A simplified model for exploring the idea."
-            : "Decision brief · Product and design"}
+            : "RFC 014 · Feedback requested on access rules and guest support"}
         </p>
       </main>
     </div>

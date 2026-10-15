@@ -18,8 +18,8 @@ export const promptExamples = [
   {
     label: "Design doc",
     scene: "brief",
-    prompt: "Compare three onboarding flows and show their tradeoffs side by side.",
-    response: "Created a comparison brief covering each flow’s strengths and tradeoffs.",
+    prompt: "Write a design doc for project visibility, including access rules and tradeoffs.",
+    response: "Created a design proposal with the access model, tradeoffs, and rollout plan.",
   },
 ] as const;
 

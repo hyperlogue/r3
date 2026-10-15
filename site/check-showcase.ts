@@ -305,6 +305,29 @@ try {
   );
   await waitFor("!!document.querySelector('[data-artifact-thread]')", "shared mobile thread UI");
   await screenshot("fieldwork-mobile.png");
+  for (const scene of ["prototype", "explainer", "brief"]) {
+    await page.command("Page.navigate", {
+      url: `${server.url.origin}${base}/example/index.html?scene=${scene}&embedded=1`,
+    });
+    await waitFor(
+      `document.querySelector('[data-mobile-discussion="sheet"]')?.inert === false`,
+      "mobile sheet",
+    );
+    await click('[aria-label="Close discussion"]');
+    await waitFor(
+      `document.querySelector('[data-mobile-discussion="sheet"]').inert`,
+      "example revealed",
+    );
+    assert(
+      await page.evaluate(`(() => {
+        const doc = document.querySelector('.fieldwork-document, .prompt-document');
+        return doc && doc.scrollWidth <= doc.clientWidth &&
+          document.documentElement.scrollWidth <= innerWidth;
+      })()`),
+      `${scene} content fits the phone without horizontal scrolling`,
+    );
+    await screenshot(`prompt-${scene}-mobile.png`);
+  }
   assert.deepEqual(failures, [], "no browser exceptions");
   assert.deepEqual(
     requests.filter((value) => {

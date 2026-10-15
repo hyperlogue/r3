@@ -30,7 +30,7 @@ export function fieldworkSeed(
       reply: "Added an explanation beneath the visibility setting. Your choice stays editable.",
     },
     explainer: {
-      title: "Example Fieldwork · Search ranking",
+      title: "Search lab · Ranking signals",
       selector: "#ranking-signals",
       target: "Ranking signals",
       labels: ["Search ranking lab", "Explain the ranking signals"],
@@ -43,17 +43,17 @@ export function fieldworkSeed(
         "Added both sliders and explained the weighted score. Try moving freshness to see the results reorder.",
     },
     brief: {
-      title: "Example Fieldwork · Onboarding brief",
-      selector: "#onboarding-tradeoffs",
-      target: "Onboarding tradeoffs",
-      labels: ["Onboarding options", "Compare the tradeoffs"],
+      title: "RFC 014 · Project visibility",
+      selector: "#access-rules",
+      target: "Access rules",
+      labels: ["Visibility proposal", "Clarify visibility changes"],
       summaries: [
-        "Three possible onboarding flows for Fieldwork.",
-        "Compared setup effort, first value, and risks, with a recommendation for a small team.",
+        "A design proposal for workspace and private projects, with alternatives and rollout.",
+        "Specified how visibility changes affect existing members and shared links.",
       ],
-      question: "Show the tradeoffs side by side. Which flow suits a small team?",
+      question: "What happens to existing members and shared links when a project becomes private?",
       reply:
-        "Compared three flows and recommended a starter project for small teams. The main risk is making sample content feel like real work.",
+        "Clarified that invited members keep access. Everyone else loses access immediately, including through existing links.",
     },
   }[scene];
   const id = scene === "prototype" ? FIELDWORK_ID : `artifact_example_${scene}`;

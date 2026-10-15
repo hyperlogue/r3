@@ -235,7 +235,7 @@ try {
     0,
   );
   await doc.evaluate('document.querySelector(".workspace-demo").click()');
-  doc = await content("Start something good.");
+  doc = await content("Create a project");
   await eventually(
     () => doc.evaluate('!!document.querySelector("[data-compare-comment]")'),
     "opaque real React workspace",
