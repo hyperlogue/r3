@@ -67,6 +67,12 @@ Set it to the deployed demo URL when sharing beyond the local machine.
 - `client.ts` owns progressive enhancements: theme preference, code/Markdown
   copying, keyboard access to search, and Pagefind results.
 
+The header mark mounts the webapp's shared `Logo` component through `logo.tsx`.
+Clicking it plays the same tilted spin, including repeated clicks and reduced
+motion support; the separate “r3” text links home. Without JavaScript the mark
+stays a static image. The build resolves its SVG beside the site script so it
+also works on nested pages and inside an artifact's scoped preview.
+
 Text sections share an 880px maximum width; article prose is limited to 65ch.
 The hero uses a wider 1240px container to give its screenshot room. The full
 workspace preview stays within 880px. The homepage pairs five feature highlights with video mockups in two columns,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { join, resolve, sep } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { previewPolicy } from "../server/preview-contexts.ts";
+import { checkLogo } from "./check-logo.ts";
 
 const directory = resolve(import.meta.dir, "../dist/site-artifact");
 const id = `p${"1".repeat(48)}`,
@@ -79,6 +80,7 @@ try {
     }, heading);
   }
   let doc = await content("Your agent creates. You shape the result.");
+  await checkLogo(doc);
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
     permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],

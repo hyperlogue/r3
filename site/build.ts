@@ -120,7 +120,20 @@ export async function buildSite() {
     outdir: join(outputDirectory, "assets"),
     target: "browser",
     minify: true,
-    plugins: [tailwind],
+    plugins: [
+      tailwind,
+      {
+        name: "site-logo-asset",
+        setup(build) {
+          // The shared Logo fetches its SVG. Resolve it from the script so
+          // nested pages and scoped artifact URLs use the same favicon bytes.
+          build.onLoad({ filter: /[\\/]web[\\/]favicon\.svg$/ }, () => ({
+            loader: "js",
+            contents: 'export default new URL("./favicon.svg", import.meta.url).href;',
+          }));
+        },
+      },
+    ],
     naming: "[name].[ext]",
   });
   if (!assets.success) throw new AggregateError(assets.logs, "Site assets failed to build");
