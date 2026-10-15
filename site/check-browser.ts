@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
+import { checkLogo } from "./check-logo.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { normalizeBase } from "./render.ts";
 import { serveSite } from "./serve.ts";
@@ -59,6 +60,7 @@ try {
 
   await viewport(1440);
   await open("/", "Your agent creates. You shape the result.");
+  await checkLogo(page);
   await noOverflow();
   await screenshot("home-desktop.png");
   await browser.send("Browser.grantPermissions", {
@@ -163,6 +165,7 @@ try {
   await page.evaluate(
     "document.querySelector('#agent-prompt').scrollIntoView({behavior:'instant',block:'center'})",
   );
+  await checkLogo(page, true);
   assert.equal(
     await page.evaluate("document.querySelector('[data-prompt-demo]').dataset.paused"),
     "true",
@@ -187,6 +190,7 @@ try {
   );
   await page.command("Emulation.setEmulatedMedia", { features: [] });
   await open("/docs/get-started/", "Get started");
+  await checkLogo(page);
   assert.notEqual(
     await page.evaluate("document.documentElement.dataset.theme"),
     theme,
@@ -243,6 +247,35 @@ try {
 
   await viewport(390, 844);
   await open("/", "Your agent creates. You shape the result.");
+  await eventually(
+    () => page.evaluate("!!document.querySelector('.site-logo-button .arms')"),
+    "mobile logo",
+  );
+  await page.evaluate("document.querySelector('.site-logo-button').focus()");
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 13,
+    text: "\r",
+    unmodifiedText: "\r",
+  });
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 13,
+  });
+  await eventually(
+    () =>
+      page.evaluate("document.querySelector('.site-logo-mark .arms').hasAttribute('transform')"),
+    "keyboard activation plays the logo",
+  );
+  await eventually(
+    () =>
+      page.evaluate("!document.querySelector('.site-logo-mark .arms').hasAttribute('transform')"),
+    "keyboard animation finishes",
+  );
   await noOverflow();
   await screenshot("home-mobile.png");
   await page.evaluate("document.querySelector('.mobile-menu summary').click()");
@@ -262,6 +295,12 @@ try {
 
   await page.command("Emulation.setScriptExecutionDisabled", { value: true });
   await open("/", "Your agent creates. You shape the result.");
+  assert(
+    await page.evaluate(
+      "document.querySelector('[data-site-logo] img').complete && !!document.querySelector('.site-header a[aria-label=\"r3 home\"]')",
+    ),
+    "static logo and home navigation remain available without JavaScript",
+  );
   assert.equal(
     await page.evaluate("document.querySelector('#skill-install code').textContent"),
     "npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global",

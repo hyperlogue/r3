@@ -77,10 +77,10 @@ export function shell(
 <body data-base="${escapeHTML(base)}">
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
-<a class="brand" href="/" aria-label="r3 home">
-<img src="/assets/favicon.svg" width="32" height="32" alt="">
-<span>r3</span>
-</a>
+<div class="brand">
+<span data-site-logo><img src="/assets/favicon.svg" width="32" height="32" alt=""></span>
+<a class="brand-name" href="/" aria-label="r3 home">r3</a>
+</div>
 <nav class="desktop-nav" aria-label="Main navigation">${links}</nav>
 <div class="header-actions">
 <a class="search-link" href="/search/" aria-label="Search documentation">
@@ -126,7 +126,7 @@ export function shell(
   }<footer class="site-footer">
 <div>
 <a class="brand" href="/">
-<span>r3</span>
+<span class="brand-name">r3</span>
 </a>
 <p>A clearer conversation with your agent.</p>
 </div>

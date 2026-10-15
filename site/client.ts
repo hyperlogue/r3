@@ -1,3 +1,4 @@
+import { mountSiteLogo } from "./logo.tsx";
 import { startPromptDemo } from "./prompt-demo.ts";
 import { promptExamples } from "./prompt-examples.ts";
 
@@ -13,6 +14,7 @@ function siteURL(path: string) {
   return url.href;
 }
 document.documentElement.classList.add("has-js");
+mountSiteLogo();
 
 function retainArtifactTheme() {
   if (!artifact) return;
