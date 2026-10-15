@@ -1,7 +1,6 @@
 import { useRef } from "react";
-import { type Binding, KEYMAP, type KeyId, useBoundKeys, useKeyBindings } from "../keys.ts";
+import { type Binding, formatChord, isBound, KEYMAP, useKeyBindings } from "../keys.ts";
 import { cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
-import { ShortcutKey } from "./ShortcutHint.tsx";
 import { HeaderIconButton } from "./WorkspaceHeader.tsx";
 
 // `?` cheat sheet, rendered from KEYMAP. Owns `help`; suspends every other
@@ -25,58 +24,11 @@ export function ShortcutsButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function ShortcutBar({
-  onOpen,
-  threadSelected,
-  readOnly,
-}: {
-  onOpen: () => void;
-  threadSelected: boolean;
-  readOnly: boolean;
-}) {
-  const bound = useBoundKeys();
-  const hints: { ids: KeyId[]; label: string }[] = [];
-  if (bound.includes("fbNext")) {
-    hints.push({ ids: ["fbNext", "fbPrev"], label: "Navigate threads" });
-    if (!readOnly) {
-      if (threadSelected) hints.push({ ids: ["fbComment"], label: "Reply" });
-      else hints.push({ ids: ["generalNote"], label: "Add comment" });
-    }
-  } else if (bound.includes("fileNext")) {
-    hints.push({ ids: ["filePrev", "fileNext"], label: "Navigate files" });
-  }
-  if (bound.includes("filePicker")) hints.push({ ids: ["filePicker"], label: "Jump to file" });
-  else if (bound.includes("panelToggle"))
-    hints.push({ ids: ["panelToggle"], label: "Toggle discussion" });
+function ShortcutKey({ chord }: { chord: string }) {
   return (
-    <div
-      data-shortcut-bar
-      className="flex h-7 shrink-0 items-center justify-between gap-4 border-t border-neutral-200 bg-white px-3 text-[0.625rem] text-neutral-500 max-md:hidden dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-400"
-    >
-      <div className="flex min-w-0 items-center gap-5">
-        {hints
-          .filter((hint) => hint.ids.every((id) => bound.includes(id)))
-          .map((hint) => (
-            <span key={hint.label} className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="flex items-center gap-0.5">
-                {hint.ids.map((id) => (
-                  <ShortcutKey key={id} chord={KEYMAP.find((b) => b.id === id)!.keys[0]!} />
-                ))}
-              </span>
-              {hint.label}
-            </span>
-          ))}
-      </div>
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-haspopup="dialog"
-        className="flex shrink-0 items-center gap-1.5 self-stretch hover:text-neutral-800 dark:hover:text-neutral-200"
-      >
-        <ShortcutKey chord="?" />
-        All shortcuts
-      </button>
-    </div>
+    <kbd className="inline-flex min-w-4 shrink-0 items-center justify-center rounded border border-neutral-200 bg-neutral-50 px-1 py-0.5 font-mono text-[0.625rem] font-normal leading-none text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
+      {formatChord(chord)}
+    </kbd>
   );
 }
 
@@ -110,7 +62,6 @@ export function ShortcutsOverlay({
   onOpenChange: (open: boolean) => void;
 }) {
   const content = useRef<HTMLDivElement>(null);
-  const bound = useBoundKeys();
   useKeyBindings({ help: () => onOpenChange(!open) });
   useEscape(open, () => onOpenChange(false));
   usePopoverFocus(open, content);
@@ -140,9 +91,10 @@ export function ShortcutsOverlay({
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Close keyboard shortcuts"
+            title="Close keyboard shortcuts (Esc)"
             className="flex items-center gap-1.5 text-[0.6875rem] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
           >
-            Close <ShortcutKey chord="Escape" />
+            Close
           </button>
         </div>
         {/* Two columns on a roomy sheet, one on a narrow one. `columns` (not grid)
@@ -159,7 +111,7 @@ export function ShortcutsOverlay({
                 </h3>
                 <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                   {rows.map((b) => (
-                    <Row key={b.id} b={b} bound={bound.includes(b.id)} />
+                    <Row key={b.id} b={b} bound={isBound(b.id)} />
                   ))}
                 </div>
               </section>

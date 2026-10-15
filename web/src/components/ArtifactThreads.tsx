@@ -53,7 +53,6 @@ import {
   useAttachmentInput,
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
-import { ShortcutHint } from "./ShortcutHint.tsx";
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
 export type ArtifactTargetJump = (target: ArtifactTarget, threadId?: string) => void;
 function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
@@ -277,6 +276,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     <Button
       type="button"
       data-thread-action="resolve"
+      title={`${thread.status === "open" ? "Resolve" : "Reopen"} (${active ? "e" : "e for the selected thread"})`}
       variant={thread.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
       className={thread.status === "resolved" ? "text-neutral-400" : undefined}
@@ -286,7 +286,6 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       }}
     >
       {thread.status === "open" ? "✓ Resolve" : "Reopen"}
-      {active && <ShortcutHint id="fbResolve" />}
     </Button>
   );
   const moreMenu = (
@@ -603,9 +602,13 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <div className="mt-3 flex items-center gap-1 text-[0.6875rem]">
           {resolveButton}
           {moreMenu}
-          <Button className="ml-auto" data-thread-action="comment" onClick={openComment}>
+          <Button
+            className="ml-auto"
+            data-thread-action="comment"
+            title={active ? "Reply (r)" : "Reply (r for the selected thread)"}
+            onClick={openComment}
+          >
             Reply
-            {active && <ShortcutHint id="fbComment" />}
           </Button>
         </div>
       )}
@@ -897,7 +900,6 @@ export function ArtifactThreads({
               disabled={detail.state !== "active"}
             >
               <CommentPlusIcon className="size-3.5" />
-              <ShortcutHint id="generalNote" />
             </Button>
             <ArtifactHandoffButton handoff={handoff} active={keysActive} />
           </div>

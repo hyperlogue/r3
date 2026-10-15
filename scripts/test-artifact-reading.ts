@@ -195,7 +195,7 @@ try {
       "closing shortcuts returns focus to the keyboard icon",
     );
     await page.evaluate(`(() => {
-      const button = document.querySelector('[data-shortcut-bar] button');
+      const button = document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]');
       button.focus();
       button.click();
     })()`);
@@ -204,14 +204,17 @@ try {
         page.evaluate(
           '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
         ),
-      "All shortcuts opens the same sheet",
+      "keyboard icon reopens the sheet",
     );
     await page.evaluate(
       "document.querySelector('[aria-label=\"Close keyboard shortcuts\"]').click()",
     );
     await eventually(
-      () => page.evaluate('document.activeElement?.matches("[data-shortcut-bar] button")'),
-      "visible close returns focus to All shortcuts",
+      () =>
+        page.evaluate(
+          "document.activeElement?.matches('[data-app-header] [aria-label=\"Keyboard shortcuts\"]')",
+        ),
+      "visible close returns focus to the keyboard icon",
     );
     await pressKey("?");
     await eventually(
@@ -344,14 +347,6 @@ try {
         contentWidth,
         "floating and hidden preserve the same content width",
       );
-      await eventually(
-        () =>
-          page.evaluate(`(() => {
-          const text = document.querySelector('[data-shortcut-bar]').textContent;
-          return text.includes('Navigate files') && !text.includes('Navigate threads') && !text.includes('Reply');
-        })()`),
-        "hint strip follows hidden discussion bindings",
-      );
       await page.evaluate(`document.querySelector('[data-fb-id="${threads.id}"] code').click()`);
       await eventually(
         () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
@@ -409,9 +404,10 @@ try {
         "mobile closed sheet",
       );
       assert(
-        await page.evaluate(`getComputedStyle(document.querySelector('[data-shortcut-bar]')).display === 'none' &&
-          document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]').getBoundingClientRect().width >= 36`),
-        "phone keeps a touch-sized keyboard button without the hint strip",
+        await page.evaluate(
+          `document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]').getBoundingClientRect().width >= 36`,
+        ),
+        "phone keeps a touch-sized keyboard button",
       );
       await screenshot("files-mobile");
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });

@@ -49,7 +49,7 @@ import { JumpToFile } from "./components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos } from "./components/Message.tsx";
 import { Notification, NotificationProvider } from "./components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "./components/PaneToolbar.tsx";
-import { ShortcutBar, ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
+import { ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
 import { keysSuspended, useKeyBindings } from "./keys.ts";
 import { AddCommentPill } from "./mobile/AddCommentPill.tsx";
 // This page is the artifact workspace's single mobile container mount point.
@@ -1180,16 +1180,6 @@ function Workspace({
           </div>
         )}
       </main>
-      <ShortcutBar
-        onOpen={() => setShortcutsOpen(true)}
-        threadSelected={detail.threads.some(
-          (thread) =>
-            thread.id === (comparison.active ? comparison.selected?.threadId : view.threadId) &&
-            thread.status ===
-              ((comparison.active ? comparisonTab : threadTab) === "active" ? "open" : "resolved"),
-        )}
-        readOnly={detail.state !== "active"}
-      />
       {mobile && (
         <MobileReviewChrome
           openCount={detail.threads.filter((threads) => threads.status === "open").length}

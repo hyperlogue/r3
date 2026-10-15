@@ -3,7 +3,6 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useKeyBindings } from "../keys.ts";
 import { ChevronDown, cn, StrokeIcon, useEscape } from "../ui.tsx";
-import { ShortcutHint } from "./ShortcutHint.tsx";
 
 // Jump-to-file picker. Filter input is pinned to the bottom, outside the
 // scrollable list (thumb + keyboard on a phone). Desktop: popover; below md:
@@ -282,7 +281,7 @@ export function JumpToFile({
     <div className="relative">
       <button
         type="button"
-        title="Jump to file"
+        title="Jump to file (f)"
         aria-label="Jump to file"
         onClick={() => (shown && visible ? closePicker() : openPicker())}
         className={btnClassName}
@@ -294,9 +293,6 @@ export function JumpToFile({
           <path d="m9 18-1.5-1.5" />
           <circle cx="5" cy="14" r="3" />
         </StrokeIcon>
-        <span className="ml-1 inline-flex max-md:hidden">
-          <ShortcutHint id="filePicker" />
-        </span>
       </button>
       {shown && (
         <>
