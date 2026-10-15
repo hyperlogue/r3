@@ -15,7 +15,7 @@ Keep the model small enough to understand. Do not ask the agent to connect to a 
 
 Search for “launch.” Before looking at the score breakdown, decide which project you expect first. Compare a recent project that mentions launch in its description with an older project that includes it in the title.
 
-Change one input at a time. A useful explanation keeps the dataset and score contributions visible so you can see which rule caused the order to change.
+Test queries with different attributes. A well-designed explainer keeps both the mock data and scoring weights visible so you can see which rule caused the order to shift.
 
 ## Question the surprising result
 
@@ -23,13 +23,13 @@ Select the score breakdown or its explanation and comment:
 
 > I cannot tell whether recency can outweigh an exact title match. Show the contribution of each factor with units or weights, and add one example where changing recency changes the order. Explain whether that is intentional.
 
-Send the feedback. This asks the agent to expose an assumption and demonstrate it, rather than making the visualization more decorative.
+Send the feedback. This pushes the agent to make underlying math and edge-case assumptions transparent, rather than just polishing the visual layout.
 
 ## Test the revised explanation
 
 Follow the reply to the new score breakdown. Repeat the original query and reproduce the ranking change described by the agent. Check that displayed totals match the stated formula.
 
-Read the static explanation too. It should carry the key argument even if you do not move a slider. If the interactive display and prose disagree, target the mismatch in a follow-up reply.
+Read the accompanying explanation as well. The static prose should articulate the logic clearly even without touching a slider; if the text and interactive model contradict each other, call out the mismatch.
 
 ## Know what you learned
 
@@ -38,7 +38,7 @@ Read the static explanation too. It should carry the key argument even if you do
 - At least one example shows a ranking tradeoff.
 - The page distinguishes this proposed model from production behavior.
 
-This walkthrough describes Example Fieldwork’s proposed search, not r3’s own [library search](/docs/library/). r3 is the place where the explanation is published and discussed.
+*(Here we're reviewing search ranking inside the sample app, distinct from r3’s built-in [library search](/docs/library/).)*
 
 ## Reproduce the publication
 

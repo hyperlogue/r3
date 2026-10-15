@@ -1,18 +1,18 @@
-## Most reviews need no setup
+## Most workflows need zero configuration
 
-Use the workspace’s appearance controls for theme, text size, and source colors.
+By default, r3 runs automatically on loopback without manual configuration. You can customize font sizes, color themes, and syntax styles right inside the workspace.
 
-For server settings, ask your agent or administrator to run `r3 config show` and consult `r3 --help`.
+To inspect current server configuration, run `r3 config show` in your terminal.
 
-## Settings you may want to change
+## Key configuration settings
 
-| Setting | What it changes |
+| Setting | What it controls |
 | --- | --- |
-| `backendUrl` | Which server your agent connects to. |
-| `archiveTtlDays` | How old an archive must be for manual cleanup. Default: 30 days. |
-| `authTokenIdleDays` | Browser login-token inactivity limit. Default: 14 days. |
-| `projectGrouping` | Automatic Git grouping or manual projects. |
+| `backendUrl` | The backend endpoint your CLI and agent connect to. |
+| `archiveTtlDays` | Minimum age before an archived artifact qualifies for cleanup (Default: 30 days). |
+| `authTokenIdleDays` | Inactivity window before a browser session token expires (Default: 14 days). |
+| `projectGrouping` | Automatic Git remote detection (`remote`) or explicit project assignment (`manual`). |
 
-Server settings must be changed **on the server’s machine**, then applied with `r3 server restart`. A changed `backendUrl` applies immediately.
+Server-level changes must be executed **on the host machine** and applied by running `r3 server restart`. (Updating `backendUrl` in the CLI takes effect immediately).
 
-For remote hosting and sign-in, follow [Local & remote access](/docs/access/).
+For remote server hosting and multi-device setups, see [Local & remote access](/docs/access/).

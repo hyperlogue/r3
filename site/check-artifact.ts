@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { join, resolve, sep } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { previewPolicy } from "../server/preview-contexts.ts";
+import { homeTitle } from "./catalog.ts";
 import { checkLogo } from "./check-logo.ts";
 
 const directory = resolve(import.meta.dir, "../dist/site-artifact");
@@ -79,7 +80,7 @@ try {
       return null;
     }, heading);
   }
-  let doc = await content("Your agent creates. You shape the result.");
+  let doc = await content(homeTitle);
   await checkLogo(doc);
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
@@ -229,7 +230,7 @@ try {
   doc = await content(heading);
   assert.equal(await doc.evaluate("document.documentElement.dataset.theme"), "dark");
   await doc.evaluate(`location.href=${JSON.stringify(`${prefix}index.html?theme=dark`)}`);
-  doc = await content("Your agent creates. You shape the result.");
+  doc = await content(homeTitle);
   assert.equal(
     await doc.evaluate('document.querySelectorAll(".workspace-example iframe").length'),
     0,
@@ -268,7 +269,7 @@ try {
     "opaque local mutation",
   );
   await doc.evaluate('document.querySelector(".example-actions a").click()');
-  doc = await content("Your agent creates. You shape the result.");
+  doc = await content(homeTitle);
   assert(requests.every((p) => p.startsWith(prefix)));
   assert.deepEqual(exceptions, []);
   console.log(

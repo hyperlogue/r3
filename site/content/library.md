@@ -2,10 +2,10 @@
 
 ## Find your work
 
-Search artifact titles, published text, and conversations. Results open the matching version and location. Choose **All history** to include older publications.
+Search across artifact titles, published document text, and thread discussions in real time. Search results jump directly to the matching version and target element. Toggle **All history** to search across earlier revisions too.
 
-Use **Active**, **Archived**, and **All**, then filter by kind or project. **Attention first** brings open threads with an agent’s latest reply to the top. Reply or resolve to clear that signal.
+Filter your workspace by **Active**, **Archived**, or artifact kind (HTML, Files, Diff). Enabling **Attention first** floats open threads with pending agent replies to the top so you can review incoming fixes immediately.
 
 ## Keep it organized
 
-Use descriptive titles and [projects](/docs/projects/) to group related reviews. Select several artifacts for bulk archive or deletion.
+Assign clear titles and group related work into [projects](/docs/projects/). You can batch-select artifacts in the library view to archive or clean up old runs in one pass.

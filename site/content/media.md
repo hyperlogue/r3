@@ -2,14 +2,14 @@
 
 ## Point to the pixels
 
-Open an image in a files artifact. Zoom in to inspect details, then select the whole image or a region. PNG, JPEG, and static WebP support region feedback.
+Open any image in a files artifact. Zoom in to inspect small details, then click and drag a box across the specific region that needs attention. PNG, JPEG, and static WebP all support region-based comments.
 
-For video, **pause at the moment that matters** and select a frame or region. The comment keeps a saved frame and timestamp, so the agent can see exactly what you saw.
+For video, **pause at the moment that matters** and highlight a frame or region. Your comment automatically bundles the captured still frame and timestamp, giving your agent exact visual proof.
 
-Audio uses whole-file feedback. Include a timestamp in your message to identify the passage.
+Audio tracks support artifact-level comments—just include a timestamp in your note to flag a specific section.
 
 ## Show what you mean
 
-Paste or attach a screenshot, then crop or annotate it. Each comment accepts up to four PNG/JPEG images, each up to 5 MiB and 20 megapixels.
+Paste or attach screenshots directly into the composer, then crop or annotate them. Comments accept up to four PNG/JPEG images (up to 5 MiB and 20 megapixels each).
 
-Use **Compare** on a linked media fix to inspect the revision alongside your original evidence.
+When your agent replies with a revised asset, click **Compare** to view the revision side by side with your original flagged frame.

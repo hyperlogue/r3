@@ -9,7 +9,7 @@ Example Fieldwork sometimes creates two projects after a quick double click. The
 
 > Read `r3 guide` and `r3 guide diff`. In the Example Fieldwork sample app, prevent duplicate project-creation requests while one submission is in flight. Keep validation and retry behavior usable. Make the change, test success and rejection, and publish the complete patch for review. Explain any server-side idempotency assumptions separately.
 
-Use a disposable example app or a dedicated branch for the sample change. The example concerns the app under review; it does not ask r3 to apply a patch.
+*(The diff captures changes to the sample app; r3 tracks and reviews diffs rather than applying them directly.)*
 
 ## Inspect the control flow
 

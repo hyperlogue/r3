@@ -1,15 +1,15 @@
 <!-- visual: explainer -->
 
-## Try the idea
+## Test the live idea
 
-Use forms, sliders, links, and other controls as you normally would. Test the confusing case, then turn on **comment mode** to select the element or wording that needs work.
+Click through forms, sliders, modals, and links just like you would on a production page. When something feels off, switch to **comment mode** and click the exact control or copy that needs work.
 
-Use the page’s own navigation to move around. Ask for a [files artifact](/docs/files/) if you also want to inspect source.
+You can navigate freely using the page’s own links. If you need to inspect raw code alongside the rendered interface, ask your agent for a [files artifact](/docs/files/).
 
-## Check the revision
+## Verify the revision
 
-Follow the agent’s **Fix** link to the changed element. Use **Compare** when offered, then try the behavior yourself before resolving the thread.
+When your agent responds with a new version, follow its **Fix** link directly to the updated element. Use **Compare** to see the before-and-after states, and test the behavior yourself before resolving the thread.
 
-Missing fonts or images? Ask the agent to include them in the publication. External access is blocked by default; review [permissions](/docs/permissions/) before allowing it.
+If fonts or images look missing, ask your agent to bundle them directly into the publication. External network requests are blocked by default for security; see [permissions](/docs/permissions/) if outside network access is required.
 
-[Try the search explainer](/example/index.html?scene=explainer).
+[Try the interactive search explainer](/example/index.html?scene=explainer).

@@ -1,4 +1,4 @@
-import { groups, navigationDocs, type Page } from "./catalog.ts";
+import { groups, navigationDocs, type Page, stories } from "./catalog.ts";
 import { escapeHTML, type Heading } from "./render.ts";
 
 function nav(current: string) {
@@ -30,6 +30,13 @@ export function shell(
 ) {
   const { base, origin, headings = [], article = false, markdown = true } = options;
   const isDoc = page.path.startsWith("/docs/");
+  const isCase = page.path.startsWith("/use-cases/") && page.path !== "/use-cases/";
+  const currentStory = isCase
+    ? stories.find((s) => `/use-cases/${s.slug}/` === page.path)
+    : undefined;
+  const eyebrow = isCase
+    ? `<a href="/use-cases/" class="breadcrumb-link">Use cases</a> / ${escapeHTML(currentStory ? `${currentStory.number} ${currentStory.category}` : page.group)}`
+    : escapeHTML(page.group);
   const markdownPath = `${page.path}index.md`;
   const canonicalPath = page.canonicalPath ?? page.path;
   const links = `<a href="/use-cases/"${page.path.startsWith("/use-cases/") ? ' aria-current="page"' : ""}>Use cases</a>
@@ -48,7 +55,7 @@ export function shell(
     : "";
   const articleBody = `<article class="article" data-pagefind-body>
 <header class="article-header">
-<p class="eyebrow" data-pagefind-meta="section">${escapeHTML(page.group)}</p>
+<p class="eyebrow" data-pagefind-meta="section">${eyebrow}</p>
 <h1 data-pagefind-meta="title">${escapeHTML(page.title)}</h1>
 <p class="lede">${escapeHTML(page.description)}</p>${tools}</header>
 <div class="prose">${body}</div>${articleEnd(page)}</article>`;
@@ -146,11 +153,21 @@ export function shell(
 }
 
 function articleEnd(page: Page) {
-  if (page.path.startsWith("/use-cases/"))
+  if (page.path.startsWith("/use-cases/")) {
+    const storyIndex = stories.findIndex((s) => `/use-cases/${s.slug}/` === page.path);
+    if (storyIndex >= 0) {
+      const prev = storyIndex > 0 ? stories[storyIndex - 1] : undefined;
+      const next = storyIndex < stories.length - 1 ? stories[storyIndex + 1] : undefined;
+      return `<nav class="article-next" aria-label="Next steps">
+${prev ? `<a href="/use-cases/${prev.slug}/">← ${prev.number} ${escapeHTML(prev.name)}</a>` : `<a href="/use-cases/">← All walkthroughs</a>`}
+${next ? `<a href="/use-cases/${next.slug}/">${next.number} ${escapeHTML(next.name)} →</a>` : `<a href="/docs/get-started/">Try it with your agent →</a>`}
+</nav>`;
+    }
     return `<nav class="article-next" aria-label="Next steps">
 <a href="/use-cases/">← All five walkthroughs</a>
 <a href="/docs/get-started/">Try it with your agent →</a>
 </nav>`;
+  }
   const index = navigationDocs.findIndex(
     (p) => p.path === (page.path === "/docs/" ? "/docs/get-started/" : page.path),
   );

@@ -2,14 +2,14 @@
 
 ## Choose what a page can access
 
-Published pages can run code. By default, previews are isolated from r3’s credentials and external networking is blocked.
+HTML artifacts can execute scripts in the browser. By default, previews are sandboxed in an opaque origin with zero access to your r3 auth credentials or external network APIs.
 
-If your browser cannot verify the required protection, r3 asks for **compatibility consent**. Read that choice before continuing. Remembered consent skips later checks until you forget it.
+If your browser cannot verify the required origin protection, r3 prompts for **compatibility consent**. Once granted, r3 remembers your choice so you aren't interrupted repeatedly.
 
-## Allow only what the task needs
+## Grant only what the task requires
 
-An HTML artifact can request broader **external access**. Allow it only when you trust the page: it may send information to outside services. Prefer asking the agent to bundle missing fonts, images, or scripts.
+If a prototype genuinely requires third-party API access, it can request **external networking**. Only grant this when you trust the page, as it permits outbound requests. Whenever possible, ask your agent to bundle external fonts, images, or libraries directly into the artifact.
 
-Camera and microphone need separate r3 consent and browser permission. Use the visible sharing control to stop capture. Navigation or a new preview context ends the old capture and may require fresh permission.
+Camera and microphone access require explicit permission prompts from both r3 and your browser. A floating indicator lets you stop media capture at any time.
 
-If a preview expires after a suspended tab, use **Retry**. You do not need a new publication.
+If a preview times out after leaving a tab asleep, click **Retry** to reload the sandbox without needing a new publication.

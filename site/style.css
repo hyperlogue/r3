@@ -299,6 +299,16 @@ kbd {
   font-weight: 600;
   color: var(--muted);
 }
+.eyebrow a,
+.breadcrumb-link {
+  color: inherit;
+  text-decoration: none;
+}
+.eyebrow a:hover,
+.breadcrumb-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .status-dot {
   display: inline-block;
   width: 7px;

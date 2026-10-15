@@ -6,7 +6,7 @@ Run this in your terminal, then choose your coding agent:
 npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global
 ```
 
-The skill handles setup. Reviews run on your machine by default; you can also [connect your own server](/docs/access/).
+The skill configures your agent automatically. Reviews run locally on your machine—no accounts or external servers required unless you choose to [connect your own server](/docs/access/).
 
 ## Ask your agent to publish
 
@@ -18,10 +18,10 @@ Open the link your agent gives you. If local sign-in is needed, ask it to run `r
 
 ## Make your first review
 
-1. Try the page normally.
-2. Turn on **comment mode**, select something, and describe the change.
-3. Choose **Send to agent**. Without a listener, **Use in agent** gives you a command to paste into your agent.
-4. Inspect the revision and **Resolve** the thread when you are happy.
+1. Click around and test the page like a real user.
+2. Turn on **comment mode**, click any element that needs work, and write your note.
+3. Hit **Send to agent**. (If your agent isn’t listening in the background, click **Use in agent** to paste the command into your chat).
+4. Inspect the agent's new revision, check the diff, and click **Resolve** once you're satisfied.
 
 [Try the example](/example/index.html) or learn [how to give precise feedback](/docs/feedback/).
 

@@ -9,25 +9,25 @@ Example Fieldwork’s onboarding proposal says new users should “create a work
 
 > Read `r3 guide` and `r3 guide files`. Prepare an onboarding proposal for Example Fieldwork. Put the main recommendation in `proposal.md`, assumptions and fictional interview notes in `research-notes.md`, and the suggested first-run steps in `checklist.md`. Clearly label invented research as illustrative. Publish the directory as a files artifact.
 
-The distinction between evidence and assumption matters. The agent should not present a fictional interview as a real user study.
+Separating assumptions from actual evidence is critical—your agent shouldn't blur fictional user interviews with verified data.
 
 ## Read the proposed first run
 
-Open the rendered proposal. Follow its supporting-file links, and use the file panel to check the checklist. Look for an explicit answer to three questions: who starts, what they create, and when they get a useful result.
+Open the rendered proposal, click through supporting file links, and check `checklist.md` in the sidebar. You're looking for clear answers to three basics: who performs the setup, what they create first, and when they see real value.
 
-If the proposal jumps straight from account creation to invitations, select that passage.
+If the proposal jumps straight from account creation to inviting teammates, highlight that passage.
 
 ## Ask for a decision, not more prose
 
 > This sequence requires inviting teammates before the user has anything useful to show them. Propose a solo first-run path that creates one real project before the invitation step. Explain the tradeoff and update the checklist to match.
 
-Send this as one concern anchored to the passage. Add a separate note only if the supporting research has an independent problem.
+Leave this as a focused comment directly on the passage. Keep separate critiques in their own threads so your agent can address them independently.
 
 ## Check the whole publication
 
-The agent should publish a complete revised directory. Open its reply and inspect the new proposal, then verify that the checklist reflects the same order.
+The agent will publish a revised directory snapshot. Open the agent’s reply, inspect the updated proposal, and confirm that the checklist matches the new sequence.
 
-An example revised sequence is: name a project, add the first milestone, see the project overview, then invite a teammate. The rationale should explain why this gives the user something concrete to share and what collaboration setup is deferred.
+A realistic revised flow: name a project, add the first milestone, view the populated dashboard, and only then invite teammates. The rationale should explain why this gives the user immediate momentum and what administrative setup can wait.
 
 ## Resolve the decision
 
@@ -36,7 +36,7 @@ An example revised sequence is: name a project, add the first milestone, see the
 - The checklist matches the recommendation.
 - The tradeoff is visible, including what remains untested.
 
-Keep the thread open if the agent only rewrites the sentence without changing the proposed flow. Resolve once the decision and its supporting files agree.
+If your agent merely rewords the prose without altering the actual sequence, keep the thread open. Resolve it once the proposal and its supporting files tell the same clear story.
 
 ## Reproduce the publication
 
