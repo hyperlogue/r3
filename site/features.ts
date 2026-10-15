@@ -3,35 +3,35 @@ export const features = [
     id: "precise-feedback",
     title: "Comment right on the element.",
     description:
-      "Click the button, field, or heading you want changed and leave a note. Your agent gets the comment with its context, without a long explanation of where to look.",
+      "Click any button, heading, or input and leave your note. Your agent gets the exact DOM node and viewport context, so you never have to write paragraphs describing where to look.",
     scene: `<div class="mock-note"><span class="mock-label">HTML artifact / selected element</span><div class="mock-selection">Visibility <strong>Workspace⌄</strong></div><div class="mock-comment">Explain who can see this project.<span>Comment attached to Visibility <b>↗</b></span></div></div>`,
   },
   {
     id: "agent-handoff",
-    title: "Send your comments to the agent.",
+    title: "Send comments directly to the agent.",
     description:
-      "Collect your feedback, then send it straight to your connected agent. It can address the comments and reply in the same conversation.",
+      "Batch your feedback into a review queue and hand it off in one shot. Your agent picks up the tasks, addresses each comment, and replies directly in the thread.",
     scene: `<div class="mock-handoff"><span class="mock-label">Ready for your agent</span><p><span>01</span>Explain project visibility<i>✓</i></p><p><span>02</span>Make the next step clearer<i>✓</i></p><p><span>03</span>Shorten the introduction<i>✓</i></p><strong>Send to agent <span>3 comments →</span></strong></div>`,
   },
   {
     id: "inspect-fixes",
     title: "See the fix, side by side.",
     description:
-      "When your agent links a fix in its reply, open the comparison view. See the original beside the revision and decide whether it addresses your feedback.",
+      "When your agent replies with a fix, open the comparison view. See the original beside the revision to verify whether the change actually solved the problem.",
     scene: `<div class="mock-compare"><span class="mock-label">Original <span>Proposed fix</span></span><div><p>Visibility<strong>Workspace⌄</strong></p><p>Visibility<strong>Workspace⌄</strong><small>Everyone in your workspace can find and open this project.</small></p></div><span class="mock-reply">✓ Added an explanation <b>Compare ↗</b></span></div>`,
   },
   {
     id: "image-comments",
-    title: "Show what you mean with an image.",
+    title: "Support images in comments.",
     description:
-      "Add a screenshot, sketch, or reference image to your comment. Give your agent a visual example alongside your instructions.",
+      "Attach screenshots, sketches, or design mockups directly to your feedback. When words get messy, show your agent the target design.",
     scene: `<div class="mock-image-note"><span class="mock-label">A reference, right in the conversation</span><div class="mock-comment">Give the form more breathing room, like this.<div class="mock-attachment"><svg viewBox="0 0 180 112" fill="none"><rect width="180" height="112" rx="4" fill="#e9e5fa"/><rect x="34" y="12" width="112" height="88" rx="4" fill="#fff"/><rect x="46" y="24" width="50" height="5" rx="2" fill="#544482"/><rect x="46" y="39" width="88" height="14" rx="2" stroke="#d1c9e7"/><rect x="46" y="61" width="88" height="14" rx="2" stroke="#d1c9e7"/><rect x="98" y="83" width="36" height="7" rx="3" fill="#7561b3"/></svg><span>layout-reference.png<small>Image attached</small></span></div><span>Image + comment <b>↗</b></span></div></div>`,
   },
   {
     id: "video-comments",
-    title: "Leave feedback on the exact frame.",
+    title: "Comment on the exact video frame.",
     description:
-      "Pause a video and comment on a moment or a specific area. The saved frame and timestamp show your agent exactly what needs attention.",
+      "Pause anywhere in a clip, highlight a region, and leave a note. The captured timestamp and still frame give your agent unambiguous visual context.",
     scene: `<div class="mock-video-note"><span class="mock-label">Launch video / saved frame</span><div class="mock-video-frame"><div class="mock-frame-heading">Make room<br>for your next idea.<i></i></div><span class="mock-frame-time">00:12 / 00:30</span></div><div class="mock-comment">Hold this title a little longer.<span>Attached to frame at 00:12 <b>↗</b></span></div></div>`,
   },
 ] as const;

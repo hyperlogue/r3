@@ -25,17 +25,17 @@ Turn on comment mode and select the visibility control. Add:
 
 > Who can see a workspace project? Explain this before I create it. Make the private choice equally clear, and keep my selection editable.
 
-Send the feedback to your agent. The target preserves the selected element and publication. A good revision should address the decision, not simply replace “Workspace” with another unexplained term.
+Send the feedback to your agent. Your comment stays permanently anchored to that specific control. A good revision should clarify the actual permission model, not just swap in another vague buzzword.
 
 ## Review the revision
 
-When the agent replies, open the new version and its fix link. An example improvement is a sentence beneath the control:
+When your agent replies, open the new version and follow its fix link. An example improvement is helper copy beneath the control:
 
 > Everyone in your workspace can find and open this project.
 
-That is example product copy, not a claim about r3’s own access model. Example Fieldwork is the application being designed inside the review.
+*(Note: this is UI copy for Example Fieldwork, not r3’s own server access model.)*
 
-If the original and reply have supported rendered-element targets, use **Compare** to inspect them together. Then interact with the new form and switch between private and workspace to check both explanations.
+If both versions have supported element targets, open **Compare** to inspect them side by side. Then click through the updated form and toggle between private and workspace to check both states.
 
 ## Decide whether it is done
 

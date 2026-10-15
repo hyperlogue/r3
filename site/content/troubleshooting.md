@@ -1,21 +1,21 @@
-## Feedback did not reach the agent
+## Feedback didn't reach the agent
 
-Use **Use in agent** and paste the copied command into your agent’s conversation. A notification may wait for a paused session; copying the command alone does not send it.
+Click **Use in agent** and paste the copied command directly into your agent’s chat session. (Note: simply copying the command does not dispatch comments—your agent must execute it to fetch the snapshot).
 
-If delivery reports an error, ask the agent to check `r3 worker status`. A sandbox warning may require `r3 worker restart` from a regular terminal outside the agent sandbox.
+If delivery encounters an error, have your agent run `r3 worker status`. If you see a sandbox warning, run `r3 worker restart` from a regular host terminal outside the agent's restricted sandbox.
 
-## A revision is missing
+## An expected revision isn't showing
 
-Choose **Go to the latest version**. Local file edits appear only after the agent publishes them.
+Click **Go to the latest version** in the navbar. Remember that live local edits on disk don't appear in r3 until your agent explicitly publishes a new version.
 
-If images or styles are missing, ask the agent to include them. External resources are blocked by default. Read the [permission prompt](/docs/permissions/) before allowing broader access.
+If images, fonts, or stylesheets look broken, verify whether the agent bundled those assets locally. Remote web resources are blocked by default unless granted in the [permission prompt](/docs/permissions/).
 
-## A target or context is missing
+## An element target is missing
 
-Use **Locate** to return to the original version. Ask the agent for a linked fix if the element changed. For a diff with missing surrounding lines, request a new publication with more context.
+Click **Locate** to return to the original version where the feedback was anchored. If an element was refactored or moved, ask your agent to provide a linked fix target in its reply. For diffs with insufficient context, ask the agent to capture more surrounding lines.
 
-## Sign-in or editing stopped working
+## Sign-in or mutations stopped working
 
-For local sign-in, run `r3 open` and use its fresh link. For remote access, check the server address and sign in again. **Restore** archived work before editing.
+For local sessions, run `r3 open` to generate a fresh 60-second sign-in link. For remote servers, verify your backend URL and run `r3 login` again. Make sure archived artifacts are **restored** before trying to edit or comment.
 
-If the CLI and server disagree, update both. For other problems, [report an issue](https://github.com/hyperlogue/r3/issues) with the version and steps to reproduce; omit private content and credentials.
+If you encounter protocol warnings between the CLI and server, update both to matching versions. For any unexpected bugs, [open an issue on GitHub](https://github.com/hyperlogue/r3/issues) with reproduction steps (excluding private code and credentials).

@@ -9,7 +9,7 @@ Example Fieldwork’s launch campaign has a static announcement and a short prod
 
 > Read `r3 guide` and `r3 guide files`. Prepare a fictional launch image for Example Fieldwork and, when a clip is available, include it alongside the image. Keep essential information visible without sound. Publish the original media files for review, with a short note describing intended display sizes and the message each asset should communicate.
 
-You can complete the image review before a video exists. The video steps below apply when there is a real clip to inspect; an empty player is not useful evidence.
+You can review the static artwork before the clip is ready. The video steps below apply once your agent exports an actual video—an empty placeholder player isn't useful for review.
 
 ## Review the static image
 
@@ -25,7 +25,7 @@ Pause the clip where the date appears. Select the frame or region and comment:
 
 > This caption is difficult to read before the scene changes. Keep it visible longer and use a background treatment that stays legible throughout the shot. The meaning must be clear with sound off.
 
-The timestamp provides context, while the saved frame preserves the exact image. Seeking later may land on a neighboring frame, so the agent should inspect the snapshot supplied with the feedback.
+The timestamp gives contextual timing, while the saved frame locks in the exact visual state. Because video scrubbing across different browsers can occasionally land on neighboring keyframes, the saved frame snapshot serves as the immutable ground truth.
 
 ## Compare the revised evidence
 

@@ -1,6 +1,6 @@
-export const homeTitle = "Your agent creates. You shape the result.";
+export const homeTitle = "See what your agent drafted. Point to what’s next.";
 export const homeDescription =
-  "Explore design docs, interactive tutorials, and diffs from your agent. Comment exactly where something needs attention. Review each revision and shape the result together, visually.";
+  "Explore UI prototypes, interactive explainers, and design docs from your agent. Click directly on what needs attention, leave anchored notes, and refine the result together.";
 
 export interface Page {
   path: string;
@@ -40,56 +40,56 @@ export const docs: Page[] = [
     path: "/docs/html/",
     title: "Interactive pages",
     description: "Use prototypes, explanations, and tools right inside a review.",
-    group: "Review work",
+    group: "Artifact formats",
     source: "html",
   },
   {
     path: "/docs/files/",
     title: "Documents & files",
     description: "Read Markdown, inspect source, and navigate a complete set of files.",
-    group: "Review work",
+    group: "Artifact formats",
     source: "files",
   },
   {
     path: "/docs/diffs/",
     title: "Code changes",
     description: "Review captured changes with the original lines and context intact.",
-    group: "Review work",
+    group: "Artifact formats",
     source: "diffs",
   },
   {
     path: "/docs/media/",
     title: "Images, audio & video",
     description: "Review media and point to the pixels or moment that matter.",
-    group: "Review work",
+    group: "Artifact formats",
     source: "media",
   },
   {
     path: "/docs/feedback/",
     title: "Precise feedback",
     description: "Select a target, explain the change, and send it to your agent.",
-    group: "Review work",
+    group: "Review tools",
     source: "feedback",
   },
   {
     path: "/docs/revisions/",
     title: "Revisions & resolution",
     description: "Follow replies, inspect linked fixes, and decide when a thread is done.",
-    group: "Review work",
+    group: "Review tools",
     source: "revisions",
   },
   {
     path: "/docs/navigation/",
     title: "Navigation & mobile",
     description: "Arrange your workspace, move through files, and review on a small screen.",
-    group: "Review work",
+    group: "Review tools",
     source: "navigation",
   },
   {
     path: "/docs/keyboard/",
     title: "Keyboard shortcuts",
     description: "A few useful keys, with the full map inside the workspace.",
-    group: "Review work",
+    group: "Review tools",
     guide: "keys",
   },
   {

@@ -75,15 +75,17 @@ export function home() {
 ${reviewDetail()}
 </div>
 <div class="container">
-${skillInstall("skill-install")}
 ${promptDemo()}
-</div>${workflowExample()}</section>
+</div>${workflowExample()}
+<div class="container">
+${skillInstall("skill-install")}
+</div></section>
 ${featureHighlights()}
 <section class="possibilities-section" id="use-cases" aria-labelledby="use-cases-heading">
 <div class="container">
 <div class="section-heading">
 <div>
-<h2 id="use-cases-heading">What can you make with r3?</h2>
+<h2 id="use-cases-heading">See the iteration loop in action</h2>
 </div>
 <a class="text-link" href="/use-cases/">Explore all use cases →</a>
 </div>
@@ -92,7 +94,7 @@ ${featureHighlights()}
 </section>
 <section class="start-section container" aria-labelledby="start-heading">
 <img src="/assets/favicon.svg" width="56" height="56" alt="">
-<p class="eyebrow">Your next review starts here</p>
+<p class="eyebrow">Start iterating with your agent</p>
 <h2 id="start-heading">${homeTitle}</h2>
 <p>${homeDescription}</p>
 ${skillInstall("start-install")}
@@ -122,7 +124,7 @@ ${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fi
 function promptDemo() {
   const first = promptExamples[0];
   return `<section class="prompt-example" id="agent-prompt" aria-labelledby="prompt-heading" data-prompt-demo>
-<h3 id="prompt-heading">Then ask your agent to make something.</h3>
+<h3 id="prompt-heading">Ask your agent to draft something.</h3>
 <div class="claude-terminal">
 <div class="claude-session">
 <div class="prompt-scene" data-prompt-scene>
@@ -142,9 +144,9 @@ export function useCases() {
   return `<div data-pagefind-body>
 <header class="index-hero container">
 <h1 data-pagefind-meta="title">One project.<br>
-<em>Five ways to work.</em>
+<em>Five real-world iterations.</em>
 </h1>
-<p class="lede">Example Fieldwork is a fictional project-planning app. Follow it from a rough interface to a clearer launch, with one concrete review at a time.</p>
+<p class="lede">Follow Example Fieldwork—a fictional project-planning app—from early prototype to launch. Five concrete walkthroughs show how to explore, comment, and iterate with your agent.</p>
 </header>
 <div class="container">
 <div class="story-grid case-grid">${storyCards()}</div>

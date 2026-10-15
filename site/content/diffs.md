@@ -2,14 +2,14 @@
 
 ## Read the patch
 
-Choose **Unified** for one sequence or **Side-by-side** for old and new code together. Fold files and mark them viewed as you go.
+Toggle between **Unified** for a single stream of changes and **Side-by-side** to compare old and new code directly. Collapse files you've already reviewed and mark them as viewed to keep your place.
 
-Select the relevant lines on the correct side, then explain the behavior you want:
+Highlight the relevant lines on either the old or new side, then explain what needs adjustment:
 
 > After a failed request, can I submit again? The button should become usable.
 
-## Check the next round
+## Review the next round
 
-Each version contains the complete patch for that round. Open the agent’s linked lines or choose the latest version to inspect the fix.
+Every diff publication is a complete, self-contained patch snapshot. When your agent publishes a revised patch, click its linked lines or open the latest version to inspect the fix.
 
-You can expand only context captured in the publication. If important surrounding code is missing, ask the agent to publish it. r3 does not read the agent’s live checkout.
+You can unfold code context within the captured bounds. If you need to see more surrounding lines than were originally captured, ask your agent to publish with wider context—r3 stays isolated and never reads your live disk checkout directly.

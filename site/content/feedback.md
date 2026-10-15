@@ -2,16 +2,16 @@
 
 ## Point, explain, send
 
-Turn on **comment mode** and select an element, passage, line, or media region. Use a general comment for the whole artifact.
+Turn on **comment mode** and click any element, text passage, code line, or media region. For broader feedback that isn't tied to a specific element, leave a general comment on the artifact.
 
-Describe the problem and the result you want:
+Describe the problem and the outcome you want:
 
 > “Workspace” is ambiguous. Explain who can see the project before I create it.
 
-Paste an image or use **Capture area** when a picture explains it better. Drafts keep their target as you move between views; give saving a moment before closing the tab.
+Paste an image or use **Capture area** when a picture communicates it faster. Drafts stay attached to their targets as you navigate between views.
 
 ## Send a batch
 
-Add your comments, then **Send to agent**. If nobody is listening, **Use in agent** copies a command: paste and run it in your agent’s conversation. Copying alone does not deliver feedback.
+Batch your comments across the artifact, then click **Send to agent**. If your agent isn’t listening in the background, **Use in agent** gives you a copyable command—paste and run it in your agent’s chat session.
 
-Continue the same topic with **Reply**. Use the thread menu to edit an eligible comment or delete the thread. [Resolve it](/docs/revisions/) after checking the fix.
+Keep the conversation going with **Reply**. You can edit or delete your comments from the thread menu, and [resolve the thread](/docs/revisions/) once you’ve verified the fix.

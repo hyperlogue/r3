@@ -2,12 +2,12 @@
 
 ## Put finished work away
 
-**Archive** removes a review from the active list while keeping versions, conversations, and drafts. Add a closing comment if useful. Archived work is read-only and stops notifying the agent.
+**Archive** clears completed reviews from your active library while preserving every version, thread, and draft. You can include a closing note when archiving. Archived artifacts become read-only and suspend agent notifications.
 
-**Restore** to continue reviewing. Ask your agent to reconnect before sending more feedback.
+Click **Restore** whenever you need to reopen an artifact and resume iteration.
 
-## Check storage before deleting
+## Manage disk storage and cleanup
 
-Open usage information to see retained content and recent activity. Settings offers cleanup for old archives, with confirmation. The default age is 30 days since archive; cleanup is manual.
+Open workspace stats to inspect disk usage and recent activity. In Settings, you can trigger garbage collection for archives older than 30 days. Cleanup is always manual—r3 never purges artifacts automatically.
 
-**Delete** permanently removes an artifact and its whole history. Individual versions cannot be deleted. You can also select several artifacts in the library.
+**Delete** permanently removes an artifact along with its entire version history. (Individual versions are immutable and cannot be deleted separately). You can also batch-select artifacts in your library for bulk cleanup.

@@ -2,12 +2,12 @@
 
 ## Make room for the work
 
-The navbar’s discussion control shows or hides the conversation. On desktop, choose an expanded dock or floating panel. On a phone, tap the **Discussion** bar to open the sheet; close it to return to the content.
+Toggle the discussion panel open or closed using the navbar control. On desktop, dock the conversation to the right or let it float anywhere over the page. On mobile, tap the **Discussion** bar at the bottom to open the review sheet, and swipe down to return to the document.
 
 ## Move around
 
-For files and diffs, use **Jump to file**, fold finished sections, and mark files viewed. **Locate** opens the file and brings the original target into view.
+In file trees and diffs, press `Cmd/Ctrl + P` or click **Jump to file** to filter paths instantly. Collapse reviewed files to keep long lists tidy, and click **Locate** on any thread to jump straight to the referenced code or DOM element.
 
-Use appearance controls for theme, text size, and source colors. Authored pages can have their own styling.
+Customize your workspace with theme options, font sizing, and syntax color palettes.
 
-Press **?** or open the keyboard control for shortcuts. [A few useful keys](/docs/keyboard/) can speed up repeated actions.
+Press **?** anytime to inspect all available [keyboard shortcuts](/docs/keyboard/).

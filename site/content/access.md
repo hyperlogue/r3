@@ -2,9 +2,9 @@
 
 ## On your machine
 
-Ask your agent to run `r3 open`. Open the printed sign-in link within 60 seconds. Run it again if the link expires. The local server starts when needed.
+Ask your agent to run `r3 open`. Click the printed one-time link within 60 seconds to open your workspace (run the command again if it expires). The local server launches on demand.
 
-## Connect an existing server
+## Connect to a remote server
 
 On the agent’s machine:
 
@@ -13,12 +13,12 @@ r3 config set backendUrl https://reviews.example
 r3 login
 ```
 
-Open the authorization URL in your signed-in browser, check the code, and approve access. Replace the example address with your server’s URL.
+Open the authorization URL in your browser, verify the confirmation code, and approve access. (Replace the example address with your actual server URL).
 
-**A login grants access to the whole workspace.** r3 has no per-artifact sharing permissions or separate team accounts. Sending someone an ordinary artifact URL does not sign them in.
+**Logging in grants access to the entire workspace.** r3 uses complete workspace access rather than granular per-artifact permissions or team accounts. Simply sharing an artifact URL won't sign another user in.
 
 ## Host your own
 
-Ask your administrator or agent to put an HTTPS proxy in front of the loopback server, forward the whole application including previews, and configure `publicUrl`. Create a browser login token with `r3 auth create-token` and keep it private.
+To expose r3 over a private network or domain, place an HTTPS reverse proxy in front of the loopback server, forward all routes (including previews), and set `publicUrl`. Generate a secure browser token with `r3 auth create-token`.
 
-Run configuration and server commands on the server’s machine. Use `r3 --help` for exact options. For a missed handoff or expired login, see [Troubleshooting](/docs/troubleshooting/).
+Run server and configuration commands directly on the host machine. Run `r3 --help` for full options, or see [Troubleshooting](/docs/troubleshooting/) if a login link expires.

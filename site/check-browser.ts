@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
+import { homeTitle } from "./catalog.ts";
 import { checkLogo } from "./check-logo.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { normalizeBase } from "./render.ts";
@@ -59,7 +60,7 @@ try {
     );
 
   await viewport(1440);
-  await open("/", "Your agent creates. You shape the result.");
+  await open("/", homeTitle);
   await checkLogo(page);
   await noOverflow();
   await screenshot("home-desktop.png");
@@ -161,7 +162,7 @@ try {
   await page.command("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
-  await open("/", "Your agent creates. You shape the result.");
+  await open("/", homeTitle);
   await page.evaluate(
     "document.querySelector('#agent-prompt').scrollIntoView({behavior:'instant',block:'center'})",
   );
@@ -246,7 +247,7 @@ try {
   });
 
   await viewport(390, 844);
-  await open("/", "Your agent creates. You shape the result.");
+  await open("/", homeTitle);
   await eventually(
     () => page.evaluate("!!document.querySelector('.site-logo-button .arms')"),
     "mobile logo",
@@ -294,7 +295,7 @@ try {
   await noOverflow();
 
   await page.command("Emulation.setScriptExecutionDisabled", { value: true });
-  await open("/", "Your agent creates. You shape the result.");
+  await open("/", homeTitle);
   assert(
     await page.evaluate(
       "document.querySelector('[data-site-logo] img').complete && !!document.querySelector('.site-header a[aria-label=\"r3 home\"]')",
