@@ -1,17 +1,82 @@
-import { useRef, useState } from "react";
-import { type Binding, formatChord, isBound, KEYMAP, useKeyBindings } from "../keys.ts";
-import { cn, useEscape, usePopoverFocus } from "../ui.tsx";
+import { useRef } from "react";
+import { type Binding, KEYMAP, type KeyId, useBoundKeys, useKeyBindings } from "../keys.ts";
+import { cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
+import { ShortcutKey } from "./ShortcutHint.tsx";
+import { HeaderIconButton } from "./WorkspaceHeader.tsx";
 
 // `?` cheat sheet, rendered from KEYMAP. Owns `help`; suspends every other
 // binding while open so `j` doesn't walk the list behind the sheet.
 
 const GROUPS = ["Review", "Thread", "Files", "View"] as const;
 
-function Key({ chord }: { chord: string }) {
+export function ShortcutsButton({ onClick }: { onClick: () => void }) {
   return (
-    <kbd className="inline-flex min-w-5 items-center justify-center rounded border border-neutral-300 border-b-2 bg-neutral-100 px-1.5 py-0.5 font-mono text-[0.6875rem] leading-none text-neutral-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
-      {formatChord(chord)}
-    </kbd>
+    <HeaderIconButton
+      aria-label="Keyboard shortcuts"
+      aria-haspopup="dialog"
+      title="Keyboard shortcuts (?)"
+      onClick={onClick}
+    >
+      <StrokeIcon className="size-4">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 15h8" />
+      </StrokeIcon>
+    </HeaderIconButton>
+  );
+}
+
+export function ShortcutBar({
+  onOpen,
+  threadSelected,
+  readOnly,
+}: {
+  onOpen: () => void;
+  threadSelected: boolean;
+  readOnly: boolean;
+}) {
+  const bound = useBoundKeys();
+  const hints: { ids: KeyId[]; label: string }[] = [];
+  if (bound.includes("fbNext")) {
+    hints.push({ ids: ["fbNext", "fbPrev"], label: "Navigate threads" });
+    if (!readOnly) {
+      if (threadSelected) hints.push({ ids: ["fbComment"], label: "Reply" });
+      else hints.push({ ids: ["generalNote"], label: "Add comment" });
+    }
+  } else if (bound.includes("fileNext")) {
+    hints.push({ ids: ["filePrev", "fileNext"], label: "Navigate files" });
+  }
+  if (bound.includes("filePicker")) hints.push({ ids: ["filePicker"], label: "Jump to file" });
+  else if (bound.includes("panelToggle"))
+    hints.push({ ids: ["panelToggle"], label: "Toggle discussion" });
+  return (
+    <div
+      data-shortcut-bar
+      className="flex h-7 shrink-0 items-center justify-between gap-4 border-t border-neutral-200 bg-white px-3 text-[0.625rem] text-neutral-500 max-md:hidden dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-400"
+    >
+      <div className="flex min-w-0 items-center gap-5">
+        {hints
+          .filter((hint) => hint.ids.every((id) => bound.includes(id)))
+          .map((hint) => (
+            <span key={hint.label} className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="flex items-center gap-0.5">
+                {hint.ids.map((id) => (
+                  <ShortcutKey key={id} chord={KEYMAP.find((b) => b.id === id)!.keys[0]!} />
+                ))}
+              </span>
+              {hint.label}
+            </span>
+          ))}
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-haspopup="dialog"
+        className="flex shrink-0 items-center gap-1.5 self-stretch hover:text-neutral-800 dark:hover:text-neutral-200"
+      >
+        <ShortcutKey chord="?" />
+        All shortcuts
+      </button>
+    </div>
   );
 }
 
@@ -29,7 +94,7 @@ function Row({ b, bound }: { b: Binding; bound: boolean }) {
         {b.keys.map((k, i) => (
           <span key={k} className="flex items-center gap-1">
             {i > 0 && <span className="text-[0.625rem] text-neutral-400">or</span>}
-            <Key chord={k} />
+            <ShortcutKey chord={k} />
           </span>
         ))}
       </span>
@@ -37,11 +102,17 @@ function Row({ b, bound }: { b: Binding; bound: boolean }) {
   );
 }
 
-export function ShortcutsOverlay() {
-  const [open, setOpen] = useState(false);
+export function ShortcutsOverlay({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const content = useRef<HTMLDivElement>(null);
-  useKeyBindings({ help: () => setOpen((v) => !v) });
-  useEscape(open, () => setOpen(false));
+  const bound = useBoundKeys();
+  useKeyBindings({ help: () => onOpenChange(!open) });
+  useEscape(open, () => onOpenChange(false));
   usePopoverFocus(open, content);
 
   if (!open) return null;
@@ -51,7 +122,7 @@ export function ShortcutsOverlay() {
       <button
         type="button"
         aria-label="Close"
-        onClick={() => setOpen(false)}
+        onClick={() => onOpenChange(false)}
         className="absolute inset-0 cursor-default bg-black/30"
       />
       <div
@@ -65,7 +136,14 @@ export function ShortcutsOverlay() {
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             Keyboard shortcuts
           </h2>
-          <span className="text-[0.6875rem] text-neutral-400">Esc to close</span>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close keyboard shortcuts"
+            className="flex items-center gap-1.5 text-[0.6875rem] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+          >
+            Close <ShortcutKey chord="Escape" />
+          </button>
         </div>
         {/* Two columns on a roomy sheet, one on a narrow one. `columns` (not grid)
             so a group is never split across a column break — break-inside on the
@@ -81,7 +159,7 @@ export function ShortcutsOverlay() {
                 </h3>
                 <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                   {rows.map((b) => (
-                    <Row key={b.id} b={b} bound={isBound(b.id)} />
+                    <Row key={b.id} b={b} bound={bound.includes(b.id)} />
                   ))}
                 </div>
               </section>

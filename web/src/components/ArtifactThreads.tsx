@@ -53,6 +53,7 @@ import {
   useAttachmentInput,
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
+import { ShortcutHint } from "./ShortcutHint.tsx";
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
 export type ArtifactTargetJump = (target: ArtifactTarget, threadId?: string) => void;
 function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
@@ -285,6 +286,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       }}
     >
       {thread.status === "open" ? "✓ Resolve" : "Reopen"}
+      {active && <ShortcutHint id="fbResolve" />}
     </Button>
   );
   const moreMenu = (
@@ -603,6 +605,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           {moreMenu}
           <Button className="ml-auto" data-thread-action="comment" onClick={openComment}>
             Reply
+            {active && <ShortcutHint id="fbComment" />}
           </Button>
         </div>
       )}
@@ -894,6 +897,7 @@ export function ArtifactThreads({
               disabled={detail.state !== "active"}
             >
               <CommentPlusIcon className="size-3.5" />
+              <ShortcutHint id="generalNote" />
             </Button>
             <ArtifactHandoffButton handoff={handoff} active={keysActive} />
           </div>

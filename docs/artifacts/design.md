@@ -495,6 +495,15 @@ Long conversations fold earlier comments. Nonempty drafts block sending until po
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
 
+The workspace navbar has a keyboard-icon button opening the shortcuts sheet;
+`?` remains its keyboard entry point. Common actions show small neutral keycaps,
+with thread action hints limited to the selected thread. A compact desktop bottom
+strip shows contextual shortcuts from the currently registered bindings and a
+clickable **All shortcuts** entry. Hints use neutral colors in both themes and
+are hidden on phone layouts; the keyboard-icon button remains available. No
+introductory callout is shown. Opening the sheet suspends other shortcuts, and
+closing it returns focus to its opener.
+
 Within one browser origin, tabs share one new-comment draft per artifact and one
 comment draft per thread. Edits persist after a 400 ms debounce and update other
 tabs through storage events. The latest saved edit wins when tabs edit the same

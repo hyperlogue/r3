@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createArtifactApi } from "../server/artifact-api.ts";
@@ -142,6 +142,13 @@ try {
     await page.command("Input.dispatchKeyEvent", { type: "keyDown", key, autoRepeat });
     await page.command("Input.dispatchKeyEvent", { type: "keyUp", key });
   };
+  const screenshot = async (name: string) => {
+    const directory = process.env.R3_TEST_SCREENSHOTS;
+    if (!directory) return;
+    await mkdir(directory, { recursive: true });
+    const shot = await page.command("Page.captureScreenshot", { format: "png" });
+    await Bun.write(join(directory, `${name}.png`), Buffer.from(shot.data, "base64"));
+  };
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 1400,
     height: 1000,
@@ -160,6 +167,68 @@ try {
       () => page.evaluate("!!document.querySelector('style[data-r3-theme-css]')?.textContent"),
       "syntax palette",
     );
+    await page.evaluate(`(() => {
+      const button = document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]');
+      button.focus();
+      button.click();
+    })()`);
+    await eventually(
+      () =>
+        page.evaluate(
+          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+        ),
+      "keyboard icon opens shortcuts without knowing the key",
+    );
+    await pressKey("n");
+    assert.equal(
+      await page.evaluate("!!document.querySelector('textarea[aria-label=\"Comment\"]')"),
+      false,
+      "shortcut sheet suspends workspace actions",
+    );
+    await screenshot(`${artifact.kind}-shortcuts`);
+    await pressKey("Escape");
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.activeElement?.matches('[data-app-header] [aria-label=\"Keyboard shortcuts\"]')",
+        ),
+      "closing shortcuts returns focus to the keyboard icon",
+    );
+    await page.evaluate(`(() => {
+      const button = document.querySelector('[data-shortcut-bar] button');
+      button.focus();
+      button.click();
+    })()`);
+    await eventually(
+      () =>
+        page.evaluate(
+          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+        ),
+      "All shortcuts opens the same sheet",
+    );
+    await page.evaluate(
+      "document.querySelector('[aria-label=\"Close keyboard shortcuts\"]').click()",
+    );
+    await eventually(
+      () => page.evaluate('document.activeElement?.matches("[data-shortcut-bar] button")'),
+      "visible close returns focus to All shortcuts",
+    );
+    await pressKey("?");
+    await eventually(
+      () =>
+        page.evaluate(
+          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+        ),
+      "question mark still opens the sheet",
+    );
+    await pressKey("?");
+    await eventually(
+      () =>
+        page.evaluate(
+          '!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+        ),
+      "question mark closes the sheet",
+    );
     for (const dark of [false, true]) {
       await page.evaluate(`document.documentElement.classList.toggle('dark', ${dark})`);
       const colors = await page.evaluate<string[]>(
@@ -169,6 +238,7 @@ try {
         colors.length > 1,
         `${artifact.kind} ${dark ? "dark" : "light"}: published tokens must have distinct syntax colors; got ${colors.join(", ")}`,
       );
+      await screenshot(`${artifact.kind}-${dark ? "dark" : "light"}`);
     }
     assert.equal(
       await page.evaluate("document.querySelectorAll('[data-file]').length"),
@@ -232,6 +302,14 @@ try {
       );
       await page.evaluate("document.querySelector('[aria-label=\"Comment\"]').focus()");
       await page.command("Input.insertText", { text: "A draft stays in this browser" });
+      await pressKey("?");
+      assert.equal(
+        await page.evaluate(
+          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+        ),
+        false,
+        "typing a question mark does not open shortcuts",
+      );
       assert(
         await page.evaluate(
           "![...document.querySelectorAll('button')].find(b=>b.textContent === 'Use in agent').disabled",
@@ -265,6 +343,14 @@ try {
         ),
         contentWidth,
         "floating and hidden preserve the same content width",
+      );
+      await eventually(
+        () =>
+          page.evaluate(`(() => {
+          const text = document.querySelector('[data-shortcut-bar]').textContent;
+          return text.includes('Navigate files') && !text.includes('Navigate threads') && !text.includes('Reply');
+        })()`),
+        "hint strip follows hidden discussion bindings",
       );
       await page.evaluate(`document.querySelector('[data-fb-id="${threads.id}"] code').click()`);
       await eventually(
@@ -322,6 +408,12 @@ try {
         () => page.evaluate("!document.querySelector('[aria-label=\"Show discussion\"]')"),
         "mobile closed sheet",
       );
+      assert(
+        await page.evaluate(`getComputedStyle(document.querySelector('[data-shortcut-bar]')).display === 'none' &&
+          document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]').getBoundingClientRect().width >= 36`),
+        "phone keeps a touch-sized keyboard button without the hint strip",
+      );
+      await screenshot("files-mobile");
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await Bun.sleep(200);
