@@ -46,6 +46,6 @@ the homepage’s real workspace with fictional data and the demo’s scripted
 behavior. Additional Example Fieldwork scenarios and recordings remain follow-up.
 
 The homepage highlights element comments, direct agent handoff, fix comparisons,
-image attachments, and video-frame comments. Each has a playable 18–22 second
+image attachments, and video-frame comments. Each has a playable 10–12 second
 film of the real interface, with animated focus, a poster, and a text transcript.
 Fixtures are fictional and agent replies are scripted.
