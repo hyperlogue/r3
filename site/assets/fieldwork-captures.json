@@ -107,20 +107,20 @@
     {
       "file": "fieldwork-comment-light.png",
       "theme": "light",
-      "width": 770,
-      "height": 490,
+      "width": 820,
+      "height": 540,
       "scale": 3,
       "scene": "components",
-      "sha256": "354f8af588057dccfb7c85cb42455ec94c6c40f117163545cb9a355e292ff2ba"
+      "sha256": "495c7e0a0b6227f564f664ff412c25fb4044b9a8b384e70c54ad11997412e744"
     },
     {
       "file": "fieldwork-comment-dark.png",
       "theme": "dark",
-      "width": 770,
-      "height": 490,
+      "width": 820,
+      "height": 540,
       "scale": 3,
       "scene": "components",
-      "sha256": "1fa78c9e55e6652296a2749ccde145eeb36c67caf9ac8d8cca9133ba0ec55378"
+      "sha256": "1c860d542e43aff556c0fb919f3b48f511c335fc3e6c5e2f42e46cee16e2d171"
     }
   ]
 }

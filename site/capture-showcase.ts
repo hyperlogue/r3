@@ -27,8 +27,8 @@ try {
         const scene = "scene" in spec ? spec.scene : "prototype";
         const comment = scene === "components";
         await page.command("Emulation.setDeviceMetricsOverride", {
-          width: comment ? 1000 : spec.width,
-          height: comment ? 850 : spec.height,
+          width: spec.width,
+          height: spec.height,
           deviceScaleFactor: spec.scale,
           mobile: false,
         });
@@ -104,9 +104,6 @@ try {
         if (comment) await page.evaluate("new Promise(resolve => setTimeout(resolve, 500))");
         const { data } = await page.command("Page.captureScreenshot", {
           format: "png",
-          ...(comment
-            ? { clip: { x: 230, y: 40, width: spec.width, height: spec.height, scale: 1 } }
-            : {}),
         });
         const bytes = Buffer.from(data, "base64");
         await Bun.write(join(assets, spec.file), bytes);

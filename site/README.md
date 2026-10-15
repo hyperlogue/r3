@@ -74,8 +74,9 @@ followed by concrete use cases. Feature and use-case headings have no number
 prefixes; each use-case card starts with a decorative vector UI mockup from
 `story-illustrations.ts`. Its category is the main title, followed by a subtitle
 and description. The whole card links to its walkthrough; hover and keyboard
-focus add an outline, shadow, and small lift, with motion disabled for reduced
-motion. Cards have no arrow icons or footer links. The feature and use-case
+focus soften the background, brighten the border, and zoom the illustration to
+1.15× inside its frame. Cards stay stationary; reduced motion disables the zoom.
+Cards have no arrow icons or footer links. The feature and use-case
 sections start directly with their headings. Format details belong in the
 documentation.
 
@@ -143,7 +144,8 @@ or emulate the production preview security boundary.
 When the sample's appearance changes, run
 `bun --no-env-file site/capture-showcase.ts` with `R3_TEST_BROWSER` set, then build
 the site. The capture command builds the same React page independently and records
-light/dark desktop, phone, and floating-thread region views at 3× pixel density.
+light/dark desktop, phone, and component-review views at 3× pixel density. The
+component capture includes the real r3 navbar above the document and floating thread.
 The thread scene opens an existing target’s real popover and types into its reply
 composer without submitting. The two component versions have 8px and 16px button
 margins, matching the conversation.

@@ -190,7 +190,7 @@ body {
 }
 .component-board {
   width: min(280px, calc(100% - 48px));
-  margin: 56px 0 56px max(24px, calc(50% - 250px));
+  margin: 56px 24px;
 }
 .component-category {
   margin-bottom: 16px;

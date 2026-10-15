@@ -799,28 +799,24 @@ figcaption {
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   min-width: 0;
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease,
-    background-color 180ms ease;
+  transition: background-color 180ms ease;
 }
 .story-card:last-child {
   grid-column: 1 / -1;
 }
 .story-card:is(:hover, :focus-visible) {
   z-index: 1;
-  transform: translateY(-4px);
-  background: var(--surface);
+  background: color-mix(in oklab, var(--text) 3%, var(--bg));
   color: var(--text);
   outline: 1px solid var(--accent);
   outline-offset: -1px;
-  box-shadow: 0 14px 30px -16px #0006;
 }
 .story-illustration {
   --sketch-removed: #fbe6e5;
   --sketch-added: #dff2e7;
   display: grid;
   place-items: center;
+  overflow: hidden;
   margin: -28px -28px 22px;
   padding: 10px;
   background: var(--soft);
@@ -833,6 +829,10 @@ figcaption {
 .story-illustration svg {
   width: 100%;
   height: 166px;
+  transition: transform 220ms ease;
+}
+.story-card:is(:hover, :focus-visible) .story-illustration svg {
+  transform: scale(1.15);
 }
 .story-illustration path {
   stroke: var(--muted);
@@ -1898,13 +1898,14 @@ figcaption {
   .toast,
   .button,
   .story-card,
+  .story-illustration svg,
   [data-prompt-variable] {
     transition: none;
   }
   .prompt-controls .prompt-play {
     display: none;
   }
-  .story-card:is(:hover, :focus-visible) {
+  .story-card:is(:hover, :focus-visible) .story-illustration svg {
     transform: none;
   }
 }

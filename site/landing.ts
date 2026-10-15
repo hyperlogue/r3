@@ -114,7 +114,7 @@ function reviewDetail() {
 <div class="browser-frame hero-browser">
 ${browserBar("UI component showcase")}
 <div class="hero-review-crop">
-${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="770" height="490" alt="A highlighted button with a numbered pin beside its r3 thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="820" height="540" alt="The r3 navbar above a highlighted button and its review thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}
 </div>
 </div>
 </figure>`;
