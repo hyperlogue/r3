@@ -45,6 +45,6 @@ The public live demo remains available with its existing fixtures. The site labe
 the homepage’s real workspace with fictional data and the demo’s scripted
 behavior. Additional Example Fieldwork scenarios and recordings remain follow-up.
 
-The homepage highlights precise targets, version history, linked fixes, batched
-agent handoff, and native review surfaces. Each has a static video mockup; these
+The homepage highlights element comments, direct agent handoff, fix comparisons,
+image attachments, and video-frame comments. Each has a static video mockup; these
 are layout previews, not available recordings.
