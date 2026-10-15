@@ -10,6 +10,7 @@ import "../../web/src/showcase/forms.ts";
 import { ComponentsDocument } from "./ComponentsDocument.tsx";
 import { FieldworkDocument } from "./FieldworkDocument.tsx";
 import { componentsSeed, fieldworkSeed } from "./fixture.ts";
+import { mediaFrames, mediaSeed } from "./media-fixture.ts";
 import { PromptDocument } from "./PromptDocument.tsx";
 
 // A normal ArtifactPage host: fixture data, fake handlers, one renderer. There
@@ -18,7 +19,12 @@ const parameters = new URLSearchParams(location.search);
 const scene = parameters.get("scene");
 const promptScene = scene === "explainer" || scene === "brief" ? scene : "prototype";
 const componentScene = scene === "components";
-const seed = componentScene ? componentsSeed(demo.state) : fieldworkSeed(demo.state, promptScene);
+const mediaScene = scene === "media" || scene === "media-video";
+const seed = mediaScene
+  ? mediaSeed(demo.state, scene === "media-video")
+  : componentScene
+    ? componentsSeed(demo.state)
+    : fieldworkSeed(demo.state, promptScene);
 const artifactId = seed.artifacts[0]!.id;
 function clearDrafts() {
   artifactDrafts.clear(artifactId);
@@ -26,6 +32,10 @@ function clearDrafts() {
 }
 clearDrafts();
 demo.reset(seed);
+function restoreMediaFrames() {
+  if (mediaScene) for (const [id, value] of mediaFrames()) demo.images.set(id, value);
+}
+restoreMediaFrames();
 setDiscussionMode("expanded");
 let snapshot: ArtifactDetail | null = structuredClone(demo.get(artifactId));
 const listeners = new Set<() => void>();
@@ -51,6 +61,7 @@ function Example() {
   const [generation, setGeneration] = useState(0);
   const reset = () => {
     demo.reset(seed);
+    restoreMediaFrames();
     clearDrafts();
     refresh();
     setDiscussionMode("expanded");
@@ -86,12 +97,14 @@ function Example() {
           data={data}
           actions={artifactApi}
           initialSearch={
-            componentScene
-              ? "?version=2"
-              : `?version=2&thread=${seed.artifacts[0]!.threads[0]!.id}&comment=comment_fieldwork_fix`
+            mediaScene
+              ? `?version=1&file=${scene === "media-video" ? "launch.webm" : "launch.png"}&thread=thread_launch_${scene === "media-video" ? "video" : "image"}`
+              : componentScene
+                ? "?version=2"
+                : `?version=2&thread=${seed.artifacts[0]!.threads[0]!.id}&comment=comment_fieldwork_fix`
           }
           renderPreview={(props) =>
-            componentScene ? (
+            mediaScene ? null : componentScene ? (
               <ComponentsDocument {...props} />
             ) : promptScene === "prototype" ? (
               <FieldworkDocument {...props} />

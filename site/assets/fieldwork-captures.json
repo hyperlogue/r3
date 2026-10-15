@@ -141,6 +141,62 @@
       "scene": "components",
       "comparison": true,
       "sha256": "13b616ed1091a83ffa67498f2ed73591bd9b108699d4cdfd756ca93ee549e017"
+    },
+    {
+      "file": "fieldwork-media-image-light.png",
+      "theme": "light",
+      "width": 1000,
+      "height": 600,
+      "scale": 3,
+      "scene": "media",
+      "sha256": "18caa8c6da94bf05bd4b6c0275b86d46750abf1c8559880f18384f5def38d711"
+    },
+    {
+      "file": "fieldwork-media-video-light.png",
+      "theme": "light",
+      "width": 1000,
+      "height": 600,
+      "scale": 3,
+      "scene": "media-video",
+      "sha256": "d687a8ac39ac8402cb2c755c8ca334b516acb7bce962c38ed3e82dbaea960649"
+    },
+    {
+      "file": "fieldwork-media-comparison-light.png",
+      "theme": "light",
+      "width": 1000,
+      "height": 600,
+      "scale": 3,
+      "scene": "media",
+      "mediaComparison": true,
+      "sha256": "527fb131af013c6d50d8e984c3c45fb6a6668e5bdf6343a6f2e5c1d2f776e2db"
+    },
+    {
+      "file": "fieldwork-media-image-dark.png",
+      "theme": "dark",
+      "width": 1000,
+      "height": 600,
+      "scale": 3,
+      "scene": "media",
+      "sha256": "940174fe406777a7cacb853fd034d3708bc318a84ff92c574e8600292fd669a8"
+    },
+    {
+      "file": "fieldwork-media-video-dark.png",
+      "theme": "dark",
+      "width": 1000,
+      "height": 600,
+      "scale": 3,
+      "scene": "media-video",
+      "sha256": "5825d1792b25fa7f51170d780073efa464462819c16a96d23b84b56750b0ad61"
+    },
+    {
+      "file": "fieldwork-media-comparison-dark.png",
+      "theme": "dark",
+      "width": 1000,
+      "height": 600,
+      "scale": 3,
+      "scene": "media",
+      "mediaComparison": true,
+      "sha256": "f41ba2636a5437e9048067c120d143cf5406c36bdb38f550333d02c453618526"
     }
   ]
 }
