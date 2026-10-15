@@ -72,7 +72,12 @@ The hero uses a wider 1240px container to give its screenshot room. The full
 workspace preview stays within 880px. The homepage pairs five feature highlights with video mockups in two columns,
 followed by concrete use cases. Feature and use-case headings have no number
 prefixes; each use-case card starts with a decorative vector UI mockup from
-`story-illustrations.ts`. Format details belong in the documentation.
+`story-illustrations.ts`. Its category is the main title, followed by a subtitle
+and description. The whole card links to its walkthrough; hover and keyboard
+focus add an outline, shadow, and small lift, with motion disabled for reduced
+motion. Cards have no arrow icons or footer links. The feature and use-case
+sections start directly with their headings. Format details belong in the
+documentation.
 
 The homepage centers a copyable publishing-skill command below its opening and
 repeats it at the close. A prominent heading and green outline identify the install
@@ -92,7 +97,8 @@ icons, and a rounded address bar. The same frame is shared by the full
 workspace preview.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has only a separate demo button beneath its
-browser frame. The screenshot, browser label, and demo destination follow the
+browser frame. The demo button uses a blue outline. The screenshot, browser
+label, and demo destination follow the
 selected Prototype, Explainer, or Brief prompt. Both public and packaged pages
 use the captures; the selected real workspace opens through the demo button.
 The terminal is illustrative, with prompts from `prompt-examples.ts`. The user

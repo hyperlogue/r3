@@ -10,14 +10,9 @@ export function storyCards() {
       (story) =>
         `<a class="story-card story-${story.slug}" href="/use-cases/${story.slug}/">
 ${storyIllustration(story.slug)}
-<div class="story-card-top">
-<span>${story.category}</span>
-<span aria-hidden="true">↗</span>
-</div>
-<h3>${story.title}</h3>
-<p>${story.description}</p>
-<span class="story-link">${story.name} <span aria-hidden="true">→</span>
-</span>
+<h3>${story.category}</h3>
+<p class="story-subtitle">${story.title}</p>
+<p class="story-description">${story.description}</p>
 </a>`,
     )
     .join("");
@@ -89,7 +84,6 @@ ${featureHighlights()}
 <div class="container">
 <div class="section-heading">
 <div>
-<p class="eyebrow">One fictional project. Real ways to work.</p>
 <h2 id="use-cases-heading">What can you make with r3?</h2>
 </div>
 <a class="text-link" href="/use-cases/">Explore all use cases →</a>
