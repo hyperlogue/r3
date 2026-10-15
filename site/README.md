@@ -77,7 +77,8 @@ also works on nested pages and inside an artifact's scoped preview.
 
 Text sections share an 880px maximum width; article prose is limited to 65ch.
 The hero uses a wider 1240px container to give its screenshot room. The full
-workspace preview stays within 880px. The homepage pairs five feature highlights with video mockups in two columns,
+workspace preview stays within 880px. The 1080px feature section pairs five highlights
+with playable demo videos in two columns,
 followed by concrete use cases. Feature and use-case headings have no number
 prefixes; each use-case card starts with a decorative vector UI mockup from
 `story-illustrations.ts`. Its category is the main title, followed by a subtitle
@@ -245,6 +246,22 @@ its curve-lab and code-review fixtures. The Example Fieldwork articles include
 guided reproduction instructions; the media walkthrough uses actual captures
 of its fictional launch campaign.
 
-The five feature rows use static, explicitly labeled video mockups with
-decorative player controls. Actual recordings remain follow-up work. The capability map is in
+The five feature rows play silent, 18–22 second MP4 films captured from the real
+r3 interface. Native controls support playback, seeking, and fullscreen; nothing
+autoplays or downloads video bytes before interaction. Posters and plain-text
+transcripts remain available without JavaScript. The recordings use fictional
+local fixtures, scripted agent replies, and an authored image reference. Camera
+motion, pointer motion, transitions, and titles are editorial overlays.
+
+Final exports live in `assets/videos/`; MP4s and JPEG posters use Git LFS. The
+build checks asset hashes and recorded durations against `manifest.json` before
+copying them. `transcript.md` records timed titles, actions, and substitutions.
+The motion compositor is [motion-anything](https://github.com/nexu-io/motion-anything),
+Apache-2.0, pinned to `b016900d9ee92fc2d3e4dc520359cc8999d2ed4e`. It runs only during
+production; the website loads native video and no animation engine dependency.
+Exports are 1600×1000, 30 fps, H.264/yuv420p with BT.709 color tags and fast-start
+metadata. Production sources and captures are kept in a separate video workspace.
+
+The browser and artifact acceptance checks decode all five films, load posters,
+seek to three positions, and verify resumed playback. The capability map is in
 [COVERAGE.md](COVERAGE.md).

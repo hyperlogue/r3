@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { homeTitle } from "./catalog.ts";
+import { checkFeatureVideos } from "./check-feature-videos.ts";
 import { checkLogo } from "./check-logo.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { normalizeBase } from "./render.ts";
@@ -61,6 +62,7 @@ try {
 
   await viewport(1440);
   await open("/", homeTitle);
+  await checkFeatureVideos(page);
   await checkLogo(page);
   await noOverflow();
   await screenshot("home-desktop.png");

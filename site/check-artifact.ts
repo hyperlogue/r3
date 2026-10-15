@@ -3,6 +3,7 @@ import { join, resolve, sep } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { previewPolicy } from "../server/preview-contexts.ts";
 import { homeTitle } from "./catalog.ts";
+import { checkFeatureVideos } from "./check-feature-videos.ts";
 import { checkLogo } from "./check-logo.ts";
 
 const directory = resolve(import.meta.dir, "../dist/site-artifact");
@@ -81,6 +82,7 @@ try {
     }, heading);
   }
   let doc = await content(homeTitle);
+  await checkFeatureVideos(doc);
   await checkLogo(doc);
   await browser.send("Browser.grantPermissions", {
     origin: server.url.origin,
