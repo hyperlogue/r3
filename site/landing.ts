@@ -1,4 +1,4 @@
-import { homeDescription, homeTitle, stories } from "./catalog.ts";
+import { homeDescription, homeTitle, homeTitleLines, stories } from "./catalog.ts";
 import { featureHighlights } from "./features.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { storyIllustration } from "./story-illustrations.ts";
@@ -68,8 +68,8 @@ export function home() {
   return `<div data-pagefind-body>
 <section class="home-hero" id="intro">
 <div class="container container-wide hero-grid">
-<div>
-<h1 data-pagefind-meta="title">${homeTitle}</h1>
+<div class="hero-copy">
+<h1 data-pagefind-meta="title">${homeTitleLines.map((line) => `<span class="hero-title-line">${line}</span>`).join(" ")}</h1>
 <p class="hero-description">${homeDescription}</p>
 </div>
 ${reviewDetail()}
