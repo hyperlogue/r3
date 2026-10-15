@@ -44,6 +44,33 @@ export const captureSpecs = [
     scene: "components" as const,
     comparison: true,
   })),
+  ...(["light", "dark"] as const).flatMap((theme) => [
+    {
+      file: `fieldwork-media-image-${theme}.png`,
+      theme,
+      width: 1000,
+      height: 600,
+      scale: 3,
+      scene: "media" as const,
+    },
+    {
+      file: `fieldwork-media-video-${theme}.png`,
+      theme,
+      width: 1000,
+      height: 600,
+      scale: 3,
+      scene: "media-video" as const,
+    },
+    {
+      file: `fieldwork-media-comparison-${theme}.png`,
+      theme,
+      width: 1000,
+      height: 600,
+      scale: 3,
+      scene: "media" as const,
+      mediaComparison: true,
+    },
+  ]),
 ] as const;
 
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");

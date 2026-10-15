@@ -1,13 +1,37 @@
 import { join } from "node:path";
 import tailwind from "bun-plugin-tailwind";
+import { sha256 } from "./captures.ts";
 
 export async function buildShowcase(directory: string) {
+  const media = Object.fromEntries(
+    await Promise.all(
+      [1, 2]
+        .flatMap((version) => [
+          `fieldwork-launch-v${version}.png`,
+          `fieldwork-launch-v${version}.webm`,
+          `fieldwork-launch-frame-v${version}.png`,
+        ])
+        .map(async (file) => {
+          const bytes = Buffer.from(
+            await Bun.file(join(import.meta.dir, "../assets", file)).bytes(),
+          );
+          const signature = file.endsWith(".png") ? "89504e47" : "1a45dfa3";
+          if (bytes.toString("hex", 0, 4) !== signature)
+            throw new Error(`Media example needs hydrated asset bytes: ${file}`);
+          return [
+            file,
+            { base64: bytes.toString("base64"), hash: sha256(bytes), byteLength: bytes.byteLength },
+          ];
+        }),
+    ),
+  );
   const result = await Bun.build({
     entrypoints: [join(import.meta.dir, "index.tsx"), join(import.meta.dir, "style.css")],
     outdir: directory,
     target: "browser",
     minify: true,
     define: {
+      MEDIA_EXAMPLE: JSON.stringify(media),
       COMPONENT_FONT: JSON.stringify(
         Buffer.from(
           await Bun.file(join(import.meta.dir, "../assets/fonts/Roboto.ttf")).bytes(),

@@ -7,6 +7,7 @@ import { annotationState, clickAnnotation, componentFrames } from "./showcase/br
 import { buildShowcase } from "./showcase/build.ts";
 import { type CaptureManifest, captureSpecs, sha256, verifyCaptures } from "./showcase/captures.ts";
 import { verifyWorkspaceFont } from "./showcase/font-check.ts";
+import { prepareMediaCapture } from "./showcase/media-capture.ts";
 
 // Build independently so missing captures cannot prevent their own regeneration.
 const directory = await mkdtemp(join(tmpdir(), "r3-site-capture-"));
@@ -29,6 +30,7 @@ try {
         const page = await browser.attach(targetId);
         const scene = "scene" in spec ? spec.scene : "prototype";
         const comment = scene === "components";
+        const media = scene === "media" || scene === "media-video";
         await page.command("Emulation.setDeviceMetricsOverride", {
           width: spec.width,
           height: spec.height,
@@ -41,9 +43,11 @@ try {
         await eventually(
           () =>
             page.evaluate(
-              comment
-                ? "!!document.querySelector('.component-preview')"
-                : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
+              media
+                ? "!!document.querySelector('[data-native-media]')"
+                : comment
+                  ? "!!document.querySelector('.component-preview')"
+                  : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
             ),
           "real workspace and latest revision",
         );
@@ -56,7 +60,9 @@ try {
             "mobile discussion closes before capturing the document",
           );
         }
-        if ("comparison" in spec) {
+        if (media) {
+          await prepareMediaCapture(page, scene === "media-video", "mediaComparison" in spec);
+        } else if ("comparison" in spec) {
           const [frame] = await componentFrames(browser, page);
           await verifyWorkspaceFont(frame!);
           await page.evaluate(

@@ -153,6 +153,20 @@ aliases, authentication, or server bootstrap are involved. The build rejects run
 resolution, version selection, comparison, and scripted agent replies use real
 product components. Reset restores the fixture and clears sample drafts. One page
 per document isolates r3's stylesheet, keyboard bindings, and display preferences.
+The launch-campaign walkthrough uses `showcase/media-fixture.ts` with the native
+image/video viewer, saved-frame targets, and comparison view. `?scene=media` and
+`?scene=media-video` select its image and video conversations. The article shows
+three captures in both themes: image feedback, a paused video, and the linked fix.
+Its campaign artwork, WebM clips, and decoded frame evidence are checked in; a
+normal build does not require a media encoder. To regenerate the source assets:
+
+```sh
+R3_TEST_BROWSER=/path/to/chromium R3_TEST_FFMPEG=/path/to/ffmpeg \
+  bun --no-env-file site/generate-media-example.ts
+R3_TEST_BROWSER=/path/to/chromium bun --no-env-file site/capture-showcase.ts
+```
+
+The generated PNG and WebM assets use Git LFS, as do the workspace captures.
 The prototype, explainer, and design doc use ordinary React controls. The component
 scene runs bundled authored HTML in an opaque iframe with the shared
 `installPreviewRuntime`: its blue rectangular highlight, dot marker, picking,
@@ -210,6 +224,8 @@ layout, theme persistence, clipboard actions, search and empty results, no-JS
 reading, and demo deep links. Screenshots go to ignored `dist/site-review/`.
 Run `bun --no-env-file site/check-docs.ts` for direct Docs entry, every human
 article in both themes at desktop and phone widths, and loaded screenshots.
+Run `bun --no-env-file site/check-media.ts` for the launch walkthrough’s responsive
+screenshots, saved image/video evidence, comparisons, and actual clip playback.
 Run `bun --no-env-file site/check-showcase.ts` to exercise injected mutations,
 comparison, mobile layout, and the absence of backend requests. Run the
 repository-wide tests before committing.
@@ -223,8 +239,9 @@ interactions inside the opaque sandbox.
 
 The homepage uses the actual r3 page with a fictional Example Fieldwork project;
 the captions identify the sample data and scripted agent. The full demo retains
-its curve-lab and code-review fixtures. The five Example Fieldwork articles are
-guided reproduction instructions, not five scripted demo scenarios.
+its curve-lab and code-review fixtures. The Example Fieldwork articles include
+guided reproduction instructions; the media walkthrough uses actual captures
+of its fictional launch campaign.
 
 The five feature rows use static, explicitly labeled video mockups with
 decorative player controls. Actual recordings remain follow-up work. The capability map is in

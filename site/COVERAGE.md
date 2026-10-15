@@ -39,7 +39,7 @@ integrity checks use the same pipeline as the homepage captures.
 | Onboarding proposal | `/use-cases/proposal/` | Follow-up |
 | Search explanation | `/use-cases/explanation/` | Follow-up |
 | Duplicate-submission fix | `/use-cases/code-review/` | Follow-up |
-| Launch media review | `/use-cases/media/` | Follow-up |
+| Launch media review | `/use-cases/media/` | Real image, video-frame, and comparison captures; sample scenes at `/example/index.html?scene=media` and `?scene=media-video` |
 
 The public live demo remains available with its existing fixtures. The site labels
 the homepage’s real workspace with fictional data and the demo’s scripted

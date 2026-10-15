@@ -15,6 +15,27 @@ function diagram(content: string, caption: string, className = "") {
 }
 
 const visuals: Record<string, () => string> = {
+  "media-image": () =>
+    screenshot(
+      "fieldwork-media-image",
+      "The selected date stays attached to the feedback and the agent’s reply.",
+      1000,
+      600,
+    ),
+  "media-video": () =>
+    screenshot(
+      "fieldwork-media-video",
+      "A comment on the video at 00:02 keeps the exact frame and selected region.",
+      1000,
+      600,
+    ),
+  "media-comparison": () =>
+    screenshot(
+      "fieldwork-media-comparison",
+      "Original and revised: the date now sits on a darker background.",
+      1000,
+      600,
+    ),
   workspace: () =>
     screenshot("fieldwork", "Try the published work, then discuss it alongside the page."),
   explainer: () =>
@@ -136,7 +157,7 @@ const visuals: Record<string, () => string> = {
 };
 
 export function expandDocVisuals(source: string) {
-  return source.replace(/<!-- visual: ([a-z]+) -->/g, (_, name: string) => {
+  return source.replace(/<!-- visual: ([a-z-]+) -->/g, (_, name: string) => {
     const render = visuals[name];
     if (!render) throw new Error(`Unknown documentation visual: ${name}`);
     return render();

@@ -1,52 +1,29 @@
-Example Fieldwork’s launch campaign has a static announcement and a short product clip. The copy is correct, but the date is hard to read against the background. Keep the review attached to the pixels you are actually discussing.
+Review a launch image and a short video without describing every detail from memory. These screenshots use the real r3 interface with a fictional Fieldwork campaign.
 
-<div class="scenario">
-<div><strong>The work</strong><p>A files artifact containing a launch image and a short, captioned video.</p></div>
-<div><strong>The review</strong><p>Can a reader see the key information at the intended size, with sound off?</p></div>
-</div>
+## Point to the detail
 
-## Prepare a reviewable campaign
+Select the date on the image and leave a note:
 
-> Read `r3 guide` and `r3 guide files`. Prepare a fictional launch image for Example Fieldwork and, when a clip is available, include it alongside the image. Keep essential information visible without sound. Publish the original media files for review, with a short note describing intended display sizes and the message each asset should communicate.
+> The launch date is easy to miss. Give it more contrast.
 
-You can review the static artwork before the clip is ready. The video steps below apply once your agent exports an actual video—an empty placeholder player isn't useful for review.
+<!-- visual: media-image -->
 
-## Review the static image
+## Pause on the moment
 
-Open the image at the size it will actually be used. Select the launch-date region and add:
+Pause the video, select a region, and explain what needs changing. Your comment keeps the timestamp and a saved frame.
 
-> The date blends into the photograph at a small size. Increase contrast in this region and leave enough space around it. Keep the headline as the first thing I notice.
+> Use a darker date label and hold this frame longer.
 
-The original target retains a saved full frame and the selected box. A separate annotated attachment can explain the desired placement without altering that original evidence.
+<!-- visual: media-video -->
 
-## Review a specific video moment
+## Check the fix
 
-Pause the clip where the date appears. Select the frame or region and comment:
+Open **Compare** from the agent’s reply to see the original and revised artwork together. Play the revised clip to check timing, then resolve the comment when you’re happy.
 
-> This caption is difficult to read before the scene changes. Keep it visible longer and use a background treatment that stays legible throughout the shot. The meaning must be clear with sound off.
+<!-- visual: media-comparison -->
 
-The timestamp gives contextual timing, while the saved frame locks in the exact visual state. Because video scrubbing across different browsers can occasionally land on neighboring keyframes, the saved frame snapshot serves as the immutable ground truth.
+## Try it with your agent
 
-## Compare the revised evidence
+> Create a launch image and a short captioned video for my project. Publish both to r3 so I can review the artwork and timing.
 
-Ask the agent to reply with an explicit fix target and a saved frame from the revised publication. Use **Compare** when available to inspect the original and proposed regions together.
-
-Then play the clip again. A still comparison can verify contrast and placement, but it cannot prove that the caption remains on screen long enough. Check timing through playback.
-
-## Check the communication
-
-- The date is readable at the intended display size.
-- The headline remains visually primary.
-- The clip communicates its key information without audio.
-- The agent’s fix target points to the revised asset and frame.
-
-Resolve the image and video concerns independently. One may be ready while the other needs another pass.
-
-## Reproduce the publication
-
-```sh
-r3 create --kind files --dir ./fieldwork-launch \
-  --title 'Example Fieldwork — launch campaign'
-```
-
-Use PNG/JPEG/static WebP for image-region feedback and browser-decodable video for frame feedback. The [media documentation](/docs/media/) explains supported targets, attachment limits, and comparisons.
+[More about reviewing images and video →](/docs/media/)
