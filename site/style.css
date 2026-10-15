@@ -860,7 +860,7 @@ figcaption {
   transition: transform 220ms ease;
 }
 .story-card:is(:hover, :focus-visible) .story-illustration svg {
-  transform: scale(1.15);
+  transform: scale(1.05);
 }
 .story-illustration path {
   stroke: var(--muted);

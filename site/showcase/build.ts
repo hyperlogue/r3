@@ -7,6 +7,13 @@ export async function buildShowcase(directory: string) {
     outdir: directory,
     target: "browser",
     minify: true,
+    define: {
+      COMPONENT_FONT: JSON.stringify(
+        Buffer.from(
+          await Bun.file(join(import.meta.dir, "../assets/fonts/Roboto.ttf")).bytes(),
+        ).toString("base64"),
+      ),
+    },
     plugins: [tailwind],
     naming: "[name].[ext]",
     publicPath: "./",

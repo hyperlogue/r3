@@ -1,0 +1,71 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f3ebdc;
+}
+h1,
+p {
+  margin: 0;
+}
+:root {
+  --font-sans: "r3 Example Sans", sans-serif;
+}
+.component-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #f3ebdc;
+  color: #174e48;
+  font-family: var(--font-sans);
+}
+.component-board {
+  width: min(280px, calc(100% - 48px));
+  margin: 56px 24px;
+}
+.component-category {
+  margin-bottom: 16px;
+  font: 10px / 1.5 var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #926340;
+}
+.component-card {
+  position: relative;
+  padding: 24px;
+  border: 1px solid #ddcdb5;
+  border-radius: 20px;
+  background: #fffaf0;
+  box-shadow: 0 8px 24px #77582a0a;
+}
+.component-card h1 {
+  max-width: 230px;
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+.component-card p {
+  max-width: 230px;
+  margin-top: 12px;
+  font: 12px / 1.6 var(--font-sans);
+  color: #68746a;
+}
+.component-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid #174e48;
+  border-radius: 24px;
+  background: #174e48;
+  color: #fffaf0;
+  font: 12px / 1.5 var(--font-sans);
+  cursor: pointer;
+}
+.component-action:hover {
+  background: #24685f;
+}

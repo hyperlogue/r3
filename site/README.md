@@ -81,7 +81,7 @@ prefixes; each use-case card starts with a decorative vector UI mockup from
 `story-illustrations.ts`. Its category is the main title, followed by a subtitle
 and description. The whole card links to its walkthrough; hover and keyboard
 focus soften the background, brighten the border, and zoom the illustration to
-1.15× inside its frame. Cards stay stationary; reduced motion disables the zoom.
+1.05× inside its frame. Cards stay stationary; reduced motion disables the zoom.
 Cards have no arrow icons or footer links. The feature and use-case
 sections start directly with their headings. Format details belong in the
 documentation.
@@ -95,7 +95,7 @@ Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
 The hero shows a cream-and-teal component showcase with large headings
-and rounded controls, distinct from r3. Its highlighted button and numbered pin
+and rounded controls, distinct from r3. Its highlighted button and dot marker
 remain visible beside the thread. A real floating thread contains the human’s
 request to increase a button margin, the agent’s reply, and a pending draft asking
 to restore the previous margin. It has no caption. A stationary Chrome-style
@@ -106,7 +106,7 @@ Full workspace captures omit the sample banner; the standalone example retains i
 are not links; the workspace figure has only a separate demo button beneath its
 browser frame. The demo button uses a blue outline. The screenshot, browser
 label, and demo destination follow the
-selected Prototype, Explainer, or Brief prompt. Both public and packaged pages
+selected UI Prototype, Explainer, or Design doc prompt. Both public and packaged pages
 use the captures; the selected real workspace opens through the demo button.
 The terminal is illustrative, with prompts from `prompt-examples.ts`. The user
 message has a lighter background, matching the supplied Claude Code reference. The inner rows fill the terminal width. Only the
@@ -144,15 +144,21 @@ aliases, authentication, or server bootstrap are involved. The build rejects run
 resolution, version selection, comparison, and scripted agent replies use real
 product components. Reset restores the fixture and clears sample drafts. One page
 per document isolates r3's stylesheet, keyboard bindings, and display preferences.
-The sample renderer uses ordinary React controls; it does not run uploaded HTML
-or emulate the production preview security boundary.
+The prototype, explainer, and brief use ordinary React controls. The component
+scene runs bundled authored HTML in an opaque iframe with the shared
+`installPreviewRuntime`: its blue rectangular highlight, dot marker, picking,
+and Locate behavior are actual product code. Its local message adapter connects
+only preview UI events to the fixture. No sample runs uploaded content or
+emulates the production preview security boundary. The component scene is used
+for captures and the standalone website; artifact previews show its PNG because
+their policy blocks nested frames.
 
 When the sample's appearance changes, run
 `bun --no-env-file site/capture-showcase.ts` with `R3_TEST_BROWSER` set, then build
 the site. The capture command builds the same React page independently and records
 light/dark desktop, phone, and component-review views at 3× pixel density. The
 component capture includes the real r3 navbar above the document and floating thread.
-The thread scene opens an existing target’s real popover and types into its reply
+The thread scene locates the agent's fix, opens the runtime's dot marker, and types into its real popover reply
 composer without submitting. The two component versions have 8px and 16px button
 margins, matching the conversation.
 Phone readers see the real mobile layout; the desktop capture is downsized within the narrower workspace frame.
