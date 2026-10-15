@@ -1,79 +1,147 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import type { PreviewDisplay } from "../../shared/preview-protocol.ts";
 import type { ArtifactRenderedPaneProps } from "../../web/src/artifact-page.tsx";
+import { keysSuspended } from "../../web/src/keys.ts";
+import { previewLocator, previewSelectionPosition } from "../../web/src/preview-bridge.ts";
+import { observePreviewViewport } from "../../web/src/preview-viewport.ts";
+import { componentDocument } from "./component-document.ts";
 
-// A small authored component showcase inside the same real ArtifactPage host.
+// The authored sample runs separately; annotation visuals and interaction come
+// directly from the product's preview runtime, with only local fixture actions.
 export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
-  const card = useRef<HTMLDivElement>(null);
-  const action = useRef<HTMLButtonElement>(null);
-  const [selected, setSelected] = useState(false);
-  const [opened, setOpened] = useState(false);
+  const iframe = useRef<HTMLIFrameElement>(null);
+  const current = useRef(props);
+  current.current = props;
+  const connection = useRef<MessagePort | null>(null);
+  const sendDisplay = useRef(() => {});
+  const document = useMemo(() => {
+    const contextId = crypto.randomUUID();
+    return {
+      contextId,
+      html: componentDocument({
+        contextId,
+        applicationOrigin: location.origin,
+        artifactId: props.version.artifactId,
+        versionSeq: props.version.seq,
+        entryPath: props.path,
+        resourceRoot: "",
+        presentation: "document",
+      }),
+    };
+  }, [props.version.artifactId, props.version.seq, props.path]);
+
   useEffect(() => {
-    if (props.active === false || !props.jump) return;
-    const found = props.jump.locator?.selector === "#component-action";
-    if (found) action.current?.scrollIntoView({ block: "nearest" });
-    props.onLocated?.(found ? "anchored" : "unplaced");
-  }, [props.active, props.jump, props.onLocated]);
-  return (
-    <div className={`component-document ${props.commenting ? "component-commenting" : ""}`}>
-      <div className="component-board">
-        <p className="component-category">Gather / Components</p>
-        <div className="component-card" ref={card}>
-          <h1>Keep everyone in sync</h1>
-          <p>A quick look at what’s happening across your team’s projects.</p>
-          <button
-            ref={action}
-            type="button"
-            id="component-action"
-            style={{ marginTop: props.version.seq > 1 ? 16 : 8 }}
-            className={`component-action ${selected || (props.jump && props.highlightLocated !== false) ? "component-selected" : ""}`}
-            onClick={() => {
-              if (!props.commenting) {
-                setOpened(true);
-                return;
-              }
-              setSelected(true);
-              const target = {
-                kind: "rendered" as const,
+    let stopViewport: (() => void) | undefined;
+    const { contextId } = document;
+    const send = (message: Record<string, unknown>) =>
+      connection.current?.postMessage({ ...message, contextId });
+    const display = () => {
+      const props = current.current;
+      const value: PreviewDisplay = {
+        commenting: props.active !== false && props.commenting,
+        highlightLocated: props.highlightLocated,
+        noteHasText: props.noteHasText,
+        composerVisible: props.composerVisible,
+        targets: props.targets.flatMap(({ threadId, target }) =>
+          target.kind === "rendered" &&
+          target.path === props.path &&
+          target.versionSeq === props.version.seq
+            ? [{ threadId, locator: target.locator }]
+            : [],
+        ),
+        jump: props.jump,
+      };
+      send({ type: "r3-preview-display", display: value });
+    };
+    sendDisplay.current = display;
+    const connect = (event: MessageEvent) => {
+      if (
+        event.source !== iframe.current?.contentWindow ||
+        event.origin !== "null" ||
+        event.data?.type !== "r3-demo-preview-connect" ||
+        event.data.contextId !== contextId ||
+        event.data.path !== current.current.path ||
+        event.ports.length !== 1 ||
+        connection.current
+      )
+        return;
+      const port = event.ports[0];
+      connection.current = port;
+      port.onmessage = ({ data: message }) => {
+        const props = current.current;
+        if (
+          connection.current !== port ||
+          message?.contextId !== contextId ||
+          message.path !== props.path
+        )
+          return;
+        if (message.type === "r3-preview-document") {
+          display();
+        } else if (message.type === "r3-preview-located" && message.nonce === props.jump?.nonce) {
+          if (["anchored", "ambiguous", "unplaced"].includes(message.state))
+            props.onLocated?.(message.state);
+        } else if (props.active !== false) {
+          if (
+            message.type === "r3-preview-threads" &&
+            props.targets.some(({ threadId }) => threadId === message.threadId)
+          ) {
+            props.onThread(message.threadId);
+          } else if (window.document.activeElement === iframe.current && !keysSuspended()) {
+            if (message.type === "r3-preview-target" && props.commenting) {
+              props.onTarget({
+                kind: "rendered",
                 versionSeq: props.version.seq,
                 path: props.path,
-                locator: { selector: "#component-action", label: "Card action button" },
-              };
-              const rect = card.current!.getBoundingClientRect();
-              if (props.onSelection)
-                props.onSelection(
-                  target,
-                  { left: rect.x + rect.width / 2, top: rect.top, bottom: rect.bottom },
-                  false,
-                );
-              else props.onTarget(target);
-            }}
-          >
-            View activity <span aria-hidden="true">→</span>
-          </button>
-          {!props.commenting &&
-            props.targets.map(({ threadId, target }) =>
-              target.kind === "rendered" && target.locator?.selector === "#component-action" ? (
-                <button
-                  key={threadId}
-                  type="button"
-                  className="component-pin"
-                  aria-label="Open button spacing thread"
-                  onClick={() => {
-                    setSelected(true);
-                    props.onThread(threadId);
-                  }}
-                >
-                  1
-                </button>
-              ) : null,
-            )}
-          {opened && (
-            <p className="component-status" role="status">
-              You’re all caught up.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+                locator: previewLocator(message.locator),
+              });
+            } else if (
+              message.type === "r3-preview-selection" &&
+              iframe.current &&
+              typeof message.quote === "boolean"
+            ) {
+              const locator = previewLocator(message.locator);
+              if (!locator?.quote?.trim()) return;
+              const frame = iframe.current.getBoundingClientRect();
+              const rect = previewSelectionPosition(message.rect, frame, frame);
+              props.onSelection?.(
+                { kind: "rendered", versionSeq: props.version.seq, path: props.path, locator },
+                rect,
+                message.quote,
+              );
+            } else if (
+              message.type === "r3-preview-composer-key" &&
+              ["focus", "escape"].includes(message.action)
+            ) {
+              props.onComposerKey?.(message.action);
+            }
+          }
+        }
+      };
+      stopViewport = observePreviewViewport(iframe.current!, (viewport) =>
+        send({ type: "r3-preview-viewport", viewport }),
+      );
+    };
+    window.addEventListener("message", connect);
+    return () => {
+      window.removeEventListener("message", connect);
+      stopViewport?.();
+      connection.current?.close();
+      connection.current = null;
+      sendDisplay.current = () => {};
+    };
+  }, [document]);
+  useEffect(() => sendDisplay.current());
+  return (
+    <iframe
+      key={document.contextId}
+      ref={iframe}
+      srcDoc={document.html}
+      className="component-preview"
+      title="Component showcase document"
+      sandbox="allow-scripts"
+      allow="camera 'none'; microphone 'none'"
+      referrerPolicy="no-referrer"
+      inert={props.active === false}
+    />
   );
 }

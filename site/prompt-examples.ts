@@ -4,7 +4,7 @@ export const commonResponse =
 
 export const promptExamples = [
   {
-    label: "Prototype",
+    label: "UI Prototype",
     scene: "prototype",
     prompt: "Build a project-creation form so I can review the visibility settings.",
     response: "Created a working prototype with project details and visibility controls.",
@@ -16,7 +16,7 @@ export const promptExamples = [
     response: "Created an interactive explainer with adjustable ranking signals.",
   },
   {
-    label: "Brief",
+    label: "Design doc",
     scene: "brief",
     prompt: "Compare three onboarding flows and show their tradeoffs side by side.",
     response: "Created a comparison brief covering each flow’s strengths and tradeoffs.",

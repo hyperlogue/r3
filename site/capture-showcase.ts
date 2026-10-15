@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { serveSite } from "./serve.ts";
+import { annotationState, clickAnnotation, componentFrames } from "./showcase/browser.ts";
 import { buildShowcase } from "./showcase/build.ts";
 import { type CaptureManifest, captureSpecs, sha256, verifyCaptures } from "./showcase/captures.ts";
 import { verifyWorkspaceFont } from "./showcase/font-check.ts";
@@ -20,7 +21,9 @@ try {
   try {
     for (const spec of captureSpecs) {
       // Each capture gets an independent browser profile and rendering surface.
-      const browser = await openTestBrowser();
+      // Separate iframe renderers inherit the browser scale, not the parent's
+      // DevTools override. Keep authored content as sharp as the surrounding UI.
+      const browser = await openTestBrowser([`--force-device-scale-factor=${spec.scale}`]);
       try {
         const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
         const page = await browser.attach(targetId);
@@ -39,35 +42,41 @@ try {
           () =>
             page.evaluate(
               comment
-                ? "!!document.querySelector('.component-card')"
+                ? "!!document.querySelector('.component-preview')"
                 : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
             ),
           "real workspace and latest revision",
         );
         await verifyWorkspaceFont(page);
         if (comment) {
-          await page.evaluate(`document.querySelector('[aria-label="Hide discussion"]').click()`);
-          await eventually(
-            () => page.evaluate("!!document.querySelector('.component-pin')"),
-            "existing component target",
+          const [frame] = await componentFrames(browser, page);
+          await verifyWorkspaceFont(frame!);
+          if ((await frame!.evaluate("devicePixelRatio")) !== spec.scale)
+            throw new Error("The component document must render at the capture pixel density");
+          await page.evaluate(
+            "[...document.querySelectorAll('[data-artifact-comment=comment_components_fix] button')].find(button => button.textContent.includes('Fix:')).click()",
           );
-          await page.evaluate("document.querySelector('.component-pin').click()");
+          await page.evaluate(`document.querySelector('[aria-label="Hide discussion"]').click()`);
+          await clickAnnotation(frame!, "marker");
           await eventually(
             () => page.evaluate("!!document.querySelector('[data-artifact-thread-popover]')"),
             "existing thread popover",
           );
-          await eventually(
-            () =>
-              page.evaluate(`(() => {
-            const action = document.querySelector('.component-action');
-            const pin = document.querySelector('.component-pin');
-            const thread = document.querySelector('[data-artifact-thread-popover]');
-            return action.classList.contains('component-selected') &&
-              action.getBoundingClientRect().right < thread.getBoundingClientRect().left &&
-              pin.getBoundingClientRect().right < thread.getBoundingClientRect().left;
-          })()`),
-            "selected button and pin remain visible beside the thread",
-          );
+          await eventually(async () => {
+            const box = await annotationState(frame!, "box");
+            const marker = await annotationState(frame!, "marker");
+            const { left, edge } = await page.evaluate(
+              `({left: document.querySelector('.component-preview').getBoundingClientRect().left, edge:document.querySelector('[data-artifact-thread-popover]').getBoundingClientRect().left})`,
+            );
+            return (
+              box &&
+              !box.hidden &&
+              marker &&
+              !marker.hidden &&
+              box.rect.right + left < edge &&
+              marker.rect.right + left < edge
+            );
+          }, "native highlight and comment marker remain visible beside the thread");
           await page.evaluate(
             "document.querySelector('[data-artifact-thread-popover] [data-thread-action=comment]').click()",
           );

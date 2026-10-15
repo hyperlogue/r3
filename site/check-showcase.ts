@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { normalizeBase } from "./render.ts";
 import { serveSite } from "./serve.ts";
+import { annotationState, clickAnnotation, componentFrames } from "./showcase/browser.ts";
 import { verifyWorkspaceFont } from "./showcase/font-check.ts";
 
 const base = normalizeBase(process.env.R3_SITE_BASE);
@@ -118,26 +119,42 @@ try {
   await page.command("Page.navigate", {
     url: `${server.url.origin}${base}/example/index.html?theme=light&embedded=1&scene=components`,
   });
-  await waitFor("!!document.querySelector('#component-action')", "component showcase");
-  await click("#component-action");
-  await waitFor("document.body.innerText.includes('You’re all caught up.')", "component action");
+  const [component] = await componentFrames(browser, page);
+  await verifyWorkspaceFont(component!);
+  await component!.evaluate("document.querySelector('#component-action').click()");
+  assert(
+    await component!.evaluate("!document.querySelector('.component-status').hidden"),
+    "authored component action works",
+  );
+  await page.evaluate(
+    "[...document.querySelectorAll('[data-artifact-comment=comment_components_fix] button')].find(button => button.textContent.includes('Fix:')).click()",
+  );
   await click('[aria-label="Hide discussion"]');
-  await click(".component-pin");
+  await clickAnnotation(component!, "marker");
   await waitFor(
     "!!document.querySelector('[data-artifact-thread-popover]')",
     "existing component thread popover",
   );
   const popover = "[data-artifact-thread-popover]";
+  const box = await eventually(async () => {
+    const value = await annotationState(component!, "box");
+    return value && !value.hidden ? value : null;
+  }, "native located highlight");
+  const marker = await annotationState(component!, "marker");
+  const action = await component!.evaluate(
+    "document.querySelector('#component-action').getBoundingClientRect().toJSON()",
+  );
+  assert.equal(box.radius, "0px", "the actual preview runtime uses a rectangular highlight");
+  assert.equal(box.border, "rgb(37, 99, 235)");
+  assert.equal(marker.text, "●", "the actual preview runtime uses a dot, not a numbered pin");
+  assert.deepEqual(box.rect, action, "the highlight follows the element bounds");
+  const boundary = await page.evaluate(
+    `({left: document.querySelector('.component-preview').getBoundingClientRect().left, edge:document.querySelector('${popover}').getBoundingClientRect().left})`,
+  );
   assert(
-    await page.evaluate(`(() => {
-    const button = document.querySelector('.component-action');
-    const pin = document.querySelector('.component-pin');
-    const thread = document.querySelector('${popover}');
-    return button.classList.contains('component-selected') &&
-      button.getBoundingClientRect().right < thread.getBoundingClientRect().left &&
-      pin.getBoundingClientRect().right < thread.getBoundingClientRect().left;
-  })()`),
-    "the pinned element is highlighted and unobscured",
+    box.rect.right + boundary.left < boundary.edge &&
+      marker.rect.right + boundary.left < boundary.edge,
+    "native annotations remain unobscured",
   );
   assert.equal(
     await page.evaluate(
@@ -146,7 +163,9 @@ try {
     1,
   );
   assert.equal(
-    await page.evaluate("getComputedStyle(document.querySelector('#component-action')).marginTop"),
+    await component!.evaluate(
+      "getComputedStyle(document.querySelector('#component-action')).marginTop",
+    ),
     "16px",
   );
   await click(`${popover} [data-thread-action="comment"]`);
@@ -168,15 +187,61 @@ try {
   );
   await click(`${popover} [data-compare-comment="comment_components_fix"]`);
   await waitFor(
-    "document.querySelectorAll('[data-artifact-comparison] .component-action').length === 2",
+    "document.querySelectorAll('[data-artifact-comparison] .component-preview').length === 2",
     "component versions compared",
   );
+  const compared = await componentFrames(browser, page, 2);
   assert.deepEqual(
-    await page.evaluate(
-      "[...document.querySelectorAll('[data-artifact-comparison] .component-action')].map(button => getComputedStyle(button).marginTop)",
-    ),
+    (
+      await Promise.all(
+        compared.map((frame) =>
+          frame.evaluate("getComputedStyle(document.querySelector('#component-action')).marginTop"),
+        ),
+      )
+    ).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)),
     ["8px", "16px"],
     "the two publications match the spacing conversation",
+  );
+
+  // A real annotation gesture selects the element without activating it.
+  await page.command("Page.navigate", {
+    url: `${server.url.origin}${base}/example/index.html?scene=components&embedded=1`,
+  });
+  const [picking] = await componentFrames(browser, page);
+  await click('[aria-label="Comment mode"]');
+  const documentBounds = await page.evaluate(
+    "document.querySelector('.component-preview').getBoundingClientRect().toJSON()",
+  );
+  const buttonBounds = await picking!.evaluate(
+    "document.querySelector('#component-action').getBoundingClientRect().toJSON()",
+  );
+  const point = {
+    x: documentBounds.left + buttonBounds.left + 20,
+    y: documentBounds.top + buttonBounds.top + buttonBounds.height / 2,
+  };
+  for (const type of ["mousePressed", "mouseReleased"])
+    await page.command("Input.dispatchMouseEvent", {
+      type,
+      ...point,
+      button: "left",
+      clickCount: 1,
+    });
+  await eventually(async () => {
+    const value = await annotationState(picking!, "box");
+    return value && !value.hidden;
+  }, "picked element highlight");
+  assert(
+    await picking!.evaluate("document.querySelector('.component-status').hidden"),
+    "picking does not activate the authored button",
+  );
+  await clickAnnotation(picking!, "controls");
+  await waitFor(
+    "!!document.querySelector('[data-artifact-composer] textarea') && document.body.innerText.includes('View activity')",
+    "native element target opens the shared composer",
+  );
+  assert(
+    await page.evaluate("document.body.innerText.includes('View activity')"),
+    "composer retains the selected element quote",
   );
 
   // Every prompt links to an actual review, including functional authored content.

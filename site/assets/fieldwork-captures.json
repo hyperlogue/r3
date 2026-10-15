@@ -111,7 +111,7 @@
       "height": 540,
       "scale": 3,
       "scene": "components",
-      "sha256": "495c7e0a0b6227f564f664ff412c25fb4044b9a8b384e70c54ad11997412e744"
+      "sha256": "c43e6f40456eb8791c261f5107747bd644a776c518afc6cdc0468a4a30a7c3b3"
     },
     {
       "file": "fieldwork-comment-dark.png",
@@ -120,7 +120,7 @@
       "height": 540,
       "scale": 3,
       "scene": "components",
-      "sha256": "1c860d542e43aff556c0fb919f3b48f511c335fc3e6c5e2f42e46cee16e2d171"
+      "sha256": "184638318c9affd1fccbfa85aca8a1564d7ea1bd26b127e23b4e54136870d432"
     }
   ]
 }

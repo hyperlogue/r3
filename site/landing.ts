@@ -39,7 +39,7 @@ ${icon('<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx=
 export function workflowExample() {
   return `<figure class="workflow-figure container" id="fieldwork-workspace">
 <div class="browser-frame">
-${browserBar("<span data-workspace-label>Prototype</span>")}
+${browserBar("<span data-workspace-label>UI Prototype</span>")}
 <div class="workspace-example" data-workspace-example>
 ${promptExamples
   .map(
