@@ -1,7 +1,7 @@
 // One flat KEYMAP + one window listener. KEYMAP is the source for both the
 // dispatcher and the `?` overlay. Handlers register per-component.
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef } from "react";
 
 export type KeyId =
   | "help"
@@ -159,23 +159,9 @@ export function keysSuspended(): boolean {
   return suspended > 0;
 }
 
-let boundKeys: readonly KeyId[] = [];
-const bindingListeners = new Set<() => void>();
-function subscribeBindings(listener: () => void) {
-  bindingListeners.add(listener);
-  return () => bindingListeners.delete(listener);
-}
-function notifyBindings() {
-  const next = [...handlers.keys()].sort();
-  if (next.join(",") === boundKeys.join(",")) return;
-  boundKeys = next;
-  for (const listener of bindingListeners) listener();
-}
-
-// Hint surfaces follow mounted actions, including panels kept mounted but inert.
-// Handler closure updates do not notify or make typing rerender these surfaces.
-export function useBoundKeys(): readonly KeyId[] {
-  return useSyncExternalStore(subscribeBindings, () => boundKeys);
+// The shortcuts sheet dims actions that have no owner in the current view.
+export function isBound(id: KeyId): boolean {
+  return handlers.has(id);
 }
 
 let attached = false;
@@ -226,12 +212,10 @@ export function useKeyBindings(map: KeyHandlers): void {
       handlers.set(id, fn);
       return [id, fn] as const;
     });
-    notifyBindings();
     return () => {
       // Only drop our own entry: a component unmounting after another registered
       // the same id (a remount overlapping its predecessor) must not clear theirs.
       for (const [id, fn] of mine) if (handlers.get(id) === fn) handlers.delete(id);
-      notifyBindings();
     };
   }, [idsKey]);
 }
