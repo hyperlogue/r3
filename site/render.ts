@@ -98,7 +98,9 @@ export function markdownExport(source: string, origin: string) {
       let text = lines.slice(i, block.end).join("\n");
       if (block.type === "html_block") {
         text = text
-          .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+          .replace(/<(script|style|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+          .replace(/<i><\/i>/g, "")
+          .replace(/<\/?(?:span|small)\b[^>]*>/gi, " ")
           .replace(/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
           .replace(/<\/?(?:strong|b)>/gi, "**")
           .replace(/<\/?(?:em|i)>/gi, "*")
@@ -106,7 +108,7 @@ export function markdownExport(source: string, origin: string) {
             /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi,
             (_, level, content) => `\n\n${"#".repeat(Number(level))} ${content}\n\n`,
           )
-          .replace(/<\/?(?:div|p|section|aside|br)\b[^>]*>/gi, "\n\n")
+          .replace(/<\/?(?:div|p|section|aside|figure|figcaption|li|br)\b[^>]*>/gi, "\n\n")
           .replace(/<[^>]+>/g, "")
           .replace(/\n{3,}/g, "\n\n")
           .replace(/\]\(\/(?!\/)([^)]*)\)/g, `](${origin}/$1)`);

@@ -1,4 +1,4 @@
-import { docs, groups, type Page } from "./catalog.ts";
+import { groups, navigationDocs, type Page } from "./catalog.ts";
 import { escapeHTML, type Heading } from "./render.ts";
 
 function nav(current: string) {
@@ -6,11 +6,11 @@ function nav(current: string) {
     .map(
       (group) =>
         `<div class="nav-group">
-<p>${escapeHTML(group)}</p>${docs
+<p>${escapeHTML(group)}</p>${navigationDocs
           .filter((page) => page.group === group)
           .map(
             (page) =>
-              `<a href="${page.path}"${page.path === current ? ' aria-current="page"' : ""}>${escapeHTML(page.title)}</a>`,
+              `<a href="${page.path}"${page.path === (current === "/docs/" ? "/docs/get-started/" : current) ? ' aria-current="page"' : ""}>${escapeHTML(page.title)}</a>`,
           )
           .join("")}</div>`,
     )
@@ -29,8 +29,9 @@ export function shell(
   },
 ) {
   const { base, origin, headings = [], article = false, markdown = true } = options;
-  const isDoc = page.path.startsWith("/docs/") && page.path !== "/docs/";
+  const isDoc = page.path.startsWith("/docs/");
   const markdownPath = `${page.path}index.md`;
+  const canonicalPath = page.canonicalPath ?? page.path;
   const links = `<a href="/use-cases/"${page.path.startsWith("/use-cases/") ? ' aria-current="page"' : ""}>Use cases</a>
 <a href="/docs/"${page.path.startsWith("/docs/") ? ' aria-current="page"' : ""}>Docs</a>`;
   const themeScript = `(()=>{let t=new URLSearchParams(location.search).get('theme');try{t||=localStorage.getItem('r3-site-theme')}catch{}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'})()`;
@@ -59,12 +60,12 @@ export function shell(
 <meta name="color-scheme" content="light dark">
 <title>${escapeHTML(page.title)} · r3</title>
 <meta name="description" content="${escapeHTML(page.description)}">
-<link rel="canonical" href="${escapeHTML(origin + (page.path === "/" ? "/" : page.path))}">
+<link rel="canonical" href="${escapeHTML(origin + canonicalPath)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="r3">
 <meta property="og:title" content="${escapeHTML(page.title)}">
 <meta property="og:description" content="${escapeHTML(page.description)}">
-<meta property="og:url" content="${escapeHTML(origin + page.path)}">
+<meta property="og:url" content="${escapeHTML(origin + canonicalPath)}">
 <meta property="og:image" content="${escapeHTML(origin)}/assets/social.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
@@ -110,7 +111,7 @@ export function shell(
       ? `<div class="docs-shell">
 <aside class="docs-sidebar">
 <nav aria-label="Documentation">${nav(page.path)}</nav>
-<a class="agent-link" href="/llms.txt">Reading with an agent? <span>llms.txt ↗</span>
+<a class="agent-link" href="/docs/agents/">For your agent <span>r3 guide ↗</span>
 </a>
 </aside>
 <div class="doc-content">
@@ -150,7 +151,10 @@ function articleEnd(page: Page) {
 <a href="/use-cases/">← All five walkthroughs</a>
 <a href="/docs/get-started/">Try it with your agent →</a>
 </nav>`;
-  const next = docs[docs.findIndex((p) => p.path === page.path) + 1];
+  const index = navigationDocs.findIndex(
+    (p) => p.path === (page.path === "/docs/" ? "/docs/get-started/" : page.path),
+  );
+  const next = index >= 0 ? navigationDocs[index + 1] : undefined;
   return next
     ? `<nav class="article-next" aria-label="Next page">
 <span>Keep reading</span>

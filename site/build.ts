@@ -2,12 +2,12 @@ import { cp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import tailwind from "bun-plugin-tailwind";
 import * as pagefind from "pagefind";
-import { ARTIFACT_HELP, artifactGuide } from "../cli/artifact-help.ts";
 import { buildDemo } from "../scripts/build-demo.ts";
 import { KEYMAP } from "../web/src/keys.ts";
-import { cases, docs, homeTitle, landingPages, type Page, pages } from "./catalog.ts";
+import { cases, homeTitle, landingPages, type Page, pages } from "./catalog.ts";
+import { expandDocVisuals } from "./doc-visuals.ts";
 import { features } from "./features.ts";
-import { docsIndex, home, searchPage, useCases } from "./landing.ts";
+import { home, searchPage, useCases } from "./landing.ts";
 import { shell } from "./layout.ts";
 import { commonPrompt, promptExamples } from "./prompt-examples.ts";
 import {
@@ -28,40 +28,44 @@ export const outputDirectory = join(siteDirectory, "../dist/pages");
 
 export async function pageSource(page: Page) {
   if (page.source) return Bun.file(join(siteDirectory, "content", `${page.source}.md`)).text();
-  if (page.guide === "cli")
-    return [
-      "This reference is generated from `r3 --help`. Agents should read the [agent workflow](/docs/agents/) before publishing or handling feedback.",
-      "## Commands and options",
-      "```text",
-      ARTIFACT_HELP.trim(),
-      "```",
-      "",
-    ].join("\n\n");
-  if (page.guide === "keys")
-    return `Open the keyboard-shortcuts control in the workspace, or press \`?\`. These bindings come directly from the product’s keyboard map. Shifted characters such as \`S\` and \`Z\` require Shift.\n\nShortcuts stand down in text fields and overlays. Some commands are only available in the relevant view. Hidden feedback controls do not keep their actions active.\n\n${[
-      ...new Set(KEYMAP.map((key) => key.group)),
-    ]
-      .map(
-        (group) =>
-          `## ${group}\n\n| Key | Action |\n| --- | --- |\n${KEYMAP.filter(
-            (key) => key.group === group,
-          )
-            .map(
-              (key) => `| ${key.keys.map((chord) => `\`${chord}\``).join(" or ")} | ${key.label} |`,
-            )
-            .join("\n")}`,
-      )
-      .join(
-        "\n\n",
-      )}\n\nUse the visible controls when a browser reserves a keyboard shortcut. The [navigation guide](/docs/navigation/) covers panels, file browsing, and mobile review.\n`;
-  if (page.guide)
-    return `This page is generated from \`r3 guide${page.guide === "main" ? "" : ` ${page.guide}`}\` in the current source.\n\n${artifactGuide(page.guide === "main" ? [] : [page.guide]).replace(/^# .+\n+/, "")}`;
+  if (page.guide === "keys") {
+    const useful = new Set(["help", "commentModeToggle", "handOff", "filePicker", "panelToggle"]);
+    return `Press **?** in the workspace for the full keyboard map. These are a few useful starting points.
+
+| Key | Action |
+| --- | --- |
+${KEYMAP.filter((key) => useful.has(key.id))
+  .map(
+    (key) =>
+      `| ${key.keys.map((chord) => `\`${chord === "S" ? "Shift + S" : chord}\``).join(" or ")} | ${key.label} |`,
+  )
+  .join("\n")}
+
+Shortcuts pause while you type or use an overlay. Every action also has a visible control.
+`;
+  }
+  if (page.guide) {
+    const command =
+      page.guide === "cli"
+        ? "r3 --help"
+        : `r3 guide${page.guide === "main" ? "" : ` ${page.guide}`}`;
+    return `## Use the built-in reference
+
+Ask your agent to run:
+
+\`\`\`sh
+${command}
+\`\`\`
+
+The installed CLI provides the current commands and publication rules. Your agent handles capture, publishing, and feedback delivery.
+
+For your part of the workflow, start with [Get started](/docs/) or [Precise feedback](/docs/feedback/).
+`;
+  }
   return "";
 }
 
 function landingMarkdown(page: Page) {
-  if (page.path === "/docs/")
-    return `# Documentation\n\n${page.description}\n\n${docs.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n`;
   if (page.path === "/use-cases/")
     return `# Example Fieldwork\n\n${page.description}\n\n${cases.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n\nThe separate [live demo](/demo/) uses a curve lab and a code review with scripted agent replies.\n`;
   return `# r3 — ${homeTitle}\n\n${page.description}\n\nLocal by default. [Connect to your own server](/docs/access/) to keep artifacts on a remote backend while agents run on your machine.\n\n## Features\n\n${features.map((feature) => `### ${feature.title}\n\n${feature.description}`).join("\n\n")}\n\nThe homepage pairs these five features with video mockups; recordings are not yet available.\n\n## Start a review\n\nInstall the publishing skill with \`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\`, choose your coding agents, then ask an agent to publish its work to r3. No global r3 installation is required.\n\n## Then ask your agent\n\nThe homepage illustrates these prompts in a terminal. The shared publishing instruction stays in place while examples fade. Choose a prompt or pause the animation.\n\n${promptExamples.map((example) => `- **${example.label}:** ${example.prompt} ${commonPrompt}`).join("\n")}\n\n[Install the skill](/docs/get-started/#install-the-skill) · [Other installation methods](/docs/get-started/#other-installation-methods) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
@@ -82,10 +86,10 @@ export async function buildSite() {
     for (const page of pages) {
       const isArticle = !landingPages.includes(page);
       const source = isArticle ? await pageSource(page) : landingMarkdown(page);
-      const rendered = renderer.render(source);
+      const illustrated = expandDocVisuals(source);
+      const rendered = renderer.render(illustrated);
       const landing: Record<string, () => string> = {
         "/": home,
-        "/docs/": docsIndex,
         "/use-cases/": useCases,
         "/search/": searchPage,
       };
@@ -104,11 +108,11 @@ export async function buildSite() {
       htmlPages.set(file, html);
       if (page.path !== "/search/") {
         const text = markdownExport(
-          isArticle ? `# ${page.title}\n\n${page.description}\n\n${source}` : source,
+          isArticle ? `# ${page.title}\n\n${page.description}\n\n${illustrated}` : source,
           origin,
         );
         await Bun.write(join(outputDirectory, page.path.slice(1), "index.md"), `${text}\n`);
-        exports.push({ page, text });
+        if (!page.canonicalPath) exports.push({ page, text });
       }
     }
   } finally {
@@ -194,7 +198,7 @@ export async function buildSite() {
   await Bun.write(
     join(outputDirectory, "sitemap.xml"),
     `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages
-      .filter((page) => page.path !== "/search/")
+      .filter((page) => page.path !== "/search/" && !page.canonicalPath)
       .map((page) => `<url><loc>${escapeHTML(origin + page.path)}</loc></url>`)
       .join("")}</urlset>`,
   );
@@ -207,7 +211,7 @@ export async function buildSite() {
   if (!created.index || created.errors.length)
     throw new Error(`Pagefind: ${created.errors.join(", ")}`);
   try {
-    for (const page of pages.filter((p) => p.path !== "/search/")) {
+    for (const page of pages.filter((p) => p.path !== "/search/" && !p.canonicalPath)) {
       const result = await created.index.addHTMLFile({
         url: page.path,
         content: htmlPages.get(`${page.path.slice(1)}index.html`)!,

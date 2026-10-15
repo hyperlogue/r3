@@ -1,50 +1,35 @@
 # User-facing capability coverage
 
-This map records where readers can discover each current capability. Paths are
-public routes relative to the configured site mount. Command, guide, and keyboard
-details come directly from their product sources during the build.
+The website teaches the human review workflow with short task instructions and
+visual examples. It is not an exhaustive protocol reference. Agent publication,
+delivery, identity, and retry rules belong to `r3 guide`; exact command syntax
+belongs to `r3 --help`. Those sources remain unchanged by website edits.
 
-| Capability | Primary destination |
-| --- | --- |
-| Publishing skill, alternative CLI installation, welcome, open, explicit server lifecycle commands, help | `/docs/get-started/` |
-| Human review and agent publication loop | `/docs/review-loop/` |
-| Interactive HTML, navigation, required entrypoint, stable targets | `/docs/html/`, `/docs/agents/html/` |
-| Markdown, Mermaid fallback, highlighted source, rendered/source toggle | `/docs/files/` |
-| Complete directories, downloads, subset and revision capture | `/docs/files/`, `/docs/agents/files/` |
-| Unified/side-by-side diffs, sides, captured context, binary/rename metadata | `/docs/diffs/`, `/docs/agents/diff/` |
-| Still images, audio, video, zoom/pan, saved frames, regions, supported formats | `/docs/media/` |
-| Discussion, targeted threads, authored comments, archive comments | `/docs/feedback/`, `/docs/cleanup/` |
-| General, whole-file, rendered, source, diff, and media feedback | `/docs/feedback/` |
-| Quotes, preview capture, message images, crop/annotation, image limits, image-only messages | `/docs/feedback/`, `/docs/media/` |
-| Draft persistence and view-independent targets | `/docs/feedback/`, `/docs/navigation/` |
-| Send/Use in agent, pending edits, comment fetch acknowledgment and retries | `/docs/feedback/`, `/docs/agents/` |
-| Reply, edit comments, delete threads, resolve/reopen, Active/Resolved queues | `/docs/feedback/`, `/docs/revisions/` |
-| Pinned versions, labels/summaries, Locate, fix targets, inline reference context, Compare | `/docs/revisions/` |
-| Claims, expiry, comment delivery, listen/watch priority and exit codes | `/docs/agents/` |
-| Local harness delivery, generic agents, backend notification subscriptions | `/docs/agents/`, `/docs/access/` |
-| Content/conversation search, history, filters, exclusions, attention | `/docs/library/` |
-| Titles and metadata | `/docs/library/`, `/docs/cli/` |
-| Project creation/edit/deletion, remote inference, aliases | `/docs/projects/` |
-| Read-only archives, restore, archive comments, retained drafts, subscription clearing | `/docs/cleanup/`, `/docs/revisions/` |
-| Bulk actions, whole-artifact deletion, manual TTL cleanup | `/docs/cleanup/` |
-| Usage totals, daily/weekly activity, timezone and retention semantics | `/docs/cleanup/` |
-| Local server, one-time browser sign-in, remote URL, proxy configuration, login tokens and sessions | `/docs/access/`, `/docs/configuration/` |
-| Backend selection, directory overrides, CLI login, API keys and audit | `/docs/access/`, `/docs/configuration/` |
-| Notification worker lifecycle, durable reconnect, delivery errors and sandbox recovery | `/docs/access/`, `/docs/troubleshooting/` |
-| Single-owner permissions, token revocation and inactivity expiry | `/docs/access/` |
-| Preview isolation, capability checks, compatibility consent, external grants | `/docs/permissions/` |
-| Preview recovery after suspension or server restart | `/docs/permissions/`, `/docs/troubleshooting/` |
-| Camera/microphone, browser permission, capture termination | `/docs/permissions/` |
-| Passive Markdown cache, bounds, expiry and logout behavior | `/docs/permissions/`, `/docs/files/` |
-| Dock modes, floating composer, file navigation, folding, viewed marks | `/docs/navigation/` |
-| Mobile sheet, touch review, appearance, font size and source themes | `/docs/navigation/` |
-| Full current keyboard map | `/docs/keyboard/` |
-| Full CLI command surface and inspection/downloads | `/docs/cli/` |
-| Source-range retrieval, attachment download, native target JSON | `/docs/agents/`, `/docs/agents/files/`, `/docs/cli/` |
-| Stable agent identity, distinct runs, display names | `/docs/agents/`, `/docs/configuration/` |
-| Publication conflicts, idempotent retries, capture limitations | `/docs/agents/`, `/docs/troubleshooting/` |
-| Coordinated CLI/server upgrades, migration prerequisite and recovery | `/docs/troubleshooting/` |
-| Agent-readable index, complete text, per-page Markdown | `/llms.txt`, `/llms-full.txt`, article `index.md` |
+| Human task | Destination | Visual aid |
+| --- | --- | --- |
+| Install and begin a review | `/docs/`, `/docs/get-started/` | Actual prototype workspace |
+| Understand the review loop | `/docs/review-loop/` | Publish → review → send → revise → check |
+| Use a local or remote workspace | `/docs/access/` | Browser, workspace, and agent diagram |
+| Try an interactive page | `/docs/html/` | Actual search explainer |
+| Read documents and source | `/docs/files/` | File set and rendered document illustration |
+| Review a patch | `/docs/diffs/` | Old/new code illustration |
+| Discuss an image or video region | `/docs/media/` | Saved-frame illustration |
+| Target, write, and send feedback | `/docs/feedback/` | Actual native highlight and floating thread |
+| Inspect a fix and resolve | `/docs/revisions/` | Actual original/fix comparison |
+| Arrange the workspace and review on a phone | `/docs/navigation/` | Actual mobile workspace |
+| Learn a few keyboard shortcuts | `/docs/keyboard/` | Table from the product keymap; full map in app |
+| Find content and conversations | `/docs/library/` | Search-result illustration |
+| Group related reviews | `/docs/projects/` | Project and artifacts diagram |
+| Archive, restore, inspect usage, or delete | `/docs/cleanup/` | Lifecycle diagram |
+| Decide on preview and device permissions | `/docs/permissions/` | Default versus additional access diagram |
+| Change common settings | `/docs/configuration/` | Short settings table |
+| Recover from common problems | `/docs/troubleshooting/` | Symptom-based instructions |
+
+The old agent/reference URLs remain as short pointers to built-in CLI help and
+are outside the main documentation sidebar. Markdown exports, `llms.txt`, and
+`llms-full.txt` preserve the human documentation and captions for other readers.
+HTML illustrations are authored in `doc-visuals.ts`; screenshot generation and
+integrity checks use the same pipeline as the homepage captures.
 
 ## Example Fieldwork stories
 

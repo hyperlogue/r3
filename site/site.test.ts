@@ -65,13 +65,15 @@ test("authored HTML and utility classes survive Markdown, and duplicate headings
 
 test("agent exports preserve code examples and turn site links into complete URLs", () => {
   const result = markdownExport(
-    'Read [the guide](/docs/agents/).\n\n```html\n<div>Keep this example</div>\n```\n\n<div class="scenario"><strong>Review</strong><p>Visible explanation.</p></div>',
+    'Read [the guide](/docs/agents/).\n\n```html\n<div>Keep this example</div>\n```\n\n<div class="scenario"><strong>Review</strong><p>Visible explanation.</p></div>\n\n<figure><svg><text>Decorative diagram text</text></svg><figcaption>The saved frame stays with your comment.</figcaption></figure>',
     "https://example.test/r3",
   );
   expect(result).toContain("[the guide](https://example.test/r3/docs/agents/)");
   expect(result).toContain("<div>Keep this example</div>");
   expect(result).not.toContain('class="scenario"');
   expect(result).toContain("Visible explanation.");
+  expect(result).toContain("The saved frame stays with your comment.");
+  expect(result).not.toContain("Decorative diagram text");
 });
 
 test("link validation rejects missing assets and anchors instead of shipping broken navigation", async () => {

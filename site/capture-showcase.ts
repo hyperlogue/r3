@@ -56,7 +56,15 @@ try {
             "mobile discussion closes before capturing the document",
           );
         }
-        if (comment) {
+        if ("comparison" in spec) {
+          const [frame] = await componentFrames(browser, page);
+          await verifyWorkspaceFont(frame!);
+          await page.evaluate(
+            `document.querySelector('[data-compare-comment="comment_components_fix"]').click()`,
+          );
+          const frames = await componentFrames(browser, page, 2);
+          for (const compared of frames) await verifyWorkspaceFont(compared);
+        } else if (comment) {
           const [frame] = await componentFrames(browser, page);
           await verifyWorkspaceFont(frame!);
           if ((await frame!.evaluate("devicePixelRatio")) !== spec.scale)

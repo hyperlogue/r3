@@ -1,7 +1,6 @@
-import { docs, groups, homeDescription, homeTitle, stories } from "./catalog.ts";
+import { homeDescription, homeTitle, stories } from "./catalog.ts";
 import { featureHighlights } from "./features.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
-import { escapeHTML } from "./render.ts";
 import { storyIllustration } from "./story-illustrations.ts";
 
 export function storyCards() {
@@ -142,7 +141,6 @@ function promptDemo() {
 export function useCases() {
   return `<div data-pagefind-body>
 <header class="index-hero container">
-<p class="eyebrow">The Example Fieldwork series</p>
 <h1 data-pagefind-meta="title">One project.<br>
 <em>Five ways to work.</em>
 </h1>
@@ -161,52 +159,6 @@ export function useCases() {
 <p>“Make this better” starts another round of guessing. “Explain who can see this project before I create it” gives your agent a target and a test.</p>
 <a class="text-link" href="/docs/feedback/">Learn to give precise feedback →</a>
 </section>
-</div>`;
-}
-
-export function docsIndex() {
-  return `<div data-pagefind-body>
-<header class="index-hero container">
-<p class="eyebrow">Documentation</p>
-<h1 data-pagefind-meta="title">A little context.<br>
-<em>A better review.</em>
-</h1>
-<p class="lede">Start with the workflow. Look up the details when you need them. Your agent can read the same docs.</p>
-<div class="actions">
-<a class="button primary" href="/docs/get-started/#install-the-skill">Install the skill →</a>
-<a class="text-link" href="/docs/agents/">Set up your agent ↗</a>
-</div>
-</header>
-<div class="docs-directory container">${groups
-    .map(
-      (group, index) =>
-        `<section>
-<div>
-<p class="eyebrow">0${index + 1}</p>
-<h2>${group}</h2>
-</div>
-<div class="directory-links">${docs
-          .filter((page) => page.group === group)
-          .map(
-            (page) =>
-              `<a href="${page.path}">
-<div>
-<h3>${escapeHTML(page.title)}</h3>
-<p>${escapeHTML(page.description)}</p>
-</div>
-<span aria-hidden="true">→</span>
-</a>`,
-          )
-          .join("")}</div>
-</section>`,
-    )
-    .join("")}</div>
-<div class="container">
-<aside class="note-banner">
-<strong>Take these docs into your agent.</strong>
-<p>Use <a href="/llms.txt">llms.txt</a> for the index or <a href="/llms-full.txt">llms-full.txt</a> for the complete text. Every article also has a Markdown version.</p>
-</aside>
-</div>
 </div>`;
 }
 

@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "./doc-style.css";
 @source "./**/*.ts";
 @source "./content/**/*.md";
 @source "./content/**/*.html";
@@ -1025,39 +1026,6 @@ figcaption {
   color: var(--muted);
   margin-bottom: 20px;
 }
-.docs-directory > section {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 60px;
-  border-top: 1px solid var(--border);
-  padding-block: 35px;
-}
-.docs-directory h2 {
-  font-size: 27px;
-  letter-spacing: -0.03em;
-  margin-top: 12px;
-}
-.directory-links {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 25px 32px;
-}
-.directory-links > a {
-  display: flex;
-  gap: 15px;
-  justify-content: space-between;
-}
-.directory-links h3 {
-  font-size: 16px;
-  margin-bottom: 6px;
-}
-.directory-links p {
-  font-size: 13px;
-  color: var(--muted);
-}
-.directory-links > a > span {
-  color: var(--accent);
-}
 .docs-shell {
   display: grid;
   grid-template-columns: 235px minmax(0, 640px) 210px;
@@ -1833,15 +1801,6 @@ figcaption {
   }
   .story-principle {
     padding-block: 30px 60px;
-  }
-  .docs-directory > section {
-    grid-template-columns: 1fr;
-    gap: 25px;
-    padding-block: 28px;
-  }
-  .directory-links {
-    grid-template-columns: 1fr;
-    gap: 22px;
   }
   .docs-shell {
     display: block;

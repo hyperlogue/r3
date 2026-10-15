@@ -1,53 +1,18 @@
-Use `r3 config` to inspect or change settings on this machine. Restart the local server after changing a setting that the server reads at startup.
+## Most reviews need no setup
 
-```sh
-r3 config show
-r3 config get archiveTtlDays
-r3 config set archiveTtlDays 30
-r3 server restart
-```
+Use the workspace’s appearance controls for theme, text size, and source colors.
 
-`r3 config unset` removes a persisted override. Environment values take precedence over persisted configuration, then defaults apply. Configuration commands edit the local configuration even when `R3_URL` selects a remote server for other commands.
+For server settings, ask your agent or administrator to run `r3 config show` and consult `r3 --help`.
 
-The CLI’s `backendUrl` setting takes effect on the next command without a server restart. To change a remote server’s settings, run configuration commands on the machine hosting that server.
+## Settings you may want to change
 
-## Available settings
-
-| Setting | Purpose |
+| Setting | What it changes |
 | --- | --- |
-| `backendUrl` | Default backend selected by the CLI, unless an environment or directory override takes priority. |
-| `bind` | Application listener address; keep the default loopback binding for the documented proxy setup. |
-| `port` | Application listener port. |
-| `publicUrl` | Public application URL behind a proxy or tunnel. |
-| `allowedHosts` | Explicit permitted application hostnames. |
-| `requireLogin` | Legacy setting; browser authentication is always required, even when this is false. Use `r3 open` for local sign-in. |
-| `trustedProxies` | Comma-separated immediate proxy addresses permitted to report a client source address; configure only the proxy you operate. |
-| `authTokenIdleDays` | Positive whole days of inactivity before a login token expires; default 14. |
-| `archiveTtlDays` | Days since archive before manual cleanup eligibility; default 30, range 1–36,500. |
-| `projectGrouping` | `remote` for inference from sanitized Git remotes, or `manual`. |
-| `projectMappings` | JSON mapping remote URL aliases to existing project IDs. |
+| `backendUrl` | Which server your agent connects to. |
+| `archiveTtlDays` | How old an archive must be for manual cleanup. Default: 30 days. |
+| `authTokenIdleDays` | Browser login-token inactivity limit. Default: 14 days. |
+| `projectGrouping` | Automatic Git grouping or manual projects. |
 
-## Authentication lifetime
+Server settings must be changed **on the server’s machine**, then applied with `r3 server restart`. A changed `backendUrl` applies immediately.
 
-```sh
-r3 config set authTokenIdleDays 30
-r3 server restart
-```
-
-Successful login or cookie-authenticated requests refresh token activity. Cookie activity is persisted in batches once a minute and at graceful shutdown. Expiry invalidates the associated browser sessions; startup removes inactive or revoked rows.
-
-`R3_AUTH_TOKEN_IDLE_DAYS` overrides the setting. `r3 auth list-tokens --json` exposes each active token’s last-use timestamp without returning its secret value.
-
-## Environment overrides
-
-| Variable | Purpose |
-| --- | --- |
-| `R3_URL` | Select an explicit application server URL. |
-| `R3_AGENT_SESSION` | Give a generic writing agent a distinct, stable run identity. |
-| `R3_PROJECT_GROUPING` | Override project grouping in the server’s environment. |
-
-The nearest project `.r3.json` can select a `backendUrl` between the environment override and user default. This directory setting is separate from a Project group stored by the backend. Credentials come from `r3 login` and private per-backend storage, not `R3_TOKEN`.
-
-Agent session identity is attribution, not a credential or artifact owner. The `--session` flag changes a readable display name; it does not establish a distinct identity. Each logical agent run should use its own identity.
-
-See [Local & remote access](/docs/access/) for deployment setup and the [command reference](/docs/cli/) for exact syntax.
+For remote hosting and sign-in, follow [Local & remote access](/docs/access/).
