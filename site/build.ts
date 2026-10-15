@@ -6,6 +6,7 @@ import { buildDemo } from "../scripts/build-demo.ts";
 import { KEYMAP } from "../web/src/keys.ts";
 import { cases, homeTitle, landingPages, type Page, pages } from "./catalog.ts";
 import { expandDocVisuals } from "./doc-visuals.ts";
+import { verifyFeatureVideos } from "./feature-videos.ts";
 import { features } from "./features.ts";
 import { home, searchPage, useCases } from "./landing.ts";
 import { shell } from "./layout.ts";
@@ -68,7 +69,7 @@ For your part of the workflow, start with [Get started](/docs/) or [Precise feed
 function landingMarkdown(page: Page) {
   if (page.path === "/use-cases/")
     return `# Example Fieldwork\n\n${page.description}\n\n${cases.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n\nThe separate [live demo](/demo/) uses a curve lab and a code review with scripted agent replies.\n`;
-  return `# r3 — ${homeTitle}\n\n${page.description}\n\nLocal by default. [Connect to your own server](/docs/access/) to keep artifacts on a remote backend while agents run on your machine.\n\n## Features\n\n${features.map((feature) => `### ${feature.title}\n\n${feature.description}`).join("\n\n")}\n\nThe homepage pairs these five features with video mockups; recordings are not yet available.\n\n## Start a review\n\nInstall the publishing skill with \`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\`, choose your coding agents, then ask an agent to publish its work to r3. No global r3 installation is required.\n\n## Then ask your agent\n\nThe homepage illustrates these prompts in a terminal. The shared publishing instruction stays in place while examples fade. Choose a prompt or pause the animation.\n\n${promptExamples.map((example) => `- **${example.label}:** ${example.prompt} ${commonPrompt}`).join("\n")}\n\n[Install the skill](/docs/get-started/#install-the-skill) · [Other installation methods](/docs/get-started/#other-installation-methods) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
+  return `# r3 — ${homeTitle}\n\n${page.description}\n\nLocal by default. [Connect to your own server](/docs/access/) to keep artifacts on a remote backend while agents run on your machine.\n\n## Features\n\n${features.map((feature) => `### ${feature.title}\n\n${feature.description}\n\n[Watch the ${feature.duration}-second demo](/assets/videos/${feature.id}.mp4) · [Read transcript](/assets/videos/${feature.id}.transcript.txt)`).join("\n\n")}\n\nThe homepage pairs these five features with silent, playable demos of the real r3 interface. Each lasts 18–22 seconds and has a text transcript. The recordings use fictional local data and scripted agent replies.\n\n## Start a review\n\nInstall the publishing skill with \`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\`, choose your coding agents, then ask an agent to publish its work to r3. No global r3 installation is required.\n\n## Then ask your agent\n\nThe homepage illustrates these prompts in a terminal. The shared publishing instruction stays in place while examples fade. Choose a prompt or pause the animation.\n\n${promptExamples.map((example) => `- **${example.label}:** ${example.prompt} ${commonPrompt}`).join("\n")}\n\n[Install the skill](/docs/get-started/#install-the-skill) · [Other installation methods](/docs/get-started/#other-installation-methods) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
 }
 
 export async function buildSite() {
@@ -147,6 +148,11 @@ export async function buildSite() {
   await rm(join(outputDirectory, "assets/style.css"));
   await cp(join(siteDirectory, "../web/favicon.svg"), join(outputDirectory, "assets/favicon.svg"));
   await cp(join(siteDirectory, "assets/social.png"), join(outputDirectory, "assets/social.png"));
+
+  await verifyFeatureVideos(join(siteDirectory, "assets/videos"));
+  await cp(join(siteDirectory, "assets/videos"), join(outputDirectory, "assets/videos"), {
+    recursive: true,
+  });
 
   await buildShowcase(join(outputDirectory, "example"));
   await verifyCaptures(join(siteDirectory, "assets"));

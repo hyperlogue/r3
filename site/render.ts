@@ -124,9 +124,9 @@ export function markdownExport(source: string, origin: string) {
 
 export async function mountHTML(html: string, base: string) {
   return new HTMLRewriter()
-    .on("[href], [src], [data-markdown], [action]", {
+    .on("[href], [src], [poster], [data-markdown], [action]", {
       element(el) {
-        for (const attr of ["href", "src", "data-markdown", "action"]) {
+        for (const attr of ["href", "src", "poster", "data-markdown", "action"]) {
           const value = el.getAttribute(attr);
           if (value?.startsWith("/") && !value.startsWith("//"))
             el.setAttribute(attr, base + value);

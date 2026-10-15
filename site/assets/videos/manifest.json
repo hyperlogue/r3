@@ -1,0 +1,101 @@
+{
+  "productVersion": "2.1.1",
+  "renderer": {
+    "repository": "https://github.com/nexu-io/motion-anything",
+    "commit": "b016900d9ee92fc2d3e4dc520359cc8999d2ed4e",
+    "license": "Apache-2.0"
+  },
+  "evidence": "Real r3 ArtifactPage and preview/media controls, with fictional local fixtures. Agent replies are scripted. UI states are captured at 3x density; pointer and camera motion are editorial.",
+  "clips": [
+    {
+      "id": "precise-feedback",
+      "duration": 20,
+      "width": 1600,
+      "height": 1000,
+      "fps": 30,
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "colorSpace": "bt709",
+      "audio": false,
+      "posterTime": 10.5,
+      "bytes": 2131505,
+      "files": {
+        "precise-feedback.mp4": "f46b266fb89f4312440c1ddbb1f676f6e356250b304aa896988e88b142431e1e",
+        "precise-feedback.jpg": "876a49ea5d331eafae95f1e02cc5dfd9837f658500cb036b6379d20d97516228",
+        "precise-feedback.transcript.txt": "4ee837ea3f5fb016f44c0b291c372e2c192b0051c5a80015a66820ff8c272241"
+      }
+    },
+    {
+      "id": "agent-handoff",
+      "duration": 20,
+      "width": 1600,
+      "height": 1000,
+      "fps": 30,
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "colorSpace": "bt709",
+      "audio": false,
+      "posterTime": 5.5,
+      "bytes": 3144469,
+      "files": {
+        "agent-handoff.mp4": "49565e955076f3e16d5dfe8e98dcf40db12ecf7c2d74e0e98edd7f750909b196",
+        "agent-handoff.jpg": "794c47cb2b68cfa2467038aae97c6d0598f81feb76a8123bdb4f185dda9c7c83",
+        "agent-handoff.transcript.txt": "6a0c0f207a2fd2ac0fb1fc44d9c0e124592e897cbb9264d277cbd5dcb4ce83f9"
+      }
+    },
+    {
+      "id": "inspect-fixes",
+      "duration": 18,
+      "width": 1600,
+      "height": 1000,
+      "fps": 30,
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "colorSpace": "bt709",
+      "audio": false,
+      "posterTime": 9,
+      "bytes": 4116774,
+      "files": {
+        "inspect-fixes.mp4": "4cb5be8f99dfa2d62384ca9b3035c3be57e14b521a4f0161c88a91672b87bd16",
+        "inspect-fixes.jpg": "38c5817c0abcd74992623a7dc41e8425e243d706390e29b26d71166e3dfde92d",
+        "inspect-fixes.transcript.txt": "51d4db63cc816670e5b23159e890968fe0069185b395b478e42dc13d9599a95a"
+      }
+    },
+    {
+      "id": "image-comments",
+      "duration": 20,
+      "width": 1600,
+      "height": 1000,
+      "fps": 30,
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "colorSpace": "bt709",
+      "audio": false,
+      "posterTime": 11,
+      "bytes": 2307991,
+      "files": {
+        "image-comments.mp4": "b23445d6aae8b7c7545aba665871592d6215aa9574fdd81816415756bbf63af8",
+        "image-comments.jpg": "8e4fc39b8b920a7ccc0de23261bc268f3c17311fff030eaa1b853c989b0ddf5b",
+        "image-comments.transcript.txt": "e630d36cb6394a04a23669d74d39e9ab34c9da68467e127aa3126651eb43d746"
+      }
+    },
+    {
+      "id": "video-comments",
+      "duration": 22,
+      "width": 1600,
+      "height": 1000,
+      "fps": 30,
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "colorSpace": "bt709",
+      "audio": false,
+      "posterTime": 14.5,
+      "bytes": 3769764,
+      "files": {
+        "video-comments.mp4": "ce8554b6b7f096dbec4e298b47d60fa5d8f549234a931e7f2bea98307f10d8aa",
+        "video-comments.jpg": "0e68bbcdc4a48cc102d0c0d6f54d1a2a02c840bf9bcf6673d08cbe91c46b2aa3",
+        "video-comments.transcript.txt": "19fd65eb03fba8144ac93c8990a66e65ef4d23c4d730093e45bcd71ac7b489c8"
+      }
+    }
+  ]
+}

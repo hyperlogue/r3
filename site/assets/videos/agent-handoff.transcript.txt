@@ -1,0 +1,53 @@
+# Agent handoff
+
+Duration: 20 seconds. Silent video. r3 2.1.1.
+
+These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
+
+## On-screen titles and subtitles
+
+00:00.000–00:08.000
+Title: Send the whole review.
+Subtitle: Collect your notes before handing them off.
+
+00:08.000–00:12.000
+Title: One click. Shared context.
+Subtitle: Send the queued comments directly to your agent.
+
+00:12.000–00:20.000
+Title: Keep the reply in the thread.
+Subtitle: A scripted demo agent replies in the same conversation.
+
+## Actions and visible results
+
+00:00.000–00:03.000: Review the complete workspace with one unsent comment.
+
+00:03.000–00:09.500: Batch two comments before sending. The two queued notes read: “Make this button say ‘View team activity’.” and “Keep the supporting copy to one short sentence.”
+
+00:09.500–00:12.000: Send both comments to the scripted agent.
+
+00:12.000–00:20.000: Read the scripted agent reply in the same discussion. The scripted response reads: “This is a scripted demo comment. I reviewed your note. You can keep reading the original version, inspect the publication, and resolve the thread when you are satisfied.”
+
+## Motion and editing
+
+00:00.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:02.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:03.600: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:07.200: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:08.800: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:10.500: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:12.500: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:16.500: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:18.500: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:20.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+Native UI changes crossfade over 0.28 seconds. Titles rise into place word by word. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.

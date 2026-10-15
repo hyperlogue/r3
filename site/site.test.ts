@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { verifyFeatureVideos } from "./feature-videos.ts";
 import { createRenderer, markdownExport, mountHTML, normalizeBase, publicURL } from "./render.ts";
 import { verifyCaptures } from "./showcase/captures.ts";
 import { validateLinks } from "./validate.ts";
@@ -25,6 +26,16 @@ test("workspace captures must match recorded image bytes and dimensions", async 
   await expect(verifyCaptures(directory)).rejects.toThrow("invalid");
 });
 
+test("feature video exports must match their recorded bytes before publication", async () => {
+  const source = join(import.meta.dir, "assets/videos");
+  await verifyFeatureVideos(source);
+  const directory = await mkdtemp(join(tmpdir(), "r3-site-videos-"));
+  temporary.push(directory);
+  await Bun.write(join(directory, "manifest.json"), Bun.file(join(source, "manifest.json")));
+  await Bun.write(join(directory, "precise-feedback.mp4"), "unhydrated LFS pointer");
+  await expect(verifyFeatureVideos(directory)).rejects.toThrow("asset is invalid");
+});
+
 test("deployment URL and mount agree for project Pages and custom domains", () => {
   expect(normalizeBase("/r3//")).toBe("/r3");
   expect(normalizeBase("/")).toBe("");
@@ -37,11 +48,13 @@ test("deployment URL and mount agree for project Pages and custom domains", () =
 
 test("mounting rewrites authored HTML resources and exports while preserving code and outside links", async () => {
   const html = await mountHTML(
-    '<a href="/docs/">Docs</a><img src="/image.svg"><button data-markdown="/docs/index.md">Copy</button><a href="#target">Jump</a><a href="https://example.test/">Outside</a><code>&lt;img src="/image.svg"&gt;</code>',
+    '<a href="/docs/">Docs</a><img src="/image.svg"><video poster="/poster.jpg"><source src="/demo.mp4"></video><button data-markdown="/docs/index.md">Copy</button><a href="#target">Jump</a><a href="https://example.test/">Outside</a><code>&lt;img src="/image.svg"&gt;</code>',
     "/r3",
   );
   expect(html).toContain('href="/r3/docs/"');
   expect(html).toContain('src="/r3/image.svg"');
+  expect(html).toContain('poster="/r3/poster.jpg"');
+  expect(html).toContain('src="/r3/demo.mp4"');
   expect(html).toContain('data-markdown="/r3/docs/index.md"');
   expect(html).toContain('href="#target"');
   expect(html).toContain('href="https://example.test/"');
@@ -89,9 +102,11 @@ test("link validation rejects missing assets and anchors instead of shipping bro
     ]),
     "/r3",
   );
-  await expect(
-    validateLinks(dir, new Map([["index.html", '<img src="/r3/missing.svg">']]), "/r3"),
-  ).rejects.toThrow("Missing link");
+  for (const resource of ['<img src="/r3/missing.svg">', '<video poster="/r3/missing.jpg">']) {
+    await expect(validateLinks(dir, new Map([["index.html", resource]]), "/r3")).rejects.toThrow(
+      "Missing link",
+    );
+  }
   await expect(
     validateLinks(
       dir,
