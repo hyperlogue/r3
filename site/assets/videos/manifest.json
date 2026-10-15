@@ -9,7 +9,7 @@
   "clips": [
     {
       "id": "precise-feedback",
-      "duration": 20,
+      "duration": 11,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -17,17 +17,19 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 10.5,
-      "bytes": 2131505,
+      "posterTime": 5.766667,
+      "bytes": 1383154,
+      "previousDuration": 20,
+      "speedMultiplier": 1.8182,
       "files": {
-        "precise-feedback.mp4": "f46b266fb89f4312440c1ddbb1f676f6e356250b304aa896988e88b142431e1e",
-        "precise-feedback.jpg": "876a49ea5d331eafae95f1e02cc5dfd9837f658500cb036b6379d20d97516228",
-        "precise-feedback.transcript.txt": "4ee837ea3f5fb016f44c0b291c372e2c192b0051c5a80015a66820ff8c272241"
+        "precise-feedback.mp4": "ca7af6d990185b6b2381aaf196ddfc905a2ed098d71bb603a8dbc2b2519a363e",
+        "precise-feedback.jpg": "262e196be3c9689d04778f93adb8dccecac1238c3cdfc8c59b9f60c132c7df68",
+        "precise-feedback.transcript.txt": "70141ef67523523597b33a6ea093bcfa8934099b55d7684a018c7ddbc4343dab"
       }
     },
     {
       "id": "agent-handoff",
-      "duration": 20,
+      "duration": 11,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -35,17 +37,19 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 5.5,
-      "bytes": 3144469,
+      "posterTime": 3.033333,
+      "bytes": 2069436,
+      "previousDuration": 20,
+      "speedMultiplier": 1.8182,
       "files": {
-        "agent-handoff.mp4": "49565e955076f3e16d5dfe8e98dcf40db12ecf7c2d74e0e98edd7f750909b196",
-        "agent-handoff.jpg": "794c47cb2b68cfa2467038aae97c6d0598f81feb76a8123bdb4f185dda9c7c83",
-        "agent-handoff.transcript.txt": "6a0c0f207a2fd2ac0fb1fc44d9c0e124592e897cbb9264d277cbd5dcb4ce83f9"
+        "agent-handoff.mp4": "84b282c2a164dc07d0b3fed18a4ec2c18adff487deec4dd069e2fa91b7ef4b80",
+        "agent-handoff.jpg": "9eeffd77235e8345a60912b806b9ee1107b3d4e8207acd3941a6983d731112db",
+        "agent-handoff.transcript.txt": "f5197da5501cfa7f2baac69af56e10980af3dd19cc16c746ea1edd559cd78ead"
       }
     },
     {
       "id": "inspect-fixes",
-      "duration": 18,
+      "duration": 10,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -53,17 +57,19 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 9,
-      "bytes": 4116774,
+      "posterTime": 5.0,
+      "bytes": 2617026,
+      "previousDuration": 18,
+      "speedMultiplier": 1.8,
       "files": {
-        "inspect-fixes.mp4": "4cb5be8f99dfa2d62384ca9b3035c3be57e14b521a4f0161c88a91672b87bd16",
-        "inspect-fixes.jpg": "38c5817c0abcd74992623a7dc41e8425e243d706390e29b26d71166e3dfde92d",
-        "inspect-fixes.transcript.txt": "51d4db63cc816670e5b23159e890968fe0069185b395b478e42dc13d9599a95a"
+        "inspect-fixes.mp4": "fd918308f91a8e9a9c928e1377c0c088ca900df27550bd73b0b26305a1227338",
+        "inspect-fixes.jpg": "f151644d8781916f8dc5a02a67ed31fdfe5f3e99c50e6e92fe39dd6691e98e8c",
+        "inspect-fixes.transcript.txt": "81e0a6fad85fa59b74509f767ae73bc0a47e72fecc80bdde9d02da2ae1dc83cd"
       }
     },
     {
       "id": "image-comments",
-      "duration": 20,
+      "duration": 11,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -71,17 +77,19 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 11,
-      "bytes": 2307991,
+      "posterTime": 6.066667,
+      "bytes": 1494414,
+      "previousDuration": 20,
+      "speedMultiplier": 1.8182,
       "files": {
-        "image-comments.mp4": "b23445d6aae8b7c7545aba665871592d6215aa9574fdd81816415756bbf63af8",
-        "image-comments.jpg": "8e4fc39b8b920a7ccc0de23261bc268f3c17311fff030eaa1b853c989b0ddf5b",
-        "image-comments.transcript.txt": "e630d36cb6394a04a23669d74d39e9ab34c9da68467e127aa3126651eb43d746"
+        "image-comments.mp4": "284724a105259d45a6191014426f4b3a523753ef83b424eed47176036738039d",
+        "image-comments.jpg": "fe69ff1eb447447cdfbf91ba5a9bc8d9cb5c5ebac2df8d4a6a5730e236886d51",
+        "image-comments.transcript.txt": "3d6341edf606cfd460135e8373f1372dcd343c732a00f6cdcdb339b6107031f5"
       }
     },
     {
       "id": "video-comments",
-      "duration": 22,
+      "duration": 12,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -89,12 +97,14 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 14.5,
-      "bytes": 3769764,
+      "posterTime": 6.7,
+      "bytes": 2272693,
+      "previousDuration": 22,
+      "speedMultiplier": 1.8333,
       "files": {
-        "video-comments.mp4": "ce8554b6b7f096dbec4e298b47d60fa5d8f549234a931e7f2bea98307f10d8aa",
-        "video-comments.jpg": "0e68bbcdc4a48cc102d0c0d6f54d1a2a02c840bf9bcf6673d08cbe91c46b2aa3",
-        "video-comments.transcript.txt": "19fd65eb03fba8144ac93c8990a66e65ef4d23c4d730093e45bcd71ac7b489c8"
+        "video-comments.mp4": "099f266a5b4ee83a0d4e5ebb503480416294fd5dc41a2627ac0e6ca7ca6195b1",
+        "video-comments.jpg": "c149839a3010c13227b06324a24f24680ba53853c1d425cd414c43cdfba17bbe",
+        "video-comments.transcript.txt": "23f754bddce3c721a2b452b599689c9b552841354707a13e288f8c840830a96a"
       }
     }
   ]

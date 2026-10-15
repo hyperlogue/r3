@@ -1,49 +1,49 @@
 # Inspect fixes
 
-Duration: 18 seconds. Silent video. r3 2.1.1.
+Duration: 10 seconds. Silent video. r3 2.1.1.
 
 These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
 
 ## On-screen titles and subtitles
 
-00:00.000–00:05.000
+00:00.000–00:02.767
 Title: Inspect the actual fix.
 Subtitle: Open Compare from the agent’s reply.
 
-00:05.000–00:14.000
+00:02.767–00:07.767
 Title: Original and revision. Together.
 Subtitle: Check the added explanation in its original context.
 
-00:14.000–00:18.000
+00:07.767–00:10.000
 Title: See whether it solves the problem.
 Subtitle: Review the result before moving on.
 
 ## Actions and visible results
 
-00:00.000–00:05.000: Open the reviewed project-creation artifact.
+00:00.000–00:02.767: Open the reviewed project-creation artifact.
 
-00:05.000–00:18.000: Compare the original with the proposed fix. The proposed version adds: “Everyone in your workspace can find and open this project. You can change this later.”
+00:02.767–00:10.000: Compare the original with the proposed fix. The proposed version adds: “Everyone in your workspace can find and open this project. You can change this later.”
 
 ## Motion and editing
 
 00:00.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:02.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:01.100: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:03.500: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:01.933: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:04.500: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:02.500: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:06.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:03.333: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:07.500: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:04.167: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:09.300: Camera arrives at 1.55× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:05.167: Camera arrives at 1.55× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:13.500: Camera arrives at 1.55× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:07.500: Camera arrives at 1.55× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:16.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:08.900: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:18.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:10.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes crossfade over 0.28 seconds. Titles rise into place word by word. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
