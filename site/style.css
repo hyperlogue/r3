@@ -657,12 +657,6 @@ figcaption {
   aspect-ratio: 8 / 5;
   background: #f7f7fa;
 }
-.feature-transcript {
-  display: inline-block;
-  margin-top: 10px;
-  color: var(--muted);
-  font-size: 12px;
-}
 .possibilities-section {
   padding-bottom: 104px;
 }
