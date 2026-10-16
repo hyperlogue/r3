@@ -23,7 +23,7 @@ export const features = [
   {
     id: "image-comments",
     duration: 11,
-    title: "Support images in comments.",
+    title: "Attach images in comments.",
     description:
       "Attach screenshots, sketches, or design mockups directly to your feedback. When words get messy, show your agent the target design.",
   },
