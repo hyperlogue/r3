@@ -253,6 +253,8 @@ transcripts remain available without JavaScript. Transcripts ship with the video
 assets; the homepage has no transcript links or caption strips. The recordings use
 fictional local fixtures, scripted agent replies, and an authored image reference.
 Camera motion, pointer motion, transitions, and titles are editorial overlays.
+Clicks show a brief indigo double ripple and glow while the cursor presses and
+releases. The effect stays on the clicked point during cursor movement or dragging.
 
 Final exports live in `assets/videos/`; MP4s and JPEG posters use Git LFS. The
 build checks asset hashes and recorded durations against `manifest.json` before
