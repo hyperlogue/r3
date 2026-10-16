@@ -43,6 +43,17 @@ export async function packageArtifact() {
               el.setAttribute("title", "Open the live demo in a separate browser tab");
               continue;
             }
+            // This example renders Markdown in an opaque child frame, which
+            // the surrounding artifact's closed preview policy forbids.
+            if (
+              attr === "href" &&
+              url.pathname === "/example/index.html" &&
+              url.searchParams.get("scene") === "proposal"
+            ) {
+              url.pathname = "/docs/files/";
+              url.search = "";
+              el.setInnerContent("Reviewing documents →");
+            }
             if (url.pathname.endsWith("/")) url.pathname += "index.html";
             const path = posix.relative(posix.dirname(file), url.pathname.slice(1));
             el.setAttribute(attr, `${path || "index.html"}${url.search}${url.hash}`);
