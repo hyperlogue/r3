@@ -1802,3 +1802,61 @@ figcaption {
     display: none;
   }
 }
+
+/* Use-case walkthroughs give the actual workspace room to be read. */
+.story-layout.visual-story-layout {
+  display: block;
+  max-width: 1240px;
+  margin-inline: auto;
+}
+.visual-story-layout .article {
+  max-width: none;
+}
+.visual-story .article-header {
+  max-width: 660px;
+}
+.visual-story .prose {
+  counter-reset: story-step;
+}
+.visual-story .prose h2 {
+  counter-increment: story-step;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 56px;
+  font-size: clamp(20px, 2.2vw, 26px);
+}
+.visual-story .prose h2::before {
+  content: "0" counter(story-step);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.visual-story .story-screenshot {
+  margin-top: 18px;
+  margin-bottom: 42px;
+}
+.visual-story .doc-capture a {
+  display: block;
+  cursor: zoom-in;
+}
+.visual-story .doc-capture .doc-dark {
+  display: none;
+}
+:root[data-theme="dark"] .visual-story .doc-capture .doc-light {
+  display: none;
+}
+:root[data-theme="dark"] .visual-story .doc-capture .doc-dark {
+  display: block;
+}
+.visual-story .doc-capture a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+.visual-story .doc-figure figcaption {
+  font-size: 13px;
+  margin-top: 12px;
+}
+.visual-story .article-tools {
+  margin-top: 30px;
+}

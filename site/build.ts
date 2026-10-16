@@ -160,8 +160,8 @@ export async function buildSite() {
     await cp(join(siteDirectory, "assets", file), join(outputDirectory, "assets", file));
   }
 
-  // Reuse the current real demo. This content/layout pass does not replace its
-  // fixtures or promise that the five editorial walkthroughs are demo scenarios.
+  // The standalone demo keeps its own fixtures; the five website walkthroughs
+  // have their interactive scenes in the site-owned showcase above.
   await buildDemo({ directory: join(outputDirectory, "demo"), base: `${base}/demo/` });
   const demoPath = `${base}/demo/`;
   const restoreRoute = `<script>try{const p=new URLSearchParams(location.search).get('r3-route');if(p&&p.startsWith(${JSON.stringify(demoPath)})){const u=new URL(p,location.origin);if(u.origin===location.origin)history.replaceState(null,'',u.pathname+u.search+u.hash)}}catch{}</script>`;

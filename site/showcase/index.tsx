@@ -12,6 +12,8 @@ import { FieldworkDocument } from "./FieldworkDocument.tsx";
 import { componentsSeed, fieldworkSeed } from "./fixture.ts";
 import { mediaFrames, mediaSeed } from "./media-fixture.ts";
 import { PromptDocument } from "./PromptDocument.tsx";
+import { storyDocument } from "./story-document.ts";
+import { storySeed } from "./story-fixture.ts";
 
 // A normal ArtifactPage host: fixture data, fake handlers, one renderer. There
 // are no bundler aliases, API routes, authentication, or server bootstrap here.
@@ -20,11 +22,14 @@ const scene = parameters.get("scene");
 const promptScene = scene === "explainer" || scene === "brief" ? scene : "prototype";
 const componentScene = scene === "components";
 const mediaScene = scene === "media" || scene === "media-video";
-const seed = mediaScene
-  ? mediaSeed(demo.state, scene === "media-video")
-  : componentScene
-    ? componentsSeed(demo.state)
-    : fieldworkSeed(demo.state, promptScene);
+const storyScene = scene === "proposal" || scene === "code-review";
+const seed = storyScene
+  ? storySeed(demo.state, scene)
+  : mediaScene
+    ? mediaSeed(demo.state, scene === "media-video")
+    : componentScene
+      ? componentsSeed(demo.state)
+      : fieldworkSeed(demo.state, promptScene);
 const artifactId = seed.artifacts[0]!.id;
 function clearDrafts() {
   artifactDrafts.clear(artifactId);
@@ -97,14 +102,24 @@ function Example() {
           data={data}
           actions={artifactApi}
           initialSearch={
-            mediaScene
-              ? `?version=1&file=${scene === "media-video" ? "launch.webm" : "launch.png"}&thread=thread_launch_${scene === "media-video" ? "video" : "image"}`
-              : componentScene
-                ? "?version=2"
-                : `?version=2&thread=${seed.artifacts[0]!.threads[0]!.id}&comment=comment_fieldwork_fix`
+            storyScene
+              ? `?version=1&file=${scene === "proposal" ? "proposal.md" : "create-project.ts"}&thread=${seed.artifacts[0]!.threads[0]!.id}`
+              : mediaScene
+                ? `?version=1&file=${scene === "media-video" ? "launch.webm" : "launch.png"}&thread=thread_launch_${scene === "media-video" ? "video" : "image"}`
+                : componentScene
+                  ? "?version=2"
+                  : `?version=2&thread=${seed.artifacts[0]!.threads[0]!.id}&comment=comment_fieldwork_fix`
           }
           renderPreview={(props) =>
-            mediaScene ? null : componentScene ? (
+            storyScene ? (
+              scene === "proposal" ? (
+                <ComponentsDocument
+                  {...props}
+                  document={storyDocument}
+                  title="Onboarding proposal"
+                />
+              ) : null
+            ) : mediaScene ? null : componentScene ? (
               <ComponentsDocument {...props} />
             ) : promptScene === "prototype" ? (
               <FieldworkDocument {...props} />

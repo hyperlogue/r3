@@ -13,7 +13,7 @@ export async function verifyWorkspaceFont(page: Page) {
   const { nodeIds } = await page.command("DOM.querySelectorAll", {
     nodeId: root.nodeId,
     selector:
-      '[aria-label="Latest version"], [data-compare-comment], .fieldwork-body h1, .prompt-document h1, .component-card h1',
+      '[aria-label="Latest version"], [data-compare-comment], [data-artifact-thread] [data-message-author="human"] p, .fieldwork-body h1, .prompt-document h1, .component-card h1',
   });
   let rendered = 0;
   for (const nodeId of nodeIds) {

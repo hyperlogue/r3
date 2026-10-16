@@ -33,17 +33,21 @@ integrity checks use the same pipeline as the homepage captures.
 
 ## Example Fieldwork stories
 
-| Story | Text and layout | Interactive demo / recording |
+| Story | Visual walkthrough | Interactive example |
 | --- | --- | --- |
-| Project-creation prototype | `/use-cases/prototype/` | Interactive workspace at `/example/index.html`; recording follows |
-| Onboarding proposal | `/use-cases/proposal/` | Follow-up |
-| Search explanation | `/use-cases/explanation/` | Follow-up |
-| Duplicate-submission fix | `/use-cases/code-review/` | Follow-up |
+| Project-creation prototype | `/use-cases/prototype/` | Three real captures; `/example/index.html?scene=prototype` |
+| Onboarding proposal | `/use-cases/proposal/` | Three real captures; `/example/index.html?scene=proposal` |
+| Search explanation | `/use-cases/explanation/` | Three real captures; `/example/index.html?scene=explainer` |
+| Duplicate-submission fix | `/use-cases/code-review/` | Three real captures; `/example/index.html?scene=code-review` |
 | Launch media review | `/use-cases/media/` | Real image, video-frame, and comparison captures; sample scenes at `/example/index.html?scene=media` and `?scene=media-video` |
 
 The public live demo remains available with its existing fixtures. The site labels
 the homepage’s real workspace with fictional data and the demo’s scripted
-behavior. Additional Example Fieldwork scenarios and recordings remain follow-up.
+behavior. All five use-case pages lead with three real screenshots, brief captions, and a link
+to the corresponding interactive example. Light and dark variants open at full
+resolution; the proposal uses rendered Markdown and the code example uses native
+diffs. Capture scripts exercise version selection, linked targets, comparison,
+and ranking controls.
 
 The homepage highlights element comments with agent handoff, replies and version
 history, fix comparisons, image attachments, and video-frame comments. Each has a

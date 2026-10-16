@@ -100,6 +100,9 @@ export function markdownExport(source: string, origin: string) {
         text = text
           .replace(/<(script|style|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
           .replace(/<i><\/i>/g, "")
+          .replace(/<a\b[^>]*class="doc-dark"[^>]*>[\s\S]*?<\/a>/gi, "")
+          .replace(/<img\b(?=[^>]*class="doc-dark")[^>]*>/gi, "")
+          .replace(/<img\b[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
           .replace(/<\/?(?:span|small)\b[^>]*>/gi, " ")
           .replace(/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
           .replace(/<\/?(?:strong|b)>/gi, "**")
