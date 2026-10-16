@@ -6,6 +6,24 @@
     "license": "Apache-2.0"
   },
   "evidence": "Real r3 ArtifactPage and preview/media controls, with fictional local fixtures. Agent replies are scripted. UI states are captured at 3x density; pointer and camera motion are editorial.",
+  "motion": {
+    "cursorTravel": 0.2,
+    "cursorFade": 0.12,
+    "clickPulse": 0.45,
+    "stateBlend": 0.15,
+    "titleRise": 0.25,
+    "wordStagger": 0.03,
+    "clickEffect": {
+      "style": "indigo double ripple with soft glow and cursor press",
+      "radius": 52,
+      "innerDelay": 0.065,
+      "pressDuration": 0.22,
+      "pressScale": 0.83,
+      "color": "#785bff",
+      "lightColor": "#c8bcff",
+      "anchor": "captured click position, transformed with the camera"
+    }
+  },
   "clips": [
     {
       "id": "precise-feedback",
@@ -18,11 +36,11 @@
       "colorSpace": "bt709",
       "audio": false,
       "posterTime": 5.766667,
-      "bytes": 2611758,
+      "bytes": 2632188,
       "files": {
-        "precise-feedback.mp4": "1efcae1b2763d077291641f786ad33a420acfb61427f5360f5870dfb0d71a787",
-        "precise-feedback.jpg": "262e196be3c9689d04778f93adb8dccecac1238c3cdfc8c59b9f60c132c7df68",
-        "precise-feedback.transcript.txt": "4112a8a818f807bb0521a297db6711bc50ade264e0ea9acc6d9fe221fb748031"
+        "precise-feedback.mp4": "1f78cf07b360c75db5023bbcf14e623d405811657433eb5fd7da153547a920a6",
+        "precise-feedback.jpg": "9d1cf9cd0ebc5fd394c029f21cdc82b6968d20b7defc9081678cd24be360e3c4",
+        "precise-feedback.transcript.txt": "6c021ad5e4bdc5c331acac87c20bd20ce33e01ed9b8b85a4b398d726fc5089bc"
       }
     },
     {
@@ -36,11 +54,11 @@
       "colorSpace": "bt709",
       "audio": false,
       "posterTime": 3.7,
-      "bytes": 1630404,
+      "bytes": 1642215,
       "files": {
-        "agent-replies.mp4": "375bbec84c9469e64695e8e665ba1b0b9a48614090a765aca83c38180ba02e4c",
-        "agent-replies.jpg": "5f81ea1ad9dd4af1849ff4a768f2d8059d0c50f8c8b4e09e2fb9b4c8e3ee2041",
-        "agent-replies.transcript.txt": "97ee98b642d15c4b752d26f254c836889fa9f222f5999026b78c4a6c3ed99e95"
+        "agent-replies.mp4": "04bb99b170142109e1808a813ea99803b0d21e3becd67a336f834e70af4912b1",
+        "agent-replies.jpg": "c7bd59c2fd30a95eba54953657b8481fc135d80902bebf0d7c648f3ecfaa0a27",
+        "agent-replies.transcript.txt": "449d68521a5dd9f1db3ade64daf3583baf6413829365166ed36b44ae9e0eb6a0"
       }
     },
     {
@@ -54,11 +72,11 @@
       "colorSpace": "bt709",
       "audio": false,
       "posterTime": 5.0,
-      "bytes": 2617026,
+      "bytes": 2629792,
       "files": {
-        "inspect-fixes.mp4": "fd918308f91a8e9a9c928e1377c0c088ca900df27550bd73b0b26305a1227338",
-        "inspect-fixes.jpg": "f151644d8781916f8dc5a02a67ed31fdfe5f3e99c50e6e92fe39dd6691e98e8c",
-        "inspect-fixes.transcript.txt": "81e0a6fad85fa59b74509f767ae73bc0a47e72fecc80bdde9d02da2ae1dc83cd"
+        "inspect-fixes.mp4": "be10298e3cabc6fc295a913a70561f0d0d231ffda922aa3ec78384084ccdfdae",
+        "inspect-fixes.jpg": "e10d29402b85cc11e6aaeda6985bc4fdfbe64cb907de5bddb91bf553194034d9",
+        "inspect-fixes.transcript.txt": "a2c8c1a8d7ff8b1a0b8cc8e65f4e21f98d82bc1158f9f63ff77f43233d3bebd7"
       }
     },
     {
@@ -72,11 +90,11 @@
       "colorSpace": "bt709",
       "audio": false,
       "posterTime": 6.066667,
-      "bytes": 1494414,
+      "bytes": 1498786,
       "files": {
-        "image-comments.mp4": "284724a105259d45a6191014426f4b3a523753ef83b424eed47176036738039d",
+        "image-comments.mp4": "10d67c458c2e8531626efaff73f3c2ab6754d1d2c6b8536334172e526fffc3fc",
         "image-comments.jpg": "fe69ff1eb447447cdfbf91ba5a9bc8d9cb5c5ebac2df8d4a6a5730e236886d51",
-        "image-comments.transcript.txt": "3d6341edf606cfd460135e8373f1372dcd343c732a00f6cdcdb339b6107031f5"
+        "image-comments.transcript.txt": "8ae933bde9248169b07f28f29de7376435db49526edbac7cb00c67c20c3c2d06"
       }
     },
     {
@@ -90,11 +108,11 @@
       "colorSpace": "bt709",
       "audio": false,
       "posterTime": 6.7,
-      "bytes": 2272693,
+      "bytes": 2294914,
       "files": {
-        "video-comments.mp4": "099f266a5b4ee83a0d4e5ebb503480416294fd5dc41a2627ac0e6ca7ca6195b1",
-        "video-comments.jpg": "c149839a3010c13227b06324a24f24680ba53853c1d425cd414c43cdfba17bbe",
-        "video-comments.transcript.txt": "23f754bddce3c721a2b452b599689c9b552841354707a13e288f8c840830a96a"
+        "video-comments.mp4": "9284f8021cbebba6501bb4c8bb78b0f0acb23d0d31b7aa71a05dcc525453dcb5",
+        "video-comments.jpg": "e814811c8e983b4d9a0487be4461252df80b2e356571fd714a29f61ee369fd0f",
+        "video-comments.transcript.txt": "6dc701e5bcb87b794bc9a1beb5d750b335a58fdc77d7acfd5ed61f0afdbc60d5"
       }
     }
   ]

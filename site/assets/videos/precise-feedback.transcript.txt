@@ -86,6 +86,8 @@ Subtitle: Send the queued comments directly to your agent.
 
 00:18.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Click highlights at 00:01.100, 00:02.100, 00:07.700, 00:16.233. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
 
 Comment on a specific element, collect another note, and send both in one handoff. This combines the previous commenting and handoff films while preserving their faster action timing. Agent replies are introduced in the following film.

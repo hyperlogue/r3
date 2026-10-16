@@ -94,7 +94,9 @@ Subtitle: Send the queued comments directly to your agent.
 
 00:18.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Click highlights at 00:01.100, 00:02.100, 00:07.700, 00:16.233. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
 
 Comment on a specific element, collect another note, and send both in one handoff. This combines the previous commenting and handoff films while preserving their faster action timing. Agent replies are introduced in the following film.
 
@@ -157,7 +159,9 @@ Subtitle: Your earlier versions remain available.
 
 00:10.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Click highlights at 00:03.200, 00:04.100, 00:06.700. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
 
 The real version picker lists both published versions. Version 1 opens with the original form and the conversation intact. Go to the latest version returns to version 2, where the new visibility explanation is present. The publications and agent reply are fictional showcase fixtures.
 
@@ -212,7 +216,9 @@ Subtitle: Review the result before moving on.
 
 00:10.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Click highlights at 00:02.767. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
 
 
 ---
@@ -271,7 +277,9 @@ Subtitle: Your agent can read the note and inspect the reference.
 
 00:11.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Click highlights at 00:07.700. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
 
 
 ---
@@ -352,6 +360,8 @@ Subtitle: Your feedback stays tied to this exact moment.
 
 00:12.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-Native UI changes blend over at most 0.15 seconds. The native region-drag frames change immediately to follow the pointer. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+Native UI changes blend over at most 0.15 seconds. The native region-drag frames change immediately to follow the pointer. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Click highlights at 00:01.500, 00:02.100, 00:02.700, 00:08.000. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
 
 The camera settles on the whole title region at 00:02.500, before the native selection drag begins at 00:02.700. The rectangle grows with the pointer until 00:03.100. The complete selection remains in view until 00:04.600, then the camera moves to the saved-frame composer.
