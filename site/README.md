@@ -84,7 +84,7 @@ prefixes; each use-case card starts with a decorative vector UI mockup from
 `story-illustrations.ts`. Its category is the main title, followed by a subtitle
 and description. The whole card links to its walkthrough; hover and keyboard
 focus soften the background, brighten the border, and zoom the illustration to
-1.05× inside its frame. Cards stay stationary; reduced motion disables the zoom.
+1.02× inside its frame. Cards stay stationary; reduced motion disables the zoom.
 Cards have no arrow icons or footer links. The feature and use-case
 sections start directly with their headings. Format details belong in the
 documentation.
