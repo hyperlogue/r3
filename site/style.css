@@ -1818,6 +1818,9 @@ figcaption {
 .visual-story .prose {
   counter-reset: story-step;
 }
+.visual-story .prose > p {
+  max-width: 74ch;
+}
 .visual-story .prose h2 {
   counter-increment: story-step;
   display: flex;

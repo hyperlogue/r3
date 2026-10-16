@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eventually, openTestBrowser } from "../scripts/browser.ts";
 import { serveSite } from "./serve.ts";
-import { annotationState, clickAnnotation, componentFrames } from "./showcase/browser.ts";
+import {
+  annotationState,
+  clearCaptureFocus,
+  clickAnnotation,
+  componentFrames,
+} from "./showcase/browser.ts";
 import { buildShowcase } from "./showcase/build.ts";
 import { type CaptureManifest, captureSpecs, sha256, verifyCaptures } from "./showcase/captures.ts";
 import { verifyWorkspaceFont } from "./showcase/font-check.ts";
@@ -79,6 +84,7 @@ try {
           await prepareStoryCapture(browser, page, spec.scene, spec.step);
         } else if (media) {
           await prepareMediaCapture(page, scene === "media-video", "mediaComparison" in spec);
+          await clearCaptureFocus(page);
         } else if ("comparison" in spec) {
           const [frame] = await componentFrames(browser, page);
           await verifyWorkspaceFont(frame!);

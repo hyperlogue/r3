@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { eventually, type openTestBrowser } from "../../scripts/browser.ts";
-import { componentFrames } from "./browser.ts";
+import { clearCaptureFocus, componentFrames } from "./browser.ts";
 
 type Browser = Awaited<ReturnType<typeof openTestBrowser>>;
 type Page = Awaited<ReturnType<Browser["attach"]>>;
@@ -95,4 +95,5 @@ export async function prepareStoryCapture(
   }
   await page.evaluate("document.fonts.ready");
   await page.evaluate("new Promise(resolve => setTimeout(resolve, 500))");
+  await clearCaptureFocus(page);
 }
