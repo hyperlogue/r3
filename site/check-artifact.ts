@@ -272,6 +272,18 @@ try {
   );
   await doc.evaluate('document.querySelector(".example-actions a").click()');
   doc = await content(homeTitle);
+  await doc.evaluate(`location.href=${JSON.stringify(`${prefix}use-cases/proposal/index.html`)}`);
+  doc = await content("Improve an onboarding proposal");
+  assert.equal(await doc.evaluate("document.querySelectorAll('.story-screenshot').length"), 3);
+  assert.equal(
+    await doc.evaluate("document.querySelectorAll('a[href*=\"scene=proposal\"]').length"),
+    0,
+    "the artifact does not link to an example requiring a forbidden nested frame",
+  );
+  await doc.evaluate(
+    "[...document.querySelectorAll('.prose a')].find(link => link.textContent.includes('Reviewing documents')).click()",
+  );
+  doc = await content("Documents & files");
   assert(requests.every((p) => p.startsWith(prefix)));
   assert.deepEqual(exceptions, []);
   console.log(

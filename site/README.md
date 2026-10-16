@@ -275,6 +275,9 @@ Each of the five use-case pages contains three real workspace captures and a lin
 into its interactive scene. Text stays limited to step headings, captions, and the
 fictional-data disclosure. Screenshot links open the full-resolution light or dark
 image. Markdown exports retain the light screenshots and their captions.
+The artifact review package links the proposal walkthrough to the documents guide;
+its sandbox forbids the nested frame required by that interactive example. The
+deployable website retains the full example link.
 
 The proposal and code-review fixtures are authored in
 `showcase/story-publications.ts`. The build uses the product's Markdown, syntax,
