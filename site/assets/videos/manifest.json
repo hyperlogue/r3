@@ -9,7 +9,7 @@
   "clips": [
     {
       "id": "precise-feedback",
-      "duration": 11,
+      "duration": 18,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -18,18 +18,16 @@
       "colorSpace": "bt709",
       "audio": false,
       "posterTime": 5.766667,
-      "bytes": 1383154,
-      "previousDuration": 20,
-      "speedMultiplier": 1.8182,
+      "bytes": 2611758,
       "files": {
-        "precise-feedback.mp4": "ca7af6d990185b6b2381aaf196ddfc905a2ed098d71bb603a8dbc2b2519a363e",
+        "precise-feedback.mp4": "1efcae1b2763d077291641f786ad33a420acfb61427f5360f5870dfb0d71a787",
         "precise-feedback.jpg": "262e196be3c9689d04778f93adb8dccecac1238c3cdfc8c59b9f60c132c7df68",
-        "precise-feedback.transcript.txt": "70141ef67523523597b33a6ea093bcfa8934099b55d7684a018c7ddbc4343dab"
+        "precise-feedback.transcript.txt": "4112a8a818f807bb0521a297db6711bc50ade264e0ea9acc6d9fe221fb748031"
       }
     },
     {
-      "id": "agent-handoff",
-      "duration": 11,
+      "id": "agent-replies",
+      "duration": 10,
       "width": 1600,
       "height": 1000,
       "fps": 30,
@@ -37,14 +35,12 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 3.033333,
-      "bytes": 2069436,
-      "previousDuration": 20,
-      "speedMultiplier": 1.8182,
+      "posterTime": 3.7,
+      "bytes": 1630404,
       "files": {
-        "agent-handoff.mp4": "84b282c2a164dc07d0b3fed18a4ec2c18adff487deec4dd069e2fa91b7ef4b80",
-        "agent-handoff.jpg": "9eeffd77235e8345a60912b806b9ee1107b3d4e8207acd3941a6983d731112db",
-        "agent-handoff.transcript.txt": "f5197da5501cfa7f2baac69af56e10980af3dd19cc16c746ea1edd559cd78ead"
+        "agent-replies.mp4": "375bbec84c9469e64695e8e665ba1b0b9a48614090a765aca83c38180ba02e4c",
+        "agent-replies.jpg": "5f81ea1ad9dd4af1849ff4a768f2d8059d0c50f8c8b4e09e2fb9b4c8e3ee2041",
+        "agent-replies.transcript.txt": "97ee98b642d15c4b752d26f254c836889fa9f222f5999026b78c4a6c3ed99e95"
       }
     },
     {
@@ -59,8 +55,6 @@
       "audio": false,
       "posterTime": 5.0,
       "bytes": 2617026,
-      "previousDuration": 18,
-      "speedMultiplier": 1.8,
       "files": {
         "inspect-fixes.mp4": "fd918308f91a8e9a9c928e1377c0c088ca900df27550bd73b0b26305a1227338",
         "inspect-fixes.jpg": "f151644d8781916f8dc5a02a67ed31fdfe5f3e99c50e6e92fe39dd6691e98e8c",
@@ -79,8 +73,6 @@
       "audio": false,
       "posterTime": 6.066667,
       "bytes": 1494414,
-      "previousDuration": 20,
-      "speedMultiplier": 1.8182,
       "files": {
         "image-comments.mp4": "284724a105259d45a6191014426f4b3a523753ef83b424eed47176036738039d",
         "image-comments.jpg": "fe69ff1eb447447cdfbf91ba5a9bc8d9cb5c5ebac2df8d4a6a5730e236886d51",
@@ -99,8 +91,6 @@
       "audio": false,
       "posterTime": 6.7,
       "bytes": 2272693,
-      "previousDuration": 22,
-      "speedMultiplier": 1.8333,
       "files": {
         "video-comments.mp4": "099f266a5b4ee83a0d4e5ebb503480416294fd5dc41a2627ac0e6ca7ca6195b1",
         "video-comments.jpg": "c149839a3010c13227b06324a24f24680ba53853c1d425cd414c43cdfba17bbe",

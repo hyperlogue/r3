@@ -246,13 +246,13 @@ its curve-lab and code-review fixtures. The Example Fieldwork articles include
 guided reproduction instructions; the media walkthrough uses actual captures
 of its fictional launch campaign.
 
-The five feature rows play silent, 10–12 second MP4 films captured from the real
+The five feature rows play silent, 10–18 second MP4 films captured from the real
 r3 interface. Native controls support playback, seeking, and fullscreen; nothing
 autoplays or downloads video bytes before interaction. Posters and plain-text
-transcripts remain available without JavaScript. Transcript links sit beside the
-feature descriptions; videos have no caption strip. The recordings use fictional
-local fixtures, scripted agent replies, and an authored image reference. Camera
-motion, pointer motion, transitions, and titles are editorial overlays.
+transcripts remain available without JavaScript. Transcripts ship with the video
+assets; the homepage has no transcript links or caption strips. The recordings use
+fictional local fixtures, scripted agent replies, and an authored image reference.
+Camera motion, pointer motion, transitions, and titles are editorial overlays.
 
 Final exports live in `assets/videos/`; MP4s and JPEG posters use Git LFS. The
 build checks asset hashes and recorded durations against `manifest.json` before

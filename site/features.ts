@@ -1,24 +1,24 @@
 export const features = [
   {
     id: "precise-feedback",
-    duration: 11,
-    title: "Comment right on the element.",
+    duration: 18,
+    title: "Comment on the work. Send it to your agent.",
     description:
-      "Click any button, heading, or input and leave your note. Your agent gets the exact DOM node and viewport context, so you never have to write paragraphs describing where to look.",
+      "Click a button, heading, or input and leave a note. Collect your feedback, then send it to your agent in one batch, with the exact element and viewport context.",
   },
   {
-    id: "agent-handoff",
-    duration: 11,
-    title: "Send comments directly to the agent.",
+    id: "agent-replies",
+    duration: 10,
+    title: "Follow the reply. Keep every version.",
     description:
-      "Batch your feedback into a review queue and hand it off in one shot. Your agent picks up the tasks, addresses each comment, and replies directly in the thread.",
+      "Your agent replies in the same thread and publishes revisions as new versions. Earlier versions stay available, so you can revisit the original and open the latest when you’re ready.",
   },
   {
     id: "inspect-fixes",
     duration: 10,
     title: "See the fix, side by side.",
     description:
-      "When your agent replies with a fix, open the comparison view. See the original beside the revision to verify whether the change actually solved the problem.",
+      "Once your agent publishes a revision, open Compare from the reply. Check the original beside the fix to see whether it solves the problem.",
   },
   {
     id: "image-comments",
@@ -42,7 +42,7 @@ export function featureHighlights() {
 <div class="feature-list">${features
     .map(
       (feature) => `<article class="feature-row" id="${feature.id}">
-<div class="feature-copy"><h3>${feature.title}</h3><p>${feature.description}</p><a class="feature-transcript" href="/assets/videos/${feature.id}.transcript.txt" aria-label="Read transcript: ${feature.title}">Read transcript ↗</a></div>
+<div class="feature-copy"><h3>${feature.title}</h3><p>${feature.description}</p></div>
 <figure class="feature-video">
 <video controls playsinline preload="none" width="1600" height="1000" poster="/assets/videos/${feature.id}.jpg" aria-label="${feature.title} Silent demo, ${feature.duration} seconds.">
 <source src="/assets/videos/${feature.id}.mp4" type="video/mp4">

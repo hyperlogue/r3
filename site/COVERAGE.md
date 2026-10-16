@@ -45,7 +45,8 @@ The public live demo remains available with its existing fixtures. The site labe
 the homepage’s real workspace with fictional data and the demo’s scripted
 behavior. Additional Example Fieldwork scenarios and recordings remain follow-up.
 
-The homepage highlights element comments, direct agent handoff, fix comparisons,
-image attachments, and video-frame comments. Each has a playable 10–12 second
-film of the real interface, with animated focus, a poster, and a text transcript.
+The homepage highlights element comments with agent handoff, replies and version
+history, fix comparisons, image attachments, and video-frame comments. Each has a
+playable 10–18 second film of the real interface, with animated focus, a poster,
+and a text transcript.
 Fixtures are fictional and agent replies are scripted.

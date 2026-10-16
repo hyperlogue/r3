@@ -8,7 +8,7 @@ These silent films show the real r3 interface with fictional local fixtures. Age
 
 # Precise feedback
 
-Duration: 11 seconds. Silent video. r3 2.1.1.
+Duration: 18 seconds. Silent video. r3 2.1.1.
 
 These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
 
@@ -26,6 +26,14 @@ Subtitle: The note keeps its target and version.
 Title: Ready for your agent.
 Subtitle: Keep the feedback beside the work.
 
+00:11.000–00:15.400
+Title: Send the whole review.
+Subtitle: Collect your notes before handing them off.
+
+00:15.400–00:18.000
+Title: One click. Shared context.
+Subtitle: Send the queued comments directly to your agent.
+
 ## Actions and visible results
 
 00:00.000–00:02.100: Open the complete component workspace.
@@ -39,6 +47,12 @@ Subtitle: Keep the feedback beside the work.
 00:07.700–00:08.533: Post the comment.
 
 00:08.533–00:11.000: Read the saved anchored comment in the discussion.
+
+00:11.000–00:12.667: Review the complete workspace with one unsent comment.
+
+00:12.667–00:16.233: Batch two comments before sending. The two queued notes read: “Make this button say ‘View team activity’.” and “Keep the supporting copy to one short sentence.”
+
+00:16.233–00:18.000: Send both comments to the scripted agent.
 
 ## Motion and editing
 
@@ -66,64 +80,86 @@ Subtitle: Keep the feedback beside the work.
 
 00:11.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
+00:12.100: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:12.967: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:14.967: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:15.833: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:16.767: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:17.500: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:18.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
 Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+Comment on a specific element, collect another note, and send both in one handoff. This combines the previous commenting and handoff films while preserving their faster action timing. Agent replies are introduced in the following film.
 
 
 ---
 
-# Agent handoff
+# Agent replies
 
-Duration: 11 seconds. Silent video. r3 2.1.1.
+Duration: 10 seconds. Silent video. r3 2.1.1.
 
 These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
 
 ## On-screen titles and subtitles
 
-00:00.000–00:04.400
-Title: Send the whole review.
-Subtitle: Collect your notes before handing them off.
+00:00.000–00:03.000
+Title: The reply stays with the feedback.
+Subtitle: Read your agent’s response in the same thread.
 
-00:04.400–00:06.600
-Title: One click. Shared context.
-Subtitle: Send the queued comments directly to your agent.
+00:03.000–00:06.700
+Title: Every version stays within reach.
+Subtitle: Open the original without losing the conversation.
 
-00:06.600–00:11.000
-Title: Keep the reply in the thread.
-Subtitle: A scripted demo agent replies in the same conversation.
+00:06.700–00:10.000
+Title: Open the latest when you’re ready.
+Subtitle: Your earlier versions remain available.
 
 ## Actions and visible results
 
-00:00.000–00:01.667: Review the complete workspace with one unsent comment.
+00:00.000–00:03.200: Read the agent reply beside the latest published version. The agent reply reads: “Added an explanation beneath the visibility setting. Your choice stays editable.”
 
-00:01.667–00:05.233: Batch two comments before sending. The two queued notes read: “Make this button say ‘View team activity’.” and “Keep the supporting copy to one short sentence.”
+00:03.200–00:04.100: Open the published version picker. The picker lists “v2 Explain project visibility” and “v1 Project creation”.
 
-00:05.233–00:06.600: Send both comments to the scripted agent.
+00:04.100–00:06.700: Open the original version without losing the conversation. Version 1 has no visibility explanation. The existing conversation stays visible and the toolbar offers “Go to the latest version”.
 
-00:06.600–00:11.000: Read the scripted agent reply in the same discussion. The scripted response reads: “This is a scripted demo comment. I reviewed your note. You can keep reading the original version, inspect the publication, and resolve the thread when you are satisfied.”
+00:06.700–00:10.000: Return to the latest published version. Version 2 restores the explanation: “Everyone in your workspace can find and open this project. You can change this later.”
 
 ## Motion and editing
 
 00:00.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:01.100: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:00.700: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:01.967: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:01.200: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:03.967: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:02.400: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:04.833: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:03.050: Camera arrives at 1.9× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:05.767: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:04.100: Camera arrives at 1.9× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:06.867: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:04.600: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:09.067: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:06.700: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:10.167: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:07.150: Camera arrives at 1.45× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
-00:11.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+00:08.700: Camera arrives at 1.45× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:09.400: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+
+00:10.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
 
 Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click rings are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
+
+The real version picker lists both published versions. Version 1 opens with the original form and the conversation intact. Go to the latest version returns to version 2, where the new visibility explanation is present. The publications and agent reply are fictional showcase fixtures.
 
 
 ---
