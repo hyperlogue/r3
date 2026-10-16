@@ -43,7 +43,7 @@ integrity checks use the same pipeline as the homepage captures.
 
 The public live demo remains available with its existing fixtures. The site labels
 the homepage’s real workspace with fictional data and the demo’s scripted
-behavior. All five use-case pages lead with three real screenshots, brief captions, and a link
+behavior. All five use-case pages lead with three real screenshots, concise explanations, and a link
 to the corresponding interactive example. Light and dark variants open at full
 resolution; the proposal uses rendered Markdown and the code example uses native
 diffs. Capture scripts exercise version selection, linked targets, comparison,

@@ -272,9 +272,9 @@ seek to three positions, and verify resumed playback. The capability map is in
 ### Visual use-case walkthroughs
 
 Each of the five use-case pages contains three real workspace captures and a link
-into its interactive scene. Text stays limited to step headings, captions, and the
-fictional-data disclosure. Screenshot links open the full-resolution light or dark
-image. Markdown exports retain the light screenshots and their captions.
+into its interactive scene. Short paragraphs explain the setup, the feedback, and
+the outcome alongside the screenshots. Screenshot links open the full-resolution
+light or dark image. Markdown exports retain the light screenshots and captions.
 The artifact review package links the proposal walkthrough to the documents guide;
 its sandbox forbids the nested frame required by that interactive example. The
 deployable website retains the full example link.
@@ -292,8 +292,10 @@ R3_TEST_BROWSER=/path/to/chromium bun --no-env-file site/capture-showcase.ts --s
 ```
 
 Add `--scene=code-review` (or another scene name) to refresh one scene.
+Story captures clear temporary control focus before saving each screenshot,
+while retaining the native annotation highlights.
 This preserves existing homepage and media captures. The complete capture command
 also includes these scenes. All captures share `assets/fieldwork-captures.json`
 and the build's resolution/hash checks. `site/check-stories.ts` checks the five
-pages at desktop and phone widths, full-size image links, both themes, and their
-short text budgets.
+pages at desktop and phone widths, full-size image links, both themes, and image
+dimensions.

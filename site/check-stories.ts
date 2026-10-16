@@ -8,14 +8,7 @@ import { serveSite } from "./serve.ts";
 const base = normalizeBase(process.env.R3_SITE_BASE);
 const server = serveSite(join(import.meta.dir, "../dist/pages"), { base, port: 0 });
 const browser = await openTestBrowser();
-// Visible article-body words in v34, before the visual walkthrough revision.
-const baseline = {
-  prototype: 542,
-  proposal: 449,
-  explanation: 457,
-  "code-review": 464,
-  media: 189,
-};
+const scenes = ["prototype", "proposal", "explanation", "code-review", "media"];
 const review = join(import.meta.dir, "../dist/site-review");
 await mkdir(review, { recursive: true });
 const failures: string[] = [];
@@ -32,7 +25,7 @@ try {
       deviceScaleFactor: 1,
       mobile: false,
     });
-    for (const [scene, original] of Object.entries(baseline)) {
+    for (const scene of scenes) {
       const path = `${base}/use-cases/${scene}/`;
       await page.command("Page.navigate", { url: `${server.url.origin}${path}` });
       await eventually(
@@ -61,20 +54,13 @@ try {
           result.sources.every((src: string) => src.endsWith(`-${theme}.png`)),
           "image theme follows page theme",
         );
-        assert(
-          result.words <= original * 0.2,
-          `${scene}: at least 80% less visible body text (${result.words}/${original})`,
-        );
         assert(result.dimensions, "image dimensions match their recorded capture viewport");
         assert(!result.overflow, `${scene}: fits ${width}px`);
         if (width === 1440) {
           assert(result.width >= 1000, "desktop screenshots have room for readable UI");
           for (const url of result.links)
             assert((await fetch(url)).ok, "full-size capture is served beneath the mount");
-          if (theme === "light")
-            console.log(
-              `${scene}: ${result.words} words; ${Math.round((1 - result.words / original) * 100)}% reduction; 3 screenshots`,
-            );
+          if (theme === "light") console.log(`${scene}: ${result.words} words; 3 screenshots`);
         }
         if (width !== 320) {
           const { data } = await page.command("Page.captureScreenshot", { format: "png" });

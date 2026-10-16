@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { eventually, type openTestBrowser } from "../../scripts/browser.ts";
 
 type Browser = Awaited<ReturnType<typeof openTestBrowser>>;
@@ -80,4 +81,17 @@ export async function clickAnnotation(frame: Page, className: "marker" | "contro
         ? "function(){this.querySelector('button').click()}"
         : "function(){this.click()}",
   });
+}
+
+// Scripted popovers and comparisons restore keyboard focus to a control. Clear
+// that transient focus for the still, without changing native review highlights.
+export async function clearCaptureFocus(page: Page) {
+  await page.evaluate("document.activeElement?.blur?.()");
+  await page.evaluate(
+    "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+  );
+  assert(
+    await page.evaluate("!document.querySelector(':focus-visible')"),
+    "temporary keyboard focus must not remain in the story capture",
+  );
 }
