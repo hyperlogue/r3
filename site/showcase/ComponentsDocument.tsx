@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
-import type { PreviewDisplay } from "../../shared/preview-protocol.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
+import type { PreviewBootstrap, PreviewDisplay } from "../../shared/preview-protocol.ts";
 import type { ArtifactRenderedPaneProps } from "../../web/src/artifact-page.tsx";
 import { keysSuspended } from "../../web/src/keys.ts";
 import { previewLocator, previewSelectionPosition } from "../../web/src/preview-bridge.ts";
@@ -8,7 +9,15 @@ import { componentDocument } from "./component-document.ts";
 
 // The authored sample runs separately; annotation visuals and interaction come
 // directly from the product's preview runtime, with only local fixture actions.
-export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
+export function ComponentsDocument(
+  props: ArtifactRenderedPaneProps & {
+    document?: (config: PreviewBootstrap) => string;
+    title?: string;
+  },
+) {
+  const fitContent = props.detail.kind === "files" && props.path.endsWith(".md");
+  const [height, setHeight] = useState<number>();
+  const measured = useRef(false);
   const iframe = useRef<HTMLIFrameElement>(null);
   const current = useRef(props);
   current.current = props;
@@ -18,7 +27,7 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
     const contextId = crypto.randomUUID();
     return {
       contextId,
-      html: componentDocument({
+      html: (props.document ?? componentDocument)({
         contextId,
         applicationOrigin: location.origin,
         artifactId: props.version.artifactId,
@@ -28,9 +37,11 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
         presentation: "document",
       }),
     };
-  }, [props.version.artifactId, props.version.seq, props.path]);
+  }, [props.version.artifactId, props.version.seq, props.path, props.document]);
 
   useEffect(() => {
+    setHeight(undefined);
+    measured.current = false;
     let stopViewport: (() => void) | undefined;
     const { contextId } = document;
     const send = (message: Record<string, unknown>) =>
@@ -38,6 +49,8 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
     const display = () => {
       const props = current.current;
       const value: PreviewDisplay = {
+        fitContent,
+        theme: window.document.documentElement.classList.contains("dark") ? "dark" : "light",
         commenting: props.active !== false && props.commenting,
         highlightLocated: props.highlightLocated,
         noteHasText: props.noteHasText,
@@ -49,7 +62,7 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
             ? [{ threadId, locator: target.locator }]
             : [],
         ),
-        jump: props.jump,
+        jump: !fitContent || measured.current ? props.jump : null,
       };
       send({ type: "r3-preview-display", display: value });
     };
@@ -77,6 +90,14 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
           return;
         if (message.type === "r3-preview-document") {
           display();
+        } else if (message.type === "r3-preview-height" && fitContent) {
+          if (
+            typeof message.height === "number" &&
+            Number.isFinite(message.height) &&
+            message.height > 0 &&
+            message.height <= MAX_RENDERED_HEIGHT
+          )
+            setHeight(Math.ceil(message.height));
         } else if (message.type === "r3-preview-located" && message.nonce === props.jump?.nonce) {
           if (["anchored", "ambiguous", "unplaced"].includes(message.state))
             props.onLocated?.(message.state);
@@ -129,7 +150,12 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
       connection.current = null;
       sendDisplay.current = () => {};
     };
-  }, [document]);
+  }, [document, fitContent]);
+  useEffect(() => {
+    if (height === undefined) return;
+    measured.current = true;
+    sendDisplay.current();
+  }, [height]);
   useEffect(() => sendDisplay.current());
   return (
     <iframe
@@ -137,7 +163,8 @@ export function ComponentsDocument(props: ArtifactRenderedPaneProps) {
       ref={iframe}
       srcDoc={document.html}
       className="component-preview"
-      title="Component showcase document"
+      style={fitContent ? { height: height ?? 600, flex: "none" } : undefined}
+      title={props.title ?? "Component showcase document"}
       sandbox="allow-scripts"
       allow="camera 'none'; microphone 'none'"
       referrerPolicy="no-referrer"

@@ -1,7 +1,24 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
+export const storyCaptureSpecs = (
+  ["prototype", "proposal", "explainer", "code-review"] as const
+).flatMap((scene) =>
+  (["start", "feedback", "result"] as const).flatMap((step) =>
+    (["light", "dark"] as const).map((theme) => ({
+      file: `fieldwork-story-${scene}-${step}-${theme}.png`,
+      scene,
+      step,
+      theme,
+      width: 1240,
+      height: scene === "code-review" ? (step === "start" ? 320 : 480) : 740,
+      scale: 3,
+    })),
+  ),
+);
+
 export const captureSpecs = [
+  ...storyCaptureSpecs,
   { file: "fieldwork-light.png", theme: "light", width: 1240, height: 740, scale: 3 },
   { file: "fieldwork-dark.png", theme: "dark", width: 1240, height: 740, scale: 3 },
   { file: "fieldwork-mobile-light.png", theme: "light", width: 390, height: 740, scale: 3 },

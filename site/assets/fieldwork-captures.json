@@ -197,6 +197,246 @@
       "scene": "media",
       "mediaComparison": true,
       "sha256": "f41ba2636a5437e9048067c120d143cf5406c36bdb38f550333d02c453618526"
+    },
+    {
+      "file": "fieldwork-story-prototype-start-light.png",
+      "scene": "prototype",
+      "step": "start",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "a44dd04157e396aa876bebd950040db7057e3d9bc6004b7710e92401ad01cea4"
+    },
+    {
+      "file": "fieldwork-story-prototype-start-dark.png",
+      "scene": "prototype",
+      "step": "start",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "255867ba602a58ce82658f1ceb5ba384b96c3fda8240aed94580b9adb8d7312f"
+    },
+    {
+      "file": "fieldwork-story-prototype-feedback-light.png",
+      "scene": "prototype",
+      "step": "feedback",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "4efa06b162a2bbc6556817f95babd7eb78b122e71ea6e6198dbeaf840334f531"
+    },
+    {
+      "file": "fieldwork-story-prototype-feedback-dark.png",
+      "scene": "prototype",
+      "step": "feedback",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "a6e7e46c99083d3d9ef4a093d076db5af5e9c0751db30b93fb107a52f24aca40"
+    },
+    {
+      "file": "fieldwork-story-prototype-result-light.png",
+      "scene": "prototype",
+      "step": "result",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "bb281d70f20db725450ba90b98a8689809250a37caf5f8b31f0935d7aa1a19f8"
+    },
+    {
+      "file": "fieldwork-story-prototype-result-dark.png",
+      "scene": "prototype",
+      "step": "result",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "f0a7652990a24357a510eb41e0dae4caced6ce4ca9fb8bfb2db3de0756f07e1a"
+    },
+    {
+      "file": "fieldwork-story-proposal-start-light.png",
+      "scene": "proposal",
+      "step": "start",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "5ed39b971d31a629d797977648ad3044247d9adbb192d0b1235c96ef48f9761b"
+    },
+    {
+      "file": "fieldwork-story-proposal-start-dark.png",
+      "scene": "proposal",
+      "step": "start",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "128bc894ed4d67a230fadf13611bd2c500a2b2494129edc7735b050ea289dfff"
+    },
+    {
+      "file": "fieldwork-story-proposal-feedback-light.png",
+      "scene": "proposal",
+      "step": "feedback",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "d55e3355576bff836614cbaafbafbdcb7ecd03bb9746fd559e88f4c4f400b424"
+    },
+    {
+      "file": "fieldwork-story-proposal-feedback-dark.png",
+      "scene": "proposal",
+      "step": "feedback",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "275b8fe1524ce02c81053f6a3a0461dbb515349baa72bec47d4b79aec06c182b"
+    },
+    {
+      "file": "fieldwork-story-proposal-result-light.png",
+      "scene": "proposal",
+      "step": "result",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "b8241f5e022f3dd838c17ee8bb4bb3d86f73b79a9b88757ff3eaa84e3e7eea68"
+    },
+    {
+      "file": "fieldwork-story-proposal-result-dark.png",
+      "scene": "proposal",
+      "step": "result",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "abb65d31f1aa8f471336df5c656e52dcdf19b5ae6cae36e2b197f6ebb08c8dc4"
+    },
+    {
+      "file": "fieldwork-story-explainer-start-light.png",
+      "scene": "explainer",
+      "step": "start",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "80fbdfdeab74eae12cf8c802a0b1d3c51bef3ab6ce58fccb992435cd16ae59ab"
+    },
+    {
+      "file": "fieldwork-story-explainer-start-dark.png",
+      "scene": "explainer",
+      "step": "start",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "bef807e1ec3fb2d22110efb155329763b22cb4aa89a1eccc1cda9f1e24179c64"
+    },
+    {
+      "file": "fieldwork-story-explainer-feedback-light.png",
+      "scene": "explainer",
+      "step": "feedback",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "6a0b2c2804a6355c14633f250f6c9c2870b29ee9ba3ce59a83fff287a43fbae8"
+    },
+    {
+      "file": "fieldwork-story-explainer-feedback-dark.png",
+      "scene": "explainer",
+      "step": "feedback",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "857046a8c518a64dc25d6729f7a39513db3937b6636b61ca2949f1603d494387"
+    },
+    {
+      "file": "fieldwork-story-explainer-result-light.png",
+      "scene": "explainer",
+      "step": "result",
+      "theme": "light",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "76055f3978ec5ce37dcdf30f17638df4b350d2e1dcce247258f3f3150a9d5a75"
+    },
+    {
+      "file": "fieldwork-story-explainer-result-dark.png",
+      "scene": "explainer",
+      "step": "result",
+      "theme": "dark",
+      "width": 1240,
+      "height": 740,
+      "scale": 3,
+      "sha256": "53da3e8e7ab341d532fb031ec5bdd404ed2b9fc841fce562d60e8ecadbbe7372"
+    },
+    {
+      "file": "fieldwork-story-code-review-start-light.png",
+      "scene": "code-review",
+      "step": "start",
+      "theme": "light",
+      "width": 1240,
+      "height": 320,
+      "scale": 3,
+      "sha256": "ca6ad5024ffbdc56bd3aaa58c0d753cba57badcac83d64172d41d02243a799d3"
+    },
+    {
+      "file": "fieldwork-story-code-review-start-dark.png",
+      "scene": "code-review",
+      "step": "start",
+      "theme": "dark",
+      "width": 1240,
+      "height": 320,
+      "scale": 3,
+      "sha256": "659bbcddf960c7bc969db8c4689b4da2fa355f1af625b073c0022df6cb1c03cb"
+    },
+    {
+      "file": "fieldwork-story-code-review-feedback-light.png",
+      "scene": "code-review",
+      "step": "feedback",
+      "theme": "light",
+      "width": 1240,
+      "height": 480,
+      "scale": 3,
+      "sha256": "1cb7914e197dc5e22d95e41af02b6bdcd77b3b89203a756f54cc5659ea545f42"
+    },
+    {
+      "file": "fieldwork-story-code-review-feedback-dark.png",
+      "scene": "code-review",
+      "step": "feedback",
+      "theme": "dark",
+      "width": 1240,
+      "height": 480,
+      "scale": 3,
+      "sha256": "6bff4c7641bec61dcb7bf6f3eba4edce53ff22779e3ead1afb3f557b62a71247"
+    },
+    {
+      "file": "fieldwork-story-code-review-result-light.png",
+      "scene": "code-review",
+      "step": "result",
+      "theme": "light",
+      "width": 1240,
+      "height": 480,
+      "scale": 3,
+      "sha256": "43e101db08c5e728af9800b973636e6bed0e3387cb28aa04df2f7e97054566d9"
+    },
+    {
+      "file": "fieldwork-story-code-review-result-dark.png",
+      "scene": "code-review",
+      "step": "result",
+      "theme": "dark",
+      "width": 1240,
+      "height": 480,
+      "scale": 3,
+      "sha256": "7825ea29488cc292eab040e6c8cad8e88ebfd205ea6bb2fced545037cbd733a4"
     }
   ]
 }

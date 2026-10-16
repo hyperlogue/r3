@@ -1,3 +1,5 @@
+import { storyVisuals } from "./story-visuals.ts";
+
 // Authored concept diagrams and captures of the real workspace, kept apart
 // from the short task instructions so each page stays easy to maintain.
 function screenshot(file: string, caption: string, width = 1240, height = 740) {
@@ -15,6 +17,7 @@ function diagram(content: string, caption: string, className = "") {
 }
 
 const visuals: Record<string, () => string> = {
+  ...storyVisuals,
   "media-image": () =>
     screenshot(
       "fieldwork-media-image",

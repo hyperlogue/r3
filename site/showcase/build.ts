@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import tailwind from "bun-plugin-tailwind";
 import { sha256 } from "./captures.ts";
+import { storyPublications } from "./story-publications.ts";
 
 export async function buildShowcase(directory: string) {
   const media = Object.fromEntries(
@@ -25,6 +26,7 @@ export async function buildShowcase(directory: string) {
         }),
     ),
   );
+  const stories = await storyPublications();
   const result = await Bun.build({
     entrypoints: [join(import.meta.dir, "index.tsx"), join(import.meta.dir, "style.css")],
     outdir: directory,
@@ -32,6 +34,8 @@ export async function buildShowcase(directory: string) {
     minify: true,
     define: {
       MEDIA_EXAMPLE: JSON.stringify(media),
+      STORY_PUBLICATIONS: JSON.stringify(stories.publications),
+      STORY_DOCUMENTS: JSON.stringify(stories.documents),
       COMPONENT_FONT: JSON.stringify(
         Buffer.from(
           await Bun.file(join(import.meta.dir, "../assets/fonts/Roboto.ttf")).bytes(),

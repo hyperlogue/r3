@@ -268,3 +268,29 @@ metadata. Production sources and captures are kept in a separate video workspace
 The browser and artifact acceptance checks decode all five films, load posters,
 seek to three positions, and verify resumed playback. The capability map is in
 [COVERAGE.md](COVERAGE.md).
+
+### Visual use-case walkthroughs
+
+Each of the five use-case pages contains three real workspace captures and a link
+into its interactive scene. Text stays limited to step headings, captions, and the
+fictional-data disclosure. Screenshot links open the full-resolution light or dark
+image. Markdown exports retain the light screenshots and their captions.
+
+The proposal and code-review fixtures are authored in
+`showcase/story-publications.ts`. The build uses the product's Markdown, syntax,
+and diff renderers, then bundles only their immutable output. The proposal runs
+with the native annotation runtime inside the same opaque, closed-network iframe
+as the component example. No connected server or private workspace data is used.
+
+Refresh just the prototype, proposal, search, and code-review captures:
+
+```sh
+R3_TEST_BROWSER=/path/to/chromium bun --no-env-file site/capture-showcase.ts --stories
+```
+
+Add `--scene=code-review` (or another scene name) to refresh one scene.
+This preserves existing homepage and media captures. The complete capture command
+also includes these scenes. All captures share `assets/fieldwork-captures.json`
+and the build's resolution/hash checks. `site/check-stories.ts` checks the five
+pages at desktop and phone widths, full-size image links, both themes, and their
+short text budgets.

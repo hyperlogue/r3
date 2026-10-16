@@ -5,7 +5,12 @@ type Page = Awaited<ReturnType<Browser["attach"]>>;
 
 // DevTools can inspect the product runtime's closed shadow root without
 // changing its mode or injecting substitute annotation controls.
-export async function componentFrames(browser: Browser, page: Page, count = 1): Promise<Page[]> {
+export async function componentFrames(
+  browser: Browser,
+  page: Page,
+  count = 1,
+  selector = "#component-action",
+): Promise<Page[]> {
   const frames = new Map<string, Page>();
   return eventually(async () => {
     const found: Page[] = [];
@@ -22,7 +27,7 @@ export async function componentFrames(browser: Browser, page: Page, count = 1): 
         const frame = frames.get(target.targetId)!;
         if (
           await frame.evaluate(
-            "!!document.querySelector('#component-action') && !!document.querySelector('[data-r3-preview]') && document.readyState === 'complete'",
+            `!!document.querySelector(${JSON.stringify(selector)}) && !!document.querySelector('[data-r3-preview]') && document.readyState === 'complete'`,
           )
         ) {
           await frame.evaluate("document.fonts.ready");

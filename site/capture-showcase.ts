@@ -8,6 +8,7 @@ import { buildShowcase } from "./showcase/build.ts";
 import { type CaptureManifest, captureSpecs, sha256, verifyCaptures } from "./showcase/captures.ts";
 import { verifyWorkspaceFont } from "./showcase/font-check.ts";
 import { prepareMediaCapture } from "./showcase/media-capture.ts";
+import { prepareStoryCapture } from "./showcase/story-capture.ts";
 
 // Build independently so missing captures cannot prevent their own regeneration.
 const directory = await mkdtemp(join(tmpdir(), "r3-site-capture-"));
@@ -15,12 +16,24 @@ const assets = join(import.meta.dir, "assets");
 try {
   await buildShowcase(join(directory, "example"));
   await Bun.write(join(directory, "404.html"), "<!doctype html><title>Not found</title>");
-  const manifest: CaptureManifest = {
-    captures: [],
-  };
+  const storiesOnly = process.argv.includes("--stories");
+  const selectedScene = process.argv.find((arg) => arg.startsWith("--scene="))?.slice(8);
+  if (
+    selectedScene &&
+    !captureSpecs.some((spec) => "scene" in spec && spec.scene === selectedScene)
+  )
+    throw new Error(`Unknown capture scene: ${selectedScene}`);
+  const manifest: CaptureManifest =
+    storiesOnly || selectedScene
+      ? await Bun.file(join(assets, "fieldwork-captures.json")).json()
+      : { captures: [] };
   const server = serveSite(directory, { port: 0 });
   try {
-    for (const spec of captureSpecs) {
+    for (const spec of captureSpecs.filter(
+      (spec) =>
+        (!storiesOnly || "step" in spec) &&
+        (!selectedScene || ("scene" in spec && spec.scene === selectedScene)),
+    )) {
       // Each capture gets an independent browser profile and rendering surface.
       // Separate iframe renderers inherit the browser scale, not the parent's
       // DevTools override. Keep authored content as sharp as the surrounding UI.
@@ -43,11 +56,13 @@ try {
         await eventually(
           () =>
             page.evaluate(
-              media
-                ? "!!document.querySelector('[data-native-media]')"
-                : comment
-                  ? "!!document.querySelector('.component-preview')"
-                  : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
+              "step" in spec
+                ? "!!document.querySelector('[data-artifact-thread]')"
+                : media
+                  ? "!!document.querySelector('[data-native-media]')"
+                  : comment
+                    ? "!!document.querySelector('.component-preview')"
+                    : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
             ),
           "real workspace and latest revision",
         );
@@ -60,7 +75,9 @@ try {
             "mobile discussion closes before capturing the document",
           );
         }
-        if (media) {
+        if ("step" in spec) {
+          await prepareStoryCapture(browser, page, spec.scene, spec.step);
+        } else if (media) {
           await prepareMediaCapture(page, scene === "media-video", "mediaComparison" in spec);
         } else if ("comparison" in spec) {
           const [frame] = await componentFrames(browser, page);
@@ -138,6 +155,7 @@ try {
         });
         const bytes = Buffer.from(data, "base64");
         await Bun.write(join(assets, spec.file), bytes);
+        manifest.captures = manifest.captures.filter((item) => item.file !== spec.file);
         manifest.captures.push({ ...spec, sha256: sha256(bytes) });
         console.log(
           `Captured ${spec.file}: ${spec.width * spec.scale} × ${spec.height * spec.scale}`,

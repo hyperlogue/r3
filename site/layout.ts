@@ -53,12 +53,12 @@ export function shell(
 </a>
 </div>`
     : "";
-  const articleBody = `<article class="article" data-pagefind-body>
+  const articleBody = `<article class="article${isCase ? " visual-story" : ""}" data-pagefind-body>
 <header class="article-header">
 <p class="eyebrow" data-pagefind-meta="section">${eyebrow}</p>
 <h1 data-pagefind-meta="title">${escapeHTML(page.title)}</h1>
-<p class="lede">${escapeHTML(page.description)}</p>${tools}</header>
-<div class="prose">${body}</div>${articleEnd(page)}</article>`;
+<p class="lede">${escapeHTML(page.description)}</p>${isCase ? "" : tools}</header>
+<div class="prose">${body}</div>${isCase ? tools : ""}${articleEnd(page)}</article>`;
   return `<!doctype html>
 <html lang="en" data-theme="light">
 <head>
@@ -130,7 +130,7 @@ export function shell(
 </div>
 <aside class="toc-column">${toc}</aside>
 </div>`
-      : `<main id="main" class="${article ? "story-layout" : ""}">${article ? `${articleBody}<aside class="toc-column">${toc}</aside>` : body}</main>`
+      : `<main id="main" class="${article ? `story-layout${isCase ? " visual-story-layout" : ""}` : ""}">${article ? `${articleBody}${isCase ? "" : `<aside class="toc-column">${toc}</aside>`}` : body}</main>`
   }<footer class="site-footer">
 <div>
 <a class="brand" href="/">
