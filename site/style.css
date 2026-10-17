@@ -346,7 +346,8 @@ kbd {
   min-width: 0;
   container-type: inline-size;
 }
-.hero-grid h1 {
+.hero-grid h1,
+.start-section > h2 {
   margin-top: 0;
   font-size: min(54px, 9cqi);
   line-height: 1.12;
@@ -630,7 +631,6 @@ figcaption {
   padding-block: 104px;
 }
 .section-heading h2,
-.start-section > h2,
 .story-principle h2 {
   font-size: clamp(30px, 3vw, 42px);
   line-height: 1.18;
@@ -809,6 +809,7 @@ figcaption {
   font-size: 22px;
 }
 .start-section {
+  container-type: inline-size;
   border-top: 1px solid var(--border);
   padding-block: 88px 104px;
   text-align: center;
@@ -825,7 +826,7 @@ figcaption {
 }
 .start-section > h2 {
   max-width: 620px;
-  margin-inline: auto;
+  margin: 14px auto 0;
 }
 .story-principle h2 {
   margin: 18px 0 24px;
@@ -1584,7 +1585,6 @@ figcaption {
     padding-block: 64px;
   }
   .section-heading h2,
-  .start-section > h2,
   .story-principle h2 {
     font-size: 33px;
   }

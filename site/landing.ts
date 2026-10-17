@@ -1,4 +1,4 @@
-import { homeDescription, homeTitle, homeTitleLines, stories } from "./catalog.ts";
+import { homeDescription, homeTitleLines, stories } from "./catalog.ts";
 import { featureHighlights } from "./features.ts";
 import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
 import { storyIllustration } from "./story-illustrations.ts";
@@ -95,7 +95,7 @@ ${featureHighlights()}
 <section class="start-section container" aria-labelledby="start-heading">
 <img src="/assets/favicon.svg" width="56" height="56" alt="">
 <p class="eyebrow">Start iterating visually with your agent</p>
-<h2 id="start-heading">${homeTitle}</h2>
+<h2 id="start-heading">${homeTitleLines.map((line) => `<span class="hero-title-line">${line}</span>`).join(" ")}</h2>
 ${skillInstall("start-install")}
 </section>
 </div>`;
