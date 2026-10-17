@@ -40,6 +40,29 @@ function storage() {
     },
   };
 }
+
+test("refresh flush retries failed saves and reports whether all drafts survived", () => {
+  const disk = storage();
+  let fail = true;
+  const drafts = new ArtifactDraftStore({
+    ...disk,
+    setItem(key, value) {
+      if (fail) throw new Error("Quota exceeded");
+      disk.setItem(key, value);
+    },
+  });
+  drafts.update("artifact_refresh", { body: "Keep my unsaved text" });
+  expect(drafts.flush()).toBe(false);
+  expect(drafts.get("artifact_refresh")?.body).toBe("Keep my unsaved text");
+  expect(drafts.flush()).toBe(false);
+  fail = false;
+  expect(drafts.flush()).toBe(true);
+  expect(new ArtifactDraftStore(disk).get("artifact_refresh")?.body).toBe("Keep my unsaved text");
+  const unavailable = new ArtifactDraftStore(null);
+  expect(unavailable.flush()).toBe(true);
+  unavailable.update("artifact_refresh", { body: "Memory only" });
+  expect(unavailable.flush()).toBe(false);
+});
 test("tabs editing different drafts do not overwrite each other", () => {
   const disk = storage();
   const first = new ArtifactDraftStore(disk);

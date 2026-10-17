@@ -460,7 +460,17 @@ Escape, outside dismissal, and focus return; their top layer avoids pane clippin
 Both send controls share the in-flight request guard and delivery receipts.
 Notification errors appear in the shared corner stack with guidance to check that the
 agent session is running and listening, a copyable fetch command, and expandable
-delivery details. Posting adds threads to
+delivery details. The same application-level stack holds a persistent server-version
+notice across library/workspace navigation. A newer server shows **Server updated
+to vX**, **Refresh to match the server**, and **Refresh** beside the text. A server
+downgrade uses **Server changed to vX**. The compact frame has an upward-arrow icon,
+14px-equivalent horizontal spacing, and a button stretched to the text block's
+height. It takes no focus, has no dismiss action or timeout, and never reloads
+automatically. Refresh flushes pending drafts before reloading the current URL;
+a failed draft save keeps the page open with an explanation. Ordinary notifications
+share the stack without overlap. Detection uses existing same-origin API responses
+and SSE reconnects, as specified in the remote protocol; the demo makes no check.
+Posting adds threads to
 r3; **Send to agent · N** notifies the selected subscription’s destination. Successful notification
 delivery, including Codex queue acceptance, shows **Sent** for three seconds and
 the same **Agent notified** notice. This confirms adapter acceptance, never that

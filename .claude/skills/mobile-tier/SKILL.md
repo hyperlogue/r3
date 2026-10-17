@@ -137,6 +137,10 @@ Below `md`:
 - A composer taller than its pane reveals **top-aligned** (label + quote first), not
   bottom-aligned.
 - Hover-reveal affordances are forced visible on `pointer-coarse:`.
+- The shared notification stack stays above the bottom bar and within safe-area
+  insets. Its persistent server-update notice retains the desktop composition,
+  wraps long text, and aligns its Refresh button to the text block with the shared
+  compact touch minimum.
 - The diff gutter compresses 3rem→2.25rem per column (files view 3.5rem→2.5rem),
   with the new-side sticky pin following.
 - `interactive-widget=resizes-content` on the viewport meta.

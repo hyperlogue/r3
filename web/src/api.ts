@@ -1,3 +1,4 @@
+import { applicationFetch } from "./application-fetch.ts";
 import { draftImages } from "./attachment-drafts.ts";
 // Application bootstrap, theme settings, and login-token access.
 // Artifact operations use artifact-api.ts and the shared ArtifactClient.
@@ -37,7 +38,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
     const ticket = location.hash.slice("#r3-login=".length);
     // Clear the one-time fragment before any application rendering or requests.
     history.replaceState(history.state, "", location.pathname + location.search);
-    const response = await fetch("/api/auth/local", {
+    const response = await applicationFetch("/api/auth/local", {
       method: "POST",
       redirect: "error",
       headers: { "content-type": "application/json" },
@@ -66,7 +67,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   }
   const cacheEpoch = await markdownCache.authenticationEpoch();
   const imageEpoch = await draftImages.epoch();
-  const r = await fetch("/api/boot");
+  const r = await applicationFetch("/api/boot");
   // 401 means no valid browser session, locally or remotely: show login.
   if (r.status === 401) {
     await markdownCache.suspend();
@@ -104,7 +105,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   // Normal browser requests use the same-origin HttpOnly cookie. Only controlled
   // token-bearing bootstraps need this compatibility header.
   if (TOKEN) headers["x-r3-token"] = TOKEN;
-  const r = await fetch(path, {
+  const r = await applicationFetch(path, {
     method,
     redirect: "error",
     headers,

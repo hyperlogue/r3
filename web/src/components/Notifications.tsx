@@ -22,13 +22,18 @@ export interface NotificationProps {
   onDismiss: () => void;
 }
 
-type Notice = NotificationProps & { id: string };
+type Notice = { id: string; content: ReactNode };
 const NotificationContext = createContext<{
   put: (notice: Notice) => void;
   remove: (id: string) => void;
 } | null>(null);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const parent = useContext(NotificationContext);
+  return parent ? children : <NotificationRoot>{children}</NotificationRoot>;
+}
+
+function NotificationRoot({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const put = useCallback((notice: Notice) => {
     setNotices((current) => {
@@ -48,13 +53,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         createPortal(
           <section className="r3-notifications" aria-label="Notifications" data-notifications>
             {notices.map((notice) => (
-              <NotificationCard key={notice.id} notice={notice} />
+              <div key={notice.id} className="contents">
+                {notice.content}
+              </div>
             ))}
           </section>,
           document.body,
         )}
     </NotificationContext.Provider>
   );
+}
+
+// Custom persistent notices share the same stack as ordinary feedback. Nested
+// workspace providers reuse it so navigation never creates overlapping stacks.
+export function NotificationSlot({ children }: { children: ReactNode }) {
+  const registry = useContext(NotificationContext);
+  const id = useId();
+  useEffect(() => {
+    if (!registry) throw new Error("Notifications require a NotificationProvider");
+    registry.put({ id, content: children });
+  }, [registry, id, children]);
+  useEffect(() => () => registry?.remove(id), [registry, id]);
+  return null;
 }
 
 // Registration follows the originating component's lifetime, while presentation
@@ -67,20 +87,17 @@ export function Notification({
   command,
   onDismiss,
 }: NotificationProps) {
-  const registry = useContext(NotificationContext);
-  const id = useId();
   const dismissRef = useRef(onDismiss);
   dismissRef.current = onDismiss;
   const dismiss = useCallback(() => dismissRef.current(), []);
-  useEffect(() => {
-    if (!registry) throw new Error("Notifications require a NotificationProvider");
-    registry.put({ id, title, message, tone, details, command, onDismiss: dismiss });
-    return () => registry.remove(id);
-  }, [registry, id, title, message, tone, details, command, dismiss]);
-  return null;
+  return (
+    <NotificationSlot>
+      <NotificationCard notice={{ title, message, tone, details, command, onDismiss: dismiss }} />
+    </NotificationSlot>
+  );
 }
 
-function NotificationCard({ notice }: { notice: Notice }) {
+function NotificationCard({ notice }: { notice: NotificationProps }) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);

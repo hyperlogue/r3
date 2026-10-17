@@ -3,7 +3,6 @@ import {
   type DaemonInfo,
   forceReleaseDaemonLock,
   isPidAlive,
-  R3_VERSION,
   readDaemonJson,
   readDaemonLockOwner,
   removeDaemonJson,
@@ -13,25 +12,18 @@ import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { BackendCredentials, selectedBackend } from "./backend.ts";
 import { localBootstrap } from "./local-bootstrap.ts";
+import { type ServerHealth, serverCompatibility } from "./server-compatibility.ts";
 
-interface Health {
-  ok: boolean;
-  version: string;
-  protocol?: string;
+function checkServerCompatibility(health: ServerHealth | null, url: string, local: boolean): void {
+  if (!health) throw new ArtifactCommandError(`The server at ${url} is not responding`);
+  const { compatible, message } = serverCompatibility(health, url, local);
+  if (!compatible) throw new ArtifactCommandError(message!);
+  if (message) process.stderr.write(`r3: warning: ${message}\n`);
 }
 
-function checkServerCompatibility(health: Health | null, url: string, local: boolean): void {
-  if (!health) throw new ArtifactCommandError(`The server at ${url} is not responding`);
-  const versions = `Server at ${url}: v${health.version ?? "unknown"} (${health.protocol ?? "unknown protocol"}); CLI: v${R3_VERSION} (artifacts-v3).`;
-  const recovery = local
-    ? "Run r3 server restart to use this CLI's build."
-    : "Update r3 on the CLI or server machine, then run r3 server restart on the server's machine.";
-  if (health.protocol !== "artifacts-v3")
-    throw new ArtifactCommandError(`Incompatible backend protocol. ${versions} ${recovery}`);
-  if (health.version && health.version !== R3_VERSION)
-    process.stderr.write(
-      `r3: warning: Version mismatch. ${versions} The protocol is compatible; continuing. ${recovery}\n`,
-    );
+function warnServerCompatibility(health: ServerHealth, url: string): void {
+  const { message } = serverCompatibility(health, url, true);
+  if (message) process.stderr.write(`r3: warning: ${message}\n`);
 }
 
 const sleep = (milliseconds: number) => Bun.sleep(milliseconds);
@@ -41,14 +33,14 @@ export const cliProcessArgv = (command: string, ...args: string[]) =>
     ? [process.execPath, command, ...args]
     : [process.execPath, resolve(import.meta.dir, "index.ts"), command, ...args];
 
-async function probe(url: string): Promise<Health | null> {
+async function probe(url: string): Promise<ServerHealth | null> {
   try {
     const response = await fetch(`${url.replace(/\/+$/, "")}/api/health`, {
       redirect: "error",
       signal: AbortSignal.timeout(1500),
     });
     if (!response.ok) return null;
-    const health = (await response.json()) as Health;
+    const health = (await response.json()) as ServerHealth;
     return health.ok === true && typeof health.version === "string" ? health : null;
   } catch {
     return null;
@@ -138,7 +130,7 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
       getToken: () => credentials.token(selected),
     };
     if (!forLogin) {
-      const health = await new ArtifactClient(location).json<Health>("GET", "/api/health");
+      const health = await new ArtifactClient(location).json<ServerHealth>("GET", "/api/health");
       checkServerCompatibility(health, selected, false);
     }
     return location;
@@ -185,6 +177,7 @@ export async function daemonCommand(
       return;
     }
     const health = await probe(info.url);
+    if (health) warnServerCompatibility(health, info.url);
     console.log(
       health
         ? `r3 server: ${info.publicUrl ?? info.url} · v${health.version} · ${health.protocol ?? "previous review protocol"}`
@@ -198,7 +191,9 @@ export async function daemonCommand(
     return;
   }
   if (command === "start") {
-    if (info && (await probe(info.url))) {
+    const health = info ? await probe(info.url) : null;
+    if (info && health) {
+      warnServerCompatibility(health, info.url);
       console.log(`r3 server already running: ${info.publicUrl ?? info.url}`);
       return;
     }

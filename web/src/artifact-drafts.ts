@@ -226,19 +226,22 @@ export class ArtifactDraftStore {
     );
   }
   private persist(id: string): void {
-    for (const commentTo of this.dirty.get(id) ?? []) {
+    const dirty = this.dirty.get(id);
+    if (!dirty || !this.storage) return;
+    for (const commentTo of dirty) {
       try {
         // Independent drafts cannot overwrite one another. A null value keeps
         // cleared drafts from being imported again from retained legacy keys.
-        this.storage?.setItem(
+        this.storage.setItem(
           slotKey(id, commentTo),
           JSON.stringify(this.get(id, commentTo ?? undefined)),
         );
+        dirty.delete(commentTo);
       } catch {
         /* Quota/private mode: retain the current in-memory draft. */
       }
     }
-    this.dirty.delete(id);
+    if (!dirty.size) this.dirty.delete(id);
   }
   sync(key: string | null): void {
     if (key === null) {
@@ -264,12 +267,11 @@ export class ArtifactDraftStore {
     }
     for (const listener of this.listeners) listener();
   }
-  flush(): void {
-    for (const [id, timer] of this.timers) {
-      clearTimeout(timer);
-      this.persist(id);
-    }
+  flush(): boolean {
+    for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
+    for (const id of this.dirty.keys()) this.persist(id);
+    return this.dirty.size === 0;
   }
 }
 

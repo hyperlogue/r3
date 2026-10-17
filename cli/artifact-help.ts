@@ -125,8 +125,12 @@ link. Browser access always requires a session, including on loopback.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
 Upgrades discard legacy server-local notification subscriptions and destinations.
 Run r3 listen <id> to subscribe again; current worker subscriptions are preserved.
-Incompatible backend protocols fail with the server URL, both versions, and restart
-guidance. Different release versions with a compatible protocol only warn on stderr.
+Incompatible backend protocols fail before the operation, with the server URL,
+both versions, and recovery guidance. Compatible release mismatches warn on stderr.
+CLI newer: ask the user to confirm a local restart with the newer CLI, or an upgrade
+and restart on the remote server's machine. Server newer: upgrade or switch the CLI;
+do not restart the server using an older CLI. Agents must wait for explicit user
+confirmation before restarting. Server start/status also report mismatches.
 
   login [--api-key-stdin]
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
@@ -218,6 +222,14 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 | \`html\` | A rendered HTML page with optional assets such as images | \`r3 guide html\` |
 | \`files\` | A directory with a file browser | \`r3 guide files\` |
 | \`diff\` | An independent captured patch | \`r3 guide diff\` |
+
+## Server versions
+
+Version mismatch warnings appear on stderr and do not by themselves mean the command failed. Use the command's exit code; do not repeat a successful publication because of a warning.
+
+If the CLI is newer, prompt the user to confirm restarting with the newer CLI when the server is running locally, or upgrading and restarting r3 on the server's machine when it is running on a remote host. Wait for explicit user confirmation before restarting. A configured backend URL is managed separately; a local \`r3 server restart\` does not restart a remote host.
+
+If the server is newer, prompt the user to upgrade or switch the CLI. Do not restart the newer server using an older CLI. After switching CLI versions, read its guide again. Unknown development versions do not establish an upgrade direction; inspect and align the builds. An incompatible or missing protocol stops the operation with exit 1 before writes; align the builds before retrying.
 
 ## Publish
 

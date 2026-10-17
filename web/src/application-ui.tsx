@@ -4,6 +4,8 @@ import { artifactApi } from "./artifact-api.ts";
 import { libraryReturnRoute } from "./artifact-library.ts";
 import { type ArtifactUIEnvironment, ArtifactUIProvider } from "./artifact-ui-context.tsx";
 import { AppHeader } from "./components/AppHeader.tsx";
+import { NotificationProvider } from "./components/Notifications.tsx";
+import { ServerVersionNotification } from "./components/ServerVersionNotification.tsx";
 import { SettingsDialog } from "./components/SettingsPopup.tsx";
 import { navigate } from "./router.ts";
 
@@ -18,5 +20,10 @@ export const applicationUI: ArtifactUIEnvironment = {
   },
 };
 export function ApplicationUIProvider({ children }: { children: ReactNode }) {
-  return <ArtifactUIProvider value={applicationUI}>{children}</ArtifactUIProvider>;
+  return (
+    <NotificationProvider>
+      <ServerVersionNotification />
+      <ArtifactUIProvider value={applicationUI}>{children}</ArtifactUIProvider>
+    </NotificationProvider>
+  );
 }

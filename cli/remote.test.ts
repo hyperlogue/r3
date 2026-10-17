@@ -104,6 +104,15 @@ test("remote CLI saves access, watches directly, and delivers through only a pri
       expect(compatible.error).toContain(`v${version} (artifacts-v3)`);
       expect(compatible.error).toContain(`CLI: v${R3_VERSION}`);
       expect(compatible.error).toContain("protocol is compatible; continuing");
+      if (version === "0.0.0") {
+        expect(compatible.error).toContain("CLI is newer");
+        expect(compatible.error).toContain("Ask the user to confirm");
+        expect(compatible.error).toContain("r3 server restart on the server's machine");
+      } else {
+        expect(compatible.error).toContain("server is newer");
+        expect(compatible.error).toContain("Upgrade or switch the CLI");
+        expect(compatible.error).not.toContain("r3 server restart");
+      }
     }
     for (const protocol of [undefined, "artifacts-v2", "artifacts-v9999"]) {
       healthOverride = { version: R3_VERSION, protocol };

@@ -237,6 +237,11 @@ subscriptions; restore requires a fresh publication or subscription.
   documents have opaque origins.
 - `GET /api/health` reports version and `protocol: artifacts-v3`; `GET /api/boot`
   reports browser-session state without an API token in the shipped server.
+  The application listener also stamps `X-R3-Version` on every response, including
+  errors, previews, conditional responses, and SSE handshakes. The browser compares
+  fresh API responses with its loaded bundle and offers an explicit refresh.
+  Version precedence and direction-specific CLI recovery belong to the
+  [remote protocol](../../../docs/artifacts/remote-protocol.md#backend-selection-and-transport).
   POST `/api/auth/local` exchanges a one-time local ticket for a cookie. Private
   setup uses Unix IPC, as specified in the remote protocol. All HTTP remains Host/origin gated.
   Authenticated application HTML may inline that bootstrap plus the current

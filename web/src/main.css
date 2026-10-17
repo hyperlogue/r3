@@ -160,6 +160,41 @@ html.dark {
 .r3-notification {
   pointer-events: auto;
 }
+.r3-server-update {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: max-content;
+  max-width: 100%;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.r3-server-update-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.r3-server-update-copy {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.r3-server-update-message {
+  margin-top: 0.125rem;
+  font-size: 0.625rem;
+  line-height: 1.4;
+}
+.r3-server-update-action {
+  align-self: stretch;
+  flex-shrink: 0;
+  justify-content: center;
+  min-width: 4.5rem;
+  white-space: nowrap;
+}
 @media (width < 48rem) {
   .r3-notifications {
     bottom: calc(2.5rem + env(safe-area-inset-bottom));
