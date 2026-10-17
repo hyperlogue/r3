@@ -17,6 +17,12 @@ r3 is a tool for reading, using, and discussing agent output.
 Open an interactive page, read a document, or inspect code changes. Select an
 element or passage to leave comments and continue the conversation with your agent.
 
+Install the [r3 publishing skill](skills/publish-artifacts-to-r3/SKILL.md) from your terminal:
+
+```sh
+npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global
+```
+
 Agents publish artifacts through a CLI or HTTP API. r3 works with any agent that
 can run the CLI.
 
@@ -39,12 +45,6 @@ publication or message, and **Include history** searches older versions. Agents 
 use the same search with `r3 search "keyboard focus" --history all --json`.
 
 ## Get started
-
-Install the [r3 publishing skill](skills/publish-artifacts-to-r3/SKILL.md) from your terminal:
-
-```sh
-npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global
-```
 
 Choose the coding agents you use when prompted. `--global` makes the skill
 available across your projects; omit it to install only in the current project.
