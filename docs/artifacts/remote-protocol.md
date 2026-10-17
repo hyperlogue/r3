@@ -55,9 +55,29 @@ backend's `/api/health`. An incompatible or missing artifact protocol fails befo
 the requested operation. Diagnostics include the backend URL, reported server
 version and protocol, CLI version and expected protocol, and restart guidance.
 Different release versions with the same protocol warn on stderr and continue,
-preserving stdout and command exit codes. Remote guidance locates `r3 server restart`
-on the server's machine. Automatic local discovery checks compatibility before
+preserving stdout and command exit codes. Semantic version precedence distinguishes
+a newer CLI from a newer server, including prereleases; build metadata has no
+precedence, and unknown development labels never imply a direction. With a newer
+CLI, automatic-local guidance asks the user to confirm restarting with that newer
+executable. Selected-backend guidance asks for an upgrade and restart on the
+server's machine. A newer server instead directs the caller to upgrade or switch
+the CLI, never to restart through the older executable. Agents wait for explicit
+user confirmation before restarting. Local `server start` and `server status`
+also report mismatches without replacing the running server; status remains
+available for incompatible protocols. Automatic local discovery checks compatibility before
 credential bootstrap; remote login remains available to obtain credentials first.
+
+The bundled application's HTTP listener adds `X-R3-Version` to its responses,
+including API errors, static assets, preview responses, conditional/HEAD replies,
+and event-stream handshakes. The value is the running server's release, matching
+`/api/health`; it adds no authentication or network authority. Streaming bodies
+remain streaming. Browser clients compare revalidated same-origin API response
+headers with their loaded bundle's release. The first response can detect a
+mismatch; an older in-flight response cannot overwrite a newer observation. Static
+asset caches are not version evidence. Missing or malformed headers are ignored,
+and restarting the same release does not prompt a refresh. Existing requests and
+event-stream reconnects supply detection, with no release-registry requests,
+telemetry, client-version reporting, or update polling.
 
 Private per-backend credentials live under `$XDG_CONFIG_HOME/r3/credentials/`
 (default `~/.config/r3/credentials/`), keyed by a hash of that complete URL.

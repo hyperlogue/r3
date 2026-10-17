@@ -50,11 +50,17 @@ import type {
 import { type AttachmentInput, attachmentPath } from "../../shared/attachments.ts";
 import { readEventStream } from "../../shared/event-stream.ts";
 import { TOKEN } from "./api.ts";
+import { applicationFetch } from "./application-fetch.ts";
 import { hrefFor } from "./router.ts";
 import type { DiffFileChange, DiffLine } from "./types.ts";
 
 export const HUMAN_ACTOR: ArtifactActor = { role: "human", sessionId: null };
-const client = () => new ArtifactClient({ url: `${location.origin}${hrefFor("/")}`, token: TOKEN });
+const client = () =>
+  new ArtifactClient({
+    url: `${location.origin}${hrefFor("/")}`,
+    token: TOKEN,
+    fetch: applicationFetch,
+  });
 const versionPath = (id: string, seq: number) => `${artifactApiPath(id)}/versions/${seq}`;
 const query = (values: Record<string, string | number | undefined>) => {
   const params = new URLSearchParams();

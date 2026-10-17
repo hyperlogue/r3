@@ -37,6 +37,7 @@ stale metadata; review changed associations and ambiguous-extension defaults.
 | Retained worker subscriptions, offline replacement, credential-bound reconnect, backend restart, isolated credentials, multiple backends, obsolete import disposal, worker shutdown across PID namespaces and stale-lock recovery | `server/worker-connections.test.ts`, `cli/worker-runtime.test.ts`, `cli/worker-api.test.ts`, `cli/worker-client.test.ts`, `cli/backend.test.ts` |
 | Device approval boundaries, polling/expiry/reuse, audit, revocation and trusted source addresses | `server/client-auth.test.ts`, `server/client-auth-api.test.ts` |
 | Automatic local setup, remote publisher without a TCP listener/store, independent backend display URL | `cli/artifact-main.test.ts`, `cli/remote.test.ts`, `cli/publication-url.test.ts` |
+| Release ordering, direction-specific confirmation-first CLI recovery, response version headers, stale-response ordering, explicit browser refresh and draft retention | `shared/version.test.ts`, `cli/server-compatibility.test.ts`, `cli/remote.test.ts`, `server/artifact-server.test.ts`, `web/src/server-version.test.ts`, `web/src/artifact-drafts.test.ts`, `scripts/test-server-version.ts` |
 | Claims, owner delivery, archive races/messages, terminal watch, outward listeners | `server/artifact-collaboration.test.ts`, `server/artifact-lifecycle.test.ts`, `server/agent-connections.test.ts`, `cli/artifact-commands.test.ts` |
 | Snapshot acknowledgment after successful stdout, failed/lost output, concurrent edits/reverts, restart, selective history | `cli/artifact-output.test.ts`, `cli/artifact-commands.test.ts`, `server/artifact-conversations.test.ts`, `server/artifact-api.test.ts`, `server/artifact-storage.test.ts` |
 | Artifact schema upgrades, legacy notification removal with current subscriptions/access/content preserved, imported evidence, backup, failed upgrade/retry, reopen, live-review rejection | `server/migration.test.ts`, `server/artifact-storage.test.ts` |
@@ -78,6 +79,7 @@ R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-workspace.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-startup.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" R3_TEST_SLOW_MANIFEST=1 bun scripts/test-preview-startup.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-application-startup.ts
+R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-server-version.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-preview-cache.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-markdown-cache.ts
 R3_TEST_BROWSER="$TEST_CHROMIUM" bun scripts/test-passive-markdown.ts

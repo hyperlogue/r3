@@ -1,3 +1,4 @@
+import { R3_VERSION_HEADER } from "../shared/version.ts";
 import type { ApplicationAssets } from "./application-assets.ts";
 import { createApplicationResponse } from "./application-assets.ts";
 import { createArtifactApi } from "./artifact-api.ts";
@@ -40,12 +41,26 @@ export function startArtifactServer(options: ArtifactServerOptions) {
       development: false,
       idleTimeout: 120,
       maxRequestBodySize: 200 * 1024 * 1024,
+      error(error) {
+        console.error(error);
+        return new Response("Internal server error", {
+          status: 500,
+          headers: {
+            [R3_VERSION_HEADER]: policy.version,
+            "content-type": "text/plain",
+            "cache-control": "no-store",
+            "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+            "x-content-type-options": "nosniff",
+          },
+        });
+      },
       async fetch(request, server) {
         const address = server.requestIP(request)?.address;
         if (address) addresses.set(request, address);
         const hostname = artifactRequestHostname(request);
-        if (hostname === null || !policy.allowedHost(hostname))
-          return new Response("Forbidden host", {
+        let response: Response;
+        if (hostname === null || !policy.allowedHost(hostname)) {
+          response = new Response("Forbidden host", {
             status: 403,
             headers: {
               "content-type": "text/plain",
@@ -53,11 +68,18 @@ export function startArtifactServer(options: ArtifactServerOptions) {
               "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
             },
           });
-        const path = new URL(request.url).pathname;
-        if (path.startsWith(PREVIEW_PREFIX))
-          return previews.fetch(request, policy.applicationOrigins);
-        if (path.startsWith("/api/")) return application.app.fetch(request);
-        return assets(request);
+        } else {
+          const path = new URL(request.url).pathname;
+          response = path.startsWith(PREVIEW_PREFIX)
+            ? await previews.fetch(request, policy.applicationOrigins)
+            : path.startsWith("/api/")
+              ? await application.app.fetch(request)
+              : await assets(request);
+        }
+        // Stamp every application response, including errors, validators, and
+        // streaming handshakes, without reading or buffering the body.
+        response.headers.set(R3_VERSION_HEADER, policy.version);
+        return response;
       },
     });
     let stopped = false;

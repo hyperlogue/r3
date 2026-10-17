@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { R3_VERSION_HEADER } from "../shared/version.ts";
 import { startArtifactServer } from "./artifact-server.ts";
 import { openArtifactStorage } from "./artifact-storage.ts";
 
@@ -18,7 +19,16 @@ test("shared preview hosting preserves capability and application guards", async
         contentType: "text/html",
         etag: '"fixture"',
       },
-      files: new Map(),
+      files: new Map([
+        [
+          "/fixture.js",
+          {
+            body: new Blob(["/* fixture */"]),
+            contentType: "text/javascript",
+            etag: '"fixture-js"',
+          },
+        ],
+      ]),
     },
     authentication: {
       token,
@@ -59,8 +69,30 @@ test("shared preview hosting preserves capability and application guards", async
       }),
     });
     expect(publish.status).toBe(201);
+    expect(publish.headers.get(R3_VERSION_HEADER)).toBe("test");
     const shell = await fetch(`${base}/${artifact.id}`);
     expect(shell.headers.get("x-frame-options")).toBe("DENY");
+    expect(shell.headers.get(R3_VERSION_HEADER)).toBe("test");
+    for (const [path, init, status] of [
+      ["/fixture.js", {}, 200],
+      ["/fixture.js", { headers: { "if-none-match": '"fixture-js"' } }, 304],
+      ["/fixture.js", { method: "HEAD" }, 200],
+      ["/missing.js", {}, 404],
+      ["/api/artifacts", {}, 401],
+      ["/api/boot", { headers: { origin: "null" } }, 403],
+      ["/", { headers: { host: "untrusted.example" } }, 403],
+    ] as const) {
+      const response = await fetch(base + path, init);
+      expect(response.status).toBe(status);
+      expect(response.headers.get(R3_VERSION_HEADER)).toBe("test");
+      await response.body?.cancel();
+    }
+    const stream = await fetch(`${base}/api/events`, { headers: { "x-r3-token": token } });
+    expect(stream.headers.get(R3_VERSION_HEADER)).toBe("test");
+    expect(stream.headers.get("content-type")).toContain("text/event-stream");
+    const reader = stream.body!.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain("ready");
+    await reader.cancel();
     expect(
       ((await (await fetch(`${base}/api/health`)).json()) as { protocol: string }).protocol,
     ).toBe("artifacts-v3");
@@ -82,9 +114,11 @@ test("shared preview hosting preserves capability and application guards", async
     );
     const gate = await read(preview.gateUrl);
     expect(gate.status).toBe(200);
+    expect(gate.headers.get(R3_VERSION_HEADER)).toBe("test");
     expect(gate.headers.has("set-cookie")).toBe(false);
     const content = await read(preview.documentUrl, { headers: { "sec-fetch-dest": "iframe" } });
     expect(content.status).toBe(200);
+    expect(content.headers.get(R3_VERSION_HEADER)).toBe("test");
     expect(content.headers.get("content-security-policy")).toContain("sandbox allow-scripts;");
     expect(content.headers.get("content-security-policy")).not.toContain("allow-same-origin");
     expect(await content.text()).toContain("Private artifact");
@@ -122,6 +156,20 @@ test("shared preview hosting preserves capability and application guards", async
         })
       ).status,
     ).toBe(403);
+    const failedPreview = spyOn(runtime.previews, "fetch").mockRejectedValueOnce(
+      new Error("internal fixture failure"),
+    );
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const failure = await read(preview.gateUrl);
+      expect(failure.status).toBe(500);
+      expect(failure.headers.get(R3_VERSION_HEADER)).toBe("test");
+      expect(failure.headers.get("cache-control")).toBe("no-store");
+      expect(await failure.text()).toBe("Internal server error");
+    } finally {
+      failedPreview.mockRestore();
+      logged.mockRestore();
+    }
   } finally {
     await runtime.stop();
     storage.close();
