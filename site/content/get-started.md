@@ -10,18 +10,18 @@ The skill configures your agent automatically. Reviews run locally on your machi
 
 ## Ask your agent to publish
 
-> Build a project-creation form with a visibility setting. Publish it to r3 and share the link so I can review it.
+> Create a project-creation form with a visibility setting. Publish it to r3 and share the link so I can review it.
 
-Open the link your agent gives you. If local sign-in is needed, ask it to run `r3 open` and open the fresh link.
+Open the link returned by your agent. If local sign-in is required, ask it to run `r3 open` to generate a fresh link.
 
 <!-- visual: workspace -->
 
 ## Make your first review
 
-1. Click around and test the page like a real user.
-2. Turn on **comment mode**, click any element that needs work, and write your note.
-3. Hit **Send to agent**. (If your agent isn’t listening in the background, click **Use in agent** to paste the command into your chat).
-4. Inspect the agent's new revision, check the diff, and click **Resolve** once you're satisfied.
+1. Test the interface directly.
+2. Turn on **comment mode**, click any element that needs adjustment, and write your note.
+3. Click **Send to agent**. If your agent is not running in the background, click **Use in agent** and paste the command into your chat.
+4. Inspect the agent's revision, compare the changes, and click **Resolve** once you are satisfied.
 
 [Try the example](/example/index.html) or learn [how to give precise feedback](/docs/feedback/).
 

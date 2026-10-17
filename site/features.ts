@@ -25,7 +25,7 @@ export const features = [
     duration: 11,
     title: "Attach images in comments.",
     description:
-      "Attach screenshots, sketches, or design mockups directly to your feedback. When words get messy, show your agent the target design.",
+      "Attach screenshots, sketches, or design mockups directly to your feedback to show your agent the intended design.",
   },
   {
     id: "video-comments",

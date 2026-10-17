@@ -1,8 +1,8 @@
 ## Most workflows need zero configuration
 
-By default, r3 runs automatically on loopback without manual configuration. You can customize font sizes, color themes, and syntax styles right inside the workspace.
+r3 runs on loopback with sensible defaults out of the box. You can customize font sizes, color themes, and syntax styles directly in the workspace.
 
-To inspect current server configuration, run `r3 config show` in your terminal.
+To inspect current settings, run `r3 config show` in your terminal.
 
 ## Key configuration settings
 

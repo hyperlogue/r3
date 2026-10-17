@@ -2,12 +2,12 @@
 
 ## Group related reviews
 
-Projects keep related artifacts organized together in your library. When your agent publishes from a Git repository, r3 can automatically group artifacts by Git remote, or you can specify `--project <id>` explicitly.
+Projects keep related artifacts organized in your library. When your agent publishes from a Git repository, r3 can group artifacts automatically by remote, or you can specify `--project <id>` explicitly.
 
 ## Manage project groups
 
-You can create, rename, or reassign projects anytime via the CLI or web UI, or configure Git remote alias mappings in your settings.
+You can create, rename, or reassign projects through the CLI or web interface, or configure Git remote alias mappings in your settings.
 
-Deleting a project **preserves all contained artifacts and conversations**—it simply ungroups them. (Deleting an artifact itself is a separate, permanent action).
+Deleting a project ungroups its artifacts while **preserving every version, file, and thread**. (Deleting an individual artifact remains a separate, permanent action).
 
-Projects exist purely for organization; they do not alter server access permissions.
+Projects exist for organization; they do not partition access permissions on the server.

@@ -6,7 +6,7 @@ export const promptExamples = [
   {
     label: "UI Prototype",
     scene: "prototype",
-    prompt: "Build a project-creation form so I can review the visibility settings.",
+    prompt: "Create a project-creation form so I can review the visibility settings.",
     response: "Created a working prototype with project details and visibility controls.",
   },
   {
