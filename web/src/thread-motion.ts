@@ -106,6 +106,75 @@ export const threadAnimation: AutoAnimationPlugin = (element, action, before, af
   );
 };
 
+export function useThreadFocusIndicator(selected?: string | null) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const animation = useRef<Animation | null>(null);
+  const box = useRef<{ selected: string; top: number; height: number } | null>(null);
+  useLayoutEffect(() => () => animation.current?.cancel(), []);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const indicator = indicatorRef.current;
+    if (!list || !indicator) return;
+    const measure = () => {
+      const card = selected
+        ? list.querySelector<HTMLElement>(`[data-artifact-thread="${CSS.escape(selected)}"]`)
+        : null;
+      if (!selected || !card || card.hidden || card.inert || !card.offsetHeight) {
+        indicator.hidden = true;
+        animation.current?.cancel();
+        box.current = null;
+        return;
+      }
+      const next = { selected, top: card.offsetTop, height: card.offsetHeight };
+      const previous = box.current;
+      if (
+        previous?.selected === selected &&
+        previous.top === next.top &&
+        previous.height === next.height
+      )
+        return;
+      const moving = previous && previous.selected !== selected && !prefersReduced();
+      // A second selection starts from the current pose, even mid-transition.
+      const style = moving ? getComputedStyle(indicator) : null;
+      const from = style && { transform: style.transform, height: style.height };
+      animation.current?.cancel();
+      box.current = next;
+      indicator.hidden = false;
+      const to = { transform: `translateY(${next.top}px)`, height: `${next.height}px` };
+      Object.assign(indicator.style, to);
+      if (from)
+        animation.current = indicator.animate([from, to], {
+          duration: 220,
+          easing: "cubic-bezier(0.2, 0, 0, 1)",
+        });
+    };
+    // Card expansion and queue changes can move the selected row. Observe
+    // layout changes without subscribing the panel to composer keystrokes.
+    const resize = new ResizeObserver(measure);
+    const observe = () => {
+      resize.disconnect();
+      resize.observe(list);
+      for (const child of list.children) resize.observe(child);
+      measure();
+    };
+    const mutations = new MutationObserver(observe);
+    mutations.observe(list, { childList: true });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const stop = () => {
+      if (reduced.matches) animation.current?.cancel();
+    };
+    reduced.addEventListener("change", stop);
+    observe();
+    return () => {
+      resize.disconnect();
+      mutations.disconnect();
+      reduced.removeEventListener("change", stop);
+    };
+  }, [selected]);
+  return { listRef, indicatorRef };
+}
+
 export function useThreadTabIndicator(selected: string) {
   const ref = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);

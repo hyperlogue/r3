@@ -45,12 +45,23 @@ await storage.artifacts.publish(artifact.id, {
         mediaType: "text/markdown",
         base64: Buffer.from("# Review this document").toString("base64"),
       },
+      {
+        path: "notes.txt",
+        mediaType: "text/plain",
+        base64: Buffer.from("A separate thread target").toString("base64"),
+      },
     ],
   },
 });
 const notes = await Promise.all(
-  ["First decision", "Second decision"].map((body) =>
-    storage.conversations.add(artifact.id, { actor, body, target: { kind: "artifact" } }),
+  ["First decision", "Second decision"].map((body, index) =>
+    storage.conversations.add(artifact.id, {
+      actor,
+      body,
+      target: index
+        ? { kind: "source", versionSeq: 1, path: "notes.txt", locator: null }
+        : { kind: "artifact" },
+    }),
   ),
 );
 const api = createArtifactApi(storage, {
@@ -97,10 +108,144 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
+  await page.command("Page.navigate", {
+    url: `http://localhost:${app.port}/?version=1&file=index.md&view=source`,
+  });
   const card = (id: string) =>
     `document.querySelector('[data-artifact-thread="${id}"]:not([inert]):not([inert] *)')`;
   await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "threads cards");
+  const focusRail =
+    "document.querySelector('[data-discussion-queue=active] [data-thread-focus-indicator]')";
+  const selectedThread = () =>
+    page.evaluate("document.querySelector('[data-thread-focused]')?.dataset.artifactThread");
+  const clickCard = async (id: string) => {
+    const point = await page.evaluate(`(() => {
+      const rect = ${card(id)}.getBoundingClientRect();
+      return {x: rect.right - 8, y: rect.top + 8};
+    })()`);
+    for (const type of ["mousePressed", "mouseReleased"])
+      await page.command("Input.dispatchMouseEvent", {
+        type,
+        ...point,
+        button: "left",
+        clickCount: 1,
+      });
+  };
+  const originalView = await page.evaluate("location.search");
+  await clickCard(notes[0].id);
+  await eventually(
+    () => selectedThread().then((id) => id === notes[0].id),
+    "pointer selects a thread",
+  );
+  await clickCard(notes[1].id);
+  await eventually(
+    () => selectedThread().then((id) => id === notes[1].id),
+    "pointer moves thread focus",
+  );
+  const focusMotion = await page.evaluate(`(() => {
+    const rail = ${focusRail};
+    const animation = rail.getAnimations()[0];
+    animation.pause(); animation.currentTime = 110;
+    return {top: rail.getBoundingClientRect().top, duration: animation.effect.getTiming().duration};
+  })()`);
+  assert.equal(focusMotion.duration, 220);
+  const viewAfterFocus = new URLSearchParams(await page.evaluate("location.search"));
+  viewAfterFocus.delete("thread");
+  const viewBeforeFocus = new URLSearchParams(originalView);
+  viewBeforeFocus.delete("thread");
+  assert.equal(
+    viewAfterFocus.toString(),
+    viewBeforeFocus.toString(),
+    "Selecting an anchored card preserves the content view",
+  );
+  await clickCard(notes[0].id);
+  const reversedFocus = await page.evaluate(`(() => {
+    const rail = ${focusRail};
+    const animation = rail.getAnimations()[0];
+    animation.pause(); animation.currentTime = 0;
+    const top = rail.getBoundingClientRect().top;
+    animation.finish();
+    return {top, settled: rail.getBoundingClientRect().top, target: ${card(notes[0].id)}.getBoundingClientRect().top};
+  })()`);
+  assert(
+    Math.abs(reversedFocus.top - focusMotion.top) < 1,
+    "Reversing focus preserves the moving rail's position",
+  );
+  assert(
+    Math.abs(reversedFocus.settled - reversedFocus.target) < 1,
+    "The focus rail settles on the selected card",
+  );
+  await page.evaluate(
+    `window.getSelection().selectAllChildren(${card(notes[1].id)}.querySelector('[data-message-author]')); ${card(notes[1].id)}.click()`,
+  );
+  assert.equal(
+    await selectedThread(),
+    notes[0].id,
+    "Selecting message text preserves thread focus",
+  );
+  await page.evaluate("window.getSelection().removeAllRanges()");
+  await page.command("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "k", code: "KeyK" });
+  await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "k", code: "KeyK" });
+  assert.equal(await selectedThread(), notes[1].id, "Keyboard navigation shares pointer selection");
+  assert.equal(
+    await page.evaluate(`${focusRail}.getAnimations().length`),
+    0,
+    "Reduced motion changes thread focus immediately",
+  );
+  await page.command("Emulation.setEmulatedMedia", { features: [] });
+  await page.evaluate(`${card(notes[1].id)}.querySelector('button[title]').click()`);
+  await eventually(
+    () => page.evaluate("new URLSearchParams(location.search).get('file') === 'notes.txt'"),
+    "Explicit Locate still navigates to the anchor",
+  );
+  const agentIndicator = "document.querySelector('[data-agent-working]')";
+  assert.equal(await page.evaluate(`!!${agentIndicator}`), false);
+  storage.artifacts.registerSession({ id: "acceptance-agent", label: "Review agent" });
+  storage.conversations.claim(
+    notes.map((note) => note.id),
+    "acceptance-agent",
+  );
+  api.collaboration.broadcast({
+    type: "threads-updated",
+    artifactId: artifact.id,
+    threadId: notes[0].id,
+  });
+  await eventually(
+    () => page.evaluate(`${agentIndicator}?.title.includes('Agent working on 2 threads')`),
+    "live claims show the working indicator",
+  );
+  assert.match(await page.evaluate(`${agentIndicator}.title`), /Review agent/);
+  assert.equal(
+    await page.evaluate(`${agentIndicator}.nextElementSibling.getAttribute('aria-label')`),
+    "Hide discussion",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
+  assert(
+    await page.evaluate(`${agentIndicator}.getBoundingClientRect().width > 0`),
+    "Working remains visible with the discussion hidden",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Show discussion\"]').click()");
+  storage.conversations.release(
+    notes.map((note) => note.id),
+    "acceptance-agent",
+  );
+  api.collaboration.broadcast({
+    type: "threads-updated",
+    artifactId: artifact.id,
+    threadId: notes[0].id,
+  });
+  await eventually(
+    () => page.evaluate(`!${agentIndicator}`),
+    "releasing the last claim removes the indicator",
+  );
+  console.log(
+    "Discussion focus: pointer/keyboard selection, preserved content view, continuous animation reversal, text selection, reduced motion, explicit Locate and live navbar claims passed.",
+  );
+  await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
+  await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "fresh discussion workspace");
   // Keep the HTTP mutation pending. The user should see resolution immediately,
   // rather than paying for the mutation plus a subsequent artifact refetch.
   await page.evaluate(
