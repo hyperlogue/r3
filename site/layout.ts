@@ -91,6 +91,7 @@ export function shell(
 <body data-base="${escapeHTML(base)}">
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
+<div class="container container-wide header-content">
 <div class="brand">
 <span data-site-logo><img src="/assets/favicon.svg" width="32" height="32" alt=""></span>
 <a class="brand-name" href="/" aria-label="r3 home">r3</a>
@@ -119,6 +120,7 @@ ${githubLink("header-github")}
 <nav aria-label="Mobile navigation">${links}<a href="/docs/get-started/#install-the-skill">Install the skill</a>
 </nav>
 </details>
+</div>
 </div>
 </header>${
     isDoc
