@@ -131,6 +131,7 @@ function Thread({ announce }: { announce: (text: string) => void }) {
   const id = "artifact_documents";
   const [commenting, setCommenting] = useState(false);
   const [threadTab, setThreadTab] = useState<ArtifactThreadTab>("active");
+  const [activeThread, setActiveThread] = useState<string | null>(null);
   const [versionSeq, setVersionSeq] = useState<number | null>(1);
   const mode = useDiscussionMode();
   const collapsed = mode === "hidden";
@@ -251,6 +252,8 @@ function Thread({ announce }: { announce: (text: string) => void }) {
                 }
                 onJumpRef={() => announce("Sample file reference selected")}
                 keysActive={false}
+                activeThread={activeThread}
+                onFocusThread={setActiveThread}
                 tab={threadTab}
                 onTabChange={setThreadTab}
                 panelControls={controls}

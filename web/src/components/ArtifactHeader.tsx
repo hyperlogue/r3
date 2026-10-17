@@ -312,6 +312,15 @@ export function ArtifactHeader({
   });
   const error = edit.error ?? restore.error;
   const latest = detail.versions.at(-1);
+  const workingThreads = detail.threads.filter((thread) => thread.claim);
+  const workingAgents = [...new Set(workingThreads.map((thread) => thread.claim!.sessionId))];
+  const workingDescription = `${workingAgents.length === 1 ? "Agent working" : "Agents working"} on ${workingThreads.length} ${workingThreads.length === 1 ? "thread" : "threads"}\n${workingAgents
+    .map(
+      (id) =>
+        (detail.agentLabels && Object.hasOwn(detail.agentLabels, id) && detail.agentLabels[id]) ||
+        id,
+    )
+    .join(", ")}`;
   const header = chrome?.header ?? ((children) => <WorkspaceHeader>{children}</WorkspaceHeader>);
   return header(
     <>
@@ -348,6 +357,21 @@ export function ArtifactHeader({
       {onToggleDiscussion && (
         <div className="flex shrink-0 items-center max-md:hidden">
           <ArtifactSendComments detail={detail} visible={!discussionVisible} />
+          {workingThreads.length > 0 && (
+            <span
+              role="img"
+              aria-label={workingDescription}
+              title={workingDescription}
+              data-agent-working
+              className="mr-2 flex size-7 shrink-0 items-center justify-center text-primary-600 dark:text-primary-400"
+            >
+              <StrokeIcon className="size-4">
+                <path d="M12 3v3M9 3h3M3 11v6M21 11v6" />
+                <rect x="6" y="6" width="12" height="14" rx="3" />
+                <path d="M9 11v2M15 11v2M10 16h4" />
+              </StrokeIcon>
+            </span>
+          )}
           <ArtifactDiscussionToggle
             disabled={discussionLocked}
             artifactId={detail.id}

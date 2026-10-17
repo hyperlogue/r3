@@ -29,7 +29,12 @@ import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
-import { ThreadCreationContext, threadAnimation, useThreadTabIndicator } from "../thread-motion.ts";
+import {
+  ThreadCreationContext,
+  threadAnimation,
+  useThreadFocusIndicator,
+  useThreadTabIndicator,
+} from "../thread-motion.ts";
 import {
   Button,
   CommentPlusIcon,
@@ -140,6 +145,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   artifactKind,
   latestVersionSeq,
   onLocate,
+  onFocus,
   onJumpRef,
   active = false,
   activeCommentId,
@@ -156,6 +162,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   artifactKind: ArtifactKind;
   latestVersionSeq: number | null;
   onLocate: ArtifactTargetJump;
+  onFocus?: (id: string) => void;
   onJumpRef: ArtifactRefJump;
   active?: boolean;
   activeCommentId?: string | null;
@@ -407,11 +414,26 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     </form>
   );
   return (
+    // Card selection is also available through the discussion's j/k shortcuts.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: pointer convenience; nested controls retain their own keyboard actions.
     <article
       ref={element}
       data-artifact-thread={thread.id}
+      data-thread-focused={active || undefined}
       hidden={hidden}
       inert={hidden}
+      onClick={(event) => {
+        if (
+          event.defaultPrevented ||
+          !(event.target instanceof Element) ||
+          event.target.closest(
+            "button, a, input, textarea, select, summary, [role=button], [contenteditable]",
+          ) ||
+          !window.getSelection()?.isCollapsed
+        )
+          return;
+        onFocus?.(thread.id);
+      }}
       className={cn(
         "relative border-b border-neutral-200 px-3 py-3 text-sm dark:border-neutral-800",
         thread.status === "resolved"
@@ -419,6 +441,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           : "bg-white dark:bg-neutral-950",
         thread.claim && "bg-neutral-100/70 dark:bg-neutral-900/70",
         active &&
+          !onFocus &&
           "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-warning-500",
       )}
     >
@@ -663,15 +686,25 @@ function ThreadQueue({
   selected,
   tabsId,
   empty,
+  activeThread,
   children,
 }: {
   tab: ArtifactThreadTab;
   selected: boolean;
   tabsId: string;
   empty: boolean;
+  activeThread?: string | null;
   children: ReactNode;
 }) {
   const [listAnimation] = useAutoAnimate<HTMLDivElement>(threadAnimation);
+  const focus = useThreadFocusIndicator(selected ? activeThread : null);
+  const listRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      listAnimation(node);
+      focus.listRef.current = node;
+    },
+    [listAnimation, focus.listRef],
+  );
   return (
     <div
       role="tabpanel"
@@ -694,9 +727,15 @@ function ThreadQueue({
             ? "No resolved threads."
             : "Select content to leave a comment, or add a general note."}
         </p>
-        <div ref={listAnimation} data-discussion-list>
+        <div ref={listRef} data-discussion-list>
           {children}
         </div>
+        <span
+          ref={focus.indicatorRef}
+          aria-hidden="true"
+          data-thread-focus-indicator
+          className="pointer-events-none absolute top-0 left-0 z-20 w-0.5 bg-warning-500"
+        />
       </div>
     </div>
   );
@@ -1009,6 +1048,7 @@ export function ArtifactThreads({
                 tab={queue}
                 tabsId={tabsId}
                 selected={tab === queue}
+                activeThread={activeThread}
                 empty={
                   queue === "active" ? active.length === 0 && !noteOpen : resolved.length === 0
                 }
@@ -1033,6 +1073,7 @@ export function ArtifactThreads({
                     artifactKind={detail.kind}
                     latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
                     onLocate={locate}
+                    onFocus={onFocusThread}
                     onJumpRef={onJumpRef}
                     visible={tab === queue && included(threads)}
                     hidden={!included(threads)}

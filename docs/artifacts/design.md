@@ -494,6 +494,13 @@ the control rechecks clipping when the panel resizes.
 Long conversations fold earlier comments. Nonempty drafts block sending until posted or discarded. Drafts
 for deleted threads are removed; resolving or archiving keeps them. Folding the
 dock or closing the mobile sheet disables its conversation shortcuts.
+Clicking a thread's body or empty card area selects it without navigating the
+artifact. Links and controls keep their own actions, and dragging to select text
+does not select a thread. The focus rail eases between selected cards; reduced
+motion changes it immediately. Explicit Locate still navigates to the anchor.
+While any thread has an active agent claim, a small agent icon appears immediately
+left of the navbar discussion toggle, including while the panel is hidden. Its
+tooltip names the working agents and the number of threads they have claimed.
 
 The workspace navbar has a keyboard-icon button opening the shortcuts sheet;
 `?` remains its keyboard entry point. Button hover tooltips include their keyboard
