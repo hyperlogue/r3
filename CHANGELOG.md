@@ -4,6 +4,19 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-10-16
+
+### Added
+
+- **Agent activity indicator.** The desktop navbar shows when agents are working
+  on threads, with agent names and claim counts on hover.
+
+### Changed
+
+- **Select threads without jumping.** Clicking anywhere on a thread card focuses
+  it while keeping the artifact view stable. The selection rail glides smoothly
+  between cards, leaving Locate to jump to the anchor.
+
 ## [2.1.1] - 2026-10-15
 
 ### Fixed
@@ -710,6 +723,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.2.0]: https://github.com/hyperlogue/r3/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/hyperlogue/r3/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/hyperlogue/r3/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/hyperlogue/r3/compare/v1.6.0...v2.0.0
