@@ -2,10 +2,10 @@
 
 ## Find your work
 
-Search across artifact titles, published document text, and thread discussions in real time. Search results jump directly to the matching version and target element. Toggle **All history** to search across earlier revisions too.
+Search across artifact titles, published document text, and thread discussions in real time. Results jump directly to the matching version and target element. Enable **All history** to include past versions in your search.
 
-Filter your workspace by **Active**, **Archived**, or artifact kind (HTML, Files, Diff). Enabling **Attention first** floats open threads with pending agent replies to the top so you can review incoming fixes immediately.
+Filter your workspace by status (**Active** or **Archived**) or format (**HTML**, **Files**, **Diff**). Turn on **Attention first** to prioritize artifacts with open threads or unreviewed agent replies.
 
 ## Keep it organized
 
-Assign clear titles and group related work into [projects](/docs/projects/). You can batch-select artifacts in the library view to archive or clean up old runs in one pass.
+Assign clear titles and group related work into [projects](/docs/projects/). In the library view, select multiple artifacts to archive or clean up older runs in a single action.

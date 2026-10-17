@@ -2,14 +2,14 @@
 
 ## Open the fix
 
-When your agent publishes an update, it won't interrupt your current reading view. Click **Go to the latest version** when you're ready, or switch between versions anytime in the navbar.
+When your agent publishes an update, your current view remains undisturbed. Click **Go to the latest version** when you are ready, or step through versions anytime using the navbar picker.
 
-**Locate** jumps back to what you originally flagged. The agent’s **Fix** link takes you directly to the revised element, and **Compare** places the before-and-after states side by side.
+**Locate** returns to the original element or line you flagged. The agent’s **Fix** link takes you directly to the revised element, while **Compare** places the original and updated views side by side.
 
-Test the updated interaction—don't just glance at the styling. Even if an element was removed or renamed in the revision, its conversation thread stays intact.
+Test the updated interaction to verify the behavior. Even if an element was removed or renamed in the revision, its conversation thread remains preserved.
 
 ## Decide what is done
 
-Click **Resolve** once you've confirmed the fix. If it still needs work, reply in the same thread. You can always reopen a resolved thread if an issue resurfaces.
+Click **Resolve** once you have verified the fix. If it still needs work, reply in the same thread. You can reopen any resolved thread whenever needed.
 
-The **Active** and **Resolved** queues keep your workspace focused. Crucially, an agent reply never closes a thread—only you decide when work is complete.
+The **Active** and **Resolved** queues keep your workspace clear. An agent reply never closes a thread—only you decide when work is done.

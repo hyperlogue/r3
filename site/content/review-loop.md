@@ -2,18 +2,18 @@
 
 ## Explore, then comment
 
-An **artifact** bundles published work—a web prototype, document set, or diff—with its review threads. Spend a moment clicking through and testing the interface before you start leaving notes.
+An **artifact** pairs published work—an interactive prototype, a document set, or a patch—with its ongoing conversation. Interact with the work first before leaving notes.
 
-Select a specific target and ask for an observable change:
+Select the element or passage you want changed, then ask for a concrete improvement:
 
 > Explain who can see this project before I create it.
 
-Add your comments, then hit **Send to agent**. If no agent is listening in the background, click **Use in agent** and paste the command into your chat.
+Collect your comments across the artifact, then click **Send to agent**. If no agent is listening in the background, click **Use in agent** and paste the command into your chat.
 
 ## Check the next version
 
-Each publication is a permanent snapshot. When your agent publishes a new version, your current view stays pinned so you don't lose your place. Switch to **Go to the latest version** when you're ready.
+Every publication is an immutable snapshot. When your agent publishes a new version, your current view stays pinned so you never lose your place. Click **Go to the latest version** when you are ready to review the update.
 
-Open the agent’s **Fix** link or **Compare** to inspect changes side by side. Reply if it needs another pass. **You decide when to resolve** a thread—an agent reply never closes it automatically.
+Follow the agent’s **Fix** link or open **Compare** to inspect before-and-after states side by side. Reply if it needs another pass. **You decide when to resolve** a thread—an agent reply never closes it automatically.
 
 [Archive](/docs/cleanup/) finished work to keep your active list clear.

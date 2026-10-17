@@ -1,4 +1,4 @@
-A proposal becomes easier to review when the decision and its supporting evidence are in one place. This onboarding draft asks new users to invite teammates before they have experienced anything useful themselves.
+A proposal becomes easier to review when the decision and its supporting evidence are in one place. This onboarding proposal asks new users to invite teammates before they have experienced anything useful themselves.
 
 ## Read the proposal
 
@@ -14,7 +14,7 @@ Point to the sequence and ask for a first win without involving anyone else. Tha
 
 ## Inspect the revision
 
-Follow the agent’s fix link to the new version. Project creation, a first milestone, and a useful dashboard now come before invitations. The original draft and discussion remain available if you need to revisit the reasoning.
+Follow the agent’s fix link to the new version. Project creation, a first milestone, and a useful dashboard now come before invitations. The original proposal and discussion remain available if you need to revisit the reasoning.
 
 <!-- visual: story-proposal-result -->
 
