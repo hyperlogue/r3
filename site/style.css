@@ -137,16 +137,18 @@ svg {
 }
 .site-header {
   height: var(--header-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 28px;
-  padding-inline: max(var(--page-gutter), calc((100% - 1080px) / 2));
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   position: sticky;
   top: 0;
   z-index: 20;
+}
+.header-content {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
 }
 .brand {
   display: inline-flex;
@@ -1447,8 +1449,7 @@ figcaption {
   :root {
     --page-gutter: 28px;
   }
-  .site-header {
-    padding-inline: 28px;
+  .header-content {
     gap: 20px;
   }
   .desktop-nav {
@@ -1486,9 +1487,7 @@ figcaption {
   :root {
     --page-gutter: 20px;
   }
-  .site-header {
-    height: var(--header-height);
-    padding-inline: 20px;
+  .header-content {
     gap: 16px;
   }
   [data-site-logo],
