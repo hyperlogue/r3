@@ -237,6 +237,20 @@ kbd {
 .theme-toggle svg {
   margin-inline: auto;
 }
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.github-link:hover {
+  background: var(--soft);
+  color: var(--text);
+}
 .theme-sun,
 :root[data-theme="dark"] .theme-moon {
   display: none;
@@ -823,21 +837,11 @@ figcaption {
   justify-content: space-between;
   font-size: 12px;
 }
-.site-footer > div {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.site-footer p {
-  color: var(--muted);
-}
 .site-footer nav {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 20px;
-}
-.footer-note {
-  font-size: 10px;
 }
 .index-hero {
   padding-block: 72px 62px;
@@ -1438,9 +1442,6 @@ figcaption {
   .docs-shell > .toc-column {
     display: none;
   }
-  .footer-note {
-    display: none;
-  }
 }
 @media (max-width: 960px) {
   :root {
@@ -1480,9 +1481,6 @@ figcaption {
   .site-footer {
     padding-inline: 28px;
   }
-  .site-footer > div > p {
-    max-width: 150px;
-  }
 }
 @media (max-width: 700px) {
   :root {
@@ -1512,7 +1510,7 @@ figcaption {
     display: none;
   }
   .search-link > span:nth-child(2) {
-    font-size: 12px;
+    display: none;
   }
   .mobile-menu {
     display: block;
@@ -1628,9 +1626,6 @@ figcaption {
   .site-footer {
     display: block;
     padding: 28px 20px;
-  }
-  .site-footer > div > p {
-    max-width: none;
   }
   .site-footer nav {
     margin-top: 25px;
