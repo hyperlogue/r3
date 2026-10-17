@@ -40,7 +40,8 @@ export function shell(
   const markdownPath = `${page.path}index.md`;
   const canonicalPath = page.canonicalPath ?? page.path;
   const links = `<a href="/use-cases/"${page.path.startsWith("/use-cases/") ? ' aria-current="page"' : ""}>Use cases</a>
-<a href="/docs/"${page.path.startsWith("/docs/") ? ' aria-current="page"' : ""}>Docs</a>`;
+<a href="/docs/"${page.path.startsWith("/docs/") ? ' aria-current="page"' : ""}>Docs</a>
+<a href="https://github.com/hyperlogue/r3">GitHub <span aria-hidden="true">↗</span></a>`;
   const themeScript = `(()=>{let t=new URLSearchParams(location.search).get('theme');try{t||=localStorage.getItem('r3-site-theme')}catch{}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'})()`;
   const toc = headings.length
     ? `<nav class="toc" aria-label="On this page">
