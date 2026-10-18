@@ -24,6 +24,7 @@ export function MediaViewport({
   selectionHint,
   resetKey,
   disabled = false,
+  videoAspectRatio,
 }: {
   children: ReactNode;
   controls?: HTMLElement | null;
@@ -31,6 +32,7 @@ export function MediaViewport({
   selectionHint?: string;
   resetKey?: number;
   disabled?: boolean;
+  videoAspectRatio?: number;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const transform = useRef<HTMLDivElement>(null);
@@ -40,6 +42,9 @@ export function MediaViewport({
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ id: number; x: number; y: number; offset: Offset } | null>(null);
   const panning = zoom > 1 && !selecting;
+  // Video fits within both the card width and 80% of the browser height.
+  // Below fit, shrink its layout as well as its pixels to avoid padding on both axes.
+  const shrink = videoAspectRatio ? Math.min(1, zoom) : 1;
   const reset = () => {
     setAnimate(true);
     setZoom(1);
@@ -100,7 +105,8 @@ export function MediaViewport({
       {controls && createPortal(actions, controls)}
       <div
         ref={viewport}
-        className="relative overflow-hidden"
+        className="relative mx-auto w-full overflow-hidden"
+        style={{ maxWidth: videoAspectRatio ? `${80 * videoAspectRatio}dvh` : undefined }}
         data-media-viewport
         data-zoom={zoom}
         onPointerDownCapture={() => {
@@ -112,10 +118,14 @@ export function MediaViewport({
           ref={transform}
           data-media-transform
           className={cn(
-            "origin-center",
-            animate && "transition-transform duration-150 ease-out motion-reduce:transition-none",
+            "mx-auto origin-center",
+            animate &&
+              "transition-[width,transform] duration-150 ease-out motion-reduce:transition-none",
           )}
-          style={{ transform: `translate(${offset.x * 100}%, ${offset.y * 100}%) scale(${zoom})` }}
+          style={{
+            width: `${shrink * 100}%`,
+            transform: `translate(${offset.x * 100}%, ${offset.y * 100}%) scale(${zoom / shrink})`,
+          }}
         >
           {children}
         </div>

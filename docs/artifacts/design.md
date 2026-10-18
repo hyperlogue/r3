@@ -407,8 +407,9 @@ Rendered Markdown in file artifacts expands to its natural document height withi
 the file stack. The main content pane owns vertical scrolling; width changes and
 late-loading images resize the card in both directions. Only retained Markdown
 members and native video previews can report height through the current verified
-document port. Videos fill the file card's width at their natural aspect ratio;
-the card grows and shrinks with the video so controls remain visible and scrolling
+document port. Native videos fit the file card's width at their natural aspect ratio,
+up to 80% of the browser viewport height, and center horizontally when height-limited.
+The card grows and shrinks with the video so controls remain visible and scrolling
 stays in the outer pane. HTML, images, and audio keep their viewport layout,
 including Markdown documents viewed within HTML artifacts.
 This presentation behavior does not rewrite retained document bytes.
@@ -1089,8 +1090,10 @@ the target, or posting hides it. Locate and comparison can still show saved targ
 Image and video headers also offer zoom out, a percentage button that resets to
 fit, and zoom in. Zoom ranges from 25% to 800% of the fitted view. Above 100%,
 dragging or focused arrow keys automatically pan the enlarged media within its
-bounds. Region selection temporarily takes over dragging; panning resumes when
-targeting ends. Returning to fit restores ordinary touch scrolling over the media.
+bounds. Below 100%, video containers shrink vertically with the scaled frame so
+the video always fills at least one container axis. Region selection temporarily
+takes over dragging; panning resumes when targeting ends. Returning to fit restores
+ordinary touch scrolling over the media.
 Zoom in, zoom out, and reset use a quick 150 ms ease-out transition, disabled for
 reduced-motion preferences. Drag panning follows the pointer immediately. Starting
 a pan or region gesture finishes any zoom transition before reading coordinates.

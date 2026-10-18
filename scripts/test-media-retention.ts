@@ -211,12 +211,13 @@ try {
           const previewBox = await card.locator("[data-media-frame]").boundingBox();
           return (
             previewBox &&
+            box.height <= height * 0.8 + 1 &&
             Math.abs(box.width - previewBox.width) <= 1 &&
             Math.abs(box.height - box.width / box.ratio) <= 1 &&
             Math.abs(previewBox.height - box.height) <= 1 &&
             box
           );
-        }, "full-width video and fitted frame without cropping, inner scrolling, or empty space");
+        }, "video fits within 80% viewport height without cropping, inner scrolling, or empty space");
         console.log(`${name} video layout: ${layout.width} × ${layout.height}`);
         if (process.env.R3_TEST_SCREENSHOTS)
           await page.screenshot({

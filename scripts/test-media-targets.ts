@@ -31,24 +31,29 @@ const agent = { role: "agent", sessionId: "media-acceptance-agent" } as const;
 storage.artifacts.registerSession({ id: agent.sessionId, label: "Design agent" });
 const artifact = storage.artifacts.create({ kind: "files", actor: human, title: "Media targets" });
 for (const seq of [1, 2]) {
-  const generated = Bun.spawn(
-    [
-      process.env.R3_TEST_FFMPEG ?? "ffmpeg",
-      "-v",
-      "error",
-      "-f",
-      "lavfi",
-      "-i",
-      `testsrc2=size=640x360:rate=12:duration=8`,
-      "-c:v",
-      "libvpx",
-      "-b:v",
-      "200k",
-      join(root, `clip-${seq}.webm`),
-    ],
-    { stdout: "ignore", stderr: "inherit" },
-  );
-  assert.equal(await generated.exited, 0);
+  for (const [name, size] of [
+    ["clip", "640x360"],
+    ["portrait", "360x640"],
+  ]) {
+    const generated = Bun.spawn(
+      [
+        process.env.R3_TEST_FFMPEG ?? "ffmpeg",
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        `testsrc2=size=${size}:rate=12:duration=8`,
+        "-c:v",
+        "libvpx",
+        "-b:v",
+        "200k",
+        join(root, `${name}-${seq}.webm`),
+      ],
+      { stdout: "ignore", stderr: "inherit" },
+    );
+    assert.equal(await generated.exited, 0);
+  }
   const image = Bun.spawn(
     [
       process.env.R3_TEST_FFMPEG ?? "ffmpeg",
@@ -75,6 +80,13 @@ for (const seq of [1, 2]) {
           mediaType: "video/webm",
           base64: Buffer.from(
             await Bun.file(join(root, `clip-${seq}.webm`)).arrayBuffer(),
+          ).toString("base64"),
+        },
+        {
+          path: "portrait.webm",
+          mediaType: "video/webm",
+          base64: Buffer.from(
+            await Bun.file(join(root, `portrait-${seq}.webm`)).arrayBuffer(),
           ).toString("base64"),
         },
         {
@@ -165,10 +177,69 @@ try {
     });
   };
   const url = `http://localhost:${app.port}/${artifact.id}?version=1&file=clip.webm`;
+  const videoLayout = (path: string) =>
+    page.evaluate(`(() => {
+      const card = document.querySelector(${JSON.stringify(`[data-file="${path}"]`)});
+      const video = card.querySelector('video');
+      const frame = video.getBoundingClientRect();
+      const viewport = card.querySelector('[data-media-viewport]').getBoundingClientRect();
+      return {
+        width: frame.width, height: frame.height,
+        viewportWidth: viewport.width, viewportHeight: viewport.height,
+        ratio: video.videoWidth / video.videoHeight, windowHeight: innerHeight,
+      };
+    })()`);
+  for (const path of ["clip.webm", "portrait.webm"]) {
+    await page.command("Page.navigate", {
+      url: `http://localhost:${app.port}/${artifact.id}?version=1&file=${path}`,
+    });
+    await eventually(
+      () => page.evaluate(`document.querySelector('[data-file="${path}"] video')?.readyState >= 2`),
+      `${path} loaded`,
+    );
+    for (const [width, height] of [
+      [1920, 600],
+      [390, 844],
+      [1536, 1024],
+    ] as const) {
+      await page.command("Emulation.setDeviceMetricsOverride", {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+      await click(`[data-file="${path}"] [aria-label="Reset zoom"]`);
+      await Bun.sleep(200);
+      const fitted = await videoLayout(path);
+      assert.ok(
+        fitted.height <= height * 0.8 + 1,
+        `default video height ${fitted.height} exceeds 80% of ${height}`,
+      );
+      assert.ok(
+        Math.abs(fitted.width / fitted.height - fitted.ratio) < 0.01,
+        "fit preserves the video aspect ratio",
+      );
+      if (width === 1920) await shot(`00-${path}-fit.png`);
+      for (const zoom of [0.75, 0.5, 0.25]) {
+        await click(`[data-file="${path}"] [aria-label="Zoom out"]`);
+        await Bun.sleep(200);
+        const layout = await videoLayout(path);
+        assert.ok(
+          layout.width >= layout.viewportWidth - 1 || layout.height >= layout.viewportHeight - 1,
+          `zoom ${zoom} must fill one container axis: ${JSON.stringify(layout)}`,
+        );
+        assert.ok(
+          Math.abs(layout.height - (layout.viewportWidth / layout.ratio) * zoom) <= 1,
+          `zoom out scales the fitted frame: ${JSON.stringify({ zoom, layout })}`,
+        );
+        if (width === 1920 && zoom === 0.75) await shot(`00-${path}-zoom-out.png`);
+      }
+    }
+  }
   await page.command("Page.navigate", { url });
   await eventually(
     () => page.evaluate("document.querySelector('video')?.readyState >= 2"),
-    "native video loaded",
+    "original video loaded",
   );
   await page.evaluate("document.querySelector('video').currentTime = 2.345678");
   await eventually(

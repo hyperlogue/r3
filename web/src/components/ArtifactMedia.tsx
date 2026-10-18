@@ -50,6 +50,7 @@ export function ArtifactMedia({
   const [animated, setAnimated] = useState(false);
   const [ready, setReady] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>();
   const [paused, setPaused] = useState(true);
   const [time, setTime] = useState(0);
   const video = useRef<HTMLVideoElement>(null);
@@ -79,6 +80,7 @@ export function ArtifactMedia({
     let cancelled = false;
     let held = "";
     setReady(false);
+    setVideoAspectRatio(undefined);
     setUrl("");
     setError("");
     void artifactApi
@@ -280,6 +282,7 @@ export function ArtifactMedia({
         <>
           <MediaViewport
             controls={controls}
+            videoAspectRatio={videoAspectRatio}
             disabled={!ready}
             selecting={selecting}
             selectionHint={selecting ? "Click for full frame · Drag for region" : undefined}
@@ -294,6 +297,10 @@ export function ArtifactMedia({
                   playsInline
                   preload="auto"
                   className="block w-full"
+                  onLoadedMetadata={(event) => {
+                    const { videoWidth, videoHeight } = event.currentTarget;
+                    if (videoWidth && videoHeight) setVideoAspectRatio(videoWidth / videoHeight);
+                  }}
                   onLoadedData={() => {
                     setReady(true);
                     setDuration(video.current?.duration ?? 0);
