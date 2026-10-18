@@ -4,6 +4,22 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.2.1] - 2026-10-18
+
+### Added
+
+- **Prompt to refresh the page after the server is updated.**
+
+### Changed
+
+- **Clearer CLI upgrade guidance.** Version mismatch warnings explain whether
+  to update the CLI or the server, with guidance for local and remote backends.
+  Agents ask before restarting a server.
+
+### Fixed
+
+- **Improved video layout.** Videos fit their container to make them easier to view.
+
 ## [2.2.0] - 2026-10-16
 
 ### Added
@@ -723,6 +739,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.2.1]: https://github.com/hyperlogue/r3/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/hyperlogue/r3/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/hyperlogue/r3/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/hyperlogue/r3/compare/v2.0.0...v2.1.0
