@@ -47,6 +47,20 @@ test("private worker API rejects missing credentials and every browser Origin", 
     ).toBe(200);
     expect(
       (
+        await app.request("/api/local/target", {
+          method: "POST",
+          headers: { "x-r3-token": token, "content-type": "application/json" },
+          body: JSON.stringify({
+            url: "https://backend.example",
+            actor: { role: "agent", sessionId: "fixture" },
+            target: { harness: "codex", threadId: "fixture" },
+            agentProcess: { pid: 0 },
+          }),
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
         await app.request("/api/local/intent", {
           method: "POST",
           headers: { "x-r3-token": token, "content-type": "application/json" },

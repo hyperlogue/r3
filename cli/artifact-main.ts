@@ -7,6 +7,7 @@ import type { ArtifactActor } from "../shared/artifacts.ts";
 import type { ListenerTarget } from "../shared/types.ts";
 import { R3_VERSION } from "../shared/version.ts";
 import type { WorkerSubscription } from "../shared/worker-protocol.ts";
+import { type AgentProcess, captureAgentProcess } from "./agent-process.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { runArtifactCommand } from "./artifact-commands.ts";
 import { ARTIFACT_HELP, artifactGuide, artifactWelcome } from "./artifact-help.ts";
@@ -177,11 +178,21 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
           5,
         );
     }
+    let agentProcess: AgentProcess | undefined;
+    try {
+      agentProcess = captureAgentProcess(target);
+    } catch {
+      throw new ArtifactCommandError(
+        "R3_AGENT_PID must identify a live process owned by this user",
+        5,
+      );
+    }
     localWorker = await ensureWorker();
     destination = await localWorker.json("POST", "/api/local/target", {
       url: location.url,
       actor,
       target,
+      agentProcess,
     });
     await client.json(
       "POST",

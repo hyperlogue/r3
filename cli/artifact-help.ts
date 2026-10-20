@@ -98,6 +98,8 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          Version descriptions are read-only metadata, not thread targets.
 Identity: Detected run IDs use codex:<id>, claude:<id>, or antigravity:<id>.
           R3_AGENT_SESSION supplies an explicit complete identity override.
+          R3_AGENT_PID selects a live owning process for notification cleanup;
+          normally r3 detects the long-lived harness ancestor automatically.
           --session <name> sets a readable display name; it never changes identity.
           --human acts as the human owner. watch needs no supplied identity.
 Comment fetch writes pending comments and thread status changes to stdout,
@@ -253,7 +255,9 @@ Claude Code, Codex, and Antigravity publications establish the publisher fallbac
 
 The worker inherits the permissions of the CLI that starts it. On new worker startup, recognized sandbox environment markers produce a warning on stderr: notifications may fail even when the command succeeds. Detection is best effort; reusing a running worker stays quiet. If the worker was started inside a sandbox, run \`r3 worker restart\` from a terminal outside it. Stop/restart uses authenticated IPC across PID namespaces and recovers stale locks or unresponsive workers after checking local process identity.
 
-\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` ends your subscriptions; a later publication can establish a new fallback. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms subscription setup, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch comments.
+\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` ends your subscriptions; a later publication can establish a new fallback. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms subscription setup, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued. A notification tells you to fetch comments.
+
+Each backend/session destination has its own private file under \`$XDG_STATE_HOME/r3/worker-targets/\` (default \`~/.local/state/r3/worker-targets/\`). The worker records the owning harness PID and process identity. Set \`R3_AGENT_PID\` to a live same-user agent process when a custom launcher hides the harness ancestry. Startup and normal worker operations clean up exited agents, with sweeps throttled to once a minute and an immediate check before delivery; there is no cleanup timer. This removes local notification credentials, including tracked Codex destinations. Resume with a fresh \`r3 listen <id>\`. Unknown/inaccessible processes and older records without a PID are preserved. Backend session attribution and conversations remain intact.
 
 Antigravity uses \`agy agentapi send-message\` through its running local backend. Run r3 from Antigravity's agent command environment so it can capture the conversation ID, loopback address, messaging token, and source attribution. These details stay in the private local worker. Success means queued, not that the model has processed the message. Keep the Antigravity session running; after restarting it, run \`r3 listen <id>\` again. A missing connection or unsupported executable makes explicit listen exit 5; use watch or polling instead.
 

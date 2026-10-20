@@ -226,6 +226,7 @@ process.exit(JSON.stringify(process.argv.slice(2)) === JSON.stringify(["agentapi
     XDG_CONFIG_HOME: join(root, "config"),
     R3_URL: server.url.toString(),
     R3_AGENT_SESSION: "",
+    R3_AGENT_PID: String(process.pid),
     CLAUDE_CODE_MESSAGING_SOCKET: "",
     CLAUDE_CODE_MESSAGING_TOKEN: "",
     CLAUDE_CODE_SESSION_ID: "",
@@ -270,6 +271,11 @@ process.exit(JSON.stringify(process.argv.slice(2)) === JSON.stringify(["agentapi
     };
     expect(await run()).toEqual({ code: 0, output: "Listening on artifact_test\n", error: "" });
     expect(localBodies).toHaveLength(1);
+    expect(localBodies[0].agentProcess).toMatchObject({
+      pid: process.pid,
+      platform: process.platform,
+    });
+    expect(JSON.stringify(remoteBodies)).not.toContain("agentProcess");
     expect(localBodies[0].target).toEqual({
       harness: "antigravity",
       conversationId: "agy-conversation",
@@ -292,6 +298,12 @@ process.exit(JSON.stringify(process.argv.slice(2)) === JSON.stringify(["agentapi
       environment.ANTIGRAVITY_CSRF_TOKEN,
     ])
       expect(JSON.stringify(remoteBodies)).not.toContain(value);
+    environment.R3_AGENT_PID = "2147483647";
+    const staleOwner = await run();
+    expect(staleOwner.code).toBe(5);
+    expect(staleOwner.error).toContain("R3_AGENT_PID must identify a live process");
+    expect(localBodies).toHaveLength(1);
+    environment.R3_AGENT_PID = String(process.pid);
     await Bun.write(executable, `#!${process.execPath}\nprocess.exit(1);\n`);
     const failed = await run();
     expect(failed.code).toBe(5);

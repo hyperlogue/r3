@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, lstatSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Hono } from "hono";
@@ -14,18 +14,14 @@ import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { readEventStream } from "../shared/event-stream.ts";
 import type { ListenerTarget } from "../shared/types.ts";
 import {
-  WORKER_DESTINATION_LIMIT,
   WORKER_PROTOCOL,
   type WorkerEvent,
   type WorkerSubscription,
 } from "../shared/worker-protocol.ts";
+import { type AgentProcess, parseAgentProcess } from "./agent-process.ts";
 import { BackendCredentials } from "./backend.ts";
-import {
-  privateDirectory,
-  readPrivateJson,
-  withPrivateLock,
-  writePrivateJson,
-} from "./private-state.ts";
+import { privateDirectory, withPrivateLock, writePrivateJson } from "./private-state.ts";
+import { WorkerTargets } from "./worker-targets.ts";
 
 export const workerInfoPath = () => join(dirname(daemonJsonPath()), "worker.json");
 export interface WorkerInfo {
@@ -33,20 +29,9 @@ export interface WorkerInfo {
   socket: string;
   token: string;
 }
-interface Target {
-  id: string;
-  url: string;
-  actor: ArtifactActor;
-  target: ListenerTarget;
-}
 interface Subscription extends WorkerSubscription {
   url: string;
   status: "active";
-}
-interface State {
-  version: 2;
-  workerId: string;
-  targets: Target[];
 }
 interface Backend {
   controller: AbortController;
@@ -68,51 +53,29 @@ const wait = (milliseconds: number, signal: AbortSignal) =>
     if (signal.aborted) finish();
   });
 
-// One writer owns this private file. Artifacts and threads are never cached here.
+// The worker alone owns private destination files. Artifact data is never cached.
 export class WorkerRuntime {
-  private state: State;
+  private readonly destinations: WorkerTargets;
   private subscriptions: Subscription[] = [];
   private readonly backends = new Map<string, Backend>();
   private stopping = false;
   constructor(
-    private readonly path = join(stateDir(), "worker-state.json"),
+    path = join(stateDir(), "worker-state.json"),
     private readonly credentials = new BackendCredentials(),
     private readonly delivery = deliverLocalAgent,
     private readonly send: (request: Request) => Promise<Response> = (request) => fetch(request),
+    destinations?: WorkerTargets,
   ) {
-    const saved = readPrivateJson<State & { version: number }>(path);
-    if (saved && (![1, 2].includes(saved.version) || !Array.isArray(saved.targets)))
-      throw new Error("Unsupported worker state format");
-    this.state = {
-      version: 2,
-      workerId: saved?.workerId ?? randomUUID(),
-      targets: saved?.targets ?? [],
-    };
-    // Discard obsolete transfer files without reading their harness credentials.
-    rmSync(join(dirname(this.path), "worker-import.json"), { force: true });
-    this.save();
-  }
-  private save(): void {
-    writePrivateJson(this.path, this.state);
+    this.destinations = destinations ?? new WorkerTargets(path);
   }
   private prune(url: string): void {
+    this.destinations.sweep();
     const backend = this.backends.get(url);
     const retained = backend?.listenerIds;
     // Older servers omit the snapshot. Preserve destinations until the backend
     // can tell us which subscriptions still need them.
     if (!retained || backend.status !== "ready") return;
-    let unused = 0;
-    const targets = this.state.targets
-      .toReversed()
-      .filter((target) => {
-        if (target.url !== url || retained.has(target.id)) return true;
-        unused++;
-        return unused <= WORKER_DESTINATION_LIMIT;
-      })
-      .reverse();
-    if (targets.length === this.state.targets.length) return;
-    this.state.targets = targets;
-    this.save();
+    this.destinations.prune(url, retained);
   }
   private client(url: string): ArtifactClient {
     return new ArtifactClient({
@@ -122,7 +85,9 @@ export class WorkerRuntime {
     });
   }
   start(): void {
-    for (const url of new Set(this.state.targets.map((value) => value.url))) this.connect(url);
+    this.destinations.sweep();
+    for (const url of new Set(this.destinations.list().map((value) => value.url)))
+      this.connect(url);
   }
   private connect(url: string): Backend {
     const previous = this.backends.get(url);
@@ -145,6 +110,7 @@ export class WorkerRuntime {
     const signal = backend.controller.signal;
     let delay = 500;
     while (!signal.aborted && !this.stopping) {
+      this.destinations.sweep();
       const attempt = new AbortController();
       const aborted = () => attempt.abort();
       signal.addEventListener("abort", aborted, { once: true });
@@ -161,7 +127,7 @@ export class WorkerRuntime {
         const response = await client.request(
           "POST",
           "/api/workers/connect",
-          { workerId: this.state.workerId, protocol: WORKER_PROTOCOL },
+          { workerId: this.destinations.workerId, protocol: WORKER_PROTOCOL },
           attempt.signal,
         );
         if (
@@ -172,6 +138,7 @@ export class WorkerRuntime {
         let ready = false;
         for await (const frame of readEventStream(response.body)) {
           alive();
+          this.destinations.sweep();
           const event = JSON.parse(frame.data) as WorkerEvent;
           if (event.type === "ready") {
             if (
@@ -194,26 +161,15 @@ export class WorkerRuntime {
           } else if (!ready) throw new Error("Worker stream did not start with ready");
           else if (event.type === "registered") {
             backend.listenerIds?.add(event.subscription.listenerId);
-            const target = this.state.targets.find(
-              (value) =>
-                value.url === url &&
-                value.id === event.subscription.listenerId &&
-                value.actor.sessionId === event.subscription.actor.sessionId,
-            );
-            if (target) this.remember(url, event.subscription);
+            const target = this.destinations.get(url, event.subscription.listenerId);
+            if (target?.actor.sessionId === event.subscription.actor.sessionId)
+              this.remember(url, event.subscription);
           } else if (event.type === "retired") {
             const retiring = this.subscriptions.find(
               (value) => value.url === url && value.id === event.registrationId,
             );
-            const target = this.state.targets.find(
-              (value) => value.url === url && value.id === retiring?.listenerId,
-            );
             // A replacement may reuse this destination in the next frame.
-            if (target) {
-              this.state.targets = this.state.targets.filter((value) => value !== target);
-              this.state.targets.push(target);
-              this.save();
-            }
+            if (retiring) this.destinations.touch(url, retiring.listenerId);
             this.subscriptions = this.subscriptions.filter(
               (value) => value.url !== url || value.id !== event.registrationId,
             );
@@ -268,9 +224,7 @@ export class WorkerRuntime {
     const subscription = this.subscriptions.find(
       (value) => value.url === url && value.id === event.registrationId,
     );
-    const target = this.state.targets.find(
-      (value) => value.url === url && value.id === event.listenerId,
-    );
+    const target = this.destinations.forDelivery(url, event.listenerId);
     let state: "sent" | "queued" | undefined;
     if (
       subscription &&
@@ -296,14 +250,8 @@ export class WorkerRuntime {
     );
   }
   private remember(url: string, subscription: WorkerSubscription): void {
-    if (
-      !this.state.targets.some(
-        (value) =>
-          value.url === url &&
-          value.id === subscription.listenerId &&
-          value.actor.sessionId === subscription.actor.sessionId,
-      )
-    )
+    const target = this.destinations.get(url, subscription.listenerId);
+    if (target?.actor.sessionId !== subscription.actor.sessionId)
       throw new ArtifactError("Unknown local notification destination");
     this.subscriptions = this.subscriptions.filter(
       (value) =>
@@ -313,20 +261,15 @@ export class WorkerRuntime {
     );
     this.subscriptions.push({ ...subscription, url, status: "active" });
   }
-  async target(url: string, actor: ArtifactActor, target: ListenerTarget) {
+  async target(
+    url: string,
+    actor: ArtifactActor,
+    target: ListenerTarget,
+    agentProcess?: AgentProcess,
+  ) {
     if (actor.role !== "agent") throw new ArtifactError("Listeners require an agent session");
-    let saved = this.state.targets.find(
-      (value) => value.url === url && value.actor.sessionId === actor.sessionId,
-    );
-    if (!saved) {
-      saved = { id: randomUUID(), url, actor, target };
-    } else saved.target = target;
-    // Recent setup may belong to a CLI still preparing a publication. Bound
-    // unused destinations by count, without expiring an in-progress command.
-    this.state.targets = this.state.targets.filter((value) => value !== saved);
-    this.state.targets.push(saved);
+    const saved = this.destinations.bind(url, actor, target, agentProcess);
     this.prune(url);
-    this.save();
     const backend = this.connect(url);
     if (backend.status === "login-required")
       throw new ArtifactError("Backend access is unavailable; run r3 login", 401);
@@ -350,6 +293,7 @@ export class WorkerRuntime {
     return { listenerId: saved.id, connectionId: backend.connectionId };
   }
   async reload(url: string): Promise<void> {
+    this.destinations.sweep();
     const backend = this.backends.get(url);
     if (!backend) return;
     backend.controller.abort();
@@ -358,8 +302,9 @@ export class WorkerRuntime {
     this.connect(url);
   }
   status() {
+    this.destinations.sweep();
     return {
-      workerId: this.state.workerId,
+      workerId: this.destinations.workerId,
       backends: [...this.backends].map(([url, value]) => ({ url, state: value.status })),
       subscriptions: this.subscriptions.map(({ url, artifactId, mode, status }) => ({
         url,
@@ -451,11 +396,15 @@ export function workerApi(runtime: WorkerRuntime, token: string, stop: () => voi
     const body = await artifactJson(c.req.raw, 32 * 1024);
     const target = parseListenerTarget(body.target);
     if (!target.ok) throw new ArtifactError(target.error);
+    const agentProcess =
+      body.agentProcess === undefined ? undefined : parseAgentProcess(body.agentProcess);
+    if (agentProcess === null) throw new ArtifactError("Invalid agent process identity");
     return c.json(
       await runtime.target(
         normalizeBackendUrl(requireString(body.url, "url", 4096)),
         requireActor(body.actor),
         target.target,
+        agentProcess,
       ),
     );
   });

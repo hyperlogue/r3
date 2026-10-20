@@ -6,12 +6,13 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 export function privateDirectory(path: string): void {
   mkdirSync(path, { recursive: true, mode: 0o700 });
@@ -38,22 +39,52 @@ export function writePrivateJson(path: string, value: unknown): void {
   const temporary = `${path}.${randomUUID()}.tmp`;
   const fd = openSync(temporary, "wx", 0o600);
   try {
-    writeFileSync(fd, `${JSON.stringify(value)}\n`);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
-  try {
+    try {
+      writeFileSync(fd, `${JSON.stringify(value)}\n`);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
     renameSync(temporary, path);
   } finally {
     rmSync(temporary, { force: true });
   }
-  const directory = openSync(dirname(path), "r");
+  syncDirectory(dirname(path));
+}
+
+function syncDirectory(path: string): void {
+  const directory = openSync(path, "r");
   try {
     fsyncSync(directory);
   } finally {
     closeSync(directory);
   }
+}
+
+export function removePrivateJson(path: string): void {
+  rmSync(path, { force: true });
+  syncDirectory(dirname(path));
+}
+
+// Call only while holding the owning writer's lock, before it starts writing.
+export function cleanupPrivateTemps(
+  directory: string,
+  acceptsBase: (name: string) => boolean,
+): void {
+  let removed = false;
+  for (const name of readdirSync(directory)) {
+    const match = /^(.*)\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/.exec(
+      name,
+    );
+    if (!match || !acceptsBase(basename(match[1]!))) continue;
+    const path = join(directory, name);
+    const stat = lstatSync(path);
+    if (stat.isFile() && (!process.getuid || stat.uid === process.getuid())) {
+      rmSync(path);
+      removed = true;
+    }
+  }
+  if (removed) syncDirectory(directory);
 }
 
 export async function withPrivateLock<T>(path: string, action: () => Promise<T>): Promise<T> {

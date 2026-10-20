@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
-import { chmod, mkdtemp, rm, stat } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AntigravityListenerTarget, ListenerTarget } from "../shared/types.ts";
 import type { WorkerSubscription } from "../shared/worker-protocol.ts";
+import type { AgentProcess } from "./agent-process.ts";
 import { BackendCredentials } from "./backend.ts";
 import { WorkerProtocolFixture } from "./worker-protocol-fixture.ts";
 import { WorkerRuntime } from "./worker-runtime.ts";
+import { type WorkerTarget, WorkerTargets } from "./worker-targets.ts";
 
 let root: string,
   credentials: BackendCredentials,
@@ -24,7 +26,15 @@ async function until(condition: () => boolean) {
     await Bun.sleep(10);
   }
 }
-function runtime() {
+async function savedTargets(): Promise<WorkerTarget[]> {
+  const directory = join(root, "worker-targets");
+  return Promise.all(
+    (await readdir(directory))
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => Bun.file(join(directory, name)).json()),
+  );
+}
+function runtime(destinations?: WorkerTargets) {
   return new WorkerRuntime(
     join(root, "worker-state.json"),
     credentials,
@@ -33,6 +43,7 @@ function runtime() {
       return "queued";
     },
     fixture.fetch,
+    destinations,
   );
 }
 beforeEach(async () => {
@@ -54,8 +65,9 @@ afterEach(async () => {
 async function subscribe(
   url: string,
   localTarget: ListenerTarget = { harness: "codex", threadId: "fixture-thread" },
+  agentProcess?: AgentProcess,
 ) {
-  const target = await worker.target(url, actor, localTarget);
+  const target = await worker.target(url, actor, localTarget, agentProcess);
   const subscription: WorkerSubscription = {
     id: randomUUID(),
     artifactId: randomUUID(),
@@ -108,7 +120,10 @@ await Bun.write(${JSON.stringify(output)}, JSON.stringify({
   worker = createWorker();
   const subscription = await subscribe(one, target);
   expect(await Bun.file(output).exists()).toBe(false);
-  expect((await Bun.file(path).json()).targets[0].target).toEqual(target);
+  expect((await savedTargets())[0]!.target).toEqual(target);
+  expect((await Bun.file(path).json()).targets).toBeUndefined();
+  const targetFiles = await readdir(join(root, "worker-targets"));
+  expect((await stat(join(root, "worker-targets", targetFiles[0]!))).mode & 0o777).toBe(0o600);
   expect((await stat(path)).mode & 0o777).toBe(0o600);
   await worker.stop();
   worker = createWorker();
@@ -188,7 +203,7 @@ test("an independent backend can deliver through an opaque ID; unknown and cross
 test("worker restart reconnects without saving or restoring subscription intent", async () => {
   const subscription = await subscribe(one);
   const saved = await Bun.file(join(root, "worker-state.json")).json();
-  expect(saved.version).toBe(2);
+  expect(saved.version).toBe(3);
   expect(saved.subscriptions).toBeUndefined();
   await worker.stop();
   worker = runtime();
@@ -326,6 +341,75 @@ test("stopping the worker cancels a stalled backend connection", async () => {
   await worker.stop();
 });
 
+test("normal stream and status operations clean dead owners even when a backend is unavailable", async () => {
+  await worker.stop();
+  let now = 0;
+  const dead = new Set<number>();
+  const owner: AgentProcess = {
+    pid: 123,
+    platform: "linux",
+    bootId: "boot",
+    namespace: "pid:[1]",
+    startedAt: "10",
+  };
+  const store = new WorkerTargets(join(root, "worker-state.json"), {
+    now: () => now,
+    processes: () => ({
+      localIdentity: (value) => value,
+      liveness: (value) => (dead.has(value.pid) ? "dead" : "alive"),
+    }),
+  });
+  worker = runtime(store);
+  const first = await subscribe(one, undefined, owner);
+  await subscribe(two, undefined, { ...owner, pid: 456 });
+  fixture.backends.get(two)!.token = "revoked";
+  fixture.disconnect(two);
+  await until(() => worker.status().backends.some((value) => value.state === "login-required"));
+  dead.add(123);
+  dead.add(456);
+  now = 60_000;
+  fixture.send(one, { type: "heartbeat" });
+  // Do not poll status here: prove that the incoming frame triggers cleanup.
+  await until(() => store.list().length === 0);
+  expect(await savedTargets()).toHaveLength(0);
+  // Authorship and backend subscriptions remain authoritative and untouched.
+  expect(fixture.backends.get(one)!.subscriptions.has(first.id)).toBe(true);
+  dead.clear();
+  await subscribe(one, undefined, owner);
+  dead.add(owner.pid);
+  now += 60_000;
+  worker.status();
+  expect(store.list()).toHaveLength(0);
+});
+
+test("delivery checks process exit immediately without waiting for the next sweep", async () => {
+  await worker.stop();
+  let dead = false;
+  const owner: AgentProcess = {
+    pid: 123,
+    platform: "linux",
+    bootId: "boot",
+    namespace: "pid:[1]",
+    startedAt: "10",
+  };
+  const store = new WorkerTargets(join(root, "worker-state.json"), {
+    now: () => 0,
+    processes: () => ({
+      localIdentity: (value) => value,
+      liveness: () => (dead ? "dead" : "alive"),
+    }),
+  });
+  worker = runtime(store);
+  const subscription = await subscribe(one, undefined, owner);
+  dead = true;
+  fixture.send(one, nudge(subscription));
+  await until(() => fixture.backends.get(one)!.acknowledgments.length === 1);
+  expect(delivered).toHaveLength(0);
+  expect(fixture.backends.get(one)!.acknowledgments[0]).toMatchObject({ ok: false });
+  expect(store.list()).toHaveLength(0);
+  expect(await savedTargets()).toHaveLength(0);
+});
+
 test("reconnect prunes thousands of stale destinations without setup replay and preserves every subscribed role", async () => {
   await worker.stop();
   const path = join(root, "worker-state.json");
@@ -349,14 +433,13 @@ test("reconnect prunes thousands of stale destinations without setup replay and 
     fixture.backends.get(one)!.subscriptions.set(subscription.id, { ...subscription });
   await Bun.write(
     path,
-    JSON.stringify({ ...saved, targets: [...targets, { ...targets[0], url: two }] }),
+    JSON.stringify({ ...saved, version: 2, targets: [...targets, { ...targets[0], url: two }] }),
   );
   worker = runtime();
   const fresh = await worker.target(one, actor, { harness: "codex", threadId: "fresh" });
   await until(() => worker.status().subscriptions.length === 3);
   expect(fixture.backends.get(one)!.requests).toEqual(["/api/workers/connect"]);
-  const destinations = async () =>
-    (await Bun.file(path).json()).targets as { id: string; url: string }[];
+  const destinations = savedTargets;
   let local = (await destinations()).filter((value) => value.url === one);
   expect(local).toHaveLength(4098);
   expect(local.map((value) => value.id)).toEqual(
@@ -383,21 +466,22 @@ test("reconnect prunes thousands of stale destinations without setup replay and 
   expect((await destinations()).filter((value) => value.url === two)).toEqual([
     expect.objectContaining({ id: "destination-0", url: two }),
   ]);
-});
+}, 60_000);
 
 test("an older backend without a destination snapshot preserves saved destinations", async () => {
   const subscription = await subscribe(one);
   await worker.stop();
   const path = join(root, "worker-state.json");
   const saved = await Bun.file(path).json();
+  const targets = await savedTargets();
   for (let index = 0; index < 5000; index++)
-    saved.targets.push({ ...saved.targets[0], id: `unused-${index}` });
-  await Bun.write(path, JSON.stringify(saved));
+    targets.push({ ...targets[0]!, id: `unused-${index}` });
+  await Bun.write(path, JSON.stringify({ ...saved, version: 2, targets }));
   fixture.destinationSnapshot = false;
   worker = runtime();
   worker.start();
   await until(() => worker.status().subscriptions.length === 1);
-  expect((await Bun.file(path).json()).targets).toHaveLength(5001);
+  expect(await savedTargets()).toHaveLength(5001);
   fixture.send(one, nudge(subscription));
   await until(() => delivered.length === 1);
-});
+}, 60_000);

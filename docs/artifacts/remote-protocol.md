@@ -189,15 +189,44 @@ may expose no recognized marker. Startup continues with the same permissions and
 exit behavior. Reusing an existing worker produces no startup warning. To replace
 a sandboxed worker, run `r3 worker restart` from a terminal outside the sandbox.
 
-The worker persists a random worker ID, backend-qualified opaque destination IDs,
-and local harness targets in
-`$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). The local IPC
+The worker persists its random worker ID in version 3
+`$XDG_STATE_HOME/r3/worker-state.json` (default `~/.local/state/r3/`). Each
+backend/session destination has an independent versioned JSON file under
+`worker-targets/` in that state directory, named by a digest of its backend URL and
+opaque destination ID. It contains the URL, destination ID, actor, local harness
+target, optional agent process identity, and last-update ordering timestamp.
+There is no persisted index or recovery intent. Directories are 0700 and files
+are 0600; updates use atomic replacement. Refreshing a destination rewrites only
+its file. Startup removes abandoned temporary writes and isolates corrupt destination
+files without following symlinks. The local IPC
 socket and discovery file reside beside `daemon.json` in the runtime directory.
 Authenticated IPC, rather than a PID check, establishes that an existing worker is
 alive, including across PID namespaces. The IPC file and socket require owner-only permissions and a separate private
 credential; requests carrying any Origin header are rejected. Paths, executables,
-Codex home, Claude sockets, Antigravity connection details, and harness credentials
+Codex home, Claude sockets, Antigravity connection details, agent process identity, and harness credentials
 never enter backend requests.
+
+The CLI records the nearest matching long-lived harness ancestor, skipping the
+short-lived r3 command and shells. `R3_AGENT_PID` can explicitly select a live,
+same-user process for launchers that hide that ancestry. Identity includes PID,
+process start time, boot identity, and PID namespace, so a reused PID cannot keep
+old credentials alive. Linux namespace translation occurs only when the worker
+can verify the same process in its own namespace.
+
+At startup and during registration, status, credential reload, reconnect, and
+incoming stream events (including existing heartbeats), the worker checks saved
+processes at most once per minute. There is no cleanup timer or scheduled job;
+idle state waits for the next normal operation. Delivery checks its own destination
+immediately, regardless of the sweep throttle. A missing, exited/zombie, or replaced
+process removes its destination file even when the backend is unavailable or still
+retains a subscription. This deletes local routing credentials, not backend session
+attribution or conversation history. A later push fails until fresh listen or
+publication establishes a destination. Tracked Codex destinations also expire on
+process exit, even though Codex itself can queue to stopped sessions.
+
+Unknown ancestry, older records without a PID, inaccessible processes, and
+untranslatable PID namespaces are preserved rather than guessed dead. A fresh
+listen from a recognized harness or with `R3_AGENT_PID` adds process tracking.
 
 The Antigravity adapter captures `ANTIGRAVITY_CONVERSATION_ID`,
 `ANTIGRAVITY_LS_ADDRESS`, `ANTIGRAVITY_CSRF_TOKEN`, and optional
@@ -221,7 +250,8 @@ have exited. Dead or unrelated PID records can be cleared without signaling them
 changed records are preserved. An older reachable worker without IPC shutdown uses
 the same verified process fallback; if its process cannot be identified, stop fails
 and instructs the caller to stop it from its original environment. These operations
-preserve saved destinations, worker identity, credentials, and backend subscriptions.
+preserve worker identity, backend credentials, and backend subscriptions; ordinary
+startup process cleanup still applies to saved destinations.
 
 `POST /api/workers/connect` accepts `workerId` and `protocol: "r3-worker-v2"`.
 It returns `text/event-stream`; the first frame is `ready` with `protocol`,
@@ -254,12 +284,12 @@ shows the selected subscription’s connectionState and error from the watchers 
 
 Reconnect reads the retained subscriptions from the stream without replaying session
 or destination setup requests. The CLI binds a destination for each new listen or
-publication. After an authoritative `listenerIds` snapshot, the worker keeps every
+publication. In addition to process cleanup, after an authoritative `listenerIds` snapshot, the worker keeps every
 subscribed destination and at most 4,096 recently used, unsubscribed destinations
 per backend. Count-based cleanup allows a CLI to finish a slow publication without
 its destination expiring. Heartbeats run the same cleanup. Older servers that omit the
-snapshot preserve local destinations until upgraded. A disconnected or unavailable
-backend cannot cause its saved destinations to be discarded.
+snapshot skip count-based pruning. Backend unavailability alone never discards a
+destination; confirmed process exit still does.
 
 The wire type `WorkerSubscription` carries a subscription. Its `id` identifies
 that subscription, `listenerId` identifies the notification destination, and
@@ -316,8 +346,12 @@ its local connection information, while listening from another agent changes sel
 The backend persists subscription identity, worker identity, and authorizing principal.
 Backend restart reconstructs retained selection as disconnected until transport returns.
 Replacement, unlisten, archive, and deletion end subscriptions permanently. Restore
-never revives pre-archive subscriptions. Worker state version 2 retains local destinations
-but discards old recovery intents. Schema 12 retires older subscription records whose
+never revives pre-archive subscriptions. Worker state version 3 migrates version 1/2
+aggregate destinations into separate files, preserving worker and destination IDs
+and discarding old recovery intents. All destination files are durably written
+before replacing the aggregate metadata, so interrupted migration can replay.
+Migrated records remain untracked until a fresh registration captures a process.
+Schema 12 retires older subscription records whose
 credential principal was not saved; those require a fresh listen or publication after
 upgrade. Schema 16 discards legacy server-local destinations and subscriptions;
 startup deletes obsolete import files. Run `r3 listen <artifact-id>` to subscribe
@@ -343,8 +377,8 @@ fallback selection never send pending content. Existing lifecycle rules still
 allow an explicit nonblank archive Comment to reach the captured notification
 destination after archive commits. Delivery failure is reported to the human.
 `queued` means Codex or Antigravity accepted the notification, not that the model
-processed it. Codex can queue while its session is stopped; Antigravity needs its
-local backend running.
+processed it. Antigravity needs its local backend running. A tracked agent's
+process must still exist; otherwise the worker removes its local destination.
 A signal-only acknowledgment never consumes pending content; snapshot
 fetch/output/acknowledgment remains separate. An acknowledged archive notification
 can stamp its Comment only when it carried the complete body and that Comment

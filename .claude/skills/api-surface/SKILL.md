@@ -356,7 +356,14 @@ A persistent local worker owns local notification destinations. Disconnect retai
 and marks them unavailable. Reconnect binds the same worker and credential principal
 without changing selection. Fresh listen can replace the explicit subscription;
 archive, replacement, and unlisten end subscriptions even while the worker is offline.
-Codex queue success need not mean the session is running. Antigravity queues through
+Local destinations use one private file per backend/session and capture the owning
+harness PID with start, boot, and namespace identity. `R3_AGENT_PID` overrides
+ancestor detection for custom launchers and must name a live same-user process.
+Startup and normal worker operations clean confirmed-dead owners, with a one-minute
+sweep throttle and immediate checks before delivery. No cleanup timer is added.
+Unknown/inaccessible owners and legacy records without a PID are preserved.
+Cleanup leaves backend sessions/history intact; resumed agents must listen again.
+Antigravity queues through
 `agy agentapi send-message` and requires its local backend to remain running;
 fresh listen captures replacement connection details after a session restart.
 Neither queue acknowledgment proves model consumption. Other agents watch or poll.

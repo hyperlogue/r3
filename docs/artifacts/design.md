@@ -722,7 +722,15 @@ owns local Claude Code, Codex, and Antigravity delivery and opens only a private
 Unix socket. CLI reads, writes, uploads, and watch go directly to the selected
 backend. Each backend
 gets one outgoing worker connection carrying opaque destination IDs. Harness paths
-and credentials remain in private local worker state.
+and credentials remain in private local worker state. The worker ID has a small
+metadata file; each backend/session destination has its own atomic private file.
+Captured agent PID, start identity, boot, and namespace allow safe cleanup after
+process exit. Normal worker operations trigger a sweep at most once a minute,
+and delivery checks its destination immediately; there is no cleanup timer.
+Confirmed exit deletes local destination state even when its backend is unavailable.
+Unknown or inaccessible processes and legacy records without a PID are preserved.
+Fresh listen captures replacement process identity; backend authorship and history
+are unaffected.
 
 Disconnect leaves backend subscriptions selected and reports unavailable delivery.
 The persistent worker reconnects transport under the same credential principal,

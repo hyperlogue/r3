@@ -439,10 +439,21 @@ The worker opens only a private Unix socket and outgoing authenticated streams.
 Its separate IPC credential, owned 0700 directory, 0600 files/socket, and rejection
 of every Origin header keep harness details off application HTTP. Local paths,
 executables, Codex home, Claude messaging credentials, and Antigravity connection
-credentials/source metadata remain in the private worker file; they never enter
+credentials/source metadata and agent process identities remain in private
+per-destination worker files; they never enter
 a backend registration. Private saved backend
 credentials are keyed by the complete normalized URL, atomically replaced, and
 refreshed under a process lock. A rejected backend pauses independently until login.
+
+Destination cleanup records a same-user harness ancestor or explicit `R3_AGENT_PID`,
+including start, boot, and PID namespace identity. Never treat an inaccessible or
+foreign-namespace PID as dead, and never signal an agent to clean its state.
+Normal operations throttle sweeps to once a minute; delivery checks immediately.
+Confirmed exit removes the local credential file even if the backend is disconnected.
+Legacy destinations without process identity survive until refreshed or count-pruned.
+The worker alone writes destination files; migration durably writes them before
+replacing aggregate metadata. Under its writer lock, startup removes abandoned
+temporary credential copies and isolates corrupt owned files without following symlinks.
 
 Backend routing contains opaque worker/listener/registration IDs and attribution.
 A connection and retained subscription are bound to their authorizing credential
