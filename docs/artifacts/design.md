@@ -225,6 +225,12 @@ Rendered Markdown follows r3’s selected light/dark appearance, including its s
 palette. Trusted preview support applies explicit text/background colors and adapts
 legacy OS-dependent palette rules in memory; retained document bytes stay immutable.
 Authored HTML keeps its own appearance.
+Supported Mermaid diagrams retain their SVG styles inside the Markdown document,
+including theme-aware labels, shapes, arrows, and stroke patterns. Their rendering
+does not depend on the workspace stylesheet, including during passive reading.
+Flowcharts preserve Unicode identifiers, quoted edge labels, and labeled
+bidirectional arrows. In node labels, basic formatting (`br`, `b`/`strong`,
+`i`/`em`) becomes plain multiline SVG text; other markup stays escaped.
 
 Source files and both captured diff sides use every language bundled with Shiki.
 Filename detection uses Shiki IDs and aliases, generated grammar file types,

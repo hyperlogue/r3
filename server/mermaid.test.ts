@@ -124,6 +124,52 @@ describe("renderMermaidSvg", () => {
     expect(svg).toContain(">C</text>");
     expect(svg).toContain(">D</text>");
   });
+
+  test("preserves Unicode node and subgraph identities and titles", () => {
+    const svg = renderMermaidSvg(
+      "mermaid",
+      `flowchart TD
+        subgraph 世界 ["两座城市"]
+          北城[北方] --> 南城[南方]
+        end
+      `,
+    );
+    expect(svg).toContain(">两座城市</text>");
+    expect(svg).toContain(">北方</text>");
+    expect(svg).toContain(">南方</text>");
+    expect(svg?.match(/class="r3-mmd-edge"/g)).toHaveLength(1);
+  });
+
+  test("retains quoted labels and both ends of bidirectional arrows", () => {
+    const svg = renderMermaidSvg(
+      "mermaid",
+      `flowchart LR
+        A <==>|"山间道路"| B
+        B <-->|"返回路线"| C
+      `,
+    );
+    expect(svg).toContain(">山间道路</text>");
+    expect(svg).toContain(">返回路线</text>");
+    expect(svg?.match(/marker-start=/g)).toHaveLength(2);
+    expect(svg?.match(/marker-end=/g)).toHaveLength(2);
+    expect(svg).toContain("r3-mmd-thick");
+    expect(svg).toContain(">C</text>");
+  });
+
+  test("renders common label markup as multiline text without admitting HTML", () => {
+    const svg = renderMermaidSvg(
+      "mermaid",
+      'flowchart TD\nA["<b>北城</b><br>平原<br/><i>南城</i><br /><script>alert(1)</script>"] --> B[终点]',
+    );
+    expect(svg).toContain(">北城</text>");
+    expect(svg).toContain(">平原</text>");
+    expect(svg).toContain(">南城</text>");
+    expect(svg).not.toContain("&lt;b&gt;");
+    expect(svg).not.toContain("&lt;br");
+    expect(svg).not.toContain("&lt;i&gt;");
+    expect(svg).not.toContain("<script>");
+    expect(svg).toContain("&lt;script&gt;");
+  });
 });
 
 describe("renderPublishedMarkdown mermaid fences", () => {

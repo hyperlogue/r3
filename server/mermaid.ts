@@ -100,6 +100,16 @@ function measure(text: string, fontSize = FONT): number {
 }
 
 function wrapLabel(text: string, maxW = MAX_LABEL_W): string[] {
+  // Keep common Mermaid label formatting as text; arbitrary HTML remains
+  // escaped by the SVG writer, never parsed into an executable document.
+  const lines = text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(?:b|strong|i|em)>/gi, "")
+    .split("\n");
+  return lines.flatMap((line) => wrapLabelLine(line, maxW));
+}
+
+function wrapLabelLine(text: string, maxW: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length === 0) return [""];
   const lines: string[] = [];
@@ -210,7 +220,7 @@ function skipSep(s: string, i: number): number {
 }
 
 function isIdentChar(c: string): boolean {
-  return /[A-Za-z0-9_.-]/.test(c);
+  return /[\p{L}\p{M}\p{N}_.-]/u.test(c);
 }
 
 // A hyphen starts an arrow (`-->`, `-.->`, `---`), so an unquoted id must not
@@ -251,11 +261,14 @@ function readIdent(s: string, i: number): { text: string; next: number } | null 
   if (i >= s.length) return null;
   const q = readQuoted(s, i);
   if (q) return q;
-  if (!/[A-Za-z0-9_]/.test(s[i])) return null;
-  let j = i + 1;
-  while (j < s.length && isIdentChar(s[j])) {
+  const first = String.fromCodePoint(s.codePointAt(i)!);
+  if (!/[\p{L}\p{N}_]/u.test(first)) return null;
+  let j = i + first.length;
+  while (j < s.length) {
+    const ch = String.fromCodePoint(s.codePointAt(j)!);
+    if (!isIdentChar(ch)) break;
     if (s[j] === "-" && isArrowStart(s, j)) break;
-    j++;
+    j += ch.length;
   }
   return { text: s.slice(i, j), next: j };
 }
@@ -286,11 +299,6 @@ function readArrow(s: string, i: number): Arrow | null {
   const start = skipSpaces(s, i);
   const rest = s.slice(start);
   const labeled: [RegExp, Stroke, boolean][] = [
-    [/^-\.->\|([^|]*)\|/, "dotted", true],
-    [/^-->\|([^|]*)\|/, "solid", true],
-    [/^==>\|([^|]*)\|/, "thick", true],
-    [/^---\|([^|]*)\|/, "solid", false],
-    [/^===\|([^|]*)\|/, "thick", false],
     [/^-\.\s+(.+?)\s+\.->/, "dotted", true],
     [/^--\s+(.+?)\s+-->/, "solid", true],
     [/^==\s+(.+?)\s+==>/, "thick", true],
@@ -313,9 +321,19 @@ function readArrow(s: string, i: number): Arrow | null {
   ];
   for (const [re, stroke, arrow, bidir] of plain) {
     const m = re.exec(rest);
-    if (m) return { stroke, arrow, bidir, label: "", next: start + m[0].length };
+    if (m) {
+      let next = start + m[0].length;
+      const label = /^\|([^|]*)\|/.exec(s.slice(next));
+      if (label) next += label[0].length;
+      return { stroke, arrow, bidir, label: label?.[1].trim() ?? "", next };
+    }
   }
   return null;
+}
+
+function edgeLabel(label: string): string {
+  const quoted = readQuoted(label, 0);
+  return quoted?.next === label.length ? quoted.text : decodeMermaidEntities(label);
 }
 
 function parseFlowchart(src: string): Flow | null {
@@ -478,7 +496,7 @@ function parseFlowchart(src: string): Flow | null {
           edges.push({
             from: a.id,
             to: b.id,
-            label: decodeMermaidEntities(arr.label),
+            label: edgeLabel(arr.label),
             stroke: arr.stroke,
             arrow: arr.arrow,
             bidir: arr.bidir,

@@ -44,6 +44,8 @@ await storage.artifacts.publish(artifact.id, {
         mediaType: "text/markdown",
         base64: Buffer.from(
           "# Published Markdown\n\nReadable body text.\n\n```ts\nconst value = 42;\n```\n\n" +
+            '```mermaid\nflowchart LR\nsubgraph 世界 ["两座城市"]\nA["<b>起点</b><br>输入"] -.->|"路径"| B[终点]\nend\nB <==>|"返回"| C[完成]\n```\n\n' +
+            "```mermaid\nsequenceDiagram\nparticipant A as Agent\nparticipant S as Server\nloop Review\nA->>S: Publish\nS-->>A: Ready\nend\n```\n\n" +
             Array.from(
               { length: 30 },
               (_, index) =>
@@ -159,6 +161,45 @@ try {
       return null;
     }, "rendered Markdown");
   const markdown = await findMarkdown();
+  const assertDiagrams = async (foreground: string) => {
+    const diagrams = await markdown.evaluate<
+      { labels: string[]; nodes: string[]; strokes: string[]; arrows: string[]; dashes: string[] }[]
+    >(`Array.from(document.querySelectorAll('.r3-mermaid svg'), svg => {
+      const values = (selector, property) => Array.from(svg.querySelectorAll(selector), node => getComputedStyle(node)[property]);
+      return {
+        labels: values('text', 'fill'),
+        nodes: values('.r3-mmd-node', 'fill'),
+        strokes: values('.r3-mmd-node,.r3-mmd-edge,.r3-mmd-cluster,.r3-mmd-life', 'stroke'),
+        arrows: values('.r3-mmd-arrow', 'fill'),
+        dashes: values('.r3-mmd-dotted,.r3-mmd-life', 'strokeDasharray'),
+      };
+    })`);
+    assert.equal(diagrams.length, 2, "Flowchart and sequence diagrams render");
+    for (const diagram of diagrams) {
+      assert.ok(diagram.labels.length && diagram.nodes.length && diagram.arrows.length);
+      assert.ok(
+        diagram.labels.every((fill) => fill === foreground),
+        "Mermaid labels follow the document foreground",
+      );
+      assert.ok(
+        diagram.nodes.every((fill) => fill !== foreground && fill !== "rgb(0, 0, 0)"),
+        "Mermaid nodes must not obscure their labels with default black fill",
+      );
+      assert.ok(
+        diagram.strokes.every((stroke) => stroke !== "none" && stroke !== "rgba(0, 0, 0, 0)"),
+        "Mermaid nodes, connections, clusters and lifelines have visible strokes",
+      );
+      assert.ok(
+        diagram.arrows.every((fill) => fill !== "rgb(0, 0, 0)" && fill !== "none"),
+        "Mermaid arrows follow the document palette",
+      );
+      assert.ok(
+        diagram.dashes.length && diagram.dashes.every((dash) => dash !== "none"),
+        "Mermaid dotted edges and lifelines retain their stroke pattern",
+      );
+    }
+  };
+  await assertDiagrams("rgb(245, 245, 245)");
   const colors = () =>
     markdown.evaluate<{ foreground: string; background: string }>(
       "({foreground:getComputedStyle(document.body).color,background:getComputedStyle(document.body).backgroundColor})",
@@ -368,6 +409,7 @@ try {
         expected,
         `Markdown must follow r3 ${theme} even with system ${system}`,
       );
+      await assertDiagrams(expected.foreground);
       const token = await markdown.evaluate<string>(
         "getComputedStyle(document.querySelector('pre .sl0') || document.querySelector('pre span[class]')).color",
       );

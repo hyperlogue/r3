@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { renderArtifactDocument } from "../server/artifact-document.ts";
 
 const playwright = await import(process.env.R3_TEST_PLAYWRIGHT!);
 const engine = process.env.R3_TEST_ENGINE ?? "chromium";
@@ -115,8 +116,51 @@ try {
     "neither inert parsing nor the passive reader may send publisher requests",
   );
   assert.equal(page.frames().filter((frame: any) => frame.url() === "about:srcdoc").length, 1);
+  const rendered = await renderArtifactDocument(
+    '# Diagram\n\n```mermaid\nflowchart LR\nsubgraph 世界 ["两座城市"]\nA["<b>起点</b><br>输入"] <==>|"道路"| B[终点]\nend\n```\n',
+    "index.md",
+  );
+  for (const theme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: theme === "dark" ? "light" : "dark" });
+    await page.evaluate(
+      async ({ html, theme }: { html: string; theme: "light" | "dark" }) => {
+        const moduleUrl = "/reader.js";
+        const { passiveMarkdownDocument } = await import(moduleUrl);
+        const iframe = document.querySelector("iframe")!;
+        await new Promise<void>((resolve) => {
+          iframe.onload = () => resolve();
+          iframe.srcdoc = passiveMarkdownDocument(html, {
+            nonce: crypto.randomUUID(),
+            applicationOrigin: location.origin,
+            theme,
+            fitContent: false,
+          });
+        });
+      },
+      { html: rendered.html, theme },
+    );
+    await frame.getByRole("heading", { name: "Diagram", exact: true }).waitFor();
+    const diagram = await frame.locator("svg").evaluate((svg: SVGElement) => {
+      const style = (selector: string) => getComputedStyle(svg.querySelector(selector)!);
+      return {
+        label: style(".r3-mmd-label").fill,
+        node: style(".r3-mmd-node").fill,
+        edge: style(".r3-mmd-edge").stroke,
+        arrow: style(".r3-mmd-arrow").fill,
+        title: svg.querySelector(".r3-mmd-cluster-title")!.textContent,
+        marker: style(".r3-mmd-edge").markerStart,
+      };
+    });
+    assert.equal(diagram.label, theme === "dark" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)");
+    assert.notEqual(diagram.node, diagram.label, "Passive diagram labels contrast with nodes");
+    assert.notEqual(diagram.edge, "none", "Passive diagrams keep their connections");
+    assert.notEqual(diagram.arrow, "rgb(0, 0, 0)", "Passive diagrams keep themed arrows");
+    assert.notEqual(diagram.marker, "none", "Passive diagrams retain both arrow endpoints");
+    assert.equal(diagram.title, "两座城市");
+  }
+  assert.equal(unwantedRequests, 0, "Mermaid styles and markers need no external resources");
   console.log(
-    `${engine}: passive Markdown preserves formatting/theme/scroll with no publisher requests, navigation, script execution or parent access`,
+    `${engine}: passive Markdown preserves formatting/theme/scroll and readable Mermaid diagrams with no publisher requests, navigation, script execution or parent access`,
   );
 } finally {
   await browser.close();
