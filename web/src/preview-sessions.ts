@@ -1,6 +1,7 @@
 import { ArtifactApiError } from "../../shared/artifact-client.ts";
 import type { ArtifactPreviewContext, ArtifactPreviewNetwork } from "../../shared/artifacts.ts";
 import { artifactApi } from "./artifact-api.ts";
+import { t } from "./i18n.ts";
 import { rememberPreviewContext } from "./preview-resume.ts";
 
 type PreviewApi = Pick<typeof artifactApi, "createPreview" | "renewPreview" | "revokePreview">;
@@ -125,7 +126,7 @@ export class PreviewSessions {
         context ??= await this.api.createPreview(artifactId, seq, path, network);
         if (this.generations.get(artifactId) !== generation) {
           this.revoke(context.id);
-          throw new Error("Artifact preview is no longer available");
+          throw new Error(t("Artifact preview is no longer available"));
         }
         if (context.presentation === "document") {
           this.saved.set(key, { artifactId, seq, path, network, id: context.id });

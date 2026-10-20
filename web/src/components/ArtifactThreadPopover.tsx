@@ -6,6 +6,7 @@ import type {
   ArtifactThread,
 } from "../../../shared/artifacts.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
+import { t, useLocale } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
 import { Button } from "../ui.tsx";
 import {
@@ -41,6 +42,7 @@ export function ArtifactThreadPopover({
   onExpand: () => void;
   onClose: () => void;
 }) {
+  useLocale();
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -56,7 +58,7 @@ export function ArtifactThreadPopover({
     <div
       ref={root}
       role="dialog"
-      aria-label="Thread"
+      aria-label={t("Thread")}
       tabIndex={-1}
       data-artifact-thread-popover
       onKeyDown={(event) => {
@@ -68,11 +70,11 @@ export function ArtifactThreadPopover({
       className="r3-fade-slide-in flex max-h-full min-h-0 flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white r3-floating outline-none dark:border-neutral-700 dark:bg-neutral-950"
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
-        <span className="flex-1 text-sm font-semibold">Thread</span>
+        <span className="flex-1 text-sm font-semibold">{t("Thread")}</span>
         <Button variant="ghost" onClick={onExpand}>
-          Open discussion
+          {t("Open discussion")}
         </Button>
-        <Button variant="ghost" aria-label="Close thread" onClick={onClose}>
+        <Button variant="ghost" aria-label={t("Close thread")} onClick={onClose}>
           ×
         </Button>
       </div>

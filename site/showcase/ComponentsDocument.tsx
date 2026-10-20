@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
 import type { PreviewBootstrap, PreviewDisplay } from "../../shared/preview-protocol.ts";
 import type { ArtifactRenderedPaneProps } from "../../web/src/artifact-page.tsx";
+import { useLocale } from "../../web/src/i18n.ts";
 import { keysSuspended } from "../../web/src/keys.ts";
 import { previewLocator, previewSelectionPosition } from "../../web/src/preview-bridge.ts";
+import { previewLabels } from "../../web/src/preview-labels.ts";
 import { observePreviewViewport } from "../../web/src/preview-viewport.ts";
 import { componentDocument } from "./component-document.ts";
 
@@ -15,6 +17,7 @@ export function ComponentsDocument(
     title?: string;
   },
 ) {
+  useLocale();
   const fitContent = props.detail.kind === "files" && props.path.endsWith(".md");
   const [height, setHeight] = useState<number>();
   const measured = useRef(false);
@@ -49,6 +52,7 @@ export function ComponentsDocument(
     const display = () => {
       const props = current.current;
       const value: PreviewDisplay = {
+        labels: previewLabels(),
         fitContent,
         theme: window.document.documentElement.classList.contains("dark") ? "dark" : "light",
         commenting: props.active !== false && props.commenting,

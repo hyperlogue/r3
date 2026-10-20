@@ -33,6 +33,15 @@ export interface PreviewPageContext {
 }
 
 export interface PreviewDisplay {
+  labels?: {
+    openComment: string;
+    quoteInNote: string;
+    addComment: string;
+    commentHere: string;
+    commentHereHint: string;
+    selectParent: string;
+    cancel: string;
+  };
   // r3 appearance for retained Markdown; authored HTML retains its own styling.
   theme?: PreviewTheme;
   // Markdown and video file previews grow with their natural content height.

@@ -17,11 +17,13 @@ import type {
 } from "../../../shared/preview-protocol.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { useDarkTheme } from "../hooks.ts";
+import { t, useLocale } from "../i18n.ts";
 import { keysSuspended } from "../keys.ts";
 import { markdownCache } from "../markdown-cache.ts";
 import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
 import { previewBridgeCall, previewLocator, previewSelectionPosition } from "../preview-bridge.ts";
 import { PreviewCapture } from "../preview-capture.ts";
+import { previewLabels } from "../preview-labels.ts";
 import {
   type PreviewVerification,
   previewCompatibility,
@@ -240,6 +242,7 @@ function PreviewSession(
     onRetry: () => void;
   },
 ) {
+  const locale = useLocale();
   const qc = useQueryClient();
   const dark = useDarkTheme();
   const theme = useRef<PreviewTheme>(dark ? "dark" : "light");
@@ -328,7 +331,7 @@ function PreviewSession(
           return;
         }
         current.current.onVerification("error");
-        setError(error instanceof Error ? error.message : "Preview expired");
+        setError(error instanceof Error ? error.message : t("Preview expired"));
         setSrc("");
       } finally {
         renewing = false;
@@ -346,7 +349,7 @@ function PreviewSession(
           if (!previewCompatibility.accepted() || !isSecureContext) {
             previewSessions.release(value, false);
             grant = null;
-            throw new Error("Preview compatibility is unavailable. Retry to verify protection.");
+            throw new Error(t("Preview compatibility is unavailable. Retry to verify protection."));
           }
           admitted.current = true;
         }
@@ -360,7 +363,7 @@ function PreviewSession(
         forgetDeniedMarkdown(error, id);
         if (!closed) {
           current.current.onVerification("error");
-          setError(error instanceof Error ? error.message : "Preview unavailable");
+          setError(error instanceof Error ? error.message : t("Preview unavailable"));
         }
       });
     const resume = () => {
@@ -404,7 +407,7 @@ function PreviewSession(
           current.current.onVerification("error");
           port.close();
           connection.current = null;
-          setError("Preview stopped responding. Retry to reconnect.");
+          setError(t("Preview stopped responding. Retry to reconnect."));
           setSrc("");
         }, 1000),
       };
@@ -420,6 +423,7 @@ function PreviewSession(
       const fitContent =
         props.detail.kind === "files" && props.fittedPaths.includes(currentPath.current);
       const value: PreviewDisplay = {
+        labels: previewLabels(),
         theme: theme.current,
         noteHasText: props.noteHasText,
         composerVisible: props.composerVisible,
@@ -467,7 +471,7 @@ function PreviewSession(
           setError(
             typeof message.message === "string"
               ? message.message.slice(0, 2048)
-              : "Preview verification failed",
+              : t("Preview verification failed"),
           );
           if (
             message.state === "unsupported" &&
@@ -543,7 +547,7 @@ function PreviewSession(
                   cache: "no-store",
                 });
                 if (!response.ok)
-                  throw new Error("Rendered Markdown is unavailable. Retry to reconnect.");
+                  throw new Error(t("Rendered Markdown is unavailable. Retry to reconnect."));
                 return response.text();
               },
             )
@@ -555,7 +559,7 @@ function PreviewSession(
               if (!closed && connection.current === port) {
                 current.current.onVerification("error");
                 setError(
-                  error instanceof Error ? error.message : "Rendered Markdown is unavailable",
+                  error instanceof Error ? error.message : t("Rendered Markdown is unavailable"),
                 );
                 setSrc("");
               }
@@ -684,7 +688,9 @@ function PreviewSession(
               message.quote,
             );
           } catch (error) {
-            setNotice(error instanceof Error ? error.message : "Unable to capture this selection");
+            setNotice(
+              error instanceof Error ? error.message : t("Unable to capture this selection"),
+            );
           }
         } else if (message.type === "r3-preview-target") {
           if (
@@ -704,7 +710,7 @@ function PreviewSession(
               locator,
             });
           } catch (error) {
-            setNotice(error instanceof Error ? error.message : "Unable to capture this element");
+            setNotice(error instanceof Error ? error.message : t("Unable to capture this element"));
           }
         } else if (message.type === "r3-preview-threads") {
           if (
@@ -720,9 +726,9 @@ function PreviewSession(
             current.current.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
-              ? "This target matches more than one place in the document."
+              ? t("This target matches more than one place in the document.")
               : message.state === "unplaced"
-                ? "This target is unavailable in the current page state."
+                ? t("This target is unavailable in the current page state.")
                 : "",
           );
         } else if (
@@ -736,7 +742,7 @@ function PreviewSession(
             send({
               type: "r3-preview-result",
               id: message.id,
-              error: "Too many pending r3 requests",
+              error: t("Too many pending r3 requests"),
             });
             return;
           }
@@ -818,6 +824,7 @@ function PreviewSession(
     const send = (value: Record<string, unknown>) =>
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display: PreviewDisplay = {
+      labels: previewLabels(locale),
       theme: dark ? "dark" : "light",
       noteHasText: props.noteHasText,
       composerVisible: props.composerVisible,
@@ -847,6 +854,7 @@ function PreviewSession(
     send({ type: "r3-preview-display", display });
     send({ type: "r3-preview-changed" });
   }, [
+    locale,
     context,
     ready,
     seq,
@@ -941,11 +949,11 @@ function PreviewSession(
         <div role="alert" className="p-6 text-sm text-neutral-700 dark:text-neutral-300">
           <p>{error}</p>
           <Button className="mt-3" onClick={props.onRetry}>
-            Retry preview
+            {t("Retry preview")}
           </Button>
           {props.onReviewCompatibility && (
             <Button className="ml-2 mt-3" onClick={props.onReviewCompatibility}>
-              Review browser risk
+              {t("Review browser risk")}
             </Button>
           )}
         </div>
@@ -971,7 +979,7 @@ function PreviewSession(
       )}
       {notice && (
         <Notification
-          title="Preview notice"
+          title={t("Preview notice")}
           message={notice}
           tone="warning"
           onDismiss={() => setNotice("")}
@@ -985,7 +993,7 @@ function PreviewSession(
           key={`${frameSrc}:${documentEpoch}`}
           ref={iframe}
           src={frameSrc}
-          title={`${props.previewLabel ?? props.detail.title ?? "Artifact"} preview`}
+          title={`${props.previewLabel ?? props.detail.title ?? t("Artifact")} preview`}
           sandbox="allow-scripts"
           {...{ credentialless: "" }}
           allow="camera 'none'; microphone 'none'; display-capture 'none'"

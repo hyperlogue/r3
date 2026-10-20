@@ -10,6 +10,7 @@ import {
 import { useArtifactMediaDraftFrame } from "../artifact-drafts.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { type DraftAttachment, saveDraftImageOutput } from "../attachment-drafts.ts";
+import { t, useLocale } from "../i18n.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 import { MediaBoxOverlay, useMediaImage } from "./MediaTargetPreview.tsx";
 import { MediaViewport } from "./MediaViewport.tsx";
@@ -40,9 +41,10 @@ export function ArtifactMedia({
   showTarget?: boolean;
   onSavedFrame?: (saved: boolean) => void;
 }) {
+  useLocale();
   const artifactApi = useArtifactClient();
   const kind = targetableMedia(file.mediaType);
-  const threadLabel = kind === "video" ? "Add video comment" : "Add image comment";
+  const threadLabel = kind === "video" ? t("Add video comment") : t("Add image comment");
   const currentDraftFrame = useArtifactMediaDraftFrame(artifactId);
   const [acceptedFrame, setAcceptedFrame] = useState<string | null>(null);
   const [url, setUrl] = useState("");
@@ -140,13 +142,13 @@ export function ArtifactMedia({
         ? video.current
         : image.current;
     if (!element || !ready || animated || (element instanceof HTMLVideoElement && element.seeking))
-      throw new Error("Wait for the media frame to finish loading.");
+      throw new Error(t("Wait for the media frame to finish loading."));
     video.current?.pause();
     const width = element instanceof HTMLVideoElement ? element.videoWidth : element.naturalWidth;
     const height =
       element instanceof HTMLVideoElement ? element.videoHeight : element.naturalHeight;
     if (!width || !height || width * height > 20_000_000)
-      throw new Error("Frame capture supports images up to 20 megapixels.");
+      throw new Error(t("Frame capture supports images up to 20 megapixels."));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -184,7 +186,7 @@ export function ArtifactMedia({
       setBox(selectedBox);
       const blob = await new Promise<Blob>((resolve, reject) =>
         captured.canvas.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error("Unable to capture this frame"))),
+          (blob) => (blob ? resolve(blob) : reject(new Error(t("Unable to capture this frame")))),
           "image/png",
         ),
       );
@@ -205,7 +207,9 @@ export function ArtifactMedia({
       );
       setAcceptedFrame(accepted ? output.attachment.id : null);
       if (!output.persisted)
-        setError("Frame saved for this tab only. Keep the tab open until you post your comment.");
+        setError(
+          t("Frame saved for this tab only. Keep the tab open until you post your comment."),
+        );
     } catch (e) {
       if (alive.current) setError((e as Error).message);
     } finally {
@@ -248,8 +252,8 @@ export function ArtifactMedia({
         <button
           type="button"
           className={iconClass}
-          aria-label="View saved frame"
-          title="View saved frame"
+          aria-label={t("View saved frame")}
+          title={t("View saved frame")}
           onClick={() => {
             video.current?.pause();
             setShowSaved(true);
@@ -277,7 +281,7 @@ export function ArtifactMedia({
         </p>
       )}
       {!url ? (
-        <p className="p-3 text-xs text-neutral-500">Loading media…</p>
+        <p className="p-3 text-xs text-neutral-500">{t("Loading media…")}</p>
       ) : (
         <>
           <MediaViewport
@@ -285,7 +289,7 @@ export function ArtifactMedia({
             videoAspectRatio={videoAspectRatio}
             disabled={!ready}
             selecting={selecting}
-            selectionHint={selecting ? "Click for full frame · Drag for region" : undefined}
+            selectionHint={selecting ? t("Click for full frame · Drag for region") : undefined}
             resetKey={jump?.nonce}
           >
             <div ref={surface} className="relative w-full" data-media-frame>
@@ -306,7 +310,7 @@ export function ArtifactMedia({
                     setDuration(video.current?.duration ?? 0);
                   }}
                   onTimeUpdate={() => setTime(video.current?.currentTime ?? 0)}
-                  onError={() => setError("This browser could not decode the video.")}
+                  onError={() => setError(t("This browser could not decode the video."))}
                   onPlay={() => {
                     setPaused(false);
                     setShowSaved(false);
@@ -325,14 +329,14 @@ export function ArtifactMedia({
                   alt={file.path}
                   className="block w-full"
                   onLoad={() => setReady(true)}
-                  onError={() => setError("This browser could not decode the image.")}
+                  onError={() => setError(t("This browser could not decode the image."))}
                 />
               )}
               {overlay && (
                 <img
                   ref={savedImage}
                   src={overlay}
-                  alt="Saved frame"
+                  alt={t("Saved frame")}
                   className="pointer-events-none absolute inset-0 h-full w-full"
                 />
               )}
@@ -348,7 +352,9 @@ export function ArtifactMedia({
                   ref={selection}
                   type="button"
                   data-media-selection
-                  aria-label="Click or press Enter for a full-frame comment, drag to select a region, or press Escape to cancel"
+                  aria-label={t(
+                    "Click or press Enter for a full-frame comment, drag to select a region, or press Escape to cancel",
+                  )}
                   className="absolute inset-0 touch-none cursor-crosshair focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
                   onClick={(event) => {
                     if (event.detail === 0) void add(FULL_MEDIA_BOX);
@@ -412,7 +418,7 @@ export function ArtifactMedia({
               <button
                 type="button"
                 className={iconClass}
-                aria-label={paused ? "Play video" : "Pause video"}
+                aria-label={paused ? t("Play video") : t("Pause video")}
                 disabled={!ready}
                 onClick={() => {
                   const element = video.current;
@@ -435,7 +441,7 @@ export function ArtifactMedia({
                 max={Number.isFinite(duration) ? duration : 0}
                 step="0.001"
                 value={displayedTime}
-                aria-label="Video position"
+                aria-label={t("Video position")}
                 disabled={!ready}
                 className="min-w-0 flex-1 accent-primary-500"
                 onChange={(event) => {
@@ -452,7 +458,7 @@ export function ArtifactMedia({
               <button
                 type="button"
                 className={iconClass}
-                aria-label={muted ? "Unmute video" : "Mute video"}
+                aria-label={muted ? t("Unmute video") : t("Mute video")}
                 onClick={() => {
                   if (video.current) video.current.muted = !muted;
                   setMuted(!muted);
@@ -470,7 +476,7 @@ export function ArtifactMedia({
               <button
                 type="button"
                 className={iconClass}
-                aria-label="Full screen video"
+                aria-label={t("Full screen video")}
                 onClick={() => {
                   void player.current?.requestFullscreen?.().catch((e) => setError(e.message));
                 }}

@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { api } from "../api.ts";
+import { t, useLocale } from "../i18n.ts";
+import { Trans } from "../translated-text.tsx";
 import { Button } from "../ui.tsx";
 import { SettingsPopup } from "./SettingsPopup.tsx";
 import { WorkspaceHeader } from "./WorkspaceHeader.tsx";
 
 export function ClientApproval() {
+  useLocale();
   const [code, setCode] = useState(new URLSearchParams(location.search).get("code") ?? "");
   const [request, setRequest] = useState<{ label: string | null; requestIp: string | null } | null>(
     null,
@@ -18,7 +21,7 @@ export function ClientApproval() {
     try {
       setRequest(await api.inspectClientAuthorization(code));
     } catch {
-      setError("This code is unavailable or expired. Start r3 login again.");
+      setError(t("This code is unavailable or expired. Start r3 login again."));
     } finally {
       setBusy(false);
     }
@@ -29,10 +32,12 @@ export function ClientApproval() {
     try {
       await api.decideClientAuthorization(code, approved);
       setResult(
-        approved ? "CLI access approved. You can return to your terminal." : "Access declined.",
+        approved
+          ? t("CLI access approved. You can return to your terminal.")
+          : t("Access declined."),
       );
     } catch {
-      setError("The request could not be completed. Check the code and try again.");
+      setError(t("The request could not be completed. Check the code and try again."));
     } finally {
       setBusy(false);
     }
@@ -41,7 +46,7 @@ export function ClientApproval() {
     <div className="flex h-full flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
       <WorkspaceHeader homeHref="/" tools={<SettingsPopup />}>
         <span className="min-w-0 flex-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
-          CLI access
+          {t("CLI access")}
         </span>
       </WorkspaceHeader>
       <main className="min-h-0 flex-1 overflow-y-auto px-4 py-12 max-md:py-6">
@@ -51,7 +56,7 @@ export function ClientApproval() {
         >
           <div className="border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
             <h1 id="approval-title" className="text-sm font-semibold">
-              Connect your CLI
+              {t("Connect your CLI")}
             </h1>
           </div>
           <div className="p-5">
@@ -64,14 +69,15 @@ export function ClientApproval() {
                   href="/"
                   className="mt-4 inline-block text-xs font-medium text-primary-600 hover:underline max-md:py-2 dark:text-primary-400"
                 >
-                  Return to artifacts
+                  {t("Return to artifacts")}
                 </a>
               </>
             ) : (
               <>
                 <p className="mb-4 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                  Approve only a login you started. This client will have access to every artifact
-                  and conversation on this server.
+                  {t(
+                    "Approve only a login you started. This client will have access to every artifact and conversation on this server.",
+                  )}
                 </p>
                 <form
                   onSubmit={(event) => {
@@ -80,7 +86,7 @@ export function ClientApproval() {
                   }}
                 >
                   <label htmlFor="approval-code" className="mb-1.5 block text-xs font-medium">
-                    Code shown in your terminal
+                    {t("Code shown in your terminal")}
                   </label>
                   <input
                     id="approval-code"
@@ -99,7 +105,7 @@ export function ClientApproval() {
                       disabled={busy || !code.trim()}
                       type="submit"
                     >
-                      {busy ? "Reviewing…" : "Review request"}
+                      {busy ? t("Reviewing…") : t("Review request")}
                     </Button>
                   )}
                 </form>
@@ -108,12 +114,16 @@ export function ClientApproval() {
                     <p className="break-words text-sm font-medium">{request.label ?? "r3 CLI"}</p>
                     {request.requestIp && (
                       <p className="mt-1 break-words text-xs text-neutral-500 dark:text-neutral-400">
-                        Requested from {request.requestIp}
+                        <Trans
+                          message="Requested from {request_requestIp}"
+                          values={{ request_requestIp: request.requestIp }}
+                        />
                       </p>
                     )}
                     <p className="mt-3 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                      Confirm that the code above matches your terminal. You can revoke this access
-                      from r3.
+                      {t(
+                        "Confirm that the code above matches your terminal. You can revoke this access from r3.",
+                      )}
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Button
@@ -123,10 +133,10 @@ export function ClientApproval() {
                         onClick={() => void decide(true)}
                         type="button"
                       >
-                        Approve CLI access
+                        {t("Approve CLI access")}
                       </Button>
                       <Button disabled={busy} onClick={() => void decide(false)} type="button">
-                        Decline
+                        {t("Decline")}
                       </Button>
                     </div>
                   </div>

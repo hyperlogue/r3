@@ -1,3 +1,4 @@
+import { t } from "./i18n.ts";
 // Expand-context: collapsed gaps → revealed rows, merged back into ONE row list.
 // Deriving maps from the unmerged payload would let a gutter drag build a quote
 // with lines silently missing.
@@ -224,7 +225,9 @@ function sealSeams(rows: DiffLine[]): DiffLine[] {
     const cur = rows[i];
     if (prev && prev.type !== "hunk" && cur.type !== "hunk" && !fileAdjacent(prev, cur)) {
       const seam = blankHunk();
-      seam.text = `⋯ ${seamCount(prev, cur)}not in this diff`;
+      seam.text = t("⋯ {seamCount_prev_cur}not in this diff", {
+        seamCount_prev_cur: seamCount(prev, cur),
+      });
       out.push(seam); // no gapFor entry ⇒ inert, no expander offered
     }
     out.push(cur);

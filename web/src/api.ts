@@ -1,5 +1,6 @@
 import { applicationFetch } from "./application-fetch.ts";
 import { draftImages } from "./attachment-drafts.ts";
+import { t } from "./i18n.ts";
 // Application bootstrap, theme settings, and login-token access.
 // Artifact operations use artifact-api.ts and the shared ArtifactClient.
 
@@ -45,7 +46,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
       body: JSON.stringify({ ticket }),
     });
     if (!response.ok)
-      throw new Error("Local browser link expired or was already used. Run r3 open again.");
+      throw new Error(t("Local browser link expired or was already used. Run r3 open again."));
     initial = undefined;
   }
   if (initial) {

@@ -1,3 +1,4 @@
+import { localePath, siteLocale, t } from "./i18n.ts";
 import { mountSiteLogo } from "./logo.tsx";
 import { startPromptDemo } from "./prompt-demo.ts";
 import { promptExamples } from "./prompt-examples.ts";
@@ -5,7 +6,11 @@ import { promptExamples } from "./prompt-examples.ts";
 const root = new URL("../", import.meta.url);
 const artifact = document.body.dataset.artifact === "true";
 function siteURL(path: string) {
-  const url = new URL(path, root);
+  const url = new URL(
+    path === "search/" ? localePath("/search/", siteLocale()).slice(1) : path,
+    root,
+  );
+  if (/^(example|demo)\//.test(path)) url.searchParams.set("lang", siteLocale());
   if (artifact) {
     if (url.pathname.endsWith("/")) url.pathname += "index.html";
     if (url.pathname.endsWith(".html"))
@@ -15,6 +20,19 @@ function siteURL(path: string) {
 }
 document.documentElement.classList.add("has-js");
 mountSiteLogo();
+for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-locale]")) {
+  const target = new URL(link.href);
+  target.search = location.search;
+  target.hash = location.hash;
+  link.href = target.href;
+  link.addEventListener("click", () => {
+    try {
+      localStorage.setItem("r3-locale", link.dataset.locale!);
+    } catch {
+      /* Optional preference. */
+    }
+  });
+}
 
 function retainArtifactTheme() {
   if (!artifact) return;
@@ -38,7 +56,7 @@ function selectWorkspace(index: number) {
   for (const frame of document.querySelectorAll<HTMLElement>("[data-workspace-scene]"))
     frame.hidden = frame.dataset.workspaceScene !== example.scene;
   const label = document.querySelector("[data-workspace-label]");
-  if (label) label.textContent = example.label;
+  if (label) label.textContent = t(example.label);
   const link = document.querySelector<HTMLAnchorElement>(".workspace-demo");
   if (link)
     link.href = siteURL(
@@ -73,7 +91,7 @@ async function copyText(text: string) {
   document.body.append(field);
   try {
     field.select();
-    if (!document.execCommand("copy")) throw new Error("Copy unavailable");
+    if (!document.execCommand("copy")) throw new Error(t("Copy unavailable"));
   } finally {
     field.remove();
     if (focused instanceof HTMLElement) focused.focus({ preventScroll: true });
@@ -95,7 +113,7 @@ document.querySelector(".theme-toggle")?.addEventListener("click", () => {
   } catch {
     /* Preferences are optional. */
   }
-  notify(`${theme === "dark" ? "Dark" : "Light"} theme`);
+  notify(theme === "dark" ? t("Dark theme") : t("Light theme"));
 });
 
 for (const pre of document.querySelectorAll("pre")) {
@@ -106,24 +124,24 @@ for (const pre of document.querySelectorAll("pre")) {
   button.className = "copy-code";
   if (install)
     button.innerHTML = `<svg class="copy-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><svg class="copy-check" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`;
-  else button.textContent = "Copy";
-  button.setAttribute("aria-label", install ? "Copy install command" : "Copy code");
-  button.title = install ? "Copy install command" : "Copy code";
+  else button.textContent = t("Copy");
+  button.setAttribute("aria-label", install ? t("Copy install command") : t("Copy code"));
+  button.title = install ? t("Copy install command") : t("Copy code");
   button.addEventListener("click", async () => {
     try {
       await copyText(pre.querySelector("code")?.textContent || "");
       clearTimeout(reset);
       button.dataset.copied = "true";
-      button.setAttribute("aria-label", "Copied");
-      button.title = "Copied";
-      if (!install) button.textContent = "Copied!";
+      button.setAttribute("aria-label", t("Copied"));
+      button.title = t("Copied");
+      if (!install) button.textContent = t("Copied!");
       reset = setTimeout(() => {
         delete button.dataset.copied;
-        button.setAttribute("aria-label", install ? "Copy install command" : "Copy code");
-        button.title = install ? "Copy install command" : "Copy code";
-        if (!install) button.textContent = "Copy";
+        button.setAttribute("aria-label", install ? t("Copy install command") : t("Copy code"));
+        button.title = install ? t("Copy install command") : t("Copy code");
+        if (!install) button.textContent = t("Copy");
       }, 2500);
-      notify(install ? "Install command copied" : "Code copied");
+      notify(install ? t("Install command copied") : t("Code copied"));
     } catch {
       const code = pre.querySelector("code");
       if (code) {
@@ -133,7 +151,7 @@ for (const pre of document.querySelectorAll("pre")) {
         selection?.removeAllRanges();
         selection?.addRange(range);
       }
-      notify("Copy is unavailable. The code is selected so you can copy it manually.");
+      notify(t("Copy is unavailable. The code is selected so you can copy it manually."));
     }
   });
   pre.append(button);
@@ -148,11 +166,11 @@ document
     const url = (event.currentTarget as HTMLButtonElement).dataset.markdown!;
     try {
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Markdown unavailable");
+      if (!response.ok) throw new Error(t("Markdown unavailable"));
       await copyText(await response.text());
-      notify("Page copied as Markdown");
+      notify(t("Page copied as Markdown"));
     } catch {
-      notify("Could not copy. Use View Markdown to open the text.");
+      notify(t("Could not copy. Use View Markdown to open the text."));
     }
   });
 
@@ -191,10 +209,10 @@ if (form) {
     const current = ++sequence;
     results.replaceChildren();
     if (!query.trim()) {
-      status.textContent = "Enter a word or phrase to search the docs and use cases.";
+      status.textContent = t("Enter a word or phrase to search the docs and use cases.");
       return;
     }
-    status.textContent = "Searching…";
+    status.textContent = t("Searching…");
     try {
       index ||= import(siteURL("pagefind/pagefind.js")) as Promise<SearchIndex>;
       const api = await index;
@@ -205,14 +223,23 @@ if (form) {
       );
       if (current !== sequence) return;
       status.textContent = response.results.length
-        ? `${response.results.length} result${response.results.length === 1 ? "" : "s"}${response.results.length > 20 ? "; showing the first 20" : ""}.`
-        : `No results for “${query}”. Try a shorter phrase, or browse the documentation.`;
+        ? t(
+            response.results.length === 1
+              ? "{count} result."
+              : response.results.length > 20
+                ? "{count} results; showing the first 20."
+                : "{count} results.",
+            { count: response.results.length },
+          )
+        : t("No results for “{query}”. Try a shorter phrase, or browse the documentation.", {
+            query: query,
+          });
       for (const match of matches) {
         const item = document.createElement("li");
         const link = document.createElement("a");
         link.href = artifact ? siteURL(match.url) : match.url;
         const title = document.createElement("h2");
-        title.textContent = match.meta.title || "Documentation";
+        title.textContent = match.meta.title || t("Documentation");
         const excerpt = document.createElement("p");
         const parsed = new DOMParser().parseFromString(match.excerpt, "text/html");
         excerpt.textContent = parsed.body.textContent;
@@ -222,8 +249,9 @@ if (form) {
       }
     } catch {
       if (current === sequence)
-        status.textContent =
-          "Search could not load. Try again, or browse the documentation directory.";
+        status.textContent = t(
+          "Search could not load. Try again, or browse the documentation directory.",
+        );
     }
   }
   const query = new URLSearchParams(location.search).get("q") || "";

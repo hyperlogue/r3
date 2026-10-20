@@ -1,3 +1,4 @@
+import { t, useLocale } from "../i18n.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 
 export function RepresentationToggle({
@@ -7,6 +8,7 @@ export function RepresentationToggle({
   value: "source" | "rendered";
   onChange: (value: "source" | "rendered") => void;
 }) {
+  useLocale();
   return (
     <div className="flex shrink-0 overflow-hidden rounded text-[0.625rem] ring-1 ring-inset ring-neutral-300 pointer-coarse:self-stretch dark:ring-neutral-700">
       {(["source", "rendered"] as const).map((mode) => (
@@ -14,7 +16,7 @@ export function RepresentationToggle({
           key={mode}
           type="button"
           aria-pressed={value === mode}
-          title={mode === "source" ? "Source" : "Rendered"}
+          title={mode === "source" ? t("Source") : t("Rendered")}
           className={cn(
             "flex items-center justify-center px-1.5 py-0.5 font-medium transition-colors max-md:min-w-7 pointer-coarse:min-w-7",
             value === mode
@@ -26,7 +28,7 @@ export function RepresentationToggle({
             onChange(mode);
           }}
         >
-          <span className="max-md:sr-only">{mode === "source" ? "Source" : "Rendered"}</span>
+          <span className="max-md:sr-only">{mode === "source" ? t("Source") : t("Rendered")}</span>
           <StrokeIcon className="hidden size-3.5 max-md:block">
             {mode === "source" ? (
               <path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-14-2 16" />

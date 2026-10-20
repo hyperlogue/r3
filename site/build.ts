@@ -8,8 +8,11 @@ import { cases, homeTitle, landingPages, type Page, pages } from "./catalog.ts";
 import { expandDocVisuals } from "./doc-visuals.ts";
 import { verifyFeatureVideos } from "./feature-videos.ts";
 import { features } from "./features.ts";
+import { type Locale, localePath, locales, t } from "./i18n.ts";
 import { home, searchPage, useCases } from "./landing.ts";
 import { shell } from "./layout.ts";
+import english from "./locales/en.json";
+import { localizeHTML } from "./localize.ts";
 import { commonPrompt, promptExamples } from "./prompt-examples.ts";
 import {
   createRenderer,
@@ -27,7 +30,19 @@ import { validateLinks } from "./validate.ts";
 export const siteDirectory = import.meta.dir;
 export const outputDirectory = join(siteDirectory, "../dist/pages");
 
-export async function pageSource(page: Page) {
+export async function pageSource(page: Page, locale: Locale = "en") {
+  if (locale !== "en" && (page.source || page.guide)) {
+    const translated = Bun.file(
+      join(
+        siteDirectory,
+        "locales",
+        locale,
+        page.source ? "content" : "reference",
+        `${page.source ?? page.guide}.md`,
+      ),
+    );
+    if (await translated.exists()) return translated.text();
+  }
   if (page.source) return Bun.file(join(siteDirectory, "content", `${page.source}.md`)).text();
   if (page.guide === "keys") {
     const useful = new Set(["help", "commentModeToggle", "handOff", "filePicker", "panelToggle"]);
@@ -66,13 +81,16 @@ For your part of the workflow, start with [Get started](/docs/) or [Precise feed
   return "";
 }
 
-function landingMarkdown(page: Page) {
+export function landingMarkdown(page: Page) {
   if (page.path === "/use-cases/")
     return `# Example Fieldwork\n\n${page.description}\n\n${cases.map((p) => `- [${p.title}](${p.path}): ${p.description}`).join("\n")}\n\nThe separate [live demo](/demo/) uses a curve lab and a code review with scripted agent replies.\n`;
   return `# r3 — ${homeTitle}\n\n${page.description}\n\nLocal by default. [Connect to your own server](/docs/access/) to keep artifacts on a remote backend while agents run on your machine.\n\n## Features\n\n${features.map((feature) => `### ${feature.title}\n\n${feature.description}\n\n[Watch the ${feature.duration}-second demo](/assets/videos/${feature.id}.mp4) · [Read transcript](/assets/videos/${feature.id}.transcript.txt)`).join("\n\n")}\n\nThe homepage pairs these five features with silent, playable demos of the real r3 interface. Each lasts 10–18 seconds and has a text transcript. The recordings use fictional local data and scripted agent replies.\n\n## Start a review\n\nInstall the publishing skill with \`npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global\`, choose your coding agents, then ask an agent to publish its work to r3. No global r3 installation is required.\n\n## Then ask your agent\n\nThe homepage illustrates these prompts in a terminal. The shared publishing instruction stays in place while examples fade. Choose a prompt or pause the animation.\n\n${promptExamples.map((example) => `- **${example.label}:** ${example.prompt} ${commonPrompt}`).join("\n")}\n\n[Install the skill](/docs/get-started/#install-the-skill) · [Other installation methods](/docs/get-started/#other-installation-methods) · [Try the live demo](/demo/) · [Use cases](/use-cases/) · [Documentation](/docs/)\n\nThe homepage’s [Example Fieldwork workspace](/example/index.html) uses the real r3 React page with fictional data and scripted agent replies.\n`;
 }
 
 export async function buildSite() {
+  const messages = process.argv.includes("--sync-locales")
+    ? new Set<string>(Object.keys(english))
+    : undefined;
   const base = normalizeBase(process.env.R3_SITE_BASE);
   const origin = publicURL(base, process.env.R3_SITE_URL);
   if (!process.env.R3_SITE_URL)
@@ -82,38 +100,73 @@ export async function buildSite() {
   await Bun.write(join(outputDirectory, "assets/r3-theme.css"), await frontendTheme());
   const renderer = await createRenderer();
   const htmlPages = new Map<string, string>();
-  const exports: { page: Page; text: string }[] = [];
+  const exports: { page: Page; text: string; locale: Locale }[] = [];
   try {
-    for (const page of pages) {
-      const isArticle = !landingPages.includes(page);
-      const source = isArticle ? await pageSource(page) : landingMarkdown(page);
-      const illustrated = expandDocVisuals(source);
-      const rendered = renderer.render(illustrated);
-      const landing: Record<string, () => string> = {
-        "/": home,
-        "/use-cases/": useCases,
-        "/search/": searchPage,
-      };
-      const html = await mountHTML(
-        shell(page, isArticle ? rendered.html : landing[page.path](), {
-          base,
-          origin,
-          headings: rendered.headings,
-          article: isArticle,
-          markdown: page.path !== "/search/",
-        }),
-        base,
-      );
-      const file = `${page.path.slice(1)}index.html`;
-      await Bun.write(join(outputDirectory, file), html);
-      htmlPages.set(file, html);
-      if (page.path !== "/search/") {
-        const text = markdownExport(
-          isArticle ? `# ${page.title}\n\n${page.description}\n\n${illustrated}` : source,
-          origin,
+    for (const locale of locales) {
+      for (const page of pages) {
+        const isArticle = !landingPages.includes(page);
+        const landingSource = Bun.file(
+          join(
+            siteDirectory,
+            "locales",
+            locale,
+            "content",
+            page.path === "/" ? "home.md" : "use-cases.md",
+          ),
         );
-        await Bun.write(join(outputDirectory, page.path.slice(1), "index.md"), `${text}\n`);
-        if (!page.canonicalPath) exports.push({ page, text });
+        const source = isArticle
+          ? await pageSource(page, locale)
+          : locale !== "en" && (await landingSource.exists())
+            ? await landingSource.text()
+            : landingMarkdown(page);
+        const illustrated = expandDocVisuals(source);
+        const original =
+          locale === "en"
+            ? undefined
+            : renderer.render(
+                expandDocVisuals(isArticle ? await pageSource(page) : landingMarkdown(page)),
+              );
+        const rendered = renderer.render(illustrated, original?.headingIds);
+        const landing: Record<string, () => string> = {
+          "/": home,
+          "/use-cases/": useCases,
+          "/search/": searchPage,
+        };
+        const html = await mountHTML(
+          await localizeHTML(
+            shell(page, isArticle ? rendered.html : landing[page.path](), {
+              base,
+              origin,
+              locale,
+              headings: rendered.headings,
+              article: isArticle,
+              markdown: page.path !== "/search/",
+            }),
+            locale,
+            messages,
+          ),
+          base,
+        );
+        const file = `${localePath(page.path, locale).slice(1)}index.html`;
+        await Bun.write(join(outputDirectory, file), html);
+        htmlPages.set(file, html);
+        if (page.path !== "/search/") {
+          const text = markdownExport(
+            (isArticle
+              ? `# ${t(page.title, undefined, locale)}\n\n${t(page.description, undefined, locale)}\n\n${illustrated}`
+              : source
+            ).replace(
+              /\]\((\/(?!\/)[^)]*)\)/g,
+              (_, path: string) => `](${localePath(path, locale)})`,
+            ),
+            origin,
+          );
+          await Bun.write(
+            join(outputDirectory, localePath(page.path, locale).slice(1), "index.md"),
+            `${text}\n`,
+          );
+          if (!page.canonicalPath) exports.push({ page, text, locale });
+        }
       }
     }
   } finally {
@@ -178,34 +231,49 @@ export async function buildSite() {
     group: "Not found",
   };
   const fallback = `<script>if(location.pathname.startsWith(${JSON.stringify(demoPath)}))location.replace(${JSON.stringify(demoPath)}+'?r3-route='+encodeURIComponent(location.pathname+location.search+location.hash))</script>`;
-  const missingHTML = await mountHTML(
-    shell(
-      missing,
-      `<section class="index-hero container"><p class="eyebrow">404 / Not found</p><h1>This page isn’t here.</h1><p class="lede">The address may have changed. Find a workflow in the docs, or return to the homepage.</p><div class="actions"><a class="button primary" href="/docs/">Browse documentation →</a><a class="text-link" href="/">Back to r3</a></div><noscript><p>Opening a demo deep link requires JavaScript. <a href="/demo/">Open the demo start page</a>.</p></noscript></section>${fallback}`,
-      { base, origin, markdown: false },
-    ),
-    base,
-  );
-  await Bun.write(
-    join(outputDirectory, "404.html"),
-    missingHTML.replace(
-      '<meta name="description"',
-      '<meta name="robots" content="noindex"><meta name="description"',
-    ),
-  );
-  htmlPages.set("404.html", missingHTML);
+  for (const locale of locales) {
+    const missingHTML = await mountHTML(
+      await localizeHTML(
+        shell(
+          missing,
+          `<section class="index-hero container"><p class="eyebrow">404 / Not found</p><h1>This page isn’t here.</h1><p class="lede">The address may have changed. Find a workflow in the docs, or return to the homepage.</p><div class="actions"><a class="button primary" href="/docs/">Browse documentation →</a><a class="text-link" href="/">Back to r3</a></div><noscript><p>Opening a demo deep link requires JavaScript. <a href="/demo/">Open the demo start page</a>.</p></noscript></section>${fallback}`,
+          { base, origin, locale, markdown: false },
+        ),
+        locale,
+        messages,
+      ),
+      base,
+    );
+    await Bun.write(
+      join(outputDirectory, localePath("/404.html", locale).slice(1)),
+      missingHTML.replace(
+        '<meta name="description"',
+        '<meta name="robots" content="noindex"><meta name="description"',
+      ),
+    );
+    htmlPages.set(localePath("/404.html", locale).slice(1), missingHTML);
+  }
 
-  const indexText = `# r3\n\n> ${homeTitle} A local-first workspace for published artifacts and human/agent conversations.\n\nCurrent documentation. The built-in \`r3 guide\` is the agent workflow source. All example IDs and Example Fieldwork scenarios are illustrative.\n\n## Start here\n\n- [Get started](${origin}/docs/get-started/index.md)\n- [Agent workflow](${origin}/docs/agents/index.md)\n- [Complete documentation text](${origin}/llms-full.txt)\n\n## Pages\n\n${exports.map(({ page }) => `- [${page.title}](${origin}${page.path}index.md): ${page.description}`).join("\n")}\n`;
-  await Bun.write(join(outputDirectory, "llms.txt"), indexText);
-  await Bun.write(
-    join(outputDirectory, "llms-full.txt"),
-    exports.map(({ page, text }) => `Source: ${origin}${page.path}\n\n${text}`).join("\n\n---\n\n"),
-  );
+  for (const locale of locales) {
+    const localizedExports = exports.filter((item) => item.locale === locale);
+    const indexText = `# r3\n\n> ${homeTitle} A local-first workspace for published artifacts and human/agent conversations.\n\nCurrent documentation. The built-in \`r3 guide\` is the agent workflow source. All example IDs and Example Fieldwork scenarios are illustrative.\n\n## Start here\n\n- [Get started](${origin}${localePath("/docs/get-started/index.md", locale)})\n- [Agent workflow](${origin}${localePath("/docs/agents/index.md", locale)})\n- [Complete documentation text](${origin}${localePath("/llms-full.txt", locale)})\n\n## Pages\n\n${localizedExports.map(({ page }) => `- [${t(page.title, undefined, locale)}](${origin}${localePath(page.path, locale)}index.md): ${t(page.description, undefined, locale)}`).join("\n")}\n`;
+    await Bun.write(join(outputDirectory, localePath("/llms.txt", locale).slice(1)), indexText);
+    await Bun.write(
+      join(outputDirectory, localePath("/llms-full.txt", locale).slice(1)),
+      localizedExports
+        .map(({ page, text }) => `Source: ${origin}${localePath(page.path, locale)}\n\n${text}`)
+        .join("\n\n---\n\n"),
+    );
+  }
   await Bun.write(
     join(outputDirectory, "sitemap.xml"),
     `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages
       .filter((page) => page.path !== "/search/" && !page.canonicalPath)
-      .map((page) => `<url><loc>${escapeHTML(origin + page.path)}</loc></url>`)
+      .flatMap((page) =>
+        locales.map(
+          (locale) => `<url><loc>${escapeHTML(origin + localePath(page.path, locale))}</loc></url>`,
+        ),
+      )
       .join("")}</urlset>`,
   );
   await Bun.write(
@@ -217,12 +285,14 @@ export async function buildSite() {
   if (!created.index || created.errors.length)
     throw new Error(`Pagefind: ${created.errors.join(", ")}`);
   try {
-    for (const page of pages.filter((p) => p.path !== "/search/" && !p.canonicalPath)) {
-      const result = await created.index.addHTMLFile({
-        url: page.path,
-        content: htmlPages.get(`${page.path.slice(1)}index.html`)!,
-      });
-      if (result.errors.length) throw new Error(result.errors.join(", "));
+    for (const locale of locales) {
+      for (const page of pages.filter((p) => p.path !== "/search/" && !p.canonicalPath)) {
+        const result = await created.index.addHTMLFile({
+          url: localePath(page.path, locale),
+          content: htmlPages.get(`${localePath(page.path, locale).slice(1)}index.html`)!,
+        });
+        if (result.errors.length) throw new Error(result.errors.join(", "));
+      }
     }
     const result = await created.index.writeFiles({
       outputPath: join(outputDirectory, "pagefind"),
@@ -231,9 +301,18 @@ export async function buildSite() {
   } finally {
     await pagefind.close();
   }
+  if (messages) {
+    const en = Object.fromEntries([...messages].sort().map((message) => [message, message]));
+    const zh = await Bun.file(join(siteDirectory, "locales/zh-cn.json")).json();
+    await Bun.write(join(siteDirectory, "locales/en.json"), `${JSON.stringify(en, null, 2)}\n`);
+    await Bun.write(
+      join(siteDirectory, "locales/zh-cn.json"),
+      `${JSON.stringify(Object.fromEntries(Object.entries(en).map(([key, value]) => [key, zh[key] ?? value])), null, 2)}\n`,
+    );
+  }
   await validateLinks(outputDirectory, htmlPages, base);
   console.log(
-    `Built ${pages.length} pages, ${exports.length} Markdown exports, search, and demo → dist/pages`,
+    `Built ${pages.length * locales.length} pages, ${exports.length} Markdown exports, search, and demo → dist/pages`,
   );
 }
 

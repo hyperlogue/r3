@@ -122,6 +122,12 @@ Internal authored links start at `/`; the build adds the mount. Headings receive
 stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.
 Use repository-relative paths and fictional example data in content.
 
+English pages keep their existing URLs. Simplified Chinese pages live under
+`/zh-cn/`, with English placeholders ready for translation. The header switches
+the equivalent page; search and Markdown downloads stay in that language.
+See [localization](../docs/i18n.md) for the catalogs, article placeholders and
+translation checks.
+
 Docs opens directly into Get started with the shared documentation navigation.
 The older `/docs/get-started/` address remains available. Human articles focus on
 browser tasks, with short instructions and visual examples. Agent and command

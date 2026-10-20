@@ -188,8 +188,8 @@ export function installPreviewRuntime(
         counts.set(match.element, count);
         button.className = "marker";
         button.textContent = "●";
-        button.title = "Open comment";
-        button.setAttribute("aria-label", "Open comment");
+        button.title = display.labels?.openComment ?? "Open comment";
+        button.setAttribute("aria-label", display.labels?.openComment ?? "Open comment");
         button.style.marginLeft = `${(count - 1) * 24}px`;
         button.onclick = () => send("r3-preview-threads", { threadId: target.threadId });
         markers.append(button);
@@ -211,7 +211,14 @@ export function installPreviewRuntime(
     controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
     selectionAction.hidden =
       !pendingSelection || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
-    selectionAction.textContent = display.noteHasText ? "Quote in note" : "Add comment";
+    selectionAction.textContent = display.noteHasText
+      ? (display.labels?.quoteInNote ?? "Quote in note")
+      : (display.labels?.addComment ?? "Add comment");
+    const buttons = controls.querySelectorAll("button");
+    buttons[0].textContent = display.labels?.commentHere ?? "Comment here";
+    buttons[0].title = display.labels?.commentHereHint ?? "Comment here (Space)";
+    buttons[1].textContent = display.labels?.selectParent ?? "Select parent";
+    buttons[2].textContent = display.labels?.cancel ?? "Cancel";
     if (pendingSelection) {
       const rect = pendingSelection.rect;
       selectionAction.style.maxWidth = `${Math.max(0, bounds.right - bounds.left - 16)}px`;

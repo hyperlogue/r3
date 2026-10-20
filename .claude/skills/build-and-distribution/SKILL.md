@@ -237,6 +237,13 @@ single command owns the complete deployable output, including the demo:
 - The builder owns fixtures, assets, search, exports, and link validation. It can
   reuse `buildDemo({ directory, base, plugins })` from `scripts/build-demo.ts`;
   keep site-specific build plugins and demo overrides inside `site/`.
+- English pages retain their URLs; Simplified Chinese pages use `/zh-cn/`.
+  Both locales share assets and demos. The builder emits language-specific
+  canonical/alternate URLs, Markdown exports, sitemap entries and Pagefind
+  documents, retaining English heading IDs across translations. Only
+  `--sync-locales` updates static-copy catalogs; ordinary builds read them.
+  Read [localization](../../../docs/i18n.md) when changing copy, locale routing,
+  catalogs, or browser language initialization.
 - Preserve demo deep-link reloads while providing a useful website 404. Pages
   honors only the site-root `404.html`; directory-level fallback files do not
   handle requests independently.

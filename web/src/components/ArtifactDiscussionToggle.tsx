@@ -2,6 +2,7 @@ import { useId } from "react";
 import { type ArtifactThread, hasUnsentArtifactThread } from "../../../shared/artifacts.ts";
 import { useArtifactDraftCount } from "../artifact-drafts.ts";
 import { artifactNeedsAttention } from "../artifact-threads.ts";
+import { t, useLocale } from "../i18n.ts";
 import { Button, StrokeIcon } from "../ui.tsx";
 
 // Only the draft count is subscribed; typing does not rerender the navbar.
@@ -18,19 +19,29 @@ export function ArtifactDiscussionToggle({
   visible: boolean;
   onToggle: () => void;
 }) {
+  useLocale();
   const drafts = useArtifactDraftCount(artifactId);
   const descriptionId = useId();
   const unhandled = threads.filter(artifactNeedsAttention).length;
   const unsent = threads.filter(hasUnsentArtifactThread).length;
-  const description = `${unhandled} unhandled ${unhandled === 1 ? "thread" : "threads"} · ${drafts} ${drafts === 1 ? "draft" : "drafts"} · ${unsent} not sent`;
+  const description = t(
+    "{unhandled} unhandled {unhandled_1_thread_threads} · {drafts} {drafts_1_draft_drafts} · {unsent} not sent",
+    {
+      unhandled: unhandled,
+      unhandled_1_thread_threads: t(unhandled === 1 ? "thread" : "threads"),
+      drafts: drafts,
+      drafts_1_draft_drafts: t(drafts === 1 ? "draft" : "drafts"),
+      unsent: unsent,
+    },
+  );
   return (
     <Button
       disabled={disabled}
       variant={visible ? "primary-outline" : "nav"}
       className="relative h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:hidden"
-      aria-label={visible ? "Hide discussion" : "Show discussion"}
+      aria-label={visible ? t("Hide discussion") : t("Show discussion")}
       aria-describedby={descriptionId}
-      title={`${visible ? "Hide" : "Show"} discussion (p)\n${description}`}
+      title={`${visible ? t("Hide") : t("Show")} discussion (p)\n${description}`}
       aria-pressed={visible}
       onClick={onToggle}
     >

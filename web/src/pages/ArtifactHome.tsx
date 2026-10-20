@@ -27,6 +27,8 @@ import {
   type ArtifactActionResult,
 } from "../components/ArtifactActionDialog.tsx";
 import { ArtifactLibraryRow } from "../components/ArtifactLibraryRow.tsx";
+import { plural, t, useLocale } from "../i18n.ts";
+import { Trans } from "../translated-text.tsx";
 import { Button, ChevronDown, Collapse, StrokeIcon } from "../ui.tsx";
 
 const control =
@@ -68,6 +70,7 @@ function LibraryIcon({ kind }: { kind: string }) {
 }
 
 export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
+  useLocale();
   const [state, setState] = useState(() => readLibraryState(initialSearch ?? location.search));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selection, setSelection] = useState<{
@@ -223,7 +226,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
       <label className="flex w-10 shrink-0 select-none items-center justify-center">
         <input
           type="checkbox"
-          aria-label={`Select ${artifact.title ?? artifact.id}`}
+          aria-label={t("Select {artifact_title_artifact_id}", {
+            artifact_title_artifact_id: artifact.title ?? artifact.id,
+          })}
           checked={selectedIds.has(artifact.id)}
           onChange={(event) =>
             toggleSelection(artifact.id, rowKey, (event.nativeEvent as MouseEvent).shiftKey)
@@ -247,10 +252,10 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
   const title = state.project
     ? (names.get(state.project) ?? state.project)
     : state.view === "archived"
-      ? "Archived artifacts"
+      ? t("Archived artifacts")
       : state.view === "active"
-        ? "Active artifacts"
-        : "Artifacts";
+        ? t("Active artifacts")
+        : t("Artifacts");
   const navClass = (selected: boolean) =>
     `flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs ${
       selected
@@ -281,12 +286,12 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
         />
       )}
       <aside
-        aria-label="Library navigation"
+        aria-label={t("Library navigation")}
         className="flex w-52 shrink-0 flex-col gap-7 overflow-y-auto border-r border-neutral-200 bg-neutral-50 px-3 py-6 max-md:hidden dark:border-neutral-800 dark:bg-neutral-950/40"
       >
-        <nav aria-label="Library views">
+        <nav aria-label={t("Library views")}>
           <h2 className="mb-3 px-3 text-[0.6rem] font-semibold uppercase tracking-widest text-neutral-500">
-            Library
+            {t("Library")}
           </h2>
           {views.map(([value, label]) => (
             <button
@@ -297,14 +302,14 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               onClick={() => update({ view: value, project: "" })}
             >
               <LibraryIcon kind={value} />
-              <span>{label}</span>
+              <span>{t(label)}</span>
               <span className="ml-auto text-[0.65rem] tabular-nums">{counts[value]}</span>
             </button>
           ))}
         </nav>
-        <nav aria-label="Projects">
+        <nav aria-label={t("Projects")}>
           <h2 className="mb-3 px-3 text-[0.6rem] font-semibold uppercase tracking-widest text-neutral-500">
-            Projects
+            {t("Projects")}
           </h2>
           {projects.data?.map((project) => (
             <button
@@ -324,7 +329,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
             </button>
           ))}
           {projects.data?.length === 0 && (
-            <p className="px-3 text-xs leading-relaxed text-neutral-500">No projects yet</p>
+            <p className="px-3 text-xs leading-relaxed text-neutral-500">{t("No projects yet")}</p>
           )}
         </nav>
       </aside>
@@ -338,12 +343,18 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 </h1>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                   {state.view === "archived"
-                    ? "Every version and conversation, retained."
-                    : "Pick up where the conversation left off."}
+                    ? t("Every version and conversation, retained.")
+                    : t("Pick up where the conversation left off.")}
                 </p>
               </div>
               <span className="shrink-0 text-[0.7rem] text-neutral-500 max-sm:hidden">
-                {counts.all} artifacts · {projects.data?.length ?? 0} projects
+                <Trans
+                  message="{counts_all} artifacts · {projects_data_length_0} projects"
+                  values={{
+                    counts_all: counts.all,
+                    projects_data_length_0: projects.data?.length ?? 0,
+                  }}
+                />
               </span>
             </div>
             <div className="flex items-center gap-2.5 border-y border-neutral-200 bg-neutral-50 px-5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-primary-500 max-md:px-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -354,8 +365,8 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               <input
                 ref={searchInput}
                 type="search"
-                aria-label="Search artifacts, content, and conversations"
-                placeholder="Search artifacts, content, and conversations…"
+                aria-label={t("Search artifacts, content, and conversations")}
+                placeholder={t("Search artifacts, content, and conversations…")}
                 maxLength={256}
                 value={state.q}
                 onChange={(event) => update({ q: event.target.value })}
@@ -370,7 +381,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               {state.q && (
                 <button
                   type="button"
-                  aria-label="Clear search"
+                  aria-label={t("Clear search")}
                   className="flex size-8 shrink-0 items-center justify-center text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   onClick={() => {
                     update({ q: "" });
@@ -384,27 +395,27 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               )}
               <button
                 type="button"
-                aria-label="Focus search (Control or Command K)"
+                aria-label={t("Focus search (Control or Command K)")}
                 onClick={() => searchInput.current?.focus()}
                 className="rounded border border-neutral-300 px-1.5 py-0.5 text-[0.65rem] text-neutral-500 max-md:hidden dark:border-neutral-700"
               >
-                <kbd>⌘ / Ctrl K</kbd>
+                <kbd>{t("⌘ / Ctrl K")}</kbd>
               </button>
             </div>
             <div className="flex flex-wrap items-stretch max-md:grid max-md:grid-cols-2">
               <div className="flex min-w-0 items-center max-md:col-span-2 max-md:border-b max-md:border-neutral-200 dark:max-md:border-neutral-800">
                 <LibrarySelect
-                  aria-label="Artifact kind"
+                  aria-label={t("Artifact kind")}
                   className="self-stretch border-r"
                   value={state.kind}
                   onChange={(event) =>
                     update({ kind: event.target.value as ArtifactLibraryState["kind"] })
                   }
                 >
-                  <option value="all">All kinds</option>
-                  <option value="html">HTML</option>
-                  <option value="files">Files</option>
-                  <option value="diff">Diff</option>
+                  <option value="all">{t("All kinds")}</option>
+                  <option value="html">{t("HTML")}</option>
+                  <option value="files">{t("Files")}</option>
+                  <option value="diff">{t("Diff")}</option>
                 </LibrarySelect>
                 <span
                   role="status"
@@ -412,8 +423,8 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 >
                   {loading
                     ? searching
-                      ? "Searching…"
-                      : "Loading artifacts…"
+                      ? t("Searching…")
+                      : t("Loading artifacts…")
                     : `${count} ${searching ? (count === 1 ? "match" : "matches") : count === 1 ? "artifact" : "artifacts"}`}
                 </span>
                 <Button
@@ -430,11 +441,11 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="m7 12 3 3 7-7" />
                   </StrokeIcon>
-                  Selection mode
+                  {t("Selection mode")}
                 </Button>
               </div>
               <LibrarySelect
-                aria-label="Library view"
+                aria-label={t("Library view")}
                 className="border-r border-b md:hidden"
                 value={state.view}
                 onChange={(event) =>
@@ -443,17 +454,17 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               >
                 {views.map(([value, label]) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(label)}
                   </option>
                 ))}
               </LibrarySelect>
               <LibrarySelect
-                aria-label="Project"
+                aria-label={t("Project")}
                 className="border-b md:hidden"
                 value={state.project}
                 onChange={(event) => update({ project: event.target.value })}
               >
-                <option value="">All projects</option>
+                <option value="">{t("All projects")}</option>
                 {projects.data?.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name ?? project.id}
@@ -466,34 +477,34 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   className="px-5 py-2 text-xs text-neutral-500 hover:text-primary-600 max-md:hidden"
                   onClick={() => update({ project: "" })}
                 >
-                  Clear project ×
+                  {t("Clear project ×")}
                 </button>
               )}
               <div className="flex-1 max-md:hidden" />
               {searching ? (
                 <LibrarySelect
-                  aria-label="Publications to search"
+                  aria-label={t("Publications to search")}
                   className="border-l max-md:col-span-2 max-md:border-l-0"
                   value={state.history}
                   onChange={(event) =>
                     update({ history: event.target.value as ArtifactLibraryState["history"] })
                   }
                 >
-                  <option value="latest">Latest publications</option>
-                  <option value="all">Include history</option>
+                  <option value="latest">{t("Latest publications")}</option>
+                  <option value="all">{t("Include history")}</option>
                 </LibrarySelect>
               ) : (
                 <LibrarySelect
-                  aria-label="Sort artifacts"
+                  aria-label={t("Sort artifacts")}
                   className="border-l max-md:col-span-2 max-md:border-l-0"
                   value={state.sort}
                   onChange={(event) =>
                     update({ sort: event.target.value as ArtifactLibraryState["sort"] })
                   }
                 >
-                  <option value="recent">Recently updated</option>
-                  <option value="attention">Attention first</option>
-                  <option value="title">Title A–Z</option>
+                  <option value="recent">{t("Recently updated")}</option>
+                  <option value="attention">{t("Attention first")}</option>
+                  <option value="title">{t("Title A–Z")}</option>
                 </LibrarySelect>
               )}
             </div>
@@ -501,13 +512,13 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
           {searching && (
             <fieldset
               className="flex gap-5 border-b border-neutral-200 px-5 max-md:gap-4 max-md:px-4 dark:border-neutral-800"
-              aria-label="Search result types"
+              aria-label={t("Search result types")}
             >
               {(
                 [
-                  ["all", "Everything"],
-                  ["content", "Content"],
-                  ["conversation", "Conversations"],
+                  ["all", t("Everything")],
+                  ["content", t("Content")],
+                  ["conversation", t("Conversations")],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -517,7 +528,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   onClick={() => update({ type: value })}
                   className={`min-h-10 border-b-2 py-2 text-xs ${state.type === value ? "border-primary-500 font-medium text-primary-600 dark:text-primary-400" : "border-transparent text-neutral-500"}`}
                 >
-                  {label}
+                  {t(label)}
                   <span className="ml-1.5 text-[0.65rem] tabular-nums">
                     {searchData?.counts[value] ?? ""}
                   </span>
@@ -531,7 +542,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 <label className="flex min-h-8 items-center gap-2">
                   <input
                     type="checkbox"
-                    aria-label="Select all artifacts on this page"
+                    aria-label={t("Select all artifacts on this page")}
                     checked={visible.length > 0 && selected.length === visible.length}
                     disabled={!visible.length}
                     ref={(node) => {
@@ -552,25 +563,29 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                     }
                     className="size-4 accent-primary-600"
                   />{" "}
-                  Select page
+                  {t("Select page")}
                 </label>
                 <span aria-live="polite">
-                  {selected.length} {selected.length === 1 ? "artifact" : "artifacts"} selected
+                  {plural(
+                    "{count} artifact selected",
+                    "{count} artifacts selected",
+                    selected.length,
+                  )}
                 </span>
                 <span className="text-neutral-500 max-md:hidden">
-                  Shift-click to select a range
+                  {t("Shift-click to select a range")}
                 </span>
                 <Button
                   disabled={!selected.length}
                   onClick={() => setAction({ kind: "archive", items: selected })}
                 >
-                  Archive selected
+                  {t("Archive selected")}
                 </Button>
                 <Button
                   disabled={!selected.length}
                   onClick={() => setAction({ kind: "delete", items: selected })}
                 >
-                  Delete selected
+                  {t("Delete selected")}
                 </Button>
               </div>
             </Collapse>
@@ -593,17 +608,19 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   if (searching) void results.refetch();
                 }}
               >
-                Try again
+                {t("Try again")}
               </button>
             </p>
           )}
           {!error && !loading && searching && !validQuery && (
-            <p className="px-5 py-8 text-sm text-neutral-500">Enter a word or number to search.</p>
+            <p className="px-5 py-8 text-sm text-neutral-500">
+              {t("Enter a word or number to search.")}
+            </p>
           )}
           {!error && !loading && artifacts.data?.length === 0 && (
             <div className="mx-5 border border-dashed border-neutral-300 px-4 py-12 text-center text-sm text-neutral-500 dark:border-neutral-700">
-              <p className="font-medium">No artifacts yet</p>
-              <p className="mt-1">Publish a directory from the CLI or an agent:</p>
+              <p className="font-medium">{t("No artifacts yet")}</p>
+              <p className="mt-1">{t("Publish a directory from the CLI or an agent:")}</p>
               <code className="mt-3 inline-block rounded bg-neutral-100 px-2 py-1 text-xs dark:bg-neutral-800">
                 r3 create --kind files --dir ./artifact
               </code>
@@ -616,16 +633,16 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
             (!searching || validQuery) && (
               <div className="px-5 py-12 text-center">
                 <h2 className="text-sm font-medium">
-                  No {searching ? "matches" : "artifacts"} found
+                  {t(searching ? "No matches found" : "No artifacts found")}
                 </h2>
                 <p className="mt-2 text-xs text-neutral-500">
                   {searching
-                    ? "Try a shorter phrase, another project, or earlier publications."
-                    : "Try another project or clear your filters."}
+                    ? t("Try a shorter phrase, another project, or earlier publications.")
+                    : t("Try another project or clear your filters.")}
                 </p>
                 <div className="mt-4 flex justify-center gap-2">
                   <button type="button" className={control} onClick={clearFilters}>
-                    Clear filters
+                    {t("Clear filters")}
                   </button>
                   {searching && state.history === "latest" && (
                     <button
@@ -633,7 +650,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                       className={control}
                       onClick={() => update({ history: "all" })}
                     >
-                      Include history
+                      {t("Include history")}
                     </button>
                   )}
                 </div>
@@ -644,9 +661,9 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               role="status"
               className="border-b border-neutral-200 px-4 py-3 text-xs dark:border-neutral-800"
             >
-              {actionResults.filter((result) => result.state === "done").length} completed ·{" "}
-              {actionResults.filter((result) => result.state === "skipped").length} skipped ·{" "}
-              {actionResults.filter((result) => result.state === "failed").length} failed
+              {actionResults.filter((result) => result.state === "done").length} {t("completed ·")}{" "}
+              {actionResults.filter((result) => result.state === "skipped").length} {t("skipped ·")}{" "}
+              {actionResults.filter((result) => result.state === "failed").length} {t("failed")}
               {actionResults
                 .filter((result) => result.warning)
                 .map((result) => (
@@ -655,12 +672,12 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   </p>
                 ))}
               <Button variant="ghost" onClick={() => setActionResults([])}>
-                Dismiss
+                {t("Dismiss")}
               </Button>
             </div>
           )}
           <section
-            aria-label={searching ? "Search results" : "Artifacts"}
+            aria-label={searching ? t("Search results") : t("Artifacts")}
             onKeyDown={(event) => {
               if (
                 event.altKey ||
@@ -684,12 +701,12 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
               shown.map((artifact) => {
                 const group =
                   artifact.state === "archived"
-                    ? "Archived"
+                    ? t("Archived")
                     : artifact.unhandledCount
-                      ? "Needs your review"
+                      ? t("Needs your review")
                       : artifact.working || artifact.watching
-                        ? "In progress"
-                        : "Other artifacts";
+                        ? t("In progress")
+                        : t("Other artifacts");
                 const heading = state.sort === "attention" && previousGroup !== group;
                 previousGroup = group;
                 return (
@@ -735,7 +752,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
           </section>
           {searchData && (state.offset > 0 || searchData.nextOffset !== null) && (
             <nav
-              aria-label="Search pages"
+              aria-label={t("Search pages")}
               className="flex items-center justify-between gap-4 px-5 py-4"
             >
               <button
@@ -744,10 +761,11 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 disabled={state.offset === 0}
                 onClick={() => update({ offset: Math.max(0, state.offset - 50) })}
               >
-                Previous
+                {t("Previous")}
               </button>
               <span className="text-xs text-neutral-500">
-                {state.offset + 1}–{state.offset + searchData.matches.length} of {searchData.total}
+                {state.offset + 1}–{state.offset + searchData.matches.length} {t("of ")}
+                {searchData.total}
               </span>
               <button
                 type="button"
@@ -755,17 +773,23 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 disabled={searchData.nextOffset === null}
                 onClick={() => update({ offset: searchData.nextOffset ?? 0 })}
               >
-                Next
+                {t("Next")}
               </button>
             </nav>
           )}
           {searching && (
             <p className="px-5 py-4 text-[0.65rem] leading-relaxed text-neutral-500 max-md:px-4">
-              All words must match; word prefixes are supported. Conversations keep their original
-              version context. HTML search covers published page text, without running scripts.
-              {searchData?.skippedFiles
-                ? ` ${searchData.skippedFiles} binary, invalid UTF-8, or oversized files excluded.`
-                : ""}
+              <Trans
+                message="All words must match; word prefixes are supported. Conversations keep their original version context. HTML search covers published page text, without running scripts.{searchData_skippedFiles_t_searchData_ski}"
+                values={{
+                  searchData_skippedFiles_t_searchData_ski: searchData?.skippedFiles
+                    ? t(
+                        " {searchData_skippedFiles} binary, invalid UTF-8, or oversized files excluded.",
+                        { searchData_skippedFiles: searchData.skippedFiles },
+                      )
+                    : "",
+                }}
+              />
             </p>
           )}
         </div>

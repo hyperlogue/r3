@@ -3,9 +3,11 @@ import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
 import type { PreviewDisplay } from "../../shared/preview-protocol.ts";
 import { ArtifactLoading } from "../src/components/ArtifactLoading.tsx";
 import { useDarkTheme } from "../src/hooks.ts";
+import { t, useLocale } from "../src/i18n.ts";
 import { keysSuspended } from "../src/keys.ts";
 import type { ArtifactRenderedPaneProps, ArtifactRenderer } from "../src/pages/ArtifactView.tsx";
 import { previewLocator, previewSelectionPosition } from "../src/preview-bridge.ts";
+import { previewLabels } from "../src/preview-labels.ts";
 import { observePreviewViewport } from "../src/preview-viewport.ts";
 import { cn } from "../src/ui.tsx";
 import { prepareDemoDocument } from "./preview-document.ts";
@@ -25,6 +27,7 @@ export function DemoArtifactPreview(props: ArtifactRenderedPaneProps) {
 }
 
 function DemoDocument(props: ArtifactRenderedPaneProps) {
+  useLocale();
   const dark = useDarkTheme();
   const current = useRef({ props, dark });
   current.current = { props, dark };
@@ -57,7 +60,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
         nextRoute.current,
       );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Demo preview unavailable");
+      setError(error instanceof Error ? error.message : t("Demo preview unavailable"));
       setDocument(null);
       return;
     }
@@ -73,6 +76,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
       const { props, dark } = current.current;
       const fitContent = props.detail.kind === "files" && prepared.markdown;
       const value: PreviewDisplay = {
+        labels: previewLabels(),
         theme: dark ? "dark" : "light",
         fitContent,
         commenting: props.active !== false && props.commenting,
@@ -148,7 +152,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
               locator: previewLocator(message.locator),
             });
           } catch {
-            setNotice("Unable to capture this element.");
+            setNotice(t("Unable to capture this element."));
           }
         } else if (message.type === "r3-preview-selection") {
           if (
@@ -176,7 +180,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
               message.quote,
             );
           } catch {
-            setNotice("Unable to capture this selection.");
+            setNotice(t("Unable to capture this selection."));
           }
         } else if (message.type === "r3-preview-composer-key") {
           if (
@@ -197,9 +201,9 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
             props.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
-              ? "This target matches more than one place in the document."
+              ? t("This target matches more than one place in the document.")
               : message.state === "unplaced"
-                ? "This target is unavailable in the current page state."
+                ? t("This target is unavailable in the current page state.")
                 : "",
           );
         }
@@ -243,11 +247,11 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
       }
     >
       <details className="shrink-0 border-b border-neutral-200 px-3 py-1 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-        <summary className="cursor-pointer">Demo preview · bundled example</summary>
+        <summary className="cursor-pointer">{t("Demo preview · bundled example")}</summary>
         <p className="py-2">
-          This static demo renders only shipped samples in an opaque sandbox. Resource requests are
-          restricted by CSP; the daemon’s verified network protection and device access are not
-          simulated.
+          {t(
+            "This static demo renders only shipped samples in an opaque sandbox. Resource requests are restricted by CSP; the daemon’s verified network protection and device access are not simulated.",
+          )}
         </p>
       </details>
       {error ? (
@@ -271,7 +275,9 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
                 key={document.contextId}
                 ref={iframe}
                 srcDoc={document.html}
-                title={`${props.previewLabel ?? props.detail.title ?? "Artifact"} demo preview`}
+                title={t("{title} demo preview", {
+                  title: props.previewLabel ?? props.detail.title ?? t("Artifact"),
+                })}
                 sandbox="allow-scripts"
                 allow="camera 'none'; microphone 'none'"
                 referrerPolicy="no-referrer"

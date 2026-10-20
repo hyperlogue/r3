@@ -29,7 +29,7 @@ ${icon('<path d="M12 5v14M5 12h14"/>', "browser-new-tab")}
 </div>
 <div class="browser-toolbar">
 <span class="browser-navigation">${icon('<path d="m12 5-7 7 7 7M5 12h14"/>')}${icon('<path d="m12 5 7 7-7 7M5 12h14"/>', "browser-forward")}${icon('<path d="M20 7v5h-5M19 8a8 8 0 1 0 1 7"/>')}</span>
-<div class="browser-address">${icon('<path d="M4 7h8m6 0h2M4 17h2m6 0h8"/><circle cx="15" cy="7" r="3"/><circle cx="9" cy="17" r="3"/>', "browser-site-controls")}<span>localhost:8891<span class="browser-url-path">/artifact_example</span></span>${icon('<path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4L12 17.5l-5.7 3.1 1.1-6.4-4.6-4.5 6.4-.9Z"/>', "browser-bookmark")}</div>
+<div class="browser-address" data-no-i18n>${icon('<path d="M4 7h8m6 0h2M4 17h2m6 0h8"/><circle cx="15" cy="7" r="3"/><circle cx="9" cy="17" r="3"/>', "browser-site-controls")}<span>localhost:8891<span class="browser-url-path">/artifact_example</span></span>${icon('<path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4L12 17.5l-5.7 3.1 1.1-6.4-4.6-4.5 6.4-.9Z"/>', "browser-bookmark")}</div>
 ${icon('<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>', "browser-menu")}
 </div>
 </div>`;

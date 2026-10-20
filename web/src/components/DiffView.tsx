@@ -17,6 +17,7 @@ import {
   useGutterDrag,
 } from "../gutter.ts";
 import { type Region, regionAt } from "../highlights.ts";
+import { plural, t, useLocale } from "../i18n.ts";
 import { ProgressiveFile, type ReserveSpec } from "../progressive.tsx";
 import type { DiffLayout } from "../settings.ts";
 import type { DiffFileChange, DiffLine, DiffSide, PatchDiff } from "../types.ts";
@@ -154,6 +155,7 @@ function HunkBar({
   entry?: { gap: Gap; hidden: number };
   onExpand?: (gap: Gap, edge: "top" | "bottom" | "all") => void;
 }) {
+  useLocale();
   if (!entry || !onExpand) return <span className="truncate">{ln.text}</span>;
   const { gap, hidden } = entry;
   const btn =
@@ -167,7 +169,7 @@ function HunkBar({
     <span className="flex h-4 items-center gap-1">
       <button
         type="button"
-        title={`Show ${EXPAND_STEP} lines above`}
+        title={t("Show {EXPAND_STEP} lines above", { EXPAND_STEP: EXPAND_STEP })}
         className={btn}
         onClick={() => onExpand(gap, "top")}
       >
@@ -175,7 +177,7 @@ function HunkBar({
       </button>
       <button
         type="button"
-        title={`Show ${EXPAND_STEP} lines below`}
+        title={t("Show {EXPAND_STEP} lines below", { EXPAND_STEP: EXPAND_STEP })}
         className={btn}
         onClick={() => onExpand(gap, "bottom")}
       >
@@ -183,11 +185,11 @@ function HunkBar({
       </button>
       <button
         type="button"
-        title="Show all unchanged lines here"
+        title={t("Show all unchanged lines here")}
         className="truncate rounded px-1 leading-none hover:bg-neutral-500/20 hover:text-neutral-700 dark:hover:text-neutral-200"
         onClick={() => onExpand(gap, "all")}
       >
-        {hidden} unchanged {hidden === 1 ? "line" : "lines"}
+        {plural("{count} unchanged line", "{count} unchanged lines", hidden)}
       </button>
     </span>
   );
@@ -488,6 +490,7 @@ function DiffFileBody({
   // its waiter when the rows exist rather than when the shell says they might.
   onHydrated?: (ready: boolean) => void;
 }) {
+  useLocale();
   // Expand-context. `reveal` holds the rows fetched per gap; `merged` splices
   // them back into one row list, which EVERYTHING below derives from — the text
   // maps, the index maps, the split pairing, the virtualizer's count. Deriving
@@ -642,7 +645,7 @@ function DiffFileBody({
   }, []);
 
   if (f.binary) {
-    return <div className="px-3 py-2 text-xs text-neutral-400">Binary file not shown.</div>;
+    return <div className="px-3 py-2 text-xs text-neutral-400">{t("Binary file not shown.")}</div>;
   }
   if (layout === "split") {
     // Two independently-scrolling halves. They stay vertically locked for free:
@@ -886,6 +889,7 @@ export function DiffView({
   // active from the first frame and this never matters.
   progressiveVersion?: string;
 }) {
+  useLocale();
   const byFile = useMemo(() => {
     const m = new Map<string, Region[]>();
     for (const r of regions) {
@@ -921,7 +925,7 @@ export function DiffView({
   }, [patch, layout, isViewed]);
 
   if (!patch || patch.files.length === 0) {
-    return <p className="p-6 text-sm text-neutral-400">No changes in this publication.</p>;
+    return <p className="p-6 text-sm text-neutral-400">{t("No changes in this publication.")}</p>;
   }
   return (
     <section key={patch.seq} data-round={patch.seq}>

@@ -1857,3 +1857,29 @@ figcaption {
 .visual-story .article-tools {
   margin-top: 30px;
 }
+
+.language-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.language-menu a[aria-current="true"] {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+@media (max-width: 700px) {
+  .language-menu {
+    display: none;
+  }
+  .mobile-languages {
+    display: flex;
+    gap: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}

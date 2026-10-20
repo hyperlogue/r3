@@ -1,6 +1,8 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactVersion } from "../../../shared/artifacts.ts";
 import { selectedArtifactVersion } from "../artifact-version.ts";
+import { t, useLocale } from "../i18n.ts";
+import { Trans } from "../translated-text.tsx";
 import { Button, ChevronDown, cn, useEscape, usePopoverFocus } from "../ui.tsx";
 
 // The compact navigation picker expands inline when hosted in the details menu.
@@ -15,6 +17,7 @@ export function ArtifactVersionSelect({
   onChange: (seq: number | null) => void;
   inline?: boolean;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(selected);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -39,7 +42,11 @@ export function ArtifactVersionSelect({
   }, [open, inline]);
   const version = selectedArtifactVersion(versions, selected);
   if (!versions.length)
-    return <span className="self-center px-3 text-xs text-neutral-500">No published versions</span>;
+    return (
+      <span className="self-center px-3 text-xs text-neutral-500">
+        {t("No published versions")}
+      </span>
+    );
   const isLatest = version?.seq === versions.at(-1)?.seq;
   const badge = (seq: number, active: boolean) => (
     <span
@@ -50,7 +57,7 @@ export function ArtifactVersionSelect({
           : "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300",
       )}
     >
-      v{seq}
+      <Trans message="v{seq}" values={{ seq: seq }} />
     </span>
   );
   return (
@@ -58,14 +65,14 @@ export function ArtifactVersionSelect({
       <button
         ref={trigger}
         type="button"
-        aria-label="Published version"
+        aria-label={t("Published version")}
         aria-describedby={isLatest ? `${listId}-latest` : undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         value={version?.seq ?? selected ?? ""}
         data-version-count={versions.length}
-        title="Choose a published version"
+        title={t("Choose a published version")}
         onClick={() => setOpen((value) => !value)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -79,15 +86,21 @@ export function ArtifactVersionSelect({
           open && "opacity-60 grayscale",
         )}
       >
-        {version ? badge(version.seq, true) : <span>Version {selected} unavailable</span>}
+        {version ? (
+          badge(version.seq, true)
+        ) : (
+          <span>
+            <Trans message="Version {selected} unavailable" values={{ selected: selected }} />
+          </span>
+        )}
         {isLatest && (
           <span
             id={`${listId}-latest`}
             role="status"
-            aria-label="Latest version"
+            aria-label={t("Latest version")}
             className="shrink-0 rounded border border-success-500 px-1 py-px text-[0.5625rem] font-semibold uppercase leading-none text-success-700 dark:text-success-300"
           >
-            latest
+            {t("latest")}
           </span>
         )}
         <ChevronDown
@@ -100,7 +113,7 @@ export function ArtifactVersionSelect({
       {open && !inline && (
         <button
           type="button"
-          aria-label="Close version picker"
+          aria-label={t("Close version picker")}
           onClick={() => setOpen(false)}
           className="fixed inset-0 z-40 cursor-default"
         />
@@ -109,7 +122,7 @@ export function ArtifactVersionSelect({
         ref={list}
         id={listId}
         role="listbox"
-        aria-label="Published versions"
+        aria-label={t("Published versions")}
         inert={!open}
         style={inline ? undefined : position}
         onKeyDown={(event) => {
@@ -151,7 +164,10 @@ export function ArtifactVersionSelect({
             tabIndex={focused === item.seq ? 0 : -1}
             onFocus={() => setFocused(item.seq)}
             data-version-seq={item.seq}
-            aria-label={`Version ${item.seq}${item.label ? ` · ${item.label}` : ""}`}
+            aria-label={t("Version {item_seq}{item_label_item_label}", {
+              item_seq: item.seq,
+              item_label_item_label: item.label ? ` · ${item.label}` : "",
+            })}
             onClick={() => {
               onChange(item.seq);
               setOpen(false);
@@ -165,7 +181,7 @@ export function ArtifactVersionSelect({
           >
             {badge(item.seq, item.seq === version?.seq)}
             <span className="min-w-0 flex-1 truncate whitespace-nowrap text-neutral-600 dark:text-neutral-300">
-              {item.label ?? `Version ${item.seq}`}
+              {item.label ?? t("Version {item_seq}", { item_seq: item.seq })}
             </span>
           </button>
         ))}
@@ -185,6 +201,7 @@ export function ArtifactOpenLatest({
   onOpen: (seq: number) => void;
   className?: string;
 }) {
+  useLocale();
   if (latest === undefined || selected === null || selected === latest) return null;
   return (
     <Button
@@ -192,7 +209,7 @@ export function ArtifactOpenLatest({
       className={cn("shrink-0 whitespace-nowrap", className)}
       onClick={() => onOpen(latest)}
     >
-      Go to the latest version
+      {t("Go to the latest version")}
     </Button>
   );
 }

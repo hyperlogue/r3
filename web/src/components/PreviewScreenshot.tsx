@@ -3,6 +3,7 @@ import type { ArtifactDocumentTarget } from "../../../shared/artifacts.ts";
 import { ATTACHMENT_LIMITS } from "../../../shared/attachments.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { saveDraftImageOutput } from "../attachment-drafts.ts";
+import { t, useLocale } from "../i18n.ts";
 import { imageMessageBody } from "../image-placeholders.ts";
 import { canCapturePreview, capturePreview } from "../screenshot.ts";
 import { Button, StrokeIcon } from "../ui.tsx";
@@ -24,6 +25,7 @@ export function PreviewScreenshot({
   frame: RefObject<HTMLIFrameElement | null>;
   onTarget: (target: ArtifactDocumentTarget) => void;
 }) {
+  useLocale();
   const [pending, setPending] = useState(false);
   const [snapshot, setSnapshot] = useState<{
     blob: Blob;
@@ -54,7 +56,7 @@ export function PreviewScreenshot({
     const node = frame.current;
     if (!node) return;
     if ((artifactDrafts.get(artifactId)?.attachments?.length ?? 0) >= ATTACHMENT_LIMITS.count) {
-      setNotice("The draft already contains four images");
+      setNotice(t("The draft already contains four images"));
       return;
     }
     const controller = new AbortController();
@@ -67,7 +69,7 @@ export function PreviewScreenshot({
     const timer = window.setTimeout(() => {
       controller.abort();
       if (operation.current === controller)
-        setNotice("Capture timed out. Try again or paste a screenshot.");
+        setNotice(t("Capture timed out. Try again or paste a screenshot."));
     }, 60_000);
     try {
       const blob = await capturePreview(node, controller.signal);
@@ -78,11 +80,11 @@ export function PreviewScreenshot({
         setNotice(
           error instanceof DOMException
             ? error.name === "NotAllowedError"
-              ? "Capture cancelled. You can paste a screenshot instead."
-              : "The browser could not capture this preview. Try again or paste a screenshot."
+              ? t("Capture cancelled. You can paste a screenshot instead.")
+              : t("The browser could not capture this preview. Try again or paste a screenshot.")
             : error instanceof Error
               ? error.message
-              : "Unable to capture this preview. You can paste a screenshot instead.",
+              : t("Unable to capture this preview. You can paste a screenshot instead."),
         );
     } finally {
       clearTimeout(timer);
@@ -100,8 +102,10 @@ export function PreviewScreenshot({
         <Button
           variant={pending ? "primary-outline" : "nav"}
           className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
-          aria-label={pending ? "Cancel capture" : "Capture area"}
-          title={pending ? "Cancel capture" : "Capture area — share this tab, then crop and draw"}
+          aria-label={pending ? t("Cancel capture") : t("Capture area")}
+          title={
+            pending ? t("Cancel capture") : t("Capture area — share this tab, then crop and draw")
+          }
           onClick={() => {
             if (pending) {
               operation.current?.abort();
@@ -123,10 +127,10 @@ export function PreviewScreenshot({
         </Button>
         {(pending || notice) && (
           <Notification
-            title={pending ? "Choose this r3 tab" : "Capture notice"}
+            title={pending ? t("Choose this r3 tab") : t("Capture notice")}
             message={
               pending
-                ? "Choose this r3 tab in the browser sharing prompt. Use Cancel capture to stop."
+                ? t("Choose this r3 tab in the browser sharing prompt. Use Cancel capture to stop.")
                 : notice
             }
             onDismiss={() => {
@@ -152,7 +156,7 @@ export function PreviewScreenshot({
             if (
               (artifactDrafts.get(artifactId)?.attachments?.length ?? 0) >= ATTACHMENT_LIMITS.count
             )
-              throw new Error("The draft already contains four images");
+              throw new Error(t("The draft already contains four images"));
             const { attachment, persisted } = await saveDraftImageOutput(artifactId, output, {
               versionSeq,
               path,
@@ -161,11 +165,11 @@ export function PreviewScreenshot({
               crop,
             });
             if (started !== generation.current)
-              throw new Error("The preview changed. Capture it again.");
+              throw new Error(t("The preview changed. Capture it again."));
             if (
               (artifactDrafts.get(artifactId)?.attachments?.length ?? 0) >= ATTACHMENT_LIMITS.count
             )
-              throw new Error("The draft already contains four images");
+              throw new Error(t("The draft already contains four images"));
             onTarget({ kind: "rendered", versionSeq, path, locator: null });
             const draft = artifactDrafts.get(artifactId);
             const before = draft?.attachments ?? [];
@@ -177,7 +181,9 @@ export function PreviewScreenshot({
             artifactDrafts.flush();
             setSnapshot(null);
             if (!persisted)
-              setNotice("Screenshot is available in this tab, but could not be saved for reload.");
+              setNotice(
+                t("Screenshot is available in this tab, but could not be saved for reload."),
+              );
           }}
         />
       )}

@@ -3,6 +3,7 @@ import {
   type AttachmentCapture,
   type AttachmentInput,
 } from "../../shared/attachments.ts";
+import { t } from "./i18n.ts";
 import { type ImageOutput, normalizeImage } from "./image-output.ts";
 
 export interface DraftAttachment {
@@ -30,7 +31,7 @@ const request = <T>(value: IDBRequest<T>) =>
 const done = (tx: IDBTransaction) =>
   new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onerror = tx.onabort = () => reject(tx.error ?? new Error("Image storage failed"));
+    tx.onerror = tx.onabort = () => reject(tx.error ?? new Error(t("Image storage failed")));
   });
 
 // localStorage holds draft references; only this store persists binary data.
@@ -68,7 +69,7 @@ export class DraftImageStore {
         this.opening = undefined;
         reject(opening.error);
       };
-      opening.onblocked = () => reject(new Error("Image storage is blocked by another tab"));
+      opening.onblocked = () => reject(new Error(t("Image storage is blocked by another tab")));
     });
     return this.opening;
   }
@@ -102,7 +103,7 @@ export class DraftImageStore {
     id: string = crypto.randomUUID(),
     ticket?: ImageEpoch,
   ): Promise<{ id: string; persisted: boolean }> {
-    if (this.suspended) throw new Error("Sign in again before attaching images");
+    if (this.suspended) throw new Error(t("Sign in again before attaching images"));
     const captured = ticket ?? (await this.epoch());
     const generation = captured.generation;
     let revoked = false;
@@ -128,13 +129,13 @@ export class DraftImageStore {
       return { id, persisted: true };
     } catch {
       if (revoked || generation !== this.generation || this.suspended)
-        throw new Error("Image attachment was cancelled");
+        throw new Error(t("Image attachment was cancelled"));
       this.memory.set(id, record);
       return { id, persisted: false };
     }
   }
   async get(id: string): Promise<Blob> {
-    if (this.suspended) throw new Error("Sign in again to open draft images");
+    if (this.suspended) throw new Error(t("Sign in again to open draft images"));
     const held = this.memory.get(id);
     const generation = this.generation;
     let db: IDBDatabase;
@@ -142,7 +143,7 @@ export class DraftImageStore {
       db = await this.open();
     } catch {
       if (held && generation === this.generation && !this.suspended) return held.blob;
-      throw new Error("Draft image storage is unavailable");
+      throw new Error(t("Draft image storage is unavailable"));
     }
     const tx = db.transaction(["images", "state"]);
     const [record, suspended] = await Promise.all([
@@ -150,9 +151,10 @@ export class DraftImageStore {
       request(tx.objectStore("state").get("suspended")),
     ]);
     if (suspended || generation !== this.generation)
-      throw new Error("Sign in again to open draft images");
+      throw new Error(t("Sign in again to open draft images"));
     if (held) return held.blob;
-    if (!record) throw new Error("This draft image is unavailable. Remove it and attach it again.");
+    if (!record)
+      throw new Error(t("This draft image is unavailable. Remove it and attach it again."));
     return record.blob;
   }
   async clear(artifactId?: string) {
@@ -255,7 +257,7 @@ export async function saveDraftImageOutput(
     output.height < 1 ||
     output.width * output.height > ATTACHMENT_LIMITS.pixels
   )
-    throw new Error("Choose a PNG output of at most 5 MiB and 20 megapixels");
+    throw new Error(t("Choose a PNG output of at most 5 MiB and 20 megapixels"));
   const saved = await draftImages.put(artifactId, output.blob, undefined, ticket);
   return {
     attachment: {
@@ -290,7 +292,7 @@ export async function draftAttachmentInputs(
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result).split(",")[1]!);
-        reader.onerror = () => reject(new Error("Unable to read image"));
+        reader.onerror = () => reject(new Error(t("Unable to read image")));
         reader.readAsDataURL(blob);
       });
       return {

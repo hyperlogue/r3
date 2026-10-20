@@ -9,6 +9,7 @@ import type {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { copyText } from "./clipboard.ts";
 import { readDisplayPreference, writeDisplayPreference } from "./display-storage.ts";
+import { t, useLocale } from "./i18n.ts";
 import { suspendKeys } from "./keys.ts";
 
 // Custom auto-animate plugins BYPASS its built-in reduced-motion guard (index.mjs
@@ -538,6 +539,7 @@ export function CopyMeta({
   hint: string;
   children: ReactNode;
 }) {
+  useLocale();
   const [tip, setTip] = useState<{ left: number; top: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -570,7 +572,7 @@ export function CopyMeta({
           className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded bg-neutral-800 px-1.5 py-0.5 font-sans text-[0.625rem] font-medium text-white shadow dark:bg-neutral-700"
           style={{ left: tip.left, top: tip.top }}
         >
-          Copied
+          {t("Copied")}
         </span>
       )}
     </>

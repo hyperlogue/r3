@@ -2,10 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api.ts";
 import { copyText } from "../clipboard.ts";
+import { t as translate, useLocale } from "../i18n.ts";
 import { Button, TrashIcon, useCopyFlash } from "../ui.tsx";
 
 // Login-token panel. A minted token is shown ONCE (hashed at rest).
 export function TokenManager() {
+  useLocale();
   const qc = useQueryClient();
   const { data: tokens } = useQuery({ queryKey: ["auth-tokens"], queryFn: () => api.authTokens() });
   const [label, setLabel] = useState("");
@@ -39,7 +41,7 @@ export function TokenManager() {
     return (
       <div className="border border-amber-300 bg-amber-50 p-2 dark:border-amber-800/60 dark:bg-amber-950/40">
         <p className="mb-1.5 text-[0.625rem] font-medium text-amber-800 dark:text-amber-300">
-          Copy it now — it won’t be shown again.
+          {translate("Copy it now — it won’t be shown again.")}
         </p>
         <div className="mb-2 break-all bg-white px-2 py-1.5 font-mono text-[0.7rem] text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
           {revealed}
@@ -54,10 +56,10 @@ export function TokenManager() {
             variant="default"
             onClick={() => void copyText(revealed).then((ok) => ok && flash())}
           >
-            {copied ? "Copied" : "Copy"}
+            {copied ? translate("Copied") : translate("Copy")}
           </Button>
           <Button variant="ghost" onClick={() => setRevealed(null)}>
-            Done
+            {translate("Done")}
           </Button>
         </div>
       </div>
@@ -67,19 +69,19 @@ export function TokenManager() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-[0.625rem] leading-relaxed text-neutral-400">
-        Tokens to open r3 when it's exposed beyond loopback (e.g. tailscale serve).
+        {translate("Tokens to open r3 when it's exposed beyond loopback (e.g. tailscale serve).")}
       </p>
 
       <input
         value={label}
         onChange={(e) => setLabel(e.target.value)}
-        placeholder="Label (e.g. laptop)"
+        placeholder={translate("Label (e.g. laptop)")}
         // max-md:text-base keeps iOS from zooming when the label field takes
         // focus on a phone (settings are reachable on mobile).
         className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900"
       />
       <Button variant="primary" onClick={create} disabled={busy} className="justify-center">
-        {busy ? "Creating…" : "Create login token"}
+        {busy ? translate("Creating…") : translate("Create login token")}
       </Button>
 
       {tokens && tokens.length > 0 && (
@@ -90,9 +92,11 @@ export function TokenManager() {
               className="flex items-center gap-1.5 border border-neutral-200 px-1.5 py-1 text-xs dark:border-neutral-800"
             >
               <span className="min-w-0 flex-1 truncate">
-                {t.label ?? <span className="text-neutral-400">(no label)</span>}
+                {t.label ?? <span className="text-neutral-400">{translate("(no label)")}</span>}
                 {t.current && (
-                  <span className="ml-1.5 text-[0.625rem] text-neutral-400">this session</span>
+                  <span className="ml-1.5 text-[0.625rem] text-neutral-400">
+                    {translate("this session")}
+                  </span>
                 )}
               </span>
               <button
@@ -100,8 +104,8 @@ export function TokenManager() {
                 disabled={t.current}
                 title={
                   t.current
-                    ? "You're signed in with this token — revoking it would sign you out"
-                    : "Revoke"
+                    ? translate("You're signed in with this token — revoking it would sign you out")
+                    : translate("Revoke")
                 }
                 onClick={() => revoke(t.id)}
                 className="shrink-0 text-neutral-400 enabled:cursor-pointer enabled:hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-40"

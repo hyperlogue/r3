@@ -163,6 +163,6 @@ export function expandDocVisuals(source: string) {
   return source.replace(/<!-- visual: ([a-z-]+) -->/g, (_, name: string) => {
     const render = visuals[name];
     if (!render) throw new Error(`Unknown documentation visual: ${name}`);
-    return render();
+    return `<div data-visual-i18n>${render()}</div>`;
   });
 }

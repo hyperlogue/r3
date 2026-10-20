@@ -4,6 +4,7 @@ import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
 } from "../../../shared/preview-protocol.ts";
+import { t, useLocale } from "../i18n.ts";
 import type { PreviewVerification } from "../preview-protection.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 
@@ -22,9 +23,10 @@ export function ArtifactPreviewProtection({
   compatibilityAccepted: boolean;
   onForgetCompatibility: () => void;
 }) {
+  useLocale();
   const ready = verification === "ready";
   const inactive =
-    verification === "checking" ? "Checking preview protection" : "Preview not running";
+    verification === "checking" ? t("Checking preview protection") : t("Preview not running");
   const items: {
     key: string;
     label: string;
@@ -35,8 +37,9 @@ export function ArtifactPreviewProtection({
     {
       key: "isolation",
       label: ready ? "r3 isolated" : inactive,
-      description:
+      description: t(
         "The artifact cannot directly access r3’s page, credentials, or unrelated artifacts. Its r3 bridge can access this artifact’s conversations.",
+      ),
       state: ready ? "verified" : verification,
       icon: (
         <>
@@ -50,16 +53,22 @@ export function ArtifactPreviewProtection({
       label: !ready
         ? inactive
         : network === "blocked"
-          ? "External connections blocked"
+          ? t("External connections blocked")
           : network === "compatible"
-            ? "Limited network protection"
-            : "External connections allowed",
+            ? t("Limited network protection")
+            : t("External connections allowed"),
       description:
         network === "blocked"
-          ? "Verified network protection means this preview passed the browser’s network-blocking checks. It does not certify the artifact’s content."
+          ? t(
+              "Verified network protection means this preview passed the browser’s network-blocking checks. It does not certify the artifact’s content.",
+            )
           : network === "compatible"
-            ? "You accepted limited protection, so browser checks are skipped until you forget that choice. Published documents restrict external resources; pages reached through navigation may have no network restrictions. Either may transmit files, conversations, or input."
-            : "This page can load external scripts and contact external services. Published files, conversations, input, and shared media can be sent elsewhere.",
+            ? t(
+                "You accepted limited protection, so browser checks are skipped until you forget that choice. Published documents restrict external resources; pages reached through navigation may have no network restrictions. Either may transmit files, conversations, or input.",
+              )
+            : t(
+                "This page can load external scripts and contact external services. Published files, conversations, input, and shared media can be sent elsewhere.",
+              ),
       state: !ready ? verification : network === "blocked" ? "verified" : "limited",
       icon: (
         <>
@@ -70,16 +79,26 @@ export function ArtifactPreviewProtection({
       ),
     },
     ...(["camera", "microphone"] as const).map((kind) => {
-      const name = kind === "camera" ? "Camera" : "Microphone";
+      const name = kind === "camera" ? t("Camera") : t("Microphone");
       const sharing = capture.phase === "sharing" && capture[kind];
       return {
         key: kind,
-        label: `${name} ${sharing ? "sharing" : devices[kind] ? "allowed" : "blocked"}`,
+        label: t(
+          sharing ? "{device} sharing" : devices[kind] ? "{device} allowed" : "{device} blocked",
+          { device: name },
+        ),
         description: sharing
-          ? `${name} is being shared with this page. Use Stop sharing to end capture and clear device consent.`
+          ? t(
+              "{name} is being shared with this page. Use Stop sharing to end capture and clear device consent.",
+              { name: name },
+            )
           : devices[kind]
-            ? `This page may request ${kind}. Browser permission is also required.`
-            : `This page has no r3 permission to use your ${kind}.`,
+            ? t("This page may request {kind}. Browser permission is also required.", {
+                kind: t(kind === "camera" ? "camera" : "microphone"),
+              })
+            : t("This page has no r3 permission to use your {kind}.", {
+                kind: t(kind === "camera" ? "camera" : "microphone"),
+              }),
         state: sharing ? "sharing" : devices[kind] ? "limited" : "blocked",
         icon: (
           <>
@@ -132,7 +151,7 @@ export function ArtifactPreviewProtection({
       </ul>
       {compatibilityAccepted && (
         <Button className="mt-3" onClick={onForgetCompatibility}>
-          Forget browser choice
+          {t("Forget browser choice")}
         </Button>
       )}
     </div>

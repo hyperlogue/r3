@@ -1,10 +1,12 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { copyText } from "../clipboard.ts";
+import { t, useLocale } from "../i18n.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 
 // Each segment copies the suffix starting there. Keep its hover, clipboard
 // result, and confirmation timer local to the header instead of the file body.
 export function FilePath({ path, action }: { path: string; action?: ReactNode }) {
+  useLocale();
   const segments = path.split("/");
   const [hovered, setHovered] = useState<number | null>(null);
   const [focused, setFocused] = useState<number | null>(null);
@@ -29,7 +31,7 @@ export function FilePath({ path, action }: { path: string; action?: ReactNode })
     if (nonce === request.current) setResult({ index, ok });
   };
   const message = result
-    ? `${result.ok ? "Copied" : "Could not copy"}: ${segments.slice(result.index).join("/")}`
+    ? `${result.ok ? t("Copied") : t("Could not copy")}: ${segments.slice(result.index).join("/")}`
     : "";
 
   return (
@@ -45,8 +47,8 @@ export function FilePath({ path, action }: { path: string; action?: ReactNode })
                 <button
                   key={index}
                   type="button"
-                  aria-label={`Copy ${suffix}`}
-                  title={result?.index === index ? message : `Copy ${suffix}`}
+                  aria-label={t("Copy {suffix}", { suffix: suffix })}
+                  title={result?.index === index ? message : t("Copy {suffix}", { suffix: suffix })}
                   className={cn(
                     "underline-offset-[3px] focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-primary-500",
                     index === segments.length - 1

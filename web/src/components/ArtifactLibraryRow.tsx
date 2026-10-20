@@ -4,13 +4,15 @@ import { artifactSearchTerms } from "../../../shared/artifact-search.ts";
 import type { Artifact } from "../../../shared/artifacts.ts";
 import { useHasArtifactDraft } from "../artifact-drafts.ts";
 import { formatBytes } from "../format-bytes.ts";
+import { getLanguageTag, t, useLocale } from "../i18n.ts";
 import { hrefFor, navigate } from "../router.ts";
+import { Trans } from "../translated-text.tsx";
 import { StrokeIcon } from "../ui.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 
 export function relativeArtifactTime(value: string, now: number): string {
   const seconds = (Date.parse(value) - now) / 1000;
-  if (Math.abs(seconds) < 60) return "just now";
+  if (Math.abs(seconds) < 60) return t("just now");
   const [scale, unit] =
     Math.abs(seconds) < 3600
       ? ([60, "minute"] as const)
@@ -23,7 +25,7 @@ export function relativeArtifactTime(value: string, now: number): string {
             : Math.abs(seconds) < 31536000
               ? ([2592000, "month"] as const)
               : ([31536000, "year"] as const);
-  return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+  return new Intl.RelativeTimeFormat(getLanguageTag(), { numeric: "auto" }).format(
     Math.trunc(seconds / scale),
     unit,
   );
@@ -73,16 +75,19 @@ export function ArtifactLibraryRow({
   match?: ArtifactSearchMatch;
   query?: string;
 }) {
+  useLocale();
   const hasDraft = useHasArtifactDraft(artifact.id);
   const archived = artifact.state === "archived";
   const status = archived
-    ? "Archived"
+    ? t("Archived")
     : artifact.unhandledCount
-      ? `${artifact.unhandledCount} to review`
+      ? t("{artifact_unhandledCount} to review", {
+          artifact_unhandledCount: artifact.unhandledCount,
+        })
       : artifact.working
-        ? "Agent working"
+        ? t("Agent working")
         : artifact.watching
-          ? "Agent listening"
+          ? t("Agent listening")
           : null;
   const version =
     match && match.category !== "artifact" ? match.versionSeq : artifact.latestVersion?.seq;
@@ -119,16 +124,16 @@ export function ArtifactLibraryRow({
           {hasDraft && (
             <span
               className="shrink-0 text-xs text-warning-600 dark:text-warning-400"
-              title="Draft in this browser"
+              title={t("Draft in this browser")}
               role="img"
-              aria-label="Draft in this browser"
+              aria-label={t("Draft in this browser")}
             >
               ✎
             </span>
           )}
           {match && (
             <span className="shrink-0 text-[0.65rem] text-neutral-500 max-sm:hidden">
-              {matchLabels[match.category]}
+              {t(matchLabels[match.category])}
             </span>
           )}
         </div>
@@ -150,12 +155,12 @@ export function ArtifactLibraryRow({
             {version != null
               ? `v${version}`
               : match && match.category !== "artifact"
-                ? "General"
-                : "Unpublished"}
+                ? t("General")
+                : t("Unpublished")}
           </span>
           {historical && (
             <span className="shrink-0 rounded bg-warning-50 px-1.5 text-[0.6rem] text-warning-700 dark:bg-warning-950/30 dark:text-warning-300">
-              Historical
+              {t("Historical")}
             </span>
           )}
           <span aria-hidden="true">·</span>
@@ -171,7 +176,7 @@ export function ArtifactLibraryRow({
           ) : (
             <span className="min-w-0 truncate">
               {match && match.category !== "artifact"
-                ? matchLabels[match.category]
+                ? t(matchLabels[match.category])
                 : (artifact.latestVersion?.summary ?? artifact.kind.toUpperCase())}
             </span>
           )}
@@ -188,16 +193,27 @@ export function ArtifactLibraryRow({
         <div className="flex items-center gap-1.5 whitespace-nowrap text-[0.65rem] leading-5 text-neutral-500 max-lg:flex-col max-lg:items-end max-lg:gap-0 dark:text-neutral-400">
           <span
             className="tabular-nums"
-            title={`${artifact.storage.totalBytes.toLocaleString()} bytes of published content, counting shared bytes once within this artifact; excludes database overhead`}
+            title={t(
+              "{artifact_storage_totalBytes_toLocaleString} bytes of published content, counting shared bytes once within this artifact; excludes database overhead",
+              {
+                artifact_storage_totalBytes_toLocaleString:
+                  artifact.storage.totalBytes.toLocaleString(getLanguageTag()),
+              },
+            )}
           >
-            {formatBytes(artifact.storage.totalBytes)} stored
+            <Trans
+              message="{formatBytes_artifact_storage_totalBytes} stored"
+              values={{
+                formatBytes_artifact_storage_totalBytes: formatBytes(artifact.storage.totalBytes),
+              }}
+            />
           </span>
           <span aria-hidden="true" className="max-lg:hidden">
             ·
           </span>
           <time
             dateTime={artifact.updatedAt}
-            title={new Date(artifact.updatedAt).toLocaleString()}
+            title={new Date(artifact.updatedAt).toLocaleString(getLanguageTag())}
             className="max-md:hidden"
           >
             {relativeArtifactTime(artifact.updatedAt, now)}

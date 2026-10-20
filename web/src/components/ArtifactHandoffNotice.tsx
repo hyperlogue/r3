@@ -1,4 +1,5 @@
 import { commentFetchCommand } from "../artifact-handoff.ts";
+import { t, useLocale } from "../i18n.ts";
 import type { useArtifactHandoff } from "../useArtifactHandoff.ts";
 import { Notification } from "./Notifications.tsx";
 
@@ -10,11 +11,12 @@ export function ArtifactHandoffNotice({
 }: {
   handoff: ReturnType<typeof useArtifactHandoff>;
 }) {
+  useLocale();
   if (!handoff.notice && !handoff.error) return null;
   return (
     <Notification
-      title={handoff.error ? "Agent notification failed" : "Agent notified"}
-      message={handoff.error ? AGENT_DELIVERY_HELP : handoff.notice}
+      title={handoff.error ? t("Agent notification failed") : t("Agent notified")}
+      message={handoff.error ? t(AGENT_DELIVERY_HELP) : handoff.notice}
       tone={handoff.error ? "error" : "success"}
       details={handoff.error?.message}
       command={handoff.error ? commentFetchCommand(handoff.artifactId) : undefined}

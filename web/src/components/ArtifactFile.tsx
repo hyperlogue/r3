@@ -9,6 +9,8 @@ import { targetableMedia } from "../../../shared/media-target.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
 import type { DraftAttachment } from "../attachment-drafts.ts";
 import type { Region } from "../highlights.ts";
+import { t, useLocale } from "../i18n.ts";
+import { Trans } from "../translated-text.tsx";
 import type { DiffSide } from "../types.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { ArtifactMedia } from "./ArtifactMedia.tsx";
@@ -63,6 +65,7 @@ export const ArtifactFile = memo(function ArtifactFile({
   onPickLines: (side: DiffSide, start: number, end: number, quote: string) => void;
   preview: () => ReactNode;
 }) {
+  useLocale();
   const artifactApi = useArtifactClient();
   const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(!viewed);
@@ -99,8 +102,12 @@ export const ArtifactFile = memo(function ArtifactFile({
         pathAction={
           <button
             type="button"
-            aria-label={`Download ${filename}`}
-            title={download.isPending ? `Downloading ${filename}…` : `Download ${filename}`}
+            aria-label={t("Download {filename}", { filename: filename })}
+            title={
+              download.isPending
+                ? t("Downloading {filename}…", { filename: filename })
+                : t("Download {filename}", { filename: filename })
+            }
             aria-busy={download.isPending}
             disabled={download.isPending}
             onClick={() => download.mutate()}
@@ -165,7 +172,7 @@ export const ArtifactFile = memo(function ArtifactFile({
               )}
             </div>
           ) : source.isPending ? (
-            <p className="p-3 text-xs text-neutral-500">Loading published source…</p>
+            <p className="p-3 text-xs text-neutral-500">{t("Loading published source…")}</p>
           ) : source.error ? (
             <p role="alert" className="p-3 text-xs text-red-600">
               {source.error.message}
@@ -180,13 +187,18 @@ export const ArtifactFile = memo(function ArtifactFile({
           ) : (
             <div className="space-y-2 p-3">
               <p className="text-xs text-neutral-500">
-                {source.data?.kind === "oversize"
-                  ? "This file is too large for source highlighting."
-                  : "This file contains binary content."}{" "}
-                Download the published file to open it.
+                <Trans
+                  message="{source_data_kind_oversize_t_This_file_is} Download the published file to open it."
+                  values={{
+                    source_data_kind_oversize_t_This_file_is:
+                      source.data?.kind === "oversize"
+                        ? t("This file is too large for source highlighting.")
+                        : t("This file contains binary content."),
+                  }}
+                />
               </p>
               <Button disabled={download.isPending} onClick={() => download.mutate()}>
-                {download.isPending ? "Downloading…" : "Download file"}
+                {download.isPending ? t("Downloading…") : t("Download file")}
               </Button>
             </div>
           ))}
@@ -194,7 +206,7 @@ export const ArtifactFile = memo(function ArtifactFile({
       {download.error && (
         <Notification
           tone="error"
-          title={`Could not download ${filename}`}
+          title={t("Could not download {filename}", { filename: filename })}
           message={download.error.message}
           onDismiss={() => download.reset()}
         />

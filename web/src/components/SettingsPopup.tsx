@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useRef, useState } from "react";
 import { api, CAN_MANAGE_TOKENS, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
+import { t as translate, useLocale } from "../i18n.ts";
 import {
   FONT_MAX,
   FONT_MIN,
@@ -14,6 +15,7 @@ import {
 import type { ThemeOption } from "../types.ts";
 import { Button, cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { ArtifactGcDialog } from "./ArtifactGcDialog.tsx";
+import { LanguageSelect } from "./LanguageSelect.tsx";
 import { TokenManager } from "./TokenManager.tsx";
 import { HeaderIconButton } from "./WorkspaceHeader.tsx";
 
@@ -104,6 +106,7 @@ function Segmented<T extends string>({
 }
 
 export function SettingsPopup() {
+  useLocale();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
 
@@ -112,8 +115,8 @@ export function SettingsPopup() {
       <HeaderIconButton
         ref={trigger}
         onClick={() => setOpen((o) => !o)}
-        title="Settings"
-        aria-label="Settings"
+        title={translate("Settings")}
+        aria-label={translate("Settings")}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
@@ -135,6 +138,7 @@ export function SettingsDialog({
   onClose: () => void;
   trigger: RefObject<HTMLButtonElement | null>;
 }) {
+  useLocale();
   const popup = useRef<HTMLDivElement>(null);
   const [gcOpen, setGcOpen] = useState(false);
   usePopoverFocus(true, popup, trigger);
@@ -155,7 +159,7 @@ export function SettingsDialog({
       {/* click-catcher: closes the popup when clicking elsewhere */}
       <button
         type="button"
-        aria-label="Close settings"
+        aria-label={translate("Close settings")}
         onClick={onClose}
         className="fixed inset-0 z-40 cursor-default"
       />
@@ -163,18 +167,22 @@ export function SettingsDialog({
       <div
         ref={popup}
         role="dialog"
-        aria-label="Settings"
+        aria-label={translate("Settings")}
         className="absolute right-4 top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
       >
         <div className="border-b border-neutral-300 px-3 py-2 text-xs font-semibold dark:border-neutral-700">
-          Settings
+          {translate("Settings")}
         </div>
 
-        <Section label="Appearance">
+        <div className="px-3 py-2.5">
+          <LanguageSelect />
+        </div>
+
+        <Section label={translate("Appearance")}>
           <Segmented
             options={[
-              { id: "light", label: "☀ Light" },
-              { id: "dark", label: "☾ Dark" },
+              { id: "light", label: translate("☀ Light") },
+              { id: "dark", label: translate("☾ Dark") },
             ]}
             value={dark ? "dark" : "light"}
             onChange={(id) => {
@@ -183,7 +191,7 @@ export function SettingsDialog({
           />
         </Section>
 
-        <Section label={`Font size · ${fontSize}px`}>
+        <Section label={translate("Font size · {size}px", { size: fontSize })}>
           <div className="flex items-center gap-2">
             <StepButton
               onClick={() => setFontSize(fontSize - 1)}
@@ -206,7 +214,7 @@ export function SettingsDialog({
           </div>
         </Section>
 
-        <Section label="Syntax theme">
+        <Section label={translate("Syntax theme")}>
           <select
             value={syntaxTheme}
             onChange={(e) => setSyntaxTheme(e.target.value)}
@@ -215,7 +223,7 @@ export function SettingsDialog({
             className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-700 outline-none focus:border-primary-400 max-md:text-base dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
           >
             {themeGroups.map((g) => (
-              <optgroup key={g.name} label={g.name}>
+              <optgroup key={g.name} label={translate(g.name)}>
                 {g.items.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
@@ -225,32 +233,32 @@ export function SettingsDialog({
             ))}
           </select>
           <p className="mt-1.5 text-[0.625rem] text-neutral-400">
-            “Auto” themes follow light/dark mode; the rest apply as-is.
+            {translate("“Auto” themes follow light/dark mode; the rest apply as-is.")}
           </p>
         </Section>
 
-        <Section label="Storage">
+        <Section label={translate("Storage")}>
           <Button className="w-full justify-center" onClick={() => setGcOpen(true)}>
-            Clean up archived artifacts
+            {translate("Clean up archived artifacts")}
           </Button>
         </Section>
 
         {/* Browser login tokens are available on local and remote servers. */}
         {CAN_MANAGE_TOKENS && (
-          <Section label="Access">
+          <Section label={translate("Access")}>
             <TokenManager />
           </Section>
         )}
 
         {/* Local and remote cookie sessions can sign out. Token-bearing fixtures cannot. */}
         {CAN_MANAGE_TOKENS && TOKEN === "" && (
-          <Section label="Session">
+          <Section label={translate("Session")}>
             <Button
               variant="default"
               onClick={() => api.logout().finally(() => location.reload())}
               className="w-full justify-center"
             >
-              Sign out
+              {translate("Sign out")}
             </Button>
           </Section>
         )}

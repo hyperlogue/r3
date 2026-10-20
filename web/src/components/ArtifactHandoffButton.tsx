@@ -1,6 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { commentFetchCommand } from "../artifact-handoff.ts";
 import { copyText } from "../clipboard.ts";
+import { t, useLocale } from "../i18n.ts";
+import { Trans } from "../translated-text.tsx";
 import { Button, StrokeIcon, useCopyFlash, useEscape, usePopoverFocus } from "../ui.tsx";
 import type { useArtifactHandoff } from "../useArtifactHandoff.ts";
 
@@ -57,6 +59,7 @@ function CommentCommand({
   trigger: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
+  useLocale();
   const popup = useRef<HTMLDivElement>(null);
   const { copied, flash } = useCopyFlash();
   const [error, setError] = useState("");
@@ -100,26 +103,29 @@ function CommentCommand({
       id={id}
       popover="auto"
       role="dialog"
-      aria-label="Read comments in your agent"
+      aria-label={t("Read comments in your agent")}
       onToggle={(event) => {
         if (event.newState === "closed") onClose();
       }}
       className="fixed inset-auto m-0 w-80 max-w-[calc(100vw-1rem)] rounded-lg border border-neutral-300 bg-white p-3 text-neutral-900 r3-popover dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
     >
-      <p className="text-xs font-semibold">Read comments in your agent</p>
+      <p className="text-xs font-semibold">{t("Read comments in your agent")}</p>
       <p className="mt-1 text-xs text-neutral-500">
-        Run <code>!</code> followed by this command in your agent harness.
+        <Trans
+          message="Run {code} followed by this command in your agent harness."
+          values={{ code: <code>!</code> }}
+        />
       </p>
       <div className="mt-3 flex items-start gap-2 border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-900">
         <code className="min-w-0 flex-1 break-all text-xs leading-5">{command}</code>
         <Button
           variant="ghost"
-          aria-label={copied ? "Command copied" : "Copy command"}
-          title={copied ? "Copied" : "Copy command"}
+          aria-label={copied ? t("Command copied") : t("Copy command")}
+          title={copied ? t("Copied") : t("Copy command")}
           onClick={async () => {
             setError("");
             if (await copyText(command)) flash();
-            else setError("Clipboard access failed. Select and copy the command above.");
+            else setError(t("Clipboard access failed. Select and copy the command above."));
           }}
         >
           <StrokeIcon className="size-3.5">
@@ -135,7 +141,9 @@ function CommentCommand({
         </Button>
       </div>
       <p className="mt-2 text-xs text-neutral-500">
-        Loads pending comments and thread status changes. Supported agents also listen for updates.
+        {t(
+          "Loads pending comments and thread status changes. Supported agents also listen for updates.",
+        )}
       </p>
       {error && (
         <p role="alert" className="mt-2 text-xs text-red-600">
@@ -143,7 +151,7 @@ function CommentCommand({
         </p>
       )}
       <span role="status" className="sr-only">
-        {copied ? "Command copied" : ""}
+        {copied ? t("Command copied") : ""}
       </span>
     </div>
   );

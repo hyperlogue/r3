@@ -1,6 +1,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { t, useLocale } from "../i18n.ts";
 import { useKeyBindings } from "../keys.ts";
 import { ChevronDown, cn, StrokeIcon, useEscape } from "../ui.tsx";
 
@@ -114,6 +115,7 @@ export function JumpToFileList({
   autoFocus?: boolean;
   onShrink?: () => void;
 }) {
+  useLocale();
   const [filter, setFilter] = useState("");
   // The keyboard cursor: an index into `matches`, moved by ↑/↓ (and Ctrl-p/Ctrl-n),
   // opened by Enter. Starts at 0, so Enter without touching the arrows still picks
@@ -196,7 +198,7 @@ export function JumpToFileList({
             />
           ))}
           {matches.length === 0 && (
-            <div className="px-1.5 py-2 text-xs text-neutral-400">No files match</div>
+            <div className="px-1.5 py-2 text-xs text-neutral-400">{t("No files match")}</div>
           )}
         </div>
       </div>
@@ -210,7 +212,7 @@ export function JumpToFileList({
             setCursor(0);
           }}
           onKeyDown={onFilterKey}
-          placeholder="Filter files…"
+          placeholder={t("Filter files…")}
           // biome-ignore lint/a11y/noAutofocus: the picker opens on an explicit click; focus goes where typing goes (desktop only — on touch, focus would pop the keyboard over the list)
           autoFocus={autoFocus}
           className="min-w-0 flex-1 bg-transparent px-3 py-2 font-mono text-xs text-neutral-800 outline-none placeholder:text-neutral-400 max-md:py-2.5 max-md:text-base dark:text-neutral-100 dark:placeholder:text-neutral-500"
@@ -218,7 +220,7 @@ export function JumpToFileList({
         {onShrink && (
           <button
             type="button"
-            aria-label="Close file list"
+            aria-label={t("Close file list")}
             onClick={onShrink}
             className="hidden shrink-0 items-center justify-center self-stretch px-3 text-neutral-400 max-md:flex"
           >
@@ -244,6 +246,7 @@ export function JumpToFile({
   // The host toolbar's button style, so the trigger sits flush with its siblings.
   btnClassName?: string;
 }) {
+  useLocale();
   // Two-phase visibility so close animates before unmount: `shown` mounts the
   // panel, `visible` drives the transition (desktop: fade+scale from the button
   // corner; mobile sheet: slide up from the bottom edge — a different motion for
@@ -281,8 +284,8 @@ export function JumpToFile({
     <div className="relative">
       <button
         type="button"
-        title="Jump to file (f)"
-        aria-label="Jump to file"
+        title={t("Jump to file (f)")}
+        aria-label={t("Jump to file")}
         onClick={() => (shown && visible ? closePicker() : openPicker())}
         className={btnClassName}
       >
@@ -300,7 +303,7 @@ export function JumpToFile({
               fading with the sheet — since the panel covers the page there. */}
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t("Close")}
             onClick={closePicker}
             className={cn(
               "fixed inset-0 z-40 cursor-default transition-opacity duration-150 max-md:bg-black/30",

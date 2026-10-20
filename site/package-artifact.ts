@@ -1,5 +1,6 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
+import { type Locale, localePath, t } from "./i18n.ts";
 import { normalizeBase } from "./render.ts";
 import { validateLinks } from "./validate.ts";
 
@@ -19,6 +20,7 @@ export async function packageArtifact() {
     if (file.startsWith("demo/") || ["404.html", "robots.txt", "sitemap.xml"].includes(file))
       continue;
     const destination = join(output, file);
+    const locale: Locale = file.startsWith("zh-cn/") ? "zh-cn" : "en";
     await mkdir(dirname(destination), { recursive: true });
     if (!file.endsWith(".html")) {
       await cp(join(source, file), destination);
@@ -37,10 +39,15 @@ export async function packageArtifact() {
             if (!value?.startsWith(`${base}/`) || value.startsWith("//")) continue;
             const url = new URL(value.slice(base.length), "https://example.test");
             if (url.pathname.startsWith("/demo/")) {
-              el.setAttribute(attr, demo.href);
+              const target = new URL(demo);
+              target.searchParams.set("lang", locale);
+              el.setAttribute(attr, target.href);
               el.setAttribute("target", "_blank");
               el.setAttribute("rel", "noopener");
-              el.setAttribute("title", "Open the live demo in a separate browser tab");
+              el.setAttribute(
+                "title",
+                t("Open the live demo in a separate browser tab", undefined, locale),
+              );
               continue;
             }
             // This example renders Markdown in an opaque child frame, which
@@ -50,9 +57,9 @@ export async function packageArtifact() {
               url.pathname === "/example/index.html" &&
               url.searchParams.get("scene") === "proposal"
             ) {
-              url.pathname = "/docs/files/";
+              url.pathname = localePath("/docs/files/", locale);
               url.search = "";
-              el.setInnerContent("Reviewing documents →");
+              el.setInnerContent(t("Reviewing documents →", undefined, locale));
             }
             if (url.pathname.endsWith("/")) url.pathname += "index.html";
             const path = posix.relative(posix.dirname(file), url.pathname.slice(1));

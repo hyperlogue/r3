@@ -4,8 +4,10 @@ import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
 } from "../../../shared/preview-protocol.ts";
+import { t, useLocale } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
 import type { PreviewVerification } from "../preview-protection.ts";
+import { Trans } from "../translated-text.tsx";
 import { Button } from "../ui.tsx";
 import { ArtifactPreviewProtection } from "./ArtifactPreviewProtection.tsx";
 
@@ -30,6 +32,7 @@ export function ArtifactPreviewNetworkControl({
   onStopSharing: () => void;
   onChange: (network: ArtifactPreviewNetwork, devices: PreviewDevicePermissions) => void;
 }) {
+  useLocale();
   const [confirming, setConfirming] = useState(false);
   const external = network === "external";
   return (
@@ -50,18 +53,18 @@ export function ArtifactPreviewNetworkControl({
       <div className="sr-only">
         <span role="status">
           {verification === "checking"
-            ? "Checking preview protection…"
+            ? t("Checking preview protection…")
             : verification === "error"
-              ? "Preview not running"
+              ? t("Preview not running")
               : external
-                ? "External connections allowed for this version"
+                ? t("External connections allowed for this version")
                 : network === "compatible"
-                  ? "Limited network protection"
-                  : "External connections blocked"}
+                  ? t("Limited network protection")
+                  : t("External connections blocked")}
         </span>
         {external && (devices.camera || devices.microphone) && (
           <span className="block text-neutral-600 dark:text-neutral-300">
-            {[devices.camera && "Camera allowed", devices.microphone && "Microphone allowed"]
+            {[devices.camera && t("Camera allowed"), devices.microphone && t("Microphone allowed")]
               .filter(Boolean)
               .join(" · ")}
           </span>
@@ -70,12 +73,12 @@ export function ArtifactPreviewNetworkControl({
       <div className="flex flex-wrap gap-1">
         {html && (
           <Button onClick={() => setConfirming(true)}>
-            {external ? "Permissions" : "Allow external access"}
+            {external ? t("Permissions") : t("Allow external access")}
           </Button>
         )}
         {external && (
           <Button onClick={() => onChange("blocked", { camera: false, microphone: false })}>
-            Restore protection
+            {t("Restore protection")}
           </Button>
         )}
       </div>
@@ -88,12 +91,18 @@ export function ArtifactPreviewNetworkControl({
             {capture.phase === "error"
               ? capture.message
               : capture.phase === "requesting"
-                ? "Waiting for browser device permission…"
-                : `Sharing ${[capture.camera && "camera", capture.microphone && "microphone"].filter(Boolean).join(" and ")}`}
+                ? t("Waiting for browser device permission…")
+                : t(
+                    capture.camera && capture.microphone
+                      ? "Sharing camera and microphone"
+                      : capture.camera
+                        ? "Sharing camera"
+                        : "Sharing microphone",
+                  )}
           </span>
           {capture.phase !== "error" && (
             <Button onClick={onStopSharing}>
-              {capture.phase === "requesting" ? "Cancel request" : "Stop sharing"}
+              {capture.phase === "requesting" ? t("Cancel request") : t("Stop sharing")}
             </Button>
           )}
         </div>
@@ -124,6 +133,7 @@ function NetworkConsent({
   onCancel: () => void;
   onAllow: (devices: PreviewDevicePermissions) => void;
 }) {
+  useLocale();
   const [selected, setSelected] = useState(devices);
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
@@ -150,31 +160,35 @@ function NetworkConsent({
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 r3-modal backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
       <h2 id={title} className="text-base font-semibold">
-        {external ? "Artifact permissions" : "Allow external access?"}
+        {external ? t("Artifact permissions") : t("Allow external access?")}
       </h2>
       <div
         id={description}
         className="mt-3 space-y-3 text-sm text-neutral-600 dark:text-neutral-300"
       >
         <p>
-          This page and any external scripts it loads can send its published files, your input, and
-          this artifact’s conversations to external services. Any shared camera or microphone data
-          can also be sent elsewhere.
+          {t(
+            "This page and any external scripts it loads can send its published files, your input, and this artifact’s conversations to external services. Any shared camera or microphone data can also be sent elsewhere.",
+          )}
         </p>
         <p>
-          r3 stays isolated. Only enable this for content you trust. The browser will still ask for
-          device permission when needed.
+          {t(
+            "r3 stays isolated. Only enable this for content you trust. The browser will still ask for device permission when needed.",
+          )}
         </p>
         <p>
-          {external
-            ? "Network access lasts for this version."
-            : "The preview will reload with network access."}{" "}
-          Device choices reset whenever the page navigates. All choices reset when you switch
-          versions or leave the preview. Restoring protection cannot undo data already sent.
+          <Trans
+            message="{external_t_Network_access_lasts_for_this} Device choices reset whenever the page navigates. All choices reset when you switch versions or leave the preview. Restoring protection cannot undo data already sent."
+            values={{
+              external_t_Network_access_lasts_for_this: external
+                ? t("Network access lasts for this version.")
+                : t("The preview will reload with network access."),
+            }}
+          />
         </p>
       </div>
       <fieldset className="mt-4 border-t border-neutral-200 pt-2 text-sm dark:border-neutral-700">
-        <legend className="font-medium">Also allow this page to request</legend>
+        <legend className="font-medium">{t("Also allow this page to request")}</legend>
         {(["camera", "microphone"] as const).map((kind) => (
           <label
             key={kind}
@@ -188,14 +202,14 @@ function NetworkConsent({
                 setSelected((value) => ({ ...value, [kind]: checked }));
               }}
             />
-            {kind === "camera" ? "Camera" : "Microphone"}
+            {kind === "camera" ? t("Camera") : t("Microphone")}
           </label>
         ))}
       </fieldset>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <Button onClick={onCancel}>{external ? "Cancel" : "Keep protection"}</Button>
+        <Button onClick={onCancel}>{external ? t("Cancel") : t("Keep protection")}</Button>
         <Button variant="primary" onClick={() => onAllow(selected)}>
-          {external ? "Save permissions" : "Allow external access"}
+          {external ? t("Save permissions") : t("Allow external access")}
         </Button>
       </div>
     </dialog>

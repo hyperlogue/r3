@@ -1,3 +1,4 @@
+import { t } from "./i18n.ts";
 import { hrefFor } from "./router.ts";
 
 export interface MarkdownIdentity {
@@ -106,7 +107,7 @@ export class MarkdownCache {
       };
       opening.onblocked = () => {
         blocked = true;
-        reject(new Error("Document cache is busy"));
+        reject(new Error(t("Document cache is busy")));
       };
       opening.onerror = () => reject(opening.error);
       opening.onsuccess = () => {
@@ -130,7 +131,8 @@ export class MarkdownCache {
     const tx = database.transaction(["entries", "bytes", "state"], "readwrite");
     const done = new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
-      tx.onabort = tx.onerror = () => reject(tx.error ?? new Error("Document cache unavailable"));
+      tx.onabort = tx.onerror = () =>
+        reject(tx.error ?? new Error(t("Document cache unavailable")));
     });
     // Attach both continuations immediately, including when the operation fails.
     const [result] = await Promise.all([run(tx), done]);
@@ -193,7 +195,7 @@ export class MarkdownCache {
     if (html !== null && (await markdownMatches(html, value.renderedHash))) return html;
     const fresh = await fetchDocument();
     if (!(await markdownMatches(fresh, value.renderedHash)))
-      throw new Error("Rendered document integrity check failed");
+      throw new Error(t("Rendered document integrity check failed"));
     const bytes = new TextEncoder().encode(fresh).byteLength;
     if (epoch !== null && bytes <= this.budget) {
       try {

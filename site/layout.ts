@@ -1,4 +1,5 @@
 import { groups, navigationDocs, type Page, stories } from "./catalog.ts";
+import { type Locale, languageTags, localeNames, localePath, locales } from "./i18n.ts";
 import { escapeHTML, type Heading } from "./render.ts";
 
 function githubLink(id: string) {
@@ -28,13 +29,14 @@ export function shell(
   body: string,
   options: {
     base: string;
+    locale?: Locale;
     origin: string;
     headings?: Heading[];
     article?: boolean;
     markdown?: boolean;
   },
 ) {
-  const { base, origin, headings = [], article = false, markdown = true } = options;
+  const { base, origin, locale = "en", headings = [], article = false, markdown = true } = options;
   const isDoc = page.path.startsWith("/docs/");
   const isCase = page.path.startsWith("/use-cases/") && page.path !== "/use-cases/";
   const currentStory = isCase
@@ -47,6 +49,12 @@ export function shell(
   const canonicalPath = page.canonicalPath ?? page.path;
   const links = `<a href="/use-cases/"${page.path.startsWith("/use-cases/") ? ' aria-current="page"' : ""}>Use cases</a>
 <a href="/docs/"${page.path.startsWith("/docs/") ? ' aria-current="page"' : ""}>Docs</a>`;
+  const languageLinks = locales
+    .map(
+      (item) =>
+        `<a data-locale="${item}" lang="${languageTags[item]}" href="${localePath(page.path === "/404.html" ? "/" : page.path, item)}"${item === locale ? ' aria-current="true"' : ""}>${localeNames[item]}</a>`,
+    )
+    .join("");
   const themeScript = `(()=>{let t=new URLSearchParams(location.search).get('theme');try{t||=localStorage.getItem('r3-site-theme')}catch{}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'})()`;
   const toc = headings.length
     ? `<nav class="toc" aria-label="On this page">
@@ -73,12 +81,13 @@ export function shell(
 <meta name="color-scheme" content="light dark">
 <title>${escapeHTML(page.title)} · r3</title>
 <meta name="description" content="${escapeHTML(page.description)}">
-<link rel="canonical" href="${escapeHTML(origin + canonicalPath)}">
+<link rel="canonical" href="${escapeHTML(origin + localePath(canonicalPath, locale))}">
+${locales.map((item) => `<link rel="alternate" hreflang="${languageTags[item]}" href="${escapeHTML(origin + localePath(canonicalPath, item))}">`).join("\n")}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="r3">
 <meta property="og:title" content="${escapeHTML(page.title)}">
 <meta property="og:description" content="${escapeHTML(page.description)}">
-<meta property="og:url" content="${escapeHTML(origin + canonicalPath)}">
+<meta property="og:url" content="${escapeHTML(origin + localePath(canonicalPath, locale))}">
 <meta property="og:image" content="${escapeHTML(origin)}/assets/social.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
@@ -98,6 +107,7 @@ export function shell(
 </div>
 <nav class="desktop-nav" aria-label="Main navigation">${links}</nav>
 <div class="header-actions">
+<nav class="language-menu" aria-label="Language">${languageLinks}</nav>
 <a class="search-link" href="/search/" aria-label="Search documentation">
 <span aria-hidden="true">
 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -118,6 +128,7 @@ ${githubLink("header-github")}
 <details class="mobile-menu">
 <summary aria-label="Open navigation">Menu</summary>
 <nav aria-label="Mobile navigation">${links}<a href="/docs/get-started/#install-the-skill">Install the skill</a>
+<div class="mobile-languages" role="group" aria-label="Language">${languageLinks}</div>
 </nav>
 </details>
 </div>

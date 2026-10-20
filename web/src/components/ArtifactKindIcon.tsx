@@ -1,8 +1,12 @@
 import type { ArtifactKind } from "../../../shared/artifacts.ts";
+import { t, useLocale } from "../i18n.ts";
 import { StrokeIcon } from "../ui.tsx";
 
 export function ArtifactKindIcon({ kind }: { kind: ArtifactKind }) {
-  const label = { html: "HTML artifact", files: "Files artifact", diff: "Diff artifact" }[kind];
+  useLocale();
+  const label = { html: t("HTML artifact"), files: t("Files artifact"), diff: t("Diff artifact") }[
+    kind
+  ];
   return (
     <span role="img" aria-label={label} title={label} className="shrink-0 text-neutral-500">
       <StrokeIcon className="size-4">

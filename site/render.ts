@@ -55,7 +55,8 @@ export async function createRenderer() {
     },
   });
   return {
-    render(source: string) {
+    render(source: string, originalHeadingIds?: readonly string[]) {
+      const headingIds: string[] = [];
       const headings: Heading[] = [];
       const used = new Map<string, number>();
       const tokens = md.parse(source, {});
@@ -70,11 +71,13 @@ export async function createRenderer() {
             .replace(/^-|-$/g, "") || "section";
         const count = used.get(slug) || 0;
         used.set(slug, count + 1);
-        const id = count ? `${slug}-${count + 1}` : slug;
+        const id =
+          originalHeadingIds?.[headingIds.length] ?? (count ? `${slug}-${count + 1}` : slug);
+        headingIds.push(id);
         tokens[i].attrSet("id", id);
         if (tokens[i].tag === "h2") headings.push({ id, text: text.replace(/[`*]/g, "") });
       }
-      return { html: md.renderer.render(tokens, md.options, {}), headings };
+      return { html: md.renderer.render(tokens, md.options, {}), headings, headingIds };
     },
     dispose: () => highlighter.dispose(),
   };

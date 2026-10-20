@@ -14,6 +14,13 @@ The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 
 ## Reusable workspace UI
 
+Browser chrome supports English and Simplified Chinese, currently with English
+translation placeholders. Locale is a browser display preference; it never
+changes authored content or wire values. Switching preserves workspace state
+and drafts, and updates parent-owned annotation labels over the existing preview
+display channel. [Localization](../i18n.md) owns catalog and host initialization
+rules.
+
 `web/src/artifact-page.tsx` exports `ArtifactPage`, the same workspace used by the
 connected application and the public website. Its host supplies an immutable
 `ArtifactDetail`, typed `data` reads, typed `actions` mutations, and a

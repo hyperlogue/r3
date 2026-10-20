@@ -1,3 +1,4 @@
+import { t, useLocale } from "../src/i18n.ts";
 // Demo nav-bar chrome: "Demo" badge + first-run intro (Reset lives here).
 
 import { useCallback, useEffect, useState } from "react";
@@ -17,6 +18,7 @@ function seen(): boolean {
 }
 
 export function DemoChrome() {
+  useLocale();
   const [open, setOpen] = useState(() => !seen());
 
   // Stable (no deps) so the Escape effect below doesn't re-bind every render.
@@ -32,7 +34,9 @@ export function DemoChrome() {
   function reset() {
     if (
       !confirm(
-        "Reset the demo? This clears threads, comments, and publications back to the original artifacts.",
+        t(
+          "Reset the demo? This clears threads, comments, and publications back to the original artifacts.",
+        ),
       )
     )
       return;
@@ -58,10 +62,10 @@ export function DemoChrome() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="This runs entirely in your browser — no server. Click for a quick intro."
+        title={t("This runs entirely in your browser — no server. Click for a quick intro.")}
         className="mr-4 inline-flex shrink-0 items-center rounded-full bg-orange-600 px-2 py-0.5 text-[0.7rem] font-semibold text-white transition-colors hover:bg-orange-500"
       >
-        Demo
+        {t("Demo")}
       </button>
 
       {open && <IntroDialog onClose={close} onReset={reset} />}
@@ -70,12 +74,13 @@ export function DemoChrome() {
 }
 
 function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () => void }) {
+  useLocale();
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* backdrop — click to dismiss */}
       <button
         type="button"
-        aria-label="Close intro"
+        aria-label={t("Close intro")}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-black/40"
       />
@@ -87,29 +92,33 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
       >
         <div className="px-5 pt-4">
           <h2 id="demo-intro-title" className="text-base font-semibold">
-            You're looking at a demo of r3
+            {t("You're looking at a demo of r3")}
           </h2>
           <div className="mt-2 space-y-2 text-sm text-neutral-600 dark:text-neutral-300">
             <p>
-              This is{" "}
+              {t("This is")}{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                just a demo
+                {t("just a demo")}
               </span>{" "}
-              — the whole thing runs in your browser. There's no server: the artifacts and your
-              threads live in this tab. Reloading starts a fresh demo.
+              {t(
+                "— the whole thing runs in your browser. There's no server: the artifacts and your threads live in this tab. Reloading starts a fresh demo.",
+              )}
             </p>
             <p>
-              Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file
-              diff. Leave threads on text or an element, then click{" "}
+              {t(
+                "Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file diff. Leave threads on text or an element, then click",
+              )}{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                Send to agent
+                {t("Send to agent")}
               </span>{" "}
-              — a scripted agent comments and publishes a new version. Your selected version and
-              original comment targets stay available.
+              {t(
+                "— a scripted agent comments and publishes a new version. Your selected version and original comment targets stay available.",
+              )}
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Previews use bundled examples in opaque sandboxed frames. The demo does not simulate
-              the daemon’s verified network protection. Reset restores the original artifacts.
+              {t(
+                "Previews use bundled examples in opaque sandboxed frames. The demo does not simulate the daemon’s verified network protection. Reset restores the original artifacts.",
+              )}
             </p>
           </div>
         </div>
@@ -122,10 +131,10 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
               "border-neutral-300 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
             )}
           >
-            Reset demo
+            {t("Reset demo")}
           </button>
           <Button variant="primary" onClick={onClose}>
-            Explore →
+            {t("Explore →")}
           </Button>
         </div>
       </div>

@@ -29,6 +29,7 @@ import { NotificationProvider } from "../components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar } from "../components/PaneToolbar.tsx";
 import { SourceCode } from "../components/SourceCode.tsx";
 import { useTheme } from "../hooks.ts";
+import { initializeLocale } from "../i18n.ts";
 import { ArtifactWorkspace } from "../pages/ArtifactView.tsx";
 import type { DiscussionPanelMode } from "../settings.ts";
 import {
@@ -598,6 +599,7 @@ function Showcase() {
   );
 }
 
+initializeLocale();
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={client}>
     <ApplicationUIProvider>

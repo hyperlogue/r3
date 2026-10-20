@@ -50,6 +50,7 @@ import { QuoteBubble, type QuotePos } from "./components/Message.tsx";
 import { Notification, NotificationProvider } from "./components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "./components/PaneToolbar.tsx";
 import { ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
+import { t, useLocale } from "./i18n.ts";
 import { keysSuspended, useKeyBindings } from "./keys.ts";
 import { AddCommentPill } from "./mobile/AddCommentPill.tsx";
 // This page is the artifact workspace's single mobile container mount point.
@@ -176,6 +177,7 @@ function Workspace({
   initialSearch = location.search,
   onLocationChange,
 }: ArtifactWorkspaceProps) {
+  useLocale();
   const [view, setView] = useState(() => readArtifactLocation(detail.kind, initialSearch));
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const comparison = useArtifactComparison(detail, initialSearch, !!onLocationChange);
@@ -410,7 +412,7 @@ function Workspace({
           if (quoteNow) appendQuote(text);
           else setQuote({ ...at, text });
         } else {
-          setNotice("Finish or discard the current draft before changing its target.");
+          setNotice(t("Finish or discard the current draft before changing its target."));
           openComposer(at, focus);
         }
       } else openComposer(at, focus);
@@ -544,7 +546,9 @@ function Workspace({
         setDetailsRequest(nonce);
       } else if (target.kind === "artifact_summary") {
         setNotice(
-          "This comment refers to a retired artifact overview. Its original target and quote are preserved.",
+          t(
+            "This comment refers to a retired artifact overview. Its original target and quote are preserved.",
+          ),
         );
       } else paneRef.current?.scrollTo({ top: 0 });
     },
@@ -593,15 +597,15 @@ function Workspace({
     }
     const threads = detail.threads.find((threads) => threads.id === id);
     if (!threads) {
-      setNotice("This conversation is unavailable.");
+      setNotice(t("This conversation is unavailable."));
       return;
     }
     const commentId = searchEntry.get("comment");
     if (commentId) {
       const comment = threads.comments.slice(1).find((comment) => comment.id === commentId);
-      if (!comment) setNotice("This comment is unavailable.");
+      if (!comment) setNotice(t("This comment is unavailable."));
       else if (comment.context.versionSeq === null)
-        setNotice("This comment has no recorded publication context.");
+        setNotice(t("This comment has no recorded publication context."));
     } else locate(threads.target, id);
     if (mobile) setSheet("full");
     else showDiscussionPanel();
@@ -610,7 +614,7 @@ function Workspace({
     (ref, messageContext) => {
       comparison.close(false);
       if (!messageContext.versionSeq || !messageContext.representation) {
-        setNotice("This reference has no known published representation.");
+        setNotice(t("This reference has no known published representation."));
         return;
       }
       changeView({
@@ -625,7 +629,9 @@ function Workspace({
         setFold({ mode: "unfold", path: ref.file, nonce });
       } else
         setNotice(
-          "Opened the referenced rendered document. Source line numbers do not identify rendered elements.",
+          t(
+            "Opened the referenced rendered document. Source line numbers do not identify rendered elements.",
+          ),
         );
     },
     [changeView, comparison.close],
@@ -936,7 +942,7 @@ function Workspace({
                 {toolbar}
                 {notice && (
                   <Notification
-                    title="Review notice"
+                    title={t("Review notice")}
                     message={notice}
                     tone="warning"
                     onDismiss={() => setNotice("")}
@@ -950,8 +956,11 @@ function Workspace({
                 {!version ? (
                   <p className="p-6 text-sm text-neutral-500">
                     {view.versionSeq === null
-                      ? "No version has been published yet."
-                      : `Version ${view.versionSeq} is unavailable. Choose a retained publication above.`}
+                      ? t("No version has been published yet.")
+                      : t(
+                          "Version {view_versionSeq} is unavailable. Choose a retained publication above.",
+                          { view_versionSeq: view.versionSeq },
+                        )}
                   </p>
                 ) : detail.kind === "html" ? (
                   path && canRender ? (
@@ -981,7 +990,7 @@ function Workspace({
                     <ArtifactLoading />
                   ) : (
                     <p className="p-6 text-sm text-neutral-500">
-                      This file has no rendered document in the selected version.
+                      {t("This file has no rendered document in the selected version.")}
                     </p>
                   )
                 ) : (
@@ -998,7 +1007,9 @@ function Workspace({
                     >
                       {detail.kind === "diff" ? (
                         diffQuery.isPending ? (
-                          <p className="p-6 text-sm text-neutral-500">Loading published patch…</p>
+                          <p className="p-6 text-sm text-neutral-500">
+                            {t("Loading published patch…")}
+                          </p>
                         ) : (
                           <DiffView
                             patch={patch}
@@ -1059,7 +1070,9 @@ function Workspace({
                                 onMediaTarget={(target, snapshot) => {
                                   if (!artifactDrafts.anchor(detail.id, target)) {
                                     setNotice(
-                                      "Finish or discard the current draft before changing its target.",
+                                      t(
+                                        "Finish or discard the current draft before changing its target.",
+                                      ),
                                     );
                                     openComposer(undefined, false);
                                     return false;
@@ -1115,7 +1128,9 @@ function Workspace({
                           </ProgressiveFile>
                         ))
                       ) : (
-                        <p className="p-6 text-sm text-neutral-500">Loading published files…</p>
+                        <p className="p-6 text-sm text-neutral-500">
+                          {t("Loading published files…")}
+                        </p>
                       )}
                     </ProgressiveFileProvider>
                   </VirtualPaneProvider>
@@ -1193,7 +1208,7 @@ function Workspace({
       {coarse && detail.state === "active" && !comparison.active && (
         <AddCommentPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
-      {quote && <QuoteBubble pos={quote} label="Quote in note" onQuote={appendQuote} />}
+      {quote && <QuoteBubble pos={quote} label={t("Quote in note")} onQuote={appendQuote} />}
       <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );

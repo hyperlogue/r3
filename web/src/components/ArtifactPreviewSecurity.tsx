@@ -9,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { t, useLocale } from "../i18n.ts";
 import { type PreviewSecurityState, previewSecuritySummary } from "../preview-security.ts";
 import { ChevronDown, cn, StrokeIcon } from "../ui.tsx";
 
@@ -70,6 +71,7 @@ export function ArtifactPreviewSecurity() {
 }
 
 function SecurityIndicator({ registry }: { registry: ReturnType<typeof createRegistry> }) {
+  useLocale();
   const entries = useSyncExternalStore(registry.subscribe, registry.get);
   const summary = previewSecuritySummary(entries);
   const [open, setOpen] = useState(false);
@@ -87,10 +89,10 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
       <button
         ref={trigger}
         type="button"
-        aria-label={`Preview security: ${summary.label}`}
+        aria-label={t("Preview security: {summary_label}", { summary_label: summary.label })}
         aria-expanded={open}
         aria-controls={contentId}
-        title={`Preview security: ${summary.label}`}
+        title={t("Preview security: {summary_label}", { summary_label: summary.label })}
         onClick={() => setOpen(!open)}
         className={cn(
           "flex w-full items-center gap-2 rounded-md p-1.5 text-left text-xs hover:bg-neutral-100 max-md:min-h-9 dark:hover:bg-neutral-800",
@@ -116,7 +118,7 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
           )}
         </StrokeIcon>
         <span className="min-w-0 flex-1">
-          <span className="block font-medium">Preview security</span>
+          <span className="block font-medium">{t("Preview security")}</span>
           <span className="block">{summary.label}</span>
         </span>
         <ChevronDown
@@ -129,7 +131,7 @@ function SecurityIndicator({ registry }: { registry: ReturnType<typeof createReg
       <section
         id={contentId}
         hidden={!open}
-        aria-label="Preview security details"
+        aria-label={t("Preview security details")}
         className="mt-2 text-sm"
         onKeyDown={(event) => {
           if (event.key === "Escape" && !document.querySelector("dialog:modal")) {

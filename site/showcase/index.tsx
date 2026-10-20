@@ -5,7 +5,9 @@ import { artifactApi } from "../../web/demo/artifact-api.ts";
 import { demo } from "../../web/demo/artifact-backend.ts";
 import { artifactDrafts } from "../../web/src/artifact-drafts.ts";
 import { ArtifactPage } from "../../web/src/artifact-page.tsx";
+import { initializeLocale, useLocale } from "../../web/src/i18n.ts";
 import { setDiscussionMode } from "../../web/src/settings.ts";
+import { t } from "../i18n.ts";
 import "../../web/src/showcase/forms.ts";
 import { ComponentsDocument } from "./ComponentsDocument.tsx";
 import { FieldworkDocument } from "./FieldworkDocument.tsx";
@@ -62,6 +64,7 @@ const data = {
     structuredClone(seed.themeStyles[theme ?? ""] ?? Object.values(seed.themeStyles)[0]!),
 };
 function Example() {
+  const locale = useLocale();
   const detail = useSyncExternalStore(subscribe, () => snapshot);
   const [generation, setGeneration] = useState(0);
   const reset = () => {
@@ -75,22 +78,22 @@ function Example() {
   return (
     <>
       {!parameters.has("embedded") && (
-        <aside className="example-banner" aria-label="About this example">
+        <aside className="example-banner" aria-label={t("About this example")}>
           <span>
-            <strong>{componentScene ? "UI component showcase" : "Example Fieldwork"}</strong>
+            <strong>{componentScene ? t("UI component showcase") : "Example Fieldwork"}</strong>
             <span className="example-explainer">
               {" "}
-              · Real r3 interface. Fictional data and scripted agent.
+              {t("· Real r3 interface. Fictional data and scripted agent.")}
             </span>
           </span>
           <span className="example-actions">
             <a
-              href={`../index.html?theme=${parameters.get("theme") === "dark" ? "dark" : "light"}`}
+              href={`../${locale === "zh-cn" ? "zh-cn/" : ""}index.html?theme=${parameters.get("theme") === "dark" ? "dark" : "light"}`}
             >
-              ← Homepage
+              {t("← Homepage")}
             </a>
             <button type="button" onClick={reset}>
-              Reset example
+              {t("Reset example")}
             </button>
           </span>
         </aside>
@@ -130,9 +133,9 @@ function Example() {
         />
       ) : (
         <main className="example-deleted">
-          <p>Example deleted.</p>
+          <p>{t("Example deleted.")}</p>
           <button type="button" onClick={reset}>
-            Start again
+            {t("Start again")}
           </button>
         </main>
       )}
@@ -151,4 +154,5 @@ window.addEventListener("message", (event) => {
     return;
   theme(event.data.theme);
 });
+initializeLocale();
 createRoot(document.getElementById("root")!).render(<Example />);

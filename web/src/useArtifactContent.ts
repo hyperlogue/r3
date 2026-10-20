@@ -14,6 +14,7 @@ import { useArtifactClient } from "./artifact-ui-context.tsx";
 import { type ArtifactViewSelection, selectedArtifactVersion } from "./artifact-version.ts";
 import type { FetchContext } from "./components/DiffView.tsx";
 import { compareFilePaths } from "./file-order.ts";
+import { t, useLocale } from "./i18n.ts";
 import { useSyntaxTheme } from "./settings.ts";
 import type { PatchDiff } from "./types.ts";
 import { useArtifactViewed } from "./useArtifactViewed.ts";
@@ -29,6 +30,7 @@ export function useArtifactContent(
   view: ArtifactViewSelection,
   onReadError: (message: string) => void,
 ) {
+  useLocale();
   const artifactApi = useArtifactClient();
   const version = selectedArtifactVersion(detail.versions, view.versionSeq);
   const latest = detail.versions.at(-1);
@@ -114,7 +116,7 @@ export function useArtifactContent(
       try {
         return (await artifactApi.context(detail.id, version.seq, path, start, end, theme)).lines;
       } catch (error) {
-        onReadError(error instanceof Error ? error.message : "Could not read captured context.");
+        onReadError(error instanceof Error ? error.message : t("Could not read captured context."));
         return null;
       }
     },

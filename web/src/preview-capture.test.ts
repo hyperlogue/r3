@@ -1,5 +1,31 @@
 import { expect, test } from "bun:test";
-import { PreviewCapture, previewCaptureConstraints } from "./preview-capture.ts";
+import {
+  PreviewCapture,
+  previewCaptureConstraints,
+  previewIceComplete,
+} from "./preview-capture.ts";
+
+test("serialized preview ICE timeout needs no application-module closure", async () => {
+  let timeout = () => {};
+  const serialized = new Function(
+    "setTimeout",
+    "clearTimeout",
+    `return (${previewIceComplete.toString()})`,
+  )(
+    (callback: () => void) => {
+      timeout = callback;
+      return 1;
+    },
+    () => {},
+  ) as typeof previewIceComplete;
+  const peer = new EventTarget() as RTCPeerConnection;
+  const pending = serialized(peer);
+  timeout();
+  await expect(pending).rejects.toMatchObject({
+    name: "AbortError",
+    message: "Device connection timed out",
+  });
+});
 
 class Track extends EventTarget {
   readyState = "live";

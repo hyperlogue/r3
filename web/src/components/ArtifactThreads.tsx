@@ -11,7 +11,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { artifactTargetLabel, artifactThreadTargetLabel } from "../../../shared/artifact-prompt.ts";
 import {
   type ArtifactDetail,
   type ArtifactKind,
@@ -23,9 +22,15 @@ import {
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
+import {
+  targetLabel as artifactTargetLabel,
+  threadTargetLabel as artifactThreadTargetLabel,
+  hasHistoricalTarget,
+} from "../artifact-labels.ts";
 import { useOptimisticArtifact, useThreadStatus } from "../artifact-thread-status.ts";
 import { activeArtifactThreads, artifactNeedsAttention } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
+import { t, useLocale } from "../i18n.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
@@ -71,12 +76,7 @@ function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
 // Compact browser labels without changing the explicit context kept in prompts,
 // targets, or Locate actions. Latest means published, not the selected version.
 function cardTargetLabel(target: ArtifactTarget, latestVersionSeq: number | null): string {
-  const label = artifactTargetLabel(target);
-  if (!("path" in target)) return label;
-  return label.replace(
-    `Version ${target.versionSeq} · ${target.kind} · `,
-    target.versionSeq === latestVersionSeq ? "" : `Version ${target.versionSeq} · `,
-  );
+  return artifactTargetLabel(target, latestVersionSeq);
 }
 function fixTargetLabel(
   target: ArtifactTarget,
@@ -85,10 +85,16 @@ function fixTargetLabel(
 ): string {
   if (artifactKind !== "html" || target.kind !== "rendered")
     return cardTargetLabel(target, latestVersionSeq);
-  const label = target.locator?.label ?? (target.locator ? "Page element" : "Page");
-  return target.versionSeq === latestVersionSeq ? label : `Version ${target.versionSeq} · ${label}`;
+  const label = target.locator?.label ?? (target.locator ? t("Page element") : t("Page"));
+  return target.versionSeq === latestVersionSeq
+    ? label
+    : t("Version {target_versionSeq} · {label}", {
+        target_versionSeq: target.versionSeq,
+        label: label,
+      });
 }
 function ThreadQuote({ quote }: { quote: string }) {
+  useLocale();
   const element = useRef<HTMLQuoteElement>(null);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -121,7 +127,11 @@ function ThreadQuote({ quote }: { quote: string }) {
         onClick={() => {
           if (hasMore && window.getSelection()?.isCollapsed) setOpen((value) => !value);
         }}
-        title={hasMore ? `Click to ${open ? "collapse" : "expand"} · drag to select` : undefined}
+        title={
+          hasMore
+            ? t(open ? "Click to collapse · drag to select" : "Click to expand · drag to select")
+            : undefined
+        }
       >
         {quote}
       </blockquote>
@@ -133,7 +143,7 @@ function ThreadQuote({ quote }: { quote: string }) {
           className="mb-2 text-[0.625rem] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
           onClick={() => setOpen((value) => !value)}
         >
-          {open ? "Collapse quote" : "Expand quote"}
+          {open ? t("Collapse quote") : t("Expand quote")}
         </button>
       )}
     </>
@@ -173,6 +183,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   hidden?: boolean;
   readOnly?: boolean;
 }) {
+  useLocale();
   const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
@@ -271,7 +282,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     mutationFn: () => artifactApi.deleteThread(thread.id),
     onSuccess: refresh,
   });
-  const unavailable = artifactThreadTargetLabel(thread) === "Historical target unavailable";
+  const unavailable = hasHistoricalTarget(thread);
   const hasTarget = unavailable || thread.target.kind !== "artifact";
   const originalContext = targetContext(thread.target);
   const quote =
@@ -283,7 +294,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     <Button
       type="button"
       data-thread-action="resolve"
-      title={`${thread.status === "open" ? "Resolve" : "Reopen"} (${active ? "e" : "e for the selected thread"})`}
+      title={`${thread.status === "open" ? t("Resolve") : t("Reopen")} (${active ? "e" : t("e for the selected thread")})`}
       variant={thread.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
       className={thread.status === "resolved" ? "text-neutral-400" : undefined}
@@ -292,15 +303,15 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         if (thread.status === "open") onResolved?.(thread.id);
       }}
     >
-      {thread.status === "open" ? "✓ Resolve" : "Reopen"}
+      {thread.status === "open" ? t("✓ Resolve") : t("Reopen")}
     </Button>
   );
   const moreMenu = (
     <div className="relative">
       <MoreActionsButton
         ref={menuTrigger}
-        title="More actions"
-        aria-label="More actions"
+        title={t("More actions")}
+        aria-label={t("More actions")}
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((value) => !value)}
       />
@@ -308,20 +319,20 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <>
           <button
             type="button"
-            aria-label="Close menu"
+            aria-label={t("Close menu")}
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
           <div
             ref={menu}
             role="dialog"
-            aria-label="Thread actions"
+            aria-label={t("Thread actions")}
             className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
           >
             <button
               type="button"
               disabled={!canEdit}
-              title={canEdit ? undefined : "The agent replied last — post a new comment instead"}
+              title={canEdit ? undefined : t("The agent replied last — post a new comment instead")}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:text-neutral-400 dark:hover:bg-neutral-800"
               onClick={() => {
                 setEditing(
@@ -340,7 +351,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 setCommenting(false);
               }}
             >
-              Edit
+              {t("Edit")}
             </button>
             <button
               type="button"
@@ -350,7 +361,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 setMenuOpen(false);
               }}
             >
-              Delete
+              {t("Delete")}
             </button>
           </div>
         </>
@@ -370,7 +381,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     >
       <MessageInput
         inputRef={editTextarea}
-        aria-label="Edit message"
+        aria-label={t("Edit message")}
         value={editing.body}
         onChange={(event) => setEditing({ ...editing, body: event.target.value })}
         disabled={edit.isPending}
@@ -401,14 +412,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       <div className="flex justify-end gap-2 px-3">
         {attachmentInput.controls}
         <Button type="button" disabled={edit.isPending} onClick={() => setEditing(null)}>
-          Cancel
+          {t("Cancel")}
         </Button>
         <Button
           type="submit"
           variant="primary"
           disabled={!hasMessageContent(editing) || attachmentInput.unfinished || edit.isPending}
         >
-          {edit.isPending ? "Saving…" : "Save"}
+          {edit.isPending ? t("Saving…") : t("Save")}
         </Button>
       </div>
     </form>
@@ -455,13 +466,13 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
           {artifactNeedsAttention(thread) && (
             <span
-              title="Unhandled agent response"
+              title={t("Unhandled agent response")}
               className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
             />
           )}
           {unavailable ? (
             <span className="text-amber-700 dark:text-amber-400">
-              Historical target unavailable
+              {t("Historical target unavailable")}
             </span>
           ) : hasTarget ? (
             <button
@@ -475,7 +486,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           ) : null}
           {thread.status === "resolved" && (
             <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
-              ✓ resolved
+              {t("✓ resolved")}
             </span>
           )}
         </div>
@@ -485,13 +496,16 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       )}
       {(hasUnsentArtifactThread(thread) || thread.claim) && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          {hasUnsentArtifactThread(thread) && <span>Not sent</span>}
+          {hasUnsentArtifactThread(thread) && <span>{t("Not sent")}</span>}
           {thread.claim && (
             <span
               className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
-              title={`Working agent: ${thread.claim.sessionId}`}
+              title={t("Working agent: {thread_claim_sessionId}", {
+                thread_claim_sessionId: thread.claim.sessionId,
+              })}
             >
-              Working · <AgentName id={thread.claim.sessionId} labels={agentLabels} />
+              {t("Working · ")}
+              <AgentName id={thread.claim.sessionId} labels={agentLabels} />
             </span>
           )}
         </div>
@@ -499,7 +513,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       {quote && <ThreadQuote quote={quote} />}
       {unavailable && (
         <details className="mb-2 text-xs text-neutral-500">
-          <summary>Imported anchor evidence</summary>
+          <summary>{t("Imported anchor evidence")}</summary>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap">
             {JSON.stringify(thread.comments[0]!.legacy?.source, null, 2)}
           </pre>
@@ -517,7 +531,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             className="mb-1 text-xs text-neutral-500"
             title={thread.comments[0]!.author.sessionId}
           >
-            Agent · <AgentName id={thread.comments[0]!.author.sessionId} labels={agentLabels} />
+            {t("Agent · ")}
+            <AgentName id={thread.comments[0]!.author.sessionId} labels={agentLabels} />
           </div>
         )}
         {!readOnly && editing && !editing.commentId ? (
@@ -543,8 +558,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         >
           <FoldTriangle open={earlierOpen} className="size-2.5" />
           {earlierOpen
-            ? "hide earlier comments"
-            : `${thread.comments.slice(1).length - 3} earlier comments`}
+            ? t("hide earlier comments")
+            : t("{thread_comments_slice_1_length_3} earlier comments", {
+                thread_comments_slice_1_length_3: thread.comments.slice(1).length - 3,
+              })}
         </button>
       )}
       {(earlierOpen ? thread.comments.slice(1) : thread.comments.slice(1).slice(-3)).map(
@@ -561,7 +578,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           >
             {comment.author.role === "agent" && (
               <div className="mb-1 text-xs text-neutral-500" title={comment.author.sessionId}>
-                Agent · <AgentName id={comment.author.sessionId} labels={agentLabels} />
+                {t("Agent · ")}
+                <AgentName id={comment.author.sessionId} labels={agentLabels} />
               </div>
             )}
             {!readOnly && editing?.commentId === comment.id ? (
@@ -581,12 +599,20 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
                 title={
                   artifactKind === "html" && comment.target.kind === "rendered"
-                    ? `Version ${comment.target.versionSeq} · ${comment.target.locator?.selector ?? "Page"}`
+                    ? t(
+                        "Version {comment_target_versionSeq} · {comment_target_locator_selector_Page}",
+                        {
+                          comment_target_versionSeq: comment.target.versionSeq,
+                          comment_target_locator_selector_Page:
+                            comment.target.locator?.selector ?? t("Page"),
+                        },
+                      )
                     : artifactTargetLabel(comment.target)
                 }
                 onClick={() => onLocate(comment.target!, thread.id)}
               >
-                ↳ Fix: {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
+                {t("↳ Fix: ")}
+                {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
               </button>
             )}
             {comment.target?.kind === "media" && comment.target.locator.frame && (
@@ -602,12 +628,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 data-compare-comment={comment.id}
                 onClick={() => onCompare(comment.id)}
               >
-                Compare
+                {t("Compare")}
               </Button>
             )}
             {comment.legacy && (
               <details className="mt-1 text-xs text-neutral-500">
-                <summary>Imported reference evidence</summary>
+                <summary>{t("Imported reference evidence")}</summary>
                 <pre className="max-h-32 overflow-auto whitespace-pre-wrap">
                   {JSON.stringify(comment.legacy, null, 2)}
                 </pre>
@@ -628,20 +654,20 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <Button
             className="ml-auto"
             data-thread-action="comment"
-            title={active ? "Reply (r)" : "Reply (r for the selected thread)"}
+            title={active ? t("Reply (r)") : t("Reply (r for the selected thread)")}
             onClick={openComment}
           >
-            Reply
+            {t("Reply")}
           </Button>
         </div>
       )}
       {!readOnly && deleting && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <span>Delete this thread and its comments?</span>
+          <span>{t("Delete this thread and its comments?")}</span>
           <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
-            Delete thread
+            {t("Delete thread")}
           </Button>
-          <Button onClick={() => setDeleting(false)}>Keep</Button>
+          <Button onClick={() => setDeleting(false)}>{t("Keep")}</Button>
         </div>
       )}
       {!readOnly && commenting && (
@@ -656,7 +682,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       {!readOnly && visible && bubble.pos && (
         <QuoteBubble
           pos={bubble.pos}
-          label="Quote in comment"
+          label={t("Quote in comment")}
           onQuote={(text) => {
             openComment();
             const draft = artifactDrafts.get(thread.artifactId, thread.id);
@@ -696,6 +722,7 @@ function ThreadQueue({
   activeThread?: string | null;
   children: ReactNode;
 }) {
+  useLocale();
   const [listAnimation] = useAutoAnimate<HTMLDivElement>(threadAnimation);
   const focus = useThreadFocusIndicator(selected ? activeThread : null);
   const listRef = useCallback(
@@ -724,8 +751,8 @@ function ThreadQueue({
           )}
         >
           {tab === "resolved"
-            ? "No resolved threads."
-            : "Select content to leave a comment, or add a general note."}
+            ? t("No resolved threads.")
+            : t("Select content to leave a comment, or add a general note.")}
         </p>
         <div ref={listRef} data-discussion-list>
           {children}
@@ -775,6 +802,7 @@ export function ArtifactThreads({
   tab?: ArtifactThreadTab;
   onTabChange?: (tab: ArtifactThreadTab) => void;
 }) {
+  useLocale();
   detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
   const [localTab, setLocalTab] = useState<ArtifactThreadTab>("active");
@@ -914,7 +942,7 @@ export function ArtifactThreads({
     <section
       ref={panel}
       className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950"
-      aria-label="Artifact discussion"
+      aria-label={t("Artifact discussion")}
     >
       <div
         data-discussion-header
@@ -922,10 +950,10 @@ export function ArtifactThreads({
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="shrink-0 text-base font-semibold">Discussion</span>
+            <span className="shrink-0 text-base font-semibold">{t("Discussion")}</span>
             {comparisonMode && (
               <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[0.625rem] font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-300">
-                Comparison
+                {t("Comparison")}
               </span>
             )}
             {panelControls}
@@ -933,8 +961,8 @@ export function ArtifactThreads({
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
               variant="ghost"
-              aria-label="Add comment"
-              title="Add comment (n)"
+              aria-label={t("Add comment")}
+              title={t("Add comment (n)")}
               onClick={newNote}
               disabled={detail.state !== "active"}
             >
@@ -956,7 +984,7 @@ export function ArtifactThreads({
           <div
             ref={indicator.ref}
             role="tablist"
-            aria-label="Thread status"
+            aria-label={t("Thread status")}
             className="relative flex items-center gap-1"
           >
             <span
@@ -1003,14 +1031,16 @@ export function ArtifactThreads({
                     : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300",
                 )}
               >
-                {value === "active" ? `Active ${active.length}` : `Resolved ${resolved.length}`}
+                {value === "active"
+                  ? t("Active {active_length}", { active_length: active.length })
+                  : t("Resolved {resolved_length}", { resolved_length: resolved.length })}
               </button>
             ))}
           </div>
           <div className="flex min-w-0 items-center gap-1.5">
             {!!draftCount && (
               <span
-                title="Drafts stay in this browser until posted"
+                title={t("Drafts stay in this browser until posted")}
                 className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
               >
                 ✎ {draftCount} {draftCount === 1 ? "draft" : "drafts"}
@@ -1021,13 +1051,13 @@ export function ArtifactThreads({
               title={watchers[0]?.label ?? watchers[0]?.actor.sessionId ?? undefined}
             >
               {detail.working
-                ? "Agent working"
+                ? t("Agent working")
                 : watchers.length
                   ? watchers[0]?.mode === "fallback"
-                    ? "Fallback registered"
+                    ? t("Fallback registered")
                     : watchers[0]?.mode === "explicit"
-                      ? "Listener registered"
-                      : "Agent listening"
+                      ? t("Listener registered")
+                      : t("Agent listening")
                   : pending
                     ? `${pending} pending`
                     : ""}

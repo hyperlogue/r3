@@ -1,4 +1,5 @@
 import type { ComparisonSide } from "../components/ArtifactComparison.tsx";
+import { t, useLocale } from "../i18n.ts";
 import { Button } from "../ui.tsx";
 
 // Only the phone container selects one preview. Both documents stay mounted.
@@ -9,9 +10,10 @@ export function MobileComparisonTabs({
   side: ComparisonSide;
   onChange: (side: ComparisonSide) => void;
 }) {
+  useLocale();
   return (
     <fieldset
-      aria-label="Comparison view"
+      aria-label={t("Comparison view")}
       className="flex shrink-0 gap-1 border-b border-neutral-300 p-1 dark:border-neutral-700"
     >
       {(["original", "proposed"] as const).map((value) => (
@@ -22,7 +24,7 @@ export function MobileComparisonTabs({
           aria-pressed={side === value}
           onClick={() => onChange(value)}
         >
-          {value === "original" ? "Original" : "Proposed fix"}
+          {value === "original" ? t("Original") : t("Proposed fix")}
         </Button>
       ))}
     </fieldset>

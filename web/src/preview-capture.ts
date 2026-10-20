@@ -2,6 +2,7 @@ import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
 } from "../../shared/preview-protocol.ts";
+import { t } from "./i18n.ts";
 
 type Send = (message: Record<string, unknown>) => void;
 interface DocumentGrant {
@@ -23,7 +24,7 @@ interface Capture {
 let pendingNativeRequest = false;
 async function requestDevices(constraints: MediaStreamConstraints): Promise<MediaStream> {
   if (pendingNativeRequest)
-    throw new DOMException("A device permission request is still open", "NotReadableError");
+    throw new DOMException(t("A device permission request is still open"), "NotReadableError");
   pendingNativeRequest = true;
   try {
     return await navigator.mediaDevices.getUserMedia(constraints);
@@ -34,15 +35,15 @@ async function requestDevices(constraints: MediaStreamConstraints): Promise<Medi
 
 export function previewCaptureConstraints(value: unknown): MediaStreamConstraints {
   if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new TypeError("Choose audio or video capture");
+    throw new TypeError(t("Choose audio or video capture"));
   const input = value as Record<string, unknown>;
   if (Object.keys(input).some((key) => key !== "audio" && key !== "video"))
-    throw new TypeError("Only audio and video capture are supported");
+    throw new TypeError(t("Only audio and video capture are supported"));
   const parse = (value: unknown, kind: "audio" | "video"): boolean | MediaTrackConstraints => {
     if (value === undefined || value === false) return false;
     if (value === true) return true;
     if (!value || typeof value !== "object" || Array.isArray(value))
-      throw new TypeError(`Invalid ${kind} constraints`);
+      throw new TypeError(t("Invalid {kind} constraints", { kind: kind }));
     const supported =
       kind === "video"
         ? ["width", "height", "frameRate", "aspectRatio", "facingMode"]
@@ -50,7 +51,10 @@ export function previewCaptureConstraints(value: unknown): MediaStreamConstraint
     const result: Record<string, unknown> = {};
     for (const [key, constraint] of Object.entries(value)) {
       if (!supported.includes(key))
-        throw new DOMException(`Unsupported capture constraint: ${key}`, "NotSupportedError");
+        throw new DOMException(
+          t("Unsupported capture constraint: {key}", { key: key }),
+          "NotSupportedError",
+        );
       const primitive = (value: unknown) => {
         if (key === "facingMode")
           return (
@@ -70,17 +74,18 @@ export function previewCaptureConstraints(value: unknown): MediaStreamConstraint
         )
       )
         result[key] = { ...constraint };
-      else throw new TypeError(`Invalid capture constraint: ${key}`);
+      else throw new TypeError(t("Invalid capture constraint: {key}", { key: key }));
     }
     return result;
   };
   const constraints = { audio: parse(input.audio, "audio"), video: parse(input.video, "video") };
   if (!constraints.audio && !constraints.video)
-    throw new TypeError("Choose audio or video capture");
+    throw new TypeError(t("Choose audio or video capture"));
   return constraints;
 }
 
 export async function previewIceComplete(peer: RTCPeerConnection): Promise<void> {
+  // Also serialized into the opaque preview; keep this helper closure-free.
   if (peer.iceGatheringState === "complete") return;
   await new Promise<void>((resolve, reject) => {
     const done = () => {
@@ -172,7 +177,8 @@ export class PreviewCapture {
   }
   private error(grant: DocumentGrant, id: string, error: unknown): void {
     const name = error instanceof Error ? error.name : "AbortError";
-    const message = error instanceof Error ? error.message.slice(0, 512) : "Device capture failed";
+    const message =
+      error instanceof Error ? error.message.slice(0, 512) : t("Device capture failed");
     this.send(grant, { op: "error", id, name, message });
     if (!this.capture) this.state(undefined, message);
   }
@@ -189,12 +195,12 @@ export class PreviewCapture {
         (constraints.audio && !grant.permissions.microphone)
       )
         throw new DOMException(
-          "Enable the requested devices in artifact permissions",
+          t("Enable the requested devices in artifact permissions"),
           "NotAllowedError",
         );
       if (this.capture || this.requesting)
         throw new DOMException(
-          "Stop the current capture or finish its permission request first",
+          t("Stop the current capture or finish its permission request first"),
           "NotReadableError",
         );
       capture = {
@@ -208,7 +214,7 @@ export class PreviewCapture {
             this.error(
               grant,
               id,
-              new DOMException("Device permission request timed out", "AbortError"),
+              new DOMException(t("Device permission request timed out"), "AbortError"),
             );
           }
         }, this.options.permissionTimeoutMs ?? 120_000),
@@ -232,7 +238,7 @@ export class PreviewCapture {
       capture.timer = setTimeout(() => {
         if (capture && this.live(capture)) {
           this.stop(false);
-          this.error(grant, id, new DOMException("Device connection timed out", "AbortError"));
+          this.error(grant, id, new DOMException(t("Device connection timed out"), "AbortError"));
         }
       }, 15_000);
       const peer = (
@@ -272,7 +278,7 @@ export class PreviewCapture {
     if (!capture.peer || capture.answer) return;
     try {
       if (typeof sdp !== "string" || sdp.length > 64_000)
-        throw new TypeError("Invalid device connection answer");
+        throw new TypeError(t("Invalid device connection answer"));
       const sections = sdp.match(/^m=.*$/gm) ?? [];
       const kinds = capture
         .stream!.getTracks()
@@ -287,7 +293,7 @@ export class PreviewCapture {
           .join() !== kinds.join() ||
         /^a=(sendrecv|sendonly)\r?$/m.test(sdp)
       )
-        throw new TypeError("Device connections only receive the requested audio/video");
+        throw new TypeError(t("Device connections only receive the requested audio/video"));
       capture.answer = true;
       await capture.peer.setRemoteDescription({ type: "answer", sdp });
     } catch (error) {

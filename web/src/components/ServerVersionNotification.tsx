@@ -1,11 +1,14 @@
 import { useId, useState, useSyncExternalStore } from "react";
 import { compareVersions, R3_VERSION } from "../../../shared/version.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
+import { t, useLocale } from "../i18n.ts";
 import { serverVersion } from "../server-version.ts";
+import { Trans } from "../translated-text.tsx";
 import { Button, StrokeIcon } from "../ui.tsx";
 import { NotificationSlot } from "./Notifications.tsx";
 
 export function ServerVersionNotification() {
+  useLocale();
   const version = useSyncExternalStore(serverVersion.subscribe, serverVersion.getSnapshot);
   const [saveFailed, setSaveFailed] = useState(false);
   const messageId = useId();
@@ -23,15 +26,21 @@ export function ServerVersionNotification() {
         <div className="r3-server-update-copy" role="status" aria-live="polite" aria-atomic="true">
           <div>
             <p className="font-semibold">
-              Server {upgraded ? "updated" : "changed"} to v{version}
+              <Trans
+                message="Server {upgraded_updated_changed} to v{version}"
+                values={{
+                  upgraded_updated_changed: t(upgraded ? "updated" : "changed"),
+                  version: version,
+                }}
+              />
             </p>
             <p
               id={messageId}
               className="r3-server-update-message text-neutral-600 dark:text-neutral-400"
             >
               {saveFailed
-                ? "Drafts couldn’t be saved. Copy them before refreshing."
-                : "Refresh to match the server."}
+                ? t("Drafts couldn’t be saved. Copy them before refreshing.")
+                : t("Refresh to match the server.")}
             </p>
           </div>
         </div>
@@ -39,9 +48,9 @@ export function ServerVersionNotification() {
           type="button"
           variant="primary"
           className="r3-server-update-action"
-          aria-label="Refresh page"
+          aria-label={t("Refresh page")}
           aria-describedby={messageId}
-          title="Reload this page to use the same r3 version as the server"
+          title={t("Reload this page to use the same r3 version as the server")}
           onClick={() => {
             if (!artifactDrafts.flush()) {
               setSaveFailed(true);
@@ -50,7 +59,7 @@ export function ServerVersionNotification() {
             location.reload();
           }}
         >
-          Refresh
+          {t("Refresh")}
         </Button>
       </div>
     </NotificationSlot>

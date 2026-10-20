@@ -51,6 +51,7 @@ import { type AttachmentInput, attachmentPath } from "../../shared/attachments.t
 import { readEventStream } from "../../shared/event-stream.ts";
 import { TOKEN } from "./api.ts";
 import { applicationFetch } from "./application-fetch.ts";
+import { t } from "./i18n.ts";
 import { hrefFor } from "./router.ts";
 import type { DiffFileChange, DiffLine } from "./types.ts";
 
@@ -222,7 +223,7 @@ export async function* artifactEventStream(
   signal: AbortSignal,
 ): AsyncGenerator<ArtifactStreamEvent | { type: "ready" }> {
   const response = await client().request("GET", "/api/events", undefined, signal);
-  if (!response.body) throw new Error("Missing event stream");
+  if (!response.body) throw new Error(t("Missing event stream"));
   for await (const frame of readEventStream(response.body)) {
     if (frame.event === "ready") yield { type: "ready" };
     else if (frame.event !== "heartbeat") yield JSON.parse(frame.data) as ArtifactStreamEvent;

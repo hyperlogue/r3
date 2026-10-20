@@ -2,6 +2,9 @@
 
 r3 runs on loopback with sensible defaults out of the box. You can customize font sizes, color themes, and syntax styles directly in the workspace.
 
+Choose **Settings → Language** for English or Simplified Chinese. The choice is
+saved in your browser. Chinese interface text currently uses English placeholders.
+
 To inspect current settings, run `r3 config show` in your terminal.
 
 ## Key configuration settings

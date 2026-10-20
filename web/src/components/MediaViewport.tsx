@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { t, useLocale } from "../i18n.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 
 const levels = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
@@ -34,6 +35,7 @@ export function MediaViewport({
   disabled?: boolean;
   videoAspectRatio?: number;
 }) {
+  useLocale();
   const viewport = useRef<HTMLDivElement>(null);
   const transform = useRef<HTMLDivElement>(null);
   const [animate, setAnimate] = useState(false);
@@ -67,8 +69,8 @@ export function MediaViewport({
       <button
         type="button"
         className={buttonClass}
-        title="Zoom out"
-        aria-label="Zoom out"
+        title={t("Zoom out")}
+        aria-label={t("Zoom out")}
         disabled={disabled || zoom === levels[0]}
         onClick={() => changeZoom(levels[levels.indexOf(zoom) - 1]!)}
       >
@@ -79,8 +81,8 @@ export function MediaViewport({
       <button
         type="button"
         className={cn(buttonClass, "w-10 text-[0.625rem] tabular-nums")}
-        title="Reset zoom to fit"
-        aria-label="Reset zoom"
+        title={t("Reset zoom to fit")}
+        aria-label={t("Reset zoom")}
         disabled={disabled}
         onClick={reset}
       >
@@ -89,8 +91,8 @@ export function MediaViewport({
       <button
         type="button"
         className={buttonClass}
-        title="Zoom in"
-        aria-label="Zoom in"
+        title={t("Zoom in")}
+        aria-label={t("Zoom in")}
         disabled={disabled || zoom === levels.at(-1)}
         onClick={() => changeZoom(levels[levels.indexOf(zoom) + 1]!)}
       >
@@ -137,7 +139,7 @@ export function MediaViewport({
         {panning && (
           <div
             role="application"
-            aria-label="Pan media with drag or arrow keys"
+            aria-label={t("Pan media with drag or arrow keys")}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: the two-dimensional pan surface handles keyboard arrows when zoomed in
             tabIndex={0}
             className={cn(

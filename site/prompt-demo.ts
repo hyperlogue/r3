@@ -1,3 +1,4 @@
+import { t } from "./i18n.ts";
 import { promptExamples } from "./prompt-examples.ts";
 
 export function startPromptDemo(root: HTMLElement, onChange: (index: number) => void) {
@@ -18,10 +19,10 @@ export function startPromptDemo(root: HTMLElement, onChange: (index: number) => 
     root.dataset.paused = String(paused);
     root.dataset.phase = "ready";
     onChange(index);
-    prompt.textContent = example.prompt;
-    response.textContent = example.response;
-    play.setAttribute("aria-label", `${paused ? "Play" : "Pause"} prompt animation`);
-    play.title = `${paused ? "Play" : "Pause"} animation`;
+    prompt.textContent = t(example.prompt);
+    response.textContent = t(example.response);
+    play.setAttribute("aria-label", t(paused ? "Play prompt animation" : "Pause prompt animation"));
+    play.title = t(paused ? "Play animation" : "Pause animation");
     for (const choice of choices)
       choice.setAttribute("aria-pressed", String(Number(choice.dataset.promptChoice) === index));
     if (paused || motion.matches || !visible || document.hidden) return;

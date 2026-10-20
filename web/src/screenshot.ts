@@ -1,4 +1,5 @@
 import { ATTACHMENT_LIMITS } from "../../shared/attachments.ts";
+import { t } from "./i18n.ts";
 
 type CroppableTrack = MediaStreamTrack & { cropTo(target: unknown): Promise<void> };
 type CropWindow = Window & {
@@ -32,8 +33,8 @@ export function canCapturePreview(): boolean {
 // ever receives the stream or its uncropped pixels.
 export async function capturePreview(element: HTMLElement, signal: AbortSignal): Promise<Blob> {
   if (!canCapturePreview())
-    throw new Error("Area capture is unavailable here. Paste or attach a screenshot instead.");
-  if (requesting) throw new Error("Finish the existing browser sharing prompt first");
+    throw new Error(t("Area capture is unavailable here. Paste or attach a screenshot instead."));
+  if (requesting) throw new Error(t("Finish the existing browser sharing prompt first"));
   requesting = true;
   let stream: MediaStream | undefined;
   let frame: ImageBitmap | undefined;
@@ -44,7 +45,7 @@ export async function capturePreview(element: HTMLElement, signal: AbortSignal):
   signal.addEventListener("abort", stop);
   const check = () => {
     signal.throwIfAborted();
-    if (!element.isConnected) throw new Error("The preview changed. Capture it again.");
+    if (!element.isConnected) throw new Error(t("The preview changed. Capture it again."));
   };
   try {
     check();
@@ -77,7 +78,7 @@ export async function capturePreview(element: HTMLElement, signal: AbortSignal):
     check();
     const track = stream.getVideoTracks()[0] as CroppableTrack | undefined;
     if (track?.getSettings().displaySurface !== "browser" || typeof track.cropTo !== "function")
-      throw new Error("Select this r3 browser tab to capture the preview");
+      throw new Error(t("Select this r3 browser tab to capture the preview"));
     const target = await untilAborted(
       (window as CropWindow).CropTarget!.fromElement(element),
       signal,
@@ -120,9 +121,9 @@ export async function capturePreview(element: HTMLElement, signal: AbortSignal):
     check();
     stop();
     if (!frame.width || !frame.height)
-      throw new Error("The browser did not provide a screenshot frame");
+      throw new Error(t("The browser did not provide a screenshot frame"));
     if (frame.width * frame.height > ATTACHMENT_LIMITS.pixels)
-      throw new Error("Preview exceeds 20 megapixels. Reduce the window size and try again.");
+      throw new Error(t("Preview exceeds 20 megapixels. Reduce the window size and try again."));
     const canvas = document.createElement("canvas");
     canvas.width = frame.width;
     canvas.height = frame.height;
@@ -130,7 +131,8 @@ export async function capturePreview(element: HTMLElement, signal: AbortSignal):
     const blob = await untilAborted(
       new Promise<Blob>((resolve, reject) =>
         canvas.toBlob(
-          (value) => (value ? resolve(value) : reject(new Error("Unable to capture this preview"))),
+          (value) =>
+            value ? resolve(value) : reject(new Error(t("Unable to capture this preview"))),
           "image/png",
         ),
       ),

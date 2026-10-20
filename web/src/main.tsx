@@ -9,10 +9,14 @@ import { ApplicationUIProvider } from "./application-ui.tsx";
 import { ClientApproval } from "./components/ClientApproval.tsx";
 import { Login } from "./components/Login.tsx";
 import { readDisplayPreference } from "./display-storage.ts";
+import { t } from "./i18n.ts";
 import { previewCompatibility } from "./preview-protection.ts";
 import { previewSessions } from "./preview-sessions.ts";
 import { clampFont } from "./settings.ts";
 import "./main.css";
+import { initializeLocale } from "./i18n.ts";
+
+initializeLocale();
 
 // Restore the saved theme before first paint.
 const savedTheme = readDisplayPreference("r3-theme");
@@ -111,14 +115,14 @@ function renderBootError(err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
   createRoot(document.getElementById("root")!).render(
     <div className="mx-auto mt-[15vh] max-w-lg px-6 text-sm">
-      <p className="mb-2 font-semibold">Couldn’t reach the r3 server.</p>
+      <p className="mb-2 font-semibold">{t("Couldn’t reach the r3 server.")}</p>
       <p className="mb-4 break-words font-mono text-xs text-neutral-500">{message}</p>
       <button
         type="button"
         onClick={() => location.reload()}
         className="cursor-pointer rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
       >
-        Retry
+        {t("Retry")}
       </button>
     </div>,
   );

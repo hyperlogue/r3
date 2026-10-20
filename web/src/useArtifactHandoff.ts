@@ -5,11 +5,13 @@ import { useArtifactDraftCount } from "./artifact-drafts.ts";
 import { useDiscussionHandoffReceipt } from "./artifact-handoff.ts";
 import { useThreadStatusPending } from "./artifact-thread-status.ts";
 import { useArtifactClient } from "./artifact-ui-context.tsx";
+import { t, useLocale } from "./i18n.ts";
 import { useCopyFlash } from "./ui.tsx";
 
 // The navbar and panel share delivery rules, receipts, and a mutation key so
 // either control can send a batch without duplicating an in-flight handoff.
 export function useArtifactHandoff(detail: ArtifactDetail) {
+  useLocale();
   const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const mutationKey = ["artifact-handoff", detail.id];
@@ -32,21 +34,21 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
     comments.filter((comment) => comment.author.role === "human" && comment.sentAt === null).length;
   const disabledReason =
     detail.state === "archived"
-      ? "Restore the artifact to send comments"
+      ? t("Restore the artifact to send comments")
       : loadingWatchers
-        ? "Checking for an agent"
+        ? t("Checking for an agent")
         : !watchers.length
           ? null
           : savingStatus
-            ? "Saving thread status"
+            ? t("Saving thread status")
             : draftCount
-              ? "Post or discard drafts before sending comments"
+              ? t("Post or discard drafts before sending comments")
               : !pending
-                ? "No new comments or status changes to send"
+                ? t("No new comments or status changes to send")
                 : receipt.hashes === null
-                  ? "Checking pending comments"
+                  ? t("Checking pending comments")
                   : receipt.covered
-                    ? "Already sent. Add or update a comment to send again."
+                    ? t("Already sent. Add or update a comment to send again.")
                     : null;
   const mutation = useMutation({
     mutationKey,
@@ -54,16 +56,16 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
       setNotice("");
       if (watchers.length) {
         const snapshot = receipt.begin();
-        if (!snapshot) throw new Error("Pending comments are still loading. Try again.");
+        if (!snapshot) throw new Error(t("Pending comments are still loading. Try again."));
         const result = await artifactApi.submit(detail.id);
         if (result.notification.state !== "sent" && result.notification.state !== "queued")
           throw new Error(
             result.notification.state === "failed"
               ? result.notification.error
-              : "No agent accepted the notification.",
+              : t("No agent accepted the notification."),
           );
         receipt.remember(snapshot);
-        setNotice("Your thread is ready for the agent to fetch.");
+        setNotice(t("Your thread is ready for the agent to fetch."));
         showSent();
       }
     },
@@ -86,12 +88,14 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
       isPending ||
       sent,
     label: !watchers.length
-      ? "Use in agent"
+      ? t("Use in agent")
       : sent && (receipt.covered || !pending)
-        ? "Sent"
+        ? t("Sent")
         : isPending
-          ? "Sending…"
-          : `Send to agent${pending ? ` · ${pending}` : ""}`,
+          ? t("Sending…")
+          : t("Send to agent{pending_pending}", {
+              pending_pending: pending ? ` · ${pending}` : "",
+            }),
     notice,
     error: mutation.error,
     dismiss: () => {

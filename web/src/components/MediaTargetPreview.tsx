@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MediaBox } from "../../../shared/artifacts.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
+import { t, useLocale } from "../i18n.ts";
 import type { EditableImage } from "./MessageAttachments.tsx";
 import { imageBlob } from "./MessageAttachments.tsx";
 
@@ -54,6 +55,7 @@ export function useMediaImage(image?: EditableImage) {
 }
 
 export function MediaTargetPreview({ image, box }: { image: EditableImage; box: MediaBox }) {
+  useLocale();
   const { url, error } = useMediaImage(image);
   const [expanded, setExpanded] = useState(false);
   return (
@@ -66,14 +68,14 @@ export function MediaTargetPreview({ image, box }: { image: EditableImage; box: 
           <button
             type="button"
             className="relative block w-full"
-            title="View saved frame"
-            aria-label="View saved frame"
+            title={t("View saved frame")}
+            aria-label={t("View saved frame")}
             aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
           >
             <img
               src={url}
-              alt="Saved media target"
+              alt={t("Saved media target")}
               width={image.width}
               height={image.height}
               className="block w-full"
@@ -82,7 +84,7 @@ export function MediaTargetPreview({ image, box }: { image: EditableImage; box: 
           </button>
         ) : (
           <p role={error ? "alert" : "status"} className="text-xs text-neutral-500">
-            {error || "Loading saved frame…"}
+            {error || t("Loading saved frame…")}
           </p>
         )}
       </div>
