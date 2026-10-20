@@ -2,7 +2,11 @@ import { R3_VERSION_HEADER } from "../shared/version.ts";
 import type { ApplicationAssets } from "./application-assets.ts";
 import { createApplicationResponse } from "./application-assets.ts";
 import { createArtifactApi } from "./artifact-api.ts";
-import { type ArtifactAuthPolicy, artifactRequestHostname } from "./artifact-auth.ts";
+import {
+  type ArtifactAuthPolicy,
+  artifactProxied,
+  artifactRequestHostname,
+} from "./artifact-auth.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
 import { PREVIEW_PREFIX } from "./preview-contexts.ts";
 import { PreviewHost } from "./preview-host.ts";
@@ -68,6 +72,18 @@ export function startArtifactServer(options: ArtifactServerOptions) {
               "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
             },
           });
+        } else if (policy.refuseProxied && artifactProxied(request)) {
+          response = new Response(
+            "Proxied access requires login; configure publicUrl or requireLogin",
+            {
+              status: 403,
+              headers: {
+                "content-type": "text/plain",
+                "cache-control": "no-store",
+                "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+              },
+            },
+          );
         } else {
           const path = new URL(request.url).pathname;
           response = path.startsWith(PREVIEW_PREFIX)

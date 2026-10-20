@@ -111,14 +111,18 @@ the exchange endpoint succeeds without creating auth records.
 ## Client authorization
 
 Login defaults to disabled for loopback-only configurations and enabled when the
-bind, allowed hostnames, or public URL include external exposure. The policy is
-global to the server: a reverse proxy's loopback peer or rewritten Host does not
-bypass required login. Explicit `requireLogin=true` or `false` overrides the
-default; `R3_REQUIRE_LOGIN` takes precedence over persisted configuration.
+bind, allowed hostnames, or public URL include external exposure, or when trusted
+proxies are configured. The policy is global to the server: a reverse proxy's
+loopback peer or rewritten Host does not bypass required login. When no-login mode
+is only the loopback default, the server refuses any request carrying `Forwarded`,
+`X-Forwarded-*`, `X-Real-IP`, or `Via` with 403 before routing, so an unconfigured
+proxy fails closed. Explicit `requireLogin=true` or `false` overrides the default
+and the proxy refusal; `R3_REQUIRE_LOGIN` takes precedence over persisted configuration.
 With login disabled, all application API and stream requests need no credential,
 and workers share the local routing principal. Host/origin checks, request limits,
-and preview isolation still apply. A CLI/worker with no saved credential sends
-its request without one; a protected backend responds with login guidance.
+and preview isolation still apply. A CLI/worker with no saved credential sends a
+loopback backend request without one. Any other backend, including one named by a
+project `.r3.json`, requires `r3 login` before the CLI publishes or the worker connects.
 
 Ordinary API and stream requests accept an API key or OAuth access token in
 `Authorization: Bearer` or `X-R3-Token`. Browser cookies retain the existing

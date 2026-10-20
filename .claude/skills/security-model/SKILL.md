@@ -74,10 +74,16 @@ tokens when revoking all.
 The separate master API token is outside this login-token policy.
 
 Login defaults to disabled when the bind and all configured hostnames/public URL
-are loopback-only. Configuring external exposure defaults login to enabled for
-every request, including a reverse proxy whose connection or rewritten Host is
-loopback. Explicit `requireLogin=true` or `false` overrides that default; the
+are loopback-only and no trusted proxy is configured. Configuring external exposure
+defaults login to enabled for every request, including a reverse proxy whose
+connection or rewritten Host is loopback. Default no-login mode refuses requests
+carrying `Forwarded`, `X-Forwarded-*`, `X-Real-IP`, or `Via` before API, preview,
+and asset dispatch, so a proxy added without configuration fails closed. Explicit
+`requireLogin=true` or `false` overrides that default and the refusal; the
 environment override takes precedence over persisted configuration.
+CLI and worker clients omit credentials only for loopback backends. A project
+`.r3.json` is untrusted checkout content, so any other backend requires saved
+access from `r3 login` before it receives publications or worker streams.
 No-login mode serves ordinary browser/API requests without a token, sign-in ticket,
 or browser-auth record. It trusts any client that can reach the configured listener
 and pass Host/origin checks, including other local OS users. Boot always returns

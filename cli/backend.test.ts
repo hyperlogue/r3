@@ -76,7 +76,9 @@ test("two credential readers coordinate a single refresh and keep endpoint crede
   expect(values.every((value) => value === access)).toBe(true);
   expect(first.read("https://r3.example/other")).toBeNull();
   expect(first.read("https://other.example/app")).toBeNull();
-  expect(await first.token("https://other.example/app")).toBe("");
+  // A project .r3.json can name any HTTPS backend; only loopback skips r3 login.
+  await expect(first.token("https://other.example/app")).rejects.toThrow("run r3 login");
+  expect(await first.token("http://127.0.0.1:8791")).toBe("");
   expect(calls).toBe(1);
 });
 

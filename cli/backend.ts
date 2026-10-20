@@ -5,6 +5,8 @@ import { configDir, configPath } from "../server/config.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
 import { readPrivateJson, withPrivateLock, writePrivateJson } from "./private-state.ts";
 
+const LOOPBACK_BACKENDS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 export function selectedBackend(
   cwd = process.cwd(),
   environment: Record<string, string | undefined> = process.env,
@@ -93,9 +95,13 @@ export class BackendCredentials {
   }
   async token(url: string): Promise<string> {
     const saved = this.read(url);
-    // An unconfigured client may use a backend whose login policy is disabled.
-    // Protected backends reject the request with the normal r3 login guidance.
-    if (!saved) return "";
+    // An unconfigured client may use a loopback backend whose login policy is
+    // disabled. A remote backend, possibly named by an untrusted project
+    // .r3.json, receives publications and worker streams only after r3 login.
+    if (!saved) {
+      if (LOOPBACK_BACKENDS.has(new URL(normalizeBackendUrl(url)).hostname)) return "";
+      throw new Error("No saved access for this backend; run r3 login");
+    }
     if (saved.kind === "key" || (saved.expiresAt ?? 0) > Date.now() + 30_000)
       return saved.accessToken;
     return withPrivateLock(`${this.path(url)}.lock`, async () => {

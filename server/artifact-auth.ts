@@ -14,6 +14,8 @@ export interface ArtifactAuthPolicy {
   localAccess?: LocalBrowserAccess;
   token: string;
   requireLogin: boolean;
+  // Reject forwarded requests when no-login mode is only the loopback default.
+  refuseProxied?: boolean;
   version: string;
   allowedHost: (hostname: string) => boolean;
   // Explicit application origins cover proxies that rewrite the request Host.
@@ -34,6 +36,18 @@ export function artifactRequestHostname(request: Request): string | null {
   } catch {
     return null;
   }
+}
+
+const FORWARDING_HEADERS = [
+  "forwarded",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-real-ip",
+  "via",
+];
+export function artifactProxied(request: Request): boolean {
+  return FORWARDING_HEADERS.some((name) => request.headers.has(name));
 }
 
 export function artifactSameOrigin(request: Request, policy: ArtifactAuthPolicy): boolean {

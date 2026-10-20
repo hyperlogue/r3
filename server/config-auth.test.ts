@@ -7,10 +7,21 @@ test("login defaults follow configured exposure and explicit overrides win", asy
   const root = await mkdtemp(join(tmpdir(), "r3-login-policy-"));
   const config = join(root, "config", "r3");
   await mkdir(config, { recursive: true });
-  const cases: { config: object; env?: Record<string, string>; required: boolean }[] = [
-    { config: {}, required: false },
-    { config: { publicUrl: "http://localhost:8791" }, required: false },
-    { config: { allowedHosts: ["localhost", "127.0.0.1", "[::1]"] }, required: false },
+  const cases: {
+    config: object;
+    env?: Record<string, string>;
+    required: boolean;
+    refuseProxied?: boolean;
+  }[] = [
+    { config: {}, required: false, refuseProxied: true },
+    { config: { trustedProxies: ["127.0.0.1"] }, required: true },
+    { config: { requireLogin: false }, required: false },
+    { config: { publicUrl: "http://localhost:8791" }, required: false, refuseProxied: true },
+    {
+      config: { allowedHosts: ["localhost", "127.0.0.1", "[::1]"] },
+      required: false,
+      refuseProxied: true,
+    },
     { config: { publicUrl: "https://reviews.example" }, required: true },
     { config: { allowedHosts: ["reviews.example"] }, required: true },
     { config: { requireLogin: true }, required: true },
@@ -28,7 +39,7 @@ test("login defaults follow configured exposure and explicit overrides win", asy
         [
           process.execPath,
           "-e",
-          'import { REQUIRE_LOGIN } from "./config.ts"; console.log(REQUIRE_LOGIN)',
+          'import { REFUSE_PROXIED, REQUIRE_LOGIN } from "./config.ts"; console.log(REQUIRE_LOGIN, REFUSE_PROXIED)',
         ],
         {
           cwd: import.meta.dir,
@@ -53,7 +64,7 @@ test("login defaults follow configured exposure and explicit overrides win", asy
         child.exited,
       ]);
       expect({ code, err }).toEqual({ code: 0, err: "" });
-      expect(out.trim()).toBe(String(item.required));
+      expect(out.trim()).toBe(`${item.required} ${item.refuseProxied ?? false}`);
     }
   } finally {
     await rm(root, { recursive: true, force: true });

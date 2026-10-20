@@ -50,7 +50,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 - Local mode starts the same backend server lazily and announces it in
   `$XDG_RUNTIME_DIR/r3/daemon.json`. A private Unix sidecar bootstraps local CLI
   credentials. Localhost-only configurations default to no login; external
-  hostnames/public URLs default to required login. Explicit `requireLogin=true`
+  hostnames/public URLs or trusted proxies default to required login; the
+  loopback default refuses forwarded requests. Explicit `requireLogin=true`
   or `false` overrides the default. Publication URLs stay stable; `r3 open` needs
   a one-time sign-in ticket only when local login is required. Browser boot never
   exposes the API credential. Backend selection is `R3_URL`, nearest project

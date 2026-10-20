@@ -176,3 +176,41 @@ test("shared preview hosting preserves capability and application guards", async
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("default no-login mode refuses requests forwarded by an unconfigured proxy", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-proxied-"));
+  const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+  const runtime = startArtifactServer({
+    storage,
+    assets: {
+      index: {
+        body: new Blob(["<!doctype html><title>r3</title>"]),
+        contentType: "text/html",
+        etag: '"fixture"',
+      },
+      files: new Map(),
+    },
+    authentication: {
+      token: randomBytes(32).toString("base64url"),
+      requireLogin: false,
+      refuseProxied: true,
+      version: "test",
+      allowedHost: (host) => host === "localhost",
+    },
+    bind: "127.0.0.1",
+    port: 0,
+  });
+  const base = `http://localhost:${runtime.server.port}`;
+  try {
+    expect((await fetch(`${base}/api/artifacts`)).status).toBe(200);
+    for (const header of ["x-forwarded-for", "forwarded", "x-forwarded-host", "via"])
+      for (const path of ["/api/artifacts", "/api/boot", "/", "/__r3_preview/x/"]) {
+        const response = await fetch(`${base}${path}`, { headers: { [header]: "203.0.113.7" } });
+        expect({ header, path, status: response.status }).toEqual({ header, path, status: 403 });
+      }
+  } finally {
+    await runtime.stop();
+    storage.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -115,10 +115,17 @@ export function parseBoolFlag(v: string | undefined): boolean | null {
   if (t === "0" || t === "false" || t === "no") return false;
   return null;
 }
+const LOGIN_SETTING = parseBoolFlag(process.env.R3_REQUIRE_LOGIN) ?? PERSISTED.requireLogin ?? null;
+// A configured trusted proxy is external exposure even when it connects over loopback.
 export const REQUIRE_LOGIN =
-  parseBoolFlag(process.env.R3_REQUIRE_LOGIN) ??
-  PERSISTED.requireLogin ??
-  (!isLoopbackHost(BIND) || [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)));
+  LOGIN_SETTING ??
+  (!isLoopbackHost(BIND) ||
+    [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)) ||
+    (PERSISTED.trustedProxies?.length ?? 0) > 0);
+// Default no-login mode trusts direct loopback clients only. A forwarded request
+// means an unconfigured proxy, so it fails closed until publicUrl or an explicit
+// requireLogin setting describes that exposure.
+export const REFUSE_PROXIED = LOGIN_SETTING === null && !REQUIRE_LOGIN;
 
 // $XDG_STATE_HOME/r3 (default ~/.local/state/r3): the persistent home for the
 // artifact database and content, private server token, worker state, and fallback
