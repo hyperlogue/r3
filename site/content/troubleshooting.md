@@ -16,6 +16,10 @@ Click **Locate** on the thread to return to the original version where the comme
 
 ## Sign-in or mutations stopped working
 
-For local sessions, run `r3 open` to generate a fresh 60-second sign-in link. For remote servers, check your backend URL and run `r3 login` again. Make sure archived artifacts are **restored** before trying to edit or comment.
+Localhost-only setups normally open without sign-in. If you see a token prompt, run `r3 config show` on the server's machine and check for `requireLogin=true`, an external hostname in `publicUrl` or `allowedHosts`, or configured `trustedProxies`. Also check whether `R3_REQUIRE_LOGIN` overrides the saved setting. Default local-only mode rejects forwarded requests with HTTP 403; configure `publicUrl` for the intended public address when setting up a reverse proxy. After upgrading r3 or changing server settings, restart the server to load them. See [Configuration](/docs/configuration/) for the login policy and overrides.
+
+When browser login is required, use a browser login token from that server. For immediate sign-in on the server's machine, `r3 open` provides a one-time link valid for 60 seconds. If it expires before use, run `r3 open` again. Ordinary artifact links from agents do not expire and do not sign you in automatically. If CLI access is rejected, check the selected backend URL and run `r3 login` again; this authorizes the CLI rather than signing the browser in.
+
+Make sure archived artifacts are **restored** before trying to edit or comment.
 
 If you see protocol warnings between the CLI and server, update both binaries to matching versions. If you encounter unexpected bugs, [open an issue on GitHub](https://github.com/hyperlogue/r3/issues) with reproduction steps (excluding private code and credentials).

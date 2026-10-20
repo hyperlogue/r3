@@ -16,6 +16,10 @@ Click **Locate** on the thread to return to the original version where the comme
 
 ## Sign-in or mutations stopped working
 
-For local sessions, run `r3 open` to generate a fresh 60-second sign-in link. For remote servers, check your backend URL and run `r3 login` again. Make sure archived artifacts are **restored** before trying to edit or comment.
+仅配置 localhost 时，通常无需登录。如果出现令牌提示，请在服务器所在机器上运行 `r3 config show`，检查是否设置了 `requireLogin=true`，在 `publicUrl`、`allowedHosts` 中配置了外部主机名，或配置了 `trustedProxies`。同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。默认的仅本地访问模式会以 HTTP 403 拒绝转发请求；设置反向代理时，请将 `publicUrl` 配置为预期的公开地址。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
+
+浏览器需要登录时，请使用该服务器的浏览器登录令牌。若要在服务器所在机器上立即登录，可运行 `r3 open` 获取有效期为 60 秒的一次性链接；如果使用前已过期，重新运行即可。智能体提供的普通 Artifact 链接不会过期，也不会自动完成登录。如果 CLI 访问被拒绝，请检查选中的后端 URL 并重新运行 `r3 login`；这个命令授权的是 CLI 访问，不是浏览器登录。
+
+在尝试编辑或评论之前，请确保已归档的 Artifact 已被**恢复**。
 
 If you see protocol warnings between the CLI and server, update both binaries to matching versions. If you encounter unexpected bugs, [open an issue on GitHub](https://github.com/hyperlogue/r3/issues) with reproduction steps (excluding private code and credentials).

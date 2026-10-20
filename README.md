@@ -103,9 +103,18 @@ on the home page to archive or permanently delete them together.
 ## Local and remote access
 
 r3 starts a local server automatically when needed. Localhost-only setups open
-without sign-in; configuring an external hostname enables authentication by default.
-Run `r3 open` for a browser link. Set `requireLogin` explicitly to `true` or `false`
-to override the default, then restart the server to apply it.
+ordinary artifact links without a token, sign-in ticket, or browser session.
+Links returned by agents stay usable when you come back later. Run `r3 open`
+to print the workspace address.
+
+Configuring an external hostname in `publicUrl` or `allowedHosts`, or adding
+`trustedProxies`, enables login by default, even when the proxy connects through
+localhost. The default local-only mode refuses forwarded requests. Use
+`r3 config set requireLogin true` to require login explicitly, or
+`r3 config set requireLogin false` to disable browser and API authentication for
+all allowed hosts. `r3 config unset requireLogin` restores the automatic default.
+Run `r3 server restart` on the server's machine after changing these settings.
+Host/origin checks and preview isolation apply in both modes.
 
 ### Expose an r3 server
 
@@ -143,6 +152,9 @@ your terminal, and approve CLI access. Then check the connection:
 ```sh
 r3 list
 ```
+
+Remote CLI backends require `r3 login` even when the server has browser login
+disabled. This authorizes the CLI to send publications to that backend.
 
 Ask your agent to run `r3 guide` and publish as usual. See the
 [remote backend reference](docs/artifacts/remote-protocol.md) for more options.

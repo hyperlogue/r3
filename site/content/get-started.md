@@ -12,7 +12,7 @@ The skill configures your agent automatically. Reviews run locally on your machi
 
 > Create a project-creation form with a visibility setting. Publish it to r3 and share the link so I can review it.
 
-Open the link returned by your agent. If local sign-in is required, ask it to run `r3 open` to generate a fresh link.
+Open the link returned by your agent whenever you are ready; artifact links contain no expiring sign-in code. Localhost-only setups open without sign-in by default. If your server requires login, follow [Local & remote access](/docs/access/) to sign in.
 
 <!-- visual: workspace -->
 
