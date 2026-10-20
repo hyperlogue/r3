@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { type ArtifactAuthPolicy, installArtifactAuth } from "./artifact-auth.ts";
 import { createArtifactTables } from "./artifact-schema.ts";
 import { AuthService } from "./auth.ts";
+import { LocalBrowserAccess } from "./local-access.ts";
 
 let db: Database;
 let authentication: AuthService;
@@ -18,7 +19,8 @@ beforeEach(() => {
   authentication = new AuthService(db, () => time);
   policy = {
     token: randomBytes(32).toString("base64url"),
-    requireLogin: false,
+    requireLogin: true,
+    localAccess: new LocalBrowserAccess(authentication),
     version: "test",
     allowedHost: (host) => host === "localhost",
     applicationOrigins: new Set(["https://app.example"]),
@@ -72,10 +74,10 @@ describe("artifact application auth boundary", () => {
     ).toEqual([]);
   });
 
-  test("only local same-origin bootstrap exposes the token and every data stream requires authentication", async () => {
+  test("required login keeps the API credential private and protects every data stream", async () => {
     expect(await (await request("/api/boot")).json()).toEqual({
-      needsAuth: false,
-      token: policy.token,
+      needsAuth: true,
+      token: null,
     });
     expect((await request("/api/health")).status).toBe(200);
     expect((await request("/api/private")).status).toBe(401);
@@ -92,38 +94,88 @@ describe("artifact application auth boundary", () => {
     );
   });
 
-  test("cross-port and preview origins cannot bootstrap or mutate even on an allowed hostname", async () => {
-    for (const origin of [
-      "http://localhost:8792",
-      "http://preview.localhost:8791",
-      "null",
-      "https://untrusted.example",
-    ]) {
-      expect((await request("/api/boot", { headers: { origin } })).status).toBe(403);
+  test("disabled login admits browser and API access without creating credentials on any allowed host", async () => {
+    policy.requireLogin = false;
+    policy.allowedHost = (host) => host === "localhost" || host === "app.example";
+    policy.publicUrl = "https://app.example";
+    const admitted: Record<string, string>[] = [
+      {},
+      { host: "app.example", origin: "https://app.example" },
+      { origin: "https://app.example" },
+      { authorization: "Bearer invalid", cookie: "r3_session=expired" },
+    ];
+    for (const headers of admitted) {
+      const boot = await request("/api/boot", { headers });
+      expect(boot.status).toBe(200);
+      expect(await boot.json()).toEqual({ needsAuth: false, token: null });
+      expect(boot.headers.get("set-cookie")).toBeNull();
+      expect((await request("/api/private", { headers })).status).toBe(200);
+      expect((await request("/api/private", { method: "POST", headers })).status).toBe(200);
+      expect((await request("/api/events", { headers })).status).toBe(200);
+    }
+    expect(
+      (
+        await request("/api/auth/local", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ticket: policy.localAccess!.issue() }),
+        })
+      ).headers.get("set-cookie"),
+    ).toBeNull();
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 0 });
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 0 });
+    const forbidden: Record<string, string>[] = [
+      { host: "untrusted.example" },
+      { origin: "null" },
+      { origin: "http://localhost:8792" },
+      { origin: "https://untrusted.example" },
+      { "sec-fetch-site": "cross-site" },
+    ];
+    for (const headers of forbidden)
+      expect((await request("/api/private", { headers })).status).toBe(403);
+    policy.requireLogin = true;
+    expect((await request("/api/private")).status).toBe(401);
+    expect(
+      (await request("/api/private", { headers: { origin: "https://app.example" } })).status,
+    ).toBe(401);
+  });
+
+  test.each([false, true])(
+    "cross-port and preview origins stay forbidden with requireLogin=%s",
+    async (requireLogin) => {
+      policy.requireLogin = requireLogin;
+      for (const origin of [
+        "http://localhost:8792",
+        "http://preview.localhost:8791",
+        "null",
+        "https://untrusted.example",
+      ]) {
+        expect((await request("/api/boot", { headers: { origin } })).status).toBe(403);
+        expect(
+          (
+            await request("/api/private", {
+              method: "POST",
+              headers: { origin, "x-r3-token": policy.token },
+            })
+          ).status,
+        ).toBe(403);
+      }
+      expect(
+        (await request("/api/boot", { headers: { "sec-fetch-site": "same-site" } })).status,
+      ).toBe(403);
+      expect(
+        (await request("/api/boot", { headers: { "sec-fetch-site": "same-origin" } })).status,
+      ).toBe(requireLogin ? 401 : 200);
       expect(
         (
           await request("/api/private", {
             method: "POST",
-            headers: { origin, "x-r3-token": policy.token },
+            headers: { origin: "https://app.example", "x-r3-token": policy.token },
           })
         ).status,
-      ).toBe(403);
-    }
-    expect(
-      (await request("/api/boot", { headers: { "sec-fetch-site": "same-site" } })).status,
-    ).toBe(403);
-    expect(
-      (await request("/api/boot", { headers: { "sec-fetch-site": "same-origin" } })).status,
-    ).toBe(200);
-    expect(
-      (
-        await request("/api/private", {
-          method: "POST",
-          headers: { origin: "https://app.example", "x-r3-token": policy.token },
-        })
-      ).status,
-    ).toBe(200);
-  });
+      ).toBe(200);
+    },
+  );
 
   test("required login preserves HttpOnly cookie access without exposing the master token", async () => {
     policy.requireLogin = true;

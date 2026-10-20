@@ -49,8 +49,11 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   artifact ownership, or live presence.
 - Local mode starts the same backend server lazily and announces it in
   `$XDG_RUNTIME_DIR/r3/daemon.json`. A private Unix sidecar bootstraps local CLI
-  credentials; `r3 open` supplies a one-time browser link. Browser boot never exposes
-  the API credential. Backend selection is `R3_URL`, nearest project
+  credentials. Localhost-only configurations default to no login; external
+  hostnames/public URLs default to required login. Explicit `requireLogin=true`
+  or `false` overrides the default. Publication URLs stay stable; `r3 open` needs
+  a one-time sign-in ticket only when local login is required. Browser boot never
+  exposes the API credential. Backend selection is `R3_URL`, nearest project
   `.r3.json`, user `backendUrl`, then automatic local. Saved credentials are keyed
   by the complete normalized URL; `r3 login` supports browser approval or an API key.
   The separate persistent worker opens only private Unix IPC and outgoing backend
@@ -304,7 +307,7 @@ device tests use fake devices and actual browser permission denial/grant.
 - Keep the server authoritative and storage injected. Do not add a second SQLite
   writer, ambient repository context, live-content read, or edit-version path.
 - Keep source, rendered, and diff targets native and immutable; place separately.
-- Never weaken auth, origin guards, or the opaque preview sandbox. The preview
+- Honor the configured login policy and preserve origin guards and the opaque preview sandbox. The preview
   network is closed by default. A failed network capability check permits a new
   restrictive compatibility context only after browser risk acknowledgment.
   Remembered acknowledgment skips future capability gates until forgotten;

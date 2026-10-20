@@ -164,7 +164,7 @@ test("agent fix frames remain independent and authenticated reads expose the exa
   const token = randomBytes(32).toString("base64url");
   const api = createArtifactApi(store, {
     token,
-    requireLogin: false,
+    requireLogin: true,
     version: "test",
     allowedHost: () => true,
   });

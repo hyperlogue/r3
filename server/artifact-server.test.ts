@@ -32,7 +32,7 @@ test("shared preview hosting preserves capability and application guards", async
     },
     authentication: {
       token,
-      requireLogin: false,
+      requireLogin: true,
       version: "test",
       allowedHost: (host) => host === "localhost" || host === "reviews.example",
       applicationOrigins: new Set(["https://reviews.example"]),

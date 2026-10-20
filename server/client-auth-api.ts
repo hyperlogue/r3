@@ -95,12 +95,8 @@ export function installClientAuth(
     }),
   );
   app.use("/api/oauth/device/*", async (c, next) => {
-    // Approval belongs to the authenticated browser. Client credentials cannot
-    // approve further devices on an exposed backend.
-    if (
-      (policy.requireLogin || policy.localAccess) &&
-      !browser.sessionValid(getCookie(c, COOKIE_NAME))
-    )
+    // When login is required, only a browser session can approve other clients.
+    if (policy.requireLogin && !browser.sessionValid(getCookie(c, COOKIE_NAME)))
       return c.json({ error: "Approve access in an authenticated r3 browser" }, 401);
     clients.limit(observedAddress(c.req.raw, policy));
     await next();

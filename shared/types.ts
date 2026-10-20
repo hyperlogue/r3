@@ -119,9 +119,8 @@ export type ListenerTarget = ClaudeListenerTarget | CodexListenerTarget | Antigr
 // GET /api/boot. `needsAuth:true` → login screen; `token` is then null.
 export interface BootResponse {
   needsAuth: boolean;
-  // The per-user API token when login isn't required (the SPA sends it as
-  // x-r3-token, as it always has); null when login is required (the browser
-  // authenticates by the session cookie alone, so the master token stays on the box).
+  // Shipped servers always return null: login-required mode uses a session
+  // cookie, and no-login mode needs no credential. Kept for fixture/demo clients.
   token: string | null;
 }
 

@@ -16,7 +16,6 @@ import { captureGitCommit, captureGitDiff, captureGitFiles } from "./capture-git
 import { detectPublisherRemote } from "./publisher-remote.ts";
 
 export interface PublicationCommandContext {
-  browserUrl?: (path: string) => Promise<string>;
   listen?: boolean;
   client: ArtifactClient;
   actor: ArtifactActor;
@@ -122,31 +121,20 @@ export async function publishArtifactCommand(
         ...args.metadata(),
       },
     }));
-  let response: ArtifactPublicationResponse;
   try {
-    response = await client.json<ArtifactPublicationResponse>(
+    const response = await client.json<ArtifactPublicationResponse>(
       "POST",
       `${artifactApiPath(artifact.id)}/versions`,
       publication,
     );
-    if (typeof response.url !== "string" || !/^https?:\/\//.test(response.url))
+    const { url, listenerRegistered, listener, ...version } = response;
+    if (typeof url !== "string" || !/^https?:\/\//.test(url))
       throw new Error("Backend did not return an artifact page URL");
+    return { artifact, version, url, listenerRegistered, listener };
   } catch (error) {
     ctx.error(
       `Publication was not confirmed. Artifact: ${artifact.id}; retry key: ${publication.publicationKey}; expected: ${publication.expectedSeq}. Inspect its versions before retrying.\n`,
     );
     throw error;
   }
-  const { url, listenerRegistered, listener, ...version } = response;
-  let pageUrl = url;
-  if (ctx.browserUrl) {
-    try {
-      pageUrl = await ctx.browserUrl(`/${encodeURIComponent(artifact.id)}`);
-    } catch {
-      ctx.error(
-        `Published, but browser sign-in could not be prepared. Run r3 open ${artifact.id} for a fresh link.\n`,
-      );
-    }
-  }
-  return { artifact, version, url: pageUrl, listenerRegistered, listener };
 }

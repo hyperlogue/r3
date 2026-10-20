@@ -24,7 +24,7 @@ beforeEach(async () => {
   api = createArtifactApi(storage, {
     localAccess: browser,
     token: "local-api-secret",
-    requireLogin: false,
+    requireLogin: true,
     version: "test",
     allowedHost: (host) => host === "localhost",
   });

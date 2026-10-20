@@ -122,10 +122,12 @@ Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
 Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
 The worker retries temporary connection/refresh failures, including rate limits.
 Rejected credentials require r3 login again.
-Automatic local setup uses a private Unix socket. Local create/publish URLs include
-a one-time browser sign-in ticket valid for 60 seconds, in text and --json output.
-Run r3 open [artifact-id] for a fresh link. Configured backends return their own URLs.
-Browser access always requires a session, including on loopback.
+Create/publish return stable artifact URLs in text and --json output.
+Localhost-only servers need no browser or API credential by default. Configuring
+an external hostname/publicUrl enables login, including access through a local proxy.
+Explicit requireLogin=true or false overrides that default. Host/origin and preview
+guards always apply. Local r3 open prints the ordinary URL when login is disabled,
+or a one-time sign-in link when enabled. Automatic CLI setup uses a private Unix socket.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
 Upgrades discard legacy server-local notification subscriptions and destinations.
 Run r3 listen <id> to subscribe again; current worker subscriptions are preserved.
@@ -140,7 +142,7 @@ confirmation before restarting. Server start/status also report mismatches.
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
-  open [artifact-id]                        # print a browser link; local links expire in 60s
+  open [artifact-id]                        # print a browser link; sign-in tickets expire in 60s
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
   start | stop | status | restart            # deprecated aliases; use server <command>
@@ -239,7 +241,7 @@ If the server is newer, prompt the user to upgrade or switch the CLI. Do not res
 
 \`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
 
-In automatic local mode, create/publish URLs sign the browser in with a one-use ticket valid for 60 seconds. Share the complete URL, including its fragment. If you do more work before replying or the human needs a fresh sign-in, run \`r3 open <id>\` immediately before sharing its output. Once signed in, the browser can reopen the artifact with its session. Configured backends supply their own URLs and browser sign-in policy.
+Share the stable URL returned by create/publish; it contains no expiring sign-in ticket. Localhost-only servers open without sign-in by default. Servers configured with external hostnames require sign-in by default. An explicit \`requireLogin\` setting overrides that policy. For immediate sign-in to a protected local server, the human can run \`r3 open <id>\`; its one-use sign-in ticket lasts 60 seconds and is unsuitable for an agent reply the human may read later.
 
 \`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 

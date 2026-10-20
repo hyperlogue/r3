@@ -90,9 +90,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   optional boolean `listen` (default true). A new commit replaces the fallback
   using a connected worker destination, or clears it when absent/disabled. Replays
   cannot reclaim the fallback. The response adds a complete backend-owned `url`,
-  `listenerRegistered`, and optional worker `listener` subscription. Explicitly
-  configured backends retain that URL unchanged in CLI output; automatic-local
-  create/publish use the private browser-ticket setup described in the remote protocol.
+  `listenerRegistered`, and optional worker `listener` subscription. CLI text and
+  JSON output preserve that stable URL unchanged, without a browser sign-in ticket.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
   membership, highlighted source, original bytes, rendered sparse diff, retained
@@ -184,7 +183,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `ArtifactStreamEvent` invalidations. `ready` means refetch current state;
   `heartbeat` keeps the connection alive. Neither implies message delivery.
 
-All data and streams require authentication. JSON reads use private validators
+All data and streams follow the configured `requireLogin` policy; disabled login
+requires no credential. Host/origin guards apply in both modes. JSON reads use private validators
 and gzip; body readers count actual streamed bytes after authentication, with a
 200 MiB transfer cap for publications and smaller limits for ordinary commands.
 Source validators include version membership, theme, and the source renderer
@@ -245,9 +245,10 @@ subscriptions; restore requires a fresh publication or subscription.
   fresh API responses with its loaded bundle and offers an explicit refresh.
   Version precedence and direction-specific CLI recovery belong to the
   [remote protocol](../../../docs/artifacts/remote-protocol.md#backend-selection-and-transport).
-  POST `/api/auth/local` exchanges a one-time local ticket for a cookie. Private
+  POST `/api/auth/local` exchanges a one-time local ticket for a cookie when login
+  is required; with login disabled it succeeds without minting auth records. Private
   setup uses Unix IPC, as specified in the remote protocol. All HTTP remains Host/origin gated.
-  Authenticated application HTML may inline that bootstrap plus the current
+  Application HTML admitted by the login policy may inline that bootstrap plus the current
   `ArtifactDetail`, using the same contracts to seed the initial workspace.
   For HTML artifacts it also embeds the selected version’s immutable file manifest
   when at most 128 files and 64 KiB of JSON. Larger manifests use the parallel API
@@ -260,7 +261,7 @@ subscriptions; restore requires a fresh publication or subscription.
   alternative. Missing hints or mismatched setup use the existing create/renew
   routes, preserving a saved URL when possible. External grants are never embedded.
   Unknown explicit versions never substitute the latest version.
-  These documents are private/no-store; cross-site entry, absent session cookies,
+  These documents are private/no-store; cross-site entry, absent required session cookies,
   and suspended browser caches fall back to `/api/boot`. API checks remain on
   every data request, and SSE ready still triggers background reconciliation.
 - `POST /api/auth/login { token }` mints a browser session; `POST /api/auth/logout`
@@ -346,8 +347,9 @@ Use a distinct harness identity or `R3_AGENT_SESSION` per logical writing agent.
 `--session` only sets its display label; generic watch needs no supplied ID. The client
 registers that session before writes. No
 artifact owner or generic shared agent identity is inferred. Backend selection is `R3_URL`, nearest project `.r3.json`, user `backendUrl`, then
-automatic local. `r3 open [artifact-id]` prints a one-time local browser link
-or the selected remote address. `r3 login` saves credentials for the complete normalized URL;
+automatic local. `r3 open [artifact-id]` prints the ordinary address when login is
+disabled or a backend is explicitly selected; protected automatic-local mode
+prints a one-time sign-in link for immediate use. `r3 login` saves credentials for the complete normalized URL;
 `R3_TOKEN` is not a client override.
 
 Create/publish from Claude Code, Codex, or Antigravity makes the publisher the

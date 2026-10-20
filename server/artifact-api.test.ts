@@ -37,7 +37,7 @@ beforeEach(async () => {
     {
       token,
       version: "test",
-      requireLogin: false,
+      requireLogin: true,
       allowedHost: (host) => host === "localhost",
     },
     { previews },

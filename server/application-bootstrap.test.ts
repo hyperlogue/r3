@@ -139,7 +139,10 @@ test("cross-site, opaque, missing, and revoked credentials cannot acquire shell 
 
 test("local bootstrap keeps its origin boundary and non-document assets stay immutable", async () => {
   setup(false);
-  expect(snapshot(await (await respond(request("/"))).text())?.boot.token).toBe(token);
+  expect(snapshot(await (await respond(request("/"))).text())?.boot).toEqual({
+    needsAuth: false,
+    token: null,
+  });
   expect(
     snapshot(await (await respond(request("/", { "sec-fetch-site": "cross-site" }))).text()),
   ).toBeNull();

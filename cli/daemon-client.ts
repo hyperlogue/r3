@@ -114,7 +114,6 @@ async function spawnDaemon(): Promise<DaemonInfo> {
 }
 
 export interface ArtifactServerLocation {
-  browserUrl?: (path: string) => Promise<string>;
   getToken?: () => Promise<string>;
   url: string;
   token: string;
@@ -160,8 +159,6 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
     token: local.token,
     getToken: () => credentials.token(url),
     publicUrl: local.publicUrl,
-    browserUrl: async (path) =>
-      (await localBootstrap<{ url: string }>(info.bootstrapSocket!, "browser", { path })).url,
   };
 }
 
@@ -187,7 +184,7 @@ export async function daemonCommand(
         : "r3: announced server is not responding",
     );
     console.log(
-      info.bootstrapSocket
+      info.requireLogin && info.bootstrapSocket
         ? "browser access: r3 open or a login token"
         : `login ${info.requireLogin ? "required" : "not required"}`,
     );

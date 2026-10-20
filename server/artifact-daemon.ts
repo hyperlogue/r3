@@ -83,7 +83,7 @@ export async function startArtifactDaemon(): Promise<void> {
       url: LOCAL_URL,
       publicUrl: PUBLIC_URL,
       token,
-      browser: localAccess,
+      browser: REQUIRE_LOGIN ? localAccess : undefined,
     });
     writeDaemonJson({
       url: LOCAL_URL,

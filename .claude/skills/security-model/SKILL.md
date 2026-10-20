@@ -30,9 +30,12 @@ preview origins must never enter that set. No-Origin CLI requests are allowed, b
 cross-origin Fetch Metadata does not acquire that exemption. No cross-origin
 access headers are emitted.
 
-Every application data route, including event streams, requires an API credential
-(master token, API key, or OAuth access token) or a valid browser session cookie.
-Browser and agent streams use authenticated fetch, with no token-free SSE exception. GET/HEAD health and same-origin boot, and POST login,
+When `requireLogin` is true, every application data route, including event streams,
+requires an API credential (master token, API key, or OAuth access token) or a valid
+browser session cookie. When false, admitted requests need no credential; the same
+Host/origin guards and opaque preview isolation still apply.
+Browser and agent streams follow the same admission policy as ordinary requests.
+GET/HEAD health and same-origin boot, and POST login,
 retain narrow bootstrap roles. Token comparisons are constant-time; reads carry
 private cache policies. JSON bodies are bounded while streaming after auth.
 Artifact event streams recheck their credentials before every event and heartbeat;
@@ -70,11 +73,22 @@ Manual revocation retains its transactional session deletion, including inactive
 tokens when revoking all.
 The separate master API token is outside this login-token policy.
 
-The shipped server always authenticates browser sessions, including loopback.
-Automatic CLI setup obtains its API credential through the server's private Unix
-socket. Automatic-local create/publish and `r3 open [artifact-id]` request a random,
-one-use, 60-second browser ticket and print a link carrying it in the URL fragment.
-Explicitly selected backends never acquire a ticket through local discovery.
+Login defaults to disabled when the bind and all configured hostnames/public URL
+are loopback-only. Configuring external exposure defaults login to enabled for
+every request, including a reverse proxy whose connection or rewritten Host is
+loopback. Explicit `requireLogin=true` or `false` overrides that default; the
+environment override takes precedence over persisted configuration.
+No-login mode serves ordinary browser/API requests without a token, sign-in ticket,
+or browser-auth record. It trusts any client that can reach the configured listener
+and pass Host/origin checks, including other local OS users. Boot always returns
+`token:null`; the server never exposes the master credential to browser code.
+
+Create/publish always return stable backend page URLs. Automatic CLI setup obtains
+its API credential through the server's private Unix socket. In protected local
+mode, explicit `r3 open [artifact-id]` requests a random, one-use, 60-second ticket
+for immediate sign-in and prints it in the URL fragment. With login disabled,
+`r3 open` prints an ordinary URL and creates no ticket. Explicitly selected backends
+never acquire a ticket through local discovery.
 The SPA removes that fragment before exchanging it at the guarded
 `/api/auth/local` endpoint for an HttpOnly,
 SameSite=Strict cookie. A rejected ticket may fall back to normal authenticated
@@ -90,12 +104,11 @@ processes running as the same OS user remain trusted.
 Ordinary login tokens continue to create revocable browser sessions, Secure at an
 HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocation
 of the caller's current token is refused; revoke-all remains the escape hatch.
-The legacy `requireLogin=false` setting no longer enables token-bearing browser
-bootstrap in the shipped server. Explicit injected no-login policies remain only
-for controlled server fixtures and the static demo.
+With login disabled, exchanging an old local sign-in link is a no-op that creates
+no session or token. Ordinary login-token management remains available explicitly.
 
 Application HTML can embed bootstrap and the addressed artifact's detail after
-the same Host/origin checks and browser-session validation as bootstrap. The embedded detail
+the same Host/origin checks and configured login policy as bootstrap. The embedded detail
 uses the API's complete shape and collaboration state; it seeds the browser query
 cache, while SSE ready/reconnect still reconciles current state in the background.
 The same authenticated snapshot may include the selected HTML version’s bounded
@@ -113,8 +126,8 @@ prepare nothing. Capacity/configuration failures omit setup and leave the ordina
 API fallback available. Agent labels carry no credentials.
 Application documents are `private, no-store`, have no reusable validator, and
 escape `<` in embedded JSON. Static bundles retain immutable caching. Application
-snapshots contain no API token. Cross-site/opaque requests and missing or revoked
-sessions receive only the generic shell, followed by same-origin `/api/boot`.
+snapshots contain no API token. Cross-site/opaque requests, and missing or revoked
+sessions when login is required, receive only the generic shell followed by `/api/boot`.
 This preserves Strict-cookie entry without widening cookie policy or API access.
 
 An HTML snapshot must never resume suspended Markdown/image caches: its request
@@ -429,13 +442,15 @@ Do not use the real user store for development checks.
 
 Read the [remote protocol](../../../docs/artifacts/remote-protocol.md) when changing
 backend selection, API keys, device login, token rotation, audit, or worker routing.
-It owns the language-neutral routes, limits, lifetimes, and recovery rules. Browser
-approval requires an authenticated browser and an explicit decision. API keys cannot
-approve devices on an exposed server. Public OAuth routes retain Host/Origin guards,
+It owns the language-neutral routes, limits, lifetimes, and recovery rules. Device
+approval always requires an explicit decision; when login is enabled it also
+requires an authenticated browser, and API keys cannot approve devices.
+Public OAuth routes retain Host/Origin guards,
 bounded form parsing, polling cadence, expiry, and rate limits. Preview isolation is
 unchanged. Tokens and device secrets are hashed in backend storage.
 
-The worker opens only a private Unix socket and outgoing authenticated streams.
+The worker opens only a private Unix socket and outgoing streams admitted under
+the backend's login policy.
 Its separate IPC credential, owned 0700 directory, 0600 files/socket, and rejection
 of every Origin header keep harness details off application HTTP. Local paths,
 executables, Codex home, Claude messaging credentials, and Antigravity connection
@@ -457,7 +472,8 @@ temporary credential copies and isolates corrupt owned files without following s
 
 Backend routing contains opaque worker/listener/registration IDs and attribution.
 A connection and retained subscription are bound to their authorizing credential
-principal. Expiry/revocation closes transport and leaves a visible unavailable
+principal when login is enabled, or the shared local principal when disabled.
+Credential expiry/revocation in protected mode closes transport and leaves a visible unavailable
 subscription. Reconnect requires the same worker and principal; a different grant
 cannot attach by guessing the worker ID. Replacement, unlisten, archive, and deletion
 end subscriptions permanently. An old connection or acknowledgment cannot displace a
@@ -479,7 +495,9 @@ Credentials and raw harness output stay off backend HTTP and worker status.
 
 ## Limits of the trust model
 
-The private bootstrap boundary excludes other local UIDs but trusts the same OS user. Logical agent IDs
+When login is required, private bootstrap excludes other local UIDs but trusts
+the same OS user. With login disabled, the HTTP listener trusts every admitted
+client and worker routing uses the shared local principal. Logical agent IDs
 are attribution inside the owner's trusted API, not separate authorization principals.
 A scoped preview context grants one version's bytes only; it confers no application
 credential or authority over other artifacts.

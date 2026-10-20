@@ -76,7 +76,8 @@ test("two credential readers coordinate a single refresh and keep endpoint crede
   expect(values.every((value) => value === access)).toBe(true);
   expect(first.read("https://r3.example/other")).toBeNull();
   expect(first.read("https://other.example/app")).toBeNull();
-  await expect(first.token("https://other.example/app")).rejects.toThrow("run r3 login");
+  expect(await first.token("https://other.example/app")).toBe("");
+  expect(calls).toBe(1);
 });
 
 for (const status of [400, 401, 408, 429, 503]) {

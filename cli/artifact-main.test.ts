@@ -7,21 +7,14 @@ import { localBootstrap } from "./local-bootstrap.ts";
 async function readPublicationInFreshBrowser(link: string, artifactId: string) {
   const url = new URL(link);
   expect(url.pathname).toBe(`/${artifactId}`);
-  expect(url.hash.startsWith("#r3-login=")).toBe(true);
-  const exchange = () =>
-    fetch(`${url.origin}/api/auth/local`, {
-      method: "POST",
-      headers: { origin: url.origin, "content-type": "application/json" },
-      body: JSON.stringify({ ticket: url.hash.slice("#r3-login=".length) }),
-    });
-  const login = await exchange();
-  expect(login.status).toBe(200);
-  const cookie = login.headers.get("set-cookie")!.split(";")[0]!;
-  expect((await exchange()).status).toBe(401);
-  const read = await fetch(`${url.origin}/api/artifacts/${artifactId}`, { headers: { cookie } });
+  expect(url.hash).toBe("");
+  const boot = await fetch(`${url.origin}/api/boot`);
+  expect(boot.status).toBe(200);
+  expect(await boot.json()).toEqual({ needsAuth: false, token: null });
+  expect(boot.headers.get("set-cookie")).toBeNull();
+  const read = await fetch(`${url.origin}/api/artifacts/${artifactId}`);
   expect(read.status).toBe(200);
   expect((await read.json()).id).toBe(artifactId);
-  expect((await fetch(`${url.origin}/api/artifacts/${artifactId}`)).status).toBe(401);
 }
 
 test("artifact CLI lazily starts an isolated daemon and completes publication and conversation lifecycle", async () => {
@@ -54,7 +47,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     R3_BIND: "127.0.0.1",
     R3_PUBLIC_URL: "",
     R3_ALLOWED_HOSTS: "",
-    R3_REQUIRE_LOGIN: "0",
+    R3_REQUIRE_LOGIN: "",
     R3_URL: "",
     R3_TOKEN: "",
     R3_AGENT_SESSION: "cli-runtime-publisher",
@@ -144,6 +137,8 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     const id = first.artifact.id as string;
     expect(first.version.seq).toBe(1);
     await readPublicationInFreshBrowser(first.url, id);
+    expect((await run("open", id)).output.trim()).toBe(first.url);
+    expect(await (await fetch(`${new URL(first.url).origin}/api/auth/tokens`)).json()).toEqual([]);
     const daemonInfo = () => Bun.file(join(root, "runtime", "r3", "daemon.json")).json();
     const request = async (path: string, method = "GET") => {
       const daemon = await daemonInfo();
@@ -211,6 +206,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     );
     expect(published.code).toBe(0);
     expect(JSON.parse(published.output).version.seq).toBe(2);
+    expect(JSON.parse(published.output).url).toBe(first.url);
     await readPublicationInFreshBrowser(JSON.parse(published.output).url, id);
     const plain = await run("create", "--kind", "files", "--dir", directory, "--no-listen");
     expect(plain.code).toBe(0);
@@ -219,6 +215,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     // An explicitly selected backend never inherits automatic-local browser grants.
     environment.R3_URL = new URL(first.url).origin;
     try {
+      await rm(join(environment.XDG_CONFIG_HOME, "r3", "credentials"), { recursive: true });
       const selected = await run(
         "create",
         "--kind",

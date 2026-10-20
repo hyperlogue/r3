@@ -9,7 +9,7 @@ export function startLocalBootstrap(options: {
   url: string;
   publicUrl: string;
   token: string;
-  browser: LocalBrowserAccess;
+  browser?: LocalBrowserAccess;
 }) {
   privateDirectory(dirname(options.socket));
   if (existsSync(options.socket)) {
@@ -50,7 +50,7 @@ export function startLocalBootstrap(options: {
         )
           return json({ error: "Invalid browser destination" }, 400);
         return json({
-          url: `${options.publicUrl}${destination}#r3-login=${options.browser.issue()}`,
+          url: `${options.publicUrl}${destination}${options.browser ? `#r3-login=${options.browser.issue()}` : ""}`,
         });
       } catch {
         return json({ error: "Invalid local request" }, 400);

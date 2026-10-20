@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
 import { COOKIE_NAME } from "./auth.ts";
+import { LocalBrowserAccess } from "./local-access.ts";
 
 let root: string, storage: ArtifactStorage, api: ReturnType<typeof createArtifactApi>, now: number;
 beforeEach(async () => {
@@ -119,6 +120,27 @@ test("OAuth public routes bound form data and reject duplicate parameters", asyn
       .status,
   ).toBe(413);
   expect((await request("/api/oauth/token", {}, {})).status).toBe(400);
+});
+
+test("explicit no-login mode permits device decisions without a browser session", async () => {
+  api.close();
+  api = createArtifactApi(storage, {
+    token: "unused-api-secret",
+    requireLogin: false,
+    localAccess: new LocalBrowserAccess(storage.authentication),
+    version: "fixture",
+    allowedHost: (host) => host === "r3.example",
+  });
+  const device = storage.clientAuth.device(null, null);
+  expect((await request("/api/oauth/device/inspect", { userCode: device.user_code })).status).toBe(
+    200,
+  );
+  const decision = { userCode: device.user_code, approved: true };
+  expect((await request("/api/oauth/device/decision", decision, { origin: "null" })).status).toBe(
+    403,
+  );
+  expect((await request("/api/oauth/device/decision", decision)).status).toBe(200);
+  expect(storage.authentication.listTokens()).toEqual([]);
 });
 
 test("malformed OAuth requests return protocol error codes", async () => {

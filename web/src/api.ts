@@ -18,8 +18,8 @@ import type {
   ThemeStyle,
 } from "./types.ts";
 
-// Populated by loadBoot() before rendering. Shipped local and remote servers use
-// HttpOnly session cookies and leave this empty. Token-bearing bootstrap remains
+// Populated by loadBoot() before rendering. Shipped servers use a session cookie
+// or permit credential-free access and leave this empty. Token-bearing bootstrap remains
 // supported only for controlled fixtures and the static demo.
 export let TOKEN = "";
 

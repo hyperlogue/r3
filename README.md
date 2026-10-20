@@ -102,7 +102,10 @@ on the home page to archive or permanently delete them together.
 
 ## Local and remote access
 
-r3 starts a local server automatically when needed. Run `r3 open` for a browser link.
+r3 starts a local server automatically when needed. Localhost-only setups open
+without sign-in; configuring an external hostname enables authentication by default.
+Run `r3 open` for a browser link. Set `requireLogin` explicitly to `true` or `false`
+to override the default, then restart the server to apply it.
 
 ### Expose an r3 server
 

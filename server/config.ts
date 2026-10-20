@@ -62,8 +62,7 @@ function hostnameOf(url: string): string | null {
   }
 }
 
-// Loopback host names seed the Host allowlist; this does not grant API or browser
-// access. The legacy REQUIRE_LOGIN default below also uses this set.
+// Loopback host names seed the Host allowlist and the default login policy.
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 export function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname);
@@ -106,8 +105,8 @@ export function isAllowedHost(hostname: string): boolean {
   return ALLOWED_HOSTS.has(hostname);
 }
 
-// Legacy login policy, retained for configuration compatibility and controlled
-// fixtures. The shipped server always requires a browser session, even when false.
+// Explicit settings override the exposure-based default in both directions.
+// Login is optional for loopback-only configurations and required otherwise.
 // Parse a boolean-ish flag (1/true/yes → true, 0/false/no → false, else null).
 // Shared with `r3 config set requireLogin` so env and persisted paths agree.
 export function parseBoolFlag(v: string | undefined): boolean | null {

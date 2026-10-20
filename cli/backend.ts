@@ -93,7 +93,9 @@ export class BackendCredentials {
   }
   async token(url: string): Promise<string> {
     const saved = this.read(url);
-    if (!saved) throw new Error("No saved access for this backend; run r3 login");
+    // An unconfigured client may use a backend whose login policy is disabled.
+    // Protected backends reject the request with the normal r3 login guidance.
+    if (!saved) return "";
     if (saved.kind === "key" || (saved.expiresAt ?? 0) > Date.now() + 30_000)
       return saved.accessToken;
     return withPrivateLock(`${this.path(url)}.lock`, async () => {

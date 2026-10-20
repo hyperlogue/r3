@@ -30,7 +30,6 @@ import { runUsageCommand } from "./artifact-usage.ts";
 import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attachment-files.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
 export interface ArtifactCommandContext {
-  browserUrl?: (path: string) => Promise<string>;
   registerListener?: (actor: ArtifactActor) => Promise<boolean>;
   client: ArtifactClient;
   publicUrl?: string;

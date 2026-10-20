@@ -66,6 +66,8 @@ export function artifactApiPrincipal(
   policy: ArtifactAuthPolicy,
   clients?: ClientAuth,
 ): { id: string; expiresAt: number | null } | null {
+  // With login disabled, every admitted client shares the backend's local trust.
+  if (!policy.requireLogin) return { id: "local", expiresAt: null };
   const authorization = request.headers.get("authorization");
   const bearer = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
   const header = request.headers.get("x-r3-token");
@@ -79,7 +81,7 @@ export function artifactBoot(
   policy: ArtifactAuthPolicy,
   cookie: string | undefined,
 ): BootResponse {
-  if (!policy.requireLogin && !policy.localAccess) return { needsAuth: false, token: policy.token };
+  if (!policy.requireLogin) return { needsAuth: false, token: null };
   return { needsAuth: !authentication.sessionValid(cookie), token: null };
 }
 
@@ -99,8 +101,7 @@ export function artifactAuthenticated(
   );
 }
 
-// Authenticated fetch streams serve browser invalidations and worker delivery.
-// The shipped server uses private local setup and browser cookies on loopback too.
+// Browser invalidations and worker delivery follow the same login policy as data.
 export function installArtifactAuth(
   app: Hono,
   authentication: AuthService,
@@ -150,6 +151,8 @@ export function installArtifactAuth(
   if (policy.localAccess)
     app.post("/api/auth/local", async (c) => {
       const input = await artifactJson(c.req.raw, 4096);
+      // Old links need no exchange or persistent auth records in no-login mode.
+      if (!policy.requireLogin) return c.json({ ok: true });
       const session =
         typeof input.ticket === "string" && input.ticket.length <= 100
           ? policy.localAccess!.consume(input.ticket)

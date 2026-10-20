@@ -88,16 +88,15 @@ inherits a different backend's credentials. `R3_TOKEN` is not a client override.
 Automatic local discovery uses the server's private Unix socket to save its matching
 API credential without OAuth polling. The socket path is announced in daemon.json;
 the credential itself is not. `r3 login` in automatic local mode uses that same setup.
-Automatic-local `create` and `publish` prepare their output URL through that same
-private socket after publication succeeds. Text and JSON output carry a one-time
-browser link, valid for 60 seconds. `r3 open [artifact-id]` obtains a fresh link.
-If browser setup fails, publication still succeeds with the backend URL and a
-warning to run `r3 open`; this is not an unconfirmed upload or a reason to republish.
-The browser removes the fragment ticket and exchanges it for a normal HttpOnly
-session. Reopening a used or expired ticket works with an existing valid browser
-session; an unauthenticated browser needs a fresh link.
-Remote `r3 open` prints the selected backend's ordinary address. Browser boot never
-exposes the API credential in the shipped server, even with legacy requireLogin=false.
+`create` and `publish` always print the backend's stable page URL unchanged in
+text and JSON. With login disabled, ordinary links work without any browser token,
+ticket, or persisted auth record. Local `r3 open [artifact-id]` also prints the
+ordinary URL. With login required, explicit local `r3 open` instead obtains a
+one-use browser link valid for 60 seconds, suitable for immediate sign-in. The
+browser removes its fragment and exchanges it for a normal HttpOnly session.
+Used or expired tickets can fall back to an existing valid browser session.
+Remote `r3 open` prints the selected backend's ordinary address. Browser boot
+always returns `token:null` and never exposes the API credential.
 
 The private sidecar offers only POST `/api/local/bootstrap` and
 `/api/local/browser { path?: "/" | "/artifact_<id>" | "/review_<id>" }`. The first returns the
@@ -105,9 +104,21 @@ local service URL, public URL and API token; the second returns a browser link.
 These routes exist only on an owned 0600 socket in an owned 0700 directory and
 reject any Origin or Sec-Fetch-Site header. Network POST `/api/auth/local { ticket }`
 consumes an unexpired ticket once and sets the browser session under the usual
-Host/Origin guards. Failed, expired and replayed tickets return 401.
+Host/Origin guards when login is required. Failed, expired and replayed tickets
+then return 401. With login disabled, browser setup returns an ordinary URL and
+the exchange endpoint succeeds without creating auth records.
 
 ## Client authorization
+
+Login defaults to disabled for loopback-only configurations and enabled when the
+bind, allowed hostnames, or public URL include external exposure. The policy is
+global to the server: a reverse proxy's loopback peer or rewritten Host does not
+bypass required login. Explicit `requireLogin=true` or `false` overrides the
+default; `R3_REQUIRE_LOGIN` takes precedence over persisted configuration.
+With login disabled, all application API and stream requests need no credential,
+and workers share the local routing principal. Host/origin checks, request limits,
+and preview isolation still apply. A CLI/worker with no saved credential sends
+its request without one; a protected backend responds with login guidance.
 
 Ordinary API and stream requests accept an API key or OAuth access token in
 `Authorization: Bearer` or `X-R3-Token`. Browser cookies retain the existing
@@ -390,10 +401,8 @@ for an explicit fetch after restore; archive retry never sends again.
 
 A successful `POST /api/artifacts/:id/versions` returns the version fields plus
 `url`, the complete backend-owned artifact page URL, `listenerRegistered`, and an
-optional `listener` subscription. For explicitly configured backends, the CLI prints
-`url` unchanged in text and JSON. It does not infer a display route from the API
-base or artifact ID. Automatic-local output uses the private browser setup described
-above; no browser ticket is added to the publication HTTP response. Replay returns
+optional `listener` subscription. The CLI prints `url` unchanged in text and JSON.
+It does not infer a display route or append a sign-in ticket. Replay returns
 the publication without reestablishing a fallback.
 
 `cli/worker-protocol-fixture.ts` implements an independent HTTP/SSE fixture without

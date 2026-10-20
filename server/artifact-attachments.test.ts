@@ -121,7 +121,7 @@ test("attachment HTTP reads require authentication and exact artifact membership
   const token = crypto.randomUUID();
   const api = createArtifactApi(store, {
     token,
-    requireLogin: false,
+    requireLogin: true,
     version: "test",
     allowedHost: (host) => host === "localhost",
   });

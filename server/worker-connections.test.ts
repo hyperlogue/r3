@@ -12,6 +12,7 @@ import {
   type WorkerSubscription,
 } from "../shared/worker-protocol.ts";
 import { createArtifactApi } from "./artifact-api.ts";
+import type { ArtifactAuthPolicy } from "./artifact-auth.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
 
 let root: string,
@@ -20,19 +21,21 @@ let root: string,
   client: ArtifactClient,
   id: string;
 let token: string;
+let policy: ArtifactAuthPolicy;
 const publisher: ArtifactActor = { role: "agent", sessionId: "publisher" },
   helper: ArtifactActor = { role: "agent", sessionId: "helper" };
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-workers-"));
   storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
   token = randomBytes(32).toString("base64url");
-  api = createArtifactApi(storage, {
+  policy = {
     token,
     requireLogin: true,
     version: "fixture",
     allowedHost: (host) => host === "r3.example",
     publicUrl: "https://review.example/workspace",
-  });
+  };
+  api = createArtifactApi(storage, policy);
   client = makeClient(token);
   for (const actor of [publisher, helper])
     storage.artifacts.registerSession({ id: actor.sessionId! });
@@ -74,6 +77,32 @@ async function connect(workerId = randomUUID(), via = client) {
   };
 }
 type Connection = Awaited<ReturnType<typeof connect>>;
+test("no-login backends accept worker connections and publications without a credential", async () => {
+  policy.requireLogin = false;
+  const anonymous = makeClient("");
+  const worker = await connect(randomUUID(), anonymous);
+  await target(worker, publisher);
+  const publication = await anonymous.json<{ listener: WorkerSubscription }>(
+    "POST",
+    `/api/artifacts/${id}/versions`,
+    {
+      actor: publisher,
+      expectedSeq: 0,
+      publicationKey: "no-login",
+      content: {
+        kind: "files",
+        files: [{ path: "note.txt", mediaType: "text/plain", base64: "aGk=" }],
+      },
+    },
+  );
+  expect(publication.listener.artifactId).toBe(id);
+  expect((await event(worker, "registered")).type).toBe("registered");
+  const response = await anonymous.request("GET", "/api/events");
+  const reader = response.body!.getReader();
+  expect(new TextDecoder().decode((await reader.read()).value)).toContain("event: ready");
+  await reader.cancel();
+  expect(storage.authentication.listTokens()).toEqual([]);
+});
 async function target(connection: Connection, actor: ArtifactActor) {
   const listenerId = randomUUID();
   await connection.client.json("POST", `/api/workers/${connection.connectionId}/targets`, {
