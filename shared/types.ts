@@ -103,7 +103,16 @@ export interface CodexListenerTarget {
   home?: string;
 }
 
-export type ListenerTarget = ClaudeListenerTarget | CodexListenerTarget;
+export interface AntigravityListenerTarget {
+  harness: "antigravity";
+  conversationId: string;
+  address: string;
+  token: string;
+  executable?: string;
+  sourceMetadata?: string;
+}
+
+export type ListenerTarget = ClaudeListenerTarget | CodexListenerTarget | AntigravityListenerTarget;
 
 // ---- auth (login token → session cookie when REQUIRE_LOGIN) ----
 

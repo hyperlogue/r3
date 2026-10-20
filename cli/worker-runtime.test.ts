@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { AntigravityListenerTarget, ListenerTarget } from "../shared/types.ts";
 import type { WorkerSubscription } from "../shared/worker-protocol.ts";
 import { BackendCredentials } from "./backend.ts";
 import { WorkerProtocolFixture } from "./worker-protocol-fixture.ts";
@@ -50,8 +51,11 @@ afterEach(async () => {
   await worker.stop();
   await rm(root, { recursive: true, force: true });
 });
-async function subscribe(url: string) {
-  const target = await worker.target(url, actor, { harness: "codex", threadId: "fixture-thread" });
+async function subscribe(
+  url: string,
+  localTarget: ListenerTarget = { harness: "codex", threadId: "fixture-thread" },
+) {
+  const target = await worker.target(url, actor, localTarget);
   const subscription: WorkerSubscription = {
     id: randomUUID(),
     artifactId: randomUUID(),
@@ -69,6 +73,83 @@ async function subscribe(url: string) {
   );
   return subscription;
 }
+test("Antigravity delivery survives worker restart with private credentials and reports queue failure", async () => {
+  const executable = join(root, "agy");
+  const output = join(root, "agentapi.json");
+  await Bun.write(
+    executable,
+    `#!${process.execPath}
+await Bun.write(${JSON.stringify(output)}, JSON.stringify({
+  argv: process.argv.slice(2),
+  address: process.env.ANTIGRAVITY_LS_ADDRESS,
+  token: process.env.ANTIGRAVITY_CSRF_TOKEN,
+  conversationId: process.env.ANTIGRAVITY_CONVERSATION_ID,
+  sourceMetadata: process.env.ANTIGRAVITY_SOURCE_METADATA,
+}));
+`,
+  );
+  await chmod(executable, 0o700);
+  const target: AntigravityListenerTarget = {
+    harness: "antigravity",
+    executable,
+    address: "localhost:43210",
+    token: "private-antigravity-fixture-token",
+    conversationId: "fixture-agy-conversation",
+    sourceMetadata: '{"runCommand":{"cascadeId":"fixture-agy-conversation"}}',
+  };
+  const requests: string[] = [];
+  const path = join(root, "worker-state.json");
+  const createWorker = () =>
+    new WorkerRuntime(path, credentials, undefined, async (request) => {
+      if (request.body) requests.push(await request.clone().text());
+      return fixture.fetch(request);
+    });
+  await worker.stop();
+  worker = createWorker();
+  const subscription = await subscribe(one, target);
+  expect(await Bun.file(output).exists()).toBe(false);
+  expect((await Bun.file(path).json()).targets[0].target).toEqual(target);
+  expect((await stat(path)).mode & 0o777).toBe(0o600);
+  await worker.stop();
+  worker = createWorker();
+  worker.start();
+  await until(() =>
+    worker.status().subscriptions.some((item) => item.artifactId === subscription.artifactId),
+  );
+  expect(await Bun.file(output).exists()).toBe(false);
+  fixture.send(one, nudge(subscription));
+  await until(() => fixture.backends.get(one)!.acknowledgments.length === 1);
+  expect(fixture.backends.get(one)!.acknowledgments[0]).toMatchObject({
+    ok: true,
+    state: "queued",
+  });
+  const received = await Bun.file(output).json();
+  expect(received).toMatchObject({
+    address: target.address,
+    token: target.token,
+    conversationId: target.conversationId,
+    sourceMetadata: target.sourceMetadata,
+  });
+  expect(received.argv.slice(0, 5)).toEqual([
+    "agentapi",
+    "send-message",
+    "--title=r3",
+    "--",
+    target.conversationId,
+  ]);
+  expect(received.argv[5]).toContain(`r3 comment fetch ${subscription.artifactId}`);
+  for (const privateValue of [target.token, target.address, target.executable!]) {
+    expect(requests.join("\n")).not.toContain(privateValue);
+    expect(JSON.stringify(worker.status())).not.toContain(privateValue);
+  }
+  await rm(executable);
+  fixture.send(one, nudge(subscription));
+  await until(() => fixture.backends.get(one)!.acknowledgments.length === 2);
+  expect(fixture.backends.get(one)!.acknowledgments[1]).toMatchObject({ ok: false });
+  expect(
+    worker.status().subscriptions.some((item) => item.artifactId === subscription.artifactId),
+  ).toBe(true);
+});
 function nudge(subscription: WorkerSubscription, listenerId = subscription.listenerId) {
   return {
     type: "nudge",

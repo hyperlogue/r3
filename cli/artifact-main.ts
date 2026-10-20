@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { listenerTransportAvailable, parseListenerTarget } from "../server/listener.ts";
 import { ArtifactApiError, ArtifactClient } from "../shared/artifact-client.ts";
 import type { ArtifactActor } from "../shared/artifacts.ts";
+import type { ListenerTarget } from "../shared/types.ts";
 import { R3_VERSION } from "../shared/version.ts";
 import type { WorkerSubscription } from "../shared/worker-protocol.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
@@ -143,11 +145,16 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
     if (!detected.ok) {
       if (detected.reason === "missing-claude-token")
         throw new ArtifactCommandError("Claude messaging token is unavailable", 5);
+      if (detected.reason === "missing-antigravity-connection")
+        throw new ArtifactCommandError(
+          "Antigravity messaging connection is unavailable; run r3 from its agent command environment, or use r3 watch",
+          5,
+        );
       return false;
     }
     if (detected.target.harness === "codex" && !Bun.which("codex"))
       throw new ArtifactCommandError("The publisher cannot run codex queue; use r3 watch", 5);
-    const target =
+    let target: ListenerTarget =
       detected.target.harness === "codex"
         ? {
             ...detected.target,
@@ -157,6 +164,19 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
               : join(homedir(), ".codex"),
           }
         : detected.target;
+    if (target.harness === "antigravity") {
+      const executable = target.executable ?? Bun.which("agy");
+      if (!executable)
+        throw new ArtifactCommandError("The publisher cannot run agy agentapi; use r3 watch", 5);
+      const parsed = parseListenerTarget({ ...target, executable });
+      if (!parsed.ok) throw new ArtifactCommandError(parsed.error, 5);
+      target = parsed.target;
+      if (!(await listenerTransportAvailable(target)))
+        throw new ArtifactCommandError(
+          "The publisher cannot run agy agentapi send-message; use r3 watch",
+          5,
+        );
+    }
     localWorker = await ensureWorker();
     destination = await localWorker.json("POST", "/api/local/target", {
       url: location.url,

@@ -226,7 +226,7 @@ export async function runArtifactCommand(
       );
     await client.json("POST", "/api/sessions", {
       id,
-      ...(!ctx.environment.R3_AGENT_SESSION?.trim() && /^(claude|codex):/.test(id)
+      ...(!ctx.environment.R3_AGENT_SESSION?.trim() && /^(claude|codex|antigravity):/.test(id)
         ? { harness: id.slice(0, id.indexOf(":")) }
         : {}),
       ...(args.has("session") ? { label: args.require("session") } : {}),

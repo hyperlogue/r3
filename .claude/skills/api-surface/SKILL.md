@@ -150,8 +150,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   request. The former `/prompt` routes and CLI alias are removed.
 - `POST .../:id/submit` returns `{ notification }`; `sent` confirms a local harness
   delivery acknowledgment or a generic watch woken for pending comments. An absent
-  selected subscription (or a watch with no pending work) returns `none`. Local Codex acceptance
-  returns `queued`; failure returns `failed` and HTTP 502. Neither acknowledges comments.
+  selected subscription (or a watch with no pending work) returns `none`. Local
+  Codex or Antigravity acceptance returns `queued`; failure returns `failed` and
+  HTTP 502. Neither acknowledges comments.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event (including its optional artifact-level `comment`), replay flag, and notification result.
   Archive input is `comment: { body }`; blank bodies normalize to no Comment.
@@ -195,8 +196,9 @@ create write, and an unconfirmed upload reports the artifact, expected sequence,
 and retry key for recovery. Source/download reads require a version. Native target
 flags reject cross-representation guesses. `--session` supplies a readable name;
 `R3_AGENT_SESSION` supplies an explicit complete identity for generic writers/subagents.
-Detected run IDs use `codex:<id>` or `claude:<id>`; raw delivery targets stay local. Generic
-watch assigns its own temporary identity; no shared `agent` identity is invented.
+Detected run IDs use `codex:<id>`, `claude:<id>`, or `antigravity:<id>`; raw delivery
+targets stay local. Generic watch assigns its own temporary identity; no shared
+`agent` identity is invented.
 
 Local and remote clients use a persistent worker with private Unix IPC and one
 outgoing stream per backend. The CLI sends only local setup through IPC; artifact
@@ -347,13 +349,16 @@ automatic local. `r3 open [artifact-id]` prints a one-time local browser link
 or the selected remote address. `r3 login` saves credentials for the complete normalized URL;
 `R3_TOKEN` is not a client override.
 
-Claude Code/Codex create/publish makes the publisher the fallback. `listen` takes
-explicit priority; `unlisten` removes the caller's roles. A persistent local worker
-owns local notification destinations. Disconnect retains backend subscriptions
+Create/publish from Claude Code, Codex, or Antigravity makes the publisher the
+fallback. `listen` takes explicit priority; `unlisten` removes the caller's roles.
+A persistent local worker owns local notification destinations. Disconnect retains backend subscriptions
 and marks them unavailable. Reconnect binds the same worker and credential principal
 without changing selection. Fresh listen can replace the explicit subscription;
 archive, replacement, and unlisten end subscriptions even while the worker is offline.
-Codex queue success need not mean the session is running. Other agents watch or poll.
+Codex queue success need not mean the session is running. Antigravity queues through
+`agy agentapi send-message` and requires its local backend to remain running;
+fresh listen captures replacement connection details after a session restart.
+Neither queue acknowledgment proves model consumption. Other agents watch or poll.
 
 Watch exits 10 for pending comments, 0 for archived, 2 for timeout, and 4 for a
 superseded subscription or a snapshot conflict before acknowledgment. Archive takes precedence even if thread is

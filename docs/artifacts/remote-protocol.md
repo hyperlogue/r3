@@ -190,7 +190,19 @@ socket and discovery file reside beside `daemon.json` in the runtime directory.
 Authenticated IPC, rather than a PID check, establishes that an existing worker is
 alive, including across PID namespaces. The IPC file and socket require owner-only permissions and a separate private
 credential; requests carrying any Origin header are rejected. Paths, executables,
-Codex home, Claude sockets, and harness credentials never enter backend requests.
+Codex home, Claude sockets, Antigravity connection details, and harness credentials
+never enter backend requests.
+
+The Antigravity adapter captures `ANTIGRAVITY_CONVERSATION_ID`,
+`ANTIGRAVITY_LS_ADDRESS`, `ANTIGRAVITY_CSRF_TOKEN`, and optional
+`ANTIGRAVITY_SOURCE_METADATA` from the agent's command environment. It captures
+`ANTIGRAVITY_AGENTAPI_EXE` when supplied, otherwise resolves `agy` on the publisher's
+PATH. Registration validates the loopback address and probes the executable's
+`agentapi send-message --help` command. Delivery uses bounded direct argv and the
+saved environment, never a shell or another session's source metadata. The local
+Antigravity backend must remain running; a fresh listen replaces stale connection
+details after a session restart. Missing connection/capability makes explicit listen
+exit 5; automatic publication/fetch setup only warns after successful data operations.
 
 `r3 worker stop` and `restart` request shutdown through authenticated private IPC
 (`POST /api/local/stop`) and wait for the worker to withdraw its discovery record.
@@ -324,7 +336,9 @@ Only the human's Send to agent action submits comments. Setup, reconnect and
 fallback selection never send pending content. Existing lifecycle rules still
 allow an explicit nonblank archive Comment to reach the captured notification
 destination after archive commits. Delivery failure is reported to the human.
-`queued` means Codex accepted the notification, not that a session is running.
+`queued` means Codex or Antigravity accepted the notification, not that the model
+processed it. Codex can queue while its session is stopped; Antigravity needs its
+local backend running.
 A signal-only acknowledgment never consumes pending content; snapshot
 fetch/output/acknowledgment remains separate. An acknowledged archive notification
 can stamp its Comment only when it carried the complete body and that Comment
@@ -349,9 +363,10 @@ process, migration, browser approval, and compiled-binary checks.
 
 ### Harness-local identity
 
-The bundled CLI namespaces detected run IDs as `codex:<run-id>` or
-`claude:<run-id>` and registers the corresponding harness metadata. Equal raw run
-IDs from different harnesses identify different sessions on the same backend.
+The bundled CLI namespaces detected run IDs as `codex:<run-id>`,
+`claude:<run-id>`, or `antigravity:<run-id>` and registers the corresponding harness
+metadata. Equal raw run IDs from different harnesses identify different sessions
+on the same backend.
 The local worker keeps the raw delivery target; no backend parses an attribution ID
 into a harness address. `R3_AGENT_SESSION` is an explicit complete identity override
 and stays unchanged. Existing unqualified identities and their history stay intact.

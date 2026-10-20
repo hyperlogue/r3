@@ -2,16 +2,27 @@
 //
 // Claude Code accepts an authenticated write to a per-session Unix socket (see
 // inbox.ts). Codex CLI 0.149+ exposes `codex queue`, which addresses a persisted
-// thread and wakes it when idle. The local notification worker runs these
+// thread and wakes it when idle. Antigravity's agentapi sends to a conversation
+// through its running local backend. The local notification worker runs these
 // adapters for both local and remote backends.
 
 import { isAbsolute } from "node:path";
-import type { CodexListenerTarget, ListenerTarget } from "../shared/types.ts";
+import type {
+  AntigravityListenerTarget,
+  CodexListenerTarget,
+  ListenerTarget,
+} from "../shared/types.ts";
 import { probeInbox, pushToInbox, validateSocketPath } from "./inbox.ts";
 export type ListenerLiveness = "alive" | "dead" | "unknown";
 
-const CODEX_QUEUE_TIMEOUT_MS = 10_000;
+const COMMAND_TIMEOUT_MS = 10_000;
 const MAX_THREAD_ID_CHARS = 200;
+
+function validExecutable(path: unknown): boolean {
+  return (
+    typeof path === "string" && isAbsolute(path) && !path.includes("\0") && path.length <= 4096
+  );
+}
 
 export type ParsedListenerTarget =
   | { ok: true; target: ListenerTarget }
@@ -24,6 +35,44 @@ export function parseListenerTarget(
   validateSocket: (path: string) => string | null = validateSocketPath,
 ): ParsedListenerTarget {
   const request = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  if (request.harness === "antigravity") {
+    const conversationId =
+      typeof request.conversationId === "string" ? request.conversationId.trim() : "";
+    if (!conversationId || conversationId.includes("\0") || conversationId.length > 200)
+      return { ok: false, error: "invalid Antigravity conversation id" };
+    // agentapi uses plaintext gRPC. Keep its credentials on the local machine,
+    // rejecting resolver schemes, URLs, and arbitrary hostnames before spawning.
+    const address = typeof request.address === "string" ? request.address : "";
+    const match = /^(?:localhost|127\.0\.0\.1|\[::1\]):([1-9]\d{0,4})$/.exec(address);
+    if (!match || match[0] !== address || Number(match[1]) > 65535)
+      return { ok: false, error: "Antigravity requires a loopback host:port address" };
+    const token = typeof request.token === "string" ? request.token : "";
+    if (!token.trim() || token.length > 4096 || /[\0\r\n]/.test(token))
+      return { ok: false, error: "invalid Antigravity messaging token" };
+    if (request.executable !== undefined && !validExecutable(request.executable))
+      return { ok: false, error: "invalid Antigravity executable" };
+    const sourceMetadata = request.sourceMetadata;
+    if (sourceMetadata !== undefined) {
+      try {
+        if (typeof sourceMetadata !== "string" || sourceMetadata.length > 8192) throw new Error();
+        const parsed: unknown = JSON.parse(sourceMetadata);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+      } catch {
+        return { ok: false, error: "invalid Antigravity source metadata" };
+      }
+    }
+    return {
+      ok: true,
+      target: {
+        harness: "antigravity",
+        conversationId,
+        address,
+        token,
+        ...(request.executable === undefined ? {} : { executable: request.executable as string }),
+        ...(sourceMetadata === undefined ? {} : { sourceMetadata: sourceMetadata as string }),
+      },
+    };
+  }
   if (request.harness === "codex") {
     const threadId = typeof request.threadId === "string" ? request.threadId.trim() : "";
     if (!threadId) return { ok: false, error: "missing Codex thread id" };
@@ -33,10 +82,7 @@ export function parseListenerTarget(
       return { ok: false, error: "Codex thread id is too long" };
     for (const key of ["executable", "home"] as const) {
       const path = request[key];
-      if (
-        path !== undefined &&
-        (typeof path !== "string" || !isAbsolute(path) || path.includes("\0") || path.length > 4096)
-      )
+      if (path !== undefined && !validExecutable(path))
         return { ok: false, error: `invalid Codex ${key}` };
     }
     return {
@@ -62,50 +108,52 @@ export function parseListenerTarget(
   return { ok: true, target: { harness: "claude", socket, token } };
 }
 
-export type CodexCommandRunner = (
+export type ListenerCommandRunner = (
   argv: string[],
   environment?: Record<string, string | undefined>,
 ) => Promise<number>;
 
-const runCodexCommand: CodexCommandRunner = async (argv, environment) => {
+const runListenerCommand: ListenerCommandRunner = async (argv, environment) => {
   const proc = Bun.spawn(argv, {
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",
-    timeout: CODEX_QUEUE_TIMEOUT_MS,
+    timeout: COMMAND_TIMEOUT_MS,
     killSignal: "SIGKILL",
     env: environment,
   });
   return proc.exited;
 };
 
-// Registration checks capability in the publisher process that will perform
-// the later delivery. It uses the same bounded runner as the queue operation, so a
-// different PATH or a pre-0.149 binary cannot produce a false-successful listen.
+// Capability checks use the same bounded runner and captured executable as
+// delivery. Help sends no message and does not prove that the session is running.
 export async function listenerTransportAvailable(
   target: ListenerTarget,
-  run: CodexCommandRunner = runCodexCommand,
+  run: ListenerCommandRunner = runListenerCommand,
 ): Promise<boolean> {
   if (target.harness === "claude") return true;
   try {
-    return (await run(["codex", "queue", "--help"])) === 0;
+    const argv =
+      target.harness === "antigravity"
+        ? [target.executable ?? "agy", "agentapi", "send-message", "--help"]
+        : [target.executable ?? "codex", "queue", "--help"];
+    return (await run(argv)) === 0;
   } catch {
     return false;
   }
 }
 
-// Claude has a real connect probe. Codex threads remain addressable while idle,
-// but queue offers no non-mutating per-thread probe; report that honestly and
-// keep the registration until delivery fails or the daemon restarts.
+// Only Claude supplies a socket liveness probe here. Other adapters establish
+// acceptance at delivery; a conversation identity alone does not prove liveness.
 export async function probeListener(target: ListenerTarget): Promise<ListenerLiveness> {
-  if (target.harness === "codex") return "unknown";
+  if (target.harness !== "claude") return "unknown";
   return (await probeInbox(target)) ? "alive" : "dead";
 }
 
 export async function pushToCodexQueue(
   target: CodexListenerTarget,
   text: string,
-  run: CodexCommandRunner = runCodexCommand,
+  run: ListenerCommandRunner = runListenerCommand,
 ): Promise<void> {
   // Direct argv, never a shell: both the persisted thread name and human prose
   // are untrusted strings. Separate option/value arguments are consumed by the
@@ -117,7 +165,37 @@ export async function pushToCodexQueue(
   if (code !== 0) throw new Error(`codex queue exited ${code}`);
 }
 
+export async function pushToAntigravity(
+  target: AntigravityListenerTarget,
+  text: string,
+  run: ListenerCommandRunner = runListenerCommand,
+): Promise<void> {
+  const code = await run(
+    [
+      target.executable ?? "agy",
+      "agentapi",
+      "send-message",
+      "--title=r3",
+      "--",
+      target.conversationId,
+      text,
+    ],
+    {
+      ...process.env,
+      ANTIGRAVITY_LS_ADDRESS: target.address,
+      ANTIGRAVITY_CSRF_TOKEN: target.token,
+      ANTIGRAVITY_CONVERSATION_ID: target.conversationId,
+      // A worker can serve several sessions. Never inherit another caller's attribution.
+      ANTIGRAVITY_SOURCE_METADATA: target.sourceMetadata,
+    },
+  );
+  // agentapi reports RPC failures with a nonzero exit. Its stdout/stderr can
+  // include private connection details and must never reach the backend.
+  if (code !== 0) throw new Error(`Antigravity agentapi exited ${code}`);
+}
+
 export async function pushToListener(target: ListenerTarget, text: string): Promise<void> {
   if (target.harness === "claude") return pushToInbox(target, text);
+  if (target.harness === "antigravity") return pushToAntigravity(target, text);
   return pushToCodexQueue(target, text);
 }

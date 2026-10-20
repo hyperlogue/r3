@@ -7,13 +7,15 @@ export async function deliverLocalAgent(
 ): Promise<"sent" | "queued"> {
   try {
     await pushToListener(target, text);
-    return target.harness === "codex" ? "queued" : "sent";
+    return target.harness === "claude" ? "sent" : "queued";
   } catch {
     // Raw process/socket failures can contain credentials or local paths.
     throw new Error(
       target.harness === "codex"
         ? "Codex could not queue the notification. Check that Codex is available, then retry."
-        : "Claude Code could not receive the notification. Resume the session and register it again.",
+        : target.harness === "antigravity"
+          ? "Antigravity could not queue the notification. Keep its session running and register it again."
+          : "Claude Code could not receive the notification. Resume the session and register it again.",
     );
   }
 }

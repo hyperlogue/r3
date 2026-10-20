@@ -96,7 +96,7 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          HTML fix links: set locator.label in --target JSON (see r3 guide html).
          no target flags means general artifact threads.
          Version descriptions are read-only metadata, not thread targets.
-Identity: Detected run IDs are qualified by harness (codex:<id> or claude:<id>).
+Identity: Detected run IDs use codex:<id>, claude:<id>, or antigravity:<id>.
           R3_AGENT_SESSION supplies an explicit complete identity override.
           --session <name> sets a readable display name; it never changes identity.
           --human acts as the human owner. watch needs no supplied identity.
@@ -182,7 +182,7 @@ New artifact IDs use \`artifact_<16 hex>\` and sort by creation order within one
 \`\`\`sh
 r3 create --kind files --dir ./prepared --title 'Design review'
 artifact_id=artifact_example
-# Share the printed URL. Local Claude Code/Codex publications register automatically.
+# Share the printed URL. Claude Code, Codex, and Antigravity register automatically.
 
 # When a comments-submitted notification arrives:
 r3 comment fetch "$artifact_id"
@@ -245,11 +245,13 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 
 Upgrades discard legacy server-local notification subscriptions and destinations. Run \`r3 listen <id>\` to subscribe again. Current worker subscriptions remain intact.
 
-Claude Code and Codex publications establish the publisher fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if subscription setup fails, with a warning. Subscription setup and restart do not send pending comments.
+Claude Code, Codex, and Antigravity publications establish the publisher fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if subscription setup fails, with a warning. Subscription setup and restart do not send pending comments.
 
 The worker inherits the permissions of the CLI that starts it. On new worker startup, recognized sandbox environment markers produce a warning on stderr: notifications may fail even when the command succeeds. Detection is best effort; reusing a running worker stays quiet. If the worker was started inside a sandbox, run \`r3 worker restart\` from a terminal outside it. Stop/restart uses authenticated IPC across PID namespaces and recovers stale locks or unresponsive workers after checking local process identity.
 
 \`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` ends your subscriptions; a later publication can establish a new fallback. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms subscription setup, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued, including when its session is not running. A notification tells you to fetch comments.
+
+Antigravity uses \`agy agentapi send-message\` through its running local backend. Run r3 from Antigravity's agent command environment so it can capture the conversation ID, loopback address, messaging token, and source attribution. These details stay in the private local worker. Success means queued, not that the model has processed the message. Keep the Antigravity session running; after restarting it, run \`r3 listen <id>\` again. A missing connection or unsupported executable makes explicit listen exit 5; use watch or polling instead.
 
 Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect retains backend subscriptions and marks the selected subscription unavailable. The same worker and authorizing credential reconnect without changing selection; a newer explicit subscription is never displaced. Failed notifications are not queued for automatic resend. Replacement, unlisten, archive, and deletion end subscriptions permanently; restore requires a fresh subscription. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
 

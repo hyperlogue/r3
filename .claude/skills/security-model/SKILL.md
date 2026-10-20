@@ -434,8 +434,9 @@ unchanged. Tokens and device secrets are hashed in backend storage.
 The worker opens only a private Unix socket and outgoing authenticated streams.
 Its separate IPC credential, owned 0700 directory, 0600 files/socket, and rejection
 of every Origin header keep harness details off application HTTP. Local paths,
-executables, Codex home and Claude messaging credentials remain in the private
-worker file; they never enter a backend registration. Private saved backend
+executables, Codex home, Claude messaging credentials, and Antigravity connection
+credentials/source metadata remain in the private worker file; they never enter
+a backend registration. Private saved backend
 credentials are keyed by the complete normalized URL, atomically replaced, and
 refreshed under a process lock. A rejected backend pauses independently until login.
 
@@ -452,6 +453,14 @@ Claude delivery validates a same-owner session socket and uses its authenticated
 messaging token. Codex uses bounded direct argv with the captured local executable
 and optional Codex home, without a shell. Raw harness errors never enter backend
 responses or logs. Queue acceptance is not proof of a running consumer.
+
+Antigravity uses bounded direct argv with the captured executable and conversation
+ID. Its plaintext gRPC address must be `localhost`, `127.0.0.1`, or `[::1]` with an
+explicit valid port. Reject URL/resolver schemes and other hosts. The captured
+CSRF token and optional bounded JSON source metadata enter only the child process
+environment; absent metadata clears any attribution inherited by the worker.
+Registration probes `agentapi send-message --help` without delivering a message.
+Credentials and raw harness output stay off backend HTTP and worker status.
 
 ## Limits of the trust model
 

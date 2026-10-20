@@ -718,8 +718,9 @@ never resent to another subscription.
 
 Local and remote modes use the same backend protocol. The server owns content,
 threads, authentication, and subscription selection. A separate persistent worker
-owns local Claude Code/Codex delivery and opens only a private Unix socket. CLI
-reads, writes, uploads, and watch go directly to the selected backend. Each backend
+owns local Claude Code, Codex, and Antigravity delivery and opens only a private
+Unix socket. CLI reads, writes, uploads, and watch go directly to the selected
+backend. Each backend
 gets one outgoing worker connection carrying opaque destination IDs. Harness paths
 and credentials remain in private local worker state.
 
@@ -734,8 +735,10 @@ Setup, restart, and fallback selection never submit pending comments.
 After printing and acknowledging pending comments, `comment fetch` establishes an
 explicit subscription for a supported harness through the same worker/backend path.
 Setup failure warns without failing the fetch. History and human reads skip
-subscription setup. Codex delivery reports queue acceptance, not proof of session liveness. Notifications are bounded
-and ordered per destination; a failed backend cannot block others.
+subscription setup. Codex and Antigravity delivery report queue acceptance, not
+model consumption. Antigravity requires its local backend to remain running.
+Notifications are bounded and ordered per destination; a failed backend cannot
+block others.
 
 The [remote protocol](remote-protocol.md) owns backend selection, client login,
 credential storage, wire messages, recovery, delivery limits, and migration. The
