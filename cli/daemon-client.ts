@@ -114,6 +114,7 @@ async function spawnDaemon(): Promise<DaemonInfo> {
 }
 
 export interface ArtifactServerLocation {
+  browserUrl?: (path: string) => Promise<string>;
   getToken?: () => Promise<string>;
   url: string;
   token: string;
@@ -159,6 +160,8 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
     token: local.token,
     getToken: () => credentials.token(url),
     publicUrl: local.publicUrl,
+    browserUrl: async (path) =>
+      (await localBootstrap<{ url: string }>(info.bootstrapSocket!, "browser", { path })).url,
   };
 }
 

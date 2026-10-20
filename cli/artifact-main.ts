@@ -195,6 +195,7 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
   };
   return runArtifactCommand(command, args, {
     client,
+    browserUrl: location.browserUrl,
     publicUrl: location.publicUrl,
     cwd: process.cwd(),
     environment: process.env,

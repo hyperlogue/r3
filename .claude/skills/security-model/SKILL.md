@@ -72,10 +72,14 @@ The separate master API token is outside this login-token policy.
 
 The shipped server always authenticates browser sessions, including loopback.
 Automatic CLI setup obtains its API credential through the server's private Unix
-socket. `r3 open [artifact-id]` requests a random, one-use, 60-second browser ticket
-and prints a link carrying it in the URL fragment. The SPA removes that fragment
-before exchanging it at the guarded `/api/auth/local` endpoint for an HttpOnly,
-SameSite=Strict cookie. No reusable API/login token enters a browser link or boot.
+socket. Automatic-local create/publish and `r3 open [artifact-id]` request a random,
+one-use, 60-second browser ticket and print a link carrying it in the URL fragment.
+Explicitly selected backends never acquire a ticket through local discovery.
+The SPA removes that fragment before exchanging it at the guarded
+`/api/auth/local` endpoint for an HttpOnly,
+SameSite=Strict cookie. A rejected ticket may fall back to normal authenticated
+boot with an existing browser session; it grants no access on its own.
+No reusable API/login token enters a browser link or boot.
 The socket's owned directory is 0700 and the socket is 0600. Both peers check
 ownership/types; the server rejects any Origin or Sec-Fetch-Site header. Its
 only operations are credential bootstrap and browser-ticket minting. Startup holds

@@ -35,6 +35,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   manifest?: ApplicationBootstrap["manifest"];
   preview?: ApplicationBootstrap["preview"];
 }> {
+  let rejectedLocalTicket = false;
   if (location.hash.startsWith("#r3-login=")) {
     const ticket = location.hash.slice("#r3-login=".length);
     // Clear the one-time fragment before any application rendering or requests.
@@ -45,7 +46,12 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ticket }),
     });
-    if (!response.ok) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
+    if (!response.ok) {
+      if (response.status !== 401) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
+      // A saved link may outlive its ticket while this browser's session is valid.
+      // Only a fresh authenticated boot can establish access after rejection.
+      rejectedLocalTicket = true;
+    }
     initial = undefined;
   }
   if (initial) {
@@ -72,6 +78,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   if (r.status === 401) {
     await markdownCache.suspend();
     await draftImages.clear();
+    if (rejectedLocalTicket) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
     const b = (await r.json().catch(() => ({}))) as Partial<BootResponse>;
     return { needsAuth: b.needsAuth ?? true };
   }
@@ -80,6 +87,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   if (b.needsAuth) {
     await markdownCache.suspend();
     await draftImages.clear();
+    if (rejectedLocalTicket) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
     return { needsAuth: true };
   }
   TOKEN = b.token ?? "";

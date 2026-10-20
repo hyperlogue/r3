@@ -120,8 +120,10 @@ Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
 Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
 The worker retries temporary connection/refresh failures, including rate limits.
 Rejected credentials require r3 login again.
-Automatic local setup uses a private Unix socket. Run r3 open for a one-time browser
-link. Browser access always requires a session, including on loopback.
+Automatic local setup uses a private Unix socket. Local create/publish URLs include
+a one-time browser sign-in ticket valid for 60 seconds, in text and --json output.
+Run r3 open [artifact-id] for a fresh link. Configured backends return their own URLs.
+Browser access always requires a session, including on loopback.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
 Upgrades discard legacy server-local notification subscriptions and destinations.
 Run r3 listen <id> to subscribe again; current worker subscriptions are preserved.
@@ -234,6 +236,8 @@ If the server is newer, prompt the user to upgrade or switch the CLI. Do not res
 ## Publish
 
 \`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
+
+In automatic local mode, create/publish URLs sign the browser in with a one-use ticket valid for 60 seconds. Share the complete URL, including its fragment. If you do more work before replying or the human needs a fresh sign-in, run \`r3 open <id>\` immediately before sharing its output. Once signed in, the browser can reopen the artifact with its session. Configured backends supply their own URLs and browser sign-in policy.
 
 \`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 

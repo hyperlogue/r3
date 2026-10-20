@@ -90,8 +90,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   optional boolean `listen` (default true). A new commit replaces the fallback
   using a connected worker destination, or clears it when absent/disabled. Replays
   cannot reclaim the fallback. The response adds a complete backend-owned `url`,
-  `listenerRegistered`, and optional worker `listener` subscription; CLI output
-  prints that URL unchanged.
+  `listenerRegistered`, and optional worker `listener` subscription. Explicitly
+  configured backends retain that URL unchanged in CLI output; automatic-local
+  create/publish use the private browser-ticket setup described in the remote protocol.
   There is no per-version delete. `GET .../versions/:seq` reads version metadata.
 - `GET .../versions/:seq/files|source|resource|diff|diff-context|patch` reads
   membership, highlighted source, original bytes, rendered sparse diff, retained

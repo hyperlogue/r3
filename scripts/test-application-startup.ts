@@ -7,6 +7,7 @@ import { createApplicationResponse, loadApplicationAssets } from "../server/appl
 import { createArtifactApi } from "../server/artifact-api.ts";
 import { openArtifactStorage } from "../server/artifact-storage.ts";
 import { COOKIE_NAME } from "../server/auth.ts";
+import { LocalBrowserAccess } from "../server/local-access.ts";
 import { PreviewHost } from "../server/preview-host.ts";
 import { previewSupport } from "../server/preview-support.ts";
 import { PREVIEW_RESUME_COOKIE } from "../shared/preview-resume.ts";
@@ -48,10 +49,13 @@ await storage.artifacts.publish(artifact.id, {
   },
 });
 const preview = new PreviewHost(storage.artifacts, previewSupport);
+let localNow = Date.now();
+const localAccess = new LocalBrowserAccess(storage.authentication, () => localNow);
 const api = createArtifactApi(
   storage,
   {
     token: randomBytes(32).toString("base64url"),
+    localAccess,
     requireLogin: true,
     version: "acceptance",
     allowedHost: (host) => host === "localhost",
@@ -129,6 +133,35 @@ const browser = await chromium.launch({
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
 try {
+  const localContext = await browser.newContext();
+  const localPage = await localContext.newPage();
+  const browserLink = `${url}#r3-login=${localAccess.issue()}`;
+  const localReady = () =>
+    localPage
+      .getByText("Application startup fixture", { exact: true })
+      .first()
+      .waitFor({ timeout: 5000 });
+  await localPage.goto(browserLink);
+  await localReady();
+  assert.equal(new URL(localPage.url()).hash, "");
+  assert.equal(await localPage.evaluate(async () => (await fetch("/api/boot")).status), 200);
+  // Reopening a consumed ticket must keep the already-authenticated session usable.
+  await localPage.goto("about:blank");
+  await localPage.goto(browserLink);
+  await localReady();
+  const expiredLink = `${url}#r3-login=${localAccess.issue()}`;
+  localNow += 60_001;
+  await localPage.goto("about:blank");
+  await localPage.goto(expiredLink);
+  await localReady();
+  const freshContext = await browser.newContext();
+  const freshPage = await freshContext.newPage();
+  await freshPage.goto(expiredLink);
+  await freshPage.getByText(/Local browser link expired or was already used/).waitFor();
+  assert.equal(await freshPage.evaluate(async () => (await fetch("/api/boot")).status), 401);
+  await freshContext.close();
+  await localContext.close();
+
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   if (compatible)
     await context.addInitScript(() =>
@@ -399,7 +432,7 @@ try {
     );
   }
   console.log(
-    "Application startup: stable preview URL and conditional revalidation, zero setup request, missing-hint renewal, independent tabs, origin fallback, Strict-cookie entry, logout races with working/unavailable storage, and cache resumption passed",
+    "Application startup: local sign-in links and authenticated reopening, stable preview URL and conditional revalidation, zero setup request, missing-hint renewal, independent tabs, origin fallback, Strict-cookie entry, logout races with working/unavailable storage, and cache resumption passed",
   );
 } finally {
   await browser.close();

@@ -88,8 +88,14 @@ inherits a different backend's credentials. `R3_TOKEN` is not a client override.
 Automatic local discovery uses the server's private Unix socket to save its matching
 API credential without OAuth polling. The socket path is announced in daemon.json;
 the credential itself is not. `r3 login` in automatic local mode uses that same setup.
-`r3 open [artifact-id]` prints a one-time browser link, valid for 60 seconds. The
-browser removes its fragment ticket and exchanges it for a normal HttpOnly session.
+Automatic-local `create` and `publish` prepare their output URL through that same
+private socket after publication succeeds. Text and JSON output carry a one-time
+browser link, valid for 60 seconds. `r3 open [artifact-id]` obtains a fresh link.
+If browser setup fails, publication still succeeds with the backend URL and a
+warning to run `r3 open`; this is not an unconfirmed upload or a reason to republish.
+The browser removes the fragment ticket and exchanges it for a normal HttpOnly
+session. Reopening a used or expired ticket works with an existing valid browser
+session; an unauthenticated browser needs a fresh link.
 Remote `r3 open` prints the selected backend's ordinary address. Browser boot never
 exposes the API credential in the shipped server, even with legacy requireLogin=false.
 
@@ -350,8 +356,10 @@ for an explicit fetch after restore; archive retry never sends again.
 
 A successful `POST /api/artifacts/:id/versions` returns the version fields plus
 `url`, the complete backend-owned artifact page URL, `listenerRegistered`, and an
-optional `listener` subscription. The CLI prints `url` unchanged in text and JSON.
-It does not infer a display route from the API base or artifact ID. Replay returns
+optional `listener` subscription. For explicitly configured backends, the CLI prints
+`url` unchanged in text and JSON. It does not infer a display route from the API
+base or artifact ID. Automatic-local output uses the private browser setup described
+above; no browser ticket is added to the publication HTTP response. Replay returns
 the publication without reestablishing a fallback.
 
 `cli/worker-protocol-fixture.ts` implements an independent HTTP/SSE fixture without
