@@ -8,9 +8,9 @@ import type {
 import { useOptimisticArtifact } from "../artifact-thread-status.ts";
 import { useArtifactClient, useArtifactUI } from "../artifact-ui-context.tsx";
 import { formatBytes } from "../format-bytes.ts";
-import { getLanguageTag, plural, t, useLocale } from "../i18n.ts";
+import { getLanguageTag, useTranslation } from "../i18n.ts";
 import type { MessageRef } from "../markdown.ts";
-import { Trans } from "../translated-text.tsx";
+
 import {
   Button,
   CopyMeta,
@@ -55,7 +55,7 @@ function ArtifactHistoryComment({
   comment: ArtifactComment;
   readOnly: boolean;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -78,14 +78,14 @@ function ArtifactHistoryComment({
           }}
         >
           <textarea
-            aria-label={t("Edit archive comment")}
+            aria-label={t("header.editArchiveComment")}
             value={body}
             onChange={(event) => setBody(event.target.value)}
             className="w-full resize-y rounded-none border border-neutral-300 bg-transparent p-2 dark:border-neutral-700"
           />
           <div className="mt-1 flex gap-2">
             <Button type="submit" disabled={save.isPending || !body.trim()}>
-              {t("Save comment")}
+              {t("header.saveComment")}
             </Button>
             <Button
               type="button"
@@ -93,7 +93,7 @@ function ArtifactHistoryComment({
               disabled={save.isPending}
               onClick={() => setEditing(false)}
             >
-              {t("Cancel")}
+              {t("common.cancel")}
             </Button>
           </div>
           {save.error && <p role="alert">{save.error.message}</p>}
@@ -110,7 +110,7 @@ function ArtifactHistoryComment({
                 setEditing(true);
               }}
             >
-              {t("Edit comment")}
+              {t("header.editComment")}
             </Button>
           )}
         </>
@@ -127,7 +127,7 @@ export function ArtifactArchiveDialog({
   onCancel: () => void;
   onDone: (notice: Omit<NotificationProps, "onDismiss">) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const dialog = useRef<HTMLDialogElement>(null);
   const [message, setMessage] = useState("");
   const [operationKey] = useState(() => crypto.randomUUID());
@@ -159,18 +159,16 @@ export function ArtifactArchiveDialog({
       onDone(
         result.notification.state === "failed"
           ? {
-              title: t("Archived, but agent notification failed"),
-              message: t(
-                "Your comment is saved in the artifact history. Check that the agent session is still running.",
-              ),
+              title: t("common.archivedButAgentNotificationFailed"),
+              message: t("header.yourCommentIsSavedInTheArtifact2"),
               tone: "warning",
               details: result.notification.error,
             }
           : {
-              title: t("Artifact archived"),
+              title: t("header.artifactArchived"),
               tone: "success",
               message: result.event.comment?.body
-                ? t("Your comment is saved in the artifact history.")
+                ? t("header.yourCommentIsSavedInTheArtifact")
                 : undefined,
             },
       );
@@ -193,16 +191,14 @@ export function ArtifactArchiveDialog({
         }}
       >
         <h2 id="artifact-archive-title" className="font-semibold">
-          {t("Archive artifact")}
+          {t("common.archiveArtifact")}
         </h2>
         <p className="mt-2 text-sm text-neutral-500">
-          {t(
-            "Optionally leave a message for the current listener. Versions and conversations stay available.",
-          )}
+          {t("header.optionallyLeaveAMessageForTheCurrent")}
         </p>
         <textarea
-          aria-label={t("Archive comment (optional)")}
-          placeholder={t("Comment for the agent (optional)…")}
+          aria-label={t("header.archiveCommentOptional")}
+          placeholder={t("header.commentForTheAgentOptional")}
           rows={4}
           value={message}
           disabled={archive.isPending || request.current !== null}
@@ -222,14 +218,14 @@ export function ArtifactArchiveDialog({
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" disabled={archive.isPending} onClick={onCancel}>
-            {t("Cancel")}
+            {t("common.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={archive.isPending}>
             {archive.isPending
-              ? t("Archiving…")
+              ? t("header.archiving")
               : archive.error
-                ? t("Retry archive")
-                : t("Archive")}
+                ? t("header.retryArchive")
+                : t("header.archive")}
           </Button>
         </div>
       </form>
@@ -267,7 +263,7 @@ export function ArtifactHeader({
   onToggleDiscussion?: () => void;
   onOpenShortcuts?: () => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const { chrome } = useArtifactUI();
   detail = useOptimisticArtifact(detail);
   const artifactApi = useArtifactClient();
@@ -315,8 +311,8 @@ export function ArtifactHeader({
       restoreKey.current = null;
       refresh();
       setNotice({
-        title: t("Artifact restored"),
-        message: t("An agent can register a new listener."),
+        title: t("header.artifactRestored"),
+        message: t("header.anAgentCanRegisterANewListener"),
         tone: "success",
       });
     },
@@ -325,7 +321,7 @@ export function ArtifactHeader({
   const latest = detail.versions.at(-1);
   const workingThreads = detail.threads.filter((thread) => thread.claim);
   const workingAgents = [...new Set(workingThreads.map((thread) => thread.claim!.sessionId))];
-  const workingDescription = `${plural("{agents} on {count} thread", "{agents} on {count} threads", workingThreads.length, { agents: workingAgents.length === 1 ? t("Agent working") : t("Agents working") })}\n${workingAgents
+  const workingDescription = `${t("header.onThreadPlural", { agents: t("header.workingAgent", { count: workingAgents.length }), count: workingThreads.length })}\n${workingAgents
     .map(
       (id) =>
         (detail.agentLabels && Object.hasOwn(detail.agentLabels, id) && detail.agentLabels[id]) ||
@@ -361,7 +357,7 @@ export function ArtifactHeader({
       </div>
       {detail.state === "archived" && (
         <span className="shrink-0 rounded border border-warning-600/30 bg-warning-50 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-800 dark:border-warning-400/30 dark:bg-warning-400/10 dark:text-warning-300">
-          {t("Archived")}
+          {t("common.archived")}
         </span>
       )}
       <div className="min-w-0 flex-1" />
@@ -397,8 +393,8 @@ export function ArtifactHeader({
           disabled={commentingLocked}
           variant={commenting ? "primary-outline" : "nav"}
           className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
-          aria-label={commenting ? t("Exit comment mode") : t("Comment mode")}
-          title={commenting ? t("Exit comment mode (c)") : t("Comment mode (c)")}
+          aria-label={commenting ? t("header.exitCommentMode") : t("header.commentMode")}
+          title={commenting ? t("header.exitCommentModeC") : t("header.commentModeC")}
           aria-pressed={commenting}
           onClick={onToggleCommenting}
         >
@@ -418,15 +414,15 @@ export function ArtifactHeader({
       {onOpenShortcuts && <ShortcutsButton onClick={onOpenShortcuts} />}
       <MoreActionsButton
         ref={detailsTrigger}
-        aria-label={t("Artifact details and actions")}
-        title={t("Artifact details and actions")}
+        aria-label={t("header.artifactDetailsAndActions")}
+        title={t("header.artifactDetailsAndActions")}
         aria-expanded={detailsOpen}
         onClick={() => setDetailsOpen(!detailsOpen)}
       />
       {detailsOpen && (
         <button
           type="button"
-          aria-label={t("Close artifact details")}
+          aria-label={t("header.closeArtifactDetails")}
           onClick={() => setDetailsOpen(false)}
           className="fixed inset-0 z-40 cursor-default"
         />
@@ -435,7 +431,7 @@ export function ArtifactHeader({
         ref={details}
         role="dialog"
         hidden={!detailsOpen}
-        aria-label={t("Artifact details")}
+        aria-label={t("header.artifactDetails")}
         className="absolute right-2 top-full z-50 mt-1 max-h-[calc(100dvh-4rem)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg [overflow-wrap:anywhere] border border-neutral-300 bg-white p-3 text-neutral-900 r3-popover dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
       >
         <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
@@ -450,7 +446,7 @@ export function ArtifactHeader({
                 setTitle(detail.title ?? "");
               }}
             >
-              {t("Edit title")}
+              {t("header.editTitle")}
             </Button>
           ) : (
             <form
@@ -470,7 +466,7 @@ export function ArtifactHeader({
             >
               <input
                 ref={titleInput}
-                aria-label={t("Artifact title")}
+                aria-label={t("header.artifactTitle")}
                 className="min-w-0 flex-1 rounded border border-neutral-300 bg-transparent px-2 text-sm max-md:text-base dark:border-neutral-700"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
@@ -478,14 +474,14 @@ export function ArtifactHeader({
               />
               <div className="flex justify-end gap-1">
                 <Button type="submit" disabled={detail.state !== "active" || edit.isPending}>
-                  {t("Save")}
+                  {t("common.save")}
                 </Button>
                 <Button
                   type="button"
                   disabled={detail.state !== "active" || edit.isPending}
                   onClick={() => setTitle(null)}
                 >
-                  {t("Cancel")}
+                  {t("common.cancel")}
                 </Button>
               </div>
             </form>
@@ -494,7 +490,7 @@ export function ArtifactHeader({
         {detailsOpen && onSelectVersion && (
           <section className="mb-3 border-b border-neutral-200 pb-3 md:hidden dark:border-neutral-800">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-xs font-medium text-neutral-500">{t("Version")}</h2>
+              <h2 className="text-xs font-medium text-neutral-500">{t("header.version")}</h2>
               <ArtifactOpenLatest
                 latest={detail.versions.at(-1)?.seq}
                 selected={selectedVersion}
@@ -525,7 +521,7 @@ export function ArtifactHeader({
               setSettingsOpen(true);
             }}
           >
-            {t("Settings")}
+            {t("settings.title")}
             <StrokeIcon className="size-4">
               <path d="m9 6 6 6-6 6" />
             </StrokeIcon>
@@ -533,12 +529,12 @@ export function ArtifactHeader({
         )}
         <ArtifactPreviewSecurity />
         <section
-          aria-label={t("Storage used")}
+          aria-label={t("header.storageUsed")}
           className="mb-3 border-b border-neutral-200 pb-3 text-xs dark:border-neutral-800"
         >
-          <h2 className="mb-2 font-medium text-neutral-500">{t("Storage used")}</h2>
+          <h2 className="mb-2 font-medium text-neutral-500">{t("header.storageUsed")}</h2>
           <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
-            <dt>{t("Total")}</dt>
+            <dt>{t("header.total")}</dt>
             <dd
               className="text-right tabular-nums"
               title={`${detail.storage.totalBytes.toLocaleString(getLanguageTag())} bytes`}
@@ -548,7 +544,7 @@ export function ArtifactHeader({
             {latest && (
               <>
                 <dt>
-                  {t("Latest version · ")}
+                  {t("header.latestVersion")}
                   {latest.seq}
                 </dt>
                 <dd
@@ -561,18 +557,13 @@ export function ArtifactHeader({
             )}
           </dl>
           <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-            {t(
-              "Published content, including retained renderings. Shared bytes count once in each total. Excludes database overhead.",
-            )}
+            {t("header.publishedContentIncludingRetainedRenderingsSharedBytes")}
           </p>
         </section>
         {version?.summary && (
           <section className="mb-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
             <h2 className="mb-2 text-xs font-medium text-neutral-500">
-              <Trans
-                message="Description · Version {version_seq}"
-                values={{ version_seq: version.seq }}
-              />
+              {t("common.descriptionVersion", { version_seq: version.seq })}
             </h2>
             <MessageProse
               source={version.summary}
@@ -587,19 +578,19 @@ export function ArtifactHeader({
           </section>
         )}
         <details className="mt-1 text-xs text-neutral-500">
-          <summary className="cursor-pointer">{t("Details")}</summary>
+          <summary className="cursor-pointer">{t("header.details")}</summary>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-            <CopyMeta hint={t("Copy artifact id")} value={detail.id}>
+            <CopyMeta hint={t("header.copyArtifactId")} value={detail.id}>
               {detail.id}
             </CopyMeta>
             {detail.createdBy.role === "agent" && (
-              <CopyMeta hint={t("Copy publisher session")} value={detail.createdBy.sessionId}>
-                {t("Publisher: ")}
+              <CopyMeta hint={t("header.copyPublisherSession")} value={detail.createdBy.sessionId}>
+                {t("header.publisher")}
                 <AgentName id={detail.createdBy.sessionId} labels={detail.agentLabels} />
               </CopyMeta>
             )}
             {Object.entries(detail.meta).map(([key, value]) => (
-              <CopyMeta key={key} hint={t("Copy {key}", { key })} value={value}>
+              <CopyMeta key={key} hint={t("header.copy", { key })} value={value}>
                 {key}: {value}
               </CopyMeta>
             ))}
@@ -608,10 +599,7 @@ export function ArtifactHeader({
         {detail.events.length > 0 && (
           <details className="mt-2 text-xs text-neutral-500">
             <summary className="cursor-pointer">
-              <Trans
-                message="Lifecycle history · {detail_events_length}"
-                values={{ detail_events_length: detail.events.length }}
-              />
+              {t("common.lifecycleHistory", { detail_events_length: detail.events.length })}
             </summary>
             <ol className="mt-2 space-y-2">
               {detail.events.map((event) => (
@@ -620,7 +608,7 @@ export function ArtifactHeader({
                   className="border-l-2 border-neutral-200 pl-2 dark:border-neutral-700"
                 >
                   <div>
-                    {event.event === "archived" ? t("Archived") : t("Restored")} ·{" "}
+                    {event.event === "archived" ? t("common.archived") : t("common.restored")} ·{" "}
                     <time dateTime={event.createdAt}>
                       {new Date(event.createdAt).toLocaleString(getLanguageTag())}
                     </time>
@@ -646,7 +634,7 @@ export function ArtifactHeader({
                 setArchiveOpen(true);
               }}
             >
-              {t("Archive artifact")}
+              {t("common.archiveArtifact")}
             </Button>
           ) : (
             <Button
@@ -658,7 +646,7 @@ export function ArtifactHeader({
                 restore.mutate();
               }}
             >
-              {t("Restore artifact")}
+              {t("header.restoreArtifact")}
             </Button>
           )}
           <Button
@@ -669,14 +657,14 @@ export function ArtifactHeader({
               setDeleteOpen(true);
             }}
           >
-            {t("Delete artifact")}
+            {t("common.deleteArtifact")}
           </Button>
         </div>
       </div>
       {notice && <Notification {...notice} onDismiss={() => setNotice(null)} />}
       {error && (
         <Notification
-          title={t("Could not update artifact")}
+          title={t("header.couldNotUpdateArtifact")}
           message={error.message}
           tone="error"
           onDismiss={() => {
@@ -700,7 +688,7 @@ export function ArtifactHeader({
             const failure = results.find((result) => result.state === "failed");
             if (failure)
               setNotice({
-                title: t("Could not delete artifact"),
+                title: t("header.couldNotDeleteArtifact"),
                 message: failure.warning,
                 tone: "error",
               });

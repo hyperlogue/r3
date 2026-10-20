@@ -8,7 +8,7 @@ import { targetLabel as artifactTargetLabel } from "../artifact-labels.ts";
 import { withSavedComment } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { draftAttachmentInputs } from "../attachment-drafts.ts";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { prepareThreadMorph, ThreadCreationContext } from "../thread-motion.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
@@ -37,7 +37,7 @@ export function ArtifactComposer({
   onDone?: () => void;
   floating?: { left: number; top: number; bottom: number; onClose: () => void };
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const artifactApi = useArtifactClient();
   const draft = useArtifactDraft(artifactId, commentTo);
   const retiredTarget =
@@ -125,7 +125,7 @@ export function ArtifactComposer({
   if (readOnly)
     return (
       <p className="px-3 py-2 text-xs text-neutral-500">
-        {t("Archived. Restore this artifact to continue the conversation. Your draft is saved.")}
+        {t("composer.archivedRestoreThisArtifactToContinueThe")}
       </p>
     );
   const context = draft?.context;
@@ -163,8 +163,8 @@ export function ArtifactComposer({
           <button
             type="button"
             tabIndex={-1}
-            aria-label={t("Move composer")}
-            title={t("Drag to move")}
+            aria-label={t("composer.moveComposer")}
+            title={t("composer.dragToMove")}
             onPointerDown={floatingComposer.start}
             className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 focus-visible:outline-2 focus-visible:outline-primary-500 dark:hover:text-neutral-200"
           >
@@ -180,16 +180,13 @@ export function ArtifactComposer({
         <span className={cn(floating && "min-w-0 flex-1 break-words pt-1")}>
           {commentTo
             ? context?.versionSeq
-              ? t(
-                  "Comment about version {context_versionSeq}{context_representation_context_representation}",
-                  {
-                    context_versionSeq: context.versionSeq,
-                    context_representation_context_representation: context.representation
-                      ? ` · ${context.representation}`
-                      : "",
-                  },
-                )
-              : t("Comment without a published context")
+              ? t("composer.commentAboutVersion", {
+                  context_versionSeq: context.versionSeq,
+                  context_representation_context_representation: context.representation
+                    ? ` · ${context.representation}`
+                    : "",
+                })
+              : t("composer.commentWithoutAPublishedContext")
             : artifactTargetLabel(draft?.target ?? { kind: "artifact" })}
         </span>
         {!commentTo && draft?.target.kind !== "artifact" && draft?.target && (
@@ -203,14 +200,14 @@ export function ArtifactComposer({
               })
             }
           >
-            {t("Clear target")}
+            {t("composer.clearTarget")}
           </button>
         )}
         {floating && (
           <Button
             type="button"
             variant="ghost"
-            aria-label={t("Close composer")}
+            aria-label={t("composer.closeComposer")}
             onClick={floating.onClose}
           >
             ×
@@ -219,16 +216,12 @@ export function ArtifactComposer({
       </div>
       {draft?.imported && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t(
-            "Imported draft. Its original published context is unknown; the saved text and anchor evidence are preserved.",
-          )}
+          {t("composer.importedDraftItsOriginalPublishedContextIs")}
         </p>
       )}
       {retiredTarget && (
         <p className="px-3 text-xs text-amber-700 dark:text-amber-400">
-          {t(
-            "Description anchoring is no longer supported. Clear the target to post this draft as a general comment.",
-          )}
+          {t("composer.descriptionAnchoringIsNoLongerSupportedClear")}
         </p>
       )}
       {draft &&
@@ -245,8 +238,8 @@ export function ArtifactComposer({
       )}
       <MessageInput
         inputRef={textarea}
-        aria-label={commentTo ? t("Reply") : t("Comment")}
-        placeholder={commentTo ? t("Write a reply…") : t("Write a comment…")}
+        aria-label={commentTo ? t("thread.reply") : t("composer.comment")}
+        placeholder={commentTo ? t("composer.writeAReply") : t("composer.writeAComment")}
         disabled={post.isPending}
         value={draft?.body ?? ""}
         onChange={(event) =>
@@ -295,7 +288,7 @@ export function ArtifactComposer({
             onDone?.();
           }}
         >
-          {hasMessageContent(draft) ? t("Discard") : t("Cancel")}
+          {hasMessageContent(draft) ? t("composer.discard") : t("common.cancel")}
         </Button>
         <Button
           type="submit"
@@ -304,7 +297,11 @@ export function ArtifactComposer({
             !hasMessageContent(draft) || attachments.unfinished || post.isPending || retiredTarget
           }
         >
-          {post.isPending ? t("Posting…") : commentTo ? t("Comment") : t("Add comment")}
+          {post.isPending
+            ? t("composer.posting")
+            : commentTo
+              ? t("composer.comment")
+              : t("thread.addComment")}
         </Button>
       </div>
     </form>

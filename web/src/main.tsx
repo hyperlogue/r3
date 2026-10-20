@@ -115,14 +115,14 @@ function renderBootError(err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
   createRoot(document.getElementById("root")!).render(
     <div className="mx-auto mt-[15vh] max-w-lg px-6 text-sm">
-      <p className="mb-2 font-semibold">{t("Couldn’t reach the r3 server.")}</p>
+      <p className="mb-2 font-semibold">{t("main.couldnTReachTheR3Server")}</p>
       <p className="mb-4 break-words font-mono text-xs text-neutral-500">{message}</p>
       <button
         type="button"
         onClick={() => location.reload()}
         className="cursor-pointer rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
       >
-        {t("Retry")}
+        {t("common.retry")}
       </button>
     </div>,
   );

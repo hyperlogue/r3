@@ -1,14 +1,15 @@
 import { type FormEvent, useState } from "react";
+import { Trans } from "react-i18next";
 import { ApiError, api } from "../api.ts";
-import { t, useLocale } from "../i18n.ts";
-import { Trans } from "../translated-text.tsx";
+import { appI18n, useTranslation } from "../i18n.ts";
+
 import { Button } from "../ui.tsx";
 import { LanguageSelect } from "./LanguageSelect.tsx";
 import { Logo } from "./Logo.tsx";
 
 // Local one-time links and reusable login tokens both establish browser sessions.
 export function Login() {
-  useLocale();
+  const { t } = useTranslation();
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,7 +26,7 @@ export function Login() {
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 401
-          ? t("That login token is invalid or has been revoked.")
+          ? t("login.thatLoginTokenIsInvalidOrHas")
           : err instanceof Error
             ? err.message
             : String(err),
@@ -47,11 +48,13 @@ export function Login() {
         <div className="mb-4">
           <LanguageSelect />
         </div>
-        <h1 className="mb-1 text-sm font-semibold">{t("Sign in")}</h1>
+        <h1 className="mb-1 text-sm font-semibold">{t("login.signIn")}</h1>
         <p className="mb-4 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
           <Trans
-            message="Open a one-time local link with r3 open, or create a login token on the server with {code} and paste it below."
-            values={{
+            i18n={appI18n}
+            ns="app"
+            i18nKey="common.openAOneTimeLocalLinkWith"
+            components={{
               code: (
                 <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[0.7rem] dark:bg-neutral-800">
                   r3 auth create-token
@@ -80,7 +83,7 @@ export function Login() {
           disabled={!token.trim() || busy}
           className="mt-4 w-full justify-center py-1.5"
         >
-          {busy ? t("Signing in…") : t("Sign in")}
+          {busy ? t("login.signingIn") : t("login.signIn")}
         </Button>
       </form>
     </div>

@@ -223,7 +223,7 @@ export async function* artifactEventStream(
   signal: AbortSignal,
 ): AsyncGenerator<ArtifactStreamEvent | { type: "ready" }> {
   const response = await client().request("GET", "/api/events", undefined, signal);
-  if (!response.body) throw new Error(t("Missing event stream"));
+  if (!response.body) throw new Error(t("artifactApi.missingEventStream"));
   for await (const frame of readEventStream(response.body)) {
     if (frame.event === "ready") yield { type: "ready" };
     else if (frame.event !== "heartbeat") yield JSON.parse(frame.data) as ArtifactStreamEvent;

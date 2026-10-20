@@ -2,6 +2,7 @@
 // dispatcher and the `?` overlay. Handlers register per-component.
 
 import { useEffect, useRef } from "react";
+import type { AppMessageKey } from "./i18n.ts";
 
 export type KeyId =
   | "help"
@@ -31,7 +32,7 @@ export interface Binding {
   // Chords, in the normalized form chordOf() produces below. Case matters — `S`
   // is the shifted key, and that is load-bearing (see the handOff note).
   keys: string[];
-  label: string;
+  label: AppMessageKey;
   group: "Review" | "Thread" | "Files" | "View";
   // Opt in to OS key repeat. Off by default because most of this map MUTATES and
   // repeat fires ~30×/s: a leaned-on `e` walks the whole list resolving items
@@ -42,13 +43,13 @@ export interface Binding {
 }
 
 export const KEYMAP: readonly Binding[] = [
-  { id: "help", keys: ["?"], label: "Keyboard shortcuts", group: "Review" },
-  { id: "generalNote", keys: ["n"], label: "New general comment", group: "Review" },
-  { id: "commentModeToggle", keys: ["c"], label: "Toggle comment mode", group: "Review" },
+  { id: "help", keys: ["?"], label: "shortcutsOverlay.keyboardShortcuts", group: "Review" },
+  { id: "generalNote", keys: ["n"], label: "common.newGeneralComment", group: "Review" },
+  { id: "commentModeToggle", keys: ["c"], label: "common.toggleCommentMode", group: "Review" },
   // Shifted on purpose: the only binding that sends data out of the app, with no
   // keyboard undo once the agent has it. Everything else in this map is locally
   // reversible, so `S` reads like `Z` (fold *all*) — the bigger, less casual key.
-  { id: "handOff", keys: ["S"], label: "Send to agent / Use in agent", group: "Review" },
+  { id: "handOff", keys: ["S"], label: "common.sendToAgentUseInAgent", group: "Review" },
 
   // `Ctrl-n`/`Ctrl-p` are ALIASES, not the primary. On macOS both are free
   // (browsers put new-window and print on ⌘). On Windows/Linux they split:
@@ -58,38 +59,38 @@ export const KEYMAP: readonly Binding[] = [
   {
     id: "fbNext",
     keys: ["j", "ctrl+n"],
-    label: "Next thread",
+    label: "common.nextThread",
     group: "Thread",
     repeatable: true,
   },
   {
     id: "fbPrev",
     keys: ["k", "ctrl+p"],
-    label: "Previous thread",
+    label: "common.previousThread",
     group: "Thread",
     repeatable: true,
   },
   // `o`, not Enter: a focused button already activates on Enter natively, so a
   // global Enter binding would fight it or double-fire depending on where focus
   // sits. Enter stays unbound everywhere.
-  { id: "fbLocate", keys: ["o"], label: "Jump to its anchor", group: "Thread" },
-  { id: "fbComment", keys: ["r"], label: "Reply", group: "Thread" },
-  { id: "fbResolve", keys: ["e"], label: "Resolve / reopen", group: "Thread" },
+  { id: "fbLocate", keys: ["o"], label: "common.jumpToItsAnchor", group: "Thread" },
+  { id: "fbComment", keys: ["r"], label: "thread.reply", group: "Thread" },
+  { id: "fbResolve", keys: ["e"], label: "common.resolveReopen", group: "Thread" },
 
-  { id: "fileNext", keys: ["]"], label: "Next file", group: "Files", repeatable: true },
-  { id: "filePrev", keys: ["["], label: "Previous file", group: "Files", repeatable: true },
-  { id: "filePicker", keys: ["f"], label: "Jump to file…", group: "Files" },
-  { id: "fileFold", keys: ["z"], label: "Fold / unfold current file", group: "Files" },
-  { id: "foldAll", keys: ["Z"], label: "Fold / unfold all files", group: "Files" },
-  { id: "fileViewed", keys: ["x"], label: "Mark current file viewed", group: "Files" },
-  { id: "fileNote", keys: ["a"], label: "Comment on current file", group: "Files" },
+  { id: "fileNext", keys: ["]"], label: "common.nextFile", group: "Files", repeatable: true },
+  { id: "filePrev", keys: ["["], label: "common.previousFile", group: "Files", repeatable: true },
+  { id: "filePicker", keys: ["f"], label: "common.jumpToFile", group: "Files" },
+  { id: "fileFold", keys: ["z"], label: "common.foldUnfoldCurrentFile", group: "Files" },
+  { id: "foldAll", keys: ["Z"], label: "common.foldUnfoldAllFiles", group: "Files" },
+  { id: "fileViewed", keys: ["x"], label: "common.markCurrentFileViewed", group: "Files" },
+  { id: "fileNote", keys: ["a"], label: "common.commentOnCurrentFile", group: "Files" },
 
-  { id: "versionNext", keys: [">"], label: "Next diff round / version", group: "View" },
-  { id: "versionPrev", keys: ["<"], label: "Previous diff round / version", group: "View" },
-  { id: "layoutToggle", keys: ["\\"], label: "Unified / side-by-side", group: "View" },
+  { id: "versionNext", keys: [">"], label: "common.nextDiffRoundVersion", group: "View" },
+  { id: "versionPrev", keys: ["<"], label: "common.previousDiffRoundVersion", group: "View" },
+  { id: "layoutToggle", keys: ["\\"], label: "common.unifiedSideBySide", group: "View" },
   // ArtifactView toggles the desktop dock or the mobile discussion sheet.
-  { id: "panelToggle", keys: ["p"], label: "Show / hide discussion panel", group: "View" },
-  { id: "panelHide", keys: ["Escape"], label: "Hide discussion panel", group: "View" },
+  { id: "panelToggle", keys: ["p"], label: "common.showHideDiscussionPanel", group: "View" },
+  { id: "panelHide", keys: ["Escape"], label: "common.hideDiscussionPanel", group: "View" },
 ];
 
 const CHORDS = new Map<string, KeyId>();

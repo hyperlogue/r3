@@ -9,7 +9,7 @@ function SiteLogo() {
     <button
       type="button"
       className="site-logo-button"
-      aria-label={t("Animate logo")}
+      aria-label={t("common.animateLogo")}
       onClick={() => logo.current?.flick()}
     >
       <Logo ref={logo} className="site-logo-mark" />

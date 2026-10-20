@@ -107,7 +107,7 @@ export class MarkdownCache {
       };
       opening.onblocked = () => {
         blocked = true;
-        reject(new Error(t("Document cache is busy")));
+        reject(new Error(t("markdownCache.documentCacheIsBusy")));
       };
       opening.onerror = () => reject(opening.error);
       opening.onsuccess = () => {
@@ -132,7 +132,7 @@ export class MarkdownCache {
     const done = new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onabort = tx.onerror = () =>
-        reject(tx.error ?? new Error(t("Document cache unavailable")));
+        reject(tx.error ?? new Error(t("markdownCache.documentCacheUnavailable")));
     });
     // Attach both continuations immediately, including when the operation fails.
     const [result] = await Promise.all([run(tx), done]);
@@ -195,7 +195,7 @@ export class MarkdownCache {
     if (html !== null && (await markdownMatches(html, value.renderedHash))) return html;
     const fresh = await fetchDocument();
     if (!(await markdownMatches(fresh, value.renderedHash)))
-      throw new Error(t("Rendered document integrity check failed"));
+      throw new Error(t("markdownCache.renderedDocumentIntegrityCheckFailed"));
     const bytes = new TextEncoder().encode(fresh).byteLength;
     if (epoch !== null && bytes <= this.budget) {
       try {

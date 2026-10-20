@@ -15,7 +15,7 @@ import {
   prepareDraftImage,
   saveDraftImageOutput,
 } from "../attachment-drafts.ts";
-import { t, useLocale } from "../i18n.ts";
+import { t, useTranslation } from "../i18n.ts";
 import { mapImageCrop } from "../image-edit.ts";
 import { type ImageInsertion, insertImagePlaceholders } from "../image-placeholders.ts";
 import { suspendKeys } from "../keys.ts";
@@ -36,7 +36,7 @@ export async function imageBlob(
   attachment: ArtifactPageData["attachment"],
 ): Promise<Blob> {
   if (image.error) throw new Error(image.error);
-  if (image.pending) throw new Error(t("Wait for the image to finish processing"));
+  if (image.pending) throw new Error(t("messageAttachments.waitForTheImageToFinishProcessing"));
   return "hash" in image
     ? (await attachment(image.artifactId, image.id)).blob()
     : draftImages.get(image.id);
@@ -45,7 +45,7 @@ export async function editableImageInputs(images: EditableImage[]): Promise<Atta
   return Promise.all(
     images.map(async (image) => {
       if (image.pending || image.error)
-        throw new Error(t("Remove unfinished images before posting"));
+        throw new Error(t("messageAttachments.removeUnfinishedImagesBeforePosting"));
       return "hash" in image ? { id: image.id } : (await draftAttachmentInputs([image]))[0]!;
     }),
   );
@@ -59,7 +59,7 @@ function AttachmentImage({
   image: EditableImage;
   onOpen: (blob: Blob) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const artifactApi = useArtifactClient();
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
@@ -102,13 +102,13 @@ function AttachmentImage({
       {url ? (
         <button
           type="button"
-          aria-label={t("Open attached image")}
+          aria-label={t("messageAttachments.openAttachedImage")}
           className="block w-full overflow-hidden border border-neutral-300 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900"
           onClick={() => held.current && onOpen(held.current)}
         >
           <img
             src={url}
-            alt={t("Thread attachment")}
+            alt={t("messageAttachments.threadAttachment")}
             width={image.width}
             height={image.height}
             className="h-24 w-full object-contain"
@@ -116,7 +116,10 @@ function AttachmentImage({
         </button>
       ) : (
         <p role={error ? "alert" : "status"} className="p-2 text-xs text-neutral-500">
-          {error || (image.pending ? t("Preparing image…") : t("Loading image…"))}
+          {error ||
+            (image.pending
+              ? t("messageAttachments.preparingImage")
+              : t("messageAttachments.loadingImage"))}
         </p>
       )}
     </div>
@@ -134,7 +137,7 @@ export function MessageAttachments({
   onChange?: ChangeImages;
   disabled?: boolean;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const artifactApi = useArtifactClient();
   const [opened, setOpened] = useState<{ image: EditableImage; blob: Blob } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -180,8 +183,8 @@ export function MessageAttachments({
                 <Button
                   type="button"
                   className="size-7 shrink-0 justify-center p-0! max-md:size-9"
-                  aria-label={t("Edit image")}
-                  title={t("Edit image")}
+                  aria-label={t("common.editImage")}
+                  title={t("common.editImage")}
                   disabled={disabled || image.pending || !!image.error}
                   onClick={() => {
                     void imageBlob(image, artifactApi.attachment)
@@ -197,8 +200,8 @@ export function MessageAttachments({
                 <Button
                   type="button"
                   className="size-7 shrink-0 justify-center p-0! max-md:size-9"
-                  aria-label={t("Remove image")}
-                  title={t("Remove image")}
+                  aria-label={t("messageAttachments.removeImage")}
+                  title={t("messageAttachments.removeImage")}
                   disabled={disabled}
                   onClick={() => onChange((items) => items.filter((item) => item.id !== image.id))}
                 >
@@ -217,14 +220,14 @@ export function MessageAttachments({
       {opened && !editing && (
         <dialog
           ref={dialog}
-          aria-label={t("Attached image")}
+          aria-label={t("messageAttachments.attachedImage")}
           onKeyDown={(event) => event.stopPropagation()}
           onCancel={() => setOpened(null)}
           className="m-auto max-h-[90dvh] max-w-[95vw] overflow-auto rounded-xl border border-neutral-300 bg-white p-4 r3-modal backdrop:bg-black/50 dark:bg-neutral-950"
         >
           <img
             src={viewUrl}
-            alt={t("Thread attachment at full size")}
+            alt={t("messageAttachments.threadAttachmentAtFullSize")}
             className="max-h-[75dvh] max-w-full object-contain"
           />
           <div className="mt-3 flex justify-end gap-3">
@@ -233,10 +236,10 @@ export function MessageAttachments({
               href={viewUrl}
               download={`attachment.${opened.blob.type === "image/jpeg" ? "jpg" : "png"}`}
             >
-              {t("Download")}
+              {t("messageAttachments.download")}
             </a>
             <Button type="button" onClick={() => setOpened(null)}>
-              {t("Close")}
+              {t("common.close")}
             </Button>
           </div>
         </dialog>
@@ -263,8 +266,7 @@ export function MessageAttachments({
             onChange((items) =>
               items.map((item) => (item.id === opened.image.id ? attachment : item)),
             );
-            if (!persisted)
-              setError(t("Image is available in this tab, but could not be saved for reload."));
+            if (!persisted) setError(t("messageAttachments.imageIsAvailableInThisTabBut"));
             setOpened(null);
             setEditing(false);
           }}
@@ -281,7 +283,7 @@ export function useAttachmentInput(
   disabled: boolean,
   textarea: RefObject<HTMLTextAreaElement | null>,
 ) {
-  useLocale();
+  const { t } = useTranslation();
   const current = useRef({ images, onChange, disabled });
   current.current = { images, onChange, disabled };
   const [notice, setNotice] = useState("");
@@ -291,7 +293,7 @@ export function useAttachmentInput(
     if (!files.length) return;
     if (current.current.disabled) return;
     if (current.current.images.length + files.length > ATTACHMENT_LIMITS.count) {
-      setNotice(t("A message can contain at most four images"));
+      setNotice(t("messageAttachments.aMessageCanContainAtMostFour"));
       return;
     }
     setNotice("");
@@ -330,7 +332,7 @@ export function useAttachmentInput(
       }, insertion),
     );
     if (!accepted) {
-      setNotice(t("A message can contain at most four images"));
+      setNotice(t("messageAttachments.aMessageCanContainAtMostFour"));
       return;
     }
     if (node?.isConnected && inserted) {
@@ -341,8 +343,7 @@ export function useAttachmentInput(
       try {
         const { attachment, persisted } = await prepareDraftImage(artifactId, file);
         change((items) => items.map((item) => (item.id === id ? attachment : item)));
-        if (!persisted)
-          setNotice(t("Image is available in this tab, but could not be saved for reload."));
+        if (!persisted) setNotice(t("messageAttachments.imageIsAvailableInThisTabBut"));
       } catch (error) {
         let failure = error;
         if (error instanceof ImageOptimizationRequired && optimize) {
@@ -359,8 +360,7 @@ export function useAttachmentInput(
               error.ticket,
             );
             change((items) => items.map((item) => (item.id === id ? attachment : item)));
-            if (!persisted)
-              setNotice(t("Image is available in this tab, but could not be saved for reload."));
+            if (!persisted) setNotice(t("messageAttachments.imageIsAvailableInThisTabBut"));
             continue;
           } catch (cause) {
             failure = cause;
@@ -372,7 +372,8 @@ export function useAttachmentInput(
               ? {
                   ...item,
                   pending: false,
-                  error: failure instanceof Error ? failure.message : t("Unable to prepare image"),
+                  error:
+                    failure instanceof Error ? failure.message : t("common.unableToPrepareImage"),
                 }
               : item,
           ),
@@ -404,7 +405,7 @@ export function useAttachmentInput(
           accept="image/png,image/jpeg,image/webp"
           multiple
           className="hidden"
-          aria-label={t("Choose images")}
+          aria-label={t("messageAttachments.chooseImages")}
           onChange={(event) => {
             void add(Array.from(event.target.files ?? []));
             event.target.value = "";
@@ -413,9 +414,9 @@ export function useAttachmentInput(
         <Button
           type="button"
           className="size-7 shrink-0 justify-center p-0! max-md:size-9"
-          aria-label={t("Attach image")}
+          aria-label={t("messageAttachments.attachImage")}
           disabled={disabled || images.length >= ATTACHMENT_LIMITS.count}
-          title={t("Attach an image, or paste an image directly into the text input")}
+          title={t("messageAttachments.attachAnImageOrPasteAnImage")}
           onClick={() => input.current?.click()}
         >
           <PaperclipIcon />

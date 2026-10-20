@@ -1,76 +1,66 @@
-import { useSyncExternalStore } from "react";
-import {
-  chooseLocale,
-  type Locale,
-  languageTags,
-  type MessageValues,
-  matchLocale,
-  translate,
-} from "../../shared/locale.ts";
+import type { TOptions } from "i18next";
+import { useTranslation as useReactTranslation } from "react-i18next";
+import { createLocalization, type MessageKey } from "../../shared/i18n.ts";
+import { chooseLocale, type Locale, languageTags, matchLocale } from "../../shared/locale.ts";
 import { readDisplayPreference, writeDisplayPreference } from "./display-storage.ts";
 import english from "./locales/en.json";
 import chinese from "./locales/zh-cn.json";
 
 export { type Locale, languageTags, localeNames, locales } from "../../shared/locale.ts";
-
+export type AppMessageKey = MessageKey<typeof english>;
 const storageKey = "r3-locale";
 const browserLanguages = () =>
   typeof navigator === "undefined" ? [] : (navigator.languages ?? []);
 const requested =
   typeof location === "undefined" ? null : new URLSearchParams(location.search).get("lang");
-let locale = chooseLocale(
+const initialLocale = chooseLocale(
   matchLocale(requested) ?? readDisplayPreference(storageKey),
   browserLanguages(),
 );
-const listeners = new Set<() => void>();
-let initialized = false;
-export const getLocale = () => locale;
-export const getLanguageTag = () => languageTags[locale];
-function update(next: Locale) {
-  locale = next;
-  if (initialized) {
-    document.documentElement.lang = getLanguageTag();
-    const url = new URL(location.href);
-    if (url.searchParams.has("lang")) {
-      url.searchParams.set("lang", next);
-      try {
-        history.replaceState(history.state, "", url);
-      } catch {
-        // An opaque example can switch language without changing its URL.
-      }
-    }
-  }
-  for (const listener of listeners) listener();
+export const appI18n = createLocalization("app", english, chinese, initialLocale);
+export const getLocale = (): Locale =>
+  matchLocale(appI18n.resolvedLanguage ?? appI18n.language) ?? "en";
+export const getLanguageTag = () => languageTags[getLocale()];
+export const t = appI18n.getFixedT(null, "app") as (
+  key: AppMessageKey,
+  options?: TOptions,
+) => string;
+export function useTranslation() {
+  const result = useReactTranslation("app", { i18n: appI18n });
+  return { ...result, t: result.t as typeof t };
+}
+export function useLocale(): Locale {
+  const { i18n } = useTranslation();
+  return matchLocale(i18n.resolvedLanguage ?? i18n.language) ?? "en";
 }
 export function setLocale(next: Locale) {
   writeDisplayPreference(storageKey, next);
-  update(next);
+  void appI18n.changeLanguage(languageTags[next]);
 }
-const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-};
-export function useLocale() {
-  return useSyncExternalStore(subscribe, getLocale, () => "en" as const);
+let initialized = false;
+function updateDocument() {
+  document.documentElement.lang = getLanguageTag();
+  const url = new URL(location.href);
+  if (url.searchParams.has("lang")) {
+    url.searchParams.set("lang", getLocale());
+    try {
+      history.replaceState(history.state, "", url);
+    } catch {
+      /* Opaque examples keep their URL. */
+    }
+  }
 }
-export function t(message: string, values?: MessageValues, language = locale): string {
-  return translate(language === "zh-cn" ? chinese : english, message, values);
-}
-export function plural(one: string, other: string, count: number, values?: MessageValues): string {
-  const message = new Intl.PluralRules(getLanguageTag()).select(count) === "one" ? one : other;
-  return t(message, { ...values, count });
-}
-// Hosts opt in to document language and browser synchronization. Importing a
-// shared control (the website's Logo, for example) must not change its host page.
+// Shared controls do not take ownership of their host's document language.
 export function initializeLocale() {
   if (initialized) return;
   initialized = true;
-  if (matchLocale(requested)) writeDisplayPreference(storageKey, locale);
-  update(locale);
+  if (matchLocale(requested)) writeDisplayPreference(storageKey, getLocale());
+  updateDocument();
+  appI18n.on("languageChanged", updateDocument);
   window.addEventListener("storage", (event) => {
     if (event.key === storageKey || event.key === null)
-      update(chooseLocale(event.key === null ? null : event.newValue, browserLanguages()));
+      void appI18n.changeLanguage(
+        languageTags[chooseLocale(event.key === null ? null : event.newValue, browserLanguages())],
+      );
   });
 }

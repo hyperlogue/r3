@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { copyText } from "../clipboard.ts";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { Button, cn, StrokeIcon, useCopyFlash } from "../ui.tsx";
 
 export interface NotificationProps {
@@ -35,7 +35,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 }
 
 function NotificationRoot({ children }: { children: ReactNode }) {
-  useLocale();
+  const { t } = useTranslation();
   const [notices, setNotices] = useState<Notice[]>([]);
   const put = useCallback((notice: Notice) => {
     setNotices((current) => {
@@ -53,7 +53,11 @@ function NotificationRoot({ children }: { children: ReactNode }) {
       {children}
       {typeof document !== "undefined" &&
         createPortal(
-          <section className="r3-notifications" aria-label={t("Notifications")} data-notifications>
+          <section
+            className="r3-notifications"
+            aria-label={t("notifications.notifications")}
+            data-notifications
+          >
             {notices.map((notice) => (
               <div key={notice.id} className="contents">
                 {notice.content}
@@ -69,13 +73,13 @@ function NotificationRoot({ children }: { children: ReactNode }) {
 // Custom persistent notices share the same stack as ordinary feedback. Nested
 // workspace providers reuse it so navigation never creates overlapping stacks.
 export function NotificationSlot({ children }: { children: ReactNode }) {
-  useLocale();
+  const { t } = useTranslation();
   const registry = useContext(NotificationContext);
   const id = useId();
   useEffect(() => {
-    if (!registry) throw new Error(t("Notifications require a NotificationProvider"));
+    if (!registry) throw new Error(t("notifications.notificationsRequireANotificationprovider"));
     registry.put({ id, content: children });
-  }, [registry, id, children]);
+  }, [registry, id, children, t]);
   useEffect(() => () => registry?.remove(id), [registry, id]);
   return null;
 }
@@ -101,7 +105,7 @@ export function Notification({
 }
 
 function NotificationCard({ notice }: { notice: NotificationProps }) {
-  useLocale();
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -152,7 +156,7 @@ function NotificationCard({ notice }: { notice: NotificationProps }) {
             <Button
               variant="ghost"
               className="shrink-0 p-1!"
-              aria-label={copied ? t("Command copied") : t("Copy fetch command")}
+              aria-label={copied ? t("common.commandCopied") : t("notifications.copyFetchCommand")}
               onClick={async () => {
                 setCopyFailed(false);
                 if (await copyText(notice.command!)) flash();
@@ -172,10 +176,10 @@ function NotificationCard({ notice }: { notice: NotificationProps }) {
             </Button>
           </div>
         )}
-        {copyFailed && <p className="mt-1">{t("Select and copy the command above.")}</p>}
+        {copyFailed && <p className="mt-1">{t("notifications.selectAndCopyTheCommandAbove")}</p>}
         {notice.details && (
           <details className="mt-2 text-neutral-500 dark:text-neutral-400">
-            <summary className="cursor-pointer">{t("Delivery details")}</summary>
+            <summary className="cursor-pointer">{t("notifications.deliveryDetails")}</summary>
             <p className="mt-1 whitespace-pre-wrap">{notice.details}</p>
           </details>
         )}
@@ -183,7 +187,7 @@ function NotificationCard({ notice }: { notice: NotificationProps }) {
       <Button
         variant="ghost"
         className="-mr-1 -mt-1 shrink-0 p-1!"
-        aria-label={t("Dismiss {notice_title}", { notice_title: notice.title })}
+        aria-label={t("notifications.dismiss", { notice_title: notice.title })}
         onClick={notice.onDismiss}
       >
         <StrokeIcon className="size-3.5">

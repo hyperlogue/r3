@@ -4,15 +4,15 @@ import { artifactSearchTerms } from "../../../shared/artifact-search.ts";
 import type { Artifact } from "../../../shared/artifacts.ts";
 import { useHasArtifactDraft } from "../artifact-drafts.ts";
 import { formatBytes } from "../format-bytes.ts";
-import { getLanguageTag, t, useLocale } from "../i18n.ts";
+import { getLanguageTag, t, useTranslation } from "../i18n.ts";
 import { hrefFor, navigate } from "../router.ts";
-import { Trans } from "../translated-text.tsx";
+
 import { StrokeIcon } from "../ui.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 
 export function relativeArtifactTime(value: string, now: number): string {
   const seconds = (Date.parse(value) - now) / 1000;
-  if (Math.abs(seconds) < 60) return t("just now");
+  if (Math.abs(seconds) < 60) return t("libraryRow.justNow");
   const [scale, unit] =
     Math.abs(seconds) < 3600
       ? ([60, "minute"] as const)
@@ -52,12 +52,12 @@ export function SearchHighlight({ text, query }: { text: string; query: string }
   return <>{parts}</>;
 }
 const matchLabels = {
-  artifact: "Artifact",
-  summary: "Publication summary",
-  content: "Published content",
-  thread: "Thread",
-  comment: "Comment",
-};
+  artifact: "common.artifact",
+  summary: "common.publicationSummary",
+  content: "common.publishedContent",
+  thread: "threadPopover.thread",
+  comment: "composer.comment",
+} as const;
 export function ArtifactLibraryRow({
   artifact,
   project,
@@ -75,19 +75,19 @@ export function ArtifactLibraryRow({
   match?: ArtifactSearchMatch;
   query?: string;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const hasDraft = useHasArtifactDraft(artifact.id);
   const archived = artifact.state === "archived";
   const status = archived
-    ? t("Archived")
+    ? t("common.archived")
     : artifact.unhandledCount
-      ? t("{artifact_unhandledCount} to review", {
+      ? t("libraryRow.toReview", {
           artifact_unhandledCount: artifact.unhandledCount,
         })
       : artifact.working
-        ? t("Agent working")
+        ? t("common.agentWorking")
         : artifact.watching
-          ? t("Agent listening")
+          ? t("common.agentListening")
           : null;
   const version =
     match && match.category !== "artifact" ? match.versionSeq : artifact.latestVersion?.seq;
@@ -124,9 +124,9 @@ export function ArtifactLibraryRow({
           {hasDraft && (
             <span
               className="shrink-0 text-xs text-warning-600 dark:text-warning-400"
-              title={t("Draft in this browser")}
+              title={t("libraryRow.draftInThisBrowser")}
               role="img"
-              aria-label={t("Draft in this browser")}
+              aria-label={t("libraryRow.draftInThisBrowser")}
             >
               ✎
             </span>
@@ -155,12 +155,12 @@ export function ArtifactLibraryRow({
             {version != null
               ? `v${version}`
               : match && match.category !== "artifact"
-                ? t("General")
-                : t("Unpublished")}
+                ? t("libraryRow.general")
+                : t("libraryRow.unpublished")}
           </span>
           {historical && (
             <span className="shrink-0 rounded bg-warning-50 px-1.5 text-[0.6rem] text-warning-700 dark:bg-warning-950/30 dark:text-warning-300">
-              {t("Historical")}
+              {t("libraryRow.historical")}
             </span>
           )}
           <span aria-hidden="true">·</span>
@@ -193,20 +193,14 @@ export function ArtifactLibraryRow({
         <div className="flex items-center gap-1.5 whitespace-nowrap text-[0.65rem] leading-5 text-neutral-500 max-lg:flex-col max-lg:items-end max-lg:gap-0 dark:text-neutral-400">
           <span
             className="tabular-nums"
-            title={t(
-              "{artifact_storage_totalBytes_toLocaleString} bytes of published content, counting shared bytes once within this artifact; excludes database overhead",
-              {
-                artifact_storage_totalBytes_toLocaleString:
-                  artifact.storage.totalBytes.toLocaleString(getLanguageTag()),
-              },
-            )}
+            title={t("libraryRow.bytesOfPublishedContentCountingSharedBytes", {
+              artifact_storage_totalBytes_toLocaleString:
+                artifact.storage.totalBytes.toLocaleString(getLanguageTag()),
+            })}
           >
-            <Trans
-              message="{formatBytes_artifact_storage_totalBytes} stored"
-              values={{
-                formatBytes_artifact_storage_totalBytes: formatBytes(artifact.storage.totalBytes),
-              }}
-            />
+            {t("common.stored", {
+              formatBytes_artifact_storage_totalBytes: formatBytes(artifact.storage.totalBytes),
+            })}
           </span>
           <span aria-hidden="true" className="max-lg:hidden">
             ·

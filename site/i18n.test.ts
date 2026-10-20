@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { pageSource } from "./build.ts";
 import { docs } from "./catalog.ts";
-import { localePath } from "./i18n.ts";
-import english from "./locales/en.json";
-import chinese from "./locales/zh-cn.json";
+import { h, localePath, siteI18n } from "./i18n.ts";
 import { localizeHTML } from "./localize.ts";
 import { createRenderer, mountHTML } from "./render.ts";
 
@@ -16,13 +14,13 @@ test("localized paths preserve shared assets, external links and existing locale
 });
 
 test("static localization escapes translations and leaves authored code and Markdown prose alone", async () => {
-  const catalog = chinese as Record<string, string>;
-  const previous = catalog.Search;
-  catalog.Search = "<Search & translated>";
+  const key = "navigation.groups.search";
+  const previous = siteI18n.getResource("zh-CN", "site", key);
+  siteI18n.addResource("zh-CN", "site", key, "<Search & translated>");
   try {
     const html = await mountHTML(
       await localizeHTML(
-        '<html lang="en"><head><script>const example = "Search";</script></head><body><a href="/docs/#read" title="Search">Search</a><code>Search &amp; code</code><div class="prose"><p>Search</p><div data-visual-i18n><span>Search</span></div><p>Search</p></div><a data-locale="en" href="/docs/">English</a><img src="/assets/sample.png" alt="Search"></body></html>',
+        `<html lang="en"><head><script>const example = "Search";</script></head><body><a href="/docs/#read" title="${h(key, "zh-cn")}">${h(key, "zh-cn")}</a><code>Search &amp; code</code><div class="prose"><p>Search</p><p>Search</p></div><a data-locale="en" href="/docs/">English</a><img src="/assets/sample.png" alt="Search"></body></html>`,
         "zh-cn",
       ),
       "/r3",
@@ -37,8 +35,7 @@ test("static localization escapes translations and leaves authored code and Mark
     expect(html).toContain("<code>Search &amp; code</code>");
     expect(html.match(/<p>Search<\/p>/g)).toHaveLength(2);
   } finally {
-    if (previous === undefined) delete catalog.Search;
-    else catalog.Search = previous;
+    siteI18n.addResource("zh-CN", "site", key, previous);
   }
 });
 
@@ -58,12 +55,7 @@ test("translated headings retain their English link destinations", async () => {
   }
 });
 
-test("site translation catalogs and article placeholders are complete", async () => {
-  expect(Object.keys(chinese).sort()).toEqual(Object.keys(english).sort());
-  for (const [key, value] of Object.entries(chinese)) {
-    const parameters = (text: string) => [...new Set(text.match(/\{\w+\}/g))].sort();
-    expect(parameters(value || key)).toEqual(parameters(key));
-  }
+test("translated article sources are available", async () => {
   for (const page of docs) {
     const path = `./locales/zh-cn/${page.source ? "content" : "reference"}/${page.source ?? page.guide}.md`;
     expect(await Bun.file(new URL(path, import.meta.url)).exists(), page.path).toBe(true);

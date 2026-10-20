@@ -1,7 +1,7 @@
 import { localePath, siteLocale, t } from "./i18n.ts";
 import { mountSiteLogo } from "./logo.tsx";
 import { startPromptDemo } from "./prompt-demo.ts";
-import { promptExamples } from "./prompt-examples.ts";
+import { getPromptExamples } from "./prompt-examples.ts";
 
 const root = new URL("../", import.meta.url);
 const artifact = document.body.dataset.artifact === "true";
@@ -52,11 +52,12 @@ retainArtifactTheme();
 // Captures and the demo link follow the same prompt selection in both the
 // public site and opaque artifact previews. The interactive app opens separately.
 function selectWorkspace(index: number) {
+  const { promptExamples } = getPromptExamples(siteLocale());
   const example = promptExamples[index]!;
   for (const frame of document.querySelectorAll<HTMLElement>("[data-workspace-scene]"))
     frame.hidden = frame.dataset.workspaceScene !== example.scene;
   const label = document.querySelector("[data-workspace-label]");
-  if (label) label.textContent = t(example.label);
+  if (label) label.textContent = example.label;
   const link = document.querySelector<HTMLAnchorElement>(".workspace-demo");
   if (link)
     link.href = siteURL(
@@ -91,7 +92,7 @@ async function copyText(text: string) {
   document.body.append(field);
   try {
     field.select();
-    if (!document.execCommand("copy")) throw new Error(t("Copy unavailable"));
+    if (!document.execCommand("copy")) throw new Error(t("client.copyUnavailable"));
   } finally {
     field.remove();
     if (focused instanceof HTMLElement) focused.focus({ preventScroll: true });
@@ -113,7 +114,7 @@ document.querySelector(".theme-toggle")?.addEventListener("click", () => {
   } catch {
     /* Preferences are optional. */
   }
-  notify(theme === "dark" ? t("Dark theme") : t("Light theme"));
+  notify(theme === "dark" ? t("client.darkTheme") : t("client.lightTheme"));
 });
 
 for (const pre of document.querySelectorAll("pre")) {
@@ -124,24 +125,30 @@ for (const pre of document.querySelectorAll("pre")) {
   button.className = "copy-code";
   if (install)
     button.innerHTML = `<svg class="copy-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><svg class="copy-check" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`;
-  else button.textContent = t("Copy");
-  button.setAttribute("aria-label", install ? t("Copy install command") : t("Copy code"));
-  button.title = install ? t("Copy install command") : t("Copy code");
+  else button.textContent = t("common.copy");
+  button.setAttribute(
+    "aria-label",
+    install ? t("client.copyInstallCommand") : t("client.copyCode"),
+  );
+  button.title = install ? t("client.copyInstallCommand") : t("client.copyCode");
   button.addEventListener("click", async () => {
     try {
       await copyText(pre.querySelector("code")?.textContent || "");
       clearTimeout(reset);
       button.dataset.copied = "true";
-      button.setAttribute("aria-label", t("Copied"));
-      button.title = t("Copied");
-      if (!install) button.textContent = t("Copied!");
+      button.setAttribute("aria-label", t("client.copied"));
+      button.title = t("client.copied");
+      if (!install) button.textContent = t("client.copied2");
       reset = setTimeout(() => {
         delete button.dataset.copied;
-        button.setAttribute("aria-label", install ? t("Copy install command") : t("Copy code"));
-        button.title = install ? t("Copy install command") : t("Copy code");
-        if (!install) button.textContent = t("Copy");
+        button.setAttribute(
+          "aria-label",
+          install ? t("client.copyInstallCommand") : t("client.copyCode"),
+        );
+        button.title = install ? t("client.copyInstallCommand") : t("client.copyCode");
+        if (!install) button.textContent = t("common.copy");
       }, 2500);
-      notify(install ? t("Install command copied") : t("Code copied"));
+      notify(install ? t("client.installCommandCopied") : t("client.codeCopied"));
     } catch {
       const code = pre.querySelector("code");
       if (code) {
@@ -151,7 +158,7 @@ for (const pre of document.querySelectorAll("pre")) {
         selection?.removeAllRanges();
         selection?.addRange(range);
       }
-      notify(t("Copy is unavailable. The code is selected so you can copy it manually."));
+      notify(t("client.copyIsUnavailableTheCodeIsSelected"));
     }
   });
   pre.append(button);
@@ -166,11 +173,11 @@ document
     const url = (event.currentTarget as HTMLButtonElement).dataset.markdown!;
     try {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(t("Markdown unavailable"));
+      if (!response.ok) throw new Error(t("client.markdownUnavailable"));
       await copyText(await response.text());
-      notify(t("Page copied as Markdown"));
+      notify(t("client.pageCopiedAsMarkdown"));
     } catch {
-      notify(t("Could not copy. Use View Markdown to open the text."));
+      notify(t("client.couldNotCopyUseViewMarkdownTo"));
     }
   });
 
@@ -209,10 +216,10 @@ if (form) {
     const current = ++sequence;
     results.replaceChildren();
     if (!query.trim()) {
-      status.textContent = t("Enter a word or phrase to search the docs and use cases.");
+      status.textContent = t("client.enterAWordOrPhraseToSearch");
       return;
     }
-    status.textContent = t("Searching…");
+    status.textContent = t("client.searching");
     try {
       index ||= import(siteURL("pagefind/pagefind.js")) as Promise<SearchIndex>;
       const api = await index;
@@ -224,14 +231,10 @@ if (form) {
       if (current !== sequence) return;
       status.textContent = response.results.length
         ? t(
-            response.results.length === 1
-              ? "{count} result."
-              : response.results.length > 20
-                ? "{count} results; showing the first 20."
-                : "{count} results.",
+            response.results.length > 20 ? "client.resultsShowingTheFirst20" : "client.resultCount",
             { count: response.results.length },
           )
-        : t("No results for “{query}”. Try a shorter phrase, or browse the documentation.", {
+        : t("client.noResultsForTryAShorterPhrase", {
             query: query,
           });
       for (const match of matches) {
@@ -239,7 +242,7 @@ if (form) {
         const link = document.createElement("a");
         link.href = artifact ? siteURL(match.url) : match.url;
         const title = document.createElement("h2");
-        title.textContent = match.meta.title || t("Documentation");
+        title.textContent = match.meta.title || t("common.documentation");
         const excerpt = document.createElement("p");
         const parsed = new DOMParser().parseFromString(match.excerpt, "text/html");
         excerpt.textContent = parsed.body.textContent;
@@ -248,10 +251,7 @@ if (form) {
         results.append(item);
       }
     } catch {
-      if (current === sequence)
-        status.textContent = t(
-          "Search could not load. Try again, or browse the documentation directory.",
-        );
+      if (current === sequence) status.textContent = t("client.searchCouldNotLoadTryAgainOr");
     }
   }
   const query = new URLSearchParams(location.search).get("q") || "";

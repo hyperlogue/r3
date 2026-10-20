@@ -126,7 +126,7 @@ export class PreviewSessions {
         context ??= await this.api.createPreview(artifactId, seq, path, network);
         if (this.generations.get(artifactId) !== generation) {
           this.revoke(context.id);
-          throw new Error(t("Artifact preview is no longer available"));
+          throw new Error(t("previewSessions.artifactPreviewIsNoLongerAvailable"));
         }
         if (context.presentation === "document") {
           this.saved.set(key, { artifactId, seq, path, network, id: context.id });

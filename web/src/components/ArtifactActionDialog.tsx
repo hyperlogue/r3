@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { ArtifactApiError } from "../../../shared/artifact-client.ts";
 import { ARTIFACT_BULK_ARCHIVE_LIMIT, type Artifact } from "../../../shared/artifacts.ts";
 import { type ArtifactPageClient, useArtifactClient } from "../artifact-ui-context.tsx";
-import { plural, t, useLocale } from "../i18n.ts";
+import { t, useTranslation } from "../i18n.ts";
 import { Button } from "../ui.tsx";
 export type ActionArtifact = Pick<Artifact, "id" | "title" | "state">;
 export interface ArtifactActionResult {
@@ -37,7 +37,7 @@ export async function actOnArtifacts(
               id: result.id,
               state: "done",
               ...(result.notification.state === "failed"
-                ? { warning: t("Archived, but agent notification failed") }
+                ? { warning: t("common.archivedButAgentNotificationFailed") }
                 : {}),
             });
         }
@@ -46,7 +46,7 @@ export async function actOnArtifacts(
           results.push({
             id: item.id,
             state: "failed",
-            warning: error instanceof Error ? error.message : t("Action failed"),
+            warning: error instanceof Error ? error.message : t("actionDialog.actionFailed"),
           });
       }
     }
@@ -63,7 +63,7 @@ export async function actOnArtifacts(
         results.push({
           id: item.id,
           state: "failed",
-          warning: error instanceof Error ? error.message : t("Action failed"),
+          warning: error instanceof Error ? error.message : t("actionDialog.actionFailed"),
         });
     }
   }
@@ -80,7 +80,7 @@ export function ArtifactActionDialog({
   onClose: () => void;
   onDone: (results: ArtifactActionResult[]) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const api = useArtifactClient();
   const dialog = useRef<HTMLDialogElement>(null);
   const keys = useRef(new Map<string, string>());
@@ -89,12 +89,12 @@ export function ArtifactActionDialog({
   const qc = useQueryClient();
   const heading =
     action === "delete"
-      ? plural("Delete {count} artifact", "Delete {count} artifacts", items.length)
-      : plural("Archive {count} artifact", "Archive {count} artifacts", items.length);
+      ? t("actionDialog.deleteArtifactPlural", { count: items.length })
+      : t("actionDialog.archiveArtifactPlural", { count: items.length });
   const actionLabel =
     action === "delete"
-      ? plural("Delete artifact", "Delete artifacts", items.length)
-      : plural("Archive artifact", "Archive artifacts", items.length);
+      ? t("actionDialog.deleteArtifactPlural2", { count: items.length })
+      : t("actionDialog.archiveArtifactPlural2", { count: items.length });
   useLayoutEffect(() => {
     const node = dialog.current;
     node?.showModal();
@@ -131,27 +131,23 @@ export function ArtifactActionDialog({
         <h2 className="font-semibold">{heading}</h2>
         <p className="mt-2 text-sm text-neutral-500">
           {action === "delete"
-            ? t(
-                "Permanently remove every version and conversation. This cannot be undone and does not wait for the archive TTL.",
-              )
-            : t(
-                "Keep versions and conversations. Archived artifacts become eligible for cleanup after the configured TTL. Already archived artifacts are skipped.",
-              )}
+            ? t("actionDialog.permanentlyRemoveEveryVersionAndConversationThis")
+            : t("actionDialog.keepVersionsAndConversationsArchivedArtifactsBecome")}
         </p>
         <ul className="my-4 max-h-48 overflow-y-auto border-y border-neutral-200 py-2 text-sm dark:border-neutral-700">
           {items.map((item) => (
             <li key={item.id} className="py-1">
               <span className="break-words">{item.title ?? item.id}</span>
               <span className="ml-2 text-xs text-neutral-500">
-                {t(item.state === "active" ? "Active" : "Archived")}
+                {t(item.state === "active" ? "actionDialog.active" : "common.archived")}
               </span>
             </li>
           ))}
         </ul>
         {action === "archive" && (
           <textarea
-            aria-label={t("Shared archive message (optional)")}
-            placeholder={t("Message for each listening agent (optional)…")}
+            aria-label={t("actionDialog.sharedArchiveMessageOptional")}
+            placeholder={t("actionDialog.messageForEachListeningAgentOptional")}
             rows={3}
             value={message}
             disabled={pending}
@@ -161,14 +157,14 @@ export function ArtifactActionDialog({
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" disabled={pending} onClick={onClose}>
-            {t("Cancel")}
+            {t("common.cancel")}
           </Button>
           <Button
             type="submit"
             variant={action === "delete" ? "danger" : "primary"}
             disabled={pending}
           >
-            {pending ? t("Working…") : actionLabel}
+            {pending ? t("actionDialog.working") : actionLabel}
           </Button>
         </div>
       </form>

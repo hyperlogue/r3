@@ -225,7 +225,7 @@ function sealSeams(rows: DiffLine[]): DiffLine[] {
     const cur = rows[i];
     if (prev && prev.type !== "hunk" && cur.type !== "hunk" && !fileAdjacent(prev, cur)) {
       const seam = blankHunk();
-      seam.text = t("⋯ {seamCount_prev_cur}not in this diff", {
+      seam.text = t("expand.notInThisDiff", {
         seamCount_prev_cur: seamCount(prev, cur),
       });
       out.push(seam); // no gapFor entry ⇒ inert, no expander offered

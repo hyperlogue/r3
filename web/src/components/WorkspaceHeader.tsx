@@ -1,5 +1,5 @@
 import { type ComponentPropsWithRef, type ReactNode, useRef } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { Button, cn } from "../ui.tsx";
 import { Logo, type LogoHandle } from "./Logo.tsx";
 
@@ -30,7 +30,7 @@ export function WorkspaceHeader({
   homeHref?: string;
   onHome?: () => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const logo = useRef<LogoHandle>(null);
   return (
     <header
@@ -38,12 +38,12 @@ export function WorkspaceHeader({
       className="relative z-40 flex min-h-[calc(2rem+4px)] shrink-0 items-center gap-2 border-b border-neutral-300 bg-white py-[2px] pl-3 max-md:gap-1 max-md:pl-2 dark:border-neutral-700 dark:bg-neutral-950"
     >
       <nav
-        aria-label={t("Main navigation")}
+        aria-label={t("workspaceHeader.mainNavigation")}
         className="flex shrink-0 items-center gap-1.5 self-stretch"
       >
         <button
           type="button"
-          aria-label={t("Animate logo")}
+          aria-label={t("workspaceHeader.animateLogo")}
           onClick={() => logo.current?.flick()}
           className="group flex items-center max-md:min-h-9"
         >
@@ -54,7 +54,7 @@ export function WorkspaceHeader({
         </button>
         <a
           href={homeHref}
-          title={t("Artifact library")}
+          title={t("workspaceHeader.artifactLibrary")}
           onClick={(event) => {
             if (
               event.metaKey ||

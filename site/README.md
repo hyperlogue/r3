@@ -123,9 +123,9 @@ stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.
 Use repository-relative paths and fictional example data in content.
 
 English pages keep their existing URLs. Simplified Chinese pages live under
-`/zh-cn/`, with English placeholders ready for translation. The header switches
+`/zh-cn/`, with explicit i18next message keys and translated Markdown. The header switches
 the equivalent page; search and Markdown downloads stay in that language.
-See [localization](../docs/i18n.md) for the catalogs, article placeholders and
+See [localization](../docs/i18n.md) for the catalogs, article sources and
 translation checks.
 
 Docs opens directly into Get started with the shared documentation navigation.

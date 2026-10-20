@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { setDiffLayout, useDiffLayout } from "../settings.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 
@@ -26,13 +26,13 @@ export const TOOLBAR_BTN =
 // for an owner to thread through. Mounted via PaneToolbar's `layoutToggle` slot
 // only where a diff is on screen.
 export function DiffLayoutToggle() {
-  useLocale();
+  const { t } = useTranslation();
   const layout = useDiffLayout();
   const split = layout === "split";
   return (
     <button
       type="button"
-      title={split ? t("Switch to unified diff (\\)") : t("Switch to side-by-side diff (\\)")}
+      title={split ? t("paneToolbar.switchToUnifiedDiff") : t("paneToolbar.switchToSideBySideDiff")}
       aria-pressed={split}
       className={cn(TOOLBAR_BTN, split && "text-neutral-700 dark:text-neutral-200")}
       onClick={() => setDiffLayout(split ? "unified" : "split")}
@@ -69,7 +69,7 @@ export function PaneToolbar({
   // tier forces unified regardless.
   layoutToggle?: ReactNode;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   // h-8 matches the file header height so the file pane's two stacked bars (this
   // toolbar + each file header) read as one consistent header stack. Intra-panel
   // only — we deliberately DON'T match the discussion panel's bars across the split
@@ -80,7 +80,7 @@ export function PaneToolbar({
         <div className="flex items-center max-md:h-8">
           <button
             type="button"
-            title={t("Previous file ([)")}
+            title={t("paneToolbar.previousFile")}
             className={TOOLBAR_BTN}
             onClick={() => onJump(-1)}
           >
@@ -88,7 +88,7 @@ export function PaneToolbar({
           </button>
           <button
             type="button"
-            title={t("Next file (])")}
+            title={t("paneToolbar.nextFile")}
             className={TOOLBAR_BTN}
             onClick={() => onJump(1)}
           >
@@ -97,7 +97,7 @@ export function PaneToolbar({
           <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
           <button
             type="button"
-            title={t("Fold all files")}
+            title={t("paneToolbar.foldAllFiles")}
             className={TOOLBAR_BTN}
             onClick={() => onFoldAll("fold")}
           >
@@ -105,7 +105,7 @@ export function PaneToolbar({
           </button>
           <button
             type="button"
-            title={t("Unfold all files")}
+            title={t("paneToolbar.unfoldAllFiles")}
             className={TOOLBAR_BTN}
             onClick={() => onFoldAll("unfold")}
           >

@@ -1,4 +1,4 @@
-import { t, useLocale } from "../src/i18n.ts";
+import { useTranslation } from "../src/i18n.ts";
 // Demo nav-bar chrome: "Demo" badge + first-run intro (Reset lives here).
 
 import { useCallback, useEffect, useState } from "react";
@@ -18,7 +18,7 @@ function seen(): boolean {
 }
 
 export function DemoChrome() {
-  useLocale();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(() => !seen());
 
   // Stable (no deps) so the Escape effect below doesn't re-bind every render.
@@ -32,14 +32,7 @@ export function DemoChrome() {
   }, []);
 
   function reset() {
-    if (
-      !confirm(
-        t(
-          "Reset the demo? This clears threads, comments, and publications back to the original artifacts.",
-        ),
-      )
-    )
-      return;
+    if (!confirm(t("demoChrome.resetTheDemoThisClearsThreadsComments"))) return;
     demo.reset();
     // Back to the demo's own root (e.g. /r3/demo/, not the site root "/"), re-seeded.
     location.href = hrefFor("/");
@@ -62,10 +55,10 @@ export function DemoChrome() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={t("This runs entirely in your browser — no server. Click for a quick intro.")}
+        title={t("demoChrome.thisRunsEntirelyInYourBrowserNo")}
         className="mr-4 inline-flex shrink-0 items-center rounded-full bg-orange-600 px-2 py-0.5 text-[0.7rem] font-semibold text-white transition-colors hover:bg-orange-500"
       >
-        {t("Demo")}
+        {t("demoChrome.demo")}
       </button>
 
       {open && <IntroDialog onClose={close} onReset={reset} />}
@@ -74,13 +67,13 @@ export function DemoChrome() {
 }
 
 function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () => void }) {
-  useLocale();
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* backdrop — click to dismiss */}
       <button
         type="button"
-        aria-label={t("Close intro")}
+        aria-label={t("demoChrome.closeIntro")}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-black/40"
       />
@@ -92,33 +85,25 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
       >
         <div className="px-5 pt-4">
           <h2 id="demo-intro-title" className="text-base font-semibold">
-            {t("You're looking at a demo of r3")}
+            {t("demoChrome.youReLookingAtADemoOf")}
           </h2>
           <div className="mt-2 space-y-2 text-sm text-neutral-600 dark:text-neutral-300">
             <p>
-              {t("This is")}{" "}
+              {t("demoChrome.thisIs")}{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                {t("just a demo")}
+                {t("demoChrome.justADemo")}
               </span>{" "}
-              {t(
-                "— the whole thing runs in your browser. There's no server: the artifacts and your threads live in this tab. Reloading starts a fresh demo.",
-              )}
+              {t("demoChrome.theWholeThingRunsInYourBrowser")}
             </p>
             <p>
-              {t(
-                "Two artifacts are loaded. Tune a curve-fitting experiment or explore a multi-file diff. Leave threads on text or an element, then click",
-              )}{" "}
+              {t("demoChrome.twoArtifactsAreLoadedTuneACurve")}{" "}
               <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                {t("Send to agent")}
+                {t("handoff.send")}
               </span>{" "}
-              {t(
-                "— a scripted agent comments and publishes a new version. Your selected version and original comment targets stay available.",
-              )}
+              {t("demoChrome.aScriptedAgentCommentsAndPublishesA")}
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {t(
-                "Previews use bundled examples in opaque sandboxed frames. The demo does not simulate the daemon’s verified network protection. Reset restores the original artifacts.",
-              )}
+              {t("demoChrome.previewsUseBundledExamplesInOpaqueSandboxed")}
             </p>
           </div>
         </div>
@@ -131,10 +116,10 @@ function IntroDialog({ onClose, onReset }: { onClose: () => void; onReset: () =>
               "border-neutral-300 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
             )}
           >
-            {t("Reset demo")}
+            {t("demoChrome.resetDemo")}
           </button>
           <Button variant="primary" onClick={onClose}>
-            {t("Explore →")}
+            {t("demoChrome.explore")}
           </Button>
         </div>
       </div>

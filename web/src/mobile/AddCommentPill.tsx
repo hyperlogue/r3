@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { getSelectionAnchor, type PendingAnchor } from "../selection.ts";
 
 // The touch-tier replacement for ArtifactView's desktop `mouseup` selection-anchor
@@ -42,7 +42,7 @@ export function AddCommentPill({
   composing: boolean;
   onAdd: (anchor: PendingAnchor, quote: string) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   // The anchor/quote/rect are captured here at selectionchange time and frozen —
   // iOS can collapse the selection the instant the pill is tapped, so the tap
   // handler reads this capture and never the live selection.
@@ -130,7 +130,7 @@ export function AddCommentPill({
       }`}
       style={{ left, top: flipUp ? cap.top - 6 : cap.bottom + 8 }}
     >
-      {composing ? t("Quote in note") : t("Add comment")}
+      {composing ? t("common.quoteInNote") : t("thread.addComment")}
     </button>
   );
 }

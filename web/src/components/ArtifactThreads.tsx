@@ -30,7 +30,7 @@ import {
 import { useOptimisticArtifact, useThreadStatus } from "../artifact-thread-status.ts";
 import { activeArtifactThreads, artifactNeedsAttention } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
-import { t, useLocale } from "../i18n.ts";
+import { t, useTranslation } from "../i18n.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
@@ -85,16 +85,17 @@ function fixTargetLabel(
 ): string {
   if (artifactKind !== "html" || target.kind !== "rendered")
     return cardTargetLabel(target, latestVersionSeq);
-  const label = target.locator?.label ?? (target.locator ? t("Page element") : t("Page"));
+  const label =
+    target.locator?.label ?? (target.locator ? t("threads.pageElement") : t("threads.page"));
   return target.versionSeq === latestVersionSeq
     ? label
-    : t("Version {target_versionSeq} · {label}", {
+    : t("threads.version2", {
         target_versionSeq: target.versionSeq,
         label: label,
       });
 }
 function ThreadQuote({ quote }: { quote: string }) {
-  useLocale();
+  const { t } = useTranslation();
   const element = useRef<HTMLQuoteElement>(null);
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -129,7 +130,7 @@ function ThreadQuote({ quote }: { quote: string }) {
         }}
         title={
           hasMore
-            ? t(open ? "Click to collapse · drag to select" : "Click to expand · drag to select")
+            ? t(open ? "threads.clickToCollapseDragToSelect" : "threads.clickToExpandDragToSelect")
             : undefined
         }
       >
@@ -143,7 +144,7 @@ function ThreadQuote({ quote }: { quote: string }) {
           className="mb-2 text-[0.625rem] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
           onClick={() => setOpen((value) => !value)}
         >
-          {open ? t("Collapse quote") : t("Expand quote")}
+          {open ? t("threads.collapseQuote") : t("threads.expandQuote")}
         </button>
       )}
     </>
@@ -183,7 +184,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   hidden?: boolean;
   readOnly?: boolean;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const artifactApi = useArtifactClient();
   const qc = useQueryClient();
   const element = useRef<HTMLElement>(null);
@@ -294,7 +295,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     <Button
       type="button"
       data-thread-action="resolve"
-      title={`${thread.status === "open" ? t("Resolve") : t("Reopen")} (${active ? "e" : t("e for the selected thread")})`}
+      title={`${thread.status === "open" ? t("thread.resolve") : t("thread.reopen")} (${active ? "e" : t("threads.eForTheSelectedThread")})`}
       variant={thread.status === "open" ? "success-outline" : "ghost"}
       disabled={status.isPending}
       className={thread.status === "resolved" ? "text-neutral-400" : undefined}
@@ -303,15 +304,15 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         if (thread.status === "open") onResolved?.(thread.id);
       }}
     >
-      {thread.status === "open" ? t("✓ Resolve") : t("Reopen")}
+      {thread.status === "open" ? t("threads.resolve") : t("thread.reopen")}
     </Button>
   );
   const moreMenu = (
     <div className="relative">
       <MoreActionsButton
         ref={menuTrigger}
-        title={t("More actions")}
-        aria-label={t("More actions")}
+        title={t("threads.moreActions")}
+        aria-label={t("threads.moreActions")}
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((value) => !value)}
       />
@@ -319,20 +320,20 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <>
           <button
             type="button"
-            aria-label={t("Close menu")}
+            aria-label={t("threads.closeMenu")}
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
           <div
             ref={menu}
             role="dialog"
-            aria-label={t("Thread actions")}
+            aria-label={t("threads.threadActions")}
             className="absolute top-full left-0 z-50 mt-1 w-28 overflow-hidden rounded-md border border-neutral-300 bg-white r3-popover dark:border-neutral-700 dark:bg-neutral-950"
           >
             <button
               type="button"
               disabled={!canEdit}
-              title={canEdit ? undefined : t("The agent replied last — post a new comment instead")}
+              title={canEdit ? undefined : t("threads.theAgentRepliedLastPostANew")}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:text-neutral-400 dark:hover:bg-neutral-800"
               onClick={() => {
                 setEditing(
@@ -351,7 +352,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 setCommenting(false);
               }}
             >
-              {t("Edit")}
+              {t("threads.edit")}
             </button>
             <button
               type="button"
@@ -361,7 +362,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 setMenuOpen(false);
               }}
             >
-              {t("Delete")}
+              {t("common.delete")}
             </button>
           </div>
         </>
@@ -381,7 +382,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     >
       <MessageInput
         inputRef={editTextarea}
-        aria-label={t("Edit message")}
+        aria-label={t("threads.editMessage")}
         value={editing.body}
         onChange={(event) => setEditing({ ...editing, body: event.target.value })}
         disabled={edit.isPending}
@@ -412,14 +413,14 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       <div className="flex justify-end gap-2 px-3">
         {attachmentInput.controls}
         <Button type="button" disabled={edit.isPending} onClick={() => setEditing(null)}>
-          {t("Cancel")}
+          {t("common.cancel")}
         </Button>
         <Button
           type="submit"
           variant="primary"
           disabled={!hasMessageContent(editing) || attachmentInput.unfinished || edit.isPending}
         >
-          {edit.isPending ? t("Saving…") : t("Save")}
+          {edit.isPending ? t("common.saving") : t("common.save")}
         </Button>
       </div>
     </form>
@@ -466,13 +467,13 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
           {artifactNeedsAttention(thread) && (
             <span
-              title={t("Unhandled agent response")}
+              title={t("threads.unhandledAgentResponse")}
               className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
             />
           )}
           {unavailable ? (
             <span className="text-amber-700 dark:text-amber-400">
-              {t("Historical target unavailable")}
+              {t("common.historicalTargetUnavailable")}
             </span>
           ) : hasTarget ? (
             <button
@@ -486,7 +487,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           ) : null}
           {thread.status === "resolved" && (
             <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
-              {t("✓ resolved")}
+              {t("threads.resolved2")}
             </span>
           )}
         </div>
@@ -496,15 +497,15 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       )}
       {(hasUnsentArtifactThread(thread) || thread.claim) && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          {hasUnsentArtifactThread(thread) && <span>{t("Not sent")}</span>}
+          {hasUnsentArtifactThread(thread) && <span>{t("threads.notSent")}</span>}
           {thread.claim && (
             <span
               className="relative z-20 rounded bg-primary-500/15 px-1.5 py-0.5 text-primary-700 dark:text-primary-300"
-              title={t("Working agent: {thread_claim_sessionId}", {
+              title={t("threads.workingAgent", {
                 thread_claim_sessionId: thread.claim.sessionId,
               })}
             >
-              {t("Working · ")}
+              {t("thread.workingPrefix")}
               <AgentName id={thread.claim.sessionId} labels={agentLabels} />
             </span>
           )}
@@ -513,7 +514,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       {quote && <ThreadQuote quote={quote} />}
       {unavailable && (
         <details className="mb-2 text-xs text-neutral-500">
-          <summary>{t("Imported anchor evidence")}</summary>
+          <summary>{t("threads.importedAnchorEvidence")}</summary>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap">
             {JSON.stringify(thread.comments[0]!.legacy?.source, null, 2)}
           </pre>
@@ -531,7 +532,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             className="mb-1 text-xs text-neutral-500"
             title={thread.comments[0]!.author.sessionId}
           >
-            {t("Agent · ")}
+            {t("thread.agentPrefix")}
             <AgentName id={thread.comments[0]!.author.sessionId} labels={agentLabels} />
           </div>
         )}
@@ -558,8 +559,8 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         >
           <FoldTriangle open={earlierOpen} className="size-2.5" />
           {earlierOpen
-            ? t("hide earlier comments")
-            : t("{thread_comments_slice_1_length_3} earlier comments", {
+            ? t("threads.hideEarlierComments")
+            : t("threads.earlierComments", {
                 thread_comments_slice_1_length_3: thread.comments.slice(1).length - 3,
               })}
         </button>
@@ -578,7 +579,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           >
             {comment.author.role === "agent" && (
               <div className="mb-1 text-xs text-neutral-500" title={comment.author.sessionId}>
-                {t("Agent · ")}
+                {t("thread.agentPrefix")}
                 <AgentName id={comment.author.sessionId} labels={agentLabels} />
               </div>
             )}
@@ -599,19 +600,16 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
                 title={
                   artifactKind === "html" && comment.target.kind === "rendered"
-                    ? t(
-                        "Version {comment_target_versionSeq} · {comment_target_locator_selector_Page}",
-                        {
-                          comment_target_versionSeq: comment.target.versionSeq,
-                          comment_target_locator_selector_Page:
-                            comment.target.locator?.selector ?? t("Page"),
-                        },
-                      )
+                    ? t("threads.version", {
+                        comment_target_versionSeq: comment.target.versionSeq,
+                        comment_target_locator_selector_Page:
+                          comment.target.locator?.selector ?? t("threads.page"),
+                      })
                     : artifactTargetLabel(comment.target)
                 }
                 onClick={() => onLocate(comment.target!, thread.id)}
               >
-                {t("↳ Fix: ")}
+                {t("threads.fix")}
                 {fixTargetLabel(comment.target, latestVersionSeq, artifactKind)}
               </button>
             )}
@@ -628,12 +626,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                 data-compare-comment={comment.id}
                 onClick={() => onCompare(comment.id)}
               >
-                {t("Compare")}
+                {t("threads.compare")}
               </Button>
             )}
             {comment.legacy && (
               <details className="mt-1 text-xs text-neutral-500">
-                <summary>{t("Imported reference evidence")}</summary>
+                <summary>{t("threads.importedReferenceEvidence")}</summary>
                 <pre className="max-h-32 overflow-auto whitespace-pre-wrap">
                   {JSON.stringify(comment.legacy, null, 2)}
                 </pre>
@@ -654,20 +652,20 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           <Button
             className="ml-auto"
             data-thread-action="comment"
-            title={active ? t("Reply (r)") : t("Reply (r for the selected thread)")}
+            title={active ? t("threads.replyR") : t("threads.replyRForTheSelectedThread")}
             onClick={openComment}
           >
-            {t("Reply")}
+            {t("thread.reply")}
           </Button>
         </div>
       )}
       {!readOnly && deleting && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <span>{t("Delete this thread and its comments?")}</span>
+          <span>{t("threads.deleteThisThreadAndItsComments")}</span>
           <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
-            {t("Delete thread")}
+            {t("threads.deleteThread")}
           </Button>
-          <Button onClick={() => setDeleting(false)}>{t("Keep")}</Button>
+          <Button onClick={() => setDeleting(false)}>{t("threads.keep")}</Button>
         </div>
       )}
       {!readOnly && commenting && (
@@ -682,7 +680,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
       {!readOnly && visible && bubble.pos && (
         <QuoteBubble
           pos={bubble.pos}
-          label={t("Quote in comment")}
+          label={t("threads.quoteInComment")}
           onQuote={(text) => {
             openComment();
             const draft = artifactDrafts.get(thread.artifactId, thread.id);
@@ -722,7 +720,7 @@ function ThreadQueue({
   activeThread?: string | null;
   children: ReactNode;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const [listAnimation] = useAutoAnimate<HTMLDivElement>(threadAnimation);
   const focus = useThreadFocusIndicator(selected ? activeThread : null);
   const listRef = useCallback(
@@ -751,8 +749,8 @@ function ThreadQueue({
           )}
         >
           {tab === "resolved"
-            ? t("No resolved threads.")
-            : t("Select content to leave a comment, or add a general note.")}
+            ? t("threads.noResolvedThreads")
+            : t("threads.selectContentToLeaveACommentOr")}
         </p>
         <div ref={listRef} data-discussion-list>
           {children}
@@ -802,7 +800,7 @@ export function ArtifactThreads({
   tab?: ArtifactThreadTab;
   onTabChange?: (tab: ArtifactThreadTab) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   detail = useOptimisticArtifact(detail);
   const panel = useRef<HTMLElement>(null);
   const [localTab, setLocalTab] = useState<ArtifactThreadTab>("active");
@@ -942,7 +940,7 @@ export function ArtifactThreads({
     <section
       ref={panel}
       className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950"
-      aria-label={t("Artifact discussion")}
+      aria-label={t("threads.artifactDiscussion")}
     >
       <div
         data-discussion-header
@@ -950,10 +948,10 @@ export function ArtifactThreads({
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="shrink-0 text-base font-semibold">{t("Discussion")}</span>
+            <span className="shrink-0 text-base font-semibold">{t("common.discussion")}</span>
             {comparisonMode && (
               <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[0.625rem] font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-300">
-                {t("Comparison")}
+                {t("threads.comparison")}
               </span>
             )}
             {panelControls}
@@ -961,8 +959,8 @@ export function ArtifactThreads({
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
               variant="ghost"
-              aria-label={t("Add comment")}
-              title={t("Add comment (n)")}
+              aria-label={t("thread.addComment")}
+              title={t("threads.addCommentN")}
               onClick={newNote}
               disabled={detail.state !== "active"}
             >
@@ -984,7 +982,7 @@ export function ArtifactThreads({
           <div
             ref={indicator.ref}
             role="tablist"
-            aria-label={t("Thread status")}
+            aria-label={t("threads.threadStatus")}
             className="relative flex items-center gap-1"
           >
             <span
@@ -1032,18 +1030,18 @@ export function ArtifactThreads({
                 )}
               >
                 {value === "active"
-                  ? t("Active {active_length}", { active_length: active.length })
-                  : t("Resolved {resolved_length}", { resolved_length: resolved.length })}
+                  ? t("threads.active", { active_length: active.length })
+                  : t("threads.resolved", { resolved_length: resolved.length })}
               </button>
             ))}
           </div>
           <div className="flex min-w-0 items-center gap-1.5">
             {!!draftCount && (
               <span
-                title={t("Drafts stay in this browser until posted")}
+                title={t("threads.draftsStayInThisBrowserUntilPosted")}
                 className="shrink-0 rounded-full bg-warning-100 px-1.5 py-0.5 text-[0.625rem] font-medium text-warning-700 dark:bg-warning-950/60 dark:text-warning-300"
               >
-                ✎ {draftCount} {draftCount === 1 ? "draft" : "drafts"}
+                ✎ {t("threads.draftCount", { count: draftCount })}
               </span>
             )}
             <span
@@ -1051,13 +1049,13 @@ export function ArtifactThreads({
               title={watchers[0]?.label ?? watchers[0]?.actor.sessionId ?? undefined}
             >
               {detail.working
-                ? t("Agent working")
+                ? t("common.agentWorking")
                 : watchers.length
                   ? watchers[0]?.mode === "fallback"
-                    ? t("Fallback registered")
+                    ? t("threads.fallbackRegistered")
                     : watchers[0]?.mode === "explicit"
-                      ? t("Listener registered")
-                      : t("Agent listening")
+                      ? t("threads.listenerRegistered")
+                      : t("common.agentListening")
                   : pending
                     ? `${pending} pending`
                     : ""}

@@ -22,7 +22,9 @@
     "@formkit/auto-animate": "^0.10.0",
     "@tanstack/virtual-core": "3.17.11",
     "hono": "^4.13.8",
+    "i18next": "26.4.2",
     "markdown-it": "^15.0.2",
+    "react-i18next": "17.0.15",
     "shiki": "^4.4.3"
   },
   "devDependencies": {

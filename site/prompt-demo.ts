@@ -1,7 +1,8 @@
-import { t } from "./i18n.ts";
-import { promptExamples } from "./prompt-examples.ts";
+import { siteLocale, t } from "./i18n.ts";
+import { getPromptExamples } from "./prompt-examples.ts";
 
 export function startPromptDemo(root: HTMLElement, onChange: (index: number) => void) {
+  const { promptExamples } = getPromptExamples(siteLocale());
   const prompt = root.querySelector<HTMLElement>("[data-prompt-text]")!;
   const response = root.querySelector<HTMLElement>("[data-prompt-response]")!;
   const play = root.querySelector<HTMLButtonElement>("[data-prompt-play]")!;
@@ -19,10 +20,13 @@ export function startPromptDemo(root: HTMLElement, onChange: (index: number) => 
     root.dataset.paused = String(paused);
     root.dataset.phase = "ready";
     onChange(index);
-    prompt.textContent = t(example.prompt);
-    response.textContent = t(example.response);
-    play.setAttribute("aria-label", t(paused ? "Play prompt animation" : "Pause prompt animation"));
-    play.title = t(paused ? "Play animation" : "Pause animation");
+    prompt.textContent = example.prompt;
+    response.textContent = example.response;
+    play.setAttribute(
+      "aria-label",
+      t(paused ? "promptDemo.playPromptAnimation" : "common.pausePromptAnimation"),
+    );
+    play.title = t(paused ? "promptDemo.playAnimation" : "common.pauseAnimation");
     for (const choice of choices)
       choice.setAttribute("aria-pressed", String(Number(choice.dataset.promptChoice) === index));
     if (paused || motion.matches || !visible || document.hidden) return;

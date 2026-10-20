@@ -4,7 +4,7 @@ import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
 } from "../../../shared/preview-protocol.ts";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import type { PreviewVerification } from "../preview-protection.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 
@@ -23,10 +23,12 @@ export function ArtifactPreviewProtection({
   compatibilityAccepted: boolean;
   onForgetCompatibility: () => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const ready = verification === "ready";
   const inactive =
-    verification === "checking" ? t("Checking preview protection") : t("Preview not running");
+    verification === "checking"
+      ? t("common.checkingPreviewProtection")
+      : t("common.previewNotRunning");
   const items: {
     key: string;
     label: string;
@@ -37,9 +39,7 @@ export function ArtifactPreviewProtection({
     {
       key: "isolation",
       label: ready ? "r3 isolated" : inactive,
-      description: t(
-        "The artifact cannot directly access r3’s page, credentials, or unrelated artifacts. Its r3 bridge can access this artifact’s conversations.",
-      ),
+      description: t("previewProtection.theArtifactCannotDirectlyAccessR3S"),
       state: ready ? "verified" : verification,
       icon: (
         <>
@@ -53,22 +53,16 @@ export function ArtifactPreviewProtection({
       label: !ready
         ? inactive
         : network === "blocked"
-          ? t("External connections blocked")
+          ? t("common.externalConnectionsBlocked")
           : network === "compatible"
-            ? t("Limited network protection")
-            : t("External connections allowed"),
+            ? t("common.limitedNetworkProtection")
+            : t("common.externalConnectionsAllowed"),
       description:
         network === "blocked"
-          ? t(
-              "Verified network protection means this preview passed the browser’s network-blocking checks. It does not certify the artifact’s content.",
-            )
+          ? t("previewProtection.verifiedNetworkProtectionMeansThisPreviewPassed")
           : network === "compatible"
-            ? t(
-                "You accepted limited protection, so browser checks are skipped until you forget that choice. Published documents restrict external resources; pages reached through navigation may have no network restrictions. Either may transmit files, conversations, or input.",
-              )
-            : t(
-                "This page can load external scripts and contact external services. Published files, conversations, input, and shared media can be sent elsewhere.",
-              ),
+            ? t("previewProtection.youAcceptedLimitedProtectionSoBrowserChecks")
+            : t("previewProtection.thisPageCanLoadExternalScriptsAnd"),
       state: !ready ? verification : network === "blocked" ? "verified" : "limited",
       icon: (
         <>
@@ -79,25 +73,30 @@ export function ArtifactPreviewProtection({
       ),
     },
     ...(["camera", "microphone"] as const).map((kind) => {
-      const name = kind === "camera" ? t("Camera") : t("Microphone");
+      const name = kind === "camera" ? t("common.camera") : t("common.microphone");
       const sharing = capture.phase === "sharing" && capture[kind];
       return {
         key: kind,
         label: t(
-          sharing ? "{device} sharing" : devices[kind] ? "{device} allowed" : "{device} blocked",
+          sharing
+            ? "previewProtection.sharing"
+            : devices[kind]
+              ? "previewProtection.allowed"
+              : "previewProtection.blocked",
           { device: name },
         ),
         description: sharing
-          ? t(
-              "{name} is being shared with this page. Use Stop sharing to end capture and clear device consent.",
-              { name: name },
-            )
+          ? t("previewProtection.isBeingSharedWithThisPageUse", { name: name })
           : devices[kind]
-            ? t("This page may request {kind}. Browser permission is also required.", {
-                kind: t(kind === "camera" ? "camera" : "microphone"),
+            ? t("previewProtection.thisPageMayRequestBrowserPermissionIs", {
+                kind: t(
+                  kind === "camera" ? "previewProtection.camera" : "previewProtection.microphone",
+                ),
               })
-            : t("This page has no r3 permission to use your {kind}.", {
-                kind: t(kind === "camera" ? "camera" : "microphone"),
+            : t("previewProtection.thisPageHasNoR3PermissionTo", {
+                kind: t(
+                  kind === "camera" ? "previewProtection.camera" : "previewProtection.microphone",
+                ),
               }),
         state: sharing ? "sharing" : devices[kind] ? "limited" : "blocked",
         icon: (
@@ -151,7 +150,7 @@ export function ArtifactPreviewProtection({
       </ul>
       {compatibilityAccepted && (
         <Button className="mt-3" onClick={onForgetCompatibility}>
-          {t("Forget browser choice")}
+          {t("previewProtection.forgetBrowserChoice")}
         </Button>
       )}
     </div>

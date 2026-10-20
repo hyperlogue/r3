@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useRef, useState } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import type { DiscussionPanelMode } from "../settings.ts";
 import { cn, StrokeIcon, useResizableWidth } from "../ui.tsx";
 import { useDiscussionPanelMotion } from "../useDiscussionPanelMotion.ts";
@@ -29,7 +29,7 @@ export function ArtifactDiscussionPanel({
   onModeChange: (mode: DiscussionPanelMode) => void;
   children: (controls: ReactNode) => ReactNode;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLElement | null>(null);
   const dock = useResizableWidth("r3-feedback-width", {
     min: 300,
@@ -63,8 +63,8 @@ export function ArtifactDiscussionPanel({
       {floating && (
         <button
           type="button"
-          aria-label={t("Move discussion")}
-          title={t("Drag to move; arrow keys move, Shift moves faster")}
+          aria-label={t("discussionPanel.moveDiscussion")}
+          title={t("discussionPanel.dragToMoveArrowKeysMoveShift")}
           onKeyDown={(event) => {
             motion.cancel();
             pane.key(event);
@@ -127,7 +127,7 @@ export function ArtifactDiscussionPanel({
         // biome-ignore lint/a11y/useSemanticElements: interactive adjustable separator, not a thematic break
         <div
           role="separator"
-          aria-label={t("Resize discussion")}
+          aria-label={t("discussionPanel.resizeDiscussion")}
           aria-orientation="vertical"
           aria-valuemin={300}
           aria-valuemax={700}
@@ -163,11 +163,11 @@ export function ArtifactDiscussionPanel({
             key={edge}
             type="button"
             tabIndex={edge === "se" ? 0 : -1}
-            aria-label={t("Resize discussion {edge}", { edge: edge })}
+            aria-label={t("discussionPanel.resizeDiscussion2", { edge: edge })}
             title={
               edge === "se"
-                ? t("Drag to resize; arrow keys resize, Shift resizes faster")
-                : t("Drag to resize; double-click to reset width")
+                ? t("discussionPanel.dragToResizeArrowKeysResizeShift")
+                : t("discussionPanel.dragToResizeDoubleClickToReset")
             }
             data-discussion-resize={edge}
             onPointerDown={(event) => {

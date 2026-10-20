@@ -24,7 +24,10 @@ interface Capture {
 let pendingNativeRequest = false;
 async function requestDevices(constraints: MediaStreamConstraints): Promise<MediaStream> {
   if (pendingNativeRequest)
-    throw new DOMException(t("A device permission request is still open"), "NotReadableError");
+    throw new DOMException(
+      t("previewCapture.aDevicePermissionRequestIsStillOpen"),
+      "NotReadableError",
+    );
   pendingNativeRequest = true;
   try {
     return await navigator.mediaDevices.getUserMedia(constraints);
@@ -35,15 +38,15 @@ async function requestDevices(constraints: MediaStreamConstraints): Promise<Medi
 
 export function previewCaptureConstraints(value: unknown): MediaStreamConstraints {
   if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new TypeError(t("Choose audio or video capture"));
+    throw new TypeError(t("previewCapture.chooseAudioOrVideoCapture"));
   const input = value as Record<string, unknown>;
   if (Object.keys(input).some((key) => key !== "audio" && key !== "video"))
-    throw new TypeError(t("Only audio and video capture are supported"));
+    throw new TypeError(t("previewCapture.onlyAudioAndVideoCaptureAreSupported"));
   const parse = (value: unknown, kind: "audio" | "video"): boolean | MediaTrackConstraints => {
     if (value === undefined || value === false) return false;
     if (value === true) return true;
     if (!value || typeof value !== "object" || Array.isArray(value))
-      throw new TypeError(t("Invalid {kind} constraints", { kind: kind }));
+      throw new TypeError(t("previewCapture.invalidConstraints", { kind: kind }));
     const supported =
       kind === "video"
         ? ["width", "height", "frameRate", "aspectRatio", "facingMode"]
@@ -52,7 +55,7 @@ export function previewCaptureConstraints(value: unknown): MediaStreamConstraint
     for (const [key, constraint] of Object.entries(value)) {
       if (!supported.includes(key))
         throw new DOMException(
-          t("Unsupported capture constraint: {key}", { key: key }),
+          t("previewCapture.unsupportedCaptureConstraint", { key: key }),
           "NotSupportedError",
         );
       const primitive = (value: unknown) => {
@@ -74,13 +77,13 @@ export function previewCaptureConstraints(value: unknown): MediaStreamConstraint
         )
       )
         result[key] = { ...constraint };
-      else throw new TypeError(t("Invalid capture constraint: {key}", { key: key }));
+      else throw new TypeError(t("previewCapture.invalidCaptureConstraint", { key: key }));
     }
     return result;
   };
   const constraints = { audio: parse(input.audio, "audio"), video: parse(input.video, "video") };
   if (!constraints.audio && !constraints.video)
-    throw new TypeError(t("Choose audio or video capture"));
+    throw new TypeError(t("previewCapture.chooseAudioOrVideoCapture"));
   return constraints;
 }
 
@@ -178,7 +181,9 @@ export class PreviewCapture {
   private error(grant: DocumentGrant, id: string, error: unknown): void {
     const name = error instanceof Error ? error.name : "AbortError";
     const message =
-      error instanceof Error ? error.message.slice(0, 512) : t("Device capture failed");
+      error instanceof Error
+        ? error.message.slice(0, 512)
+        : t("previewCapture.deviceCaptureFailed");
     this.send(grant, { op: "error", id, name, message });
     if (!this.capture) this.state(undefined, message);
   }
@@ -195,12 +200,12 @@ export class PreviewCapture {
         (constraints.audio && !grant.permissions.microphone)
       )
         throw new DOMException(
-          t("Enable the requested devices in artifact permissions"),
+          t("previewCapture.enableTheRequestedDevicesInArtifactPermissions"),
           "NotAllowedError",
         );
       if (this.capture || this.requesting)
         throw new DOMException(
-          t("Stop the current capture or finish its permission request first"),
+          t("previewCapture.stopTheCurrentCaptureOrFinishIts"),
           "NotReadableError",
         );
       capture = {
@@ -214,7 +219,7 @@ export class PreviewCapture {
             this.error(
               grant,
               id,
-              new DOMException(t("Device permission request timed out"), "AbortError"),
+              new DOMException(t("previewCapture.devicePermissionRequestTimedOut"), "AbortError"),
             );
           }
         }, this.options.permissionTimeoutMs ?? 120_000),
@@ -238,7 +243,11 @@ export class PreviewCapture {
       capture.timer = setTimeout(() => {
         if (capture && this.live(capture)) {
           this.stop(false);
-          this.error(grant, id, new DOMException(t("Device connection timed out"), "AbortError"));
+          this.error(
+            grant,
+            id,
+            new DOMException(t("previewCapture.deviceConnectionTimedOut"), "AbortError"),
+          );
         }
       }, 15_000);
       const peer = (
@@ -278,7 +287,7 @@ export class PreviewCapture {
     if (!capture.peer || capture.answer) return;
     try {
       if (typeof sdp !== "string" || sdp.length > 64_000)
-        throw new TypeError(t("Invalid device connection answer"));
+        throw new TypeError(t("previewCapture.invalidDeviceConnectionAnswer"));
       const sections = sdp.match(/^m=.*$/gm) ?? [];
       const kinds = capture
         .stream!.getTracks()
@@ -293,7 +302,7 @@ export class PreviewCapture {
           .join() !== kinds.join() ||
         /^a=(sendrecv|sendonly)\r?$/m.test(sdp)
       )
-        throw new TypeError(t("Device connections only receive the requested audio/video"));
+        throw new TypeError(t("previewCapture.deviceConnectionsOnlyReceiveTheRequestedAudio"));
       capture.answer = true;
       await capture.peer.setRemoteDescription({ type: "answer", sdp });
     } catch (error) {

@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { Collapse, CommentPlusIcon, cn, FoldTriangle, scrollParent } from "../ui.tsx";
 import { FilePath } from "./FilePath.tsx";
 
@@ -96,7 +96,7 @@ export function FileCard({
   onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(() => {
     if (unscopedFold === "fold") return false;
     if (unscopedFold === "unfold") return true;
@@ -210,7 +210,7 @@ export function FileCard({
           type="button"
           onClick={() => (open ? foldToTop() : setOpen(true))}
           className="-ml-1 flex shrink-0 items-center self-stretch px-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-          title={open ? t("Collapse") : t("Expand")}
+          title={open ? t("fileCard.collapse") : t("common.expand")}
         >
           <FoldTriangle open={open} />
         </button>
@@ -238,7 +238,9 @@ export function FileCard({
               type="button"
               onClick={onToggleViewed}
               aria-pressed={viewed}
-              title={viewed ? t("Marked viewed — click to unmark") : t("Mark file viewed")}
+              title={
+                viewed ? t("fileCard.markedViewedClickToUnmark") : t("fileCard.markFileViewed")
+              }
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[0.625rem] leading-3.5 font-medium transition-colors pointer-coarse:self-stretch pointer-coarse:min-w-7",
                 viewed
@@ -258,7 +260,7 @@ export function FileCard({
               >
                 {viewed && <CheckIcon className="size-2.5" />}
               </span>
-              <span className="max-md:sr-only">{t("Viewed")}</span>
+              <span className="max-md:sr-only">{t("fileCard.viewed")}</span>
             </button>
           )}
           {onFileThread && (
@@ -268,7 +270,7 @@ export function FileCard({
                 e.stopPropagation();
                 onFileThread();
               }}
-              title={t("Leave a comment on this file")}
+              title={t("fileCard.leaveACommentOnThisFile")}
               // Match the sibling "Viewed" pill's height (same py-0.5; the size-3.5
               // icon ≈ the pill's text/checkbox line-box) so the two per-file
               // controls read as one matched cluster — the same reason the markdown

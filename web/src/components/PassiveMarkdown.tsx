@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { MAX_RENDERED_HEIGHT } from "../../../shared/artifacts.ts";
 import type { PreviewTheme } from "../../../shared/preview-protocol.ts";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { passiveMarkdownDocument } from "../passive-markdown.ts";
 import { isReadingPosition, readingPositions } from "../reading-position.ts";
 import { cn } from "../ui.tsx";
@@ -14,7 +14,7 @@ export function PassiveMarkdown(props: {
   scrollKey: string | null;
   onHeight: (height: number) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const frame = useRef<HTMLIFrameElement>(null);
   const current = useRef(props);
   current.current = props;
@@ -63,7 +63,7 @@ export function PassiveMarkdown(props: {
     <iframe
       ref={frame}
       data-markdown-reading
-      title={t("Cached Markdown — preview checks in progress")}
+      title={t("passiveMarkdown.cachedMarkdownPreviewChecksInProgress")}
       srcDoc={document.html}
       sandbox="allow-scripts"
       {...{ credentialless: "" }}

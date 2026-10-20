@@ -1,27 +1,33 @@
 import type { ArtifactTarget, ArtifactThread } from "../../shared/artifacts.ts";
 import { mediaTime, wholeMediaBox } from "../../shared/media-target.ts";
-import { t } from "./i18n.ts";
+import { type AppMessageKey, t } from "./i18n.ts";
 
 export function representationLabel(kind: string) {
-  return t({ source: "Source", rendered: "Rendered", diff: "Diff", media: "Media" }[kind] ?? kind);
+  const labels: Record<string, AppMessageKey> = {
+    source: "representationToggle.source",
+    rendered: "representationToggle.rendered",
+    diff: "home.diff",
+    media: "common.media",
+  };
+  return labels[kind] ? t(labels[kind]) : kind;
 }
 
 export function targetLabel(target: ArtifactTarget, latestVersionSeq?: number | null): string {
-  if (target.kind === "artifact") return t("General artifact");
-  if (target.kind === "artifact_summary") return t("Retired artifact overview");
+  if (target.kind === "artifact") return t("artifactLabels.generalArtifact");
+  if (target.kind === "artifact_summary") return t("artifactLabels.retiredArtifactOverview");
   if (target.kind === "version_summary")
-    return t("Version {version} summary", { version: target.versionSeq });
+    return t("artifactLabels.versionSummary", { version: target.versionSeq });
   const range =
     target.locator && "start" in target.locator
-      ? `:${target.locator.start}-${target.locator.end}${"side" in target.locator ? ` (${t(target.locator.side === "old" ? "old" : "new")})` : ""}`
+      ? `:${target.locator.start}-${target.locator.end}${"side" in target.locator ? ` (${t(target.locator.side === "old" ? "artifactLabels.old" : "artifactLabels.new")})` : ""}`
       : "";
   const label =
     target.kind === "media"
-      ? `${target.path}${target.locator.time === null ? "" : ` · ${mediaTime(target.locator.time)}`} · ${t(wholeMediaBox(target.locator.box) ? "Full frame" : "Region")}`
+      ? `${target.path}${target.locator.time === null ? "" : ` · ${mediaTime(target.locator.time)}`} · ${t(wholeMediaBox(target.locator.box) ? "artifactLabels.fullFrame" : "artifactLabels.region")}`
       : `${representationLabel(target.kind)} · ${target.path}${range}`;
   return target.versionSeq === latestVersionSeq && target.kind !== "media"
     ? `${target.path}${range}`
-    : t("Version {version} · {target}", { version: target.versionSeq, target: label });
+    : t("artifactLabels.version", { version: target.versionSeq, target: label });
 }
 
 export function hasHistoricalTarget(thread: ArtifactThread): boolean {
@@ -32,6 +38,6 @@ export function hasHistoricalTarget(thread: ArtifactThread): boolean {
 }
 export function threadTargetLabel(thread: ArtifactThread): string {
   return hasHistoricalTarget(thread)
-    ? t("Historical target unavailable")
+    ? t("common.historicalTargetUnavailable")
     : targetLabel(thread.target);
 }

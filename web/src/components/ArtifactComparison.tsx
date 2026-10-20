@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactMediaTarget } from "../../../shared/artifacts.ts";
 import type { ArtifactComparison as Comparison, ComparisonTarget } from "../artifact-comparison.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import type { ArtifactRenderer } from "../pages/ArtifactView.tsx";
-import { Trans } from "../translated-text.tsx";
+
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { ArtifactMedia } from "./ArtifactMedia.tsx";
 
@@ -33,7 +33,7 @@ export function ArtifactComparison({
   position: number;
   count: number;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const [stacked, setStacked] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [targets, setTargets] = useState(true);
@@ -44,16 +44,21 @@ export function ArtifactComparison({
   }, [active]);
   return (
     <section
-      aria-label={t("Compare proposed fix")}
+      aria-label={t("comparison.compareProposedFix")}
       data-artifact-comparison
       className="flex h-full min-h-0 min-w-0 flex-col bg-neutral-50 dark:bg-neutral-950"
     >
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-neutral-300 px-2 py-1 dark:border-neutral-700">
-        <Button ref={back} variant="ghost" onClick={onBack} aria-label={t("Return to artifact")}>
+        <Button
+          ref={back}
+          variant="ghost"
+          onClick={onBack}
+          aria-label={t("comparison.returnToArtifact")}
+        >
           <StrokeIcon className="size-3.5">
             <path d="m12 5-7 7 7 7M5 12h15" />
           </StrokeIcon>
-          {t("Artifact")}
+          {t("common.artifact")}
         </Button>
         <div className="flex-1" />
         <Button
@@ -61,16 +66,20 @@ export function ArtifactComparison({
           aria-pressed={targets}
           onClick={() => setTargets(!targets)}
         >
-          {t("Targets")}
+          {t("comparison.targets")}
         </Button>
         <Button
           variant="ghost"
           aria-label={
-            comparison?.original.kind === "media" ? t("Return to targets") : t("Focus targets")
+            comparison?.original.kind === "media"
+              ? t("comparison.returnToTargets")
+              : t("comparison.focusTargets")
           }
           onClick={() => setFocus((value) => value + 1)}
         >
-          {comparison?.original.kind === "media" ? t("Return to targets") : t("Focus")}
+          {comparison?.original.kind === "media"
+            ? t("comparison.returnToTargets")
+            : t("comparison.focus")}
         </Button>
         <Button
           className="max-md:hidden"
@@ -78,19 +87,19 @@ export function ArtifactComparison({
           aria-pressed={narrow}
           onClick={() => setNarrow(!narrow)}
         >
-          {t("Narrow")}
+          {t("comparison.narrow")}
         </Button>
         <Button
           className="max-md:hidden"
           variant="ghost"
-          aria-label={stacked ? t("Show side by side") : t("Stack comparison")}
+          aria-label={stacked ? t("comparison.showSideBySide") : t("comparison.stackComparison")}
           onClick={() => setStacked(!stacked)}
         >
-          {stacked ? t("Side by side") : t("Stack")}
+          {stacked ? t("comparison.sideBySide") : t("comparison.stack")}
         </Button>
         <Button
           variant="ghost"
-          aria-label={t("Previous comparison")}
+          aria-label={t("comparison.previousComparison")}
           disabled={position <= 0}
           onClick={() => onStep(-1)}
         >
@@ -101,7 +110,7 @@ export function ArtifactComparison({
         </span>
         <Button
           variant="ghost"
-          aria-label={t("Next comparison")}
+          aria-label={t("comparison.nextComparison")}
           disabled={position < 0 || position >= count - 1}
           onClick={() => onStep(1)}
         >
@@ -132,7 +141,7 @@ export function ArtifactComparison({
                 key={`${comparison.commentId}:${name}`}
                 detail={detail}
                 target={comparison[name]}
-                label={name === "original" ? t("Original") : t("Proposed fix")}
+                label={name === "original" ? t("common.original") : t("common.proposedFix")}
                 renderPreview={renderPreview}
                 active={active && (!side || side === name)}
                 layout={side ? "single" : stacked ? "stacked" : "split"}
@@ -145,7 +154,7 @@ export function ArtifactComparison({
         </div>
       ) : (
         <p role="status" className="p-6 text-sm text-neutral-500">
-          {t("This comparison is no longer available. Return to the artifact to read its threads.")}
+          {t("comparison.thisComparisonIsNoLongerAvailableReturn")}
         </p>
       )}
     </section>
@@ -173,7 +182,7 @@ function ComparisonPreview({
   narrow: boolean;
   focus: number;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const [savedFrame, setSavedFrame] = useState(false);
   const [path, setPath] = useState(target.path);
   const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
@@ -197,7 +206,7 @@ function ComparisonPreview({
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-200 px-3 py-2 text-xs dark:border-neutral-800">
         <strong className="font-medium">{label}</strong>
         <span className="text-neutral-500">
-          <Trans message="v{target_versionSeq}" values={{ target_versionSeq: target.versionSeq }} />
+          {t("common.v2", { target_versionSeq: target.versionSeq })}
         </span>
         <span
           className="min-w-16 flex-1 truncate text-neutral-500"
@@ -222,15 +231,15 @@ function ComparisonPreview({
         >
           {target.kind === "media"
             ? savedFrame
-              ? t("Saved frame")
-              : t("Playback")
+              ? t("common.savedFrame")
+              : t("comparison.playback")
             : state === "anchored"
-              ? t("Located")
+              ? t("comparison.located")
               : state === "ambiguous"
-                ? t("Multiple matches")
+                ? t("comparison.multipleMatches")
                 : state === "unplaced"
-                  ? t("Target unavailable")
-                  : t("Locating…")}
+                  ? t("comparison.targetUnavailable")
+                  : t("comparison.locating")}
         </span>
       </div>
       <div data-artifact-content className="flex min-h-0 flex-1 overflow-auto">
@@ -287,7 +296,7 @@ function MediaComparison({
   nonce: number;
   onSavedFrame: (saved: boolean) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const artifactApi = useArtifactClient();
   const files = useQuery({
     queryKey: ["artifact-files", artifactId, target.versionSeq],
@@ -312,8 +321,8 @@ function MediaComparison({
       {files.error
         ? files.error.message
         : files.isPending
-          ? t("Loading media…")
-          : t("Media unavailable")}
+          ? t("common.loadingMedia")
+          : t("comparison.mediaUnavailable")}
     </p>
   );
 }

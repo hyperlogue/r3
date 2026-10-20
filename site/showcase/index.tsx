@@ -78,22 +78,24 @@ function Example() {
   return (
     <>
       {!parameters.has("embedded") && (
-        <aside className="example-banner" aria-label={t("About this example")}>
+        <aside className="example-banner" aria-label={t("common.aboutThisExample")}>
           <span>
-            <strong>{componentScene ? t("UI component showcase") : "Example Fieldwork"}</strong>
+            <strong>
+              {componentScene ? t("common.uiComponentShowcase") : "Example Fieldwork"}
+            </strong>
             <span className="example-explainer">
               {" "}
-              {t("· Real r3 interface. Fictional data and scripted agent.")}
+              {t("common.realR3InterfaceFictionalDataAndScripted")}
             </span>
           </span>
           <span className="example-actions">
             <a
               href={`../${locale === "zh-cn" ? "zh-cn/" : ""}index.html?theme=${parameters.get("theme") === "dark" ? "dark" : "light"}`}
             >
-              {t("← Homepage")}
+              {t("common.homepage")}
             </a>
             <button type="button" onClick={reset}>
-              {t("Reset example")}
+              {t("common.resetExample")}
             </button>
           </span>
         </aside>
@@ -133,9 +135,9 @@ function Example() {
         />
       ) : (
         <main className="example-deleted">
-          <p>{t("Example deleted.")}</p>
+          <p>{t("common.exampleDeleted")}</p>
           <button type="button" onClick={reset}>
-            {t("Start again")}
+            {t("common.startAgain")}
           </button>
         </main>
       )}

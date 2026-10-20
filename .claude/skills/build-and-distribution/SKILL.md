@@ -240,8 +240,8 @@ single command owns the complete deployable output, including the demo:
 - English pages retain their URLs; Simplified Chinese pages use `/zh-cn/`.
   Both locales share assets and demos. The builder emits language-specific
   canonical/alternate URLs, Markdown exports, sitemap entries and Pagefind
-  documents, retaining English heading IDs across translations. Only
-  `--sync-locales` updates static-copy catalogs; ordinary builds read them.
+  documents, retaining English heading IDs across translations. Templates use
+  explicit i18next keys; builds read catalogs without rewriting them.
   Read [localization](../../../docs/i18n.md) when changing copy, locale routing,
   catalogs, or browser language initialization.
 - Preserve demo deep-link reloads while providing a useful website 404. Pages

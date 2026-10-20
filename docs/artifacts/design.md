@@ -14,8 +14,8 @@ The public wire types live in [shared/artifacts.ts](../../shared/artifacts.ts).
 
 ## Reusable workspace UI
 
-Browser chrome supports English and Simplified Chinese, currently with English
-translation placeholders. Locale is a browser display preference; it never
+Browser chrome uses i18next and react-i18next for English and Simplified Chinese.
+Locale is a browser display preference; it never
 changes authored content or wire values. Switching preserves workspace state
 and drafts, and updates parent-owned annotation labels over the existing preview
 display channel. [Localization](../i18n.md) owns catalog and host initialization

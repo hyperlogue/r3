@@ -15,19 +15,3 @@ export function matchLocale(value: string | null | undefined): Locale | null {
 export function chooseLocale(saved: string | null, languages: readonly string[]): Locale {
   return matchLocale(saved) ?? languages.map(matchLocale).find((value) => value !== null) ?? "en";
 }
-
-export type MessageValues = Record<string, string | number>;
-export function interpolate(message: string, values: MessageValues = {}): string {
-  return message.replace(/\{(\w+)\}/g, (token, key: string) =>
-    Object.hasOwn(values, key) ? String(values[key]) : token,
-  );
-}
-
-export function translate(
-  catalog: Readonly<Record<string, string>>,
-  message: string,
-  values?: MessageValues,
-): string {
-  const value = Object.hasOwn(catalog, message) ? catalog[message] : undefined;
-  return interpolate(value || message, values);
-}

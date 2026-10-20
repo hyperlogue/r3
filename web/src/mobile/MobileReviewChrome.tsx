@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { cn, StrokeIcon } from "../ui.tsx";
 
 // The phone-tier review chrome (see the mobile-tier skill): a persistent bottom
@@ -29,7 +29,7 @@ export function MobileReviewChrome({
   onSetSheet: (s: MobileSheetState) => void;
   children: ReactNode; // the ArtifactThreads (fills the sheet: it's h-full flex-col)
 }) {
-  useLocale();
+  const { t } = useTranslation();
   return (
     <>
       {/* The bar is in-flow at the bottom of ArtifactView's column (not fixed), so
@@ -58,9 +58,9 @@ export function MobileReviewChrome({
           >
             <path d="m6 15 6-6 6 6" />
           </StrokeIcon>
-          {t("Discussion")}
+          {t("common.discussion")}
           <span className="font-normal text-neutral-500">
-            · {openCount} {t("open")}
+            · {openCount} {t("mobileReviewChrome.open")}
           </span>
         </button>
       </div>
@@ -70,7 +70,7 @@ export function MobileReviewChrome({
       {!docked && sheet === "full" && (
         <button
           type="button"
-          aria-label={t("Close discussion")}
+          aria-label={t("mobileReviewChrome.closeDiscussion")}
           onClick={() => onSetSheet("closed")}
           className="fixed inset-0 z-40 cursor-default bg-black/30"
         />
@@ -99,7 +99,11 @@ export function MobileReviewChrome({
           <button
             type="button"
             onClick={() => onSetSheet(sheet === "full" ? "peek" : "full")}
-            title={sheet === "full" ? t("Shrink — keep the code visible") : t("Expand")}
+            title={
+              sheet === "full"
+                ? t("mobileReviewChrome.shrinkKeepTheCodeVisible")
+                : t("common.expand")
+            }
             className="absolute inset-0 rounded-t-xl"
           >
             {/* Grab-handle look, but it's a plain tap target (expand/shrink). */}
@@ -107,7 +111,7 @@ export function MobileReviewChrome({
           </button>
           <button
             type="button"
-            aria-label={t("Close discussion")}
+            aria-label={t("mobileReviewChrome.closeDiscussion")}
             onClick={() => onSetSheet("closed")}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-neutral-500"
           >

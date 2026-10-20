@@ -45,8 +45,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ticket }),
     });
-    if (!response.ok)
-      throw new Error(t("Local browser link expired or was already used. Run r3 open again."));
+    if (!response.ok) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
     initial = undefined;
   }
   if (initial) {

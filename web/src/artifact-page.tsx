@@ -50,7 +50,7 @@ import { QuoteBubble, type QuotePos } from "./components/Message.tsx";
 import { Notification, NotificationProvider } from "./components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "./components/PaneToolbar.tsx";
 import { ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
-import { t, useLocale } from "./i18n.ts";
+import { useTranslation } from "./i18n.ts";
 import { keysSuspended, useKeyBindings } from "./keys.ts";
 import { AddCommentPill } from "./mobile/AddCommentPill.tsx";
 // This page is the artifact workspace's single mobile container mount point.
@@ -177,7 +177,7 @@ function Workspace({
   initialSearch = location.search,
   onLocationChange,
 }: ArtifactWorkspaceProps) {
-  useLocale();
+  const { t } = useTranslation();
   const [view, setView] = useState(() => readArtifactLocation(detail.kind, initialSearch));
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const comparison = useArtifactComparison(detail, initialSearch, !!onLocationChange);
@@ -412,12 +412,12 @@ function Workspace({
           if (quoteNow) appendQuote(text);
           else setQuote({ ...at, text });
         } else {
-          setNotice(t("Finish or discard the current draft before changing its target."));
+          setNotice(t("artifactPage.finishOrDiscardTheCurrentDraftBefore"));
           openComposer(at, focus);
         }
       } else openComposer(at, focus);
     },
-    [detail.state, detail.id, appendQuote, openComposer],
+    [detail.state, detail.id, appendQuote, openComposer, t],
   );
   const selectRendered = useCallback(
     (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => {
@@ -545,14 +545,10 @@ function Workspace({
       } else if (target.kind === "version_summary") {
         setDetailsRequest(nonce);
       } else if (target.kind === "artifact_summary") {
-        setNotice(
-          t(
-            "This comment refers to a retired artifact overview. Its original target and quote are preserved.",
-          ),
-        );
+        setNotice(t("artifactPage.thisCommentRefersToARetiredArtifact"));
       } else paneRef.current?.scrollTo({ top: 0 });
     },
-    [detail.kind, view, changeView, comparison.close],
+    [detail.kind, view, changeView, comparison.close, t],
   );
   useEffect(() => {
     const id = initialThread.current;
@@ -597,24 +593,24 @@ function Workspace({
     }
     const threads = detail.threads.find((threads) => threads.id === id);
     if (!threads) {
-      setNotice(t("This conversation is unavailable."));
+      setNotice(t("artifactPage.thisConversationIsUnavailable"));
       return;
     }
     const commentId = searchEntry.get("comment");
     if (commentId) {
       const comment = threads.comments.slice(1).find((comment) => comment.id === commentId);
-      if (!comment) setNotice(t("This comment is unavailable."));
+      if (!comment) setNotice(t("artifactPage.thisCommentIsUnavailable"));
       else if (comment.context.versionSeq === null)
-        setNotice(t("This comment has no recorded publication context."));
+        setNotice(t("artifactPage.thisCommentHasNoRecordedPublicationContext"));
     } else locate(threads.target, id);
     if (mobile) setSheet("full");
     else showDiscussionPanel();
-  }, [detail.threads, locate, mobile, searchEntry, view]);
+  }, [detail.threads, locate, mobile, searchEntry, view, t]);
   const jumpRef = useCallback<ArtifactRefJump>(
     (ref, messageContext) => {
       comparison.close(false);
       if (!messageContext.versionSeq || !messageContext.representation) {
-        setNotice(t("This reference has no known published representation."));
+        setNotice(t("artifactPage.thisReferenceHasNoKnownPublishedRepresentation"));
         return;
       }
       changeView({
@@ -627,14 +623,9 @@ function Workspace({
         const nonce = ++jumpNonce.current;
         setJump({ path: ref.file, start: ref.lineStart, end: ref.lineEnd, side: "new", nonce });
         setFold({ mode: "unfold", path: ref.file, nonce });
-      } else
-        setNotice(
-          t(
-            "Opened the referenced rendered document. Source line numbers do not identify rendered elements.",
-          ),
-        );
+      } else setNotice(t("artifactPage.openedTheReferencedRenderedDocumentSourceLine"));
     },
-    [changeView, comparison.close],
+    [changeView, comparison.close, t],
   );
   const showThread = useCallback(
     (threadId: string) => {
@@ -942,7 +933,7 @@ function Workspace({
                 {toolbar}
                 {notice && (
                   <Notification
-                    title={t("Review notice")}
+                    title={t("artifactPage.reviewNotice")}
                     message={notice}
                     tone="warning"
                     onDismiss={() => setNotice("")}
@@ -956,11 +947,10 @@ function Workspace({
                 {!version ? (
                   <p className="p-6 text-sm text-neutral-500">
                     {view.versionSeq === null
-                      ? t("No version has been published yet.")
-                      : t(
-                          "Version {view_versionSeq} is unavailable. Choose a retained publication above.",
-                          { view_versionSeq: view.versionSeq },
-                        )}
+                      ? t("artifactPage.noVersionHasBeenPublishedYet")
+                      : t("artifactPage.versionIsUnavailableChooseARetainedPublication", {
+                          view_versionSeq: view.versionSeq,
+                        })}
                   </p>
                 ) : detail.kind === "html" ? (
                   path && canRender ? (
@@ -990,7 +980,7 @@ function Workspace({
                     <ArtifactLoading />
                   ) : (
                     <p className="p-6 text-sm text-neutral-500">
-                      {t("This file has no rendered document in the selected version.")}
+                      {t("artifactPage.thisFileHasNoRenderedDocumentIn")}
                     </p>
                   )
                 ) : (
@@ -1008,7 +998,7 @@ function Workspace({
                       {detail.kind === "diff" ? (
                         diffQuery.isPending ? (
                           <p className="p-6 text-sm text-neutral-500">
-                            {t("Loading published patch…")}
+                            {t("artifactPage.loadingPublishedPatch")}
                           </p>
                         ) : (
                           <DiffView
@@ -1070,9 +1060,7 @@ function Workspace({
                                 onMediaTarget={(target, snapshot) => {
                                   if (!artifactDrafts.anchor(detail.id, target)) {
                                     setNotice(
-                                      t(
-                                        "Finish or discard the current draft before changing its target.",
-                                      ),
+                                      t("artifactPage.finishOrDiscardTheCurrentDraftBefore"),
                                     );
                                     openComposer(undefined, false);
                                     return false;
@@ -1129,7 +1117,7 @@ function Workspace({
                         ))
                       ) : (
                         <p className="p-6 text-sm text-neutral-500">
-                          {t("Loading published files…")}
+                          {t("artifactPage.loadingPublishedFiles")}
                         </p>
                       )}
                     </ProgressiveFileProvider>
@@ -1208,7 +1196,7 @@ function Workspace({
       {coarse && detail.state === "active" && !comparison.active && (
         <AddCommentPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
-      {quote && <QuoteBubble pos={quote} label={t("Quote in note")} onQuote={appendQuote} />}
+      {quote && <QuoteBubble pos={quote} label={t("common.quoteInNote")} onQuote={appendQuote} />}
       <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );

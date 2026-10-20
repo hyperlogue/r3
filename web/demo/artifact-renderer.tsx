@@ -3,7 +3,7 @@ import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
 import type { PreviewDisplay } from "../../shared/preview-protocol.ts";
 import { ArtifactLoading } from "../src/components/ArtifactLoading.tsx";
 import { useDarkTheme } from "../src/hooks.ts";
-import { t, useLocale } from "../src/i18n.ts";
+import { t as translateNow, useTranslation } from "../src/i18n.ts";
 import { keysSuspended } from "../src/keys.ts";
 import type { ArtifactRenderedPaneProps, ArtifactRenderer } from "../src/pages/ArtifactView.tsx";
 import { previewLocator, previewSelectionPosition } from "../src/preview-bridge.ts";
@@ -27,7 +27,7 @@ export function DemoArtifactPreview(props: ArtifactRenderedPaneProps) {
 }
 
 function DemoDocument(props: ArtifactRenderedPaneProps) {
-  useLocale();
+  const { t } = useTranslation();
   const dark = useDarkTheme();
   const current = useRef({ props, dark });
   current.current = { props, dark };
@@ -60,7 +60,11 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
         nextRoute.current,
       );
     } catch (error) {
-      setError(error instanceof Error ? error.message : t("Demo preview unavailable"));
+      setError(
+        error instanceof Error
+          ? error.message
+          : translateNow("artifactRenderer.demoPreviewUnavailable"),
+      );
       setDocument(null);
       return;
     }
@@ -152,7 +156,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
               locator: previewLocator(message.locator),
             });
           } catch {
-            setNotice(t("Unable to capture this element."));
+            setNotice(translateNow("artifactRenderer.unableToCaptureThisElement"));
           }
         } else if (message.type === "r3-preview-selection") {
           if (
@@ -180,7 +184,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
               message.quote,
             );
           } catch {
-            setNotice(t("Unable to capture this selection."));
+            setNotice(translateNow("artifactRenderer.unableToCaptureThisSelection"));
           }
         } else if (message.type === "r3-preview-composer-key") {
           if (
@@ -201,9 +205,9 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
             props.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
-              ? t("This target matches more than one place in the document.")
+              ? translateNow("common.thisTargetMatchesMoreThanOnePlace")
               : message.state === "unplaced"
-                ? t("This target is unavailable in the current page state.")
+                ? translateNow("common.thisTargetIsUnavailableInTheCurrent")
                 : "",
           );
         }
@@ -247,12 +251,10 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
       }
     >
       <details className="shrink-0 border-b border-neutral-200 px-3 py-1 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-        <summary className="cursor-pointer">{t("Demo preview · bundled example")}</summary>
-        <p className="py-2">
-          {t(
-            "This static demo renders only shipped samples in an opaque sandbox. Resource requests are restricted by CSP; the daemon’s verified network protection and device access are not simulated.",
-          )}
-        </p>
+        <summary className="cursor-pointer">
+          {t("artifactRenderer.demoPreviewBundledExample")}
+        </summary>
+        <p className="py-2">{t("artifactRenderer.thisStaticDemoRendersOnlyShippedSamples")}</p>
       </details>
       {error ? (
         <p role="alert" className="p-6 text-sm">
@@ -275,8 +277,8 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
                 key={document.contextId}
                 ref={iframe}
                 srcDoc={document.html}
-                title={t("{title} demo preview", {
-                  title: props.previewLabel ?? props.detail.title ?? t("Artifact"),
+                title={t("artifactRenderer.demoPreview", {
+                  title: props.previewLabel ?? props.detail.title ?? t("common.artifact"),
                 })}
                 sandbox="allow-scripts"
                 allow="camera 'none'; microphone 'none'"

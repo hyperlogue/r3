@@ -331,7 +331,7 @@ function PreviewSession(
           return;
         }
         current.current.onVerification("error");
-        setError(error instanceof Error ? error.message : t("Preview expired"));
+        setError(error instanceof Error ? error.message : t("preview.previewExpired"));
         setSrc("");
       } finally {
         renewing = false;
@@ -349,7 +349,7 @@ function PreviewSession(
           if (!previewCompatibility.accepted() || !isSecureContext) {
             previewSessions.release(value, false);
             grant = null;
-            throw new Error(t("Preview compatibility is unavailable. Retry to verify protection."));
+            throw new Error(t("preview.previewCompatibilityIsUnavailableRetryToVerify"));
           }
           admitted.current = true;
         }
@@ -363,7 +363,7 @@ function PreviewSession(
         forgetDeniedMarkdown(error, id);
         if (!closed) {
           current.current.onVerification("error");
-          setError(error instanceof Error ? error.message : t("Preview unavailable"));
+          setError(error instanceof Error ? error.message : t("preview.previewUnavailable"));
         }
       });
     const resume = () => {
@@ -407,7 +407,7 @@ function PreviewSession(
           current.current.onVerification("error");
           port.close();
           connection.current = null;
-          setError(t("Preview stopped responding. Retry to reconnect."));
+          setError(t("preview.previewStoppedRespondingRetryToReconnect"));
           setSrc("");
         }, 1000),
       };
@@ -471,7 +471,7 @@ function PreviewSession(
           setError(
             typeof message.message === "string"
               ? message.message.slice(0, 2048)
-              : t("Preview verification failed"),
+              : t("preview.previewVerificationFailed"),
           );
           if (
             message.state === "unsupported" &&
@@ -547,7 +547,7 @@ function PreviewSession(
                   cache: "no-store",
                 });
                 if (!response.ok)
-                  throw new Error(t("Rendered Markdown is unavailable. Retry to reconnect."));
+                  throw new Error(t("preview.renderedMarkdownIsUnavailableRetryToReconnect"));
                 return response.text();
               },
             )
@@ -559,7 +559,9 @@ function PreviewSession(
               if (!closed && connection.current === port) {
                 current.current.onVerification("error");
                 setError(
-                  error instanceof Error ? error.message : t("Rendered Markdown is unavailable"),
+                  error instanceof Error
+                    ? error.message
+                    : t("preview.renderedMarkdownIsUnavailable"),
                 );
                 setSrc("");
               }
@@ -689,7 +691,7 @@ function PreviewSession(
             );
           } catch (error) {
             setNotice(
-              error instanceof Error ? error.message : t("Unable to capture this selection"),
+              error instanceof Error ? error.message : t("preview.unableToCaptureThisSelection"),
             );
           }
         } else if (message.type === "r3-preview-target") {
@@ -710,7 +712,9 @@ function PreviewSession(
               locator,
             });
           } catch (error) {
-            setNotice(error instanceof Error ? error.message : t("Unable to capture this element"));
+            setNotice(
+              error instanceof Error ? error.message : t("preview.unableToCaptureThisElement"),
+            );
           }
         } else if (message.type === "r3-preview-threads") {
           if (
@@ -726,9 +730,9 @@ function PreviewSession(
             current.current.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
-              ? t("This target matches more than one place in the document.")
+              ? t("common.thisTargetMatchesMoreThanOnePlace")
               : message.state === "unplaced"
-                ? t("This target is unavailable in the current page state.")
+                ? t("common.thisTargetIsUnavailableInTheCurrent")
                 : "",
           );
         } else if (
@@ -742,7 +746,7 @@ function PreviewSession(
             send({
               type: "r3-preview-result",
               id: message.id,
-              error: t("Too many pending r3 requests"),
+              error: t("preview.tooManyPendingR3Requests"),
             });
             return;
           }
@@ -949,11 +953,11 @@ function PreviewSession(
         <div role="alert" className="p-6 text-sm text-neutral-700 dark:text-neutral-300">
           <p>{error}</p>
           <Button className="mt-3" onClick={props.onRetry}>
-            {t("Retry preview")}
+            {t("preview.retryPreview")}
           </Button>
           {props.onReviewCompatibility && (
             <Button className="ml-2 mt-3" onClick={props.onReviewCompatibility}>
-              {t("Review browser risk")}
+              {t("preview.reviewBrowserRisk")}
             </Button>
           )}
         </div>
@@ -979,7 +983,7 @@ function PreviewSession(
       )}
       {notice && (
         <Notification
-          title={t("Preview notice")}
+          title={t("preview.previewNotice")}
           message={notice}
           tone="warning"
           onDismiss={() => setNotice("")}
@@ -993,7 +997,7 @@ function PreviewSession(
           key={`${frameSrc}:${documentEpoch}`}
           ref={iframe}
           src={frameSrc}
-          title={`${props.previewLabel ?? props.detail.title ?? t("Artifact")} preview`}
+          title={`${props.previewLabel ?? props.detail.title ?? t("common.artifact")} preview`}
           sandbox="allow-scripts"
           {...{ credentialless: "" }}
           allow="camera 'none'; microphone 'none'; display-capture 'none'"

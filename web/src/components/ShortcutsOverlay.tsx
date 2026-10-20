@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { type Binding, formatChord, isBound, KEYMAP, useKeyBindings } from "../keys.ts";
 import { cn, StrokeIcon, useEscape, usePopoverFocus } from "../ui.tsx";
 import { HeaderIconButton } from "./WorkspaceHeader.tsx";
@@ -7,15 +7,20 @@ import { HeaderIconButton } from "./WorkspaceHeader.tsx";
 // `?` cheat sheet, rendered from KEYMAP. Owns `help`; suspends every other
 // binding while open so `j` doesn't walk the list behind the sheet.
 
-const GROUPS = ["Review", "Thread", "Files", "View"] as const;
+const GROUPS = [
+  { id: "Review", label: "common.review" },
+  { id: "Thread", label: "threadPopover.thread" },
+  { id: "Files", label: "common.files" },
+  { id: "View", label: "common.view" },
+] as const;
 
 export function ShortcutsButton({ onClick }: { onClick: () => void }) {
-  useLocale();
+  const { t } = useTranslation();
   return (
     <HeaderIconButton
-      aria-label={t("Keyboard shortcuts")}
+      aria-label={t("shortcutsOverlay.keyboardShortcuts")}
       aria-haspopup="dialog"
-      title={t("Keyboard shortcuts (?)")}
+      title={t("shortcutsOverlay.keyboardShortcuts2")}
       onClick={onClick}
     >
       <StrokeIcon className="size-4">
@@ -39,7 +44,7 @@ function ShortcutKey({ chord }: { chord: string }) {
 // where viewed isn't tracked) registers no handler and does nothing — so dim it
 // rather than listing it as if it were live.
 function Row({ b, bound }: { b: Binding; bound: boolean }) {
-  useLocale();
+  const { t } = useTranslation();
   return (
     <div className={cn("flex items-baseline justify-between gap-4 py-1", !bound && "opacity-40")}>
       <span className="text-xs text-neutral-600 dark:text-neutral-300">{t(b.label)}</span>
@@ -48,7 +53,9 @@ function Row({ b, bound }: { b: Binding; bound: boolean }) {
       <span className="flex shrink-0 items-center gap-1">
         {b.keys.map((k, i) => (
           <span key={k} className="flex items-center gap-1">
-            {i > 0 && <span className="text-[0.625rem] text-neutral-400">{t("or")}</span>}
+            {i > 0 && (
+              <span className="text-[0.625rem] text-neutral-400">{t("shortcutsOverlay.or")}</span>
+            )}
             <ShortcutKey chord={k} />
           </span>
         ))}
@@ -64,7 +71,7 @@ export function ShortcutsOverlay({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const content = useRef<HTMLDivElement>(null);
   useKeyBindings({ help: () => onOpenChange(!open) });
   useEscape(open, () => onOpenChange(false));
@@ -76,42 +83,42 @@ export function ShortcutsOverlay({
       {/* backdrop: a real button so a click anywhere outside closes it */}
       <button
         type="button"
-        aria-label={t("Close")}
+        aria-label={t("common.close")}
         onClick={() => onOpenChange(false)}
         className="absolute inset-0 cursor-default bg-black/30"
       />
       <div
         ref={content}
         role="dialog"
-        aria-label={t("Keyboard shortcuts")}
+        aria-label={t("shortcutsOverlay.keyboardShortcuts")}
         tabIndex={-1}
         className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-neutral-300 bg-white p-4 r3-modal dark:border-neutral-700 dark:bg-neutral-900"
       >
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-            {t("Keyboard shortcuts")}
+            {t("shortcutsOverlay.keyboardShortcuts")}
           </h2>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            aria-label={t("Close keyboard shortcuts")}
-            title={t("Close keyboard shortcuts (Esc)")}
+            aria-label={t("shortcutsOverlay.closeKeyboardShortcuts")}
+            title={t("shortcutsOverlay.closeKeyboardShortcutsEsc")}
             className="flex items-center gap-1.5 text-[0.6875rem] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
           >
-            {t("Close")}
+            {t("common.close")}
           </button>
         </div>
         {/* Two columns on a roomy sheet, one on a narrow one. `columns` (not grid)
             so a group is never split across a column break — break-inside on the
             group does that for free, which a grid can't express as cheaply. */}
         <div className="sm:columns-2 sm:gap-6">
-          {GROUPS.map((g) => {
+          {GROUPS.map(({ id: g, label }) => {
             const rows = KEYMAP.filter((b) => b.group === g);
             if (rows.length === 0) return null;
             return (
-              <section key={t(g)} className="mb-4 break-inside-avoid">
+              <section key={g} className="mb-4 break-inside-avoid">
                 <h3 className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400">
-                  {t(g)}
+                  {t(label)}
                 </h3>
                 <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                   {rows.map((b) => (
@@ -126,9 +133,7 @@ export function ShortcutsOverlay({
             line range stays a mouse gesture by design, and someone hunting the map
             for it should find the answer here rather than concluding it's missing. */}
         <p className="mt-1 border-t border-neutral-200 pt-3 text-[0.6875rem] leading-relaxed text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-          {t(
-            "Anchoring threads to a line range is a mouse gesture — drag in the code, or click-and-drag the line numbers. Shortcuts stand down while you're typing.",
-          )}
+          {t("shortcutsOverlay.anchoringThreadsToALineRangeIs")}
         </p>
       </div>
     </div>

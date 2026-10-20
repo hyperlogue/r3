@@ -8,7 +8,7 @@ import { normalizeBase } from "./render.ts";
 import { serveSite } from "./serve.ts";
 
 // Marker translations prove that catalogs drive the actual UI. They exist only
-// in this temporary bundle; committed zh-cn values remain translation placeholders.
+// in this temporary bundle; the source catalogs stay untouched.
 const directory = await mkdtemp(join(tmpdir(), "r3-i18n-browser-"));
 await buildDemo({
   directory,
@@ -17,16 +17,14 @@ await buildDemo({
     {
       name: "i18n-acceptance-markers",
       setup(build) {
-        build.onLoad({ filter: /web\/src\/locales\/zh-cn\.json$/ }, async ({ path }) => ({
-          loader: "json",
-          contents: JSON.stringify({
-            ...(await Bun.file(path).json()),
-            Settings: "[ZH] Settings",
-            Language: "[ZH] Language",
-            Artifacts: "[ZH] Artifacts",
-            "Add comment": "[ZH] Add comment",
-          }),
-        }));
+        build.onLoad({ filter: /web\/src\/locales\/zh-cn\.json$/ }, async ({ path }) => {
+          const catalog = await Bun.file(path.replace("zh-cn.json", "en.json")).json();
+          catalog.settings.title = "[ZH] Settings";
+          catalog.settings.language = "[ZH] Language";
+          catalog.common.artifacts = "[ZH] Artifacts";
+          catalog.thread.addComment = "[ZH] Add comment";
+          return { loader: "json", contents: JSON.stringify(catalog) };
+        });
       },
     },
   ],

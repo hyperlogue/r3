@@ -1,6 +1,6 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import { type Locale, localePath, t } from "./i18n.ts";
+import { type Locale, localePath, siteTranslator } from "./i18n.ts";
 import { normalizeBase } from "./render.ts";
 import { validateLinks } from "./validate.ts";
 
@@ -21,6 +21,7 @@ export async function packageArtifact() {
       continue;
     const destination = join(output, file);
     const locale: Locale = file.startsWith("zh-cn/") ? "zh-cn" : "en";
+    const t = siteTranslator(locale);
     await mkdir(dirname(destination), { recursive: true });
     if (!file.endsWith(".html")) {
       await cp(join(source, file), destination);
@@ -44,10 +45,7 @@ export async function packageArtifact() {
               el.setAttribute(attr, target.href);
               el.setAttribute("target", "_blank");
               el.setAttribute("rel", "noopener");
-              el.setAttribute(
-                "title",
-                t("Open the live demo in a separate browser tab", undefined, locale),
-              );
+              el.setAttribute("title", t("common.openTheLiveDemoInASeparate"));
               continue;
             }
             // This example renders Markdown in an opaque child frame, which
@@ -59,7 +57,7 @@ export async function packageArtifact() {
             ) {
               url.pathname = localePath("/docs/files/", locale);
               url.search = "";
-              el.setInnerContent(t("Reviewing documents →", undefined, locale));
+              el.setInnerContent(t("common.reviewingDocuments"));
             }
             if (url.pathname.endsWith("/")) url.pathname += "index.html";
             const path = posix.relative(posix.dirname(file), url.pathname.slice(1));

@@ -4,10 +4,10 @@ import type {
   PreviewCaptureState,
   PreviewDevicePermissions,
 } from "../../../shared/preview-protocol.ts";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
 import type { PreviewVerification } from "../preview-protection.ts";
-import { Trans } from "../translated-text.tsx";
+
 import { Button } from "../ui.tsx";
 import { ArtifactPreviewProtection } from "./ArtifactPreviewProtection.tsx";
 
@@ -32,7 +32,7 @@ export function ArtifactPreviewNetworkControl({
   onStopSharing: () => void;
   onChange: (network: ArtifactPreviewNetwork, devices: PreviewDevicePermissions) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
   const external = network === "external";
   return (
@@ -53,18 +53,21 @@ export function ArtifactPreviewNetworkControl({
       <div className="sr-only">
         <span role="status">
           {verification === "checking"
-            ? t("Checking preview protection…")
+            ? t("previewNetworkControl.checkingPreviewProtection")
             : verification === "error"
-              ? t("Preview not running")
+              ? t("common.previewNotRunning")
               : external
-                ? t("External connections allowed for this version")
+                ? t("previewNetworkControl.externalConnectionsAllowedForThisVersion")
                 : network === "compatible"
-                  ? t("Limited network protection")
-                  : t("External connections blocked")}
+                  ? t("common.limitedNetworkProtection")
+                  : t("common.externalConnectionsBlocked")}
         </span>
         {external && (devices.camera || devices.microphone) && (
           <span className="block text-neutral-600 dark:text-neutral-300">
-            {[devices.camera && t("Camera allowed"), devices.microphone && t("Microphone allowed")]
+            {[
+              devices.camera && t("previewNetworkControl.cameraAllowed"),
+              devices.microphone && t("previewNetworkControl.microphoneAllowed"),
+            ]
               .filter(Boolean)
               .join(" · ")}
           </span>
@@ -73,12 +76,14 @@ export function ArtifactPreviewNetworkControl({
       <div className="flex flex-wrap gap-1">
         {html && (
           <Button onClick={() => setConfirming(true)}>
-            {external ? t("Permissions") : t("Allow external access")}
+            {external
+              ? t("previewNetworkControl.permissions")
+              : t("previewNetworkControl.allowExternalAccess")}
           </Button>
         )}
         {external && (
           <Button onClick={() => onChange("blocked", { camera: false, microphone: false })}>
-            {t("Restore protection")}
+            {t("previewNetworkControl.restoreProtection")}
           </Button>
         )}
       </div>
@@ -91,18 +96,20 @@ export function ArtifactPreviewNetworkControl({
             {capture.phase === "error"
               ? capture.message
               : capture.phase === "requesting"
-                ? t("Waiting for browser device permission…")
+                ? t("previewNetworkControl.waitingForBrowserDevicePermission")
                 : t(
                     capture.camera && capture.microphone
-                      ? "Sharing camera and microphone"
+                      ? "previewNetworkControl.sharingCameraAndMicrophone"
                       : capture.camera
-                        ? "Sharing camera"
-                        : "Sharing microphone",
+                        ? "previewNetworkControl.sharingCamera"
+                        : "previewNetworkControl.sharingMicrophone",
                   )}
           </span>
           {capture.phase !== "error" && (
             <Button onClick={onStopSharing}>
-              {capture.phase === "requesting" ? t("Cancel request") : t("Stop sharing")}
+              {capture.phase === "requesting"
+                ? t("previewNetworkControl.cancelRequest")
+                : t("previewNetworkControl.stopSharing")}
             </Button>
           )}
         </div>
@@ -133,7 +140,7 @@ function NetworkConsent({
   onCancel: () => void;
   onAllow: (devices: PreviewDevicePermissions) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const [selected, setSelected] = useState(devices);
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
@@ -160,35 +167,28 @@ function NetworkConsent({
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 r3-modal backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
       <h2 id={title} className="text-base font-semibold">
-        {external ? t("Artifact permissions") : t("Allow external access?")}
+        {external
+          ? t("previewNetworkControl.artifactPermissions")
+          : t("previewNetworkControl.allowExternalAccess2")}
       </h2>
       <div
         id={description}
         className="mt-3 space-y-3 text-sm text-neutral-600 dark:text-neutral-300"
       >
+        <p>{t("previewNetworkControl.thisPageAndAnyExternalScriptsIt")}</p>
+        <p>{t("previewNetworkControl.r3StaysIsolatedOnlyEnableThisFor")}</p>
         <p>
-          {t(
-            "This page and any external scripts it loads can send its published files, your input, and this artifact’s conversations to external services. Any shared camera or microphone data can also be sent elsewhere.",
-          )}
-        </p>
-        <p>
-          {t(
-            "r3 stays isolated. Only enable this for content you trust. The browser will still ask for device permission when needed.",
-          )}
-        </p>
-        <p>
-          <Trans
-            message="{external_t_Network_access_lasts_for_this} Device choices reset whenever the page navigates. All choices reset when you switch versions or leave the preview. Restoring protection cannot undo data already sent."
-            values={{
-              external_t_Network_access_lasts_for_this: external
-                ? t("Network access lasts for this version.")
-                : t("The preview will reload with network access."),
-            }}
-          />
+          {t("common.deviceChoicesResetWheneverThePageNavigates", {
+            external_t_Network_access_lasts_for_this: external
+              ? t("previewNetworkControl.networkAccessLastsForThisVersion")
+              : t("previewNetworkControl.thePreviewWillReloadWithNetworkAccess"),
+          })}
         </p>
       </div>
       <fieldset className="mt-4 border-t border-neutral-200 pt-2 text-sm dark:border-neutral-700">
-        <legend className="font-medium">{t("Also allow this page to request")}</legend>
+        <legend className="font-medium">
+          {t("previewNetworkControl.alsoAllowThisPageToRequest")}
+        </legend>
         {(["camera", "microphone"] as const).map((kind) => (
           <label
             key={kind}
@@ -202,14 +202,18 @@ function NetworkConsent({
                 setSelected((value) => ({ ...value, [kind]: checked }));
               }}
             />
-            {kind === "camera" ? t("Camera") : t("Microphone")}
+            {kind === "camera" ? t("common.camera") : t("common.microphone")}
           </label>
         ))}
       </fieldset>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <Button onClick={onCancel}>{external ? t("Cancel") : t("Keep protection")}</Button>
+        <Button onClick={onCancel}>
+          {external ? t("common.cancel") : t("previewNetworkControl.keepProtection")}
+        </Button>
         <Button variant="primary" onClick={() => onAllow(selected)}>
-          {external ? t("Save permissions") : t("Allow external access")}
+          {external
+            ? t("previewNetworkControl.savePermissions")
+            : t("previewNetworkControl.allowExternalAccess")}
         </Button>
       </div>
     </dialog>

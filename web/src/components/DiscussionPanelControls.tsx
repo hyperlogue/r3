@@ -1,4 +1,4 @@
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import type { DiscussionPanelMode } from "../settings.ts";
 import { StrokeIcon } from "../ui.tsx";
 
@@ -14,9 +14,12 @@ export function DiscussionPanelControls({
   mode: Exclude<DiscussionPanelMode, "hidden">;
   onChange: (mode: DiscussionPanelMode) => void;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const next = mode === "floating" ? "expanded" : "floating";
-  const label = next === "expanded" ? t("Dock discussion") : t("Float discussion");
+  const label =
+    next === "expanded"
+      ? t("discussionPanelControls.dockDiscussion")
+      : t("discussionPanelControls.floatDiscussion");
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <button
@@ -39,8 +42,8 @@ export function DiscussionPanelControls({
       <button
         type="button"
         disabled={disabled}
-        aria-label={t("Hide discussion")}
-        title={t("Hide discussion (Esc / p)")}
+        aria-label={t("common.hideDiscussion")}
+        title={t("discussionPanelControls.hideDiscussionEscP")}
         onClick={() => onChange("hidden")}
         className={`${control} disabled:opacity-40 disabled:pointer-events-none`}
       >

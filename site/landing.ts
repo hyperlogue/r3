@@ -1,17 +1,21 @@
-import { homeDescription, homeTitleLines, stories } from "./catalog.ts";
+import { getCatalog } from "./catalog.ts";
 import { featureHighlights } from "./features.ts";
-import { commonPrompt, commonResponse, promptExamples } from "./prompt-examples.ts";
+import { h, type Locale } from "./i18n.ts";
+import { getPromptExamples } from "./prompt-examples.ts";
+import { escapeHTML } from "./render.ts";
+import { richText } from "./rich-text.tsx";
 import { storyIllustration } from "./story-illustrations.ts";
 
-export function storyCards() {
+export function storyCards(locale: Locale = "en") {
+  const { stories } = getCatalog(locale);
   return stories
     .map(
       (story) =>
         `<a class="story-card story-${story.slug}" href="/use-cases/${story.slug}/">
-${storyIllustration(story.slug)}
-<h3>${story.category}</h3>
-<p class="story-subtitle">${story.title}</p>
-<p class="story-description">${story.description}</p>
+${storyIllustration(story.slug, locale)}
+<h3>${escapeHTML(story.category)}</h3>
+<p class="story-subtitle">${escapeHTML(story.title)}</p>
+<p class="story-description">${escapeHTML(story.description)}</p>
 </a>`,
     )
     .join("");
@@ -35,23 +39,24 @@ ${icon('<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx=
 </div>`;
 }
 
-export function workflowExample() {
+export function workflowExample(locale: Locale = "en") {
+  const { promptExamples } = getPromptExamples(locale);
   return `<figure class="workflow-figure container" id="fieldwork-workspace">
 <div class="browser-frame">
-${browserBar("<span data-workspace-label>UI Prototype</span>")}
+${browserBar(`<span data-workspace-label>${escapeHTML(promptExamples[0].label)}</span>`)}
 <div class="workspace-example" data-workspace-example>
 ${promptExamples
   .map(
     (
-      { scene, label },
+      { scene, screenshotDescription, mobileScreenshotDescription },
       index,
     ) => `<div class="workspace-fallback" data-workspace-scene="${scene}" ${index ? "hidden" : ""}>
 ${["light", "dark"]
   .map((theme) => {
     const prefix = scene === "prototype" ? "fieldwork" : `fieldwork-${scene}`;
     return `<div class="workspace-${theme}">
-<img class="workspace-desktop" src="/assets/${prefix}-${theme}.png" width="1240" height="740" loading="lazy" alt="${label} in the real r3 workspace, with the agent’s revision and a linked feedback thread.">
-<img class="workspace-mobile" src="/assets/${prefix}-mobile-${theme}.png" width="390" height="740" loading="lazy" alt="${label} in the real r3 phone layout.">
+<img class="workspace-desktop" src="/assets/${prefix}-${theme}.png" width="1240" height="740" loading="lazy" alt="${escapeHTML(screenshotDescription)}">
+<img class="workspace-mobile" src="/assets/${prefix}-mobile-${theme}.png" width="390" height="740" loading="lazy" alt="${escapeHTML(mobileScreenshotDescription)}">
 </div>`;
   })
   .join("")}
@@ -60,131 +65,133 @@ ${["light", "dark"]
   .join("")}
 </div>
 </div>
-<figcaption><a class="button workspace-demo" href="/example/index.html?scene=prototype">Try the demo →</a></figcaption>
+<figcaption><a class="button workspace-demo" href="/example/index.html?scene=prototype">${h("landing.tryTheDemo", locale)}</a></figcaption>
 </figure>`;
 }
 
-export function home() {
+export function home(locale: Locale = "en") {
+  const { homeDescription, homeTitleLines } = getCatalog(locale);
   return `<div data-pagefind-body>
 <section class="home-hero" id="intro">
 <div class="container container-wide hero-grid">
 <div class="hero-copy">
-<h1 data-pagefind-meta="title">${homeTitleLines.map((line) => `<span class="hero-title-line">${line}</span>`).join(" ")}</h1>
-<p class="hero-description">${homeDescription}</p>
+<h1 data-pagefind-meta="title">${homeTitleLines.map((line) => `<span class="hero-title-line">${escapeHTML(line)}</span>`).join(" ")}</h1>
+<p class="hero-description">${escapeHTML(homeDescription)}</p>
 </div>
-${reviewDetail()}
+${reviewDetail(locale)}
 </div>
 <div class="container">
-${promptDemo()}
-</div>${workflowExample()}
+${promptDemo(locale)}
+</div>${workflowExample(locale)}
 <div class="container">
-${skillInstall("skill-install")}
+${skillInstall("skill-install", locale)}
 </div></section>
-${featureHighlights()}
+${featureHighlights(locale)}
 <section class="possibilities-section" id="use-cases" aria-labelledby="use-cases-heading">
 <div class="container">
 <div class="section-heading">
 <div>
-<h2 id="use-cases-heading">See the iteration loop in action</h2>
+<h2 id="use-cases-heading">${h("landing.seeTheIterationLoopInAction", locale)}</h2>
 </div>
-<a class="text-link" href="/use-cases/">Explore all use cases →</a>
+<a class="text-link" href="/use-cases/">${h("landing.exploreAllUseCases", locale)}</a>
 </div>
-<div class="story-grid home-stories">${storyCards()}</div>
+<div class="story-grid home-stories">${storyCards(locale)}</div>
 </div>
 </section>
 <section class="start-section container" aria-labelledby="start-heading">
 <img src="/assets/favicon.svg" width="56" height="56" alt="">
-<p class="eyebrow">Start iterating visually with your agent</p>
-<h2 id="start-heading">${homeTitleLines.map((line) => `<span class="hero-title-line">${line}</span>`).join(" ")}</h2>
-${skillInstall("start-install")}
+<p class="eyebrow">${h("landing.startIteratingVisuallyWithYourAgent", locale)}</p>
+<h2 id="start-heading">${homeTitleLines.map((line) => `<span class="hero-title-line">${escapeHTML(line)}</span>`).join(" ")}</h2>
+${skillInstall("start-install", locale)}
 </section>
 </div>`;
 }
 
-function skillInstall(id: string) {
+function skillInstall(id: string, locale: Locale) {
   return `<div class="install-block" id="${id}">
-<h2 class="install-label">Install the skill to try it with your agent</h2>
+<h2 class="install-label">${h("landing.installTheSkillToTryItWith", locale)}</h2>
 <pre class="install-command"><code><span class="command-runner">npx</span> skills add <span class="command-package">hyperlogue/r3</span> <span class="command-flag">--skill</span> <span class="command-skill">publish-artifacts-to-r3</span> <span class="command-flag">--global</span></code></pre>
-<p class="install-alternative"><a href="/docs/get-started/#other-installation-methods">Other ways to install →</a></p>
+<p class="install-alternative"><a href="/docs/get-started/#other-installation-methods">${h("landing.otherWaysToInstall", locale)}</a></p>
 </div>`;
 }
 
-function reviewDetail() {
+function reviewDetail(locale: Locale = "en") {
   return `<figure class="hero-review" id="review-detail">
 <div class="browser-frame hero-browser">
-${browserBar("UI component showcase")}
+${browserBar(h("common.uiComponentShowcase", locale))}
 <div class="hero-review-crop">
-${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="820" height="540" alt="The r3 navbar above a highlighted button and its review thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.">`).join("")}
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="820" height="540" alt="${h("landing.theR3NavbarAboveAHighlightedButton", locale)}">`).join("")}
 </div>
 </div>
 </figure>`;
 }
 
-function promptDemo() {
+function promptDemo(locale: Locale = "en") {
+  const { commonPrompt, commonResponse, promptExamples } = getPromptExamples(locale);
   const first = promptExamples[0];
   return `<section class="prompt-example" id="agent-prompt" aria-labelledby="prompt-heading" data-prompt-demo>
-<h3 id="prompt-heading">Ask your agent to make something.</h3>
+<h3 id="prompt-heading">${h("landing.askYourAgentToMakeSomething", locale)}</h3>
 <div class="claude-terminal">
 <div class="claude-session">
 <div class="prompt-scene" data-prompt-scene>
-<div class="claude-prompt"><span aria-hidden="true">❯</span><div><p class="prompt-words"><span data-prompt-variable data-prompt-text>${first.prompt}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.prompt}</span>`).join("")}</p><p class="prompt-common" data-prompt-common>${commonPrompt}</p></div></div>
-<div class="claude-response"><span aria-hidden="true">●</span><div><p class="prompt-words"><span data-prompt-variable data-prompt-response>${first.response}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${example.response}</span>`).join("")}</p><p class="prompt-common" data-prompt-common>${commonResponse}</p></div></div>
+<div class="claude-prompt"><span aria-hidden="true">❯</span><div><p class="prompt-words"><span data-prompt-variable data-prompt-text>${escapeHTML(first.prompt)}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${escapeHTML(example.prompt)}</span>`).join("")}</p><p class="prompt-common" data-prompt-common>${escapeHTML(commonPrompt)}</p></div></div>
+<div class="claude-response"><span aria-hidden="true">●</span><div><p class="prompt-words"><span data-prompt-variable data-prompt-response>${escapeHTML(first.response)}</span>${promptExamples.map((example) => `<span class="prompt-measure" aria-hidden="true" data-pagefind-ignore>${escapeHTML(example.response)}</span>`).join("")}</p><p class="prompt-common" data-prompt-common>${escapeHTML(commonResponse)}</p></div></div>
 </div>
 </div>
 </div>
-<div class="prompt-controls js-control" role="group" aria-label="Example prompts">
-<div>${promptExamples.map((example, index) => `<button type="button" data-prompt-choice="${index}" aria-pressed="${index === 0}">${example.label}</button>`).join("")}</div>
-<button class="prompt-play" type="button" data-prompt-play aria-label="Pause prompt animation" title="Pause animation"><svg class="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg><svg class="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7 4 14 8-14 8z"/></svg></button>
+<div class="prompt-controls js-control" role="group" aria-label="${h("landing.examplePrompts", locale)}">
+<div>${promptExamples.map((example, index) => `<button type="button" data-prompt-choice="${index}" aria-pressed="${index === 0}">${escapeHTML(example.label)}</button>`).join("")}</div>
+<button class="prompt-play" type="button" data-prompt-play aria-label="${h("common.pausePromptAnimation", locale)}" title="${h("common.pauseAnimation", locale)}"><svg class="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg><svg class="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7 4 14 8-14 8z"/></svg></button>
 </div>
 </section>`;
 }
 
-export function useCases() {
+export function useCases(locale: Locale = "en") {
   return `<div data-pagefind-body>
 <header class="index-hero container">
-<h1 data-pagefind-meta="title">One project.<br>
-<em>Five real-world iterations.</em>
+<h1 data-pagefind-meta="title">${h("landing.oneProject", locale)}<br>
+<em>${h("landing.fiveRealWorldIterations", locale)}</em>
 </h1>
-<p class="lede">Follow Example Fieldwork—a fictional project-planning app—from early prototype to launch. Five concrete walkthroughs show how to explore, comment, and iterate with your agent.</p>
+<p class="lede">${h("landing.followExampleFieldworkAFictionalProjectPlanning", locale)}</p>
 </header>
 <div class="container">
-<div class="story-grid case-grid">${storyCards()}</div>
+<div class="story-grid case-grid">${storyCards(locale)}</div>
 <aside class="note-banner">
-<strong>Read it. Then try it with your agent.</strong>
-<p>Each walkthrough includes a starting prompt, what to inspect, example feedback, and a way to check the revision. The separate <a href="/demo/">live demo</a> uses a curve lab and code review with scripted agent replies.</p>
+<strong>${h("landing.readItThenTryItWithYour", locale)}</strong>
+<p>${h("landing.eachWalkthroughIncludesAStartingPromptWhat", locale)} <a href="/demo/">${h("landing.liveDemo", locale)}</a> ${h("landing.usesACurveLabAndCodeReview", locale)}</p>
 </aside>
 </div>
 <section class="container story-principle">
-<p class="eyebrow">A useful pattern to borrow</p>
-<h2>Point to evidence.<br>Ask for a concrete change.</h2>
-<p>“Make this better” starts another round of guessing. “Explain who can see this project before I create it” gives your agent a target and a test.</p>
-<a class="text-link" href="/docs/feedback/">Learn to give precise feedback →</a>
+<p class="eyebrow">${h("landing.aUsefulPatternToBorrow", locale)}</p>
+<h2>${h("landing.pointToEvidence", locale)}<br>${h("landing.askForAConcreteChange", locale)}</h2>
+<p>${h("landing.makeThisBetterStartsAnotherRoundOf", locale)}</p>
+<a class="text-link" href="/docs/feedback/">${h("landing.learnToGivePreciseFeedback", locale)}</a>
 </section>
 </div>`;
 }
 
-export function searchPage() {
+export function searchPage(locale: Locale = "en") {
   return `<section class="search-page container">
-<p class="eyebrow">Find your next step</p>
-<h1>Search the docs.</h1>
+<p class="eyebrow">${h("landing.findYourNextStep", locale)}</p>
+<h1>${h("landing.searchTheDocs", locale)}</h1>
 <form action="/search/" role="search" id="search-form">
-<label for="search-input">Search features, workflows, and commands</label>
+<label for="search-input">${h("landing.searchFeaturesWorkflowsAndCommands", locale)}</label>
 <div class="search-field">
-<input id="search-input" type="search" name="q" placeholder="Try “feedback”, “video”, or “publish”…" autocomplete="off">
-<button class="button primary" type="submit">Search</button>
+<input id="search-input" type="search" name="q" placeholder="${h("landing.tryFeedbackVideoOrPublish", locale)}" autocomplete="off">
+<button class="button primary" type="submit">${h("navigation.groups.search", locale)}</button>
 </div>
 </form>
-<p id="search-status" role="status" aria-live="polite">Search runs in your browser. No queries are sent to an analytics service.</p>
+<p id="search-status" role="status" aria-live="polite">${h("landing.searchRunsInYourBrowserNoQueries", locale)}</p>
 <ol id="search-results" class="search-results">
 </ol>
 <noscript>
-<p>Search needs JavaScript. You can browse the complete <a href="/docs/">documentation directory</a> or <a href="/llms-full.txt">read all docs as text</a>.</p>
+<p>${richText("landing.pSearchNeedsJavascriptYouCanBrowse", locale, { docs: "/docs/", text: "/llms-full.txt" })}</p>
 </noscript>
 <div class="search-suggestions">
-<span>Good places to start</span>
-<a href="/docs/get-started/">Get started →</a>
-<a href="/docs/feedback/">Precise feedback →</a>
-<a href="/docs/agents/">Agent workflow →</a>
+<span>${h("landing.goodPlacesToStart", locale)}</span>
+<a href="/docs/get-started/">${h("landing.getStarted", locale)}</a>
+<a href="/docs/feedback/">${h("landing.preciseFeedback", locale)}</a>
+<a href="/docs/agents/">${h("landing.agentWorkflow", locale)}</a>
 </div>
 </section>`;
 }

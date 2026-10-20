@@ -1,9 +1,9 @@
 import { memo, useMemo, useState } from "react";
 import { readDisplayPreference, writeDisplayPreference } from "../display-storage.ts";
 import { compareFilePaths } from "../file-order.ts";
-import { t, useLocale } from "../i18n.ts";
+import { useTranslation } from "../i18n.ts";
 import { useFontSize } from "../settings.ts";
-import { Trans } from "../translated-text.tsx";
+
 import { Collapse, cn, FoldChevrons, FoldTriangle, useResizableWidth } from "../ui.tsx";
 
 // Directory-tree file list for the current review.
@@ -185,7 +185,7 @@ export const FileBrowser = memo(function FileBrowser({
   onSelect: (path: string) => void;
   defaultCollapsed?: boolean;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const fontSize = useFontSize();
   const resize = useResizableWidth("r3-filebrowser-width", {
     min: 180,
@@ -213,7 +213,7 @@ export const FileBrowser = memo(function FileBrowser({
   // inside it at fixed widths, clipped while the panel slides.
   return (
     <aside
-      aria-label={t("Files")}
+      aria-label={t("common.files")}
       style={{ width: collapsed ? undefined : resize.width }}
       className={cn(
         "relative flex shrink-0 flex-col overflow-hidden border-r border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950",
@@ -225,12 +225,12 @@ export const FileBrowser = memo(function FileBrowser({
         <button
           type="button"
           onClick={() => setCollapsedPersist(false)}
-          title={t("Show files")}
+          title={t("fileBrowser.showFiles")}
           className="flex min-h-0 w-8 flex-1 flex-col items-center gap-2 py-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
         >
           <FoldChevrons dir="right" />
           <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-neutral-400 [writing-mode:vertical-rl]">
-            <Trans message="Files · {files_length}" values={{ files_length: files.length }} />
+            {t("common.files2", { files_length: files.length })}
           </span>
         </button>
       ) : (
@@ -243,18 +243,16 @@ export const FileBrowser = memo(function FileBrowser({
               <button
                 type="button"
                 onClick={() => setCollapsedPersist(true)}
-                title={t("Hide files")}
+                title={t("fileBrowser.hideFiles")}
                 className="flex text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
               >
                 <FoldChevrons dir="left" />
               </button>
-              <span className="truncate">
-                <Trans message="Files · {files_length}" values={{ files_length: files.length }} />
-              </span>
+              <span className="truncate">{t("common.files2", { files_length: files.length })}</span>
             </div>
             {viewedCount > 0 && (
               <span className="shrink-0 text-success-600 dark:text-success-400">
-                {viewedCount}/{files.length} {t("viewed")}
+                {viewedCount}/{files.length} {t("fileBrowser.viewed")}
               </span>
             )}
           </div>
@@ -279,13 +277,13 @@ export const FileBrowser = memo(function FileBrowser({
         // biome-ignore lint/a11y/useSemanticElements: a focusable window splitter exposes a changing width, rather than a document separator.
         <div
           role="separator"
-          aria-label={t("Resize file panel")}
+          aria-label={t("fileBrowser.resizeFilePanel")}
           aria-orientation="vertical"
           aria-valuemin={180}
           aria-valuemax={480}
           aria-valuenow={Math.round(resize.width ?? 14 * fontSize)}
           tabIndex={0}
-          title={t("Drag to resize files; double-click to reset")}
+          title={t("fileBrowser.dragToResizeFilesDoubleClickTo")}
           onPointerDown={resize.onPointerDown}
           onDoubleClick={resize.onDoubleClick}
           onKeyDown={resize.onKeyDown}

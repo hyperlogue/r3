@@ -9,7 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ATTACHMENT_LIMITS } from "../../../shared/attachments.ts";
-import { t, useLocale } from "../i18n.ts";
+import { type AppMessageKey, t as translateNow, useTranslation } from "../i18n.ts";
 import {
   drawImageAnnotations,
   emptyImageHistory,
@@ -23,7 +23,7 @@ import {
 } from "../image-edit.ts";
 import { type ImageOutput, renderImageOutput } from "../image-output.ts";
 import { suspendKeys } from "../keys.ts";
-import { Trans } from "../translated-text.tsx";
+
 import { Button } from "../ui.tsx";
 import { ImageOptimization } from "./ImageOptimization.tsx";
 
@@ -34,11 +34,11 @@ type Gesture = {
   color: string;
   width: number;
 };
-const tools: { id: ImageTool; label: string }[] = [
-  { id: "crop", label: "Crop" },
-  { id: "pen", label: "Pen" },
-  { id: "arrow", label: "Arrow" },
-  { id: "rectangle", label: "Rectangle" },
+const tools: { id: ImageTool; label: AppMessageKey }[] = [
+  { id: "crop", label: "common.crop" },
+  { id: "pen", label: "common.pen" },
+  { id: "arrow", label: "common.arrow" },
+  { id: "rectangle", label: "common.rectangle" },
 ];
 
 export function ImageEditor({
@@ -52,7 +52,7 @@ export function ImageEditor({
   onCancel: () => void;
   onSave: (output: ImageOutput, crop: ImageCrop) => Promise<void>;
 }) {
-  useLocale();
+  const { t } = useTranslation();
   const dialog = useRef<HTMLDialogElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const bitmap = useRef<ImageBitmap | null>(null);
@@ -104,14 +104,14 @@ export function ImageEditor({
           image.width * image.height > ATTACHMENT_LIMITS.pixels
         ) {
           image.close();
-          setError(t("Images must be at most 20 megapixels"));
+          setError(translateNow("common.imagesMustBeAtMost20Megapixels"));
           return;
         }
         bitmap.current = image;
         setSize({ width: image.width, height: image.height });
       })
       .catch(() => {
-        if (current) setError(t("Unable to open this image"));
+        if (current) setError(translateNow("imageEditor.unableToOpenThisImage"));
       });
     return () => {
       current = false;
@@ -195,7 +195,7 @@ export function ImageEditor({
       }
       await onSave(result, area);
     } catch (error) {
-      setError(error instanceof Error ? error.message : t("Unable to save image"));
+      setError(error instanceof Error ? error.message : t("imageEditor.unableToSaveImage"));
       setSaving(false);
     }
   };
@@ -232,7 +232,7 @@ export function ImageEditor({
       className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-5xl overflow-auto rounded-xl border border-neutral-300 bg-white p-4 text-neutral-900 r3-modal backdrop:bg-black/50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
     >
       <h2 id={title} className="mb-3 text-sm font-semibold">
-        {optimizing ? t("Optimize image") : t("Edit image")}
+        {optimizing ? t("imageEditor.optimizeImage") : t("common.editImage")}
       </h2>
       <div className={optimizing ? "hidden" : undefined}>
         <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
@@ -240,30 +240,30 @@ export function ImageEditor({
             <Button
               type="button"
               disabled={busy || !history.past.length}
-              title={t("Undo (Ctrl/⌘ Z)")}
+              title={t("imageEditor.undoCtrlZ")}
               onClick={() => dispatch({ type: "undo" })}
             >
-              {t("Undo")}
+              {t("imageEditor.undo")}
             </Button>
             <Button
               type="button"
               disabled={busy || !history.future.length}
-              title={t("Redo (Ctrl/⌘ Shift Z)")}
+              title={t("imageEditor.redoCtrlShiftZ")}
               onClick={() => dispatch({ type: "redo" })}
             >
-              {t("Redo")}
+              {t("imageEditor.redo")}
             </Button>
             <Button
               type="button"
               disabled={busy || !present.drawings.length}
               onClick={() => edit({ ...present, drawings: [] })}
             >
-              {t("Clear drawings")}
+              {t("imageEditor.clearDrawings")}
             </Button>
           </div>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-3 border-y border-neutral-200 py-2 dark:border-neutral-800">
-          <fieldset aria-label={t("Image tools")} className="flex flex-wrap gap-1">
+          <fieldset aria-label={t("imageEditor.imageTools")} className="flex flex-wrap gap-1">
             {tools.map((item) => (
               <Button
                 type="button"
@@ -281,10 +281,10 @@ export function ImageEditor({
             ))}
           </fieldset>
           <label className="flex items-center gap-2 text-xs text-neutral-500">
-            {t("Color")}
+            {t("imageEditor.color")}
             <input
               type="color"
-              aria-label={t("Drawing color")}
+              aria-label={t("imageEditor.drawingColor")}
               value={color}
               disabled={busy}
               onChange={(event) => setColor(event.target.value)}
@@ -292,9 +292,9 @@ export function ImageEditor({
             />
           </label>
           <label className="flex items-center gap-2 text-xs text-neutral-500">
-            {t("Stroke")}
+            {t("imageEditor.stroke")}
             <select
-              aria-label={t("Stroke width")}
+              aria-label={t("imageEditor.strokeWidth")}
               value={width}
               disabled={busy}
               onChange={(event) => setWidth(Number(event.target.value))}
@@ -302,7 +302,7 @@ export function ImageEditor({
             >
               {[2, 4, 8, 12].map((value) => (
                 <option key={value} value={value}>
-                  <Trans message="{value}px" values={{ value: value }} />
+                  {t("common.px", { value: value })}
                 </option>
               ))}
             </select>
@@ -310,20 +310,20 @@ export function ImageEditor({
         </div>
         <p id={instructions} className="mb-3 text-xs text-neutral-500">
           {tool === "crop"
-            ? t("Drag to select an area, or enter its position and size below.")
+            ? t("imageEditor.dragToSelectAnAreaOrEnter")
             : t(
                 tool === "pen"
-                  ? "Drag to draw freely. Drawings are included when you use the image."
+                  ? "imageEditor.dragToDrawFreelyDrawingsAreIncluded"
                   : tool === "arrow"
-                    ? "Drag to point to a detail. Drawings are included when you use the image."
-                    : "Drag to outline an area. Drawings are included when you use the image.",
+                    ? "imageEditor.dragToPointToADetailDrawings"
+                    : "imageEditor.dragToOutlineAnAreaDrawingsAre",
               )}
         </p>
         <canvas
           ref={canvas}
           width={size.width}
           height={size.height}
-          aria-label={t("Image editing area")}
+          aria-label={t("imageEditor.imageEditingArea")}
           tabIndex={0}
           className="mx-auto block max-h-[55dvh] max-w-full touch-none cursor-crosshair border border-neutral-300 object-contain dark:border-neutral-700"
           onPointerDown={(event) => {
@@ -363,7 +363,7 @@ export function ImageEditor({
               <label key={key} className="text-xs text-neutral-500">
                 {key}
                 <input
-                  aria-label={t("Crop {key}", { key: key })}
+                  aria-label={t("imageEditor.crop", { key: key })}
                   type="number"
                   min={key === "x" || key === "y" ? 0 : 1}
                   max={key === "x" || key === "width" ? size.width : size.height}
@@ -389,7 +389,7 @@ export function ImageEditor({
               disabled={saving || !present.crop}
               onClick={() => edit({ ...present, crop: null })}
             >
-              {t("Use whole image")}
+              {t("imageEditor.useWholeImage")}
             </Button>
           </div>
         )}
@@ -413,16 +413,16 @@ export function ImageEditor({
       )}
       <div className="mt-4 flex justify-end gap-2">
         <Button type="button" disabled={saving} onClick={onCancel}>
-          {t("Cancel")}
+          {t("common.cancel")}
         </Button>
         {!optimizing && (
           <Button type="button" disabled={busy || !!gesture} onClick={() => setOptimizing(true)}>
-            {t("Optimize image")}
+            {t("imageEditor.optimizeImage")}
           </Button>
         )}
         {!optimizing && (
           <Button variant="primary" disabled={busy || !!gesture} onClick={() => void save()}>
-            {saving ? t("Saving…") : t("Use image")}
+            {saving ? t("common.saving") : t("imageEditor.useImage")}
           </Button>
         )}
       </div>
