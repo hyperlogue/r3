@@ -1,14 +1,17 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Trans } from "react-i18next";
 import { LOGIN_NOTICE } from "../api.ts";
+import { copyText } from "../clipboard.ts";
 import { readDisplayPreference, writeDisplayPreference } from "../display-storage.ts";
 import { appI18n, getLocale, useTranslation } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
-import { Button, StrokeIcon } from "../ui.tsx";
+import { Button, StrokeIcon, useCopyFlash } from "../ui.tsx";
 
 // Seen once per browser and application origin; storage failure only repeats it.
 const storageKey = "r3-login-disabled-notice";
 const DOCS = "https://hyperlogue.github.io/r3";
+const COMMANDS =
+  "r3 config set requireLogin true\nr3 server restart\nr3 auth create-token --label browser";
 
 export function LoginDisabledNotice() {
   const [open, setOpen] = useState(
@@ -27,6 +30,7 @@ export function LoginDisabledNotice() {
 
 function LoginDisabledDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  const { copied, flash } = useCopyFlash();
   const dialog = useRef<HTMLDialogElement>(null);
   const dismiss = useRef<HTMLButtonElement>(null);
   const title = useId();
@@ -55,22 +59,13 @@ function LoginDisabledDialog({ onClose }: { onClose: () => void }) {
       }}
       className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-auto rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 r3-modal backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
-      <h2 id={title} className="flex items-center gap-2.5 text-lg font-semibold">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-100 text-warning-700 dark:bg-warning-400/15 dark:text-warning-400">
-          <StrokeIcon className="size-5">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-          </StrokeIcon>
-        </span>
-        <span>
-          <Trans
-            i18n={appI18n}
-            ns="app"
-            i18nKey="loginDisabledNotice.title"
-            components={{ em: <em className="text-warning-700 dark:text-warning-400" /> }}
-          />
-        </span>
+      <h2 id={title} className="text-lg font-semibold">
+        <Trans
+          i18n={appI18n}
+          ns="app"
+          i18nKey="loginDisabledNotice.title"
+          components={{ em: <em className="text-warning-700 dark:text-warning-400" /> }}
+        />
       </h2>
       <div
         id={description}
@@ -78,11 +73,33 @@ function LoginDisabledDialog({ onClose }: { onClose: () => void }) {
       >
         <p>{t("loginDisabledNotice.risk")}</p>
         <p>{t("loginDisabledNotice.enable")}</p>
-        <pre className="whitespace-pre-wrap rounded bg-neutral-100 p-2 font-mono text-xs dark:bg-neutral-800">
-          {
-            "r3 config set requireLogin true\nr3 server restart\nr3 auth create-token --label browser"
-          }
-        </pre>
+        <div className="flex items-start gap-2 rounded bg-neutral-100 p-2 dark:bg-neutral-800">
+          <pre className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-xs leading-5">
+            {COMMANDS}
+          </pre>
+          <Button
+            variant="ghost"
+            aria-label={copied ? t("common.commandCopied") : t("loginDisabledNotice.copyCommands")}
+            title={copied ? t("common.copied") : t("loginDisabledNotice.copyCommands")}
+            onClick={async () => {
+              if (await copyText(COMMANDS)) flash();
+            }}
+          >
+            <StrokeIcon className="size-3.5">
+              {copied ? (
+                <path d="m5 12 4 4L19 6" />
+              ) : (
+                <>
+                  <rect x="9" y="9" width="12" height="12" rx="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </>
+              )}
+            </StrokeIcon>
+          </Button>
+        </div>
+        <span role="status" className="sr-only">
+          {copied ? t("common.commandCopied") : ""}
+        </span>
         <p>{t("loginDisabledNotice.signIn")}</p>
         <p>
           <a
