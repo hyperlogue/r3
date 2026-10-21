@@ -899,7 +899,7 @@
     "thatLoginTokenIsInvalidOrHas": "该登录令牌无效或已被撤销。"
   },
   "loginDisabledNotice": {
-    "title": "此本地 r3 服务器未启用登录",
+    "title": "此本地 r3 服务器<em>未受保护</em>",
     "risk": "它仅监听本机，但本机上的任何程序或用户都能读取你的 Artifact 并向智能体发送消息。ssh -L 等隧道会进一步暴露它。",
     "enable": "要启用登录，请运行：",
     "signIn": "然后在登录页粘贴打印出的令牌。",

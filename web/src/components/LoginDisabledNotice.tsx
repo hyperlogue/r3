@@ -1,7 +1,8 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Trans } from "react-i18next";
 import { LOGIN_DISABLED } from "../api.ts";
 import { readDisplayPreference, writeDisplayPreference } from "../display-storage.ts";
-import { getLocale, useTranslation } from "../i18n.ts";
+import { appI18n, getLocale, useTranslation } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
 import { Button, StrokeIcon } from "../ui.tsx";
 
@@ -62,7 +63,14 @@ function LoginDisabledDialog({ onClose }: { onClose: () => void }) {
             <path d="M12 17h.01" />
           </StrokeIcon>
         </span>
-        {t("loginDisabledNotice.title")}
+        <span>
+          <Trans
+            i18n={appI18n}
+            ns="app"
+            i18nKey="loginDisabledNotice.title"
+            components={{ em: <em className="text-warning-700 dark:text-warning-400" /> }}
+          />
+        </span>
       </h2>
       <div
         id={description}

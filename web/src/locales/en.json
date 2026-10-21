@@ -899,7 +899,7 @@
     "thatLoginTokenIsInvalidOrHas": "That login token is invalid or has been revoked."
   },
   "loginDisabledNotice": {
-    "title": "Login is off on this local r3 server",
+    "title": "This local r3 server is <em>unprotected</em>",
     "risk": "It listens only on this computer, but any program or user here can read your artifacts and message your agents. A tunnel such as ssh -L exposes it further.",
     "enable": "To require login, run:",
     "signIn": "Then paste the printed token on the sign-in page.",
