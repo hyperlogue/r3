@@ -253,6 +253,66 @@ kbd {
   background: var(--soft);
   color: var(--text);
 }
+.language-menu {
+  position: relative;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.language-menu summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--muted);
+  list-style: none;
+}
+.language-menu summary::-webkit-details-marker {
+  display: none;
+}
+.language-menu summary:hover,
+.language-menu[open] summary {
+  background: var(--soft);
+  color: var(--text);
+}
+.language-menu:where([open]) svg {
+  transform: rotate(180deg);
+}
+.language-menu nav {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--r3-overlay-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.language-menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 40px;
+  padding: 8px 12px;
+  color: var(--muted);
+}
+.language-menu a:hover,
+.language-menu a:focus-visible {
+  background: var(--soft);
+  color: var(--text);
+}
+.language-menu a[aria-current="true"] {
+  color: var(--text);
+  font-weight: 500;
+}
+.language-menu a[aria-current="true"]::after {
+  content: "✓";
+  color: var(--accent);
+}
+
 .theme-sun,
 :root[data-theme="dark"] .theme-moon {
   display: none;
@@ -1856,19 +1916,6 @@ figcaption {
 }
 .visual-story .article-tools {
   margin-top: 30px;
-}
-
-.language-menu {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-.language-menu a[aria-current="true"] {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
 }
 
 @media (max-width: 700px) {

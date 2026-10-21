@@ -34,6 +34,16 @@ for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-locale]")
   });
 }
 
+const languageMenu = document.querySelector<HTMLDetailsElement>(".language-menu");
+document.addEventListener("click", (event) => {
+  if (languageMenu?.open && event.target instanceof Node && !languageMenu.contains(event.target))
+    languageMenu.open = false;
+});
+languageMenu?.addEventListener("focusout", (event) => {
+  if (event.relatedTarget instanceof Node && !languageMenu.contains(event.relatedTarget))
+    languageMenu.open = false;
+});
+
 function retainArtifactTheme() {
   if (!artifact) return;
   for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href]")) {
@@ -194,10 +204,12 @@ document.addEventListener("keydown", (event) => {
     else location.href = siteURL("search/");
   }
   if (event.key === "Escape")
-    document.querySelectorAll<HTMLDetailsElement>(".mobile-menu[open]").forEach((menu) => {
-      menu.open = false;
-      menu.querySelector("summary")?.focus();
-    });
+    document
+      .querySelectorAll<HTMLDetailsElement>(".mobile-menu[open], .language-menu[open]")
+      .forEach((menu) => {
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      });
 });
 
 type SearchResult = { url: string; meta: { title?: string }; excerpt: string };

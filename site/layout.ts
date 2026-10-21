@@ -109,7 +109,12 @@ ${locales.map((item) => `<link rel="alternate" hreflang="${languageTags[item]}" 
 </div>
 <nav class="desktop-nav" aria-label="${h("layout.mainNavigation", locale)}">${links}</nav>
 <div class="header-actions">
-<nav class="language-menu" aria-label="${h("navigation.language", locale)}">${languageLinks}</nav>
+<details class="language-menu">
+<summary aria-label="${h("navigation.language", locale)}: ${localeNames[locale]}">${localeNames[locale]}
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</summary>
+<nav aria-label="${h("navigation.language", locale)}">${languageLinks}</nav>
+</details>
 <a class="search-link" href="/search/" aria-label="${h("layout.searchDocumentation", locale)}">
 <span aria-hidden="true">
 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">

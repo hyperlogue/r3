@@ -123,8 +123,10 @@ stable slug IDs with duplicate suffixes. Keep hand-authored HTML IDs unique.
 Use repository-relative paths and fictional example data in content.
 
 English pages keep their existing URLs. Simplified Chinese pages live under
-`/zh-cn/`, with explicit i18next message keys and translated Markdown. The header switches
-the equivalent page; search and Markdown downloads stay in that language.
+`/zh-cn/`, with explicit i18next message keys and translated Markdown. The header's
+language dropdown shows the current language and switches to the equivalent page;
+phone layouts keep the language choices in the navigation menu. Search and Markdown
+downloads stay in that language.
 Chinese text lives in `site/locales/zh-cn.json` and `site/locales/zh-cn/`.
 Screenshots and videos still use the original shared recordings.
 
