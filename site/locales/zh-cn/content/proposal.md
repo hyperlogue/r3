@@ -1,23 +1,23 @@
-A proposal becomes easier to review when the decision and its supporting evidence are in one place. This onboarding proposal asks new users to invite teammates before they have experienced anything useful themselves.
+当决策与其支撑依据齐聚一处时，提案会更容易评审。这份新人上手提案要求新用户在亲自体验到任何实用价值之前，先邀请团队成员。
 
-## Read the proposal
+## 阅读提案
 
-Open the rendered Markdown and scan the first-session sequence. The file list keeps the supporting research nearby, so you can check what happened in user sessions while evaluating the proposed flow.
+打开已渲染的 Markdown 并浏览首次会话流程。文件列表将配套支撑研究置于手边，让你在评估提议流程时能够随时对照用户会话中发生的情况。
 
 <!-- visual: story-proposal-start -->
 
-## Challenge a step
+## 质疑特定步骤
 
-Point to the sequence and ask for a first win without involving anyone else. That gives the agent a clear revision to make: move invitations after the user has something worth sharing.
+指出该流程并要求在无需拉入任何其他人的情况下先获得初步成果。这为智能体指明了清晰的修改方向：将邀请步骤移到用户拥有值得分享的内容之后。
 
 <!-- visual: story-proposal-feedback -->
 
-## Inspect the revision
+## 检查修订版本
 
-Follow the agent’s fix link to the new version. Project creation, a first milestone, and a useful dashboard now come before invitations. The original proposal and discussion remain available if you need to revisit the reasoning.
+跟随智能体的修复链接前往新版本。项目创建、首个里程碑和实用的仪表盘现在排在邀请之前。如果需要回溯思考过程，原始提案和讨论仍可随时查阅。
 
 <!-- visual: story-proposal-result -->
 
-[Try this example →](/example/index.html?scene=proposal)
+[体验此示例 →](/example/index.html?scene=proposal)
 
-Real r3 screens. Fictional data and scripted replies.
+真实的 r3 界面。虚拟数据与脚本化回复。

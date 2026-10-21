@@ -1,11 +1,11 @@
-Press **?** in the workspace for the full keyboard map. These are a few useful starting points.
+在工作区中按 **?** 查看完整快捷键映射。以下是一些实用的快捷键：
 
-| Key | Action |
+| 按键 | 操作 |
 | --- | --- |
-| `?` | Keyboard shortcuts |
-| `c` | Toggle comment mode |
-| `Shift + S` | Send to agent / Use in agent |
-| `f` | Jump to file… |
-| `p` | Show / hide discussion panel |
+| `?` | 键盘快捷键 |
+| `c` | 切换评论模式 |
+| `Shift + S` | 发送给智能体 / 在智能体中使用 |
+| `f` | 跳转到文件… |
+| `p` | 显示 / 隐藏讨论面板 |
 
-Shortcuts pause while you type or use an overlay. Every action also has a visible control.
+在键入或使用浮层时，快捷键会暂时失效。每个操作也都有对应的可见控件。

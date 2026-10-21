@@ -1,13 +1,13 @@
 <!-- visual: files -->
 
-## Read and navigate
+## 阅读与浏览
 
-Markdown renders as formatted documents; source files open with syntax highlighting. You can toggle Markdown or HTML between **Rendered** and **Source** whenever you need to inspect raw markup or formatting.
+Markdown 会渲染为排版精美的文档；源码文件打开时带有语法高亮。每当你需要检查原始标记或排版时，均可在**渲染视图**和**源码视图**之间自由切换 Markdown 或 HTML。
 
-Navigate the directory tree using the sidebar or press `Cmd/Ctrl + P` for **Jump to file**. You can fold completed sections, mark files as viewed to track your progress, and download binary files that require local tools.
+使用侧边栏浏览目录树，或按 `Cmd/Ctrl + P` 使用**跳转到文件**。你可以折叠已完成的小节、将文件标记为已查看以跟踪进度，并下载需要本地工具打开的二进制文件。
 
-## Point to the exact detail
+## 精准指出具体细节
 
-Highlight a text passage to discuss wording, select source lines to flag an implementation detail, or comment on a file as a whole for broader architecture feedback. Unsent comment drafts remain attached to their targets as you navigate between files.
+高亮文本段落以讨论措辞，选定源码行以指出实现细节，或针对文件整体发表评论以提出宏观架构反馈。在文件之间切换时，未发送的评论草稿仍会保持锚定在其目标上。
 
-Use the version selector to step back through earlier iterations. If you need to review a Git change rather than a complete directory, ask your agent for a [diff artifact](/docs/diffs/).
+使用版本选择器可逐步回溯更早的迭代。如果你需要评审 Git 变更而非完整目录，请让智能体提供[差异Artifact](/docs/diffs/)。

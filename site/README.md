@@ -125,8 +125,8 @@ Use repository-relative paths and fictional example data in content.
 English pages keep their existing URLs. Simplified Chinese pages live under
 `/zh-cn/`, with explicit i18next message keys and translated Markdown. The header switches
 the equivalent page; search and Markdown downloads stay in that language.
-See [localization](../docs/i18n.md) for the catalogs, article sources and
-translation checks.
+Chinese text lives in `site/locales/zh-cn.json` and `site/locales/zh-cn/`.
+Screenshots and videos still use the original shared recordings.
 
 Docs opens directly into Get started with the shared documentation navigation.
 The older `/docs/get-started/` address remains available. Human articles focus on

@@ -1,13 +1,13 @@
 <!-- visual: navigation -->
 
-## Make room for the work
+## 为工作内容留出空间
 
-Open or close the discussion panel from the navbar. On desktop, dock the panel to the right or let it float anywhere over the page. On phones, tap **Discussion** at the bottom to expand the review sheet, and swipe down to return to the document.
+从导航栏打开或关闭讨论面板。在桌面端，可将面板停靠在右侧或让其悬浮在页面任意位置。在手机上，轻触底部的**讨论**可展开评审底部表单，向下滑动即可返回文档。
 
-## Move around
+## 自由穿梭浏览
 
-In file trees and diffs, press `Cmd/Ctrl + P` or click **Jump to file** to filter paths instantly. Collapse reviewed files to keep long lists tidy, and click **Locate** on any thread to jump directly to its referenced code or DOM element.
+在文件树和差异视图中，按 `Cmd/Ctrl + P` 或点击**跳转到文件**可立即筛选路径。折叠已评审过的文件以保持长列表整洁，并在任何主题上点击**定位**直接跳转至其引用的代码或 DOM 元素。
 
-Customize your workspace with theme choices, font sizes, and syntax color palettes.
+通过主题选择、字号和语法调色板自定义你的工作区。
 
-Press **?** anywhere in the app to view the complete [keyboard shortcut map](/docs/keyboard/).
+在应用内的任何位置按 **?** 即可查看完整的[键盘快捷键映射](/docs/keyboard/)。

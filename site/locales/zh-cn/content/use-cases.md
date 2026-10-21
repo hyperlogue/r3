@@ -1,11 +1,11 @@
 # Example Fieldwork
 
-Follow Example Fieldwork from prototype to launch with five concrete r3 walkthroughs.
+通过五个具体的 r3 演练，跟随 Example Fieldwork 经历从原型到发布的完整流程。
 
-- [Refine a project-creation flow](/use-cases/prototype/): Try the interface. Point at the confusing control. Review a revision in the same conversation.
-- [Improve an onboarding proposal](/use-cases/proposal/): Discuss the paragraph that needs work, with the supporting files close at hand.
-- [Explore how search works](/use-cases/explanation/): Ask your agent for an explanation you can experiment with, then question the details.
-- [Fix duplicate form submissions](/use-cases/code-review/): Review an actual patch, discuss the failure case, and inspect the agent’s next publication.
-- [Improve a launch campaign](/use-cases/media/): Keep a saved frame and region attached to the feedback, even as the asset changes.
+- [完善项目创建流程](/use-cases/prototype/)：亲自体验界面。指出令人困惑的控件。在同一对话中审查修订版本。
+- [改进新人上手方案](/use-cases/proposal/)：讨论需要修改的段落，配套支持文件触手可及。
+- [探索搜索的工作原理](/use-cases/explanation/)：向智能体索要一个可供亲自试验的解释，随后对细节展开探讨。
+- [修复表单重复提交](/use-cases/code-review/)：评审真实的补丁、探讨失败场景，并检查智能体的下一次发布。
+- [改进发布活动物料](/use-cases/media/)：即使资产发生变动，仍将保存的帧与区域附加在反馈中。
 
-The separate [live demo](/demo/) uses a curve lab and a code review with scripted agent replies.
+独立的[在线演示](/demo/)采用包含贝塞尔曲线实验室与代码评审的场景，配合脚本化的智能体回复。

@@ -18,8 +18,8 @@ Browser chrome uses i18next and react-i18next for English and Simplified Chinese
 Locale is a browser display preference; it never
 changes authored content or wire values. Switching preserves workspace state
 and drafts, and updates parent-owned annotation labels over the existing preview
-display channel. [Localization](../i18n.md) owns catalog and host initialization
-rules.
+display channel. Browser hosts initialize the locale through
+`web/src/i18n.ts`; the website uses its own instance in `site/i18n.ts`.
 
 `web/src/artifact-page.tsx` exports `ArtifactPage`, the same workspace used by the
 connected application and the public website. Its host supplies an immutable

@@ -1,15 +1,15 @@
 <!-- visual: diff -->
 
-## Read the patch
+## 阅读补丁
 
-Switch between **Unified** for a single change stream and **Side-by-side** to compare modifications directly against previous code. Collapse files as you complete them and mark them viewed to maintain your place.
+在**统一**（单一变更流）与**双列**（直接对照旧代码对比改动）之间切换。完成某个文件后将其折叠并标记为已查看，以保持阅读进度。
 
-Highlight the relevant lines on either the old or new side, then ask for a concrete adjustment:
+在高亮旧版本或新版本侧的相关行后，提出具体的调整要求：
 
-> After a failed request, can I submit again? The button should become usable.
+> 请求失败后，我能否重新提交？该按钮应恢复为可用状态。
 
-## Review the next round
+## 评审下一轮
 
-Every diff publication is a complete, self-contained patch snapshot. When your agent publishes a revised patch, click its linked lines or open the latest version to inspect the fix.
+每次差异发布都是一份完整且自包含的补丁快照。当智能体发布了修改后的补丁，点击其关联的代码行或打开最新版本以检查修复效果。
 
-You can unfold code context within the captured bounds. If you need to see more surrounding lines than were originally captured, ask your agent to republish with wider context—r3 stays isolated and never reads your live disk checkout directly.
+你可以在捕获的边界内展开代码上下文。如果你需要查看超出最初捕获范围的更多周边行，请让智能体重新发布附带更宽上下文的版本——r3 保持环境隔离，绝不会直接读取你磁盘上的实时代码检出。

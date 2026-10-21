@@ -1,25 +1,25 @@
-## Feedback didn't reach the agent
+## 反馈未送达智能体
 
-Click **Use in agent** and paste the copied command into your agent’s chat session. Copying the command does not dispatch comments by itself—your agent must run it to fetch the batch.
+点击**在智能体中使用**并将复制的命令粘贴到智能体的聊天会话中。仅仅复制命令本身并不会派发评论——你的智能体必须运行该命令才能获取该批次评论。
 
-If delivery fails, run `r3 worker status`. If you see a sandbox warning, run `r3 worker restart` from a standard host terminal outside your agent's sandboxed environment.
+如果交付失败，请运行 `r3 worker status`。如果看到沙箱警告，请在智能体沙箱环境之外的标准主机终端中运行 `r3 worker restart`。
 
-## An expected revision isn't showing
+## 未显示预期的修订版本
 
-Click **Go to the latest version** in the navbar. Local edits on disk do not appear in r3 until your agent explicitly publishes a new version.
+点击导航栏中的**前往最新版本**。在智能体显式发布新版本之前，磁盘上的本地编辑不会出现在 r3 中。
 
-If images, fonts, or stylesheets appear broken, verify whether the agent bundled those assets locally. Remote web resources are blocked by default unless granted through the [permission prompt](/docs/permissions/).
+如果图像、字体或样式表显示异常，请确认智能体是否在本地打包了这些资产。除非通过[权限提示](/docs/permissions/)明确授予许可，否则远程 Web 资源默认会被拦截。
 
-## An element target is missing
+## 找不到元素目标
 
-Click **Locate** on the thread to return to the original version where the comment was anchored. If an element moved or changed identity, ask your agent to provide a linked fix target in its reply. For diffs with limited context, ask the agent to capture more surrounding lines.
+点击主题上的**定位**可返回到评论最初锚定的原始版本。如果元素发生了移动或变更了标识，请让智能体在回复中提供关联的修复目标。对于上下文有限的差异文件，请让智能体捕获更多周边代码行。
 
-## Sign-in or mutations stopped working
+## 登录或数据变更失效
 
-仅配置 localhost 时，通常无需登录。如果出现令牌提示，请在服务器所在机器上运行 `r3 config show`，检查是否设置了 `requireLogin=true`，在 `publicUrl`、`allowedHosts` 中配置了外部主机名，或配置了 `trustedProxies`。同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。默认的仅本地访问模式会以 HTTP 403 拒绝转发请求；设置反向代理时，请将 `publicUrl` 配置为预期的公开地址。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
+r3 默认要求登录。如果在自己的机器上看到令牌提示，请运行 `r3 open`，并在 60 秒内打开打印出的链接。如果关闭登录后服务器拒绝启动，请移除外部 `bind`、`publicUrl`、`allowedHosts` 或 `trustedProxies` 配置，或者运行 `r3 config unset requireLogin`；同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。关闭登录时，服务器会以 HTTP 403 拒绝转发请求；设置反向代理时，请配置 `publicUrl` 并保持登录开启。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
 
 浏览器需要登录时，请使用该服务器的浏览器登录令牌。若要在服务器所在机器上立即登录，可运行 `r3 open` 获取有效期为 60 秒的一次性链接；如果使用前已过期，重新运行即可。智能体提供的普通 Artifact 链接不会过期，也不会自动完成登录。如果 CLI 访问被拒绝，请检查选中的后端 URL 并重新运行 `r3 login`；这个命令授权的是 CLI 访问，不是浏览器登录。
 
 在尝试编辑或评论之前，请确保已归档的 Artifact 已被**恢复**。
 
-If you see protocol warnings between the CLI and server, update both binaries to matching versions. If you encounter unexpected bugs, [open an issue on GitHub](https://github.com/hyperlogue/r3/issues) with reproduction steps (excluding private code and credentials).
+如果在 CLI 与服务器之间看到协议警告，请将两个二进制文件更新至匹配的版本。如果遇到未预料的错误，请[在 GitHub 上提交 Issue](https://github.com/hyperlogue/r3/issues) 并附上复现步骤（请勿包含私有代码与凭据）。

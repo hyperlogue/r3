@@ -1,15 +1,15 @@
 <!-- visual: explainer -->
 
-## Test the live idea
+## 现场测试实时想法
 
-Interact with forms, sliders, modals, and links directly in the preview. When something feels unclear or broken, switch to **comment mode** and click the control or text that needs attention.
+直接在预览中操作表单、滑块、弹窗和链接。当发现不明确或损坏的内容时，切换到**评论模式**并点击需要注意的控件或文本。
 
-You can navigate freely using the page’s own links. If you need to inspect raw markup alongside the rendered interface, ask your agent for a [files artifact](/docs/files/).
+你可以通过页面自带的链接自由浏览。如果你需要在渲染界面的同时检查原始标记，请让智能体提供[文件Artifact](/docs/files/)。
 
-## Verify the revision
+## 核验修订版本
 
-When your agent publishes an update, follow the **Fix** link directly to the revised element. Open **Compare** to inspect the original and updated views side by side, and test the behavior yourself before resolving the thread.
+当智能体发布了更新版本，点击**修复**链接可直达修改后的元素。打开**对比**可并排检查原始视图与更新视图，并在解决主题之前亲自测试交互行为。
 
-If fonts or images fail to load, have your agent bundle them directly into the publication. Outbound network requests are blocked by default; see [permissions](/docs/permissions/) if external network access is required.
+如果字体或图像未能加载，请让智能体直接将这些资源打包到发布内容中。出站网络请求默认被拦截；如需外部网络访问，请参阅[权限](/docs/permissions/)。
 
-[Try the interactive search explainer](/example/index.html?scene=explainer).
+[体验交互式搜索解释器](/example/index.html?scene=explainer)。

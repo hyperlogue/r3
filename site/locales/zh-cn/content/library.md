@@ -1,11 +1,11 @@
 <!-- visual: library -->
 
-## Find your work
+## 查找你的工作
 
-Search across artifact titles, published document text, and thread discussions in real time. Results jump directly to the matching version and target element. Enable **All history** to include past versions in your search.
+实时搜索Artifact标题、已发布文档文本以及主题讨论。搜索结果可直接跳转到对应的版本和目标元素。开启**全部历史**可在搜索中涵盖过往版本。
 
-Filter your workspace by status (**Active** or **Archived**) or format (**HTML**, **Files**, **Diff**). Turn on **Attention first** to prioritize artifacts with open threads or unreviewed agent replies.
+按状态（**活跃**或**已归档**）或格式（**HTML**、**文件**、**差异**）筛选你的工作区。开启**需关注优先**可优先显示具有未解决主题或待审阅智能体回复的Artifact。
 
-## Keep it organized
+## 保持井井有条
 
-Assign clear titles and group related work into [projects](/docs/projects/). In the library view, select multiple artifacts to archive or clean up older runs in a single action.
+指定清晰的标题，并将相关工作归类到[项目](/docs/projects/)中。在Artifact库视图中，勾选多个Artifact可通过单次操作批量归档或清理较早的运行记录。

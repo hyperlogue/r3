@@ -1,23 +1,23 @@
-Visual feedback is easier to act on when it points to the pixels that need work. Review a Fieldwork launch image and video, then check whether the revised artwork makes the date easier to read.
+当视觉反馈直接指向需要修改的像素时，更易于采取行动。评审 Fieldwork 的发布图像和视频，然后检查修改后的设计是否让日期更易阅读。
 
-## Image feedback
+## 图像反馈
 
-Select the launch date on the image and ask for more contrast. The region stays attached to the comment, so the agent can see exactly which detail you mean alongside the rest of the artwork.
+在图像上选定发布日期，并要求提高对比度。该区域会持续附着在评论上，使智能体能够对照整体设计准确理解你所指的细节。
 
 <!-- visual: story-media-image -->
 
-## Video feedback
+## 视频反馈
 
-Pause at the moment you want to discuss and select the date label. The comment saves the timestamp, frame, and region. Ask for a darker label and a longer hold without having to describe the shot from memory.
+在想要讨论的时刻暂停并选中日期标签。评论会保存时间戳、帧画面和区域标注。要求将标签加深并延长停留时间，无需凭记忆描述画面。
 
 <!-- visual: story-media-video -->
 
-## Visual comparison
+## 视觉对比
 
-Open Compare from the agent’s reply to inspect the original and revised image together. The date now sits on a darker background. For the video, play the revised clip too—one still frame cannot tell you whether the timing feels right.
+从智能体的回复中打开“对比”，一同检查原始图像与修改后的图像。日期现在位于更深的背景之上。对于视频，也播放一下修改后的片段——单张静态帧无法告诉你节奏是否合适。
 
 <!-- visual: story-media-comparison -->
 
-[Try this example →](/example/index.html?scene=media)
+[体验此示例 →](/example/index.html?scene=media)
 
-Real r3 screens. Fictional data and scripted replies.
+真实的 r3 界面。虚拟数据与脚本化回复。

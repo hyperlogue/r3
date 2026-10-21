@@ -1,19 +1,19 @@
 <!-- visual: loop -->
 
-## Explore, then comment
+## 先探索，再评论
 
-An **artifact** pairs published work—an interactive prototype, a document set, or a patch—with its ongoing conversation. Interact with the work first before leaving notes.
+**Artifact**将已发布的工作成果（交互式原型、文档集或补丁）与其持续进行的对话结合在一起。在留下批注前，请先亲自体验工作成果。
 
-Select the element or passage you want changed, then ask for a concrete improvement:
+选定你想要更改的元素或文本段落，然后提出具体的改进要求：
 
-> Explain who can see this project before I create it.
+> 在创建之前说明谁能看到这个项目。
 
-Collect your comments across the artifact, then click **Send to agent**. If no agent is listening in the background, click **Use in agent** and paste the command into your chat.
+在Artifact各处汇总你的评论，然后点击**发送给智能体**。如果没有智能体在后台监听，点击**在智能体中使用**并将命令粘贴到对话中。
 
-## Check the next version
+## 检查下一个版本
 
-Every publication is an immutable snapshot. When your agent publishes a new version, your current view stays pinned so you never lose your place. Click **Go to the latest version** when you are ready to review the update.
+每次发布都是一份不可变的快照。当智能体发布新版本时，你当前的视图会保持固定，因此你永远不会迷失阅读进度。当你准备好审查更新时，点击**前往最新版本**。
 
-Follow the agent’s **Fix** link or open **Compare** to inspect before-and-after states side by side. Reply if it needs another pass. **You decide when to resolve** a thread—an agent reply never closes it automatically.
+跟随智能体的**修复**链接或打开**对比**，并排检查修改前后的状态。如果还需要进一步修改，可在主题中继续回复。**由你决定何时解决**某个主题——智能体的回复绝不会自动关闭主题。
 
-[Archive](/docs/cleanup/) finished work to keep your active list clear.
+[归档](/docs/cleanup/)已完成的工作以保持活跃列表清晰明了。

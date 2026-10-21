@@ -1,23 +1,23 @@
-An interactive explanation lets you test an idea as you learn it. This search lesson introduces relevance and freshness, but the first version makes their tradeoff difficult to explore.
+交互式解释让你可以边学边测试想法。本节搜索教程介绍了相关性与时效性，但第一个版本很难探索它们之间的权衡取舍。
 
-## Explore the lesson
+## 探索教程
 
-Read the results for “product launch” and inspect their scores. The older planning guide ranks above today’s launch notes. You can see the ordering, but there are no controls for trying a different balance.
+阅读针对 “product launch” 的搜索结果并检查其得分。较早的规划指南排在了今日发布说明之上。你可以看到排序，但没有控件可供尝试不同的权重平衡。
 
 <!-- visual: story-explainer-start -->
 
-## Ask for a comparison
+## 要求进行对比
 
-Leave a comment on the ranking section asking what freshness changes. The agent adds separate relevance and freshness sliders, plus an explanation of how the two signals contribute to each result’s score.
+在排名部分留下评论，询问调整时效性会带来什么变化。智能体添加了独立的相关性与时效性滑块，并补充说明了这两个信号如何影响每条结果的得分。
 
 <!-- visual: story-explainer-feedback -->
 
-## Try the new controls
+## 尝试新控件
 
-Move freshness to 80% and relevance to 20%. Today’s launch notes rise to the top while the older planning guide drops. You can now test the explanation by changing the inputs and watching the result.
+将时效性调至 80%，相关性调至 20%。今日的发布说明跃升至顶部，而较旧的规划指南则往后靠。现在你可以通过更改输入并观察结果来检验这一解释。
 
 <!-- visual: story-explainer-result -->
 
-[Try this example →](/example/index.html?scene=explainer)
+[体验此示例 →](/example/index.html?scene=explainer)
 
-Real r3 screens. Fictional data and scripted replies.
+真实的 r3 界面。虚拟数据与脚本化回复。

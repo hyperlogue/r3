@@ -1,15 +1,15 @@
 <!-- visual: revisions -->
 
-## Open the fix
+## 打开修复
 
-When your agent publishes an update, your current view remains undisturbed. Click **Go to the latest version** when you are ready, or step through versions anytime using the navbar picker.
+当智能体发布更新时，你当前的视图不会受到打扰。当你准备就绪时，点击**前往最新版本**，或者随时使用导航栏的选择器逐个浏览版本。
 
-**Locate** returns to the original element or line you flagged. The agent’s **Fix** link takes you directly to the revised element, while **Compare** places the original and updated views side by side.
+**定位**会返回到你标记的原始元素或代码行。智能体的**修复**链接可直接带你前往修改后的元素，而**对比**则将原始视图与更新后的视图并排呈现。
 
-Test the updated interaction to verify the behavior. Even if an element was removed or renamed in the revision, its conversation thread remains preserved.
+测试更新后的交互以验证行为表现。即使某个元素在修订版中被移除或重命名，其相关的对话主题依然会完整保留。
 
-## Decide what is done
+## 决定何时达成解决
 
-Click **Resolve** once you have verified the fix. If it still needs work, reply in the same thread. You can reopen any resolved thread whenever needed.
+核验修复无误后，点击**解决**。如果仍需进一步完善，请在同一主题中回复。你可以根据需要随时重新打开任何已解决的主题。
 
-The **Active** and **Resolved** queues keep your workspace clear. An agent reply never closes a thread—only you decide when work is done.
+**活跃**与**已解决**队列可让你的工作区保持条理分明。智能体的回复绝不会自行关闭主题——只有你能决定工作何时宣告完成。

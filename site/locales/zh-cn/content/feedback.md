@@ -1,17 +1,17 @@
 <!-- visual: feedback -->
 
-## Point, explain, send
+## 指出、说明、发送
 
-Turn on **comment mode** and select the element, passage, code line, or media region you want to discuss. For broader feedback spanning the whole publication, leave an artifact comment.
+开启**评论模式**并选定你想要探讨的元素、文本段落、代码行或媒体区域。对于贯穿整个发布内容的全局反馈，可以发表Artifact级别评论。
 
-Point to the issue and ask for a concrete improvement:
+指出问题并要求具体的改进：
 
-> “Workspace” is ambiguous. Explain who can see the project before I create it.
+> “Workspace” 含义模糊。请在创建之前说明谁能看到这个项目。
 
-Paste an image or use **Capture area** when a visual reference explains the change faster. Unsent drafts remain attached to their targets as you navigate between views.
+当视觉参考能更快解释意图时，可粘贴图像或使用**捕获区域**。在不同视图之间切换时，未发送的草稿仍会保持锚定在其目标上。
 
-## Send a batch
+## 批量发送
 
-Batch your comments across the artifact, then click **Send to agent**. If your agent is not running in the background, click **Use in agent** to copy the command into your chat session.
+在整个Artifact各处汇总你的评论，然后点击**发送给智能体**。如果你的智能体并未在后台运行，点击**在智能体中使用**将命令复制到你的对话中。
 
-Continue the conversation with **Reply**. You can edit or delete comments from the thread menu, and [resolve the thread](/docs/revisions/) once the revision addresses the problem.
+使用**回复**继续对话。你可以从主题菜单中编辑或删除评论，并在修订版本解决问题后[解决该主题](/docs/revisions/)。

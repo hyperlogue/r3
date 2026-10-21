@@ -1,15 +1,15 @@
 <!-- visual: media -->
 
-## Point to the pixels
+## 精准指向像素
 
-Open any image within a files artifact. Zoom in on fine details, then click and drag across the region that needs work. PNG, JPEG, and static WebP formats support region-anchored comments.
+打开文件Artifact中的任意图像。放大查看微小细节，然后在需要调整的区域上点击并拖拽框选。PNG、JPEG 和静态 WebP 格式均支持区域锚定评论。
 
-For video, **pause at the moment that matters** and highlight a frame or region. Your comment automatically bundles the captured still frame and timestamp, giving your agent the exact visual context.
+对于视频，**在关键时刻暂停**并高亮标注某一帧或特定区域。你的评论会自动捆绑捕获的静态帧和时间戳，为智能体提供确切的视觉上下文。
 
-Audio tracks support artifact comments—reference timestamps in your note to pinpoint sections.
+音频轨道支持Artifact级别评论——在批注中注明时间戳即可精确定位片段。
 
-## Show what you mean
+## 直观展示你的意图
 
-Paste or attach screenshots directly in the comment composer. Comments accept up to four PNG or JPEG images (up to 5 MiB and 20 megapixels each).
+直接在评论编辑器中粘贴或附加屏幕截图。每条评论最多可添加四张 PNG 或 JPEG 图像（每张上限 5 MiB 和 2000 万像素）。
 
-When your agent replies with an updated asset, open **Compare** to view the revision beside the original flagged frame.
+当智能体带着更新后的资产进行回复时，打开**对比**即可在原先标记的帧旁边对照查看修订版。

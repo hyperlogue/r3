@@ -1,11 +1,11 @@
-## Use the built-in reference
+## 使用内置参考
 
-Ask your agent to run:
+让你的智能体运行：
 
 ```sh
 r3 guide html
 ```
 
-The installed CLI provides the current commands and publication rules. Your agent handles capture, publishing, and feedback delivery.
+已安装的 CLI 提供了当前命令与发布规则。智能体负责捕获、发布及反馈交付。
 
-For your part of the workflow, start with [Get started](/docs/) or [Precise feedback](/docs/feedback/).
+对于你在工作流中的部分，请从[快速开始](/docs/)或[精准反馈](/docs/feedback/)了解。

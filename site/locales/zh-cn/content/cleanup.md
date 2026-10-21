@@ -1,13 +1,13 @@
 <!-- visual: cleanup -->
 
-## Put finished work away
+## 归档已完成的工作
 
-**Archive** clears completed reviews from your active library while preserving every version, thread, and draft. You can include a closing comment when archiving. Archived artifacts become read-only and suspend background notifications.
+**归档**可从活跃Artifact库中清理已完成的评审，同时保留所有版本、主题和草稿。归档时你可以附带一段结语评论。已归档的Artifact变为只读状态，并暂停后台通知。
 
-Click **Restore** whenever you need to reopen an artifact and resume iteration.
+当你需要重新打开某个Artifact并继续迭代时，随时点击**恢复**。
 
-## Manage disk storage and cleanup
+## 管理磁盘存储与清理
 
-Open workspace stats to inspect disk usage and recent activity. In Settings, you can trigger garbage collection for archives older than 30 days. Cleanup is always manual—r3 never purges artifacts automatically.
+打开工作区统计数据可查看磁盘用量与近期活动。在“设置”中，你可以针对归档超过 30 天的内容触发垃圾回收。清理始终是手动的——r3 从不会自动清除Artifact。
 
-**Delete** permanently removes an artifact along with its entire version history. (Individual versions are immutable and cannot be deleted separately). You can also batch-select artifacts in your library to archive or delete in bulk.
+**删除**会永久移除一个Artifact及其完整的版本历史记录。（单个版本是不可变的，无法单独删除）。你也可以在Artifact库中批量勾选多个Artifact进行批量归档或删除。

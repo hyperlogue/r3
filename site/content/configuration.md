@@ -1,9 +1,9 @@
 ## Most workflows need zero configuration
 
-r3 runs on loopback with login disabled by default. Ordinary artifact links work without tokens, sign-in tickets, or persistent browser-auth records. You can customize font sizes, color themes, and syntax styles directly in the workspace.
+r3 runs on loopback and requires login by default. Run `r3 open` to sign this browser in the first time, then open ordinary artifact links. You can customize font sizes, color themes, and syntax styles directly in the workspace.
 
 Choose **Settings → Language** for English or Simplified Chinese. The choice is
-saved in your browser. Chinese interface text currently uses English placeholders.
+saved in your browser.
 
 To inspect current settings, run `r3 config show` in your terminal.
 
@@ -12,10 +12,10 @@ To inspect current settings, run `r3 config show` in your terminal.
 | Setting | What it controls |
 | --- | --- |
 | `backendUrl` | The backend endpoint your CLI and agent connect to. |
-| `publicUrl` | The server's public browser address; an external hostname enables login by default. |
-| `allowedHosts` | Additional accepted hostnames; any external hostname enables login by default. |
-| `trustedProxies` | Proxy connection IPs trusted to supply the client address; configuring a proxy enables login by default. |
-| `requireLogin` | Explicitly require (`true`) or disable (`false`) browser and API authentication, overriding the automatic default. |
+| `publicUrl` | The server's public browser address; an external hostname requires login to stay enabled. |
+| `allowedHosts` | Additional accepted hostnames; any external hostname requires login to stay enabled. |
+| `trustedProxies` | Proxy connection IPs trusted to supply the client address; configuring a proxy requires login to stay enabled. |
+| `requireLogin` | Require browser and API authentication by default; `false` is allowed only for loopback-only configurations without trusted proxies. |
 | `archiveTtlDays` | Minimum age before an archived artifact qualifies for cleanup (Default: 30 days). |
 | `authTokenIdleDays` | Inactivity window before a browser login token expires (Default: 14 days). |
 | `projectGrouping` | Automatic Git remote detection (`remote`) or explicit project assignment (`manual`). |

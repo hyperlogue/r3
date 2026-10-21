@@ -17,12 +17,12 @@ r3 config set backendUrl https://reviews.example
 r3 login
 ```
 
-Replace the example address with your server URL. Open the authorization URL in your browser, sign in if needed, check the confirmation code, and approve CLI access. Remote CLI backends require this authorization even when the server has `requireLogin=false`; the CLI only sends requests without saved credentials to localhost backends.
+Replace the example address with your server URL. Open the authorization URL in your browser, sign in if needed, check the confirmation code, and approve CLI access. Remote servers require login, and the CLI needs this separate authorization. The CLI can use a localhost backend without saved credentials only when that backend has login disabled.
 
 **Access applies to the entire workspace.** When login is required, sharing an artifact link does not sign the recipient in. When login is disabled, any client that can reach the server through an allowed hostname can access the workspace, including other users on the same machine. r3 does not provide per-artifact permissions or team roles.
 
 ## Host your own
 
-To expose r3 over a private network or domain, place an HTTPS reverse proxy in front of the loopback server, forward all routes (including previews), and set `publicUrl`. Configuring an external hostname in `publicUrl` or `allowedHosts`, or adding `trustedProxies`, enables login by default, even if the proxy connects through localhost. The default local-only mode refuses forwarded requests. Restart the server to apply configuration changes, then use `r3 auth create-token --label browser` for browser sign-in.
+To expose r3 over a private network or domain, place an HTTPS reverse proxy in front of the loopback server, forward all routes (including previews), and set `publicUrl`. Keep login enabled, even if the proxy connects through localhost. An external hostname in `publicUrl` or `allowedHosts`, or any `trustedProxies`, prevents the server from starting with login disabled. No-login mode also refuses forwarded requests. Restart the server to apply configuration changes, then use `r3 auth create-token --label browser` for browser sign-in.
 
-An explicit `requireLogin=true` or `false` overrides the default. Host/origin checks and preview isolation remain enforced in either mode. See [Configuration](/docs/configuration/) for overrides and [Troubleshooting](/docs/troubleshooting/) for sign-in problems. Run server and configuration commands directly on the server's machine.
+Login is required by default. An explicit `requireLogin=false` is allowed only with a loopback bind, loopback-only public URL and allowed hosts, and no trusted proxies. Host/origin checks and preview isolation remain enforced in either mode. See [Configuration](/docs/configuration/) for overrides and [Troubleshooting](/docs/troubleshooting/) for sign-in problems. Run server and configuration commands directly on the server's machine.

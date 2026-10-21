@@ -1,17 +1,17 @@
 <!-- visual: permissions -->
 
-## Choose what a page can access
+## 选择页面可以访问的内容
 
-HTML artifacts execute scripts in the browser. Previews run in an opaque sandbox with no access to your r3 auth credentials or external network APIs.
+HTML Artifact会在浏览器中执行脚本。预览运行在不透明的沙箱中，无法访问你的 r3 身份凭据或外部网络 API。
 
 关闭工作区登录验证不会关闭预览隔离、Host/origin 检查或网络与设备的权限控制。
 
-If your browser cannot verify native origin isolation, r3 prompts for **compatibility consent**. Once granted, r3 remembers your choice so you are not prompted repeatedly.
+如果你的浏览器无法验证原生源隔离，r3 会提示申请**兼容性授权**。一旦获得许可，r3 会记住你的选择，免去重复提示的困扰。
 
-## Grant only what the task requires
+## 仅授予任务所需的最小权限
 
-If a prototype requires third-party API access, it can request **external networking**. Grant this only when you trust the page, as it permits outbound requests. Whenever possible, have your agent bundle fonts, images, and dependencies directly into the artifact.
+如果原型需要第三方 API 访问，它可以请求**外部网络访问**。仅当你信任该页面时才授予此权限，因为它允许发起出站请求。只要可能，请让智能体直接将字体、图像和依赖项打包到Artifact中。
 
-Camera and microphone access require explicit permission prompts from both r3 and your browser. A persistent indicator lets you stop media capture at any time.
+摄像头和麦克风访问需要 r3 与浏览器的双重显式权限提示。常驻的状态指示器允许你随时停止媒体采集。
 
-If a preview pauses after a background tab is suspended, click **Retry** to reload the sandbox without publishing a new version.
+如果预览在后台标签页挂起后暂停，点击**重试**即可重新加载沙箱，无需重新发布新版本。

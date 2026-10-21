@@ -1,23 +1,23 @@
-A small patch can fix one problem while leaving another behind. This change prevents duplicate project submissions with a pending flag. The review focuses on what happens when the request fails.
+一个小补丁可能在解决一个问题的同时留下另一个隐患。此变更使用 pending 标志来防止项目表单重复提交。评审的重点在于请求失败时会发生什么。
 
-## Read the patch
+## 阅读补丁
 
-Inspect the added guard and the lines that set and clear pending. On success, the form becomes available again. If the awaited request throws, execution never reaches the line that clears the flag.
+检查新增的保护机制以及设置与清除 pending 的代码行。请求成功时，表单会再次变为可用状态。如果所 await 的请求抛出异常，执行将永远无法到达清除该标志的代码行。
 
 <!-- visual: story-code-review-start -->
 
-## Question the failure path
+## 质疑失败路径
 
-Select the affected lines and ask whether the user can retry without losing their inputs. The thread records the exact range on the new side of the patch, so the agent can inspect the failure path directly.
+选中受影响的代码行，询问用户是否能够在不丢失输入内容的情况下重试。该主题会记录补丁新版本侧的精确行范围，以便智能体能直接检查失败路径。
 
 <!-- visual: story-code-review-feedback -->
 
-## Follow the fix
+## 跟进修复
 
-Open the agent’s linked revision. The catch block shows a retry message, and finally clears pending after either outcome. The form values stay in place. Check those changes before deciding the thread is resolved.
+打开智能体关联的修订版本。catch 块会显示重试提示，并在任意结果后通过 finally 清除 pending。表单中的值依然得以保留。在决定该主题已解决之前，请核对这些变更。
 
 <!-- visual: story-code-review-result -->
 
-[Try this example →](/example/index.html?scene=code-review)
+[体验此示例 →](/example/index.html?scene=code-review)
 
-Real r3 screens. Fictional data and scripted replies.
+真实的 r3 界面。虚拟数据与脚本化回复。

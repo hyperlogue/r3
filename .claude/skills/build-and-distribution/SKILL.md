@@ -242,8 +242,6 @@ single command owns the complete deployable output, including the demo:
   canonical/alternate URLs, Markdown exports, sitemap entries and Pagefind
   documents, retaining English heading IDs across translations. Templates use
   explicit i18next keys; builds read catalogs without rewriting them.
-  Read [localization](../../../docs/i18n.md) when changing copy, locale routing,
-  catalogs, or browser language initialization.
 - Preserve demo deep-link reloads while providing a useful website 404. Pages
   honors only the site-root `404.html`; directory-level fallback files do not
   handle requests independently.

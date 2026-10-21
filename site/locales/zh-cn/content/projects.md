@@ -1,13 +1,13 @@
 <!-- visual: projects -->
 
-## Group related reviews
+## 将相关的评审分组
 
-Projects keep related artifacts organized in your library. When your agent publishes from a Git repository, r3 can group artifacts automatically by remote, or you can specify `--project <id>` explicitly.
+项目可帮助你在Artifact库中整齐归类相关Artifact。当智能体从 Git 仓库进行发布时，r3 可以根据远程仓库自动对Artifact进行分组，或者你也可以显式指定 `--project <id>`。
 
-## Manage project groups
+## 管理项目分组
 
-You can create, rename, or reassign projects through the CLI or web interface, or configure Git remote alias mappings in your settings.
+你可以通过 CLI 或网页界面创建、重命名或重新分配项目，也可以在设置中配置 Git 远程仓库别名映射。
 
-Deleting a project ungroups its artifacts while **preserving every version, file, and thread**. (Deleting an individual artifact remains a separate, permanent action).
+删除项目会解散其Artifact的分组，但会**保留所有版本、文件和主题**。（删除单个Artifact仍是一项独立的永久操作）。
 
-Projects exist for organization; they do not partition access permissions on the server.
+项目的存在是为了方便组织管理；它们不会在服务器上划分访问权限。

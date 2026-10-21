@@ -1,23 +1,23 @@
-A working prototype helps you catch confusing behavior before the design is finished. Here, Fieldwork’s project-creation form looks ready, but “Workspace” leaves an important question unanswered: who will see the project?
+可运行的原型能帮助你在设计定稿前捕捉令人困惑的行为。在当前的示例中，Fieldwork 的项目创建表单看似准备就绪，但 “Workspace” 却留下了一个未解的重要疑问：究竟谁能看到这个项目？
 
-## Try the flow
+## 体验流程
 
-Open the published prototype and use the form. Enter a project name, try the visibility choices, and look for anything you would need explained before pressing Create. The review happens beside the working interface.
+打开已发布的原型并操作该表单。输入项目名称、尝试各种可见性选项，寻找在点击“创建”前任何需要进一步解释的地方。评审就直接在这套可运行的界面旁进行。
 
 <!-- visual: story-prototype-start -->
 
-## Point to the uncertainty
+## 指出疑虑所在
 
-Select the visibility control and ask who can see a workspace project. The comment stays attached to that control and its original version, giving the agent a specific place to improve.
+选中可见性控件并询问谁可以看到工作区项目。评论会持续附着在该控件及其原始版本上，为智能体指明了具体的改进位置。
 
 <!-- visual: story-prototype-feedback -->
 
-## Compare the fix
+## 对比修复效果
 
-The agent adds an explanation beneath the setting and links its reply to the revised control. Open Compare to see both versions together, then try the updated form before resolving the thread.
+智能体在设置项下方补充了说明，并将其回复链接到了修改后的控件。打开“对比”以同时查看两个版本，随后在解决该主题前亲自尝试更新后的表单。
 
 <!-- visual: story-prototype-result -->
 
-[Try this example →](/example/index.html?scene=prototype)
+[体验此示例 →](/example/index.html?scene=prototype)
 
-Real r3 screens. Fictional data and scripted replies.
+真实的 r3 界面。虚拟数据与脚本化回复。
