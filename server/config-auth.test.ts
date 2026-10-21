@@ -13,6 +13,7 @@ test("a loopback-only server skips login unless opted in; exposure always requir
     required: boolean;
     refuseProxied?: boolean;
     refused?: boolean;
+    localUrl?: string;
   }[] = [
     { config: {}, required: false, refuseProxied: true },
     { config: { publicUrl: "http://localhost:8791" }, required: false, refuseProxied: true },
@@ -21,6 +22,20 @@ test("a loopback-only server skips login unless opted in; exposure always requir
     { config: { publicUrl: "https://reviews.example" }, required: true },
     { config: { trustedProxies: ["127.0.0.1"] }, required: true },
     { config: {}, env: { R3_BIND: "100.64.0.1" }, required: true },
+    { config: { allowedHosts: ["reviews.example"] }, required: true },
+    { config: {}, env: { R3_ALLOWED_HOSTS: "reviews.example" }, required: true },
+    // Wildcard binds and unrecognized spellings of loopback count as exposure.
+    { config: {}, env: { R3_BIND: "0.0.0.0" }, required: true },
+    { config: {}, env: { R3_BIND: "::" }, required: true },
+    { config: { publicUrl: "http://localhost.:8791" }, required: true },
+    { config: {}, env: { R3_PUBLIC_URL: "not a url" }, required: true },
+    {
+      config: {},
+      env: { R3_BIND: "::1" },
+      required: false,
+      refuseProxied: true,
+      localUrl: "http://[::1]:8791",
+    },
     { config: { requireLogin: false }, required: false, refuseProxied: true },
     {
       config: { requireLogin: false, publicUrl: "http://localhost:8791" },
@@ -34,6 +49,12 @@ test("a loopback-only server skips login unless opted in; exposure always requir
     },
     { config: {}, env: { R3_REQUIRE_LOGIN: "false" }, required: false, refuseProxied: true },
     { config: { requireLogin: false }, env: { R3_REQUIRE_LOGIN: "true" }, required: true },
+    {
+      config: { requireLogin: true },
+      env: { R3_REQUIRE_LOGIN: "false" },
+      required: false,
+      refuseProxied: true,
+    },
     // Exposure can never run without login, whichever layer disables it.
     {
       config: { requireLogin: false, publicUrl: "https://reviews.example" },
@@ -68,6 +89,12 @@ test("a loopback-only server skips login unless opted in; exposure always requir
       required: true,
       refused: true,
     },
+    {
+      config: { requireLogin: false },
+      env: { R3_PUBLIC_URL: "not a url" },
+      required: true,
+      refused: true,
+    },
   ];
   try {
     for (const item of cases) {
@@ -76,7 +103,7 @@ test("a loopback-only server skips login unless opted in; exposure always requir
         [
           process.execPath,
           "-e",
-          'import { LOGIN_POLICY_ERROR, REFUSE_PROXIED, REQUIRE_LOGIN } from "./config.ts"; console.log(REQUIRE_LOGIN, REFUSE_PROXIED, LOGIN_POLICY_ERROR !== null)',
+          'import { LOCAL_URL, LOGIN_POLICY_ERROR, REFUSE_PROXIED, REQUIRE_LOGIN } from "./config.ts"; console.log(REQUIRE_LOGIN, REFUSE_PROXIED, LOGIN_POLICY_ERROR !== null, LOCAL_URL)',
         ],
         {
           cwd: import.meta.dir,
@@ -86,6 +113,7 @@ test("a loopback-only server skips login unless opted in; exposure always requir
             XDG_STATE_HOME: join(root, "state"),
             XDG_RUNTIME_DIR: join(root, "runtime"),
             R3_BIND: "127.0.0.1",
+            R3_PORT: "8791",
             R3_PUBLIC_URL: "",
             R3_REQUIRE_LOGIN: "",
             R3_ALLOWED_HOSTS: undefined,
@@ -101,11 +129,17 @@ test("a loopback-only server skips login unless opted in; exposure always requir
         child.exited,
       ]);
       expect({ code, err }).toEqual({ code: 0, err: "" });
-      expect({ config: item.config, env: item.env, out: out.trim() }).toEqual({
+      const [required, refuseProxied, refused, localUrl] = out.trim().split(" ");
+      expect({
         config: item.config,
         env: item.env,
-        out: `${item.required} ${item.refuseProxied ?? false} ${item.refused ?? false}`,
+        policy: [required, refuseProxied, refused],
+      }).toEqual({
+        config: item.config,
+        env: item.env,
+        policy: [`${item.required}`, `${item.refuseProxied ?? false}`, `${item.refused ?? false}`],
       });
+      if (item.localUrl) expect(localUrl).toBe(item.localUrl);
     }
   } finally {
     await rm(root, { recursive: true, force: true });

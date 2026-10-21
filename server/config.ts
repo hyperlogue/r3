@@ -44,7 +44,13 @@ export const BIND = process.env.R3_BIND?.trim() || PERSISTED.bind || "127.0.0.1"
 // Loopback for a loopback/all-interfaces bind (also what an `ssh -L
 // <PORT>:localhost:<PORT>` forward targets); the bind address itself when bound
 // to a specific non-loopback interface (still local to the box, so reachable).
-const HEALTH_HOST = BIND === "0.0.0.0" || BIND === "::" ? "127.0.0.1" : BIND;
+// An IPv6 literal needs brackets to form a URL.
+const HEALTH_HOST =
+  BIND === "0.0.0.0" || BIND === "::"
+    ? "127.0.0.1"
+    : BIND.includes(":") && !BIND.startsWith("[")
+      ? `[${BIND}]`
+      : BIND;
 export const LOCAL_URL = `http://${HEALTH_HOST}:${PORT}`;
 // The URL surfaced in agent-printed artifact links + the served page. Defaults to
 // loopback (works through an SSH forward that maps the same port); override with
