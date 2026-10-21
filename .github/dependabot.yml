@@ -1,4 +1,8 @@
-# Dependabot keeps application, toolchain and action dependencies current:
+# Scheduled Dependabot version updates are disabled for every ecosystem via
+# open-pull-requests-limit: 0. Security updates are controlled separately in
+# GitHub repository settings. Retain the configuration and cooldowns for reuse.
+#
+# When enabled, Dependabot covers application, toolchain and action dependencies:
 #
 #  - github-actions: the workflows pin actions to commit SHAs (a tag can be
 #    force-moved to malicious code, a SHA can't) — Dependabot is the bump
@@ -31,6 +35,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /toolchain
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     cooldown:
@@ -44,6 +49,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     cooldown:
@@ -56,6 +62,7 @@ updates:
 
   - package-ecosystem: bun
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: monthly
     cooldown:

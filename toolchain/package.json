@@ -1,7 +1,7 @@
 {
   "name": "r3-toolchain",
   "private": true,
-  "description": "Shared CI and Nix toolchain pins; updated by Dependabot.",
+  "description": "Shared CI and Nix toolchain pins.",
   "engines": {
     "node": "24.20.0"
   },

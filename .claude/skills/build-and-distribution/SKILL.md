@@ -268,8 +268,8 @@ not the npm wrapper. The Node engine pin must match `nodejs_24` in `flake.lock`;
 Nix asserts that relationship when the snapshot changes. The bun2nix generator
 in the root manifest must also match the flake's bun2nix consumer version.
 
-Dependabot updates `/toolchain` weekly with the 21-day cooldown. For manual
-updates use the pinned npm from `nix develop`, then run
+Dependabot version updates are disabled in `.github/dependabot.yml`. For manual
+toolchain updates use the pinned npm from `nix develop`, then run
 `npm install --prefix toolchain --package-lock-only`; `toolchain/.npmrc` applies
 the same minimum age. Keep the manifest and lockfile together. The Biome schema
 uses the hosted URL in `biome.jsonc`, independently of the installed version.

@@ -524,7 +524,8 @@ update paths:
 - the pinned npm's `min-release-age` (`toolchain/.npmrc`, in **days** — 21)
   gates manual toolchain resolution; installs disable lifecycle scripts;
 - a matching Dependabot `cooldown` (`default-days: 21`, `.github/dependabot.yml`)
-  gates bot PRs.
+  is retained for bot PRs if version updates are re-enabled; they are currently
+  disabled with `open-pull-requests-limit: 0` for every ecosystem.
 
 So a freshly-published compromised release can't be pulled in before it's had time
 to be caught. Cooldown covers **version updates only** — Dependabot *security*
