@@ -58,6 +58,24 @@ for (const requireLogin of [false, true]) {
         () => page.evaluate("document.body.textContent.includes('Private local workspace')"),
         "localhost workspace opens without sign-in",
       );
+      // The first visit explains the no-login trade-off once per browser.
+      await eventually(
+        () => page.evaluate("!!document.querySelector('dialog[data-login-disabled-notice][open]')"),
+        "no-login notice appears on the first visit",
+      );
+      assert.equal(
+        await page.evaluate(
+          "document.querySelector('dialog[data-login-disabled-notice] a').href.endsWith('/docs/access/')",
+        ),
+        true,
+      );
+      await page.evaluate(
+        "[...document.querySelectorAll('dialog[data-login-disabled-notice] button')].at(-1).click()",
+      );
+      await eventually(
+        () => page.evaluate("!document.querySelector('dialog[data-login-disabled-notice]')"),
+        "no-login notice closes",
+      );
     }
     const link = await localBootstrap<{ url: string }>(socket, "browser", {
       path: `/${artifact.id}`,
@@ -69,6 +87,11 @@ for (const requireLogin of [false, true]) {
       () => page.evaluate("document.body.textContent.includes('Private local workspace')"),
       "local ticket opens the workspace",
     );
+    if (requireLogin)
+      assert.equal(
+        await page.evaluate("!!document.querySelector('dialog[data-login-disabled-notice]')"),
+        false,
+      );
     assert.equal(await page.evaluate("location.hash"), "");
     assert.equal(await page.evaluate("document.cookie.includes('r3_session')"), false);
     assert.deepEqual(await page.evaluate("fetch('/api/boot').then(r=>r.json())"), {
@@ -92,6 +115,10 @@ for (const requireLogin of [false, true]) {
       await eventually(
         () => page.evaluate("document.body.textContent.includes('Private local workspace')"),
         "ordinary URL can be reopened without a ticket",
+      );
+      assert.equal(
+        await page.evaluate("!!document.querySelector('dialog[data-login-disabled-notice]')"),
+        false,
       );
       assert.equal(await page.evaluate("fetch('/api/artifacts').then(r=>r.status)"), 200);
       const records = new Database(join(root, "store.sqlite"), { readonly: true });

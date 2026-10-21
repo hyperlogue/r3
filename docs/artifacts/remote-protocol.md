@@ -110,10 +110,11 @@ the exchange endpoint succeeds without creating auth records.
 
 ## Client authorization
 
-Login is required by default. `requireLogin=false` (with `R3_REQUIRE_LOGIN` taking
-precedence over persisted configuration) is accepted only when the bind, allowed
-hostnames, and public URL are all loopback and no trusted proxy is configured;
-otherwise the server refuses to start. The policy is global to the server: a
+Login is off by default when the bind, allowed hostnames, and public URL are all
+loopback and no trusted proxy is configured; `requireLogin=true` turns it on (with
+`R3_REQUIRE_LOGIN` taking precedence over persisted configuration). Any other
+configuration always requires login, and the server refuses to start with
+`requireLogin=false`. The policy is global to the server: a
 reverse proxy's loopback peer or rewritten Host does not bypass required login.
 No-login mode refuses any request carrying `Forwarded`, `X-Forwarded-*`,
 `X-Real-IP`, or `Via` with 403 before routing. With login disabled, all application API and stream requests need no credential,

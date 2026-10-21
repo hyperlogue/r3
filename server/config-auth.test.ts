@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("login is required unless explicitly disabled on a loopback-only server", async () => {
+test("a loopback-only server skips login unless opted in; exposure always requires it", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-login-policy-"));
   const config = join(root, "config", "r3");
   await mkdir(config, { recursive: true });
@@ -14,9 +14,13 @@ test("login is required unless explicitly disabled on a loopback-only server", a
     refuseProxied?: boolean;
     refused?: boolean;
   }[] = [
-    { config: {}, required: true },
-    { config: { publicUrl: "http://localhost:8791" }, required: true },
+    { config: {}, required: false, refuseProxied: true },
+    { config: { publicUrl: "http://localhost:8791" }, required: false, refuseProxied: true },
     { config: { requireLogin: true }, required: true },
+    { config: {}, env: { R3_REQUIRE_LOGIN: "true" }, required: true },
+    { config: { publicUrl: "https://reviews.example" }, required: true },
+    { config: { trustedProxies: ["127.0.0.1"] }, required: true },
+    { config: {}, env: { R3_BIND: "100.64.0.1" }, required: true },
     { config: { requireLogin: false }, required: false, refuseProxied: true },
     {
       config: { requireLogin: false, publicUrl: "http://localhost:8791" },

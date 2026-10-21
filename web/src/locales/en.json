@@ -898,6 +898,15 @@
     "signingIn": "Signing in…",
     "thatLoginTokenIsInvalidOrHas": "That login token is invalid or has been revoked."
   },
+  "loginDisabledNotice": {
+    "title": "Login is off on this local r3 server",
+    "localOnly": "This server listens only on this computer, so r3 turns login off by default. Anyone using this browser can open your workspace without signing in.",
+    "risk": "Any program or user account on this computer that can reach its port can read every artifact and send comments to your coding agents. A tunnel or port forward, such as ssh -L, would extend that access to other machines.",
+    "enable": "To require login, run these commands in a terminal on this computer:",
+    "signIn": "After the restart, run r3 open to sign this browser in.",
+    "learnMore": "Read more about local and remote access",
+    "gotIt": "Got it"
+  },
   "expand": {
     "notInThisDiff": "⋯ {{seamCount_prev_cur}}not in this diff"
   }

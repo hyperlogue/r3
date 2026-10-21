@@ -130,8 +130,8 @@ export function configurationExposed(
 export const LOGIN_EXPOSURE_ERROR =
   "requireLogin=false is allowed only when r3 serves this computer alone. Run r3 config unset requireLogin (and unset R3_REQUIRE_LOGIN), or remove the external bind, publicUrl, allowedHosts, and trustedProxies settings.";
 
-// Login is required unless explicitly disabled on a loopback-only server. An
-// exposed server never runs without login: the daemon refuses to start, and this
+// A loopback-only server needs no login unless requireLogin opts in. An exposed
+// server always requires login: the daemon refuses an explicit opt-out, and this
 // value stays true even if that check is bypassed.
 const LOGIN_SETTING = parseBoolFlag(process.env.R3_REQUIRE_LOGIN) ?? PERSISTED.requireLogin ?? null;
 const EXPOSED = configurationExposed({
@@ -141,7 +141,7 @@ const EXPOSED = configurationExposed({
   trustedProxies: PERSISTED.trustedProxies,
 });
 export const LOGIN_POLICY_ERROR = LOGIN_SETTING === false && EXPOSED ? LOGIN_EXPOSURE_ERROR : null;
-export const REQUIRE_LOGIN = LOGIN_SETTING !== false || EXPOSED;
+export const REQUIRE_LOGIN = EXPOSED || LOGIN_SETTING === true;
 // No-login mode serves direct local clients only. A forwarded request means an
 // undeclared proxy, so it fails closed.
 export const REFUSE_PROXIED = !REQUIRE_LOGIN;

@@ -102,11 +102,11 @@ on the home page to archive or permanently delete them together.
 
 ## Local and remote access
 
-r3 starts a local server automatically when needed. It requires login by
-default; run `r3 open` once to sign this browser in with a one-time link.
-Artifact links returned by agents stay stable, so they keep working later in a
-signed-in browser. On a server that only this computer can reach, you can turn
-login off with `r3 config set requireLogin false`.
+r3 starts a local server automatically when needed. It listens only on this
+computer and needs no login by default; the browser explains the trade-off the
+first time. Artifact links returned by agents stay stable, so they keep working
+later. Run `r3 config set requireLogin true` to require login locally; servers
+reachable from other machines always require it.
 
 Configuring an external hostname in `publicUrl` or `allowedHosts`, or adding
 `trustedProxies`, enables login by default, even when the proxy connects through

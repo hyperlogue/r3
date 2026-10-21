@@ -16,7 +16,7 @@
 
 ## 登录或数据变更失效
 
-r3 默认要求登录。如果在自己的机器上看到令牌提示，请运行 `r3 open`，并在 60 秒内打开打印出的链接。如果关闭登录后服务器拒绝启动，请移除外部 `bind`、`publicUrl`、`allowedHosts` 或 `trustedProxies` 配置，或者运行 `r3 config unset requireLogin`；同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。关闭登录时，服务器会以 HTTP 403 拒绝转发请求；设置反向代理时，请配置 `publicUrl` 并保持登录开启。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
+仅供本机访问的服务器默认无需登录。如果看到令牌提示，请用 `r3 config show` 检查是否设置了 `requireLogin=true`、`publicUrl` 或 `allowedHosts` 中的外部主机名，或配置了 `trustedProxies`。在自己的机器上，运行 `r3 open` 并在 60 秒内打开打印出的链接即可登录。如果关闭登录后服务器拒绝启动，请移除外部 `bind`、`publicUrl`、`allowedHosts` 或 `trustedProxies` 配置，或者运行 `r3 config unset requireLogin`；同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。关闭登录时，服务器会以 HTTP 403 拒绝转发请求；设置反向代理时，请配置 `publicUrl` 并保持登录开启。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
 
 浏览器需要登录时，请使用该服务器的浏览器登录令牌。若要在服务器所在机器上立即登录，可运行 `r3 open` 获取有效期为 60 秒的一次性链接；如果使用前已过期，重新运行即可。智能体提供的普通 Artifact 链接不会过期，也不会自动完成登录。如果 CLI 访问被拒绝，请检查选中的后端 URL 并重新运行 `r3 login`；这个命令授权的是 CLI 访问，不是浏览器登录。
 

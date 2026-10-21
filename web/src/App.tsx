@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useArtifactEvents } from "./artifact-hooks.ts";
 import { AppHeader } from "./components/AppHeader.tsx";
+import { LoginDisabledNotice } from "./components/LoginDisabledNotice.tsx";
 import { ArtifactHome } from "./pages/ArtifactHome.tsx";
 import { ArtifactView } from "./pages/ArtifactView.tsx";
 import { useRoute } from "./router.ts";
@@ -25,6 +26,7 @@ export function App() {
           </main>
         </>
       )}
+      <LoginDisabledNotice />
     </div>
   );
 }

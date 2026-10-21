@@ -898,6 +898,15 @@
     "signingIn": "正在登录…",
     "thatLoginTokenIsInvalidOrHas": "该登录令牌无效或已被撤销。"
   },
+  "loginDisabledNotice": {
+    "title": "此本地 r3 服务器未启用登录",
+    "localOnly": "该服务器仅监听本机，因此 r3 默认关闭登录。使用此浏览器的任何人无需登录即可打开你的工作区。",
+    "risk": "本机上能访问其端口的任何程序或用户账户都可以读取所有Artifact，并向你的编程智能体发送评论。隧道或端口转发（例如 ssh -L）会把这种访问扩展到其他机器。",
+    "enable": "要启用登录，请在本机终端中运行：",
+    "signIn": "重启后，运行 r3 open 让此浏览器登录。",
+    "learnMore": "进一步了解本地与远程访问",
+    "gotIt": "知道了"
+  },
   "expand": {
     "notInThisDiff": "⋯ {{seamCount_prev_cur}}不在本次差异中"
   }

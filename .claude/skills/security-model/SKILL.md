@@ -73,11 +73,14 @@ Manual revocation retains its transactional session deletion, including inactive
 tokens when revoking all.
 The separate master API token is outside this login-token policy.
 
-Login is required by default, for every request, on loopback too. Explicit
-`requireLogin=false` (environment before persisted configuration) is accepted
-only when the bind, public URL, and allowed hostnames are all loopback and no
-trusted proxy is configured. Any exposure keeps `REQUIRE_LOGIN` true; the daemon
-and CLI spawn refuse to start, and `r3 config set` refuses to save the combination.
+Login is off by default only when the bind, public URL, and allowed hostnames
+are all loopback and no trusted proxy is configured; `requireLogin=true`
+(environment before persisted configuration) turns it on there. Any exposure keeps
+`REQUIRE_LOGIN` true. An explicit `requireLogin=false` with exposure makes the
+daemon and CLI spawn refuse to start, and `r3 config set` refuses to save it.
+The trade-off is deliberate for a single-user tool: other local OS users and raw
+TCP forwarders reach a no-login loopback server. The browser shows a one-time
+notice per origin (localStorage) explaining this and how to enable login.
 An exposed no-login server would let any reachable client read every artifact and
 push comments into the owner's coding-agent sessions. The server cannot tell a
 same-host reverse proxy or TCP forwarder from a local user, so network placement
