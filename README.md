@@ -102,27 +102,24 @@ on the home page to archive or permanently delete them together.
 
 ## Local and remote access
 
-r3 starts a local server automatically when needed. It listens only on this
-computer and needs no login by default; the browser explains the trade-off the
-first time. Artifact links returned by agents stay stable, so they keep working
-later. Run `r3 config set requireLogin true` to require login locally; servers
-reachable from other machines always require it.
+### Local access
 
-Configuring an external hostname in `publicUrl` or `allowedHosts`, or adding
-`trustedProxies`, enables login by default, even when the proxy connects through
-localhost. The default local-only mode refuses forwarded requests. Use
-`r3 config set requireLogin true` to require login explicitly, or
-`r3 config set requireLogin false` to disable browser and API authentication for
-all allowed hosts. `r3 config unset requireLogin` restores the automatic default.
-Run `r3 server restart` on the server's machine after changing these settings.
-Host/origin checks and preview isolation apply in both modes.
+r3 starts automatically on localhost with no login required. To require local
+authentication:
 
-### Expose an r3 server
+```sh
+r3 config set requireLogin true
+r3 server restart
+r3 auth create-token --label browser
+```
 
-To access an r3 server from another device, put it behind an HTTPS reverse proxy.
-For [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve),
-connect the server and accessing devices to your tailnet. Run these commands on
-the **server**, replacing `https://reviews.example` with its Tailscale HTTPS address:
+Sign in with the printed token. Run `r3 config unset requireLogin` to revert.
+
+### Exposing a server
+
+Remote access always requires HTTPS and authentication. To expose via
+[Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve), run
+on the server:
 
 ```sh
 r3 config set publicUrl https://reviews.example
@@ -132,30 +129,20 @@ tailscale serve --bg http://127.0.0.1:8791
 r3 auth create-token --label browser
 ```
 
-Open the HTTPS address in your browser and sign in with the generated token.
+Open the URL in your browser and sign in with the token. For other reverse
+proxies, forward traffic to `http://127.0.0.1:8791/` with
+`X-Forwarded-Proto: https`.
 
-For another proxy, forward the whole application to `http://127.0.0.1:8791/`
-and set `X-Forwarded-Proto: https`. Set `trustedProxies` to its connection IP only
-if it overwrites `X-Forwarded-For`.
+### Connecting a remote CLI
 
-### Connect the CLI to a remote server
-
-On your **local machine**, set `backendUrl` to the remote r3 server's HTTPS address:
+To publish to a remote r3 server from your local machine:
 
 ```sh
 r3 config set backendUrl https://reviews.example
 r3 login
-```
-
-Open the printed address, sign in to r3 if needed, confirm that the code matches
-your terminal, and approve CLI access. Then check the connection:
-
-```sh
 r3 list
 ```
 
-Remote CLI backends require `r3 login` even when the server has browser login
-disabled. This authorizes the CLI to send publications to that backend.
-
-Ask your agent to run `r3 guide` and publish as usual. See the
-[remote backend reference](docs/artifacts/remote-protocol.md) for more options.
+Approve browser access when prompted. See the
+[remote backend reference](docs/artifacts/remote-protocol.md) for advanced setup
+and options.
