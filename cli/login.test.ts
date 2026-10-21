@@ -64,16 +64,16 @@ test("device login uses the five-second default when the backend omits interval"
   }
 }, 15_000);
 
-test("login to a no-login backend records the choice without minting a credential", async () => {
-  const root = await mkdtemp(join(tmpdir(), "r3-open-login-"));
-  const paths: string[] = [];
+test("login explains a backend that issues no credentials", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-no-login-"));
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch(request) {
-      paths.push(new URL(request.url).pathname);
-      return Response.json({ needsAuth: false, token: null, loginRequired: false });
-    },
+    fetch: () =>
+      Response.json(
+        { error: "login_disabled", error_description: "Login is disabled on this server." },
+        { status: 409 },
+      ),
   });
   try {
     const child = Bun.spawn([process.execPath, resolve(import.meta.dir, "index.ts"), "login"], {
@@ -89,13 +89,12 @@ test("login to a no-login backend records the choice without minting a credentia
       stderr: "pipe",
       timeout: 12_000,
     });
-    const [code, output] = await Promise.all([child.exited, new Response(child.stdout).text()]);
-    expect(code).toBe(0);
-    expect(output).toContain("does not require login");
-    expect(paths).not.toContain("/api/oauth/device/code");
-    const saved = new BackendCredentials(join(root, "config", "r3", "credentials"));
-    expect(saved.read(server.url.origin)?.kind).toBe("open");
-    expect(await saved.token(server.url.origin)).toBe("");
+    const [code, error] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+    expect(code).not.toBe(0);
+    expect(error).toContain("Login is disabled on this server.");
+    expect(
+      new BackendCredentials(join(root, "config", "r3", "credentials")).read(server.url.origin),
+    ).toBeNull();
   } finally {
     server.stop(true);
     await rm(root, { recursive: true, force: true });

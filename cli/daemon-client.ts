@@ -3,6 +3,7 @@ import {
   type DaemonInfo,
   forceReleaseDaemonLock,
   isPidAlive,
+  LOGIN_POLICY_ERROR,
   readDaemonJson,
   readDaemonLockOwner,
   removeDaemonJson,
@@ -87,6 +88,8 @@ async function stopProcess(pid: number): Promise<void> {
 }
 
 async function spawnDaemon(): Promise<DaemonInfo> {
+  // The detached server's stderr is discarded; report its policy refusal here.
+  if (LOGIN_POLICY_ERROR) throw new ArtifactCommandError(LOGIN_POLICY_ERROR);
   const child = Bun.spawn(cliProcessArgv("__daemon"), {
     cwd: compiledCli() ? process.cwd() : resolve(dirname(Bun.main), ".."),
     env: { ...process.env, R3_DETACHED: "1" },

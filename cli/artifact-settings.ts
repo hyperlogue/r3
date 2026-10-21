@@ -1,5 +1,7 @@
 import { isIP } from "node:net";
 import {
+  configurationExposed,
+  LOGIN_EXPOSURE_ERROR,
   type PersistedConfig,
   parseBoolFlag,
   readConfig,
@@ -173,6 +175,8 @@ export function configCommand(argv: string[]): void {
       }
     }
   }
+  if (next.requireLogin === false && configurationExposed(next))
+    throw new ArtifactCommandError(LOGIN_EXPOSURE_ERROR);
   writeConfig(next);
   console.log("Saved r3 configuration. Restart the server to apply server settings.");
 }

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("login defaults follow configured exposure and explicit overrides win", async () => {
+test("login is required unless explicitly disabled on a loopback-only server", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-login-policy-"));
   const config = join(root, "config", "r3");
   await mkdir(config, { recursive: true });
@@ -12,25 +12,58 @@ test("login defaults follow configured exposure and explicit overrides win", asy
     env?: Record<string, string>;
     required: boolean;
     refuseProxied?: boolean;
+    refused?: boolean;
   }[] = [
-    { config: {}, required: false, refuseProxied: true },
-    { config: { trustedProxies: ["127.0.0.1"] }, required: true },
-    { config: { requireLogin: false }, required: false },
-    { config: { publicUrl: "http://localhost:8791" }, required: false, refuseProxied: true },
+    { config: {}, required: true },
+    { config: { publicUrl: "http://localhost:8791" }, required: true },
+    { config: { requireLogin: true }, required: true },
+    { config: { requireLogin: false }, required: false, refuseProxied: true },
     {
-      config: { allowedHosts: ["localhost", "127.0.0.1", "[::1]"] },
+      config: { requireLogin: false, publicUrl: "http://localhost:8791" },
       required: false,
       refuseProxied: true,
     },
-    { config: { publicUrl: "https://reviews.example" }, required: true },
-    { config: { allowedHosts: ["reviews.example"] }, required: true },
-    { config: { requireLogin: true }, required: true },
-    { config: { publicUrl: "https://reviews.example", requireLogin: false }, required: false },
-    { config: { allowedHosts: ["reviews.example"], requireLogin: false }, required: false },
-    { config: { requireLogin: true }, env: { R3_REQUIRE_LOGIN: "false" }, required: false },
+    {
+      config: { requireLogin: false, allowedHosts: ["localhost", "127.0.0.1", "[::1]"] },
+      required: false,
+      refuseProxied: true,
+    },
+    { config: {}, env: { R3_REQUIRE_LOGIN: "false" }, required: false, refuseProxied: true },
     { config: { requireLogin: false }, env: { R3_REQUIRE_LOGIN: "true" }, required: true },
-    { config: {}, env: { R3_PUBLIC_URL: "https://reviews.example" }, required: true },
-    { config: {}, env: { R3_ALLOWED_HOSTS: "reviews.example" }, required: true },
+    // Exposure can never run without login, whichever layer disables it.
+    {
+      config: { requireLogin: false, publicUrl: "https://reviews.example" },
+      required: true,
+      refused: true,
+    },
+    {
+      config: { requireLogin: false, allowedHosts: ["reviews.example"] },
+      required: true,
+      refused: true,
+    },
+    {
+      config: { requireLogin: false, trustedProxies: ["127.0.0.1"] },
+      required: true,
+      refused: true,
+    },
+    {
+      config: { requireLogin: false },
+      env: { R3_BIND: "100.64.0.1" },
+      required: true,
+      refused: true,
+    },
+    {
+      config: {},
+      env: { R3_REQUIRE_LOGIN: "false", R3_PUBLIC_URL: "https://reviews.example" },
+      required: true,
+      refused: true,
+    },
+    {
+      config: { requireLogin: false },
+      env: { R3_ALLOWED_HOSTS: "reviews.example" },
+      required: true,
+      refused: true,
+    },
   ];
   try {
     for (const item of cases) {
@@ -39,7 +72,7 @@ test("login defaults follow configured exposure and explicit overrides win", asy
         [
           process.execPath,
           "-e",
-          'import { REFUSE_PROXIED, REQUIRE_LOGIN } from "./config.ts"; console.log(REQUIRE_LOGIN, REFUSE_PROXIED)',
+          'import { LOGIN_POLICY_ERROR, REFUSE_PROXIED, REQUIRE_LOGIN } from "./config.ts"; console.log(REQUIRE_LOGIN, REFUSE_PROXIED, LOGIN_POLICY_ERROR !== null)',
         ],
         {
           cwd: import.meta.dir,
@@ -64,7 +97,11 @@ test("login defaults follow configured exposure and explicit overrides win", asy
         child.exited,
       ]);
       expect({ code, err }).toEqual({ code: 0, err: "" });
-      expect(out.trim()).toBe(`${item.required} ${item.refuseProxied ?? false}`);
+      expect({ config: item.config, env: item.env, out: out.trim() }).toEqual({
+        config: item.config,
+        env: item.env,
+        out: `${item.required} ${item.refuseProxied ?? false} ${item.refused ?? false}`,
+      });
     }
   } finally {
     await rm(root, { recursive: true, force: true });

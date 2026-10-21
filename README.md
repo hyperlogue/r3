@@ -102,10 +102,11 @@ on the home page to archive or permanently delete them together.
 
 ## Local and remote access
 
-r3 starts a local server automatically when needed. Localhost-only setups open
-ordinary artifact links without a token, sign-in ticket, or browser session.
-Links returned by agents stay usable when you come back later. Run `r3 open`
-to print the workspace address.
+r3 starts a local server automatically when needed. It requires login by
+default; run `r3 open` once to sign this browser in with a one-time link.
+Artifact links returned by agents stay stable, so they keep working later in a
+signed-in browser. On a server that only this computer can reach, you can turn
+login off with `r3 config set requireLogin false`.
 
 Configuring an external hostname in `publicUrl` or `allowedHosts`, or adding
 `trustedProxies`, enables login by default, even when the proxy connects through

@@ -22,8 +22,8 @@ To inspect current settings, run `r3 config show` in your terminal.
 
 Server-level changes must be executed **on the host machine** and applied by running `r3 server restart`. (Updating `backendUrl` in the CLI takes effect immediately).
 
-Use `r3 config set requireLogin true` to require login even on localhost, or `r3 config set requireLogin false` to disable server-side authentication even when external hostnames or proxies are configured. Use `r3 config unset requireLogin` to restore the automatic default: login is disabled for localhost-only configurations without trusted proxies and enabled when external hosts or trusted proxies are configured. Default local-only mode refuses forwarded requests; explicit `requireLogin` settings override that refusal too. `R3_REQUIRE_LOGIN`, when set, takes precedence over the saved setting.
+Login is required by default. `r3 config set requireLogin false` disables it only for a server that this computer alone can reach: a loopback bind, loopback-only `publicUrl` and `allowedHosts`, and no `trustedProxies`. r3 refuses to save or start any other combination; `r3 config unset requireLogin` restores login. `R3_REQUIRE_LOGIN`, when set, takes precedence over the saved setting and follows the same rule.
 
-With login disabled, anyone who can reach the server through an allowed hostname can access the whole workspace. Host/origin checks and preview isolation still apply. Publication URLs contain no expiring sign-in ticket in either mode. Remote CLI backends still need authorization through `r3 login`; see [Local & remote access](/docs/access/).
+With login disabled, any program or local account that can reach the loopback port can access the whole workspace, and the server refuses requests forwarded by a proxy. It also creates no login tokens or API keys, so none can outlive the setting. Host/origin checks and preview isolation still apply. Publication URLs contain no expiring sign-in ticket in either mode. Remote CLI backends always need authorization through `r3 login`; see [Local & remote access](/docs/access/).
 
 For remote server hosting and multi-device setups, see [Local & remote access](/docs/access/).

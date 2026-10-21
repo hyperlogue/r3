@@ -110,21 +110,18 @@ the exchange endpoint succeeds without creating auth records.
 
 ## Client authorization
 
-Login defaults to disabled for loopback-only configurations and enabled when the
-bind, allowed hostnames, or public URL include external exposure, or when trusted
-proxies are configured. The policy is global to the server: a reverse proxy's
-loopback peer or rewritten Host does not bypass required login. When no-login mode
-is only the loopback default, the server refuses any request carrying `Forwarded`,
-`X-Forwarded-*`, `X-Real-IP`, or `Via` with 403 before routing, so an unconfigured
-proxy fails closed. Explicit `requireLogin=true` or `false` overrides the default
-and the proxy refusal; `R3_REQUIRE_LOGIN` takes precedence over persisted configuration.
-With login disabled, all application API and stream requests need no credential,
+Login is required by default. `requireLogin=false` (with `R3_REQUIRE_LOGIN` taking
+precedence over persisted configuration) is accepted only when the bind, allowed
+hostnames, and public URL are all loopback and no trusted proxy is configured;
+otherwise the server refuses to start. The policy is global to the server: a
+reverse proxy's loopback peer or rewritten Host does not bypass required login.
+No-login mode refuses any request carrying `Forwarded`, `X-Forwarded-*`,
+`X-Real-IP`, or `Via` with 403 before routing. With login disabled, all application API and stream requests need no credential,
 and workers share the local routing principal. Host/origin checks, request limits,
 and preview isolation still apply. A CLI/worker with no saved credential sends a
 loopback backend request without one. Any other backend, including one named by a
 project `.r3.json`, requires `r3 login` before the CLI publishes or the worker connects.
-When `/api/boot` reports `loginRequired:false`, `r3 login` records an `open` choice
-without a secret. No-login servers return 409 for login-token, API-key, and device
+No-login servers return 409 for login-token, API-key, and device
 code creation and device inspection/decision, so no credential minted while access
 is open survives a later switch to required login.
 

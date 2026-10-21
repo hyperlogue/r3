@@ -1,6 +1,5 @@
 import { ArtifactClient } from "../shared/artifact-client.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
-import type { BootResponse } from "../shared/types.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import {
   BackendCredentials,
@@ -42,11 +41,6 @@ export async function loginCommand(args: string[]): Promise<void> {
     if (!accessToken) throw new Error("Missing API key");
     await new ArtifactClient({ url, token: accessToken }).json("GET", "/api/sessions");
     await credentials.save({ url, kind: "key", accessToken });
-  } else if (await loginDisabled(url)) {
-    // No credential exists to obtain. Saving the choice is the consent that lets
-    // the CLI and worker use this remote backend.
-    await credentials.save({ url, kind: "open", accessToken: "" });
-    console.log(`${url} does not require login.`);
   } else {
     const response = await fetch(`${url}/api/oauth/device/code`, {
       method: "POST",
@@ -54,7 +48,16 @@ export async function loginCommand(args: string[]): Promise<void> {
       signal: AbortSignal.timeout(15_000),
       body: new URLSearchParams({ client_id: "r3-cli", label: "r3 CLI" }),
     });
-    if (!response.ok) throw new Error("Backend could not start browser approval");
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error_description?: unknown;
+      } | null;
+      throw new Error(
+        typeof body?.error_description === "string"
+          ? body.error_description
+          : "Backend could not start browser approval",
+      );
+    }
     const request = (await response.json()) as {
       device_code: string;
       user_code: string;
@@ -128,14 +131,4 @@ export async function loginCommand(args: string[]): Promise<void> {
   }
   await reloadWorker(url);
   console.log(`Connected to ${url}`);
-}
-
-async function loginDisabled(url: string): Promise<boolean> {
-  const response = await fetch(`${url}/api/boot`, {
-    redirect: "error",
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) return false;
-  const boot = (await response.json().catch(() => null)) as Partial<BootResponse> | null;
-  return boot?.needsAuth === false && boot.loginRequired === false;
 }

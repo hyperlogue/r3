@@ -2,9 +2,11 @@
 
 ## On your machine
 
-Open the artifact link returned by your agent, or run `r3 open` and open the printed workspace address. The local server starts automatically when needed. A localhost-only setup requires no token, sign-in ticket, or browser session by default.
+The local server starts automatically when needed and requires login by default. Run `r3 open` and open the printed one-time link to sign this browser in; the link expires after 60 seconds, and the browser session lasts while you keep using it.
 
-Artifact links from `r3 create` and `r3 publish` are stable: you can read an agent's reply and open its link later. If you explicitly enable login on the local server, `r3 open` can provide a one-time sign-in link for immediate use; that ticket expires after 60 seconds. Agents should share the ordinary artifact URL.
+Artifact links from `r3 create` and `r3 publish` are stable: you can read an agent's reply and open its link later in a signed-in browser. Agents should share the ordinary artifact URL, not an `r3 open` link.
+
+If only this computer can reach the server, `r3 config set requireLogin false` turns login off. r3 then refuses requests forwarded by a proxy, and it will not start with login off while any external access is configured.
 
 ## Connect to a remote server
 

@@ -4,15 +4,31 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { localBootstrap } from "./local-bootstrap.ts";
 
+// Stable links carry no grant; a fresh browser must sign in before reading.
 async function readPublicationInFreshBrowser(link: string, artifactId: string) {
   const url = new URL(link);
   expect(url.pathname).toBe(`/${artifactId}`);
   expect(url.hash).toBe("");
   const boot = await fetch(`${url.origin}/api/boot`);
-  expect(boot.status).toBe(200);
-  expect(await boot.json()).toEqual({ needsAuth: false, token: null, loginRequired: false });
+  expect(boot.status).toBe(401);
+  expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
   expect(boot.headers.get("set-cookie")).toBeNull();
-  const read = await fetch(`${url.origin}/api/artifacts/${artifactId}`);
+  expect((await fetch(`${url.origin}/api/artifacts/${artifactId}`)).status).toBe(401);
+}
+
+async function signInWithOpenLink(link: string, artifactId: string) {
+  const url = new URL(link);
+  expect(url.pathname).toBe(`/${artifactId}`);
+  const ticket = url.hash.match(/^#r3-login=(.+)$/)?.[1];
+  expect(ticket).toBeTruthy();
+  const exchange = await fetch(`${url.origin}/api/auth/local`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ticket }),
+  });
+  expect(exchange.status).toBe(200);
+  const cookie = exchange.headers.get("set-cookie")!.split(";", 1)[0]!;
+  const read = await fetch(`${url.origin}/api/artifacts/${artifactId}`, { headers: { cookie } });
   expect(read.status).toBe(200);
   expect((await read.json()).id).toBe(artifactId);
 }
@@ -137,8 +153,8 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     const id = first.artifact.id as string;
     expect(first.version.seq).toBe(1);
     await readPublicationInFreshBrowser(first.url, id);
-    expect((await run("open", id)).output.trim()).toBe(first.url);
-    expect(await (await fetch(`${new URL(first.url).origin}/api/auth/tokens`)).json()).toEqual([]);
+    await signInWithOpenLink((await run("open", id)).output.trim(), id);
+    expect((await fetch(`${new URL(first.url).origin}/api/auth/tokens`)).status).toBe(401);
     const daemonInfo = () => Bun.file(join(root, "runtime", "r3", "daemon.json")).json();
     const request = async (path: string, method = "GET") => {
       const daemon = await daemonInfo();
@@ -225,11 +241,14 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
         "--no-listen",
         "--json",
       );
-      expect(selected.code).toBe(0);
-      expect(new URL(JSON.parse(selected.output).url).hash).toBe("");
+      // A protected server rejects the unauthenticated explicit backend.
+      expect(selected.code).not.toBe(0);
+      expect(selected.error).toContain("run r3 login");
     } finally {
       environment.R3_URL = "";
     }
+    // Automatic local discovery restores the private credential the worker uses.
+    expect((await run("open", id)).code).toBe(0);
     expect((await run("restart")).code).toBe(0);
     const reconnectDeadline = Date.now() + 5000;
     while (

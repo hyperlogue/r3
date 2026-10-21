@@ -52,8 +52,7 @@ export function selectedBackend(
 
 export interface BackendCredential {
   url: string;
-  // "open" records that the user chose a no-login backend with r3 login.
-  kind: "key" | "oauth" | "open";
+  kind: "key" | "oauth";
   accessToken: string;
   refreshToken?: string;
   expiresAt?: number;
@@ -82,8 +81,8 @@ export class BackendCredentials {
     if (!credential) return null;
     if (
       credential.url !== normalizeBackendUrl(url) ||
-      !["key", "oauth", "open"].includes(credential.kind) ||
-      (credential.kind !== "open" && !credential.accessToken)
+      !credential.accessToken ||
+      !["key", "oauth"].includes(credential.kind)
     )
       throw new Error("Invalid saved backend credentials; run r3 login");
     return credential;
@@ -96,10 +95,9 @@ export class BackendCredentials {
   }
   async token(url: string): Promise<string> {
     const saved = this.read(url);
-    // An unconfigured client may use a loopback backend whose login policy is
-    // disabled. A remote backend, possibly named by an untrusted project
-    // .r3.json, receives publications and worker streams only after r3 login.
-    if (saved?.kind === "open") return "";
+    // Only a loopback backend can run without login. A remote backend, possibly
+    // named by an untrusted project .r3.json, receives publications and worker
+    // streams only after r3 login.
     if (!saved) {
       if (LOOPBACK_BACKENDS.has(new URL(normalizeBackendUrl(url)).hostname)) return "";
       throw new Error("No saved access for this backend; run r3 login");

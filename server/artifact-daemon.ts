@@ -13,6 +13,7 @@ import {
   getToken,
   isAllowedHost,
   LOCAL_URL,
+  LOGIN_POLICY_ERROR,
   PORT,
   PUBLIC_URL,
   R3_VERSION,
@@ -46,6 +47,10 @@ export async function startArtifactDaemon(): Promise<void> {
       await Bun.sleep(50);
     }
     return;
+  }
+  if (LOGIN_POLICY_ERROR) {
+    releaseDaemonLock();
+    throw new Error(LOGIN_POLICY_ERROR);
   }
   let storage: Awaited<ReturnType<typeof openArtifactStorage>> | undefined;
   let runtime: ReturnType<typeof startArtifactServer> | undefined;

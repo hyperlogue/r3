@@ -74,6 +74,7 @@ for (const requireLogin of [false, true]) {
     assert.deepEqual(await page.evaluate("fetch('/api/boot').then(r=>r.json())"), {
       needsAuth: false,
       token: null,
+      loginRequired: requireLogin,
     });
     if (requireLogin) {
       await page.evaluate("fetch('/api/auth/logout',{method:'POST'})");

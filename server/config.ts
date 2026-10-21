@@ -62,7 +62,7 @@ function hostnameOf(url: string): string | null {
   }
 }
 
-// Loopback host names seed the Host allowlist and the default login policy.
+// Loopback host names seed the Host allowlist and bound where login may be disabled.
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 export function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname);
@@ -105,8 +105,6 @@ export function isAllowedHost(hostname: string): boolean {
   return ALLOWED_HOSTS.has(hostname);
 }
 
-// Explicit settings override the exposure-based default in both directions.
-// Login is optional for loopback-only configurations and required otherwise.
 // Parse a boolean-ish flag (1/true/yes → true, 0/false/no → false, else null).
 // Shared with `r3 config set requireLogin` so env and persisted paths agree.
 export function parseBoolFlag(v: string | undefined): boolean | null {
@@ -115,17 +113,38 @@ export function parseBoolFlag(v: string | undefined): boolean | null {
   if (t === "0" || t === "false" || t === "no") return false;
   return null;
 }
+// Any non-loopback bind, Host name, or public URL, or any trusted proxy, serves
+// clients beyond this computer. A trusted proxy counts even over loopback.
+export function configurationExposed(
+  settings: Pick<PersistedConfig, "bind" | "publicUrl" | "allowedHosts" | "trustedProxies">,
+): boolean {
+  const publicHost = settings.publicUrl ? hostnameOf(settings.publicUrl) : null;
+  return (
+    !isLoopbackHost(settings.bind || "127.0.0.1") ||
+    (!!settings.publicUrl && (publicHost === null || !isLoopbackHost(publicHost))) ||
+    (settings.allowedHosts ?? []).some((host) => !isLoopbackHost(host)) ||
+    (settings.trustedProxies?.length ?? 0) > 0
+  );
+}
+
+export const LOGIN_EXPOSURE_ERROR =
+  "requireLogin=false is allowed only when r3 serves this computer alone. Run r3 config unset requireLogin (and unset R3_REQUIRE_LOGIN), or remove the external bind, publicUrl, allowedHosts, and trustedProxies settings.";
+
+// Login is required unless explicitly disabled on a loopback-only server. An
+// exposed server never runs without login: the daemon refuses to start, and this
+// value stays true even if that check is bypassed.
 const LOGIN_SETTING = parseBoolFlag(process.env.R3_REQUIRE_LOGIN) ?? PERSISTED.requireLogin ?? null;
-// A configured trusted proxy is external exposure even when it connects over loopback.
-export const REQUIRE_LOGIN =
-  LOGIN_SETTING ??
-  (!isLoopbackHost(BIND) ||
-    [...ALLOWED_HOSTS].some((h) => !isLoopbackHost(h)) ||
-    (PERSISTED.trustedProxies?.length ?? 0) > 0);
-// Default no-login mode trusts direct loopback clients only. A forwarded request
-// means an unconfigured proxy, so it fails closed until publicUrl or an explicit
-// requireLogin setting describes that exposure.
-export const REFUSE_PROXIED = LOGIN_SETTING === null && !REQUIRE_LOGIN;
+const EXPOSED = configurationExposed({
+  bind: BIND,
+  publicUrl: PUBLIC_URL,
+  allowedHosts: EXTRA_HOSTS,
+  trustedProxies: PERSISTED.trustedProxies,
+});
+export const LOGIN_POLICY_ERROR = LOGIN_SETTING === false && EXPOSED ? LOGIN_EXPOSURE_ERROR : null;
+export const REQUIRE_LOGIN = LOGIN_SETTING !== false || EXPOSED;
+// No-login mode serves direct local clients only. A forwarded request means an
+// undeclared proxy, so it fails closed.
+export const REFUSE_PROXIED = !REQUIRE_LOGIN;
 
 // $XDG_STATE_HOME/r3 (default ~/.local/state/r3): the persistent home for the
 // artifact database and content, private server token, worker state, and fallback

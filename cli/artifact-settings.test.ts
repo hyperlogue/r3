@@ -143,3 +143,51 @@ test("config set refuses to overwrite a config.json it cannot read", async () =>
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("config set never disables login on an exposed server", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-login-exposure-"));
+  const run = async (...args: string[]) => {
+    const child = Bun.spawn(
+      [process.execPath, join(import.meta.dir, "index.ts"), "config", ...args],
+      {
+        env: {
+          ...process.env,
+          XDG_CONFIG_HOME: join(root, "config"),
+          XDG_STATE_HOME: join(root, "state"),
+          XDG_RUNTIME_DIR: join(root, "runtime"),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [output, error, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    return { output, error, code };
+  };
+  try {
+    expect((await run("set", "requireLogin", "false")).code).toBe(0);
+    for (const [name, value] of [
+      ["publicUrl", "https://reviews.example"],
+      ["allowedHosts", "reviews.example"],
+      ["trustedProxies", "127.0.0.1"],
+      ["bind", "100.64.0.1"],
+    ]) {
+      const refused = await run("set", name!, value!);
+      expect({ name, code: refused.code }).toEqual({ name, code: 1 });
+      expect(refused.error).toContain("requireLogin=false is allowed only");
+    }
+    expect((await run("unset", "requireLogin")).code).toBe(0);
+    expect((await run("set", "publicUrl", "https://reviews.example")).code).toBe(0);
+    expect((await run("set", "requireLogin", "false")).error).toContain(
+      "requireLogin=false is allowed only",
+    );
+    expect(JSON.parse((await run("show")).output)).toEqual({
+      publicUrl: "https://reviews.example",
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

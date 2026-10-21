@@ -73,19 +73,20 @@ Manual revocation retains its transactional session deletion, including inactive
 tokens when revoking all.
 The separate master API token is outside this login-token policy.
 
-Login defaults to disabled when the bind and all configured hostnames/public URL
-are loopback-only and no trusted proxy is configured. Configuring external exposure
-defaults login to enabled for every request, including a reverse proxy whose
-connection or rewritten Host is loopback. Default no-login mode refuses requests
-carrying `Forwarded`, `X-Forwarded-*`, `X-Real-IP`, or `Via` before API, preview,
-and asset dispatch, so a proxy added without configuration fails closed. Explicit
-`requireLogin=true` or `false` overrides that default and the refusal; the
-environment override takes precedence over persisted configuration.
+Login is required by default, for every request, on loopback too. Explicit
+`requireLogin=false` (environment before persisted configuration) is accepted
+only when the bind, public URL, and allowed hostnames are all loopback and no
+trusted proxy is configured. Any exposure keeps `REQUIRE_LOGIN` true; the daemon
+and CLI spawn refuse to start, and `r3 config set` refuses to save the combination.
+An exposed no-login server would let any reachable client read every artifact and
+push comments into the owner's coding-agent sessions. The server cannot tell a
+same-host reverse proxy or TCP forwarder from a local user, so network placement
+never substitutes for login. No-login mode also refuses requests carrying
+`Forwarded`, `X-Forwarded-*`, `X-Real-IP`, or `Via` before API, preview, and asset
+dispatch; this catches common HTTP proxies but not raw forwarders.
 CLI and worker clients omit credentials only for loopback backends. A project
 `.r3.json` is untrusted checkout content, so any other backend requires saved
-access from `r3 login` before it receives publications or worker streams. For a
-backend whose boot reports `loginRequired:false`, `r3 login` saves an `open` marker
-with no secret; that explicit choice is the consent, and a later 401 asks for login.
+access from `r3 login` before it receives publications or worker streams.
 No-login mode serves ordinary browser/API requests without a token, sign-in ticket,
 or browser-auth record. It trusts any client that can reach the configured listener
 and pass Host/origin checks, including other local OS users. Boot always returns
