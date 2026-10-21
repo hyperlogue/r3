@@ -1,5 +1,5 @@
 // Shared by daemon + CLI. Bump on any wire-format or daemon-protocol change.
-export const R3_VERSION = "2.2.1";
+export const R3_VERSION = "2.3.0";
 
 export const R3_VERSION_HEADER = "X-R3-Version";
 

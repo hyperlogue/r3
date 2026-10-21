@@ -4,6 +4,39 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-10-21
+
+### Added
+
+- **Simplified Chinese is now available as a UI language.**
+- **Antigravity notifications.** Publish and discuss artifacts with Antigravity
+  agents, with feedback delivered directly to the running agent session.
+
+### Changed
+
+- **Access control updates.**
+
+  - **Localhost only:** Login is off by default (`requireLogin=true` enables
+    it). Unauthenticated servers reject forwarded requests, issue no
+    credentials, and show a one-time browser notice (suppress with
+    `disableLoginNotice=true`).
+  - **External access:** Any external bind, host, public URL, or proxy requires
+    login. Exposed servers reject `requireLogin=false` and refuse to start until
+    it is removed.
+
+- **An animated working indicator.** The navbar robot animates while agents are
+  working on threads and respects reduced-motion preferences.
+- **Notification cleanup after agents exit.** r3 removes saved notification
+  credentials when it can confirm an agent has exited. Run
+  `r3 listen <artifact-id>` after resuming the agent to receive feedback again.
+
+### Fixed
+
+- **Readable Mermaid diagrams in Markdown.** Diagrams retain their colors,
+  labels, and visible edges in light and dark previews, with support for Unicode
+  names, labeled bidirectional arrows, and multiline labels. Republish existing
+  Markdown to apply the rendering fixes.
+
 ## [2.2.1] - 2026-10-18
 
 ### Added
@@ -739,6 +772,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.3.0]: https://github.com/hyperlogue/r3/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/hyperlogue/r3/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/hyperlogue/r3/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/hyperlogue/r3/compare/v2.1.0...v2.1.1
