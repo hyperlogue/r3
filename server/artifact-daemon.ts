@@ -9,6 +9,7 @@ import { openArtifactStorage } from "./artifact-storage.ts";
 import {
   acquireDaemonLock,
   BIND,
+  DISABLE_LOGIN_NOTICE,
   daemonJsonPath,
   getToken,
   isAllowedHost,
@@ -78,6 +79,7 @@ export async function startArtifactDaemon(): Promise<void> {
         localAccess,
         requireLogin: REQUIRE_LOGIN,
         refuseProxied: REFUSE_PROXIED,
+        disableLoginNotice: DISABLE_LOGIN_NOTICE,
         version: R3_VERSION,
         allowedHost: isAllowedHost,
         applicationOrigins: new Set([new URL(PUBLIC_URL).origin]),

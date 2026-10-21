@@ -159,6 +159,7 @@ workers shut down through authenticated IPC, including across PID namespaces.
 Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
 Configuration names:
 backendUrl, bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
+disableLoginNotice (true hides the browser's one-time no-login notice; default false),
 trustedProxies (comma-separated immediate proxy IP addresses),
 archiveTtlDays (1..36500; default 30),
 projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
@@ -167,7 +168,7 @@ integer). Successful login or cookie authentication refreshes last use; unused
 tokens age from creation. Inactivity is calculated when authenticating; startup
 removes inactive or revoked rows.
 Cookie-use timestamps are saved once per minute and at graceful shutdown.
-Environment overrides: R3_AUTH_TOKEN_IDLE_DAYS, R3_PROJECT_GROUPING.
+Environment overrides: R3_AUTH_TOKEN_IDLE_DAYS, R3_PROJECT_GROUPING, R3_DISABLE_LOGIN_NOTICE.
 Project settings take effect on the server after restart. An explicit project wins
 over remote inference; project mappings can group aliases under an existing ID.
 The CLI detects origin's fetch URL (then upstream or the sole remote), removes

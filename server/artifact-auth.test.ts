@@ -114,6 +114,15 @@ describe("artifact application auth boundary", () => {
       expect((await request("/api/private", { method: "POST", headers })).status).toBe(200);
       expect((await request("/api/events", { headers })).status).toBe(200);
     }
+    // The owner can silence the browser notice without changing access.
+    policy.disableLoginNotice = true;
+    expect(await (await request("/api/boot")).json()).toEqual({
+      needsAuth: false,
+      token: null,
+      loginRequired: false,
+      loginNotice: false,
+    });
+    policy.disableLoginNotice = undefined;
     expect(
       (
         await request("/api/auth/local", {

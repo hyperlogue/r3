@@ -16,6 +16,7 @@ To inspect current settings, run `r3 config show` in your terminal.
 | `allowedHosts` | Additional accepted hostnames; any external hostname requires login. |
 | `trustedProxies` | Proxy connection IPs trusted to supply the client address; configuring a proxy requires login. |
 | `requireLogin` | `true` requires browser and API authentication on a loopback-only server. Exposed servers always require it, and `false` is refused there. |
+| `disableLoginNotice` | `true` hides the browser's one-time notice that a loopback server runs without login (Default: `false`). |
 | `archiveTtlDays` | Minimum age before an archived artifact qualifies for cleanup (Default: 30 days). |
 | `authTokenIdleDays` | Inactivity window before a browser login token expires (Default: 14 days). |
 | `projectGrouping` | Automatic Git remote detection (`remote`) or explicit project assignment (`manual`). |

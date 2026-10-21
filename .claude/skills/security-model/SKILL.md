@@ -80,7 +80,9 @@ are all loopback and no trusted proxy is configured; `requireLogin=true`
 daemon and CLI spawn refuse to start, and `r3 config set` refuses to save it.
 The trade-off is deliberate for a single-user tool: other local OS users and raw
 TCP forwarders reach a no-login loopback server. The browser shows a one-time
-notice per origin (localStorage) explaining this and how to enable login.
+notice per origin (localStorage) explaining this and how to enable login;
+`disableLoginNotice` (`R3_DISABLE_LOGIN_NOTICE`) suppresses it via boot
+`loginNotice:false` without changing access.
 An exposed no-login server would let any reachable client read every artifact and
 push comments into the owner's coding-agent sessions. The server cannot tell a
 same-host reverse proxy or TCP forwarder from a local user, so network placement

@@ -22,6 +22,7 @@ const NAMES = [
   "publicUrl",
   "allowedHosts",
   "requireLogin",
+  "disableLoginNotice",
   "authTokenIdleDays",
   "archiveTtlDays",
   "projectGrouping",
@@ -171,6 +172,13 @@ export function configCommand(argv: string[]): void {
         if (enabled === null)
           throw new ArtifactCommandError("requireLogin expects 1/0 or true/false");
         next.requireLogin = enabled;
+        break;
+      }
+      case "disableLoginNotice": {
+        const disabled = parseBoolFlag(value);
+        if (disabled === null)
+          throw new ArtifactCommandError("disableLoginNotice expects 1/0 or true/false");
+        next.disableLoginNotice = disabled;
         break;
       }
     }

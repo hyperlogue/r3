@@ -16,6 +16,8 @@ export interface ArtifactAuthPolicy {
   requireLogin: boolean;
   // Reject forwarded requests when no-login mode is only the loopback default.
   refuseProxied?: boolean;
+  // Suppress the browser's one-time no-login notice.
+  disableLoginNotice?: boolean;
   version: string;
   allowedHost: (hostname: string) => boolean;
   // Explicit application origins cover proxies that rewrite the request Host.
@@ -100,7 +102,13 @@ export function artifactBoot(
   policy: ArtifactAuthPolicy,
   cookie: string | undefined,
 ): BootResponse {
-  if (!policy.requireLogin) return { needsAuth: false, token: null, loginRequired: false };
+  if (!policy.requireLogin)
+    return {
+      needsAuth: false,
+      token: null,
+      loginRequired: false,
+      ...(policy.disableLoginNotice ? { loginNotice: false } : {}),
+    };
   return { needsAuth: !authentication.sessionValid(cookie), token: null, loginRequired: true };
 }
 

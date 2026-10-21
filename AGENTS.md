@@ -52,7 +52,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   credentials. A loopback-only server needs no login unless `requireLogin=true`;
   any external bind, host, public URL, or trusted proxy always requires login and
   refuses `requireLogin=false`. No-login mode refuses forwarded requests, issues no
-  credentials, and the browser warns once about it. Publication URLs stay stable; `r3 open` needs
+  credentials, and the browser warns once about it unless `disableLoginNotice`
+  is set. Publication URLs stay stable; `r3 open` needs
   a one-time sign-in ticket only when local login is required. Browser boot never
   exposes the API credential. Backend selection is `R3_URL`, nearest project
   `.r3.json`, user `backendUrl`, then automatic local. Saved credentials are keyed

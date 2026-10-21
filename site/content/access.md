@@ -2,7 +2,7 @@
 
 ## On your machine
 
-The local server starts automatically when needed. It listens only on this computer and needs no login by default, so artifact links open directly. The first time a browser opens it, r3 shows a one-time notice about this.
+The local server starts automatically when needed. It listens only on this computer and needs no login by default, so artifact links open directly. The first time a browser opens it, r3 shows a one-time notice about this; `r3 config set disableLoginNotice true` turns it off.
 
 Artifact links from `r3 create` and `r3 publish` are stable: you can read an agent's reply and open its link later. Agents should share the ordinary artifact URL, not an `r3 open` link.
 

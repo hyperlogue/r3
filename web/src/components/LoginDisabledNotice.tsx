@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Trans } from "react-i18next";
-import { LOGIN_DISABLED } from "../api.ts";
+import { LOGIN_NOTICE } from "../api.ts";
 import { readDisplayPreference, writeDisplayPreference } from "../display-storage.ts";
 import { appI18n, getLocale, useTranslation } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
@@ -12,7 +12,7 @@ const DOCS = "https://hyperlogue.github.io/r3";
 
 export function LoginDisabledNotice() {
   const [open, setOpen] = useState(
-    () => LOGIN_DISABLED && readDisplayPreference(storageKey) === null,
+    () => LOGIN_NOTICE && readDisplayPreference(storageKey) === null,
   );
   if (!open) return null;
   return (

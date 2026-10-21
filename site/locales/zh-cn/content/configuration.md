@@ -15,6 +15,7 @@ r3 默认运行在回环地址上，无需登录，普通的 Artifact 链接可�
 | `allowedHosts` | 额外允许访问的主机名；包含任何外部主机名时要求登录。 |
 | `trustedProxies` | 受信任、可提供客户端地址的代理连接 IP；配置代理时要求登录。 |
 | `requireLogin` | 设为 `true` 时，仅供本机访问的服务器也要求浏览器和 API 身份验证。对外暴露的服务器始终要求登录，并拒绝设置为 `false`。 |
+| `disableLoginNotice` | 设为 `true` 时，不再显示回环服务器未启用登录的一次性浏览器提示（默认：`false`）。 |
 | `archiveTtlDays` | 已归档Artifact符合清理条件的最短保留时长（默认：30 天）。 |
 | `authTokenIdleDays` | 浏览器登录令牌在闲置多久后过期（默认：14 天）。 |
 | `projectGrouping` | 自动 Git 远程检测（`remote`）或显式项目指定（`manual`）。 |

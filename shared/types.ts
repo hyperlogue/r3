@@ -125,6 +125,8 @@ export interface BootResponse {
   // False when the server runs without login and therefore issues no credentials.
   // Absent from older servers and fixtures; treat that as true.
   loginRequired?: boolean;
+  // False when the owner disabled the browser's no-login notice (disableLoginNotice).
+  loginNotice?: boolean;
 }
 
 // Authenticated, uncached application HTML may carry the same bootstrap and

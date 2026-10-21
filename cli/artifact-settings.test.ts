@@ -187,6 +187,9 @@ test("config set never disables login on an exposed server", async () => {
     expect(JSON.parse((await run("show")).output)).toEqual({
       publicUrl: "https://reviews.example",
     });
+    expect((await run("set", "disableLoginNotice", "maybe")).code).toBe(1);
+    expect((await run("set", "disableLoginNotice", "true")).code).toBe(0);
+    expect((await run("get", "disableLoginNotice")).output.trim()).toBe("true");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

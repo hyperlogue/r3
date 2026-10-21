@@ -27,8 +27,9 @@ export let TOKEN = "";
 // servers issue no credentials. Set by loadBoot() before rendering. The static
 // demo aliases this module and disables its Access controls because it has no server.
 export let CAN_MANAGE_TOKENS = true;
-// True only when the server reports login disabled; the static demo has no server.
-export let LOGIN_DISABLED = false;
+// Show the one-time no-login notice: only when the server reports login disabled
+// and its owner has not turned the notice off. The static demo has no server.
+export let LOGIN_NOTICE = false;
 
 // Bootstrap before first render. Local one-time links and remote login both
 // establish an HttpOnly browser session before accessing application data.
@@ -65,7 +66,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
     if (!suspended.some(Boolean)) {
       TOKEN = initial.boot.token ?? "";
       CAN_MANAGE_TOKENS = initial.boot.loginRequired !== false;
-      LOGIN_DISABLED = initial.boot.loginRequired === false;
+      LOGIN_NOTICE = initial.boot.loginRequired === false && initial.boot.loginNotice !== false;
       // The HTML request preceded our cache reads. Never resume a cache from
       // this snapshot: logout may have raced the document or its bundle load.
       return {
@@ -97,7 +98,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   }
   TOKEN = b.token ?? "";
   CAN_MANAGE_TOKENS = b.loginRequired !== false;
-  LOGIN_DISABLED = b.loginRequired === false;
+  LOGIN_NOTICE = b.loginRequired === false && b.loginNotice !== false;
   await markdownCache.resume(cacheEpoch);
   await draftImages.resume(imageEpoch);
   return { needsAuth: false };

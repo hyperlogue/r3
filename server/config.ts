@@ -145,6 +145,9 @@ export const REQUIRE_LOGIN = EXPOSED || LOGIN_SETTING === true;
 // No-login mode serves direct local clients only. A forwarded request means an
 // undeclared proxy, so it fails closed.
 export const REFUSE_PROXIED = !REQUIRE_LOGIN;
+// The owner may silence the browser's one-time no-login notice; it is display only.
+export const DISABLE_LOGIN_NOTICE =
+  parseBoolFlag(process.env.R3_DISABLE_LOGIN_NOTICE) ?? PERSISTED.disableLoginNotice ?? false;
 
 // $XDG_STATE_HOME/r3 (default ~/.local/state/r3): the persistent home for the
 // artifact database and content, private server token, worker state, and fallback
@@ -164,6 +167,7 @@ export interface PersistedConfig {
   publicUrl?: string;
   allowedHosts?: string[];
   requireLogin?: boolean;
+  disableLoginNotice?: boolean;
   authTokenIdleDays?: number;
   archiveTtlDays?: number;
   projectGrouping?: "remote" | "manual";
@@ -202,6 +206,7 @@ function sanitizeConfig(o: Record<string, unknown>): PersistedConfig {
     out.allowedHosts = o.allowedHosts as string[];
   }
   if (typeof o.requireLogin === "boolean") out.requireLogin = o.requireLogin;
+  if (typeof o.disableLoginNotice === "boolean") out.disableLoginNotice = o.disableLoginNotice;
   if (
     typeof o.authTokenIdleDays === "number" &&
     Number.isSafeInteger(o.authTokenIdleDays) &&

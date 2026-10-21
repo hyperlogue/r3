@@ -6,7 +6,7 @@ import { demo, fail } from "./artifact-backend.ts";
 export { ArtifactApiError as ApiError };
 export const TOKEN = "";
 export const CAN_MANAGE_TOKENS = false;
-export const LOGIN_DISABLED = false;
+export const LOGIN_NOTICE = false;
 export const loadBoot = async () => ({ needsAuth: false });
 export const api = {
   themes: async () => structuredClone(demo.state.themes),
