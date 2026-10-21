@@ -13,7 +13,9 @@
   <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
 </p>
 
-r3 is a tool for reading, using, and discussing agent output.
+r3 is a tool for reading, using, and discussing agent output. The goal of r3 is
+to serve you, a single user, and your agents. Supporting multiuser is a nongoal.
+
 Open an interactive page, read a document, or inspect code changes. Select an
 element or passage to leave comments and continue the conversation with your agent.
 
