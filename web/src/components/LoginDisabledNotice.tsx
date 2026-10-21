@@ -3,7 +3,7 @@ import { LOGIN_DISABLED } from "../api.ts";
 import { readDisplayPreference, writeDisplayPreference } from "../display-storage.ts";
 import { getLocale, useTranslation } from "../i18n.ts";
 import { suspendKeys } from "../keys.ts";
-import { Button } from "../ui.tsx";
+import { Button, StrokeIcon } from "../ui.tsx";
 
 // Seen once per browser and application origin; storage failure only repeats it.
 const storageKey = "r3-login-disabled-notice";
@@ -54,18 +54,26 @@ function LoginDisabledDialog({ onClose }: { onClose: () => void }) {
       }}
       className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-auto rounded-xl border border-neutral-300 bg-white p-5 text-neutral-900 r3-modal backdrop:bg-black/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
     >
-      <h2 id={title} className="text-base font-semibold">
+      <h2 id={title} className="flex items-center gap-2.5 text-lg font-semibold">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-100 text-warning-700 dark:bg-warning-400/15 dark:text-warning-400">
+          <StrokeIcon className="size-5">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </StrokeIcon>
+        </span>
         {t("loginDisabledNotice.title")}
       </h2>
       <div
         id={description}
         className="mt-3 space-y-3 text-sm text-neutral-600 dark:text-neutral-300"
       >
-        <p>{t("loginDisabledNotice.localOnly")}</p>
         <p>{t("loginDisabledNotice.risk")}</p>
         <p>{t("loginDisabledNotice.enable")}</p>
         <pre className="whitespace-pre-wrap rounded bg-neutral-100 p-2 font-mono text-xs dark:bg-neutral-800">
-          {"r3 config set requireLogin true\nr3 server restart"}
+          {
+            "r3 config set requireLogin true\nr3 server restart\nr3 auth create-token --label browser"
+          }
         </pre>
         <p>{t("loginDisabledNotice.signIn")}</p>
         <p>
