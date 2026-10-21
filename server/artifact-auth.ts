@@ -40,16 +40,12 @@ export function artifactRequestHostname(request: Request): string | null {
   }
 }
 
-const FORWARDING_HEADERS = [
-  "forwarded",
-  "x-forwarded-for",
-  "x-forwarded-host",
-  "x-forwarded-proto",
-  "x-real-ip",
-  "via",
-];
+const FORWARDING_HEADERS = new Set(["forwarded", "x-real-ip", "via"]);
 export function artifactProxied(request: Request): boolean {
-  return FORWARDING_HEADERS.some((name) => request.headers.has(name));
+  // Header names iterate lowercased; every X-Forwarded-* variant counts.
+  for (const name of request.headers.keys())
+    if (FORWARDING_HEADERS.has(name) || name.startsWith("x-forwarded-")) return true;
+  return false;
 }
 
 // Credentials minted while login is disabled would silently survive a later switch

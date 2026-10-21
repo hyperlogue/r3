@@ -204,7 +204,15 @@ test("default no-login mode refuses requests forwarded by an unconfigured proxy"
   const warn = spyOn(console, "warn").mockImplementation(() => {});
   try {
     expect((await fetch(`${base}/api/artifacts`)).status).toBe(200);
-    for (const header of ["x-forwarded-for", "forwarded", "x-forwarded-host", "via"])
+    for (const header of [
+      "x-forwarded-for",
+      "forwarded",
+      "x-forwarded-host",
+      "x-forwarded-proto",
+      "X-Forwarded-Prefix",
+      "x-real-ip",
+      "via",
+    ])
       for (const path of ["/api/artifacts", "/api/boot", "/", "/__r3_preview/x/"]) {
         const response = await fetch(`${base}${path}`, { headers: { [header]: "203.0.113.7" } });
         expect({ header, path, status: response.status }).toEqual({ header, path, status: 403 });
