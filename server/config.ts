@@ -325,9 +325,8 @@ export interface DaemonInfo {
   // announcements may omit these fields.
   exec?: string;
   argv?: string[];
-  // The URL and legacy login policy resolved from the serving process's own
-  // env+config.json. Current browser access always requires a session; older
-  // announcements may omit these fields.
+  // The URL and login policy resolved from the serving process's own
+  // env+config.json. Older announcements may omit these fields.
   publicUrl?: string;
   requireLogin?: boolean;
 }
