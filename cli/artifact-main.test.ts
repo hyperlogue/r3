@@ -330,3 +330,118 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
     await rm(root, { recursive: true, force: true });
   }
 }, 60_000);
+
+test("a protected local server signs browsers in with r3 open and refuses exposure without login", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-cli-protected-"));
+  const directory = join(root, "publication");
+  await mkdir(directory);
+  await writeFile(join(directory, "page.md"), "# Protected\n");
+  const reservation = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() });
+  const environment: Record<string, string | undefined> = {
+    ...process.env,
+    XDG_STATE_HOME: join(root, "state"),
+    XDG_CONFIG_HOME: join(root, "config"),
+    XDG_RUNTIME_DIR: join(root, "runtime"),
+    R3_DB: join(root, "store.sqlite"),
+    R3_PORT: String(reservation.port),
+    R3_BIND: "127.0.0.1",
+    R3_PUBLIC_URL: "",
+    R3_ALLOWED_HOSTS: "",
+    R3_REQUIRE_LOGIN: "true",
+    R3_URL: "",
+    R3_TOKEN: "",
+    R3_AGENT_SESSION: "cli-protected-publisher",
+    R3_DEV: "0",
+    CODEX_THREAD_ID: "",
+    CODEX_SESSION_ID: "",
+    CLAUDE_CODE_SESSION_ID: "",
+    CLAUDE_CODE_MESSAGING_SOCKET: "",
+    CLAUDE_CODE_MESSAGING_TOKEN: "",
+  };
+  await reservation.stop(true);
+  const run = async (...args: string[]) => {
+    const child = Bun.spawn([process.execPath, join(import.meta.dir, "index.ts"), ...args], {
+      cwd: directory,
+      env: environment,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const timer = setTimeout(() => child.kill("SIGKILL"), 30_000);
+    try {
+      const [output, error, code] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      return { output, error, code };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  try {
+    const created = await run(
+      "create",
+      "--kind",
+      "files",
+      "--dir",
+      directory,
+      "--no-listen",
+      "--json",
+    );
+    expect(created.code).toBe(0);
+    const { url: link, artifact } = JSON.parse(created.output);
+    const origin = new URL(link).origin;
+    // Stable links carry no grant; a fresh browser must sign in before reading.
+    expect(new URL(link).hash).toBe("");
+    const boot = await fetch(`${origin}/api/boot`);
+    expect(boot.status).toBe(401);
+    expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
+    expect((await fetch(`${origin}/api/artifacts/${artifact.id}`)).status).toBe(401);
+
+    const opened = new URL((await run("open", artifact.id)).output.trim());
+    expect(opened.pathname).toBe(`/${artifact.id}`);
+    const ticket = opened.hash.match(/^#r3-login=(.+)$/)?.[1];
+    expect(ticket).toBeTruthy();
+    const exchange = () =>
+      fetch(`${origin}/api/auth/local`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ticket }),
+      });
+    const signedIn = await exchange();
+    expect(signedIn.status).toBe(200);
+    const cookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
+    const read = await fetch(`${origin}/api/artifacts/${artifact.id}`, { headers: { cookie } });
+    expect(read.status).toBe(200);
+    // The ticket is single use.
+    expect((await exchange()).headers.get("set-cookie")).toBeNull();
+
+    // An explicitly selected backend never inherits automatic-local credentials.
+    environment.R3_URL = origin;
+    try {
+      await rm(join(root, "config", "r3", "credentials"), { recursive: true, force: true });
+      const selected = await run("create", "--kind", "files", "--dir", directory, "--no-listen");
+      expect(selected.code).not.toBe(0);
+      expect(selected.error).toContain("run r3 login");
+    } finally {
+      environment.R3_URL = "";
+    }
+    expect((await run("stop")).code).toBe(0);
+
+    // Exposure with login turned off refuses to start, whichever way it starts.
+    environment.R3_REQUIRE_LOGIN = "false";
+    environment.R3_PUBLIC_URL = "https://reviews.example";
+    for (const args of [["server", "start"], ["list"], ["__daemon"]]) {
+      const refused = await run(...args);
+      expect({ args, code: refused.code === 0 }).toEqual({ args, code: false });
+      expect(refused.error).toContain("requireLogin=false is allowed only");
+    }
+    expect(await Bun.file(join(root, "runtime", "r3", "daemon.json")).exists()).toBe(false);
+  } finally {
+    environment.R3_REQUIRE_LOGIN = "true";
+    environment.R3_PUBLIC_URL = "";
+    await run("stop");
+    await rm(root, { recursive: true, force: true });
+  }
+}, 60_000);
