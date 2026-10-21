@@ -85,8 +85,11 @@ export function installClientAuth(
       };
     });
   });
-  app.post("/api/oauth/token", (c) =>
-    oauthResponse(c, async () => {
+  app.post("/api/oauth/token", async (c) => {
+    // Refreshing or polling would mint fresh credentials from older grants.
+    if (!policy.requireLogin)
+      return c.json({ error: "login_disabled", error_description: LOGIN_DISABLED_ERROR }, 409);
+    return oauthResponse(c, async () => {
       clients.limit(observedAddress(c.req.raw, policy));
       const body = await form(c.req.raw);
       if (body.get("grant_type") === "urn:ietf:params:oauth:grant-type:device_code")
@@ -94,8 +97,8 @@ export function installClientAuth(
       if (body.get("grant_type") === "refresh_token")
         return clients.refresh(requireString(body.get("refresh_token"), "refresh_token", 4096));
       throw new OAuthError(body.has("grant_type") ? "unsupported_grant_type" : "invalid_request");
-    }),
-  );
+    });
+  });
   app.use("/api/oauth/device/*", async (c, next) => {
     // Only a browser session can approve other clients; no-login servers issue none.
     if (!policy.requireLogin) return c.json({ error: LOGIN_DISABLED_ERROR }, 409);

@@ -82,6 +82,26 @@ test("two credential readers coordinate a single refresh and keep endpoint crede
   expect(calls).toBe(1);
 });
 
+test("a loopback backend with login turned off needs no refreshed credential", async () => {
+  const url = "http://127.0.0.1:8791";
+  const original: BackendCredential = {
+    url,
+    kind: "oauth",
+    accessToken: randomBytes(32).toString("hex"),
+    refreshToken: randomBytes(32).toString("hex"),
+    expiresAt: 0,
+  };
+  const disabled = (async () =>
+    Response.json({ error: "login_disabled" }, { status: 409 })) as unknown as typeof fetch;
+  const credentials = new BackendCredentials(join(root, "credentials"), disabled);
+  await credentials.save(original);
+  expect(await credentials.token(url)).toBe("");
+  expect(credentials.read(url)).toEqual(original);
+  // A remote backend never runs without login, so its refusal still asks for login.
+  await credentials.save({ ...original, url: "https://r3.example" });
+  await expect(credentials.token("https://r3.example")).rejects.toThrow("run r3 login");
+});
+
 for (const status of [400, 401, 408, 429, 503]) {
   test(`refresh HTTP ${status} preserves credentials and distinguishes temporary failure from rejection`, async () => {
     const url = "https://r3.example";

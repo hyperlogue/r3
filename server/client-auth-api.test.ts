@@ -131,9 +131,28 @@ test("no-login mode issues no credentials that could outlive the policy", async 
     version: "fixture",
     allowedHost: (host) => host === "r3.example",
   });
+  // Grants and login tokens issued while login was required stay unusable.
+  const granted = storage.clientAuth.device(null, null);
+  storage.clientAuth.decide(granted.user_code, true, null);
+  now += 10_000;
+  const earlier = storage.clientAuth.poll(granted.device_code);
+  const pending = storage.clientAuth.device(null, null);
+  const login = storage.authentication.createLoginToken("Earlier browser");
+  const accessBefore = storage.clientAuth.list();
   const device = storage.clientAuth.device(null, null);
   const decision = { userCode: device.user_code, approved: true };
   for (const [path, body, form] of [
+    [
+      "/api/oauth/token",
+      `grant_type=refresh_token&refresh_token=${earlier.refresh_token}&client_id=r3-cli`,
+      true,
+    ],
+    [
+      "/api/oauth/token",
+      `grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${pending.device_code}&client_id=r3-cli`,
+      true,
+    ],
+    ["/api/auth/login", { token: login.token }, false],
     ["/api/oauth/device/code", "client_id=r3-cli", true],
     ["/api/oauth/device/inspect", { userCode: device.user_code }, false],
     ["/api/oauth/device/decision", decision, false],
@@ -143,9 +162,10 @@ test("no-login mode issues no credentials that could outlive the policy", async 
     const response = await request(path, body, {}, form);
     expect({ path, status: response.status }).toEqual({ path, status: 409 });
     expect(JSON.stringify(await response.json())).toContain("requireLogin=true");
+    expect(response.headers.get("set-cookie")).toBeNull();
   }
-  expect(storage.authentication.listTokens()).toEqual([]);
-  expect(storage.clientAuth.list()).toEqual([]);
+  expect(storage.authentication.listTokens().map((token) => token.id)).toEqual([login.info.id]);
+  expect(storage.clientAuth.list()).toEqual(accessBefore);
 });
 
 test("malformed OAuth requests return protocol error codes", async () => {

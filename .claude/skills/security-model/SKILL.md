@@ -120,8 +120,10 @@ HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocatio
 of the caller's current token is refused; revoke-all remains the escape hatch.
 With login disabled, exchanging an old local sign-in link is a no-op that creates
 no session or token. No-login servers also refuse with 409 to create login tokens,
-API keys, or device codes, or to inspect/decide device requests: a credential minted
-while access is open would silently remain valid after login is enabled. Boot
+API keys, or device codes, to inspect/decide device requests, to exchange device or
+refresh grants, or to sign in with an existing login token: a credential minted
+while access is open would silently remain valid after login is enabled. A loopback
+CLI whose refresh is refused this way continues without a credential. Boot
 reports `loginRequired`, and the browser hides token and session controls when false.
 Listing and revocation remain available for credentials minted earlier.
 
@@ -163,7 +165,8 @@ Both clients and probes reject redirects when carrying credentials.
 
 Settings resolve environment → `$XDG_CONFIG_HOME/r3/config.json` → defaults.
 Configuration contains no secret. Supported settings include application bind,
-port, publicUrl, allowedHosts, requireLogin and authTokenIdleDays.
+port, publicUrl, allowedHosts, trustedProxies, requireLogin, disableLoginNotice
+and authTokenIdleDays.
 Server settings take effect at restart; client backend selection applies to the
 next CLI invocation. The authenticated preview-creation request chooses the browser's application origin and the existing
 listener dispatches `/__r3_preview/` through the preview module after the Host

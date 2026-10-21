@@ -121,6 +121,12 @@ export class BackendCredentials {
         }),
       });
       if (!response.ok) {
+        // A loopback server that turned login off refuses refresh but needs no credential.
+        if (
+          response.status === 409 &&
+          LOOPBACK_BACKENDS.has(new URL(normalizeBackendUrl(url)).hostname)
+        )
+          return "";
         if (response.status === 408 || response.status === 429 || response.status >= 500)
           throw new Error(
             `Backend credential refresh is temporarily unavailable (HTTP ${response.status}); try again`,

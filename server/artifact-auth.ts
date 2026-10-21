@@ -191,6 +191,8 @@ export function installArtifactAuth(
       return c.json({ ok: true });
     });
   app.post("/api/auth/login", async (c) => {
+    // A login token from an earlier protected period must not mint a session.
+    if (!policy.requireLogin) return c.json({ error: LOGIN_DISABLED_ERROR }, 409);
     const input = await artifactJson(c.req.raw, 64 * 1024);
     if (typeof input?.token !== "string") return c.json({ error: "Missing login token" }, 400);
     const login = authentication.verifyLogin(input.token);
