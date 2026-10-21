@@ -13,8 +13,7 @@
   <a href="https://hyperlogue.github.io/r3/demo/"><img src="https://img.shields.io/badge/live-demo-6164ff?logo=googlechrome&amp;logoColor=white" alt="live demo"></a>
 </p>
 
-r3 is a tool for reading, using, and discussing agent output. The goal of r3 is
-to serve you, a single user, and your agents. Supporting multiuser is a nongoal.
+r3 is a tool for reading, using, and discussing agent output.
 
 Open an interactive page, read a document, or inspect code changes. Select an
 element or passage to leave comments and continue the conversation with your agent.
@@ -32,15 +31,17 @@ can run the CLI.
 Markdown, and code discussion with a scripted agent. It uses bundled examples;
 production preview protection is not simulated.
 
+r3 serves you, a single user, and your agents. Supporting multiple human users is a nongoal.
+
 [![Numbered workflow showing a human asking an AI agent to create an artifact on r3, reviewing it, sending comments, and reviewing the agent's revisions and comments.](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)](https://github.com/user-attachments/assets/26506cba-3d1a-493c-9c7a-e6ae2227718c)
 
 ## Screenshots
 
-| Screenshot | What it shows |
-| --- | --- |
-| [![Reviewing an HTML UI proposal](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6)](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6) | Review a UI improvement proposal and leave comments directly on HTML elements. |
-| [![Exploring a library through an interactive demo](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62)](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62) | Learn how a library works internally through an interactive demo. |
-| [![Codex receiving comments from r3](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19) | Codex receives a direct message from r3 when you ping the agent from the web page. |
+| Screenshot                                                                                                                                                                                                             | What it shows                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [![Reviewing an HTML UI proposal](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6)](https://github.com/user-attachments/assets/2dec1368-6679-47cb-aa19-bfeb6228a7d6)                   | Review a UI improvement proposal and leave comments directly on HTML elements.     |
+| [![Exploring a library through an interactive demo](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62)](https://github.com/user-attachments/assets/396df7ca-661e-414d-952b-0a6325638c62) | Learn how a library works internally through an interactive demo.                  |
+| [![Codex receiving comments from r3](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)](https://github.com/user-attachments/assets/8e85f3d9-d03b-45ec-b478-fe7fe109ef19)                | Codex receives a direct message from r3 when you ping the agent from the web page. |
 
 Search your library by project, content, or conversation. Results open the matching
 publication or message, and **Include history** searches older versions. Agents can
@@ -73,11 +74,11 @@ npx --yes @hyperlogue/r3@latest guide
 
 r3 supports three kinds of artifacts:
 
-| Artifact | What you can do | Examples |
-| --- | --- | --- |
-| HTML pages | Interact with a page and leave comments on specific elements or text | Prototypes, dashboards, interactive tutorials |
+| Artifact            | What you can do                                                                      | Examples                                                    |
+| ------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| HTML pages          | Interact with a page and leave comments on specific elements or text                 | Prototypes, dashboards, interactive tutorials               |
 | Documents and files | Read rendered Markdown, browse related files, and discuss specific passages or lines | Design proposals, research reports, generated project files |
-| Code changes | See what changed and discuss it beside the affected lines | Bug fixes, refactors, feature reviews |
+| Code changes        | See what changed and discuss it beside the affected lines                            | Bug fixes, refactors, feature reviews                       |
 
 HTML artifacts open as pages; files artifacts have a file browser; diff artifacts
 show captured code changes.
@@ -119,7 +120,7 @@ Sign in with the printed token. Run `r3 config unset requireLogin` to revert.
 
 ### Exposing a server
 
-Remote access always requires HTTPS and authentication. To expose via
+Remote access always requires authentication and should use HTTPS. To expose via
 [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve), run
 on the server:
 
@@ -145,6 +146,7 @@ r3 login
 r3 list
 ```
 
-Approve browser access when prompted. See the
+Approve browser access when prompted. Then ask your agent to run `r3 guide` and
+publish as usual. See the
 [remote backend reference](docs/artifacts/remote-protocol.md) for advanced setup
 and options.
