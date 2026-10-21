@@ -70,7 +70,7 @@ test("only an owner-only Unix socket supplies automatic local access", async () 
   expect((await http("/api/local/bootstrap", "POST", {})).status).toBe(401);
   const boot = await http("/api/boot");
   expect(boot.status).toBe(401);
-  expect(await boot.json()).toEqual({ needsAuth: true, token: null });
+  expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
   await chmod(socket, 0o666);
   await expect(localBootstrap(socket, "bootstrap")).rejects.toThrow("owner-only");
   await chmod(socket, 0o600);
@@ -101,7 +101,7 @@ test("browser links are bounded one-time grants and expose no reusable credentia
   expect((await http("/api/auth/local", "POST", { ticket })).status).toBe(401);
   expect(
     await (await http("/api/boot", "GET", undefined, { cookie: cookie.split(";")[0]! })).json(),
-  ).toEqual({ needsAuth: false, token: null });
+  ).toEqual({ needsAuth: false, token: null, loginRequired: true });
   const expired = browser.issue();
   now += 60_001;
   expect((await http("/api/auth/local", "POST", { ticket: expired })).status).toBe(401);

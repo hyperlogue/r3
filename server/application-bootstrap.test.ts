@@ -96,7 +96,7 @@ test("authenticated HTML embeds the API detail safely, privately, without reusab
   expect(html).not.toContain(token);
   expect(html).not.toContain("<script>window.injected");
   const data = snapshot(html)!;
-  expect(data.boot).toEqual({ needsAuth: false, token: null });
+  expect(data.boot).toEqual({ needsAuth: false, token: null, loginRequired: true });
   expect(data.artifact?.title).toBe(title);
   const detail = await api.app.fetch(request(`/api/artifacts/${artifactId}`, { cookie }));
   expect(data.artifact).toEqual(await detail.json());
@@ -142,6 +142,7 @@ test("local bootstrap keeps its origin boundary and non-document assets stay imm
   expect(snapshot(await (await respond(request("/"))).text())?.boot).toEqual({
     needsAuth: false,
     token: null,
+    loginRequired: false,
   });
   expect(
     snapshot(await (await respond(request("/", { "sec-fetch-site": "cross-site" }))).text()),

@@ -122,7 +122,7 @@ test("OAuth public routes bound form data and reject duplicate parameters", asyn
   expect((await request("/api/oauth/token", {}, {})).status).toBe(400);
 });
 
-test("explicit no-login mode permits device decisions without a browser session", async () => {
+test("no-login mode issues no credentials that could outlive the policy", async () => {
   api.close();
   api = createArtifactApi(storage, {
     token: "unused-api-secret",
@@ -132,15 +132,20 @@ test("explicit no-login mode permits device decisions without a browser session"
     allowedHost: (host) => host === "r3.example",
   });
   const device = storage.clientAuth.device(null, null);
-  expect((await request("/api/oauth/device/inspect", { userCode: device.user_code })).status).toBe(
-    200,
-  );
   const decision = { userCode: device.user_code, approved: true };
-  expect((await request("/api/oauth/device/decision", decision, { origin: "null" })).status).toBe(
-    403,
-  );
-  expect((await request("/api/oauth/device/decision", decision)).status).toBe(200);
+  for (const [path, body, form] of [
+    ["/api/oauth/device/code", "client_id=r3-cli", true],
+    ["/api/oauth/device/inspect", { userCode: device.user_code }, false],
+    ["/api/oauth/device/decision", decision, false],
+    ["/api/auth/clients", {}, false],
+    ["/api/auth/tokens", {}, false],
+  ] as const) {
+    const response = await request(path, body, {}, form);
+    expect({ path, status: response.status }).toEqual({ path, status: 409 });
+    expect(JSON.stringify(await response.json())).toContain("requireLogin=true");
+  }
   expect(storage.authentication.listTokens()).toEqual([]);
+  expect(storage.clientAuth.list()).toEqual([]);
 });
 
 test("malformed OAuth requests return protocol error codes", async () => {

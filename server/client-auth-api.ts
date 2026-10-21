@@ -1,7 +1,7 @@
 import { isIP } from "node:net";
 import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import type { ArtifactAuthPolicy } from "./artifact-auth.ts";
+import { type ArtifactAuthPolicy, LOGIN_DISABLED_ERROR } from "./artifact-auth.ts";
 import { artifactJson } from "./artifact-http.ts";
 import { ArtifactError, optionalText, requireString } from "./artifact-validation.ts";
 import { type AuthService, COOKIE_NAME } from "./auth.ts";
@@ -67,8 +67,10 @@ export function installClientAuth(
   browser: AuthService,
   policy: ArtifactAuthPolicy,
 ): void {
-  app.post("/api/oauth/device/code", (c) =>
-    oauthResponse(c, async () => {
+  app.post("/api/oauth/device/code", async (c) => {
+    if (!policy.requireLogin)
+      return c.json({ error: "login_disabled", error_description: LOGIN_DISABLED_ERROR }, 409);
+    return oauthResponse(c, async () => {
       const body = await form(c.req.raw);
       const result = clients.device(
         optionalText(body.get("label"), "label", 1000),
@@ -81,8 +83,8 @@ export function installClientAuth(
         verification_uri: verification,
         verification_uri_complete: `${verification}?code=${encodeURIComponent(result.user_code)}`,
       };
-    }),
-  );
+    });
+  });
   app.post("/api/oauth/token", (c) =>
     oauthResponse(c, async () => {
       clients.limit(observedAddress(c.req.raw, policy));
@@ -95,8 +97,9 @@ export function installClientAuth(
     }),
   );
   app.use("/api/oauth/device/*", async (c, next) => {
-    // When login is required, only a browser session can approve other clients.
-    if (policy.requireLogin && !browser.sessionValid(getCookie(c, COOKIE_NAME)))
+    // Only a browser session can approve other clients; no-login servers issue none.
+    if (!policy.requireLogin) return c.json({ error: LOGIN_DISABLED_ERROR }, 409);
+    if (!browser.sessionValid(getCookie(c, COOKIE_NAME)))
       return c.json({ error: "Approve access in an authenticated r3 browser" }, 401);
     clients.limit(observedAddress(c.req.raw, policy));
     await next();
@@ -119,6 +122,7 @@ export function installClientAuth(
   app.get("/api/auth/clients", (c) => c.json(clients.list()));
   app.get("/api/auth/audit", (c) => c.json(clients.auditLog()));
   app.post("/api/auth/clients", async (c) => {
+    if (!policy.requireLogin) return c.json({ error: LOGIN_DISABLED_ERROR }, 409);
     const body = await artifactJson(c.req.raw, 8192);
     if (body.expiresAt !== undefined && typeof body.expiresAt !== "number")
       throw new ArtifactError("Invalid key expiry");

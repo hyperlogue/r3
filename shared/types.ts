@@ -122,6 +122,9 @@ export interface BootResponse {
   // Shipped servers always return null: login-required mode uses a session
   // cookie, and no-login mode needs no credential. Kept for fixture/demo clients.
   token: string | null;
+  // False when the server runs without login and therefore issues no credentials.
+  // Absent from older servers and fixtures; treat that as true.
+  loginRequired?: boolean;
 }
 
 // Authenticated, uncached application HTML may carry the same bootstrap and

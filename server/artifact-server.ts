@@ -22,6 +22,10 @@ export interface ArtifactServerOptions {
 
 // The runtime owns the application listener, including scoped preview dispatch.
 // It never reads publisher files; the caller owns storage and closes it after stop().
+// Default no-login mode serves direct local clients only; see config.ts REFUSE_PROXIED.
+const PROXIED_ERROR =
+  "This r3 server runs without login for this computer only, so it refused a request forwarded by a proxy. To use a proxy, run `r3 config set publicUrl <proxy URL>` (which enables login) or set requireLogin explicitly, then restart the server.";
+
 export function startArtifactServer(options: ArtifactServerOptions) {
   if (options.bind === "0.0.0.0" || options.bind === "::" || options.bind === "[::]")
     throw new Error("r3 requires a loopback or explicitly selected interface");
@@ -31,6 +35,7 @@ export function startArtifactServer(options: ArtifactServerOptions) {
     // Opaque preview documents send Origin:null. Keep the application's exact
     // origin guard; a shared transport hostname is not a preview principal.
     const addresses = new WeakMap<Request, string>();
+    let warnedProxied = false;
     const policy = {
       ...options.authentication,
       peerAddress: (request: Request) => addresses.get(request) ?? null,
@@ -73,17 +78,19 @@ export function startArtifactServer(options: ArtifactServerOptions) {
             },
           });
         } else if (policy.refuseProxied && artifactProxied(request)) {
-          response = new Response(
-            "Proxied access requires login; configure publicUrl or requireLogin",
-            {
-              status: 403,
-              headers: {
-                "content-type": "text/plain",
-                "cache-control": "no-store",
-                "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
-              },
+          if (!warnedProxied) {
+            warnedProxied = true;
+            console.warn(`r3: ${PROXIED_ERROR}`);
+          }
+          const api = new URL(request.url).pathname.startsWith("/api/");
+          response = new Response(api ? JSON.stringify({ error: PROXIED_ERROR }) : PROXIED_ERROR, {
+            status: 403,
+            headers: {
+              "content-type": api ? "application/json" : "text/plain; charset=utf-8",
+              "cache-control": "no-store",
+              "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
             },
-          );
+          });
         } else {
           const path = new URL(request.url).pathname;
           response = path.startsWith(PREVIEW_PREFIX)

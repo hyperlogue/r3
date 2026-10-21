@@ -83,7 +83,9 @@ and asset dispatch, so a proxy added without configuration fails closed. Explici
 environment override takes precedence over persisted configuration.
 CLI and worker clients omit credentials only for loopback backends. A project
 `.r3.json` is untrusted checkout content, so any other backend requires saved
-access from `r3 login` before it receives publications or worker streams.
+access from `r3 login` before it receives publications or worker streams. For a
+backend whose boot reports `loginRequired:false`, `r3 login` saves an `open` marker
+with no secret; that explicit choice is the consent, and a later 401 asks for login.
 No-login mode serves ordinary browser/API requests without a token, sign-in ticket,
 or browser-auth record. It trusts any client that can reach the configured listener
 and pass Host/origin checks, including other local OS users. Boot always returns
@@ -111,7 +113,11 @@ Ordinary login tokens continue to create revocable browser sessions, Secure at a
 HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocation
 of the caller's current token is refused; revoke-all remains the escape hatch.
 With login disabled, exchanging an old local sign-in link is a no-op that creates
-no session or token. Ordinary login-token management remains available explicitly.
+no session or token. No-login servers also refuse with 409 to create login tokens,
+API keys, or device codes, or to inspect/decide device requests: a credential minted
+while access is open would silently remain valid after login is enabled. Boot
+reports `loginRequired`, and the browser hides token and session controls when false.
+Listing and revocation remain available for credentials minted earlier.
 
 Application HTML can embed bootstrap and the addressed artifact's detail after
 the same Host/origin checks and configured login policy as bootstrap. The embedded detail
@@ -449,8 +455,8 @@ Do not use the real user store for development checks.
 Read the [remote protocol](../../../docs/artifacts/remote-protocol.md) when changing
 backend selection, API keys, device login, token rotation, audit, or worker routing.
 It owns the language-neutral routes, limits, lifetimes, and recovery rules. Device
-approval always requires an explicit decision; when login is enabled it also
-requires an authenticated browser, and API keys cannot approve devices.
+approval always requires an explicit decision and an authenticated browser, and
+API keys cannot approve devices. No-login servers disable device login entirely.
 Public OAuth routes retain Host/Origin guards,
 bounded form parsing, polling cadence, expiry, and rate limits. Preview isolation is
 unchanged. Tokens and device secrets are hashed in backend storage.

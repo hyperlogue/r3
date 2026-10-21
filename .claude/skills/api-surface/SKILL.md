@@ -267,6 +267,8 @@ subscriptions; restore requires a fresh publication or subscription.
 - `POST /api/auth/login { token }` mints a browser session; `POST /api/auth/logout`
   destroys it. `GET/POST/DELETE /api/auth/tokens` and `DELETE .../tokens/:id`
   manage revocable login tokens. Current-session individual revocation conflicts.
+  With login disabled, token and API-key creation and every device-login step
+  except token polling/refresh return 409; boot carries `loginRequired:false`.
   Listings omit automatically expired tokens; `lastUsedAt` records successful
   login or cookie authentication. Inactivity policy and startup cleanup belong to
   the [security model](../security-model/SKILL.md#browser-login-and-configuration).

@@ -125,7 +125,9 @@ Rejected credentials require r3 login again.
 Create/publish return stable artifact URLs in text and --json output.
 Localhost-only servers need no browser or API credential by default and refuse
 proxied requests. Configuring an external hostname/publicUrl or trusted proxies
-enables login, including access through a local proxy. Remote backends need r3 login.
+enables login, including access through a local proxy. Remote backends need r3 login;
+for a no-login backend it records the choice without a credential. No-login servers
+refuse to create login tokens or API keys.
 Explicit requireLogin=true or false overrides that default. Host/origin and preview
 guards always apply. Local r3 open prints the ordinary URL when login is disabled,
 or a one-time sign-in link when enabled. Automatic CLI setup uses a private Unix socket.

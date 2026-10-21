@@ -78,6 +78,7 @@ describe("artifact application auth boundary", () => {
     expect(await (await request("/api/boot")).json()).toEqual({
       needsAuth: true,
       token: null,
+      loginRequired: true,
     });
     expect((await request("/api/health")).status).toBe(200);
     expect((await request("/api/private")).status).toBe(401);
@@ -107,7 +108,7 @@ describe("artifact application auth boundary", () => {
     for (const headers of admitted) {
       const boot = await request("/api/boot", { headers });
       expect(boot.status).toBe(200);
-      expect(await boot.json()).toEqual({ needsAuth: false, token: null });
+      expect(await boot.json()).toEqual({ needsAuth: false, token: null, loginRequired: false });
       expect(boot.headers.get("set-cookie")).toBeNull();
       expect((await request("/api/private", { headers })).status).toBe(200);
       expect((await request("/api/private", { method: "POST", headers })).status).toBe(200);
@@ -179,7 +180,11 @@ describe("artifact application auth boundary", () => {
 
   test("required login preserves HttpOnly cookie access without exposing the master token", async () => {
     policy.requireLogin = true;
-    expect(await (await request("/api/boot")).json()).toEqual({ needsAuth: true, token: null });
+    expect(await (await request("/api/boot")).json()).toEqual({
+      needsAuth: true,
+      token: null,
+      loginRequired: true,
+    });
     const login = authentication.createLoginToken("Browser");
     const response = await request("/api/auth/login", {
       method: "POST",
@@ -195,6 +200,7 @@ describe("artifact application auth boundary", () => {
     expect(await (await request("/api/boot", { headers })).json()).toEqual({
       needsAuth: false,
       token: null,
+      loginRequired: true,
     });
     expect((await request("/api/events", { headers })).status).toBe(200);
     expect(

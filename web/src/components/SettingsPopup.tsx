@@ -254,7 +254,7 @@ export function SettingsDialog({
           </Button>
         </Section>
 
-        {/* Browser login tokens are available on local and remote servers. */}
+        {/* Browser login tokens exist only on servers that require login. */}
         {CAN_MANAGE_TOKENS && (
           <Section label={translate("settingsPopup.access")}>
             <TokenManager />

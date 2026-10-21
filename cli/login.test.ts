@@ -12,6 +12,11 @@ test("device login uses the five-second default when the backend omits interval"
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request): Promise<Response> {
+      if (new URL(request.url).pathname === "/api/boot")
+        return Response.json(
+          { needsAuth: true, token: null, loginRequired: true },
+          { status: 401 },
+        );
       if (new URL(request.url).pathname.endsWith("/device/code")) {
         started = Date.now();
         return Response.json({
@@ -58,3 +63,41 @@ test("device login uses the five-second default when the backend omits interval"
     await rm(root, { recursive: true, force: true });
   }
 }, 15_000);
+
+test("login to a no-login backend records the choice without minting a credential", async () => {
+  const root = await mkdtemp(join(tmpdir(), "r3-open-login-"));
+  const paths: string[] = [];
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch(request) {
+      paths.push(new URL(request.url).pathname);
+      return Response.json({ needsAuth: false, token: null, loginRequired: false });
+    },
+  });
+  try {
+    const child = Bun.spawn([process.execPath, resolve(import.meta.dir, "index.ts"), "login"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        R3_URL: server.url.origin,
+        XDG_CONFIG_HOME: join(root, "config"),
+        XDG_STATE_HOME: join(root, "state"),
+        XDG_RUNTIME_DIR: join(root, "runtime"),
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 12_000,
+    });
+    const [code, output] = await Promise.all([child.exited, new Response(child.stdout).text()]);
+    expect(code).toBe(0);
+    expect(output).toContain("does not require login");
+    expect(paths).not.toContain("/api/oauth/device/code");
+    const saved = new BackendCredentials(join(root, "config", "r3", "credentials"));
+    expect(saved.read(server.url.origin)?.kind).toBe("open");
+    expect(await saved.token(server.url.origin)).toBe("");
+  } finally {
+    server.stop(true);
+    await rm(root, { recursive: true, force: true });
+  }
+});

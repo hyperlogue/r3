@@ -10,7 +10,7 @@ async function readPublicationInFreshBrowser(link: string, artifactId: string) {
   expect(url.hash).toBe("");
   const boot = await fetch(`${url.origin}/api/boot`);
   expect(boot.status).toBe(200);
-  expect(await boot.json()).toEqual({ needsAuth: false, token: null });
+  expect(await boot.json()).toEqual({ needsAuth: false, token: null, loginRequired: false });
   expect(boot.headers.get("set-cookie")).toBeNull();
   const read = await fetch(`${url.origin}/api/artifacts/${artifactId}`);
   expect(read.status).toBe(200);

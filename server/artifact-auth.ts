@@ -50,6 +50,11 @@ export function artifactProxied(request: Request): boolean {
   return FORWARDING_HEADERS.some((name) => request.headers.has(name));
 }
 
+// Credentials minted while login is disabled would silently survive a later switch
+// to required login, so no-login servers issue none.
+export const LOGIN_DISABLED_ERROR =
+  "Login is disabled on this server, so it issues no credentials. Set requireLogin=true and restart the server to create them.";
+
 export function artifactSameOrigin(request: Request, policy: ArtifactAuthPolicy): boolean {
   const origin = request.headers.get("origin");
   if (!origin) {
@@ -95,8 +100,8 @@ export function artifactBoot(
   policy: ArtifactAuthPolicy,
   cookie: string | undefined,
 ): BootResponse {
-  if (!policy.requireLogin) return { needsAuth: false, token: null };
-  return { needsAuth: !authentication.sessionValid(cookie), token: null };
+  if (!policy.requireLogin) return { needsAuth: false, token: null, loginRequired: false };
+  return { needsAuth: !authentication.sessionValid(cookie), token: null, loginRequired: true };
 }
 
 // Shared by request admission and long-lived event streams. A successful
@@ -206,6 +211,7 @@ export function installArtifactAuth(
     );
   });
   app.post("/api/auth/tokens", async (c) => {
+    if (!policy.requireLogin) return c.json({ error: LOGIN_DISABLED_ERROR }, 409);
     const input = await artifactJson(c.req.raw, 64 * 1024);
     const label = typeof input?.label === "string" ? input.label.trim() || null : null;
     if (label && label.length > 1000) return c.json({ error: "Label is too long" }, 400);

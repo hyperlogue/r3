@@ -123,6 +123,10 @@ and workers share the local routing principal. Host/origin checks, request limit
 and preview isolation still apply. A CLI/worker with no saved credential sends a
 loopback backend request without one. Any other backend, including one named by a
 project `.r3.json`, requires `r3 login` before the CLI publishes or the worker connects.
+When `/api/boot` reports `loginRequired:false`, `r3 login` records an `open` choice
+without a secret. No-login servers return 409 for login-token, API-key, and device
+code creation and device inspection/decision, so no credential minted while access
+is open survives a later switch to required login.
 
 Ordinary API and stream requests accept an API key or OAuth access token in
 `Authorization: Bearer` or `X-R3-Token`. Browser cookies retain the existing

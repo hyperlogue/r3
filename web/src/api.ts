@@ -23,9 +23,10 @@ import type {
 // supported only for controlled fixtures and the static demo.
 export let TOKEN = "";
 
-// The server supports browser login-token management. The static demo aliases
-// this module and disables its Access controls because it has no server.
-export const CAN_MANAGE_TOKENS = true;
+// Login-token management applies only when the server requires login; no-login
+// servers issue no credentials. Set by loadBoot() before rendering. The static
+// demo aliases this module and disables its Access controls because it has no server.
+export let CAN_MANAGE_TOKENS = true;
 
 // Bootstrap before first render. Local one-time links and remote login both
 // establish an HttpOnly browser session before accessing application data.
@@ -61,6 +62,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
     ]);
     if (!suspended.some(Boolean)) {
       TOKEN = initial.boot.token ?? "";
+      CAN_MANAGE_TOKENS = initial.boot.loginRequired !== false;
       // The HTML request preceded our cache reads. Never resume a cache from
       // this snapshot: logout may have raced the document or its bundle load.
       return {
@@ -91,6 +93,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
     return { needsAuth: true };
   }
   TOKEN = b.token ?? "";
+  CAN_MANAGE_TOKENS = b.loginRequired !== false;
   await markdownCache.resume(cacheEpoch);
   await draftImages.resume(imageEpoch);
   return { needsAuth: false };
