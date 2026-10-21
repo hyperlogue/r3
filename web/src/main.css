@@ -605,6 +605,112 @@ html.dark .r3-ref {
   color: var(--color-primary-300);
 }
 
+/* Arms share the body's bob and tilt; only the antenna and eyes move separately.
+   SVG transforms use the icon's 24-unit viewBox, so motion scales with UI size. */
+.r3-agent-robot {
+  overflow: visible;
+}
+.r3-agent-bob {
+  animation: r3-agent-bob 2.4s ease-in-out infinite;
+}
+.r3-agent-tilt {
+  transform-origin: 12px 13px;
+  animation: r3-agent-tilt 4.8s ease-in-out infinite;
+}
+.r3-agent-antenna {
+  transform-origin: 12px 6px;
+  animation: r3-agent-antenna 4.8s ease-in-out infinite;
+}
+.r3-agent-glance {
+  animation: r3-agent-glance 4.8s ease-in-out infinite;
+}
+.r3-agent-blink {
+  transform-origin: 12px 12px;
+  animation: r3-agent-blink 4.8s linear infinite;
+}
+@keyframes r3-agent-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.54px);
+  }
+}
+@keyframes r3-agent-tilt {
+  0%,
+  48%,
+  100% {
+    transform: rotate(0);
+  }
+  22%,
+  30% {
+    transform: rotate(4.2deg);
+  }
+  68%,
+  76% {
+    transform: rotate(-4.2deg);
+  }
+}
+@keyframes r3-agent-antenna {
+  0%,
+  12%,
+  52%,
+  100% {
+    transform: rotate(0);
+  }
+  22% {
+    transform: rotate(-15.4deg);
+  }
+  32% {
+    transform: rotate(10.5deg);
+  }
+  42% {
+    transform: rotate(-4.9deg);
+  }
+  66% {
+    transform: rotate(12.6deg);
+  }
+  76% {
+    transform: rotate(-8.4deg);
+  }
+  86% {
+    transform: rotate(3.5deg);
+  }
+}
+@keyframes r3-agent-glance {
+  0%,
+  12%,
+  88%,
+  100% {
+    transform: translateX(0);
+  }
+  22%,
+  42% {
+    transform: translateX(0.595px);
+  }
+  58%,
+  76% {
+    transform: translateX(-0.595px);
+  }
+}
+@keyframes r3-agent-blink {
+  0%,
+  45%,
+  49%,
+  100% {
+    transform: scaleY(1);
+  }
+  47% {
+    transform: scaleY(0.384);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r3-agent-robot * {
+    animation: none;
+  }
+}
+
 /* Collapse the handoff slot while its action fades toward the threads toggle. */
 .r3-nav-handoff {
   display: grid;

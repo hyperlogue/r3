@@ -372,10 +372,20 @@ export function ArtifactHeader({
               data-agent-working
               className="mr-2 flex size-7 shrink-0 items-center justify-center text-primary-600 dark:text-primary-400"
             >
-              <StrokeIcon className="size-4">
-                <path d="M12 3v3M9 3h3M3 11v6M21 11v6" />
-                <rect x="6" y="6" width="12" height="14" rx="3" />
-                <path d="M9 11v2M15 11v2M10 16h4" />
+              <StrokeIcon className="r3-agent-robot size-4">
+                <g className="r3-agent-bob">
+                  <g className="r3-agent-tilt">
+                    <path d="M3 11v6M21 11v6" />
+                    <path className="r3-agent-antenna" d="M12 3v3M9 3h3" />
+                    <rect x="6" y="6" width="12" height="14" rx="3" />
+                    <g className="r3-agent-glance">
+                      <g className="r3-agent-blink">
+                        <path d="M9 11v2M15 11v2" />
+                      </g>
+                    </g>
+                    <path d="M10 16h4" />
+                  </g>
+                </g>
               </StrokeIcon>
             </span>
           )}
