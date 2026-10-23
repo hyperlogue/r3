@@ -6,7 +6,7 @@
     },
     "docsReviewLoop": {
       "title": "The review loop",
-      "description": "From the first publication to a change you are happy with."
+      "description": "From the first publication to the final version you are happy with."
     },
     "docsAccess": {
       "title": "Local & remote access",
@@ -152,7 +152,7 @@
     },
     "agentReplies": {
       "title": "Follow the reply. Keep every version.",
-      "description": "Your agent replies in the same thread and publishes revisions as new versions. Earlier versions stay available, so you can revisit the original and open the latest when you’re ready."
+      "description": "Your agent replies in the same thread and publishes revisions as new versions. Earlier versions stay available, so you can revisit the original."
     },
     "inspectFixes": {
       "title": "See the fix, side by side.",
@@ -377,7 +377,7 @@
     "aUsefulPatternToBorrow": "A useful pattern to borrow",
     "agentWorkflow": "Agent workflow →",
     "askForAConcreteChange": "Ask for a concrete change.",
-    "askYourAgentToMakeSomething": "Ask your agent to make something.",
+    "askYourAgentToMakeSomething": "Ask your agent to make and publish something.",
     "eachWalkthroughIncludesAStartingPromptWhat": "Each walkthrough includes a starting prompt, what to inspect, example feedback, and a way to check the revision. The separate",
     "examplePrompts": "Example prompts",
     "exploreAllUseCases": "Explore all use cases →",

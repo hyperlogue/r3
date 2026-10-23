@@ -2,11 +2,11 @@
   "pages": {
     "docsGetStarted": {
       "title": "快速开始",
-      "description": "安装 Skill，让智能体发布内容，并完成你的第一次评审。"
+      "description": "安装 Skill，让智能体发布内容，并完成你的第一次审阅。"
     },
     "docsReviewLoop": {
-      "title": "评审闭环",
-      "description": "从第一次发布，到令你满意的修改。"
+      "title": "审阅流程",
+      "description": "从第一次发布，到令你满意的最终版。"
     },
     "docsAccess": {
       "title": "本地与远程访问",
@@ -14,7 +14,7 @@
     },
     "docsHtml": {
       "title": "交互式页面",
-      "description": "直接在评审中使用原型、解释说明和工具。"
+      "description": "直接在审阅中使用原型、演示文档和工具。"
     },
     "docsFiles": {
       "title": "文档与文件",
@@ -22,11 +22,11 @@
     },
     "docsDiffs": {
       "title": "代码变更",
-      "description": "在保留原始行和完整上下文的前提下评审捕获的变更。"
+      "description": "查看源代码和变更上下文，审阅代码变更。"
     },
     "docsMedia": {
       "title": "图像、音频与视频",
-      "description": "评审媒体并指出关键的像素或瞬间。"
+      "description": "审阅媒体并指出关键的像素或瞬间。"
     },
     "docsFeedback": {
       "title": "精准反馈",
@@ -34,23 +34,23 @@
     },
     "docsRevisions": {
       "title": "修订与解决",
-      "description": "跟进回复、检查关联的修复，并决定主题何时解决。"
+      "description": "追踪回复、检查关联的修复，并决定主题何时解决。"
     },
     "docsNavigation": {
       "title": "导航与移动端",
-      "description": "整理工作区、穿梭于各文件之间，并在小屏幕上进行评审。"
+      "description": "整理工作区、穿梭于各文件之间，并在小屏幕上进行审阅。"
     },
     "docsKeyboard": {
       "title": "键盘快捷键",
       "description": "几个实用的快捷键，完整映射可在工作区内查看。"
     },
     "docsLibrary": {
-      "title": "搜索与Artifact库",
+      "title": "搜索与 Artifact 库",
       "description": "查找发布内容、回到特定对话，并管理你的工作。"
     },
     "docsProjects": {
       "title": "项目",
-      "description": "显式地或根据 Git 远程仓库对相关Artifact进行分组。"
+      "description": "显式地或根据 Git 远程仓库对相关 Artifact 进行分组。"
     },
     "docsCleanup": {
       "title": "归档、用量与清理",
@@ -100,8 +100,8 @@
   "navigation": {
     "groups": {
       "startHere": "从这里开始",
-      "artifactFormats": "Artifact格式",
-      "reviewTools": "评审工具",
+      "artifactFormats": "Artifact 格式",
+      "reviewTools": "审阅工具",
       "manageWork": "管理工作",
       "settingsHelp": "设置与帮助",
       "agentReference": "智能体参考",
@@ -118,25 +118,25 @@
       "category": "交互式 UI",
       "title": "让下一步行动显而易见。",
       "name": "完善项目创建流程",
-      "description": "亲自体验界面。指出令人困惑的控件。在同一对话中审查修订版本。"
+      "description": "亲自体验界面。指出令人困惑的控件。在同一对话中审阅新版本。"
     },
     "proposal": {
       "category": "文档",
       "title": "将提案转化为明确决议。",
-      "name": "改进新人上手方案",
+      "name": "改进用户引导的界面设计",
       "description": "讨论需要修改的段落，配套支持文件触手可及。"
     },
     "explanation": {
-      "category": "交互式解释",
-      "title": "边试边理解。",
-      "name": "探索搜索的工作原理",
-      "description": "向智能体索要一个可供亲自试验的解释，随后对细节展开探讨。"
+      "category": "交互式演示文档",
+      "title": "动手尝试，加深理解。",
+      "name": "探索搜索功能的工作原理",
+      "description": "让智能体做一份可以动手尝试的讲解文档，再一起讨论细节。"
     },
     "codeReview": {
-      "category": "代码评审",
+      "category": "代码审阅",
       "title": "紧随修复落实到每一行。",
       "name": "修复表单重复提交",
-      "description": "评审真实的补丁、探讨失败场景，并检查智能体的下一次发布。"
+      "description": "审阅真实的补丁、探讨失败场景，并检查智能体的下一次发布。"
     },
     "media": {
       "category": "图像与视频",
@@ -147,16 +147,16 @@
   },
   "features": {
     "preciseFeedback": {
-      "title": "就工作成果进行评论。发送给你的智能体。",
-      "description": "点击按钮、标题或输入框并留下批注。汇总你的反馈，然后一并批量发送给智能体，附带精准的元素及视口上下文。"
+      "title": "在作品上添加评论。发送给你的智能体。",
+      "description": "点击按钮、标题或输入框并留下批注。汇总反馈后，一次发送给智能体，并附上内容位置和上下文。"
     },
     "agentReplies": {
-      "title": "跟进回复。保留每一个版本。",
-      "description": "智能体在同一个主题中回复，并将修改发布为新版本。更早的版本依然保留，方便你随时回看初始版本，并在准备好时打开最新版本。"
+      "title": "追踪回复并保存每个作品版本。",
+      "description": "智能体在同一个主题中回复，并将修改发布为新版本。更早的版本依然保留，方便你随时回看初始版本。"
     },
     "inspectFixes": {
-      "title": "并排查看修复效果。",
-      "description": "当智能体发布了修订版本，可从回复中打开“对比”。在修复旁边对照原始版本，检查问题是否已被解决。"
+      "title": "并排对比修改。",
+      "description": "当智能体发布新版本后，从回复中打开“对比”，并排查看修改前后的内容，检查问题是否已解决。"
     },
     "imageComments": {
       "title": "在评论中附加图像。",
@@ -164,32 +164,32 @@
     },
     "videoComments": {
       "title": "针对精确的视频帧发表评论。",
-      "description": "在片段的任意位置暂停，高亮标注区域并留下批注。捕获的时间戳与静止帧为智能体提供了明确无误的视觉上下文。"
+      "description": "在片段的任意位置暂停，高亮标注区域并留下批注。借助时间戳与当前帧的图像，为智能体提供明确无误的视觉上下文。"
     }
   },
   "prompts": {
     "prototype": {
       "label": "UI 原型",
-      "prompt": "创建一个项目创建表单，以便我审查可见性设置。",
+      "prompt": "创建一个项目创建表单，以便我审阅可见性设置。",
       "response": "创建了一个包含项目详情和可见性控件的可运行原型。"
     },
     "explainer": {
-      "label": "解释器",
+      "label": "演示文档",
       "prompt": "用我可以亲自尝试的交互式滑块来解释搜索排名是如何工作的。",
-      "response": "创建了一个具有可调排名信号的交互式解释器。"
+      "response": "创建了一个具有可调排名信号的交互式演示文档。"
     },
     "brief": {
       "label": "设计文档",
       "prompt": "编写一份关于项目可见性的设计文档，包括访问规则与权衡考量。",
       "response": "创建了一份包含访问模型、权衡取舍和发布计划的设计提案。"
     },
-    "instruction": "将 HTML Artifact发布到 r3。"
+    "instruction": "将 HTML Artifact 发布到 r3。"
   },
   "home": {
     "hero": {
-      "titleLine1": "查看智能体的工作成果。",
-      "titleLine2": "引导下一步行动。",
-      "title": "审视智能体的工作，引导下一步行动。"
+      "titleLine1": "查看智能体的作品。",
+      "titleLine2": "指导下一步行动。",
+      "title": "查看智能体的作品。指导下一步行动。"
     }
   },
   "article": {
@@ -211,21 +211,21 @@
     "ifPendingReturn": "+ if (pending) return",
     "01InteractiveUi": "/ 01 交互式 UI",
     "02Documents": "/ 02 文档",
-    "03InteractiveExplanation": "/ 03 交互式解释",
-    "04CodeReview": "/ 04 代码评审",
+    "03InteractiveExplanation": "/ 03 交互式演示文档",
+    "04CodeReview": "/ 04 代码审阅",
     "05ImagesVideo": "/ 05 图像与视频",
-    "02ImproveAnOnboardingProposal": "02 改进新人上手方案 →",
-    "03ExploreHowSearchWorks": "03 探索搜索的工作原理 →",
+    "02ImproveAnOnboardingProposal": "02 改进用户引导的界面设计 →",
+    "03ExploreHowSearchWorks": "03 探索搜索功能的工作原理 →",
     "04FixDuplicateFormSubmissions": "04 修复表单重复提交 →",
     "05ImproveALaunchCampaign": "05 改进发布活动物料 →",
     "404NotFound": "404 / 页面未找到",
     "pOpeningADemoDeepLinkRequires": "打开演示深层链接需要 JavaScript。<demo>打开演示起始页</demo>。",
-    "aClearerConversation": "更清晰的对话。",
+    "aClearerConversation": "更清晰的反馈。",
     "aboutThisExample": "关于本示例",
     "agent": "智能体",
     "agentWorkflowR3": "智能体工作流 · r3",
     "anElementTargetIsMissing": "找不到元素目标",
-    "anExpectedRevisionIsnTShowing": "未显示预期的修订版本",
+    "anExpectedRevisionIsnTShowing": "未显示预期的新版本",
     "animateLogo": "Logo 动画",
     "archiveUsageCleanupR3": "归档、用量与清理 · r3",
     "archiveUsageCleanup": "归档、用量与清理 →",
@@ -240,39 +240,39 @@
     "codeChanges": "代码变更 →",
     "commandReferenceR3": "命令参考 · r3",
     "commentOnTheExactVideoFrameSilent": "针对精确的视频帧发表评论。无声演示，12 秒。",
-    "commentOnTheWorkSendItTo": "就工作成果进行评论。发送给你的智能体。无声演示，18 秒。",
+    "commentOnTheWorkSendItTo": "在作品上添加评论。发送给你的智能体。无声演示，18 秒。",
     "configurationR3": "配置 · r3",
     "configuration": "配置 →",
     "connectToARemoteServer": "连接到远程服务器",
     "copy": "复制",
     "decideWhatIsDone": "决定何时达成解决",
     "designDocInTheRealR3Phone": "真实 r3 手机布局中的设计文档。",
-    "designDocInTheRealR3Workspace": "真实 r3 工作区中的设计文档，包含智能体的修订和关联的反馈主题。",
+    "designDocInTheRealR3Workspace": "真实 r3 工作区中的设计文档，包含智能体的修改，以及相关的反馈和讨论。",
     "documentation": "文档",
     "documentsFilesR3": "文档与文件 · r3",
     "documentsFiles": "文档与文件 →",
     "english": "English",
     "exampleDeleted": "示例已删除。",
-    "explainerInTheRealR3PhoneLayout": "真实 r3 手机布局中的解释器。",
-    "explainerInTheRealR3WorkspaceWith": "真实 r3 工作区中的解释器，包含智能体的修订和关联的反馈主题。",
-    "exploreUiPrototypesInteractiveExplainersAndDesign": "探索智能体创建的 UI 原型、交互式解释器和设计文档。直接点击需要注意的地方，留下锚定批注，共同打磨最终成果。",
-    "exploreHowSearchWorksR3": "探索搜索的工作原理 · r3",
+    "explainerInTheRealR3PhoneLayout": "真实 r3 手机布局中的演示文档。",
+    "explainerInTheRealR3WorkspaceWith": "真实 r3 工作区中的演示文档，包含智能体的修改，以及相关的反馈和讨论。",
+    "exploreUiPrototypesInteractiveExplainersAndDesign": "探索智能体创建的 UI 原型、交互式演示文档和设计文档。点击不满意的地方，留下评价意见，共同改进作品。",
+    "exploreHowSearchWorksR3": "探索搜索功能的工作原理 · r3",
     "exploreThenComment": "先探索，再评论",
     "feedbackDidnTReachTheAgent": "反馈未送达智能体",
     "fieldwork": "Fieldwork",
     "findYourWayBackToTheR3": "返回 r3 文档或在线演示。",
     "findYourWork": "查找你的工作",
     "fixDuplicateFormSubmissionsR3": "修复表单重复提交 · r3",
-    "followTheReplyKeepEveryVersionSilent": "跟进回复。保留每一个版本。无声演示，10 秒。",
+    "followTheReplyKeepEveryVersionSilent": "追踪回复并保存每个作品版本。无声演示，10 秒。",
     "fromFirstVersionToFinishedWork": "从第一个版本到最终成品。",
     "getStartedR3": "快速开始 · r3",
     "grantOnlyWhatTheTaskRequires": "仅授予任务所需的最小权限",
-    "groupRelatedReviews": "将相关的评审分组",
+    "groupRelatedReviews": "将相关的审阅分组",
     "hostYourOwn": "自行托管",
     "imagesAudioVideoR3": "图像、音频与视频 · r3",
     "imagesAudioVideo": "图像、音频与视频 →",
     "improveALaunchCampaignR3": "改进发布活动物料 · r3",
-    "improveAnOnboardingProposalR3": "改进新人上手方案 · r3",
+    "improveAnOnboardingProposalR3": "改进用户引导的界面设计 · r3",
     "interactivePagesR3": "交互式页面 · r3",
     "interactivePages": "交互式页面 →",
     "keepItOrganized": "保持井井有条",
@@ -282,7 +282,7 @@
     "localRemoteAccessR3": "本地与远程访问 · r3",
     "localRemoteAccess": "本地与远程访问 →",
     "makeRoomForTheWork": "为工作内容留出空间",
-    "makeYourFirstReview": "进行你的首次评审",
+    "makeYourFirstReview": "进行你的首次审阅",
     "manageDiskStorageAndCleanup": "管理磁盘存储与清理",
     "manageProjectGroups": "管理项目分组",
     "mostWorkflowsNeedZeroConfiguration": "绝大多数工作流开箱即用，无需配置",
@@ -303,7 +303,7 @@
     "openFullSizeScreenshotReadTheProposal": "打开全尺寸屏幕截图：在配套支撑研究旁边阅读提案。",
     "openFullSizeScreenshotSaveTheExact": "打开全尺寸屏幕截图：保存精确的帧。",
     "openFullSizeScreenshotSelectTheDate": "打开全尺寸屏幕截图：选择日期。",
-    "openFullSizeScreenshotTheRevisionLets": "打开全尺寸屏幕截图：修订版让新用户可以独立进入实用的仪表盘。",
+    "openFullSizeScreenshotTheRevisionLets": "打开全尺寸屏幕截图：新版本让新用户可以独立进入实用的仪表盘。",
     "openFullSizeScreenshotTryAProject": "打开全尺寸屏幕截图：在打磨之前先体验项目创建表单。",
     "openFullSizeScreenshotTurnUpFreshness": "打开全尺寸屏幕截图：调高时效性。最新的发布说明升到顶部。",
     "openTheFix": "打开修复",
@@ -328,35 +328,35 @@
     "readThePatch": "阅读补丁",
     "refineAProjectCreationFlowR3": "完善项目创建流程 · r3",
     "resetExample": "重置示例",
-    "reviewTheNextRound": "评审下一轮",
-    "reviewingDocuments": "评审文档 →",
+    "reviewTheNextRound": "审阅下一轮",
+    "reviewingDocuments": "审阅文档 →",
     "revisionsResolutionR3": "修订与解决 · r3",
     "revisionsResolution": "修订与解决 →",
-    "searchYourLibraryR3": "搜索与Artifact库 · r3",
-    "searchYourLibrary": "搜索与Artifact库 →",
+    "searchYourLibraryR3": "搜索与 Artifact 库 · r3",
+    "searchYourLibrary": "搜索与 Artifact 库 →",
     "searchTheDocsR3": "搜索文档 · r3",
-    "seeTheFixSideBySideSilent": "并排查看修复效果。无声演示，10 秒。",
-    "seeYourAgentSWorkSteerWhat": "审视智能体的工作，引导下一步行动。 · r3",
+    "seeTheFixSideBySideSilent": "并排对比修改。无声演示，10 秒。",
+    "seeYourAgentSWorkSteerWhat": "查看智能体的作品。指导下一步行动。 · r3",
     "sendABatch": "批量发送",
     "showWhatYouMean": "直观展示你的意图",
     "signInOrMutationsStoppedWorking": "登录或数据变更失效",
     "startAgain": "重新开始",
     "testTheLiveIdea": "现场测试实时想法",
     "theAddressMayHaveChangedFindA": "地址可能已更改。请在文档中查找工作流，或返回首页。",
-    "theArtifactCanBeViewedAtHttp": "可以在 http://localhost:8891/artifact_example 查看该Artifact。",
-    "theReviewLoopR3": "评审闭环 · r3",
-    "theReviewLoop": "评审闭环 →",
+    "theArtifactCanBeViewedAtHttp": "可以在 http://localhost:8891/artifact_example 查看该 Artifact。",
+    "theReviewLoopR3": "审阅流程 · r3",
+    "theReviewLoop": "审阅流程 →",
     "thisPageIsnTHere": "页面不存在",
     "thisPageIsnTHereR3": "页面不存在 · r3",
     "thisPageIsnTHere2": "页面不存在。",
     "troubleshootingR3": "故障排查 · r3",
     "troubleshooting": "故障排查 →",
     "uiPrototypeInTheRealR3Phone": "真实 r3 手机布局中的 UI 原型。",
-    "uiPrototypeInTheRealR3Workspace": "真实 r3 工作区中的 UI 原型，包含智能体的修订和关联的反馈主题。",
+    "uiPrototypeInTheRealR3Workspace": "真实 r3 工作区中的 UI 原型，包含智能体的修改，以及相关的反馈和讨论。",
     "uiComponentShowcase": "UI 组件展示",
     "uiComponentShowcaseR3": "UI 组件展示 · r3",
     "useTheBuiltInReference": "使用内置参考",
-    "verifyTheRevision": "核验修订版本",
+    "verifyTheRevision": "核验新版本",
     "watchTheDemo": "观看演示",
     "workspace": "工作区",
     "you": "你",
@@ -366,8 +366,8 @@
     "realR3InterfaceFictionalDataAndScripted": "· 真实的 r3 界面。虚拟数据与脚本化智能体。",
     "r32": "· r3",
     "01RefineAProjectCreationFlow": "← 01 完善项目创建流程",
-    "02ImproveAnOnboardingProposal2": "← 02 改进新人上手方案",
-    "03ExploreHowSearchWorks2": "← 03 探索搜索的工作原理",
+    "02ImproveAnOnboardingProposal2": "← 02 改进用户引导的界面设计",
+    "03ExploreHowSearchWorks2": "← 03 探索搜索功能的工作原理",
     "04FixDuplicateFormSubmissions2": "← 04 修复表单重复提交",
     "homepage": "← 首页"
   },
@@ -377,7 +377,7 @@
     "aUsefulPatternToBorrow": "值得借鉴的实用模式",
     "agentWorkflow": "智能体工作流 →",
     "askForAConcreteChange": "提出具体的修改要求。",
-    "askYourAgentToMakeSomething": "让你的智能体创建内容。",
+    "askYourAgentToMakeSomething": "让你的智能体创建并发布内容。",
     "eachWalkthroughIncludesAStartingPromptWhat": "每个演练都包含起始提示词、检查要点、示例反馈以及核验修订的方法。独立的",
     "examplePrompts": "示例提示词",
     "exploreAllUseCases": "探索所有用例 →",
@@ -396,14 +396,14 @@
     "searchFeaturesWorkflowsAndCommands": "搜索功能、工作流和命令",
     "searchRunsInYourBrowserNoQueries": "搜索在你的浏览器中运行。不会将任何查询发送给分析统计服务。",
     "searchTheDocs": "搜索文档。",
-    "seeTheIterationLoopInAction": "查看实际运作中的迭代循环",
+    "seeTheIterationLoopInAction": "查看实际项目中的反馈流程",
     "startIteratingVisuallyWithYourAgent": "与你的智能体开启可视化迭代",
-    "theR3NavbarAboveAHighlightedButton": "高亮按钮及其评审主题上方的 r3 导航栏：用户请求 16px 的按钮边距，智能体确认修改，草稿则请求将边距调回 8px。",
+    "theR3NavbarAboveAHighlightedButton": "高亮按钮及其审阅主题上方的 r3 导航栏：用户请求 16px 的按钮边距，智能体确认修改，草稿则请求将边距调回 8px。",
     "tryTheDemo": "体验演示 →",
     "tryFeedbackVideoOrPublish": "尝试搜索 “feedback”、“video” 或 “publish”……",
     "liveDemo": "在线演示",
     "localhost8891": "localhost:8891",
-    "usesACurveLabAndCodeReview": "采用包含贝塞尔曲线实验室与代码评审的场景，配合脚本化的智能体回复。",
+    "usesACurveLabAndCodeReview": "采用包含贝塞尔曲线实验室与代码审阅的场景，配合脚本化的智能体回复。",
     "makeThisBetterStartsAnotherRoundOf": "“把它改好点”只会引发又一轮猜测。而“在创建之前说明谁能看到这个项目”则为智能体指明了具体目标和验证标准。"
   },
   "client": {
@@ -437,13 +437,13 @@
     "aClearAudienceForEveryProject": "为每个项目明确受众。",
     "aLittleRoomForYourNextIdea": "为你的下一个想法留出空间。",
     "aPausedVideoFrameWithARegion": "暂停的视频帧，包含发布日期周围的区域标注",
-    "aSelectedButtonItsReviewThreadAnd": "已选中的按钮、其评审主题以及正在进行的回复。",
+    "aSelectedButtonItsReviewThreadAnd": "已选中的按钮、其审阅主题以及正在进行的回复。",
     "aVersionToExplore": "可供探索的版本",
-    "aWorkingExplainerMoveTheSlidersThen": "可运行的解释器：拖动滑块，然后针对结果提问。",
+    "aWorkingExplainerMoveTheSlidersThen": "可运行的演示文档：拖动滑块，然后针对结果提问。",
     "active": "活跃",
     "additionalAccess": "额外访问权限",
     "archived": "已归档",
-    "archivingIsReversibleDeletionRemovesTheWhole": "归档是可逆的。删除会彻底移除整个评审。",
+    "archivingIsReversibleDeletionRemovesTheWhole": "归档是可逆的。删除会彻底移除整个审阅。",
     "browserPermissionStillRequired": "仍需浏览器权限",
     "byDefault": "默认情况下",
     "cameraOrMicSeparateConsent": "摄像头或麦克风：单独授权",
@@ -456,8 +456,8 @@
     "externalNetworkExplicitGrant": "外部网络：需显式授权",
     "imagePreview": "图像预览",
     "isolatedPreview": "隔离预览",
-    "keepTheProposalAndItsSupportingFiles": "将提案及其支撑文件集中在同一次评审中。",
-    "keepTheWorkAndItsConversationTogether": "在每次修订中始终将工作成果与相关对话保存在一起。",
+    "keepTheProposalAndItsSupportingFiles": "将提案及其支撑文件集中在同一次审阅中。",
+    "keepTheWorkAndItsConversationTogether": "在每次修订中始终将作品与相关对话保存在一起。",
     "launchingOctober12": "10 月 12 日发布",
     "meetFieldwork": "走近 Fieldwork。",
     "noR3Credentials": "无 r3 凭据",
@@ -476,7 +476,7 @@
     "projectProposal": "项目提案",
     "projectVisibility": "项目可见性",
     "projectVisibilityAccess": "项目可见性与访问权限",
-    "projectCreationReviewOpenThread": "项目创建评审 · 未解决主题",
+    "projectCreationReviewOpenThread": "项目创建审阅 · 未解决主题",
     "proposedApproach": "建议方案",
     "publish": "发布",
     "publishAndReply": "发布与回复",
@@ -485,20 +485,20 @@
     "readOrRestore": "查看或恢复",
     "readPermissionRequestsBeforeLettingAPage": "在允许页面访问其发布内容之外的资源前，请仔细阅读权限请求。",
     "readsItsPublishedFiles": "读取其已发布的文件",
-    "relatedArtifactsStayTogetherEachWithIts": "相关Artifact归聚在一起，各自拥有独立的版本和讨论。",
+    "relatedArtifactsStayTogetherEachWithIts": "相关 Artifact 归聚在一起，各自拥有独立的版本和讨论。",
     "resolveOrContinue": "解决或继续",
-    "review": "评审",
-    "reviewAndComment": "评审与评论",
-    "reviewAndRevise": "评审与修订",
+    "review": "审阅",
+    "reviewAndComment": "审阅与评论",
+    "reviewAndRevise": "审阅与修订",
     "revise": "修订",
-    "selectTheRelevantLinesOnEitherSide": "在任意一侧选择相关行。代码评审示意图。",
+    "selectTheRelevantLinesOnEitherSide": "在任意一侧选择相关行。代码审阅示意图。",
     "send": "发送",
     "shareTheFeedback": "分享反馈",
     "supportingNotes": "补充说明",
     "tapTheDiscussionBarToReadReplies": "轻触讨论栏阅读回复并留下反馈。",
     "theBrowserAndAgentConnectToThe": "浏览器和智能体连接到同一个工作区。",
-    "theSameReviewWithADiscussionSheet": "同一份评审，可在手机上以讨论底部表单形式呈现。",
-    "tryThePublishedWorkThenDiscussIt": "体验已发布的工作成果，并在页面旁就地展开讨论。",
+    "theSameReviewWithADiscussionSheet": "同一份审阅，可在手机上以讨论底部表单形式呈现。",
+    "tryThePublishedWorkThenDiscussIt": "体验已发布的作品，并在页面旁就地展开讨论。",
     "uiPrototype": "UI 原型",
     "version2DesignProposal": "版本 2 · 设计提案",
     "yourAgent": "你的智能体",
@@ -525,7 +525,7 @@
     "readTheProposalAlongsideItsSupportingResearch": "在配套支撑研究旁边阅读提案。",
     "saveTheExactFrame": "保存精确的帧。",
     "selectTheDate": "选择日期。",
-    "theRevisionLetsNewUsersReachA": "修订版让新用户可以独立进入实用的仪表盘。",
+    "theRevisionLetsNewUsersReachA": "新版本让新用户可以独立进入实用的仪表盘。",
     "tryAProjectCreationFormBeforePolishing": "在打磨之前先体验项目创建表单。",
     "turnUpFreshnessRecentLaunchNotesRise": "调高时效性。最新的发布说明升到顶部。"
   },
