@@ -7,6 +7,7 @@ export interface ApplicationAsset {
   body: Blob;
   contentType: string;
   etag: string;
+  gzip?: { body: Blob; etag: string };
 }
 export interface ApplicationAssets {
   index: ApplicationAsset;
@@ -91,6 +92,23 @@ export async function loadApplicationAssets(bundle: HTMLBundle): Promise<Applica
     }
   }
   if (!index) throw new Error("The r3 application HTML is missing from the build");
+  // Prepare immutable variants once, for both embedded and source-built assets.
+  // Request handling never compresses a bundle or blocks the server on deflate.
+  await Promise.all(
+    [...files.values()].map(async (asset) => {
+      if (
+        asset.body.size < 1024 ||
+        !/^(?:text\/|application\/(?:javascript|json|wasm)|image\/svg\+xml)/.test(asset.contentType)
+      )
+        return;
+      const bytes = await gzipBody(new Uint8Array(await asset.body.arrayBuffer()));
+      if (bytes.byteLength >= asset.body.size) return;
+      asset.gzip = {
+        body: new Blob([bytes]),
+        etag: `"${createHash("sha256").update(bytes).digest("hex")}"`,
+      };
+    }),
+  );
   return { index, files };
 }
 
@@ -115,10 +133,13 @@ export function applicationAssetResponse(assets: ApplicationAssets, request: Req
     return empty(405);
   }
   if (!asset) return empty(404);
+  const representation = asset.gzip && acceptsGzip(request) ? asset.gzip : asset;
+  if (asset.gzip) headers.set("Vary", "Accept-Encoding");
+  if (representation === asset.gzip) headers.set("Content-Encoding", "gzip");
   headers.set("Content-Type", asset.contentType);
-  headers.set("ETag", asset.etag);
-  if (request.headers.get("if-none-match") === asset.etag)
+  headers.set("ETag", representation.etag);
+  if (request.headers.get("if-none-match") === representation.etag)
     return new Response(null, { status: 304, headers });
-  headers.set("Content-Length", String(asset.body.size));
-  return new Response(request.method === "HEAD" ? null : asset.body, { headers });
+  headers.set("Content-Length", String(representation.body.size));
+  return new Response(request.method === "HEAD" ? null : representation.body, { headers });
 }

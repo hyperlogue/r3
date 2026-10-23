@@ -46,3 +46,30 @@ test("scroll metadata rejects invalid coordinates and discards extra publisher f
   positions.flush();
   expect(JSON.parse(stored)).toEqual([["valid", { x: 10, y: 20 }]]);
 });
+
+test("trusted file anchors survive reload without accepting anchors from preview coordinates", () => {
+  let stored: string | null = null;
+  const storage = () => ({
+    getItem: () => stored,
+    setItem: (_: string, value: string) => {
+      stored = value;
+    },
+  });
+  const positions = new ReadingPositions(storage);
+  const file = { path: "images/detail.png", offset: -32 };
+  positions.set("workspace", { x: 0, y: 18000 }, file);
+  file.offset = 900;
+  positions.set("preview", { x: 0, y: 400, file } as { x: number; y: number });
+  positions.set("legacy", { x: 0, y: 12000 });
+  positions.flush();
+  const restored = new ReadingPositions(storage);
+  expect(restored.get("workspace")).toEqual({
+    x: 0,
+    y: 18000,
+    file: { path: "images/detail.png", offset: -32 },
+  });
+  expect(restored.get("preview")).toEqual({ x: 0, y: 400 });
+  expect(restored.get("legacy")).toEqual({ x: 0, y: 12000 });
+  stored = JSON.stringify([["bad", { x: 0, y: 100, file: { path: "image.png", offset: "300" } }]]);
+  expect(new ReadingPositions(storage).get("bad")).toEqual({ x: 0, y: 100 });
+});

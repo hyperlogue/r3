@@ -70,6 +70,8 @@ export const ArtifactFile = memo(function ArtifactFile({
   const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(!viewed);
   const media = artifactMediaKind(file.mediaType);
+  const nativeMedia = targetableMedia(file.mediaType);
+  const [mediaReady, setMediaReady] = useState(false);
   const filename = file.path.split("/").at(-1)!;
   const canRender = !!file.renderedHash || file.mediaType.split(";")[0] === "text/html";
   const rendered = !!media || (representation === "rendered" && canRender);
@@ -82,8 +84,20 @@ export const ArtifactFile = memo(function ArtifactFile({
   });
   useEffect(() => onOpenChange(open), [open, onOpenChange]);
   useEffect(() => {
-    onHydrated(active && (!open || rendered || source.isSuccess || source.isError));
-  }, [active, open, rendered, source.isSuccess, source.isError, onHydrated]);
+    onHydrated(
+      active &&
+        (!open || (nativeMedia ? mediaReady : rendered || source.isSuccess || source.isError)),
+    );
+  }, [
+    active,
+    open,
+    nativeMedia,
+    mediaReady,
+    rendered,
+    source.isSuccess,
+    source.isError,
+    onHydrated,
+  ]);
   const download = useMutation({
     mutationFn: async () => {
       const response = await artifactApi.download(artifactId, versionSeq, file.path);
@@ -167,6 +181,7 @@ export const ArtifactFile = memo(function ArtifactFile({
                   onTarget={onMediaTarget}
                   jump={mediaJump}
                   active={mediaActive && open}
+                  onReady={setMediaReady}
                 />
               ) : media === "image" ? (
                 <MediaViewport controls={mediaControls}>{preview()}</MediaViewport>

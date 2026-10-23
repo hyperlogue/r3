@@ -1,5 +1,6 @@
 import { type RefObject, useLayoutEffect, useRef } from "react";
-import { type ReadingPosition, readingPositions } from "./reading-position.ts";
+import { captureFileReadingAnchor, resolveFileReadingPosition } from "./file-reading-position.ts";
+import { readingPositions } from "./reading-position.ts";
 import { restoreReadingPosition } from "./restore-reading-position.ts";
 
 // Restore after asynchronous file/iframe sizing, but relinquish control as soon
@@ -9,7 +10,7 @@ export function useReadingPosition(
   key: string | null,
   explicit: boolean,
   version: number | null,
-  prepare?: (point: ReadingPosition) => boolean,
+  files?: { path: string; activate: (path: string) => boolean },
 ) {
   const previousVersion = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -17,7 +18,11 @@ export function useReadingPosition(
     previousVersion.current = version;
     const pane = root.current;
     if (!pane || !key) return;
-    const point = readingPositions.get(key) ?? (reset ? { x: 0, y: 0 } : null);
+    const saved = readingPositions.get(key);
+    const point = saved ?? (reset ? { x: 0, y: 0 } : null);
+    // Old absolute stack offsets cannot identify a location after lazy layout.
+    // Reopen the requested file instead of hydrating the entire prefix to guess.
+    const anchor = saved && files ? (saved.file ?? { path: files.path, offset: 0 }) : null;
     let restoring = !!point && !explicit;
     const stop =
       restoring && point
@@ -27,16 +32,24 @@ export function useReadingPosition(
             () => {
               restoring = false;
             },
-            () => prepare?.(point) ?? true,
+            () =>
+              anchor && files
+                ? resolveFileReadingPosition(pane, point, anchor, files.activate)
+                : point,
           )
         : undefined;
     const save = () => {
-      if (!restoring) readingPositions.set(key, { x: pane.scrollLeft, y: pane.scrollTop });
+      if (!restoring)
+        readingPositions.set(
+          key,
+          { x: pane.scrollLeft, y: pane.scrollTop },
+          files ? captureFileReadingAnchor(pane) : undefined,
+        );
     };
     pane.addEventListener("scroll", save, { passive: true });
     return () => {
       stop?.();
       pane.removeEventListener("scroll", save);
     };
-  }, [root, key, explicit, version, prepare]);
+  }, [root, key, explicit, version, files]);
 }

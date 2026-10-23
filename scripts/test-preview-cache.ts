@@ -141,6 +141,13 @@ const app = Bun.serve({
     }
     if (path.startsWith("/api/")) {
       if (path === "/api/boot") await bootHold;
+      // Remembered compatibility consent skips gates. Hold context admission
+      // instead, so unsupported engines still exercise passive cached reading.
+      if (
+        process.env.R3_TEST_UNSUPPORTED === "1" &&
+        (path.endsWith("/previews") || path.startsWith("/api/previews/"))
+      )
+        await gateHold;
       if (path.endsWith("/previews") && request.method === "POST") creations++;
       const response = await api.app.fetch(request);
       if (path.endsWith("/source")) sources.push(response.status);
@@ -300,10 +307,12 @@ try {
   await paneAt(1500);
   assert.equal(
     creations,
-    beforeRefresh + (process.env.R3_TEST_UNSUPPORTED === "1" ? 1 : 0),
-    "refresh renews the document context; unsupported browsers still retry the blocked gate",
+    beforeRefresh,
+    "refresh renews the document context without replacing its identity",
   );
-  assert.ok(gates > beforeGate, "refresh must still run the browser gate");
+  if (process.env.R3_TEST_UNSUPPORTED === "1")
+    assert.equal(gates, beforeGate, "remembered compatibility consent skips the browser gate");
+  else assert.ok(gates > beforeGate, "refresh must still run the browser gate");
   assert.deepEqual(documents.at(-1), { path: firstPath, status: 304 });
   assert.equal(runtimes.length, 0, "page refresh reuses the runtime with the document");
   assert.equal(markdownReads, 1, "refresh and source switches reuse persistent Markdown bytes");
@@ -377,14 +386,18 @@ try {
   });
   await savedAt(laterPosition, "page-1.md");
   await page.reload();
-  await paneAt(laterPosition);
-  await page.waitForFunction(
-    () => document.querySelectorAll('iframe[aria-hidden="false"]').length === 2,
-  );
+  await page.waitForFunction(() => {
+    const pane = document.querySelector("[data-artifact-content]");
+    const file = pane?.querySelector('[data-file="page-1.md"]');
+    return (
+      file &&
+      Math.abs(file.getBoundingClientRect().top - pane!.getBoundingClientRect().top + 500) < 2
+    );
+  });
   assert.equal(
     await page.locator('iframe[aria-hidden="false"]').count(),
-    2,
-    "restoring a later offset hydrates only its required document prefix",
+    1,
+    "restoring a later file does not hydrate its preceding document prefix",
   );
   console.log(`${engine}: deferred file jumps and folding retain measured Markdown frames`);
 
@@ -422,7 +435,9 @@ try {
     .frameLocator("[data-markdown-reading]")
     .getByRole("heading", { name: "Cache document 1", exact: true })
     .waitFor();
-  const passiveFrame = page.frames().find((frame: any) => frame.url() === "about:srcdoc")!;
+  const passiveFrame = await (
+    await page.locator("[data-markdown-reading]").elementHandle()
+  ).contentFrame();
   await passiveFrame.waitForFunction(() => Math.abs(scrollY - 700) < 2);
   await passiveFrame.evaluate(() => scrollTo(0, 900));
   await savedAt(900, "index.md", "rendered:#");

@@ -85,9 +85,9 @@ export async function verifyBinary(path: string, platform: string) {
     const daemon = JSON.parse(await readFile(join(runtime, "r3/daemon.json"), "utf8"));
     assert.equal(daemon.version, R3_VERSION);
     const { token } = await localBootstrap<{ token: string }>(daemon.bootstrapSocket, "bootstrap");
-    const request = async (path: string) => {
+    const request = async (path: string, headers?: Record<string, string>) => {
       const response = await fetch(`http://127.0.0.1:${port}${path}`, {
-        headers: { "x-r3-token": token },
+        headers: { "x-r3-token": token, ...headers },
         signal: AbortSignal.timeout(10_000),
       });
       assert.equal(response.status, 200, `GET ${path}`);
@@ -107,13 +107,21 @@ export async function verifyBinary(path: string, platform: string) {
       "Embedded application CSS missing",
     );
     for (const asset of assets) {
-      const response = await request(asset);
+      const response = await request(asset, { "accept-encoding": "identity" });
       assert.match(
         response.headers.get("content-type") ?? "",
         asset.endsWith(".js") ? /(?:java|ecma)script/ : /text\/css/,
         `Wrong content type for ${asset}`,
       );
-      assert((await response.arrayBuffer()).byteLength > 0);
+      const original = new Uint8Array(await response.arrayBuffer());
+      assert(original.byteLength > 0);
+      const compressed = await request(asset, { "accept-encoding": "gzip" });
+      assert.equal(compressed.headers.get("content-encoding"), "gzip");
+      assert.equal(compressed.headers.get("vary"), "Accept-Encoding");
+      assert(Number(compressed.headers.get("content-length")) < original.byteLength);
+      assert.notEqual(compressed.headers.get("etag"), response.headers.get("etag"));
+      // Fetch decodes the negotiated transfer; embedded bytes must be identical.
+      assert.deepEqual(new Uint8Array(await compressed.arrayBuffer()), original);
     }
 
     const directory = join(root, "publication");

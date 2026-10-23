@@ -57,7 +57,6 @@ type ActivateFile = (onReady?: OnReady) => void;
 export function useProgressiveFileController(): {
   registry: RefObject<Map<string, ActivateFile>>;
   activate: (path: string, onReady?: OnReady) => boolean;
-  prepareReadingPosition: (pane: HTMLElement, y: number) => boolean;
 } {
   const registry = useRef(new Map<string, ActivateFile>());
   const activate = useCallback((path: string, onReady?: OnReady) => {
@@ -65,28 +64,7 @@ export function useProgressiveFileController(): {
     fn?.(onReady);
     return !!fn;
   }, []);
-  const prepareReadingPosition = useCallback(
-    (pane: HTMLElement, y: number) => {
-      const files = pane.querySelectorAll<HTMLElement>("[data-progressive-file]");
-      if (!files.length) return false;
-      const top = pane.getBoundingClientRect().top - pane.scrollTop;
-      // An absolute reading offset depends on preceding file heights. Hydrate
-      // that prefix in order; scrolling into guessed placeholders would open
-      // the wrong documents and finish restoration before Markdown is sized.
-      for (const file of files) {
-        if (file.getBoundingClientRect().top - top > y) break;
-        if (file.dataset.progressiveFile === "inactive") {
-          activate(file.dataset.file!);
-          return false;
-        }
-        if (file.matches('[aria-busy="true"]') || file.querySelector('[aria-busy="true"]'))
-          return false;
-      }
-      return true;
-    },
-    [activate],
-  );
-  return { registry, activate, prepareReadingPosition };
+  return { registry, activate };
 }
 
 interface ObservedFile {
@@ -146,7 +124,9 @@ export function ProgressiveFileProvider({
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          files.current.get(entry.target as HTMLElement)?.onNear(entry.isIntersecting);
+          files.current
+            .get(entry.target as HTMLElement)
+            ?.onNear(entry.isIntersecting && entry.intersectionRatio > 0);
         }
       },
       { root, rootMargin: `${preloadMargin}px 0px` },

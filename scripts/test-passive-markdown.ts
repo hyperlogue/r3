@@ -115,7 +115,7 @@ try {
     0,
     "neither inert parsing nor the passive reader may send publisher requests",
   );
-  assert.equal(page.frames().filter((frame: any) => frame.url() === "about:srcdoc").length, 1);
+  assert.equal(page.frames().filter((frame: any) => frame !== page.mainFrame()).length, 1);
   const rendered = await renderArtifactDocument(
     '# Diagram\n\n```mermaid\nflowchart LR\nsubgraph 世界 ["两座城市"]\nA["<b>起点</b><br>输入"] <==>|"道路"| B[终点]\nend\n```\n',
     "index.md",

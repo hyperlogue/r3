@@ -2,6 +2,13 @@ export interface ReadingPosition {
   x: number;
   y: number;
 }
+export interface FileReadingAnchor {
+  path: string;
+  offset: number;
+}
+export interface SavedReadingPosition extends ReadingPosition {
+  file?: FileReadingAnchor;
+}
 const STORAGE_KEY = "r3-reading-positions-1";
 const LIMIT = 128;
 export const readingKey = (artifact: string, version: number, path: string, view: string) =>
@@ -19,17 +26,36 @@ export function isReadingPosition(value: unknown): value is ReadingPosition {
   );
 }
 
+function fileAnchor(value: unknown): FileReadingAnchor | undefined {
+  if (!value || typeof value !== "object") return;
+  const { path, offset } = value as FileReadingAnchor;
+  if (
+    typeof path === "string" &&
+    path.length > 0 &&
+    path.length <= 4096 &&
+    Number.isFinite(offset) &&
+    Math.abs(offset) <= 32_000_000
+  )
+    return { path, offset };
+}
+
 // Reading metadata only; document-byte caching has its own immutable identity.
 export class ReadingPositions {
-  private readonly positions = new Map<string, ReadingPosition>();
+  private readonly positions = new Map<string, SavedReadingPosition>();
   private timer: ReturnType<typeof setTimeout> | undefined;
   constructor(private readonly storage: () => Pick<Storage, "getItem" | "setItem"> | null) {
     try {
       const entries: unknown = JSON.parse(storage()?.getItem(STORAGE_KEY) ?? "[]");
       if (Array.isArray(entries))
         for (const entry of entries.slice(-LIMIT)) {
-          if (Array.isArray(entry) && typeof entry[0] === "string" && isReadingPosition(entry[1]))
-            this.positions.set(entry[0], { x: entry[1].x, y: entry[1].y });
+          if (Array.isArray(entry) && typeof entry[0] === "string" && isReadingPosition(entry[1])) {
+            const file = fileAnchor((entry[1] as SavedReadingPosition).file);
+            this.positions.set(entry[0], {
+              x: entry[1].x,
+              y: entry[1].y,
+              ...(file ? { file } : {}),
+            });
+          }
         }
     } catch {
       /* Storage is optional. */
@@ -38,10 +64,13 @@ export class ReadingPositions {
   get(key: string) {
     return this.positions.get(key);
   }
-  set(key: string, point: ReadingPosition) {
+  set(key: string, point: ReadingPosition, anchor?: FileReadingAnchor) {
     if (!isReadingPosition(point)) return;
+    // Preview messages may supply coordinates only. File anchors are recorded
+    // explicitly by the trusted workspace, never copied from a publisher object.
+    const file = fileAnchor(anchor);
     this.positions.delete(key);
-    this.positions.set(key, { x: point.x, y: point.y });
+    this.positions.set(key, { x: point.x, y: point.y, ...(file ? { file } : {}) });
     while (this.positions.size > LIMIT) this.positions.delete(this.positions.keys().next().value!);
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.flush(), 200);

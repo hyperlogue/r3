@@ -254,11 +254,13 @@ membership is the cache index; no second durable rendering store is needed.
 Reused blobs are verified under the publication's garbage-collection hold.
 An upgraded renderer produces new output only for new publications.
 
-File stacks containing Markdown defer unopened bodies until they enter the viewport
-or an explicit file jump needs them, even in small artifacts. Provisional shells
-reserve space until document sizing arrives; an already measured shell keeps its
-height while a replacement preview loads. Restoring an absolute reading offset
-first hydrates preceding files in order, so it may open more than one document.
+File stacks containing Markdown or media defer unopened bodies until they enter
+the viewport or an explicit file jump needs them, even in small artifacts.
+Provisional shells reserve space until document sizing or native media decoding
+arrives; an already measured shell keeps its height while a replacement loads.
+Unmeasured media reserves 80% of the viewport height, matching its maximum fitted
+height, so loading placeholders cannot collapse and start offscreen downloads.
+Reading restoration opens the saved file directly, without loading preceding files.
 
 Folding a rendered Markdown file retains its loaded preview in memory, hidden and
 inert, so unfolding reuses the document and measured height without fetching it
@@ -343,6 +345,13 @@ membership and either gate success or remembered compatibility consent. The trus
 runtime is embedded in the document response before publisher scripts, removing a blocking request while preserving execution order. Generated
 preview HTML and scripts use negotiated gzip; their validators cover the runtime.
 
+Application JavaScript, CSS, and other compressible static assets prepare a gzip
+variant once at server startup, for both embedded and source-built distributions.
+Requests negotiate that variant with `Accept-Encoding`; identity and compressed
+bytes have distinct validators and share immutable caching with `Vary:
+Accept-Encoding`. HEAD reports the selected representation's length without a
+body. Personalized application HTML retains its separate private, no-store policy.
+
 Protected document context identities are retained per tab so reopened previews
 reuse their URLs during in-app navigation and full reloads. Matching resume hints
 fold renewal into application HTML. Missing or evicted hints fall back to API
@@ -356,8 +365,14 @@ and context identities when detected, but physical HTTP-cache eviction belongs t
 the browser. See the security reference for expiry and retention bounds.
 
 Reading positions are bounded, debounced session metadata keyed by artifact,
-version, path, and representation. File stacks restore the outer pane; independently
-scrolling previews report root coordinates over their existing document-bound bridge.
+version, path, and representation. File stacks record the visible file and its
+local offset and restore the outer pane relative to that file as it loads.
+Legacy absolute stack positions reopen the requested file at its start; they do
+not reconstruct preceding content heights. Independently scrolling previews
+report root coordinates over their existing document-bound bridge and cannot
+record workspace file anchors.
+Passive readers wait for iframe layout before restoring and reporting coordinates,
+so an initial zero cannot overwrite a saved reading position.
 Explicit Locate and native fragment navigation win, and user input cancels a
 pending restoration. HTML application state and nested scrollers are not retained.
 Deletion clears these positions when detected.

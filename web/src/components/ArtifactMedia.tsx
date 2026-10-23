@@ -30,6 +30,7 @@ export function ArtifactMedia({
   active = true,
   showTarget = true,
   onSavedFrame,
+  onReady,
 }: {
   artifactId: string;
   versionSeq: number;
@@ -40,6 +41,7 @@ export function ArtifactMedia({
   active?: boolean;
   showTarget?: boolean;
   onSavedFrame?: (saved: boolean) => void;
+  onReady?: (ready: boolean) => void;
 }) {
   const { t } = useTranslation();
   const artifactApi = useArtifactClient();
@@ -77,6 +79,9 @@ export function ArtifactMedia({
   const drag = useRef<{ x: number; y: number; id: number } | null>(null);
   const saved = useMediaImage(jump?.target.locator.frame);
   const [showSaved, setShowSaved] = useState(false);
+  useEffect(() => {
+    onReady?.(ready || !!error);
+  }, [ready, error, onReady]);
   useEffect(() => {
     alive.current = true;
     let cancelled = false;

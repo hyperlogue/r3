@@ -6,7 +6,7 @@ export function restoreReadingPosition(
   view: Window | HTMLElement,
   point: ReadingPosition,
   done: () => void,
-  prepare: () => boolean = () => true,
+  resolve: () => (ReadingPosition & { ready?: boolean }) | null = () => point,
 ): () => void {
   let frame = 0;
   let stopped = false;
@@ -20,15 +20,19 @@ export function restoreReadingPosition(
     done();
   };
   const attempt = () => {
-    if (!prepare()) {
+    const target = resolve();
+    if (!target) {
       if (performance.now() >= deadline) stop();
       else frame = requestAnimationFrame(attempt);
       return;
     }
-    view.scrollTo({ left: point.x, top: point.y, behavior: "instant" });
+    view.scrollTo({ left: target.x, top: target.y, behavior: "instant" });
     const x = view instanceof Window ? view.scrollX : view.scrollLeft;
     const y = view instanceof Window ? view.scrollY : view.scrollTop;
-    if ((Math.abs(x - point.x) < 2 && Math.abs(y - point.y) < 2) || performance.now() >= deadline)
+    if (
+      (target.ready !== false && Math.abs(x - target.x) < 2 && Math.abs(y - target.y) < 2) ||
+      performance.now() >= deadline
+    )
       stop();
     else frame = requestAnimationFrame(attempt);
   };

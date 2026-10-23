@@ -261,18 +261,16 @@ function Workspace({
   }, [detail.kind, version, view.path, view.representation]);
   const virtual = useVirtualPaneController();
   const progressive = useProgressiveFileController();
-  const prepareReadingPosition = useCallback(
-    (point: { y: number }) =>
-      detail.kind !== "files" ||
-      (!!paneRef.current && progressive.prepareReadingPosition(paneRef.current, point.y)),
-    [detail.kind, progressive.prepareReadingPosition],
+  const fileReading = useMemo(
+    () => (detail.kind === "files" && path ? { path, activate: progressive.activate } : undefined),
+    [detail.kind, path, progressive.activate],
   );
   useReadingPosition(
     paneRef,
     positionKey,
     !!jump || !!renderedJump || !!initialThread.current,
     version?.seq ?? null,
-    prepareReadingPosition,
+    fileReading,
   );
   useEffect(() => {
     const toolbar = toolbarRef.current;
@@ -991,7 +989,9 @@ function Workspace({
                       enabled={
                         paths.length >= 24 ||
                         (detail.kind === "files" &&
-                          !!filesQuery.data?.some((file) => file.renderedHash))
+                          !!filesQuery.data?.some(
+                            (file) => file.renderedHash || artifactMediaKind(file.mediaType),
+                          ))
                       }
                       preloadMargin={detail.kind === "files" ? 0 : undefined}
                     >
@@ -1028,7 +1028,13 @@ function Workspace({
                             key={`${version.seq}:${file.path}`}
                             path={file.path}
                             version={`${version.seq}:${theme}`}
-                            initialHeight={file.renderedHash ? "100dvh" : undefined}
+                            initialHeight={
+                              file.renderedHash
+                                ? "100dvh"
+                                : artifactMediaKind(file.mediaType)
+                                  ? "80dvh"
+                                  : undefined
+                            }
                             retain={
                               (!!file.renderedHash && fileMode(file.path) === "rendered") ||
                               !!artifactMediaKind(file.mediaType)
