@@ -153,7 +153,10 @@ export const ArtifactFile = memo(function ArtifactFile({
           (open || (rendered && !!file.renderedHash)) &&
           (rendered ? (
             <div
-              className={cn("flex flex-col", !file.renderedHash && media !== "video" && "min-h-96")}
+              className={cn(
+                "flex flex-col",
+                !file.renderedHash && !targetableMedia(file.mediaType) && "min-h-96",
+              )}
             >
               {targetableMedia(file.mediaType) ? (
                 <ArtifactMedia

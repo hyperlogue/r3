@@ -343,8 +343,10 @@ visible saved frame after Locate, and phone layout. It also checks region overla
 cleanup after cancelling/posting, bounded zoom, automatic panning and its handoff
 to region selection, independent comparison transforms, reset behavior, and intrinsic region
 coordinates when selecting a zoomed and panned frame.
-Video sizing checks cover the 80% viewport height limit, preserved aspect ratios,
-and filling at least one container axis while zooming across wide, phone, and desktop layouts.
+Landscape and portrait image/video sizing checks cover the 80% viewport height limit,
+preserved aspect ratios, and filling at least one container axis while zooming across
+wide, phone, and desktop resizes. Image cards shrink with zoomed-out frames without
+an empty tail; zooming in keeps the fitted viewport bounded.
 The script owns a temporary store and fresh browser profile, and writes screenshots
 under `workspace/media-target-acceptance/`.
 

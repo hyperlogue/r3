@@ -54,20 +54,25 @@ for (const seq of [1, 2]) {
     );
     assert.equal(await generated.exited, 0);
   }
-  const image = Bun.spawn(
-    [
-      process.env.R3_TEST_FFMPEG ?? "ffmpeg",
-      "-v",
-      "error",
-      "-i",
-      join(root, `clip-${seq}.webm`),
-      "-frames:v",
-      "1",
-      join(root, `image-${seq}.png`),
-    ],
-    { stdout: "ignore", stderr: "inherit" },
-  );
-  assert.equal(await image.exited, 0);
+  for (const [source, name] of [
+    ["clip", "image"],
+    ["portrait", "portrait"],
+  ]) {
+    const image = Bun.spawn(
+      [
+        process.env.R3_TEST_FFMPEG ?? "ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        join(root, `${source}-${seq}.webm`),
+        "-frames:v",
+        "1",
+        join(root, `${name}-${seq}.png`),
+      ],
+      { stdout: "ignore", stderr: "inherit" },
+    );
+    assert.equal(await image.exited, 0);
+  }
   await storage.artifacts.publish(artifact.id, {
     actor: human,
     expectedSeq: seq - 1,
@@ -94,6 +99,13 @@ for (const seq of [1, 2]) {
           mediaType: "image/png",
           base64: Buffer.from(
             await Bun.file(join(root, `image-${seq}.png`)).arrayBuffer(),
+          ).toString("base64"),
+        },
+        {
+          path: "portrait.png",
+          mediaType: "image/png",
+          base64: Buffer.from(
+            await Bun.file(join(root, `portrait-${seq}.png`)).arrayBuffer(),
           ).toString("base64"),
         },
       ],
@@ -177,24 +189,30 @@ try {
     });
   };
   const url = `http://localhost:${app.port}/${artifact.id}?version=1&file=clip.webm`;
-  const videoLayout = (path: string) =>
+  const mediaLayout = (path: string) =>
     page.evaluate(`(() => {
       const card = document.querySelector(${JSON.stringify(`[data-file="${path}"]`)});
-      const video = card.querySelector('video');
-      const frame = video.getBoundingClientRect();
+      const media = card.querySelector('video, [data-media-frame] img');
+      const frame = media.getBoundingClientRect();
       const viewport = card.querySelector('[data-media-viewport]').getBoundingClientRect();
+      const body = card.querySelector('[data-native-media]').parentElement.getBoundingClientRect();
       return {
         width: frame.width, height: frame.height,
         viewportWidth: viewport.width, viewportHeight: viewport.height,
-        ratio: video.videoWidth / video.videoHeight, windowHeight: innerHeight,
+        bodyHeight: body.height,
+        ratio: (media.videoWidth || media.naturalWidth) / (media.videoHeight || media.naturalHeight),
       };
     })()`);
-  for (const path of ["clip.webm", "portrait.webm"]) {
+  for (const path of ["portrait.png", "image.png", "clip.webm", "portrait.webm"]) {
     await page.command("Page.navigate", {
       url: `http://localhost:${app.port}/${artifact.id}?version=1&file=${path}`,
     });
     await eventually(
-      () => page.evaluate(`document.querySelector('[data-file="${path}"] video')?.readyState >= 2`),
+      () =>
+        page.evaluate(`(() => {
+        const media = document.querySelector('[data-file="${path}"] video, [data-file="${path}"] [data-media-frame] img');
+        return media && (media.readyState >= 2 || media.naturalWidth > 0);
+      })()`),
       `${path} loaded`,
     );
     for (const [width, height] of [
@@ -209,21 +227,27 @@ try {
         mobile: false,
       });
       await click(`[data-file="${path}"] [aria-label="Reset zoom"]`);
+      if (width >= 768) await click(`aside[aria-label="Files"] button[title="${path}"]`);
       await Bun.sleep(200);
-      const fitted = await videoLayout(path);
+      const fitted = await mediaLayout(path);
       assert.ok(
         fitted.height <= height * 0.8 + 1,
-        `default video height ${fitted.height} exceeds 80% of ${height}`,
+        `${path} default height ${fitted.height} exceeds 80% of ${height}`,
       );
       assert.ok(
         Math.abs(fitted.width / fitted.height - fitted.ratio) < 0.01,
-        "fit preserves the video aspect ratio",
+        "fit preserves the media aspect ratio",
+      );
+      assert.ok(
+        Math.abs(fitted.width - fitted.viewportWidth) <= 1 &&
+          Math.abs(fitted.height - fitted.viewportHeight) <= 1,
+        `fit shows the whole frame without cropping: ${JSON.stringify(fitted)}`,
       );
       if (width === 1920) await shot(`00-${path}-fit.png`);
       for (const zoom of [0.75, 0.5, 0.25]) {
         await click(`[data-file="${path}"] [aria-label="Zoom out"]`);
         await Bun.sleep(200);
-        const layout = await videoLayout(path);
+        const layout = await mediaLayout(path);
         assert.ok(
           layout.width >= layout.viewportWidth - 1 || layout.height >= layout.viewportHeight - 1,
           `zoom ${zoom} must fill one container axis: ${JSON.stringify(layout)}`,
@@ -232,8 +256,22 @@ try {
           Math.abs(layout.height - (layout.viewportWidth / layout.ratio) * zoom) <= 1,
           `zoom out scales the fitted frame: ${JSON.stringify({ zoom, layout })}`,
         );
+        if (path.endsWith(".png"))
+          assert.ok(
+            Math.abs(layout.bodyHeight - layout.height) <= 1,
+            `image card shrinks with its frame without an empty tail: ${JSON.stringify(layout)}`,
+          );
         if (width === 1920 && zoom === 0.75) await shot(`00-${path}-zoom-out.png`);
       }
+      await click(`[data-file="${path}"] [aria-label="Reset zoom"]`);
+      await click(`[data-file="${path}"] [aria-label="Zoom in"]`);
+      await Bun.sleep(200);
+      const enlarged = await mediaLayout(path);
+      assert.ok(
+        Math.abs(enlarged.viewportHeight - fitted.viewportHeight) <= 1 &&
+          Math.abs(enlarged.height - fitted.height * 1.25) <= 1,
+        "zoom in enlarges media inside the fitted viewport",
+      );
     }
   }
   await page.command("Page.navigate", { url });

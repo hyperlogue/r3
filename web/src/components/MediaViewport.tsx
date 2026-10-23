@@ -25,7 +25,7 @@ export function MediaViewport({
   selectionHint,
   resetKey,
   disabled = false,
-  videoAspectRatio,
+  aspectRatio,
 }: {
   children: ReactNode;
   controls?: HTMLElement | null;
@@ -33,7 +33,7 @@ export function MediaViewport({
   selectionHint?: string;
   resetKey?: number;
   disabled?: boolean;
-  videoAspectRatio?: number;
+  aspectRatio?: number;
 }) {
   const { t } = useTranslation();
   const viewport = useRef<HTMLDivElement>(null);
@@ -44,9 +44,9 @@ export function MediaViewport({
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ id: number; x: number; y: number; offset: Offset } | null>(null);
   const panning = zoom > 1 && !selecting;
-  // Video fits within both the card width and 80% of the browser height.
+  // Native media fits within both the card width and 80% of the browser height.
   // Below fit, shrink its layout as well as its pixels to avoid padding on both axes.
-  const shrink = videoAspectRatio ? Math.min(1, zoom) : 1;
+  const shrink = aspectRatio ? Math.min(1, zoom) : 1;
   const reset = () => {
     setAnimate(true);
     setZoom(1);
@@ -108,7 +108,7 @@ export function MediaViewport({
       <div
         ref={viewport}
         className="relative mx-auto w-full overflow-hidden"
-        style={{ maxWidth: videoAspectRatio ? `${80 * videoAspectRatio}dvh` : undefined }}
+        style={{ maxWidth: aspectRatio ? `${80 * aspectRatio}dvh` : undefined }}
         data-media-viewport
         data-zoom={zoom}
         onPointerDownCapture={() => {

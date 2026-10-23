@@ -52,7 +52,7 @@ export function ArtifactMedia({
   const [animated, setAnimated] = useState(false);
   const [ready, setReady] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [videoAspectRatio, setVideoAspectRatio] = useState<number>();
+  const [aspectRatio, setAspectRatio] = useState<number>();
   const [paused, setPaused] = useState(true);
   const [time, setTime] = useState(0);
   const video = useRef<HTMLVideoElement>(null);
@@ -82,7 +82,7 @@ export function ArtifactMedia({
     let cancelled = false;
     let held = "";
     setReady(false);
-    setVideoAspectRatio(undefined);
+    setAspectRatio(undefined);
     setUrl("");
     setError("");
     void artifactApi
@@ -283,7 +283,7 @@ export function ArtifactMedia({
         <>
           <MediaViewport
             controls={controls}
-            videoAspectRatio={videoAspectRatio}
+            aspectRatio={aspectRatio}
             disabled={!ready}
             selecting={selecting}
             selectionHint={selecting ? t("media.clickForFullFrameDragForRegion") : undefined}
@@ -300,7 +300,7 @@ export function ArtifactMedia({
                   className="block w-full"
                   onLoadedMetadata={(event) => {
                     const { videoWidth, videoHeight } = event.currentTarget;
-                    if (videoWidth && videoHeight) setVideoAspectRatio(videoWidth / videoHeight);
+                    if (videoWidth && videoHeight) setAspectRatio(videoWidth / videoHeight);
                   }}
                   onLoadedData={() => {
                     setReady(true);
@@ -325,7 +325,11 @@ export function ArtifactMedia({
                   src={url}
                   alt={file.path}
                   className="block w-full"
-                  onLoad={() => setReady(true)}
+                  onLoad={(event) => {
+                    const { naturalWidth, naturalHeight } = event.currentTarget;
+                    if (naturalWidth && naturalHeight) setAspectRatio(naturalWidth / naturalHeight);
+                    setReady(true);
+                  }}
                   onError={() => setError(t("media.thisBrowserCouldNotDecodeTheImage"))}
                 />
               )}
