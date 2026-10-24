@@ -1,5 +1,5 @@
 import { existsSync, lstatSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 const records = ["daemon.json", "daemon.lock", "worker.json", "worker.json.lock"];
 const hasRecords = (directory: string) => records.some((name) => existsSync(join(directory, name)));
@@ -8,10 +8,15 @@ const hasRecords = (directory: string) => records.some((name) => existsSync(join
 // Never create or repair an implicit system directory: it must already be private.
 export function resolveRuntimeDirectory(options: {
   state: string;
+  pinned?: string;
   runtime?: string;
   system?: string;
   uid?: number;
 }): string {
+  // A spawning CLI's exact choice, so children never re-resolve after legacy
+  // records are removed and never see a rewritten XDG_RUNTIME_DIR.
+  const pinned = options.pinned?.trim();
+  if (pinned && isAbsolute(pinned)) return pinned;
   if (options.runtime?.trim()) return join(options.runtime.trim(), "r3");
   if (options.system && options.uid !== undefined) {
     try {

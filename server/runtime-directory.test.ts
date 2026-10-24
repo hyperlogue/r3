@@ -26,6 +26,20 @@ test("terminals with missing, blank and explicit system runtime share discovery 
   }
 });
 
+test("a spawning CLI's absolute pin wins over runtime, system and legacy discovery", () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.state, "daemon.lock"), "legacy record");
+    const pinned = join(f.root, "pinned");
+    for (const runtime of [undefined, join(f.root, "custom")])
+      expect(resolveRuntimeDirectory({ ...f, runtime, pinned })).toBe(pinned);
+    for (const ignored of ["", "  ", "relative/r3"])
+      expect(resolveRuntimeDirectory({ ...f, pinned: ignored })).toBe(f.state);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
 test("implicit runtime must be a private owned directory; otherwise use state", () => {
   const f = fixture();
   try {

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -125,7 +126,16 @@ mock.module(${module}, () => ({
       expect(await run("start")).toContain("already running");
       expect((await announcement.json()).pid).toBe(before.pid);
       expect(await run("restart")).toContain("r3 server stopped");
-      expect((await announcement.json()).pid).not.toBe(before.pid);
+      const after = await announcement.json();
+      expect(after.pid).not.toBe(before.pid);
+      // The pin travels privately; XDG_RUNTIME_DIR is never rewritten for the
+      // server or its descendants. (/proc environ is the spawn-time environment.)
+      const environ = `/proc/${after.pid}/environ`;
+      if (existsSync(environ)) {
+        const vars = readFileSync(environ, "utf8").split("\0");
+        expect(vars).toContain(`R3_RUNTIME_DIR=${join(runtime, "r3")}`);
+        expect(vars.some((entry) => entry.startsWith("XDG_RUNTIME_DIR="))).toBe(false);
+      }
       expect(await run("status", runtime)).toContain("r3 server:");
     } finally {
       try {

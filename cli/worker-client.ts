@@ -51,7 +51,7 @@ export async function ensureWorker(): Promise<ArtifactClient> {
   const warning = workerSandboxWarning(process.env);
   if (warning) console.error(warning);
   const child = Bun.spawn(cliProcessArgv("__worker"), {
-    env: { ...process.env, XDG_RUNTIME_DIR: dirname(runtimeDir()), R3_DETACHED: "1" },
+    env: { ...process.env, R3_RUNTIME_DIR: runtimeDir(), R3_DETACHED: "1" },
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",

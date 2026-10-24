@@ -15,7 +15,7 @@ import {
   writeSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { R3_VERSION } from "../shared/version.ts";
 import { resolveRuntimeDirectory } from "./runtime-directory.ts";
 
@@ -288,14 +288,20 @@ export function writeConfig(next: PersistedConfig): void {
 }
 
 // Pin discovery for this process, including stop/start after legacy records are
-// removed. Children inherit the resolved root even if this shell omitted XDG.
-const RUNTIME_DIR = resolveRuntimeDirectory({
-  state: stateDir(),
-  runtime: process.env.XDG_RUNTIME_DIR,
-  system:
-    process.platform === "linux" && process.getuid ? `/run/user/${process.getuid()}` : undefined,
-  uid: process.getuid?.(),
-});
+// removed. Spawned servers/workers receive the exact choice through
+// R3_RUNTIME_DIR; XDG_RUNTIME_DIR stays untouched for their own children.
+const RUNTIME_DIR = resolve(
+  resolveRuntimeDirectory({
+    state: stateDir(),
+    pinned: process.env.R3_RUNTIME_DIR,
+    runtime: process.env.XDG_RUNTIME_DIR,
+    system:
+      process.platform === "linux" && process.getuid ? `/run/user/${process.getuid()}` : undefined,
+    uid: process.getuid?.(),
+  }),
+);
+// Consume the pin: listener commands and other descendants must not inherit it.
+delete process.env.R3_RUNTIME_DIR;
 export function runtimeDir(): string {
   return RUNTIME_DIR;
 }

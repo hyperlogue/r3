@@ -48,8 +48,10 @@ For older installations, absent runtime configuration preserves state-directory
 discovery while it contains `daemon.json`, `daemon.lock`, `worker.json`, or
 `worker.json.lock`, unless the system runtime already contains any such record.
 Explicit runtime configuration always wins. Each CLI pins the selected directory
-for its lifetime and passes that choice to spawned servers/workers, including
-across stop/start after legacy records are removed. Locks, announcements, and
+for its lifetime and passes that exact choice to spawned servers/workers through
+the private `R3_RUNTIME_DIR` variable, including across stop/start after legacy
+records are removed. Children consume it at startup; `XDG_RUNTIME_DIR` is never
+rewritten, so listener commands inherit the caller's original environment. Locks, announcements, and
 private sockets therefore stay together. Deliberately different explicit runtime
 directories remain separate; the CLI does not stop an arbitrary process occupying
 its configured HTTP port.

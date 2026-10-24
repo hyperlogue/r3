@@ -95,7 +95,7 @@ async function spawnDaemon(): Promise<DaemonInfo> {
   let startupError: string | undefined;
   const child = Bun.spawn(cliProcessArgv("__daemon"), {
     cwd: compiledCli() ? process.cwd() : resolve(dirname(Bun.main), ".."),
-    env: { ...process.env, XDG_RUNTIME_DIR: dirname(runtimeDir()), R3_DETACHED: "1" },
+    env: { ...process.env, R3_RUNTIME_DIR: runtimeDir(), R3_DETACHED: "1" },
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",
