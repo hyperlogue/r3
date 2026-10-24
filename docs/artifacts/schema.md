@@ -233,7 +233,11 @@ Comment as `comment`; a blank archive body produces null, and restore has no Com
 
 `artifact_comments` stores those Comments independently of Thread status. The
 archive transaction creates the Comment, records its event, changes artifact state,
-and clears claims and subscriptions together. The Comment is readable through the
+and clears claims and subscriptions together. Before that transaction, collaboration
+validates the transition and prepares event/Comment IDs without writes. A nonblank
+Comment requires acceptance from the selected push destination; failure leaves no
+new event or Comment and preserves active state, claims, and subscriptions for retry.
+Commit rechecks state and operation identity after notification acceptance. The Comment is readable through the
 common `/api/comments/:id` endpoint and editable after restore. Archive Comments
 are text-only. Editing the Comment leaves the event's identity, actor, and time intact.
 The private event `message` column retains the original operation input solely to
@@ -242,7 +246,7 @@ returns the same event and its current Comment without notifying again.
 
 A complete archive notification acknowledged by the harness stamps only the initial
 Comment revision. Restore followed by edit-and-revert cannot let a late acknowledgment
-consume new work. Failed or truncated delivery stays pending. After restore, an
+consume new work. Truncated delivery stays pending. After restore, an
 unfiltered conversation snapshot includes pending artifact-level Comments; ordinary
 snapshot fingerprints and successful stdout-before-acknowledgment protect them.
 Historical archive messages migrate to Comments without inventing a human delivery

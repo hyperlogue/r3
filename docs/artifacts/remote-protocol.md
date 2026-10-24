@@ -406,7 +406,8 @@ CLI data reads remain independent of worker health.
 
 A nudge contains `id`, `artifactId`, nullable `title`, `event: submitted|archived`,
 nullable `lifecycleEventId`, and nullable `comment: { id, body, truncated? }`. Archive
-notifications carry at most 8,000 characters and identify the persisted Comment.
+notifications carry at most 8,000 characters and identify the prepared Comment.
+Its ID becomes readable when archive commits after notification acceptance.
 The worker validates the
 backend-qualified destination/subscription/artifact mapping before invoking its local
 adapter. Unknown IDs return failed acknowledgment. Delivery is ordered per local
@@ -417,7 +418,10 @@ acknowledgment deadline starts at dispatch, and disconnect rejects queued work.
 Only the human's Send to agent action submits comments. Setup, reconnect and
 fallback selection never send pending content. Existing lifecycle rules still
 allow an explicit nonblank archive Comment to reach the captured notification
-destination after archive commits. Delivery failure is reported to the human.
+destination before archive commits. Failed delivery returns an error and leaves the
+artifact active, with claims and subscriptions available for retry. Concurrent
+lifecycle operations conflict while delivery is pending; a changed selected
+subscription prevents commit. No SQLite transaction spans the notification wait.
 `queued` means Codex or Antigravity accepted the notification, not that the model
 processed it. Antigravity needs its local backend running. A tracked agent's
 process must still exist; otherwise the worker removes its local destination.
@@ -425,8 +429,12 @@ A signal-only acknowledgment never consumes pending content; snapshot
 fetch/output/acknowledgment remains separate. An acknowledged archive notification
 can stamp its Comment only when it carried the complete body and that Comment
 has not been edited. A truncated notification supplies a command to read the full
-Comment and leaves delivery unconfirmed. Failed archive delivery remains pending
-for an explicit fetch after restore; archive retry never sends again.
+Comment after commit and leaves delivery unconfirmed. A failed archive attempt
+creates no Comment or lifecycle event; the caller retains its text for retry.
+Only committed operation-key replays skip notification. Notification acceptance
+and the SQLite commit cannot be atomic: a lost acknowledgment or a failure after
+acceptance can leave the artifact active even though the agent received the text,
+and a retry may repeat that text.
 
 ## Publication response and compatibility checks
 

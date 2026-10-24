@@ -54,9 +54,8 @@ function eventFromRow(db: Database, row: EventRow): ArtifactLifecycleEvent {
   };
 }
 
-// The collaboration boundary captures/drops its listener around this synchronous
-// transition, then broadcasts and optionally pushes after commit. `replayed`
-// prevents a retry from delivering the ordinary notification a second time.
+// Preparation validates retry identity without writes, so collaboration can require
+// delivery before committing. The synchronous commit rechecks state and retry input.
 export class ArtifactLifecycle {
   constructor(
     private readonly db: Database,
@@ -74,6 +73,10 @@ export class ArtifactLifecycle {
   }
 
   transition(id: string, value: unknown): { event: ArtifactLifecycleEvent; replayed: boolean } {
+    return this.prepare(id, value).commit();
+  }
+
+  prepare(id: string, value: unknown) {
     const input = requireObject(value, "Lifecycle transition");
     const actor = this.artifacts.validateActor(input.actor);
     const operationKey = requireString(input.operationKey, "operationKey", 200);
@@ -85,70 +88,84 @@ export class ArtifactLifecycle {
     const message = archiveCommentBody(input.comment);
     if (event === "restored" && message !== null)
       throw new ArtifactError("Only archive accepts a Comment");
-    return this.db
-      .transaction(() => {
-        const artifact = this.artifacts.get(id);
-        const previous = this.db
-          .query<EventRow, [string, string]>(
-            "SELECT * FROM artifact_events WHERE artifact_id = ? AND operation_key = ?",
-          )
-          .get(id, operationKey);
-        if (previous) {
-          if (
-            previous.event !== event ||
-            previous.message !== message ||
-            previous.actor !== actor.role ||
-            previous.agent_session_id !== actor.sessionId
-          ) {
-            throw new ArtifactError(
-              "Lifecycle operation key was already used for a different transition",
-              409,
-            );
-          }
-          return { event: eventFromRow(this.db, previous), replayed: true };
-        }
-        const state = event === "archived" ? "archived" : "active";
-        if (artifact.state === state) {
-          if (state === "archived") throw new ArtifactAlreadyArchivedError();
-          throw new ArtifactError(`Artifact is already ${state}`, 409);
-        }
-        const time = this.clock();
-        const eventId = `event_${randomUUID().replaceAll("-", "")}`;
-        this.db
-          .query(
-            "UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ?, discussion_revision = discussion_revision + 1 WHERE id = ?",
-          )
-          .run(state, state === "archived" ? time : null, time, id);
-        const savedComment = message
-          ? createArtifactComment(this.db, `comment_${eventId}`, id, actor, message, time)
-          : null;
-        this.db
-          .query(`INSERT INTO artifact_events(id, artifact_id, event, operation_key, actor, agent_session_id, message, created_at, comment_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-          .run(
-            eventId,
-            id,
-            event,
-            operationKey,
-            actor.role,
-            actor.sessionId,
-            message,
-            time,
-            savedComment?.id ?? null,
+    const check = () => {
+      const artifact = this.artifacts.get(id);
+      const previous = this.db
+        .query<EventRow, [string, string]>(
+          "SELECT * FROM artifact_events WHERE artifact_id = ? AND operation_key = ?",
+        )
+        .get(id, operationKey);
+      if (previous) {
+        if (
+          previous.event !== event ||
+          previous.message !== message ||
+          previous.actor !== actor.role ||
+          previous.agent_session_id !== actor.sessionId
+        ) {
+          throw new ArtifactError(
+            "Lifecycle operation key was already used for a different transition",
+            409,
           );
-        if (state === "archived") {
-          this.workerRecords?.retire(id);
-          this.db
-            .query(
-              "DELETE FROM thread_claims WHERE thread_id IN (SELECT id FROM threads WHERE artifact_id = ?)",
-            )
-            .run(id);
         }
-        const stored = this.db
-          .query<EventRow, [string]>("SELECT * FROM artifact_events WHERE id = ?")
-          .get(eventId)!;
-        return { event: eventFromRow(this.db, stored), replayed: false };
-      })
-      .immediate();
+        return previous;
+      }
+      const state = event === "archived" ? "archived" : "active";
+      if (artifact.state === state) {
+        if (state === "archived") throw new ArtifactAlreadyArchivedError();
+        throw new ArtifactError(`Artifact is already ${state}`, 409);
+      }
+      return null;
+    };
+    const previous = check();
+    const eventId = previous?.id ?? `event_${randomUUID().replaceAll("-", "")}`;
+    return {
+      notification:
+        !previous && message
+          ? { lifecycleEventId: eventId, comment: { id: `comment_${eventId}`, body: message } }
+          : null,
+      commit: () =>
+        this.db
+          .transaction(() => {
+            const previous = check();
+            if (previous) return { event: eventFromRow(this.db, previous), replayed: true };
+            const state = event === "archived" ? "archived" : "active";
+            const time = this.clock();
+            this.db
+              .query(
+                "UPDATE artifacts SET state = ?, archived_at = ?, updated_at = ?, discussion_revision = discussion_revision + 1 WHERE id = ?",
+              )
+              .run(state, state === "archived" ? time : null, time, id);
+            const savedComment = message
+              ? createArtifactComment(this.db, `comment_${eventId}`, id, actor, message, time)
+              : null;
+            this.db
+              .query(`INSERT INTO artifact_events(id, artifact_id, event, operation_key, actor, agent_session_id, message, created_at, comment_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+              .run(
+                eventId,
+                id,
+                event,
+                operationKey,
+                actor.role,
+                actor.sessionId,
+                message,
+                time,
+                savedComment?.id ?? null,
+              );
+            if (state === "archived") {
+              this.workerRecords?.retire(id);
+              this.db
+                .query(
+                  "DELETE FROM thread_claims WHERE thread_id IN (SELECT id FROM threads WHERE artifact_id = ?)",
+                )
+                .run(id);
+            }
+            const stored = this.db
+              .query<EventRow, [string]>("SELECT * FROM artifact_events WHERE id = ?")
+              .get(eventId)!;
+            return { event: eventFromRow(this.db, stored), replayed: false };
+          })
+          .immediate(),
+    };
   }
 }

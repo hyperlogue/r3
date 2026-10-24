@@ -174,7 +174,7 @@ export function installArtifactConversations(
   });
   app.post("/api/artifacts/:id/lifecycle", async (c) => {
     const result = await collaboration.transition(c.req.param("id"), await artifactJson(c.req.raw));
-    return c.json(result, result.notification.state === "failed" ? 502 : 200);
+    return c.json(result);
   });
   app.get("/api/artifacts/:id/watchers", (c) => c.json(collaboration.watchers(c.req.param("id"))));
   app.post("/api/artifacts/:id/watch", async (c) => {

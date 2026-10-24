@@ -156,22 +156,13 @@ export function ArtifactArchiveDialog({
     onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: ["artifact", artifactId] });
       void qc.invalidateQueries({ queryKey: ["artifacts"] });
-      onDone(
-        result.notification.state === "failed"
-          ? {
-              title: t("common.archivedButAgentNotificationFailed"),
-              message: t("header.yourCommentIsSavedInTheArtifact2"),
-              tone: "warning",
-              details: result.notification.error,
-            }
-          : {
-              title: t("header.artifactArchived"),
-              tone: "success",
-              message: result.event.comment?.body
-                ? t("header.yourCommentIsSavedInTheArtifact")
-                : undefined,
-            },
-      );
+      onDone({
+        title: t("header.artifactArchived"),
+        tone: "success",
+        message: result.event.comment?.body
+          ? t("header.yourCommentIsSavedInTheArtifact")
+          : undefined,
+      });
     },
   });
   return (

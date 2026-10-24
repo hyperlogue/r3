@@ -42,13 +42,7 @@ test("bulk archive sends one request and reports mixed outcomes without detail r
         results: [
           { id: "old", state: "skipped" as const, reason: "already_archived" as const },
           { id: "missing", state: "failed" as const, status: 404, error: "Artifact not found" },
-          {
-            id: "new",
-            state: "archived" as const,
-            eventId: "event_test",
-            replayed: false,
-            notification: { state: "failed" as const, error: "Offline" },
-          },
+          { id: "new", state: "failed" as const, status: 502, error: "Agent notification failed" },
         ],
       };
     },
@@ -67,7 +61,7 @@ test("bulk archive sends one request and reports mixed outcomes without detail r
   expect(await actOnArtifacts(items, "archive", "Finished review", keys, api)).toEqual([
     { id: "old", state: "skipped" },
     { id: "missing", state: "failed", warning: "Artifact not found" },
-    { id: "new", state: "done", warning: "Archived, but agent notification failed" },
+    { id: "new", state: "failed", warning: "Agent notification failed" },
   ]);
   expect(sent).toHaveLength(1);
   expect(sent[0]).toEqual({

@@ -33,6 +33,7 @@ interface Registration {
 // One designated recipient is transport presence, never ownership of the
 // artifact. Every other registered agent can still read, publish, claim or comment.
 export class ArtifactCollaboration {
+  private readonly transitions = new Set<string>();
   private readonly registrations = new Map<string, Registration>();
   private readonly fallbacks = new Map<string, Registration>();
   private readonly subscribers = new Set<(event: ArtifactStreamEvent) => void>();
@@ -273,47 +274,71 @@ export class ArtifactCollaboration {
   }
 
   async transition(id: string, value: unknown): Promise<ArtifactLifecycleResponse> {
+    if (this.transitions.has(id))
+      throw new ArtifactError(
+        "An archive notification is in progress. Try again after it finishes.",
+        409,
+      );
+    const prepared = this.lifecycle.prepare(id, value);
     const held = this.recipient(id);
-    // No await between the committed state transition and detaching presence.
-    // A retry must neither evict a newer registration nor repeat notification.
-    const result = this.lifecycle.transition(id, value);
-    if (result.replayed) return { ...result, notification: { state: "not_repeated" } };
-    if (result.event.event === "archived") {
-      const fallback = this.fallbacks.get(id);
-      this.fallbacks.delete(id);
-      this.registrations.delete(id);
-      if (fallback && fallback !== held) this.close(fallback, "archived");
-    }
-    this.broadcast({ type: "lifecycle", artifactId: id, event: result.event });
-    if (result.event.event !== "archived") return { ...result, notification: { state: "none" } };
-    this.broadcast({ type: "presence-changed", artifactId: id });
-    let notification: ArtifactNotification = { state: "none" };
+    this.transitions.add(id);
     try {
-      if (result.event.comment !== null)
-        notification = await this.notify(id, held, {
-          id: randomUUID(),
-          artifactId: id,
-          title: this.artifacts.get(id).title,
-          event: "archived",
-          lifecycleEventId: result.event.id,
-          comment: {
-            id: result.event.comment.id,
-            body: result.event.comment.body.slice(0, 8000),
-            truncated: result.event.comment.body.length > 8000,
-          },
-        });
-      if (
-        result.event.comment &&
-        result.event.comment.body.length <= 8000 &&
-        (notification.state === "sent" || notification.state === "queued")
-      ) {
-        this.conversations.acknowledgeArchiveComment(result.event.comment.id);
-        result.event.comment = this.conversations.comment(result.event.comment.id);
-        this.broadcast({ type: "artifact-updated", artifactId: id });
+      let notification: ArtifactNotification = { state: "none" };
+      if (prepared.notification && held?.push) {
+        const { comment, lifecycleEventId } = prepared.notification;
+        try {
+          const state = await held.push({
+            id: randomUUID(),
+            artifactId: id,
+            title: this.artifacts.get(id).title,
+            event: "archived",
+            lifecycleEventId,
+            comment: {
+              ...comment,
+              body: comment.body.slice(0, 8000),
+              truncated: comment.body.length > 8000,
+            },
+          });
+          notification = { state: state ?? "sent" };
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : "Agent delivery failed";
+          throw new ArtifactError(
+            `Artifact was not archived because the agent notification failed. ${reason}`,
+            502,
+          );
+        }
+        if (this.recipient(id) !== held)
+          throw new ArtifactError(
+            "The agent subscription changed during delivery. The comment was sent, but the artifact was not archived. Try again with the current subscription.",
+            409,
+          );
+      }
+      // No await between committing and ending subscriptions. Failed delivery
+      // leaves state, history, claims and the selected subscription intact.
+      const result = prepared.commit();
+      if (result.replayed) return { ...result, notification: { state: "not_repeated" } };
+      if (result.event.event === "archived") {
+        const fallback = this.fallbacks.get(id);
+        this.fallbacks.delete(id);
+        this.registrations.delete(id);
+        if (fallback && fallback !== held) this.close(fallback, "archived");
+        if (
+          result.event.comment &&
+          result.event.comment.body.length <= 8000 &&
+          (notification.state === "sent" || notification.state === "queued")
+        ) {
+          this.conversations.acknowledgeArchiveComment(result.event.comment.id);
+          result.event.comment = this.conversations.comment(result.event.comment.id);
+        }
+      }
+      this.broadcast({ type: "lifecycle", artifactId: id, event: result.event });
+      if (result.event.event === "archived") {
+        this.broadcast({ type: "presence-changed", artifactId: id });
+        if (held) this.close(held, "archived");
       }
       return { ...result, notification };
     } finally {
-      if (held) this.close(held, "archived");
+      this.transitions.delete(id);
     }
   }
 

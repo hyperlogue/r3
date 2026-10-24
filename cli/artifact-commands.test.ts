@@ -632,6 +632,28 @@ describe("artifact CLI over the HTTP contract", () => {
     await command("thread", ["edit", threads.id, "--human", "--status", "resolved"]);
     expect(storage.conversations.get(threads.id).status).toBe("resolved");
   });
+  test("archive reports delivery failure without printing success and retries the same operation", async () => {
+    const id = await create();
+    let pushes = 0;
+    api.collaboration.register(
+      id,
+      agent,
+      () => {},
+      async () => {
+        if (++pushes === 1) throw new Error("Agent unavailable");
+      },
+    );
+    const args = [id, "--human", "-m", "Next steps", "--key", "archive-retry"];
+    await expect(command("archive", args)).rejects.toMatchObject({ status: 502 });
+    expect(output).toEqual([]);
+    expect(storage.artifacts.get(id).state).toBe("active");
+    const result = await command("archive", args);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.text).notification.state).toBe("sent");
+    expect((await command("archive", args)).code).toBe(0);
+    expect(pushes).toBe(2);
+  });
+
   test("history reads and watch exits preserve owner handoff and archive terminal precedence", async () => {
     const id = await create();
     const threads = JSON.parse(

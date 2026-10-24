@@ -808,18 +808,23 @@ lifecycle event and optional artifact-level Comment, changes state, and clears c
 The Comment shares the message model used by Threads, without a resolution
 status. It remains in history and can be edited after restore through the common
 Comment API. Editing it never rewrites the lifecycle event or the original retry input. The
-collaboration module captures the selected subscription and ends both subscriptions
-before notifications.
+collaboration module captures the selected subscription and, for a nonblank Comment,
+waits for its notification destination to accept delivery before committing. During
+that wait the artifact remains active and competing lifecycle requests return a
+conflict. If the selected subscription changes, the archive also conflicts. Only a
+committed archive ends subscriptions and broadcasts a lifecycle invalidation.
 
 | Archive input | Notification | Watch result |
 | --- | --- | --- |
 | Blank comment | End subscriptions quietly | Archived, exit 0 |
-| Nonblank comment and selected subscription | Send the saved event and Comment to its destination | Archived, exit 0, with Comment |
+| Nonblank comment and selected subscription | Require notification acceptance before commit; generic watch receives the committed event | Archived, exit 0, with Comment after success |
 | Nonblank comment without a selected subscription | Retain history; no automatic agent startup | Already-archived watch returns immediately with the Comment |
 
 Archive takes precedence over pending comments and timeout. A failed notification
-preserves the committed event and reports failure; an operation-key retry does not
-push again. A complete acknowledged archive notification can deliver its Comment;
+returns an error without creating an event or Comment, changing state, clearing claims,
+or ending subscriptions. The archive dialog retains the message and shows the error;
+retry sends again. Committed operation-key replays never push again.
+A complete acknowledged archive notification can deliver its Comment;
 a truncated one leaves delivery unconfirmed. After restore, pending artifact-level
 Comments join ordinary snapshot delivery. Archived artifacts retain content,
 threads, status, unsent work, and drafts. Archived artifacts are read-only: publication, metadata edits, conversation
@@ -1128,7 +1133,7 @@ or leaving selection mode, clears both selection and anchor.
 each artifact’s selected subscription; already archived items are skipped without
 changing their timestamp. Both bulk actions
 continue after failures, report results, and retain failed items for retry.
-Notification failure is reported separately from a committed archive.
+Notification failure leaves that artifact active and in the failed selection for retry.
 Archive selections use the bounded bulk archive endpoint, which returns an ordered
 result for each artifact and shares the single-artifact lifecycle rules. Validation
 of the full request precedes any writes; valid items commit independently so a missing

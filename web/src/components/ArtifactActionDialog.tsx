@@ -32,14 +32,7 @@ export async function actOnArtifacts(
           if (result.state === "failed")
             results.push({ id: result.id, state: "failed", warning: result.error });
           else if (result.state === "skipped") results.push({ id: result.id, state: "skipped" });
-          else
-            results.push({
-              id: result.id,
-              state: "done",
-              ...(result.notification.state === "failed"
-                ? { warning: t("common.archivedButAgentNotificationFailed") }
-                : {}),
-            });
+          else results.push({ id: result.id, state: "done" });
         }
       } catch (error) {
         for (const item of batch)

@@ -41,6 +41,31 @@ afterEach(async () => {
 });
 
 describe("artifact collaboration ordering", () => {
+  test("failed archive delivery leaves the artifact active with its subscription and claims", async () => {
+    const thread = await storage.conversations.add(id, {
+      actor: human,
+      target: { kind: "artifact" },
+      body: "Still working",
+    });
+    storage.conversations.claim([thread.id], first.sessionId!);
+    const watcher = collaboration.register(
+      id,
+      first,
+      () => {},
+      async () => {
+        throw new Error("Harness delivery failed");
+      },
+    );
+    await expect(
+      collaboration.transition(id, archive("failed-handoff", "Continue with the next iteration")),
+    ).rejects.toMatchObject({ status: 502 });
+    expect(storage.artifacts.get(id).state).toBe("active");
+    expect(storage.lifecycle.events(id)).toEqual([]);
+    expect(storage.conversations.artifactComments(id)).toEqual([]);
+    expect(collaboration.watchers(id)).toEqual([watcher]);
+    expect(storage.conversations.claims(id)).toHaveLength(1);
+  });
+
   test("long archive comments use bounded notifications without claiming complete delivery", async () => {
     const pushes: ArtifactNudge[] = [];
     collaboration.register(
@@ -62,18 +87,14 @@ describe("artifact collaboration ordering", () => {
     expect(storage.conversations.snapshot(id).comments[0]!.body).toBe(body.trim());
   });
   test("archive comments remain editable after restore without rewriting lifecycle retries", async () => {
-    let accept!: () => void;
     collaboration.register(
       id,
       first,
       () => {},
-      () =>
-        new Promise<void>((resolve) => {
-          accept = resolve;
-        }),
+      async () => {},
     );
     const request = archive("comment-race", "Original archive comment");
-    const pending = collaboration.transition(id, request);
+    expect((await collaboration.transition(id, request)).notification.state).toBe("sent");
     const event = storage.lifecycle.events(id)[0]!;
     const comment = event.comment!;
     expect(comment.threadId).toBeNull();
@@ -84,8 +105,6 @@ describe("artifact collaboration ordering", () => {
     await collaboration.transition(id, restore("edit-after-restore"));
     await storage.conversations.updateComment(comment.id, { actor: human, body: "Changed" });
     await storage.conversations.updateComment(comment.id, { actor: human, body: comment.body });
-    accept();
-    expect((await pending).notification.state).toBe("sent");
     expect(storage.conversations.comment(comment.id).sentAt).toBeNull();
     const snapshot = storage.conversations.snapshot(id);
     expect(snapshot.comments.map((item) => item.id)).toEqual([comment.id]);
@@ -122,16 +141,16 @@ describe("artifact collaboration ordering", () => {
     expect(storage.lifecycle.events(id)).toEqual([result.event]);
   });
 
-  test("archive pushes its captured listener after commit and retry leaves a restored listener alone", async () => {
+  test("archive waits for delivery before committing and retry leaves a restored listener alone", async () => {
     const pushes: ArtifactNudge[] = [];
     collaboration.register(
       id,
       first,
       () => {},
       async (nudge) => {
-        expect(storage.artifacts.get(id).state).toBe("archived");
-        expect(collaboration.watchers(id)).toEqual([]);
-        expect(storage.lifecycle.events(id).at(-1)?.id).toBe(nudge.lifecycleEventId!);
+        expect(storage.artifacts.get(id).state).toBe("active");
+        expect(collaboration.watchers(id)).toHaveLength(1);
+        expect(storage.lifecycle.events(id)).toEqual([]);
         pushes.push(nudge);
       },
     );
@@ -139,6 +158,8 @@ describe("artifact collaboration ordering", () => {
     const archived = await collaboration.transition(id, request);
     expect(archived.notification).toEqual({ state: "sent" });
     expect(pushes).toHaveLength(1);
+    expect(pushes[0]!.lifecycleEventId).toBe(archived.event.id);
+    expect(pushes[0]!.comment?.id).toBe(archived.event.comment?.id);
     await collaboration.transition(id, restore("restore"));
     const current = collaboration.register(
       id,
@@ -155,7 +176,7 @@ describe("artifact collaboration ordering", () => {
     expect(pushes[0].comment?.body).toBe("Continue with the next iteration");
   });
 
-  test("failed delivery preserves committed archive history and cannot evict a newer registration", async () => {
+  test("failed delivery preserves active state and cannot evict a newer registration", async () => {
     let rejectPush!: (error: Error) => void;
     collaboration.register(
       id,
@@ -167,8 +188,7 @@ describe("artifact collaboration ordering", () => {
         }),
     );
     const pending = collaboration.transition(id, archive("delayed", "Saved archive message"));
-    expect(storage.artifacts.get(id).state).toBe("archived");
-    await collaboration.transition(id, restore("restored-before-ack"));
+    expect(storage.artifacts.get(id).state).toBe("active");
     const current = collaboration.register(
       id,
       second,
@@ -176,10 +196,43 @@ describe("artifact collaboration ordering", () => {
       async () => {},
     );
     rejectPush(new Error("Harness delivery failed"));
-    const result = await pending;
-    expect(result.notification).toEqual({ state: "failed", error: "Harness delivery failed" });
-    expect(storage.lifecycle.events(id)[0].comment?.body).toBe("Saved archive message");
+    await expect(pending).rejects.toMatchObject({ status: 502 });
+    expect(storage.lifecycle.events(id)).toEqual([]);
     expect(collaboration.watchers(id)).toEqual([current]);
+  });
+
+  test("pending archive blocks competing transitions and detects a changed subscription", async () => {
+    let accept!: () => void;
+    let pushes = 0;
+    collaboration.register(
+      id,
+      first,
+      () => {},
+      () => {
+        pushes++;
+        return new Promise<void>((resolve) => {
+          accept = resolve;
+        });
+      },
+    );
+    const request = archive("concurrent", "Next steps");
+    const pending = collaboration.transition(id, request);
+    for (const command of [request, archive("other"), restore("too-early")])
+      await expect(collaboration.transition(id, command)).rejects.toMatchObject({ status: 409 });
+    expect(pushes).toBe(1);
+    const current = collaboration.register(
+      id,
+      second,
+      () => {},
+      async () => {},
+    );
+    accept();
+    await expect(pending).rejects.toMatchObject({ status: 409 });
+    expect(storage.artifacts.get(id).state).toBe("active");
+    expect(storage.lifecycle.events(id)).toEqual([]);
+    expect(collaboration.watchers(id)).toEqual([current]);
+    expect((await collaboration.transition(id, request)).notification.state).toBe("sent");
+    expect(storage.artifacts.get(id).state).toBe("archived");
   });
 
   test("watch always ends on archive and terminal state precedes already pending comments", async () => {

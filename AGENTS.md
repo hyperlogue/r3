@@ -172,11 +172,12 @@ Thread retains whether it was ever delivered independently of the current text's
 pending timestamp, so editing cannot suppress a later resolution notification.
 
 **Lifecycle events** have immutable ordered identities, actor, optional artifact-level Comment,
-and operation key. Blank archive comments normalize to null. Archive changes state,
-records history, clears claims, captures the selected subscription, and ends
-subscriptions before post-commit notifications. Push only a nonblank Comment to
-the captured notification destination.
-A failed push preserves the event and Comment and reports failure; retry does not notify again.
+and operation key. Blank archive comments normalize to null. A nonblank Comment
+must reach the selected notification destination before archive commits. Failed
+pushes return an error and preserve active state, claims, and subscriptions for retry.
+Success atomically records history and the Comment, changes state, clears claims,
+and ends subscriptions. Committed operation-key replays never notify again.
+Blank Comments and archives without a push destination need no notification.
 Archive Comments use the common Comment read/edit API and become editable after restore.
 A full acknowledged archive notification stamps only its original Comment revision;
 late delivery cannot consume a newer edit. Other pending Comments use snapshot acknowledgment.

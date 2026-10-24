@@ -161,8 +161,12 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   `POST .../:id/lifecycle` takes `ArtifactLifecycleBody`, returning the persisted
   event (including its optional artifact-level `comment`), replay flag, and notification result.
   Archive input is `comment: { body }`; blank bodies normalize to no Comment.
-  Delivery failure is HTTP 502;
-  the committed archive remains authoritative. Replays do not notify twice.
+  A nonblank Comment is pushed to the selected notification destination before
+  commit. Delivery failure is HTTP 502 with `{ error }`; the artifact remains active
+  with claims and subscriptions intact. The same operation key can retry delivery.
+  Concurrent lifecycle requests return 409 while delivery is pending. A changed
+  selected subscription also returns 409 without committing. Committed replays
+  do not notify twice. Blank Comments and absent push destinations need no push.
 - `POST /api/artifacts/archive` takes `ArtifactBulkArchiveBody`: explicit `actor`,
   1–100 unique `items: [{ id, operationKey }]`, and optional shared `comment: { body }`.
   Validate the whole envelope before writes; malformed requests fail as a whole.
@@ -173,8 +177,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   404; conflicting operation keys fail with 409. Other artifacts still proceed.
   Matching operation keys replay before the already-archived check, including after
   restore, without another transition or notification. Fresh keys skip existing
-  archives without changing timestamps. Notification failure remains an `archived`
-  result with `notification.state: failed`, not a batch HTTP 502. Claims, subscriptions,
+  archives without changing timestamps. Notification failure returns a `failed`
+  item with status 502 and leaves that artifact active; the batch remains HTTP 200.
+  Claims, subscriptions,
   Comments, and invalidations follow the single-artifact lifecycle rules. Requests
   retain the ordinary 2 MiB streamed body limit, auth/origin guards, and no-store
   responses. The home page chunks larger selections and keeps each item's retry key.
@@ -386,7 +391,8 @@ superseded subscription or a snapshot conflict before acknowledgment. Archive ta
 pending or the timeout has just elapsed. Already archived watch returns immediately.
 A nonblank archive message reaches the captured notification destination and remains in history;
 blank messages produce no nudge. Restore needs a new subscription. Notification
-failure never rolls back lifecycle state and an operation-key retry never re-pushes.
+failure prevents the archive from committing and preserves its subscription for
+retry. Only committed operation-key retries skip the push.
 
 ## Delivery and status
 

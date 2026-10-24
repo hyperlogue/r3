@@ -441,7 +441,7 @@ export type ArtifactBulkArchiveResult =
       state: "archived";
       eventId: string;
       replayed: boolean;
-      notification: ArtifactNotification;
+      notification: ArtifactLifecycleResponse["notification"];
     }
   | { id: string; state: "skipped"; reason: "already_archived" }
   | { id: string; state: "failed"; status: number; error: string };
@@ -513,10 +513,11 @@ export type ArtifactNotification =
       state: "failed";
       error: string;
     };
+// A failed archive notification returns an HTTP error without committing a transition.
 export interface ArtifactLifecycleResponse {
   event: ArtifactLifecycleEvent;
   replayed: boolean;
-  notification: ArtifactNotification;
+  notification: Exclude<ArtifactNotification, { state: "failed" }>;
 }
 export type ArtifactWatchResult =
   | {

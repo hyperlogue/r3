@@ -564,8 +564,66 @@ try {
     () => page.evaluate("!document.querySelector('[data-subscription-error]')"),
     "reconnection clears the visible error",
   );
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1400,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape" });
+  await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape" });
+  subscribe("explicit");
+  await page.evaluate(
+    "document.querySelector('[aria-label=\"Artifact details and actions\"]').click()",
+  );
+  await page.evaluate(
+    "[...document.querySelectorAll('button')].find(button=>button.textContent==='Archive artifact').click()",
+  );
+  const archiveDialog =
+    "document.querySelector('dialog[open][aria-labelledby=artifact-archive-title]')";
+  await eventually(() => page.evaluate(`!!${archiveDialog}`), "archive dialog opens");
+  await page.evaluate(`(${archiveDialog}).querySelector('textarea').focus()`);
+  await page.command("Input.insertText", { text: "Please continue with these next steps" });
+  await page.evaluate(`(${archiveDialog}).querySelector('form').requestSubmit()`);
+  await eventually(async () => deliveries.length === 1, "archive waits for notification");
+  assert.equal(storage.artifacts.get(artifact.id).state, "active");
+  assert.equal(
+    await page.evaluate(`(${archiveDialog}).querySelector('[type=submit]').disabled`),
+    true,
+  );
+  deliveries.shift()!.reject(new Error("Simulated archive delivery failure"));
+  await eventually(
+    () =>
+      page.evaluate(
+        `(${archiveDialog})?.querySelector('[role=alert]')?.textContent.includes('Artifact was not archived')`,
+      ),
+    "failed archive keeps the dialog open with an error",
+  );
+  assert.equal(storage.artifacts.get(artifact.id).state, "active");
+  assert.equal(storage.lifecycle.events(artifact.id).length, 0);
+  assert.equal(
+    await page.evaluate(`(${archiveDialog}).querySelector('textarea').value`),
+    "Please continue with these next steps",
+  );
+  assert.equal(
+    await page.evaluate(`(${archiveDialog}).querySelector('[type=submit]').textContent`),
+    "Retry archive",
+  );
+  await page.evaluate(`(${archiveDialog}).querySelector('form').requestSubmit()`);
+  await eventually(async () => deliveries.length === 1, "archive retry delivers again");
+  deliveries.shift()!.accept("queued");
+  await eventually(() => page.evaluate(`!${archiveDialog}`), "accepted archive closes the dialog");
+  assert.equal(storage.artifacts.get(artifact.id).state, "archived");
+  assert.equal(storage.lifecycle.events(artifact.id).length, 1);
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.querySelector('[data-notification-tone=success]')?.textContent.includes('Artifact archived')",
+      ),
+    "archive success appears only after delivery succeeds",
+  );
   console.log(
-    "Notification delivery and command copying preserve pending comments; command popovers work on desktop and mobile.",
+    "Notification delivery and command copying preserve pending comments; archive failure retains the dialog, message, and active state for retry; command popovers work on desktop and mobile.",
   );
 } finally {
   for (const delivery of deliveries) delivery.reject(new Error("Test ended"));

@@ -13,7 +13,6 @@ import type {
   ArtifactActor,
   ArtifactComment,
   ArtifactDetail,
-  ArtifactLifecycleResponse,
   ArtifactSource,
   ArtifactSourceRange,
   ArtifactTarget,
@@ -608,30 +607,14 @@ export async function runArtifactCommand(
     }
     case "archive":
     case "restore": {
-      try {
-        const result = await client.json("POST", `${artifactApiPath(args.id())}/lifecycle`, {
-          actor: await actor(),
-          event: command === "archive" ? "archived" : "restored",
-          operationKey: args.value("key") ?? randomUUID(),
-          comment: {
-            body: await text("message"),
-          },
-        });
-        await print(result);
-        return 0;
-      } catch (error) {
-        if (error instanceof ArtifactApiError && error.status === 502) {
-          const result = error.result as ArtifactLifecycleResponse | null;
-          if (result?.event?.artifactId === args.id() && result.notification?.state === "failed") {
-            await print(result);
-            ctx.error(
-              "The lifecycle change was saved, but the comment notification failed. The operation key in the event identifies this committed change.",
-            );
-            return 1;
-          }
-        }
-        throw error;
-      }
+      const result = await client.json("POST", `${artifactApiPath(args.id())}/lifecycle`, {
+        actor: await actor(),
+        event: command === "archive" ? "archived" : "restored",
+        operationKey: args.value("key") ?? randomUUID(),
+        comment: { body: await text("message") },
+      });
+      await print(result);
+      return 0;
     }
     case "project": {
       const operation = args.positional[0];

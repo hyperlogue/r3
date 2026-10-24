@@ -122,10 +122,11 @@ describe("bulk archive HTTP contract", () => {
         actor,
         () => closes.push(id),
         async () => {
-          expect(storage.artifacts.get(id).state).toBe("archived");
-          expect(api.collaboration.watchers(id)).toEqual([]);
+          expect(storage.artifacts.get(id).state).toBe("active");
+          expect(api.collaboration.watchers(id)).toHaveLength(1);
           pushes.push(id);
-          if (id === first) throw new Error("Offline");
+          if (id === first && pushes.filter((value) => value === first).length === 1)
+            throw new Error("Offline");
         },
       );
     }
@@ -141,45 +142,48 @@ describe("bulk archive HTTP contract", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     const { results } = (await response.json()) as ArtifactBulkArchiveResponse;
     expect(results).toMatchObject([
-      { id: first, state: "archived", replayed: false, notification: { state: "failed" } },
+      { id: first, state: "failed", status: 502 },
       { id: old, state: "skipped", reason: "already_archived" },
       { id: "missing", state: "failed", status: 404 },
       { id: last, state: "archived", replayed: false, notification: { state: "sent" } },
     ]);
     expect(pushes).toEqual([first, last]);
-    expect(closes).toEqual([first, last]);
+    expect(closes).toEqual([last]);
     expect(storage.conversations.get(note.id)).toMatchObject({
-      claim: null,
+      claim: { sessionId: actor.sessionId },
       status: "open",
       comments: [{ body: "Pending", sentAt: null }],
     });
-    expect(storage.lifecycle.events(first)[0]).toMatchObject({
-      actor: human,
-      comment: { body: "Finished review", sentAt: null },
-    });
+    expect(storage.lifecycle.events(first)).toEqual([]);
+    expect(storage.artifacts.get(first).state).toBe("active");
     expect(storage.lifecycle.events(last)[0].comment?.sentAt).not.toBeNull();
     expect(storage.artifacts.get(old).archivedAt).toBe(oldTimestamp);
     expect(storage.lifecycle.events(old)).toHaveLength(1);
     expect(
       events.filter((event) => event.type === "lifecycle").map((event) => event.artifactId),
-    ).toEqual([first, last]);
+    ).toEqual([last]);
 
-    await api.collaboration.transition(first, {
+    await api.collaboration.transition(last, {
       actor,
       event: "restored",
       operationKey: "restore",
     });
-    api.collaboration.register(first, actor, () => closes.push("new"));
+    api.collaboration.register(last, actor, () => closes.push("new"));
     const retry = (await (await request(path, "POST", body)).json()) as ArtifactBulkArchiveResponse;
     expect(retry.results[0]).toMatchObject({
-      ...results[0],
+      id: first,
+      state: "archived",
+      notification: { state: "sent" },
+    });
+    expect(retry.results[3]).toMatchObject({
+      ...results[3],
       replayed: true,
       notification: { state: "not_repeated" },
     });
-    expect(pushes).toEqual([first, last]);
+    expect(pushes).toEqual([first, last, first]);
     expect(closes).not.toContain("new");
-    expect(storage.artifacts.get(first).state).toBe("active");
-    expect(api.collaboration.watchers(first)).toHaveLength(1);
+    expect(storage.artifacts.get(last).state).toBe("active");
+    expect(api.collaboration.watchers(last)).toHaveLength(1);
     const conflict = await (
       await request(path, "POST", { ...body, comment: { body: "Changed" } })
     ).json();
@@ -762,7 +766,7 @@ describe("artifact HTTP collaboration contract", () => {
     ).toBe(200);
     await events.return(undefined);
   });
-  test("archive commits before listener acknowledgment, reports failed delivery, and retries never notify again", async () => {
+  test("archive rejects failed worker delivery without committing, then retries until accepted", async () => {
     const id = await create();
     const listening = await request("/api/workers/connect", "POST", {
       workerId: randomUUID(),
@@ -793,8 +797,8 @@ describe("artifact HTTP collaboration contract", () => {
     while (frame.value?.event !== "nudge") frame = await frames.next();
     const nudge = JSON.parse(frame.value!.data).nudge;
     expect(nudge.comment?.body).toBe("Saved next steps");
-    expect((await (await request(`/api/artifacts/${id}`)).json()).state).toBe("archived");
-    expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toEqual([]);
+    expect((await (await request(`/api/artifacts/${id}`)).json()).state).toBe("active");
+    expect(await (await request(`/api/artifacts/${id}/watchers`)).json()).toHaveLength(1);
     const acknowledged = await request(
       `/api/workers/${ready.connectionId}/acknowledgments`,
       "POST",
@@ -803,10 +807,29 @@ describe("artifact HTTP collaboration contract", () => {
     expect(acknowledged.status).toBe(200);
     const result = await archive;
     expect(result.status).toBe(502);
-    expect((await result.json()).event.comment?.body).toBe(command.comment.body);
+    expect((await result.json()).error).toContain("Artifact was not archived");
+    expect(storage.artifacts.get(id).state).toBe("active");
+    expect(storage.lifecycle.events(id)).toEqual([]);
+    expect(storage.workerRecords.retained()).toHaveLength(1);
+    const retry = request(`/api/artifacts/${id}/lifecycle`, "POST", command);
+    frame = await frames.next();
+    while (frame.value?.event !== "nudge") frame = await frames.next();
+    const retriedNudge = JSON.parse(frame.value!.data).nudge;
+    await request(`/api/workers/${ready.connectionId}/acknowledgments`, "POST", {
+      actor,
+      nudgeId: retriedNudge.id,
+      ok: true,
+      state: "queued",
+    });
+    const retried = await retry;
+    expect(retried.status).toBe(200);
+    expect((await retried.json()).notification.state).toBe("queued");
+    expect(storage.lifecycle.events(id)).toHaveLength(1);
+    expect(storage.lifecycle.events(id)[0]!.comment?.sentAt).not.toBeNull();
+    expect(storage.workerRecords.retained()).toEqual([]);
     await frames.return(undefined);
-    const retry = await request(`/api/artifacts/${id}/lifecycle`, "POST", command);
-    expect((await retry.json()).notification.state).toBe("not_repeated");
+    const replay = await request(`/api/artifacts/${id}/lifecycle`, "POST", command);
+    expect((await replay.json()).notification.state).toBe("not_repeated");
     expect((await request(`/api/artifacts/${id}/submit`, "POST")).status).toBe(409);
     expect(
       (await (await request(`/api/artifacts/${id}/watch`, "POST", { actor })).json()).result,
