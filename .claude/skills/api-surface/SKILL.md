@@ -122,6 +122,8 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   the comment example and the schema document for storage semantics.
   An optional `shadowHosts` array scopes the selector through open shadow roots.
   CLI callers supply it through `--target` JSON; browser picks record it automatically.
+  Optional `ancestors` retain nearest-first parent selectors scoped by `shadowDepth`.
+  Locate can use them as explicit contextual fallback without rewriting the target.
   Bounds and matching semantics belong to the schema document.
   `artifact_summary` and `version_summary` are historical read-only targets;
   new threads and comment fix targets reject description anchors.

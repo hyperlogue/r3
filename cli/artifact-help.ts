@@ -287,6 +287,8 @@ Source/diff quotes may be shortened excerpts; the recorded start/end lines retai
 
 Publish changed content, then \`r3 comment <thread-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the thread's original target. General threads without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use a comment’s fix target to point to a later version.
 
+For a fix inside shadow DOM, retain or update \`locator.shadowHosts\` as well as the inner \`selector\`; verify them against the new published version. Run \`r3 guide html\` for a complete fix-comment example and optional parent fallback evidence. A parent shown by Locate is context, not proof that the original element or fix was found.
+
 Successful comments release only your own claims. Publishing and commenting never resolve threads; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and all subscriptions; restore requires a fresh subscription.`;
 
 const HTML_GUIDE = `# HTML artifacts
@@ -324,14 +326,33 @@ Give important sections and controls unique, descriptive HTML IDs, such as \`id=
 
 For a new rendered target, \`thread add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
 
-Comment mode can pick elements inside open shadow roots. For a CLI target there, use \`--target\` with \`locator.shadowHosts\`: an outer-to-inner array of host selectors, each resolved inside the preceding host's open shadow root. Resolve \`locator.selector\` inside the last root. For example, \`{"selector":"#save","shadowHosts":["#phone","settings-panel"]}\` identifies the save control in that phone's settings panel. Each host must match exactly once; missing or closed roots remain unavailable. Use at most 16 hosts and 4,096 characters per selector. Omit \`shadowHosts\` for ordinary document targets. Give repeated frames distinct stable host IDs; inner IDs need only be unique within their own root.
+Comment mode can pick elements inside open shadow roots. For a CLI target there, use \`--target\` with \`locator.shadowHosts\`: an outer-to-inner array of host selectors, each resolved inside the preceding host's open shadow root. Resolve \`locator.selector\` inside the last root. For example, \`{"selector":"#save","shadowHosts":["#phone","settings-panel"]}\` identifies the save control in that phone's settings panel. Each host must match exactly once; missing or closed roots cannot resolve the exact target. Use at most 16 hosts and 4,096 characters per selector. Omit \`shadowHosts\` for ordinary document targets. Give repeated frames distinct stable host IDs; inner IDs need only be unique within their own root.
 
-When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
+When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\` and any \`shadowHosts\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; the scoped selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify every host matches once, then verify the final selector identifies exactly one visible element in its root on that published page and route. Recheck after publication; do not assume an old target still identifies the fix. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
 
 \`\`\`sh
 r3 comment <thread-id> -m 'Added the storage explanation.' \\
   --target '{"kind":"rendered","versionSeq":2,"path":"index.html","locator":{"selector":"#storage-help","label":"Storage help button"}}'
-\`\`\``;
+\`\`\`
+
+For a fix inside nested shadow roots:
+
+\`\`\`sh
+r3 comment <thread-id> -m 'Fixed the Save button.' \\
+  --target '{"kind":"rendered","versionSeq":3,"path":"index.html","locator":{
+    "shadowHosts":["#phone","settings-panel"],
+    "selector":"#save","quote":"Save","label":"Settings Save button",
+    "ancestors":[
+      {"selector":"#settings-form","shadowDepth":2},
+      {"selector":"settings-panel","shadowDepth":1},
+      {"selector":"#phone","shadowDepth":0}
+    ]
+  }}'
+\`\`\`
+
+\`ancestors\` is optional, nearest-first evidence of actual parents. \`shadowDepth\` selects a prefix of \`shadowHosts\`: 0 means the document, 1 means the first host's root, and so on. Supply at most 16 ancestors, with nonincreasing depths and selectors of at most 4,096 characters. Browser picks capture this evidence automatically, stopping before body/html. CLI callers should supply only parents verified in that published DOM; omit it when unknown.
+
+Locate retries the exact target first. If it remains unavailable, it shows the nearest visible, uniquely matched recorded ancestor with a dashed outline and an explicit parent notice. Saved shadow hosts provide a further fallback, including for older targets. Ambiguous exact targets remain ambiguous. Parent fallback never changes the original target, creates an exact-match marker, or establishes that a fix was found; whole-page guesses and inferred parents from arbitrary CSS selectors are excluded.\n`;
 
 const FILES_GUIDE = `# Files artifacts
 

@@ -612,6 +612,19 @@ shadow-root mutations and scrolling update their positions. Missing or closed
 roots are unplaced; a nonunique host is ambiguous. Closed-root clicks target the
 host exposed by the browser. Existing locators without a host path keep their
 document scope; historical incomplete selectors are never guessed into a frame.
+
+Browser picks also record up to 16 actual ancestors, nearest first, stopping before
+body/html. Each stores a selector and `shadowDepth`, a prefix length of the
+target's shadow-host path. Locate gives the exact target its normal hydration
+retry window. If it remains unplaced, Locate tries recorded parents nearest first,
+then saved shadow hosts from inner to outer; only a unique visible match qualifies.
+An ambiguous exact target stays ambiguous. A parent fallback has transient
+`ancestor` state, a dashed outline, and an explicit **Original element unavailable;
+showing a parent** notice. Comparison labels it **Parent shown**. It supplies
+context without claiming the original quote matched, rewriting the target, storing
+a placement, or creating an exact discussion marker. No arbitrary selector parsing
+or whole-page fallback invents missing parent evidence.
+
 `c` toggles comment mode from the workspace or a focused
 document preview. With a node picked, `Space` invokes **Comment here** and opens the
 thread editor for that node. Text entry, modifiers, IME, overlays, and held keys

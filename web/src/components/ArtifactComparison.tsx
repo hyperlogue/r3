@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactDetail, ArtifactMediaTarget } from "../../../shared/artifacts.ts";
+import type { PreviewLocateState } from "../../../shared/preview-protocol.ts";
 import type { ArtifactComparison as Comparison, ComparisonTarget } from "../artifact-comparison.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
 import { useTranslation } from "../i18n.ts";
@@ -186,7 +187,7 @@ function ComparisonPreview({
   const [savedFrame, setSavedFrame] = useState(false);
   const [path, setPath] = useState(target.path);
   const [mediaControls, setMediaControls] = useState<HTMLSpanElement | null>(null);
-  const [state, setState] = useState<"anchored" | "ambiguous" | "unplaced" | null>(null);
+  const [state, setState] = useState<PreviewLocateState | null>(null);
   const version = detail.versions.find((version) => version.seq === target.versionSeq);
   const [nonce, setNonce] = useState(0);
   // The explicit Focus action retries the same target after page interaction.
@@ -235,11 +236,13 @@ function ComparisonPreview({
               : t("comparison.playback")
             : state === "anchored"
               ? t("comparison.located")
-              : state === "ambiguous"
-                ? t("comparison.multipleMatches")
-                : state === "unplaced"
-                  ? t("comparison.targetUnavailable")
-                  : t("comparison.locating")}
+              : state === "ancestor"
+                ? t("comparison.parentShown")
+                : state === "ambiguous"
+                  ? t("comparison.multipleMatches")
+                  : state === "unplaced"
+                    ? t("comparison.targetUnavailable")
+                    : t("comparison.locating")}
         </span>
       </div>
       <div data-artifact-content className="flex min-h-0 flex-1 overflow-auto">

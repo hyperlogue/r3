@@ -19,6 +19,34 @@ test("rendered targets retain a bounded path through open shadow hosts", () => {
     expect(() => previewLocator({ ...locator, shadowHosts })).toThrow("shadowHosts");
 });
 
+test("rendered targets retain bounded ancestor evidence without introducing new scope", () => {
+  const locator = {
+    selector: "#button",
+    shadowHosts: ["#phone", "#dialog"],
+    ancestors: [
+      { selector: "#form", shadowDepth: 2 },
+      { selector: "#phone", shadowDepth: 0 },
+    ],
+  };
+  expect(previewLocator(locator)).toEqual(locator);
+  for (const ancestors of [
+    null,
+    [],
+    ["#form"],
+    [{ selector: "#form", shadowDepth: 3 }],
+    [{ selector: "#form", shadowDepth: -1 }],
+    [{ selector: "#form", shadowDepth: 0.5 }],
+    [{ selector: "", shadowDepth: 0 }],
+    [{ selector: "x".repeat(4097), shadowDepth: 0 }],
+    [
+      { selector: "#phone", shadowDepth: 0 },
+      { selector: "#form", shadowDepth: 2 },
+    ],
+    Array(17).fill({ selector: "#form", shadowDepth: 0 }),
+  ])
+    expect(() => previewLocator({ ...locator, ancestors })).toThrow("ancestors");
+});
+
 test("full-height Markdown retains its native viewport evidence", () => {
   const locator = { selector: "h2", viewport: { width: 800, height: 200000 } };
   expect(previewLocator(locator)).toEqual(locator);

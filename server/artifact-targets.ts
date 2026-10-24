@@ -27,6 +27,7 @@ export const TARGET_LIMITS = {
   lines: 100,
   selector: 4096,
   shadowHosts: 16,
+  ancestors: 16,
   context: 512,
   label: 200,
 } as const;
@@ -81,6 +82,34 @@ function renderedLocator(value: unknown): RenderedLocator {
       requireString(host, "shadowHosts selector", TARGET_LIMITS.selector),
     );
   }
+  let ancestors: RenderedLocator["ancestors"];
+  if (locator.ancestors !== undefined) {
+    if (
+      !Array.isArray(locator.ancestors) ||
+      !locator.ancestors.length ||
+      locator.ancestors.length > TARGET_LIMITS.ancestors
+    )
+      throw new ArtifactError("ancestors must contain 1–16 parent selectors");
+    let depth = shadowHosts?.length ?? 0;
+    ancestors = locator.ancestors.map((value) => {
+      const ancestor = requireObject(value, "ancestors entry");
+      const selector = requireString(
+        ancestor.selector,
+        "ancestors selector",
+        TARGET_LIMITS.selector,
+      );
+      const shadowDepth = ancestor.shadowDepth;
+      if (
+        typeof shadowDepth !== "number" ||
+        !Number.isInteger(shadowDepth) ||
+        shadowDepth < 0 ||
+        shadowDepth > depth
+      )
+        throw new ArtifactError("ancestors must use outward prefixes of shadowHosts");
+      depth = shadowDepth;
+      return { selector, shadowDepth };
+    });
+  }
   const label =
     locator.label === undefined
       ? undefined
@@ -112,6 +141,7 @@ function renderedLocator(value: unknown): RenderedLocator {
   return {
     selector,
     ...(shadowHosts ? { shadowHosts } : {}),
+    ...(ancestors ? { ancestors } : {}),
     ...(label === undefined ? {} : { label }),
     ...text,
     ...(route === null ? {} : { route }),

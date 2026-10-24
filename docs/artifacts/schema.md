@@ -176,6 +176,20 @@ server does not execute the document to verify its dynamic elements. The array
 is stored in `locator_json`, requiring no migration or reinterpretation of
 historical targets.
 
+A rendered locator's optional `ancestors` array holds 1–16 nearest-first entries
+of `{ selector, shadowDepth }`. Each selector is nonempty and at most 4,096
+characters. `shadowDepth` is an integer from zero through `shadowHosts.length`
+(zero without hosts), and depths cannot increase toward outer ancestors. It
+scopes the ancestor selector through that many leading shadow hosts, preventing
+a separate artifact, version, route, or unrelated root path. These are recorded
+DOM ancestors, retained in `locator_json` without changing the immutable target.
+Browser capture stops before body/html; CLI callers may supply verified evidence.
+After an exact target remains unavailable, Locate can show the nearest visible
+unique ancestor, or a known shadow host. This is a transient `ancestor` preview
+outcome, never an anchored match or a new persisted placement. Older locators
+without parent evidence use only any existing host path; no CSS parsing invents
+their previous DOM ancestry.
+
 A rendered locator may also carry `label`, a nonempty plain-text location name of
 at most 200 characters, normalized for whitespace. HTML comment fix links show this
 agent-chosen name instead of a filename. It is presentation metadata and never

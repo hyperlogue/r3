@@ -726,14 +726,16 @@ function PreviewSession(
           message.type === "r3-preview-located" &&
           message.nonce === current.current.jump?.nonce
         ) {
-          if (["anchored", "ambiguous", "unplaced"].includes(message.state))
+          if (["anchored", "ancestor", "ambiguous", "unplaced"].includes(message.state))
             current.current.onLocated?.(message.state);
           setNotice(
             message.state === "ambiguous"
               ? t("common.thisTargetMatchesMoreThanOnePlace")
-              : message.state === "unplaced"
-                ? t("common.thisTargetIsUnavailableInTheCurrent")
-                : "",
+              : message.state === "ancestor"
+                ? t("common.showingParentForUnavailableTarget")
+                : message.state === "unplaced"
+                  ? t("common.thisTargetIsUnavailableInTheCurrent")
+                  : "",
           );
         } else if (
           message.type === "r3-preview-call" &&

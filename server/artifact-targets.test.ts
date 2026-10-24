@@ -119,6 +119,10 @@ describe("native artifact targets", () => {
       locator: {
         selector: "#chart > button",
         shadowHosts: ["#phone", "#dialog"],
+        ancestors: [
+          { selector: "#form", shadowDepth: 2 },
+          { selector: "#phone", shadowDepth: 0 },
+        ],
         label: "  Chart\nsettings  ",
         quote: "  Generated\nchart\u00a0label ",
         prefix: " Before  ",
@@ -135,6 +139,10 @@ describe("native artifact targets", () => {
       locator: {
         selector: "#chart > button",
         shadowHosts: ["#phone", "#dialog"],
+        ancestors: [
+          { selector: "#form", shadowDepth: 2 },
+          { selector: "#phone", shadowDepth: 0 },
+        ],
         label: "Chart settings",
         quote: "Generated chart label",
         prefix: "Before",
@@ -143,6 +151,27 @@ describe("native artifact targets", () => {
       },
     });
     expect(targetFromColumns(targetColumns(target))).toEqual(target);
+    for (const ancestors of [
+      null,
+      [],
+      ["#form"],
+      [{ selector: "#form", shadowDepth: 3 }],
+      [{ selector: "#form", shadowDepth: -1 }],
+      [{ selector: "#form", shadowDepth: 0.5 }],
+      [{ selector: "", shadowDepth: 0 }],
+      [{ selector: "x".repeat(4097), shadowDepth: 0 }],
+      [
+        { selector: "#phone", shadowDepth: 0 },
+        { selector: "#form", shadowDepth: 2 },
+      ],
+      Array(17).fill({ selector: "#form", shadowDepth: 0 }),
+    ])
+      await expect(
+        targets.target(id, {
+          ...target,
+          locator: { selector: "button", shadowHosts: ["#phone", "#dialog"], ancestors },
+        }),
+      ).rejects.toThrow("ancestors");
     for (const shadowHosts of [
       null,
       "#phone",

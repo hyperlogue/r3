@@ -30,6 +30,29 @@ export function previewLocator(value: unknown): RenderedLocator | null {
       throw new Error("Invalid rendered shadowHosts");
     shadowHosts = [...input.shadowHosts];
   }
+  let ancestors: RenderedLocator["ancestors"];
+  if (input.ancestors !== undefined) {
+    if (!Array.isArray(input.ancestors) || !input.ancestors.length || input.ancestors.length > 16)
+      throw new Error("Invalid rendered ancestors");
+    let depth = shadowHosts?.length ?? 0;
+    ancestors = input.ancestors.map((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        throw new Error("Invalid rendered ancestors entry");
+      const { selector, shadowDepth } = value as Record<string, unknown>;
+      if (
+        typeof selector !== "string" ||
+        !selector.trim() ||
+        selector.length > 4096 ||
+        typeof shadowDepth !== "number" ||
+        !Number.isInteger(shadowDepth) ||
+        shadowDepth < 0 ||
+        shadowDepth > depth
+      )
+        throw new Error("Invalid rendered ancestors selector or shadowDepth");
+      depth = shadowDepth;
+      return { selector, shadowDepth };
+    });
+  }
   const quote = text("quote", 16384);
   const prefix = text("prefix", 512);
   const suffix = text("suffix", 512);
@@ -57,6 +80,7 @@ export function previewLocator(value: unknown): RenderedLocator | null {
   return {
     selector,
     ...(shadowHosts ? { shadowHosts } : {}),
+    ...(ancestors ? { ancestors } : {}),
     ...(quote === undefined ? {} : { quote: normalizeRenderedText(quote) }),
     ...(prefix === undefined ? {} : { prefix: normalizeRenderedText(prefix) }),
     ...(suffix === undefined ? {} : { suffix: normalizeRenderedText(suffix) }),

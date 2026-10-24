@@ -152,6 +152,9 @@ export interface RenderedLocator {
   selector: string;
   // Outer-to-inner host selectors, each scoped to the preceding open root.
   shadowHosts?: string[];
+  // Nearest-first parent evidence for Locate fallback. Each selector uses the
+  // first shadowDepth hosts above (zero means the document).
+  ancestors?: { selector: string; shadowDepth: number }[];
   // Optional human-readable location name; never used to match the element.
   label?: string;
   quote?: string;

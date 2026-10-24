@@ -10,6 +10,7 @@ import {
   type RenderedLocator,
 } from "../../shared/artifacts.ts";
 import { hasMessageContent } from "../../shared/attachments.ts";
+import type { PreviewLocateState } from "../../shared/preview-protocol.ts";
 import { artifactComposerField, focusArtifactComposer } from "./artifact-composer-keys.ts";
 import { artifactDrafts, useArtifactNoteOpen, useHasArtifactNote } from "./artifact-drafts.ts";
 import {
@@ -91,7 +92,7 @@ export interface ArtifactRenderedPaneProps {
   highlightLocated?: boolean;
   independentReading?: boolean;
   previewLabel?: string;
-  onLocated?: (state: "anchored" | "ambiguous" | "unplaced") => void;
+  onLocated?: (state: PreviewLocateState) => void;
   commenting: boolean;
   jump: {
     locator: RenderedLocator | null;

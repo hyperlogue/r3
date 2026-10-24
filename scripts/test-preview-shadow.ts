@@ -10,22 +10,39 @@ import { previewSupport } from "../server/preview-support.ts";
 import type { ArtifactThread, RenderedLocator } from "../shared/artifacts.ts";
 import { previewLocator } from "../web/src/preview-bridge.ts";
 import { eventually, openTestBrowser } from "./browser.ts";
+import { browserLoweredCssPlugin } from "./spa-css.ts";
+
+const build = await Bun.build({
+  entrypoints: [join(import.meta.dir, "preview-workspace-fixture.tsx")],
+  target: "browser",
+  minify: true,
+  define: { "process.env.NODE_ENV": '"production"' },
+  plugins: [await browserLoweredCssPlugin()],
+});
+if (!build.success) throw new Error("Shadow acceptance workspace failed to build");
+const assets = new Map(build.outputs.map((output) => [output.path.split("/").at(-1)!, output]));
+const js = [...assets.keys()].find((path) => path.endsWith(".js"))!;
+const css = [...assets.keys()].find((path) => path.endsWith(".css"));
 
 const root = await mkdtemp(join(tmpdir(), "r3-shadow-acceptance-"));
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
 const actor = { role: "human" as const, sessionId: null };
 const preview = new PreviewHost(storage.artifacts, previewSupport);
-const api = createArtifactApi(storage, {
-  token: randomBytes(32).toString("base64url"),
-  requireLogin: false,
-  version: "acceptance",
-  allowedHost: (host) => host === "localhost",
-});
+const api = createArtifactApi(
+  storage,
+  {
+    token: randomBytes(32).toString("base64url"),
+    requireLogin: false,
+    version: "acceptance",
+    allowedHost: (host) => host === "localhost",
+  },
+  { previews: preview },
+);
 const artifact = storage.artifacts.create({ kind: "html", actor });
 const source = `<!doctype html><html><head><script>
 window.activations=0;addEventListener('click',()=>window.activations++,true);
 </script></head><body>
-<button id="inner">Light DOM control</button>
+<section id="light"><button id="inner">Light DOM control</button></section>
 ${["first", "second"]
   .map(
     (id) => `<div id="${id}" class="frame"><template shadowrootmode="open">
@@ -60,6 +77,13 @@ const app = Bun.serve({
     const path = new URL(request.url).pathname;
     if (path.startsWith("/__r3_preview/")) return preview.fetch(request);
     if (path.startsWith("/api/")) return api.app.fetch(request);
+    const asset = assets.get(path.slice(1));
+    if (asset) return new Response(asset);
+    if (path === "/workspace")
+      return new Response(
+        `<!doctype html><html><head>${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
+        { headers: { "content-type": "text/html", "cache-control": "no-store" } },
+      );
     // This controlled fixture exercises targeting in the existing consented
     // compatibility mode. The separate isolation suites exercise admission.
     const context = preview.create(
@@ -89,6 +113,12 @@ try {
   browser = await openTestBrowser();
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 960,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
   const open = async () => {
     await page.command("Page.navigate", { url: `http://localhost:${app.port}/` });
     await eventually(
@@ -179,6 +209,19 @@ try {
   const plain = await capture("document.querySelector('#inner')");
   assert.equal(plain.quote, "Light DOM control");
   assert.equal(plain.shadowHosts, undefined, "ordinary selectors keep their document scope");
+  await content.evaluate(`(() => {
+    const root=document.createElement('div');root.id='deep';let node=root;
+    for(let i=0;i<60;i++){const child=document.createElement('nested-'+ 'segment'.repeat(20));node.append(child);node=child}
+    node.innerHTML='<button id="deep-leaf">Deep control</button>';document.body.append(root);
+  })()`);
+  const deep = await capture("document.querySelector('#deep-leaf')");
+  assert.equal(deep.selector, "#deep-leaf");
+  assert.equal(
+    deep.ancestors,
+    undefined,
+    "oversized optional parent selectors do not invalidate a valid pick",
+  );
+  await content.evaluate("document.querySelector('#deep').remove()");
   await display(false);
   await page.evaluate("messages=[]");
   await content.evaluate(`(() => {
@@ -193,6 +236,7 @@ try {
   const textLocator = previewLocator(selection.locator)!;
   assert.equal(textLocator.quote, "shadow passage");
   assert.deepEqual(textLocator.shadowHosts, ["#second", "#nested"]);
+  assert.deepEqual(textLocator.ancestors?.[0], { selector: "#text", shadowDepth: 2 });
 
   // Store through the public contract, then read back before replacing the DOM.
   const response = await fetch(
@@ -255,11 +299,56 @@ try {
     return Math.abs((await ui(".marker", "parseFloat(el.style.top)")) - expected) < 1;
   }, "shadow mutations reposition markers");
 
-  await locate({ ...locator, shadowHosts: [".frame", "#nested"] }, "ambiguous");
-  await locate({ ...locator, shadowHosts: ["#missing", "#nested"] }, "unplaced");
-  await locate({ ...locator, shadowHosts: ["#closed"] }, "unplaced");
-  await locate({ ...locator, shadowHosts: ["[invalid"] }, "unplaced");
-  await locate({ ...locator, shadowHosts: ["[data-r3-preview]"] }, "unplaced");
+  const savedText = JSON.stringify(textLocator);
+  await content.evaluate(`${node("second", "#text b")}.remove()`);
+  await locate(textLocator, "ancestor");
+  const shows = async (expression: string) => {
+    const expected = await content.evaluate(`(${expression}).getBoundingClientRect().toJSON()`);
+    await eventually(
+      async () =>
+        Math.abs((await ui(".box", "parseFloat(el.style.top)")) - expected.top) < 1 &&
+        Math.abs((await ui(".box", "parseFloat(el.style.width)")) - expected.width) < 1,
+      "nearest recorded ancestor highlight",
+    );
+    assert.equal(await ui(".box", "el.dataset.fallback"), "ancestor");
+    assert.equal(
+      await content.evaluate("CSS.highlights.has('r3-preview-active')"),
+      false,
+      "fallback never highlights the old quote as an exact match",
+    );
+  };
+  await shows(node("second", "#text"));
+  assert.equal(
+    await ui(".marker", "!!el"),
+    false,
+    "fallback does not create an exact discussion marker",
+  );
+  await content.evaluate(`${node("second", "#text")}.remove()`);
+  await locate(textLocator, "ancestor");
+  await shows("document.querySelector('#second')");
+  assert.equal(JSON.stringify(textLocator), savedText, "fallback preserves the original target");
+  await content.evaluate("document.querySelector('#second').remove()");
+  await locate(textLocator, "unplaced");
+  await content.evaluate("document.querySelector('#inner').remove()");
+  await locate(plain, "ancestor");
+  await shows("document.querySelector('#light')");
+  content = await open();
+  await content.evaluate(
+    `${node("second", "#text b")}.remove();setTimeout(()=>{${node("second", "#text")}.innerHTML='A selectable <b>shadow passage</b>.'},150)`,
+  );
+  await locate(textLocator);
+  assert.equal(
+    await ui(".box", "el.dataset.fallback"),
+    undefined,
+    "exact matches arriving during hydration take precedence",
+  );
+
+  const legacy = { ...locator, ancestors: undefined };
+  await locate({ ...legacy, shadowHosts: [".frame", "#nested"] }, "ambiguous");
+  await locate({ ...legacy, shadowHosts: ["#missing", "#nested"] }, "unplaced");
+  await locate({ ...legacy, shadowHosts: ["#closed"] }, "ancestor");
+  await locate({ ...legacy, shadowHosts: ["[invalid"] }, "unplaced");
+  await locate({ ...legacy, shadowHosts: ["[data-r3-preview]"] }, "unplaced");
 
   await display(true);
   await page.evaluate("document.querySelector('iframe').focus();messages=[]");
@@ -285,8 +374,66 @@ try {
     activations + 1,
     "ordinary page clicks still work",
   );
+
+  // The real workspace must present contextual fallback distinctly from an
+  // exact match, both for Locate and the two sides of a proposed-fix comparison.
+  const missingTarget = {
+    kind: "rendered" as const,
+    versionSeq: 1,
+    path: "index.html",
+    locator: {
+      selector: "#missing",
+      shadowHosts: ["#second", "#nested"],
+      ancestors: [{ selector: "#text", shadowDepth: 2 }],
+    },
+  };
+  const missing = await storage.conversations.add(artifact.id, {
+    actor,
+    body: "A missing runtime element",
+    target: missingTarget,
+  });
+  const agent = { role: "agent" as const, sessionId: "shadow-fix-agent" };
+  storage.artifacts.registerSession({ id: agent.sessionId });
+  const fix = await storage.conversations.addComment(missing.id, {
+    actor: agent,
+    body: "A proposed shadow fix",
+    target: missingTarget,
+  });
+  await page.command("Page.addScriptToEvaluateOnNewDocument", {
+    source: "try{localStorage.setItem('r3:preview-compatibility:v1','accepted')}catch{}",
+  });
+  await page.command("Page.navigate", {
+    url: `http://localhost:${app.port}/workspace?artifact=${artifact.id}&lang=en`,
+  });
+  const card = `[data-artifact-thread="${missing.id}"]`;
+  await eventually(
+    () => page.evaluate(`!!document.querySelector(${JSON.stringify(card)})`),
+    "workspace thread",
+  );
+  await page.evaluate(`document.querySelector(${JSON.stringify(`${card} button`)}).click()`);
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.body.textContent.includes('Original element unavailable; showing a parent.')",
+      ),
+    "explicit parent fallback notice",
+  );
+  await page.evaluate(`document.querySelector('[data-compare-comment="${fix.id}"]').click()`);
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.querySelectorAll('[data-comparison-target-state=ancestor]').length===2",
+      ),
+    "comparison fallback states",
+  );
+  assert.equal(
+    await page.evaluate(
+      "Array.from(document.querySelectorAll('[data-comparison-target-state=ancestor]')).every(el=>el.textContent==='Parent shown')",
+    ),
+    true,
+  );
   console.log(
-    "Shadow preview acceptance: inner picks, nested parent selection, persisted targets, reload Locate, markers, ambiguity, isolation, and typing passed",
+    "Shadow preview acceptance: inner picks, text, persistence, reload, nearest-parent fallback, workspace notices, comparison states, markers, isolation, and typing passed",
   );
 } finally {
   await browser?.close();

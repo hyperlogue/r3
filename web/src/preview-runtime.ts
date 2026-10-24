@@ -36,6 +36,7 @@ export function installPreviewRuntime(
   let hover: Element | null = null;
   let located: Element | null = null;
   let locatedRange: Range | null = null;
+  let locatedAncestor = false;
   let lastJump = -1;
   let restoringRoute = false;
   let frame = 0;
@@ -143,6 +144,20 @@ export function installPreviewRuntime(
       observeShadow(scope);
       shadowHosts.unshift(selector(scope.host));
     }
+    const ancestors: NonNullable<RenderedLocator["ancestors"]> = [];
+    let depth = shadowHosts.length;
+    for (
+      let child = element, node = parent(child), steps = 0;
+      node && steps < 16;
+      child = node, node = parent(node), steps++
+    ) {
+      if (node === document.body || node === document.documentElement) break;
+      if (child.getRootNode() !== node.getRootNode()) depth--;
+      const parentSelector = selector(node);
+      // Optional fallback evidence must not make an otherwise valid pick fail.
+      if (parentSelector.length <= 4096)
+        ancestors.push({ selector: parentSelector, shadowDepth: depth });
+    }
     const mapped = projection(element);
     const quote = selectedQuote || mapped.text.slice(0, 16_384);
     let at = quote ? mapped.text.indexOf(quote) : -1;
@@ -157,6 +172,7 @@ export function installPreviewRuntime(
     return {
       selector: selector(element),
       ...(shadowHosts.length ? { shadowHosts } : {}),
+      ...(ancestors.length ? { ancestors } : {}),
       ...(quote
         ? {
             quote,
@@ -215,6 +231,28 @@ export function installPreviewRuntime(
     range.setEnd(mapped.nodes[end], mapped.offsets[end] + 1);
     return { state: "anchored", element, range };
   };
+  const findAncestor = (locator: RenderedLocator): Element | null => {
+    const hosts = locator.shadowHosts ?? [];
+    // Saved host paths also supply ancestor evidence for older shadow targets.
+    const candidates = [
+      ...(locator.ancestors ?? []),
+      ...hosts.map((selector, shadowDepth) => ({ selector, shadowDepth })).reverse(),
+    ];
+    for (const ancestor of candidates) {
+      const match = find({
+        selector: ancestor.selector,
+        shadowHosts: hosts.slice(0, ancestor.shadowDepth),
+      });
+      if (
+        match.state === "anchored" &&
+        match.element &&
+        match.element !== document.body &&
+        match.element !== document.documentElement
+      )
+        return match.element;
+    }
+    return null;
+  };
   const paint = () => {
     frame = 0;
     if (!root) return;
@@ -252,6 +290,9 @@ export function installPreviewRuntime(
       (display.commenting ? hover : null) ||
       (display.highlightLocated === false ? null : located);
     box.hidden = !element?.isConnected;
+    if (locatedAncestor && !picked && !(display.commenting && hover))
+      box.dataset.fallback = "ancestor";
+    else delete box.dataset.fallback;
     const bounds = viewport ?? { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
     controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
     selectionAction.hidden =
@@ -305,7 +346,9 @@ export function installPreviewRuntime(
     if (!root || !jump || jump.nonce === lastJump) return;
     lastJump = jump.nonce;
     cancel();
+    located = null;
     locatedRange = null;
+    locatedAncestor = false;
     highlight(null);
     if (!jump.locator) {
       located = document.body;
@@ -332,12 +375,17 @@ export function installPreviewRuntime(
         setTimeout(attempt, 100);
         return;
       }
-      located = result.element ?? null;
-      locatedRange = result.range ?? null;
+      const ancestor = result.state === "unplaced" ? findAncestor(jump.locator!) : null;
+      located = ancestor ?? result.element ?? null;
+      locatedRange = ancestor ? null : (result.range ?? null);
+      locatedAncestor = !!ancestor;
       highlight(display.highlightLocated === false ? null : locatedRange);
       located?.scrollIntoView({ block: "center", inline: "nearest" });
       schedule();
-      send("r3-preview-located", { state: result.state, nonce: jump.nonce });
+      send("r3-preview-located", {
+        state: ancestor ? "ancestor" : result.state,
+        nonce: jump.nonce,
+      });
     };
     setTimeout(attempt, 0);
   };
@@ -551,7 +599,7 @@ export function installPreviewRuntime(
     shadow.append(markers);
     const markerStyle = document.createElement("style");
     markerStyle.textContent =
-      ".marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
+      ".box[data-fallback=ancestor]{border-style:dashed}.marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
     shadow.append(markerStyle);
     const buttons = controls.querySelectorAll("button");
     buttons[0].title = "Comment here (Space)";
