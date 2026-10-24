@@ -18,6 +18,12 @@ import {
 import { normalizeGitRemote } from "../../shared/git-remote.ts";
 import type { artifactApi as productionApi } from "../src/artifact-api.ts";
 import { draftImages, prepareDraftImage } from "../src/attachment-drafts.ts";
+import {
+  checkDemoAnchor,
+  reanchorDemo,
+  resolveDemoAnchor,
+  saveDemoAnchor,
+} from "./artifact-anchors.ts";
 import { demo, fail, human, mint, now } from "./artifact-backend.ts";
 import { searchDemoArtifacts } from "./artifact-search.ts";
 import { demoGcPreview, demoUsage } from "./artifact-usage.ts";
@@ -120,6 +126,8 @@ export const artifactApi: typeof productionApi = {
     return result;
   },
   search: async (options) => copy(searchDemoArtifacts(demo.state, options)),
+  anchorResolution: async (id, seq) => resolveDemoAnchor(id, seq),
+  reanchor: async (id, body) => reanchorDemo(id, body, mediaEvidence),
   threadSource: async (id) => demo.threadSource(id),
   sessions: async () =>
     [
@@ -326,6 +334,16 @@ export const artifactApi: typeof productionApi = {
       createdAt: now(),
       sentAt: null,
     };
+    if (body.reanchor) {
+      if (
+        !acceptedTarget ||
+        !("path" in acceptedTarget) ||
+        acceptedTarget.versionSeq !== body.reanchor.expectedSeq
+      )
+        fail("Re-anchoring needs a latest native target");
+      checkDemoAnchor(note, body.reanchor.expectedSeq, body.reanchor.expectedAnchorRevision);
+      saveDemoAnchor(note, acceptedTarget, human);
+    }
     note.comments.push(comment);
     operation.save(comment.id);
     demo.changed(artifact.id);

@@ -13,6 +13,7 @@ import type {
   Representation,
 } from "../shared/artifacts.ts";
 import { artifactReferenceContext, hasUnsentArtifactThread } from "../shared/artifacts.ts";
+import { ArtifactAnchors } from "./artifact-anchors.ts";
 import type { PreparedAttachment } from "./artifact-attachments.ts";
 import { artifactComment, artifactComments } from "./artifact-comments.ts";
 import {
@@ -95,12 +96,14 @@ function commentFromRow(row: CommentRow): ArtifactComment {
 // wakeup transports are owned by the collaboration boundary, after commit.
 export class ArtifactConversations {
   private readonly targets: ArtifactTargets;
+  readonly anchors: ArtifactAnchors;
   constructor(
     private readonly db: Database,
     private readonly artifacts: ArtifactStore,
     private readonly clock: () => string = nowIso,
   ) {
     this.targets = new ArtifactTargets(artifacts);
+    this.anchors = new ArtifactAnchors(db, artifacts, clock);
   }
   private touch(id: string, time = this.clock()): void {
     this.db
@@ -165,6 +168,7 @@ export class ArtifactConversations {
       artifactId: row.artifact_id,
       status: row.status,
       target: this.withFrame(targetFromColumns(row), { threadId: id }),
+      anchor: this.anchors.get(id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       statusUnsent: !!row.status_unsent,
@@ -319,7 +323,7 @@ export class ArtifactConversations {
       throw new ArtifactError("Image edits require prepared attachments");
     const author = this.artifacts.validateActor(input.actor);
     if (input.target !== undefined)
-      throw new ArtifactError("Original targets are immutable; record a placement");
+      throw new ArtifactError("Original targets are immutable; use thread reanchor");
     return this.db
       .transaction(() => {
         const row = this.row(id);
@@ -372,10 +376,19 @@ export class ArtifactConversations {
     const input = requireObject(value, "Comment");
     const author = this.artifacts.validateActor(input.actor);
     const original = this.row(id);
+    const replay = this.artifacts.attachments.operation(
+      original.artifact_id,
+      input,
+      "comment",
+      id,
+    ).replay;
+    if (replay) return this.comment(replay);
     const target =
       input.target == null ? null : await this.targets.target(original.artifact_id, input.target);
     if (target?.kind === "artifact" || target?.kind === "artifact_summary")
       throw new ArtifactError("A fix target must name a published version");
+    if (input.reanchor !== undefined && (!target || !("path" in target)))
+      throw new ArtifactError("Re-anchoring a comment requires a native fix target");
     const context = artifactReferenceContext(target, targetFromColumns(original));
     const columns = target === null ? null : targetColumns(target);
     return this.preparingFrame(original.artifact_id, target, input.mediaSnapshot, (frames) =>
@@ -391,6 +404,8 @@ export class ArtifactConversations {
             );
             if (operation.replay) return this.comment(operation.replay);
             this.artifacts.requireActive(threads.artifact_id);
+            if (input.reanchor !== undefined && target && "path" in target)
+              this.anchors.commit(id, target, author, input.reanchor, frames);
             const body = messageBody(input.body, images.length);
             const time = this.clock();
             const commentId = `comment_${randomUUID().replaceAll("-", "")}`;

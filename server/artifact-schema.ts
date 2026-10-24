@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { ARTIFACT_ANCHOR_SCHEMA } from "./artifact-anchor-schema.ts";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
 import { ARTIFACT_COMMENT_SCHEMA } from "./artifact-comments.ts";
 import { ARTIFACT_ID_SCHEMA } from "./artifact-ids.ts";
@@ -7,7 +8,7 @@ import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 17;
+export const ARTIFACT_SCHEMA_VERSION = 18;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -480,6 +481,7 @@ export function createArtifactTables(db: Database): void {
   db.exec(CLIENT_AUTH_SCHEMA);
   db.exec(WORKER_SCHEMA);
   db.exec(ATTACHMENT_SCHEMA);
+  db.exec(ARTIFACT_ANCHOR_SCHEMA);
   db.exec(ARTIFACT_SEARCH_SCHEMA);
   installArtifactUsage(db, null);
 }

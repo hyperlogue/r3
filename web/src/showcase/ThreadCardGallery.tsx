@@ -16,6 +16,7 @@ const examples = [
   ["attention", "Agent replied · needs your attention", filesId],
   ["followup", "Human follow-up · waiting for the agent", filesId],
   ["resolved", "Resolved · with a fix in a later version", filesId],
+  ["reanchored", "Current location · original evidence retained", filesId],
   ["rendered", "Rendered anchor · long quotation", filesId],
   ["diff", "Diff anchor · code in the message", diffId],
   ["history", "Long conversation · earlier comments", filesId],
@@ -144,6 +145,23 @@ export function seedThreadCardGallery() {
     2,
   ).target = { ...sourceTarget, versionSeq: 2 };
   resolved.status = "resolved";
+  const reanchored = add(
+    "reanchored",
+    "Keep this quotation while moving the thread to the updated section.",
+    sourceTarget,
+  );
+  reanchored.anchor = {
+    target: { kind: "source", versionSeq: 2, path: "index.md", locator: null },
+    revision: 1,
+    actor: agent,
+    createdAt: time,
+    updatedAt: time,
+  };
+  comment(
+    reanchored,
+    "The thread now points to the updated document; this earlier Fix link stays pinned.",
+  ).target = sourceTarget;
+
   add(
     "rendered",
     "This explanation repeats a few ideas. Could we shorten it while keeping the distinction between the original comment and the later fix?",

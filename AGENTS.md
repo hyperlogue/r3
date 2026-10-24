@@ -147,8 +147,15 @@ targets cannot anchor to descriptions.
 
 **Placements** are historical read-only records keyed by threads, version, path, and
 representation, with `anchored|ambiguous|unplaced` state. They never rewrite the
-original target. Locate initially returns to that original view. An unavailable
+original target. Explicit re-anchoring stores a separate current destination and preserves the
+original quote. The primary thread link tries that destination in the latest
+publication; the original-position button stays pinned. An unavailable
 runtime element does not make its conversation disappear.
+
+Re-anchor writes accept coordinates without replacement quote text, validate the
+latest publication and an anchor revision at commit, and support one atomic batch
+per artifact. A latest-version CLI comment fix also moves the thread atomically;
+historical Fix links stay pinned.
 
 **Comments** are pure messages. Inline references derive from their own fix target
 when present, otherwise from the thread's original target. General threads

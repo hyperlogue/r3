@@ -12,7 +12,11 @@ export function representationLabel(kind: string) {
   return labels[kind] ? t(labels[kind]) : kind;
 }
 
-export function targetLabel(target: ArtifactTarget, latestVersionSeq?: number | null): string {
+export function targetLabel(
+  target: ArtifactTarget,
+  latestVersionSeq?: number | null,
+  hideVersion = false,
+): string {
   if (target.kind === "artifact") return t("artifactLabels.generalArtifact");
   if (target.kind === "artifact_summary") return t("artifactLabels.retiredArtifactOverview");
   if (target.kind === "version_summary")
@@ -25,6 +29,12 @@ export function targetLabel(target: ArtifactTarget, latestVersionSeq?: number | 
     target.kind === "media"
       ? `${target.path}${target.locator.time === null ? "" : ` · ${mediaTime(target.locator.time)}`} · ${t(wholeMediaBox(target.locator.box) ? "artifactLabels.fullFrame" : "artifactLabels.region")}`
       : `${representationLabel(target.kind)} · ${target.path}${range}`;
+  if (hideVersion)
+    return target.kind === "media"
+      ? label
+      : target.kind === "rendered" && target.locator?.label
+        ? target.locator.label
+        : `${target.path}${range}`;
   return target.versionSeq === latestVersionSeq && target.kind !== "media"
     ? `${target.path}${range}`
     : t("artifactLabels.version", { version: target.versionSeq, target: label });

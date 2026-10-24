@@ -83,6 +83,9 @@ export function visibleArtifactTargets(
   representation: Representation,
 ): { threadId: string; target: ArtifactDocumentTarget }[] {
   return detail.threads.flatMap((threads) => {
+    const current = threads.anchor?.target;
+    if (current && current.versionSeq === seq && current.kind === representation)
+      return [{ threadId: threads.id, target: current }];
     const original = threads.target;
     if (
       isArtifactDocumentTarget(original) &&

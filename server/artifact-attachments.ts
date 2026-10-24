@@ -62,6 +62,7 @@ export type PreparedAttachment =
 type Owner = { threadId: string } | { commentId: string };
 const ownerColumn = (owner: Owner) => ("threadId" in owner ? "thread_id" : "comment_id");
 const ownerId = (owner: Owner) => ("threadId" in owner ? owner.threadId : owner.commentId);
+const anchorSelect = `SELECT a.id, a.artifact_id AS artifactId, a.blob_hash AS hash, a.media_type AS mediaType, a.width, a.height, b.byte_length AS byteLength, a.capture_json AS captureJson FROM thread_anchor_frames a JOIN blobs b ON b.hash=a.blob_hash`;
 const select = `SELECT a.id, a.artifact_id AS artifactId, a.blob_hash AS hash,
   a.media_type AS mediaType, a.width, a.height, b.byte_length AS byteLength,
   a.capture_json AS captureJson FROM message_attachments a JOIN blobs b ON b.hash = a.blob_hash`;
@@ -89,9 +90,13 @@ export class ArtifactAttachments {
   async read(artifactId: string, id: string) {
     // Acquire the GC hold before looking up membership as well as reading bytes.
     return this.blobs.publishing(async () => {
-      const row = this.db
-        .query<ImageRow, [string, string]>(`${select} WHERE a.artifact_id = ? AND a.id = ?`)
-        .get(artifactId, id);
+      const row =
+        this.db
+          .query<ImageRow, [string, string]>(`${select} WHERE a.artifact_id = ? AND a.id = ?`)
+          .get(artifactId, id) ??
+        this.db
+          .query<ImageRow, [string, string]>(`${anchorSelect} WHERE a.artifact_id=? AND a.id=?`)
+          .get(artifactId, id);
       if (!row) throw new ArtifactError("Attachment not found", 404);
       return { attachment: fromRow(row), bytes: await this.blobs.read(row.hash) };
     });

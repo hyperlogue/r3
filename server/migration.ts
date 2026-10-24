@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { open } from "node:fs/promises";
+import { ARTIFACT_ANCHOR_SCHEMA } from "./artifact-anchor-schema.ts";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
 import { upgradeArtifactComments } from "./artifact-comments.ts";
 import { ARTIFACT_ID_SCHEMA } from "./artifact-ids.ts";
@@ -62,7 +63,7 @@ export async function upgradeArtifactStore(
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
   if (
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].includes(schemaVersion) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].includes(schemaVersion) ||
     !tables.includes("artifacts")
   )
     throw new Error("Unrecognized store schema; migration did not modify it");
@@ -163,6 +164,7 @@ export async function upgradeArtifactStore(
       db.exec("DROP TRIGGER IF EXISTS immutable_message_attachment");
     }
     db.exec(ATTACHMENT_SCHEMA);
+    db.exec(ARTIFACT_ANCHOR_SCHEMA);
     db.exec(ARTIFACT_SEARCH_SCHEMA);
     installArtifactUsage(db, (options.clock ?? nowIso)());
     if (db.query("PRAGMA foreign_key_check").all().length)

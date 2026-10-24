@@ -101,6 +101,27 @@ test("preview bridge exposes only its artifact's human conversation at the selec
     },
   ];
   expect(await call("getThreads")).toEqual([{ id: threads.id, comments: [{}, { id: "comment" }] }]);
+  const media = {
+    kind: "media",
+    versionSeq: 2,
+    path: "image.png",
+    locator: {
+      time: null,
+      box: { x: 0, y: 0, width: 1, height: 1 },
+      frame: { id: "private-frame" },
+    },
+  } as unknown as ArtifactThread["target"];
+  detail.threads[0]!.target = media;
+  detail.threads[0]!.anchor = {
+    target: media,
+    revision: 1,
+    actor: { role: "human", sessionId: null },
+    createdAt: "test",
+    updatedAt: "test",
+  } as NonNullable<ArtifactThread["anchor"]>;
+  detail.threads[0]!.comments[1]!.target = media as ArtifactComment["target"];
+  expect(JSON.stringify(await call("getThreads"))).not.toContain("private-frame");
+  expect(JSON.stringify(detail.threads)).toContain("private-frame");
   await expect(call("createThread", { body: "Spoof", attachments: [] }, true)).rejects.toThrow(
     "scope",
   );

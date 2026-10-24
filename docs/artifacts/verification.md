@@ -374,3 +374,15 @@ Private local setup is covered by `server/local-bootstrap.test.ts`,
 Origin rejection, credential-free boot, one-use ticket expiry/replay, browser cookie
 setup, logout, and automatic CLI setup. `server/client-auth-api.test.ts` and
 `cli/login.test.ts` cover OAuth errors, cache headers and the default poll interval.
+
+
+### Thread re-anchoring
+
+`bun test server/artifact-anchors.test.ts cli/artifact-commands.test.ts` checks atomic
+bulk/combined writes, immutable quotations, exact retries after subsequent moves,
+revision/publication/archive races, native range resolution, media ownership/GC,
+and schema-17 upgrade without inferred targets. `scripts/test-thread-anchors.ts`
+uses temporary storage and a fresh browser profile for current/original/Fix jumps,
+latest native resolution, same-version correction, missing/ambiguous fallbacks,
+rendered runtime matching and mobile navigation. Use `R3_TEST_BROWSER` as for the
+other isolated browser acceptance scripts.

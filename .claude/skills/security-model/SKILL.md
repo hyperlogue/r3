@@ -589,3 +589,14 @@ The existing authenticated attachment route, raster validation, GC coordination,
 logout revocation and no-store response policy apply. Media snapshot plus four
 ordinary attachments are bounded by a 40 MiB message request. Snapshot provenance
 is client-supplied evidence, not a server claim of video decoder equivalence.
+
+
+### Current-anchor writes
+
+Anchor routes use the normal configured login policy, Host/origin guards and
+streamed JSON bounds. The server validates native retained destinations and checks
+latest publication, artifact state and per-thread revisions inside the write
+transaction. Original evidence remains immutable. Independent anchor media frames
+use the existing raster validation, private attachment route and coordinated GC;
+no preview resource capability gains access to them. Rendered lookup uses the same
+opaque guarded runtime and consent checks as Locate, never a server-executed DOM.

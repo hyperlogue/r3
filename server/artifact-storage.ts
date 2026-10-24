@@ -122,7 +122,7 @@ export async function openArtifactStorage(
           new Set(
             db
               .query<{ hash: string }, []>(
-                "SELECT blob_hash AS hash FROM version_files UNION SELECT rendered_blob_hash AS hash FROM version_files WHERE rendered_blob_hash IS NOT NULL UNION SELECT blob_hash AS hash FROM message_attachments",
+                "SELECT blob_hash AS hash FROM version_files UNION SELECT rendered_blob_hash AS hash FROM version_files WHERE rendered_blob_hash IS NOT NULL UNION SELECT blob_hash AS hash FROM message_attachments UNION SELECT blob_hash AS hash FROM thread_anchor_frames",
               )
               .all()
               .map((row) => row.hash),
@@ -130,7 +130,7 @@ export async function openArtifactStorage(
       );
       db.exec(`DELETE FROM blobs WHERE NOT EXISTS (
         SELECT 1 FROM version_files WHERE blob_hash = blobs.hash OR rendered_blob_hash = blobs.hash
-      ) AND NOT EXISTS (SELECT 1 FROM message_attachments WHERE blob_hash = blobs.hash)`);
+      ) AND NOT EXISTS (SELECT 1 FROM message_attachments WHERE blob_hash = blobs.hash) AND NOT EXISTS (SELECT 1 FROM thread_anchor_frames WHERE blob_hash = blobs.hash)`);
       return removed;
     }
     await collectBlobs();

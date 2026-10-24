@@ -15,6 +15,7 @@ import type {
   AgentSession,
   Artifact,
   ArtifactActor,
+  ArtifactAnchorResolution,
   ArtifactBulkArchiveBody,
   ArtifactBulkArchiveResponse,
   ArtifactComment,
@@ -30,6 +31,8 @@ import type {
   ArtifactPreviewContext,
   ArtifactPreviewNetwork,
   ArtifactProject,
+  ArtifactReanchorBody,
+  ArtifactReanchorResult,
   ArtifactSource,
   ArtifactSourceRange,
   ArtifactStreamEvent,
@@ -91,6 +94,15 @@ export const artifactApi = {
       signal,
     ),
   detail: (id: string) => client().json<ArtifactDetail>("GET", artifactApiPath(id)),
+  anchorResolution: (id: string, seq: number, signal?: AbortSignal) =>
+    client().json<ArtifactAnchorResolution>(
+      "GET",
+      `${threadApiPath(id)}/anchor-resolution?version=${seq}`,
+      undefined,
+      signal,
+    ),
+  reanchor: (id: string, body: ArtifactReanchorBody) =>
+    client().json<ArtifactReanchorResult>("POST", `${artifactApiPath(id)}/thread-anchors`, body),
   threadSource: (id: string) =>
     client().json<ArtifactSourceRange>("GET", `${threadApiPath(id)}/source`),
   projects: () => client().json<ArtifactProject[]>("GET", "/api/projects"),

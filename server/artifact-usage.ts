@@ -30,7 +30,8 @@ const REFERENCES = `SELECT f.artifact_id, f.blob_hash AS hash FROM version_files
   JOIN artifact_versions v ON v.artifact_id=f.artifact_id AND v.seq=f.version_seq WHERE v.published_at IS NOT NULL
   UNION SELECT f.artifact_id, f.rendered_blob_hash FROM version_files f
   JOIN artifact_versions v ON v.artifact_id=f.artifact_id AND v.seq=f.version_seq WHERE v.published_at IS NOT NULL AND f.rendered_blob_hash IS NOT NULL
-  UNION SELECT artifact_id, blob_hash FROM message_attachments`;
+  UNION SELECT artifact_id, blob_hash FROM message_attachments
+  UNION SELECT artifact_id, blob_hash FROM thread_anchor_frames`;
 
 export class ArtifactUsageStore {
   readonly ttlDays: number;

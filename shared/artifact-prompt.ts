@@ -26,6 +26,7 @@ export function commentAttachments(
       unsent && !(item.comments[0]!.author.role === "human" && item.comments[0]!.sentAt === null);
     return [
       ...frames(item.target),
+      ...frames(item.anchor?.target ?? null),
       ...(followup ? [] : (item.comments[0]!.attachments ?? [])),
       ...item.comments
         .slice(1)
@@ -80,6 +81,8 @@ function block(thread: ArtifactThread, unsent: boolean): string {
       `Legacy anchor evidence: ${JSON.stringify({ file: evidence.file, side: evidence.side, lineStart: evidence.line_start, lineEnd: evidence.line_end, quote: evidence.quote, patchSeq: evidence.patch_seq })}`,
     );
   } else lines.push(`Original target: ${JSON.stringify(thread.target)}`);
+  lines.push(`Anchor revision: ${thread.anchor?.revision ?? 0}`);
+  if (thread.anchor) lines.push(`Current thread target: ${JSON.stringify(thread.anchor.target)}`);
   if ((thread.target.kind === "source" || thread.target.kind === "diff") && thread.target.locator)
     lines.push(`Full captured range: r3 thread source ${thread.id}`);
   if (thread.target.kind === "media" && thread.target.locator.frame)

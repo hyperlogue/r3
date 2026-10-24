@@ -78,7 +78,9 @@ HTML images: publish standalone assets with relative <img src> URLs; see r3 guid
   comment edit <comment-id> [-m <message>] [--attach <image>]... | [--clear-attachments]
   claim <thread-id>... | release <thread-id>...
   comment image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
-  thread source <thread-id> [--json]      # full captured source/diff range
+  thread source <thread-id> [--json]      # full captured ORIGINAL source/diff range
+  thread reanchor <thread-id> [destination flags] [--expected-anchor N] [--key K]
+  thread reanchor --artifact <id> --version N --input <json-file|-> [--key K]
   watch <id> [--timeout <seconds>]
   listen <id>                                # establish an explicit subscription
   unlisten <id>                              # end your subscriptions
@@ -118,6 +120,19 @@ Image references are numbered [image1], [image2], etc. within each message in
 fetch output. --attachments-dir downloads and
 verifies the snapshot's images before output and acknowledgment; failures leave
 comments pending. Existing matching files are reused; different files are not overwritten.
+Re-anchor destinations use target flags without --quote (or JSON without quote,
+prefix, suffix or frame). Original thread evidence is immutable. Source/diff
+matching evidence comes from retained destination bytes. Media needs --frame.
+Only the latest publication is writable; source/rendered/media/diff stay native.
+Bulk JSON is an array of {threadId, expectedAnchorRevision, target, mediaSnapshot?};
+1–100 distinct threads in one artifact commit together. Revision 0 means no move.
+The ordinary CLI reads the revision; --expected-anchor guards an earlier read.
+Latest-version comment --target requires a backend supporting thread anchors; an
+older backend is rejected before the reply is posted. It saves the Fix and
+re-anchors atomically; historical
+fixes stay pinned without moving the thread. --expected N --expected-anchor R pin
+targeted-comment retry guards. An uncertain write prints the original key/guards:
+retry unchanged content with those exact values, not freshly inferred ones.
 Text flags accept - to read stdin. --json prints structured results.
 Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
 Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
@@ -292,9 +307,15 @@ Inspect original targets in their recorded version and representation. Rendered 
 
 Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 thread source <thread-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge comments, claim a thread, or establish a subscription. Rendered, general, and whole-file targets have no captured line range and return an error.
 
-Publish changed content, then \`r3 comment <thread-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the thread's original target. General threads without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets remain immutable; use a comment’s fix target to point to a later version.
+Publish changed content, then \`r3 comment <thread-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the thread's original target. General threads without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets and quotes remain immutable. A latest-version fix target also updates the thread’s current anchor atomically; an older-version target records only that reply’s Fix. If another publication or anchor update races the intended move, neither the comment nor the move commits.
 
 For a fix inside shadow DOM, retain or update \`locator.shadowHosts\` as well as the inner \`selector\`; verify them against the new published version. Run \`r3 guide html\` for a complete fix-comment example and optional parent fallback evidence. Context shown by Locate, whether the element or a parent, is not proof that the original quote or fix was found.
+
+After each publication, check all open threads and re-anchor every thread with a verified location in the latest published version. Keep uncertain locations unchanged; never guess a match. Use a targeted reply when explaining a fix, or \`r3 thread reanchor <thread-id> --version N --file <path> --view source --line <start-end>\` to move without replying. This command accepts coordinates, never a replacement quote; rendered destinations use \`--selector\`, and media uses \`--target\` plus \`--frame\`. Resolved threads can be moved explicitly; archived artifacts must first be restored.
+
+For bulk maintenance, use \`r3 thread reanchor --artifact <id> --version N --input ./anchors.json\`. The JSON array contains \`{threadId, expectedAnchorRevision, target, mediaSnapshot?}\` entries from the latest read. The batch is atomic. Single-thread commands obtain the revision automatically; \`--expected-anchor\` can protect an earlier read. On an uncertain write, retain its exact request, key and printed guards for retry. A successful replay does not move the thread again.
+
+The primary thread link has no version label. Clicking it tries the saved anchor in the latest publication without writing a move. If there is no unique match, it returns to the saved location. The original-position button and individual Fix links stay pinned. Explicit re-anchoring keeps navigation useful when content or paths have changed beyond exact matching.
 
 Successful comments release only your own claims. Publishing and commenting never resolve threads; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and all subscriptions; restore requires a fresh subscription.`;
 

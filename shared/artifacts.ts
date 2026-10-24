@@ -1,3 +1,6 @@
+import type { ArtifactReanchorGuard, ArtifactThreadAnchor } from "./artifact-anchors.ts";
+
+export * from "./artifact-anchors.ts";
 export type {
   ArtifactGcRequest,
   ArtifactGcResult,
@@ -270,6 +273,8 @@ export interface ArtifactComment {
   sentAt: string | null;
 }
 export interface ArtifactThread {
+  // Optional for older saved snapshots; current server reads always include it.
+  anchor?: ArtifactThreadAnchor | null;
   id: string;
   artifactId: string;
   status: "open" | "resolved";
@@ -319,6 +324,7 @@ export function artifactAgentIds(detail: ArtifactDetail): string[] {
         ...detail.events.map((event) => event.actor.sessionId),
         ...detail.threads.flatMap((threads) => [
           threads.comments[0]!.author.sessionId,
+          threads.anchor?.actor.sessionId ?? null,
           threads.claim?.sessionId,
           ...threads.comments.slice(1).map((comment) => comment.author.sessionId),
         ]),
@@ -391,6 +397,7 @@ export interface CreateArtifactThreadBody {
   target: ArtifactTarget;
 }
 export interface CreateArtifactCommentBody {
+  reanchor?: ArtifactReanchorGuard;
   mediaSnapshot?: AttachmentInput;
   operationKey?: string;
   attachments?: AttachmentInput[];

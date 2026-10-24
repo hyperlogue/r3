@@ -910,5 +910,8 @@
   },
   "expand": {
     "notInThisDiff": "⋯ {{seamCount_prev_cur}}不在本次差异中"
-  }
+  },
+  "threads.latestPosition": "转到最新版本中匹配的位置",
+  "threads.originalPosition": "转到原始位置",
+  "threads.latestUnavailable": "最新版本中没有唯一匹配，正在显示保存的位置。"
 }

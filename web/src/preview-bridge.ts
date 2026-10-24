@@ -1,4 +1,4 @@
-import type { ArtifactDetail, RenderedLocator } from "../../shared/artifacts.ts";
+import type { ArtifactDetail, ArtifactTarget, RenderedLocator } from "../../shared/artifacts.ts";
 import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
 import type { PreviewPageContext, PreviewViewport } from "../../shared/preview-protocol.ts";
 import { normalizeRenderedText } from "../../shared/rendered-text.ts";
@@ -113,6 +113,12 @@ export function previewSelectionPosition(
     bottom: clamp(frame.top + rect.bottom, visible.top, visible.bottom),
   };
 }
+function previewTarget<T extends ArtifactTarget | null | undefined>(target: T): T {
+  if (target?.kind !== "media") return target;
+  const { frame: _frame, ...locator } = target.locator;
+  return { ...target, locator };
+}
+
 export async function previewBridgeCall(
   method: string,
   value: unknown,
@@ -127,7 +133,14 @@ export async function previewBridgeCall(
   if (method === "getThreads")
     return detail.threads.map(({ comments, ...thread }) => ({
       ...thread,
-      comments: comments.map(({ attachments: _images, ...comment }) => comment),
+      ...(thread.target ? { target: previewTarget(thread.target) } : {}),
+      ...(thread.anchor
+        ? { anchor: { ...thread.anchor, target: previewTarget(thread.anchor.target) } }
+        : {}),
+      comments: comments.map(({ attachments: _images, ...comment }) => ({
+        ...comment,
+        ...(comment.target ? { target: previewTarget(comment.target) } : {}),
+      })),
     }));
   if (!["createThread", "comment", "submit", "setTheme"].includes(method))
     throw new Error("Unsupported r3 preview operation");

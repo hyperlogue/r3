@@ -17,6 +17,7 @@ import {
   type ArtifactReferenceContext,
   type ArtifactTarget,
   type ArtifactThread,
+  currentThreadTarget,
   hasUnsentArtifactThread,
 } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
@@ -64,7 +65,11 @@ import {
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
-export type ArtifactTargetJump = (target: ArtifactTarget, threadId?: string) => void;
+export type ArtifactTargetJump = (
+  target: ArtifactTarget,
+  threadId?: string,
+  intent?: "current" | "original",
+) => void;
 function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
   return "versionSeq" in target
     ? {
@@ -283,8 +288,10 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
     mutationFn: () => artifactApi.deleteThread(thread.id),
     onSuccess: refresh,
   });
-  const unavailable = hasHistoricalTarget(thread);
-  const hasTarget = unavailable || thread.target.kind !== "artifact";
+  const navigationTarget = currentThreadTarget(thread);
+  const historical = hasHistoricalTarget(thread);
+  const unavailable = !thread.anchor && historical;
+  const hasTarget = unavailable || navigationTarget.kind !== "artifact";
   const originalContext = targetContext(thread.target);
   const quote =
     "locator" in thread.target && thread.target.locator && "quote" in thread.target.locator
@@ -476,14 +483,41 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               {t("common.historicalTargetUnavailable")}
             </span>
           ) : hasTarget ? (
-            <button
-              type="button"
-              className="min-w-0 flex-1 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
-              title={artifactThreadTargetLabel(thread)}
-              onClick={() => onLocate(thread.target, thread.id)}
-            >
-              {cardTargetLabel(thread.target, latestVersionSeq)}
-            </button>
+            <div className="flex min-w-0 flex-1 items-start gap-1">
+              <button
+                type="button"
+                className="min-w-0 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                title={t("threads.latestPosition")}
+                data-thread-action="locate"
+                onClick={() => onLocate(navigationTarget, thread.id, "current")}
+              >
+                {artifactTargetLabel(navigationTarget, null, true)}
+              </button>
+              {thread.anchor && (
+                <button
+                  type="button"
+                  data-thread-action="original"
+                  className="flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-primary-700 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-primary-300"
+                  title={`${t("threads.originalPosition")} · ${artifactThreadTargetLabel(thread)}`}
+                  aria-label={t("threads.originalPosition")}
+                  onClick={() => onLocate(thread.target, thread.id, "original")}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 10a9 9 0 1 1 2.7 8.2M3 4v6h6" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                </button>
+              )}
+            </div>
           ) : null}
           {thread.status === "resolved" && (
             <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
@@ -512,7 +546,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         </div>
       )}
       {quote && <ThreadQuote quote={quote} />}
-      {unavailable && (
+      {historical && (
         <details className="mb-2 text-xs text-neutral-500">
           <summary>{t("threads.importedAnchorEvidence")}</summary>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap">
@@ -597,6 +631,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
             {comment.target && (
               <button
                 type="button"
+                data-comment-action="fix"
                 className="mt-2 text-left text-xs text-primary-700 hover:underline dark:text-primary-300"
                 title={
                   artifactKind === "html" && comment.target.kind === "rendered"
@@ -865,7 +900,7 @@ export function ArtifactThreads({
   }, [queues, comparable, comparisonMode]);
   const ordered = tab === "active" ? active : resolved;
   const locate = useCallback<ArtifactTargetJump>(
-    (target, threadId) => onLocate(target, threadId),
+    (target, threadId, intent) => onLocate(target, threadId, intent),
     [onLocate],
   );
   const afterResolve = useCallback(
@@ -929,7 +964,7 @@ export function ArtifactThreads({
           fbPrev: () => move(-1),
           fbLocate: () => {
             const note = detail.threads.find((note) => note.id === activeThread);
-            if (note) locate(note.target, note.id);
+            if (note) locate(currentThreadTarget(note), note.id, "current");
           },
           fbComment: () => action("comment"),
           fbResolve: () => action("resolve"),

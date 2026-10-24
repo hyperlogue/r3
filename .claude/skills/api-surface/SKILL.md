@@ -127,6 +127,29 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Bounds and matching semantics belong to the schema document.
   `artifact_summary` and `version_summary` are historical read-only targets;
   new threads and comment fix targets reject description anchors.
+- `POST /api/artifacts/:id/thread-anchors` takes `ArtifactReanchorBody`: actor,
+  expectedSeq, operationKey and 1–100 distinct items with threadId,
+  expectedAnchorRevision, native destination and optional mediaSnapshot. The whole
+  batch commits or fails. New destinations must name the latest publication;
+  quote/prefix/suffix replacement is rejected and original evidence stays immutable.
+  Revision 0 means no prior anchor. Responses contain per-thread revision/changed
+  results. Exact operation-key replay never reapplies an old location. Archive,
+  publication and revision races fail with 409 after preparation. Body limit is
+  40 MiB, with the existing per-image bounds. Authentication, origin and no-store
+  behavior match other conversation routes.
+- `GET /api/threads/:id/anchor-resolution?version=N` returns
+  `ArtifactAnchorResolution` for the saved current/original target in that version.
+  It validates retained native evidence, returning anchored, ambiguous, unplaced
+  or runtime-required. Rendered candidates need the guarded document runtime.
+  Reads never change anchors, claims, delivery or subscriptions.
+- Comment creation optionally accepts `reanchor: { expectedSeq,
+  expectedAnchorRevision }` with its native fix target. Comment, Fix evidence,
+  current anchor and the author's claim release commit atomically. The ordinary
+  Comment response remains unchanged. CLI `comment --target` supplies this intent
+  for latest-version fixes; historical fixes do not move threads. CLI errors expose
+  the original key and guards for exact retries. API callers omitting `reanchor`
+  retain Fix-only behavior. Reads expose `Thread.anchor`; comment evidence and
+  comparisons stay pinned, and original quotes never change.
 - `GET /api/threads/:id/source` returns `ArtifactSourceRange` for the original
   source/diff line target: artifact, version, path, side (`null` for source),
   inclusive start/end, and complete text with LF separators. Rendered, general,
@@ -334,6 +357,7 @@ The current command families:
 | `thread add/edit/delete`, `comment` | Native immutable originals and derived comment references; `--human` required for status edits |
 | `claim`, `release` | Registered session owns a renewable thread-scoped lease |
 | `comment fetch`, `watch`, `listen`, `unlisten` | Comment delivery and one selected subscription |
+| `thread reanchor <thread-id>`, `thread reanchor --artifact <id> --version N --input <file|->` | Native current destination; atomic bulk, optional explicit revision guard; no quote edit |
 | `thread source <thread-id> [--json]` | Read the full original source/diff range on demand; numbered text by default, structured range metadata/text with `--json` |
 | `archive`, `restore` | Ordered retained lifecycle events, optional archive message, retry operation key |
 | `project list/create/edit/delete` | Optional grouping, remote metadata, independent of Git paths |

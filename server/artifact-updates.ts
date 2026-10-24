@@ -72,6 +72,9 @@ export class ArtifactUpdates {
         (thread) => thread?.comments.map((comment) => comment.author.sessionId) ?? [],
       ),
       ...claims.map((claim) => claim.sessionId),
+      ...threads.flatMap((thread) =>
+        thread?.anchor?.actor.sessionId ? [thread.anchor.actor.sessionId] : [],
+      ),
     ];
     return {
       delta: true,

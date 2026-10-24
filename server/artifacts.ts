@@ -187,6 +187,7 @@ export class ArtifactStore {
       UNION SELECT artifact_id FROM artifact_versions WHERE publisher_session_id = ?1
       UNION SELECT artifact_id FROM threads WHERE agent_session_id = ?1
       UNION SELECT artifact_id FROM comments WHERE agent_session_id = ?1
+      UNION SELECT artifact_id FROM thread_anchors WHERE agent_session_id = ?1
       UNION SELECT artifact_id FROM artifact_events WHERE agent_session_id = ?1
       UNION SELECT t.artifact_id FROM thread_claims c JOIN threads t ON t.id = c.thread_id
         WHERE c.agent_session_id = ?1
@@ -327,7 +328,7 @@ export class ArtifactStore {
   private attachmentUsage(id: string): { attachmentBytes?: number } {
     const bytes = this.db
       .query<{ bytes: number }, [string]>(
-        "SELECT COALESCE(SUM(byte_length), 0) AS bytes FROM blobs WHERE hash IN (SELECT blob_hash FROM message_attachments WHERE artifact_id = ?)",
+        "SELECT COALESCE(SUM(byte_length), 0) AS bytes FROM blobs WHERE hash IN (SELECT blob_hash FROM message_attachments WHERE artifact_id = ?1 UNION SELECT blob_hash FROM thread_anchor_frames WHERE artifact_id = ?1)",
       )
       .get(id)!.bytes;
     return bytes ? { attachmentBytes: bytes } : {};

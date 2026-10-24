@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commentAttachments } from "../shared/artifact-prompt.ts";
 import type { ArtifactMediaTarget } from "../shared/artifacts.ts";
+import { ARTIFACT_ANCHOR_SCHEMA } from "./artifact-anchor-schema.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { ATTACHMENT_SCHEMA } from "./artifact-attachments.ts";
 import { ArtifactConversations } from "./artifact-conversations.ts";
@@ -189,6 +190,8 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
     const old = ARTIFACT_SCHEMA.replaceAll(", 'media'", "");
     db.exec(old);
     db.exec(ATTACHMENT_SCHEMA);
+    // Current fixture writers need the auxiliary tables; remove them before the real old-schema upgrade.
+    db.exec(ARTIFACT_ANCHOR_SCHEMA);
     installArtifactUsage(db, null);
     const artifacts = new ArtifactStore(db, new BlobStore(join(root, "blobs")), async (text) => ({
       html: text,
@@ -219,6 +222,9 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
     });
     const before = conversations.get(note.id);
     const activity = db.query("SELECT * FROM artifact_activity ORDER BY occurred_at, metric").all();
+    db.exec(
+      "DROP TABLE thread_anchor_frames; DROP TABLE thread_anchor_operations; DROP TABLE thread_anchors",
+    );
     db.exec(
       "DROP INDEX target_frame_threads; DROP INDEX target_frame_comment; DROP TRIGGER immutable_message_attachment; ALTER TABLE message_attachments DROP COLUMN purpose; PRAGMA user_version = 9",
     );

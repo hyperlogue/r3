@@ -16,8 +16,10 @@ import type {
   ArtifactSource,
   ArtifactSourceRange,
   ArtifactTarget,
+  ArtifactThread,
   ArtifactVersion,
   ArtifactWatchResult,
+  CreateArtifactCommentBody,
   Representation,
 } from "../shared/artifacts.ts";
 import { ARTIFACT_WATCH_EXIT } from "../shared/artifacts.ts";
@@ -25,6 +27,7 @@ import { normalizeGitRemote } from "../shared/git-remote.ts";
 import { ArtifactArgs, ArtifactCommandError } from "./artifact-args.ts";
 import { fetchArtifactComments } from "./artifact-comments.ts";
 import { publishArtifactCommand } from "./artifact-publish.ts";
+import { quoteArgument, reanchorCommand } from "./artifact-reanchor.ts";
 import { runUsageCommand } from "./artifact-usage.ts";
 import { downloadAttachment, readAttachmentFiles, saveAttachment } from "./attachment-files.ts";
 import { currentHarnessSession, detectListener } from "./listener.ts";
@@ -114,7 +117,7 @@ export async function runArtifactCommand(
 ): Promise<number> {
   if (command === "stat" || command === "gc") return runUsageCommand(command, argv, ctx);
   const args = new ArtifactArgs(argv);
-  if (command === "thread" && ["source"].includes(args.positional[0]!)) {
+  if (command === "thread" && ["source", "reanchor"].includes(args.positional[0]!)) {
     command = `thread ${args.positional.shift()}`;
   }
   if (command === "comment" && ["fetch", "show", "edit", "image"].includes(args.positional[0]!))
@@ -169,7 +172,15 @@ export async function runArtifactCommand(
     "comment fetch": ["all", "threads", "attachments-dir"],
     "comment show": [],
     "comment edit": ["message", "attach", "clear-attachments"],
-    comment: ["message", "attach", "frame", "key", ...targetFlags],
+    comment: ["message", "attach", "frame", "key", "expected", "expected-anchor", ...targetFlags],
+    "thread reanchor": [
+      ...targetFlags.filter((flag) => flag !== "quote"),
+      "frame",
+      "key",
+      "expected-anchor",
+      "artifact",
+      "input",
+    ],
     claim: [],
     release: [],
     "comment image": ["image", "output"],
@@ -185,15 +196,18 @@ export async function runArtifactCommand(
   if (args.has("attach") && args.has("clear-attachments"))
     throw new ArtifactCommandError("Use --attach or --clear-attachments, not both");
   const count = args.positional.length;
-  const expected = ["create", "list"].includes(command)
-    ? 0
-    : command === "thread"
-      ? 2
-      : command === "project"
-        ? ["delete", "edit"].includes(args.positional[0])
+  const expected =
+    command === "thread reanchor" && args.has("artifact")
+      ? 0
+      : ["create", "list"].includes(command)
+        ? 0
+        : command === "thread"
           ? 2
-          : 1
-        : 1;
+          : command === "project"
+            ? ["delete", "edit"].includes(args.positional[0])
+              ? 2
+              : 1
+            : 1;
   if (!["claim", "release"].includes(command) && count !== expected)
     throw new ArtifactCommandError(
       `${command} expects ${expected} positional argument${expected === 1 ? "" : "s"}`,
@@ -339,6 +353,9 @@ export async function runArtifactCommand(
           await print(
             `\n${threads.id} [${threads.status}] ${artifactThreadTargetLabel(threads)}${threads.claim ? ` · working: ${threads.claim.sessionId}` : ""}\n[${threads.comments[0]!.author.role}${threads.comments[0]!.author.sessionId ? ` ${threads.comments[0]!.author.sessionId}` : ""}] ${threads.comments[0]!.body}\nTarget: ${JSON.stringify(threads.target)}${threads.comments[0]!.legacy ? `\nImported evidence: ${JSON.stringify(threads.comments[0]!.legacy)}` : ""}`,
           );
+          await print(
+            `Anchor revision: ${threads.anchor?.revision ?? 0}${threads.anchor ? `\nCurrent thread target: ${JSON.stringify(threads.anchor.target)}` : ""}`,
+          );
           if (threads.comments[0]!.attachments?.length)
             await print(attachmentPrompt(threads.comments[0]!.attachments));
           for (const comment of threads.comments.slice(1)) {
@@ -363,6 +380,10 @@ export async function runArtifactCommand(
         await client.json("GET", `${artifactApiPath(args.id())}/versions/${args.sequence()}/files`),
       );
       return 0;
+    case "thread reanchor": {
+      await print(await reanchorCommand(args, ctx, await actor()));
+      return 0;
+    }
     case "thread source": {
       const source = await client.json<ArtifactSourceRange>(
         "GET",
@@ -479,18 +500,57 @@ export async function runArtifactCommand(
         throw new ArtifactCommandError(
           "References inherit the thread target; use --target or --file for a different published location",
         );
-      await print(
-        await client.json("POST", `${threadApiPath(args.id())}/comments`, {
-          actor: await actor(),
-          body: await message(),
-          attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd),
-          ...(args.has("frame")
-            ? { mediaSnapshot: (await readAttachmentFiles([args.require("frame")], ctx.cwd))[0] }
-            : {}),
-          operationKey: args.value("key"),
-          target: args.has("target") || args.has("file") ? commandTarget(args) : undefined,
-        }),
-      );
+      const target = args.has("target") || args.has("file") ? commandTarget(args) : undefined;
+      const input: CreateArtifactCommentBody = {
+        actor: await actor(),
+        body: await message(),
+        attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd),
+        ...(args.has("frame")
+          ? { mediaSnapshot: (await readAttachmentFiles([args.require("frame")], ctx.cwd))[0] }
+          : {}),
+        operationKey: args.value("key"),
+        target: target as CreateArtifactCommentBody["target"],
+      };
+      if (target && "path" in target) {
+        const thread = await client.json<ArtifactThread>("GET", threadApiPath(args.id()));
+        const latest = args.has("expected")
+          ? args.sequence("expected")
+          : (await detail(thread.artifactId)).latestVersion?.seq;
+        if (args.has("expected") || target.versionSeq === latest) {
+          if (!Object.hasOwn(thread, "anchor"))
+            throw new ArtifactCommandError(
+              "This backend does not support thread re-anchoring. Upgrade the backend before posting this targeted reply.",
+            );
+          input.reanchor = {
+            expectedSeq: latest!,
+            expectedAnchorRevision: args.has("expected-anchor")
+              ? args.sequence("expected-anchor", true)
+              : (thread.anchor?.revision ?? 0),
+          };
+          input.operationKey ??= randomUUID();
+        } else if (args.has("expected-anchor"))
+          throw new ArtifactCommandError(
+            "Historical fix targets do not re-anchor; omit --expected-anchor",
+          );
+      } else if (args.has("expected") || args.has("expected-anchor"))
+        throw new ArtifactCommandError("Re-anchor guards require a document fix target");
+      try {
+        await print(await client.json("POST", `${threadApiPath(args.id())}/comments`, input));
+      } catch (error) {
+        if (
+          input.reanchor &&
+          error instanceof ArtifactApiError &&
+          error.message.includes("Operation key")
+        )
+          ctx.error(
+            "This key belongs to an earlier prepared request. Reuse its original content and guards; inspect the saved result before choosing a fresh key.",
+          );
+        else if (input.reanchor)
+          ctx.error(
+            `Comment and re-anchor not confirmed. Retry unchanged content with --key=${quoteArgument(input.operationKey!)} --expected=${input.reanchor.expectedSeq} --expected-anchor=${input.reanchor.expectedAnchorRevision}.`,
+          );
+        throw error;
+      }
       return 0;
     }
     case "claim":

@@ -258,7 +258,11 @@ export class ArtifactTargets {
     return { kind, versionSeq, path, locator };
   }
 
-  async sourceRange(id: string, target: ArtifactTarget): Promise<ArtifactSourceRange> {
+  async sourceRange(
+    id: string,
+    target: ArtifactTarget,
+    verifyQuote = true,
+  ): Promise<ArtifactSourceRange> {
     if ((target.kind !== "source" && target.kind !== "diff") || !target.locator)
       throw new ArtifactError("Thread has no captured source or diff line range");
     const versionSeq = requireSequence(target.versionSeq);
@@ -295,7 +299,9 @@ export class ArtifactTargets {
       if (source.endsWith("\n")) all.pop();
       lines = all.slice(locator.start - 1, locator.end);
     }
-    checkSourceQuote(lines, locator);
+    if (verifyQuote) checkSourceQuote(lines, locator);
+    else if (lines.length !== locator.end - locator.start + 1)
+      throw new ArtifactError("Target range is absent from captured content");
     return {
       artifactId: id,
       versionSeq,

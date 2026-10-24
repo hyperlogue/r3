@@ -73,6 +73,160 @@ async function create() {
   ]);
   return JSON.parse(result.text).artifact.id as string;
 }
+test("re-anchor commands and targeted replies preserve evidence and expose exact retry guards", async () => {
+  const id = await create();
+  const thread = await storage.conversations.add(id, {
+    actor: { role: "human", sessionId: null },
+    body: "Original",
+    target: {
+      kind: "rendered",
+      versionSeq: 1,
+      path: "index.html",
+      locator: { selector: "h1", quote: "First" },
+    },
+  });
+  await writeFile(join(ctx.cwd, "index.html"), "<h1 id=changed>Second</h1>\n");
+  await command("publish", [id, "--dir", ".", "--expected", "1"]);
+  const single = await command("thread", [
+    "reanchor",
+    thread.id,
+    "--version",
+    "2",
+    "--file",
+    "index.html",
+    "--view",
+    "rendered",
+    "--selector",
+    "#changed",
+    "--key",
+    "move",
+  ]);
+  expect(JSON.parse(single.text).results[0].revision).toBe(1);
+  expect(storage.conversations.get(thread.id).target).toEqual(thread.target);
+  await expect(
+    command("thread", [
+      "reanchor",
+      thread.id,
+      "--version",
+      "2",
+      "--file",
+      "index.html",
+      "--view",
+      "rendered",
+      "--quote",
+      "replacement",
+    ]),
+  ).rejects.toThrow("--quote");
+  const fix = {
+    kind: "rendered",
+    versionSeq: 2,
+    path: "index.html",
+    locator: { selector: "h1", quote: "Second" },
+  };
+  const reply = JSON.parse(
+    (
+      await command("comment", [
+        thread.id,
+        "-m",
+        "Fixed",
+        "--target",
+        JSON.stringify(fix),
+        "--key",
+        "fix",
+      ])
+    ).text,
+  );
+  expect(storage.conversations.get(thread.id).anchor?.revision).toBe(2);
+  ctx.stdin = async () =>
+    JSON.stringify([
+      {
+        threadId: thread.id,
+        expectedAnchorRevision: 2,
+        target: { ...fix, locator: { selector: "#changed" } },
+      },
+    ]);
+  await command("thread", [
+    "reanchor",
+    "--artifact",
+    id,
+    "--version",
+    "2",
+    "--input",
+    "-",
+    "--key",
+    "bulk",
+  ]);
+  expect(storage.conversations.get(thread.id).anchor?.revision).toBe(3);
+  // Retrying without the captured guard conflicts instead of rewinding the anchor.
+  await expect(
+    command("comment", [thread.id, "-m", "Fixed", "--target", JSON.stringify(fix), "--key", "fix"]),
+  ).rejects.toThrow("different message");
+  expect(errors.at(-1)).toContain("original content and guards");
+  const replay = JSON.parse(
+    (
+      await command("comment", [
+        thread.id,
+        "-m",
+        "Fixed",
+        "--target",
+        JSON.stringify(fix),
+        "--key",
+        "fix",
+        "--expected",
+        "2",
+        "--expected-anchor",
+        "1",
+      ])
+    ).text,
+  );
+  expect(replay.id).toBe(reply.id);
+  expect(storage.conversations.get(thread.id).anchor?.revision).toBe(3);
+  await command("comment", [
+    thread.id,
+    "-m",
+    "Historical",
+    "--target",
+    JSON.stringify(thread.target),
+  ]);
+  expect(storage.conversations.get(thread.id).anchor?.revision).toBe(3);
+  const fetched = await command("comment", ["fetch", id, "--all"]);
+  expect(fetched.text).toContain("Anchor revision: 3");
+  expect(fetched.text).toContain("Current thread target:");
+});
+test("latest targeted replies refuse old backends before posting a Fix-only message", async () => {
+  const id = await create();
+  const thread = await storage.conversations.add(id, {
+    actor: { role: "human", sessionId: null },
+    body: "Original",
+    target: { kind: "artifact" },
+  });
+  ctx.client = new ArtifactClient({
+    url: "http://localhost",
+    fetch: async (request) => {
+      request.headers.set("host", "localhost");
+      const response = await api.app.request(request);
+      if (
+        request.method === "GET" &&
+        new URL(request.url).pathname === `/api/threads/${thread.id}`
+      ) {
+        const old = await response.json();
+        delete old.anchor;
+        return Response.json(old);
+      }
+      return response;
+    },
+  });
+  await expect(
+    command("comment", [
+      thread.id,
+      "-m",
+      "Fix",
+      "--target",
+      JSON.stringify({ kind: "rendered", versionSeq: 1, path: "index.html", locator: null }),
+    ]),
+  ).rejects.toThrow("does not support thread re-anchoring");
+  expect(storage.conversations.get(thread.id).comments).toHaveLength(1);
+});
 describe("artifact CLI over the HTTP contract", () => {
   test("media fixes upload snapshots and comment fetch downloads authoritative frames", async () => {
     const human = { role: "human", sessionId: null } as const;

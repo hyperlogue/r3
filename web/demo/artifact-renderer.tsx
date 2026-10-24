@@ -201,8 +201,8 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
           )
             props.onThread(message.threadId);
         } else if (message.type === "r3-preview-located" && message.nonce === props.jump?.nonce) {
-          if (["anchored", "ambiguous", "unplaced"].includes(message.state))
-            props.onLocated?.(message.state);
+          if (["anchored", "ancestor", "ambiguous", "unplaced"].includes(message.state))
+            props.onLocated?.(message.state, message.nonce);
           setNotice(
             message.state === "ambiguous"
               ? translateNow("common.thisTargetMatchesMoreThanOnePlace")

@@ -651,9 +651,48 @@ diff selections use their own range gestures. Each creates a native target:
 Artifact-wide notes and whole-document/file targets are explicit variants.
 Summary targets survive only as historical evidence; new comments cannot use them. Absence of version context never secretly means latest.
 
-A Thread's original target is immutable. Use a Comment's fix target to name a
-later published location. Historical **placements** remain readable with their native
-evidence and match state, but new placement authoring is retired.
+A Thread's original target and quote are immutable. Its optional current **anchor**
+is a separate native destination; only original and current thread positions are
+stored. Historical **placements** remain readable without becoming current anchors.
+A Comment's fix target stays pinned to that reply even after another thread move.
+
+`thread reanchor` accepts coordinates rather than replacement quotation text.
+The server derives source/diff matching evidence from retained destination bytes;
+rendered moves use verified native selectors, routes and viewports. Media moves
+own new full-frame evidence, independently of original and comment frames. General
+and resolved threads may receive a current anchor in any representation valid for
+the artifact's kind. Archived artifacts reject new moves.
+
+One artifact-scoped batch of up to 100 threads commits atomically. The transaction
+checks latest publication, thread membership and each anchor revision after content
+preparation. Revision zero means no explicit anchor. Identical destinations are
+no-ops. Replays return their receipt without moving threads again. A move invalidates
+conversation snapshots but neither delivers messages, releases claims, resolves
+threads, changes conversation ordering nor sends a notification.
+
+The CLI's latest-version `comment --target` requests both writes in the same
+transaction. It requires an anchor-capable thread read and refuses older backends
+before posting, so a legacy server cannot silently save only half of the operation. An older-version target saves only the reply's Fix evidence. Existing
+API clients can still post Fix-only comments; explicit `reanchor` guards opt into
+the combined write. Original quotes and saved message reference contexts never change.
+
+The thread card's primary link has no version suffix and uses the current anchor,
+or the original when there has been no move. On click, native lookup tries the
+latest publication: source/diff must have a unique complete captured range in the
+same file and side; whole-file targets require membership; media requires identical
+bytes; rendered targets require the latest guarded runtime to match their native
+selector/shadow path and optional quote. Ancestor fallback is not an exact match.
+Missing/ambiguous results open the saved destination and explain the fallback.
+Preview admission failures stay blocked. Lookup is read-only and never stores a
+placement or changes attribution. Navigation nonces and anchor/publication identity
+reject late results. New publications alone do not change the reader's view.
+
+After an explicit re-anchor, a small history button immediately after the primary
+link opens the original position. Fix and Compare actions keep their recorded
+comment targets. Original quotes/frames remain visible as evidence. Source/diff and
+preview markers prefer the explicit current anchor within its version; original
+and retained historical markers remain available in earlier views. The shared card
+and Locate behavior also apply in the mobile sheet and keyboard navigation.
 
 Rendered Markdown thread addresses visible content directly. For example, a note
 on a link label does not need a computed Markdown source range. Its thread appears

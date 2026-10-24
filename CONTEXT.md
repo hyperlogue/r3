@@ -105,6 +105,14 @@ A resolvable topic within an artifact's discussion, with an immutable original
 target and an ordered list of comments beginning with its opening comment.
 _Avoid_: Discussion (for one topic), comment (for the whole thread), feedback.
 
+**Thread anchor**:
+A thread’s latest explicitly recorded destination. It can move as the artifact
+changes while the thread’s original target and quotation remain permanent evidence.
+
+**Fix target**:
+The published location recorded by an individual reply as evidence of its fix.
+It stays with that reply even when the thread’s anchor moves again.
+
 **Comment**:
 An authored message in a thread or directly in an artifact's discussion, optionally
 pointing to a published location. A reply continues a thread; an archive comment

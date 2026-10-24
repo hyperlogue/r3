@@ -727,7 +727,7 @@ function PreviewSession(
           message.nonce === current.current.jump?.nonce
         ) {
           if (["anchored", "ancestor", "ambiguous", "unplaced"].includes(message.state))
-            current.current.onLocated?.(message.state);
+            current.current.onLocated?.(message.state, message.nonce);
           setNotice(
             message.state === "ambiguous"
               ? t("common.thisTargetMatchesMoreThanOnePlace")

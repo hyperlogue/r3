@@ -8,6 +8,7 @@ import {
   type ArtifactTarget,
   type ArtifactVersion,
   artifactMediaKind,
+  currentThreadTarget,
   type RenderedLocator,
 } from "../../shared/artifacts.ts";
 import { hasMessageContent } from "../../shared/attachments.ts";
@@ -28,6 +29,7 @@ import {
   type ArtifactPageChrome,
   type ArtifactPageData,
   ArtifactUIProvider,
+  useArtifactClient,
 } from "./artifact-ui-context.tsx";
 import { artifactViewForTarget, stepArtifactVersion } from "./artifact-version.ts";
 import { artifactWorkspaceSelections } from "./artifact-workspace-state.ts";
@@ -95,7 +97,7 @@ export interface ArtifactRenderedPaneProps {
   highlightLocated?: boolean;
   independentReading?: boolean;
   previewLabel?: string;
-  onLocated?: (state: PreviewLocateState) => void;
+  onLocated?: (state: PreviewLocateState, nonce?: number) => void;
   commenting: boolean;
   jump: {
     locator: RenderedLocator | null;
@@ -562,7 +564,7 @@ function Workspace({
     target: ArtifactMediaTarget;
     nonce: number;
   } | null>(null);
-  const locate = useCallback<ArtifactTargetJump>(
+  const locateRecorded = useCallback<ArtifactTargetJump>(
     (target, threadId) => {
       comparison.close(false);
       const next = artifactViewForTarget(detail.kind, target, view);
@@ -600,6 +602,87 @@ function Workspace({
       } else paneRef.current?.scrollTo({ top: 0 });
     },
     [detail.kind, view, changeView, comparison.close, t],
+  );
+  const navigationClient = useArtifactClient();
+  const latestDetail = useRef(detail);
+  latestDetail.current = detail;
+  const pendingAnchorLookup = useRef<{
+    nonce: number;
+    threadId: string;
+    saved: ArtifactTarget;
+    revision: number;
+    seq: number;
+  } | null>(null);
+  const locate = useCallback<ArtifactTargetJump>(
+    (target, threadId, intent) => {
+      pendingAnchorLookup.current = null;
+      if (intent !== "current" || !threadId) {
+        locateRecorded(target, threadId, intent);
+        return;
+      }
+      const current = latestDetail.current;
+      const thread = current.threads.find((item) => item.id === threadId);
+      const seq = current.versions.at(-1)?.seq;
+      if (!thread || !seq || !isArtifactDocumentTarget(currentThreadTarget(thread))) {
+        locateRecorded(target, threadId, intent);
+        return;
+      }
+      const saved = currentThreadTarget(thread);
+      const revision = thread.anchor?.revision ?? 0;
+      const nonce = ++jumpNonce.current;
+      void navigationClient
+        .anchorResolution(threadId, seq)
+        .then((result) => {
+          const latestThread = latestDetail.current.threads.find((item) => item.id === threadId);
+          if (
+            !latestThread ||
+            jumpNonce.current !== nonce ||
+            latestDetail.current.versions.at(-1)?.seq !== seq ||
+            (latestThread.anchor?.revision ?? 0) !== revision ||
+            result.anchorRevision !== revision
+          )
+            return;
+          const found =
+            result.target && (result.state === "anchored" || result.state === "runtime-required");
+          locateRecorded(found ? result.target! : saved, threadId, "current");
+          if (result.state === "runtime-required" && result.target)
+            pendingAnchorLookup.current = {
+              nonce: jumpNonce.current,
+              threadId,
+              saved,
+              revision,
+              seq,
+            };
+          else if (!found) setNotice(t("threads.latestUnavailable"));
+        })
+        .catch((error) => {
+          if (jumpNonce.current === nonce)
+            setNotice(error instanceof Error ? error.message : t("threads.latestUnavailable"));
+        });
+    },
+    [navigationClient, locateRecorded, t],
+  );
+  const onThreadLocated = useCallback(
+    (state: PreviewLocateState, nonce?: number) => {
+      const pending = pendingAnchorLookup.current;
+      if (!pending || nonce === undefined || nonce !== pending.nonce || jumpNonce.current !== nonce)
+        return;
+      pendingAnchorLookup.current = null;
+      const latestThread = latestDetail.current.threads.find(
+        (item) => item.id === pending.threadId,
+      );
+      if (
+        !latestThread ||
+        latestDetail.current.versions.at(-1)?.seq !== pending.seq ||
+        (latestThread.anchor?.revision ?? 0) !== pending.revision
+      )
+        return;
+      if (state !== "anchored") {
+        locateRecorded(pending.saved, pending.threadId, "current");
+        setNotice(t("threads.latestUnavailable"));
+      }
+    },
+    [locateRecorded, t],
   );
   useEffect(() => {
     if (!initialSearchEntry.current) return;
@@ -976,6 +1059,7 @@ function Workspace({
                       active: !comparison.active,
                       captureContainer: comparison.active ? null : captureContainer,
                       jump: renderedJump,
+                      onLocated: onThreadLocated,
                       targets: renderedTargets,
                       onTarget: anchor,
                       ...selectionProps,
@@ -1115,6 +1199,7 @@ function Workspace({
                                       detail.state === "active" && !comparison.active && commenting,
                                     active: !comparison.active,
                                     jump: view.path === file.path ? renderedJump : null,
+                                    onLocated: onThreadLocated,
                                     navigation: view.path === file.path ? renderedNavigation : null,
                                     targets: renderedTargets,
                                     onTarget: anchor,

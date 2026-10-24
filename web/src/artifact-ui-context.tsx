@@ -6,6 +6,7 @@ import type { artifactApi } from "./artifact-api.ts";
 // The same contracts are implemented by the connected app and in-memory hosts.
 export type ArtifactPageData = Pick<
   typeof artifactApi,
+  | "anchorResolution"
   | "detail"
   | "files"
   | "source"

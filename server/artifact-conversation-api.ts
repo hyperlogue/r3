@@ -12,7 +12,7 @@ import type { ArtifactCollaboration } from "./artifact-collaboration.ts";
 import { artifactEvents } from "./artifact-events.ts";
 import { artifactJson, artifactJsonResponse } from "./artifact-http.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
-import { ArtifactError, requireString } from "./artifact-validation.ts";
+import { ArtifactError, requireSequence, requireString } from "./artifact-validation.ts";
 
 function ids(value: unknown, required = false): string[] | undefined {
   if (value === undefined && !required) return undefined;
@@ -63,6 +63,20 @@ export function installArtifactConversations(
     );
     changed(threads.artifactId, threads.id);
     return c.json(threads, 201);
+  });
+  app.post("/api/artifacts/:id/thread-anchors", async (c) => {
+    const result = await conversations.anchors.reanchor(
+      c.req.param("id"),
+      await artifactJson(c.req.raw, ATTACHMENT_LIMITS.requestBytes),
+    );
+    for (const item of result.results) if (item.changed) changed(c.req.param("id"), item.threadId);
+    c.header("Cache-Control", "no-store");
+    return c.json(result);
+  });
+  app.get("/api/threads/:id/anchor-resolution", async (c) => {
+    const seq = requireSequence(Number(c.req.query("version")));
+    c.header("Cache-Control", "private, no-store");
+    return c.json(await conversations.anchors.resolve(c.req.param("id"), seq));
   });
   app.get("/api/threads/:id", (c) => c.json(conversations.get(c.req.param("id"))));
   app.get("/api/threads/:id/source", async (c) =>

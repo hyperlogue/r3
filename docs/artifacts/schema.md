@@ -65,6 +65,9 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | threads | id | Artifact ownership, author role/agent session, body, open/resolved status, immutable original target, legacy anchor evidence, delivery fields, timestamps |
 | comments | id | Thread ownership, author role/agent session, body, derived reference context, optional fix target, legacy reference evidence, delivery time. No status |
 | artifact_comments | id | Messages directly in the artifact's discussion, including archive comments; author, body, delivery time, and edit revision. No thread or resolution status |
+| thread_anchors | thread_id | Current native destination, revision, actor and timestamps; original target and quote remain on threads |
+| thread_anchor_frames | id; unique thread_id | Current anchor revision’s independent immutable PNG/JPEG frame ownership |
+| thread_anchor_operations | artifact_id + operation_key | Exact request hash and replay outcome (thread IDs/revisions, not prior coordinates) |
 | thread_placements | thread_id + version_seq + document_path + representation | Additional native locator and anchored/unplaced/ambiguous match state |
 | thread_claims | thread_id | One renewable agent_session_id-owned lease: claimed_at, renewed_at, expires_at |
 | viewed_marks | artifact_id + key | Existing read-progress identity, including representation when needed |
@@ -583,3 +586,26 @@ compact IDs without rewriting artifacts, versions, threads, or links. Existing
 UUID-based `artifact_` and imported `review_` IDs remain valid and do not have
 creation-order sorting guarantees. Clients must use `createdAt` for chronological
 ordering across historical formats and must not infer timestamps from IDs.
+
+
+## Current thread anchors (schema 18)
+
+Schema 18 adds empty anchor, anchor-frame and operation-receipt tables under the
+existing backup/transaction/integrity migration. It never guesses an anchor from
+old placements or comment Fix targets. Composite foreign keys retain thread,
+artifact, kind and published-version membership; original-target immutability stays
+in force. Current-anchor revisions advance on actual changes. Standalone writes
+reject quote/prefix/suffix replacement fields; stored destination matching evidence
+is prepared separately and never replaces the original quote displayed on the card.
+
+Frames have their own anchor-revision owner. A combined media Fix/anchor write can
+share content-addressed bytes while retaining distinct ownership records. Moving
+an anchor removes only its previous frame owner. Attachment reads, usage accounting
+and GC include these roots under the same authentication and membership rules.
+
+Reads add `Thread.anchor` (null before a move), including target, revision, actor
+and timestamps. Incremental thread updates and actor-label projections include it.
+The read-only anchor-resolution projection carries the inspected revision, requested
+version, native candidate and anchored/ambiguous/unplaced/runtime-required result.
+Runtime-required candidates are validated only for document membership until the
+trusted preview runtime reports a unique match. No lookup result is persisted.
