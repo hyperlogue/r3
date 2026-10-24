@@ -34,7 +34,7 @@ import { Button, ChevronDown, Collapse, StrokeIcon } from "../ui.tsx";
 const control =
   "min-h-8 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs focus-visible:outline-primary-500 max-md:min-h-9 max-md:min-w-0 max-md:w-full max-md:text-base dark:border-neutral-700 dark:bg-neutral-950";
 const filterControl =
-  "min-h-9 min-w-0 w-full appearance-none rounded-none bg-transparent py-2 pl-4 pr-[calc(1.75rem+12px)] text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-11 max-md:text-base dark:hover:bg-neutral-900";
+  "min-h-9 min-w-0 w-full appearance-none rounded-none bg-transparent py-2 pl-4 pr-[calc(1.75rem+12px)] text-xs hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:min-h-9 max-md:py-1 max-md:text-[max(16px,0.875rem)] max-md:text-neutral-600 dark:max-md:text-neutral-400 dark:hover:bg-neutral-900";
 
 function LibrarySelect({ className = "", ...props }: ComponentProps<"select">) {
   return (
@@ -337,13 +337,16 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-950">
         <div data-library-header className="shrink-0 overflow-hidden [scrollbar-gutter:stable]">
-          <div className="border-b border-neutral-200 dark:border-neutral-800">
-            <div className="flex items-baseline gap-3 px-5 pb-4 pt-6 max-md:px-4 max-md:pt-5">
+          <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-baseline gap-3 px-5 pb-4 pt-6 max-md:border-b max-md:border-neutral-200 max-md:px-4 max-md:py-3 dark:max-md:border-neutral-800">
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-xl font-semibold tracking-tight" title={title}>
-                  {title}
+                <h1 className="truncate text-xl font-semibold tracking-tight">
+                  <span className="max-md:hidden" title={title}>
+                    {title}
+                  </span>
+                  <span className="md:hidden">{t("common.artifacts")}</span>
                 </h1>
-                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                <p className="mt-1 text-xs text-neutral-500 max-md:hidden dark:text-neutral-400">
                   {state.view === "archived"
                     ? t("home.everyVersionAndConversationRetained")
                     : t("home.pickUpWhereTheConversationLeftOff")}
@@ -356,52 +359,7 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                 })}
               </span>
             </div>
-            <div className="flex items-center gap-2.5 border-y border-neutral-200 bg-neutral-50 px-5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-primary-500 max-md:px-4 dark:border-neutral-800 dark:bg-neutral-900">
-              <StrokeIcon className="size-4 shrink-0 text-neutral-400">
-                <circle cx="10.5" cy="10.5" r="6.5" />
-                <path d="m16 16 5 5" />
-              </StrokeIcon>
-              <input
-                ref={searchInput}
-                type="search"
-                aria-label={t("home.searchArtifactsContentAndConversations")}
-                placeholder={t("home.searchArtifactsContentAndConversations2")}
-                maxLength={256}
-                value={state.q}
-                onChange={(event) => update({ q: event.target.value })}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    pane.current?.querySelector<HTMLAnchorElement>("[data-library-row]")?.focus();
-                  }
-                }}
-                className="h-11 min-w-0 flex-1 rounded-none bg-transparent text-sm outline-none max-md:text-base"
-              />
-              {state.q && (
-                <button
-                  type="button"
-                  aria-label={t("home.clearSearch")}
-                  className="flex size-8 shrink-0 items-center justify-center text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
-                  onClick={() => {
-                    update({ q: "" });
-                    searchInput.current?.focus();
-                  }}
-                >
-                  <StrokeIcon className="size-4">
-                    <path d="m6 6 12 12M6 18 18 6" />
-                  </StrokeIcon>
-                </button>
-              )}
-              <button
-                type="button"
-                aria-label={t("home.focusSearchControlOrCommandK")}
-                onClick={() => searchInput.current?.focus()}
-                className="rounded border border-neutral-300 px-1.5 py-0.5 text-[0.65rem] text-neutral-500 max-md:hidden dark:border-neutral-700"
-              >
-                <kbd>{t("home.ctrlK")}</kbd>
-              </button>
-            </div>
-            <div className="flex flex-wrap items-stretch max-md:grid max-md:grid-cols-2">
+            <div className="flex flex-wrap items-stretch max-md:grid max-md:grid-cols-2 md:order-2">
               <div className="flex min-w-0 items-center max-md:col-span-2 max-md:border-b max-md:border-neutral-200 dark:max-md:border-neutral-800">
                 <LibrarySelect
                   aria-label={t("home.artifactKind")}
@@ -506,6 +464,51 @@ export function ArtifactHome({ initialSearch }: { initialSearch?: string }) {
                   <option value="title">{t("home.titleAZ")}</option>
                 </LibrarySelect>
               )}
+            </div>
+            <div className="flex items-center gap-2.5 border-y border-neutral-200 bg-neutral-50 px-5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-primary-500 max-md:border-b-0 max-md:px-4 md:order-1 dark:border-neutral-800 dark:bg-neutral-900">
+              <StrokeIcon className="size-4 shrink-0 text-neutral-400">
+                <circle cx="10.5" cy="10.5" r="6.5" />
+                <path d="m16 16 5 5" />
+              </StrokeIcon>
+              <input
+                ref={searchInput}
+                type="search"
+                aria-label={t("home.searchArtifactsContentAndConversations")}
+                placeholder={t("home.searchArtifactsContentAndConversations2")}
+                maxLength={256}
+                value={state.q}
+                onChange={(event) => update({ q: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault();
+                    pane.current?.querySelector<HTMLAnchorElement>("[data-library-row]")?.focus();
+                  }
+                }}
+                className="h-11 min-w-0 flex-1 rounded-none bg-transparent text-sm outline-none max-md:text-base"
+              />
+              {state.q && (
+                <button
+                  type="button"
+                  aria-label={t("home.clearSearch")}
+                  className="flex size-8 shrink-0 items-center justify-center text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                  onClick={() => {
+                    update({ q: "" });
+                    searchInput.current?.focus();
+                  }}
+                >
+                  <StrokeIcon className="size-4">
+                    <path d="m6 6 12 12M6 18 18 6" />
+                  </StrokeIcon>
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label={t("home.focusSearchControlOrCommandK")}
+                onClick={() => searchInput.current?.focus()}
+                className="rounded border border-neutral-300 px-1.5 py-0.5 text-[0.65rem] text-neutral-500 max-md:hidden dark:border-neutral-700"
+              >
+                <kbd>{t("home.ctrlK")}</kbd>
+              </button>
             </div>
           </div>
           {searching && (

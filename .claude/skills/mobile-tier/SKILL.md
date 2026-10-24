@@ -88,6 +88,11 @@ at a time. Returning restores the ordinary sheet state; drafts and conversation
 state remain shared. `MobileReviewChrome` owns this temporary geometry and
 `MobileComparisonTabs` owns the phone-only controls, both mounted by `ArtifactPage`.
 
+The library keeps the heading **Artifacts** across filters and hides its descriptive
+subtitle on phones. Compact, quieter kind/state/project/sort selectors precede the
+full-width search field. Native selectors retain a 16px minimum font and the shared
+compact touch height.
+
 ## Navigation
 
 The shared `JumpToFile` picker is a toolbar button for files/diff on **both** tiers: a flat
