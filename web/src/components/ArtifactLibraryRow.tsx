@@ -99,12 +99,14 @@ export function ArtifactLibraryRow({
     <a
       href={hrefFor(route)}
       data-library-row
+      data-search-match={match?.id}
+      data-search-category={match?.category}
       onClick={(event) => {
         onOpen();
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)
           return;
         event.preventDefault();
-        navigate(route);
+        navigate(route, match ? { r3SearchMatch: match } : undefined);
       }}
       className="group flex min-w-0 items-start gap-3 border-b border-neutral-200 px-5 py-2.5 text-inherit no-underline hover:bg-neutral-100/70 focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 max-md:gap-2.5 max-md:px-4 max-md:py-3 dark:border-neutral-800 dark:hover:bg-neutral-800/60"
     >

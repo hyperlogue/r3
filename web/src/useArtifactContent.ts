@@ -57,7 +57,11 @@ export function useArtifactContent(
         : (files ?? []).map((file) => file.path),
     [detail.kind, diffQuery.data, files],
   );
-  const path = view.path ?? (version?.kind === "html" ? version.entrypoint : paths[0]) ?? null;
+  const membershipReady = detail.kind === "diff" ? !!diffQuery.data : !!files;
+  const path =
+    (view.path && (!membershipReady || paths.includes(view.path)) ? view.path : null) ??
+    (version?.kind === "html" ? version.entrypoint : paths[0]) ??
+    null;
   const file = files?.find((file) => file.path === path);
   // The published entrypoint is already authoritative in version metadata.
   // Start its gate alongside the manifest; PreviewSession still waits for the

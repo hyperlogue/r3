@@ -109,8 +109,16 @@ try {
     mobile: false,
   });
   await page.command("Page.navigate", {
-    url: `http://localhost:${app.port}/?version=1&file=index.md&view=source`,
+    url: `http://localhost:${app.port}/?version=1`,
   });
+  await eventually(
+    () =>
+      page.evaluate("!!document.querySelector('[data-file=\"index.md\"] button[title=Source]')"),
+    "source toggle",
+  );
+  await page.evaluate(
+    "document.querySelector('[data-file=\"index.md\"] button[title=Source]').click()",
+  );
   const card = (id: string) =>
     `document.querySelector('[data-artifact-thread="${id}"]:not([inert]):not([inert] *)')`;
   await eventually(() => page.evaluate(`!!${card(notes[0].id)}`), "threads cards");
@@ -198,7 +206,10 @@ try {
   await page.command("Emulation.setEmulatedMedia", { features: [] });
   await page.evaluate(`${card(notes[1].id)}.querySelector('button[title]').click()`);
   await eventually(
-    () => page.evaluate("new URLSearchParams(location.search).get('file') === 'notes.txt'"),
+    () =>
+      page.evaluate(
+        "JSON.parse(sessionStorage.getItem('r3-workspace-selections-1') || '[]').some(([,view]) => view.path === 'notes.txt')",
+      ),
     "Explicit Locate still navigates to the anchor",
   );
   const agentIndicator = "document.querySelector('[data-agent-working]')";

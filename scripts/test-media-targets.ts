@@ -188,7 +188,7 @@ try {
       ...to,
     });
   };
-  const url = `http://localhost:${app.port}/${artifact.id}?version=1&file=clip.webm`;
+  const url = `http://localhost:${app.port}/${artifact.id}?version=1`;
   const mediaLayout = (path: string) =>
     page.evaluate(`(() => {
       const card = document.querySelector(${JSON.stringify(`[data-file="${path}"]`)});
@@ -205,8 +205,13 @@ try {
     })()`);
   for (const path of ["portrait.png", "image.png", "clip.webm", "portrait.webm"]) {
     await page.command("Page.navigate", {
-      url: `http://localhost:${app.port}/${artifact.id}?version=1&file=${path}`,
+      url,
     });
+    await eventually(
+      () => page.evaluate(`!!document.querySelector('button[title="${path}"]')`),
+      `${path} file navigation`,
+    );
+    await page.evaluate(`document.querySelector('button[title="${path}"]').click()`);
     await eventually(
       () =>
         page.evaluate(`(() => {

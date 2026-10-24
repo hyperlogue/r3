@@ -162,9 +162,8 @@ try {
     const id = isDiff ? diff.id : artifact.id;
     const side = scenario.side ?? "new";
     const source = isDiff ? (side === "old" ? oldLines : newLines) : lines;
-    await page.goto(
-      `http://localhost:${app.port}/${id}?version=1&file=${isDiff ? "code.txt" : "CHANGELOG.md"}&view=${scenario.kind}`,
-    );
+    await page.goto(`http://localhost:${app.port}/${id}?version=1`);
+    if (!isDiff) await page.locator('[data-file="CHANGELOG.md"] button[title="Source"]').click();
     const row = (line: number) => `[data-line="${line}"][data-side="${side}"]`;
     await page.locator(row(scenario.end)).waitFor();
     if (scenario.gesture === "gutter") {

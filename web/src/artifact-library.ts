@@ -93,20 +93,6 @@ export function artifactLibraryRoute(
   params.set("library", librarySearch(state));
   if (match) {
     if (match.versionSeq !== null) params.set("version", String(match.versionSeq));
-    if (match.path) params.set("file", match.path);
-    const representation = match.target?.kind ?? match.context.representation;
-    if (representation) params.set("view", representation);
-    if (match.threadId) params.set("thread", match.threadId);
-    if (match.commentId) params.set("comment", match.commentId);
-    if (match.category === "summary") params.set("summary", "1");
-    if (match.category === "content" && match.target?.locator) {
-      const target = match.target;
-      if (target.kind === "rendered") params.set("text", target.locator?.quote ?? "");
-      else if (target.kind !== "media") {
-        params.set("line", String(target.locator!.start));
-        if (target.kind === "diff") params.set("side", target.locator!.side);
-      }
-    }
   }
   return `/${artifact.id}?${params}`;
 }

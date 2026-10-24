@@ -408,11 +408,11 @@ try {
   await page.evaluate(
     "(()=>{const s=window.demo.state;s.publications['artifact_weekend/2'].resources['index.html']=btoa('<h1>Stored replacement</h1>');localStorage.setItem('r3-artifact-demo-curves',JSON.stringify(s))})()",
   );
-  await open("artifact_weekend?version=1&file=index.html");
+  await open("artifact_weekend?version=1");
   await preview("Can this model capture every ripple?");
   assert.equal(await page.evaluate("window.demo.get('artifact_weekend').versions.length"), 1);
   assert.equal(await page.evaluate(readNote), undefined);
-  await open("artifact_documents?version=1&file=index.md&view=rendered");
+  await open("artifact_documents?version=1");
   frame = await preview("Published workspace");
   await eventually(
     () => page.evaluate("parseInt(document.querySelector('iframe').style.height)>320"),

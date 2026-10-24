@@ -25,50 +25,45 @@ export interface ArtifactLocation extends ArtifactViewSelection {
   threadId: string | null;
 }
 
-export function readArtifactLocation(kind: ArtifactKind, search: string): ArtifactLocation {
+export function readArtifactLocation(
+  kind: ArtifactKind,
+  search: string,
+  saved?: ArtifactLocation | null,
+): ArtifactLocation {
   const params = new URLSearchParams(search);
   const seq = params.get("version");
+  const versionSeq =
+    seq && /^[1-9]\d*$/.test(seq) && Number.isSafeInteger(Number(seq)) ? Number(seq) : null;
+  const selection = saved?.versionSeq === versionSeq ? saved : null;
   return {
-    versionSeq:
-      seq && /^[1-9]\d*$/.test(seq) && Number.isSafeInteger(Number(seq)) ? Number(seq) : null,
-    path: params.get("file") || null,
+    versionSeq,
+    path: selection?.path ?? null,
     representation: artifactRepresentation(
       kind,
-      params.get("view") ?? defaultFileRepresentation(params.get("file") ?? ""),
+      selection?.representation ?? defaultFileRepresentation(selection?.path ?? ""),
     ),
-    // Existing saved links keep pointing to the same opaque thread identity.
-    threadId: params.get("thread") || params.get("discussions") || null,
+    threadId: selection?.threadId ?? null,
   };
 }
 
-export function artifactLocationSearch(
-  view: ArtifactViewSelection,
-  threadId?: string | null,
-): string {
+export function artifactLocationSearch(view: Pick<ArtifactViewSelection, "versionSeq">): string {
   const params = new URLSearchParams();
   if (view.versionSeq !== null) params.set("version", String(view.versionSeq));
-  if (view.path) params.set("file", view.path);
-  params.set("view", view.representation);
-  if (threadId) params.set("thread", threadId);
-  return `?${params}`;
+  return params.size ? `?${params}` : "";
 }
 
-// Keep a search entry reproducible on reload until the reader changes its view.
-// The library return state survives subsequent navigation inside the artifact.
+// Only publication/comparison links and navigation preferences belong in the URL.
+// A comparison is tied to the workspace version in which it was opened.
 export function artifactWorkspaceSearch(view: ArtifactLocation, previousSearch: string): string {
-  const params = new URLSearchParams(artifactLocationSearch(view, view.threadId));
+  const params = new URLSearchParams(artifactLocationSearch(view));
   const previous = new URLSearchParams(previousSearch);
-  if (previous.has("compare")) params.set("compare", previous.get("compare")!);
-  if (previous.has("library")) params.set("library", previous.get("library")!);
   if (
-    ["version", "file"].every((key) => params.get(key) === previous.get(key)) &&
-    params.get("thread") === (previous.get("thread") ?? previous.get("discussions")) &&
-    (!previous.has("view") || params.get("view") === previous.get("view"))
-  ) {
-    for (const key of ["line", "side", "text", "summary", "comment"])
-      if (previous.has(key)) params.set(key, previous.get(key)!);
-  }
-  return `?${params}`;
+    previous.get("compare") &&
+    (!previous.has("version") || params.get("version") === previous.get("version"))
+  )
+    params.set("compare", previous.get("compare")!);
+  for (const key of ["library", "lang"]) if (previous.has(key)) params.set(key, previous.get(key)!);
+  return params.size ? `?${params}` : "";
 }
 
 export function isArtifactDocumentTarget(target: ArtifactTarget): target is ArtifactDocumentTarget {

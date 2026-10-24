@@ -325,7 +325,7 @@ try {
 
   await viewport(1440);
   await page.command("Page.navigate", {
-    url: `${server.url.origin}${base}/demo/artifact_weekend?version=1&file=index.html&view=rendered`,
+    url: `${server.url.origin}${base}/demo/artifact_weekend?version=1`,
   });
   await eventually(
     () => page.evaluate("!!document.querySelector('[aria-label=\"Published version\"]')"),
@@ -333,7 +333,7 @@ try {
   );
   assert.equal(
     await page.evaluate("location.pathname+location.search+location.hash"),
-    `${base}/demo/artifact_weekend?version=1&file=index.html&view=rendered`,
+    `${base}/demo/artifact_weekend?version=1`,
   );
   await open("/does-not-exist/", "This page isn’t here.");
   assert.equal((await fetch(`${server.url.origin}${base}/does-not-exist/`)).status, 404);

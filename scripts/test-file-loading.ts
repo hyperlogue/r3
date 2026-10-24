@@ -118,8 +118,11 @@ try {
     () => page.evaluate("document.querySelector('[data-native-media] img')?.naturalWidth === 1000"),
     "visible image decodes",
   );
-  await page.command("Page.navigate", { url: "about:blank" });
-  await page.command("Page.navigate", { url: `${base}&file=README.md&view=rendered` });
+  await eventually(
+    () => page.evaluate("!!document.querySelector('button[title=\"README.md\"]')"),
+    "Markdown file navigation",
+  );
+  await page.evaluate("document.querySelector('button[title=\"README.md\"]').click()");
   await eventually(
     () =>
       page.evaluate(`(() => {
@@ -145,7 +148,7 @@ try {
   );
   await page.command("Page.navigate", { url: "about:blank" });
   imageRequests.length = 0;
-  await page.command("Page.navigate", { url: `${base}&file=README.md&view=rendered` });
+  await page.command("Page.navigate", { url: base });
   try {
     await eventually(
       () =>
@@ -176,7 +179,7 @@ try {
     )})`,
   });
   imageRequests.length = 0;
-  await page.command("Page.navigate", { url: `${base}&file=README.md&view=rendered` });
+  await page.command("Page.navigate", { url: base });
   await page.command("Page.removeScriptToEvaluateOnNewDocument", { identifier: legacy.identifier });
   await eventually(
     () =>

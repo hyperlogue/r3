@@ -6,6 +6,7 @@ import { ArtifactPage, type ArtifactRenderer } from "../artifact-page.tsx";
 import { renderPublishedPreview } from "../artifact-renderer.tsx";
 import { readArtifactUpdate } from "../artifact-sync.ts";
 import { useArtifactUI } from "../artifact-ui-context.tsx";
+import { artifactWorkspaceSelections } from "../artifact-workspace-state.ts";
 import { draftImages } from "../attachment-drafts.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
@@ -47,6 +48,7 @@ export function ArtifactView({
       );
       previewSessions.forget(artifactId);
       readingPositions.forget(artifactId);
+      artifactWorkspaceSelections.forget(artifactId);
     }
   }, [unavailable, artifactId, query.error]);
   if (query.error && (!query.data || unavailable))
@@ -75,14 +77,21 @@ export function ArtifactView({
       queryClient={qc}
       key={artifactId}
       detail={query.data}
+      persistLocation
+      initialEntry={
+        history.state?.r3SearchMatch?.artifactId === artifactId
+          ? history.state.r3SearchMatch
+          : undefined
+      }
       renderPreview={renderPreview}
-      onLocationChange={(view) =>
+      onLocationChange={(view) => {
+        const { r3SearchMatch: _entry, ...state } = history.state ?? {};
         history.replaceState(
-          history.state,
+          state,
           "",
           `${location.pathname}${artifactWorkspaceSearch(view, location.search)}`,
-        )
-      }
+        );
+      }}
     />
   );
 }

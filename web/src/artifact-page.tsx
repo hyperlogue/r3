@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ArtifactSearchMatch } from "../../shared/artifact-search.ts";
 import {
   type ArtifactDetail,
   type ArtifactDocumentTarget,
@@ -15,6 +16,7 @@ import { artifactComposerField, focusArtifactComposer } from "./artifact-compose
 import { artifactDrafts, useArtifactNoteOpen, useHasArtifactNote } from "./artifact-drafts.ts";
 import {
   type ArtifactLocation,
+  artifactRepresentation,
   defaultFileRepresentation,
   isArtifactDocumentTarget,
   readArtifactLocation,
@@ -28,6 +30,7 @@ import {
   ArtifactUIProvider,
 } from "./artifact-ui-context.tsx";
 import { artifactViewForTarget, stepArtifactVersion } from "./artifact-version.ts";
+import { artifactWorkspaceSelections } from "./artifact-workspace-state.ts";
 import { ArtifactComparison, type ComparisonSide } from "./components/ArtifactComparison.tsx";
 import { ArtifactComposer } from "./components/ArtifactComposer.tsx";
 import { ArtifactDiscussionPanel } from "./components/ArtifactDiscussionPanel.tsx";
@@ -158,6 +161,9 @@ interface ArtifactWorkspaceProps {
   detail: ArtifactDetail;
   renderPreview: ArtifactRenderer;
   initialSearch?: string;
+  initialView?: ArtifactLocation;
+  initialEntry?: ArtifactSearchMatch;
+  persistLocation?: boolean;
   onLocationChange?: (view: ArtifactLocation) => void;
 }
 export function ArtifactWorkspace(props: ArtifactWorkspaceProps) {
@@ -176,12 +182,31 @@ function Workspace({
   detail,
   renderPreview,
   initialSearch = location.search,
+  initialView,
+  initialEntry,
+  persistLocation = false,
   onLocationChange,
 }: ArtifactWorkspaceProps) {
   const { t } = useTranslation();
-  const [view, setView] = useState(() => readArtifactLocation(detail.kind, initialSearch));
+  const [view, setView] = useState(() => {
+    const restored =
+      initialView ??
+      (persistLocation
+        ? artifactWorkspaceSelections.restore(detail, initialSearch)
+        : readArtifactLocation(detail.kind, initialSearch));
+    return initialEntry
+      ? {
+          ...restored,
+          path: initialEntry.path,
+          representation: artifactRepresentation(detail.kind, initialEntry.context.representation),
+          threadId: initialEntry.threadId,
+        }
+      : restored;
+  });
+  const [entry] = useState(initialEntry);
+  const [activeCommentId, setActiveCommentId] = useState(entry?.commentId ?? null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const comparison = useArtifactComparison(detail, initialSearch, !!onLocationChange);
+  const comparison = useArtifactComparison(detail, initialSearch, persistLocation);
   const [comparisonTab, setComparisonTab] = useState<ArtifactThreadTab>("active");
   const [comparisonSide, setComparisonSide] = useState<ComparisonSide>("proposed");
   const preferredLayout = useDiffLayout();
@@ -213,10 +238,8 @@ function Workspace({
   const splitRef = useRef<HTMLDivElement>(null);
   const suspendedSpy = useRef(false);
   const jumpNonce = useRef(0);
-  const initialThread = useRef(view.threadId);
-  const [searchEntry] = useState(() => new URLSearchParams(initialSearch));
   const initialSearchEntry = useRef(true);
-  const initialPath = useRef(view.threadId ? null : view.path);
+  const initialPath = useRef(view.path);
   const hasNote = useHasArtifactNote(detail.id);
   const noteOpen = useArtifactNoteOpen(detail.id);
   const {
@@ -269,7 +292,7 @@ function Workspace({
   useReadingPosition(
     paneRef,
     positionKey,
-    !!jump || !!renderedJump || !!initialThread.current,
+    !!jump || !!renderedJump || (initialSearchEntry.current && !!entry?.target),
     version?.seq ?? null,
     fileReading,
   );
@@ -293,26 +316,54 @@ function Workspace({
       setView((current) => ({ ...current, versionSeq: version.seq }));
   }, [version, view.versionSeq]);
   useEffect(() => {
+    if (!persistLocation) return;
     const restore = () => {
-      setView(readArtifactLocation(detail.kind, location.search));
+      const restored = artifactWorkspaceSelections.restore(detail, location.search);
+      if (restored.versionSeq !== view.versionSeq) {
+        ++jumpNonce.current;
+        initialPath.current = restored.path;
+        setJump(null);
+        setRenderedJump(null);
+        setRenderedNavigation(null);
+        pendingRenderedJump.current = null;
+        pendingRenderedNavigation.current = null;
+        setActivePath(null);
+        setFileViews({});
+      }
+      setView(restored);
+      setActiveCommentId(null);
       setPopoverThread(null);
     };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, [detail.kind]);
+  }, [detail, persistLocation, view.versionSeq]);
   useEffect(() => {
-    onLocationChange?.({
+    const current = {
       ...view,
       path,
       representation: detail.kind === "files" && path ? fileMode(path) : view.representation,
       versionSeq: version?.seq ?? view.versionSeq,
-    });
-  }, [view, path, version?.seq, onLocationChange, detail.kind, fileMode]);
+    };
+    if (persistLocation) artifactWorkspaceSelections.save(detail.id, current);
+    onLocationChange?.(current);
+  }, [
+    view,
+    path,
+    version?.seq,
+    onLocationChange,
+    detail.id,
+    detail.kind,
+    fileMode,
+    persistLocation,
+  ]);
   const changeView = useCallback((patch: Partial<ArtifactLocation>) => {
     initialPath.current = null;
-    setView((current) => ({ ...current, ...patch }));
+    setView((current) => ({ ...current, ...patch, threadId: patch.threadId ?? null }));
+    setActiveCommentId(null);
+    ++jumpNonce.current;
     setJump(null);
     setRenderedJump(null);
+    pendingRenderedJump.current = null;
     setRenderedNavigation(null);
     pendingRenderedNavigation.current = null;
     setNotice("");
@@ -320,8 +371,9 @@ function Workspace({
   }, []);
   const selectVersion = (versionSeq: number | null) => {
     comparison.close(false);
-    changeView({ versionSeq, ...(detail.kind === "html" ? { path: null } : {}) });
+    changeView({ versionSeq, path: null, representation: artifactRepresentation(detail.kind) });
     setActivePath(null);
+    setFileViews({});
   };
   const focusComposer = useCallback(
     () => requestAnimationFrame(() => focusArtifactComposer(detail.id)),
@@ -550,61 +602,24 @@ function Workspace({
     [detail.kind, view, changeView, comparison.close, t],
   );
   useEffect(() => {
-    const id = initialThread.current;
     if (!initialSearchEntry.current) return;
     initialSearchEntry.current = false;
-    initialThread.current = null;
-    if (!id) {
-      const line = searchEntry.get("line");
-      if (view.versionSeq !== null && searchEntry.get("summary") === "1") {
-        locate({ kind: "version_summary", versionSeq: view.versionSeq, locator: null });
-      } else if (
-        view.versionSeq !== null &&
-        view.path &&
-        view.representation === "rendered" &&
-        searchEntry.get("text")
-      ) {
-        locate({
-          kind: "rendered",
-          versionSeq: view.versionSeq,
-          path: view.path,
-          locator: { selector: "body", quote: searchEntry.get("text")!.slice(0, 240) },
-        });
-      } else if (
-        view.versionSeq !== null &&
-        view.path &&
-        line &&
-        /^[1-9]\d*$/.test(line) &&
-        Number.isSafeInteger(Number(line))
-      ) {
-        const locator = { start: Number(line), end: Number(line), quote: "" };
-        if (view.representation === "source")
-          locate({ kind: "source", versionSeq: view.versionSeq, path: view.path, locator });
-        else if (view.representation === "diff")
-          locate({
-            kind: "diff",
-            versionSeq: view.versionSeq,
-            path: view.path,
-            locator: { ...locator, side: searchEntry.get("side") === "old" ? "old" : "new" },
-          });
-      }
-      return;
-    }
-    const threads = detail.threads.find((threads) => threads.id === id);
-    if (!threads) {
-      setNotice(t("artifactPage.thisConversationIsUnavailable"));
-      return;
-    }
-    const commentId = searchEntry.get("comment");
-    if (commentId) {
-      const comment = threads.comments.slice(1).find((comment) => comment.id === commentId);
+    if (!entry) return;
+    if (entry.category === "summary" && entry.versionSeq !== null)
+      locate({ kind: "version_summary", versionSeq: entry.versionSeq, locator: null });
+    else if (entry.category === "content" && entry.target) locate(entry.target);
+    if (!entry.threadId) return;
+    const thread = detail.threads.find((thread) => thread.id === entry.threadId);
+    if (!thread) setNotice(t("artifactPage.thisConversationIsUnavailable"));
+    else if (entry.commentId) {
+      const comment = thread.comments.find((comment) => comment.id === entry.commentId);
       if (!comment) setNotice(t("artifactPage.thisCommentIsUnavailable"));
       else if (comment.context.versionSeq === null)
         setNotice(t("artifactPage.thisCommentHasNoRecordedPublicationContext"));
-    } else locate(threads.target, id);
+    } else locate(thread.target, thread.id);
     if (mobile) setSheet("full");
     else showDiscussionPanel();
-  }, [detail.threads, locate, mobile, searchEntry, view, t]);
+  }, [detail.threads, locate, mobile, entry, t]);
   const jumpRef = useCallback<ArtifactRefJump>(
     (ref, messageContext) => {
       comparison.close(false);
@@ -628,6 +643,7 @@ function Workspace({
   );
   const showThread = useCallback(
     (threadId: string) => {
+      setActiveCommentId(null);
       setView((current) => ({ ...current, threadId }));
       if (mobile) setSheet("full");
       else if (collapsed) {
@@ -665,13 +681,14 @@ function Workspace({
   const ready = detail.kind === "diff" ? !!diffQuery.data : !!filesQuery.data;
   useEffect(() => {
     if (!ready || detail.kind === "html" || !initialPath.current) return;
-    const path = initialPath.current;
+    const selectedPath = paths.includes(initialPath.current) ? initialPath.current : path;
     initialPath.current = null;
+    if (!selectedPath) return;
     if (positionKey && readingPositions.get(positionKey)) return;
     const nonce = ++jumpNonce.current;
-    setJump({ path, side: "new", nonce });
-    setFold({ mode: "unfold", path, nonce });
-  }, [ready, detail.kind, positionKey]);
+    setJump({ path: selectedPath, side: "new", nonce });
+    setFold({ mode: "unfold", path: selectedPath, nonce });
+  }, [ready, detail.kind, positionKey, paths, path]);
   const finishCodeJump = useCallback((nonce: number) => {
     if (jumpNonce.current !== nonce) return;
     if (pendingRenderedJump.current?.nonce === nonce) {
@@ -836,9 +853,7 @@ function Workspace({
       onLocate={locate}
       onJumpRef={jumpRef}
       activeThread={comparison.active ? comparison.selected?.threadId : view.threadId}
-      activeCommentId={
-        comparison.active ? comparison.selected?.commentId : searchEntry.get("comment")
-      }
+      activeCommentId={comparison.active ? comparison.selected?.commentId : activeCommentId}
       onFocusThread={comparison.active ? focusComparison : showThread}
       comparisons={comparison.comparisons}
       onCompare={comparison.open}

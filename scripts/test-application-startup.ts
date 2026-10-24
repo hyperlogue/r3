@@ -118,7 +118,7 @@ const app = Bun.serve({
   },
 });
 const base = `http://localhost:${app.port}`;
-const url = `${base}/${artifact.id}?version=1&file=index.html&view=rendered`;
+const url = `${base}/${artifact.id}?version=1`;
 const outside = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,

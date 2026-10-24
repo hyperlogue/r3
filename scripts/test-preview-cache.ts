@@ -194,7 +194,7 @@ try {
       throw new Error(`Preview step ${step} failed: ${await page.locator("body").innerText()}`);
     }
   };
-  await page.goto(`${base}/${files.id}?version=1&file=index.md&view=rendered`);
+  await page.goto(`${base}/${files.id}?version=1`);
   if (process.env.R3_TEST_UNSUPPORTED === "1")
     await page.getByRole("button", { name: "Accept risk and continue" }).click();
   await ready();

@@ -94,7 +94,7 @@ const start = (version: string, assets: ApplicationAssets, port: number) =>
 let runtime = start(R3_VERSION, oldAssets, 0);
 const port = runtime.server.port!;
 const base = `http://localhost:${port}`;
-const url = `${base}/${artifact.id}?version=1&file=notes.txt&view=source`;
+const url = `${base}/${artifact.id}?version=1`;
 const browser = await openTestBrowser();
 const external: string[] = [];
 const stopListening = browser.listen((event) => {

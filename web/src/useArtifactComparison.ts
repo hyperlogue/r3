@@ -11,10 +11,20 @@ export function useArtifactComparison(
   const [commentId, setCommentId] = useState<string | null>(() =>
     new URLSearchParams(initialSearch).get("compare"),
   );
-  const active = commentId !== null;
+  const active = commentId !== null && comparisons.has(commentId);
   const [retainedId, setRetainedId] = useState(commentId);
   const trigger = useRef<HTMLElement | null>(null);
   const scroll = useRef<{ node: HTMLElement; top: number }[]>([]);
+  useEffect(() => {
+    if (commentId === null || comparisons.has(commentId)) return;
+    setCommentId(null);
+    if (syncLocation) {
+      const url = new URL(location.href);
+      url.searchParams.delete("compare");
+      const { r3Comparison: _comparison, ...state } = history.state ?? {};
+      history.replaceState(state, "", url);
+    }
+  }, [commentId, comparisons, syncLocation]);
   if (commentId && commentId !== retainedId) setRetainedId(commentId);
   const remember = useCallback(() => {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -71,7 +81,8 @@ export function useArtifactComparison(
       else {
         const url = new URL(location.href);
         url.searchParams.delete("compare");
-        history.replaceState(null, "", url);
+        const { r3Comparison: _comparison, ...state } = history.state ?? {};
+        history.replaceState(state, "", url);
       }
     },
     [active, syncLocation],

@@ -44,7 +44,7 @@ test("library defaults to active artifacts and attention sorting outranks live p
   ).toEqual(["attention", "working", "archived"]);
 });
 
-test("comment links preserve the comment context independently of the original concern", () => {
+test("search links preserve publication and return filters without private reading state", () => {
   const route = artifactLibraryRoute(artifactFixture, readLibraryState("?q=keyboard&history=all"), {
     id: "comment_match",
     artifactId: artifactFixture.id,
@@ -59,8 +59,6 @@ test("comment links preserve the comment context independently of the original c
   });
   const params = new URLSearchParams(route.split("?")[1]);
   expect(params.get("version")).toBe("2");
-  expect(params.get("view")).toBe("rendered");
-  expect(params.get("comment")).toBe("comment_match");
-  expect(params.get("file")).toBeNull();
+  expect([...params.keys()]).toEqual(["library", "version"]);
   expect(params.get("library")).toBe("?q=keyboard&history=all");
 });

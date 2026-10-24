@@ -106,15 +106,21 @@ function Example() {
           detail={detail}
           data={data}
           actions={artifactApi}
-          initialSearch={
-            storyScene
-              ? `?version=1&file=${scene === "proposal" ? "proposal.md" : "create-project.ts"}&thread=${seed.artifacts[0]!.threads[0]!.id}`
+          initialView={{
+            versionSeq: storyScene || mediaScene ? 1 : 2,
+            path: storyScene
+              ? scene === "proposal"
+                ? "proposal.md"
+                : "create-project.ts"
               : mediaScene
-                ? `?version=1&file=${scene === "media-video" ? "launch.webm" : "launch.png"}&thread=thread_launch_${scene === "media-video" ? "video" : "image"}`
-                : componentScene
-                  ? "?version=2"
-                  : `?version=2&thread=${seed.artifacts[0]!.threads[0]!.id}&comment=comment_fieldwork_fix`
-          }
+                ? scene === "media-video"
+                  ? "launch.webm"
+                  : "launch.png"
+                : null,
+            representation:
+              storyScene && scene !== "proposal" ? "source" : mediaScene ? "media" : "rendered",
+            threadId: componentScene ? null : seed.artifacts[0]!.threads[0]!.id,
+          }}
           renderPreview={(props) =>
             storyScene ? (
               scene === "proposal" ? (

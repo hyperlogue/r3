@@ -101,7 +101,7 @@ try {
   const page = await browser.attach(targetId);
   started = performance.now();
   await page.command("Page.navigate", {
-    url: `http://localhost:${app.port}/${artifact.id}?version=1&file=index.html&view=rendered`,
+    url: `http://localhost:${app.port}/${artifact.id}?version=1`,
   });
   await eventually(
     () => page.evaluate(`!!document.querySelector('iframe[aria-hidden="false"]')`),

@@ -86,13 +86,13 @@ const note = await storage.conversations.add(notes.id, {
 const comment = await storage.conversations.addComment(note.id, {
   actor: agent,
   body: "Keyboard focus is fixed in version 2.",
-  context: { versionSeq: 2, representation: "source" },
+  target: { kind: "source", versionSeq: 2, path: "design.txt", locator: null },
 });
 for (let i = 0; i < 4; i++)
   await storage.conversations.addComment(note.id, {
     actor: agent,
     body: `Another follow-up ${i + 1}`,
-    context: { versionSeq: 2, representation: "source" },
+    target: { kind: "source", versionSeq: 2, path: "design.txt", locator: null },
   });
 const archivedIds: string[] = [];
 for (let i = 0; i < 14; i++) {
@@ -244,6 +244,11 @@ try {
   };
   await page.command("Page.navigate", { url: origin });
   await ready();
+  await eventually(
+    () => page.evaluate("!!document.querySelector('[data-login-disabled-notice][open]')"),
+    "fresh-browser login notice",
+  );
+  await click("[data-login-disabled-notice] > div:last-child button");
   assert.equal(await page.evaluate("document.querySelectorAll('[data-library-row]').length"), 13);
   assert.deepEqual(
     await page.evaluate(
@@ -516,15 +521,13 @@ try {
     "conversation search",
   );
   assert.equal(
-    await page.evaluate(
-      "[...document.querySelectorAll('[data-library-row]')].some(a=>a.href.includes('line=81'))",
-    ),
+    await page.evaluate("!!document.querySelector('[data-search-category=content]')"),
     false,
     "latest-only excludes older content",
   );
   await select('[aria-label="Publications to search"]', "all");
   await eventually(
-    () => page.evaluate("!!document.querySelector('[data-library-row][href*=\"line=81\"]')"),
+    () => page.evaluate("!!document.querySelector('[data-search-category=content]')"),
     "historical source result",
   );
   await page.command("Emulation.setDeviceMetricsOverride", {
@@ -568,7 +571,7 @@ try {
   );
   await click(selectionToggle);
   await screenshot("search-desktop");
-  await click('[data-library-row][href*="line=81"]');
+  await click("[data-search-category=content]");
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-line=\"81\"]')"),
     "source match mounted",
@@ -589,13 +592,10 @@ try {
     "all",
   );
   await eventually(
-    () =>
-      page.evaluate(
-        `!!document.querySelector('[data-library-row][href*="comment=${comment.id}"]')`,
-      ),
+    () => page.evaluate(`!!document.querySelector('[data-search-match*="${comment.id}"]')`),
     "comment result",
   );
-  await click(`[data-library-row][href*="comment=${comment.id}"]`);
+  await click(`[data-search-match*="${comment.id}"]`);
   await eventually(
     () => page.evaluate(`!!document.querySelector('[data-artifact-comment="${comment.id}"]')`),
     "earlier comment expanded",

@@ -5,7 +5,7 @@ import { ARTIFACT_WORKSHOP_SEED } from "../../demo/artifact-fixtures.gen.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactDrafts } from "../artifact-drafts.ts";
 import { useArtifactEvents } from "../artifact-hooks.ts";
-import { type ArtifactLocation, artifactLocationSearch } from "../artifact-navigation.ts";
+import type { ArtifactLocation } from "../artifact-navigation.ts";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { MessageProse } from "../components/Message.tsx";
 import { useTheme } from "../hooks.ts";
@@ -121,11 +121,12 @@ function Practice({
     <ArtifactWorkspace
       key={id}
       detail={query.data}
-      initialSearch={artifactLocationSearch({
+      initialView={{
         versionSeq: 1,
         path: null,
         representation: query.data.kind === "diff" ? "diff" : "rendered",
-      })}
+        threadId: null,
+      }}
       onLocationChange={changed}
       renderPreview={renderDocument}
     />

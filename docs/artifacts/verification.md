@@ -295,6 +295,13 @@ tests reject saving an optimization after its storage generation is revoked.
 
 ## Artifact library and search
 
+- `web/src/artifact-navigation.test.ts` and `web/src/artifact-workspace-state.test.ts`:
+  publication-only links, retired query cleanup, comparison reset, bounded tab-local
+  reading selection, version/artifact isolation, and unavailable or malformed storage.
+- `R3_TEST_BROWSER=/path/to/chromium bun scripts/test-artifact-navigation.ts`:
+  actual SPA reload without following a stale thread, independent tabs, source/rendered
+  selection, comparison Back/Forward/reload/version reset, one-time search context,
+  clean URLs, and unavailable session storage, using temporary backend data.
 - `server/artifact-search.test.ts`: latest/history scope, native source/diff/HTML
   evidence, passive extraction, message edits/deletions, archive/attention filters,
   pagination, skipped bytes, restart, and concurrent publication/deletion.

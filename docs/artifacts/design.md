@@ -226,7 +226,17 @@ retain their native behavior.
 The browser pins the displayed version. A new publication is announced with an
 **Go to the latest version** action; it does not replace the content being read. Version switches
 and representation toggles preserve a draft's original target and message context.
-Artifact links can include `version`, `file`, `view`, and `threads` query parameters.
+Artifact links select a publication with `version`. File, representation, and
+focused thread are tab-local reading state in bounded `sessionStorage`, scoped to
+the artifact and selected version. Reload restores that selection without replaying
+Locate or following the thread's original target. A different version starts with
+its default file/view and no focused thread. Missing saved files fall back to the
+publication's default; unavailable storage leaves navigation working in memory.
+Explicit missing versions never fall back to latest. Retired `file`, `view`,
+`thread`, `threads`, `discussions`, `summary`, `text`, `line`, `side`, and `comment`
+parameters are ignored and removed from the workspace URL.
+Version changes clear `compare`; `library` return filters and `lang` remain.
+Ordinary workspace selection replaces the current history entry.
 
 Rendered Markdown follows r3’s selected light/dark appearance, including its syntax
 palette. Trusted preview support applies explicit text/background colors and adapts
@@ -731,7 +741,9 @@ inert during comparison, preserving its page state and selected publication.
 Comparison scroll does not replace its saved reading position. Offscreen previews
 cannot invoke workspace actions or use human activation to mutate conversations.
 The `compare` workspace query parameter names a comment, supporting Back/Forward and
-reloads. New publications do not retarget an existing comparison. Reduced motion
+reloads. Invalid or no-longer-eligible comparisons are removed from the URL.
+Explicit version switches exit comparison and clear its parameter; new publications
+do not retarget an existing comparison. Reduced motion
 removes the slide; comparison previews are released after the return transition.
 
 ## Agent collaboration and lifecycle
@@ -1100,6 +1112,11 @@ acknowledge comments, or establish a subscription.
 Query, project, view, kind, result type, history, sorting, and page are encoded in
 the library URL. The header’s r3 link preserves this state; same-tab return
 restores list scroll. Native links support browser Back and opening new tabs.
+Same-tab search clicks carry a one-time native target/comment context in browser
+history state, consumed on entry. Search targets never enter the address bar;
+opening or sharing the URL in another tab selects the publication with that tab's
+own reading state. Reload preserves the selected publication and saved file/view/thread,
+without repeating a search jump or keeping a comment highlighted after a version switch.
 Search supports its visible focus shortcut and list-local arrow navigation,
 while other fields and overlays retain their own keys.
 

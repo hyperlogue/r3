@@ -138,9 +138,7 @@ try {
   for (const fixture of fixtures) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
-    await page.goto(
-      `http://localhost:${app.port}/${fixture.id}?version=1&file=${fixture.path}&view=rendered`,
-    );
+    await page.goto(`http://localhost:${app.port}/${fixture.id}?version=1`);
     if (process.env.R3_TEST_UNSUPPORTED === "1" && fixture.kind !== "video")
       await page.getByRole("button", { name: "Accept risk and continue" }).click();
     const card = page.locator(`[data-file="${fixture.path}"]`);

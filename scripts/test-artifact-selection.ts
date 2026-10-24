@@ -311,7 +311,13 @@ try {
     "comment quote",
   );
   assert.equal(await hasComposer(), false, "agent text does not create a new note");
-  await open(files.id, "&view=source&file=index.md");
+  await open(files.id);
+  await eventually(
+    () =>
+      page.evaluate("!!document.querySelector('[data-file=\"index.md\"] button[title=Source]')"),
+    "source toggle",
+  );
+  await click('[data-file="index.md"] button[title="Source"]');
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-line=\"1\"] code')"),
     "source rows",
@@ -322,7 +328,7 @@ try {
   await key("Tab", "Tab");
   await eventually(focused, "explicit composer focus");
   await click("Cancel");
-  await open(diff.id, "&view=diff&file=code.ts");
+  await open(diff.id);
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-new-line=\"1\"] code')"),
     "diff rows",
@@ -331,7 +337,13 @@ try {
   await waitComposer("diff selection composer");
   assert.equal(await focused(), false);
   await click("Cancel");
-  await open(files.id, "&view=rendered&file=index.md");
+  await open(files.id);
+  await eventually(
+    () =>
+      page.evaluate("!!document.querySelector('[data-file=\"index.md\"] button[title=Rendered]')"),
+    "rendered toggle",
+  );
+  await click('[data-file="index.md"] button[title="Rendered"]');
   content = await frame("Published Markdown");
   await select(content, "h1");
   await waitComposer("Markdown selection composer");
