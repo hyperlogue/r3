@@ -118,6 +118,7 @@ describe("native artifact targets", () => {
       path: "index.html",
       locator: {
         selector: "#chart > button",
+        shadowHosts: ["#phone", "#dialog"],
         label: "  Chart\nsettings  ",
         quote: "  Generated\nchart\u00a0label ",
         prefix: " Before  ",
@@ -133,6 +134,7 @@ describe("native artifact targets", () => {
       path: "index.html",
       locator: {
         selector: "#chart > button",
+        shadowHosts: ["#phone", "#dialog"],
         label: "Chart settings",
         quote: "Generated chart label",
         prefix: "Before",
@@ -141,6 +143,19 @@ describe("native artifact targets", () => {
       },
     });
     expect(targetFromColumns(targetColumns(target))).toEqual(target);
+    for (const shadowHosts of [
+      null,
+      "#phone",
+      [],
+      [42],
+      [" "],
+      ["x".repeat(4097)],
+      Array(17).fill("div"),
+    ]) {
+      await expect(
+        targets.target(id, { ...target, locator: { selector: "button", shadowHosts } }),
+      ).rejects.toThrow("shadowHosts");
+    }
     for (const label of ["", "  ", 42, null, "x".repeat(201)]) {
       await expect(
         targets.target(id, { ...target, locator: { selector: "#app", label } }),

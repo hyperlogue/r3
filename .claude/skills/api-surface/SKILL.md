@@ -120,6 +120,9 @@ The CLI, browser, and demo all use this protocol; legacy routes are removed.
   Rendered locators accept an optional plain-text `label` for named HTML fix links;
   matching still uses the selector and native evidence. See `r3 guide html` for
   the comment example and the schema document for storage semantics.
+  An optional `shadowHosts` array scopes the selector through open shadow roots.
+  CLI callers supply it through `--target` JSON; browser picks record it automatically.
+  Bounds and matching semantics belong to the schema document.
   `artifact_summary` and `version_summary` are historical read-only targets;
   new threads and comment fix targets reject description anchors.
 - `GET /api/threads/:id/source` returns `ArtifactSourceRange` for the original

@@ -598,7 +598,7 @@ describe("artifact CLI over the HTTP contract", () => {
       kind: "rendered" as const,
       versionSeq: 1,
       path: "index.html",
-      locator: { selector: "h1", label: "Page heading" },
+      locator: { selector: "h1", shadowHosts: ["#phone", "#dialog"], label: "Page heading" },
     };
     const comment = JSON.parse(
       (

@@ -25,7 +25,8 @@ export function observeTextSelection(
   const capture = () => {
     clearTimeout(timer);
     keyboard = false;
-    const active = document.activeElement;
+    let active = document.activeElement;
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
     if (
       active instanceof HTMLElement &&
       (active.matches("input,textarea,select") || active.isContentEditable)
@@ -114,7 +115,8 @@ export function composerKeyAction(event: KeyboardEvent): "focus" | "escape" | nu
     event.shiftKey
   )
     return null;
-  const active = document.activeElement;
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
   if (active instanceof HTMLElement) {
     if (active.matches("input,textarea,select") || active.isContentEditable) return null;
     const interactive = active.matches('button,a,summary,audio,video,[role="button"]');

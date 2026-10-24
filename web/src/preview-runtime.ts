@@ -40,9 +40,32 @@ export function installPreviewRuntime(
   let restoringRoute = false;
   let frame = 0;
   let observation: MutationObserver | null = null;
+  const shadowRoots = new Set<ShadowRoot>();
   const send = (type: string, values: Record<string, unknown> = {}) =>
     connection.send({ type, ...values });
   const isOwned = (element: Element) => element === root || element.getRootNode() === shadow;
+  const eventElement = (event: Event) =>
+    event.composedPath().find((item): item is Element => item instanceof Element);
+  const parent = (element: Element): Element | null => {
+    const scope = element.getRootNode();
+    return element.parentElement ?? (scope instanceof ShadowRoot ? scope.host : null);
+  };
+  const shadowScroll = () => {
+    pressedSelection = pendingSelection = null;
+    schedule();
+  };
+  const observeShadow = (scope: ShadowRoot) => {
+    if (shadowRoots.has(scope)) return;
+    shadowRoots.add(scope);
+    observation?.observe(scope, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+    });
+    // Scroll events inside a shadow root do not reach the document listener.
+    scope.addEventListener("scroll", shadowScroll, true);
+  };
   const visible = (element: Element) => {
     if (isOwned(element) || element.closest("script,style,noscript,template,[hidden]"))
       return false;
@@ -55,9 +78,10 @@ export function installPreviewRuntime(
     );
   };
   const selector = (element: Element): string => {
+    const scope = element.getRootNode() as Document | ShadowRoot;
     if (element.id) {
       const id = `#${CSS.escape(element.id)}`;
-      if (document.querySelectorAll(id).length === 1) return id;
+      if (scope.querySelectorAll(id).length === 1) return id;
     }
     const parts: string[] = [];
     for (let node: Element | null = element; node; node = node.parentElement) {
@@ -110,6 +134,15 @@ export function installPreviewRuntime(
     return found;
   };
   const capture = (element: Element): RenderedLocator => {
+    const shadowHosts: string[] = [];
+    for (
+      let scope = element.getRootNode();
+      scope instanceof ShadowRoot;
+      scope = scope.host.getRootNode()
+    ) {
+      observeShadow(scope);
+      shadowHosts.unshift(selector(scope.host));
+    }
     const mapped = projection(element);
     const quote = selectedQuote || mapped.text.slice(0, 16_384);
     let at = quote ? mapped.text.indexOf(quote) : -1;
@@ -123,6 +156,7 @@ export function installPreviewRuntime(
     }
     return {
       selector: selector(element),
+      ...(shadowHosts.length ? { shadowHosts } : {}),
       ...(quote
         ? {
             quote,
@@ -152,7 +186,18 @@ export function installPreviewRuntime(
   ): { state: "anchored" | "ambiguous" | "unplaced"; element?: Element; range?: Range } => {
     let elements: Element[];
     try {
-      elements = [...document.querySelectorAll(locator.selector)].filter(visible);
+      let scope: Document | ShadowRoot = document;
+      for (const hostSelector of locator.shadowHosts ?? []) {
+        const hosts: Element[] = [...scope.querySelectorAll(hostSelector)].filter(
+          (host) => !isOwned(host),
+        );
+        if (hosts.length > 1) return { state: "ambiguous" };
+        const next: ShadowRoot | null | undefined = hosts[0]?.shadowRoot;
+        if (!next) return { state: "unplaced" };
+        observeShadow(next);
+        scope = next;
+      }
+      elements = [...scope.querySelectorAll(locator.selector)].filter(visible);
     } catch {
       return { state: "unplaced" };
     }
@@ -358,7 +403,7 @@ export function installPreviewRuntime(
     "click",
     (event) => {
       if (event.composedPath().includes(root!)) return;
-      const element = event.target instanceof Element ? event.target : null;
+      const element = eventElement(event);
       if (!element || !visible(element)) return;
       if (display.commenting) {
         event.preventDefault();
@@ -381,13 +426,12 @@ export function installPreviewRuntime(
   window.addEventListener(
     "pointermove",
     (event) => {
-      if (
-        display.commenting &&
-        !picked &&
-        event.target instanceof Element &&
-        !isOwned(event.target)
-      ) {
-        hover = event.target;
+      if (event.composedPath().includes(root!)) return;
+      const element = eventElement(event);
+      if (display.commenting && !picked && element && !isOwned(element)) {
+        for (const item of event.composedPath())
+          if (item instanceof ShadowRoot) observeShadow(item);
+        hover = element;
         schedule();
       }
     },
@@ -397,7 +441,8 @@ export function installPreviewRuntime(
     "keydown",
     (event) => {
       if (event.composedPath().includes(root!)) return;
-      const active = document.activeElement;
+      let active = document.activeElement;
+      while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
       const shortcut =
         config.presentation === "document" &&
         event.isTrusted &&
@@ -512,8 +557,9 @@ export function installPreviewRuntime(
     buttons[0].title = "Comment here (Space)";
     buttons[0].onclick = commentHere;
     buttons[1].onclick = () => {
-      if (picked?.parentElement) {
-        picked = picked.parentElement;
+      const ancestor = picked && parent(picked);
+      if (ancestor) {
+        picked = ancestor;
         selectedQuote = undefined;
         selectedRange = null;
         markersDirty = true;
@@ -546,6 +592,8 @@ export function installPreviewRuntime(
   window.addEventListener("pagehide", () => {
     stopSelection?.();
     observation?.disconnect();
+    for (const scope of shadowRoots) scope.removeEventListener("scroll", shadowScroll, true);
+    shadowRoots.clear();
     cancelAnimationFrame(frame);
   });
 }

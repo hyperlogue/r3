@@ -17,6 +17,19 @@ export function previewLocator(value: unknown): RenderedLocator | null {
     return value;
   };
   const selector = text("selector", 4096, true)!;
+  let shadowHosts: string[] | undefined;
+  if (input.shadowHosts !== undefined) {
+    if (
+      !Array.isArray(input.shadowHosts) ||
+      !input.shadowHosts.length ||
+      input.shadowHosts.length > 16 ||
+      input.shadowHosts.some(
+        (host) => typeof host !== "string" || !host.trim() || host.length > 4096,
+      )
+    )
+      throw new Error("Invalid rendered shadowHosts");
+    shadowHosts = [...input.shadowHosts];
+  }
   const quote = text("quote", 16384);
   const prefix = text("prefix", 512);
   const suffix = text("suffix", 512);
@@ -43,6 +56,7 @@ export function previewLocator(value: unknown): RenderedLocator | null {
   }
   return {
     selector,
+    ...(shadowHosts ? { shadowHosts } : {}),
     ...(quote === undefined ? {} : { quote: normalizeRenderedText(quote) }),
     ...(prefix === undefined ? {} : { prefix: normalizeRenderedText(prefix) }),
     ...(suffix === undefined ? {} : { suffix: normalizeRenderedText(suffix) }),

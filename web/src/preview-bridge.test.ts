@@ -4,6 +4,21 @@ import type { PreviewPageContext } from "../../shared/preview-protocol.ts";
 import { previewBridgeCall, previewLocator, previewSelectionPosition } from "./preview-bridge.ts";
 import { previewThemePreference } from "./preview-theme.ts";
 
+test("rendered targets retain a bounded path through open shadow hosts", () => {
+  const locator = { selector: "#button", shadowHosts: ["#phone", "#dialog"] };
+  expect(previewLocator(locator)).toEqual(locator);
+  for (const shadowHosts of [
+    null,
+    "#phone",
+    [],
+    [42],
+    [" "],
+    ["x".repeat(4097)],
+    Array(17).fill("div"),
+  ])
+    expect(() => previewLocator({ ...locator, shadowHosts })).toThrow("shadowHosts");
+});
+
 test("full-height Markdown retains its native viewport evidence", () => {
   const locator = { selector: "h2", viewport: { width: 800, height: 200000 } };
   expect(previewLocator(locator)).toEqual(locator);

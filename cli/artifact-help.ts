@@ -90,6 +90,7 @@ Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered
          [--line <start-end> --quote <text>] [--side old|new]
          source/diff quotes may be exact excerpts within the complete line range.
          rendered: --selector <CSS> [--quote <text>] [--route <query/hash>]
+         Shadow DOM: use --target JSON with locator.shadowHosts (see r3 guide html).
          Media: --target JSON with kind media, versionSeq, path, locator {time, box},
          plus --frame <snapshot.png|jpg>. time is seconds (null for images); box is
          normalized {x,y,width,height}, default full frame. Snapshots stay immutable.
@@ -322,6 +323,8 @@ Bundle dependencies and assets locally: external requests are blocked by default
 Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered threads easier to anchor and inspect.
 
 For a new rendered target, \`thread add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
+
+Comment mode can pick elements inside open shadow roots. For a CLI target there, use \`--target\` with \`locator.shadowHosts\`: an outer-to-inner array of host selectors, each resolved inside the preceding host's open shadow root. Resolve \`locator.selector\` inside the last root. For example, \`{"selector":"#save","shadowHosts":["#phone","settings-panel"]}\` identifies the save control in that phone's settings panel. Each host must match exactly once; missing or closed roots remain unavailable. Use at most 16 hosts and 4,096 characters per selector. Omit \`shadowHosts\` for ordinary document targets. Give repeated frames distinct stable host IDs; inner IDs need only be unique within their own root.
 
 When commenting with a fix, choose a short, meaningful \`locator.label\` and pin it to a verified element using \`locator.selector\`. The HTML workspace displays **Fix: Storage help button**, rather than a filename. The label is plain text (1–200 characters) and names the location; only the selector and optional quote/route locate it. Keep \`path\` and \`versionSeq\` in the target to identify the published document. Verify the selector identifies exactly one visible element on that page and route. Existing unlabeled targets display **Page element**, or **Page** for a null locator.
 

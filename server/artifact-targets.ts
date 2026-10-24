@@ -26,6 +26,7 @@ export const TARGET_LIMITS = {
   quote: 16_384,
   lines: 100,
   selector: 4096,
+  shadowHosts: 16,
   context: 512,
   label: 200,
 } as const;
@@ -68,6 +69,18 @@ function sourceLocator(value: unknown): SourceLocator {
 function renderedLocator(value: unknown): RenderedLocator {
   const locator = requireObject(value, "Rendered locator");
   const selector = requireString(locator.selector, "selector", TARGET_LIMITS.selector);
+  let shadowHosts: string[] | undefined;
+  if (locator.shadowHosts !== undefined) {
+    if (
+      !Array.isArray(locator.shadowHosts) ||
+      !locator.shadowHosts.length ||
+      locator.shadowHosts.length > TARGET_LIMITS.shadowHosts
+    )
+      throw new ArtifactError("shadowHosts must contain 1–16 host selectors");
+    shadowHosts = locator.shadowHosts.map((host) =>
+      requireString(host, "shadowHosts selector", TARGET_LIMITS.selector),
+    );
+  }
   const label =
     locator.label === undefined
       ? undefined
@@ -98,6 +111,7 @@ function renderedLocator(value: unknown): RenderedLocator {
   }
   return {
     selector,
+    ...(shadowHosts ? { shadowHosts } : {}),
     ...(label === undefined ? {} : { label }),
     ...text,
     ...(route === null ? {} : { route }),

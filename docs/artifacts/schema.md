@@ -164,6 +164,18 @@ lines and 2,048 UTF-16 code units, without storing display ellipses as source.
 `GET /api/threads/:id/source` returns `ArtifactSourceRange` from immutable bytes
 on demand; it stores no expanded copy and changes no delivery or claim state.
 
+A rendered locator may carry `shadowHosts`, an outer-to-inner array of 1–16
+nonempty CSS host selectors, each at most 4,096 characters. For example,
+`{"selector":"#save","shadowHosts":["#phone","settings-panel"]}` first finds
+`#phone` in the document, then `settings-panel` in its open shadow root, then
+`#save` in that host's open shadow root. Each host must match exactly once;
+nonunique hosts are ambiguous, and missing or closed roots are unplaced. The
+selector remains scoped to the document when this field is absent. The server
+and preview bridge validate and retain the path as native DOM evidence; the
+server does not execute the document to verify its dynamic elements. The array
+is stored in `locator_json`, requiring no migration or reinterpretation of
+historical targets.
+
 A rendered locator may also carry `label`, a nonempty plain-text location name of
 at most 200 characters, normalized for whitespace. HTML comment fix links show this
 agent-chosen name instead of a filename. It is presentation metadata and never

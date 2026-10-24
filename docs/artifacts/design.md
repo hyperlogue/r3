@@ -602,7 +602,17 @@ transition reverses from its current position and shape.
 Reduced-motion preferences disable these animations.
 
 Rendered comment mode intercepts element picks before page handlers and supports
-selecting a parent element. `c` toggles comment mode from the workspace or a focused
+selecting a parent element, including crossing an open shadow root to its host.
+Picking and hover use the event's composed path to reach inner elements. Native
+rendered locators retain an optional ordered `shadowHosts` path; each host selector
+resolves in the preceding root, and the final selector resolves in the last open
+root. This preserves identity across repeated UI frames without rewriting the
+publication. Locate and markers follow the same path after reload, and observed
+shadow-root mutations and scrolling update their positions. Missing or closed
+roots are unplaced; a nonunique host is ambiguous. Closed-root clicks target the
+host exposed by the browser. Existing locators without a host path keep their
+document scope; historical incomplete selectors are never guessed into a frame.
+`c` toggles comment mode from the workspace or a focused
 document preview. With a node picked, `Space` invokes **Comment here** and opens the
 thread editor for that node. Text entry, modifiers, IME, overlays, and held keys
 do not trigger these actions. Normal mode preserves page interaction. Source and
@@ -611,7 +621,7 @@ diff selections use their own range gestures. Each creates a native target:
 | Target | Evidence | Locate behavior |
 | --- | --- | --- |
 | Source | Published path, version, source range and quote | Open that source view and range |
-| Rendered | Published document/version, selector, optional text/context, route and viewport | Open that rendered document and locate its element/text |
+| Rendered | Published document/version, selector, optional shadow-host path, text/context, route and viewport | Open that rendered document and locate its element/text |
 | Diff | Patch version, path, old/new side, captured range and quote | Open that patch and native side, hydrating or expanding retained context as needed |
 
 Artifact-wide notes and whole-document/file targets are explicit variants.

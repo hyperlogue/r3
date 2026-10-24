@@ -148,7 +148,10 @@ export interface ArtifactSourceRange {
 // height reports and native viewport evidence within the same layout bound.
 export const MAX_RENDERED_HEIGHT = 16000000;
 export interface RenderedLocator {
+  // CSS selector in the document, or in the last shadow host's open root.
   selector: string;
+  // Outer-to-inner host selectors, each scoped to the preceding open root.
+  shadowHosts?: string[];
   // Optional human-readable location name; never used to match the element.
   label?: string;
   quote?: string;
