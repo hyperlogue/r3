@@ -163,6 +163,22 @@ export class AgentProcesses {
     }
     return;
   }
+  commandName(pid: number): string | undefined {
+    try {
+      // Linux comm can name the original executable even when argv[0] selects
+      // a different role (for example codex-linux-sandbox). Only inspect command
+      // identity for discovery candidates; never persist or send their arguments.
+      const argv0 =
+        this.context?.platform === "linux"
+          ? readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0", 1)[0]
+          : this.context?.platform === "darwin"
+            ? command(["ps", "-ww", "-p", String(pid), "-o", "args="])?.split(/\s+/, 1)[0]
+            : undefined;
+      return argv0 ? basename(argv0) : undefined;
+    } catch {
+      return;
+    }
+  }
   identity(pid: number): AgentProcess | undefined {
     const entry = this.read(pid);
     if (!this.context || !entry || entry.dead || entry.uid !== process.getuid?.()) return;
@@ -214,6 +230,7 @@ export function findAgentAncestor(
   target: ListenerTarget,
   read: (pid: number) => ProcessEntry | null | undefined,
   firstPid: number,
+  commandName: (pid: number) => string | undefined,
 ): number | undefined {
   const names =
     target.harness === "claude"
@@ -228,7 +245,14 @@ export function findAgentAncestor(
     seen.add(pid);
     const entry = read(pid);
     if (!entry || entry.dead) return;
-    if (names.includes(basename(entry.name))) return pid;
+    // All harnesses can launch temporary helpers with the same process name.
+    // Require a recognizable command too, and keep walking past wrappers. If
+    // isolation hides the real agent, leave cleanup untracked instead of tying
+    // a durable destination to the lifetime of one tool call.
+    if (names.includes(basename(entry.name))) {
+      const invoked = commandName(pid);
+      if (invoked && names.includes(basename(invoked))) return pid;
+    }
     pid = entry.parentPid;
   }
   return;
@@ -249,6 +273,11 @@ export function captureAgentProcess(
     if (!identity) throw new Error("R3_AGENT_PID must identify a live process owned by this user");
     return identity;
   }
-  const pid = findAgentAncestor(target, (id) => processes.read(id), process.ppid);
+  const pid = findAgentAncestor(
+    target,
+    (id) => processes.read(id),
+    process.ppid,
+    (id) => processes.commandName(id),
+  );
   return pid === undefined ? undefined : processes.identity(pid);
 }

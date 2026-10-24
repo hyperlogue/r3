@@ -248,9 +248,14 @@ credential; requests carrying any Origin header are rejected. Paths, executables
 Codex home, Claude sockets, Antigravity connection details, agent process identity, and harness credentials
 never enter backend requests.
 
-The CLI records the nearest matching long-lived harness ancestor, skipping the
-short-lived r3 command and shells. `R3_AGENT_PID` can explicitly select a live,
-same-user process for launchers that hide that ancestry. Identity includes PID,
+The CLI records the nearest recognizable harness ancestor. For Claude Code,
+Codex, and Antigravity, both the OS process name and invoked command basename must
+identify the harness. A temporary sandbox helper can share the agent's process
+name while invoking a different command; discovery skips it and continues through
+visible parents. If isolation hides the agent or its command cannot be identified,
+the destination remains untracked and usable after the tool call exits.
+`R3_AGENT_PID` can explicitly select a live, same-user process for launchers that
+hide that ancestry. Identity includes PID,
 process start time, boot identity, and PID namespace, so a reused PID cannot keep
 old credentials alive. Linux namespace translation occurs only when the worker
 can verify the same process in its own namespace.
