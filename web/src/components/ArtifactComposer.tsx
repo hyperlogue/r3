@@ -158,62 +158,64 @@ export function ArtifactComposer({
         }
       }}
     >
-      <div className="flex items-start justify-between gap-2 px-3 text-xs text-neutral-500">
-        {floating && (
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label={t("composer.moveComposer")}
-            title={t("composer.dragToMove")}
-            onPointerDown={floatingComposer.start}
-            className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 focus-visible:outline-2 focus-visible:outline-primary-500 dark:hover:text-neutral-200"
-          >
-            <StrokeIcon className="size-4">
-              <path
-                d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </StrokeIcon>
-          </button>
-        )}
-        <span className={cn(floating && "min-w-0 flex-1 break-words pt-1")}>
-          {commentTo
-            ? context?.versionSeq
-              ? t("composer.commentAboutVersion", {
-                  context_versionSeq: context.versionSeq,
-                  context_representation_context_representation: context.representation
-                    ? ` · ${context.representation}`
-                    : "",
+      {(!commentTo || !!context?.versionSeq || floating) && (
+        <div className="flex items-start justify-between gap-2 px-3 text-xs text-neutral-500">
+          {floating && (
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={t("composer.moveComposer")}
+              title={t("composer.dragToMove")}
+              onPointerDown={floatingComposer.start}
+              className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 focus-visible:outline-2 focus-visible:outline-primary-500 dark:hover:text-neutral-200"
+            >
+              <StrokeIcon className="size-4">
+                <path
+                  d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </StrokeIcon>
+            </button>
+          )}
+          <span className={cn(floating && "min-w-0 flex-1 break-words pt-1")}>
+            {commentTo
+              ? context?.versionSeq
+                ? t("composer.commentAboutVersion", {
+                    context_versionSeq: context.versionSeq,
+                    context_representation_context_representation: context.representation
+                      ? ` · ${context.representation}`
+                      : "",
+                  })
+                : null
+              : artifactTargetLabel(draft?.target ?? { kind: "artifact" })}
+          </span>
+          {!commentTo && draft?.target.kind !== "artifact" && draft?.target && (
+            <button
+              type="button"
+              className={cn("shrink-0 underline", floating && "pt-1")}
+              onClick={() =>
+                artifactDrafts.update(artifactId, {
+                  target: { kind: "artifact" },
+                  mediaSnapshot: undefined,
                 })
-              : t("composer.commentWithoutAPublishedContext")
-            : artifactTargetLabel(draft?.target ?? { kind: "artifact" })}
-        </span>
-        {!commentTo && draft?.target.kind !== "artifact" && draft?.target && (
-          <button
-            type="button"
-            className={cn("shrink-0 underline", floating && "pt-1")}
-            onClick={() =>
-              artifactDrafts.update(artifactId, {
-                target: { kind: "artifact" },
-                mediaSnapshot: undefined,
-              })
-            }
-          >
-            {t("composer.clearTarget")}
-          </button>
-        )}
-        {floating && (
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label={t("composer.closeComposer")}
-            onClick={floating.onClose}
-          >
-            ×
-          </Button>
-        )}
-      </div>
+              }
+            >
+              {t("composer.clearTarget")}
+            </button>
+          )}
+          {floating && (
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label={t("composer.closeComposer")}
+              onClick={floating.onClose}
+            >
+              ×
+            </Button>
+          )}
+        </div>
+      )}
       {draft?.imported && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {t("composer.importedDraftItsOriginalPublishedContextIs")}

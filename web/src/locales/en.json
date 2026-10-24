@@ -505,7 +505,6 @@
     "closeComposer": "Close composer",
     "comment": "Comment",
     "commentAboutVersion": "Comment about version {{context_versionSeq}}{{context_representation_context_representation}}",
-    "commentWithoutAPublishedContext": "Comment without a published context",
     "descriptionAnchoringIsNoLongerSupportedClear": "Description anchoring is no longer supported. Clear the target to post this draft as a general comment.",
     "discard": "Discard",
     "dragToMove": "Drag to move",

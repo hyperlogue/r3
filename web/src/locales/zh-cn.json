@@ -505,7 +505,6 @@
     "closeComposer": "关闭编辑器",
     "comment": "评论",
     "commentAboutVersion": "关于版本 {{context_versionSeq}}{{context_representation_context_representation}} 的评论",
-    "commentWithoutAPublishedContext": "脱离已发布上下文发表评论",
     "descriptionAnchoringIsNoLongerSupportedClear": "不再支持锚定到描述。清除目标以将此草稿作为常规评论发布。",
     "discard": "放弃",
     "dragToMove": "拖拽以移动",
