@@ -4,6 +4,15 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.3.1] - 2026-10-23
+
+### Fixed
+
+- **Smoother browsing.** Reduce unnecessary loading, restore reading positions,
+  and fit images to the viewport.
+- **Local access.** Harden no-login mode and fix IPv6 startup.
+- **Chinese translations.** Polish app and website copy.
+
 ## [2.3.0] - 2026-10-21
 
 ### Added
@@ -772,6 +781,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.3.1]: https://github.com/hyperlogue/r3/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/hyperlogue/r3/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/hyperlogue/r3/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/hyperlogue/r3/compare/v2.1.1...v2.2.0
