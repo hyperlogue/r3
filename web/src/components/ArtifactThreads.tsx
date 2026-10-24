@@ -471,11 +471,11 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
         />
       )}
       {(hasTarget || artifactNeedsAttention(thread) || thread.status === "resolved") && (
-        <div className="mb-2 flex flex-wrap items-start justify-between gap-2 text-xs">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
           {artifactNeedsAttention(thread) && (
             <span
               title={t("threads.unhandledAgentResponse")}
-              className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-500"
+              className="size-1.5 shrink-0 rounded-full bg-primary-500"
             />
           )}
           {unavailable ? (
@@ -483,7 +483,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               {t("common.historicalTargetUnavailable")}
             </span>
           ) : hasTarget ? (
-            <div className="flex min-w-0 flex-1 items-start gap-1">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
               <button
                 type="button"
                 className="min-w-0 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
