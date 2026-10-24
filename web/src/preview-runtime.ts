@@ -233,8 +233,10 @@ export function installPreviewRuntime(
   };
   const findAncestor = (locator: RenderedLocator): Element | null => {
     const hosts = locator.shadowHosts ?? [];
+    // The exact element comes first: it can still match after its quote changes.
     // Saved host paths also supply ancestor evidence for older shadow targets.
     const candidates = [
+      { selector: locator.selector, shadowDepth: hosts.length },
       ...(locator.ancestors ?? []),
       ...hosts.map((selector, shadowDepth) => ({ selector, shadowDepth })).reverse(),
     ];

@@ -616,11 +616,12 @@ document scope; historical incomplete selectors are never guessed into a frame.
 Browser picks also record up to 16 actual ancestors, nearest first, stopping before
 body/html. Each stores a selector and `shadowDepth`, a prefix length of the
 target's shadow-host path. Locate gives the exact target its normal hydration
-retry window. If it remains unplaced, Locate tries recorded parents nearest first,
-then saved shadow hosts from inner to outer; only a unique visible match qualifies.
-An ambiguous exact target stays ambiguous. A parent fallback has transient
-`ancestor` state, a dashed outline, and an explicit **Original element unavailable;
-showing a parent** notice. Comparison labels it **Parent shown**. It supplies
+retry window. If it remains unplaced, Locate tries the exact selector without its
+quote (for edited text), then recorded parents nearest first, then saved shadow
+hosts from inner to outer; only a unique visible match qualifies. An ambiguous
+exact target stays ambiguous. This context fallback has transient `ancestor`
+state, a dashed outline, and an explicit **Exact target unavailable; showing
+recorded context** notice. Comparison labels it **Context shown**. It supplies
 context without claiming the original quote matched, rewriting the target, storing
 a placement, or creating an exact discussion marker. No arbitrary selector parsing
 or whole-page fallback invents missing parent evidence.

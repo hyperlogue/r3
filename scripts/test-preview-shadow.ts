@@ -300,7 +300,7 @@ try {
   }, "shadow mutations reposition markers");
 
   const savedText = JSON.stringify(textLocator);
-  await content.evaluate(`${node("second", "#text b")}.remove()`);
+  await content.evaluate(`${node("second", "#text b")}.textContent='revised passage'`);
   await locate(textLocator, "ancestor");
   const shows = async (expression: string) => {
     const expected = await content.evaluate(`(${expression}).getBoundingClientRect().toJSON()`);
@@ -317,6 +317,9 @@ try {
       "fallback never highlights the old quote as an exact match",
     );
   };
+  await shows(node("second", "#text b"));
+  await content.evaluate(`${node("second", "#text b")}.remove()`);
+  await locate(textLocator, "ancestor");
   await shows(node("second", "#text"));
   assert.equal(
     await ui(".marker", "!!el"),
@@ -414,7 +417,7 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.body.textContent.includes('Original element unavailable; showing a parent.')",
+        "document.body.textContent.includes('Exact target unavailable; showing recorded context.')",
       ),
     "explicit parent fallback notice",
   );
@@ -428,7 +431,7 @@ try {
   );
   assert.equal(
     await page.evaluate(
-      "Array.from(document.querySelectorAll('[data-comparison-target-state=ancestor]')).every(el=>el.textContent==='Parent shown')",
+      "Array.from(document.querySelectorAll('[data-comparison-target-state=ancestor]')).every(el=>el.textContent==='Context shown')",
     ),
     true,
   );

@@ -732,7 +732,7 @@ function PreviewSession(
             message.state === "ambiguous"
               ? t("common.thisTargetMatchesMoreThanOnePlace")
               : message.state === "ancestor"
-                ? t("common.showingParentForUnavailableTarget")
+                ? t("common.showingContextForUnavailableTarget")
                 : message.state === "unplaced"
                   ? t("common.thisTargetIsUnavailableInTheCurrent")
                   : "",

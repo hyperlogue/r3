@@ -237,7 +237,7 @@ function ComparisonPreview({
             : state === "anchored"
               ? t("comparison.located")
               : state === "ancestor"
-                ? t("comparison.parentShown")
+                ? t("comparison.contextShown")
                 : state === "ambiguous"
                   ? t("comparison.multipleMatches")
                   : state === "unplaced"
