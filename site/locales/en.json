@@ -369,7 +369,8 @@
     "02ImproveAnOnboardingProposal2": "← 02 Improve an onboarding proposal",
     "03ExploreHowSearchWorks2": "← 03 Explore how search works",
     "04FixDuplicateFormSubmissions2": "← 04 Fix duplicate form submissions",
-    "homepage": "← Homepage"
+    "homepage": "← Homepage",
+    "privacyDialogs": "Privacy dialogs"
   },
   "landing": {
     "artifactExample": "/artifact_example",
@@ -398,13 +399,13 @@
     "searchTheDocs": "Search the docs.",
     "seeTheIterationLoopInAction": "See the iteration loop in action",
     "startIteratingVisuallyWithYourAgent": "Start iterating visually with your agent",
-    "theR3NavbarAboveAHighlightedButton": "The r3 navbar above a highlighted button and its review thread: the user requests a 16px button margin, the agent confirms the change, and a draft asks to decrease the margin back to 8px.",
     "tryTheDemo": "Try the demo →",
     "tryFeedbackVideoOrPublish": "Try “feedback”, “video”, or “publish”…",
     "liveDemo": "live demo",
     "localhost8891": "localhost:8891",
     "usesACurveLabAndCodeReview": "uses a curve lab and code review with scripted agent replies.",
-    "makeThisBetterStartsAnotherRoundOf": "“Make this better” starts another round of guessing. “Explain who can see this project before I create it” gives your agent a target and a test."
+    "makeThisBetterStartsAnotherRoundOf": "“Make this better” starts another round of guessing. “Explain who can see this project before I create it” gives your agent a target and a test.",
+    "privacyDialogReview": "Privacy dialogs in r3: a highlighted GPU warning, the agent’s reply about moving it below the title, and a follow-up draft requesting a Disabled badge with an explanatory tooltip."
   },
   "client": {
     "showingTheFirst20": "; showing the first 20",

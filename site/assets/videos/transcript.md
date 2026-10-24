@@ -1,225 +1,120 @@
 # Homepage demo transcripts
 
----
-
-These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
-
----
+The first three films use the Privacy dialogs review; the image and video comment films retain their fictional examples. All films are silent.
 
 # Precise feedback
 
-Duration: 18 seconds. Silent video. r3 2.1.1.
+Duration: 18 seconds. Silent video. r3 2.3.1.
 
-These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
+Real r3 ArtifactPage and native preview controls, using isolated copies of the Privacy dialogs publications. Selected conversation excerpts are reproduced; ellipses mark omissions. Recorded new comments and handoff are staged. Verified fix links and placements are added only to the recording fixture. Camera, pointer, click effects, and titles are editorial. There is no narration, music, or other audio. Timing is editorial, not agent response speed.
 
 ## On-screen titles and subtitles
 
-00:00.000–00:03.633
-Title: Click it. Comment on it.
-Subtitle: Point to the exact element that needs attention.
+00:00.000–00:03.600
+Title: Point to what needs to change.
+Subtitle: Select the warning directly in the published design.
 
-00:03.633–00:08.467
-Title: Say what should change.
-Subtitle: The note keeps its target and version.
+00:03.600–00:11.800
+Title: Keep the request in context.
+Subtitle: Move the notice. Grey out the unavailable model.
 
-00:08.467–00:11.000
-Title: Ready for your agent.
-Subtitle: Keep the feedback beside the work.
+00:11.800–00:18.000
+Title: Collect your notes. Send them together.
+Subtitle: One handoff gives your agent the feedback and its context.
 
-00:11.000–00:15.400
-Title: Send the whole review.
-Subtitle: Collect your notes before handing them off.
+## Actions and featured UI
 
-00:15.400–00:18.000
-Title: One click. Shared context.
-Subtitle: Send the queued comments directly to your agent.
+00:00.000–00:02.100: Open the published model-dialog board in r3.
 
-## Actions and visible results
+00:02.100–00:03.600: Select the GPU warning with the native annotation tool.
 
-00:00.000–00:02.100: Open the complete component workspace.
+00:03.600–00:04.900: Open a comment tied to the selected warning.
 
-00:02.100–00:03.733: Enable comment mode and select View activity.
+00:04.900–00:08.000: Write the request to move the notice and grey out the card. Comment: “Move this below the Choose model title, and grey out the unavailable model card.”
 
-00:03.733–00:04.933: Open the native element comment composer.
+00:08.000–00:12.000: Read the saved anchored comment.
 
-00:04.933–00:07.700: Write an anchored comment. The note reads: “Make this button say ‘View team activity’.”
+00:12.000–00:16.000: Collect two comments before handing them to the agent. Second comment: “Move the download button to the model card itself.”
 
-00:07.700–00:08.533: Post the comment.
+00:16.000–00:18.000: Send the two comments to the isolated demo agent.
 
-00:08.533–00:11.000: Read the saved anchored comment in the discussion.
+## Motion and staging
 
-00:11.000–00:12.667: Review the complete workspace with one unsent comment.
+Each film starts with the complete workspace, moves toward the action, and returns to the overview. The source contains the deterministic camera and pointer tracks. Click pulses occur at 00:01.100, 00:02.100, 00:08.000, 00:16.000. They stay fixed to the recorded click point. UI states crossfade over 0.15 seconds.
 
-00:12.667–00:16.233: Batch two comments before sending. The two queued notes read: “Make this button say ‘View team activity’.” and “Keep the supporting copy to one short sentence.”
-
-00:16.233–00:18.000: Send both comments to the scripted agent.
-
-## Motion and editing
-
-00:00.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:01.100: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:01.933: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:03.200: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:04.133: Camera arrives at 1.9× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:07.133: Camera arrives at 1.9× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:07.967: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:08.800: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:09.467: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:10.000: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:10.767: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:11.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:12.100: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:12.967: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:14.967: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:15.833: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:16.767: Camera arrives at 2.2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:17.500: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:18.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
-
-Click highlights at 00:01.100, 00:02.100, 00:07.700, 00:16.233. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
-
-Comment on a specific element, collect another note, and send both in one handoff. This combines the previous commenting and handoff films while preserving their faster action timing. Agent replies are introduced in the following film.
-
+Published document markup is retained; fonts are bundled for repeatable capture. Identifying session IDs and source-account links are removed. The original artifact is read only. New comments and sending are performed in an isolated in-memory demo backend. Fix targets and historical placements are verified additions to that fixture, not changes to the source thread.
 
 ---
 
 # Agent replies
 
-Duration: 10 seconds. Silent video. r3 2.1.1.
+Duration: 10 seconds. Silent video. r3 2.3.1.
 
-These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
+Real r3 ArtifactPage and native preview controls, using isolated copies of the Privacy dialogs publications. Selected conversation excerpts are reproduced; ellipses mark omissions. Recorded new comments and handoff are staged. Verified fix links and placements are added only to the recording fixture. Camera, pointer, click effects, and titles are editorial. There is no narration, music, or other audio. Timing is editorial, not agent response speed.
 
 ## On-screen titles and subtitles
 
-00:00.000–00:03.000
-Title: The reply stays with the feedback.
-Subtitle: Read your agent’s response in the same thread.
+00:00.000–00:03.200
+Title: The reply stays beside the work.
+Subtitle: Read what changed, then revisit the original.
 
-00:03.000–00:06.700
-Title: Every version stays within reach.
-Subtitle: Open the original without losing the conversation.
+00:03.200–00:06.700
+Title: Every published version stays available.
+Subtitle: Open version 5 without losing the conversation.
 
 00:06.700–00:10.000
-Title: Open the latest when you’re ready.
-Subtitle: Your earlier versions remain available.
+Title: Return to the revised design.
+Subtitle: Version 6 moves the warning below the title.
 
-## Actions and visible results
+## Actions and featured UI
 
-00:00.000–00:03.200: Read the agent reply beside the latest published version. The agent reply reads: “Added an explanation beneath the visibility setting. Your choice stays editable.”
+00:00.000–00:03.200: Read the agent reply alongside the revised GPU notice. Human: “put this to the top, after the choose model title. and grey out the model selection card in this mode.” Agent excerpt: “Done in v6. The notice now sits right under the Choose model title … The card is greyed out … and it can't be selected or downloaded.” The recording fixture supplies the verified “Fix: GPU compatibility notice” link.
 
-00:03.200–00:04.100: Open the published version picker. The picker lists “v2 Explain project visibility” and “v1 Project creation”.
+00:03.200–00:04.100: Open the retained publication history. The Published version picker offers v6 Refined privacy dialogs, v5 Redesigned model cards, and v3 Original model cards. Labels are shortened for the recording.
 
-00:04.100–00:06.700: Open the original version without losing the conversation. Version 1 has no visibility explanation. The existing conversation stays visible and the toolbar offers “Go to the latest version”.
+00:04.100–00:06.700: Open version 5 with the original warning below the model cards. Version 5 shows the warning under the cards: “This GPU can’t run this model: it lacks 16-bit support (shader-f16).” The toolbar offers “Go to the latest version”.
 
-00:06.700–00:10.000: Return to the latest published version. Version 2 restores the explanation: “Everyone in your workspace can find and open this project. You can change this later.”
+00:06.700–00:10.000: Return to version 6 and see the notice below the title. Version 6 places the warning directly below Choose model: “This GPU lacks 16-bit support (shader-f16), so pplx-decider-flash-v1.2-q4 can’t run here.” The unavailable card is greyed out.
 
-## Motion and editing
+## Motion and staging
 
-00:00.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+Each film starts with the complete workspace, moves toward the action, and returns to the overview. The source contains the deterministic camera and pointer tracks. Click pulses occur at 00:03.200, 00:04.100, 00:06.700. They stay fixed to the recorded click point. UI states crossfade over 0.15 seconds.
 
-00:00.700: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:01.200: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:02.400: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:03.050: Camera arrives at 1.9× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:04.100: Camera arrives at 1.9× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:04.600: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:06.700: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:07.150: Camera arrives at 1.45× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:08.700: Camera arrives at 1.45× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:09.400: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:10.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
-
-Click highlights at 00:03.200, 00:04.100, 00:06.700. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
-
-The real version picker lists both published versions. Version 1 opens with the original form and the conversation intact. Go to the latest version returns to version 2, where the new visibility explanation is present. The publications and agent reply are fictional showcase fixtures.
-
+Published document markup is retained; fonts are bundled for repeatable capture. Identifying session IDs and source-account links are removed. The original artifact is read only. New comments and sending are performed in an isolated in-memory demo backend. Fix targets and historical placements are verified additions to that fixture, not changes to the source thread.
 
 ---
 
 # Inspect fixes
 
-Duration: 10 seconds. Silent video. r3 2.1.1.
+Duration: 10 seconds. Silent video. r3 2.3.1.
 
-These silent films show the real r3 interface with fictional local fixtures. Agent replies are scripted; the image reference and launch clip are authored examples. Captured UI states are edited with smooth camera motion, pointer motion, crossfades, and animated titles. Timing is editorial, not a measurement of agent response speed. There is no narration, music, or other audio.
+Real r3 ArtifactPage and native preview controls, using isolated copies of the Privacy dialogs publications. Selected conversation excerpts are reproduced; ellipses mark omissions. Recorded new comments and handoff are staged. Verified fix links and placements are added only to the recording fixture. Camera, pointer, click effects, and titles are editorial. There is no narration, music, or other audio. Timing is editorial, not agent response speed.
 
 ## On-screen titles and subtitles
 
-00:00.000–00:02.767
+00:00.000–00:02.800
 Title: Inspect the actual fix.
 Subtitle: Open Compare from the agent’s reply.
 
-00:02.767–00:07.767
+00:02.800–00:07.800
 Title: Original and revision. Together.
-Subtitle: Check the added explanation in its original context.
+Subtitle: See the warning move and the unavailable card fade.
 
-00:07.767–00:10.000
-Title: See whether it solves the problem.
-Subtitle: Review the result before moving on.
+00:07.800–00:10.000
+Title: Keep the decision in your hands.
+Subtitle: Review the result before resolving the thread.
 
-## Actions and visible results
+## Actions and featured UI
 
-00:00.000–00:02.767: Open the reviewed project-creation artifact.
+00:00.000–00:02.800: Read the agent reply alongside the revised GPU notice. Human: “put this to the top, after the choose model title. and grey out the model selection card in this mode.” Agent excerpt: “Done in v6. The notice now sits right under the Choose model title … The card is greyed out … and it can't be selected or downloaded.” The recording fixture supplies the verified “Fix: GPU compatibility notice” link.
 
-00:02.767–00:10.000: Compare the original with the proposed fix. The proposed version adds: “Everyone in your workspace can find and open this project. You can change this later.”
+00:02.800–00:10.000: Compare version 5 and version 6 at the original warning and the linked fix. Compare shows “Original v5” and “Proposed fix v6”, both Located. The warning moves above the cards; the unavailable card has a grey fill.
 
-## Motion and editing
+## Motion and staging
 
-00:00.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
+Each film starts with the complete workspace, moves toward the action, and returns to the overview. The source contains the deterministic camera and pointer tracks. Click pulses occur at 00:02.800. They stay fixed to the recorded click point. UI states crossfade over 0.15 seconds.
 
-00:01.100: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:01.933: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:02.500: Camera arrives at 2× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:03.333: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:04.167: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:05.167: Camera arrives at 1.55× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:07.500: Camera arrives at 1.55× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:08.900: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-00:10.000: Camera arrives at 1× magnification. Motion eases smoothly from the previous view, keeping the interface within the frame.
-
-Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
-
-Click highlights at 00:02.767. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
-
+Published document markup is retained; fonts are bundled for repeatable capture. Identifying session IDs and source-account links are removed. The original artifact is read only. New comments and sending are performed in an isolated in-memory demo backend. Fix targets and historical placements are verified additions to that fixture, not changes to the source thread.
 
 ---
 
@@ -280,7 +175,6 @@ Subtitle: Your agent can read the note and inspect the reference.
 Native UI changes blend over at most 0.15 seconds. Titles rise into place word by word. Ordinary pointer travel takes at most 0.2 seconds, with a separate continuous drag when selecting a region. Pointer motion and click effects are editorial guides to controls used during capture. Each film establishes the complete workspace and returns to it before ending.
 
 Click highlights at 00:07.700. Each click produces an indigo double ripple and soft glow lasting 0.45 seconds. The ripple stays at the clicked UI position as the camera or cursor moves. The cursor briefly compresses to 83% size and returns over 0.22 seconds.
-
 
 ---
 

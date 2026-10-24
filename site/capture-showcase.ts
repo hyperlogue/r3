@@ -31,11 +31,16 @@ try {
   const manifest: CaptureManifest =
     storiesOnly || selectedScene
       ? await Bun.file(join(assets, "fieldwork-captures.json")).json()
-      : { captures: [] };
+      : {
+          captures: (
+            (await Bun.file(join(assets, "fieldwork-captures.json")).json()) as CaptureManifest
+          ).captures.filter((capture) => "recorded" in capture),
+        };
   const server = serveSite(directory, { port: 0 });
   try {
     for (const spec of captureSpecs.filter(
       (spec) =>
+        !("recorded" in spec) &&
         (!storiesOnly || "step" in spec) &&
         (!selectedScene || ("scene" in spec && spec.scene === selectedScene)),
     )) {

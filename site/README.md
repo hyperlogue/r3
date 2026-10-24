@@ -97,14 +97,12 @@ exact plain text used by the copy action.
 Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
-The hero shows a cream-and-teal component showcase with large headings
-and rounded controls, distinct from r3. Its highlighted button and dot marker
-remain visible beside the thread. A real floating thread contains the human’s
-request to increase a button margin, the agent’s reply, and a pending draft asking
-to restore the previous margin. It has no caption. A stationary Chrome-style
-frame surrounds the image, with an active tab, window controls, navigation
-icons, and a rounded address bar. The same frame is shared by the full
-workspace preview.
+The hero shows the Privacy dialogs artifact: a highlighted GPU warning, an
+excerpt of the agent’s reply, and a follow-up draft requesting a Disabled badge
+with an explanatory tooltip. Light and dark captures show the real r3 navbar,
+annotation marker, and floating thread. A stationary Chrome-style frame surrounds
+the image, with an active tab, window controls, navigation icons, and a rounded
+address bar. The same frame is shared by the full workspace preview.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has only a separate demo button beneath its
 browser frame. The demo button uses a blue outline. The screenshot, browser
@@ -155,9 +153,11 @@ handlers from the existing in-memory demo backend, and the authored
 `FieldworkDocument` renderer or `PromptDocument` for the search explainer and
 project-visibility design proposal. The prototype uses a violet app layout, the
 explainer a dark canvas with colored ranking signals, and the proposal a white
-document with metadata, access rules, tradeoffs, and rollout notes. The hero
-capture selects a separate component fixture and `ComponentsDocument` renderer
-through `?scene=components`. No API
+document with metadata, access rules, tradeoffs, and rollout notes. The
+documentation’s component capture selects a separate component fixture and
+`ComponentsDocument` renderer
+through `?scene=components`. The homepage hero is an external recording of the
+Privacy dialogs example described below. No API
 aliases, authentication, or server bootstrap are involved. The build rejects runtime imports of connected application modules.
 
 `showcase/fixture.ts` owns the fictional versions and conversation. Comments,
@@ -248,8 +248,9 @@ interactions inside the opaque sandbox.
 
 ## Content boundary
 
-The homepage uses the actual r3 page with a fictional Example Fieldwork project;
-the captions identify the sample data and scripted agent. The full demo retains
+The homepage uses the actual r3 page with the Privacy dialogs recording and a
+fictional Example Fieldwork project. The example captions identify sample data
+and the scripted agent. The full demo retains
 its curve-lab and code-review fixtures. The Example Fieldwork articles include
 guided reproduction instructions; the media walkthrough uses actual captures
 of its fictional launch campaign.
@@ -258,8 +259,13 @@ The five feature rows play silent, 10–18 second MP4 films captured from the re
 r3 interface. Native controls support playback, seeking, and fullscreen; nothing
 autoplays or downloads video bytes before interaction. Posters and plain-text
 transcripts remain available without JavaScript. Transcripts ship with the video
-assets; the homepage has no transcript links or caption strips. The recordings use
-fictional local fixtures, scripted agent replies, and an authored image reference.
+assets; the homepage has no transcript links or caption strips. The first three
+recordings use isolated copies of the Privacy dialogs artifact
+and selected conversation excerpts. Ellipses mark shortened replies; the new
+comments and handoff are staged. Verified fix links and placements were added
+only to the recording fixture so Compare can demonstrate the published change.
+The final two recordings use fictional local fixtures, scripted agent replies,
+and an authored image reference.
 Camera motion, pointer motion, transitions, and titles are editorial overlays.
 Clicks show a brief indigo double ripple and glow while the cursor presses and
 releases. The effect stays on the clicked point during cursor movement or dragging.
@@ -307,3 +313,24 @@ also includes these scenes. All captures share `assets/fieldwork-captures.json`
 and the build's resolution/hash checks. `site/check-stories.ts` checks the five
 pages at desktop and phone widths, full-size image links, both themes, and image
 dimensions.
+
+### Privacy dialogs recordings
+
+The headline image and the precise-feedback, agent-replies, and inspect-fixes
+films use published versions 3, 5, and 6 of the Privacy dialogs review. The
+featured GPU-warning thread moves the notice below the Choose model title and
+greys out the unavailable card. The model-card thread supplies a second handoff
+note. The headline draft revisits the warning design with a Disabled badge.
+These are curated recording copies: session identifiers and source-account links
+are omitted, comments are excerpted, and the original artifact remains untouched.
+
+The 900×600 headline captures are recorded at 3× density and stored as
+`fieldwork-privacy-light.png` and `fieldwork-privacy-dark.png`. Their `recorded`
+entries in `assets/fieldwork-captures.json` identify externally produced captures.
+`capture-showcase.ts` preserves them when refreshing the fictional examples;
+update their hashes and dimensions together when importing a new recording.
+The earlier component screenshots remain in the documentation.
+
+Production source, published inputs, a seekable preview, the scene plan, and the
+recording scripts live in a separate video workspace. `assets/videos/transcript.md`
+records the exact exported titles, timing, conversation excerpts, and staging.

@@ -118,9 +118,9 @@ function skillInstall(id: string, locale: Locale) {
 function reviewDetail(locale: Locale = "en") {
   return `<figure class="hero-review" id="review-detail">
 <div class="browser-frame hero-browser">
-${browserBar(h("common.uiComponentShowcase", locale))}
+${browserBar(h("common.privacyDialogs", locale))}
 <div class="hero-review-crop">
-${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-comment-${theme}.png" width="820" height="540" alt="${h("landing.theR3NavbarAboveAHighlightedButton", locale)}">`).join("")}
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-privacy-${theme}.png" width="900" height="600" alt="${h("landing.privacyDialogReview", locale)}">`).join("")}
 </div>
 </div>
 </figure>`;

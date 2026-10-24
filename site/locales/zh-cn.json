@@ -369,7 +369,8 @@
     "02ImproveAnOnboardingProposal2": "← 02 改进用户引导的界面设计",
     "03ExploreHowSearchWorks2": "← 03 探索搜索功能的工作原理",
     "04FixDuplicateFormSubmissions2": "← 04 修复表单重复提交",
-    "homepage": "← 首页"
+    "homepage": "← 首页",
+    "privacyDialogs": "隐私对话框"
   },
   "landing": {
     "artifactExample": "/artifact_example",
@@ -398,13 +399,13 @@
     "searchTheDocs": "搜索文档。",
     "seeTheIterationLoopInAction": "查看实际项目中的反馈流程",
     "startIteratingVisuallyWithYourAgent": "与你的智能体开启可视化迭代",
-    "theR3NavbarAboveAHighlightedButton": "高亮按钮及其审阅主题上方的 r3 导航栏：用户请求 16px 的按钮边距，智能体确认修改，草稿则请求将边距调回 8px。",
     "tryTheDemo": "体验演示 →",
     "tryFeedbackVideoOrPublish": "尝试搜索 “feedback”、“video” 或 “publish”……",
     "liveDemo": "在线演示",
     "localhost8891": "localhost:8891",
     "usesACurveLabAndCodeReview": "采用包含贝塞尔曲线实验室与代码审阅的场景，配合脚本化的智能体回复。",
-    "makeThisBetterStartsAnotherRoundOf": "“把它改好点”只会引发又一轮猜测。而“在创建之前说明谁能看到这个项目”则为智能体指明了具体目标和验证标准。"
+    "makeThisBetterStartsAnotherRoundOf": "“把它改好点”只会引发又一轮猜测。而“在创建之前说明谁能看到这个项目”则为智能体指明了具体目标和验证标准。",
+    "privacyDialogReview": "r3 中的隐私对话框：高亮的 GPU 提示、智能体将提示移到标题下方的回复，以及请求改用带说明提示的“已禁用”徽章的后续草稿。"
   },
   "client": {
     "showingTheFirst20": "；显示前 20 个",

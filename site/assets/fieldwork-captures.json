@@ -437,6 +437,24 @@
       "scene": "media",
       "mediaComparison": true,
       "sha256": "66d232b9c61ebe67f1e383965184ae8b16d7227d41006be80e9828853d6740fc"
+    },
+    {
+      "file": "fieldwork-privacy-light.png",
+      "theme": "light",
+      "width": 900,
+      "height": 600,
+      "scale": 3,
+      "recorded": true,
+      "sha256": "5479733b4952327d7e1d09068311d4b3578adc71b1c607b67016c82e9aacc01b"
+    },
+    {
+      "file": "fieldwork-privacy-dark.png",
+      "theme": "dark",
+      "width": 900,
+      "height": 600,
+      "scale": 3,
+      "recorded": true,
+      "sha256": "c5f1c8b4df9050035d0bed3467275498ca81b7b866729809d35e326808824420"
     }
   ]
 }

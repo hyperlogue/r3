@@ -19,6 +19,14 @@ export const storyCaptureSpecs = (
 
 export const captureSpecs = [
   ...storyCaptureSpecs,
+  ...(["light", "dark"] as const).map((theme) => ({
+    file: `fieldwork-privacy-${theme}.png`,
+    theme,
+    width: 900,
+    height: 600,
+    scale: 3,
+    recorded: true,
+  })),
   { file: "fieldwork-light.png", theme: "light", width: 1240, height: 740, scale: 3 },
   { file: "fieldwork-dark.png", theme: "dark", width: 1240, height: 740, scale: 3 },
   { file: "fieldwork-mobile-light.png", theme: "light", width: 390, height: 740, scale: 3 },

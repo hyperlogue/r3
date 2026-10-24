@@ -1,11 +1,11 @@
 {
-  "productVersion": "2.1.1",
+  "productVersion": "2.3.1",
   "renderer": {
     "repository": "https://github.com/nexu-io/motion-anything",
     "commit": "b016900d9ee92fc2d3e4dc520359cc8999d2ed4e",
     "license": "Apache-2.0"
   },
-  "evidence": "Real r3 ArtifactPage and preview/media controls, with fictional local fixtures. Agent replies are scripted. UI states are captured at 3x density; pointer and camera motion are editorial.",
+  "evidence": "Real r3 ArtifactPage and native preview controls, using isolated copies of the Privacy dialogs publications. Selected conversation excerpts are reproduced; ellipses mark omissions. Recorded new comments and handoff are staged. Verified fix links and placements are added only to the recording fixture. Camera, pointer, click effects, and titles are editorial. Image-comments and video-comments retain their earlier fictional examples.",
   "motion": {
     "cursorTravel": 0.2,
     "cursorFade": 0.12,
@@ -35,13 +35,15 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 5.766667,
-      "bytes": 2632188,
+      "posterTime": 6,
+      "bytes": 6822475,
       "files": {
-        "precise-feedback.mp4": "1f78cf07b360c75db5023bbcf14e623d405811657433eb5fd7da153547a920a6",
-        "precise-feedback.jpg": "9d1cf9cd0ebc5fd394c029f21cdc82b6968d20b7defc9081678cd24be360e3c4",
-        "precise-feedback.transcript.txt": "6c021ad5e4bdc5c331acac87c20bd20ce33e01ed9b8b85a4b398d726fc5089bc"
-      }
+        "precise-feedback.mp4": "a9e65050a59ebec84efbb7b938853177a8e05a992958a7a12759be26d673e57b",
+        "precise-feedback.jpg": "7e3da2b60864245a657fad388055a6a0aa4d566110b5ec138891a6bcb6c4966c",
+        "precise-feedback.transcript.txt": "d43e22c6190167e6e23f0d777c72a0f2897b0f499aace3aa16aa2c242f81c8bb"
+      },
+      "productVersion": "2.3.1",
+      "evidence": "Privacy dialogs, published versions 3, 5, and 6; curated conversation excerpts and staged handoff."
     },
     {
       "id": "agent-replies",
@@ -53,13 +55,15 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 3.7,
-      "bytes": 1642215,
+      "posterTime": 1.7,
+      "bytes": 5833205,
       "files": {
-        "agent-replies.mp4": "04bb99b170142109e1808a813ea99803b0d21e3becd67a336f834e70af4912b1",
-        "agent-replies.jpg": "c7bd59c2fd30a95eba54953657b8481fc135d80902bebf0d7c648f3ecfaa0a27",
-        "agent-replies.transcript.txt": "449d68521a5dd9f1db3ade64daf3583baf6413829365166ed36b44ae9e0eb6a0"
-      }
+        "agent-replies.mp4": "5dcbed05432268a903088764b058ddfff4e10e95cf5130e7a6da8e1024687e3d",
+        "agent-replies.jpg": "a8b04c418159a6e8ebccb0c96a195f7253ba902e0ca1336ba279729c4831250c",
+        "agent-replies.transcript.txt": "e35be1e9c83ba3ed5dca07391e4ebee24797221f9e203622b3858e88bfed0719"
+      },
+      "productVersion": "2.3.1",
+      "evidence": "Privacy dialogs, published versions 3, 5, and 6; curated conversation excerpts and staged handoff."
     },
     {
       "id": "inspect-fixes",
@@ -71,13 +75,15 @@
       "pixelFormat": "yuv420p",
       "colorSpace": "bt709",
       "audio": false,
-      "posterTime": 5.0,
-      "bytes": 2629792,
+      "posterTime": 5.3,
+      "bytes": 4826524,
       "files": {
-        "inspect-fixes.mp4": "be10298e3cabc6fc295a913a70561f0d0d231ffda922aa3ec78384084ccdfdae",
-        "inspect-fixes.jpg": "e10d29402b85cc11e6aaeda6985bc4fdfbe64cb907de5bddb91bf553194034d9",
-        "inspect-fixes.transcript.txt": "a2c8c1a8d7ff8b1a0b8cc8e65f4e21f98d82bc1158f9f63ff77f43233d3bebd7"
-      }
+        "inspect-fixes.mp4": "f5daa81b227d13f2f4f89e7fefe954a3340b1709645de051ab9b9fadb3046d47",
+        "inspect-fixes.jpg": "1c2b90ad2e776d987c511d4f027d1a90fc2655116642960ee86cf47ef134b450",
+        "inspect-fixes.transcript.txt": "c5c82ed0ce38f729a54c5003232b9604e771ac55d815b1a83c94852bccd62da0"
+      },
+      "productVersion": "2.3.1",
+      "evidence": "Privacy dialogs, published versions 3, 5, and 6; curated conversation excerpts and staged handoff."
     },
     {
       "id": "image-comments",
@@ -95,7 +101,8 @@
         "image-comments.mp4": "10d67c458c2e8531626efaff73f3c2ab6754d1d2c6b8536334172e526fffc3fc",
         "image-comments.jpg": "fe69ff1eb447447cdfbf91ba5a9bc8d9cb5c5ebac2df8d4a6a5730e236886d51",
         "image-comments.transcript.txt": "8ae933bde9248169b07f28f29de7376435db49526edbac7cb00c67c20c3c2d06"
-      }
+      },
+      "productVersion": "2.1.1"
     },
     {
       "id": "video-comments",
@@ -113,7 +120,8 @@
         "video-comments.mp4": "9284f8021cbebba6501bb4c8bb78b0f0acb23d0d31b7aa71a05dcc525453dcb5",
         "video-comments.jpg": "e814811c8e983b4d9a0487be4461252df80b2e356571fd714a29f61ee369fd0f",
         "video-comments.transcript.txt": "6dc701e5bcb87b794bc9a1beb5d750b335a58fdc77d7acfd5ed61f0afdbc60d5"
-      }
+      },
+      "productVersion": "2.1.1"
     }
   ]
 }
