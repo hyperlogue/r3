@@ -48,8 +48,11 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   subagents, use distinct IDs. Sessions are attribution, not credentials, accounts,
   artifact ownership, or live presence.
 - Local mode starts the same backend server lazily and announces it in
-  `$XDG_RUNTIME_DIR/r3/daemon.json`. A private Unix sidecar bootstraps local CLI
-  credentials. A loopback-only server needs no login unless `requireLogin=true`;
+  `$XDG_RUNTIME_DIR/r3/daemon.json`, using the owned Linux user runtime directory
+  when the variable is missing. Legacy and portable state-directory discovery
+  follow the [remote protocol](docs/artifacts/remote-protocol.md). A private Unix
+  sidecar bootstraps local CLI credentials. A loopback-only server needs no login
+  unless `requireLogin=true`;
   any external bind, host, public URL, or trusted proxy always requires login and
   refuses `requireLogin=false`. No-login mode refuses forwarded requests, issues no
   credentials, and the browser warns once about it unless `disableLoginNotice`

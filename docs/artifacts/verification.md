@@ -30,6 +30,7 @@ stale metadata; review changed associations and ambiguous-extension defaults.
 | Boundary | Checks |
 | --- | --- |
 | Application asset compression, exact decoded bytes, encoding-specific validators, immutable caching and HEAD | `server/application-assets.test.ts`, `scripts/verify-binary.ts` |
+| Missing Linux runtime configuration, private directory admission, legacy discovery, surfaced startup errors, and CLI exit while its server remains live | `server/runtime-directory.test.ts`, `cli/daemon-client.test.ts` |
 | Complete directory capture, stable Git inputs, binary bytes | `cli/capture.test.ts`, `cli/capture-git.test.ts`, `cli/artifact-publish.test.ts` |
 | Publication validation, atomic visibility, retries, concurrent publishers, retained rendering, deduplicated content accounting, deletion | `server/publication.test.ts`, `server/artifacts.test.ts`, `server/blobs.test.ts`, `server/artifact-schema.test.ts` |
 | Compact artifact IDs, creation ordering, clock rollback, counter overflow, restart/deletion persistence, atomic allocation, preserved historical IDs | `server/artifacts.test.ts`, `server/migration.test.ts` |

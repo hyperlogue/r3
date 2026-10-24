@@ -39,6 +39,27 @@ Every CLI invocation resolves one backend, in order:
 3. `backendUrl` in the user's r3 `config.json`.
 4. The lazily started local server.
 
+Local server and notification worker discovery use `$XDG_RUNTIME_DIR/r3` when
+the variable is nonblank. Without it, Linux uses `/run/user/<uid>/r3` if the
+user runtime root already exists, is a real directory owned by the current UID,
+and has mode 0700. Other systems, or an unavailable/untrusted Linux runtime root,
+fall back to `$XDG_STATE_HOME/r3` (default `~/.local/state/r3`).
+For older installations, absent runtime configuration preserves state-directory
+discovery while it contains `daemon.json`, `daemon.lock`, `worker.json`, or
+`worker.json.lock`, unless the system runtime already contains any such record.
+Explicit runtime configuration always wins. Each CLI pins the selected directory
+for its lifetime and passes that choice to spawned servers/workers, including
+across stop/start after legacy records are removed. Locks, announcements, and
+private sockets therefore stay together. Deliberately different explicit runtime
+directories remain separate; the CLI does not stop an arbitrary process occupying
+its configured HTTP port.
+
+Failed local startup reports the child's error when available, the local address,
+and the discovery file path. The error crosses private parent/child IPC, which
+closes after startup; the long-running server retains no CLI output pipe. An early
+failure without an IPC result or a readiness timeout retains foreground
+`r3 __daemon` guidance. No permanent diagnostic log is written.
+
 Malformed selected configuration is an error. Commands never search other backends
 for a missing artifact. `comment fetch`, `thread source`, and `comment image`
 have no backend argument. A project file can be committed; it contains a URL, never credentials.

@@ -1,6 +1,6 @@
 import { rmSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { daemonJsonPath, isPidAlive } from "../server/config.ts";
+import { daemonJsonPath, isPidAlive, runtimeDir } from "../server/config.ts";
 import { ArtifactApiError, ArtifactClient } from "../shared/artifact-client.ts";
 import { ArtifactCommandError } from "./artifact-args.ts";
 import { cliProcessArgv } from "./daemon-client.ts";
@@ -51,7 +51,7 @@ export async function ensureWorker(): Promise<ArtifactClient> {
   const warning = workerSandboxWarning(process.env);
   if (warning) console.error(warning);
   const child = Bun.spawn(cliProcessArgv("__worker"), {
-    env: { ...process.env, R3_DETACHED: "1" },
+    env: { ...process.env, XDG_RUNTIME_DIR: dirname(runtimeDir()), R3_DETACHED: "1" },
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",

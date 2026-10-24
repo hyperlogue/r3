@@ -115,6 +115,14 @@ the server start lock before replacing an owned stale socket. Application HTTP e
 neither private operation. Other local UIDs cannot acquire local credentials;
 processes running as the same OS user remain trusted.
 
+When `XDG_RUNTIME_DIR` is absent or blank on Linux, discovery may use
+`/run/user/<uid>` only if it is an existing real directory owned by that UID with
+mode 0700. Never create, chmod, or follow a symlink for this implicit choice.
+Explicit runtime overrides and legacy state-directory discovery follow the
+[remote protocol](../../../docs/artifacts/remote-protocol.md). Server startup errors
+travel over the private parent/child IPC channel; no persistent error log or
+application HTTP diagnostic endpoint is added.
+
 Ordinary login tokens continue to create revocable browser sessions, Secure at an
 HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocation
 of the caller's current token is refused; revoke-all remains the escape hatch.

@@ -339,6 +339,10 @@ Top-level `start`, `stop`, `status`, and `restart` are deprecated aliases for
 stderr with the replacement command, then preserve the server command's stdout,
 behavior, and exit code. Recommend explicit `server` commands in help and diagnostics.
 
+Local server startup failures include the child's startup error when available,
+the local address, and the discovery file path. Server and worker discovery share
+the runtime-directory rules in the [remote protocol](../../../docs/artifacts/remote-protocol.md).
+
 Creation requires `--kind files|html|diff` before capture or artifact creation.
 Publication labels use `--version-label`; `--label` is a compatibility alias, and
 supplying both is an error. Authentication-token labels remain `--label`. `--kind html` requires

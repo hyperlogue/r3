@@ -17,6 +17,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { R3_VERSION } from "../shared/version.ts";
+import { resolveRuntimeDirectory } from "./runtime-directory.ts";
 
 export { R3_VERSION };
 
@@ -286,18 +287,24 @@ export function writeConfig(next: PersistedConfig): void {
   renameSync(tmp, p);
 }
 
-// $XDG_RUNTIME_DIR/r3: volatile per-boot dir; the natural home for daemon.json
-// (it carries a live pid/port). Null when the runtime dir isn't set.
-function runtimeDir(): string | null {
-  const r = process.env.XDG_RUNTIME_DIR?.trim();
-  return r ? join(r, "r3") : null;
+// Pin discovery for this process, including stop/start after legacy records are
+// removed. Children inherit the resolved root even if this shell omitted XDG.
+const RUNTIME_DIR = resolveRuntimeDirectory({
+  state: stateDir(),
+  runtime: process.env.XDG_RUNTIME_DIR,
+  system:
+    process.platform === "linux" && process.getuid ? `/run/user/${process.getuid()}` : undefined,
+  uid: process.getuid?.(),
+});
+export function runtimeDir(): string {
+  return RUNTIME_DIR;
 }
 
 // daemon.json: runtime dir if available (volatile, matches the daemon's
-// lifetime), else the state dir. One canonical path so the writer (daemon) and
-// the reader (CLI) always agree.
+// lifetime), including the owned Linux system directory when XDG is missing;
+// otherwise preserve legacy/portable state discovery.
 export function daemonJsonPath(): string {
-  return join(runtimeDir() ?? stateDir(), "daemon.json");
+  return join(RUNTIME_DIR, "daemon.json");
 }
 
 // The per-user artifact store. `R3_DB` overrides for tests.
@@ -379,7 +386,7 @@ export function removeDaemonJson(): void {
 // in the persistent state dir would outlive daemon.json and — if its recorded
 // pid got reused — wedge every lazy-spawn until manually removed.
 function lockPath(): string {
-  return join(runtimeDir() ?? stateDir(), "daemon.lock");
+  return join(RUNTIME_DIR, "daemon.lock");
 }
 
 export function isPidAlive(pid: number): boolean {

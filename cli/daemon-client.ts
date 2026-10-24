@@ -1,12 +1,15 @@
 import { dirname, resolve } from "node:path";
 import {
   type DaemonInfo,
+  daemonJsonPath,
   forceReleaseDaemonLock,
   isPidAlive,
+  LOCAL_URL,
   LOGIN_POLICY_ERROR,
   readDaemonJson,
   readDaemonLockOwner,
   removeDaemonJson,
+  runtimeDir,
 } from "../server/config.ts";
 import { ArtifactClient } from "../shared/artifact-client.ts";
 import { normalizeBackendUrl } from "../shared/backend-url.ts";
@@ -88,31 +91,44 @@ async function stopProcess(pid: number): Promise<void> {
 }
 
 async function spawnDaemon(): Promise<DaemonInfo> {
-  // The detached server's stderr is discarded; report its policy refusal here.
   if (LOGIN_POLICY_ERROR) throw new ArtifactCommandError(LOGIN_POLICY_ERROR);
+  let startupError: string | undefined;
   const child = Bun.spawn(cliProcessArgv("__daemon"), {
     cwd: compiledCli() ? process.cwd() : resolve(dirname(Bun.main), ".."),
-    env: { ...process.env, R3_DETACHED: "1" },
+    env: { ...process.env, XDG_RUNTIME_DIR: dirname(runtimeDir()), R3_DETACHED: "1" },
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",
+    ipc(message) {
+      if (message?.type === "server-startup-error" && typeof message.error === "string")
+        startupError = message.error.slice(0, 8192);
+    },
   });
   child.unref();
   // Initial migration and source bundling can take longer than the former
   // five-second live-review bootstrap. Poll actual health, never assume ready.
   const deadline = Date.now() + 180_000;
   let exitedAt: number | null = null;
-  while (Date.now() < deadline) {
-    await sleep(100);
-    const info = readDaemonJson();
-    if (info && (await probe(info.url))) return info;
-    if (child.exitCode !== null) {
-      exitedAt ??= Date.now();
-      if (Date.now() - exitedAt > 2000 && !isPidAlive(readDaemonLockOwner() ?? 0)) break;
+  try {
+    while (Date.now() < deadline) {
+      await sleep(100);
+      const info = readDaemonJson();
+      if (info && (await probe(info.url))) return info;
+      if (startupError) break;
+      if (child.exitCode !== null) {
+        exitedAt ??= Date.now();
+        if (Date.now() - exitedAt > 2000 && !isPidAlive(readDaemonLockOwner() ?? 0)) break;
+      }
     }
+  } finally {
+    child.disconnect();
   }
   throw new ArtifactCommandError(
-    "Server did not become ready. Run r3 __daemon in a terminal to see the startup error; check the state directory and migration backup if migration failed.",
+    [
+      startupError ? `Server failed to start: ${startupError}` : "Server did not become ready.",
+      `Local address: ${LOCAL_URL}. Discovery: ${daemonJsonPath()}.`,
+      "Run r3 __daemon in a terminal for startup diagnostics.",
+    ].join("\n"),
   );
 }
 

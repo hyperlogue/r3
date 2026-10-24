@@ -94,6 +94,7 @@ export async function artifactMain(argv = process.argv.slice(2)): Promise<number
   if (command === "__daemon") {
     const { startArtifactDaemon } = await import("../server/artifact-daemon.ts");
     await startArtifactDaemon();
+    if (process.connected) process.disconnect?.();
     return 0;
   }
   if (command === "__worker") {
@@ -246,10 +247,22 @@ export async function runArtifactCli(): Promise<void> {
         : error instanceof ArtifactApiError && error.status === 409
           ? 4
           : 1;
-    process.send?.({
-      error: "Listener failed before registering; verify the local wake adapter or use r3 watch",
-      exitCode,
-    });
+    if (process.argv[2] === "__daemon") {
+      // The spawning CLI receives the startup error without retaining a stderr
+      // pipe for the server's lifetime or writing a persistent diagnostic log.
+      if (process.connected) {
+        process.send?.({
+          type: "server-startup-error",
+          error: error instanceof Error ? error.message : "Command failed",
+        });
+        process.disconnect?.();
+      }
+    } else {
+      process.send?.({
+        error: "Listener failed before registering; verify the local wake adapter or use r3 watch",
+        exitCode,
+      });
+    }
     process.stderr.write(`r3: ${error instanceof Error ? error.message : "Command failed"}\n`);
     process.exitCode = exitCode;
   }

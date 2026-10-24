@@ -151,6 +151,9 @@ confirmation before restarting. Server start/status also report mismatches.
 
 The top-level start/stop/status/restart aliases warn on stderr and will be removed
 in a future release. Use r3 server <command> to manage the local server.
+Server startup failures report the underlying error when available, local address,
+and discovery path. Missing XDG_RUNTIME_DIR uses the private Linux user runtime
+directory when available; legacy state-directory discovery remains supported.
 
 Worker startup warns on stderr when sandbox environment markers are detected.
 For reliable notifications, run r3 worker restart from a terminal outside the sandbox.
@@ -232,6 +235,8 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 | \`diff\` | An independent captured patch | \`r3 guide diff\` |
 
 ## Server versions
+
+Local startup failures include the underlying error when available, local address, and discovery path. Check those diagnostics before retrying. A missing \`XDG_RUNTIME_DIR\` uses Linux's private user runtime directory when available; an explicit runtime override still selects a separate directory.
 
 Version mismatch warnings appear on stderr and do not by themselves mean the command failed. Use the command's exit code; do not repeat a successful publication because of a warning.
 
