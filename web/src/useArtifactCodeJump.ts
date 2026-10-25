@@ -37,6 +37,9 @@ export function useArtifactCodeJump({
     let settled = false;
     let settleFrames = 0;
     let hydrated = false;
+    let highlighting = true;
+    let interrupted = false;
+    let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
     const selector = `[data-file="${CSS.escape(jump.path)}"]`;
     const clear = () => {
       for (const row of root.querySelectorAll(".r3-active-line"))
@@ -48,7 +51,7 @@ export function useArtifactCodeJump({
       const file = root.querySelector<HTMLElement>(selector);
       clear();
       if (!file) return;
-      if (jump.start !== undefined) {
+      if (highlighting && jump.start !== undefined) {
         for (const row of file.querySelectorAll<HTMLElement>(
           `[data-line][data-side="${jump.side}"], [data-${jump.side}-line]`,
         )) {
@@ -85,7 +88,13 @@ export function useArtifactCodeJump({
       }
       if (++settleFrames >= 4) {
         settled = true;
-        if (hydrated) onSettled?.(jump.nonce);
+        if (hydrated) {
+          onSettled?.(jump.nonce);
+          feedbackTimer = setTimeout(() => {
+            highlighting = false;
+            clear();
+          }, 2000);
+        }
       } else frame = requestAnimationFrame(paint);
     };
     const schedule = () => {
@@ -94,7 +103,7 @@ export function useArtifactCodeJump({
     const observer = new MutationObserver(schedule);
     observer.observe(root, { childList: true, subtree: true });
     const registered = activate(jump.path, () => {
-      if (!live) return;
+      if (!live || interrupted) return;
       hydrated = true;
       // A distant file's placeholder can be shorter than the viewport. The
       // provisional jump then clamps at the old scroll limit; align again when
@@ -105,8 +114,21 @@ export function useArtifactCodeJump({
     });
     if (!registered) hydrated = true;
     schedule();
+    const dismiss = () => {
+      highlighting = false;
+      interrupted = settled = true;
+      clearTimeout(feedbackTimer);
+      cancelAnimationFrame(frame);
+      frame = 0;
+      clear();
+    };
+    const events = ["pointerdown", "wheel", "keydown"] as const;
+    for (const event of events)
+      window.addEventListener(event, dismiss, { capture: true, passive: true });
     return () => {
       live = false;
+      clearTimeout(feedbackTimer);
+      for (const event of events) window.removeEventListener(event, dismiss, true);
       cancelAnimationFrame(frame);
       observer.disconnect();
       clear();

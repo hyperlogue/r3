@@ -31,7 +31,7 @@ import {
 } from "../preview-protection.ts";
 import { previewSessions } from "../preview-sessions.ts";
 import { previewThemePreference } from "../preview-theme.ts";
-import { observePreviewViewport } from "../preview-viewport.ts";
+import { observePreviewViewport, scrollPreviewQuote } from "../preview-viewport.ts";
 import { isReadingPosition, readingKey, readingPositions } from "../reading-position.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
@@ -272,6 +272,23 @@ function PreviewSession(
   const network = props.network;
   const [screenshotRoute, setScreenshotRoute] = useState("#");
   const capture = props.capture;
+  useEffect(() => {
+    if (!context || !ready) return;
+    const dismiss = () =>
+      connection.current?.postMessage({
+        contextId: context.id,
+        type: "r3-preview-dismiss-locate",
+      });
+    // Preview events do not bubble through the opaque frame. The runtime owns
+    // its input; this listener handles returning to the workspace or scrolling
+    // the outer Markdown pane. Comparison highlighting remains explicit.
+    const events = ["pointerdown", "wheel", "keydown"] as const;
+    for (const event of events)
+      window.addEventListener(event, dismiss, { capture: true, passive: true });
+    return () => {
+      for (const event of events) window.removeEventListener(event, dismiss, true);
+    };
+  }, [context, ready]);
   const markdown = props.markdownFiles.find((file) => file.path === props.path);
   const renderedHash = markdown?.renderedHash;
   const rendererRevision = markdown?.rendererRevision ?? "unknown";
@@ -726,6 +743,13 @@ function PreviewSession(
           message.type === "r3-preview-located" &&
           message.nonce === current.current.jump?.nonce
         ) {
+          if (
+            message.state === "anchored" &&
+            iframe.current &&
+            current.current.detail.kind === "files" &&
+            current.current.fittedPaths.includes(currentPath.current)
+          )
+            scrollPreviewQuote(iframe.current, message.rect);
           if (["anchored", "ancestor", "ambiguous", "unplaced"].includes(message.state))
             current.current.onLocated?.(message.state, message.nonce);
           setNotice(

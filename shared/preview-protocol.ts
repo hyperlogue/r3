@@ -41,6 +41,7 @@ export interface PreviewDisplay {
     commentHereHint: string;
     selectParent: string;
     cancel: string;
+    wholePage?: string;
   };
   // r3 appearance for retained Markdown; authored HTML retains its own styling.
   theme?: PreviewTheme;
@@ -51,6 +52,7 @@ export interface PreviewDisplay {
   filePaths?: string[];
   navigation?: { route: string; nonce: number } | null;
   commenting: boolean;
+  // Omitted: temporary reading feedback. Explicit boolean: comparison toggle.
   highlightLocated?: boolean;
   replaceLocateRoute?: boolean;
   noteHasText?: boolean;

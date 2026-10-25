@@ -280,7 +280,7 @@ try {
     "void document.querySelector('textarea[aria-label=\"Comment\"]').form.requestSubmit()",
   );
   const readNote =
-    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.body==='Explain the remaining error.')";
+    "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.comments[0]?.body==='Explain the remaining error.')";
   const note = await eventually(() => page.evaluate(readNote), "saved native threads");
   assert.equal(note.target.kind, "rendered");
   assert.equal(note.target.versionSeq, 1);
@@ -288,7 +288,7 @@ try {
   assert.equal(note.target.locator.quote, "Can this model capture every ripple?");
   await clickButton("Send to agent");
   await eventually(
-    () => page.evaluate(`(${readNote})?.comments.length === 1`),
+    () => page.evaluate(`(${readNote})?.comments.length === 2`),
     "scripted agent comment",
   );
   assert.equal(
@@ -378,7 +378,7 @@ try {
   const elementNote = await eventually(
     () =>
       page.evaluate(
-        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.body==='Keep this explanation heading.')",
+        "window.demo.state.artifacts.find(a=>a.id==='artifact_weekend').threads.find(n=>n.comments[0]?.body==='Keep this explanation heading.')",
       ),
     "saved element threads",
   );

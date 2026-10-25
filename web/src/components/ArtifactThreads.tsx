@@ -65,11 +65,7 @@ import {
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
-export type ArtifactTargetJump = (
-  target: ArtifactTarget,
-  threadId?: string,
-  intent?: "current" | "original",
-) => void;
+export type ArtifactTargetJump = (target: ArtifactTarget, threadId?: string) => void;
 function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
   return "versionSeq" in target
     ? {
@@ -487,11 +483,16 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               <button
                 type="button"
                 className="min-w-0 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
-                title={t("threads.latestPosition")}
+                title={t("threads.anchorPosition")}
                 data-thread-action="locate"
-                onClick={() => onLocate(navigationTarget, thread.id, "current")}
+                onClick={() => onLocate(navigationTarget, thread.id)}
               >
                 {artifactTargetLabel(navigationTarget, null, true)}
+                {"versionSeq" in navigationTarget && (
+                  <span className="font-normal text-neutral-500 dark:text-neutral-400">
+                    {` · v${navigationTarget.versionSeq}`}
+                  </span>
+                )}
               </button>
               {thread.anchor && (
                 <button
@@ -500,7 +501,7 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
                   className="flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-primary-700 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-primary-300"
                   title={`${t("threads.originalPosition")} · ${artifactThreadTargetLabel(thread)}`}
                   aria-label={t("threads.originalPosition")}
-                  onClick={() => onLocate(thread.target, thread.id, "original")}
+                  onClick={() => onLocate(thread.target, thread.id)}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -900,7 +901,7 @@ export function ArtifactThreads({
   }, [queues, comparable, comparisonMode]);
   const ordered = tab === "active" ? active : resolved;
   const locate = useCallback<ArtifactTargetJump>(
-    (target, threadId, intent) => onLocate(target, threadId, intent),
+    (target, threadId) => onLocate(target, threadId),
     [onLocate],
   );
   const afterResolve = useCallback(
@@ -964,7 +965,7 @@ export function ArtifactThreads({
           fbPrev: () => move(-1),
           fbLocate: () => {
             const note = detail.threads.find((note) => note.id === activeThread);
-            if (note) locate(currentThreadTarget(note), note.id, "current");
+            if (note) locate(currentThreadTarget(note), note.id);
           },
           fbComment: () => action("comment"),
           fbResolve: () => action("resolve"),

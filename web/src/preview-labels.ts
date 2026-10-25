@@ -11,5 +11,6 @@ export function previewLabels(locale: Locale = getLocale()): NonNullable<Preview
     commentHereHint: label("previewLabels.commentHereSpace"),
     selectParent: label("previewLabels.selectParent"),
     cancel: label("common.cancel"),
+    wholePage: label("previewLabels.wholePage"),
   };
 }

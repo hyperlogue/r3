@@ -8,7 +8,7 @@ import { keysSuspended } from "../src/keys.ts";
 import type { ArtifactRenderedPaneProps, ArtifactRenderer } from "../src/pages/ArtifactView.tsx";
 import { previewLocator, previewSelectionPosition } from "../src/preview-bridge.ts";
 import { previewLabels } from "../src/preview-labels.ts";
-import { observePreviewViewport } from "../src/preview-viewport.ts";
+import { observePreviewViewport, scrollPreviewQuote } from "../src/preview-viewport.ts";
 import { cn } from "../src/ui.tsx";
 import { prepareDemoDocument } from "./preview-document.ts";
 import { bundledPreview } from "./preview-fixtures.ts";
@@ -201,22 +201,36 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
           )
             props.onThread(message.threadId);
         } else if (message.type === "r3-preview-located" && message.nonce === props.jump?.nonce) {
+          if (
+            message.state === "anchored" &&
+            iframe.current &&
+            props.detail.kind === "files" &&
+            prepared.markdown
+          )
+            scrollPreviewQuote(iframe.current, message.rect);
           if (["anchored", "ancestor", "ambiguous", "unplaced"].includes(message.state))
             props.onLocated?.(message.state, message.nonce);
           setNotice(
             message.state === "ambiguous"
               ? translateNow("common.thisTargetMatchesMoreThanOnePlace")
-              : message.state === "unplaced"
-                ? translateNow("common.thisTargetIsUnavailableInTheCurrent")
-                : "",
+              : message.state === "ancestor"
+                ? translateNow("common.showingContextForUnavailableTarget")
+                : message.state === "unplaced"
+                  ? translateNow("common.thisTargetIsUnavailableInTheCurrent")
+                  : "",
           );
         }
       };
     };
     window.addEventListener("message", listener);
+    const dismiss = () => send({ type: "r3-preview-dismiss-locate" });
+    const inputs = ["pointerdown", "wheel", "keydown"] as const;
+    for (const input of inputs)
+      window.addEventListener(input, dismiss, { capture: true, passive: true });
     setDocument({ ...prepared, contextId });
     return () => {
       window.removeEventListener("message", listener);
+      for (const input of inputs) window.removeEventListener(input, dismiss, true);
       connection.current?.close();
       connection.current = null;
       sendDisplay.current = () => {};

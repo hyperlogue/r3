@@ -148,9 +148,12 @@ targets cannot anchor to descriptions.
 **Placements** are historical read-only records keyed by threads, version, path, and
 representation, with `anchored|ambiguous|unplaced` state. They never rewrite the
 original target. Explicit re-anchoring stores a separate current destination and preserves the
-original quote. The primary thread link tries that destination in the latest
-publication; the original-position button stays pinned. An unavailable
-runtime element does not make its conversation disappear.
+original quote. The primary thread link opens that recorded destination and version,
+shown on the card; the original-position button stays pinned. Navigation never
+infers a newer destination. Rendered and source/diff Locate feedback expires after
+two seconds or user interaction; whole-page rendered targets use a compact label
+rather than a page-sized box. An unavailable runtime element does not make its
+conversation disappear.
 
 Re-anchor writes accept coordinates without replacement quote text, validate the
 latest publication and an anchor revision at commit, and support one atomic batch

@@ -21,6 +21,8 @@ export function installPreviewRuntime(
   let root: HTMLDivElement | null = null;
   let shadow: ShadowRoot;
   let box: HTMLDivElement;
+  let locationBox: HTMLDivElement;
+  let locationLabel: HTMLDivElement;
   let controls: HTMLDivElement;
   let markers: HTMLDivElement;
   let selectionAction: HTMLButtonElement;
@@ -37,6 +39,10 @@ export function installPreviewRuntime(
   let located: Element | null = null;
   let locatedRange: Range | null = null;
   let locatedAncestor = false;
+  let feedbackVisible = false;
+  let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
+  let locateTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingLocate: { locator: RenderedLocator; nonce: number } | null = null;
   let lastJump = -1;
   let restoringRoute = false;
   let frame = 0;
@@ -258,6 +264,12 @@ export function installPreviewRuntime(
   const paint = () => {
     frame = 0;
     if (!root) return;
+    // Dynamic pages may finish mounting after the first result. Only relevant
+    // DOM changes retry, and user interaction ends this navigation operation.
+    if (pendingLocate) {
+      const result = find(pendingLocate.locator);
+      if (result.state === "anchored") showLocation(result, pendingLocate.nonce);
+    }
     if (markersDirty) {
       markersDirty = false;
       marked = [];
@@ -287,15 +299,40 @@ export function installPreviewRuntime(
       button.style.left = `${Math.max(0, Math.min(rect.right - 24, innerWidth - 24))}px`;
       button.style.top = `${Math.max(0, rect.top)}px`;
     }
-    const element =
-      picked ||
-      (display.commenting ? hover : null) ||
-      (display.highlightLocated === false ? null : located);
+    const element = picked || (display.commenting ? hover : null);
     box.hidden = !element?.isConnected;
-    if (locatedAncestor && !picked && !(display.commenting && hover))
-      box.dataset.fallback = "ancestor";
-    else delete box.dataset.fallback;
     const bounds = viewport ?? { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
+    const showLocated =
+      display.highlightLocated !== false && feedbackVisible && located?.isConnected;
+    const wholePage = located === document.body || located === document.documentElement;
+    const textRect = locatedRange?.getBoundingClientRect();
+    const preciseText =
+      locatedRange &&
+      textRect &&
+      locatedRange.toString().length <= 1200 &&
+      textRect.height <= Math.min(800, bounds.bottom - bounds.top) * 0.6;
+    highlight(showLocated && preciseText ? locatedRange : null);
+    // A quote is its own precise area, even when its recorded element is body.
+    // Element outlines never tint the page; whole-page anchors use a small label.
+    locationBox.hidden = !showLocated || !!preciseText || wholePage;
+    locationLabel.hidden = !showLocated || !wholePage || !!preciseText;
+    locationLabel.textContent = display.labels?.wholePage ?? "Whole page";
+    locationLabel.style.left = `${bounds.left + 12}px`;
+    locationLabel.style.top = `${bounds.top + 12}px`;
+    if (!locationBox.hidden && located) {
+      const rect = textRect ?? located.getBoundingClientRect();
+      locationBox.dataset.fallback = locatedAncestor ? "ancestor" : "exact";
+      locationBox.dataset.large = String(
+        rect.width > (bounds.right - bounds.left) * 0.85 &&
+          rect.height > (bounds.bottom - bounds.top) * 0.6,
+      );
+      Object.assign(locationBox.style, {
+        left: `${Math.max(bounds.left, rect.left)}px`,
+        top: `${Math.max(bounds.top, rect.top)}px`,
+        width: `${Math.max(0, Math.min(bounds.right, rect.right) - Math.max(bounds.left, rect.left))}px`,
+        height: `${Math.max(0, Math.min(bounds.bottom, rect.bottom) - Math.max(bounds.top, rect.top))}px`,
+      });
+    }
     controls.hidden = !picked || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
     selectionAction.hidden =
       !pendingSelection || bounds.bottom <= bounds.top || bounds.right <= bounds.left;
@@ -343,20 +380,95 @@ export function installPreviewRuntime(
     send("r3-preview-target", { locator: capture(picked) });
     cancel();
   };
+  const stopLocating = () => {
+    pendingLocate = null;
+    clearTimeout(locateTimer);
+  };
+  const dismissLocation = () => {
+    stopLocating();
+    if (display.highlightLocated !== undefined) return;
+    clearTimeout(feedbackTimer);
+    feedbackVisible = false;
+    highlight(null);
+    schedule();
+  };
+  const showLocation = (
+    result: ReturnType<typeof find> & { ancestor?: Element | null },
+    nonce: number,
+  ) => {
+    if (result.state === "anchored") stopLocating();
+    located = result.ancestor ?? result.element ?? null;
+    locatedRange = result.ancestor ? null : (result.range ?? null);
+    locatedAncestor = !!result.ancestor;
+    feedbackVisible = !!located;
+    clearTimeout(feedbackTimer);
+    // Scroll the quote's text container rather than a potentially page-sized
+    // recorded element. Native scrolling also reaches the outer Markdown pane.
+    const destination = locatedRange?.startContainer.parentElement ?? located;
+    destination?.scrollIntoView({
+      block:
+        destination === document.body || destination === document.documentElement
+          ? "start"
+          : "center",
+      inline: "nearest",
+      behavior: "instant",
+    });
+    if (locatedRange) {
+      // A paragraph (or body) can be much taller than its scroller. Align the
+      // actual quote through nested scrollers after native ancestor navigation.
+      for (let node = destination; node && node !== document.body; node = parent(node)) {
+        const style = getComputedStyle(node);
+        if (
+          style.overflowY === "visible" ||
+          style.overflowY === "clip" ||
+          node.scrollHeight <= node.clientHeight
+        )
+          continue;
+        const text = locatedRange.getBoundingClientRect();
+        node.scrollBy({
+          top:
+            text.top -
+            node.getBoundingClientRect().top -
+            node.clientTop -
+            Math.max(0, (node.clientHeight - text.height) / 2),
+          behavior: "instant",
+        });
+      }
+      const text = locatedRange.getBoundingClientRect();
+      window.scrollBy({
+        top: text.top - Math.max(0, (innerHeight - text.height) / 2),
+        behavior: "instant",
+      });
+    }
+    if (display.highlightLocated === undefined)
+      feedbackTimer = setTimeout(() => {
+        feedbackVisible = false;
+        highlight(null);
+        schedule();
+      }, 2000);
+    schedule();
+    send("r3-preview-located", {
+      state: result.ancestor ? "ancestor" : result.state,
+      nonce,
+      // A full-height Markdown iframe cannot scroll itself. Its verified parent
+      // completes quote alignment in the surrounding file stack.
+      ...(locatedRange ? { rect: locatedRange.getBoundingClientRect().toJSON() } : {}),
+    });
+  };
   const locate = () => {
     const jump = display.jump;
     if (!root || !jump || jump.nonce === lastJump) return;
     lastJump = jump.nonce;
+    stopLocating();
+    clearTimeout(feedbackTimer);
     cancel();
     located = null;
     locatedRange = null;
     locatedAncestor = false;
+    feedbackVisible = false;
     highlight(null);
     if (!jump.locator) {
-      located = document.body;
-      window.scrollTo(0, 0);
-      schedule();
-      send("r3-preview-located", { state: "anchored", nonce: jump.nonce });
+      showLocation({ state: "anchored", element: document.body }, jump.nonce);
       return;
     }
     const route = jump.locator.route;
@@ -369,29 +481,19 @@ export function installPreviewRuntime(
       else location.href = location.pathname + route;
       return;
     }
-    const deadline = performance.now() + 2500;
-    const attempt = () => {
-      if (display.jump?.nonce !== jump.nonce) return;
-      const result = find(jump.locator!);
-      if (result.state !== "anchored" && performance.now() < deadline) {
-        setTimeout(attempt, 100);
-        return;
-      }
-      const ancestor = result.state === "unplaced" ? findAncestor(jump.locator!) : null;
-      located = ancestor ?? result.element ?? null;
-      locatedRange = ancestor ? null : (result.range ?? null);
-      locatedAncestor = !!ancestor;
-      highlight(display.highlightLocated === false ? null : locatedRange);
-      located?.scrollIntoView({ block: "center", inline: "nearest" });
-      schedule();
-      send("r3-preview-located", {
-        state: ancestor ? "ancestor" : result.state,
-        nonce: jump.nonce,
-      });
-    };
-    setTimeout(attempt, 0);
+    const result = find(jump.locator);
+    const ancestor = result.state === "unplaced" ? findAncestor(jump.locator) : null;
+    showLocation({ ...result, ancestor }, jump.nonce);
+    if (result.state !== "anchored") {
+      pendingLocate = { locator: jump.locator, nonce: jump.nonce };
+      locateTimer = setTimeout(stopLocating, 2500);
+    }
   };
   connection.subscribe((message) => {
+    if (message?.type === "r3-preview-dismiss-locate" && message.contextId === config.contextId) {
+      dismissLocation();
+      return;
+    }
     if (message?.type === "r3-preview-viewport" && message.contextId === config.contextId) {
       if (viewport && JSON.stringify(viewport) !== JSON.stringify(message.viewport))
         pendingSelection = null;
@@ -402,11 +504,17 @@ export function installPreviewRuntime(
     if (message?.type !== "r3-preview-display" || message.contextId !== config.contextId) return;
     display = message.display as PreviewDisplay;
     markersDirty = true;
-    highlight(display.highlightLocated === false ? null : locatedRange);
+    if (!display.jump) {
+      stopLocating();
+      clearTimeout(feedbackTimer);
+      feedbackVisible = false;
+    }
     if (!display.commenting) cancel();
     locate();
     schedule();
   });
+  for (const name of ["pointerdown", "wheel", "keydown"])
+    window.addEventListener(name, dismissLocation, { capture: true, passive: true });
   stopSelection = observeSelection(
     (range, touch) => {
       if (!root || config.presentation !== "document") return false;
@@ -561,7 +669,7 @@ export function installPreviewRuntime(
     if (restoringRoute) {
       restoringRoute = false;
       locate();
-    }
+    } else dismissLocation();
   });
   const ready = () => {
     root = document.createElement("div");
@@ -572,6 +680,14 @@ export function installPreviewRuntime(
     shadow.innerHTML =
       '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:8px;background:#171717;border:1px solid #525252;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
     box = shadow.querySelector(".box")!;
+    locationBox = document.createElement("div");
+    locationBox.className = "location";
+    locationBox.hidden = true;
+    locationLabel = document.createElement("div");
+    locationLabel.className = "location-label";
+    locationLabel.hidden = true;
+    locationLabel.setAttribute("role", "status");
+    shadow.append(locationBox, locationLabel);
     controls = shadow.querySelector(".controls")!;
     selectionAction = document.createElement("button");
     selectionAction.hidden = true;
@@ -601,7 +717,7 @@ export function installPreviewRuntime(
     shadow.append(markers);
     const markerStyle = document.createElement("style");
     markerStyle.textContent =
-      ".box[data-fallback=ancestor]{border-style:dashed}.marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
+      ".location{position:fixed;box-sizing:border-box;border:2px solid #3b82f6;pointer-events:none}.location[data-fallback=ancestor]{border-style:dashed}.location[data-large=true]{border-width:0 0 0 3px}.location-label{position:fixed;border:1px solid #737373;border-radius:4px;padding:4px 8px;background:#262626;color:white;font:12px system-ui;pointer-events:none}.marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
     shadow.append(markerStyle);
     const buttons = controls.querySelectorAll("button");
     buttons[0].title = "Comment here (Space)";
@@ -640,6 +756,8 @@ export function installPreviewRuntime(
     document.addEventListener("DOMContentLoaded", ready, { once: true });
   else ready();
   window.addEventListener("pagehide", () => {
+    stopLocating();
+    clearTimeout(feedbackTimer);
     stopSelection?.();
     observation?.disconnect();
     for (const scope of shadowRoots) scope.removeEventListener("scroll", shadowScroll, true);

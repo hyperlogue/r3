@@ -1,5 +1,36 @@
 import type { PreviewViewport } from "../../shared/preview-protocol.ts";
 
+// Called only for the current Locate nonce on the verified document port. A
+// quote can lie far from its containing element's center in a fitted document.
+export function scrollPreviewQuote(iframe: HTMLIFrameElement, value: unknown): void {
+  if (!value || typeof value !== "object") return;
+  const { top, bottom } = value as PreviewViewport;
+  if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom < top) return;
+  const header = iframe.closest("[data-file]")?.querySelector("[data-file-header]");
+  for (let node = iframe.parentElement; node; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (
+      style.overflowY === "visible" ||
+      style.overflowY === "clip" ||
+      node.scrollHeight <= node.clientHeight
+    )
+      continue;
+    const inset =
+      (Number.parseFloat(style.getPropertyValue("--pane-sticky-h")) || 0) +
+      (header?.getBoundingClientRect().height ?? 0);
+    node.scrollBy({
+      top:
+        iframe.getBoundingClientRect().top +
+        top -
+        node.getBoundingClientRect().top -
+        node.clientTop -
+        inset -
+        Math.max(0, (node.clientHeight - inset - (bottom - top)) / 2),
+      behavior: "instant",
+    });
+  }
+}
+
 // A full-height iframe's viewport is the document, but its comment controls
 // belong in the portion exposed by the surrounding file stack.
 export function observePreviewViewport(

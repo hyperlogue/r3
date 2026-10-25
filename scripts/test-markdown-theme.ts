@@ -144,6 +144,17 @@ try {
   await page.evaluate(
     "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Rendered').click()",
   );
+  const admission = await eventually(
+    () =>
+      page.evaluate(
+        "document.querySelector('iframe[aria-hidden=false]') ? 'ready' : document.querySelector('[data-preview-compatibility-consent][open]') ? 'consent' : null",
+      ),
+    "Markdown preview admission",
+  );
+  if (admission === "consent")
+    await page.evaluate(
+      "[...document.querySelectorAll('[data-preview-compatibility-consent][open] button')].find(button => button.textContent?.includes('Accept risk')).click()",
+    );
   const findMarkdown = () =>
     eventually(async () => {
       for (const context of page.contexts.values()) {
@@ -477,6 +488,55 @@ try {
     "Locate from Source keeps the deep rendered target visible after preview sizing",
   );
   assert.equal(storage.artifacts.file(artifact.id, 1, "index.md").renderedHash, retainedHash);
+  // A quoted phrase near the end of a tall paragraph must be visible in the
+  // outer file stack, not merely centered on the paragraph's element box.
+  const quoted = await storage.conversations.add(artifact.id, {
+    actor,
+    body: "Quote near the end of a long paragraph",
+    target: {
+      kind: "rendered",
+      versionSeq: 1,
+      path: "index.md",
+      locator: { selector: "#long-paragraph", quote: "Exact phrase near the end." },
+    },
+  });
+  await reopened.evaluate(`(() => {
+    const p = document.createElement('p'); p.id = 'long-paragraph';
+    p.style.width = '180px'; p.textContent = 'Long paragraph text. '.repeat(220) + 'Exact phrase near the end.';
+    document.body.append(p);
+  })()`);
+  api.collaboration.broadcast({
+    type: "threads-updated",
+    artifactId: artifact.id,
+    threadId: quoted.id,
+  });
+  await eventually(
+    () =>
+      page.evaluate(
+        `!!document.querySelector('[data-artifact-thread="${quoted.id}"] [data-thread-action=locate]')`,
+      ),
+    "long-quote thread",
+  );
+  await Bun.sleep(100);
+  await page.evaluate(
+    `document.querySelector('[data-artifact-thread="${quoted.id}"] [data-thread-action=locate]').click()`,
+  );
+  await eventually(async () => {
+    const rect = await reopened.evaluate(`(() => {
+      const range = [...(CSS.highlights.get('r3-preview-active') ?? [])][0];
+      if (range?.toString() !== 'Exact phrase near the end.') return null;
+      return range.getBoundingClientRect().toJSON();
+    })()`);
+    if (!rect) return false;
+    const bounds = await page.evaluate(`(() => {
+      const frame = document.querySelector('[data-file="index.md"] iframe').getBoundingClientRect();
+      const pane = document.querySelector('[data-artifact-content]').getBoundingClientRect();
+      return { frameTop: frame.top, top: pane.top, bottom: pane.bottom };
+    })()`);
+    return (
+      rect.top + bounds.frameTop >= bounds.top && rect.bottom + bounds.frameTop <= bounds.bottom
+    );
+  }, "actual quoted text visible in the fitted Markdown pane");
   console.log(
     "Markdown uses its full height, responds to width and image changes, and scrolls the file stack to native targets. It follows all four system/application theme combinations; retained bytes and publisher HTML are preserved.",
   );

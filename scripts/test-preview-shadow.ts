@@ -267,7 +267,10 @@ try {
       { threadId: thread.id, locator: target },
     ]);
     const result = await eventually(
-      () => page.evaluate(`messages.find(m=>m.type==='r3-preview-located'&&m.nonce===${current})`),
+      () =>
+        page.evaluate(
+          `messages.find(m=>m.type==='r3-preview-located'&&m.nonce===${current}&&m.state===${JSON.stringify(state)})`,
+        ),
       "Locate outcome",
     );
     assert.equal(result.state, state);
@@ -306,11 +309,11 @@ try {
     const expected = await content.evaluate(`(${expression}).getBoundingClientRect().toJSON()`);
     await eventually(
       async () =>
-        Math.abs((await ui(".box", "parseFloat(el.style.top)")) - expected.top) < 1 &&
-        Math.abs((await ui(".box", "parseFloat(el.style.width)")) - expected.width) < 1,
+        Math.abs((await ui(".location", "parseFloat(el.style.top)")) - expected.top) < 1 &&
+        Math.abs((await ui(".location", "parseFloat(el.style.width)")) - expected.width) < 1,
       "nearest recorded ancestor highlight",
     );
-    assert.equal(await ui(".box", "el.dataset.fallback"), "ancestor");
+    assert.equal(await ui(".location", "el.dataset.fallback"), "ancestor");
     assert.equal(
       await content.evaluate("CSS.highlights.has('r3-preview-active')"),
       false,
@@ -341,10 +344,54 @@ try {
   );
   await locate(textLocator);
   assert.equal(
-    await ui(".box", "el.dataset.fallback"),
-    undefined,
-    "exact matches arriving during hydration take precedence",
+    await ui(".location", "el.hidden"),
+    true,
+    "hydrated exact text replaces the contextual outline",
   );
+
+  // Explicit comparison highlighting persists, but its switch can hide/show it
+  // without restarting navigation or losing the exact quoted range.
+  const comparisonNonce = ++nonce;
+  const comparison = (highlightLocated: boolean) =>
+    page.evaluate(
+      `send(${JSON.stringify({
+        type: "r3-preview-display",
+        display: {
+          commenting: false,
+          targets: [],
+          highlightLocated,
+          jump: { locator: textLocator, nonce: comparisonNonce },
+        },
+      })})`,
+    );
+  await comparison(true);
+  await Bun.sleep(2200);
+  assert.equal(
+    await content.evaluate("CSS.highlights.has('r3-preview-active')"),
+    true,
+    "comparison feedback stays until its explicit toggle is off",
+  );
+  await comparison(false);
+  await eventually(
+    () => content.evaluate("!CSS.highlights.has('r3-preview-active')"),
+    "comparison Targets off",
+  );
+  await comparison(true);
+  await eventually(
+    () => content.evaluate("CSS.highlights.has('r3-preview-active')"),
+    "comparison Targets on",
+  );
+
+  await content.evaluate(
+    "document.body.insertAdjacentHTML('beforeend', '<section id=large style=height:90vh>Large section</section>')",
+  );
+  await locate({ selector: "#large" });
+  assert.equal(await ui(".location", "el.dataset.large"), "true", "large targets use an edge rail");
+  assert.equal(await ui(".location", "getComputedStyle(el).backgroundColor"), "rgba(0, 0, 0, 0)");
+  await locate({ selector: "body" });
+  assert.equal(await ui(".location", "el.hidden"), true, "body anchors never outline the page");
+  assert.equal(await ui(".location-label", "!el.hidden"), true);
+  await content.evaluate("document.querySelector('#large').remove()");
 
   const legacy = { ...locator, ancestors: undefined };
   await locate({ ...legacy, shadowHosts: [".frame", "#nested"] }, "ambiguous");

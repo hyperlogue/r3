@@ -911,7 +911,7 @@
   "expand": {
     "notInThisDiff": "⋯ {{seamCount_prev_cur}}not in this diff"
   },
-  "threads.latestPosition": "Go to the latest matching position",
-  "threads.originalPosition": "Go to original position",
-  "threads.latestUnavailable": "No unique match in the latest version. Showing the saved position."
+  "threads.anchorPosition": "Go to the recorded anchor",
+  "previewLabels.wholePage": "Whole page",
+  "threads.originalPosition": "Go to original position"
 }

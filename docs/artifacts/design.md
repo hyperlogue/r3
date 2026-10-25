@@ -625,16 +625,34 @@ document scope; historical incomplete selectors are never guessed into a frame.
 
 Browser picks also record up to 16 actual ancestors, nearest first, stopping before
 body/html. Each stores a selector and `shadowDepth`, a prefix length of the
-target's shadow-host path. Locate gives the exact target its normal hydration
-retry window. If it remains unplaced, Locate tries the exact selector without its
-quote (for edited text), then recorded parents nearest first, then saved shadow
-hosts from inner to outer; only a unique visible match qualifies. An ambiguous
-exact target stays ambiguous. This context fallback has transient `ancestor`
-state, a dashed outline, and an explicit **Exact target unavailable; showing
-recorded context** notice. Comparison labels it **Context shown**. It supplies
-context without claiming the original quote matched, rewriting the target, storing
-a placement, or creating an exact discussion marker. No arbitrary selector parsing
-or whole-page fallback invents missing parent evidence.
+target's shadow-host path. Locate immediately checks the exact target. If it is
+unplaced, it tries the exact selector without its quote (for edited text), then
+recorded parents nearest first, then saved shadow hosts from inner to outer; only
+a unique visible match qualifies. An ambiguous exact target stays ambiguous.
+This context fallback has transient `ancestor` state, a dashed outline, and an
+explicit **Exact target unavailable; showing recorded context** notice. Comparison
+labels it **Context shown**. It supplies context without claiming the original
+quote matched, rewriting the target, storing a placement, or creating an exact
+discussion marker. No arbitrary selector parsing or whole-page fallback invents
+missing parent evidence.
+
+A result is available immediately, including an unavailable result. For
+2.5 seconds after a nonexact result, relevant DOM mutations may promote it to an
+exact match as a dynamic page mounts. There is no polling or delayed fallback
+navigation. New Locate, navigation, or user input cancels that follow-up; late
+content must not steal the reader's position. Another click starts a fresh attempt.
+
+Ordinary Locate feedback is temporary and separate from the comment picker.
+A compact exact quote gets a text highlight without an element box; element
+anchors get an unfilled outline. Broad text regions use an outline, large elements
+use an edge rail, and body/html or whole-document targets use a small **Whole page**
+label. Feedback lasts two seconds and clears on pointer, wheel, or keyboard input
+in the preview or workspace. Unrelated renders do not revive it. Source/diff line
+feedback uses the same lifetime after hydration and scrolling settle. Comparison
+keeps its explicit **Targets** toggle and persistent highlighting. Selection,
+comment drafting, original quotes, and saved target evidence are independent of
+navigation feedback. Quote navigation aligns the actual text through nested
+scrollers and the outer file stack, even inside a paragraph taller than the viewport.
 
 `c` toggles comment mode from the workspace or a focused
 document preview. With a node picked, `Space` invokes **Comment here** and opens the
@@ -676,16 +694,17 @@ before posting, so a legacy server cannot silently save only half of the operati
 API clients can still post Fix-only comments; explicit `reanchor` guards opt into
 the combined write. Original quotes and saved message reference contexts never change.
 
-The thread card's primary link has no version suffix and uses the current anchor,
-or the original when there has been no move. On click, native lookup tries the
-latest publication: source/diff must have a unique complete captured range in the
-same file and side; whole-file targets require membership; media requires identical
-bytes; rendered targets require the latest guarded runtime to match their native
-selector/shadow path and optional quote. Ancestor fallback is not an exact match.
-Missing/ambiguous results open the saved destination and explain the fallback.
-Preview admission failures stay blocked. Lookup is read-only and never stores a
-placement or changes attribution. Navigation nonces and anchor/publication identity
-reject late results. New publications alone do not change the reader's view.
+The thread card's primary link opens the explicitly recorded current anchor, or
+the original target when there has been no move. Its visible version suffix names
+the publication it opens. This is a direct navigation using the thread snapshot,
+without a server resolution request or inference about a newer publication.
+Original, Fix, and current-anchor destinations all retain their native
+representation and version. New publications alone do not change the reader's
+view or the meaning of a link; re-anchoring explicitly changes the destination.
+Unavailable rendered targets show their recorded context or an unavailable notice
+in that same publication. Preview admission failures stay blocked. The read-only
+anchor-resolution API remains available to clients that explicitly request a
+cross-version match; workspace navigation does not use it.
 
 After an explicit re-anchor, a small history button immediately after the primary
 link opens the original position. Fix and Compare actions keep their recorded
