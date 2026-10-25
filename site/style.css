@@ -409,7 +409,7 @@ kbd {
 .hero-grid h1,
 .start-section > h2 {
   margin-top: 0;
-  font-size: min(54px, 9cqi);
+  font-size: min(54px, 8.5cqi);
   line-height: 1.12;
   letter-spacing: -0.035em;
 }

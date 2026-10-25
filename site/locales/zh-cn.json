@@ -187,9 +187,9 @@
   },
   "home": {
     "hero": {
-      "titleLine1": "查看智能体的作品。",
-      "titleLine2": "指导下一步行动。",
-      "title": "查看智能体的作品。指导下一步行动。"
+      "titleLine1": "理解已有成果。",
+      "titleLine2": "引导下一步。",
+      "title": "理解已有成果。引导下一步。"
     }
   },
   "article": {
@@ -336,7 +336,7 @@
     "searchYourLibrary": "搜索与 Artifact 库 →",
     "searchTheDocsR3": "搜索文档 · r3",
     "seeTheFixSideBySideSilent": "并排对比修改。无声演示，10 秒。",
-    "seeYourAgentSWorkSteerWhat": "查看智能体的作品。指导下一步行动。 · r3",
+    "seeYourAgentSWorkSteerWhat": "理解已有成果。引导下一步。 · r3",
     "sendABatch": "批量发送",
     "showWhatYouMean": "直观展示你的意图",
     "signInOrMutationsStoppedWorking": "登录或数据变更失效",
