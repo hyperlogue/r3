@@ -12,7 +12,7 @@ If images, fonts, or stylesheets appear broken, verify whether the agent bundled
 
 ## An element target is missing
 
-Click **Locate** on the thread to return to the original version where the comment was anchored. If an element moved or changed identity, ask your agent to provide a linked fix target in its reply. For diffs with limited context, ask the agent to capture more surrounding lines.
+Click **Locate** to find the anchor in the version you are viewing. If it cannot be matched, r3 explains why and keeps that version selected. Use the history icon beside the anchor to open its original location or last recorded location in the saved version. If an element moved or changed identity, ask your agent to re-anchor the thread or provide a linked fix target in its reply. For diffs with limited context, ask the agent to capture more surrounding lines.
 
 ## Sign-in or mutations stopped working
 

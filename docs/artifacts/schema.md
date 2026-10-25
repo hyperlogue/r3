@@ -208,7 +208,7 @@ with the comment; clients do not choose a second version/view. Existing historic
 contexts remain pinned as recorded, including contexts that differ from a fix target.
 A comment's own target never changes the original thread target.
 
-thread_placements retains historical read-only document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. Locate can always return to the original target; a view toggle does not require cross-view matching.
+thread_placements retains historical read-only document placements without replacing the original target or duplicating the thread. Source and rendered placements for the same file/version can coexist. An unplaced or ambiguous result has no accepted locator. The thread location history can always return to the original target; primary Locate stays in the selected version. A view toggle does not require cross-view matching.
 
 ## One owner, multiple agent sessions
 

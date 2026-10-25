@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactSearchMatch } from "../../shared/artifact-search.ts";
 import {
@@ -8,6 +8,7 @@ import {
   type ArtifactTarget,
   type ArtifactVersion,
   artifactMediaKind,
+  currentThreadTarget,
   type RenderedLocator,
 } from "../../shared/artifacts.ts";
 import { hasMessageContent } from "../../shared/attachments.ts";
@@ -28,6 +29,7 @@ import {
   type ArtifactPageChrome,
   type ArtifactPageData,
   ArtifactUIProvider,
+  useArtifactClient,
 } from "./artifact-ui-context.tsx";
 import { artifactViewForTarget, stepArtifactVersion } from "./artifact-version.ts";
 import { artifactWorkspaceSelections } from "./artifact-workspace-state.ts";
@@ -562,7 +564,7 @@ function Workspace({
     target: ArtifactMediaTarget;
     nonce: number;
   } | null>(null);
-  const locate = useCallback<ArtifactTargetJump>(
+  const locateRecorded = useCallback<ArtifactTargetJump>(
     (target, threadId) => {
       comparison.close(false);
       const next = artifactViewForTarget(detail.kind, target, view);
@@ -600,6 +602,91 @@ function Workspace({
       } else paneRef.current?.scrollTo({ top: 0 });
     },
     [detail.kind, view, changeView, comparison.close, t],
+  );
+  const navigationClient = useArtifactClient();
+  const queryClient = useQueryClient();
+  const navigationScope = useRef({ detail, seq: version?.seq });
+  navigationScope.current = { detail, seq: version?.seq };
+  useEffect(
+    () => () => {
+      ++jumpNonce.current;
+    },
+    [],
+  );
+  const locate = useCallback<ArtifactTargetJump>(
+    async (target, threadId, intent = "recorded") => {
+      if (intent === "recorded" || !threadId) {
+        locateRecorded(target, threadId);
+        return;
+      }
+      const { detail: current, seq } = navigationScope.current;
+      const thread = current.threads.find((item) => item.id === threadId);
+      if (!thread || seq === undefined) return;
+      const saved = currentThreadTarget(thread);
+      if (!isArtifactDocumentTarget(saved)) {
+        // Retired description evidence must not switch versions implicitly.
+        if ("versionSeq" in saved && saved.versionSeq !== seq)
+          setNotice(t("threads.unavailableInVersion", { version: seq }));
+        else locateRecorded(saved, threadId);
+        return;
+      }
+      const nonce = ++jumpNonce.current;
+      const revision = thread.anchor?.revision ?? 0;
+      setJump(null);
+      setRenderedJump(null);
+      pendingRenderedJump.current = null;
+      setNotice("");
+      if (saved.versionSeq === seq) {
+        locateRecorded(saved, threadId);
+        return;
+      }
+      // Rendered identity is checked by the current guarded document. Its
+      // already-authorized manifest is enough to avoid another round trip.
+      if (saved.kind === "rendered" && filesQuery.data) {
+        const member = filesQuery.data.find((file) => file.path === saved.path);
+        if (member && (member.renderedHash || member.mediaType.split(";")[0] === "text/html"))
+          locateRecorded({ ...saved, versionSeq: seq }, threadId);
+        else setNotice(t("threads.unavailableInVersion", { version: seq }));
+        return;
+      }
+      const stillCurrent = () =>
+        jumpNonce.current === nonce &&
+        navigationScope.current.seq === seq &&
+        navigationScope.current.detail.threads.some(
+          (item) => item.id === threadId && (item.anchor?.revision ?? 0) === revision,
+        );
+      try {
+        const result = await queryClient.fetchQuery({
+          queryKey: ["artifact-anchor-resolution", current.id, threadId, revision, seq],
+          queryFn: ({ signal }) => navigationClient.anchorResolution(threadId, seq, signal),
+          staleTime: Infinity,
+        });
+        if (!stillCurrent() || result.anchorRevision !== revision) return;
+        if (
+          result.target &&
+          result.target.versionSeq === seq &&
+          (result.state === "anchored" || result.state === "runtime-required")
+        )
+          locateRecorded(result.target, threadId);
+        else
+          setNotice(
+            t(
+              result.state === "ambiguous"
+                ? "threads.ambiguousInVersion"
+                : "threads.unavailableInVersion",
+              { version: seq },
+            ),
+          );
+      } catch (error) {
+        if (stillCurrent())
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : t("threads.unavailableInVersion", { version: seq }),
+          );
+      }
+    },
+    [locateRecorded, navigationClient, queryClient, filesQuery.data, t],
   );
   useEffect(() => {
     if (!initialSearchEntry.current) return;

@@ -4,7 +4,7 @@
 
 When your agent publishes an update, your current view remains undisturbed. Click **Go to the latest version** when you are ready, or step through versions anytime using the navbar picker.
 
-**Locate** returns to the original element or line you flagged. The agent’s **Fix** link takes you directly to the revised element, while **Compare** places the original and updated views side by side.
+**Locate** finds the anchor in the version you are viewing, without switching versions. The history icon beside it opens the original location or the last recorded anchor in its saved version. The agent’s **Fix** link takes you directly to the revised element, while **Compare** places the original and updated views side by side.
 
 Test the updated interaction to verify the behavior. Even if an element was removed or renamed in the revision, its conversation thread remains preserved.
 

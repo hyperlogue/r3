@@ -911,7 +911,13 @@
   "expand": {
     "notInThisDiff": "⋯ {{seamCount_prev_cur}}not in this diff"
   },
-  "threads.anchorPosition": "Go to the recorded anchor",
+  "threads.anchorPosition": "Locate in the viewed version",
   "previewLabels.wholePage": "Whole page",
+  "threads.locating": "Locating…",
+  "threads.recordedLocations": "Recorded locations",
+  "threads.lastRecordedLocation": "Last recorded location",
+  "threads.originalLocation": "Original location",
+  "threads.unavailableInVersion": "No matching range in v{{version}}. Use Recorded locations to open the saved anchor or original location.",
+  "threads.ambiguousInVersion": "More than one matching range in v{{version}}. Use Recorded locations to open the saved anchor or original location.",
   "threads.originalPosition": "Go to original position"
 }

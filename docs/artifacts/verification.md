@@ -382,8 +382,10 @@ setup, logout, and automatic CLI setup. `server/client-auth-api.test.ts` and
 bulk/combined writes, immutable quotations, exact retries after subsequent moves,
 revision/publication/archive races, native range resolution, media ownership/GC,
 and schema-17 upgrade without inferred targets. `scripts/test-thread-anchors.ts`
-uses temporary storage and a fresh browser profile for recorded current/original/Fix
-jumps, version labels, lookup-free navigation, same-version correction, rendered
+uses temporary storage and a fresh browser profile for selected-version matching,
+explicit recorded/original/Fix jumps, cached native resolution, missing/ambiguous
+notices without version changes, stale lookup guards, keyboard-accessible history,
+same-version correction, rendered
 runtime matching, bounded response time, temporary quote/outline/page feedback,
 Escape/click-away, canceled hydration, tall-paragraph alignment and mobile
 navigation. Use `R3_TEST_BROWSER` as for the other isolated browser acceptance

@@ -911,7 +911,13 @@
   "expand": {
     "notInThisDiff": "⋯ {{seamCount_prev_cur}}不在本次差异中"
   },
-  "threads.anchorPosition": "转到已记录的锚点",
+  "threads.anchorPosition": "在正在查看的版本中定位",
   "previewLabels.wholePage": "整个页面",
+  "threads.locating": "正在定位…",
+  "threads.recordedLocations": "已记录的位置",
+  "threads.lastRecordedLocation": "最近记录的位置",
+  "threads.originalLocation": "原始位置",
+  "threads.unavailableInVersion": "v{{version}} 中没有匹配的范围。可通过“已记录的位置”打开保存的锚点或原始位置。",
+  "threads.ambiguousInVersion": "v{{version}} 中存在多个匹配范围。可通过“已记录的位置”打开保存的锚点或原始位置。",
   "threads.originalPosition": "转到原始位置"
 }

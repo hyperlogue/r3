@@ -93,7 +93,7 @@ opaque preview document → scoped version bytes + trusted r3 runtime
 | Preview client | `web/src/components/ArtifactPreview.tsx`, `web/src/preview*.ts`; bridge, runtime, utility, rendered selectors/text, native navigation, scoped parent-owned device capture |
 | Markdown reading cache | `web/src/markdown-cache.ts`, `passive-markdown.ts`, `components/PassiveMarkdown.tsx`; bounded immutable bytes, invalidation, and passive reading during preview checks |
 | Workspace | `web/src/artifact-page.tsx` is the UI-only page; `artifact-ui-context.tsx` injects reads/actions; `application-ui.tsx` and `pages/ArtifactView.tsx` connect it to the app; `ArtifactHome.tsx`; `artifact-version.ts`, `artifact-navigation.ts`, `artifact-hooks.ts`, `artifact-drafts.ts`, `useArtifactCodeJump.ts`, `useSyntaxPalette.ts` |
-| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactComposer`, `artifact-threads.ts`, `useArtifactHandoff.ts`; stable message props, Active/Resolved queues, independently subscribed drafts, shared navbar/panel Send to agent action |
+| Conversation UI | `ArtifactHeader`, `ArtifactThreads`, `ArtifactThreadCard` (inside `ArtifactThreads`), `ArtifactThreadLocation`, `ArtifactComposer`, `artifact-threads.ts`, `useArtifactHandoff.ts`; stable message props, Active/Resolved queues, independently subscribed drafts, shared navbar/panel Send to agent action |
 | Source and diff UI | `ArtifactFile`, `SourceCode`, `DiffView`, `FileCard`, `FileBrowser`, `JumpToFile`, `PaneToolbar`; complete foldable stacks, captured rows, virtualization, progressive hydration, retained context |
 | Shared presentation | `virtual.tsx`, `progressive.tsx`, `expand.ts`, `useScrollSpy.ts`, `selection.ts`, `gutter.ts`, `keys.ts`, `markdown.ts`, `viewed.ts`, `pane.ts` |
 | Highlighting | `server/highlight.ts`, `highlight-worker.ts`, `mermaid.ts`, `patch-hunks.ts`, `compress.ts`; server-owned escaped source HTML and safe Markdown |
@@ -148,12 +148,13 @@ targets cannot anchor to descriptions.
 **Placements** are historical read-only records keyed by threads, version, path, and
 representation, with `anchored|ambiguous|unplaced` state. They never rewrite the
 original target. Explicit re-anchoring stores a separate current destination and preserves the
-original quote. The primary thread link opens that recorded destination and version,
-shown on the card; the original-position button stays pinned. Navigation never
-infers a newer destination. Rendered and source/diff Locate feedback expires after
-two seconds or user interaction; whole-page rendered targets use a compact label
-rather than a page-sized box. An unavailable runtime element does not make its
-conversation disappear.
+original quote. The primary thread link locates that anchor in the selected version
+without switching versions; missing or ambiguous matches produce a notice. The
+history icon always offers the original location and, after re-anchoring, the last
+recorded anchor, with explicit version labels. Rendered and source/diff Locate
+feedback expires after two seconds or user interaction; whole-page rendered targets
+use a compact label rather than a page-sized box. An unavailable runtime element
+does not make its conversation disappear.
 
 Re-anchor writes accept coordinates without replacement quote text, validate the
 latest publication and an anchor revision at commit, and support one atomic batch

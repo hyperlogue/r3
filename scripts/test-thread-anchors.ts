@@ -177,7 +177,8 @@ const api = createArtifactApi(
   },
   { previews: preview },
 );
-let resolutionRequests = 0;
+const resolutions: number[] = [];
+let heldResolution: { release?: () => void; requested?: boolean } | null = null;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -185,11 +186,14 @@ const app = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.endsWith("/anchor-resolution")) {
-      resolutionRequests++;
-      return Response.json(
-        { error: "Navigation must use the recorded destination" },
-        { status: 500 },
-      );
+      resolutions.push(Number(new URL(request.url).searchParams.get("version")));
+      if (heldResolution) {
+        const held = heldResolution;
+        held.requested = true;
+        await new Promise<void>((resolve) => {
+          held.release = resolve;
+        });
+      }
     }
     if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
     if (path.startsWith("/api/")) return api.app.fetch(request);
@@ -221,8 +225,16 @@ try {
     () => page.evaluate(`!!${card(source.id)}?.querySelector('[data-thread-action=locate]')`),
     "thread card",
   );
-  const click = (id: string, action = "locate") =>
-    page.evaluate(`${card(id)}.querySelector('[data-thread-action=${action}]').click()`);
+  const click = async (id: string, action = "locate") => {
+    if (action === "original" || action === "recorded") {
+      await page.evaluate(`${card(id)}.querySelector('[data-thread-action=locations]').click()`);
+      await eventually(
+        () => page.evaluate(`!!${card(id)}.querySelector('[data-thread-action=${action}]')`),
+        "location history",
+      );
+    }
+    await page.evaluate(`${card(id)}.querySelector('[data-thread-action=${action}]').click()`);
+  };
   const atVersion = (seq: number) =>
     eventually(
       () => page.evaluate(`new URLSearchParams(location.search).get('version') === '${seq}'`),
@@ -240,19 +252,67 @@ try {
     await page.evaluate(
       `${card(source.id)}.querySelector('[data-thread-action=locate]').textContent.trim()`,
     ),
-    "a.txt:3-3 · v2",
+    "a.txt:3-3",
   );
+  const selectVersion = async (seq: number) => {
+    await page.evaluate(`document.querySelector('[aria-label="Published version"]').click()`);
+    await page.evaluate(`document.querySelector('[data-version-seq="${seq}"]').click()`);
+    await atVersion(seq);
+  };
   await click(source.id);
-  await atVersion(2);
-  await atLine(3);
+  await atVersion(1);
+  await atLine(2);
+  assert.deepEqual(
+    resolutions,
+    [1],
+    "resolve against the viewed version, not the latest or recorded version",
+  );
   assert.equal(storage.conversations.get(source.id).anchor?.target.versionSeq, 2);
   await Bun.sleep(2200);
-  assert.equal(
-    await page.evaluate("!!document.querySelector('.r3-active-line')"),
-    false,
-    "source navigation feedback expires without changing the destination",
+  await eventually(
+    () => page.evaluate("!document.querySelector('.r3-active-line')"),
+    "source feedback expires after scrolling settles",
   );
   await click(source.id);
+  await atLine(2);
+  assert.deepEqual(resolutions, [1], "repeat lookups reuse an immutable resolution");
+  await page.evaluate(`${card(source.id)}.querySelector('[data-thread-action=locations]').click()`);
+  assert.equal(
+    await page.evaluate(
+      `document.activeElement === ${card(source.id)}.querySelector('[data-thread-action=recorded]')`,
+    ),
+    true,
+    "history focuses its first destination",
+  );
+  if (process.env.R3_TEST_SCREENSHOTS) {
+    const { data } = await page.command("Page.captureScreenshot", { format: "png" });
+    await Bun.write(
+      join(process.env.R3_TEST_SCREENSHOTS, "anchor-history.png"),
+      Buffer.from(data, "base64"),
+    );
+  }
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Escape",
+    code: "Escape",
+    windowsVirtualKeyCode: 27,
+  });
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Escape",
+    code: "Escape",
+    windowsVirtualKeyCode: 27,
+  });
+  await eventually(
+    () =>
+      page.evaluate(
+        `document.activeElement === ${card(source.id)}.querySelector('[data-thread-action=locations]')`,
+      ),
+    "history Escape returns focus",
+  );
+  await atVersion(1);
+  await click(source.id, "recorded");
+  await atVersion(2);
   await atLine(3);
   await click(source.id, "original");
   await atVersion(1);
@@ -261,22 +321,67 @@ try {
   await atVersion(2);
   await atLine(3);
   await click(missing.id);
+  await eventually(
+    () => page.evaluate("document.body.textContent.includes('No matching range in v2')"),
+    "missing range notice",
+  );
+  await atVersion(2);
+  assert.equal(await page.evaluate("!!document.querySelector('.r3-active-line')"), false);
+  await click(missing.id, "original");
   await atVersion(1);
   await atLine(4);
+  await selectVersion(3);
   await click(ambiguous.id);
-  await atVersion(1);
-  assert.equal(
-    await page.evaluate(
-      `${card(ambiguous.id)}.querySelector('[data-thread-action=original]') === null`,
-    ),
-    true,
+  await eventually(
+    () => page.evaluate("document.body.textContent.includes('More than one matching range in v3')"),
+    "ambiguous range notice",
   );
-  // Rapid explicit navigation never waits for a lookup or steals a newer jump.
+  await atVersion(3);
+  await click(ambiguous.id, "original");
+  await atVersion(1);
+  // A slow lookup cannot undo an explicit history jump or a version selection.
+  await selectVersion(3);
+  heldResolution = {};
+  const held = heldResolution;
   await click(source.id);
+  await eventually(async () => !!held.requested, "held viewed-version lookup");
   await click(source.id, "original");
   await atVersion(1);
+  heldResolution = null;
+  held.release!();
+  await Bun.sleep(150);
+  await atVersion(1);
   await atLine(2);
-  assert.equal(resolutionRequests, 0);
+  await selectVersion(3);
+  await click(source.id);
+  await atLine(4);
+  await atVersion(3);
+  await selectVersion(2);
+  heldResolution = {};
+  const changedView = heldResolution;
+  await click(ambiguous.id);
+  await eventually(
+    async () => !!changedView.requested,
+    "lookup before changing the viewed version",
+  );
+  await selectVersion(1);
+  await eventually(
+    () =>
+      page.evaluate(
+        `${card(ambiguous.id)}.querySelector('[data-thread-action=locate]').getAttribute('aria-busy') === 'false'`,
+      ),
+    "version change retires loading feedback",
+  );
+  heldResolution = null;
+  changedView.release!();
+  await Bun.sleep(150);
+  await atVersion(1);
+  assert.equal(
+    await page.evaluate("!!document.querySelector('.r3-active-line')"),
+    false,
+    "late resolution cannot jump after a version change",
+  );
+  await selectVersion(3);
   // Same-version corrections arrive through the ordinary incremental thread update.
   await storage.conversations.anchors.reanchor(artifact.id, {
     actor,
@@ -309,8 +414,8 @@ try {
     await page.evaluate(`${card(source.id)}.textContent.includes('needle')`),
     "original quote stays visible",
   );
-  // Rendered anchors open their recorded publication immediately, even if the
-  // element has disappeared from later publications.
+  // Rendered navigation stays in the viewed publication. Missing elements
+  // report unavailability instead of switching to their original publication.
   await page.evaluate(`(() => {
     window.anchorLocateEvents = [];
     const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage');
@@ -322,7 +427,7 @@ try {
     }});
   })()`);
   await click(rendered.id);
-  await atVersion(1);
+  await atVersion(3);
   const admission = await eventually(
     () =>
       page.evaluate(
@@ -335,8 +440,8 @@ try {
     // browser-risk consent rather than bypassing the production preview gate.
     assert.equal(
       await page.evaluate("new URLSearchParams(location.search).get('version')"),
-      "1",
-      "preview admission must preserve the requested publication",
+      "3",
+      "preview admission must preserve the viewed publication",
     );
     await page.evaluate(
       "[...document.querySelectorAll('[data-preview-compatibility-consent][open] button')].find(button => button.textContent?.includes('Accept risk')).click()",
@@ -350,6 +455,14 @@ try {
     () => page.evaluate("window.anchorLocateEvents.some(event => event.state === 'anchored')"),
     "exact rendered match reported by the verified port",
   );
+  await click(absentElement.id);
+  await eventually(
+    () => page.evaluate("document.body.textContent.includes('This target is unavailable')"),
+    "rendered unavailable notice in viewed version",
+  );
+  await atVersion(3);
+  await click(rendered.id, "original");
+  await atVersion(1);
   const content = await eventually(async () => {
     for (const context of page.contexts.values()) {
       if (!context.auxData?.isDefault) continue;
@@ -505,7 +618,11 @@ try {
   );
   await click(absentElement.id);
   await atVersion(1);
-  assert.equal(resolutionRequests, 0, "anchor navigation needs no speculative resolution request");
+  assert.equal(
+    resolutions.length,
+    5,
+    "rendered lookups use the already loaded membership and runtime",
+  );
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,
@@ -520,8 +637,8 @@ try {
     "mobile thread",
   );
   await click(source.id);
-  await atVersion(3);
-  await atLine(5);
+  await atVersion(1);
+  await atLine(3);
   await page.evaluate(
     "[...document.querySelectorAll('button')].find(button => button.textContent?.includes('Discussion') && button.getBoundingClientRect().width > 0)?.click()",
   );
@@ -543,10 +660,34 @@ try {
       Buffer.from(data, "base64"),
     );
   }
+  await page.evaluate(
+    "[...document.querySelectorAll('button')].find(button => button.textContent?.includes('Discussion') && button.getBoundingClientRect().width > 0)?.click()",
+  );
+  await eventually(() => page.evaluate(`!!${card(source.id)}`), "mobile history thread");
+  await page.evaluate(`${card(source.id)}.querySelector('[data-thread-action=locations]').click()`);
+  assert.equal(
+    await page.evaluate(`(() => {
+    const r = ${card(source.id)}.querySelector('[popover]').getBoundingClientRect();
+    return r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+  })()`),
+    true,
+    "recorded locations fit the phone viewport above the sheet",
+  );
+  if (process.env.R3_TEST_SCREENSHOTS) {
+    const { data } = await page.command("Page.captureScreenshot", { format: "png" });
+    await Bun.write(
+      join(process.env.R3_TEST_SCREENSHOTS, "anchor-history-phone.png"),
+      Buffer.from(data, "base64"),
+    );
+  }
+  await page.evaluate(`${card(source.id)}.querySelector('[data-thread-action=recorded]').click()`);
+  await atVersion(3);
+  await atLine(5);
   console.log(
-    "Thread anchors: recorded/current/original/Fix, lookup-free navigation, incremental correction, rendered runtime and phone navigation passed",
+    "Thread anchors: viewed/recorded/original/Fix, pinned navigation, incremental correction, rendered runtime and phone navigation passed",
   );
 } finally {
+  heldResolution?.release?.();
   await browser?.close();
   app.stop(true);
   api.close();

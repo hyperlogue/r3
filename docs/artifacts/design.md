@@ -108,7 +108,8 @@ description in the navigation's details popup. Descriptions have no body section
 comment anchors. New threads target artifacts or documents; comment fix targets
 identify documents. Retired overview and version-description targets remain readable
 historical evidence.
-Locate on an existing description thread opens that version's details popup. Saved
+Locate on an existing description thread opens the details popup only in that
+selected version; its history control can explicitly open the recorded version. Saved
 description drafts retain their text and quote until the user clears or replaces the target.
 
 Opening an artifact uses a centered loading spinner in the application's current
@@ -694,24 +695,31 @@ before posting, so a legacy server cannot silently save only half of the operati
 API clients can still post Fix-only comments; explicit `reanchor` guards opt into
 the combined write. Original quotes and saved message reference contexts never change.
 
-The thread card's primary link opens the explicitly recorded current anchor, or
-the original target when there has been no move. Its visible version suffix names
-the publication it opens. This is a direct navigation using the thread snapshot,
-without a server resolution request or inference about a newer publication.
-Original, Fix, and current-anchor destinations all retain their native
-representation and version. New publications alone do not change the reader's
-view or the meaning of a link; re-anchoring explicitly changes the destination.
-Unavailable rendered targets show their recorded context or an unavailable notice
-in that same publication. Preview admission failures stay blocked. The read-only
-anchor-resolution API remains available to clients that explicitly request a
-cross-version match; workspace navigation does not use it.
+The thread card's primary link locates its current anchor (or original target when
+there has been no move) in the **selected version**. It never changes versions or
+automatically falls back to a recorded publication. The selected publication need
+not be the latest. Same-version destinations navigate directly; rendered targets
+use that version's loaded membership and guarded runtime. Source/diff ranges in
+a different version require a unique complete captured match in the same path and
+side. Media requires identical bytes. The read-only anchor-resolution API performs
+those checks against the selected version, with results cached by thread, anchor
+revision and immutable publication. Missing and ambiguous matches leave the version
+unchanged and show a notice pointing to **Recorded locations**. Slow lookups show
+**Locating…** beside the link. Navigation nonces, selected version and anchor revision
+reject stale responses after another navigation or correction. Preview admission
+failures remain blocked; reading never moves a persisted anchor.
 
-After an explicit re-anchor, a small history button immediately after the primary
-link opens the original position. Fix and Compare actions keep their recorded
-comment targets. Original quotes/frames remain visible as evidence. Source/diff and
-preview markers prefer the explicit current anchor within its version; original
-and retained historical markers remain available in earlier views. The shared card
-and Locate behavior also apply in the mobile sheet and keyboard navigation.
+The history icon to the right is always available for a thread with a location.
+It opens **Recorded locations**, offering the original thread location and, when
+an explicit anchor exists, its last recorded location. Each choice shows its
+publication and target; choosing one explicitly switches to that publication.
+Without a re-anchor, the original location is also the last recorded destination,
+so the menu has one choice. The popover works above clipped panels, fits the phone
+viewport, focuses its first destination and returns focus on Escape. Fix and
+Compare actions retain their pinned comment targets. Original quotes/frames remain
+visible as evidence. Source/diff and preview markers prefer the explicit current
+anchor within its version; original and historical markers remain in earlier
+views. The main Locate keyboard action uses the selected version too.
 
 Rendered Markdown thread addresses visible content directly. For example, a note
 on a link label does not need a computed Markdown source range. Its thread appears

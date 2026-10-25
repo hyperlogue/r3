@@ -23,11 +23,7 @@ import {
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import type { ArtifactComparison } from "../artifact-comparison.ts";
 import { artifactDrafts, useArtifactNoteOpen } from "../artifact-drafts.ts";
-import {
-  targetLabel as artifactTargetLabel,
-  threadTargetLabel as artifactThreadTargetLabel,
-  hasHistoricalTarget,
-} from "../artifact-labels.ts";
+import { targetLabel as artifactTargetLabel, hasHistoricalTarget } from "../artifact-labels.ts";
 import { useOptimisticArtifact, useThreadStatus } from "../artifact-thread-status.ts";
 import { activeArtifactThreads, artifactNeedsAttention } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
@@ -55,6 +51,7 @@ import { AgentName } from "./AgentName.tsx";
 import { ArtifactComposer } from "./ArtifactComposer.tsx";
 import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { ArtifactHandoffNotice } from "./ArtifactHandoffNotice.tsx";
+import { ArtifactThreadLocation } from "./ArtifactThreadLocation.tsx";
 import { MediaTargetPreview } from "./MediaTargetPreview.tsx";
 import { MessageProse, QuoteBubble, useQuoteBubble } from "./Message.tsx";
 import {
@@ -65,7 +62,11 @@ import {
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
 export type ArtifactRefJump = (reference: MessageRef, context: ArtifactReferenceContext) => void;
-export type ArtifactTargetJump = (target: ArtifactTarget, threadId?: string) => void;
+export type ArtifactTargetJump = (
+  target: ArtifactTarget,
+  threadId?: string,
+  intent?: "viewed" | "recorded",
+) => void | Promise<void>;
 function targetContext(target: ArtifactTarget): ArtifactReferenceContext {
   return "versionSeq" in target
     ? {
@@ -154,6 +155,7 @@ function ThreadQuote({ quote }: { quote: string }) {
 export const ArtifactThreadCard = memo(function ArtifactThreadCard({
   thread,
   agentLabels,
+  context,
   artifactKind,
   latestVersionSeq,
   onLocate,
@@ -479,46 +481,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
               {t("common.historicalTargetUnavailable")}
             </span>
           ) : hasTarget ? (
-            <div className="flex min-w-0 flex-1 items-center gap-1">
-              <button
-                type="button"
-                className="min-w-0 break-all text-left text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
-                title={t("threads.anchorPosition")}
-                data-thread-action="locate"
-                onClick={() => onLocate(navigationTarget, thread.id)}
-              >
-                {artifactTargetLabel(navigationTarget, null, true)}
-                {"versionSeq" in navigationTarget && (
-                  <span className="font-normal text-neutral-500 dark:text-neutral-400">
-                    {` · v${navigationTarget.versionSeq}`}
-                  </span>
-                )}
-              </button>
-              {thread.anchor && (
-                <button
-                  type="button"
-                  data-thread-action="original"
-                  className="flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-primary-700 max-md:size-9 dark:hover:bg-neutral-800 dark:hover:text-primary-300"
-                  title={`${t("threads.originalPosition")} · ${artifactThreadTargetLabel(thread)}`}
-                  aria-label={t("threads.originalPosition")}
-                  onClick={() => onLocate(thread.target, thread.id)}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-4"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 10a9 9 0 1 1 2.7 8.2M3 4v6h6" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                </button>
-              )}
-            </div>
+            <ArtifactThreadLocation
+              thread={thread}
+              onLocate={onLocate}
+              visible={visible && !hidden}
+              versionSeq={context.versionSeq}
+            />
           ) : null}
           {thread.status === "resolved" && (
             <span className="rounded bg-success-500/15 px-1.5 py-0.5 font-semibold text-success-700 dark:text-success-300">
@@ -901,7 +869,7 @@ export function ArtifactThreads({
   }, [queues, comparable, comparisonMode]);
   const ordered = tab === "active" ? active : resolved;
   const locate = useCallback<ArtifactTargetJump>(
-    (target, threadId) => onLocate(target, threadId),
+    (target, threadId, intent) => onLocate(target, threadId, intent),
     [onLocate],
   );
   const afterResolve = useCallback(
@@ -965,7 +933,7 @@ export function ArtifactThreads({
           fbPrev: () => move(-1),
           fbLocate: () => {
             const note = detail.threads.find((note) => note.id === activeThread);
-            if (note) locate(currentThreadTarget(note), note.id);
+            if (note) void locate(currentThreadTarget(note), note.id, "viewed");
           },
           fbComment: () => action("comment"),
           fbResolve: () => action("resolve"),
