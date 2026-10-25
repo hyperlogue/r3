@@ -257,10 +257,34 @@ try {
     true,
     "Folded Markdown stays inert",
   );
+  await page.evaluate(`(() => {
+    window.foldingMarkdown = window.retainedMarkdownFrame.closest('[inert]').parentElement;
+    window.foldingMarkdown.style.transitionDuration = '600ms';
+    document.querySelector('[data-artifact-thread="${lastSection.id}"] [data-thread-action=locate]').click();
+  })()`);
+  await eventually(
+    () =>
+      page.evaluate(`!document.querySelector('[data-file="index.md"] iframe').closest('[inert]')`),
+    "Locate unfolds the retained preview before navigating",
+  );
   await page.evaluate(
-    `document.querySelector('[data-file="index.md"] button[title="Expand"]').click()`,
+    `document.querySelector('[data-artifact-thread="${lastSection.id}"] [data-thread-action=locate]').click()`,
   );
   await findMarkdown();
+  await eventually(async () => {
+    const target = await markdown.evaluate(
+      "document.querySelector('h2:last-of-type').getBoundingClientRect().toJSON()",
+    );
+    const bounds = await page.evaluate(`(() => {
+      const frame = document.querySelector('[data-file="index.md"] iframe').getBoundingClientRect();
+      const pane = document.querySelector('[data-artifact-content]').getBoundingClientRect();
+      return { frameTop: frame.top, top: pane.top, bottom: pane.bottom };
+    })()`);
+    return (
+      target.top + bounds.frameTop >= bounds.top && target.bottom + bounds.frameTop <= bounds.bottom
+    );
+  }, "repeated Locate during unfolding reaches the deep target after the transition");
+  await page.evaluate("window.foldingMarkdown.style.removeProperty('transition-duration')");
   assert.equal(
     markdownDocumentReads,
     readsBeforeFolding,

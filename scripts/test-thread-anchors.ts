@@ -421,7 +421,7 @@ try {
     const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage');
     Object.defineProperty(MessagePort.prototype, 'onmessage', { ...descriptor, set(callback) {
       descriptor.set.call(this, callback && ((event) => {
-        if (event.data?.type === 'r3-preview-located') window.anchorLocateEvents.push({ state:event.data.state, nonce:event.data.nonce });
+        if (event.data?.type === 'r3-preview-located') window.anchorLocateEvents.push({ state:event.data.state, nonce:event.data.nonce, at:performance.now() });
         callback.call(this, event);
       }));
     }});
@@ -492,17 +492,45 @@ try {
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
     return result.result.value;
   };
+  // A warm document should receive Locate without first scrolling its file
+  // header through the multi-frame opening/hydration path.
+  const timing = await page.evaluate(`new Promise(resolve => {
+    const post = MessagePort.prototype.postMessage;
+    let sawHeaderJump = false;
+    const pane = document.querySelector('[data-artifact-content]');
+    const scroll = pane.scrollTo;
+    pane.scrollTo = function(...args) { sawHeaderJump = true; return scroll.apply(this,args); };
+    const start = performance.now();
+    MessagePort.prototype.postMessage = function(data,...rest) {
+      const result = post.call(this,data,...rest);
+      if (data?.type === 'r3-preview-display' && data.display?.jump) {
+        MessagePort.prototype.postMessage = post;
+        pane.scrollTo = scroll;
+        resolve({ sent: performance.now()-start, sawHeaderJump });
+      }
+      return result;
+    };
+    ${card(rendered.id)}.querySelector('[data-thread-action=locate]').click();
+  })`);
+  assert.equal(
+    timing.sawHeaderJump,
+    false,
+    "an open rendered anchor goes directly to its range without an intermediate header jump",
+  );
   const highlight = () => content.evaluate("CSS.highlights.has('r3-preview-active')");
   const feedback = async (id: string, state = "anchored") => {
-    await page.evaluate("window.anchorLocateEvents = []");
-    const start = performance.now();
-    await click(id);
-    await eventually(
+    const start = await page.evaluate(`(() => {
+      window.anchorLocateEvents = [];
+      const start = performance.now();
+      ${card(id)}.querySelector('[data-thread-action=locate]').click();
+      return start;
+    })()`);
+    const result = await eventually(
       () =>
-        page.evaluate(`window.anchorLocateEvents.some(e => e.state === ${JSON.stringify(state)})`),
+        page.evaluate(`window.anchorLocateEvents.find(e => e.state === ${JSON.stringify(state)})`),
       "immediate Locate result",
     );
-    const elapsed = performance.now() - start;
+    const elapsed = result.at - start;
     assert.ok(
       elapsed < 600,
       `warm Locate should respond without a retry delay (${Math.round(elapsed)} ms)`,

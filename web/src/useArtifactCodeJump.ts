@@ -35,6 +35,7 @@ export function useArtifactCodeJump({
     let live = true;
     let frame = 0;
     let settled = false;
+    let opening = false;
     let settleFrames = 0;
     let hydrated = false;
     let highlighting = true;
@@ -47,10 +48,32 @@ export function useArtifactCodeJump({
     };
     const paint = () => {
       frame = 0;
-      if (!live) return;
+      if (!live || opening) return;
       const file = root.querySelector<HTMLElement>(selector);
       clear();
       if (!file) return;
+      if (!settled) {
+        // A retained preview can be hydrated while its fold is still opening.
+        // A fixed number of frames cannot guarantee the final scroll extent.
+        const transitions = file
+          .getAnimations({ subtree: true })
+          .filter(
+            (animation) =>
+              "transitionProperty" in animation &&
+              animation.transitionProperty === "grid-template-rows" &&
+              animation.playState === "running",
+          );
+        if (transitions.length) {
+          opening = true;
+          void Promise.allSettled(transitions.map((animation) => animation.finished)).then(() => {
+            opening = false;
+            if (!live || interrupted) return;
+            settleFrames = 0;
+            schedule();
+          });
+          return;
+        }
+      }
       if (highlighting && jump.start !== undefined) {
         for (const row of file.querySelectorAll<HTMLElement>(
           `[data-line][data-side="${jump.side}"], [data-${jump.side}-line]`,

@@ -578,12 +578,38 @@ function Workspace({
           setFold({ mode: "unfold", path: target.path, nonce });
         } else if (target.kind === "rendered") {
           if (detail.kind === "files") {
-            // Hydrate/unfold and finish aligning the file header before the
-            // rendered target can scroll that same outer content pane.
-            setRenderedJump(null);
-            pendingRenderedJump.current = { locator: target.locator, nonce };
-            setJump({ path: target.path, side: "new", nonce });
-            setFold({ mode: "unfold", path: target.path, nonce });
+            const file =
+              target.versionSeq === version?.seq && fileMode(target.path) === "rendered"
+                ? paneRef.current?.querySelector<HTMLElement>(
+                    `[data-file="${CSS.escape(target.path)}"]`,
+                  )
+                : null;
+            const frame = file?.querySelector<HTMLIFrameElement>('iframe[aria-hidden="false"]');
+            if (
+              file &&
+              frame &&
+              !frame.closest('[inert], [hidden], [aria-busy="true"]') &&
+              frame.getClientRects().length &&
+              !file
+                .getAnimations({ subtree: true })
+                .some(
+                  (animation) =>
+                    "transitionProperty" in animation &&
+                    animation.transitionProperty === "grid-template-rows" &&
+                    animation.playState === "running",
+                )
+            ) {
+              // An admitted, open document already has its geometry. Its runtime
+              // can scroll to the target without first aligning the file header.
+              setRenderedJump({ locator: target.locator, nonce });
+            } else {
+              // Cold, folded, or differently versioned documents still need
+              // hydration and header alignment before scrolling their target.
+              setRenderedJump(null);
+              pendingRenderedJump.current = { locator: target.locator, nonce };
+              setJump({ path: target.path, side: "new", nonce });
+              setFold({ mode: "unfold", path: target.path, nonce });
+            }
           } else setRenderedJump({ locator: target.locator, nonce });
         } else {
           setJump({
@@ -601,7 +627,7 @@ function Workspace({
         setNotice(t("artifactPage.thisCommentRefersToARetiredArtifact"));
       } else paneRef.current?.scrollTo({ top: 0 });
     },
-    [detail.kind, view, changeView, comparison.close, t],
+    [detail.kind, view, version?.seq, fileMode, changeView, comparison.close, t],
   );
   const navigationClient = useArtifactClient();
   const queryClient = useQueryClient();

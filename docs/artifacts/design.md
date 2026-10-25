@@ -454,8 +454,11 @@ stays in the outer pane. HTML, isolated image previews, and audio keep their vie
 layout, including Markdown documents viewed within HTML artifacts.
 This presentation behavior does not rewrite retained document bytes.
 Comment controls stay inside the visible part of a tall frame, clear of sticky
-file headers, and follow the outer scroll position. Rendered Locate waits for file
-hydration, header alignment, and initial Markdown sizing before jumping to its target.
+file headers, and follow the outer scroll position. An already-open, admitted
+rendered document receives Locate directly, without an intermediate file-header
+jump or settling delay. Folded, unloaded, differently versioned, and still-sizing
+documents retain file hydration, completed fold transitions, header alignment,
+and initial Markdown sizing before jumping to their target.
 
 The discussion dock retains the compact **Active / Resolved** tabs. Its **Add comment**
 button shares the bubble-plus icon with whole-file comments. Resolve has
