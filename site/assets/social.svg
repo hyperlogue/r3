@@ -1,12 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <title>r3 — Understand what's built. Steer what's next</title>
-  <rect width="1200" height="630" fill="#ffffff"/>
-  <path d="M70 112H1130M70 548H1130" stroke="#e5e5e5"/>
-  <text x="70" y="84" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="700" fill="#171717">r3</text>
-  <text x="145" y="79" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="19" fill="#525252">A workspace for your coding agent’s work.</text>
-  <g font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="66" font-weight="600" letter-spacing="-2">
-    <text x="70" y="274" fill="#171717">Understand what's built.</text>
-    <text x="70" y="370" fill="#6164ff">Steer what's next</text>
+  <defs>
+    <filter id="paper-shadow" x="-35%" y="-25%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#252144" flood-opacity="0.07"/>
+    </filter>
+    <filter id="note-shadow" x="-20%" y="-40%" width="140%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#252144" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="#fbfbfe"/>
+  <!-- The renderer refreshes this embedded image from web/favicon.svg. -->
+  <image id="project-logo" x="52" y="48" width="48" height="48" href="data:image/svg+xml;base64,PCEtLSByMyBmYXZpY29uIOKAlCBSXjMgYXMgY29vcmRpbmF0ZSBheGVzLiBCaWxhdGVyYWxseSBzeW1tZXRyaWMgYWJvdXQgejsgZ3JvdW5kCiAgICAgYXhlcyBhdCAyMMKwIGJlbG93IGhvcml6b250YWwgKHNsb3BlIDQvMTEsIHZzIDMwwrAgaXNvbWV0cmljKSBmb3IgYSBsb3cKICAgICB2aWV3cG9pbnQuIFBvc2l0aXZlIGFybXMgb25seSwgVEFQRVJFRCAzMOKGkjIwIHRvd2FyZCB0aGUgdGlwcyAocGVyc3BlY3RpdmUKICAgICB2YW5pc2hpbmcgYnVpbHQgaW50byB0aGUgc3Ryb2tlKSwgbWVldGluZyBpbiBhIGdyYXkgYmFsbCBqb2ludAogICAgIChyPTIwKSBhdCB0aGUgb3JpZ2luIOKAlCBpdCBtdXN0IGNvdmVyIHRoZSBhcm0gb3ZlcmxhcHMsIHdob3NlIHdpZGVzdAogICAgIGNyb3NzaW5nIHJlYWNoZXMgfjE3LjEgZnJvbSB0aGUgb3JpZ2luLiBUaHJlZSB0aGljayBhcm1zIGlzIHRoZSBtb3N0CiAgICAgZGV0YWlsIGEgMTbigJMxOHB4IHRhYiByZW5kZXIgY2FuIGhvbGQuCiAgICAgQ29vcmRpbmF0ZXMgYXJlIEhVQi1SRUxBVElWRTogdGhlIHdyYXBwZXIgPGc+IHBsYWNlcyB0aGUgaHViICh0aGUgYmFsbAogICAgIGpvaW50LCBsb2NhbCAwLDApIGF0ICg1MCw2MS4wNCkgb24gdGhlIHRpbGUsIGFuZCB0aGUgYXJtcyBzaXQgaW4gdGhlaXIgb3duCiAgICAgPGcgY2xhc3M9ImFybXMiPiBzbyB0aGUgbmF2IExvZ28gY2FuIHNwaW4gdGhlIHNwaWtlcyBhYm91dCB0aGUgaHViIGxpa2UgYQogICAgIGZpZGdldCB0b3kgKExvZ28udHN4IHJvdGF0ZXMgLmFybXMgYWJvdXQgaXRzIGxvY2FsIG9yaWdpbikuIEtlZXAgdGhlIGh1YgogICAgIGF0IDAsMCBhbmQgdGhlIGNpcmNsZSBvdXRzaWRlIC5hcm1zIHdoZW4gZWRpdGluZy4KICAgICBQYWxldHRlIChmdWxsIHNhdHVyYXRpb24sIGx1bWluYW5jZS1iYWxhbmNlZCk6IHJvc2UgbGVmdCBhcm0sIGluZGlnbwogICAgIHJpZ2h0IGFybSwgZW1lcmFsZCB6OyBncmF5ICgjMzc0MTUxKSBodWIsIG9uIGFuIG9mZi13aGl0ZQogICAgIChzbGF0ZS0xMDApIHJvdW5kZWQgc3F1YXJlIGZvciBjb250cmFzdCBvbiBkYXJrIHRhYiBjaHJvbWUuCiAgICAgVEhFIHNpbmdsZSBzb3VyY2Ugb2YgdGhlIG1hcms6IGluZGV4Lmh0bWwncyA8bGluayByZWw9Imljb24iPiBhbmQgdGhlCiAgICAgUkVBRE1FJ3MgPGltZz4gYm90aCBwb2ludCBoZXJlLCBhbmQgdGhlIExvZ28gY29tcG9uZW50IGlubGluZXMgdGhlIHNhbWUKICAgICBhc3NldC4gRWRpdCBvbmx5IGhlcmUuIC0tPgo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDEwMCAxMDAiPgogIDx0aXRsZT5yMzwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyMiIgZmlsbD0iI2YxZjVmOSIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUwIDYxLjA0KSBzY2FsZSguOTIpIj4KICAgIDxnIGNsYXNzPSJhcm1zIj4KICAgICAgPHBhdGggZmlsbD0iI2ZmMzM1NiIgZD0iTTUuMSAxNC4xIC00MS42IDI1LjggLTQ4LjQgNyAtNS4xIC0xNC4xWiIvPgogICAgICA8cGF0aCBmaWxsPSIjNjE2NGZmIiBkPSJNLTUuMSAxNC4xIDQxLjYgMjUuOCA0OC40IDcgNS4xIC0xNC4xWiIvPgogICAgICA8cGF0aCBmaWxsPSIjMDA5OTY2IiBkPSJNLTE1IDAgLTEwIC01MiAxMCAtNTIgMTUgMFoiLz4KICAgIDwvZz4KICAgIDxjaXJjbGUgcj0iMjAiIGZpbGw9IiMzNzQxNTEiLz4KICA8L2c+Cjwvc3ZnPgo="/>
+  <g font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+    <text x="114" y="86" font-size="44" font-weight="700" letter-spacing="-2" fill="#191920">r3</text>
+    <g font-size="54" font-weight="700" letter-spacing="-2.2">
+      <text x="52" y="300" fill="#191920">Understand what's built.</text>
+      <text x="52" y="373" fill="#6164ff">Steer what's next</text>
+    </g>
+    <text x="52" y="444" font-size="23" letter-spacing="-0.4" fill="#666675">A workspace for your coding agent’s work.</text>
+
+    <g filter="url(#paper-shadow)">
+      <g transform="rotate(-7 887 367)">
+        <rect x="762" y="204" width="250" height="326" fill="#ffffff" stroke="#dfdfeb"/>
+        <path d="M788 232h23v30h-23z M794 244h11 M794 251h8" fill="none" stroke="#bdbdce" stroke-width="1.2"/>
+        <path d="M788 288h171" stroke="#b5b3c5" stroke-width="9"/>
+        <path d="M788 313h193 M788 326h168 M788 339h181 M788 388h193 M788 401h168 M788 414h181 M788 463h193 M788 476h168" stroke="#e7e7ef" stroke-width="5"/>
+      </g>
+      <g transform="rotate(8 1044 395)">
+        <rect x="936" y="233" width="216" height="324" fill="#ffffff" stroke="#dfdfeb"/>
+        <rect x="957" y="255" width="174" height="95" fill="#f0edff"/>
+        <path d="M957 376h146 M957 389h174 M957 402h155" stroke="#e7e7ef" stroke-width="5"/>
+        <rect x="957" y="429" width="174" height="73" fill="#f4f3fa"/>
+      </g>
+      <rect x="814" y="158" width="302" height="338" fill="#ffffff" stroke="#dcdce8"/>
+      <path d="M814 190h302" stroke="#e8e8f0"/>
+      <g fill="#d5d5e3">
+        <circle cx="829" cy="174" r="2.5"/>
+        <circle cx="839" cy="174" r="2.5"/>
+        <circle cx="849" cy="174" r="2.5"/>
+      </g>
+      <rect x="898" y="171" width="100" height="6" rx="2" fill="#eeeef5"/>
+      <rect x="832" y="208" width="266" height="120" fill="#eeeaff"/>
+      <circle cx="888" cy="252" r="27" fill="#b1a3ff"/>
+      <path d="M854 328l66-70 72 70" fill="#9380f8"/>
+      <path d="M956 328l90-91 52 52v39" fill="#6953de"/>
+      <rect x="832" y="349" width="162" height="8" fill="#a09bad"/>
+      <path d="M832 379h266 M832 393h225" stroke="#e6e5ee" stroke-width="5"/>
+      <g fill="#f2f1f8">
+        <rect x="832" y="417" width="82" height="63"/>
+        <rect x="924" y="417" width="82" height="63"/>
+        <rect x="1016" y="417" width="82" height="63"/>
+      </g>
+    </g>
+
+    <path d="M1078 243h34q12 0 12 12v195q0 12-12 12h-32" fill="none" stroke="#7770ff" stroke-width="1.5"/>
+    <rect x="990" y="243" width="88" height="56" fill="#6164ff" fill-opacity="0.04" stroke="#7770ff"/>
+    <circle cx="1078" cy="243" r="6" fill="#6164ff" stroke="#ffffff" stroke-width="2.5"/>
+
+    <g filter="url(#note-shadow)">
+      <rect x="800" y="462" width="340" height="98" rx="9" fill="#ffffff" stroke="#dedeea"/>
+      <circle cx="824" cy="491" r="4" fill="#6164ff"/>
+      <text x="839" y="497" font-size="16" font-weight="600" fill="#393744">Make this clearer.</text>
+      <path d="M820 513h300" stroke="#efeff5"/>
+      <path d="m821 534 3 3 6-7" fill="none" stroke="#009966" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="841" y="539" font-size="14" fill="#7c798e">Updated in v2.</text>
+    </g>
   </g>
-  <text x="70" y="592" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="21" fill="#525252">Explore prototypes, explainers, and docs. Steer what’s next.</text>
 </svg>

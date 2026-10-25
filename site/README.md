@@ -144,6 +144,8 @@ interactive layout an equivalent readable explanation.
 `bun --no-env-file site/render-social.ts` with `R3_TEST_BROWSER` set to regenerate
 the PNG used by link-preview services. Browser tooling is not needed for a normal
 site build.
+The renderer also refreshes the SVG's embedded logo from `web/favicon.svg`, keeping
+the card self-contained and the project mark consistent with the application.
 
 ## Authentic workspace example
 
