@@ -441,20 +441,20 @@
     {
       "file": "fieldwork-privacy-light.png",
       "theme": "light",
-      "width": 900,
-      "height": 600,
+      "width": 1240,
+      "height": 660,
       "scale": 3,
       "recorded": true,
-      "sha256": "5479733b4952327d7e1d09068311d4b3578adc71b1c607b67016c82e9aacc01b"
+      "sha256": "07237c261ae10e2f48f7e1fbd4fb9d989d8259ea02eb54f352ca66a44259c3d5"
     },
     {
       "file": "fieldwork-privacy-dark.png",
       "theme": "dark",
-      "width": 900,
-      "height": 600,
+      "width": 1240,
+      "height": 660,
       "scale": 3,
       "recorded": true,
-      "sha256": "c5f1c8b4df9050035d0bed3467275498ca81b7b866729809d35e326808824420"
+      "sha256": "d76684a76f73675255f0b5108f411df97509ce7d0d0893f73fac9514f4542763"
     }
   ]
 }

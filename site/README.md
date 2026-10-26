@@ -97,11 +97,13 @@ exact plain text used by the copy action.
 Code copying uses a selected-field fallback inside opaque previews and selects
 the visible code for manual copying when the browser declines both methods.
 
-The hero shows the Privacy dialogs artifact: a highlighted GPU warning, an
-excerpt of the agent’s reply, and a follow-up draft requesting a Disabled badge
-with an explanatory tooltip. Light and dark captures show the real r3 navbar,
-annotation marker, and floating thread. A stationary Chrome-style frame surrounds
-the image, with an active tab, window controls, navigation icons, and a rounded
+The hero shows four Privacy dialogs prototype frames together: light and dark
+introductions, model selection, and download progress. A native annotation on
+the model cards connects them to the discussion dock, with a staged agent reply
+and a follow-up draft about consistent button spacing. Light and dark captures
+show the real r3 navbar, annotation marker, discussion, and reply composer.
+A stationary Chrome-style frame surrounds the image, with an active tab, window
+controls, navigation icons, and a rounded
 address bar. The same frame is shared by the full workspace preview.
 Full workspace captures omit the sample banner; the standalone example retains its reset and homepage controls. Captures
 are not links; the workspace figure has only a separate demo button beneath its
@@ -318,15 +320,21 @@ dimensions.
 
 ### Privacy dialogs recordings
 
-The headline image and the precise-feedback, agent-replies, and inspect-fixes
-films use published versions 3, 5, and 6 of the Privacy dialogs review. The
-featured GPU-warning thread moves the notice below the Choose model title and
-greys out the unavailable card. The model-card thread supplies a second handoff
-note. The headline draft revisits the warning design with a Disabled badge.
-These are curated recording copies: session identifiers and source-account links
-are omitted, comments are excerpted, and the original artifact remains untouched.
+The precise-feedback, agent-replies, and inspect-fixes films use published
+versions 3, 5, and 6 of the Privacy dialogs review. Their featured GPU-warning
+thread moves the notice below the Choose model title and greys out the unavailable
+card. The model-card thread supplies a second handoff note. These are curated
+recording copies: session identifiers and source-account links are omitted,
+comments are excerpted, and the original artifact remains untouched.
 
-The 900×600 headline captures are recorded at 3× density and stored as
+The headline uses four clean frames from version 6 in a curated contact sheet,
+with the original frame markup and styles. Its isolated two-version sample uses
+a staged model-card conversation and an unsent draft: “Match the button spacing
+in the light and dark screens.” The discussion dock is resized through its native
+control so all four frames remain visible. No error or compatibility-warning
+frame appears in the headline.
+
+The 1240×660 headline captures are recorded at 3× density and stored as
 `fieldwork-privacy-light.png` and `fieldwork-privacy-dark.png`. Their `recorded`
 entries in `assets/fieldwork-captures.json` identify externally produced captures.
 `capture-showcase.ts` preserves them when refreshing the fictional examples;

@@ -22,8 +22,8 @@ export const captureSpecs = [
   ...(["light", "dark"] as const).map((theme) => ({
     file: `fieldwork-privacy-${theme}.png`,
     theme,
-    width: 900,
-    height: 600,
+    width: 1240,
+    height: 660,
     scale: 3,
     recorded: true,
   })),

@@ -120,7 +120,7 @@ function reviewDetail(locale: Locale = "en") {
 <div class="browser-frame hero-browser">
 ${browserBar(h("common.privacyDialogs", locale))}
 <div class="hero-review-crop">
-${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-privacy-${theme}.png" width="900" height="600" alt="${h("landing.privacyDialogReview", locale)}">`).join("")}
+${["light", "dark"].map((theme) => `<img class="review-${theme}" src="/assets/fieldwork-privacy-${theme}.png" width="1240" height="660" alt="${h("landing.privacyDialogReview", locale)}">`).join("")}
 </div>
 </div>
 </figure>`;

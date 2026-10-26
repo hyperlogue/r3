@@ -405,7 +405,7 @@
     "localhost8891": "localhost:8891",
     "usesACurveLabAndCodeReview": "uses a curve lab and code review with scripted agent replies.",
     "makeThisBetterStartsAnotherRoundOf": "“Make this better” starts another round of guessing. “Explain who can see this project before I create it” gives your agent a target and a test.",
-    "privacyDialogReview": "Privacy dialogs in r3: a highlighted GPU warning, the agent’s reply about moving it below the title, and a follow-up draft requesting a Disabled badge with an explanatory tooltip."
+    "privacyDialogReview": "Four UI prototype screens side by side in r3: light and dark introductions, model selection, and download progress, with an anchored review comment, agent reply, and follow-up draft."
   },
   "client": {
     "showingTheFirst20": "; showing the first 20",

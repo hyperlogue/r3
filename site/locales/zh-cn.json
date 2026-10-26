@@ -405,7 +405,7 @@
     "localhost8891": "localhost:8891",
     "usesACurveLabAndCodeReview": "采用包含贝塞尔曲线实验室与代码审阅的场景，配合脚本化的智能体回复。",
     "makeThisBetterStartsAnotherRoundOf": "“把它改好点”只会引发又一轮猜测。而“在创建之前说明谁能看到这个项目”则为智能体指明了具体目标和验证标准。",
-    "privacyDialogReview": "r3 中的隐私对话框：高亮的 GPU 提示、智能体将提示移到标题下方的回复，以及请求改用带说明提示的“已禁用”徽章的后续草稿。"
+    "privacyDialogReview": "r3 中并排展示的四个 UI 原型界面：浅色和深色介绍页、模型选择及下载进度，旁边有锚定评论、智能体回复和后续反馈草稿。"
   },
   "client": {
     "showingTheFirst20": "；显示前 20 个",
