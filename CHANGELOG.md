@@ -4,6 +4,32 @@ All notable changes to r3 are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-10-26
+
+### Added
+
+- **Update thread locations.** Agents can update thread locations after content
+  changes. You can then locate the relevant content without switching between
+  artifact versions.
+
+### Changed
+
+- **Locate threads faster.** Open previews jump directly to targets. Highlights clear
+  after two seconds or user input.
+- **Tab selections.** Tabs retain file, view, and thread selections after reloads.
+  Version changes clear them.
+- **Mobile library.** Smaller headings and filters leave more space for artifacts on phones.
+
+### Fixed
+
+- **Preview annotations.** Select elements inside open shadow roots. Locate can show
+  recorded context for unavailable targets.
+- **Thread icons.** Location icons align with file labels.
+- **Archive delivery.** Failed notifications keep artifacts active and preserve archive messages for retry.
+- **Agent notifications.** Notifications continue when temporary sandbox helpers exit.
+- **Local startup.** The CLI finds the server and worker more reliably. Startup errors
+  include the cause and local address.
+
 ## [2.3.1] - 2026-10-23
 
 ### Fixed
@@ -781,6 +807,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.4.0]: https://github.com/hyperlogue/r3/compare/v2.3.1...v2.4.0
 [2.3.1]: https://github.com/hyperlogue/r3/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/hyperlogue/r3/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/hyperlogue/r3/compare/v2.2.0...v2.2.1
