@@ -3,7 +3,7 @@
   "version": "2.4.0",
   "private": true,
   "type": "module",
-  "description": "r3 — Render. Review. Refine. Publish artifacts and discuss them with any coding agent.",
+  "description": "r3 — Understand what's built. Steer what's next. Publish artifacts and discuss them with any coding agent.",
   "license": "MIT",
   "bin": {
     "r3": "./cli/index.ts"

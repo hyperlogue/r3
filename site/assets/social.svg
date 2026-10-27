@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <title>r3 — Understand what's built. Steer what's next</title>
+  <title>r3 — Understand what's built. Steer what's next.</title>
   <defs>
     <filter id="paper-shadow" x="-35%" y="-25%" width="180%" height="180%">
       <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#252144" flood-opacity="0.07"/>
@@ -15,7 +15,7 @@
     <text x="114" y="86" font-size="44" font-weight="700" letter-spacing="-2" fill="#191920">r3</text>
     <g font-size="54" font-weight="700" letter-spacing="-2.2">
       <text x="52" y="300" fill="#191920">Understand what's built.</text>
-      <text x="52" y="373" fill="#6164ff">Steer what's next</text>
+      <text x="52" y="373" fill="#6164ff">Steer what's next.</text>
     </g>
     <text x="52" y="444" font-size="23" letter-spacing="-0.4" fill="#666675">A workspace for your coding agent’s work.</text>
 

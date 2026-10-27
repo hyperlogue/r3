@@ -1,4 +1,4 @@
-# r3 — Understand what's built. Steer what's next
+# r3 — Understand what's built. Steer what's next.
 
 r3 is a local-first workspace for **published artifacts and human/agent
 conversations**. A per-user server owns immutable content and persisted threads;

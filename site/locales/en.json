@@ -188,8 +188,8 @@
   "home": {
     "hero": {
       "titleLine1": "Understand what's built.",
-      "titleLine2": "Steer what's next",
-      "title": "Understand what's built. Steer what's next"
+      "titleLine2": "Steer what's next.",
+      "title": "Understand what's built. Steer what's next."
     }
   },
   "article": {
@@ -336,7 +336,7 @@
     "searchYourLibrary": "Search & your library →",
     "searchTheDocsR3": "Search the docs · r3",
     "seeTheFixSideBySideSilent": "See the fix, side by side. Silent demo, 10 seconds.",
-    "seeYourAgentSWorkSteerWhat": "Understand what's built. Steer what's next · r3",
+    "seeYourAgentSWorkSteerWhat": "Understand what's built. Steer what's next. · r3",
     "sendABatch": "Send a batch",
     "showWhatYouMean": "Show what you mean",
     "signInOrMutationsStoppedWorking": "Sign-in or mutations stopped working",

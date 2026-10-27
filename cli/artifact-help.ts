@@ -4,7 +4,7 @@ import { ArtifactCommandError } from "./artifact-args.ts";
 
 export function artifactWelcome(): string {
   return `
-  ${styleText(["bold", "cyan"], "r3")}  Render. Review. Refine.  ${styleText("dim", `v${R3_VERSION}`)}
+  ${styleText(["bold", "cyan"], "r3")}  Understand what's built. Steer what's next.  ${styleText("dim", `v${R3_VERSION}`)}
 
   Review files, pages, and code changes with your agent.
 

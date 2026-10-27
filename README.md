@@ -2,7 +2,7 @@
   <img src="web/favicon.svg" alt="r3 logo" width="120" height="120">
 </p>
 
-<h1 align="center">r3: Render. Review. Refine.</h1>
+<h1 align="center">r3: Understand what's built. Steer what's next.</h1>
 
 <p align="center"><b>View AI-generated artifacts. Leave precise comments.</b><br>HTML pages, Markdown documents, and code from any coding agent.</p>
 
